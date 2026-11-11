@@ -170,6 +170,13 @@ class EthereumRPCClient:
         except Exception:
             return None
 
+    @staticmethod
+    def _serialize_receipt_log(log: Any) -> dict[str, Any]:
+        topics = [t.hex() if hasattr(t, "hex") else str(t) for t in log.topics]
+        data = log.data.hex() if hasattr(log.data, "hex") else str(log.data)
+        address = log.address if isinstance(log.address, str) else str(log.address)
+        return {"address": address, "topics": topics, "data": data}
+
     def get_transaction_receipt(self, tx_hash: str) -> dict[str, Any] | None:
         """Get transaction receipt (includes confirmation status)."""
         w3 = self._get_web3()
@@ -177,6 +184,10 @@ class EthereumRPCClient:
             receipt = w3.eth.get_transaction_receipt(tx_hash)
             if receipt is None:
                 return None
+            tx = w3.eth.get_transaction(tx_hash)
+            to_addr = tx.get("to") if tx is not None else None
+            chain_id = int(w3.eth.chain_id)
+            log_entries = [self._serialize_receipt_log(log) for log in receipt.logs]
             return {
                 "hash": tx_hash,
                 "block_number": receipt.blockNumber,
@@ -184,6 +195,9 @@ class EthereumRPCClient:
                 "confirmed": receipt.status == 1,
                 "gas_used": receipt.gasUsed,
                 "contract_address": receipt.contractAddress,
+                "to": to_addr,
+                "chainId": chain_id,
+                "log_entries": log_entries,
                 "logs": len(receipt.logs),
             }
         except Exception:
