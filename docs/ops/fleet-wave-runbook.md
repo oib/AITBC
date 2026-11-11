@@ -105,6 +105,31 @@ authorization and a clear holds read for that host.
   it still needs the operator's word. Report it, do not run it inside
   the wave.
 
+## Checkout hygiene — fleet trees stay on main
+
+`/opt/aitbc` on a fleet host is not just a working copy: every
+`aitbc-*` service executes code from it. Verify/push work done
+directly in a fleet checkout — e.g. `git checkout verify-<row>` in
+node2's `/opt/aitbc` — leaves the running services on unmerged branch
+code until the next ff+restart. Seen live 11 Nov: node2 ran
+`verify-1650` @ `61205fd575` (not an ancestor of main) with all its
+services up (#1665 evidence).
+
+- Verify and push work on a fleet host uses a dedicated `git worktree`
+  or scratch checkout — never a branch checkout of the live
+  `/opt/aitbc`.
+- After any push made from a fleet checkout, restore before ending the
+  session: `git checkout main && git fetch origin && git merge
+  --ff-only origin/main`, then restart the units the delta touches —
+  or leave them for the next wave and say so on the row.
+- `scripts/deployment/update.sh` already restarts every *running*
+  `aitbc-*` service after a successful ff (unless `--no-restart`), so
+  the stale-unit hazard only exists when pulls happen outside it or
+  restarts are skipped.
+- `scripts/monitoring/fleet-config-check.sh` flags checkouts whose
+  HEAD is not a descendant of the latest release tag — run it when
+  fleet drift is suspected.
+
 ## Ledger
 
 Every restart goes in the row ledger (`tasks/progress/<ROW>.md`) with the
