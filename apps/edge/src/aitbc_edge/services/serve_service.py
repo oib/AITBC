@@ -1,6 +1,7 @@
 """Edge serve service for Edge API Service"""
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
@@ -11,8 +12,22 @@ from ..schemas.serve import ComputeRequest, ComputeResult
 from ..storage import get_session
 
 
+class EscrowAlreadyUsedError(Exception):
+    """The escrow key is already bound to a compute request (#1668).
+
+    Raised instead of letting the unique constraint surface as a bare
+    IntegrityError -> HTTP 500; the router maps it to 409.
+    """
+
+
 class ServeService:
     """Service for edge serve operations"""
+
+    async def _escrow_in_use(self, escrow_id: str) -> bool:
+        """True when any compute request already carries this escrow key."""
+        async with get_session() as session:
+            result = await session.execute(select(ComputeRequest.id).where(ComputeRequest.escrow_id == escrow_id))
+            return result.scalar_one_or_none() is not None
 
     async def submit_compute_request(
         self,
@@ -21,8 +36,19 @@ class ServeService:
         input_data: dict[str, Any],
         priority: str = "normal",
         owner_id: str | None = None,
+        escrow_id: str | None = None,
+        escrow_amount: Decimal | None = None,
     ) -> dict[str, Any]:
-        """Submit compute request"""
+        """Submit compute request.
+
+        ``escrow_id``/``escrow_amount`` bind the request to the escrow the
+        router verified (#1668). The binding is single-use: the unique
+        ``escrow_id`` column plus the pre-check below mean one locked escrow
+        authorizes exactly one request, and a second submission gets
+        ``EscrowAlreadyUsedError`` instead of a silent reuse.
+        """
+        if escrow_id and await self._escrow_in_use(escrow_id):
+            raise EscrowAlreadyUsedError(escrow_id)
         async with get_session() as session:
             # request_id is the public lookup key and is unique-constrained
             # (#1685): a collision surfaces as IntegrityError, so regenerate
@@ -37,12 +63,20 @@ class ServeService:
                     priority=priority,
                     status="queued",
                     owner_id=owner_id,
+                    escrow_id=escrow_id,
+                    escrow_amount=escrow_amount,
                 )
                 session.add(request)
                 try:
                     await session.commit()
                 except IntegrityError:
                     await session.rollback()
+                    # escrow_id has its own unique constraint (#1668): an
+                    # IntegrityError caused by a concurrent claim of the same
+                    # escrow is not a request_id collision — report it as
+                    # reuse instead of burning the request_id retries.
+                    if escrow_id and await self._escrow_in_use(escrow_id):
+                        raise EscrowAlreadyUsedError(escrow_id) from None
                     if attempt == 2:
                         raise
                 else:
@@ -80,6 +114,8 @@ class ServeService:
                     "completed_at": req.completed_at.isoformat() if req.completed_at else None,
                     "error": req.error,
                     "extra_data": req.extra_data,
+                    "escrow_id": req.escrow_id,
+                    "escrow_amount": str(req.escrow_amount) if req.escrow_amount is not None else None,
                 }
             return None
 

@@ -4,7 +4,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from aitbc.auth import AuthDep
+from aitbc.auth import AdminDep, AuthDep
 from pydantic import BaseModel
 
 from ..services.gpu_service import GPUService
@@ -47,7 +47,7 @@ async def get_gpu_listing(_user: AuthDep, gpu_id: str, svc: Annotated[GPUService
 
 @router.delete("/{gpu_id}")
 async def remove_gpu_listing(
-    _user: AuthDep, gpu_id: str, svc: Annotated[GPUService, Depends(get_gpu_service)]
+    _admin: AdminDep, gpu_id: str, svc: Annotated[GPUService, Depends(get_gpu_service)]
 ) -> dict[str, str]:
     """Remove GPU listing"""
     success = await svc.remove_gpu_listing(gpu_id)
@@ -58,7 +58,7 @@ async def remove_gpu_listing(
 
 
 @router.post("/scan")
-async def scan_gpus(_user: AuthDep, request: ScanGPUsRequest, svc: Annotated[GPUService, Depends(get_gpu_service)]) -> Any:
+async def scan_gpus(_admin: AdminDep, request: ScanGPUsRequest, svc: Annotated[GPUService, Depends(get_gpu_service)]) -> Any:
     """Scan GPUs for a miner"""
     result = await svc.scan_gpus(request.miner_id)
     return result
@@ -77,7 +77,7 @@ async def get_gpu_metrics(
 
 
 @router.post("/advertise")
-async def advertise_to_market(_user: AuthDep, svc: Annotated[GPUService, Depends(get_gpu_service)]) -> Any:
+async def advertise_to_market(_admin: AdminDep, svc: Annotated[GPUService, Depends(get_gpu_service)]) -> Any:
     """Advertise this edge node's GPU capabilities to the market (v0.6.6)."""
     result = await svc.advertise_to_market()
     return result

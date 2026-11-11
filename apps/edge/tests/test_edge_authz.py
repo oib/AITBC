@@ -33,7 +33,9 @@ class FakeServeService:
     def __init__(self) -> None:
         self.calls: list[tuple[str, tuple[Any, ...]]] = []
 
-    async def submit_compute_request(self, gpu_id, model_name, input_data, priority="normal", owner_id=None):
+    async def submit_compute_request(
+        self, gpu_id, model_name, input_data, priority="normal", owner_id=None, escrow_id=None, escrow_amount=None
+    ):
         self.calls.append(("submit", (gpu_id, model_name, input_data, priority, owner_id)))
         return {"success": True, "request_id": "req_test", "status": "queued"}
 
