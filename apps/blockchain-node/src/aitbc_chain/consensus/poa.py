@@ -98,6 +98,11 @@ _SEQUENTIAL_ONLY_TX_TYPES = SEQUENTIAL_ONLY_TX_TYPES
 
 _METRIC_KEY_SANITIZE = re.compile("[^a-zA-Z0-9_]")
 
+# #1741: minimum monotonic interval between wall-clock-skew error logs —
+# the proposer loop calls the detector every iteration, so the journal must
+# not get one CRITICAL per tick while the skew persists.
+_CLOCK_SKEW_WARN_INTERVAL_SECONDS = 60.0
+
 
 def _escrow_addresses_from_txs(tx_datas: list[dict[str, Any]]) -> set[str]:
     """Return the per-escrow addresses for any ESCROW_RELEASE/REFUND txs."""
@@ -314,6 +319,8 @@ class PoAProposer:
         self._freshness_quarantined: dict[str, float] = {}
         # gate name -> last head key / height we warned about having no peers (#1260)
         self._no_peers_warned: dict[str, Any] = {}
+        # #1741: monotonic timestamp of the last wall-clock-skew error log.
+        self._clock_skew_warned_at = 0.0
         if self._multi_validator is not None:
             self._load_validator_set()
             self._load_validator_keys()
@@ -1782,6 +1789,12 @@ class PoAProposer:
                         session.rollback()
                         return None
             head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=UTC)
+            # #1741: a wall clock behind the head's timestamp means every
+            # proposer round still looks future-dated — proposing would stamp
+            # a header attesters refuse as stale_header anyway, so skip here
+            # where the skew was just detected and logged.
+            if self._note_wall_clock_skew(head_timestamp):
+                return None
             interval_seconds = (datetime.now(UTC) - head_timestamp).total_seconds()
             if interval_seconds < self._config.interval_seconds:
                 self._logger.debug(
@@ -2119,6 +2132,46 @@ class PoAProposer:
             return False
         return True
 
+    def _note_wall_clock_skew(self, head_timestamp: datetime | None) -> float:
+        """#1741: detect a wall clock behind the chain's latest header timestamp.
+
+        Proposer rounds derive from ``now - head.timestamp`` deltas, so a
+        clock more than ``attestation_header_future_skew_seconds`` behind
+        makes every scheduled slot look future-dated: the node silently
+        stops proposing (and, via #1709, attesting) while peers see only
+        round-robin fallthrough. Returns the estimated lag in seconds —
+        ``0.0`` when there is no head or the clock is not behind — and
+        publishes ``proposer_clock_behind_seconds`` every call plus a
+        throttled CRITICAL log while the skew persists.
+
+        Detection only, deliberately: stamping a corrected timestamp or
+        re-deriving rounds from monotonic time changes what the signed
+        header timestamp means and how every node computes the claimed
+        round — consensus-semantics territory left for E/Validator review.
+        """
+        if head_timestamp is None:
+            return 0.0
+        if head_timestamp.tzinfo is None:
+            head_timestamp = head_timestamp.replace(tzinfo=UTC)
+        behind = (head_timestamp - datetime.now(UTC)).total_seconds()
+        metrics_registry.set_gauge("proposer_clock_behind_seconds", max(0.0, behind))
+        skew_bound = float(getattr(settings, "attestation_header_future_skew_seconds", 10.0))
+        if behind <= skew_bound:
+            return 0.0
+        metrics_registry.increment("proposer_clock_skew_detected_total")
+        now_mono = self._monotonic()
+        if now_mono - self._clock_skew_warned_at >= _CLOCK_SKEW_WARN_INTERVAL_SECONDS:
+            self._clock_skew_warned_at = now_mono
+            self._logger.error(
+                "[PROPOSE] Wall clock is ~%.0fs behind the chain head timestamp %s — "
+                "proposer rounds derive from wall-clock deltas, so this node's "
+                "scheduled turns never come due and it is silently out of consensus "
+                "until the clock is fixed (Refs #1741, #1709)",
+                behind,
+                head_timestamp.isoformat(),
+            )
+        return behind
+
     def _selected_proposer_is_local(self, head: Block | None) -> bool:
         """Return False when the selected proposer for the next height is not
         one of this node's validator keys.
@@ -2127,6 +2180,11 @@ class PoAProposer:
         forcing heartbeat blocks, draining the mempool, and recomputing state
         roots when they cannot sign.
         """
+        # #1741: this gate is exactly where a behind-clock node exits
+        # silently — the skewed round selects somebody else's slot every
+        # iteration, so _resolve_proposal_head never runs. Detect here.
+        if head is not None:
+            self._note_wall_clock_skew(head.timestamp)
         next_height = (head.height + 1) if head is not None else 0
         proposer = self._select_proposer(
             next_height,
