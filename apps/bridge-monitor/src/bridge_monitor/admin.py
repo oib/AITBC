@@ -80,8 +80,19 @@ def _admin_lock() -> int | None:
     return try_admin_lock()
 
 
-def write_off_denial_reason(d: dict, allow_recipient: bool) -> str | None:
+def write_off_denial_reason(d: dict, allow_recipient: bool, envelope_dead: bool = False) -> str | None:
     """None when the row may be written off, else why not."""
+    if d.get("status") == "submitted" and d.get("signed_tx") and not envelope_dead:
+        # #1595: a SUBMITTED row still carrying its signed envelope may have
+        # that envelope land after the write-off — paid-but-written-off
+        # divergence the confirmation sweep never sees (it only scans
+        # SUBMITTED rows). Require the operator to attest the envelope is
+        # dead (--envelope-dead) or run abandon-and-resign's nonce-passed +
+        # unsealed proof first.
+        return (
+            "is SUBMITTED with a live signed envelope — it may still seal after write-off "
+            "(run abandon-and-resign to prove it dead, or pass --envelope-dead to attest it)"
+        )
     if _valid_recipient(d.get("ait_recipient")) and not allow_recipient:
         return (
             f"has a valid recipient {d.get('ait_recipient')} — that is money owed, "
@@ -105,6 +116,12 @@ def main() -> int:
         "--unpaid-with-recipient",
         action="store_true",
         help="permit writing off a deposit that has a valid recipient — owed money, not a lost deposit",
+    )
+    parser.add_argument(
+        "--envelope-dead",
+        action="store_true",
+        help="attest that a SUBMITTED row's signed envelope can no longer land "
+        "(abandon-and-resign's nonce-passed + unsealed proof, or equivalent evidence)",
     )
     parser.add_argument(
         "--env-file",
@@ -155,7 +172,7 @@ def main() -> int:
             print(f"{k}: {v}")
         return 0
 
-    def cmd_write_off(tx_hash: str, reason: str | None, allow_recipient: bool = False) -> int:
+    def cmd_write_off(tx_hash: str, reason: str | None, allow_recipient: bool = False, envelope_dead: bool = False) -> int:
         if not reason or not reason.strip():
             print("write-off requires --reason (a written justification is mandatory)")
             return 2
@@ -163,7 +180,7 @@ def main() -> int:
         if not d:
             print(f"no deposit row {tx_hash}")
             return 1
-        denial = write_off_denial_reason(d, allow_recipient)
+        denial = write_off_denial_reason(d, allow_recipient, envelope_dead)
         if denial:
             print(f"deposit {tx_hash} {denial}")
             return 1
@@ -242,7 +259,7 @@ def main() -> int:
         if ns.command == "write-off":
             if len(ns.args) != 1:
                 parser.error("write-off needs <tx_hash>")
-            return cmd_write_off(ns.args[0], ns.reason, ns.unpaid_with_recipient)
+            return cmd_write_off(ns.args[0], ns.reason, ns.unpaid_with_recipient, ns.envelope_dead)
         if ns.command == "abandon-and-resign":
             return cmd_abandon(ns.args[0]) if len(ns.args) == 1 else parser.error("abandon-and-resign needs <tx_hash>")
         if ns.command == "manual-payout":
