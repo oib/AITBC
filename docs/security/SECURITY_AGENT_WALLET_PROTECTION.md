@@ -1,5 +1,13 @@
 # AITBC Agent Wallet Security Model
 
+> **Status: prototype / design reference — NOT enforced.** The classes below
+> (`AgentWalletSecurity`, `GuardianContract`) are in-memory Python libraries
+> under `apps/blockchain-node/src/aitbc_chain/contracts/`; nothing in the RPC
+> layer, apply path, or consensus imports them, so none of the described
+> controls are live. Treat every "enforced" claim on this page as aspirational
+> until the guardian system is wired in (see `docs/contracts/guardian.md` and
+> `docs/account-abstraction/security.md`).
+
 ## 🛡️ Overview
 
 The AITBC autonomous agent wallet security model addresses the critical vulnerability where **compromised agents = drained wallets**. This document outlines the implemented guardian contract system that provides spending limits, time locks, and emergency controls for autonomous agent wallets.
@@ -137,9 +145,10 @@ agent_wallet_security.emergency_pause_agent(
     guardian_address="0xguard1..."
 )
 
-# Unpause with multiple guardian signatures
-agent_wallet_security.emergency_unpause(
-    agent_address="0x1234...abcd",
+# Unpause lives on GuardianContract (not the AgentWalletSecurity wrapper)
+from aitbc_chain.contracts.guardian_contract import GuardianContract
+
+guardian_contract.emergency_unpause(
     guardian_signatures=["sig1", "sig2", "sig3"]
 )
 ```
@@ -351,8 +360,8 @@ metrics = {
 
 ---
 
-**Security Status**: ✅ IMPLEMENTED
-**Last Updated**: March 3, 2026
-**Next Review**: March 17, 2026
+**Security Status**: ⚠️ PROTOTYPE — in-memory library, not wired into RPC/consensus
+**Last Updated**: November 11, 2026
+**Next Review**: On guardian wiring (Phase A)
 
 *This security model significantly reduces the attack surface for autonomous agent wallets while maintaining operational flexibility for legitimate activities.*

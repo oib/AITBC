@@ -85,9 +85,9 @@ whoever operates the terminator.
 There is no single "API key for all services" scheme:
 
 - **Coordinator API (8203)** — customers authenticate with `Authorization: Bearer <jwt>`; the JWT is issued by the wallet-signed login flow (`POST /v1/auth/nonce` → `POST /v1/login`). `X-Api-Key` is read by `APIKeyAuthenticator` for service/legacy callers; miner routes accept either (`require_miner`).
-- **Blockchain node RPC (8202)** — admin/control mutations (`/rpc/contracts/deploy`, `/rpc/governance/*`, `/rpc/escrow/*` router-level incl. GETs, `/rpc/gpu/*` writes, `/rpc/identity/*`, `/rpc/chains/*`, `/rpc/importBlock`) require `X-API-Key` matching `BLOCKCHAIN_RPC_API_KEY`. `POST /rpc/transaction` and `POST /rpc/staking/stake` (retired since v9 — returns 410; see ../design/v9-unsigned-protocol-transfers.md) are **signature-verified** (wallet signature in the body — no header key). `/rpc/subscribe`, `/rpc/heartbeat` and lease revocation additionally accept peer keys from `BLOCKCHAIN_RPC_API_KEY_PEERS`. `/rpc/force-sync` requires an admin-signed request body (no header key).
+- **Blockchain node RPC (8202)** — admin/control mutations (`/rpc/contracts/deploy`, `/rpc/governance/*`, `/rpc/escrow/*` router-level incl. GETs, `/rpc/gpu/*` writes, `/rpc/identity/*`, `/rpc/chains/*`, `/rpc/importBlock`) require `X-API-Key` matching `BLOCKCHAIN_RPC_API_KEY`. `POST /rpc/transaction` and `POST /rpc/staking/stake` (retired since v9 — returns 410; see ../design/v9-unsigned-protocol-transfers.md) are **signature-verified** (wallet signature in the body — no header key). `/rpc/subscribe`, `/rpc/heartbeat` and lease revocation additionally accept peer keys from `BLOCKCHAIN_RPC_API_KEY_PEERS`. `/rpc/force-sync` (and `/rpc/import-chain`) require **both** `X-API-Key` (`verify_rpc_api_key`) **and** an admin-signed request body (`require_admin_signature` — signer must be in `bridge_admin_addresses`, body carries `issued_at`/`nonce`/`target_chain_id` freshness fields).
 - **Gossip WebSocket** — restricted topics require a signed validator challenge; there is no `?api_key=` WS auth.
-- **Market (8102)** — only the admin `POST /v1/market/parameters/apply` route is key-gated (`X-Api-Key`).
+- **Market (8102)** — ~25 mutating routes are key-gated via `require_market_api_key` (`X-Api-Key`): offers create/cancel/book, bids complete, match, market-jobs create/cancel/pin-confirm/release/refund, plugins, ratings sync/mark-synced, `/v1/transactions`, knowledge-graph writes, dynamic-pricing, edge-advertise, parameters/apply. Read endpoints remain open.
 
 Keys and JWT secrets live in `/etc/aitbc/*.env` files (mode `0600`) loaded by systemd `EnvironmentFile` — not in a secrets manager; see below.
 
@@ -95,7 +95,7 @@ Keys and JWT secrets live in `/etc/aitbc/*.env` files (mode `0600`) loaded by sy
 
 - Role dependencies from `aitbc/auth/dependencies.py` (`require_admin`, `require_client`, `require_admin_or_client`, `require_miner`, `APIKeyAuthenticator`)
 - Per-route rate limiting
-- Sensitive chain-control routes (e.g. `/rpc/force-sync`) require an admin signature over the request body, not just a key
+- Sensitive chain-control routes (e.g. `/rpc/force-sync`, `/rpc/import-chain`) require `X-API-Key` **and** an admin signature over the request body (`require_admin_signature`)
 
 #### API Key Format
 
@@ -155,7 +155,7 @@ async def create_job(user: AdminOrClientDep, ...):
 @router.post("/subscribe", dependencies=[Depends(verify_rpc_peer_key)])
 ```
 
-`POST /rpc/force-sync` instead requires `admin_address` + `admin_signature` in the body, verified with `verify_admin_signature`.
+`POST /rpc/force-sync` (and `/rpc/import-chain`) sit behind `verify_rpc_api_key` **and** require `admin_address` + `admin_signature` in the body, verified with `require_admin_signature`; the signer must be listed in `bridge_admin_addresses` and the body must carry fresh `issued_at` (±5 min), a unique `nonce`, and `target_chain_id`.
 
 ### 3. Secrets Management Setup
 

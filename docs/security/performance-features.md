@@ -20,6 +20,8 @@
 
 The enhanced `SecretManager` provides enterprise-grade secret management with automatic expiration, rotation, and encryption key rotation capabilities.
 
+> **Scope note:** `SecretManager` is an in-memory library (`aitbc/crypto/secrets.py`) — no service uses it for `/etc/aitbc` deployment secrets (those are systemd `EnvironmentFile=` env files). `get_secret_manager()` requires `AITBC_SECRET_MANAGER_KEY` and raises `ValueError` without it.
+
 ### Features
 
 - **Secret Expiration**: Automatic TTL-based expiration
