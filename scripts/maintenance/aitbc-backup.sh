@@ -97,6 +97,12 @@ mkdir -p -m 0700 "${BACKUP_DIR}"
 # An empty pg_dump is ~20 KB, so they are listed anyway: the existence check
 # below skips hosts where they were never created, and the moment anything
 # lands in one the next nightly run covers it (#1528 BACKUP-AUDIT-1).
+# aitbc_edge/aitbc_prod/aitbc_staging exist only on node0 — no repo script
+# creates them (live census 11 Nov, #1777): aitbc_edge holds a real
+# edge/pool-hub schema (17 tables, node0's pool-hub env DSNs point at it),
+# aitbc_prod holds a full coordinator-scale schema (126 tables), and
+# aitbc_staging is currently empty but listed for the same
+# empty-today-is-not-empty-forever reason.
 PG_DBS=(
     "aitbc_governance"
     "aitbc_marketplace"
@@ -109,6 +115,9 @@ PG_DBS=(
     "aitbc_coordinator"
     "aitbc_exchange"
     "aitbc_wallet"
+    "aitbc_edge"
+    "aitbc_prod"
+    "aitbc_staging"
 )
 
 for pg_db in "${PG_DBS[@]}"; do

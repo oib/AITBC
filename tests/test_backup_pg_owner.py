@@ -5,10 +5,22 @@ could not lock. The backup now dumps as the postgres superuser via peer
 auth, and the setup script reassigns foreign-owned tables on rerun.
 """
 
+import re
 from pathlib import Path
 
 BACKUP = Path("scripts/maintenance/aitbc-backup.sh")
 SETUP = Path("scripts/deployment/setup_postgresql_databases.sh")
+
+# A PG_DBS array element is a line containing ONLY a quoted name — a
+# commented-out `#"db"` line must NOT satisfy membership (#1777: the old
+# substring check passed with the entry commented out).
+_PG_DBS_ENTRY = re.compile(r'^\s*"([a-z0-9_]+)"\s*$', re.MULTILINE)
+_SETUP_DB = re.compile(r'^setup_database "([a-z0-9_]+)"', re.MULTILINE)
+
+
+def _pg_dbs(src: str) -> set[str]:
+    block = src.split("PG_DBS=(", 1)[1].split(")", 1)[0]
+    return set(_PG_DBS_ENTRY.findall(block))
 
 
 def test_backup_dumps_as_superuser():
@@ -40,8 +52,7 @@ def test_backup_covers_previously_unlisted_dbs():
     setup script can create must be listed (the existence check skips
     hosts where it was never created).
     """
-    src = BACKUP.read_text()
-    pg_dbs_block = src.split("PG_DBS=(", 1)[1].split(")", 1)[0]
+    dbs = _pg_dbs(BACKUP.read_text())
     for db in (
         "aitbc",
         "aitbc_ai",
@@ -55,4 +66,27 @@ def test_backup_covers_previously_unlisted_dbs():
         "aitbc_gpu",
         "aitbc_poolhub",
     ):
-        assert f'"{db}"' in pg_dbs_block, f"{db} missing from PG_DBS"
+        assert db in dbs, f"{db} missing from PG_DBS"
+
+
+def test_backup_covers_node0_live_only_dbs():
+    """#1777: node0 carries PG databases no repo script creates.
+
+    Live census (11 Nov): aitbc_edge (17 tables — node0's pool-hub env
+    DSNs point at it), aitbc_prod (126 tables, coordinator-scale schema),
+    aitbc_staging (empty today). They must stay in PG_DBS or their data is
+    silently unbacked-up.
+    """
+    dbs = _pg_dbs(BACKUP.read_text())
+    for db in ("aitbc_edge", "aitbc_prod", "aitbc_staging"):
+        assert db in dbs, f"{db} missing from PG_DBS"
+
+
+def test_backup_covers_every_db_the_setup_script_creates():
+    """Every `setup_database` target must be in PG_DBS — a new service DB
+    added to provisioning without a backup entry is silently uncovered."""
+    pg_dbs = _pg_dbs(BACKUP.read_text())
+    created = set(_SETUP_DB.findall(SETUP.read_text()))
+    assert created, "no setup_database calls parsed — check the regex"
+    missing = created - pg_dbs
+    assert not missing, f"setup creates {sorted(missing)} but PG_DBS does not list them"
