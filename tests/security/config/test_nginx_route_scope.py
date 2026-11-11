@@ -158,16 +158,18 @@ def test_forwarded_proto_uses_connection_scheme(nginx_conf: str) -> None:
 # ── #1204: public-by-policy gated bridge reads get edge key injection ──
 #
 # With WALLET_AUTH_ENABLED=true the wallet app 401s admin routes without
-# X-API-Key. Four bridge routes are public-by-policy (remote shop nodes +
-# exchange UI): settlements, float, sell/config-status, sell/quote. The edge
+# X-API-Key. Five bridge routes are public-by-policy (remote shop nodes +
+# exchange UI): settlements, float, sell/config-status, sell/quote, sell/list
+# (#1458 added sell/list to the admin-keyed set and to the edge injection).
+# The edge
 # injects the per-host key for exactly those paths on both the /v1/bridge/
 # and /exchange/v1/bridge/ aliases; every other gated route gets no
 # injection and stays 401 publicly.
 
 _KEY_MARKER = "__WALLET_API_KEY__"
 # Literal conf text of the allowlisted path group (escaped for regex use).
-_GATED_PUBLIC_RE = r"settlements\|float\|sell/\(config-status\|quote\)"
-_GATED_PUBLIC_LITERAL = "settlements|float|sell/(config-status|quote)"
+_GATED_PUBLIC_RE = r"settlements\|float\|sell/\(config-status\|quote\|list\)"
+_GATED_PUBLIC_LITERAL = "settlements|float|sell/(config-status|quote|list)"
 
 
 def _location_body_at(conf: str, location_re: str) -> str:
@@ -207,7 +209,7 @@ def test_bridge_catchall_has_no_key_injection(nginx_conf: str) -> None:
 
 def test_exchange_generic_block_has_no_key_injection(nginx_conf: str) -> None:
     """The generic /exchange/v1/(exchange|bridge|receipts) block must NOT
-    inject — only the four allowlisted bridge paths carry the key."""
+    inject — only the allowlisted bridge paths carry the key."""
     body = _location_body_at(nginx_conf, r"location ~ \^/exchange/v1/\(exchange\|bridge\|receipts\)\(/\|\$\)")
     assert "X-API-Key" not in body
 
