@@ -13,7 +13,7 @@ from fastapi import status as http_status
 from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.exc import OperationalError
 from starlette.concurrency import run_in_threadpool
-from sqlmodel import Session, col, func, select
+from sqlmodel import Session, col, func, select, update
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
@@ -65,6 +65,23 @@ _singleton_init_lock = asyncio.Lock()
 # sell_gpu/register_gpu take caller-controlled prices — bound them before
 # the write, mirroring the gpu_service #1389 pattern (#1566).
 _MAX_PRICE_PER_HOUR = Decimal("999999999999.99999999")
+
+# Repricing/relisting only while the GPU is not actively booked (#1810 / #1424).
+_GPU_RELIST_FROM_STATUSES = frozenset({"available", "offline"})
+
+
+def _cas_relist_gpu(session: Session, gpu_id: str, listing_price: Decimal) -> bool:
+    """Conditional status+price write — the status predicate is the CAS."""
+    result = session.execute(
+        update(GPURegistry)
+        .where(
+            col(GPURegistry.id) == gpu_id,
+            col(GPURegistry.status).in_(_GPU_RELIST_FROM_STATUSES),
+        )
+        .values(status="available", price_per_hour=listing_price)
+        .execution_options(synchronize_session=False)
+    )
+    return getattr(result, "rowcount", 0) == 1
 
 
 def _validated_price_per_hour(raw: Any) -> Decimal:
@@ -976,8 +993,12 @@ def sell_gpu(
     # #1566: listing_price was stored verbatim — 0/negative/NaN/huge values
     # listable and could win matching or break Numeric(20,8) on overflow.
     listing_price = _validated_price_per_hour(request.listing_price)
-    gpu.price_per_hour = listing_price
-    gpu.status = "available"
+    if not _cas_relist_gpu(session, request.gpu_id, listing_price):
+        refreshed = _get_gpu_or_404(session, request.gpu_id)
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail=f"GPU {request.gpu_id} is not available for relisting (status={refreshed.status})",
+        )
     session.commit()
     session.refresh(gpu)
     return {
