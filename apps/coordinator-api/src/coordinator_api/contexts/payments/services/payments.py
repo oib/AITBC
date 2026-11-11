@@ -5,6 +5,7 @@ from __future__ import annotations
 import httpx
 import os
 import time
+from collections.abc import Collection
 
 from aitbc_shared import JobPayment, PaymentEscrow
 from datetime import UTC, datetime, timedelta
@@ -13,7 +14,7 @@ from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
 from starlette.concurrency import run_in_threadpool
-from sqlmodel import Session, select
+from sqlmodel import Session, col, select, update
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import WALLET_PORT
@@ -1166,6 +1167,24 @@ class PaymentService:
             await run_in_threadpool(self.session.commit)
             return None
 
+    def _cas_payment_transition(
+        self,
+        payment_id: str,
+        from_states: Collection[str],
+        values: dict[str, Any],
+    ) -> bool:
+        """#1797: conditional JobPayment write — the status predicate in WHERE
+        is the compare-and-swap (same pattern as the market CAS, #1790).
+        Returns True iff this call won the transition; False means another
+        writer already moved the row and the caller must roll back."""
+        claim = self.session.execute(
+            update(JobPayment)
+            .where(col(JobPayment.id) == payment_id, col(JobPayment.status).in_(tuple(from_states)))
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        )
+        return getattr(claim, "rowcount", 0) == 1
+
     def open_acceptance_window(self, job_id: str, payment_id: str, window_seconds: int) -> datetime | None:
         """Hold a completed job's escrow for the customer to review it (G3).
 
@@ -1180,16 +1199,24 @@ class PaymentService:
         if payment is None or payment.job_id != job_id or payment.status != "escrowed":
             return None
         now = datetime.now(UTC)
-        payment.meta_data = opened_window(payment.meta_data, window_seconds, now=now)
-        payment.status = PENDING_ACCEPTANCE
-        payment.updated_at = now
+        new_meta = opened_window(payment.meta_data, window_seconds, now=now)
+        # #1797: CAS the hold — two concurrent opens both read "escrowed";
+        # only the writer whose UPDATE lands gets the window.
+        won = self._cas_payment_transition(
+            payment_id,
+            {"escrowed"},
+            {"status": PENDING_ACCEPTANCE, "meta_data": new_meta, "updated_at": now},
+        )
+        if not won:
+            self.session.rollback()
+            return None
         job = self.session.get(Job, job_id)
         if job is not None:
-            job.payment_status = payment.status
+            job.payment_status = PENDING_ACCEPTANCE
             self.session.add(job)
-        self.session.add(payment)
         self.session.commit()
-        deadline = deadline_from(payment.meta_data)
+        self.session.refresh(payment)
+        deadline = deadline_from(new_meta)
         logger.info("Payment %s held for acceptance on job %s until %s", payment_id, job_id, deadline)
         return deadline
 
@@ -1216,14 +1243,21 @@ class PaymentService:
         meta = dict(payment.meta_data or {})
         meta[META_DISPUTE_REASON] = reason
         meta[META_DISPUTED_AT] = now.isoformat()
-        payment.meta_data = meta
-        payment.status = DISPUTED
-        payment.updated_at = now
+        # #1797: CAS the dispute — a second concurrent dispute (or a release
+        # that already moved the row) makes rowcount 0 and loses.
+        won = self._cas_payment_transition(
+            payment_id,
+            {PENDING_ACCEPTANCE},
+            {"status": DISPUTED, "meta_data": meta, "updated_at": now},
+        )
+        if not won:
+            self.session.rollback()
+            return False
         job = self._require_owned_job(payment.job_id, client_id)
-        job.payment_status = payment.status
+        job.payment_status = DISPUTED
         self.session.add(job)
-        self.session.add(payment)
         self.session.commit()
+        self.session.refresh(payment)
         logger.info("Payment %s disputed on job %s: %s", payment_id, job_id, reason)
         # A-1: best-effort spot-check re-execution for dispute evidence.
         try:
@@ -1310,15 +1344,21 @@ class PaymentService:
         if attempts < max_release_attempts():
             return False
         now = datetime.now(UTC)
-        payment.status = SETTLEMENT_FAILED
-        payment.updated_at = now
         meta[META_RELEASE_BLOCKED_AT] = now.isoformat()
-        payment.meta_data = meta
+        # #1797: CAS — the terminal write must not clobber a row a concurrent
+        # op already settled. Losing means the release stops either way.
+        won = self._cas_payment_transition(
+            payment_id,
+            HELD_STATES,
+            {"status": SETTLEMENT_FAILED, "meta_data": meta, "updated_at": now},
+        )
+        if not won:
+            self.session.rollback()
+            return True
         stuck_job = self.session.get(Job, job_id)
         if stuck_job is not None:
             stuck_job.payment_status = SETTLEMENT_FAILED
             self.session.add(stuck_job)
-        self.session.add(payment)
         self.session.commit()
         logger.critical(
             "Escrow release for job %s payment %s failed %s times; marking settlement_failed "
@@ -1427,17 +1467,26 @@ class PaymentService:
         # admin retry-release route still reach it. The attempt was already
         # counted by release_payment -- unlike a 425 deferral, this answer is
         # definitive and is not refunded from the retry budget.
+        # #1797: the attempt bump and any 425 marker writes went through bulk
+        # UPDATEs (synchronize_session=False), so the ORM object is stale —
+        # reload before merging meta or the refresh would drop them.
+        self.session.refresh(payment)
         tx_hash = release_data.get("tx_hash") or release_data.get("transaction_hash")
         if not tx_hash:
             meta = dict(payment.meta_data or {})
             meta[META_RELEASE_BLOCKED_AT] = datetime.now(UTC).isoformat()
-            payment.meta_data = meta
-            payment.status = SETTLEMENT_FAILED
-            payment.updated_at = datetime.now(UTC)
+            now = datetime.now(UTC)
+            won = self._cas_payment_transition(
+                payment_id,
+                HELD_STATES,
+                {"status": SETTLEMENT_FAILED, "meta_data": meta, "updated_at": now},
+            )
+            if not won:
+                self.session.rollback()
+                return False
             if job is not None:
                 job.payment_status = SETTLEMENT_FAILED
                 self.session.add(job)
-            self.session.add(payment)
             self.session.commit()
             logger.critical(
                 "Escrow release for job %s payment %s returned no settlement hash; "
@@ -1450,12 +1499,33 @@ class PaymentService:
         # retry that is the original settlement, not this retry, so the payment
         # keeps the time the provider was actually paid.
         settled_at = _parse_settled_at(release_data.get("released_at")) or datetime.now(UTC)
-        payment.status = "released"
+        now = datetime.now(UTC)
+        # #1797: CAS the terminal write — a concurrent refund/dispute that
+        # already moved the row makes rowcount 0 and this outcome is dropped.
+        won = self._cas_payment_transition(
+            payment_id,
+            HELD_STATES,
+            {
+                "status": "released",
+                "released_at": settled_at,
+                "updated_at": now,
+                "transaction_hash": tx_hash,
+            },
+        )
+        if not won:
+            self.session.rollback()
+            logger.warning(
+                "Release outcome for job %s payment %s lost the status CAS; the row already moved -- chain says tx %s",
+                job_id,
+                payment_id,
+                tx_hash,
+            )
+            return False
+        self.session.refresh(payment)
         payment.released_at = settled_at
-        payment.updated_at = datetime.now(UTC)
-        payment.transaction_hash = tx_hash
+        payment.updated_at = now
         if job is not None:
-            job.payment_status = payment.status
+            job.payment_status = "released"
             self.session.add(job)
         self._mirror_reinvest_on_receipt(payment, job, release_data)
         escrow = self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
@@ -1554,7 +1624,7 @@ class PaymentService:
             # marker only on a definitive answer, and this error is none.
             raise
 
-    def _end_425_streak(self, payment: JobPayment, meta: dict[str, Any]) -> None:
+    def _end_425_streak(self, payment_id: str, meta: dict[str, Any]) -> None:
         """End the 425-deferral streak on a definitive non-425 outcome.
 
         The marker anchors the bound's clock only while 425s actually keep
@@ -1566,9 +1636,49 @@ class PaymentService:
         and deliberately do not come through here.
         """
         if meta.pop(META_RELEASE_425_FIRST_AT, None) is not None:
-            payment.meta_data = meta
-            self.session.add(payment)
+            # #1797: meta-only write by id — deliberately NOT status-gated:
+            # this runs after the outcome write, so the row is often already
+            # terminal (released/settlement_failed) and the stale deferral
+            # marker still has to come off.
+            self.session.execute(
+                update(JobPayment)
+                .where(col(JobPayment.id) == payment_id)
+                .values(meta_data=meta, updated_at=datetime.now(UTC))
+                .execution_options(synchronize_session=False)
+            )
             self.session.commit()
+
+    async def _claim_release_attempt(
+        self,
+        payment: JobPayment,
+        job_id: str,
+        payment_id: str,
+    ) -> tuple[dict[str, Any], int] | None:
+        """Count one release attempt under the status CAS (#1797).
+
+        Returns ``(meta, attempts)`` when the attempt was claimed, or None
+        when the retry bound moved the payment to settlement_failed or a
+        concurrent op already took the row out of the held set."""
+        meta = dict(payment.meta_data or {})
+        attempts = int(meta.get(META_RELEASE_ATTEMPTS) or 0)
+        if await run_in_threadpool(self._release_attempts_exhausted, payment, job_id, payment_id, meta, attempts):
+            return None
+        meta[META_RELEASE_ATTEMPTS] = attempts + 1
+        # The bump must not land on a row that already left the held set
+        # (released/refunded by a concurrent op).
+        won = await run_in_threadpool(
+            self._cas_payment_transition,
+            payment_id,
+            HELD_STATES,
+            {"meta_data": meta, "updated_at": datetime.now(UTC)},
+        )
+        if not won:
+            await run_in_threadpool(self.session.rollback)
+            return None
+        # The bulk UPDATE bypassed the ORM — reload so later readers (and the
+        # 425-marker bookkeeping) see the attempt count that landed.
+        await run_in_threadpool(self.session.refresh, payment)
+        return meta, attempts
 
     async def release_payment(self, client_id: str, job_id: str, payment_id: str, reason: str | None = None) -> bool:
         """Release payment from escrow to miner using the blockchain escrow contract."""
@@ -1587,18 +1697,14 @@ class PaymentService:
         # payment to `settlement_failed` so no automatic path picks it up again.
         # The escrow stays funded and refundable; an operator resets the counter
         # through the admin retry-release route once the blocker is fixed.
-        meta = dict(payment.meta_data or {})
-        attempts = int(meta.get(META_RELEASE_ATTEMPTS) or 0)
-        if await run_in_threadpool(self._release_attempts_exhausted, payment, job_id, payment_id, meta, attempts):
+        claimed = await self._claim_release_attempt(payment, job_id, payment_id)
+        if claimed is None:
             return False
-        meta[META_RELEASE_ATTEMPTS] = attempts + 1
-        payment.meta_data = meta
-        self.session.add(payment)
-        await run_in_threadpool(self.session.commit)
+        meta, attempts = claimed
         job = await run_in_threadpool(self.session.get, Job, job_id)
         if job is None:
             logger.error("Escrow release blocked for job %s: job not found", job_id)
-            await run_in_threadpool(self._end_425_streak, payment, meta)
+            await run_in_threadpool(self._end_425_streak, payment_id, meta)
             return False
         if job.state != JobState.completed.value:
             logger.error(
@@ -1608,7 +1714,7 @@ class PaymentService:
                 job.state,
                 JobState.completed.value,
             )
-            await run_in_threadpool(self._end_425_streak, payment, meta)
+            await run_in_threadpool(self._end_425_streak, payment_id, meta)
             return False
         receipt = await run_in_threadpool(self._get_receipt_of_record, job)
         if not _computation_is_correct(receipt, job):
@@ -1619,7 +1725,7 @@ class PaymentService:
                 receipt.get("zk_status") if receipt else None,
                 receipt.get("computation_correct") if receipt else None,
             )
-            await run_in_threadpool(self._end_425_streak, payment, meta)
+            await run_in_threadpool(self._end_425_streak, payment_id, meta)
             return False
         try:
             client = AsyncAITBCHTTPClient(timeout=30.0, api_key=self.blockchain_rpc_api_key)
@@ -1633,14 +1739,22 @@ class PaymentService:
                 # was dropped) cannot keep the budget suspended forever.
                 if self._release_425_within_bound(meta, job_id, payment_id):
                     meta[META_RELEASE_ATTEMPTS] = attempts
-                payment.meta_data = meta
-                self.session.add(payment)
-                await run_in_threadpool(self.session.commit)
+                # #1797: same CAS arbiter — only write the meta while the row
+                # is still held; a settled row keeps its own meta.
+                await run_in_threadpool(
+                    self._cas_payment_transition,
+                    payment_id,
+                    HELD_STATES,
+                    {"meta_data": meta, "updated_at": datetime.now(UTC)},
+                )
+                await run_in_threadpool(self.session.refresh, payment)
                 return False
             # True or False: both are definitive answers (False can only be an
             # HTTP answer that was not 425 -- transport errors re-raise below),
-            # so the deferral streak is over and the marker is cleared.
-            await run_in_threadpool(self._end_425_streak, payment, dict(payment.meta_data or {}))
+            # so the deferral streak is over and the marker is cleared. Read
+            # the ORM copy: _record_release_outcome may have just merged
+            # reinvest keys into it that the local `meta` does not have.
+            await run_in_threadpool(self._end_425_streak, payment_id, dict(payment.meta_data or {}))
             return submitted
         except Exception as e:
             # No definitive outcome (transport failure, ambiguous post-send
@@ -1682,11 +1796,28 @@ class PaymentService:
         job: Job,
         payment_id: str,
         refund_tx_hash: str | None,
-    ) -> None:
-        payment.status = "refunded"
-        payment.refunded_at = datetime.now(UTC)
-        payment.updated_at = datetime.now(UTC)
-        payment.refund_transaction_hash = refund_tx_hash
+    ) -> bool:
+        # #1797: CAS the refund mark — a concurrent release that already
+        # settled the row must not be overwritten by a stale refund write.
+        # "refunded" is allowed through: the reconcile path re-marks an
+        # already-refunded row to repair its hash cache, and the write is
+        # idempotent there.
+        now = datetime.now(UTC)
+        won = self._cas_payment_transition(
+            payment_id,
+            REFUNDABLE_STATES | {"refunded"},
+            {
+                "status": "refunded",
+                "refunded_at": now,
+                "updated_at": now,
+                "refund_transaction_hash": refund_tx_hash,
+            },
+        )
+        if not won:
+            self.session.rollback()
+            logger.warning("Refund mark for payment %s lost the status CAS; row already moved", payment_id)
+            return False
+        self.session.refresh(payment)
         job.payment_status = payment.status
         # A refunded escrow will never pay out, so a job that is still live
         # must die with it — otherwise the assigned miner's later submission
@@ -1702,6 +1833,7 @@ class PaymentService:
             escrow.is_active = False
             escrow.refunded_at = datetime.now(UTC)
         self.session.commit()
+        return True
 
     async def _fetch_escrow_state(self, client: AsyncAITBCHTTPClient, job_id: str) -> tuple[str | None, bool]:
         """Return (on-chain escrow state, escrow-missing) for the job."""
@@ -1749,18 +1881,20 @@ class PaymentService:
                 job_id,
                 payment_id,
             )
-            await run_in_threadpool(self._mark_refunded, payment, job, payment_id, None)
-            logger.info("Marked unbacked payment %s as refunded for job %s", payment_id, job_id)
-            return True
+            marked = await run_in_threadpool(self._mark_refunded, payment, job, payment_id, None)
+            if marked:
+                logger.info("Marked unbacked payment %s as refunded for job %s", payment_id, job_id)
+            return marked
 
         if escrow_state == "refunded":
             # B-residue: do not trust a pre-5b0455921 local SHA-256 string.
             # Only accept the DB marker when the same hash is visible on-chain.
             chain_refund_hash = await _lookup_chain_refund(self.blockchain_rpc_url, client, job_id)
             if chain_refund_hash:
-                await run_in_threadpool(self._mark_refunded, payment, job, payment_id, chain_refund_hash)
-                logger.info("Marked payment %s as refunded (escrow already refunded) for job %s", payment_id, job_id)
-                return True
+                marked = await run_in_threadpool(self._mark_refunded, payment, job, payment_id, chain_refund_hash)
+                if marked:
+                    logger.info("Marked payment %s as refunded (escrow already refunded) for job %s", payment_id, job_id)
+                return marked
             # No on-chain refund exists yet; fall through to submit a real one.
 
         if escrow_state in {"released", "expired"}:
@@ -1786,15 +1920,16 @@ class PaymentService:
             if not refund_data or not refund_data.get("success"):
                 logger.error("Blockchain escrow refund failed for %s: %s", job_id, refund_data)
                 return False
-            await run_in_threadpool(
+            marked = await run_in_threadpool(
                 self._mark_refunded,
                 payment,
                 job,
                 payment_id,
                 refund_data.get("refund_tx_hash") or refund_data.get("transaction_hash"),
             )
-            logger.info("Refunded payment %s for job %s", payment_id, job_id)
-            return True
+            if marked:
+                logger.info("Refunded payment %s for job %s", payment_id, job_id)
+            return marked
         except NetworkError as e:
             logger.error("Failed to submit refund transaction: %s", e)
             raise
