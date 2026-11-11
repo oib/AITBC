@@ -4,7 +4,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from aitbc.auth import AuthDep
+from aitbc.auth import AdminDep, AuthDep
 from pydantic import BaseModel, Field
 
 from ..services.island_service import IslandService
@@ -42,7 +42,7 @@ def get_island_service() -> IslandService:
 
 @router.post("/join")
 async def join_island(
-    _user: AuthDep, request: JoinIslandRequest, svc: Annotated[IslandService, Depends(get_island_service)]
+    _admin: AdminDep, request: JoinIslandRequest, svc: Annotated[IslandService, Depends(get_island_service)]
 ) -> dict[str, Any]:
     """Join an island"""
     result = await svc.join_island(
@@ -58,7 +58,7 @@ async def join_island(
 
 @router.post("/leave")
 async def leave_island(
-    _user: AuthDep, request: LeaveIslandRequest, svc: Annotated[IslandService, Depends(get_island_service)]
+    _admin: AdminDep, request: LeaveIslandRequest, svc: Annotated[IslandService, Depends(get_island_service)]
 ) -> dict[str, Any]:
     """Leave an island"""
     result = await svc.leave_island(request.island_id)
@@ -108,7 +108,7 @@ async def list_memberships_by_region(
 
 @router.post("/bridge")
 async def request_bridge(
-    _user: AuthDep, request: BridgeRequestRequest, svc: Annotated[IslandService, Depends(get_island_service)]
+    _admin: AdminDep, request: BridgeRequestRequest, svc: Annotated[IslandService, Depends(get_island_service)]
 ) -> dict[str, Any]:
     """Request bridge to another island"""
     result = await svc.request_bridge(request.target_island_id)

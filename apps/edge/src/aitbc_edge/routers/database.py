@@ -4,7 +4,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from aitbc.auth import AuthDep
+from aitbc.auth import AdminDep, AuthDep
 from pydantic import BaseModel
 
 from ..services.database_service import SYNC_NOT_IMPLEMENTED, DatabaseService, SyncNotImplementedError
@@ -27,7 +27,7 @@ def get_database_service() -> DatabaseService:
 
 @router.post("/init")
 async def init_database(
-    _user: AuthDep, request: InitDatabaseRequest, svc: Annotated[DatabaseService, Depends(get_database_service)]
+    _admin: AdminDep, request: InitDatabaseRequest, svc: Annotated[DatabaseService, Depends(get_database_service)]
 ) -> dict[str, Any]:
     """Initialize edge database"""
     result = await svc.init_database(request.database_id, request.island_id, request.capacity_gb)
@@ -58,7 +58,7 @@ async def get_database(
 
 @router.delete("/{database_id}")
 async def delete_database(
-    _user: AuthDep, database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]
+    _admin: AdminDep, database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]
 ) -> dict[str, str]:
     """Delete database"""
     success = await svc.delete_database(database_id)
@@ -70,7 +70,7 @@ async def delete_database(
 
 @router.post("/{database_id}/sync")
 async def sync_database(
-    _user: AuthDep, database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]
+    _admin: AdminDep, database_id: str, svc: Annotated[DatabaseService, Depends(get_database_service)]
 ) -> dict[str, Any]:
     """Sync database from source. Not implemented — see ``SYNC_NOT_IMPLEMENTED``.
 
