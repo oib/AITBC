@@ -187,6 +187,11 @@ class TestVerifyMemberSignature:
 
 
 class TestSwarmKeyNonce:
+    @pytest.fixture(autouse=True)
+    def _data_dir(self, data_dir: Path) -> None:
+        # the nonce store is a sqlite file under AITBC_DATA_DIR (#1771)
+        assert data_dir.is_dir()
+
     def test_issue_returns_nonce_and_expiry(self) -> None:
         out = svc.issue_swarm_key_nonce(CHAIN_ID, ISLAND, MEMBER)
         assert out["nonce"]
@@ -205,13 +210,35 @@ class TestSwarmKeyNonce:
         nonce = svc.issue_swarm_key_nonce(CHAIN_ID, ISLAND, MEMBER)["nonce"]
         assert svc._consume_swarm_nonce(CHAIN_ID, ISLAND, "0x" + "cd" * 20, nonce) is False
 
-    def test_expired_nonce_rejected(self) -> None:
+    def test_expired_nonce_rejected(self, data_dir: Path) -> None:
         nonce = svc.issue_swarm_key_nonce(CHAIN_ID, ISLAND, MEMBER)["nonce"]
-        svc._swarm_nonces[nonce]["expires_at"] = 0
+        db = data_dir / "ipfs-island" / "swarm-nonces.db"
+        with sqlite3.connect(str(db)) as conn:
+            conn.execute("UPDATE swarm_key_nonce SET expires_at = 0 WHERE nonce = ?", (nonce,))
         assert svc._consume_swarm_nonce(CHAIN_ID, ISLAND, MEMBER, nonce) is False
 
     def test_unknown_nonce_rejected(self) -> None:
         assert svc._consume_swarm_nonce(CHAIN_ID, ISLAND, MEMBER, "never-issued") is False
+
+    def test_nonce_store_shared_across_module_instances(self, data_dir: Path) -> None:
+        """#1771: a nonce issued through one 'worker' (fresh module state)
+        validates through another — the store is the sqlite file, not the
+        process. Simulated by re-importing the service module so no
+        in-process state could carry the nonce."""
+        import importlib
+        import sys
+
+        nonce = svc.issue_swarm_key_nonce(CHAIN_ID, ISLAND, MEMBER)["nonce"]
+        mod_name = svc.__name__
+        saved = sys.modules.pop(mod_name)
+        try:
+            fresh = importlib.import_module(mod_name)
+            # fresh module has no in-process nonce dict at all — consume
+            # must come from the shared store
+            assert fresh._consume_swarm_nonce(CHAIN_ID, ISLAND, MEMBER, nonce) is True
+            assert fresh._consume_swarm_nonce(CHAIN_ID, ISLAND, MEMBER, nonce) is False
+        finally:
+            sys.modules[mod_name] = saved
 
 
 class TestGetMemberSwarmKey:

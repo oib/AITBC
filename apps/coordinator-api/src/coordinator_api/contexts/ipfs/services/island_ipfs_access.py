@@ -9,7 +9,6 @@ from __future__ import annotations
 import os
 import secrets
 import sqlite3
-import threading
 import time
 from contextlib import closing
 from datetime import UTC, datetime
@@ -152,48 +151,114 @@ def is_ipfs_subscription_active(
 # coordinator now issues the nonce: single-use, short-lived, and bound to
 # (chain_id, island_id, member_address). The signed message covers
 # chain_id too, so a signature cannot be moved across chains.
+#
+# #1771: the store must be shared across processes — coordinator-api runs
+# ``uvicorn --workers 2``, so an in-process dict issued the nonce on one
+# worker and consumed it on the other ~50% of the time ("Invalid or
+# expired swarm-key challenge nonce"). Nonces live in a small sqlite file
+# beside the swarm keys under AITBC_DATA_DIR: every worker and every
+# restart sees the same single-use, expiring records. This module already
+# keeps its state as files there (swarm.key, chain.db reads), so a
+# dedicated nonce DB matches the local pattern without adding a dependency
+# on the coordinator DB being reachable for this endpoint.
 _SWARM_NONCE_TTL_SECONDS = 300
 _SWARM_NONCE_MAX_PENDING = 10_000
-_swarm_nonces: dict[str, dict[str, Any]] = {}
-_swarm_nonces_lock = threading.Lock()
+
+_SWARM_NONCE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS swarm_key_nonce (
+    nonce TEXT PRIMARY KEY,
+    chain_id TEXT NOT NULL,
+    island_id TEXT NOT NULL,
+    member_address TEXT NOT NULL,
+    expires_at REAL NOT NULL,
+    created_at REAL NOT NULL
+)
+"""
+
+
+def _swarm_nonce_db_path() -> Path:
+    """Shared nonce store, next to the island swarm keys."""
+    data_dir = Path(os.environ.get("AITBC_DATA_DIR", "/var/lib/aitbc/data"))
+    return data_dir / "ipfs-island" / "swarm-nonces.db"
+
+
+def _connect_swarm_nonce_db() -> sqlite3.Connection:
+    """Open the shared nonce DB, creating schema on first use.
+
+    ``isolation_level=None`` gives explicit transaction control so the
+    issue path can hold a write lock (``BEGIN IMMEDIATE``) across the
+    expiry sweep, the pending cap and the insert — two workers cannot
+    both pass the cap check or lose each other's rows.
+    """
+    path = _swarm_nonce_db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(path), timeout=30, isolation_level=None)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
+    conn.execute(_SWARM_NONCE_SCHEMA)
+    return conn
 
 
 def issue_swarm_key_nonce(chain_id: str, island_id: str, member_address: str) -> dict[str, Any]:
     """Issue a single-use swarm-key challenge nonce bound to the requester."""
     now = time.time()
-    with _swarm_nonces_lock:
-        expired = [n for n, rec in _swarm_nonces.items() if float(rec.get("expires_at", 0)) <= now]
-        for n in expired:
-            _swarm_nonces.pop(n, None)
-        if len(_swarm_nonces) >= _SWARM_NONCE_MAX_PENDING:
-            raise PermissionError("Too many pending swarm-key challenges")
-        nonce = secrets.token_urlsafe(24)
-        expires_at = now + _SWARM_NONCE_TTL_SECONDS
-        _swarm_nonces[nonce] = {
-            "chain_id": chain_id,
-            "island_id": island_id,
-            "member_address": _to_ait_address(member_address),
-            "expires_at": expires_at,
-        }
+    expires_at = now + _SWARM_NONCE_TTL_SECONDS
+    nonce = secrets.token_urlsafe(24)
+    with closing(_connect_swarm_nonce_db()) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute("DELETE FROM swarm_key_nonce WHERE expires_at <= ?", (now,))
+            pending = conn.execute("SELECT COUNT(*) FROM swarm_key_nonce").fetchone()
+            if pending is not None and int(pending[0]) >= _SWARM_NONCE_MAX_PENDING:
+                conn.execute("ROLLBACK")
+                raise PermissionError("Too many pending swarm-key challenges")
+            conn.execute(
+                "INSERT INTO swarm_key_nonce"
+                " (nonce, chain_id, island_id, member_address, expires_at, created_at)"
+                " VALUES (?, ?, ?, ?, ?, ?)",
+                (nonce, chain_id, island_id, _to_ait_address(member_address), expires_at, now),
+            )
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+            raise
     return {"nonce": nonce, "expires_at": int(expires_at)}
 
 
 def _consume_swarm_nonce(chain_id: str, island_id: str, member_address: str, nonce: str) -> bool:
-    """Atomically validate and burn a swarm-key nonce (single-use)."""
+    """Atomically validate and burn a swarm-key nonce (single-use).
+
+    The DELETE...RETURNING runs under BEGIN IMMEDIATE, so exactly one
+    worker/process can burn a given nonce — the row is gone before the
+    binding/expiry checks run, preserving the original burn-on-present
+    semantics (a nonce presented with the wrong binding is still spent).
+    """
     if not nonce:
         return False
     now = time.time()
-    with _swarm_nonces_lock:
-        record = _swarm_nonces.pop(nonce, None)
-    if record is None:
+    with closing(_connect_swarm_nonce_db()) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            row = conn.execute(
+                "DELETE FROM swarm_key_nonce WHERE nonce = ? RETURNING chain_id, island_id, member_address, expires_at",
+                (nonce,),
+            ).fetchone()
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+            raise
+    if row is None:
         return False
-    if float(record.get("expires_at", 0)) <= now:
+    rec_chain_id, rec_island_id, rec_member, expires_at = row
+    if float(expires_at) <= now:
         return False
-    return (
-        record.get("chain_id") == chain_id
-        and record.get("island_id") == island_id
-        and record.get("member_address") == _to_ait_address(member_address)
-    )
+    return bool(rec_chain_id == chain_id and rec_island_id == island_id and rec_member == _to_ait_address(member_address))
 
 
 def _swarm_key_dir(island_id: str) -> Path:

@@ -11,8 +11,9 @@
 #      2 = coordinator down/unreachable (transient)
 #      3 = no API key resolved -- AITBC_API_KEY unset and every CLI fallback
 #          leg empty (see docs/ops/island-subscription-check.md)
-#      4 = key configured but refused by the service (HTTP 401/403)
-#      5 = check inconclusive for any other reason
+#      4 = key configured but refused by the service (HTTP 401 / auth rejection)
+#      5 = check inconclusive for any other reason (incl. swarm-key challenge
+#          denials — nonce/signature, NOT a bad API key; #1771)
 #
 # The unit sources /etc/aitbc/aitbc-island-subscription-check.env when it
 # exists; that file is operator-created and never lives in the repo.
@@ -58,9 +59,21 @@ if printf '%s' "$out" | grep -qi "No API key"; then
     exit 3
 fi
 
-# Key was configured but the service refused it.
-if printf '%s' "$out" | grep -qEi "HTTP (401|403)|\b(401|403)\b|[Uu]nauthorized|[Ff]orbidden|[Ii]nvalid (API )?key|[Aa]uthentication (failed|required)"; then
-    log err "subscription check refused: the configured AITBC_API_KEY was rejected by the coordinator (HTTP 401/403) -- rotate or repair the key in /etc/aitbc/aitbc-island-subscription-check.env"
+# Swarm-key challenge denials are not key problems (#1771): the nonce is
+# single-use and short-lived, so an expired nonce or signature mismatch
+# lands here as HTTP 403 with a challenge detail. Classify on the response
+# detail, not the status code — a bare 403 must not prescribe key rotation.
+if printf '%s' "$out" | grep -qiE "challenge nonce|Invalid signature|Invalid or expired"; then
+    short=$(printf '%s' "$out" | head -3 | tr '\n' ' ')
+    log warning "subscription check inconclusive: swarm-key challenge rejected (nonce/signature, not the API key): $short -- retry; persistent failures indicate a coordinator nonce-store problem"
+    exit 5
+fi
+
+# Key was configured but the service refused it. Match auth-specific
+# signals only — PermissionError denials above surface as bare 403/Forbidden
+# and must not land here.
+if printf '%s' "$out" | grep -qEi "HTTP 401|\b401\b|[Ii]nvalid (API )?key|[Aa]uthentication (failed|required)|[Uu]nauthorized"; then
+    log err "subscription check refused: the configured AITBC_API_KEY was rejected by the coordinator (HTTP 401) -- rotate or repair the key in /etc/aitbc/aitbc-island-subscription-check.env"
     exit 4
 fi
 
