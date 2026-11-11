@@ -10944,6 +10944,16 @@
                 }
               }
             }
+          },
+          "507": {
+            "description": "media storage quota exceeded / media storage file-count quota exceeded",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }

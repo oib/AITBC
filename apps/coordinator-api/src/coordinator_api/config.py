@@ -100,6 +100,9 @@ class Settings(BaseAITBCConfig):
     key_storage_dir: str = Field(default=str(KEYSTORE_DIR / "confidential"), description="Key storage directory")
     media_storage_dir: str = Field(default=str(DATA_DIR / "media"), description="Media upload storage directory")
     max_media_upload_bytes: int = Field(default=100 * 1024 * 1024, description="Maximum media upload size in bytes")
+    media_storage_max_bytes: int = Field(default=10 * 1024**3, description="Global media storage quota in bytes (#1752)")
+    media_storage_max_files: int = Field(default=10_000, description="Global media blob count cap (#1752)")
+    media_storage_ttl_seconds: int = Field(default=30 * 24 * 3600, description="Media blob lifetime before GC (#1752)")
     max_request_body_bytes: int = Field(
         default=5 * 1024 * 1024,
         description="App-level request body cap matching the nginx API bound (defense-in-depth, #1234)",
