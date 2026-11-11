@@ -62,6 +62,7 @@ class OfferSubscriptionService:
         self._subscription_tasks: dict[str, asyncio.Task[None]] = {}
         self._chain_status: dict[str, SubscriptionStatus] = {}
         self._chain_stats: dict[str, dict[str, Any]] = {}
+        self._last_event_at: dict[tuple[str, str], datetime] = {}  # #1696 replay guard
         self._running = False
         self._gossip_subscriptions: dict[str, Any] = {}
         # B18: Gossip client (lazily created if not provided)
@@ -378,8 +379,34 @@ class OfferSubscriptionService:
         except Exception as e:
             logger.debug("Reconnect attempt failed for chain %s: %s", chain_id, e)
 
+    _LAST_EVENT_MAX = 10000
+
+    def _is_stale_event(self, event: OfferEvent) -> bool:
+        """#1696: True when ``event`` is older than the last event applied for
+        the same (chain, offer). Equal timestamps pass; events without a
+        parseable timestamp are never dropped. Records the high-water mark."""
+        try:
+            ts = datetime.fromisoformat(event.timestamp)
+        except (TypeError, ValueError):
+            return False
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=UTC)
+        key = (event.chain_id, event.offer_id)
+        last = self._last_event_at.get(key)
+        if last is not None and ts < last:
+            return True
+        if len(self._last_event_at) >= self._LAST_EVENT_MAX and key not in self._last_event_at:
+            self._last_event_at.pop(next(iter(self._last_event_at)))
+        self._last_event_at[key] = ts
+        return False
+
     async def _handle_event(self, event: OfferEvent) -> None:
         """Process an offer event: update cache, notify subscribers."""
+        if settings.offer_event_stale_guard_enabled and self._is_stale_event(event):
+            logger.warning(
+                "Dropped stale/replayed offer event %s for %s (chain %s)", event.event_type, event.offer_id, event.chain_id
+            )
+            return
         stats = self._chain_stats.setdefault(event.chain_id, {"last_event": "", "event_count": 0})
         stats["last_event"] = datetime.now(UTC).isoformat()
         stats["event_count"] = stats.get("event_count", 0) + 1

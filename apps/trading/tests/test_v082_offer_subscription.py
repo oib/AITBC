@@ -735,3 +735,49 @@ class TestReconnectLoopJitter:
         lo, hi = interval * 0.8, interval * 1.2
         assert all(lo <= d <= hi for d in delays), delays
         assert svc._attempt_reconnect.await_count >= 1
+
+
+class TestStaleEventGuard1696:
+    @staticmethod
+    def _ev(kind, ts, offer=None):
+        return OfferEvent(event_type=kind, offer_id="offer-1", chain_id="ait-hub", offer=offer, timestamp=ts, source="test")
+
+    @pytest.mark.asyncio
+    async def test_replayed_old_delete_dropped_when_guard_on(self, monkeypatch) -> None:
+        from trading_service.config import settings
+        from trading_service.services.offer_subscription_service import OfferSubscriptionService
+
+        monkeypatch.setattr(settings, "offer_event_stale_guard_enabled", True)
+        cache = OfferCache()
+        svc = OfferSubscriptionService(cache=cache)
+        await svc.start_chain("ait-hub")
+        await svc.inject_event(self._ev("deleted", "2026-11-11T10:00:00+00:00"))
+        await svc.inject_event(self._ev("created", "2026-11-11T10:05:00+00:00", _make_offer()))
+        await svc.inject_event(self._ev("deleted", "2026-11-11T10:00:00+00:00"))  # replay of the old delete
+        assert cache.get_offer("offer-1", "ait-hub") is not None
+        await svc.inject_event(self._ev("deleted", "2026-11-11T10:05:00+00:00"))  # equal timestamp still applies
+        assert cache.get_offer("offer-1", "ait-hub") is None
+
+    @pytest.mark.asyncio
+    async def test_guard_off_by_default_applies_old_event(self) -> None:
+        from trading_service.services.offer_subscription_service import OfferSubscriptionService
+
+        cache = OfferCache()
+        svc = OfferSubscriptionService(cache=cache)
+        await svc.start_chain("ait-hub")
+        await svc.inject_event(self._ev("created", "2026-11-11T10:05:00+00:00", _make_offer()))
+        await svc.inject_event(self._ev("deleted", "2026-11-11T10:00:00+00:00"))
+        assert cache.get_offer("offer-1", "ait-hub") is None
+
+    @pytest.mark.asyncio
+    async def test_unparseable_timestamp_never_dropped(self, monkeypatch) -> None:
+        from trading_service.config import settings
+        from trading_service.services.offer_subscription_service import OfferSubscriptionService
+
+        monkeypatch.setattr(settings, "offer_event_stale_guard_enabled", True)
+        cache = OfferCache()
+        svc = OfferSubscriptionService(cache=cache)
+        await svc.start_chain("ait-hub")
+        await svc.inject_event(self._ev("created", "2026-11-11T10:05:00+00:00", _make_offer()))
+        await svc.inject_event(self._ev("deleted", ""))
+        assert cache.get_offer("offer-1", "ait-hub") is None
