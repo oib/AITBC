@@ -248,7 +248,7 @@ groups:
       '
     for: 5m
     labels:
-      severity: warning
+      severity: critical
     annotations:
       summary: Alert watcher heartbeat has stopped ({{ $labels.instance }})
       description: aitbc-prometheus-watch has not written its textfile metric for

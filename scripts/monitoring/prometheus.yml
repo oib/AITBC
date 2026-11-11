@@ -36,6 +36,15 @@ scrape_configs:
     static_configs:
       - targets: ['127.0.0.1:9100']
 
+  # DEADMAN-ALERT-1 (#1768) R3, hub1 ONLY (hub's failover scrapes hub's own
+  # prometheus so a dead hub prometheus pages via ServiceDown on hub1's
+  # watcher; hub cannot page for itself). Uncomment in hub1's live file only,
+  # and set the target to hub's prometheus address.
+  # - job_name: 'hub-prometheus'
+  #   metrics_path: '/metrics'
+  #   static_configs:
+  #     - targets: ['<hub-address>:9090']
+
   # node2 (shop/follower) services
   - job_name: 'blockchain-node'
     static_configs:

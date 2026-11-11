@@ -382,3 +382,33 @@ groups:
         annotations:
           summary: "No island swarm probe results reaching Prometheus"
           description: "aitbc_island_swarm_probe_success has no series for 15m — the aitbc-island-swarm-probe timer or node_exporter textfile path is gone on every probing host. Peers still work but the wedge watch is blind; check the timer and /var/lib/prometheus/node-exporter/aitbc_island_swarm_probe.prom."
+
+  # DEADMAN-ALERT-1 (#1768): remote-write dead-man coverage. Hub only -- the
+  # series arrive over remote_write, so on any other host every roster entry
+  # would look silent. absent() cannot do this per host (it only fires when
+  # EVERY host is gone); the roster below is the list of expected sources and
+  # must be edited with the fleet roster (hub1, node0, node1, node2 as of
+  # 2026-11-11). Matching keys on the `node` external label that remote_write
+  # stamps on every pushed series, against the remote hosts' own prometheus
+  # self-scrape up{job="prometheus"} — a series hub's direct scrapes never
+  # produce, so it proves the remote_write path itself, not just the host.
+  - name: aitbc-deadman
+    rules:
+      - record: aitbc_expected_remote_write_host
+        expr: |
+          label_replace(vector(1), "node", "hub1", "", "")
+          or label_replace(vector(1), "node", "node0", "", "")
+          or label_replace(vector(1), "node", "node1", "", "")
+          or label_replace(vector(1), "node", "node2", "", "")
+      # A source that stopped pushing anything: its prometheus died or wedged,
+      # remote_write is stuck, or the host is gone. 5m staleness lookback +
+      # for:2m = ~7m detection. A whole-host death also fires ServiceDown; the
+      # case only this rule catches is a live host with a dead prometheus.
+      - alert: RemoteWriteHostSilent
+        expr: aitbc_expected_remote_write_host unless on(node) up{job="prometheus"}
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "No remote_write data from {{ $labels.node }}"
+          description: "Hub received no samples from {{ $labels.node }} for ~7m: its prometheus, remote_write path or the host is down, so local alerting there is blind. Check prometheus and aitbc-prometheus-watch on that host."
