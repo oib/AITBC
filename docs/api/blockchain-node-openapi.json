@@ -24913,28 +24913,7 @@
             }
           },
           "503": {
-            "description": "readiness check failed",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "title": "Error"
-                    },
-                    "failed": {
-                      "title": "Failed"
-                    },
-                    "service": {
-                      "title": "Service"
-                    },
-                    "status": {
-                      "title": "Status"
-                    }
-                  }
-                }
-              }
-            }
+            "description": "Service Unavailable"
           }
         }
       }
