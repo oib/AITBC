@@ -29,7 +29,12 @@ from sqlmodel import Session, select
 from ....config import settings
 from ...infrastructure.domain import Job, Miner
 from ...payments.provider_binding import miner_wallet_address
-from ..domain.provider_bond import ProviderBond, ProviderBondStatus, _default_bond_min_amount, set_provider_bond_status
+from ..domain.provider_bond import (
+    ProviderBond,
+    ProviderBondStatus,
+    _default_bond_min_amount,
+    apply_bond_slash_cas,
+)
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
@@ -178,8 +183,18 @@ class BondSlashingService:
                 if bond:
                     return bond
 
-        # Fall back to the miner's active bond.
-        return self.session.exec(base_stmt.where(ProviderBond.provider_id == miner.id)).first()
+        # Fall back only when the provider has exactly one active row — provider_id
+        # is indexed but not unique, so .first() can bind the wrong bond.
+        bonds = list(self.session.exec(base_stmt.where(ProviderBond.provider_id == miner.id)).all())
+        if len(bonds) == 1:
+            return bonds[0]
+        if len(bonds) > 1:
+            logger.warning(
+                "Multiple active bonds for provider %s; job %s must name bond_id in constraints",
+                miner.id,
+                job.id,
+            )
+        return None
 
     def _compute_slash_amount(self, bond: ProviderBond, condition: SlashingCondition) -> int:
         return _compute_slash_amount(bond, condition)
@@ -238,6 +253,11 @@ class BondSlashingService:
 
         bond_id = bond.bond_id or f"bond-{provider}"
 
+        await run_in_threadpool(self.session.refresh, bond)
+        expected_amount = bond.amount
+        expected_updated_at = bond.updated_at
+        bond_pk = bond.id
+
         tx = self._build_slash_tx(bond_id, provider, slash_amount)
         try:
             result = await self._submit_slash_tx(tx, job.id)
@@ -270,18 +290,38 @@ class BondSlashingService:
         if condition == SlashingCondition.DOWNTIME:
             slash_meta["last_downtime_slash_at"] = slash_meta["slashed_at"]
             slash_meta["last_downtime_slash_job_id"] = job.id
-        bond.meta = {
+        merged_meta = {
             **(bond.meta or {}),
             **slash_meta,
         }
 
-        bond = set_provider_bond_status(
+        applied = apply_bond_slash_cas(
             self.session,
-            bond.provider_id,
-            status,
-            amount=new_amount,
-            bond_id=bond.bond_id,
+            bond_pk,
+            expected_amount=expected_amount,
+            expected_updated_at=expected_updated_at,
+            new_amount=new_amount,
+            status=status,
+            meta=merged_meta,
         )
+        if applied is None:
+            logger.error(
+                "BOND_SLASH tx %s for job %s succeeded on chain but the bond row %s "
+                "changed before the CAS write; off-chain record not updated",
+                tx_hash,
+                job.id,
+                bond_pk,
+            )
+            return {
+                "slashed": True,
+                "bond_id": bond_id,
+                "amount": slash_amount,
+                "tx_hash": tx_hash,
+                "status": status.value,
+                "bond_record_applied": False,
+                "reason": "bond snapshot stale after on-chain slash",
+            }
+
         logger.info(
             "Bond %s slashed for %s: amount=%s tx=%s job=%s",
             bond_id,
@@ -296,6 +336,7 @@ class BondSlashingService:
             "amount": slash_amount,
             "tx_hash": tx_hash,
             "status": status.value,
+            "bond_record_applied": True,
         }
 
     def _build_slash_tx(self, bond_id: str, provider: str, slash_amount: int) -> dict[str, Any]:

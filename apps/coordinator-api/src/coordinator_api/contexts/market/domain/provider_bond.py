@@ -6,10 +6,11 @@ import os
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import StrEnum
+from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import JSON, Column, text
-from sqlmodel import Field, Session, SQLModel, select
+from sqlalchemy import JSON, Column, text, update
+from sqlmodel import Field, Session, SQLModel, col, select
 
 
 class ProviderBondStatus(StrEnum):
@@ -105,3 +106,40 @@ def set_provider_bond_status(
     session.commit()
     session.refresh(bond)
     return bond
+
+
+def apply_bond_slash_cas(
+    session: Session,
+    bond_pk: str,
+    *,
+    expected_amount: Decimal,
+    expected_updated_at: datetime,
+    new_amount: Decimal,
+    status: ProviderBondStatus,
+    meta: dict[str, Any],
+) -> ProviderBond | None:
+    """Apply an off-chain bond slash only when the row still matches our snapshot.
+
+    ``provider_id`` is not unique — automatic slashing binds by primary key and
+    uses amount+updated_at as the compare-and-swap guard so concurrent slashes
+    cannot clobber each other or the wrong sibling row.
+    """
+    now = datetime.now(UTC)
+    result = session.execute(
+        update(ProviderBond)
+        .where(col(ProviderBond.id) == bond_pk)
+        .where(col(ProviderBond.amount) == expected_amount)
+        .where(col(ProviderBond.updated_at) == expected_updated_at)
+        .values(
+            amount=new_amount,
+            status=status.value if isinstance(status, ProviderBondStatus) else status,
+            meta=meta,
+            updated_at=now,
+        )
+        .execution_options(synchronize_session=False)
+    )
+    if getattr(result, "rowcount", 0) != 1:
+        session.rollback()
+        return None
+    session.commit()
+    return session.get(ProviderBond, bond_pk)
