@@ -1,7 +1,7 @@
 """Chain client — config constants, data layer, and shared DB/RPC helpers."""
 
 import os
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Iterable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
@@ -40,6 +40,7 @@ __all__ = [
     "get_transaction",
     "get_block",
     "get_latest_blocks",
+    "get_block_transactions_batch",
 ]
 
 # Configuration - Multi-chain support
@@ -145,6 +146,55 @@ def scoped_where(base_where: str, scope_sql: str, params: list[Any], scope_param
         where = f"{where} AND {scope_sql}" if where else scope_sql
         params = [*params, *scope_params]
     return where, params
+
+
+async def get_block_transactions_batch(
+    conn: aiosqlite.Connection,
+    chain_id: str,
+    heights: Iterable[int],
+) -> dict[int, list[tuple[Any, ...]]]:
+    """Fetch embedded transaction rows for many blocks in ONE query (#1745).
+
+    The block endpoints used to run one ``block_height = ?`` query per block
+    — up to ``MAX_PAGE_LIMIT`` queries per request, each returning up to
+    ``MAX_EMBEDDED_TXS_PER_BLOCK`` rows carrying full payload JSON. A single
+    ``IN ()`` query with a per-partition ``ROW_NUMBER`` cap collapses that
+    fan-out to one round-trip while keeping the same per-block bound (the
+    ``cap + 1``-th row remains the truncation sentinel) and the same
+    ``created_at, tx_hash`` ordering the per-block queries used.
+
+    Returns ``{height: [tx_row, ...]}``; each row unpacks as
+    ``(tx_hash, sender, recipient, payload, type, status, created_at, value,
+    fee, nonce)`` — identical columns and order to the queries this
+    replaces. Heights with no transactions are absent from the mapping.
+    """
+    unique_heights = list(dict.fromkeys(heights))
+    if not unique_heights:
+        return {}
+    placeholders = ", ".join("?" for _ in unique_heights)
+    tx_scope, tx_scope_params = await chain_scope(conn, "transaction", chain_id)
+    where, params = scoped_where(f"block_height IN ({placeholders})", tx_scope, list(unique_heights), tx_scope_params)
+    cursor = await conn.cursor()
+    await cursor.execute(
+        f"""
+        SELECT block_height, tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
+        FROM (
+            SELECT block_height, tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce,
+                   ROW_NUMBER() OVER (
+                       PARTITION BY block_height ORDER BY created_at, tx_hash
+                   ) AS _rn
+            FROM "transaction"
+            WHERE {where}
+        )
+        WHERE _rn <= ?
+        ORDER BY block_height, created_at, tx_hash
+    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+        [*params, MAX_EMBEDDED_TXS_PER_BLOCK + 1],
+    )
+    grouped: dict[int, list[tuple[Any, ...]]] = {}
+    for row in await cursor.fetchall():
+        grouped.setdefault(row[0], []).append(row[1:])
+    return grouped
 
 
 def __getattr__(name: str) -> Any:
@@ -282,27 +332,15 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
                     height, block_hash, proposer, timestamp, tx_count, state_root = result
 
                     # Get transactions for this block — same chain scope:
-                    # block_height alone collides across chains. Capped per
-                    # block (EXPLORER-RESP-1, #1492): fetch one extra row to
-                    # detect truncation without a second COUNT query.
-                    tx_scope, tx_scope_params = await chain_scope(conn, "transaction", chain_id)
-                    tx_where, tx_params = scoped_where("block_height = ?", tx_scope, [height], tx_scope_params)
-                    await cursor.execute(
-                        f"""
-                        SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
-                        FROM "transaction"
-                        WHERE {tx_where}
-                        ORDER BY created_at, tx_hash
-                        LIMIT ?
-                    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-                        [*tx_params, MAX_EMBEDDED_TXS_PER_BLOCK + 1],
-                    )
+                    # block_height alone collides across chains. Batched
+                    # single-block fetch (EXPLORER-DEEP2-1, #1745); the
+                    # cap+1 sentinel still detects truncation.
+                    tx_rows = (await get_block_transactions_batch(conn, chain_id, [height])).get(height, [])
 
                     transactions = []
-                    rows = list(await cursor.fetchall())
-                    truncated = len(rows) > MAX_EMBEDDED_TXS_PER_BLOCK
-                    for row in rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
-                        tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
+                    truncated = len(tx_rows) > MAX_EMBEDDED_TXS_PER_BLOCK
+                    for tx_row in tx_rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
+                        tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
                         transactions.append(
                             {
                                 "tx_hash": tx_hash,
@@ -382,27 +420,16 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
 
                 blocks = []
                 rows = await cursor.fetchall()
+                # EXPLORER-DEEP2-1 (#1745): one batched tx query for the whole
+                # page instead of one query per block (was N+1, ~40k embedded
+                # tx rows worst case). Same per-block cap + truncation sentinel.
+                tx_rows_by_height = await get_block_transactions_batch(conn, chain_id, [row[0] for row in rows])
                 for row in rows:
                     height, block_hash, proposer, timestamp, tx_count, state_root = row
 
-                    # Get transactions for this block — scoped like get_block;
-                    # capped per block (EXPLORER-RESP-1, #1492) — +1 row
-                    # detects truncation.
-                    tx_scope, tx_scope_params = await chain_scope(conn, "transaction", chain_id)
-                    tx_where, tx_params = scoped_where("block_height = ?", tx_scope, [height], tx_scope_params)
-                    await cursor.execute(
-                        f"""
-                        SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
-                        FROM "transaction"
-                        WHERE {tx_where}
-                        ORDER BY created_at, tx_hash
-                        LIMIT ?
-                    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-                        [*tx_params, MAX_EMBEDDED_TXS_PER_BLOCK + 1],
-                    )
+                    tx_rows = tx_rows_by_height.get(height, [])
 
                     transactions = []
-                    tx_rows = list(await cursor.fetchall())
                     truncated = len(tx_rows) > MAX_EMBEDDED_TXS_PER_BLOCK
                     for tx_row in tx_rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
                         tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row

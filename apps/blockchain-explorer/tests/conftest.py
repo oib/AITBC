@@ -30,6 +30,12 @@ from pathlib import Path
 # without one since #307, so tests pin an explicit test id up front.
 os.environ.setdefault("CHAIN_ID", "ait-testchain")
 
+# #1745 added an in-app rate limit (EXPLORER_RATE_LIMIT, default 120/minute).
+# Pin a small budget here — read *before* ``main`` is imported by the test
+# modules — so the trip test needs only a handful of requests; the autouse
+# fixture below disables enforcement for every other test in the suite.
+os.environ.setdefault("EXPLORER_RATE_LIMIT", "5/minute")
+
 _APP_ROOT = str(Path(__file__).resolve().parent.parent)
 if _APP_ROOT not in sys.path:
     sys.path.insert(0, _APP_ROOT)
@@ -37,3 +43,20 @@ if _APP_ROOT not in sys.path:
 _TESTS_DIR = str(Path(__file__).resolve().parent)
 if _TESTS_DIR not in sys.path:
     sys.path.insert(0, _TESTS_DIR)
+
+
+import pytest  # noqa: E402
+
+
+@pytest.fixture(autouse=True)
+def _rate_limiting_off(monkeypatch) -> None:
+    """Disable the in-app rate limiter for this suite — and only for it.
+
+    Same pattern as apps/coordinator-api/tests/conftest.py (#1657): every
+    TestClient request keys on the same "testclient" peer, so suites that
+    page through endpoints repeatedly would trip 429s. ``monkeypatch``
+    restores the previous value after each test; the flag is read per
+    request by RateLimitMiddleware.dispatch, so a test that sets
+    ``AITBC_ENABLE_RATE_LIMITING=true`` still exercises the limiter.
+    """
+    monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "false")
