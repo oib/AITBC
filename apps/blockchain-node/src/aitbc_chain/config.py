@@ -665,6 +665,17 @@ class ChainSettings(BaseSettings):
     # so a request published right after subscribing cannot lose fast responses.
     gossip_subscribe_wait_ready_enabled: bool = False
     gossip_subscribe_ready_timeout_seconds: float = 2.0
+    # #1764: mesh-backend subscribe() can wait until peer websocket legs are
+    # attached, so a round that publishes right after subscribing does not miss
+    # fast attest_response messages while _retry_attach is in backoff.
+    gossip_mesh_subscribe_wait_peers_enabled: bool = os.getenv("GOSSIP_MESH_SUBSCRIBE_WAIT_PEERS", "false").lower() in (
+        "1",
+        "true",
+        "yes",
+    )
+    gossip_mesh_subscribe_wait_peers_timeout_seconds: float = float(
+        os.getenv("GOSSIP_MESH_SUBSCRIBE_WAIT_PEERS_TIMEOUT", "2.0")
+    )
     gossip_max_messages_per_minute: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE", "2000"))
     # Body-size cap for POST /gossip on the standalone relay unit
     # (aitbc-blockchain-p2p, aitbc_chain.gossip.relay) — #1591. The ws gossip

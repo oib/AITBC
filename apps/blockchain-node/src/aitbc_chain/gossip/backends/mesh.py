@@ -235,6 +235,12 @@ class MeshGossipBackend(GossipBackend):
         await sub.attach("local", self._local, retry=False)
         for name, peer in self._peers.items():
             await sub.attach(name, peer, retry=True)
+        from ...config import settings
+
+        wait_peers = bool(getattr(settings, "gossip_mesh_subscribe_wait_peers_enabled", False))
+        if wait_peers:
+            timeout = float(getattr(settings, "gossip_mesh_subscribe_wait_peers_timeout_seconds", 2.0))
+            await sub.wait_for_pending_peers(timeout)
         self._subscriptions.add(sub)
 
         def _unsubscribe() -> None:
@@ -274,6 +280,33 @@ class _MeshSubscription:
         self._sources: dict[str, TopicSubscription] = {}
         self._tasks: dict[str, asyncio.Task[None]] = {}
         self._closed = False
+        self._pending_peers: set[str] = set()
+        self._peers_ready = asyncio.Event()
+
+    def _peer_attached(self, name: str) -> None:
+        self._pending_peers.discard(name)
+        if not self._pending_peers:
+            self._peers_ready.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
+
+    async def wait_for_pending_peers(self, timeout: float) -> None:
+        if not self._pending_peers:
+            return
+        from aitbc.aitbc_logging import get_logger
+
+        logger = get_logger(__name__)
+        started = time.monotonic()
+        try:
+            await asyncio.wait_for(self._peers_ready.wait(), timeout=timeout)
+        except asyncio.TimeoutError:
+            metrics_registry.increment("gossip_mesh_subscribe_peers_ready_timeout_total")
+            logger.warning(
+                "Mesh gossip %s: %d peer leg(s) still pending after %.1fs (%s)",
+                self._topic,
+                len(self._pending_peers),
+                timeout,
+                ", ".join(sorted(self._pending_peers)),
+            )
+        metrics_registry.observe("gossip_mesh_subscribe_peers_ready_seconds", time.monotonic() - started)
 
     async def attach(self, name: str, backend: GossipBackend, *, retry: bool) -> None:
         try:
@@ -285,12 +318,14 @@ class _MeshSubscription:
 
             get_logger(__name__).warning("Mesh gossip peer %s unavailable for %s; will retry: %s", name, self._topic, e)
             metrics_registry.increment("gossip_mesh_peer_subscribe_failed_total")
+            self._pending_peers.add(name)
             self._tasks[name] = create_task_with_logging(
                 self._retry_attach(name, backend),
                 name=f"mesh-gossip-retry:{name}:{self._topic}",
             )
             return
         self._sources[name] = source
+        self._peer_attached(name)
         self._tasks[name] = create_task_with_logging(
             self._forward(name, source),
             name=f"mesh-gossip-forward:{name}:{self._topic}",
@@ -322,6 +357,7 @@ class _MeshSubscription:
             logger.info("Mesh gossip peer %s attached for %s", name, self._topic)
             gossip_event("subscribe_attached", peer=name, topic=self._topic, _level="info")
             self._sources[name] = source
+            self._peer_attached(name)
             # Replace ourselves with the forwarding loop for this source.
             self._tasks[name] = create_task_with_logging(
                 self._forward(name, source),
@@ -356,6 +392,7 @@ class _MeshSubscription:
 
     async def close(self) -> None:
         self._closed = True
+        self._peers_ready.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
         # Snapshot once: tasks completing between the cancel loop and the
         # await loop mutate self._tasks ("dictionary changed size during
         # iteration" — #1739, exposed by real SIGTERM shutdown #1705).
