@@ -1002,8 +1002,18 @@ async def book_gpu(
     http_request: Request,
 ) -> dict[str, Any]:
     """Book a GPU with dynamic pricing."""
-    gpu = await run_in_threadpool(_get_gpu_or_404, session, gpu_id)
-    _expire_stale_booking(session, gpu)
+    # CE-004: expire a stale unpaid hold before taking the row lock — the
+    # reaper commits, which would otherwise drop the FOR UPDATE lock early.
+    gpu_preview = session.get(GPURegistry, gpu_id)
+    if gpu_preview is not None:
+        _expire_stale_booking(session, gpu_preview)
+    # Lock the GPU row while booking: two concurrent bookings could both see
+    # "available" and double-book the same GPU (#1802, buy_gpu precedent).
+    gpu = await run_in_threadpool(
+        lambda: session.exec(select(GPURegistry).where(GPURegistry.id == gpu_id).with_for_update()).first()
+    )
+    if not gpu:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=f"GPU {gpu_id} not found")
     if gpu.status != "available":
         raise HTTPException(status_code=http_status.HTTP_409_CONFLICT, detail=f"GPU {gpu_id} is not available")
     if request.duration_hours <= 0:
@@ -1046,6 +1056,7 @@ async def book_gpu(
     )
     gpu.status = "booked"
     await run_in_threadpool(session.add, booking)
+    await run_in_threadpool(session.add, gpu)
     await run_in_threadpool(session.commit)
     await run_in_threadpool(session.refresh, booking)
     return {
