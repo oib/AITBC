@@ -1384,7 +1384,7 @@
     "/v1/governance/proposals/{proposal_id}/aggregate-votes": {
       "post": {
         "summary": "Aggregate Votes",
-        "description": "Aggregate votes for a proposal from all chains (v0.7.4 \u00a7B2).\n\nQueries the local vote tally for the proposal. In a multi-chain\ndeployment, this would also query each registered chain for votes\ncast on this proposal and merge them into the hub chain's tally.",
+        "description": "Aggregate votes for a proposal from all chains (v0.7.4 \u00a7B2).\n\nQueries the local vote tally for the proposal. In a multi-chain\ndeployment, this would also query each registered chain for votes\ncast on this proposal and merge them into the hub chain's tally.\n\n#1649: ``total_for``/``total_against``/``total_abstain`` are\ntoken-weighted sums of ``voting_power_used`` (previously raw vote-row\ncounts), and ``votes`` carries a curated public field set \u2014 signature\nand ORM internals are not exposed.",
         "operationId": "aggregate_votes_v1_governance_proposals__proposal_id__aggregate_votes_post",
         "parameters": [
           {
