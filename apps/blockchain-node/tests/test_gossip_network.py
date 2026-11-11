@@ -184,20 +184,12 @@ class TestInMemoryGossipBackend:
         # Queue should be full
         assert subscription.queue.full()
 
-        # Third publish should block because queue.put blocks on a full queue.
-        # Use a shielded wait_for so the publish task is not cancelled on timeout.
-        publish_task = asyncio.create_task(backend.publish("test_topic", "message3"))
-        try:
-            await asyncio.wait_for(asyncio.shield(publish_task), timeout=0.1)
-            raise AssertionError("Expected publish to block on full queue")
-        except TimeoutError:
-            pass
+        # #1690: a full queue no longer blocks publish — the oldest queued
+        # message is dropped so the freshest is delivered and every other
+        # subscriber is still served.
+        await asyncio.wait_for(backend.publish("test_topic", "message3"), timeout=1.0)
 
-        # Drain one item to unblock the blocked publish
-        assert await subscription.queue.get() == "message1"
-        await asyncio.wait_for(publish_task, timeout=1.0)
-
-        # Should be able to get remaining messages
+        # message1 was evicted; the subscriber sees the two freshest.
         assert await subscription.queue.get() == "message2"
         assert await subscription.queue.get() == "message3"
 
