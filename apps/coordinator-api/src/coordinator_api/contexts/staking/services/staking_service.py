@@ -9,6 +9,7 @@ from typing import Any
 
 from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
+from sqlmodel import col
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.units import ait_to_units
@@ -178,8 +179,17 @@ class StakingService:
                 raise ValueError("Stake not found")
             if stake.status != StakeStatus.ACTIVE:
                 raise ValueError("Stake is not active")
-            stake.amount += additional_amount
-            stake.current_apy = self.calculate_apy(stake.agent_wallet, stake.lock_period)
+            # #1837: SQL-side amount bump under a status predicate — the ORM
+            # read-modify-write lost concurrent adds (recorded +2X, actual +X).
+            new_apy = self.calculate_apy(stake.agent_wallet, stake.lock_period)
+            won = self.session.execute(
+                update(AgentStake)
+                .where(AgentStake.stake_id == stake_id, AgentStake.status == StakeStatus.ACTIVE)  # type: ignore[arg-type]
+                .values(amount=AgentStake.amount + additional_amount, current_apy=new_apy)
+                .execution_options(synchronize_session=False)
+            )
+            if getattr(won, "rowcount", 0) != 1:
+                raise ValueError("Stake is not active")
             agent_metrics = self.get_agent_metrics(stake.agent_wallet)
             if agent_metrics:
                 self._bump_total_staked(stake.agent_wallet, additional_amount)
@@ -205,8 +215,16 @@ class StakingService:
             if datetime.now(UTC) < stake.end_time:
                 raise ValueError("Lock period has not ended")
             self._calculate_rewards(stake_id)
-            stake.status = StakeStatus.UNBONDING
-            stake.unbonding_time = datetime.now(UTC)
+            # #1837: CAS the ACTIVE->UNBONDING flip — a stale ORM status read
+            # let two callers both transition and both pay out rewards.
+            won = self.session.execute(
+                update(AgentStake)
+                .where(AgentStake.stake_id == stake_id, AgentStake.status == StakeStatus.ACTIVE)  # type: ignore[arg-type]
+                .values(status=StakeStatus.UNBONDING, unbonding_time=datetime.now(UTC))
+                .execution_options(synchronize_session=False)
+            )
+            if getattr(won, "rowcount", 0) != 1:
+                raise ValueError("Stake is not active")
             (self.session.commit())
             (self.session.refresh(stake))
             logger.info("Initiated unbonding for stake %s", stake_id)
@@ -224,12 +242,24 @@ class StakingService:
                 raise ValueError("Stake not found")
             if stake.status != StakeStatus.UNBONDING:
                 raise ValueError("Stake is not unbonding")
+            # #1837: CAS UNBONDING->COMPLETED before any accounting — two
+            # concurrent completions each decremented total_staked/pool/
+            # staker_count on a stale ORM read and could drive them negative.
+            won = self.session.execute(
+                update(AgentStake)
+                .where(AgentStake.stake_id == stake_id, AgentStake.status == StakeStatus.UNBONDING)  # type: ignore[arg-type]
+                .values(status=StakeStatus.COMPLETED)
+                .execution_options(synchronize_session=False)
+            )
+            if getattr(won, "rowcount", 0) != 1:
+                raise ValueError("Stake is not unbonding")
+            self.session.refresh(stake)
             penalty = Decimal("0.0")
             total_amount = stake.amount
-            if stake.unbonding_time and datetime.now(UTC) < stake.unbonding_time + timedelta(days=30):
+            unbonding_time = self._ensure_utc_datetime(stake.unbonding_time)
+            if unbonding_time and datetime.now(UTC) < unbonding_time + timedelta(days=30):
                 penalty = total_amount * Decimal("0.1")
                 total_amount -= penalty
-            stake.status = StakeStatus.COMPLETED
             agent_metrics = self.get_agent_metrics(stake.agent_wallet)
             if agent_metrics:
                 self._bump_total_staked(stake.agent_wallet, -stake.amount)
@@ -377,14 +407,35 @@ class StakingService:
             for stake in stakes:
                 staker_share = distributable_amount * stake.amount / pool.total_staked
                 if staker_share > 0:
-                    stake.accumulated_rewards += staker_share
+                    # #1837: SQL-side increment — the ORM += lost concurrent
+                    # distributions (and concurrent claims zeroing the row).
+                    self.session.execute(
+                        update(AgentStake)
+                        .where(
+                            AgentStake.stake_id == stake.stake_id,  # type: ignore[arg-type]
+                            AgentStake.status == StakeStatus.ACTIVE,  # type: ignore[arg-type]
+                        )
+                        .values(accumulated_rewards=AgentStake.accumulated_rewards + staker_share)
+                        .execution_options(synchronize_session=False)
+                    )
                     total_distributed += staker_share
                     staker_count += 1
-            pool.total_rewards += total_distributed
+            # #1837: same SQL-side treatment for the pool/metrics totals.
+            self.session.execute(
+                update(StakingPool)
+                .where(StakingPool.agent_wallet == agent_wallet)  # type: ignore[arg-type]
+                .values(total_rewards=StakingPool.total_rewards + total_distributed)
+                .execution_options(synchronize_session=False)
+            )
             pool.last_distribution_time = datetime.now(UTC)
             agent_metrics = self.get_agent_metrics(agent_wallet)
             if agent_metrics:
-                agent_metrics.total_rewards_distributed += total_distributed
+                self.session.execute(
+                    update(AgentMetrics)
+                    .where(AgentMetrics.agent_wallet == agent_wallet)  # type: ignore[arg-type]
+                    .values(total_rewards_distributed=AgentMetrics.total_rewards_distributed + total_distributed)
+                    .execution_options(synchronize_session=False)
+                )
             (self.session.commit())
             result = {"total_distributed": total_distributed, "staker_count": staker_count, "platform_fee": platform_fee}
             logger.info("Distributed %s earnings to %s stakers", total_distributed, staker_count)
@@ -566,17 +617,58 @@ class StakingService:
         """Claim accumulated rewards for multiple stakes"""
         try:
             total_rewards = Decimal("0.0")
+            claimed_amounts: dict[str, Decimal] = {}
+            now = datetime.now(UTC)
             for stake_id in stake_ids:
                 stake = self.get_stake(stake_id)
                 if not stake:
                     continue
-                total_rewards += stake.accumulated_rewards
-                stake.accumulated_rewards = Decimal("0.0")
-                stake.last_reward_time = datetime.now(UTC)
+                claimed = stake.accumulated_rewards
+                # #1837: zero under a value predicate — the ORM write let two
+                # concurrent claims both count and both pay the same rewards.
+                # A lost CAS means another claim already zeroed the row.
+                won = self.session.execute(
+                    update(AgentStake)
+                    .where(
+                        col(AgentStake.stake_id) == stake_id,
+                        col(AgentStake.accumulated_rewards) == claimed,
+                    )
+                    .values(accumulated_rewards=Decimal("0.0"), last_reward_time=now)
+                    .execution_options(synchronize_session=False)
+                )
+                if getattr(won, "rowcount", 0) == 1:
+                    total_rewards += claimed
+                    claimed_amounts[stake_id] = claimed
             (self.session.commit())
-            return {"total_rewards": total_rewards, "claimed_stakes": len(stake_ids)}
+            return {
+                "total_rewards": total_rewards,
+                "claimed_stakes": len(claimed_amounts),
+                "claimed_stake_ids": list(claimed_amounts),
+                "claimed_amounts": claimed_amounts,
+            }
         except Exception as e:
             logger.error("Failed to claim rewards: %s", e)
+            (self.session.rollback())
+            raise
+
+    def restore_claimed_rewards(self, claimed_amounts: dict[str, Decimal]) -> None:
+        """#1837: compensate a failed chain payout by re-crediting the rewards
+        this claim zeroed. SQL-side ``accumulated + amount`` — never an ORM
+        read-modify-write, and correct even if new rewards accrued meanwhile
+        (the zeroed amount was never paid, so adding it back is always owed)."""
+        try:
+            for stake_id, amount in claimed_amounts.items():
+                if amount <= 0:
+                    continue
+                self.session.execute(
+                    update(AgentStake)
+                    .where(col(AgentStake.stake_id) == stake_id)
+                    .values(accumulated_rewards=col(AgentStake.accumulated_rewards) + amount)
+                    .execution_options(synchronize_session=False)
+                )
+            self.session.commit()
+        except Exception as e:
+            logger.error("Failed to restore claimed rewards: %s", e)
             (self.session.rollback())
             raise
 
@@ -647,11 +739,30 @@ class StakingService:
             time_elapsed = datetime.now(UTC) - stake.last_reward_time
             yearly_rewards = stake.amount * stake.current_apy / 100
             current_rewards = yearly_rewards * Decimal(str(time_elapsed.total_seconds())) / (365 * 24 * 3600)
-            stake.accumulated_rewards += current_rewards
-            stake.last_reward_time = datetime.now(UTC)
+            now = datetime.now(UTC)
+            # #1837: SQL-side reward credit under a status predicate — the ORM
+            # += interleaved with concurrent add_to_stake on a stale amount.
             if stake.auto_compound and current_rewards >= 100:
-                stake.amount += current_rewards
-                stake.accumulated_rewards = Decimal("0.0")
+                self.session.execute(
+                    update(AgentStake)
+                    .where(AgentStake.stake_id == stake_id, AgentStake.status == StakeStatus.ACTIVE)  # type: ignore[arg-type]
+                    .values(
+                        amount=AgentStake.amount + current_rewards,
+                        accumulated_rewards=Decimal("0.0"),
+                        last_reward_time=now,
+                    )
+                    .execution_options(synchronize_session=False)
+                )
+            else:
+                self.session.execute(
+                    update(AgentStake)
+                    .where(AgentStake.stake_id == stake_id, AgentStake.status == StakeStatus.ACTIVE)  # type: ignore[arg-type]
+                    .values(
+                        accumulated_rewards=AgentStake.accumulated_rewards + current_rewards,
+                        last_reward_time=now,
+                    )
+                    .execution_options(synchronize_session=False)
+                )
         except Exception as e:
             logger.error("Failed to calculate rewards: %s", e)
             raise
