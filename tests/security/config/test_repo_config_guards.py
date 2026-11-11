@@ -125,6 +125,51 @@ def test_gateway_unit_keeps_sandbox_directives(gateway_unit: str) -> None:
         assert directive in gateway_unit, f"{directive} missing from gateway unit"
 
 
+def test_gateway_unit_pins_loopback_bind_host(gateway_unit: str) -> None:
+    """``API_GATEWAY_BIND_HOST`` must stay ``127.0.0.1``: nginx proxies
+    localhost:8201 on every host, so a unit edit silently restoring
+    ``0.0.0.0`` re-opens the direct-exposure class #1731 documented. A
+    deployment whose TLS terminator lives on another host overrides via
+    host env, never via this file."""
+    assert re.search(r"Environment=\"?API_GATEWAY_BIND_HOST=127\.0\.0\.1\"?", gateway_unit), (
+        "API_GATEWAY_BIND_HOST is not pinned to 127.0.0.1 in aitbc-api-gateway.service"
+    )
+
+
+# ── systemd units: bind-host envs stay loopback (#1762) ────────────────
+
+_LOOPBACK = {"127.0.0.1", "localhost", "::1"}
+_BIND_HOST_NAME = re.compile(r"^(?:[A-Z0-9]+_)*BIND_HOST$|^(?:APP|EXCHANGE)_HOST$")
+# Deliberate exceptions: the customer-facing chain RPC binds all interfaces
+# by design (remote followers/customers reach it directly); the -island
+# variant stays loopback. Everything else internal is loopback-by-default.
+_BIND_HOST_ALLOWLIST = {
+    ("apps/blockchain-node/aitbc-blockchain-rpc.service", "RPC_BIND_HOST"),
+}
+
+
+def test_service_units_bind_loopback_by_default() -> None:
+    """Every ``*_BIND_HOST``/``BIND_HOST`` env (plus the ``APP_HOST`` /
+    ``EXCHANGE_HOST`` bind-policy vars) in a tracked unit must resolve to
+    loopback, and no unit may hardcode ``--host 0.0.0.0`` in ExecStart.
+    A silent ``0.0.0.0`` restores the exposure #1731 closed; widening a
+    bind is an ops decision made in host env files, not unit edits."""
+    offenders: list[str] = []
+    for path in _SERVICE_FILES:
+        rel = path.relative_to(REPO_ROOT).as_posix()
+        text = path.read_text(errors="replace")
+        if "--host 0.0.0.0" in text:
+            offenders.append(f"{rel}: ExecStart hardcodes --host 0.0.0.0")
+        for name, value in _env_assignments(path):
+            if not _BIND_HOST_NAME.match(name):
+                continue
+            if (rel, name) in _BIND_HOST_ALLOWLIST:
+                continue
+            if value not in _LOOPBACK:
+                offenders.append(f"{rel}: {name}={value} is not loopback")
+    assert not offenders, "service units bind non-loopback addresses:\n" + "\n".join(offenders)
+
+
 # ── env examples must not carry live-looking secrets ───────────────────
 
 _SECRET_VALUE = re.compile(
