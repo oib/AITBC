@@ -54,5 +54,12 @@ class GossipBackend:
         """Subscribe to topic - must be overridden by concrete implementation"""
         raise NotImplementedError("GossipBackend.subscribe() must be overridden by concrete backend")
 
+    async def health(self) -> dict[str, Any]:
+        """#1711: transport readiness probe for the node-engine heartbeat.
+
+        Returns ``{"ok": bool, ...details}``. The default is optimistic —
+        backends without a probeable transport (memory) report ok."""
+        return {"ok": True}
+
     async def shutdown(self) -> None:
         return None
