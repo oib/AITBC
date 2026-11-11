@@ -2548,6 +2548,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "GPU {request.gpu_id} is not available for relisting (status={refreshed.status})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
