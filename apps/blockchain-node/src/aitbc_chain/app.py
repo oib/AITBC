@@ -158,6 +158,57 @@ def _quarantine_exempt(path: str) -> bool:
     return any(path == p or path.startswith(p + "/") for p in _QUARANTINE_EXEMPT_PREFIXES)
 
 
+def _not_ready_response(failed: list[str]) -> JSONResponse:
+    """503 body for /ready; names quarantined chains so a probe can tell
+    "chain db quarantined" from a generic dependency failure (#1710)."""
+    content: dict[str, Any] = {
+        "status": "not_ready",
+        "service": "blockchain-node",
+        "error": "readiness check failed",
+        "failed": failed,
+    }
+    quarantined = _quarantined_chain_ids()
+    if quarantined:
+        content["quarantined_chains"] = quarantined
+    return JSONResponse(status_code=503, content=content)
+
+
+def _chain_quarantine_refusal(
+    method: str, path: str, path_with_qs: str, client_host: str, user_agent: str
+) -> JSONResponse | None:
+    """#1710: structured 503 while any served chain.db is quarantined.
+
+    Reads can keep returning stale 200s (disk-full writes fail while SELECTs
+    still work) and writes fail anyway — refuse chain-state endpoints rather
+    than answer bare 500s or silent stale data. Liveness/readiness/metrics
+    stay reachable so monitors observe the state.
+    """
+    if _quarantine_exempt(path):
+        return None
+    quarantined = _quarantined_chain_ids()
+    if not quarantined:
+        return None
+    metrics_registry.increment("rpc_requests_total")
+    metrics_registry.increment("rpc_client_errors_total")
+    _app_logger.warning(
+        "Refusing %s %s from %s (UA: %s): chain db quarantined: %s",
+        method,
+        path_with_qs,
+        client_host,
+        user_agent,
+        ",".join(quarantined),
+    )
+    return JSONResponse(
+        status_code=503,
+        content={
+            "status": "quarantined",
+            "reason": "chain_db_quarantined",
+            "chain_id": quarantined[0],
+            "detail": "chain database is quarantined; requests resume when the store recovers",
+        },
+    )
+
+
 class RequestLoggingMiddleware:
     """Log all requests with timing and error details.
 
@@ -208,35 +259,12 @@ class RequestLoggingMiddleware:
             response = JSONResponse(status_code=400, content={"detail": f"Unsupported chain_id: {chain_id_param}"})
             await response(scope, receive, send)
             return
-        # #1710: while any served chain.db is quarantined, chain-state
-        # endpoints must not answer — reads can keep returning stale 200s
-        # (disk-full writes fail while SELECTs still work) and writes fail
-        # anyway. Answer a structured 503; liveness/readiness/metrics stay
-        # reachable so monitors observe the state instead of a bare 500.
-        if not _quarantine_exempt(path):
-            quarantined = _quarantined_chain_ids()
-            if quarantined:
-                metrics_registry.increment("rpc_requests_total")
-                metrics_registry.increment("rpc_client_errors_total")
-                _app_logger.warning(
-                    "Refusing %s %s from %s (UA: %s): chain db quarantined: %s",
-                    method,
-                    path_with_qs,
-                    client_host,
-                    user_agent,
-                    ",".join(quarantined),
-                )
-                response = JSONResponse(
-                    status_code=503,
-                    content={
-                        "status": "quarantined",
-                        "reason": "chain_db_quarantined",
-                        "chain_id": quarantined[0],
-                        "detail": "chain database is quarantined; requests resume when the store recovers",
-                    },
-                )
-                await response(scope, receive, send)
-                return
+        # #1710: quarantine gate — structured 503 on chain-state endpoints
+        # while any served chain.db is quarantined.
+        refusal = _chain_quarantine_refusal(method, path, path_with_qs, client_host, user_agent)
+        if refusal is not None:
+            await refusal(scope, receive, send)
+            return
         status_code = 500
         response_started = False
 
@@ -775,18 +803,7 @@ def create_app() -> FastAPI:
             checks["block_production"] = _check_can_sign
         failed = await asyncio.to_thread(run_readiness_checks, checks)
         if failed:
-            # #1710: name the quarantined chains so a probe can distinguish
-            # "chain db quarantined" from a generic dependency failure.
-            quarantined = _quarantined_chain_ids()
-            content: dict[str, Any] = {
-                "status": "not_ready",
-                "service": "blockchain-node",
-                "error": "readiness check failed",
-                "failed": failed,
-            }
-            if quarantined:
-                content["quarantined_chains"] = quarantined
-            return JSONResponse(status_code=503, content=content)
+            return _not_ready_response(failed)
         return JSONResponse(
             status_code=200,
             content={"status": "ready", "service": "blockchain-node", "checks": sorted(checks)},
