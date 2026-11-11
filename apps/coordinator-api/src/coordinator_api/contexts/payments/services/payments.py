@@ -29,6 +29,7 @@ from aitbc.market.energy_pricing import (
     SettlementRoute,
     evaluate_quote,
 )
+from aitbc.market.evm_rental_receipt import agreement_id_from_receipt_logs
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import ait_to_units, units_to_ait
 from aitbc.utils.validation import validate_address
@@ -316,6 +317,52 @@ def _zk_required_for_payment(payment_amount: Decimal | None, job: Job | None) ->
         return True
     amount = payment_amount or Decimal("0")
     return _ZK_THRESHOLD_AIT == 0 or amount >= _ZK_THRESHOLD_AIT
+
+
+def _fail_evm_payment(payment: JobPayment, detail: str) -> None:
+    payment.status = "failed"
+    raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=detail)
+
+
+def _validate_evm_receipt_target(
+    payment: JobPayment,
+    quote: EnergyQuote,
+    receipt: dict[str, Any],
+) -> str:
+    """Check receipt.to and chainId; return lowercased expected contract address."""
+    to_addr = (receipt.get("to") or "").lower()
+    expected_contract = (quote.evm_contract or "").lower()
+    if expected_contract and to_addr != expected_contract:
+        _fail_evm_payment(payment, f"EVM tx sent to {to_addr}, expected {expected_contract}")
+    chain_id = int(receipt.get("chainId", 0))
+    if quote.evm_chain_id and chain_id != quote.evm_chain_id:
+        _fail_evm_payment(
+            payment,
+            f"EVM tx chain {chain_id} does not match quote chain {quote.evm_chain_id}",
+        )
+    return expected_contract
+
+
+def _bind_evm_agreement_or_fail(
+    payment: JobPayment,
+    payment_data: JobPaymentCreate,
+    quote: EnergyQuote,
+    receipt: dict[str, Any],
+    expected_contract: str,
+) -> None:
+    claimed_agreement = payment_data.evm_agreement_id
+    if claimed_agreement is None:
+        _fail_evm_payment(payment, "EVM protected payment requires evm_agreement_id to bind the receipt")
+    contract = expected_contract or (quote.evm_contract or "")
+    log_entries = receipt.get("log_entries") or []
+    observed_agreement = agreement_id_from_receipt_logs(log_entries, contract)
+    if observed_agreement is None:
+        _fail_evm_payment(payment, "EVM receipt has no AgreementStarted log for the rental contract")
+    if observed_agreement != claimed_agreement:
+        _fail_evm_payment(
+            payment,
+            (f"EVM receipt agreementId {observed_agreement} does not match claimed evm_agreement_id {claimed_agreement}"),
+        )
 
 
 class PaymentService:
@@ -672,28 +719,12 @@ class PaymentService:
                 logger.info("EVM tx %s not yet mined; payment %s pending", payment_data.evm_tx_hash, payment.id)
                 return
             if int(receipt.get("status", 0)) != 1:
-                payment.status = "failed"
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"EVM transaction {payment_data.evm_tx_hash} failed on-chain",
+                _fail_evm_payment(
+                    payment,
+                    f"EVM transaction {payment_data.evm_tx_hash} failed on-chain",
                 )
-            # Verify the transaction was sent to the expected rental contract.
-            to_addr = (receipt.get("to") or "").lower()
-            expected_contract = (quote.evm_contract or "").lower()
-            if expected_contract and to_addr != expected_contract:
-                payment.status = "failed"
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"EVM tx sent to {to_addr}, expected {expected_contract}",
-                )
-            # Verify the transaction's chain matches the quote's chain.
-            chain_id = int(receipt.get("chainId", 0))
-            if quote.evm_chain_id and chain_id != quote.evm_chain_id:
-                payment.status = "failed"
-                raise HTTPException(
-                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                    detail=f"EVM tx chain {chain_id} does not match quote chain {quote.evm_chain_id}",
-                )
+            expected_contract = _validate_evm_receipt_target(payment, quote, receipt)
+            _bind_evm_agreement_or_fail(payment, payment_data, quote, receipt, expected_contract)
             payment.status = "confirmed"
             logger.info("EVM protected payment %s confirmed for job %s", payment.id, payment.job_id)
         except HTTPException:
