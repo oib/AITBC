@@ -713,6 +713,17 @@ def _resolve_target(path: str) -> tuple[str, str] | JSONResponse:
 # / X-Forwarded-Proto when building URLs and scheme decisions, so a verbatim
 # client value steers those responses. X-Forwarded-For / X-Real-IP are handled
 # separately — overwritten from the observed peer, never forwarded.
+#
+# #1753: X-Forwarded-Prefix joined the set — coordinator-api's media upload
+# embeds it verbatim into the returned download_url, so a forged value made
+# the service emit attacker-controlled URL prefixes. The edge nginx sets
+# X-Forwarded-Prefix only on the /c/* locations that proxy DIRECTLY to
+# coordinator-api (legacy failover, bypassing this gateway); nothing in the
+# /api/ -> gateway path legitimately supplies it, and the gateway does no
+# path-prefix routing of its own, so there is no trusted value to preserve.
+# The remaining entries (path/uri/script-name/ssl/protocol) are the standard
+# companions no upstream reads today but none should ever cross the edge
+# either.
 _UNTRUSTED_FORWARDING_HEADERS = frozenset(
     {
         "forwarded",
@@ -722,6 +733,12 @@ _UNTRUSTED_FORWARDING_HEADERS = frozenset(
         "x-forwarded-port",
         "x-forwarded-server",
         "x-forwarded-scheme",
+        "x-forwarded-prefix",
+        "x-forwarded-path",
+        "x-forwarded-uri",
+        "x-forwarded-ssl",
+        "x-forwarded-protocol",
+        "x-script-name",
         "x-original-url",
         "x-original-host",
         "x-original-proto",

@@ -216,3 +216,38 @@ def test_proxy_route_strips_client_forwarding_metadata(served):
     # the stamped identity headers still go out
     assert lowered["x-real-ip"] == "203.0.113.9"
     assert lowered["x-forwarded-for"] == "203.0.113.9"
+
+
+# --- #1753: X-Forwarded-Prefix (and the rest of the X-Forwarded-* family) ---
+
+
+def test_strip_set_covers_every_x_forwarded_variant():
+    """The untrusted set must include the whole X-Forwarded-* family the
+    codebase can consume downstream — coordinator-api's media.py reads
+    ``x-forwarded-prefix`` verbatim into download_url (#1753)."""
+    for name in (
+        "x-forwarded-prefix",
+        "x-forwarded-path",
+        "x-forwarded-uri",
+        "x-forwarded-ssl",
+        "x-forwarded-protocol",
+        "x-script-name",
+    ):
+        assert name in gw._UNTRUSTED_FORWARDING_HEADERS, name
+
+
+def test_proxy_route_strips_forged_x_forwarded_prefix(served):
+    """Regression for the sandbox replay: ``X-Forwarded-Prefix: EVILPFX``
+    through the gateway made coordinator-api emit
+    ``…/EVILPFX/v1/media/download/<token>``. It must never cross the edge —
+    the only legitimate setter is the edge nginx on the direct /c/*
+    coordinator locations, which bypass this gateway entirely."""
+    client, capture = served
+    # /v1/coordinator/* rewrites to coordinator-api's /v1/* — the media
+    # upload route lives at upstream /v1/media/upload.
+    response = client.post(
+        "/v1/coordinator/media/upload",
+        headers={"X-Forwarded-Prefix": "EVILPFX"},
+    )
+    assert response.status_code == 200
+    assert "x-forwarded-prefix" not in {k.lower() for k in capture.headers}
