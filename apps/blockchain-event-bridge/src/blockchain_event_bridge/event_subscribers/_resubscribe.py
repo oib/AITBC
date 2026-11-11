@@ -23,7 +23,7 @@ def close_subscription(subscription: Any) -> None:
         return
     try:
         subscription.close()
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 — subscription close containment
         logger.debug("Ignoring error while closing gossip subscription: %s", exc)
 
 
