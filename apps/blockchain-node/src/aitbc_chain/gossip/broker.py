@@ -181,6 +181,10 @@ class GossipBroker:
         """Return whether the broker has been started."""
         return self._started
 
+    async def health(self) -> dict[str, Any]:
+        """#1711: delegate the readiness probe to the active backend."""
+        return await self._backend.health()
+
     async def shutdown(self) -> None:
         if self._priority_task is not None:
             self._priority_task.cancel()

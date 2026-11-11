@@ -209,6 +209,17 @@ class BroadcastGossipBackend(GossipBackend):
 
         return TopicSubscription(topic=topic, queue=queue, _unsubscribe=_unsubscribe)
 
+    async def health(self) -> dict[str, Any]:
+        """#1711: ping the local redis bus — the readiness heartbeat treats
+        an unreachable bus as not-ready (attest/import starves)."""
+        if not self._running or self._redis is None:
+            return {"ok": False, "detail": "backend not running"}
+        try:
+            await asyncio.wait_for(self._redis.ping(), timeout=2.0)
+        except Exception as exc:  # noqa: BLE001 - health probe must not raise
+            return {"ok": False, "detail": f"redis ping failed: {exc}"}
+        return {"ok": True}
+
     async def shutdown(self) -> None:
         from aitbc.aitbc_logging import get_logger
 
