@@ -32,7 +32,7 @@ EnvironmentFile=/etc/aitbc/node.env
 # restart-before-migrate left the API 500ing on a missing column).
 # PYTHONPATH mirrors run-migrations.sh: repo root, service src, every
 # packages/py/*/src; DATABASE_URL arrives via the EnvironmentFile lines above.
-ExecStartPre=/bin/sh -c 'cd /opt/aitbc/apps/coordinator-api && PYTHONPATH="/opt/aitbc:/opt/aitbc/apps/coordinator-api/src:$(find /opt/aitbc/packages/py -maxdepth 2 -type d -name src 2>/dev/null | tr "\n" ":")" exec /opt/aitbc/venv/bin/alembic upgrade head'
+ExecStartPre=/bin/sh -c 'cd /opt/aitbc/apps/coordinator-api && PP="/opt/aitbc:/opt/aitbc/apps/coordinator-api/src"; for d in /opt/aitbc/packages/py/*/src; do [ -d "$d" ] && PP="$PP:$d"; done; PYTHONPATH="$PP" exec /opt/aitbc/venv/bin/alembic upgrade head'
 RuntimeDirectory=aitbc
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn coordinator_api.main:app --host 127.0.0.1 --port 8203 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --log-level critical --no-access-log
 KillMode=mixed
