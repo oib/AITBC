@@ -552,9 +552,13 @@ log "Backup complete: ${BACKUP_DIR} (total: ${TOTAL})"
 # Ensure backup artifacts are not world-readable. Files stay 600 root:root
 # (#897: key archives must never be group-readable); directories get
 # group traverse+read so the User=aitbc backup-metrics exporter can stat
-# generation contents — it never reads file bytes (#1821). chgrp is
-# best-effort: a host without an aitbc group keeps root-only dirs.
+# generation contents (#1821). The exporter also runs `gzip -t` on the
+# chain DB dumps for its good-generation check, so those alone get
+# group-read — chain state, not key material. chgrp is best-effort: a
+# host without an aitbc group keeps root-only access.
 find "${BACKUP_DIR}" -type f -exec chmod 600 {} + 2>/dev/null || true
+find "${BACKUP_DIR}" -maxdepth 1 -type f -name 'chain_*_chain.db.gz' -exec chmod 640 {} + 2>/dev/null || true
+find "${BACKUP_DIR}" -maxdepth 1 -type f -name 'chain_*_chain.db.gz' -exec chgrp aitbc {} + 2>/dev/null || true
 find "${BACKUP_DIR}" -type d -exec chmod 750 {} + 2>/dev/null || true
 find "${BACKUP_DIR}" -type d -exec chgrp aitbc {} + 2>/dev/null || true
 
