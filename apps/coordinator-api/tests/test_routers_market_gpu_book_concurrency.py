@@ -114,10 +114,8 @@ def test_book_gpu_issues_for_update_exec_during_book(
     lock_sql: list[str] = []
 
     def tracing_exec(self, statement, *args, **kwargs):
-        try:
+        if hasattr(statement, "compile"):
             lock_sql.append(str(statement.compile(dialect=postgresql.dialect())))
-        except Exception:
-            pass
         return original_exec(self, statement, *args, **kwargs)
 
     monkeypatch.setattr(Session, "exec", tracing_exec)
