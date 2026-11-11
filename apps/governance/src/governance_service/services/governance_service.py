@@ -796,8 +796,11 @@ class GovernanceService:
             # v0.7.4: Emergency proposal quorum enforcement on transition to succeeded
             if status == "succeeded" and proposal.proposal_type == "emergency":
                 total_votes = proposal.yes_votes + proposal.no_votes + proposal.votes_abstain
+                # #1647: same formula as close_proposal — abstentions count toward
+                # quorum but not the approval denominator (yes / (yes + no)).
+                decisive_votes = proposal.yes_votes + proposal.no_votes
                 if total_votes > 0:
-                    approval_rate = proposal.yes_votes / total_votes
+                    approval_rate = (proposal.yes_votes / decisive_votes) if decisive_votes > 0 else Decimal("0")
                     if approval_rate < settings.emergency_approval_percent / 100.0:
                         raise ValueError(
                             f"Emergency proposal approval {approval_rate:.1%} below "
