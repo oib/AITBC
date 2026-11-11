@@ -89,3 +89,81 @@ def test_run_semaphore_limits_concurrency():
 
     assert hasattr(hermes, "_run_semaphore"), "no semaphore on /run — unbounded parallel runs"
     assert asyncio.Semaphore.__instancecheck__(hermes._run_semaphore)
+
+
+# --- HERMES-IPFS-DEPTH2-1 (#1633): empty allowlist means "default only" ---
+
+
+def _base_env(monkeypatch):
+    monkeypatch.setattr(hermes, "_HERMES_PATH", "/bin/hermes")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_MODEL", "shop/default-model")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_PROVIDER", "shopprov")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_TOOLSETS", "core")
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_MODELS", [])
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_PROVIDERS", [])
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_TOOLSETS", [])
+
+
+def test_empty_allowlist_rejects_nondefault_model(monkeypatch):
+    """Empty HERMES_ALLOWED_MODELS + default set: buyer model != default -> 400."""
+    import pytest
+    from fastapi import HTTPException
+
+    _base_env(monkeypatch)
+    with pytest.raises(HTTPException) as exc:
+        hermes._build_command(_req(model="buyer/chosen"), "/tmp/u")
+    assert exc.value.status_code == 400
+
+
+def test_empty_allowlist_accepts_default_model(monkeypatch):
+    _base_env(monkeypatch)
+    cmd = hermes._build_command(_req(model="shop/default-model"), "/tmp/u")
+    assert "--model" in cmd
+
+
+def test_empty_allowlist_rejects_nondefault_provider(monkeypatch):
+    import pytest
+    from fastapi import HTTPException
+
+    _base_env(monkeypatch)
+    with pytest.raises(HTTPException) as exc:
+        hermes._build_command(_req(provider="evilprov"), "/tmp/u")
+    assert exc.value.status_code == 400
+
+
+def test_empty_allowlist_toolsets_bounded_by_default(monkeypatch):
+    """Buyer toolsets must be a subset of the default set when no allowlist."""
+    import pytest
+    from fastapi import HTTPException
+
+    _base_env(monkeypatch)
+    with pytest.raises(HTTPException) as exc:
+        hermes._build_command(_req(toolsets="core,shell"), "/tmp/u")
+    assert exc.value.status_code == 400
+    cmd = hermes._build_command(_req(toolsets="core"), "/tmp/u")
+    assert _toolsets_arg(cmd) == "core"
+
+
+def test_no_allowlist_no_default_rejects_buyer_toolsets(monkeypatch):
+    """Nothing configured at all: buyer-chosen toolsets are refused outright."""
+    import pytest
+    from fastapi import HTTPException
+
+    _base_env(monkeypatch)
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_TOOLSETS", "")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_MODEL", "")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_PROVIDER", "")
+    with pytest.raises(HTTPException) as exc:
+        hermes._build_command(_req(toolsets="shell"), "/tmp/u")
+    assert exc.value.status_code == 400
+
+
+def test_nonempty_allowlist_unrequested_emits_bounded_toolsets(monkeypatch):
+    """Allowlist set but nothing resolved: never fall through to full profile."""
+    _base_env(monkeypatch)
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_TOOLSETS", "")
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_TOOLSETS", ["alpha", "beta"])
+    cmd = hermes._build_command(_req(), "/tmp/u")
+    arg = _toolsets_arg(cmd)
+    assert arg is not None, "no --toolsets — hermes would use its full profile"
+    assert set(arg.split(",")) <= {"alpha", "beta"}

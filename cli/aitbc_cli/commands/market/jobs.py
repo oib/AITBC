@@ -857,6 +857,16 @@ def _run_hermes(
         raise click.Abort()
 
     duration_minutes = Decimal(str(resp_data.get("duration_minutes", elapsed / 60)))
+    # HERMES-IPFS-DEPTH2-1 (#1633): duration_minutes is shop-reported over a
+    # plain-HTTP endpoint — clamp billing input to [0, max_time] so a malicious
+    # or MITM'd provider cannot inflate the charge past the locked escrow.
+    max_duration_minutes = Decimal(str(max_time)) / Decimal("60")
+    if duration_minutes < 0 or duration_minutes > max_duration_minutes:
+        warning(
+            f"Provider reported implausible duration {duration_minutes} min "
+            f"(max {max_duration_minutes} min) — clamping for billing"
+        )
+        duration_minutes = min(max(duration_minutes, Decimal("0")), max_duration_minutes)
     elapsed_seconds = resp_data.get("elapsed_seconds", elapsed)
     result_text = resp_data.get("text", "")
     result_hash = resp_data.get("result_hash", "")
