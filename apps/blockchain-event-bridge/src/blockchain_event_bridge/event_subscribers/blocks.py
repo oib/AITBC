@@ -73,7 +73,7 @@ class BlockEventSubscriber:
                 Awaitable[Any],
                 self._broker.subscribe(self._topic, max_queue_size=100),
             )
-            gossip_subscribers_total.set(1)  # noqa: unawaited-async — prometheus_client Gauge
+            gossip_subscribers_total.set(1)  # noqa: unawaited-async
             logger.info("Successfully subscribed to %s topic", self._topic)
             return True
         except ImportError as e:
