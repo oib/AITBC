@@ -14,7 +14,7 @@ from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, or_
+from sqlalchemy import func, or_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
@@ -53,6 +53,9 @@ def _env_int(name: str, default: int) -> int:
 
 def _default_session_factory() -> AbstractAsyncContextManager[AsyncSession]:
     return get_session_context()
+
+
+_ESCROW_HELD_PAYMENT = frozenset({"escrowed", "refund_pending"})
 
 
 class MarketJobSweeper:
@@ -229,6 +232,46 @@ class MarketJobSweeper:
         )
         return counts
 
+    @staticmethod
+    async def _cas_payment_status(
+        session: AsyncSession,
+        payment_id: str,
+        from_statuses: frozenset[str] | str,
+        values: dict[str, Any],
+    ) -> bool:
+        """Conditional payment-status write — the predicate in WHERE is the CAS."""
+        if isinstance(from_statuses, str):
+            status_pred = col(MarketJobPayment.status) == from_statuses
+        else:
+            status_pred = col(MarketJobPayment.status).in_(from_statuses)
+        claim = await session.execute(
+            update(MarketJobPayment)
+            .where(col(MarketJobPayment.id) == payment_id, status_pred)
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        )
+        return getattr(claim, "rowcount", 0) == 1
+
+    @staticmethod
+    async def _cas_job_state(
+        session: AsyncSession,
+        job_id: str,
+        from_states: frozenset[str] | str,
+        values: dict[str, Any],
+    ) -> bool:
+        """Conditional job-state write — the predicate in WHERE is the CAS."""
+        if isinstance(from_states, str):
+            state_pred = col(MarketJob.state) == from_states
+        else:
+            state_pred = col(MarketJob.state).in_(from_states)
+        claim = await session.execute(
+            update(MarketJob)
+            .where(col(MarketJob.id) == job_id, state_pred)
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        )
+        return getattr(claim, "rowcount", 0) == 1
+
     async def _expire_stale_jobs(self, session: AsyncSession, now_naive: datetime) -> None:
         """Expire QUEUED/RUNNING jobs past expires_at -> EXPIRED (#1554).
 
@@ -247,16 +290,30 @@ class MarketJobSweeper:
         )
         expire_result = await session.execute(expire_stmt)
         for job in expire_result.scalars().all():
-            job.state = "EXPIRED"
-            job.updated_at = now_naive
-            if job.payment_id:
-                pay = await session.get(MarketJobPayment, job.payment_id)
-                if pay is not None and pay.status == "escrowed":
-                    pay.status = "refund_pending"
-                    pay.updated_at = now_naive
-                    session.add(pay)
-                    job.payment_status = "refund_pending"
-            session.add(job)
+            async with session.begin_nested():
+                pay_flipped = False
+                if job.payment_id:
+                    pay = await session.get(MarketJobPayment, job.payment_id)
+                    if pay is not None and pay.status == "escrowed":
+                        pay_flipped = await self._cas_payment_status(
+                            session,
+                            pay.id,
+                            "escrowed",
+                            {"status": "refund_pending", "updated_at": now_naive},
+                        )
+                job_ok = await self._cas_job_state(
+                    session,
+                    job.id,
+                    frozenset({"QUEUED", "RUNNING"}),
+                    {
+                        "state": "EXPIRED",
+                        "updated_at": now_naive,
+                        "payment_status": "refund_pending" if pay_flipped else job.payment_status,
+                    },
+                )
+                if not job_ok:
+                    session.expunge(job)
+                    continue
             logger.info("Market job %s expired (expires_at=%s)", job.id, job.expires_at)
 
     async def _expire_stale_reservations(self, session: AsyncSession, now_naive: datetime) -> None:
@@ -351,19 +408,43 @@ class MarketJobSweeper:
             return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", escrow_key, "released")
         if result and result.get("success"):
             tx_hash = str(result.get("tx_hash", ""))
-            job.state = "RELEASED"
-            job.payment_status = "released"
-            job.tx_hash = tx_hash
-            job.updated_at = datetime.now(UTC)
-
-            payment.status = "released"
-            payment.transaction_hash = tx_hash
-            payment.released_at = datetime.now(UTC)
-            payment.updated_at = datetime.now(UTC)
-            self._clear_deferral(payment)
-
-            session.add(job)
-            session.add(payment)
+            now = datetime.now(UTC)
+            meta = dict(payment.meta_data or {})
+            meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)
+            async with session.begin_nested():
+                payment_ok = await self._cas_payment_status(
+                    session,
+                    payment.id,
+                    "escrowed",
+                    {
+                        "status": "released",
+                        "transaction_hash": tx_hash,
+                        "released_at": now,
+                        "updated_at": now,
+                        "meta_data": meta,
+                    },
+                )
+                if not payment_ok:
+                    logger.info(
+                        "Payment %s no longer escrowed before release terminal write for job %s",
+                        payment.id,
+                        job.id,
+                    )
+                    return False
+                job_ok = await self._cas_job_state(
+                    session,
+                    job.id,
+                    "COMPLETED",
+                    {
+                        "state": "RELEASED",
+                        "payment_status": "released",
+                        "tx_hash": tx_hash,
+                        "updated_at": now,
+                    },
+                )
+                if not job_ok:
+                    logger.info("Job %s left COMPLETED before release terminal write", job.id)
+                    return False
             return True
 
         # Falsy answers are 'not yet': a 404 means 'no escrow row on the node
@@ -392,20 +473,44 @@ class MarketJobSweeper:
             return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", escrow_key, "refunded")
         if result and result.get("success"):
             tx_hash = str(result.get("tx_hash", ""))
-            job.state = "REFUNDED"
-            job.payment_status = "refunded"
-            job.refund_tx_hash = tx_hash
-            job.error = job.error or "refunded by sweeper"
-            job.updated_at = datetime.now(UTC)
-
-            payment.status = "refunded"
-            payment.refund_transaction_hash = tx_hash
-            payment.refunded_at = datetime.now(UTC)
-            payment.updated_at = datetime.now(UTC)
-            self._clear_deferral(payment)
-
-            session.add(job)
-            session.add(payment)
+            now = datetime.now(UTC)
+            meta = dict(payment.meta_data or {})
+            meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)
+            async with session.begin_nested():
+                payment_ok = await self._cas_payment_status(
+                    session,
+                    payment.id,
+                    _ESCROW_HELD_PAYMENT,
+                    {
+                        "status": "refunded",
+                        "refund_transaction_hash": tx_hash,
+                        "refunded_at": now,
+                        "updated_at": now,
+                        "meta_data": meta,
+                    },
+                )
+                if not payment_ok:
+                    logger.info(
+                        "Payment %s no longer held before refund terminal write for job %s",
+                        payment.id,
+                        job.id,
+                    )
+                    return False
+                job_ok = await self._cas_job_state(
+                    session,
+                    job.id,
+                    frozenset({"FAILED", "CANCELED", "EXPIRED"}),
+                    {
+                        "state": "REFUNDED",
+                        "payment_status": "refunded",
+                        "refund_tx_hash": tx_hash,
+                        "error": job.error or "refunded by sweeper",
+                        "updated_at": now,
+                    },
+                )
+                if not job_ok:
+                    logger.info("Job %s left refundable states before refund terminal write", job.id)
+                    return False
             return True
 
         outcome = (
@@ -486,14 +591,29 @@ class MarketJobSweeper:
             read_error = e
         if read_error is None and escrow is None:
             meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)
-            payment.meta_data = meta
-            payment.status = "settlement_failed"
-            payment.updated_at = now
-            job.payment_status = "settlement_failed"
-            job.error = f"settlement deferred {elapsed:.0f}s past bound ({outcome}); escrow confirmed absent"
-            job.updated_at = now
-            session.add(job)
-            session.add(payment)
+            async with session.begin_nested():
+                if not await self._cas_payment_status(
+                    session,
+                    payment.id,
+                    _ESCROW_HELD_PAYMENT,
+                    {"status": "settlement_failed", "updated_at": now, "meta_data": meta},
+                ):
+                    logger.info(
+                        "Payment %s no longer held before settlement_failed write for job %s",
+                        payment.id,
+                        job.id,
+                    )
+                    return False
+                await self._cas_job_state(
+                    session,
+                    job.id,
+                    frozenset({"QUEUED", "RUNNING", "COMPLETED", "FAILED", "CANCELED", "EXPIRED"}),
+                    {
+                        "payment_status": "settlement_failed",
+                        "error": f"settlement deferred {elapsed:.0f}s past bound ({outcome}); escrow confirmed absent",
+                        "updated_at": now,
+                    },
+                )
             logger.error(
                 "Escrow settlement for job %s payment %s deferred %.0fs past the %ss bound "
                 "and the escrow is confirmed absent -- marking settlement_failed",
@@ -557,7 +677,12 @@ class MarketJobSweeper:
                     intended,
                     state,
                 )
-            self._adopt_escrow_verdict(session, job, payment, meta, escrow, now)
+            if not await self._adopt_escrow_verdict(session, job, payment, meta, escrow, now):
+                logger.info(
+                    "Concurrent writer won before adopting escrow verdict for job %s",
+                    job.id,
+                )
+                return False
             logger.info(
                 "Escrow settlement for job %s payment %s deferred %.0fs past bound; "
                 "escrow read reports %s -- adopting the verdict",
@@ -580,7 +705,7 @@ class MarketJobSweeper:
         )
         return False
 
-    def _adopt_escrow_verdict(
+    async def _adopt_escrow_verdict(
         self,
         session: AsyncSession,
         job: MarketJob,
@@ -588,25 +713,66 @@ class MarketJobSweeper:
         meta: dict[str, Any],
         escrow: dict[str, Any],
         now: datetime,
-    ) -> None:
+    ) -> bool:
         """Write the escrow row's own verdict onto job and payment."""
         meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)
-        payment.meta_data = meta
-        if escrow["state"] == "released":
-            job.state = "RELEASED"
-            job.payment_status = "released"
-            job.tx_hash = job.tx_hash or escrow.get("release_tx_hash")
-            payment.status = "released"
-            payment.transaction_hash = payment.transaction_hash or escrow.get("release_tx_hash")
-            payment.released_at = payment.released_at or now
-        else:
-            job.state = "REFUNDED"
-            job.payment_status = "refunded"
-            job.refund_tx_hash = job.refund_tx_hash or escrow.get("refund_tx_hash")
-            payment.status = "refunded"
-            payment.refund_transaction_hash = payment.refund_transaction_hash or escrow.get("refund_tx_hash")
-            payment.refunded_at = payment.refunded_at or now
-        job.updated_at = now
-        payment.updated_at = now
-        session.add(job)
-        session.add(payment)
+        async with session.begin_nested():
+            if escrow["state"] == "released":
+                tx_hash = escrow.get("release_tx_hash")
+                payment_ok = await self._cas_payment_status(
+                    session,
+                    payment.id,
+                    _ESCROW_HELD_PAYMENT,
+                    {
+                        "status": "released",
+                        "transaction_hash": payment.transaction_hash or tx_hash,
+                        "released_at": payment.released_at or now,
+                        "updated_at": now,
+                        "meta_data": meta,
+                    },
+                )
+                if not payment_ok:
+                    return False
+                job_ok = await self._cas_job_state(
+                    session,
+                    job.id,
+                    frozenset({"COMPLETED", "FAILED", "CANCELED", "EXPIRED"}),
+                    {
+                        "state": "RELEASED",
+                        "payment_status": "released",
+                        "tx_hash": job.tx_hash or tx_hash,
+                        "updated_at": now,
+                    },
+                )
+                if not job_ok:
+                    return False
+            else:
+                tx_hash = escrow.get("refund_tx_hash")
+                payment_ok = await self._cas_payment_status(
+                    session,
+                    payment.id,
+                    _ESCROW_HELD_PAYMENT,
+                    {
+                        "status": "refunded",
+                        "refund_transaction_hash": payment.refund_transaction_hash or tx_hash,
+                        "refunded_at": payment.refunded_at or now,
+                        "updated_at": now,
+                        "meta_data": meta,
+                    },
+                )
+                if not payment_ok:
+                    return False
+                job_ok = await self._cas_job_state(
+                    session,
+                    job.id,
+                    frozenset({"FAILED", "CANCELED", "EXPIRED", "COMPLETED"}),
+                    {
+                        "state": "REFUNDED",
+                        "payment_status": "refunded",
+                        "refund_tx_hash": job.refund_tx_hash or tx_hash,
+                        "updated_at": now,
+                    },
+                )
+                if not job_ok:
+                    return False
+        return True
