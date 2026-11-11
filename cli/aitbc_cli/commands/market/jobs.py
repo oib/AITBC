@@ -7,7 +7,7 @@ import json
 import os
 import urllib.request
 from datetime import datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
 import click
@@ -52,6 +52,26 @@ def _refund_orphaned_escrow(ctx: click.Context, job_id: str, contract_id: str | 
             f"Escrow refund failed for job {job_id} — the escrow stays locked; "
             f"retry manually with `aitbc market escrow refund --job-id {job_id} --reason job_failed`"
         )
+
+
+def _provider_billing_decimal(ctx: click.Context, job_id: str, contract_id: str | None, value: Any, field: str) -> Decimal:
+    """Parse a shop-reported billing field; refund and abort on garbage.
+
+    ESCROW-LEAK-RESIDUAL-1 (#1775): post-success parse errors (non-numeric
+    token/duration fields, NaN/Infinity Decimals) used to propagate with the
+    escrow still locked and no release attempted. A malformed provider
+    response means the charge cannot be computed correctly — refund the lock
+    and abort instead of leaking it.
+    """
+    try:
+        result = Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError):
+        result = Decimal("NaN")
+    if not result.is_finite():
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        error(f"Provider returned malformed {field}: {value!r}")
+        raise click.Abort()
+    return result
 
 
 def _escrow_parties_for_market_run(
@@ -309,6 +329,15 @@ def _run_ollama(
     info(f"Offer: {service_type} — {model} at {price} AIT/{price_unit}")
     info(f"Provider: {provider_address}")
 
+    # Resolve and validate the Ollama endpoint BEFORE locking escrow —
+    # rejecting an unsafe scheme after _escrow_create would strand the lock.
+    # Customers always reach the public endpoint.
+    ollama_endpoint = offer.get("public_endpoint") or offer.get("endpoint") or "http://localhost:11434"
+    if not ollama_endpoint.startswith(("http://", "https://")):
+        error(f"Rejecting offer with unsafe endpoint scheme: {ollama_endpoint}")
+        raise click.Abort()
+    ollama_base = ollama_endpoint.rstrip("/")
+
     # Lock escrow upfront (estimated max cost)
     estimated_tokens = max_tokens
     estimated_cost = (Decimal(estimated_tokens) / 1000) * price
@@ -330,13 +359,6 @@ def _run_ollama(
         provider_agent_id=provider_agent_id,
     )
 
-    # Resolve the Ollama endpoint. Customers always reach the public endpoint.
-    ollama_endpoint = offer.get("public_endpoint") or offer.get("endpoint") or "http://localhost:11434"
-    if not ollama_endpoint.startswith(("http://", "https://")):
-        error(f"Rejecting offer with unsafe endpoint scheme: {ollama_endpoint}")
-        raise click.Abort()
-    ollama_base = ollama_endpoint.rstrip("/")
-
     # Run inference via Ollama
     payload = json.dumps({"model": model, "prompt": prompt, "stream": False, "options": {"num_predict": max_tokens}}).encode()
     req = urllib.request.Request(
@@ -351,14 +373,20 @@ def _run_ollama(
     try:
         with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
             resp_data = json.loads(resp.read())
-    except Exception:
+    except BaseException:
         _refund_orphaned_escrow(ctx, job_id, contract_id)
         raise
     elapsed = (datetime.now() - t_start).total_seconds()
 
+    if not isinstance(resp_data, dict):
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        error("Ollama returned a non-object JSON response")
+        raise click.Abort()
     response_text = resp_data.get("response", "")
+    if not isinstance(response_text, str):
+        response_text = str(response_text)
     tokens_used = resp_data.get("eval_count", len(response_text.split()) * 2)
-    actual_cost = (Decimal(tokens_used) / 1000) * price
+    actual_cost = (_provider_billing_decimal(ctx, job_id, contract_id, tokens_used, "eval_count") / 1000) * price
 
     info(f"Done in {elapsed:.2f}s — {tokens_used} tokens — actual cost: {actual_cost:.8f} AIT")
     click.echo(f"\n{response_text}\n")
@@ -443,6 +471,11 @@ def _run_whisper(
     info(f"Offer: whisper/{model} at {price} AIT/{price_unit} — provider {provider_address}")
     info(f"Whisper endpoint: {whisper_transcribe_url}")
 
+    # Read the input file BEFORE locking escrow — a missing/unreadable file
+    # must fail before funds are locked, not leak the escrow afterwards.
+    with open(audio_file, "rb") as af:
+        audio_bytes = af.read()
+
     # Get audio duration for upfront escrow estimate
     duration_seconds = 0.0
     try:
@@ -489,8 +522,6 @@ def _run_whisper(
     # Submit audio to Whisper service
     info("Sending audio to Whisper service...")
     t_start = datetime.now()
-    with open(audio_file, "rb") as af:
-        audio_bytes = af.read()
     filename = os.path.basename(audio_file)
     boundary = b"----WhisperBoundary"
     body = (
@@ -515,13 +546,19 @@ def _run_whisper(
     try:
         with _urllib.urlopen(req, timeout=300) as resp:  # nosec B310
             resp_data = json.loads(resp.read())
-    except Exception:
+    except BaseException:
         _refund_orphaned_escrow(ctx, job_id, contract_id)
         raise
 
     elapsed = (datetime.now() - t_start).total_seconds()
-    actual_duration_minutes = resp_data.get("duration_minutes", duration_minutes)
-    actual_cost = Decimal(str(actual_duration_minutes)) * price if price_unit == "per_audio_min" else price
+    if not isinstance(resp_data, dict):
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        error("Whisper service returned a non-object JSON response")
+        raise click.Abort()
+    actual_duration_minutes = _provider_billing_decimal(
+        ctx, job_id, contract_id, resp_data.get("duration_minutes", duration_minutes), "duration_minutes"
+    )
+    actual_cost = actual_duration_minutes * price if price_unit == "per_audio_min" else price
     result_hash = resp_data.get("result_hash", "")
 
     info(f"Done in {elapsed:.1f}s — {resp_data.get('duration_seconds', 0):.1f}s audio — actual cost: {actual_cost:.8f} AIT")
@@ -557,12 +594,15 @@ def _run_whisper(
     if fmt == "text":
         click.echo(f"\n{transcript}\n")
     elif fmt == "srt":
-        for i, seg in enumerate(resp_data.get("segments", []), 1):
+        try:
+            for i, seg in enumerate(resp_data.get("segments", []), 1):
 
-            def _ts(s):
-                return f"{int(s // 3600):02d}:{int((s % 3600) // 60):02d}:{s % 60:06.3f}".replace(".", ",")
+                def _ts(s):
+                    return f"{int(s // 3600):02d}:{int((s % 3600) // 60):02d}:{s % 60:06.3f}".replace(".", ",")
 
-            click.echo(f"{i}\n{_ts(seg['start'])} --> {_ts(seg['end'])}\n{seg['text']}\n")
+                click.echo(f"{i}\n{_ts(seg['start'])} --> {_ts(seg['end'])}\n{seg['text']}\n")
+        except (KeyError, TypeError, ValueError):
+            warning("Provider returned malformed SRT segments — skipping transcript formatting")
     elif fmt == "json":
         click.echo(json.dumps(resp_data, indent=2))
 
@@ -593,7 +633,7 @@ def _run_whisper(
             "offer_id": offer_id,
             "model": model,
             "language": resp_data.get("language"),
-            "duration_minutes": round(actual_duration_minutes, 4),
+            "duration_minutes": float(round(actual_duration_minutes, 4)),
             "actual_cost_ait": str(round(actual_cost, 6)),
             "elapsed_seconds": round(elapsed, 2),
             "contract_id": contract_id,
@@ -643,6 +683,11 @@ def _run_ffmpeg(
     ffmpeg_process_url = ffmpeg_base + "/process"
     info(f"FFmpeg endpoint: {ffmpeg_process_url}")
 
+    # Read the input file BEFORE locking escrow — a missing/unreadable file
+    # must fail before funds are locked, not leak the escrow afterwards.
+    with open(input_file, "rb") as af:
+        video_bytes = af.read()
+
     # Estimate cost (assume 6 min default if unknown)
     estimated_hours = Decimal("0.1")
     estimated_cost = estimated_hours * price if price_unit == "per_processing_hour" else price
@@ -668,8 +713,6 @@ def _run_ffmpeg(
     # Submit video to FFmpeg service
     info("Sending video to FFmpeg service...")
     t_start = datetime.now()
-    with open(input_file, "rb") as af:
-        video_bytes = af.read()
     filename = os.path.basename(input_file)
     boundary = b"----FFmpegBoundary"
     body = (
@@ -701,13 +744,19 @@ def _run_ffmpeg(
     try:
         with _urllib.urlopen(req, timeout=3600) as resp:  # nosec B310
             resp_data = json.loads(resp.read())
-    except Exception:
+    except BaseException:
         _refund_orphaned_escrow(ctx, job_id, contract_id)
         raise
 
     elapsed = (datetime.now() - t_start).total_seconds()
-    actual_hours = resp_data.get("processing_time_hours", estimated_hours)
-    actual_cost = Decimal(str(actual_hours)) * price if price_unit == "per_processing_hour" else price
+    if not isinstance(resp_data, dict):
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        error("FFmpeg service returned a non-object JSON response")
+        raise click.Abort()
+    actual_hours = _provider_billing_decimal(
+        ctx, job_id, contract_id, resp_data.get("processing_time_hours", estimated_hours), "processing_time_hours"
+    )
+    actual_cost = actual_hours * price if price_unit == "per_processing_hour" else price
     result_hash = resp_data.get("result_hash", "")
 
     info(f"Done in {elapsed:.1f}s — {actual_hours:.4f} hours processing — actual cost: {actual_cost:.8f} AIT")
@@ -766,7 +815,7 @@ def _run_ffmpeg(
             "offer_id": offer_id,
             "input_file": input_file,
             "output_cid": resp_data.get("output_cid") or resp_data.get("output_path"),
-            "processing_hours": round(actual_hours, 4),
+            "processing_hours": float(round(actual_hours, 4)),
             "actual_cost_ait": str(round(actual_cost, 6)),
             "elapsed_seconds": round(elapsed, 2),
             "contract_id": contract_id,
@@ -841,22 +890,29 @@ def _run_hermes(
     t_start = datetime.now()
     http_client = AITBCHTTPClient(base_url=hermes_base, timeout=max_time + 10)
     try:
-        resp_data = http_client.post(
+        resp_data: Any = http_client.post(
             "/run",
             json={"prompt": prompt, "max_time": max_time},
             headers=_shop_access_headers(job_id),
         )
-    except Exception:
+    except BaseException:
         _refund_orphaned_escrow(ctx, job_id, contract_id)
         raise
     elapsed = (datetime.now() - t_start).total_seconds()
+
+    if not isinstance(resp_data, dict):
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        error("Hermes returned a non-object JSON response")
+        raise click.Abort()
 
     if resp_data.get("status") != "completed":
         _refund_orphaned_escrow(ctx, job_id, contract_id)
         error(f"Hermes run did not complete: {resp_data.get('text', resp_data)}")
         raise click.Abort()
 
-    duration_minutes = Decimal(str(resp_data.get("duration_minutes", elapsed / 60)))
+    duration_minutes = _provider_billing_decimal(
+        ctx, job_id, contract_id, resp_data.get("duration_minutes", elapsed / 60), "duration_minutes"
+    )
     # HERMES-IPFS-DEPTH2-1 (#1633): duration_minutes is shop-reported over a
     # plain-HTTP endpoint — clamp billing input to [0, max_time] so a malicious
     # or MITM'd provider cannot inflate the charge past the locked escrow.
