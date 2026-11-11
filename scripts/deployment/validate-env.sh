@@ -304,7 +304,9 @@ validate_node_env() {
 
     # Required fields — read across both env files (either spelling); setup
     # writes NODE_ID to node.env and P2P_NODE_ID may live in blockchain.env.
-    local node_id p2p_node_id p2p_peers
+    # (P2P_PEERS had no reader anywhere in the codebase — peer discovery is
+    # GOSSIP_MESH_PEER_URLS — so its unset-warning was removed, #1548.)
+    local node_id p2p_node_id
     node_id=$(_env_val_any NODE_ID node_id)
     if [[ -z "$node_id" ]]; then
         error "NODE_ID is not set (checked node.env and blockchain.env)"
@@ -315,11 +317,6 @@ validate_node_env() {
     if [[ -z "$p2p_node_id" ]]; then
         error "P2P_NODE_ID is not set (checked node.env and blockchain.env)"
         ERRORS=$((ERRORS + 1))
-    fi
-
-    p2p_peers=$(_env_val_any P2P_PEERS p2p_peers)
-    if [[ -z "$p2p_peers" ]]; then
-        warning "P2P_PEERS is not set. This node may not connect to the network"
     fi
 
     if [[ $ERRORS -gt 0 ]]; then
