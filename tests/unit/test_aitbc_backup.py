@@ -594,7 +594,9 @@ def test_shred_runs_when_encrypt_and_upload_succeed(env):
 
 def test_archives_are_never_group_readable(env):
     """#897: a mid-run stat via the redis-cli stub must see mode <= 0600 on
-    key archives; the snapshot dir itself must be 0700."""
+    key archives; the snapshot dir must not be world-accessible. Since
+    #1821 the finished dir is 0750 group-traversable for backup-metrics —
+    still no world access, and file bytes stay unreadable."""
     stat_redis = """#!/bin/sh
 case "$1" in
   BGSAVE)
@@ -617,7 +619,9 @@ esac
     r = _run(env, STAT_LOG=str(stat_log), REDIS_STUB_BGSAVE_RC="0")
     assert r.returncode == 0
     today = next(d for d in env.base.iterdir() if d.is_dir())
-    assert oct(today.stat().st_mode & 0o777) == "0o700"
+    dir_mode = today.stat().st_mode & 0o777
+    assert dir_mode & 0o007 == 0, f"snapshot dir world-accessible: {dir_mode:o}"
+    assert dir_mode & 0o050 == 0o050, f"snapshot dir not group-traversable: {dir_mode:o}"
     if stat_log.exists():
         for line in stat_log.read_text().splitlines():
             mode, _name = line.split(None, 1)
@@ -699,3 +703,24 @@ exec /usr/bin/tar "$@"
     assert "varlib-state catch-all FAILED" in log
     today = next(d for d in env.base.iterdir() if d.is_dir())
     assert not (today / "varlib-state.tar.gz").exists()
+
+
+def test_generation_dirs_group_traversable_files_stay_private(env):
+    """#1821: backup-metrics runs as User=aitbc and stats generation dirs —
+    dirs must be group-traversable, but files stay 600 (#897)."""
+    r = _run(env)
+    assert r.returncode == 0, r.stderr
+    gens = [d for d in env.base.iterdir() if d.is_dir()]
+    assert gens
+    newest = max(gens, key=lambda d: d.stat().st_mtime)
+    dirs = [newest] + [Path(p) for p, _, _ in os.walk(newest)]
+    for d in dirs:
+        mode = d.stat().st_mode & 0o777
+        # group must have r-x (backup-metrics lists + stats), others none
+        assert mode & 0o050 == 0o050, f"{d}: mode {mode:o} not group-traversable"
+        assert mode & 0o007 == 0, f"{d}: mode {mode:o} world-accessible"
+    files = [Path(p) for p, _, fns in os.walk(newest) for p in [os.path.join(p, f) for f in fns]]
+    files += [f for f in newest.iterdir() if f.is_file()]
+    assert files
+    for f in files:
+        assert f.stat().st_mode & 0o077 == 0, f"{f}: group/other-readable backup artifact"
