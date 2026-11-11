@@ -4,18 +4,29 @@ B2 backport: Prices use Decimal (stored as TEXT) for exact arithmetic.
 B3 backport: Database connections are closed via try/finally.
 """
 
+import http.client
+import json
 import os
 import secrets
 import urllib.parse
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from urllib.request import urlopen
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.operations import BeginStatus, request_hash
 from aitbc.utils.decimal import to_decimal as _to_decimal
+from aitbc.utils.units import ait_to_units
 
 from ..db import connect_db, get_db_path
-from .base import _env_int, _idempotency_key, get_operation_ledger, mutating_rate_limit_reached
+from .base import (
+    RPC_BASE_URL,
+    RPC_TIMEOUT,
+    _env_int,
+    _idempotency_key,
+    get_operation_ledger,
+    mutating_rate_limit_reached,
+)
 
 logger = get_logger(__name__)
 
@@ -59,6 +70,58 @@ def _book_offer_price(data: dict, offer_price) -> str:
     if price_raw:
         return str(_market_price_or_raise(price_raw))
     return str(offer_price)
+
+
+def _buyer_available_units(wallet: str) -> int | None:
+    """Fetch the buyer's spendable on-chain balance in compute-units (#1827).
+
+    ``available_balance`` excludes staked and bridge-locked funds — only
+    what the buyer can actually commit. Returns None when the balance
+    cannot be verified; callers fail closed rather than book an
+    unverifiable order.
+    """
+    try:
+        url = f"{RPC_BASE_URL}/rpc/balance/{wallet}"
+        # RPC_BASE_URL is validated (module-level startswith http(s):// check in base.py) before this call
+        with urlopen(url, timeout=RPC_TIMEOUT) as response:  # nosec B310
+            data = json.loads(response.read().decode())
+        return int(data.get("available_balance", 0))
+    except (OSError, ValueError, http.client.HTTPException):
+        return None
+
+
+def _booking_funds_error(cursor, wallet: str | None, price: str) -> tuple[int, str] | None:
+    """#1827: booking commits the buyer's funds. Returns ``(status, error)``
+    when the booking must be rejected, ``None`` when the buyer can pay.
+
+    The wallet must be named; its on-chain ``available_balance`` (which
+    excludes staked and bridge-locked funds) must cover this order's price
+    plus the wallet's other open BUY orders. Prices are AIT; balances are
+    compute-units (1 AIT = 36M units). The RPC read runs inside the caller's
+    BEGIN IMMEDIATE transaction, closest to the commit, and is a single
+    bounded localhost call. An unverifiable balance fails closed — an
+    unchecked booking is the defect this closes.
+    """
+    if not wallet:
+        return 400, "wallet is required to book an offer"
+    available_units = _buyer_available_units(wallet)
+    if available_units is None:
+        return 503, "cannot verify buyer balance"
+    committed_ait = _open_buy_total_ait(cursor, wallet) + _to_decimal(price)
+    if ait_to_units(committed_ait) > available_units:
+        return 402, "insufficient balance for booking"
+    return None
+
+
+def _open_buy_total_ait(cursor, wallet: str) -> Decimal:
+    """Sum of the wallet's open BUY order prices, in AIT (#1827)."""
+    total = Decimal(0)
+    for (p,) in cursor.execute(
+        "SELECT price FROM marketplace_orders WHERE wallet = ? AND order_type = 'BUY' AND status = 'open'",
+        (wallet,),
+    ):
+        total += _to_decimal(p)
+    return total
 
 
 # -- idempotency-ledger helpers (module-level so MagicMock-bound mixin tests
@@ -348,6 +411,13 @@ class MarketMixin:
                 # B2: Use Decimal for price (stored as TEXT). #1675: an
                 # explicit buyer price gets the same bounds as offer prices.
                 price = _book_offer_price(data, offer_price)
+                funds_error = _booking_funds_error(cursor, wallet, price)
+                if funds_error is not None:
+                    status, message = funds_error
+                    conn.rollback()
+                    _op_fail(idempotency_key, operation_attempt, message)
+                    self.send_json_response({"success": False, "error": message}, status=status)  # type: ignore[attr-defined]
+                    return
                 order_id = self._new_market_id("order")
                 cursor.execute(
                     """
