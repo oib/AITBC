@@ -124,7 +124,7 @@ def health_check() -> dict[str, str]:
     return create_simple_health_response("edge-api", version="0.1.0")
 
 
-@app.get("/ready")
+@app.get("/ready", response_model=None)
 async def readiness_check() -> dict[str, str] | JSONResponse:
     """Readiness check - verifies the service database answers a query.
 
