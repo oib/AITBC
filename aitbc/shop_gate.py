@@ -5,8 +5,9 @@ service issued when the escrow locked — ``X-Access-Key`` +
 ``X-Access-Secret``, bound strictly to the job via ``X-Job-Id`` (ruling
 8222). The gate verifies the token against the market service's existing
 job-access endpoint (``GET /v1/market/access/{key}?access_secret=``), which
-already enforces hashed-secret match and rejects canceled/refunded/failed/
-expired jobs.
+already enforces hashed-secret match and rejects jobs outside
+``QUEUED``/``RUNNING`` (including completed/released and other terminal
+states) plus expired unfinished jobs.
 
 Wire as a FastAPI dependency on paid routes::
 

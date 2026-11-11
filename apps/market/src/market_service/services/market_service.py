@@ -47,6 +47,10 @@ MAX_JOB_TTL_SECONDS = 31_536_000
 # interpretation and only risks downstream overflow (#1673-class).
 MAX_PAYMENT_AMOUNT = Decimal("1000000000000000")
 
+# Shop bearer tokens authorize in-flight work only; terminal lifecycle states
+# must not admit new shop calls (#1817, #1597 residual).
+_ACCESS_TOKEN_ACTIVE_STATES = frozenset({"QUEUED", "RUNNING"})
+
 
 def _validated_job_ttl(value: Any) -> int:
     """Normalize ``ttl_seconds`` to a bounded int, or raise ValueError (#1673).
@@ -3060,7 +3064,7 @@ class MarketService:
             if not _secret_matches((job.payload or {}).get("access_secret") or "", access_secret):
                 return None
 
-            if job.state in {"CANCELED", "REFUNDED", "FAILED"}:
+            if job.state not in _ACCESS_TOKEN_ACTIVE_STATES:
                 return None
 
             if job.expires_at and job.expires_at < datetime.now(UTC).replace(tzinfo=None):
