@@ -88,3 +88,46 @@ def test_missing_rows_on_chain_with_blocks_are_not_created(session):
     _add_block(session)  # legacy shape: head exists, rows do not
     ensure_bond_accounts(session, CHAIN)
     assert _rows(session) == set()
+
+
+def _chain_with_block_and_rows(chain_id: str) -> None:
+    from aitbc_chain.database import init_db, session_scope
+
+    init_db(chain_id)
+    with session_scope(chain_id) as s:
+        s.add(
+            Block(chain_id=chain_id, height=0, hash="0x" + "00" * 32, parent_hash="0x" + "00" * 32, proposer="0x" + "11" * 20)
+        )
+        s.commit()
+
+
+def test_init_db_refuses_to_start_when_env_escrow_disagrees(monkeypatch):
+    from aitbc_chain.config import settings
+    from aitbc_chain.database import init_db
+
+    for var in ("BOND_ESCROW_ADDRESS", "BOND_BURN_ADDRESS"):
+        monkeypatch.delenv(var, raising=False)
+    chain = "strict-1814-refuse"
+    _chain_with_block_and_rows(chain)
+    init_db(chain)  # same env: healthy restart is fine
+    monkeypatch.setenv("BOND_ESCROW_ADDRESS", NEW_ESCROW)
+    monkeypatch.setattr(settings, "startup_account_check_strict", True)
+    with pytest.raises(RuntimeError, match="Refusing to start"):
+        init_db(chain)
+
+
+def test_init_db_strict_off_only_logs(monkeypatch):
+    from aitbc_chain.config import settings
+    from aitbc_chain.database import init_db
+
+    for var in ("BOND_ESCROW_ADDRESS", "BOND_BURN_ADDRESS"):
+        monkeypatch.delenv(var, raising=False)
+    chain = "strict-1814-lenient"
+    _chain_with_block_and_rows(chain)
+    monkeypatch.setenv("BOND_ESCROW_ADDRESS", NEW_ESCROW)
+    monkeypatch.setattr(settings, "startup_account_check_strict", False)
+    init_db(chain)  # logs, does not raise, and inserts nothing
+    from aitbc_chain.database import session_scope
+
+    with session_scope(chain) as s:
+        assert s.exec(select(Account).where(Account.chain_id == chain, Account.address == NEW_ESCROW)).first() is None
