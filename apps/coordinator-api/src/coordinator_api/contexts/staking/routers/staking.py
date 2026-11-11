@@ -733,12 +733,33 @@ async def claim_staking_rewards(
             total_rewards += stake.accumulated_rewards
         if total_rewards <= 0:
             raise HTTPException(status_code=400, detail="No rewards to claim")
-        await run_in_threadpool(asyncio.run, blockchain_service.claim_rewards(stake_ids))
+        # #1837: zero the rewards in the DB FIRST — the service's per-stake
+        # value-predicate CAS is the arbiter, so only one concurrent claim
+        # counts each reward. Calling the chain payout before the zero let
+        # two requests both pay out the same accumulated_rewards.
         result = await run_in_threadpool(staking_service.claim_rewards, stake_ids)
+        claimed_ids = result.get("claimed_stake_ids") or []
+        if not claimed_ids:
+            # Every CAS was lost to a concurrent claim — nothing was zeroed
+            # for us, so no chain memo may be written for these stake_ids.
+            return {
+                "message": "No new rewards to claim",
+                "total_rewards": Decimal("0"),
+                "claimed_stakes": 0,
+                "transaction_hash": None,
+            }
+        try:
+            await run_in_threadpool(asyncio.run, blockchain_service.claim_rewards(claimed_ids))
+        except Exception:
+            # The DB zero is already committed; without compensation the
+            # rewards would be lost with no memo and no way to retry. Put the
+            # exact claimed amounts back so a later claim can pay them.
+            await run_in_threadpool(staking_service.restore_claimed_rewards, result.get("claimed_amounts") or {})
+            raise
         return {
             "message": "Rewards claimed successfully",
-            "total_rewards": total_rewards,
-            "claimed_stakes": len(stake_ids),
+            "total_rewards": result.get("total_rewards", total_rewards),
+            "claimed_stakes": len(claimed_ids),
             "transaction_hash": result.get("transaction_hash"),
         }
     except HTTPException:
