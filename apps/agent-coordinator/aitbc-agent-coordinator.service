@@ -17,6 +17,7 @@ EnvironmentFile=/etc/aitbc/aitbc-agent-coordinator.env
 # Agent coordinator execution
 # Bind policy: internal service, loopback only (docs/deployment/NETWORK_POLICY.md).
 Environment=AGENT_COORDINATOR_BIND_HOST=127.0.0.1
+RuntimeDirectory=aitbc
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/agent-coordinator/aitbc-agent-coordinator-wrapper.py
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed

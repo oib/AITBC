@@ -27,6 +27,7 @@ EnvironmentFile=/etc/aitbc/blockchain-secrets.env
 # Bind policy: internal service, loopback only (docs/deployment/NETWORK_POLICY.md).
 # Peers reach this node via EDGE_ADVERTISE_HOST, not this address.
 Environment=APP_HOST=127.0.0.1
+RuntimeDirectory=aitbc
 ExecStart=/opt/aitbc/venv/bin/python -m aitbc_edge.main
 Restart=on-failure
 RestartSec=10
