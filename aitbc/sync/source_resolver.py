@@ -23,7 +23,7 @@ class SyncSourceResolver:
             default_url: Fallback URL for chains not in the mapping.
         """
         self._sources: dict[str, str] = self._parse_sync_sources(sync_sources)
-        self._default_url = default_url
+        self._default_url = self._normalize_url(default_url) if default_url else default_url
 
     @staticmethod
     def _parse_sync_sources(sync_sources: str) -> dict[str, str]:
@@ -48,10 +48,23 @@ class SyncSourceResolver:
             url = url.strip()
             if not chain_id or not url:
                 raise ValueError(f"Invalid sync source entry (empty chain_id or url): {entry}")
+            url = SyncSourceResolver._normalize_url(url)
             if not url.startswith("http://") and not url.startswith("https://"):
                 url = f"http://{url}"
             result[chain_id] = url
         return result
+
+    @staticmethod
+    def _normalize_url(url: str) -> str:
+        """Strip trailing junk that breaks httpx port parsing.
+
+        A trailing ``:`` or ``/`` in an env-provided URL (e.g.
+        ``http://127.0.0.1:8302:``) makes every poll raise
+        ``InvalidURL``/``ValueError`` inside the sync loop instead of
+        failing fast (#1663). Normalizing here covers both the per-chain
+        map and the default fallback, which bypasses _parse_sync_sources.
+        """
+        return url.strip().rstrip("/").rstrip(":") if url else url
 
     def get_sync_source(self, chain_id: str) -> str | None:
         """Resolve sync source URL for a given chain_id.
