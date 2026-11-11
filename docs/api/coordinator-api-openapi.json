@@ -21503,7 +21503,7 @@
           "Enhanced Governance"
         ],
         "summary": "Create Regional Council",
-        "description": "Create a regional governance council",
+        "description": "Create a regional governance council (admin-only provisioning).",
         "operationId": "create_regional_council_v1_governance_enhanced_regional_councils_post",
         "parameters": [
           {
@@ -21548,6 +21548,22 @@
                 }
               ],
               "title": "Budget Allocation"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -21734,6 +21750,22 @@
               "type": "string",
               "title": "Proposer Address"
             }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -21759,6 +21791,16 @@
               }
             }
           },
+          "403": {
+            "description": "identity is not bound to the caller / Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -21778,7 +21820,7 @@
           "Enhanced Governance"
         ],
         "summary": "Vote On Regional Proposal",
-        "description": "Vote on a regional proposal",
+        "description": "Vote on a regional proposal.\n\n#1847: voting_power is no longer caller-supplied \u2014 the service derives\nit from the voter's stored profile (own + delegated power).",
         "operationId": "vote_on_regional_proposal_v1_governance_enhanced_regional_proposals__proposal_id__vote_post",
         "parameters": [
           {
@@ -21808,12 +21850,19 @@
             }
           },
           {
-            "name": "voting_power",
-            "in": "query",
-            "required": true,
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
             "schema": {
-              "type": "number",
-              "title": "Voting Power"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -21836,6 +21885,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "identity is not bound to the caller / Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -22509,7 +22578,7 @@
           "Enhanced Governance"
         ],
         "summary": "Create Governance Profile",
-        "description": "Create or get a governance profile",
+        "description": "Create or get a governance profile.\n\n#1847: user_id must be bound to the caller and initial_voting_power is\nignored \u2014 power is never minted from the request; it accrues from\nstake/delegation server-side.",
         "operationId": "create_governance_profile_v1_governance_enhanced_profiles_create_post",
         "parameters": [
           {
@@ -22522,13 +22591,19 @@
             }
           },
           {
-            "name": "initial_voting_power",
-            "in": "query",
+            "name": "Authorization",
+            "in": "header",
             "required": false,
             "schema": {
-              "type": "number",
-              "default": 0.0,
-              "title": "Initial Voting Power"
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -22555,6 +22630,16 @@
               }
             }
           },
+          "403": {
+            "description": "identity is not bound to the caller / Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -22574,7 +22659,7 @@
           "Enhanced Governance"
         ],
         "summary": "Delegate Votes",
-        "description": "Delegate voting power from one profile to another",
+        "description": "Delegate voting power from one profile to another.\n\n#1847: the delegator profile must belong to the caller \u2014 previously any\nclient could point any profile's delegate_to at themselves (F3).",
         "operationId": "delegate_votes_v1_governance_enhanced_profiles_delegate_post",
         "parameters": [
           {
@@ -22593,6 +22678,22 @@
             "schema": {
               "type": "string",
               "title": "Delegatee Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -22615,6 +22716,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Profile {delegator_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -24540,7 +24661,7 @@
           "governance"
         ],
         "summary": "Delegate Voting Power",
-        "description": "Delegate your voting power to another DAO member",
+        "description": "Delegate your voting power to another DAO member.\n\n#1847 (audit F3): the delegator profile must belong to the caller \u2014\npreviously any client could mutate any profile pair.",
         "operationId": "delegate_voting_power_v1_governance_profiles__profile_id__delegate_post",
         "parameters": [
           {
@@ -24550,6 +24671,22 @@
             "schema": {
               "type": "string",
               "title": "Profile Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -24584,8 +24721,18 @@
               }
             }
           },
+          "403": {
+            "description": "profile is not owned by the caller",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found",
+            "description": "Profile {profile_id} not found",
             "content": {
               "application/json": {
                 "schema": {
