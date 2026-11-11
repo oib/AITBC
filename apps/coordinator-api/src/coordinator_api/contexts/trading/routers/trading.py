@@ -29,6 +29,21 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/trading", tags=["trading"])
 
 
+def _parse_period_bound(raw: str) -> datetime:
+    """Parse analytics bounds as aware UTC (#1450)."""
+    dt = datetime.fromisoformat(raw)
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
+
+
+def _db_naive_utc(dt: datetime) -> datetime:
+    """ORM DateTime columns round-trip naive on SQLite — bind naive UTC."""
+    if dt.tzinfo is None:
+        return dt
+    return dt.astimezone(UTC).replace(tzinfo=None)
+
+
 class TradeRequestRequest(BaseModel):
     """Request model for creating trade request"""
 
@@ -723,24 +738,26 @@ def get_trading_analytics(
         start_dt = None
         end_dt = None
         if start_date:
-            start_dt = datetime.fromisoformat(start_date)
+            start_dt = _parse_period_bound(start_date)
         if end_date:
-            end_dt = datetime.fromisoformat(end_date)
+            end_dt = _parse_period_bound(end_date)
         if not start_dt:
             start_dt = datetime.now(UTC) - timedelta(days=30)
         if not end_dt:
             end_dt = datetime.now(UTC)
+        sql_start = _db_naive_utc(start_dt)
+        sql_end = _db_naive_utc(end_dt)
 
         # Real aggregation over the trading tables for the requested period —
         # the previous literal dict was fabricated (#1508).
-        agreement_stats = _agreement_period_stats(session, start_dt, end_dt)
+        agreement_stats = _agreement_period_stats(session, sql_start, sql_end)
         analytics = {
             "period_type": period_type,
             "start_date": start_dt.isoformat(),
             "end_date": end_dt.isoformat(),
             **{k: v for k, v in agreement_stats.items() if k != "status_counts"},
-            **_timing_averages(session, start_dt, end_dt),
-            "regional_distribution": _regional_histogram(session, start_dt, end_dt),
+            **_timing_averages(session, sql_start, sql_end),
+            "regional_distribution": _regional_histogram(session, sql_start, sql_end),
         }
         return analytics
     except Exception as e:

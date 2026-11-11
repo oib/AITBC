@@ -28,6 +28,13 @@ from starlette.concurrency import run_in_threadpool
 logger = get_logger(__name__)
 
 
+def _as_aware_utc(dt: datetime) -> datetime:
+    """Normalize ORM datetimes for comparison against ``datetime.now(UTC)``."""
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=UTC)
+    return dt.astimezone(UTC)
+
+
 def _json_safe(value: Any) -> Any:
     """Recursively convert a value into JSON-column-safe types.
 
@@ -736,6 +743,13 @@ class P2PTradingProtocol:
             .scalars()
             .all()
         )
+        cutoff = datetime.now(UTC) - timedelta(days=30)
+
+        def _within_30d(created_at: datetime | None) -> bool:
+            if created_at is None:
+                return False
+            return _as_aware_utc(created_at) >= cutoff
+
         return {
             "agent_id": agent_id,
             "trade_requests": len(requests),
@@ -746,8 +760,8 @@ class P2PTradingProtocol:
             "average_match_score": sum(m.match_score for m in matches) / len(matches) if matches else 0.0,
             "total_trade_volume": sum(a.total_price for a in agreements),
             "recent_activity": {
-                "requests_last_30d": len([r for r in requests if r.created_at >= datetime.now(UTC) - timedelta(days=30)]),
-                "matches_last_30d": len([m for m in matches if m.created_at >= datetime.now(UTC) - timedelta(days=30)]),
-                "agreements_last_30d": len([a for a in agreements if a.created_at >= datetime.now(UTC) - timedelta(days=30)]),
+                "requests_last_30d": len([r for r in requests if _within_30d(r.created_at)]),
+                "matches_last_30d": len([m for m in matches if _within_30d(m.created_at)]),
+                "agreements_last_30d": len([a for a in agreements if _within_30d(a.created_at)]),
             },
         }
