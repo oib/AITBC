@@ -78,3 +78,27 @@ class TestJobResultSubmitRouteValidation:
             headers=_miner_headers(),
         )
         assert resp.status_code == 422
+
+
+@pytest.mark.unit
+def test_decimal_fields_dump_to_json_safe_payload() -> None:
+    """F1: unit_price/price/aitbc_earned/cost are Decimal — a python-mode
+    model_dump would land Decimal objects in job.result and the signed
+    receipt, dying with TypeError: not JSON serializable at commit/sign.
+    The route dumps mode="json"; pin that the dumped payload round-trips
+    through json.dumps and keeps settlement-readable values."""
+    import json
+
+    body = {
+        "result": {"output": "x", "unit_price": "1.5", "price": "2.25", "aitbc_earned": "0.5", "cost": "0.1"},
+        "metrics": {"duration_ms": 100, "unit_price": "1.5", "price": "2.25", "aitbc_earned": "0.5", "cost": "0.1"},
+    }
+    parsed = JobResultSubmit.model_validate(body)
+    result_payload = parsed.result.model_dump(mode="json", exclude_none=True)
+    metrics_payload = parsed.metrics.model_dump(mode="json", exclude_none=True)
+    # What the route stores/signs must be JSON-serializable end to end.
+    json.dumps({"result": result_payload, "metrics": metrics_payload})
+    assert result_payload["unit_price"] == "1.5"
+    assert metrics_payload["price"] == "2.25"
+    # exclude_none keeps the stored payload free of ~30 null keys.
+    assert "status" not in result_payload and result_payload["output"] == "x"

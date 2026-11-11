@@ -241,7 +241,7 @@ def _attach_tee_attestation(
     """
     if not receipt:
         return receipt
-    result_payload = req.result.model_dump() if hasattr(req.result, "model_dump") else req.result
+    result_payload = req.result.model_dump(mode="json", exclude_none=True)
     model_id = model_registry.resolve_model_id(job, result_payload)
     circuitless_zk = _zk_required_for(job, payment_amount) and (not model_id or model_registry.get_model(model_id) is None)
     if not _tee_required_for(job, payment_amount) and not circuitless_zk:
@@ -485,8 +485,8 @@ async def submit_result(
     payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
     payment_amount = payment.amount if payment else None
     is_shadow = _is_shadow_mode(job)
-    result_payload = req.result.model_dump()
-    metrics = req.metrics.model_dump(exclude_none=True)
+    result_payload = req.result.model_dump(mode="json", exclude_none=True)
+    metrics = req.metrics.model_dump(mode="json", exclude_none=True)
     job.result = result_payload
     job.state = JobState.completed
     job.error = None
