@@ -43,8 +43,14 @@ uv.lock
 .env.local
 .env.*.local
 
-# Devin local overrides (may contain host-specific paths / secrets)
+# IDE / agent-tool local state (may contain host paths, tokens, workflows —
+# the #1757 ghp_ exposure entered history via .windsurf/workflows/)
 .devin/
+.windsurf/
+.codeium/
+.cursor/
+.agentic/
+.claude/
 
 # ===================
 # Database & Data
