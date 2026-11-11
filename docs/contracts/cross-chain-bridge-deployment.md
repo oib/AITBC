@@ -118,9 +118,9 @@ pins, staleness gate, payout cap) in two profiles:
 |---|---|---|---|
 | Constructor & fee recipient | `constructor(address _feeRecipient)` only; script refuses deployer-as-recipient and asserts owner=Safe, paused, no validators/tokens | Local dry run + BR-9 Sepolia deploy + ETH-3 | Mainnet fee recipient undecided (operator) |
 | Validator set | `addValidator`/`removeValidator` are `onlyOwner` → Safe-managed flat list; `weight` is stored/emitted but reserved — each confirmation counts 1 (see defects below); per-chain `chainValidators` is a separate list | ETH-3 exercised owner calls through the Safe | Mainnet validator list undecided; BR-2/BR-3's chain-held validator set is **not** what this contract does — a param-driven set is a contract change |
-| Confirmation binding | `confirmBridge` now requires every confirmer to sign the SAME `lockTxHash` (`confirmations == 0 || lockTxHash == stored`) — fixed in code, pending redeploy (#1210) | forge pin `test_ConfirmBridge_RejectsLockHashMismatch` | Was: threshold reachable on different lock hashes, last confirmer wins |
+| Confirmation binding | `confirmBridge` requires every confirmer to sign the SAME `lockTxHash` (`confirmations == 0 || lockTxHash == stored`) — fixed and live on SEPOLIA-REDEPLOY-2 (#1210) | forge pin `test_ConfirmBridge_RejectsLockHashMismatch` | Was: threshold reachable on different lock hashes, last confirmer wins |
 | Supported tokens | None at deploy; Safe calls `addSupportedToken` (bridgeLimit, feePercentage ≤ MAX_FEE 5%, whitelist flag) | Post-deploy assert probes `supportedTokens(Safe)` | Token list + per-token `bridgeLimit` undecided (operator) |
-| Lock cap | Per-token `bridgeLimit` via `withinBridgeLimit` **plus** the global `MAX_BRIDGE_AMOUNT` (1M) cap, now enforced in `initiateBridge` (#1210) | forge pin `test_InitiateBridge_MaxAmountEnforced` | Cap values undecided |
+| Lock cap | Per-token `bridgeLimit` via `withinBridgeLimit` **plus** the global `MAX_BRIDGE_AMOUNT` (1M) cap, enforced in `initiateBridge` (#1210) — live on SEPOLIA-REDEPLOY-2 | forge pin `test_InitiateBridge_MaxAmountEnforced` | Cap values undecided |
 | Pause / emergencyWithdraw | `pause`/`unpause`/`emergencyPause`/`emergencyWithdraw` all `onlyOwner` → Safe; emergencyWithdraw sweeps to `owner()` (the Safe) | ETH-3 ran both end-to-end through the Safe on Sepolia | Mainnet pause drill not scheduled |
 | Confirmations / finality | Contract: owner-set `requiredConfirmations` bounded to the live validator set and clamped at confirm time (`setRequiredConfirmations`, `503e08e53`) — the dead per-chain `minConfirmations` lookup is gone. Monitor: `BRIDGE_CONFIRMATIONS` env ≥12 mainnet (preflight knob) | ETH-3 ran the 3-confirmation path; forge pins for quorum clamp | Block-finality policy on mainnet undecided (operator) |
 | Owner / signer hygiene | Deployer disposable and unfunded-after; Safe 2-of-3 owns everything; rehearsal keys lived in a keys dir, never on a node | BR-9/BR-11 + ETH-3 | Mainnet signers unnamed; hardware-key requirement undecided (operator) |
@@ -145,33 +145,46 @@ pins, staleness gate, payout cap) in two profiles:
 | 11 | BR-2/BR-3 chain-held validator set | repo | **not in this contract** | contract change or accepted design |
 | 12 | Pause drill on the real deployment | operator | not scheduled | executed pause/unpause through the Safe |
 
-### Known defects (status after #795 / #1210)
+### Known defects (status after SEPOLIA-REDEPLOY-2 / #1463)
 
-All contract fixes below are **in code on `origin/main`, pending the Safe
-redeploy** — the deployed instance predates them. None is live-exploitable
-today because no mainnet deployment exists yet. The redeploy itself is
-planned in [bridge-safe-redeploy-plan-795.md](bridge-safe-redeploy-plan-795.md)
-(operator review gate; covers SEPOLIA-REDEPLOY-2 before the staged unpause).
+SEPOLIA-REDEPLOY-2 (`0x29D59bb1Ceb83A894Cc5a41dd99eb80f28A38ed9`, deployed
+2026-11-08 per `contracts/deployments-bridge-sepolia.json`) carries the
+#795/#1210 fixes listed below — they are **live on the testnet instance**.
+The deployed bytecode corresponds to commits `503e08e53` + `d215d1a8c` and
+**predates `d338967f3`** (#1460/#1461/#1463, committed 2026-11-10): the live
+contract still verifies the legacy (non-EIP-712) validator signature format,
+so validator tooling must keep signing the old format until a REDEPLOY-3.
+None of the remaining items is live-exploitable today because no mainnet
+deployment exists yet. A further redeploy is tracked under #1557
+(operator review gate; see
+[bridge-safe-redeploy-plan-795.md](bridge-safe-redeploy-plan-795.md)).
 
-- `MAX_BRIDGE_AMOUNT` (1M tokens) — **fixed in code** (#1210):
-  `initiateBridge` now enforces `amount <= MAX_BRIDGE_AMOUNT` beside the
+- `MAX_BRIDGE_AMOUNT` (1M tokens) — **live on SEPOLIA-REDEPLOY-2** (#1210):
+  `initiateBridge` enforces `amount <= MAX_BRIDGE_AMOUNT` beside the
   per-token `bridgeLimit`. Pin: `test_InitiateBridge_MaxAmountEnforced`.
 - `validators[].weight` — **deliberately retained, reserved** (#1210):
   stored and emitted but unused in confirmation counting. Kept in the API
   (`addValidator` param + `ValidatorAdded` event) because the rehearsal
   script (`contracts/scripts/rehearsal/roundtrip.js`) and tests already
   call it; weighted quorum, if wanted, is a separate contract change.
-- `confirmBridge` lock-hash agreement — **fixed in code** (#1210): every
-  confirmer must now sign the same `lockTxHash`
+- `confirmBridge` lock-hash agreement — **live on SEPOLIA-REDEPLOY-2**
+  (#1210): every confirmer must sign the same `lockTxHash`
   (`request.confirmations == 0 || request.lockTxHash == lockTxHash`).
   Pin: `test_ConfirmBridge_RejectsLockHashMismatch`.
-- `confirmBridge` quorum — **fixed in `503e08e53`**: owner-set
-  `requiredConfirmations` clamped to `[1, activeValidators.length]` at set
-  time and re-clamped at confirm time; the dead per-chain
+- `confirmBridge` quorum — **live on SEPOLIA-REDEPLOY-2** (`503e08e53`):
+  owner-set `requiredConfirmations` clamped to `[1, activeValidators.length]`
+  at set time and re-clamped at confirm time; the dead per-chain
   `minConfirmations` lookup is removed from the decision path.
-- `CONFIRMED` exit — **fixed in `503e08e53`**: `cancelBridge` accepts a
-  CONFIRMED request past `confirmedAt + COMPLETION_TIMEOUT` (24h), caller
-  sender-or-owner, principal-only refund.
+- `CONFIRMED` exit — **live on SEPOLIA-REDEPLOY-2** (`503e08e53`):
+  `cancelBridge` accepts a CONFIRMED request past `confirmedAt +
+  COMPLETION_TIMEOUT` (24h), caller sender-or-owner, principal-only refund.
+- Validator signature format — **pending REDEPLOY-3** (#1463, `d338967f3`):
+  `origin/main` verifies EIP-712 domain-separated validator signatures; the
+  live SEPOLIA-REDEPLOY-2 bytecode predates that commit and still accepts the
+  legacy format. Validator/off-chain signing tooling must keep producing the
+  legacy format until the redeploy, at which point the format flips — pins:
+  `CrossChainBridgeSig1463.test.js`, `test_ConfirmBridge_RejectsLockHashMismatch`
+  family.
 - **RESOLVED product decision — fee forfeit on cancel** (operator ruling
   8 Nov 2026, #795; documented actual behavior, pinned by
   `test_CancelBridge_FeeForfeitIsActualBehavior`):
