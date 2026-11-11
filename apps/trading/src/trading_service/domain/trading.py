@@ -64,7 +64,7 @@ class TradeRequest(TradingBase, table=True):
 
     __tablename__ = "trade_requests"
 
-    id: str = Field(default_factory=lambda: f"req_{uuid4().hex[:8]}", primary_key=True)
+    id: str = Field(default_factory=lambda: f"req_{uuid4().hex}", primary_key=True)
     request_id: str = Field(unique=True, index=True)
 
     buyer_agent_id: str = Field(index=True)
@@ -110,7 +110,7 @@ class TradeMatch(TradingBase, table=True):
 
     __tablename__ = "trade_matches"
 
-    id: str = Field(default_factory=lambda: f"match_{uuid4().hex[:8]}", primary_key=True)
+    id: str = Field(default_factory=lambda: f"match_{uuid4().hex}", primary_key=True)
     match_id: str = Field(unique=True, index=True)
 
     request_id: str = Field(index=True, foreign_key="trade_requests.request_id")
@@ -195,7 +195,7 @@ class TradeAgreement(TradingBase, table=True):
 
     __tablename__ = "trade_agreements"
 
-    id: str = Field(default_factory=lambda: f"agree_{uuid4().hex[:8]}", primary_key=True)
+    id: str = Field(default_factory=lambda: f"agree_{uuid4().hex}", primary_key=True)
     agreement_id: str = Field(unique=True, index=True)
 
     negotiation_id: str = Field(index=True, foreign_key="trade_negotiations.negotiation_id")
@@ -243,7 +243,7 @@ class TradeSettlement(TradingBase, table=True):
 
     __tablename__ = "trade_settlements"
 
-    id: str = Field(default_factory=lambda: f"settle_{uuid4().hex[:8]}", primary_key=True)
+    id: str = Field(default_factory=lambda: f"settle_{uuid4().hex}", primary_key=True)
     settlement_id: str = Field(unique=True, index=True)
 
     agreement_id: str = Field(index=True, foreign_key="trade_agreements.agreement_id")

@@ -5,7 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..dependencies import get_trading_service
-from ..services.trading_service import TradingService
+from ..services.trading_service import LegacyCreateConflictError, TradingService
 
 router = APIRouter(tags=["trading"])
 
@@ -36,6 +36,8 @@ async def create_request(request_data: dict[str, Any], svc: Annotated[TradingSer
     """Create a new trade request."""
     try:
         return await svc.create_request(request_data)
+    except LegacyCreateConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -60,6 +62,8 @@ async def create_match(match_data: dict[str, Any], svc: Annotated[TradingService
     """Create a new trade match."""
     try:
         return await svc.create_match(match_data)
+    except LegacyCreateConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 
@@ -84,6 +88,8 @@ async def create_agreement(agreement_data: dict[str, Any], svc: Annotated[Tradin
     """Create a new trade agreement."""
     try:
         return await svc.create_agreement(agreement_data)
+    except LegacyCreateConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

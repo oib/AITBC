@@ -59,15 +59,15 @@ class TestCreateRequest:
         svc = _svc(db_session)
         request = await svc.create_request(
             _request_data(
-                # Client tries to forge server-managed fields — all must be ignored
-                request_id="req_forged",
+                # Server-managed fields must be ignored; the business id is
+                # caller-controlled since #1756 (it is the dedup key).
+                request_id="req_caller",
                 status="completed",
                 match_count=99,
                 created_at="2020-01-01T00:00:00",
             )
         )
-        assert request.request_id != "req_forged"
-        assert request.request_id.startswith("req_")
+        assert request.request_id == "req_caller"
         assert request.status == "open"
         assert request.match_count == 0
 
@@ -202,11 +202,12 @@ class TestCreateMatchAgreementSettlement:
                 "specification_compatibility": 80.0,
                 "reputation_compatibility": 80.0,
                 "geographic_compatibility": 80.0,
-                "match_id": "match_forged",
+                "match_id": "match_caller",
                 "status": "completed",
             }
         )
-        assert match.match_id != "match_forged"
+        # match_id is the caller-controlled dedup key since #1756; status stays server-owned.
+        assert match.match_id == "match_caller"
         assert match.status == "matching"
 
     async def test_create_agreement_and_settlement_defaults(self, db_session):

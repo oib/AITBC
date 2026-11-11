@@ -6,11 +6,12 @@ import math
 import os
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
-from typing import Any
+from typing import Any, TypeVar
 from uuid import uuid4
 
 from pydantic import ValidationError
 from sqlalchemy import and_, func, or_, update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
@@ -44,10 +45,14 @@ def _settlement_ttl() -> timedelta:
     return timedelta(seconds=max(60, seconds))
 
 
+# #1756: the business ids (request_id/match_id/agreement_id/settlement_id)
+# are deliberately NOT stripped — they are the caller-visible natural keys
+# the UNIQUE constraints dedup on, so a client retry can replay instead of
+# stacking a duplicate. ``id`` and the lifecycle/counter columns stay
+# server-owned.
 _REQUEST_SERVER_FIELDS = frozenset(
     {
         "id",
-        "request_id",
         "status",
         "match_count",
         "negotiation_count",
@@ -61,7 +66,6 @@ _REQUEST_SERVER_FIELDS = frozenset(
 _MATCH_SERVER_FIELDS = frozenset(
     {
         "id",
-        "match_id",
         "status",
         "created_at",
         "updated_at",
@@ -72,7 +76,6 @@ _MATCH_SERVER_FIELDS = frozenset(
 _AGREEMENT_SERVER_FIELDS = frozenset(
     {
         "id",
-        "agreement_id",
         "status",
         "execution_status",
         "completion_percentage",
@@ -88,7 +91,6 @@ _AGREEMENT_SERVER_FIELDS = frozenset(
 _SETTLEMENT_SERVER_FIELDS = frozenset(
     {
         "id",
-        "settlement_id",
         "status",
         "initiated_at",
         "processed_at",
@@ -131,6 +133,40 @@ def _utcnow() -> datetime:
     # InterChainTrade); bind a naive UTC value so sqlite comparisons stay
     # lexicographic-correct.
     return datetime.now(UTC).replace(tzinfo=None)
+
+
+class LegacyCreateConflictError(Exception):
+    """Caller-supplied natural id is taken by a row with a different payload (#1756)."""
+
+
+_LEGACY_ID_MAX_LENGTH = 128
+_MONEY_QUANTUM = Decimal("0.00000001")  # Numeric(20,8)
+
+
+def _require_legacy_id(value: Any, field: str) -> str:
+    """Validate a caller-supplied business id before it hits the UNIQUE column."""
+    if not isinstance(value, str) or not value.strip() or len(value) > _LEGACY_ID_MAX_LENGTH:
+        raise ValueError(f"{field} must be a non-empty string of at most {_LEGACY_ID_MAX_LENGTH} characters")
+    return value
+
+
+def _field_values_equal(stored: Any, candidate: Any) -> bool:
+    """Compare a stored column value with the freshly-built candidate's.
+
+    Retries must compare equal even where the round-trip changes the
+    representation: datetimes come back tz-naive and Numeric(20,8) columns
+    quantize Decimals, so both are normalized before ``==``.
+    """
+    if isinstance(stored, datetime) and isinstance(candidate, datetime):
+        return stored.replace(tzinfo=None) == candidate.replace(tzinfo=None)
+    if isinstance(stored, Decimal) and isinstance(candidate, Decimal):
+        if not (stored.is_finite() and candidate.is_finite()):
+            return False
+        return stored.quantize(_MONEY_QUANTUM) == candidate.quantize(_MONEY_QUANTUM)
+    return bool(stored == candidate)
+
+
+_RowT = TypeVar("_RowT")
 
 
 def _model_or_value_error(model: type, data: dict[str, Any]):
@@ -223,6 +259,67 @@ class TradingService:
     def __init__(self, session: AsyncSession):
         self.session = session
 
+    async def _find_legacy_by_id(self, model: type, id_field: str, value: str) -> Any | None:
+        stmt = select(model).where(getattr(model, id_field) == value)
+        result = await self.session.execute(stmt)
+        return result.scalars().first()
+
+    def _legacy_payload_snapshot(self, row: Any, data: dict[str, Any], id_field: str) -> dict[str, Any]:
+        """Caller-supplied field values off the freshly built model.
+
+        Only keys the caller actually sent are captured (server-owned fields
+        like status/counters/timestamps legitimately drift after the first
+        write, so a progressed row must still replay). Values are compared
+        post-coercion — ``row`` is the new model instance, so enums,
+        Decimals and datetimes are already normalized. Snapshotted up front
+        because the row's attributes may be expired by the rollback in the
+        IntegrityError replay path.
+        """
+        model_fields = type(row).model_fields
+        return {key: getattr(row, key) for key in data if key != id_field and key in model_fields}
+
+    @staticmethod
+    def _legacy_payload_matches(existing: Any, snapshot: dict[str, Any]) -> bool:
+        return all(_field_values_equal(getattr(existing, key), value) for key, value in snapshot.items())
+
+    async def _insert_legacy(
+        self, row: _RowT, model: type[_RowT], data: dict[str, Any], id_field: str, caller_id: Any
+    ) -> _RowT:
+        """Commit a legacy create with idempotent replay on the natural id (#1756).
+
+        ``caller_id`` is the business id the caller supplied (None when the
+        server minted one — minted ids cannot collide meaningfully, and a
+        random collision still surfaces as IntegrityError). A retry
+        presenting an existing id replays the stored row when the payload
+        matches, and raises LegacyCreateConflictError (HTTP 409) when the
+        same id names different terms.
+        """
+        snapshot = self._legacy_payload_snapshot(row, data, id_field)
+        if caller_id is not None:
+            caller_id = _require_legacy_id(caller_id, id_field)
+            existing = await self._find_legacy_by_id(model, id_field, caller_id)
+            if existing is not None:
+                if self._legacy_payload_matches(existing, snapshot):
+                    return existing
+                raise LegacyCreateConflictError(f"{id_field} '{caller_id}' already exists with different terms")
+        self.session.add(row)
+        try:
+            await self.session.commit()
+        except IntegrityError:
+            await self.session.rollback()
+            if caller_id is not None:
+                # Lost the first-write race (or hit a different UNIQUE
+                # column): re-read by the caller id — replay on match,
+                # conflict on mismatch, otherwise re-raise the original.
+                existing = await self._find_legacy_by_id(model, id_field, caller_id)
+                if existing is not None:
+                    if self._legacy_payload_matches(existing, snapshot):
+                        return existing
+                    raise LegacyCreateConflictError(f"{id_field} '{caller_id}' already exists with different terms") from None
+            raise
+        await self.session.refresh(row)
+        return row
+
     async def expire_stale_legacy(self) -> None:
         """#1562: flip expired non-terminal legacy P2P rows on read paths.
 
@@ -305,14 +402,12 @@ class TradingService:
     async def create_request(self, request_data: dict[str, Any]) -> TradeRequest:
         """Create a new trade request"""
         data = {k: v for k, v in request_data.items() if k not in _REQUEST_SERVER_FIELDS}
-        data.setdefault("request_id", f"req_{uuid4().hex[:8]}")
+        caller_id = data.get("request_id")
+        data.setdefault("request_id", f"req_{uuid4().hex}")
         _validate_request_data(data)
         request = _model_or_value_error(TradeRequest, data)
         request.status = TradeStatus.OPEN
-        self.session.add(request)
-        await self.session.commit()
-        await self.session.refresh(request)
-        return request
+        return await self._insert_legacy(request, TradeRequest, data, "request_id", caller_id)
 
     async def list_matches(
         self,
@@ -337,14 +432,12 @@ class TradingService:
     async def create_match(self, match_data: dict[str, Any]) -> TradeMatch:
         """Create a new trade match"""
         data = {k: v for k, v in match_data.items() if k not in _MATCH_SERVER_FIELDS}
-        data.setdefault("match_id", f"match_{uuid4().hex[:8]}")
+        caller_id = data.get("match_id")
+        data.setdefault("match_id", f"match_{uuid4().hex}")
         _validate_match_data(data)
         match = _model_or_value_error(TradeMatch, data)
         match.status = TradeStatus.MATCHING
-        self.session.add(match)
-        await self.session.commit()
-        await self.session.refresh(match)
-        return match
+        return await self._insert_legacy(match, TradeMatch, data, "match_id", caller_id)
 
     async def list_agreements(
         self,
@@ -368,14 +461,12 @@ class TradingService:
     async def create_agreement(self, agreement_data: dict[str, Any]) -> TradeAgreement:
         """Create a new trade agreement"""
         data = {k: v for k, v in agreement_data.items() if k not in _AGREEMENT_SERVER_FIELDS}
-        data.setdefault("agreement_id", f"agree_{uuid4().hex[:8]}")
+        caller_id = data.get("agreement_id")
+        data.setdefault("agreement_id", f"agree_{uuid4().hex}")
         _validate_agreement_data(data)
         agreement = _model_or_value_error(TradeAgreement, data)
         agreement.status = TradeStatus.AGREED
-        self.session.add(agreement)
-        await self.session.commit()
-        await self.session.refresh(agreement)
-        return agreement
+        return await self._insert_legacy(agreement, TradeAgreement, data, "agreement_id", caller_id)
 
     async def create_settlement(self, settlement_data: dict[str, Any]) -> TradeSettlement:
         """Create a new trade settlement.
@@ -387,15 +478,13 @@ class TradingService:
         """
         await self._expire_stale_settlements()
         data = {k: v for k, v in settlement_data.items() if k not in _SETTLEMENT_SERVER_FIELDS}
-        data.setdefault("settlement_id", f"settle_{uuid4().hex[:8]}")
+        caller_id = data.get("settlement_id")
+        data.setdefault("settlement_id", f"settle_{uuid4().hex}")
         _validate_settlement_data(data)
         settlement = _model_or_value_error(TradeSettlement, data)
         settlement.status = TradeStatus.SETTLING
         settlement.expires_at = datetime.now(UTC).replace(tzinfo=None) + _settlement_ttl()
-        self.session.add(settlement)
-        await self.session.commit()
-        await self.session.refresh(settlement)
-        return settlement
+        return await self._insert_legacy(settlement, TradeSettlement, data, "settlement_id", caller_id)
 
     async def _expire_stale_settlements(self) -> int:
         """Fail SETTLING settlements past expires_at (#1554).
