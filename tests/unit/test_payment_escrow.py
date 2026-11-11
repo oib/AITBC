@@ -321,3 +321,81 @@ def test_package_reexport() -> None:
     assert ExportedEntry is EscrowEntry
     assert ExportedStatus is EscrowStatus
     assert ExportedEscrow is PaymentEscrow
+
+
+# ---------------------------------------------------------------------------
+# #1750: thread safety — the agent-coordinator now runs escrow transitions
+# via asyncio.to_thread, so concurrent endpoint/sweeper threads must not
+# corrupt the in-memory store or double-transition an entry.
+# ---------------------------------------------------------------------------
+
+
+def test_concurrent_transitions_from_threads() -> None:
+    import threading
+
+    lock_calls: list[tuple[str, str, str, int]] = []
+    escrow = PaymentEscrow(lock_callback=_make_lock_callback(lock_calls))
+    entries = [escrow.create_escrow(f"t{i}", CHAIN_ID, REQUESTER, AGENT, amount=100) for i in range(20)]
+
+    errors: list[BaseException] = []
+
+    def worker(entry: EscrowEntry) -> None:
+        try:
+            escrow.lock(entry.escrow_id)
+        except Exception as e:  # noqa: BLE001 - collect for assertion
+            errors.append(e)
+
+    threads = [threading.Thread(target=worker, args=(e,)) for e in entries]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert errors == []
+    assert all(e.status == EscrowStatus.LOCKED for e in entries)
+    # Exactly one lock callback per entry — no double submission.
+    assert len(lock_calls) == 20
+
+
+def test_concurrent_release_and_expire_stale() -> None:
+    import threading
+    import time as _time
+
+    escrow = PaymentEscrow()
+    entry = escrow.create_escrow("t-race", CHAIN_ID, REQUESTER, AGENT, amount=100, timeout=-1)
+    escrow.lock(entry.escrow_id)
+
+    release_calls: list[tuple[str, str, str, int]] = []
+    refund_calls: list[tuple[str, str, str, int]] = []
+    escrow._release_callback = _make_release_callback(release_calls)
+    escrow._refund_callback = _make_refund_callback(refund_calls)
+
+    errors: list[BaseException] = []
+
+    def do_release() -> None:
+        try:
+            _time.sleep(0.01)
+            escrow.release(entry.escrow_id)
+        except ValueError:
+            pass  # lost the race to refund — a valid terminal outcome
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+
+    def do_expire() -> None:
+        try:
+            _time.sleep(0.02)
+            escrow.expire_stale()
+        except Exception as e:  # noqa: BLE001
+            errors.append(e)
+
+    t1 = threading.Thread(target=do_release)
+    t2 = threading.Thread(target=do_expire)
+    t1.start()
+    t2.start()
+    t1.join()
+    t2.join()
+
+    assert errors == []
+    # Exactly one terminal transition won; the loser saw a non-LOCKED status.
+    assert entry.status in (EscrowStatus.RELEASED, EscrowStatus.REFUNDED)
+    assert len(release_calls) + len(refund_calls) == 1
