@@ -58,6 +58,12 @@ def _default_session_factory() -> AbstractAsyncContextManager[AsyncSession]:
 _ESCROW_HELD_PAYMENT = frozenset({"escrowed", "refund_pending"})
 
 
+class _JobCasLost(Exception):
+    """Internal sentinel: the job CAS lost its race inside a savepoint —
+    raising rolls the savepoint back so a payment flip that preceded it
+    cannot persist (#1825)."""
+
+
 class MarketJobSweeper:
     """Release or refund escrow for market jobs based on state and age."""
 
@@ -290,30 +296,38 @@ class MarketJobSweeper:
         )
         expire_result = await session.execute(expire_stmt)
         for job in expire_result.scalars().all():
-            async with session.begin_nested():
-                pay_flipped = False
-                if job.payment_id:
-                    pay = await session.get(MarketJobPayment, job.payment_id)
-                    if pay is not None and pay.status == "escrowed":
-                        pay_flipped = await self._cas_payment_status(
-                            session,
-                            pay.id,
-                            "escrowed",
-                            {"status": "refund_pending", "updated_at": now_naive},
-                        )
-                job_ok = await self._cas_job_state(
-                    session,
-                    job.id,
-                    frozenset({"QUEUED", "RUNNING"}),
-                    {
-                        "state": "EXPIRED",
-                        "updated_at": now_naive,
-                        "payment_status": "refund_pending" if pay_flipped else job.payment_status,
-                    },
-                )
-                if not job_ok:
-                    session.expunge(job)
-                    continue
+            try:
+                async with session.begin_nested():
+                    pay_flipped = False
+                    if job.payment_id:
+                        pay = await session.get(MarketJobPayment, job.payment_id)
+                        if pay is not None and pay.status == "escrowed":
+                            pay_flipped = await self._cas_payment_status(
+                                session,
+                                pay.id,
+                                "escrowed",
+                                {"status": "refund_pending", "updated_at": now_naive},
+                            )
+                    job_ok = await self._cas_job_state(
+                        session,
+                        job.id,
+                        frozenset({"QUEUED", "RUNNING"}),
+                        {
+                            "state": "EXPIRED",
+                            "updated_at": now_naive,
+                            "payment_status": "refund_pending" if pay_flipped else job.payment_status,
+                        },
+                    )
+                    if not job_ok:
+                        # #1825: leaving the savepoint normally commits the
+                        # payment flip while the job stays live — the refund
+                        # pass's refund_pending OR-branch would then refund a
+                        # running job's escrow. Raise so the savepoint rolls
+                        # both writes back together.
+                        raise _JobCasLost
+            except _JobCasLost:
+                session.expunge(job)
+                continue
             logger.info("Market job %s expired (expires_at=%s)", job.id, job.expires_at)
 
     async def _expire_stale_reservations(self, session: AsyncSession, now_naive: datetime) -> None:
