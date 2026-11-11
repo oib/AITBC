@@ -1,6 +1,7 @@
 [Unit]
 Description=AITBC Pool Hub Service
-After=network.target
+After=network.target postgresql.service redis.service
+Wants=postgresql.service redis.service
 
 [Service]
 Type=simple
