@@ -7,7 +7,7 @@ import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 import logging
-from typing import Any
+from typing import Any, cast
 
 from sqlalchemy import text, update
 from sqlalchemy.exc import IntegrityError
@@ -713,7 +713,9 @@ class GovernanceService:
         proposal = await self.get_proposal(proposal_id)
         if not proposal:
             raise ValueError(f"Proposal not found: {proposal_id}")
-        if proposal.status != ProposalStatus.ACTIVE:
+        # #1646: EXPIRED means the voting window ended unswept/uncalled — it is
+        # still closable; the tally below resolves it to SUCCEEDED/DEFEATED.
+        if proposal.status not in (ProposalStatus.ACTIVE, ProposalStatus.EXPIRED):
             raise ValueError(f"Proposal must be active to close; current status: {proposal.status}")
 
         now = datetime.now(UTC)
@@ -765,6 +767,26 @@ class GovernanceService:
 
         updated = await self.update_proposal_status(proposal_id, ProposalStatus.DEFEATED)
         return updated if updated is not None else proposal
+
+    async def expire_stale_proposals(self) -> int:
+        """Mark ACTIVE proposals whose voting window has ended as EXPIRED (#1646).
+
+        ``create_vote`` already refuses votes outside the window and tallies are
+        frozen at ``voting_ends``, so this changes only the stored status — it
+        does not touch any tally. ``close_proposal`` still accepts EXPIRED and
+        resolves it to SUCCEEDED/DEFEATED, so an expired proposal is never
+        stranded. Returns the number of proposals transitioned.
+        """
+        now = datetime.now(UTC)
+        stmt = (
+            update(Proposal)
+            .where(col(Proposal.status) == ProposalStatus.ACTIVE)
+            .where(col(Proposal.voting_ends) < now)
+            .values(status=ProposalStatus.EXPIRED)
+        )
+        result = await self.session.execute(stmt)
+        await self.session.commit()
+        return cast(Any, result).rowcount or 0
 
     async def get_treasury(self) -> DaoTreasury | None:
         """Get DAO treasury"""

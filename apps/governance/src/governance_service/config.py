@@ -87,6 +87,11 @@ class Settings(ServiceSettings):
     )
     poolhub_api_key: str = Field(default="")
 
+    # #1646: how often the background sweep marks window-ended ACTIVE
+    # proposals EXPIRED. Tallies are frozen at voting_ends regardless, so a
+    # longer interval only delays the status label, never a result.
+    proposal_expiry_sweep_interval_seconds: int = Field(default=300)
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

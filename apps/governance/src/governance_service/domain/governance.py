@@ -22,6 +22,10 @@ class ProposalStatus(StrEnum):
     DEFEATED = "defeated"
     EXECUTED = "executed"
     CANCELLED = "cancelled"
+    # #1646: window ended without a close call. Tallies are frozen at
+    # voting_ends either way; close_proposal still accepts EXPIRED and
+    # resolves it to SUCCEEDED/DEFEATED.
+    EXPIRED = "expired"
 
 
 class VoteType(StrEnum):
