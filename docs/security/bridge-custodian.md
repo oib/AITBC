@@ -16,13 +16,17 @@ Its bytecode predates `d338967f3` (#1463 EIP-712 validator signatures), so it
 still verifies the legacy signature format — see the deployment doc's defect
 list before changing off-chain signing.
 
-Two earlier instances are **deprecated** and must not receive deposits:
+Three earlier instances are **deprecated** and must not receive deposits:
 `0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA` (owner is the unrecoverable
 deployer key `0x818018F3…`, declared 2026-08-31 — every `onlyOwner` path is
-permanently unreachable while it stays unpaused) and
+permanently unreachable while it stays unpaused),
 `0xfbDd3Dc5ded99477D6bC0c2E267cE619B081e3e0` (BR-1 instance replaced by
-SEPOLIA-REDEPLOY-1 on 2026-10-21). `fleet-config-check.sh` FAILs if a
-deprecated address appears in live config.
+SEPOLIA-REDEPLOY-1 on 2026-10-21), and
+`0xFBAF71e0Cfb4f691ffFa5c0c54428abD841E7076` (SEPOLIA-REDEPLOY-1, replaced
+by SEPOLIA-REDEPLOY-2 on 2026-11-08). `fleet-config-check.sh` FAILs if any
+deprecated address appears in live config — the sweep derives the set from
+`deployments-bridge-sepolia.json`, so newly-deprecated entries are covered
+automatically.
 
 ETH→AIT bridging remains a custodial payout on top of the contract deposit
 flow: the monitor watches the deposit address and pays AIT from a payout
