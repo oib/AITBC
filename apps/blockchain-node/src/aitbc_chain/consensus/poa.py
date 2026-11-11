@@ -2404,7 +2404,21 @@ class PoAProposer:
         journal = BlockDeltaJournal.get(session)
         if journal is not None:
             journal.persist(session)
-        session.commit()
+        try:
+            session.commit()
+        except Exception as exc:
+            # #1740: a disk-full/I/O-error commit leaves quick_check green —
+            # quarantine on the error shape so import/propose/attest all
+            # refuse instead of the proposer retrying into a dead disk.
+            from ..database import quarantine_chain_db_for_error
+
+            if quarantine_chain_db_for_error(self._config.chain_id, exc, session=session) is not None:
+                session.rollback()
+                self._logger.error(
+                    "[PROPOSE] chain.db quarantined during block commit on chain %s",
+                    self._config.chain_id,
+                )
+            raise
         # V-3 shadow (flag-gated, compare-only — never affects the sealed block).
         side_root_shadow.on_block_sealed(
             session, self._config.chain_id, block.height, block_version=get_block_version(block, block.height)

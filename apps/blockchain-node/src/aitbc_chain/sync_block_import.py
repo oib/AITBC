@@ -299,6 +299,26 @@ class BlockImportMixin(SyncBase):
                         block_processing_duration.observe(duration)
                         return result
                     except Exception as append_exc:
+                        session.rollback()
+                        # #1740: SQLITE_FULL / IOERR / corrupt-store errors
+                        # leave quick_check green while every write fails —
+                        # quarantine on the error shape, not just on
+                        # integrity-check failures.
+                        from .database import quarantine_chain_db_for_error
+
+                        quarantined = quarantine_chain_db_for_error(self._chain_id, append_exc, session=session)
+                        if quarantined is not None:
+                            logger.error(
+                                "Append block failed for height %s — chain.db quarantined: %s",
+                                height,
+                                quarantined,
+                            )
+                            return self._make_import_result(
+                                accepted=False,
+                                height=height,
+                                block_hash=block_hash,
+                                reason=f"chain.db unrecoverable error — quarantined: {quarantined}",
+                            )
                         reason = str(append_exc).lower()
                         if "unique" in reason and "constraint" in reason:
                             # A unique violation here is not automatically a

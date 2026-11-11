@@ -202,6 +202,184 @@ def clear_chain_db_quarantine(chain_id: str = "") -> None:
     _last_checked_identity.pop(key, None)
 
 
+# #1740: sqlite primary result codes that mean the store cannot accept
+# writes until an operator intervenes — disk full, I/O errors, corruption,
+# an unopenable/read-only/missing file. Transient contention (BUSY=5,
+# LOCKED=6, ABORT=4) and data-level rejections (IntegrityError, constraint
+# violations) are deliberately excluded: they resolve on their own or are
+# handled by the caller's normal error path.
+_UNRECOVERABLE_SQLITE_PRIMARY_CODES = frozenset({3, 8, 10, 11, 13, 14, 26})
+# Fallback for drivers/wrappers that do not carry ``sqlite_errorcode``
+# (SQLAlchemy keeps it on ``.orig``, and some errors arrive as plain
+# strings). Matched case-insensitively against each exception's text.
+_UNRECOVERABLE_DB_MESSAGE_NEEDLES: tuple[str, ...] = (
+    "database or disk is full",  # SQLITE_FULL
+    "disk i/o error",  # SQLITE_IOERR
+    "database disk image is malformed",  # SQLITE_CORRUPT
+    "file is not a database",  # SQLITE_NOTADB
+    "unable to open database file",  # SQLITE_CANTOPEN
+    "attempt to write a readonly database",  # SQLITE_READONLY
+    "no space left on device",  # filesystem-level ENOSPC
+)
+
+
+def _iter_db_exception_chain(exc: BaseException) -> Generator[BaseException]:
+    """Yield ``exc`` plus its ``__cause__``/``__context__``/``.orig`` links."""
+    seen: set[int] = set()
+    stack: list[BaseException | None] = [exc]
+    while stack:
+        cur = stack.pop()
+        if cur is None or id(cur) in seen:
+            continue
+        seen.add(id(cur))
+        yield cur
+        orig = getattr(cur, "orig", None)
+        if isinstance(orig, BaseException):
+            stack.append(orig)
+        for link in (getattr(cur, "__cause__", None), getattr(cur, "__context__", None)):
+            if isinstance(link, BaseException):
+                stack.append(link)
+
+
+def _classify_db_error_node(cur: BaseException) -> str | None:
+    """Classify one exception node: sqlite primary code first, then message."""
+    code = getattr(cur, "sqlite_errorcode", None)
+    if isinstance(code, int):
+        primary = code & 0xFF
+        if primary in _UNRECOVERABLE_SQLITE_PRIMARY_CODES:
+            name = getattr(cur, "sqlite_errorname", "") or f"sqlite_error_{primary}"
+            return f"{type(cur).__name__} ({name}): {cur}"
+    message = str(cur).lower()
+    for needle in _UNRECOVERABLE_DB_MESSAGE_NEEDLES:
+        if needle in message:
+            return f"{type(cur).__name__}: {cur}"
+    return None
+
+
+def classify_unrecoverable_db_error(exc: BaseException | None) -> str | None:
+    """Return a quarantine reason when ``exc`` is an unrecoverable store error (#1740).
+
+    Walks the exception chain (``__cause__``/``__context__`` and SQLAlchemy's
+    ``.orig``) looking for ``sqlite3`` error codes in
+    ``_UNRECOVERABLE_SQLITE_PRIMARY_CODES`` — extended result codes are masked
+    to their primary byte — then falls back to matching the driver's message
+    text. Returns ``None`` for transient (locked/busy) and data-level
+    (integrity/constraint) failures, which must NOT quarantine the chain.
+    """
+    if exc is None:
+        return None
+    for cur in _iter_db_exception_chain(exc):
+        detail = _classify_db_error_node(cur)
+        if detail is not None:
+            return detail
+    return None
+
+
+def quarantine_chain_db_for_error(
+    chain_id: str = "",
+    exc: BaseException | None = None,
+    *,
+    engine: Engine | None = None,
+    session: Session | None = None,
+    reason: str | None = None,
+) -> str | None:
+    """Quarantine ``chain_id``'s store when ``exc`` is unrecoverable (#1740).
+
+    The #1265 integrity sweep only sees corruption that ``PRAGMA
+    quick_check`` reports; SQLITE_FULL and its siblings leave the file
+    structurally fine while every write fails, so the node used to retry
+    imports forever while serving confident stale 200s. Recording the same
+    quarantine here makes import/propose/attest refuse through the existing
+    gates, and the sweep's write probe drives recovery once space returns.
+
+    Returns the recorded reason, or ``None`` when ``exc`` is not
+    quarantine-class (the caller then handles it normally).
+    """
+    detail = reason or classify_unrecoverable_db_error(exc)
+    if detail is None:
+        return None
+    from .metrics import metrics_registry
+
+    key = _safe_chain_key(chain_id)
+    # Record the ENGINE identity, not the session's: session.get_bind() can
+    # return a Connection mid-transaction, whose id would never match the
+    # engine identity every other gate computes. When the bind is the Engine
+    # itself the two strings are identical anyway.
+    identity = _db_identity(key, engine=_probe_engine_for(key, engine, session))
+    _corrupted_chains[key] = f"chain.db write failure — quarantined: {detail}"
+    _corrupted_identities[key] = identity
+    metrics_registry.increment("chain_db_write_error_quarantines_total")
+    metrics_registry.set_gauge("chain_db_integrity_ok", 0.0)
+    logger.critical(
+        "CRITICAL: unrecoverable chain.db error for chain %s — quarantining "
+        "against block import, proposal, and attestation: %s",
+        key,
+        detail,
+    )
+    return _corrupted_chains[key]
+
+
+def _probe_engine_for(key: str, engine: Engine | None, session: Session | None) -> Engine | None:
+    """Resolve the Engine a writability probe should use for ``key``."""
+    if engine is not None:
+        return engine
+    if isinstance(session, Session):
+        try:
+            bind = session.get_bind()
+        except Exception:
+            bind = None
+        candidate = bind if isinstance(bind, Engine) else getattr(bind, "engine", None)
+        if isinstance(candidate, Engine):
+            return candidate
+    return _engines.get(key)
+
+
+def _probe_chain_db_writable(engine: Engine | None) -> tuple[bool, str]:
+    """#1740 writability probe: rewrite ``PRAGMA user_version`` to its current
+    value — a real header write that needs journal and page space, so
+    SQLITE_FULL surfaces even though ``PRAGMA quick_check`` passes on a
+    full-but-unimpaired file. Returns ``(True, "ok")`` or ``(False, detail)``.
+    """
+    if engine is None:
+        return (False, "no engine for write probe")
+    try:
+        with engine.begin() as conn:
+            row = conn.execute(text("PRAGMA user_version")).first()
+            current = int(row[0]) if row else 0
+            conn.execute(text(f"PRAGMA user_version = {current}"))
+    except Exception as exc:
+        reason = classify_unrecoverable_db_error(exc)
+        return (False, reason or f"{type(exc).__name__}: {exc}")
+    return (True, "ok")
+
+
+def _confirm_quarantined_store_writable(
+    key: str,
+    identity: str,
+    engine: Engine | None,
+    session: Session | None,
+    detail: str,
+) -> tuple[bool, str]:
+    """#1740: ``PRAGMA quick_check`` cannot see "disk full" — a store that
+    failed on SQLITE_FULL still passes it, so lifting the quarantine on
+    quick_check alone would flap ready/unready every sweep. Require the
+    writability probe to pass before clearing; on failure re-record the
+    quarantine under the current identity.
+    """
+    from .metrics import metrics_registry
+
+    probe_engine = _probe_engine_for(key, engine, session)
+    probe_ok, probe_detail = _probe_chain_db_writable(probe_engine)
+    if probe_ok:
+        return (True, detail)
+    reason = f"chain.db write probe failed — still quarantined: {probe_detail}"
+    _corrupted_chains[key] = reason
+    _corrupted_identities[key] = identity
+    metrics_registry.set_gauge("chain_db_integrity_ok", 0.0)
+    metrics_registry.increment("chain_db_quarantined_rejections_total")
+    return (False, reason)
+
+
 def _record_integrity_verdict(key: str, identity: str, ok: bool, detail: str, *, raise_on_failure: bool) -> tuple[bool, str]:
     from .metrics import metrics_registry
 
@@ -299,7 +477,10 @@ def ensure_chain_db_healthy(
     due = force or not same_identity or last is None or (interval > 0 and (time.monotonic() - last) >= interval)
     if not due:
         return (True, "ok")
+    was_quarantined = key in _corrupted_chains
     ok, detail = verify_chain_db_integrity(key, engine=target_engine, session=session, raise_on_failure=False)
+    if ok and was_quarantined:
+        return _confirm_quarantined_store_writable(key, identity, target_engine, session, detail)
     if not ok:
         metrics_registry.increment("chain_db_quarantined_rejections_total")
     return (ok, detail)
