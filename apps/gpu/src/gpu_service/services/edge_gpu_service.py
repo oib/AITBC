@@ -78,6 +78,7 @@ class EdgeGPUService:
 
     async def list_metrics(self, gpu_id: str, limit: int = 100) -> list[EdgeGPUMetrics]:
         """List edge GPU metrics for a specific GPU"""
+        limit = max(1, min(limit, 500))
         try:
             stmt = (
                 select(EdgeGPUMetrics)
@@ -354,6 +355,7 @@ class EdgeGPUService:
 
     async def list_queued_jobs(self, gpu_id: str, status: str | None = None, limit: int = 100) -> list[GPUJobQueue]:
         """List GPU jobs for a GPU, optionally filtered by status, sorted by priority."""
+        limit = max(1, min(limit, 500))
         stmt = select(GPUJobQueue).where(GPUJobQueue.gpu_id == gpu_id)
         if status:
             stmt = stmt.where(GPUJobQueue.status == status)

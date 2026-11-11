@@ -259,6 +259,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 5M;
         add_header Access-Control-Allow-Origin * always;
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
@@ -361,6 +362,7 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
+        client_max_body_size 5M;
     }
 
     # DEPRECATED short aliases — /agent/messages/, /agent/auth/, etc.
@@ -1144,6 +1146,7 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-Api-Key $http_x_api_key;
+        client_max_body_size 5M;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept, x-api-key" always;

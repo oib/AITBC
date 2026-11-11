@@ -1485,6 +1485,8 @@ async def get_service_ratings(
     """Get ratings for a market service offer"""
     try:
         logger.info("GET /v1/market/offer/%s/ratings called", service_id)
+        limit = min(max(limit, 1), max_page_size())
+        offset = max(offset, 0)
         ratings = await svc.get_service_ratings(service_id, limit, offset)
         service = await svc.get_software_service(service_id)
         if not service:
@@ -1534,6 +1536,7 @@ async def get_unsynced_ratings(
     """Get ratings that haven't been synced to remote nodes"""
     try:
         logger.info("GET /v1/market/ratings/unsynced called")
+        limit = min(max(limit, 1), max_page_size())
         ratings = await svc.get_unsynced_ratings(limit)
         return {"ratings": ratings, "count": len(ratings)}
     except Exception as e:
