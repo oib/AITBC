@@ -32,7 +32,34 @@ from .security_matrix import AuthLevel, check_role_match, get_auth_level
 
 logger = get_logger(__name__)
 F = TypeVar("F", bound=Callable[..., Any])
-security = HTTPBearer(auto_error=False)
+
+
+class HTTPBearerOrApiKey(HTTPBearer):
+    """``HTTPBearer`` that also parses the ``ApiKey`` authorization scheme.
+
+    ``HTTPBearer`` only accepts the ``Bearer`` scheme, which made the
+    ``credentials.scheme == "ApiKey"`` branch in ``get_current_user``
+    unreachable — scoped API keys could never authenticate (#1754). Both
+    schemes are matched case-insensitively; anything else yields ``None``
+    (``auto_error=False``) or 403, mirroring ``HTTPBearer``. Subclassing keeps
+    the OpenAPI ``HTTPBearer`` security scheme intact.
+    """
+
+    async def __call__(self, request: Request) -> HTTPAuthorizationCredentials | None:
+        authorization = request.headers.get("Authorization")
+        if authorization:
+            scheme, _, param = authorization.strip().partition(" ")
+            if scheme.lower() in ("bearer", "apikey") and param.strip():
+                return HTTPAuthorizationCredentials(scheme=scheme, credentials=param.strip())
+        if self.auto_error:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authenticated")
+        return None
+
+
+# Keep the published scheme name ``HTTPBearer`` so the OpenAPI spec and any
+# generated clients are unchanged — the ApiKey scheme is an additional
+# accepted credential, not a new documented one.
+security = HTTPBearerOrApiKey(auto_error=False, scheme_name="HTTPBearer")
 
 
 class AuthenticationError(Exception):
@@ -367,7 +394,9 @@ async def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials |
                     "auth_type": "jwt",
                 }
         api_key = None
-        if credentials and credentials.scheme == "ApiKey":
+        # #1754: the parser accepts the scheme case-insensitively; normalize
+        # before comparing so ``apikey``/``APIKEY`` spellings also resolve.
+        if credentials and credentials.scheme.lower() == "apikey":
             api_key = credentials.credentials
         if api_key:
             validation = api_key_manager.validate_api_key(api_key)

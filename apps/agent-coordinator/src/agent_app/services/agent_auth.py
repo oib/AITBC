@@ -28,6 +28,7 @@ under ``advisory``, and rejects under ``enforce``.
 
 from __future__ import annotations
 
+import asyncio
 import hmac
 import os
 from dataclasses import dataclass
@@ -71,8 +72,12 @@ class AgentPrincipal:
 
     agent_id: str
     wallet: str | None = None
-    auth_type: str = "unknown"  # "jwt" | "signed_headers" | "api_key"
+    auth_type: str = "unknown"  # "jwt" | "signed_headers" | "api_key" | "scoped_api_key"
     is_admin: bool = False
+    # #1754: permissions carried by scoped API keys (``APIKeyManager``);
+    # empty for every other credential type. Per-route enforcement is a
+    # later phase — today they only reach the unscoped-principal gates.
+    permissions: tuple[str, ...] = ()
 
 
 def _shared_key_value() -> str | None:
@@ -213,7 +218,48 @@ async def resolve_request_principal(request: Request) -> AgentPrincipal | None:
         principal = shared_key_principal(candidate)
         if principal is not None:
             return principal
+    # #1754: ``Authorization: ApiKey <key>`` scoped keys — distinct scheme
+    # from Bearer, so they are matched on the raw header before JWT.
+    authorization = request.headers.get("Authorization", "")
+    scheme, _, scheme_token = authorization.partition(" ")
+    if scheme.lower() == "apikey":
+        return await scoped_api_key_principal(scheme_token.strip())
     return await jwt_principal(_bearer_token(request))
+
+
+async def scoped_api_key_principal(token: str | None) -> AgentPrincipal | None:
+    """Resolve an ``Authorization: ApiKey <key>`` scoped API key (#1754).
+
+    ``APIKeyManager`` keys carry a per-key ``permissions`` list; until now the
+    only consumer was the ``/api-key/validate`` oracle, so generated "scoped"
+    keys authenticated nowhere. The principal is deliberately *not* admin and
+    its ``agent_id`` is namespaced (``apikey:<user_id>``) so a user id can
+    never collide with a registry ``agent_id`` in ``authorize_agent_scope`` —
+    scoped keys reach unscoped-principal endpoints only, fail-closed.
+    """
+    if not token:
+        return None
+    from aitbc.auth import api_key_manager
+
+    try:
+        # validate_api_key does file I/O under a FileLock — keep it off the loop.
+        validation = await asyncio.to_thread(api_key_manager.validate_api_key, token)
+    except Exception as e:
+        logger.warning("agent_auth=fail reason=api_key_error error=%s", e)
+        return None
+    if not validation.get("valid"):
+        logger.warning("agent_auth=fail reason=invalid_api_key")
+        return None
+    user_id = str(validation.get("user_id") or "")
+    if not user_id:
+        return None
+    permissions = tuple(str(p) for p in validation.get("permissions") or [])
+    return AgentPrincipal(
+        agent_id=f"apikey:{user_id}",
+        auth_type="scoped_api_key",
+        is_admin=False,
+        permissions=permissions,
+    )
 
 
 async def resolve_ws_principal(token: str | None) -> AgentPrincipal | None:
