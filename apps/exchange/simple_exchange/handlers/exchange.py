@@ -2133,8 +2133,10 @@ class ExchangeMixin:
         ``expiry_height`` has passed are flipped to ``expired`` first (the
         lazy expiry from design section 6). When ``guard_address`` is given,
         rows belonging to the same address are never matched (self-match
-        prevention — design sections 6/9). Both are left off by the unsigned
-        legacy path so flag-off behavior is unchanged.
+        prevention — design sections 6/9). When no explicit guard is passed,
+        the order's own ``user_address`` guards the match — the unsigned
+        legacy path gets the same string-equality self-match protection
+        (#1695); distinct addresses are unaffected either way.
 
         Args:
             cursor: SQLite cursor within an active transaction.
@@ -2144,6 +2146,8 @@ class ExchangeMixin:
         """
         if not order or "order_type" not in order:
             return
+        if guard_address is None:
+            guard_address = order.get("user_address") or None
 
         # ETH-8 phase 3 (dark): under settlement, unfunded orders never
         # enter the matchable set and candidates must be 'funded' too.
