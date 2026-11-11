@@ -138,17 +138,11 @@ def _validate_candidate(values: dict[str, str]) -> list[str]:
     return errors
 
 
-def reload_auth_secrets(env_files: list[str] | None = None) -> ReloadReport:
-    """Re-read auth secret env files and swap the live secret set.
-
-    Returns a :class:`ReloadReport`; on any parse or validation failure the
-    process keeps its previous secrets (fail closed).
-    """
-    files = env_files if env_files is not None else _env_file_candidates()
+def _collect_env_values(files: list[str]) -> tuple[dict[str, str], list[str], list[str]]:
+    """Merge whitelisted candidates across env files (later files win)."""
     merged: dict[str, str] = {}
     read: list[str] = []
     errors: list[str] = []
-
     for raw in files:
         path = Path(raw)
         if not path.is_file():
@@ -158,43 +152,57 @@ def reload_auth_secrets(env_files: list[str] | None = None) -> ReloadReport:
             read.append(str(path))
         except (OSError, ValueError) as exc:
             errors.append(f"{path}: {exc}")
+    return merged, read, errors
 
+
+def _plan_removals(candidates: dict[str, str]) -> tuple[list[str], str | None]:
+    """Vars to drop because they vanished from the files; error if JWT primary lost."""
+    removals = _FILE_SOURCED - candidates.keys()
+    primary_names = {"JWT_SECRET", "JWT_SECRET_KEY"}
+    if removals & primary_names and not (candidates.keys() & primary_names):
+        return [], "reload would remove the last JWT primary secret"
+    return sorted(removals), None
+
+
+def _apply_candidates(candidates: dict[str, str], removals: list[str]) -> tuple[dict[str, str], list[str]]:
+    """Swap environ values; returns (applied, actually-removed)."""
+    applied = {k: v for k, v in candidates.items() if os.environ.get(k) != v}
+    os.environ.update(candidates)
+    removed = [k for k in removals if k in os.environ]
+    for key in removed:
+        os.environ.pop(key, None)
+    return applied, removed
+
+
+def reload_auth_secrets(env_files: list[str] | None = None) -> ReloadReport:
+    """Re-read auth secret env files and swap the live secret set.
+
+    Returns a :class:`ReloadReport`; on any parse or validation failure the
+    process keeps its previous secrets (fail closed).
+    """
+    files = env_files if env_files is not None else _env_file_candidates()
+    merged, read, errors = _collect_env_values(files)
     if errors:
         return ReloadReport(ok=False, errors=errors, files_read=read)
-
     if not read:
         # No secrets file present — nothing to reload, leave environ alone.
         return ReloadReport(ok=True, files_read=[])
 
     candidates = {k: v for k, v in merged.items() if k in AUTH_SECRET_VARS}
-
-    # A file-sourced var that vanished from every file was deliberately
-    # removed (rotation phase-5 drops *_NEW / trims *_PREVIOUS) — remove it
-    # from the process env too. Refuse to drop the last JWT primary.
-    removals = _FILE_SOURCED - candidates.keys()
-    primary_names = {"JWT_SECRET", "JWT_SECRET_KEY"}
-    if removals & primary_names and not (candidates.keys() & primary_names):
-        return ReloadReport(
-            ok=False,
-            errors=["reload would remove the last JWT primary secret"],
-            files_read=read,
-        )
+    removals, plan_error = _plan_removals(candidates)
+    if plan_error:
+        return ReloadReport(ok=False, errors=[plan_error], files_read=read)
 
     errors = _validate_candidate(candidates)
     if errors:
         return ReloadReport(ok=False, errors=errors, files_read=read)
 
     with _lock:
-        applied = {k: v for k, v in candidates.items() if os.environ.get(k) != v}
-        os.environ.update(candidates)
-        removed = [k for k in removals if k in os.environ]
-        for key in removed:
-            os.environ.pop(key, None)
-        if read:
-            _FILE_SOURCED.clear()
-            _FILE_SOURCED.update(candidates.keys())
+        applied, removed = _apply_candidates(candidates, removals)
+        _FILE_SOURCED.clear()
+        _FILE_SOURCED.update(candidates.keys())
 
-    if applied:
+    if applied or removed:
         try:
             from aitbc.auth import jwt as _jwt_mod
 
@@ -208,7 +216,7 @@ def reload_auth_secrets(env_files: list[str] | None = None) -> ReloadReport:
             ", ".join(read),
         )
     else:
-        logger.info("auth secrets reload: no changes (%s)", ", ".join(read) or "no files")
+        logger.info("auth secrets reload: no changes (%s)", ", ".join(read))
     return ReloadReport(ok=True, applied=applied, removed=removed, files_read=read)
 
 
