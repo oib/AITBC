@@ -22,6 +22,7 @@ from starlette.types import Message, Receive, Scope, Send
 from .chain_id import ChainIdNotConfigured, resolve_chain_id
 from .database import ChainDbMissingError, ForeignChainDbError
 from .config import settings
+from .consensus_digest import consensus_config_digest
 from .database import init_db, session_scope
 from .gossip import create_backend, gossip_broker
 from .lease_tracker import lease_tracker
@@ -629,6 +630,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         settings.hardware_profile,
         block_production_enabled,
     )
+    # #1723: one greppable line so an operator can compare this node's
+    # effective consensus pins against its peers without calling /health.
+    _app_logger.info("Consensus config digest: %s", consensus_config_digest())
 
     try:
         await lease_tracker.start()
@@ -781,6 +785,9 @@ def create_app() -> FastAPI:
             # #1710: liveness stays 200 during quarantine, but a monitor
             # keyed on /health can still see consensus participation state.
             "quarantined_chains": _quarantined_chain_ids(),
+            # #1723: comparable digest of effective consensus pins/flags —
+            # a serial arm diffs this across validators before arming.
+            "consensus_config_digest": consensus_config_digest(),
         }
 
     @metrics_router.get("/ready", tags=["health"], summary="Readiness probe")
