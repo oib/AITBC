@@ -26,6 +26,7 @@ import pytest
 _DB_DIR = Path(tempfile.mkdtemp(prefix="aitbc_ai_test_"))
 os.environ.setdefault("AI_SERVICE_DATABASE_URL", f"sqlite+aiosqlite:///{_DB_DIR / 'ai_test.db'}")
 os.environ["AITBC_AI_CLIENT_KEYS"] = "test-key-a:tenant-a,test-key-b:tenant-b"
+os.environ["AITBC_AI_EXECUTE_JOBS"] = "false"
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "examples" / "src"))
 
 from sqlmodel import SQLModel  # noqa: E402
@@ -38,6 +39,8 @@ from aitbc_ai.storage import engine  # noqa: E402
 async def client():
     """Fresh schema per test; yields an httpx AsyncClient bound to the app."""
     from httpx import ASGITransport, AsyncClient
+
+    os.environ["AITBC_AI_EXECUTE_JOBS"] = "false"
 
     async with engine.begin() as conn:
         await conn.run_sync(SQLModel.metadata.drop_all)
