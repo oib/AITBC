@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections import defaultdict
+from contextlib import suppress
 from typing import Any
 
 from .._internal import (
@@ -9,8 +10,15 @@ from .._internal import (
     _increment_publication,
     _set_queue_gauge,
     _update_subscriber_metrics,
+    bounded_topic_label,
 )
+from ...metrics import metrics_registry
 from .base import GossipBackend, TopicSubscription
+
+
+def _count_overflow_drop(topic: str) -> None:
+    metrics_registry.increment("gossip_inmem_overflow_drops_total")
+    metrics_registry.increment(f"gossip_inmem_overflow_drops_topic_{bounded_topic_label(topic)}")
 
 
 class InMemoryGossipBackend(GossipBackend):
@@ -22,7 +30,19 @@ class InMemoryGossipBackend(GossipBackend):
         async with self._lock:
             queues = list(self._topics.get(topic, []))
         for queue in queues:
-            await queue.put(message)
+            # #1690: never park the publisher on a stalled subscriber. A full
+            # queue drops its OLDEST message to make room (gossip favors the
+            # freshest state) and counts the overflow; a concurrent publish
+            # that wins the freed slot drops the NEW message instead — either
+            # way publish() returns and every other subscriber is served.
+            if queue.full():
+                with suppress(asyncio.QueueEmpty):
+                    queue.get_nowait()
+                _count_overflow_drop(topic)
+            try:
+                queue.put_nowait(message)
+            except asyncio.QueueFull:
+                _count_overflow_drop(topic)
             _set_queue_gauge(topic, queue.qsize())
         _increment_publication("gossip_publications", topic)
 
