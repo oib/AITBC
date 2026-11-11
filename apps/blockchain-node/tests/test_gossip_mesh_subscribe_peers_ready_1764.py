@@ -29,6 +29,21 @@ class _FlakyPeer(GossipBackend):
         return await self.inner.subscribe(topic, max_queue_size=max_queue_size)
 
 
+class _FlakyPeerSucceedsOnAttempt(_FlakyPeer):
+    """Fails subscribe until attempt ``succeed_on`` (models ~N-1 retry delays before attach)."""
+
+    def __init__(self, succeed_on: int) -> None:
+        super().__init__()
+        self._succeed_on = succeed_on
+        self.available = True  # availability flag unused; attempts gate success
+
+    async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:
+        self.subscribe_attempts += 1
+        if self.subscribe_attempts < self._succeed_on:
+            raise RuntimeError("peer down")
+        return await self.inner.subscribe(topic, max_queue_size=max_queue_size)
+
+
 async def _recv(sub: TopicSubscription, timeout: float = 1.0) -> Any:
     return await asyncio.wait_for(sub.get(), timeout=timeout)
 
@@ -64,6 +79,33 @@ async def test_flag_off_returns_before_flaky_peer_attaches(monkeypatch):
     await asyncio.sleep(0.15)
     await flaky.inner.publish("blocks", {"id": "m2", "v": 2})
     assert await _recv(sub) == {"id": "m2", "v": 2}
+    sub.close()
+    await mesh.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_flag_on_waits_for_flaky_peer_then_immediate_delivery(monkeypatch):
+    """Pin #1764: subscribe() must block on wait_for_pending_peers until retry attaches the leg."""
+    monkeypatch.setattr(settings, "gossip_mesh_subscribe_wait_peers_enabled", True)
+    retry_min = 0.05
+    retry_max = 0.2
+    local = InMemoryGossipBackend()
+    # attempt 1: attach() fails; attempts 2–3: _retry_attach after two backoff sleeps.
+    flaky = _FlakyPeerSucceedsOnAttempt(succeed_on=3)
+    mesh = MeshGossipBackend(local, {"flaky": flaky}, retry_min_delay=retry_min, retry_max_delay=retry_max)
+    await mesh.start()
+
+    t0 = time.monotonic()
+    sub = await mesh.subscribe("blocks")
+    elapsed = time.monotonic() - t0
+
+    min_attach_time = retry_min + min(retry_min * 2, retry_max)
+    assert elapsed >= min_attach_time - 0.02, f"subscribe returned in {elapsed:.3f}s; expected >= ~{min_attach_time:.3f}s"
+    assert flaky.subscribe_attempts == 3
+
+    payload = {"id": "post-wait-immediate", "v": 1}
+    await flaky.inner.publish("blocks", payload)
+    assert await _recv(sub, timeout=0.25) == payload
     sub.close()
     await mesh.shutdown()
 
