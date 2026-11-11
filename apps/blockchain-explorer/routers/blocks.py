@@ -16,12 +16,18 @@ from chain_client import (
     rpc_url_for,
     get_block,
     get_block_transactions_batch,
-    get_latest_blocks,
+    get_latest_blocks_page,
     normalize_block,
     scoped_where,
 )
 from .common import like_pattern
-from validation import MAX_EMBEDDED_TXS_PER_BLOCK, check_page_offset, clamp_page_limit, validate_tx_hash
+from validation import (
+    MAX_EMBEDDED_TXS_PER_BLOCK,
+    check_height_cursor,
+    check_page_offset,
+    clamp_page_limit,
+    validate_tx_hash,
+)
 
 logger = get_logger(__name__)
 
@@ -33,12 +39,15 @@ async def api_latest_blocks(
     chain_id: str | None = None,
     limit: int = 10,
     offset: int = 0,
+    cursor: str | None = None,
 ) -> dict[str, Any]:
-    """API endpoint for latest blocks"""
+    """API endpoint for latest blocks. ``cursor`` takes a previous
+    ``next_cursor`` for keyset pagination (#1717)."""
     limit = clamp_page_limit(limit)
     offset = check_page_offset(offset)
-    blocks = await get_latest_blocks(limit, chain_id, offset)
-    return {"blocks": blocks}
+    check_height_cursor(cursor)
+    blocks, next_cursor = await get_latest_blocks_page(limit, chain_id, offset, cursor)
+    return {"blocks": blocks, "next_cursor": next_cursor}
 
 
 @router.get("/api/blocks/non-empty")
@@ -46,27 +55,30 @@ async def api_non_empty_blocks(
     chain_id: str | None = None,
     limit: int = 10,
     offset: int = 0,
+    cursor: str | None = None,
 ) -> dict[str, Any]:
-    """API endpoint for non-empty blocks (blocks with transactions)"""
+    """API endpoint for non-empty blocks (blocks with transactions).
+    ``cursor`` takes a previous ``next_cursor`` for keyset pagination (#1717)."""
     limit = clamp_page_limit(limit)
     offset = check_page_offset(offset)
+    cursor_height = check_height_cursor(cursor)
     try:
         cid = chain_id or default_chain_id()
         db_path = chain_db_path()
 
         if db_path is None:
-            return {"blocks": []}
+            return {"blocks": [], "next_cursor": None}
 
         async with chain_db_connect(db_path) as conn:
-            cursor = await conn.cursor()
+            db_cursor = await conn.cursor()
 
             # Get current chain height — scoped: MAX(height) across a
             # multi-chain store would be another chain's tip (#1620).
             max_scope, max_scope_params = await chain_scope(conn, "block", cid)
             max_where, max_params = scoped_where("", max_scope, [], max_scope_params)
             max_clause = f"WHERE {max_where}" if max_where else ""
-            await cursor.execute(f"SELECT MAX(height) FROM block {max_clause}", max_params)  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-            row = await cursor.fetchone()
+            await db_cursor.execute(f"SELECT MAX(height) FROM block {max_clause}", max_params)  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+            row = await db_cursor.fetchone()
             max_height = row[0] if row and row[0] is not None else 0
 
             # Find non-empty blocks by searching backwards from tip.
@@ -75,9 +87,16 @@ async def api_non_empty_blocks(
             b_scope, b_scope_params = await chain_scope(conn, "block", cid, alias="b")
             t_scope, t_scope_params = await chain_scope(conn, "transaction", cid, alias="t")
             join_scope = " AND b.chain_id = t.chain_id" if (b_scope and t_scope) else ""
-            where, params = scoped_where("b.height <= ?", b_scope, [max_height], b_scope_params)
+            # The keyset cursor joins the same base fragment as the tip
+            # bound so scope params keep their positions (#1717).
+            base_where = "b.height <= ?"
+            base_params: list[Any] = [max_height]
+            if cursor_height is not None:
+                base_where += " AND b.height < ?"
+                base_params.append(cursor_height)
+            where, params = scoped_where(base_where, b_scope, base_params, b_scope_params)
             where, params = scoped_where(where, t_scope, params, t_scope_params)
-            await cursor.execute(
+            await db_cursor.execute(
                 f"""
                 SELECT DISTINCT b.height, b.hash, b.proposer, b.timestamp, b.tx_count, b.state_root
                 FROM block b
@@ -86,11 +105,15 @@ async def api_non_empty_blocks(
                 ORDER BY b.height DESC
                 LIMIT ? OFFSET ?
             """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-                [*params, limit, offset],
+                [*params, limit + 1, offset],
             )
 
             blocks = []
-            rows = await cursor.fetchall()
+            rows = list(await db_cursor.fetchall())
+            # One extra row proves a next page exists before next_cursor is
+            # emitted — never point past the last returned row (#1717).
+            next_cursor = str(rows[limit - 1][0]) if len(rows) > limit else None
+            rows = rows[:limit]
             # EXPLORER-DEEP2-1 (#1745): one batched tx query for the whole
             # page instead of one query per block. Same per-block cap and
             # cap+1 truncation sentinel as before.
@@ -132,10 +155,10 @@ async def api_non_empty_blocks(
                     }
                 )
 
-            return {"blocks": blocks}
+            return {"blocks": blocks, "next_cursor": next_cursor}
     except Exception:
         logger.exception("Error getting non-empty blocks")
-        return {"blocks": []}
+        return {"blocks": [], "next_cursor": None}
 
 
 @router.get("/api/blocks/by-hash/{hash}")

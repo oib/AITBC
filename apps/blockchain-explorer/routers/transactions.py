@@ -19,7 +19,7 @@ from chain_client import (
     scoped_where,
 )
 from .common import like_pattern
-from validation import check_page_offset, clamp_page_limit, validate_tx_hash
+from validation import check_page_offset, check_tx_keyset_cursor, clamp_page_limit, validate_tx_hash
 
 logger = get_logger(__name__)
 
@@ -108,31 +108,38 @@ async def api_search_transactions(
     chain_id: str | None = None,
     limit: int = 100,
     offset: int = 0,
+    cursor: str | None = None,
 ) -> dict[str, Any]:
-    """Search transactions by address or node ID in blockchain database"""
+    """Search transactions by address or node ID in blockchain database.
+    ``cursor`` takes a previous ``next_cursor`` for keyset pagination (#1717)."""
     limit = clamp_page_limit(limit)
     offset = check_page_offset(offset)
+    keyset = check_tx_keyset_cursor(cursor)
     try:
         cid = chain_id or default_chain_id()
         db_path = chain_db_path()
 
         if db_path is not None:
             async with chain_db_connect(db_path) as conn:
-                cursor = await conn.cursor()
+                db_cursor = await conn.cursor()
 
                 # Search for transactions where sender, recipient, or payload contains the address
                 # Using LIKE for partial matching (payload contains node IDs like provider_node_id)
                 scope_sql, scope_params = await chain_scope(conn, "transaction", cid)
                 search_term = like_pattern(address)
-                where, params = scoped_where(
-                    "(sender LIKE ? ESCAPE '|' OR recipient LIKE ? ESCAPE '|' OR payload LIKE ? ESCAPE '|')",
-                    scope_sql,
-                    [search_term, search_term, search_term],
-                    scope_params,
-                )
-                # scope params precede the LIMIT/OFFSET placeholders
-                params = [*params, limit, offset]
-                await cursor.execute(
+                # The keyset predicate rides in the same base fragment so
+                # scope params keep their positions; created_at is echoed
+                # verbatim so the TEXT comparison matches ORDER BY (#1717).
+                base_where = "(sender LIKE ? ESCAPE '|' OR recipient LIKE ? ESCAPE '|' OR payload LIKE ? ESCAPE '|')"
+                base_params: list[Any] = [search_term, search_term, search_term]
+                if keyset is not None:
+                    base_where += " AND ((created_at < ?) OR (created_at = ? AND tx_hash < ?))"
+                    base_params += [keyset[0], keyset[0], keyset[1]]
+                where, params = scoped_where(base_where, scope_sql, base_params, scope_params)
+                # scope params precede the LIMIT/OFFSET placeholders; one
+                # extra row proves a next page exists before next_cursor.
+                params = [*params, limit + 1, offset]
+                await db_cursor.execute(
                     f"""
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
                     FROM "transaction"
@@ -144,7 +151,9 @@ async def api_search_transactions(
                 )
 
                 transactions = []
-                rows = await cursor.fetchall()
+                rows = list(await db_cursor.fetchall())
+                next_cursor = f"{rows[limit - 1][5]}|{rows[limit - 1][0]}" if len(rows) > limit else None
+                rows = rows[:limit]
                 for row in rows:
                     tx_hash, sender, recipient, payload, block_height, created_at, tx_type, status = row
                     transactions.append(
@@ -160,12 +169,12 @@ async def api_search_transactions(
                         }
                     )
 
-            return {"transactions": transactions}
+            return {"transactions": transactions, "next_cursor": next_cursor}
 
-        return {"transactions": []}
+        return {"transactions": [], "next_cursor": None}
     except Exception:
         logger.exception("Error searching transactions for address %s", address)
-        return {"transactions": []}
+        return {"transactions": [], "next_cursor": None}
 
 
 @router.get("/api/transactions/{tx_hash}")

@@ -4402,6 +4402,22 @@
             }
           },
           {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
             "name": "chain_id",
             "in": "query",
             "required": false,
@@ -9052,6 +9068,22 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -11506,7 +11538,7 @@
           "ai"
         ],
         "summary": "List AI jobs",
-        "description": "Get list of AI jobs, optionally filtered by wallet address or status",
+        "description": "Get list of AI jobs, optionally filtered by wallet address or status.\n\n``cursor`` takes a previous ``next_cursor`` and pages by keyset over\n``(created_at, id)`` \u2014 immune to rows inserted between calls. ``offset``\ncounts *matching* jobs (post status-trim), which also fixes the fuzzy\npre-filter offset semantics this endpoint used to have.",
         "operationId": "ai_list_jobs_rpc_ai_jobs_get",
         "parameters": [
           {
@@ -11560,6 +11592,22 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -11581,6 +11629,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid cursor (want '<created_at>|<id>' from a previous next_cursor)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -16402,6 +16460,22 @@
             }
           },
           {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
             "name": "chain_id",
             "in": "query",
             "required": false,
@@ -21052,6 +21126,22 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -23506,7 +23596,7 @@
           "ai"
         ],
         "summary": "List AI jobs",
-        "description": "Get list of AI jobs, optionally filtered by wallet address or status",
+        "description": "Get list of AI jobs, optionally filtered by wallet address or status.\n\n``cursor`` takes a previous ``next_cursor`` and pages by keyset over\n``(created_at, id)`` \u2014 immune to rows inserted between calls. ``offset``\ncounts *matching* jobs (post status-trim), which also fixes the fuzzy\npre-filter offset semantics this endpoint used to have.",
         "operationId": "ai_list_jobs_v1_ai_jobs_get",
         "parameters": [
           {
@@ -23560,6 +23650,22 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -23581,6 +23687,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "invalid cursor (want '<created_at>|<id>' from a previous next_cursor)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

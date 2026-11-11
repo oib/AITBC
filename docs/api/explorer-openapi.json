@@ -498,7 +498,7 @@
     "/api/blocks/latest": {
       "get": {
         "summary": "Api Latest Blocks",
-        "description": "API endpoint for latest blocks",
+        "description": "API endpoint for latest blocks. ``cursor`` takes a previous\n``next_cursor`` for keyset pagination (#1717).",
         "operationId": "api_latest_blocks_api_blocks_latest_get",
         "parameters": [
           {
@@ -536,6 +536,22 @@
               "default": 0,
               "title": "Offset"
             }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
           }
         ],
         "responses": {
@@ -567,7 +583,7 @@
     "/api/blocks/non-empty": {
       "get": {
         "summary": "Api Non Empty Blocks",
-        "description": "API endpoint for non-empty blocks (blocks with transactions)",
+        "description": "API endpoint for non-empty blocks (blocks with transactions).\n``cursor`` takes a previous ``next_cursor`` for keyset pagination (#1717).",
         "operationId": "api_non_empty_blocks_api_blocks_non_empty_get",
         "parameters": [
           {
@@ -604,6 +620,22 @@
               "type": "integer",
               "default": 0,
               "title": "Offset"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
             }
           }
         ],
@@ -928,7 +960,7 @@
     "/api/transactions/search": {
       "get": {
         "summary": "Api Search Transactions",
-        "description": "Search transactions by address or node ID in blockchain database",
+        "description": "Search transactions by address or node ID in blockchain database.\n``cursor`` takes a previous ``next_cursor`` for keyset pagination (#1717).",
         "operationId": "api_search_transactions_api_transactions_search_get",
         "parameters": [
           {
@@ -974,6 +1006,22 @@
               "type": "integer",
               "default": 0,
               "title": "Offset"
+            }
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
             }
           }
         ],
