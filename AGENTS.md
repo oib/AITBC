@@ -105,7 +105,9 @@ cd /opt/aitbc && scripts/ops/bridge-admin.sh <command>
 #                                   refuses unless the account nonce has
 #                                   passed the envelope nonce AND the
 #                                   envelope hash is not sealed
-#   write-off <tx_hash> --reason …  terminal write-off (reason required)
+#   write-off <tx_hash> --reason …  terminal write-off (reason required;
+#                                   a SUBMITTED row with a live signed
+#                                   envelope also needs --envelope-dead)
 ```
 
 Serialization: at most one payout envelope is in flight at a time, so a
@@ -122,8 +124,10 @@ deliberately:
   the sweep).
 - **Payout sealed with a failed status**, or a genuinely lost row →
   `write-off` (with `--unpaid-with-recipient` when the row still carries
-  a valid recipient), then `manual-payout` if the recipient is still
-  owed — never re-sign the spent envelope.
+  a valid recipient; a SUBMITTED row whose signed envelope may still seal
+  also needs `--envelope-dead` — prove it dead via abandon-and-resign's
+  nonce check first, or attest deliberately), then `manual-payout` if the
+  recipient is still owed — never re-sign the spent envelope.
 
 Payout sizing is locked and bounded: the first computed `ait_amount` is
 stored on the row and a retry pays exactly that amount (a recompute only

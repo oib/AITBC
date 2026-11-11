@@ -320,6 +320,18 @@ class TestWriteOffAndAbandon:
         paid = {"status": "completed", "ait_tx_hash": "0xreal", "ait_recipient": "0x" + "d" * 40}
         assert write_off_denial_reason(paid, True) is not None  # actually paid → always refused
 
+    def test_write_off_guard_live_envelope(self):
+        """#1595: SUBMITTED + live signed_tx needs the --envelope-dead attestation."""
+        from bridge_monitor.admin import write_off_denial_reason
+
+        live = {"status": "submitted", "signed_tx": '{"nonce": 7}', "ait_recipient": ""}
+        assert write_off_denial_reason(live, False) is not None  # may still seal → refused
+        assert write_off_denial_reason(live, False, True) is None  # attested dead → allowed
+        dead = {"status": "submitted", "signed_tx": "", "ait_recipient": ""}
+        assert write_off_denial_reason(dead, False) is None  # no envelope → writable
+        retry = {"status": "pending_retry", "signed_tx": '{"nonce": 7}', "ait_recipient": ""}
+        assert write_off_denial_reason(retry, False) is None  # not SUBMITTED → writable
+
     def _submitted_for_abandon(self, monitor):
         import json as _json
 
