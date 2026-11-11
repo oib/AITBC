@@ -7,7 +7,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlmodel import Session, select, update
+from sqlmodel import Session, col, select, update
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -29,6 +29,9 @@ from coordinator_api.contexts.agent_coordination.domain.agent import (
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+# Non-terminal execution states — terminal rows are immutable (#1806 / #1424).
+_EXECUTION_ACTIVE_STATUSES = (AgentStatus.PENDING, AgentStatus.RUNNING)
 
 
 class CoordinatorClient:
@@ -64,14 +67,26 @@ class AgentStateManager:
         """Update execution status and related fields"""
         stmt = (
             update(AgentExecution)
-            .where(AgentExecution.id == execution_id)  # type: ignore[arg-type]
+            .where(
+                col(AgentExecution.id) == execution_id,
+                col(AgentExecution.status).in_(_EXECUTION_ACTIVE_STATUSES),
+            )
             .values(status=status, updated_at=datetime.now(UTC), **kwargs)
+            .execution_options(synchronize_session=False)
         )
-        (await run_in_threadpool(self.session.execute, stmt))
-        (await run_in_threadpool(self.session.commit))
+        result = await run_in_threadpool(self.session.execute, stmt)
+        await run_in_threadpool(self.session.commit)
         execution = await run_in_threadpool(self.session.get, AgentExecution, execution_id)
         if execution is None:
             raise ValueError(f"Execution {execution_id} not found after update")
+        if getattr(result, "rowcount", 0) != 1:
+            logger.info(
+                "Skipped stale execution status update for %s (current=%s, attempted=%s)",
+                execution_id,
+                execution.status,
+                status,
+            )
+            return execution
         logger.info("Updated execution %s status to %s", execution_id, status)
         return execution
 
