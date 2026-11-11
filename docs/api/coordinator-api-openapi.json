@@ -13961,6 +13961,25 @@
         "operationId": "list_workflows_v1_agents_workflows_get",
         "parameters": [
           {
+            "name": "tags",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tags"
+            }
+          },
+          {
             "name": "owner_id",
             "in": "query",
             "required": false,
@@ -14021,26 +14040,6 @@
             }
           }
         ],
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "anyOf": [
-                  {
-                    "type": "array",
-                    "items": {
-                      "type": "string"
-                    }
-                  },
-                  {
-                    "type": "null"
-                  }
-                ],
-                "title": "Tags"
-              }
-            }
-          }
-        },
         "responses": {
           "200": {
             "description": "Successful Response",

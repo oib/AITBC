@@ -34,6 +34,7 @@ from ....auth import AuthDep, MinerDep
 from ....custom_types import Constraints
 from ....validators import validate_ethereum_address
 from ....utils.client_resolver import resolve_client
+from ....utils.sql_like import like_contains
 
 from ...trading.services.market_data_collector import MarketDataCollector
 from ....config import settings
@@ -508,7 +509,7 @@ def list_gpus(
     if region:
         stmt = stmt.where(func.lower(GPURegistry.region) == region.lower())
     if model:
-        stmt = stmt.where(col(GPURegistry.model).contains(model))
+        stmt = stmt.where(col(GPURegistry.model).like(like_contains(model), escape="\\"))
     stmt = stmt.limit(limit)
     gpus = session.execute(stmt).scalars().all()
     return [_gpu_to_dict(g) for g in gpus]

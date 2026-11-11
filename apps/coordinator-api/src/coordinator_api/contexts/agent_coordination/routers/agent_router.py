@@ -27,6 +27,7 @@ from ..domain.agent import (
 )
 from ..services.orchestrator_service import AIAgentOrchestrator
 from ....storage import get_session
+from ....utils.sql_like import like_contains
 
 logger = get_logger(__name__)
 
@@ -65,7 +66,7 @@ def create_workflow(
 def list_workflows(
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
-    tags: list[str] | None = None,
+    tags: Annotated[list[str] | None, Query()] = None,
     owner_id: str | None = None,
     is_public: bool | None = None,
     limit: int = Query(default=200, ge=1, le=1000),
@@ -81,7 +82,10 @@ def list_workflows(
             query = query.where(AIAgentWorkflow.is_public == is_public)
         if tags:
             for tag in tags:
-                query = query.where(AIAgentWorkflow.tags.contains([tag]))  # type: ignore[attr-defined]
+                # tags is a JSON-encoded string column; .contains([tag]) bound a
+                # list to a VARCHAR LIKE (broken) with unescaped wildcards.
+                # Match the JSON-quoted element literally instead (#1524).
+                query = query.where(AIAgentWorkflow.tags.like(like_contains(json.dumps(tag)), escape="\\"))  # type: ignore[attr-defined]
         workflows = session.execute(query.limit(limit)).scalars().all()
         return workflows  # type: ignore[return-value]
     except Exception as e:
