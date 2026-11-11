@@ -27,6 +27,8 @@ def client(monkeypatch):
     created: list[str] = []
 
     async def fake_run_cmd(cmd, timeout=0):
+        if cmd[0] == "ffprobe":
+            return subprocess.CompletedProcess(cmd, 0, "12.5\n", "")
         if cmd[:2] == ["ffmpeg", "-hwaccels"]:
             return subprocess.CompletedProcess(cmd, 0, "cuda", "")
         out_path = cmd[-1]

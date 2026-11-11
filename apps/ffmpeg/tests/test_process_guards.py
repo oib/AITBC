@@ -98,6 +98,8 @@ def test_process_passes_fs_output_cap(monkeypatch) -> None:
 
     async def fake_run(cmd, timeout):
         captured.append(list(cmd))
+        if cmd[0] == "ffprobe":
+            return subprocess.CompletedProcess(cmd, 0, "12.5\n", "")
         if "-i" not in cmd:
             return subprocess.CompletedProcess(cmd, 0, "cuda\n", "")
         Path(cmd[-1]).write_bytes(b"out")
@@ -108,7 +110,7 @@ def test_process_passes_fs_output_cap(monkeypatch) -> None:
 
     resp = _process(output_format="mkv")
     assert resp.status_code == 200
-    cmd = captured[-1]
+    cmd = next(c for c in captured if "-fs" in c)
     assert cmd[cmd.index("-fs") + 1] == str(ffmpeg_main._MAX_OUTPUT_BYTES)
     assert cmd[-1].endswith(".mkv")
 
@@ -155,6 +157,8 @@ def test_process_builds_expected_argv(monkeypatch) -> None:
 
     async def fake_run(cmd, timeout):
         captured.append(list(cmd))
+        if cmd[0] == "ffprobe":
+            return subprocess.CompletedProcess(cmd, 0, "12.5\n", "")
         if "-i" not in cmd:
             # hwaccels probe must report cuda support.
             return subprocess.CompletedProcess(cmd, 0, "cuda\n", "")
@@ -167,7 +171,7 @@ def test_process_builds_expected_argv(monkeypatch) -> None:
 
     resp = _process(codec="hevc", bitrate="2500k", output_format="webm")
     assert resp.status_code == 200
-    cmd = captured[-1]
+    cmd = next(c for c in captured if "-c:v" in c)
     assert cmd[cmd.index("-c:v") + 1] == "hevc_nvenc"
     assert cmd[cmd.index("-b:v") + 1] == "2500k"
     assert cmd[cmd.index("-bufsize") + 1] == "2500k"
@@ -176,9 +180,12 @@ def test_process_builds_expected_argv(monkeypatch) -> None:
 
 
 def _fake_ffmpeg_run(monkeypatch) -> None:
-    """Default happy-path mocks: ffmpeg succeeds, IPFS returns a CID."""
+    """Default happy-path mocks: ffmpeg succeeds, ffprobe reports duration,
+    IPFS returns a CID."""
 
     async def fake_run(cmd, timeout):
+        if cmd[0] == "ffprobe":
+            return subprocess.CompletedProcess(cmd, 0, "12.5\n", "")
         if "-i" not in cmd:
             return subprocess.CompletedProcess(cmd, 0, "cuda\n", "")
         Path(cmd[-1]).write_bytes(b"out")
