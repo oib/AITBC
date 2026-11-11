@@ -155,9 +155,9 @@ _KNOWN_DRIFT: dict[str, frozenset[str]] = {
             "marketplace_regions",
         }
     ),
-    "add_cross_chain_reputation": frozenset(
-        {"cross_chain_reputation_aggregations", "cross_chain_reputation_events", "reputation_metrics"}
-    ),
+    # cross_chain_reputation_events + reputation_metrics are dead tables
+    # dropped at head by f6a7b8c9d0e1 (#1840), so they can no longer drift.
+    "add_cross_chain_reputation": frozenset({"cross_chain_reputation_aggregations"}),
     "add_dynamic_pricing_tables": frozenset(
         {"market_metrics", "price_forecasts", "pricing_audit_log", "pricing_history", "provider_pricing_strategies"}
     ),

@@ -331,116 +331,14 @@ class TradeSettlement(SQLModel, table=True):
     audit_trail: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
-class TradeFeedback(SQLModel, table=True):
-    """Trade feedback and rating system"""
-
-    __tablename__ = "trade_feedback"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"feedback_{uuid4().hex[:8]}", primary_key=True)
-
-    # Feedback reference
-    agreement_id: str = Field(index=True, foreign_key="trade_agreements.agreement_id")
-    reviewer_agent_id: str = Field(index=True)
-    reviewed_agent_id: str = Field(index=True)
-    reviewer_role: str = Field(default="buyer")  # buyer, seller
-
-    # Ratings
-    overall_rating: float = Field(ge=1.0, le=5.0)
-    communication_rating: float = Field(ge=1.0, le=5.0)
-    performance_rating: float = Field(ge=1.0, le=5.0)
-    timeliness_rating: float = Field(ge=1.0, le=5.0)
-    value_rating: float = Field(ge=1.0, le=5.0)
-
-    # Feedback content
-    feedback_text: str = Field(default="", max_length=1000)
-    feedback_tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    # Trade specifics
-    trade_category: str = Field(default="general")
-    trade_complexity: str = Field(default="medium")  # simple, medium, complex
-    trade_duration: int | None = None  # in hours
-
-    # Verification and moderation
-    verified_trade: bool = Field(default=True)
-    moderation_status: str = Field(default="approved")  # approved, pending, rejected
-    moderator_notes: str = Field(default="", max_length=500)
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    trade_completed_at: datetime
-
-    # Additional data
-    feedback_context: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    performance_metrics: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-
-class TradingAnalytics(SQLModel, table=True):
-    """P2P trading system analytics and metrics"""
-
-    __tablename__ = "trading_analytics"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"analytics_{uuid4().hex[:8]}", primary_key=True)
-
-    # Analytics period
-    period_type: str = Field(default="daily")  # daily, weekly, monthly
-    period_start: datetime
-    period_end: datetime
-
-    # Trade volume metrics
-    total_trades: int = Field(default=0)
-    completed_trades: int = Field(default=0)
-    failed_trades: int = Field(default=0)
-    cancelled_trades: int = Field(default=0)
-
-    # Financial metrics
-    total_trade_volume: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
-    average_trade_value: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
-    total_platform_fees: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
-
-    # Trade type distribution
-    trade_type_distribution: dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))
-
-    # Agent metrics
-    active_buyers: int = Field(default=0)
-    active_sellers: int = Field(default=0)
-    new_agents: int = Field(default=0)
-
-    # Performance metrics
-    average_matching_time: float = Field(default=0.0)  # minutes
-    average_negotiation_time: float = Field(default=0.0)  # minutes
-    average_settlement_time: float = Field(default=0.0)  # minutes
-    success_rate: float = Field(default=0.0, ge=0, le=100.0)
-
-    # Geographic distribution
-    regional_distribution: dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))
-
-    # Quality metrics
-    average_rating: float = Field(default=0.0, ge=1.0, le=5.0)
-    dispute_rate: float = Field(default=0.0, ge=0, le=100.0)
-    repeat_trade_rate: float = Field(default=0.0, ge=0, le=100.0)
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-    # Additional analytics data
-    analytics_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    trends_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-
 __all__ = [
     "NegotiationStatus",
     "SettlementType",
     "TradeAgreement",
-    "TradeFeedback",
     "TradeMatch",
     "TradeNegotiation",
     "TradeRequest",
     "TradeSettlement",
     "TradeStatus",
     "TradeType",
-    "TradingAnalytics",
 ]

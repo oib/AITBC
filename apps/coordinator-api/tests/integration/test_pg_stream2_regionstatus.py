@@ -9,6 +9,11 @@ names. These tests pin the seed to the enum labels without needing a
 running PostgreSQL: SQLite carries the migration end-to-end, and the
 label set is asserted against the column type compiled for the
 postgresql dialect.
+
+``marketplace_regions`` was dropped at head by f6a7b8c9d0e1 (#1840), so
+the database-backed tests target ``i3j4k5l6m7n8`` — the last revision
+where the table still exists — while the DDL-compile pin stays valid
+against the historical 001 declaration.
 """
 
 from __future__ import annotations
@@ -20,6 +25,9 @@ import sqlalchemy as sa
 from sqlalchemy.dialects import postgresql
 
 from .test_migrations import _run_alembic
+
+# Last revision where marketplace_regions still exists (pre-#1840 drop).
+_PRE_DROP_REVISION = "i3j4k5l6m7n8"
 
 _REGIONSTATUS_LABELS = {"ACTIVE", "INACTIVE", "MAINTENANCE", "DEPRECATED"}
 _SEEDED_REGIONS = {
@@ -41,7 +49,7 @@ def _regionstatus_column() -> sa.Column:
 
 def test_seeded_region_statuses_are_enum_labels(tmp_path: Path) -> None:
     db_path = tmp_path / "regionstatus.db"
-    _run_alembic(tmp_path, "upgrade", "head", db_name=db_path.name)
+    _run_alembic(tmp_path, "upgrade", _PRE_DROP_REVISION, db_name=db_path.name)
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         rows = dict(con.execute("SELECT id, status FROM marketplace_regions"))
@@ -68,7 +76,7 @@ def test_regionstatus_column_compiles_for_postgresql() -> None:
 def test_heal_revision_rewrites_lowercase_rows(tmp_path: Path) -> None:
     """A database that already carries 'active' is repaired, not stranded."""
     db_path = tmp_path / "heal.db"
-    _run_alembic(tmp_path, "upgrade", "head", db_name=db_path.name)
+    _run_alembic(tmp_path, "upgrade", _PRE_DROP_REVISION, db_name=db_path.name)
     con = sqlite3.connect(str(db_path))
     try:
         con.execute("UPDATE marketplace_regions SET status = 'active' WHERE id = 'region_us_east_1'")
@@ -79,7 +87,7 @@ def test_heal_revision_rewrites_lowercase_rows(tmp_path: Path) -> None:
     # target the heal's down_revision, not a relative -1 (more recent
     # migrations can sit above the heal).
     _run_alembic(tmp_path, "downgrade", "c3a91f7e5b02", db_name=db_path.name)
-    _run_alembic(tmp_path, "upgrade", "head", db_name=db_path.name)
+    _run_alembic(tmp_path, "upgrade", _PRE_DROP_REVISION, db_name=db_path.name)
     con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
     try:
         status = con.execute("SELECT status FROM marketplace_regions WHERE id = 'region_us_east_1'").fetchone()[0]

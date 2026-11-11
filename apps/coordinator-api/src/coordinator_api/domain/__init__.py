@@ -15,7 +15,7 @@ from ..contexts.agent_coordination.domain.agent import (
     AIAgentWorkflow,
     VerificationLevel,
 )
-from ..contexts.infrastructure.domain import Job, JobReceipt, Miner, Transaction, User, UserSession, Wallet
+from ..contexts.infrastructure.domain import Job, JobReceipt, Miner, Transaction, User, Wallet
 
 __all__ = [
     "Job",
@@ -24,7 +24,6 @@ __all__ = [
     "User",
     "Wallet",
     "Transaction",
-    "UserSession",
     "AIAgentWorkflow",
     "AgentStep",
     "AgentExecution",
