@@ -13,7 +13,7 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from ..dependencies import get_session_dep
 from ..domain.trading import TradeAgreement, TradeMatch, TradeRequest, TradeStatus, TradeType
-from ..services.trading_service import TradingService
+from ..services.trading_service import LegacyCreateConflictError, TradingService
 
 router = APIRouter(tags=["transactions"])
 logger = get_logger(__name__)
@@ -104,6 +104,9 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
         else:
             return JSONResponse(status_code=400, content={"error": f"Invalid action: {action}"})
         return {"status": "success", "transaction_id": transaction_id}
+    except LegacyCreateConflictError as exc:
+        await session.rollback()
+        return JSONResponse(status_code=409, content={"error": str(exc)})
     except ValueError as exc:
         await session.rollback()
         return JSONResponse(status_code=422, content={"error": str(exc)})
