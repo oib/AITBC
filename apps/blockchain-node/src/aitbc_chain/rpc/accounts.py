@@ -247,26 +247,54 @@ def get_state_snapshot(request: Request, chain_id: str | None = None) -> dict[st
         }
 
 
+def _parse_accounts_cursor(cursor: str | None) -> str | None:
+    """Validate the ``address`` keyset cursor for ``list_accounts`` (#1717)."""
+    if cursor is None or cursor == "":
+        return None
+    if len(cursor) > 256 or any(c.isspace() or c == "|" for c in cursor):
+        raise HTTPException(status_code=400, detail="invalid cursor (want an account address from a previous next_cursor)")
+    return cursor
+
+
 @rate_limit(rate=10, per=60)
-def list_accounts(request: Request, chain_id: str | None = None, limit: int = 100, offset: int = 0) -> dict[str, Any]:
-    """List accounts on the blockchain."""
+def list_accounts(
+    request: Request,
+    chain_id: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+    cursor: str | None = None,
+) -> dict[str, Any]:
+    """List accounts on the blockchain.
+
+    ``cursor`` takes a previous ``next_cursor`` and pages by keyset
+    (``address > cursor``) instead of OFFSET, so rows inserted or deleted
+    between calls cannot shift the window. ``offset`` still composes on
+    top of the cursor position, matching the messaging endpoints.
+    """
     # Clamp client bounds: negative/uncapped limit or offset used to return
     # every account in one response (#1057).
     limit = max(1, min(limit, 500))
     offset = max(0, offset)
+    after = _parse_accounts_cursor(cursor)
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
         # Stable order: without ORDER BY SQLite may return rows in any order,
         # so offset pages could skip or repeat accounts between calls.
-        accounts = session.exec(
-            select(Account).where(Account.chain_id == chain_id).order_by(Account.address).offset(offset).limit(limit)
-        ).all()
+        stmt = select(Account).where(Account.chain_id == chain_id)
+        if after is not None:
+            stmt = stmt.where(Account.address > after)
+        # Fetch one extra row: its presence is what proves another page
+        # exists, so next_cursor is only emitted when there IS a next page.
+        rows = session.exec(stmt.order_by(Account.address).offset(offset).limit(limit + 1)).all()
+        next_cursor = rows[limit - 1].address if len(rows) > limit else None
+        accounts = rows[:limit]
         return {
             "chain_id": chain_id,
             "accounts": [{"address": acc.address, "balance": acc.balance, "nonce": acc.nonce} for acc in accounts],
             "total": len(accounts),
             "limit": limit,
             "offset": offset,
+            "next_cursor": next_cursor,
         }
 
 

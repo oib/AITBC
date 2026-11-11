@@ -443,10 +443,11 @@ def list_accounts_route(
     request: Request,
     limit: int = 100,
     offset: int = 0,
+    cursor: str | None = None,
     chain_id: str | None = None,
 ) -> dict[str, Any]:
     """List blockchain accounts with optional pagination."""
-    return list_accounts(request, chain_id, limit, offset)  # type: ignore[no-any-return]
+    return list_accounts(request, chain_id, limit, offset, cursor)  # type: ignore[no-any-return]
 
 
 @router.get("/supply", summary="Get AIT supply aggregate")

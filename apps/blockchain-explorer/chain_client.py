@@ -14,7 +14,14 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.utils import format_ait
 from aitbc.utils.chain_id import resolve_chain_id
 
-from validation import MAX_EMBEDDED_TXS_PER_BLOCK, check_page_offset, clamp_page_limit, validate_chain_id, validate_tx_hash
+from validation import (
+    MAX_EMBEDDED_TXS_PER_BLOCK,
+    check_height_cursor,
+    check_page_offset,
+    clamp_page_limit,
+    validate_chain_id,
+    validate_tx_hash,
+)
 
 logger = get_logger(__name__)
 
@@ -388,26 +395,84 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
 
 
 async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset: int = 0) -> list[dict[str, Any]]:
-    """Get latest blocks from blockchain DB via RPC"""
+    """Get latest blocks (block dicts only — ``get_latest_blocks_page`` also
+    returns ``next_cursor`` for keyset pagination, #1717)."""
+    blocks, _next_cursor = await get_latest_blocks_page(limit, chain_id, offset)
+    return blocks
+
+
+def _block_dict_with_txs(row: Any, tx_rows: list) -> dict[str, Any]:
+    """Format one block row plus its batched tx rows into the API shape."""
+    height, block_hash, proposer, timestamp, tx_count, state_root = row
+    transactions = []
+    truncated = len(tx_rows) > MAX_EMBEDDED_TXS_PER_BLOCK
+    for tx_row in tx_rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
+        tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
+        transactions.append(
+            {
+                "tx_hash": tx_hash,
+                "sender": sender,
+                "recipient": recipient,
+                "payload": payload,
+                "amount": value,
+                "amount_ait": format_ait(value) if value else "0 AIT",
+                "fee": fee,
+                "fee_ait": format_ait(fee) if fee else "0 AIT",
+                "nonce": nonce,
+                "type": tx_type,
+                "status": status,
+                "created_at": created_at,
+            }
+        )
+    return {
+        "height": height,
+        "hash": block_hash,
+        "proposer": proposer,
+        "timestamp": timestamp,
+        "txCount": tx_count,
+        "stateRoot": state_root,
+        "transactions": transactions,
+        "transactions_truncated": truncated,
+    }
+
+
+async def get_latest_blocks_page(
+    limit: int = 10,
+    chain_id: str | None = None,
+    offset: int = 0,
+    cursor: str | None = None,
+) -> tuple[list[dict[str, Any]], str | None]:
+    """Get latest blocks plus ``next_cursor`` for keyset pagination (#1717).
+
+    ``cursor`` takes a previous ``next_cursor`` (a block height) and pages
+    by ``height < cursor`` instead of OFFSET, so blocks appended between
+    calls cannot shift the window. ``offset`` still composes on top.
+    """
     chain_id = chain_id or default_chain_id()
     # PI-EX-001: bound before the value reaches SQL LIMIT/OFFSET or the RPC
     # fallback's height arithmetic — callers include the public route and the
     # export route, so the clamp lives here as well as at the edge.
     limit = clamp_page_limit(limit)
     offset = check_page_offset(offset)
+    cursor_height = check_height_cursor(cursor)
+    next_cursor: str | None = None
     try:
         # First try blockchain database for direct lookup
         db_path = chain_db_path()
         if db_path is not None:
             async with chain_db_connect(db_path) as conn:
-                cursor = await conn.cursor()
+                db_cursor = await conn.cursor()
 
                 # Get latest blocks with offset — scoped to the requested
-                # chain; height ordering alone interleaves chains.
+                # chain; height ordering alone interleaves chains. The
+                # keyset predicate goes into the same base fragment so the
+                # scope params keep their positions (#1620, #1717).
                 block_scope, block_scope_params = await chain_scope(conn, "block", chain_id)
-                block_where, block_params = scoped_where("", block_scope, [], block_scope_params)
+                base_where = "height < ?" if cursor_height is not None else ""
+                base_params = [cursor_height] if cursor_height is not None else []
+                block_where, block_params = scoped_where(base_where, block_scope, base_params, block_scope_params)
                 where_clause = f"WHERE {block_where}" if block_where else ""
-                await cursor.execute(
+                await db_cursor.execute(
                     f"""
                     SELECT height, hash, proposer, timestamp, tx_count, state_root
                     FROM block
@@ -415,55 +480,24 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
                     ORDER BY height DESC
                     LIMIT ? OFFSET ?
                 """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-                    [*block_params, limit, offset],
+                    [*block_params, limit + 1, offset],
                 )
 
                 blocks = []
-                rows = await cursor.fetchall()
+                rows = list(await db_cursor.fetchall())
+                # One extra row proves a next page exists before next_cursor
+                # is emitted — never point past the last returned row.
+                if len(rows) > limit:
+                    next_cursor = str(rows[limit - 1][0])
+                    rows = rows[:limit]
                 # EXPLORER-DEEP2-1 (#1745): one batched tx query for the whole
                 # page instead of one query per block (was N+1, ~40k embedded
                 # tx rows worst case). Same per-block cap + truncation sentinel.
                 tx_rows_by_height = await get_block_transactions_batch(conn, chain_id, [row[0] for row in rows])
                 for row in rows:
-                    height, block_hash, proposer, timestamp, tx_count, state_root = row
+                    blocks.append(_block_dict_with_txs(row, tx_rows_by_height.get(row[0], [])))
 
-                    tx_rows = tx_rows_by_height.get(height, [])
-
-                    transactions = []
-                    truncated = len(tx_rows) > MAX_EMBEDDED_TXS_PER_BLOCK
-                    for tx_row in tx_rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
-                        tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
-                        transactions.append(
-                            {
-                                "tx_hash": tx_hash,
-                                "sender": sender,
-                                "recipient": recipient,
-                                "payload": payload,
-                                "amount": value,
-                                "amount_ait": format_ait(value) if value else "0 AIT",
-                                "fee": fee,
-                                "fee_ait": format_ait(fee) if fee else "0 AIT",
-                                "nonce": nonce,
-                                "type": tx_type,
-                                "status": status,
-                                "created_at": created_at,
-                            }
-                        )
-
-                    blocks.append(
-                        {
-                            "height": height,
-                            "hash": block_hash,
-                            "proposer": proposer,
-                            "timestamp": timestamp,
-                            "txCount": tx_count,
-                            "stateRoot": state_root,
-                            "transactions": transactions,
-                            "transactions_truncated": truncated,
-                        }
-                    )
-
-                return blocks
+                return blocks, next_cursor
         else:
             # Fallback to RPC method
             rpc_url = rpc_url_for(chain_id)
@@ -474,15 +508,21 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
                     head = head_response.json()
                     current_height = head.get("height", 0)
                     if current_height == 0:
-                        return []
+                        return [], None
 
-                    # Fetch real blocks from blockchain DB via blocks-range
-                    start_height = max(1, current_height - limit + 1)
+                    # The keyset cursor is an upper bound: page the heights
+                    # strictly below it (blocks-range end is inclusive).
+                    end_height = min(current_height, cursor_height - 1) if cursor_height is not None else current_height
+                    if end_height < 1:
+                        return [], None
+                    # Fetch real blocks from blockchain DB via blocks-range —
+                    # wide enough to cover offset + one sentinel row.
+                    start_height = max(1, end_height - limit - offset + 1)
                     range_response = await client.get(
                         f"{rpc_url}/rpc/blocks-range",
                         params={
                             "start": start_height,
-                            "end": current_height,
+                            "end": end_height,
                             "include_tx": "false",
                             "chain_id": chain_id,
                         },
@@ -493,8 +533,12 @@ async def get_latest_blocks(limit: int = 10, chain_id: str | None = None, offset
                         # Normalize and reverse to show newest first
                         blocks = [normalize_block(b) for b in blocks]
                         blocks.reverse()
-                        return blocks
-            return []
+                        page = blocks[offset : offset + limit]
+                        if len(blocks) > offset + limit and page:
+                            last_height = page[-1].get("height")
+                            next_cursor = str(last_height) if last_height is not None else None
+                        return page, next_cursor
+            return [], None
     except Exception:
         logger.exception("Error getting latest blocks")
-        return []
+        return [], None

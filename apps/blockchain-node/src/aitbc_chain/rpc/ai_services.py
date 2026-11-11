@@ -13,7 +13,7 @@ from typing import Any
 
 from fastapi import HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import ColumnElement, literal_column, or_
+from sqlalchemy import ColumnElement, and_, literal_column, or_
 from sqlmodel import col, func as sql_func
 from sqlmodel import select
 
@@ -23,6 +23,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from ..base_models import AIJobCancellation, Transaction, address_spellings
 from ..database import session_scope
+from ..keyset import cursor_dt, parse_or_400
 from ..logger import get_logger
 from ..metrics import metrics_registry
 from .router import router
@@ -229,14 +230,97 @@ def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+# Keyset pagination for /ai/jobs (#1717). The status filter runs on the
+# effective status (the 'cancelled' overlay), so a page may need to scan
+# well past ``limit`` SQL candidates; the scan is chunked and bounded so a
+# sparse filter can never turn one request into a table scan. Hitting the
+# bound still advances next_cursor — the caller resumes, nothing wedges.
+_AI_JOBS_SCAN_BOUND = 8192
+_AI_JOBS_BATCH = 512
+
+
+def _jobs_after(created_at: datetime, tx_id: int) -> ColumnElement[bool]:
+    """Keyset predicate for ``ORDER BY created_at DESC, id DESC``."""
+    return or_(
+        col(Transaction.created_at) < created_at,
+        and_(col(Transaction.created_at) == created_at, col(Transaction.id) < tx_id),
+    )
+
+
+def _parse_jobs_cursor(cursor: str | None) -> tuple[datetime, int] | None:
+    """``<created_at iso>|<transaction id>`` — see ``next_cursor`` below."""
+    parts = parse_or_400(
+        cursor,
+        2,
+        what="'<created_at>|<id>'",
+        detail="invalid cursor (want '<created_at>|<id>' from a previous next_cursor)",
+    )
+    if parts is None:
+        return None
+    try:
+        return cursor_dt(parts[0]), int(parts[1])
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400, detail="invalid cursor (want '<created_at>|<id>' from a previous next_cursor)"
+        ) from e
+
+
+def _job_cursor(tx: Transaction) -> str | None:
+    if tx.created_at is None or tx.id is None:
+        return None
+    return f"{tx.created_at.isoformat()}|{tx.id}"
+
+
+def _scan_job_candidates(session, stmt, cancelled_ids: set[str], status: str | None, want: int):
+    """Collect up to ``want`` status-matching ``(tx, job)`` pairs.
+
+    Returns ``(collected, last_key, exhausted)`` where ``last_key`` is the
+    ``(created_at, id)`` of the last candidate scanned — the resume point
+    when the scan bound cut the walk short.
+    """
+    collected: list[tuple[Transaction, dict[str, Any]]] = []
+    last_key: tuple[datetime, int] | None = None
+    scanned = 0
+    exhausted = False
+    while len(collected) < want and scanned < _AI_JOBS_SCAN_BOUND:
+        take = min(_AI_JOBS_BATCH, _AI_JOBS_SCAN_BOUND - scanned)
+        batch = stmt
+        if last_key is not None:
+            batch = batch.where(_jobs_after(*last_key))
+        rows = session.exec(batch.limit(take)).all()
+        if not rows:
+            exhausted = True
+            break
+        for tx in rows:
+            scanned += 1
+            last_key = (tx.created_at, tx.id)
+            job = _job_from_tx(tx, cancelled_ids)
+            if status is None or job["status"] == status:
+                collected.append((tx, job))
+                if len(collected) >= want:
+                    break
+        if len(rows) < take:
+            exhausted = True
+            break
+    return collected, last_key, exhausted
+
+
 @router.get("/ai/jobs", summary="List AI jobs", tags=["ai"])
 def ai_list_jobs(
     wallet_address: str | None = None,
     status: str | None = None,
     limit: int = 100,
     offset: int = 0,
+    cursor: str | None = None,
 ) -> dict[str, Any]:
-    """Get list of AI jobs, optionally filtered by wallet address or status"""
+    """Get list of AI jobs, optionally filtered by wallet address or status.
+
+    ``cursor`` takes a previous ``next_cursor`` and pages by keyset over
+    ``(created_at, id)`` — immune to rows inserted between calls. ``offset``
+    counts *matching* jobs (post status-trim), which also fixes the fuzzy
+    pre-filter offset semantics this endpoint used to have.
+    """
+    keyset = _parse_jobs_cursor(cursor)
     try:
         metrics_registry.increment("rpc_ai_list_total")
         # Unbounded .all() used to scan every AI job row on every call (#1057).
@@ -252,15 +336,27 @@ def ai_list_jobs(
             # inserts), and without a unique second key offset pages could
             # skip or repeat rows.
             stmt = stmt.order_by(col(Transaction.created_at).desc(), col(Transaction.id).desc())
-            # The status filter runs on the effective status (the 'cancelled'
-            # overlay), so paginate generously in SQL then trim in Python.
-            txs = session.exec(stmt.offset(offset).limit(limit + offset)).all()
+            if keyset is not None:
+                stmt = stmt.where(_jobs_after(*keyset))
 
             cancelled_ids = _cancelled_job_ids(session)
-            jobs = [_job_from_tx(tx, cancelled_ids) for tx in txs]
-            if status:
-                jobs = [j for j in jobs if j["status"] == status]
-            jobs = jobs[:limit]
+            collected, last_key, exhausted = _scan_job_candidates(session, stmt, cancelled_ids, status, limit + offset)
+            page = collected[offset : offset + limit]
+            jobs = [job for _, job in page]
+
+            if len(collected) >= limit + offset:
+                # Full page: resume after the last *returned* candidate.
+                next_cursor = _job_cursor(page[-1][0])
+                scan_bounded = False
+            elif not exhausted and last_key is not None:
+                # Scan bound cut the walk: resume after the last candidate
+                # examined so the next call continues where this one stopped.
+                last_tx_created, last_tx_id = last_key
+                next_cursor = f"{last_tx_created.isoformat()}|{last_tx_id}"
+                scan_bounded = True
+            else:
+                next_cursor = None
+                scan_bounded = False
 
         return {
             "jobs": jobs,
@@ -268,9 +364,13 @@ def ai_list_jobs(
             "filters": {"wallet_address": wallet_address, "status": status},
             "limit": limit,
             "offset": offset,
+            "next_cursor": next_cursor,
+            "scan_bounded": scan_bounded,
             "timestamp": datetime.now(UTC).isoformat(),
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         metrics_registry.increment("rpc_ai_list_errors_total")
         logging.getLogger(__name__).exception("Unhandled exception")

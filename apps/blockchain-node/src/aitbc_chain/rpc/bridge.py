@@ -369,6 +369,61 @@ def list_pending_transfers(request: Request, chain_id: str | None = None) -> lis
 _BRIDGE_TRANSFER_STATUSES = frozenset({"pending", "locked", "confirmed", "completed", "failed", "refunded"})
 
 
+def _parse_transfer_cursor(cursor: str | None) -> tuple[Any, str] | None:
+    """``<lock_time iso|->|<transfer_id>`` — ``-`` encodes NULL lock_time.
+
+    DESC ordering puts NULL lock_times last, so the predicate differs by
+    which side of the NULL boundary the cursor sits on (see
+    ``_transfers_after``).
+    """
+    from ..keyset import cursor_dt, parse_or_400
+
+    parts = parse_or_400(
+        cursor,
+        2,
+        what="'<lock_time>|<transfer_id>'",
+        detail="invalid cursor (want '<lock_time>|<transfer_id>' from a previous next_cursor)",
+    )
+    if parts is None:
+        return None
+    try:
+        lock_time = None if parts[0] == "-" else cursor_dt(parts[0])
+    except ValueError as e:
+        raise HTTPException(
+            status_code=400, detail="invalid cursor (want '<lock_time>|<transfer_id>' from a previous next_cursor)"
+        ) from e
+    return lock_time, parts[1]
+
+
+def _transfers_after(lock_time: Any, transfer_id: str) -> Any:
+    """Keyset predicate for ``ORDER BY lock_time DESC, transfer_id DESC``.
+
+    SQLite sorts NULLs smallest, so in DESC order every NULL ``lock_time``
+    trails all non-NULL rows (ties inside the NULL group still order by
+    ``transfer_id``). A cursor on a non-NULL row therefore admits the whole
+    NULL tail; a cursor inside the NULL group admits only later NULL rows.
+    """
+    from sqlalchemy import and_, or_
+    from sqlmodel import col
+
+    from ..base_models import CrossChainTransfer
+
+    lt = col(CrossChainTransfer.lock_time)
+    tid = col(CrossChainTransfer.transfer_id)
+    if lock_time is None:
+        return and_(lt.is_(None), tid < transfer_id)
+    return or_(
+        lt < lock_time,
+        and_(lt == lock_time, tid < transfer_id),
+        lt.is_(None),
+    )
+
+
+def _transfer_cursor(t: Any) -> str:
+    lock = t.lock_time.isoformat() if t.lock_time is not None else "-"
+    return f"{lock}|{t.transfer_id}"
+
+
 @rate_limit(rate=50, per=60)
 def list_bridge_transfers(
     request: Request,
@@ -376,6 +431,7 @@ def list_bridge_transfers(
     status: str | None = None,
     limit: int = 50,
     offset: int = 0,
+    cursor: str | None = None,
 ) -> dict[str, Any]:
     """List bridge transfers recorded on this chain — all lifecycle states.
 
@@ -383,6 +439,9 @@ def list_bridge_transfers(
     persisted ``cross_chain_transfer`` table so public explorers can show
     transfer history. Everything returned here is already visible through
     the public transaction explorer, so no gating is needed.
+
+    ``cursor`` takes a previous ``next_cursor`` and pages by keyset over
+    ``(lock_time, transfer_id)`` — immune to rows inserted between calls.
     """
     try:
         from sqlmodel import col, func, select
@@ -395,6 +454,7 @@ def list_bridge_transfers(
                 status_code=400,
                 detail=f"Invalid status '{status}' (allowed: {sorted(_BRIDGE_TRANSFER_STATUSES)})",
             )
+        keyset = _parse_transfer_cursor(cursor)
         chain_id = get_chain_id(chain_id)
         limit = max(1, min(limit, 200))
         offset = max(0, offset)
@@ -404,15 +464,20 @@ def list_bridge_transfers(
             if status:
                 stmt = stmt.where(CrossChainTransfer.status == status)
                 count_stmt = count_stmt.where(CrossChainTransfer.status == status)
+            if keyset is not None:
+                stmt = stmt.where(_transfers_after(*keyset))
             total = session.exec(count_stmt).one()
             # transfer_id tiebreaker: lock_time is nullable and ties are
             # common, so a bare lock_time ordering made offset pages
-            # nondeterministic.
+            # nondeterministic. One extra row proves whether a next page
+            # exists before next_cursor is emitted.
             rows = session.exec(
                 stmt.order_by(col(CrossChainTransfer.lock_time).desc(), col(CrossChainTransfer.transfer_id).desc())
-                .limit(limit)
+                .limit(limit + 1)
                 .offset(offset)
             ).all()
+        next_cursor = _transfer_cursor(rows[limit - 1]) if len(rows) > limit else None
+        rows = rows[:limit]
         transfers = [
             {
                 "transfer_id": t.transfer_id,
@@ -431,7 +496,14 @@ def list_bridge_transfers(
             }
             for t in rows
         ]
-        return {"transfers": transfers, "count": len(transfers), "total": total, "limit": limit, "offset": offset}
+        return {
+            "transfers": transfers,
+            "count": len(transfers),
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+            "next_cursor": next_cursor,
+        }
     except HTTPException:
         raise
     except Exception as e:

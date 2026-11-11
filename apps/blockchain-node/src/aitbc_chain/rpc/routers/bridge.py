@@ -237,13 +237,14 @@ def list_bridge_transfers_route(
     status: str | None = None,
     limit: int = 50,
     offset: int = 0,
+    cursor: str | None = None,
 ) -> dict[str, Any]:
     """List persisted cross-chain transfers — public explorer listing"""
     if list_bridge_transfers is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
     if chain_id:
         _validate_chain_id(chain_id)
-    return list_bridge_transfers(request, chain_id, status=status, limit=limit, offset=offset)  # type: ignore[no-any-return]
+    return list_bridge_transfers(request, chain_id, status=status, limit=limit, offset=offset, cursor=cursor)  # type: ignore[no-any-return]
 
 
 @router.get("/pending", summary="List pending bridge transfers")
