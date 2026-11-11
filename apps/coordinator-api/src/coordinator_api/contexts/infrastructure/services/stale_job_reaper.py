@@ -128,63 +128,60 @@ class StaleJobReaper:
         session.refresh(job)
         return True
 
+    def _sweep_ttl_expired(self, session: Any, counts: dict[str, int], seen: set[str]) -> None:
+        for job in self._find_ttl_expired(session):
+            seen.add(job.id)
+            try:
+                if self.dry_run:
+                    counts["ttl_expired"] += 1
+                    logger.info(
+                        "[DRY-RUN] Would expire abandoned job %s (TTL elapsed at %s)",
+                        job.id,
+                        job.expires_at,
+                    )
+                elif self._expire(session, job, "job expired"):
+                    counts["ttl_expired"] += 1
+                    logger.info("Expired abandoned job %s (TTL elapsed at %s)", job.id, job.expires_at)
+                else:
+                    logger.info("Job %s left active states before expiry sweep; skipping", job.id)
+            except Exception as e:
+                counts["failed"] += 1
+                logger.error("Failed to expire job %s: %s", job.id, e)
+
+    def _sweep_miner_dead(self, session: Any, counts: dict[str, int], seen: set[str]) -> None:
+        for job in self._find_miner_dead(session):
+            if job.id in seen:
+                continue
+            try:
+                if self.dry_run:
+                    counts["miner_dead"] += 1
+                    logger.info(
+                        "[DRY-RUN] Would expire job %s: miner %s offline past %ss grace period",
+                        job.id,
+                        job.assigned_miner_id,
+                        self.miner_dead_seconds,
+                    )
+                elif self._expire(session, job, "job abandoned: assigned miner offline"):
+                    counts["miner_dead"] += 1
+                    logger.info(
+                        "Expired job %s: miner %s offline past %ss grace period",
+                        job.id,
+                        job.assigned_miner_id,
+                        self.miner_dead_seconds,
+                    )
+                else:
+                    logger.info("Job %s left RUNNING before miner-dead expiry; skipping", job.id)
+            except Exception as e:
+                counts["failed"] += 1
+                logger.error("Failed to expire job %s: %s", job.id, e)
+
     def run_once(self) -> dict[str, int]:
         """One sweep. Returns counts for logging and tests."""
         counts = {"ttl_expired": 0, "miner_dead": 0, "failed": 0}
         with self._session_factory() as session:
             seen: set[str] = set()
-            for job in self._find_ttl_expired(session):
-                seen.add(job.id)
-                try:
-                    if self.dry_run:
-                        counts["ttl_expired"] += 1
-                        logger.info(
-                            "[DRY-RUN] Would expire abandoned job %s (TTL elapsed at %s)",
-                            job.id,
-                            job.expires_at,
-                        )
-                    else:
-                        if self._expire(session, job, "job expired"):
-                            counts["ttl_expired"] += 1
-                            logger.info("Expired abandoned job %s (TTL elapsed at %s)", job.id, job.expires_at)
-                        else:
-                            logger.info(
-                                "Job %s left active states before expiry sweep; skipping",
-                                job.id,
-                            )
-                except Exception as e:
-                    counts["failed"] += 1
-                    logger.error("Failed to expire job %s: %s", job.id, e)
-
-            for job in self._find_miner_dead(session):
-                if job.id in seen:
-                    continue
-                try:
-                    if self.dry_run:
-                        counts["miner_dead"] += 1
-                        logger.info(
-                            "[DRY-RUN] Would expire job %s: miner %s offline past %ss grace period",
-                            job.id,
-                            job.assigned_miner_id,
-                            self.miner_dead_seconds,
-                        )
-                    else:
-                        if self._expire(session, job, "job abandoned: assigned miner offline"):
-                            counts["miner_dead"] += 1
-                            logger.info(
-                                "Expired job %s: miner %s offline past %ss grace period",
-                                job.id,
-                                job.assigned_miner_id,
-                                self.miner_dead_seconds,
-                            )
-                        else:
-                            logger.info(
-                                "Job %s left RUNNING before miner-dead expiry; skipping",
-                                job.id,
-                            )
-                except Exception as e:
-                    counts["failed"] += 1
-                    logger.error("Failed to expire job %s: %s", job.id, e)
+            self._sweep_ttl_expired(session, counts, seen)
+            self._sweep_miner_dead(session, counts, seen)
 
             if not self.dry_run:
                 try:
