@@ -2298,26 +2298,30 @@
         "properties": {
           "chain_id": {
             "type": "string",
+            "maxLength": 128,
             "title": "Chain Id"
           },
           "wallet_id": {
             "type": "string",
+            "maxLength": 256,
             "title": "Wallet Id"
           },
           "password": {
             "type": "string",
+            "maxLength": 1024,
             "title": "Password"
           },
           "metadata": {
             "additionalProperties": true,
             "type": "object",
-            "title": "Metadata",
-            "default": {}
+            "maxProperties": 64,
+            "title": "Metadata"
           },
           "secret_key": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 256
               },
               {
                 "type": "null"
@@ -2407,10 +2411,12 @@
         "properties": {
           "password": {
             "type": "string",
+            "maxLength": 1024,
             "title": "Password"
           },
           "message_base64": {
             "type": "string",
+            "maxLength": 87384,
             "title": "Message Base64"
           }
         },
@@ -2448,10 +2454,12 @@
         "properties": {
           "password": {
             "type": "string",
+            "maxLength": 1024,
             "title": "Password"
           },
           "recipient": {
             "type": "string",
+            "maxLength": 128,
             "title": "Recipient"
           },
           "amount": {
@@ -2477,7 +2485,8 @@
           "chain_id": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 128
               },
               {
                 "type": "null"
@@ -2489,7 +2498,8 @@
             "anyOf": [
               {
                 "additionalProperties": true,
-                "type": "object"
+                "type": "object",
+                "maxProperties": 64
               },
               {
                 "type": "null"
@@ -2560,6 +2570,7 @@
         "properties": {
           "password": {
             "type": "string",
+            "maxLength": 1024,
             "title": "Password"
           }
         },

@@ -1,9 +1,34 @@
 from __future__ import annotations
 
+import json
 from typing import Any
 
 from aitbc_sdk.receipts import SignatureValidation
-from pydantic import BaseModel
+from pydantic import BaseModel, Field, field_validator
+
+# Bounds for admin-supplied inputs (#1746). These fields feed argon2
+# (password), keccak hashing (message_base64), and unbounded sqlite writes
+# (metadata/secret_key), so unbounded values are an allocation/DoS surface
+# even behind require_admin_api_key + rate limiting.
+_MAX_PASSWORD_LEN = 1024
+_MAX_SECRET_KEY_B64_LEN = 256  # a 32-byte key is ~44 base64 chars
+# ~64 KiB decoded — orders of magnitude beyond any real sign payload, while
+# still rejecting multi-hundred-MB bodies before b64decode runs.
+_MAX_MESSAGE_B64_LEN = 87_384
+_MAX_METADATA_ITEMS = 64
+_MAX_METADATA_BYTES = 8192
+_MAX_DICT_ITEMS = 64
+_MAX_DICT_BYTES = 16_384
+_MAX_WALLET_ID_LEN = 256
+_MAX_CHAIN_ID_LEN = 128
+_MAX_ADDRESS_LEN = 128
+
+
+def _check_bounded_dict(value: dict[str, Any], *, max_bytes: int) -> dict[str, Any]:
+    """Reject dicts whose JSON serialization exceeds ``max_bytes``."""
+    if len(json.dumps(value, default=str)) > max_bytes:
+        raise ValueError("dict payload too large")
+    return value
 
 
 class SignatureValidationModel(BaseModel):
@@ -57,11 +82,16 @@ class WalletListResponse(BaseModel):
 
 
 class WalletCreateRequest(BaseModel):
-    chain_id: str
-    wallet_id: str
-    password: str
-    metadata: dict[str, Any] = {}
-    secret_key: str | None = None
+    chain_id: str = Field(max_length=_MAX_CHAIN_ID_LEN)
+    wallet_id: str = Field(max_length=_MAX_WALLET_ID_LEN)
+    password: str = Field(max_length=_MAX_PASSWORD_LEN)
+    metadata: dict[str, Any] = Field(default_factory=dict, max_length=_MAX_METADATA_ITEMS)
+    secret_key: str | None = Field(default=None, max_length=_MAX_SECRET_KEY_B64_LEN)
+
+    @field_validator("metadata")
+    @classmethod
+    def _metadata_within_size(cls, value: dict[str, Any]) -> dict[str, Any]:
+        return _check_bounded_dict(value, max_bytes=_MAX_METADATA_BYTES)
 
 
 class WalletCreateResponse(BaseModel):
@@ -69,7 +99,7 @@ class WalletCreateResponse(BaseModel):
 
 
 class WalletUnlockRequest(BaseModel):
-    password: str
+    password: str = Field(max_length=_MAX_PASSWORD_LEN)
 
 
 class WalletUnlockResponse(BaseModel):
@@ -79,8 +109,8 @@ class WalletUnlockResponse(BaseModel):
 
 
 class WalletSignRequest(BaseModel):
-    password: str
-    message_base64: str
+    password: str = Field(max_length=_MAX_PASSWORD_LEN)
+    message_base64: str = Field(max_length=_MAX_MESSAGE_B64_LEN)
 
 
 class WalletSignResponse(BaseModel):
@@ -119,11 +149,11 @@ class ChainCreateResponse(BaseModel):
 
 
 class WalletMigrationRequest(BaseModel):
-    source_chain_id: str
-    target_chain_id: str
-    wallet_id: str
-    password: str
-    new_password: str | None = None
+    source_chain_id: str = Field(max_length=_MAX_CHAIN_ID_LEN)
+    target_chain_id: str = Field(max_length=_MAX_CHAIN_ID_LEN)
+    wallet_id: str = Field(max_length=_MAX_WALLET_ID_LEN)
+    password: str = Field(max_length=_MAX_PASSWORD_LEN)
+    new_password: str | None = Field(default=None, max_length=_MAX_PASSWORD_LEN)
 
 
 class WalletMigrationResponse(BaseModel):
@@ -136,13 +166,20 @@ class WalletMigrationResponse(BaseModel):
 class WalletTransactionRequest(BaseModel):
     """Request to send a transaction from a wallet"""
 
-    password: str
-    recipient: str
+    password: str = Field(max_length=_MAX_PASSWORD_LEN)
+    recipient: str = Field(max_length=_MAX_ADDRESS_LEN)
     amount: int
     fee: int = 36
     nonce: int | None = None
-    chain_id: str | None = None
-    payload: dict[str, Any] | None = None
+    chain_id: str | None = Field(default=None, max_length=_MAX_CHAIN_ID_LEN)
+    payload: dict[str, Any] | None = Field(default=None, max_length=_MAX_DICT_ITEMS)
+
+    @field_validator("payload")
+    @classmethod
+    def _payload_within_size(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        if value is None:
+            return value
+        return _check_bounded_dict(value, max_bytes=_MAX_DICT_BYTES)
 
 
 class WalletTransactionResponse(BaseModel):
