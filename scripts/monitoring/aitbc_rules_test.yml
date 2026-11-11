@@ -2044,8 +2044,10 @@ tests:
         values: '0+0x60'
       - series: 'blockchain_sync_import_phase_seconds_count{phase="tx_apply",instance="node1:9009",job="blockchain-node",node="node1"}'
         values: '0+0x60'
+      # Slow tail: mass above the 2s bucket boundary (Validator 31132 — identical
+      # counts on every le made p99 ~1.98 and stayed under the >2 threshold).
       - series: 'blockchain_sync_import_phase_seconds_bucket{phase="tx_apply",le="2.0",instance="node2:9009",job="blockchain-node",node="node2"}'
-        values: '0x10 1+1x60'
+        values: '0+0x60'
       - series: 'blockchain_sync_import_phase_seconds_bucket{phase="tx_apply",le="5.0",instance="node2:9009",job="blockchain-node",node="node2"}'
         values: '0x10 1+1x60'
       - series: 'blockchain_sync_import_phase_seconds_bucket{phase="tx_apply",le="10.0",instance="node2:9009",job="blockchain-node",node="node2"}'
