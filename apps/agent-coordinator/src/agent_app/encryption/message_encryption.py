@@ -218,22 +218,28 @@ class MessageEncryptor:
 
             aesgcm = AESGCM(session_key)
             message_json = aesgcm.decrypt(encrypted_msg.nonce, encrypted_msg.ciphertext, None)
+            # CRYPTO-AUDIT-1 (#1551): fail closed — a message whose claimed
+            # sender_id has no registered public key, or whose signature does
+            # not verify, must not yield plaintext. Previously an unknown
+            # sender skipped verification entirely and still decrypted.
             sender_public_key_bytes = self.get_public_key(encrypted_msg.sender_id)
-            if sender_public_key_bytes:
-                sender_public_key = serialization.load_pem_public_key(sender_public_key_bytes, backend=default_backend())
-                try:
-                    if not isinstance(sender_public_key, RSAPublicKey):
-                        raise TypeError(f"Signature verification only supported for RSA keys, got {type(sender_public_key)}")
-                    sender_public_key.verify(
-                        encrypted_msg.signature,
-                        encrypted_msg.ciphertext,
-                        padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
-                        hashes.SHA256(),
-                    )
-                    logger.info("Signature verified for message from %s", encrypted_msg.sender_id)
-                except Exception as e:
-                    logger.warning("Signature verification failed: %s", e)
-                    return None
+            if not sender_public_key_bytes:
+                logger.warning("Rejecting message from %s: no registered public key", encrypted_msg.sender_id)
+                return None
+            sender_public_key = serialization.load_pem_public_key(sender_public_key_bytes, backend=default_backend())
+            if not isinstance(sender_public_key, RSAPublicKey):
+                raise TypeError(f"Signature verification only supported for RSA keys, got {type(sender_public_key)}")
+            try:
+                sender_public_key.verify(
+                    encrypted_msg.signature,
+                    encrypted_msg.ciphertext,
+                    padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH),
+                    hashes.SHA256(),
+                )
+                logger.info("Signature verified for message from %s", encrypted_msg.sender_id)
+            except Exception as e:
+                logger.warning("Signature verification failed: %s", e)
+                return None
             message: dict[str, Any] = json.loads(message_json.decode("utf-8"))
             logger.info("Decrypted message from %s to %s", encrypted_msg.sender_id, recipient_id)
             return message
