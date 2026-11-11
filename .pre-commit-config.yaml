@@ -296,6 +296,17 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+  # BLE001/S110 exception-swallowing ratchet — same baseline+delta shape as c901.
+  # Was CI/Makefile-only; pre-push wiring closes the blind spot called out in #1517.
+  - repo: local
+    hooks:
+      - id: except-ratchet
+        name: except-ratchet
+        entry: bash scripts/ci/check-except-ratchet.sh
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
   # Production assert/print gate, same baseline+ratchet shape as c901. It used
   # to run nowhere and also skipped whole trees when the checkout path merely
   # contained a directory named like a skip entry; the scan is now relative to
