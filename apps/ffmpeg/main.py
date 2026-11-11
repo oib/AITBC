@@ -159,6 +159,38 @@ async def _run_cmd(cmd: list[str], timeout: float) -> subprocess.CompletedProces
     )
 
 
+async def _validate_output(path: str) -> None:
+    """Post-run artifact check (#1818): ffmpeg exiting 0 does not prove a
+    usable output — a failed or truncated transcode can still produce an
+    empty, missing, or zero-duration file that would settle as success.
+    Fail loudly instead of hashing and delivering it."""
+    if not os.path.exists(path):
+        raise HTTPException(status_code=500, detail="ffmpeg reported success but wrote no output file")
+    if os.path.getsize(path) == 0:
+        raise HTTPException(status_code=500, detail="ffmpeg produced an empty output file")
+    probe = await _run_cmd(
+        [
+            "ffprobe",
+            "-v",
+            "error",
+            "-show_entries",
+            "format=duration",
+            "-of",
+            "default=noprint_wrappers=1:nokey=1",
+            path,
+        ],
+        timeout=60,
+    )
+    if probe.returncode != 0:
+        raise HTTPException(status_code=500, detail="ffmpeg output failed ffprobe validation")
+    try:
+        duration = float(probe.stdout.strip())
+    except ValueError:
+        duration = 0.0
+    if not duration > 0:
+        raise HTTPException(status_code=500, detail="ffmpeg output has no playable duration")
+
+
 def _safe_suffix(filename: str | None) -> str:
     """Bound the caller-supplied extension before it becomes part of a filename.
 
@@ -442,6 +474,8 @@ async def process_video(
             logger.exception("Unhandled exception")
 
             raise HTTPException(status_code=500, detail="Internal server error")
+
+        await _validate_output(output_path)
 
         # Calculate result hash. The output can be as large as the input, so it
         # is read in chunks rather than buffered whole -- the upload guard only
