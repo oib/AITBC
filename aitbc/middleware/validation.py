@@ -92,8 +92,11 @@ class RequestValidationMiddleware:
         client_host = client[0] if client else "unknown"
 
         # Read the actual request body; this enforces the size limit regardless of
-        # a chunked transfer or a spoofed Content-Length header.
-        body = b""
+        # a chunked transfer or a spoofed Content-Length header. Chunks collect
+        # in a list and join once — ``bytes +=`` per chunk is O(n²) memcpy on
+        # multi-MB bodies (#1547).
+        chunks: list[bytes] = []
+        body_len = 0
         limit = self.max_request_size + 1
         more_body = True
         while more_body:
@@ -102,9 +105,11 @@ class RequestValidationMiddleware:
                 return
             if message["type"] != "http.request":
                 continue
-            body += message.get("body", b"")
+            chunk = message.get("body", b"")
+            chunks.append(chunk)
+            body_len += len(chunk)
             more_body = message.get("more_body", False)
-            if len(body) > limit:
+            if body_len > limit:
                 logger.warning("Request too large: client=%s", client_host)
                 await JSONResponse(
                     status_code=413,
@@ -113,6 +118,7 @@ class RequestValidationMiddleware:
                 return
 
         # Replay the buffered body to the downstream app.
+        body = b"".join(chunks)
         body_sent = False
 
         async def replay_receive() -> Message:

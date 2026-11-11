@@ -109,3 +109,35 @@ def test_coordinator_defaults_match_nginx_bound() -> None:
     s = Settings()
     assert s.max_request_body_bytes == 5 * 1024 * 1024
     assert "/v1/media/" in s.max_request_body_exempt_prefixes
+
+
+def test_agent_coordinator_registers_body_cap() -> None:
+    """#1547: agent-coordinator binds :8107 directly — it must carry the
+    app-level cap itself, not rely on the api-gateway's proxied-path limit."""
+    import os
+    import tempfile
+
+    os.environ.setdefault("SECRET_KEY", "test-secret-key")
+    tmp = tempfile.mkdtemp(prefix="test-datadir-")
+    os.environ.setdefault("AITBC_DATA_DIR", tmp)
+    os.environ.setdefault("API_KEY_STORAGE_PATH", os.path.join(tmp, "api_keys.json"))
+    from agent_app.main import create_app
+
+    app = create_app()
+    caps = [m for m in app.user_middleware if m.cls.__name__ == "RequestValidationMiddleware"]
+    assert caps, "agent-coordinator has no RequestValidationMiddleware"
+    assert caps[0].kwargs.get("max_request_size") == 5 * 1024 * 1024
+
+
+def test_blockchain_node_registers_body_cap_with_import_exemption() -> None:
+    """#1547: node RPC had no app-level body cap; /import-chain carries a
+    full chain export and stays exempt."""
+    from aitbc_chain.app import create_app
+
+    app = create_app()
+    caps = [m for m in app.user_middleware if m.cls.__name__ == "RequestValidationMiddleware"]
+    assert caps, "blockchain-node has no RequestValidationMiddleware"
+    kwargs = caps[0].kwargs
+    assert kwargs.get("max_request_size") == 10 * 1024 * 1024
+    assert "/rpc/import-chain" in kwargs.get("exempt_prefixes", ())
+    assert "/v1/import-chain" in kwargs.get("exempt_prefixes", ())

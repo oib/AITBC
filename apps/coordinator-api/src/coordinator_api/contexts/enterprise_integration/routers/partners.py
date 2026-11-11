@@ -28,7 +28,7 @@ class PartnerRegister(BaseModel):
     name: str = Field(..., min_length=3, max_length=100)
     description: str = Field(..., min_length=10, max_length=500)
     website: str = Field(..., pattern=r"^https?://")
-    contact: str = Field(..., pattern=r"^[^@]+@[^@]+\.[^@]+$")
+    contact: str = Field(..., max_length=320, pattern=r"^[^@]+@[^@]+\.[^@]+$")
     integration_type: str = Field(..., pattern="^(explorer|analytics|wallet|exchange|other)$")
 
 
