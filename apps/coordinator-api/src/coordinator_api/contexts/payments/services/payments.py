@@ -1675,6 +1675,13 @@ class PaymentService:
         if not won:
             await run_in_threadpool(self.session.rollback)
             return None
+        # #1824: the CAS UPDATE is uncommitted work, and every non-settling
+        # exit below (guard refusal, 425 deferral, transport error) returns
+        # without committing -- without this the attempt bump rolls back with
+        # the session and META_RELEASE_ATTEMPTS never persists, leaving the
+        # retry bound and the 425 window unreachable. Commit the claim now so
+        # the attempt is durable no matter which exit the release takes.
+        await run_in_threadpool(self.session.commit)
         # The bulk UPDATE bypassed the ORM — reload so later readers (and the
         # 425-marker bookkeeping) see the attempt count that landed.
         await run_in_threadpool(self.session.refresh, payment)
@@ -1747,6 +1754,11 @@ class PaymentService:
                     HELD_STATES,
                     {"meta_data": meta, "updated_at": datetime.now(UTC)},
                 )
+                # #1824: persist the restored attempt count and the 425
+                # deferral marker -- this exit returns False without any
+                # other commit, so an uncommitted write here silently drops
+                # both and the bound's clock never starts.
+                await run_in_threadpool(self.session.commit)
                 await run_in_threadpool(self.session.refresh, payment)
                 return False
             # True or False: both are definitive answers (False can only be an
