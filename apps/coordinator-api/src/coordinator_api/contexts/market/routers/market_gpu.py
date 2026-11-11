@@ -84,6 +84,21 @@ def _cas_relist_gpu(session: Session, gpu_id: str, listing_price: Decimal) -> bo
     return getattr(result, "rowcount", 0) == 1
 
 
+def _cas_book_gpu(session: Session, gpu_id: str) -> bool:
+    """#1836: predicate-guarded available->booked CAS.
+
+    ``with_for_update()`` is silently dropped on the default sqlite adapter,
+    so the row lock cannot serialize concurrent bookings there — the status
+    predicate in WHERE is the real arbiter on every adapter."""
+    result = session.execute(
+        update(GPURegistry)
+        .where(col(GPURegistry.id) == gpu_id, col(GPURegistry.status) == "available")
+        .values(status="booked")
+        .execution_options(synchronize_session=False)
+    )
+    return getattr(result, "rowcount", 0) == 1
+
+
 def _validated_price_per_hour(raw: Any) -> Decimal:
     """Return a finite Decimal price in [0, _MAX_PRICE_PER_HOUR] or raise 400."""
     try:
@@ -770,6 +785,15 @@ async def buy_gpu(
         duration_seconds=quote_duration_seconds,
         energy_quote_snapshot=request.energy_quote,
     )
+    # #1836: CAS the status flip before inserting the hold — FOR UPDATE is a
+    # no-op on sqlite, so the predicate in WHERE is the real arbiter. A lost
+    # race must not leave a second active booking on the GPU.
+    if not await run_in_threadpool(_cas_book_gpu, session, request.gpu_id):
+        await run_in_threadpool(session.rollback)
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail=f"GPU {request.gpu_id} is not available for purchase",
+        )
     gpu.status = "booked"
     await run_in_threadpool(session.add, booking)
     await run_in_threadpool(session.add, gpu)
@@ -1075,6 +1099,15 @@ async def book_gpu(
         end_time=end_time,
         status="active",
     )
+    # #1836: CAS the status flip before inserting the hold — FOR UPDATE is a
+    # no-op on sqlite, so the predicate in WHERE is the real arbiter. A lost
+    # race must not leave a second active booking on the GPU.
+    if not await run_in_threadpool(_cas_book_gpu, session, gpu_id):
+        await run_in_threadpool(session.rollback)
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail=f"GPU {gpu_id} is not available",
+        )
     gpu.status = "booked"
     await run_in_threadpool(session.add, booking)
     await run_in_threadpool(session.add, gpu)
