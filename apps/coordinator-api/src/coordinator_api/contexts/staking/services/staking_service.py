@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, func, select, update
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
@@ -52,6 +52,28 @@ class StakingService:
         staking_pool.last_distribution_time = self._ensure_utc_datetime(staking_pool.last_distribution_time)  # type: ignore[assignment]
         return staking_pool
 
+    def _bump_total_staked(self, agent_wallet: str, delta: Decimal, *, pool: bool = False) -> None:
+        """#1799: atomic ``total_staked`` increment.
+
+        SQL-side ``col = col + delta`` — concurrent stake/unstake calls can
+        no longer lose each other's amounts the way the ORM
+        read-modify-write did. ``synchronize_session=False`` keeps the
+        identity-map object stale for this column only; callers refresh
+        before reading it back."""
+        if pool:
+            stmt = (
+                update(StakingPool)
+                .where(StakingPool.agent_wallet == agent_wallet)  # type: ignore[arg-type]
+                .values(total_staked=StakingPool.total_staked + delta)
+            )
+        else:
+            stmt = (
+                update(AgentMetrics)
+                .where(AgentMetrics.agent_wallet == agent_wallet)  # type: ignore[arg-type]
+                .values(total_staked=AgentMetrics.total_staked + delta)
+            )
+        self.session.execute(stmt.execution_options(synchronize_session=False))
+
     def create_stake(
         self,
         staker_address: str,
@@ -84,7 +106,8 @@ class StakingService:
                 auto_compound=auto_compound,
             )
             self.session.add(stake)
-            agent_metrics.total_staked += amount
+            self._bump_total_staked(agent_wallet, amount)
+            self.session.refresh(agent_metrics)
             existing_stakes = self.get_user_stakes(staker_address, agent_wallet=agent_wallet)
             if not existing_stakes:
                 agent_metrics.staker_count += 1
@@ -159,7 +182,8 @@ class StakingService:
             stake.current_apy = self.calculate_apy(stake.agent_wallet, stake.lock_period)
             agent_metrics = self.get_agent_metrics(stake.agent_wallet)
             if agent_metrics:
-                agent_metrics.total_staked += additional_amount
+                self._bump_total_staked(stake.agent_wallet, additional_amount)
+                self.session.refresh(agent_metrics)
             self._update_staking_pool(stake.agent_wallet, stake.staker_address, additional_amount, True)
             (self.session.commit())
             (self.session.refresh(stake))
@@ -208,7 +232,8 @@ class StakingService:
             stake.status = StakeStatus.COMPLETED
             agent_metrics = self.get_agent_metrics(stake.agent_wallet)
             if agent_metrics:
-                agent_metrics.total_staked -= stake.amount
+                self._bump_total_staked(stake.agent_wallet, -stake.amount)
+                self.session.refresh(agent_metrics)
                 remaining_stakes = self.get_user_stakes(
                     stake.staker_address, agent_wallet=stake.agent_wallet, status=StakeStatus.ACTIVE
                 )
@@ -599,11 +624,12 @@ class StakingService:
             if is_stake:
                 if staker_address not in pool.active_stakers:
                     pool.active_stakers.append(staker_address)
-                pool.total_staked += amount
-            else:
-                pool.total_staked -= amount
-                if staker_address in pool.active_stakers:
-                    pool.active_stakers.remove(staker_address)
+            elif staker_address in pool.active_stakers:
+                pool.active_stakers.remove(staker_address)
+            # #1799: atomic pool total — the refresh autoflushes the
+            # active_stakers JSON change, then reloads the landed total.
+            self._bump_total_staked(agent_wallet, amount if is_stake else -amount, pool=True)
+            self.session.refresh(pool)
             if pool.total_staked > 0:
                 pool.pool_apy = self.calculate_apy(agent_wallet, 30)
             (self.session.commit())
