@@ -263,7 +263,9 @@ def unlock_wallet(
 ) -> WalletUnlockResponse:
     try:
         ip_address = request.client.host if request.client else "unknown"
-        secret = bytearray(keystore.unlock_wallet(wallet_id, unlock_request.password, ip_address))
+        # unlock_wallet returns a mutable buffer — wipe it directly instead of
+        # copying into a second bytearray and leaving the first plaintext live.
+        secret = keystore.unlock_wallet(wallet_id, unlock_request.password, ip_address)
         ledger.record_event(wallet_id, "unlocked", {"success": True, "ip_address": ip_address})
         logger.info("Unlocked wallet", extra={"wallet_id": wallet_id})
     except (KeyError, ValueError):

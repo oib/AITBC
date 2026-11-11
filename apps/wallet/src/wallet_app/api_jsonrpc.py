@@ -8,10 +8,40 @@ from fastapi import APIRouter, Depends
 from .deps import get_keystore, get_ledger, get_receipt_service, require_admin_api_key
 from .keystore.persistent_service import PersistentKeystoreService
 from .ledger_mock import SQLiteLedgerAdapter
-from .models import from_validation_result
+from .models import (
+    _MAX_METADATA_BYTES,
+    _MAX_MESSAGE_B64_LEN,
+    _MAX_PASSWORD_LEN,
+    _MAX_SECRET_KEY_B64_LEN,
+    from_validation_result,
+)
 from .receipts.service import ReceiptVerifierService
+from .security import wipe_buffer
 
 router = APIRouter(tags=["jsonrpc"])
+
+
+def _bounded_str(params: dict[str, Any], key: str, max_len: int) -> str | None:
+    """Return params[key] when it is a str within max_len, else None."""
+    value = params.get(key)
+    if not isinstance(value, str) or not value or len(value) > max_len:
+        return None
+    return value
+
+
+def _bounded_metadata(params: dict[str, Any]) -> dict[str, Any] | None:
+    """params['metadata'] as a dict whose JSON form fits the REST bound."""
+    import json
+
+    value = params.get("metadata") or {}
+    if not isinstance(value, dict):
+        return None
+    try:
+        if len(json.dumps(value, default=str)) > _MAX_METADATA_BYTES:
+            return None
+    except (TypeError, ValueError):
+        return None
+    return value
 
 
 def _response(
@@ -68,19 +98,23 @@ def handle_jsonrpc(
 
     if method == "wallet.create":
         wallet_id = params.get("wallet_id")
-        password = params.get("password")
-        metadata = params.get("metadata") or {}
+        password = _bounded_str(params, "password", _MAX_PASSWORD_LEN)
+        create_metadata = _bounded_metadata(params)
         secret_b64 = params.get("secret_key")
-        if not wallet_id or not password:
+        if not wallet_id or password is None:
             return _response(error={"code": -32602, "message": "wallet_id and password required"}, request_id=request_id)
-        if not isinstance(metadata, dict):
-            return _response(error={"code": -32602, "message": "metadata must be an object"}, request_id=request_id)
+        if create_metadata is None:
+            return _response(error={"code": -32602, "message": "metadata must be a bounded object"}, request_id=request_id)
+        if secret_b64 is not None and (not isinstance(secret_b64, str) or len(secret_b64) > _MAX_SECRET_KEY_B64_LEN):
+            return _response(error={"code": -32602, "message": "secret_key too large"}, request_id=request_id)
         try:
             secret = base64.b64decode(secret_b64) if secret_b64 else None
         except Exception:
             return _response(error={"code": -32602, "message": "invalid base64 secret_key"}, request_id=request_id)
         try:
-            record = keystore.create_wallet(wallet_id=wallet_id, password=password, secret=secret, metadata=metadata)
+            record = keystore.create_wallet(
+                wallet_id=str(wallet_id), password=password, secret=secret, metadata=create_metadata
+            )
         except ValueError as e:
             return _response(error={"code": -32602, "message": str(e)}, request_id=request_id)
         ledger.upsert_wallet(record.wallet_id, record.public_key, record.metadata)
@@ -98,11 +132,12 @@ def handle_jsonrpc(
 
     if method == "wallet.unlock":
         wallet_id = params.get("wallet_id")
-        password = params.get("password")
-        if not wallet_id or not password:
+        password = _bounded_str(params, "password", _MAX_PASSWORD_LEN)
+        if not wallet_id or password is None:
             return _response(error={"code": -32602, "message": "wallet_id and password required"}, request_id=request_id)
         try:
-            keystore.unlock_wallet(wallet_id, password)
+            unlocked_secret = keystore.unlock_wallet(str(wallet_id), password)
+            wipe_buffer(unlocked_secret)
             ledger.record_event(wallet_id, "unlocked", {"success": True})
             return _response(result={"wallet_id": wallet_id, "unlocked": True}, request_id=request_id)
         except (KeyError, ValueError):
@@ -111,17 +146,19 @@ def handle_jsonrpc(
 
     if method == "wallet.sign":
         wallet_id = params.get("wallet_id")
-        password = params.get("password")
+        password = _bounded_str(params, "password", _MAX_PASSWORD_LEN)
         message_b64 = params.get("message")
-        if not wallet_id or not password or not message_b64:
+        if not wallet_id or password is None or not message_b64:
             return _response(error={"code": -32602, "message": "wallet_id, password, message required"}, request_id=request_id)
+        if not isinstance(message_b64, str) or len(message_b64) > _MAX_MESSAGE_B64_LEN:
+            return _response(error={"code": -32602, "message": "message too large"}, request_id=request_id)
         try:
             message = base64.b64decode(message_b64)
         except Exception:
             return _response(error={"code": -32602, "message": "invalid base64 message"}, request_id=request_id)
 
         try:
-            signature = keystore.sign_message(wallet_id, password, message)
+            signature = keystore.sign_message(str(wallet_id), password, message)
             ledger.record_event(wallet_id, "sign", {"success": True})
         except (KeyError, ValueError):
             ledger.record_event(wallet_id, "sign", {"success": False})

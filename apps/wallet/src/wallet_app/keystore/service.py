@@ -73,7 +73,8 @@ class KeystoreService:
         self._wallets[wallet_id] = record
         return record
 
-    def unlock_wallet(self, wallet_id: str, password: str) -> bytes:
+    def unlock_wallet(self, wallet_id: str, password: str) -> bytearray:
+        """Return the decrypted secret as a mutable buffer the caller must wipe."""
         record = self._wallets.get(wallet_id)
         if record is None:
             raise KeyError("wallet not found")
@@ -88,7 +89,9 @@ class KeystoreService:
         return self._wallets.pop(wallet_id, None) is not None
 
     def sign_message(self, wallet_id: str, password: str, message: bytes) -> bytes:
-        secret_bytes = bytearray(self.unlock_wallet(wallet_id, password))
+        # decrypt() already returns a wipeable bytearray — do not copy it into
+        # another buffer or the live plaintext escapes wipe_buffer (#1746).
+        secret_bytes = self.unlock_wallet(wallet_id, password)
         try:
             signing_key = SigningKey(bytes(secret_bytes))
             signed = signing_key.sign(message)

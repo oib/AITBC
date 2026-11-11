@@ -51,10 +51,20 @@ class EncryptionSuite:
         except Exception as exc:  # pragma: no cover
             raise EncryptionError("encryption failed") from exc
 
-    def decrypt(self, *, password: str, ciphertext: bytes, salt: bytes, nonce: bytes) -> bytes:
+    def decrypt(self, *, password: str, ciphertext: bytes, salt: bytes, nonce: bytes) -> bytearray:
+        """Decrypt and return the plaintext as a *mutable* buffer.
+
+        Callers must ``wipe_buffer`` the returned bytearray — that is the only
+        plaintext copy they can deterministically zero. Residual (#1746): the
+        immutable ``bytes`` object returned by the PyNaCl binding cannot be
+        wiped; it is freed by refcounting when ``plaintext`` goes out of scope
+        but its heap contents linger until reuse. Returning bytearray shrinks
+        the exposure window from "until GC after the caller copies" to "during
+        this call only".
+        """
         key_bytes = bytearray(self._derive_key(password=password, salt=salt))
         try:
-            return crypto_aead_xchacha20poly1305_ietf_decrypt(
+            plaintext = crypto_aead_xchacha20poly1305_ietf_decrypt(
                 ciphertext=ciphertext,
                 aad=b"",
                 nonce=nonce,
@@ -64,3 +74,4 @@ class EncryptionSuite:
             raise EncryptionError("decryption failed") from exc
         finally:
             wipe_buffer(key_bytes)
+        return bytearray(plaintext)

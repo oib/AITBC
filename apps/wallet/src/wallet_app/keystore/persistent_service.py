@@ -350,8 +350,8 @@ class PersistentKeystoreService:
 
             return record
 
-    def unlock_wallet(self, wallet_id: str, password: str, ip_address: str | None = None) -> bytes:
-        """Unlock wallet and return secret key"""
+    def unlock_wallet(self, wallet_id: str, password: str, ip_address: str | None = None) -> bytearray:
+        """Unlock wallet and return the secret as a mutable buffer the caller must wipe."""
         record = self.get_wallet(wallet_id)
         if record is None:
             self._log_access(wallet_id, "unlock_failed", False, ip_address)
@@ -395,7 +395,9 @@ class PersistentKeystoreService:
         wallet's secp256k1 address (#1409).
         """
         try:
-            secret_bytes = bytearray(self.unlock_wallet(wallet_id, password, ip_address))
+            # decrypt() returns a wipeable bytearray — use it directly so the
+            # live plaintext buffer is the one wipe_buffer zeroes (#1746).
+            secret_bytes = self.unlock_wallet(wallet_id, password, ip_address)
             try:
                 from eth_keys import keys as _eth_keys
                 from eth_utils import keccak
@@ -457,8 +459,9 @@ class PersistentKeystoreService:
                     "create a new wallet (secp256k1) and migrate funds"
                 )
 
-            # Unlock wallet to get signing key
-            secret_bytes = bytearray(self.unlock_wallet(wallet_id, password, ip_address))
+            # Unlock wallet to get signing key — the returned bytearray is the
+            # buffer wipe_buffer zeroes; copying it would leave plaintext live.
+            secret_bytes = self.unlock_wallet(wallet_id, password, ip_address)
             try:
                 from eth_keys import keys as _eth_keys
 
