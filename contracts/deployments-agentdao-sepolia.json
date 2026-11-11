@@ -1,0 +1,42 @@
+[
+  {
+    "contract": "AgentBounty",
+    "address": "0xF5529cae16b95b379F625698d6c7e2597322e3d2",
+    "deployer": "0xdefa5795d1242C90d019eb098759B77cd0871243",
+    "paymentToken": "0x87fCf1bB267Bd4d56539b22f4e44137dCF71423A",
+    "performanceVerifier": "0xCa3bEa2d167c97a5F937AD4C3380705e225E8f2e",
+    "transactionHash": "0x6165ee8e614ce16c8aa70bb38cff8ec78e6a9246ba75f737fa8f34da92e7c217",
+    "issue": "#1469"
+  },
+  {
+    "contract": "AITBCGovernanceToken",
+    "address": "0x3cD62b49cbd3348165A6352A01bC4CEc9c5DF311",
+    "deployer": "0xdefa5795d1242C90d019eb098759B77cd0871243",
+    "transactionHash": "0x5352ead32b40ade7739a8e4d2122b07ae0344b4d7bd3d079b2c7a31131807072",
+    "issue": "#1464"
+  },
+  {
+    "contract": "TimelockController",
+    "address": "0x7fdb6E62278Bebb652297AA025Fe3f54aBA9f3bd",
+    "deployer": "0xdefa5795d1242C90d019eb098759B77cd0871243",
+    "minDelaySeconds": 86400,
+    "proposers": [
+      "0xdefa5795d1242C90d019eb098759B77cd0871243"
+    ],
+    "executors": [
+      "0xdefa5795d1242C90d019eb098759B77cd0871243"
+    ],
+    "admin": "0xdefa5795d1242C90d019eb098759B77cd0871243",
+    "transactionHash": "0xdb2f2755d163b81497fb63ca5964e2dda574e9bc81ad23a7034f3d13991d2781",
+    "issue": "#1464"
+  },
+  {
+    "contract": "AgentDAO",
+    "address": "0xcdbF63DbB7DAeB6A574360890f612c9123ac738C",
+    "deployer": "0xdefa5795d1242C90d019eb098759B77cd0871243",
+    "governanceToken": "0x3cD62b49cbd3348165A6352A01bC4CEc9c5DF311",
+    "timelock": "0x7fdb6E62278Bebb652297AA025Fe3f54aBA9f3bd",
+    "transactionHash": "0xcc86ac80dde4518cd89735193a5b8b74a8c9884ea2dce8b9a02e07312fc0bfce",
+    "issue": "#1464"
+  }
+]
