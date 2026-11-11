@@ -17,8 +17,16 @@ def _normalize_address(addr: str | None) -> str:
     return addr.lower()
 
 
+def _normalize_topic_hex(topic: str) -> str:
+    """Lowercase hex body without 0x (web3 HexBytes.hex() omits the prefix)."""
+    raw = (topic or "").strip().lower()
+    if raw.startswith("0x"):
+        raw = raw[2:]
+    return raw
+
+
 def _topic_to_uint256(topic: str) -> int:
-    raw = topic[2:] if topic.startswith("0x") else topic
+    raw = _normalize_topic_hex(topic)
     return int(raw, 16)
 
 
@@ -36,7 +44,7 @@ def agreement_id_from_receipt_logs(
         topics: list[str] = entry.get("topics") or []
         if not topics:
             continue
-        if topics[0].lower() != AGREEMENT_STARTED_TOPIC0.lower():
+        if _normalize_topic_hex(topics[0]) != _normalize_topic_hex(AGREEMENT_STARTED_TOPIC0):
             continue
         if len(topics) < 2:
             continue

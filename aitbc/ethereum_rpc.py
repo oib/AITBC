@@ -171,9 +171,19 @@ class EthereumRPCClient:
             return None
 
     @staticmethod
+    def _ensure_0x_hex(value: str) -> str:
+        s = value.strip()
+        if not s:
+            return "0x"
+        if s.lower().startswith("0x"):
+            return s if s.startswith("0x") else "0x" + s[2:]
+        return "0x" + s
+
+    @staticmethod
     def _serialize_receipt_log(log: Any) -> dict[str, Any]:
-        topics = [t.hex() if hasattr(t, "hex") else str(t) for t in log.topics]
-        data = log.data.hex() if hasattr(log.data, "hex") else str(log.data)
+        topics = [EthereumRPCClient._ensure_0x_hex(t.hex() if hasattr(t, "hex") else str(t)) for t in log.topics]
+        raw_data = log.data.hex() if hasattr(log.data, "hex") else str(log.data)
+        data = EthereumRPCClient._ensure_0x_hex(raw_data)
         address = log.address if isinstance(log.address, str) else str(log.address)
         return {"address": address, "topics": topics, "data": data}
 
