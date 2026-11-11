@@ -30,6 +30,7 @@ sys.path.insert(0, str(_HERE.parents[2]))
 sys.path.insert(0, str(_HERE.parent))
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.utils.env import subprocess_env  # noqa: E402
 from kubo_log import forward_line  # noqa: E402
 
 configure_logging(level="INFO", service_name="island-ipfs", to_file=True)
@@ -41,7 +42,7 @@ def _ipfs_bin() -> str:
 
 
 def _run(cmd: list[str], env: dict[str, str] | None = None, check: bool = True) -> subprocess.CompletedProcess[str]:
-    proc_env = os.environ.copy()
+    proc_env = subprocess_env(include_prefixes=("IPFS_",))
     if env:
         proc_env.update(env)
     return subprocess.run(cmd, env=proc_env, check=check, capture_output=True, text=True)
@@ -224,7 +225,7 @@ def main(argv: list[str] | None = None) -> int:
         _add_bootstrap(repo, bootstrap)
 
     cmd = [_ipfs_bin(), "daemon", "--enable-gc"]
-    env = os.environ.copy()
+    env = subprocess_env(include_prefixes=("IPFS_",))
     env["IPFS_PATH"] = str(repo)
     env["IPFS_FORCE_PNET"] = "1"
 
