@@ -749,6 +749,41 @@ async def propagate_proposal(
     }
 
 
+def _json_num(d: Any) -> int | float:
+    """Numeric → JSON number: int when integral, else float (#1649).
+
+    sqlite hands back int/float where postgres gives Decimal, and raw
+    Decimals serialize as strings through the response encoder — normalize
+    everything to a real JSON number either way.
+    """
+    dec = d if isinstance(d, Decimal) else Decimal(str(d))
+    return int(dec) if dec == dec.to_integral_value() else float(dec)
+
+
+def _vote_public_dict(v: Any) -> dict[str, Any]:
+    """Curated public fields for one Vote row (#1649).
+
+    Replaces returning raw ORM objects, which serialized every column —
+    including internals — into the response. ``signature`` is deliberately
+    excluded: it is credential-adjacent material, not tally data.
+    """
+    return {
+        "vote_id": v.vote_id,
+        "proposal_id": v.proposal_id,
+        "voter_id": v.voter_id,
+        "vote_type": str(v.vote_type),
+        "voting_power_used": _json_num(v.voting_power_used or Decimal("0")),
+        "voting_power": _json_num(v.voting_power or Decimal("0")),
+        "vote_weight": _json_num(v.vote_weight or Decimal("0")),
+        "reason": v.reason,
+        "delegated_from": v.delegated_from,
+        "chain_id": v.chain_id,
+        "block_height": v.block_height,
+        "tx_hash": v.tx_hash,
+        "created_at": v.created_at,
+    }
+
+
 @app.post("/v1/governance/proposals/{proposal_id}/aggregate-votes")
 async def aggregate_votes(
     proposal_id: str,
@@ -760,23 +795,32 @@ async def aggregate_votes(
     Queries the local vote tally for the proposal. In a multi-chain
     deployment, this would also query each registered chain for votes
     cast on this proposal and merge them into the hub chain's tally.
+
+    #1649: ``total_for``/``total_against``/``total_abstain`` are
+    token-weighted sums of ``voting_power_used`` (previously raw vote-row
+    counts), and ``votes`` carries a curated public field set — signature
+    and ORM internals are not exposed.
     """
     await _require_cross_chain_signature(_signed_call_body(request))
     votes = await svc.list_votes(proposal_id=proposal_id)
     # list_votes returns Vote SQLModel rows, not dicts — read the attribute.
     # VoteType is a StrEnum, so it compares equal to its string value.
-    total_for = sum(1 for v in votes if v.vote_type in ("for", "yes"))
-    total_against = sum(1 for v in votes if v.vote_type in ("against", "no"))
-    total_abstain = sum(1 for v in votes if v.vote_type == "abstain")
+    # #1649: tallies are token-weighted (voting_power_used), matching every
+    # other tally in the service — a 1-token vote no longer counts the same
+    # as a 1M-token vote. Response semantics changed from row counts to
+    # weight sums; the "votes" list is a curated dict, not raw ORM rows.
+    total_for = sum((v.voting_power_used or Decimal("0")) for v in votes if v.vote_type in ("for", "yes"))
+    total_against = sum((v.voting_power_used or Decimal("0")) for v in votes if v.vote_type in ("against", "no"))
+    total_abstain = sum((v.voting_power_used or Decimal("0")) for v in votes if v.vote_type == "abstain")
     chains_aggregated = [svc._blockchain.rpc_url] if votes else []
 
     return {
         "proposal_id": proposal_id,
-        "total_for": total_for,
-        "total_against": total_against,
-        "total_abstain": total_abstain,
+        "total_for": _json_num(total_for),
+        "total_against": _json_num(total_against),
+        "total_abstain": _json_num(total_abstain),
         "chains_aggregated": chains_aggregated,
-        "votes": votes,
+        "votes": [_vote_public_dict(v) for v in votes],
     }
 
 

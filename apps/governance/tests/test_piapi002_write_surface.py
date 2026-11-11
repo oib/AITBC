@@ -192,8 +192,14 @@ def test_execute_cross_chain_signed_proposer_reaches_status_check(client: TestCl
     assert r.status_code == 400
 
 
-def test_aggregate_votes_counts_real_votes(client: TestClient) -> None:
-    """#1501: the tally read ``v.get(...)`` on Vote ORM rows — 500 with votes."""
+def test_aggregate_votes_counts_real_votes(client: TestClient, test_database_path) -> None:
+    """#1501: the tally read ``v.get(...)`` on Vote ORM rows — 500 with votes.
+
+    #1649: totals are now token-weighted (voting_power_used sums), not row
+    #counts — assert against the stored weight, not 1.
+    """
+    import sqlite3
+
     pid = _create_proposal(client)
     voter = _address(PRIVKEY)
     vote = {
@@ -208,7 +214,14 @@ def test_aggregate_votes_counts_real_votes(client: TestClient) -> None:
 
     r = client.post(f"/v1/governance/proposals/{pid}/aggregate-votes", json=_signed({}))
     assert r.status_code == 200, r.text
-    assert r.json()["total_for"] == 1
+    conn = sqlite3.connect(test_database_path)
+    try:
+        weight = conn.execute(
+            "SELECT voting_power_used FROM votes WHERE proposal_id=? AND vote_type='for'", (pid,)
+        ).fetchone()[0]
+    finally:
+        conn.close()
+    assert r.json()["total_for"] == float(weight)
     assert r.json()["total_against"] == 0
     assert r.json()["total_abstain"] == 0
 
