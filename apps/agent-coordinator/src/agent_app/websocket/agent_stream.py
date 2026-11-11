@@ -847,15 +847,27 @@ def _budgeted_claim_coin_request(
 
 
 def _finish_claimed_coin_request(request_id: str, tx_hash: str, *, failed: bool = False) -> None:
-    """Replace the claim marker with the real tx hash, or mark the claim FAILED."""
+    """Replace the claim marker with the real tx hash, or mark the claim FAILED.
+
+    Both paths compare-and-swap on the in-flight claim (#1812 / #1424): only an
+    APPROVED row still carrying a ``claiming:`` marker may be finished — a stale
+    failure marker cannot clobber a completed payout.
+    """
+    _claim_cas = "status = 'APPROVED' AND transaction_hash LIKE 'claiming:%'"
     conn = _agent_db_conn()
     if conn is None:
         return
     try:
         if failed:
-            conn.execute("UPDATE coin_requests SET status = 'FAILED' WHERE id = ?", (request_id,))
+            conn.execute(
+                f"UPDATE coin_requests SET status = 'FAILED' WHERE id = ? AND {_claim_cas}",  # nosec
+                (request_id,),
+            )
         else:
-            conn.execute("UPDATE coin_requests SET transaction_hash = ? WHERE id = ?", (tx_hash, request_id))
+            conn.execute(
+                f"UPDATE coin_requests SET transaction_hash = ? WHERE id = ? AND {_claim_cas}",  # nosec
+                (tx_hash, request_id),
+            )
         conn.commit()
         conn.close()
     except Exception as e:
