@@ -142,6 +142,22 @@ def _expected_get_404(method: str, status_code: int, path: str) -> bool:
     return bool(_ACCOUNT_MISS_PATH.fullmatch(path) or _TX_MISS_PATH.fullmatch(path))
 
 
+# #1710: paths that must stay reachable while a chain.db is quarantined —
+# liveness/readiness/metrics so monitors see the state, plus docs.
+_QUARANTINE_EXEMPT_PREFIXES = ("/health", "/ready", "/metrics", "/docs", "/openapi.json", "/redoc")
+
+
+def _quarantined_chain_ids() -> list[str]:
+    """Served chains whose chain.db is quarantined (#1740/#1772 marker-aware)."""
+    from .database import is_chain_db_quarantined
+
+    return [cid for cid in get_supported_chains() if is_chain_db_quarantined(cid)]
+
+
+def _quarantine_exempt(path: str) -> bool:
+    return any(path == p or path.startswith(p + "/") for p in _QUARANTINE_EXEMPT_PREFIXES)
+
+
 class RequestLoggingMiddleware:
     """Log all requests with timing and error details.
 
@@ -192,6 +208,35 @@ class RequestLoggingMiddleware:
             response = JSONResponse(status_code=400, content={"detail": f"Unsupported chain_id: {chain_id_param}"})
             await response(scope, receive, send)
             return
+        # #1710: while any served chain.db is quarantined, chain-state
+        # endpoints must not answer — reads can keep returning stale 200s
+        # (disk-full writes fail while SELECTs still work) and writes fail
+        # anyway. Answer a structured 503; liveness/readiness/metrics stay
+        # reachable so monitors observe the state instead of a bare 500.
+        if not _quarantine_exempt(path):
+            quarantined = _quarantined_chain_ids()
+            if quarantined:
+                metrics_registry.increment("rpc_requests_total")
+                metrics_registry.increment("rpc_client_errors_total")
+                _app_logger.warning(
+                    "Refusing %s %s from %s (UA: %s): chain db quarantined: %s",
+                    method,
+                    path_with_qs,
+                    client_host,
+                    user_agent,
+                    ",".join(quarantined),
+                )
+                response = JSONResponse(
+                    status_code=503,
+                    content={
+                        "status": "quarantined",
+                        "reason": "chain_db_quarantined",
+                        "chain_id": quarantined[0],
+                        "detail": "chain database is quarantined; requests resume when the store recovers",
+                    },
+                )
+                await response(scope, receive, send)
+                return
         status_code = 500
         response_started = False
 
@@ -705,6 +750,9 @@ def create_app() -> FastAPI:
             "supported_chains": [c.strip() for c in settings.supported_chains.split(",") if c.strip()],
             "proposer_id": settings.proposer_id,
             "node_wallet": get_node_wallet_address(),
+            # #1710: liveness stays 200 during quarantine, but a monitor
+            # keyed on /health can still see consensus participation state.
+            "quarantined_chains": _quarantined_chain_ids(),
         }
 
     @metrics_router.get("/ready", tags=["health"], summary="Readiness probe")
@@ -727,15 +775,18 @@ def create_app() -> FastAPI:
             checks["block_production"] = _check_can_sign
         failed = await asyncio.to_thread(run_readiness_checks, checks)
         if failed:
-            return JSONResponse(
-                status_code=503,
-                content={
-                    "status": "not_ready",
-                    "service": "blockchain-node",
-                    "error": "readiness check failed",
-                    "failed": failed,
-                },
-            )
+            # #1710: name the quarantined chains so a probe can distinguish
+            # "chain db quarantined" from a generic dependency failure.
+            quarantined = _quarantined_chain_ids()
+            content: dict[str, Any] = {
+                "status": "not_ready",
+                "service": "blockchain-node",
+                "error": "readiness check failed",
+                "failed": failed,
+            }
+            if quarantined:
+                content["quarantined_chains"] = quarantined
+            return JSONResponse(status_code=503, content=content)
         return JSONResponse(
             status_code=200,
             content={"status": "ready", "service": "blockchain-node", "checks": sorted(checks)},
