@@ -103,3 +103,14 @@ def test_url_with_port_and_colon():
     """URLs with colons (e.g. host:port) should split on first colon only."""
     resolver = SyncSourceResolver(sync_sources="ait-hub:http://hub-a:8006")
     assert resolver.get_sync_source("ait-hub") == "http://hub-a:8006"
+
+
+def test_trailing_colon_and_slash_normalized():
+    """#1663: env URLs like http://127.0.0.1:8302: made every sync poll raise
+    httpx InvalidURL ('Port could not be cast ... 8302:')."""
+    r = SyncSourceResolver(sync_sources="", default_url="http://127.0.0.1:8302:")
+    assert r.get_sync_source("bc-2-island-1") == "http://127.0.0.1:8302"
+
+    r2 = SyncSourceResolver(sync_sources="bc-2-island-1:http://127.0.0.1:8302:/,bc-2:https://hub.example.com/")
+    assert r2.get_sync_source("bc-2-island-1") == "http://127.0.0.1:8302"
+    assert r2.get_sync_source("bc-2") == "https://hub.example.com"
