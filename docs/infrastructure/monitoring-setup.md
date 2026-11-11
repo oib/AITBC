@@ -186,6 +186,7 @@ The blockchain node main process exposes `/metrics` on `AITBC_NODE_METRICS_PORT`
 - `blockchain_poa_valid_subscribers{chain_id}` - number of valid subscribers at block broadcast time.
 - `blockchain_poa_broadcast_skipped_total{chain_id}` - blocks skipped because no subscribers were present.
 - `blockchain_block_processing_duration_seconds` - block processing latency histogram.
+- `blockchain_sync_import_phase_seconds{phase}` - per-phase block import timing (#1276); `SyncImportPhaseSlow` alerts on `tx_apply`/`commit` p99.
 - `blockchain_transactions_total{status}` - transaction outcomes.
 - `blockchain_rpc_request_duration_seconds` / `blockchain_rpc_requests_total{method,status}` - RPC latency and errors.
 - `gossip_subscribers_total`, `gossip_subscribers_topic_*`, `gossip_broadcast_subscribers_total` - in-memory and broadcast subscriber counts.

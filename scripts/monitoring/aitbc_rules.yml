@@ -47,6 +47,23 @@ groups:
       severity: warning
     annotations:
       summary: Block processing p95 exceeds 1 second
+  - alert: SyncImportPhaseSlow
+    expr: "histogram_quantile(0.99, sum by (le, instance, node, phase) (\n  rate(blockchain_sync_import_phase_seconds_bucket{phase=~\"\
+      tx_apply|commit\"}[10m])\n)) > 2\nand on (instance, node, phase) (\n  sum by (instance,\
+      \ node, phase) (\n    rate(blockchain_sync_import_phase_seconds_count{phase=~\"\
+      tx_apply|commit\"}[10m])\n  ) > 0\n)\n"
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Import phase {{ $labels.phase }} p99 exceeds 2s on {{ $labels.node }}
+        ({{ $labels.instance }})
+      description: 'The v21 phase histogram from #1276 shows where block import stalls
+        land — healthy tx_apply p99 is ~0.1s fleet-wide; sustained p99 above 2s on
+        tx_apply or commit usually means apply or DB commit is the bottleneck (peer
+        phases stay cold). BlockProcessingTooSlow only sees end-to-end processing.
+        Hub proposer metrics may lack node= on central Prometheus (#1276 coverage gap).
+        Inspect import_block journal and chain.db health on the firing host.'
   - alert: RpcErrorsSpiking
     expr: "rate(rpc_server_errors_total[5m])\n  / clamp_min(rate(rpc_requests_total[5m]),\
       \ 1) > 0.05\nor (\n  rate(rpc_client_errors_total[5m])\n    / clamp_min(rate(rpc_requests_total[5m]),\
