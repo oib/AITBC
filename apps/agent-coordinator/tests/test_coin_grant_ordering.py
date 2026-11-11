@@ -42,6 +42,27 @@ def test_failed_send_marks_claim_failed(db):
     assert _rows(db)[0][1] == "FAILED"
 
 
+def test_stale_failed_mark_does_not_regress_completed_payout(db):
+    """#1812: a late failed=True after payout must not overwrite a settled row."""
+    rid, _dup = ws._record_claiming_coin_request("s", 100, "0xabc")
+    tx = "0x" + "ab" * 32
+    ws._finish_claimed_coin_request(rid, tx)
+    ws._finish_claimed_coin_request(rid, "", failed=True)
+    status, txh = _rows(db)[0][1], _rows(db)[0][2]
+    assert status == "APPROVED"
+    assert txh == tx
+
+
+def test_stale_success_mark_does_not_regress_failed_claim(db):
+    """#1812: a late success after FAILED must not put a tx hash on a released claim."""
+    rid, _dup = ws._record_claiming_coin_request("s", 100, "0xabc")
+    ws._finish_claimed_coin_request(rid, "", failed=True)
+    ws._finish_claimed_coin_request(rid, "0xlate")
+    status, txh = _rows(db)[0][1], _rows(db)[0][2]
+    assert status == "FAILED"
+    assert txh.startswith("claiming:")
+
+
 def test_unreadable_ledger_returns_none(db, monkeypatch):
     monkeypatch.setenv("AGENT_DB_PATH", "/nonexistent-dir-xyz/coin.db")
     assert ws._record_claiming_coin_request("s", 100, "0xabc") == (None, False)

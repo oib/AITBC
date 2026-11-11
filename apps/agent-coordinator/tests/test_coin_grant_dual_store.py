@@ -148,6 +148,35 @@ def test_failed_first_grant_claim_does_not_block_retry(monkeypatch, tmp_path) ->
     assert retry is not None and not dup
 
 
+def test_stale_failed_after_ws_payout_keeps_prior_grant_visible(monkeypatch, tmp_path) -> None:
+    """#1812 / #1542: stale failure must not downgrade a completed WS grant to
+    FAILED — /register must still see the prior grant."""
+    db = tmp_path / "coins.db"
+    monkeypatch.setenv("AGENT_DB_PATH", str(db))
+
+    rid, _ = agent_stream._record_claiming_coin_request("ws-agent", PAYOUT, WALLET, first_grant=True)
+    assert rid is not None
+    tx = "0x" + "ee" * 32
+    agent_stream._finish_claimed_coin_request(rid, tx)
+    agent_stream._finish_claimed_coin_request(rid, "", failed=True)
+
+    conn = sqlite3.connect(db)
+    row = conn.execute("SELECT status, transaction_hash FROM coin_requests WHERE id = ?", (rid,)).fetchone()
+    conn.close()
+    assert row[0] == "APPROVED"
+    assert row[1] == tx
+
+    monkeypatch.setattr(agent_db, "_engine", None)
+    monkeypatch.setattr(agent_db, "_SessionLocal", None)
+    try:
+        agent_db.init_db()
+        with agent_db.get_db_session() as session:
+            assert coin_request_policy.has_prior_grant(session, "other-agent", WALLET)
+    finally:
+        agent_db._engine = None
+        agent_db._SessionLocal = None
+
+
 def test_concurrent_first_grant_claims_exactly_one_wins(monkeypatch, tmp_path) -> None:
     """The cross-worker race from #1542: N simultaneous first-grant claims for
     the same wallet must produce exactly one committed claim row."""
