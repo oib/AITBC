@@ -25,6 +25,7 @@ from __future__ import annotations
 import hashlib
 import json
 from decimal import Decimal
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlmodel import Session
@@ -33,7 +34,7 @@ from aitbc.crypto.consensus_signing import verify_consensus_message, verify_cons
 from aitbc.crypto.signature_recovery import SignatureMalformed, canonical_address
 
 from ..config import legacy_attestation_dual_accept_open, settings
-from ..consensus.equivocation_policy import pair_stands_as_evidence
+from ..consensus.equivocation_policy import UcApplyContext, pair_stands_as_evidence
 from ..consensus.slashing import SlashingCondition, SlashingEvent, SlashingManager
 
 EVIDENCE_VERSION = 2
@@ -46,6 +47,52 @@ def _evidence_required(session: Session, chain_id: str, block_height: int | None
 
     value = _chain_parameter_value(session, chain_id, "validator_deactivation_evidence_required", block_height)
     return bool(value and value.strip().lower() in ("true", "1", "yes"))
+
+
+def _uc_context(
+    session: Session, chain_id: str, block_height: int | None, block_time: datetime | None
+) -> UcApplyContext | None:
+    """Apply-time inputs for the ``uc`` unlock proof, or None (= not registered).
+
+    Dormant: needs the on-chain parameter ``unlock_proof_uc_enabled`` in force at
+    ``block_height`` plus ``unlock_proof_uc_min_responses``, ``unlock_proof_uc_max_age_seconds``
+    and ``unlock_proof_uc_validator_set_digest`` (sha256 of the sorted canonical
+    validator addresses joined by newlines). Fail closed on anything missing,
+    malformed or mismatched, including a local validator set whose digest differs
+    from the on-chain one (so after a rotation the proof stops excusing until the
+    digest parameter is updated: #1281 option-3 slice; replaying pre-rotation
+    excusals is NOT supported, see the issue).
+    """
+    from ..consensus.unavail import validator_addresses
+    from .state_transition import _chain_parameter_value
+
+    if block_height is None or block_time is None:
+        return None
+
+    def param(name: str) -> str | None:
+        return _chain_parameter_value(session, chain_id, f"unlock_proof_uc_{name}", block_height)
+
+    enabled = param("enabled")
+    if not (enabled and enabled.strip().lower() in ("true", "1", "yes")):
+        return None
+    try:
+        min_responses = int(str(param("min_responses")))
+        max_age = float(str(param("max_age_seconds")))
+    except (TypeError, ValueError):
+        return None
+    digest = (param("validator_set_digest") or "").strip().lower()
+    vset = validator_addresses()
+    local_digest = hashlib.sha256("\n".join(sorted(vset)).encode()).hexdigest()
+    if min_responses < 1 or not (max_age > 0) or not vset or digest != local_digest:
+        return None
+    when = block_time if block_time.tzinfo is not None else block_time.replace(tzinfo=UTC)
+    return UcApplyContext(
+        chain_id=chain_id,
+        now=when.timestamp(),
+        validator_set=frozenset(vset),
+        max_age=max_age,
+        min_responses=min_responses,
+    )
 
 
 def _record_to_event(record: dict[str, Any]) -> SlashingEvent | None:
@@ -221,7 +268,9 @@ def _records_to_events(records: list[Any], validator_addr: str) -> tuple[list[Sl
     return events, None
 
 
-def _verify_equivocations(events: list[SlashingEvent], validator_addr: str) -> str | None:
+def _verify_equivocations(
+    events: list[SlashingEvent], validator_addr: str, uc_ctx: UcApplyContext | None = None
+) -> str | None:
     """Verify every equivocation claim; ≥1 verified equivocation required."""
     verified = 0
     for event in events:
@@ -230,7 +279,7 @@ def _verify_equivocations(events: list[SlashingEvent], validator_addr: str) -> s
         if ep is not None and kind == "attestation_equivocation":
             if not _verify_attestation_equivocation(ep, event, validator_addr):
                 return "attestation equivocation evidence failed signature verification"
-            if not pair_stands_as_evidence(ep):
+            if not pair_stands_as_evidence(ep, uc_ctx):
                 # signatures verified, but the cross-round unlock carries an independently
                 # verifiable protocol proof (#1274): excused, not counted, bundle not failed
                 continue
@@ -257,6 +306,9 @@ def verify_deactivation_evidence(
     chain_id: str,
     validator_addr: str,
     evidence_hash: str,
+    session: Session | None = None,
+    block_height: int | None = None,
+    block_time: datetime | None = None,
 ) -> str | None:
     """Verify ``payload``'s evidence bundle and equivocation proofs.
 
@@ -265,7 +317,7 @@ def verify_deactivation_evidence(
     records carry their own ``chain_id`` field — verification trusts the
     signed bytes, not the caller's claim.
     """
-    del chain_id  # signed preimages carry chain_id per attestation record
+    # signed preimages carry chain_id per attestation record; it is used only for the #1281 uc context
     if payload.get("evidence_version") != EVIDENCE_VERSION:
         return f"evidence_version must be {EVIDENCE_VERSION} when verification is armed"
     records = payload.get("evidence")
@@ -285,4 +337,5 @@ def verify_deactivation_evidence(
     if manager.evidence_hash(validator_addr) != evidence_hash:
         return "evidence_hash does not match the submitted evidence bundle"
 
-    return _verify_equivocations(events, validator_addr)
+    uc_ctx = _uc_context(session, chain_id, block_height, block_time) if session is not None else None
+    return _verify_equivocations(events, validator_addr, uc_ctx)

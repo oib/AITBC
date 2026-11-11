@@ -32,6 +32,7 @@ by ``state.deactivation_evidence`` first; this module only decides whether a
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from enum import StrEnum
 from typing import Any
 
@@ -79,7 +80,51 @@ def classify_attestation_pair(payload: dict[str, Any]) -> PairClass | None:
 UNLOCK_PROOF_VERIFIERS: dict[str, Callable[[dict[str, Any]], bool]] = {}
 
 
-def justified_unlock(payload: dict[str, Any]) -> bool:
+@dataclass(frozen=True)
+class UcApplyContext:
+    """Chain-state-only inputs for the apply-time ``uc`` proof (#1281).
+
+    Built by the state transition from on-chain parameters and the sealed
+    block time, never from this node's clock or env, so replay is deterministic.
+    Absent (``None``) means the ``uc`` kind is not registered: legacy verdicts.
+    """
+
+    chain_id: str
+    now: float
+    validator_set: frozenset[str]
+    max_age: float
+    min_responses: int
+
+
+def _uc_justified(payload: dict[str, Any], justification: dict[str, Any], ctx: UcApplyContext) -> bool:
+    """A ``uc`` proof excuses only a cross-round pair, bound to the EARLIER vote's block."""
+    if classify_attestation_pair(payload) is not PairClass.ROUND_BOUND_CROSS_ROUND:
+        return False
+    records = [a for a in payload.get("attestations", []) if isinstance(a, dict)][:2]
+    first_round, second_round = records[0].get("request_round"), records[1].get("request_round")
+    if not (isinstance(first_round, int) and isinstance(second_round, int)):
+        return False
+    if isinstance(first_round, bool) or isinstance(second_round, bool):
+        return False
+    locked = records[0] if first_round < second_round else records[1]
+    if str(locked.get("chain_id", "")) != ctx.chain_id:
+        return False
+    from .unavail import verify_unavailability_cert
+
+    ok, _reason = verify_unavailability_cert(
+        justification.get("cert") or {},
+        chain_id=ctx.chain_id,
+        height=int(locked["height"]),
+        block_hash=str(locked.get("hash", "")),
+        validator_set=set(ctx.validator_set),
+        now=ctx.now,
+        max_age=ctx.max_age,
+        min_resp=ctx.min_responses,
+    )
+    return ok
+
+
+def justified_unlock(payload: dict[str, Any], uc_ctx: UcApplyContext | None = None) -> bool:
     """True only when the payload carries a *registered, verifying* unlock proof.
 
     Fails closed: no justification, an unknown kind (including ``time``,
@@ -90,6 +135,11 @@ def justified_unlock(payload: dict[str, Any]) -> bool:
     if not isinstance(justification, dict):
         return False
     kind = justification.get("kind")
+    if uc_ctx is not None and kind == "uc":
+        try:
+            return _uc_justified(payload, justification, uc_ctx)
+        except Exception:  # noqa: BLE001 - fail closed: a broken proof never excuses
+            return False
     verifier = UNLOCK_PROOF_VERIFIERS.get(kind) if isinstance(kind, str) else None
     if verifier is None:
         return False
@@ -99,6 +149,6 @@ def justified_unlock(payload: dict[str, Any]) -> bool:
         return False
 
 
-def pair_stands_as_evidence(payload: dict[str, Any]) -> bool:
+def pair_stands_as_evidence(payload: dict[str, Any], uc_ctx: UcApplyContext | None = None) -> bool:
     """A signature-bearing pair is slashable evidence unless its unlock is justified."""
-    return not justified_unlock(payload)
+    return not justified_unlock(payload, uc_ctx)

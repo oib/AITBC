@@ -279,12 +279,18 @@ def verify_unavailability_cert(
     block_hash: str,
     validator_set: set[str] | None = None,
     now: float | None = None,
+    max_age: float | None = None,
+    min_resp: int | None = None,
 ) -> tuple[bool, str]:
     """The one pure verifier shared by every consumer (#1281).
 
     Returns ``(True, "")`` or ``(False, reason)``. Checks, in order:
     version/kind, chain/height/hash binding, epoch freshness, per-response
     signature + validator-set membership, distinct signers, threshold.
+
+    ``max_age`` / ``min_resp`` override the node-local settings; the on-chain
+    apply path (#1281) passes them with ``now`` and ``validator_set`` so the
+    verdict depends only on chain state, never on this node's clock/settings.
     """
     cert_obj = UnavailabilityCertificate.from_dict(cert) if isinstance(cert, dict) else cert
     if not isinstance(cert_obj, UnavailabilityCertificate):
@@ -296,7 +302,7 @@ def verify_unavailability_cert(
     if cert_obj.hash != block_hash:
         return False, "hash_mismatch"
     now_w = time.time() if now is None else now
-    if abs(now_w - cert_obj.epoch) > cert_max_age_seconds():
+    if abs(now_w - cert_obj.epoch) > (cert_max_age_seconds() if max_age is None else max_age):
         return False, "stale_epoch"
     vset = validator_set if validator_set is not None else validator_addresses()
     if not vset:
@@ -307,7 +313,7 @@ def verify_unavailability_cert(
         reason = _verify_cert_response(resp, message, vset, seen)
         if reason is not None:
             return False, reason
-    if len(seen) < min_responses():
+    if len(seen) < (min_responses() if min_resp is None else min_resp):
         return False, "below_threshold"
     return True, ""
 
