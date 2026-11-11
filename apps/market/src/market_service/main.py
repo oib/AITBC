@@ -1249,6 +1249,73 @@ async def cancel_market_job(
         raise
 
 
+@app.post("/v1/market/jobs/{job_id}/dispute", dependencies=[Depends(require_market_api_key)])
+async def dispute_market_job(
+    job_id: str,
+    svc: Annotated[MarketService, Depends(get_market_service)],
+    dispute_data: dict[str, Any] | None = None,
+) -> Any:
+    """Open a dispute freeze on a market job's escrow settlement (#1783).
+
+    A presented wallet signature must verify AND belong to a job party —
+    same rule as cancel (#1634). The unsigned API-key path stays for the
+    operator tier.
+    """
+    try:
+        dispute_data = dispute_data or {}
+        logger.info("POST /v1/market/jobs/%s/dispute called", job_id)
+        if any(
+            (
+                dispute_data.get("signer_address"),
+                dispute_data.get("chain_id"),
+                dispute_data.get("issued_at") is not None,
+                dispute_data.get("signature"),
+            )
+        ):
+            job = await svc.get_market_job(job_id)
+            if not job:
+                return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
+            error, signer = verify_jobs_request_signature(
+                signer_address=dispute_data.get("signer_address"),
+                chain_id=dispute_data.get("chain_id"),
+                issued_at=dispute_data.get("issued_at"),
+                route=f"/v1/market/jobs/{job_id}/dispute",
+                signature=dispute_data.get("signature"),
+                expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+            )
+            if error or not signer:
+                return JSONResponse(status_code=403, content={"error": error or "invalid dispute signature"})
+            if canonical_address(signer) not in _job_party_addresses(job):
+                return JSONResponse(status_code=403, content={"error": "signer is not a party to this job"})
+        result = await svc.dispute_market_job(job_id, reason=dispute_data.get("reason", ""))
+        return result
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"error": str(e)})
+    except Exception as e:
+        logger.error("Error in POST /v1/market/jobs/%s/dispute: %s: %s", job_id, type(e).__name__, str(e))
+        raise
+
+
+@app.post("/v1/market/jobs/{job_id}/dispute/resolve", dependencies=[Depends(require_market_api_key)])
+async def resolve_market_job_dispute(
+    job_id: str,
+    svc: Annotated[MarketService, Depends(get_market_service)],
+) -> Any:
+    """Clear a dispute freeze so the sweeper can settle/refund (#1783).
+
+    Operator-tier only: resolution is an admin action, not a party one.
+    """
+    try:
+        logger.info("POST /v1/market/jobs/%s/dispute/resolve called", job_id)
+        result = await svc.resolve_market_job_dispute(job_id)
+        return result
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"error": str(e)})
+    except Exception as e:
+        logger.error("Error in POST /v1/market/jobs/%s/dispute/resolve: %s: %s", job_id, type(e).__name__, str(e))
+        raise
+
+
 @app.post("/v1/market/jobs/{job_id}/pin-confirm", dependencies=[Depends(require_market_api_key)])
 async def confirm_market_job_pin(
     job_id: str,

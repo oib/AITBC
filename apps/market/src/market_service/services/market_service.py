@@ -2233,6 +2233,9 @@ class MarketService:
             "escrow_contract_id": job.escrow_contract_id,
             "tx_hash": job.tx_hash,
             "refund_tx_hash": job.refund_tx_hash,
+            "disputed_at": _isoformat(job.disputed_at),
+            "dispute_reason": job.dispute_reason,
+            "dispute_cleared_at": _isoformat(job.dispute_cleared_at),
             "created_at": _isoformat(job.created_at),
             "updated_at": _isoformat(job.updated_at),
         }
@@ -2622,6 +2625,49 @@ class MarketService:
         except Exception as e:
             await self.session.rollback()
             logger.error("Error in cancel_market_job: %s: %s", type(e).__name__, e)
+            raise
+
+    async def dispute_market_job(self, job_id: str, reason: str = "") -> dict[str, Any]:
+        """#1783: open a dispute freeze on a market job's escrow settlement.
+
+        While ``disputed_at`` is set and ``dispute_cleared_at`` is not, the
+        sweeper skips both the release and refund passes for this job.
+        """
+        try:
+            job = await self.session.get(MarketJob, job_id)
+            if not job:
+                raise ValueError(f"Job not found: {job_id}")
+            now = datetime.now(UTC).replace(tzinfo=None)
+            if job.disputed_at is None or job.dispute_cleared_at is not None:
+                job.disputed_at = now
+                job.dispute_reason = (reason or "")[:500] or None
+                job.dispute_cleared_at = None
+                job.updated_at = now
+                self.session.add(job)
+                await self.session.commit()
+                await self.session.refresh(job)
+            return self._job_to_dict(job)
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in dispute_market_job: %s: %s", type(e).__name__, e)
+            raise
+
+    async def resolve_market_job_dispute(self, job_id: str) -> dict[str, Any]:
+        """#1783: clear the dispute freeze so the sweeper can settle/refund."""
+        try:
+            job = await self.session.get(MarketJob, job_id)
+            if not job:
+                raise ValueError(f"Job not found: {job_id}")
+            if job.disputed_at is not None and job.dispute_cleared_at is None:
+                job.dispute_cleared_at = datetime.now(UTC).replace(tzinfo=None)
+                job.updated_at = job.dispute_cleared_at
+                self.session.add(job)
+                await self.session.commit()
+                await self.session.refresh(job)
+            return self._job_to_dict(job)
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in resolve_market_job_dispute: %s: %s", type(e).__name__, e)
             raise
 
     @staticmethod
