@@ -230,6 +230,7 @@ class GrantService:
             disburse_amount = _to_decimal(amount)
             _check_disburse_balance(grant, disburse_amount)
         self._cas_grant_disburse(grant_id, disburse_amount)
+        self.session.commit()
         self.session.refresh(grant)
         return grant
 
