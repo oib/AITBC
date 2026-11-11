@@ -574,6 +574,7 @@ def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_session
 def quote_gpu(
     request: GPUQuoteRequest,
     session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
     *,
     http_request: Request,
 ) -> dict[str, Any]:
@@ -582,6 +583,10 @@ def quote_gpu(
     The returned quote is valid for a short window. The buyer funds it through
     POST /market/gpu/purchase using the same job_id and energy_quote.
     """
+    # #1848: quoting creates a Job row and can return an operator signature —
+    # the buyer must be the caller, same binding as purchase (#1075).
+    if request.buyer_id != user["sub"]:
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="buyer_id does not match authenticated buyer")
     gpu = _get_gpu_or_404(session, request.gpu_id)
     _expire_stale_booking(session, gpu)
     if gpu.status != "available":

@@ -143,7 +143,7 @@ def test_quote_gpu_creates_priced_non_dispatchable_job(client, client_token, db_
         "/v1/market/gpu/quote",
         headers={"Authorization": f"Bearer {client_token}"},
         json={
-            "buyer_id": BUYER,
+            "buyer_id": "client1",
             "gpu_id": available_gpu,
             "duration_hours": 0.05,
             "gpu_count": 1,
@@ -177,18 +177,32 @@ def test_quote_gpu_creates_priced_non_dispatchable_job(client, client_token, db_
 
 
 @pytest.mark.unit
-def test_quote_gpu_is_public(client, db_session, native_pricing, available_gpu):
-    """The quote endpoint is public so callers can price a rental before buying."""
+def test_quote_gpu_requires_auth_and_buyer_binding(client, client_token, db_session, native_pricing, available_gpu):
+    """#1848 pin: quoting creates a Job row + operator signature, so it is no
+    longer public — unauthenticated callers get 401 and a body buyer_id that
+    is not the token sub gets 403."""
     _seed_energy(db_session)
+    payload = {
+        "buyer_id": "client1",
+        "gpu_id": available_gpu,
+        "duration_hours": 0.05,
+        "gpu_count": 1,
+        "settlement_route": "native",
+    }
+    resp = client.post("/v1/market/gpu/quote", json=payload)
+    assert resp.status_code == 401
+
     resp = client.post(
         "/v1/market/gpu/quote",
-        json={
-            "buyer_id": BUYER,
-            "gpu_id": available_gpu,
-            "duration_hours": 0.05,
-            "gpu_count": 1,
-            "settlement_route": "native",
-        },
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={**payload, "buyer_id": "someone_else"},
+    )
+    assert resp.status_code == 403
+
+    resp = client.post(
+        "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json=payload,
     )
     assert resp.status_code == 200
     data = resp.json()
@@ -217,7 +231,7 @@ def test_buy_gpu_short_duration_clamps_ttl_and_escrow_timeout(
         "/v1/market/gpu/quote",
         headers={"Authorization": f"Bearer {client_token}"},
         json={
-            "buyer_id": BUYER,
+            "buyer_id": "client1",
             "gpu_id": available_gpu,
             "duration_hours": 0.05,
             "gpu_count": 1,
@@ -412,7 +426,9 @@ def test_native_energy_floor_get_unknown_resource(client, native_pricing):
 
 
 @pytest.mark.unit
-def test_quote_gpu_derives_chain_id_when_native_unset(client, db_session, native_pricing, available_gpu, monkeypatch):
+def test_quote_gpu_derives_chain_id_when_native_unset(
+    client, client_token, db_session, native_pricing, available_gpu, monkeypatch
+):
     """NATIVE_CHAIN_ID unset + CHAIN_ID=x → the quote binds x (#307)."""
     from coordinator_api.config import settings
 
@@ -421,8 +437,9 @@ def test_quote_gpu_derives_chain_id_when_native_unset(client, db_session, native
     _seed_energy(db_session)
     resp = client.post(
         "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {client_token}"},
         json={
-            "buyer_id": BUYER,
+            "buyer_id": "client1",
             "gpu_id": available_gpu,
             "duration_hours": 1,
             "gpu_count": 1,
@@ -434,7 +451,7 @@ def test_quote_gpu_derives_chain_id_when_native_unset(client, db_session, native
 
 
 @pytest.mark.unit
-def test_quote_gpu_explicit_native_chain_id_wins(client, db_session, native_pricing, available_gpu, monkeypatch):
+def test_quote_gpu_explicit_native_chain_id_wins(client, client_token, db_session, native_pricing, available_gpu, monkeypatch):
     """An explicit NATIVE_CHAIN_ID still wins over CHAIN_ID (#307)."""
     from coordinator_api.config import settings
 
@@ -443,8 +460,9 @@ def test_quote_gpu_explicit_native_chain_id_wins(client, db_session, native_pric
     _seed_energy(db_session)
     resp = client.post(
         "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {client_token}"},
         json={
-            "buyer_id": BUYER,
+            "buyer_id": "client1",
             "gpu_id": available_gpu,
             "duration_hours": 1,
             "gpu_count": 1,
@@ -456,7 +474,9 @@ def test_quote_gpu_explicit_native_chain_id_wins(client, db_session, native_pric
 
 
 @pytest.mark.unit
-def test_quote_gpu_unconfigured_chain_id_raises_named(client, db_session, native_pricing, available_gpu, monkeypatch, caplog):
+def test_quote_gpu_unconfigured_chain_id_raises_named(
+    client, client_token, db_session, native_pricing, available_gpu, monkeypatch, caplog
+):
     """Neither NATIVE_CHAIN_ID nor CHAIN_ID → loud 500, env var named (#307)."""
     import logging
 
@@ -468,8 +488,9 @@ def test_quote_gpu_unconfigured_chain_id_raises_named(client, db_session, native
     with caplog.at_level(logging.ERROR):
         resp = client.post(
             "/v1/market/gpu/quote",
+            headers={"Authorization": f"Bearer {client_token}"},
             json={
-                "buyer_id": BUYER,
+                "buyer_id": "client1",
                 "gpu_id": available_gpu,
                 "duration_hours": 1,
                 "gpu_count": 1,
@@ -636,12 +657,13 @@ def _seed_agent_mappings(db_session, user_id: str = "client1") -> None:
 
 @pytest.mark.unit
 def test_gpu_quote_uses_resolved_buyer_in_energy_quote(
-    client, db_session, native_pricing, available_gpu, pricing_engine_override
+    client, client_token, db_session, native_pricing, available_gpu, pricing_engine_override
 ):
     _seed_energy(db_session)
     _seed_agent_mappings(db_session)
     resp = client.post(
         "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {client_token}"},
         json={
             "buyer_id": "client1",
             "buyer_agent_id": BUYER_AGENT,
@@ -670,6 +692,7 @@ def test_gpu_purchase_forwards_agent_ids_to_payment(
     _seed_agent_mappings(db_session)
     quote_resp = client.post(
         "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {client_token}"},
         json={
             "buyer_id": "client1",
             "buyer_agent_id": BUYER_AGENT,
@@ -728,8 +751,12 @@ def test_gpu_quote_rejects_mismatching_buyer_address_with_agent_id(
 ):
     _seed_energy(db_session)
     _seed_agent_mappings(db_session)
+    # #1848: the quote is buyer-bound, so the token sub must equal buyer_id for
+    # the agent-binding mismatch check (400) to be reached.
+    wallet_token = create_access_token("0x0000000000000000000000000000000000000001", "client")
     resp = client.post(
         "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {wallet_token}"},
         json={
             "buyer_id": "0x0000000000000000000000000000000000000001",
             "buyer_agent_id": BUYER_AGENT,
@@ -757,6 +784,7 @@ def test_gpu_purchase_resolves_buyer_address_from_agent_id(
     _seed_agent_mappings(db_session)
     quote_resp = client.post(
         "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {client_token}"},
         json={
             "buyer_id": "client1",
             "buyer_agent_id": BUYER_AGENT,

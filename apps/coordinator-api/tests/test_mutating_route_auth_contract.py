@@ -35,7 +35,6 @@ PUBLIC_WRITE_ROUTES: dict[str, str] = {
     "/v1/register": "account registration — the caller has no credential yet",
     "/v1/login": "credential exchange — the caller has no credential yet",
     "/v1/auth/nonce": "login nonce issuance, prerequisite for /v1/login",
-    "/v1/market/gpu/quote": "public price quote; matrix AuthLevel.NONE",
 }
 
 
