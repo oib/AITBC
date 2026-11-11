@@ -4,6 +4,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.network.url_safety import avalidate_fleet_outbound_url
 from aitbc.crypto.agent_envelope import (
     identity_claim,
     rotation_claim,
@@ -73,6 +74,19 @@ def _canonical_identity_address(raw: str) -> str:
         raise HTTPException(status_code=422, detail="identity_address is not an EVM address (0x + 40 hex)") from None
 
 
+async def _validate_registration_endpoint(endpoints: dict[str, str]) -> None:
+    """SSRF-AUDIT-1 (#1523): endpoints["http"] is stored verbatim and later
+    POSTed to by the load balancer — reject loopback/link-local/metadata
+    targets at registration (private fleet LAN allowed)."""
+    http_endpoint = (endpoints or {}).get("http")
+    if not http_endpoint:
+        return
+    try:
+        await avalidate_fleet_outbound_url(http_endpoint)
+    except ValueError as e:
+        raise HTTPException(status_code=422, detail=f"invalid http endpoint: {e}") from None
+
+
 def _build_agent_info(request: AgentRegistrationRequest, identity_address: str | None, registered_proof: str | None) -> Any:
     """Assemble the ``AgentInfo`` record for registration (422 on a malformed
     field set — likewise shadowed by the route's own validation entry)."""
@@ -138,6 +152,7 @@ async def register_agent(request_http: Request, request: AgentRegistrationReques
                 detail="identity_address and identity_proof are required when AGENT_MSG_SIGNATURE_MODE=enforce",
             )
 
+        await _validate_registration_endpoint(request.endpoints)
         agent_info = _build_agent_info(request, identity_address, registered_proof)
         if not await state.agent_registry.register_agent(agent_info):
             raise HTTPException(status_code=500, detail="Failed to register agent")

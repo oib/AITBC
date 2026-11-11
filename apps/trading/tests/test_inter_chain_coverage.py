@@ -45,6 +45,19 @@ async def db_session():
     await engine.dispose()
 
 
+@pytest.fixture(autouse=True)
+def _fleet_dns(monkeypatch):
+    """#1523: register_chain now resolves endpoints through the fleet SSRF
+    guard — fake DNS so the synthetic hostnames below resolve to a private
+    fleet address (which the guard allows)."""
+    import socket
+
+    def _fake(*a, **k):
+        return [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("10.0.0.9", 8202))]
+
+    monkeypatch.setattr(socket, "getaddrinfo", _fake)
+
+
 async def _make_trade(svc, **overrides):
     from trading_service.services.inter_chain_service import InterChainTradeService  # noqa: F401
 

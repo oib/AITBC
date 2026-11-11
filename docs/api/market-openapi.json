@@ -3249,7 +3249,7 @@
             }
           },
           "400": {
-            "description": "target_service must be 'market', got '{request.target_service}' / Unknown parameter: {request.parameter_name}",
+            "description": "target_service must be 'market', got '{request.target_service}' / Unknown parameter: {request.parameter_name} / invalid agent_coordinator_url: {e}",
             "content": {
               "application/json": {
                 "schema": {

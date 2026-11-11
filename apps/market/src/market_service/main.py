@@ -32,6 +32,7 @@ from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.utils.json_utils import to_jsonable  # noqa: E402
 from aitbc.market import OfferStatus  # noqa: E402
 from aitbc.market.job_request_signature import verify_jobs_request_signature  # noqa: E402
+from aitbc.network.url_safety import validate_fleet_outbound_url  # noqa: E402
 from aitbc.utils.chain_id import resolve_chain_id  # noqa: E402
 from aitbc.operations import BeginStatus, OperationLedger, request_hash  # noqa: E402
 from aitbc.env_compat import market_getenv  # noqa: E402
@@ -1730,6 +1731,16 @@ def apply_market_parameter(
                 "error": f"old_value mismatch: expected {request.old_value} but current is {current_value}",
             },
         )
+
+    # SSRF-AUDIT-1 (#1523): agent_coordinator_url is POSTed to on every
+    # match->task submit — reject loopback/link-local/metadata targets
+    # (private fleet LAN allowed). Loopback deployments must allowlist the
+    # target via AITBC_OUTBOUND_URL_ALLOWED_TARGETS.
+    if request.parameter_name == "agent_coordinator_url":
+        try:
+            validate_fleet_outbound_url(str(request.new_value))
+        except ValueError as e:
+            return JSONResponse(status_code=400, content={"error": f"invalid agent_coordinator_url: {e}"})  # type: ignore[return-value]
 
     # Apply the change
     try:

@@ -43,6 +43,9 @@ import tempfile
 os.environ.setdefault("API_KEY_STORAGE_PATH", os.path.join(tempfile.mkdtemp(prefix="test-apikeys-"), "api_keys.json"))
 os.environ.setdefault("AGENT_DB_PATH", os.path.join(tempfile.mkdtemp(prefix="test-agentdb-"), "agent.db"))
 os.environ.setdefault("AITBC_DATA_DIR", tempfile.mkdtemp(prefix="test-datadir-"))
+# #1523: agent endpoints now pass the fleet SSRF guard — test fixtures use
+# loopback/unresolvable agent URLs, allowlisted here via the operator escape.
+os.environ.setdefault("AITBC_OUTBOUND_URL_ALLOWED_TARGETS", "localhost,localhost:8001,agent-1:9000,127.0.0.1")
 
 pytest.importorskip("fastapi", reason="agent-coordinator app dependencies not installed")
 
