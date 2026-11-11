@@ -36,37 +36,32 @@ async def _recv(sub: TopicSubscription, timeout: float = 1.0) -> Any:
 @pytest.mark.asyncio
 async def test_flag_on_waits_longer_than_flag_off_for_flaky_peer(monkeypatch):
     """With the flag on, subscribe() blocks until retry attaches the peer leg."""
-    local = InMemoryGossipBackend()
-    flaky = _FlakyPeer()
-    mesh = MeshGossipBackend(local, {"flaky": flaky}, retry_min_delay=0.05, retry_max_delay=0.2)
-    await mesh.start()
 
-    async def _flip() -> None:
-        await asyncio.sleep(0.12)
-        flaky.available = True
+    async def _measure(*, wait_peers: bool) -> float:
+        monkeypatch.setattr(settings, "gossip_mesh_subscribe_wait_peers_enabled", wait_peers)
+        local = InMemoryGossipBackend()
+        flaky = _FlakyPeer()
+        mesh = MeshGossipBackend(local, {"flaky": flaky}, retry_min_delay=0.05, retry_max_delay=0.2)
+        await mesh.start()
 
-    monkeypatch.setattr(settings, "gossip_mesh_subscribe_wait_peers_enabled", False)
-    flip = asyncio.create_task(_flip())
-    t_off = time.monotonic()
-    sub_off = await mesh.subscribe("blocks")
-    off_elapsed = time.monotonic() - t_off
-    sub_off.close()
-    await flip
-    flaky.available = False
-    flaky.subscribe_attempts = 0
+        async def _flip() -> None:
+            await asyncio.sleep(0.12)
+            flaky.available = True
 
-    flip = asyncio.create_task(_flip())
-    monkeypatch.setattr(settings, "gossip_mesh_subscribe_wait_peers_enabled", True)
-    t_on = time.monotonic()
-    sub_on = await mesh.subscribe("blocks")
-    on_elapsed = time.monotonic() - t_on
-    await flip
+        flip = asyncio.create_task(_flip())
+        t0 = time.monotonic()
+        sub = await mesh.subscribe("blocks")
+        elapsed = time.monotonic() - t0
+        await flip
+        assert flaky.subscribe_attempts >= 2
+        sub.close()
+        await mesh.shutdown()
+        return elapsed
 
+    off_elapsed = await _measure(wait_peers=False)
+    on_elapsed = await _measure(wait_peers=True)
     assert on_elapsed >= 0.1
     assert on_elapsed > off_elapsed
-    assert flaky.subscribe_attempts >= 2
-    sub_on.close()
-    await mesh.shutdown()
 
 
 @pytest.mark.asyncio
