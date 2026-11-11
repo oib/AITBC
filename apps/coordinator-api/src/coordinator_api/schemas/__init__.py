@@ -449,9 +449,80 @@ class AssignedJob(BaseModel):
     )
 
 
+# JOBRESULT-FREEFORM-1 (#1816): miners used to submit arbitrary JSON in
+# ``result``/``metrics``; unknown keys now fail validation at the HTTP boundary.
+JobSubmitOutput = str | int | float | bool | dict[str, Any] | list[Any] | None
+
+
+class JobSubmitGpuSnapshot(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    name: str | None = None
+    utilization: int | None = None
+    memory_used_mb: int | None = None
+    memory_total_mb: int | None = None
+
+
+class JobSubmitResultBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    status: str | None = None
+    output: JobSubmitOutput = None
+    result: str | None = None
+    response: str | None = None
+    prompt: str | None = None
+    input: str | None = None
+    text: str | None = None
+    error: str | None = None
+    execution_time: float | None = Field(default=None, ge=0)
+    execution_time_ms: int | None = Field(default=None, ge=0)
+    duration: float | None = Field(default=None, ge=0)
+    duration_ms: int | None = Field(default=None, ge=0)
+    duration_seconds: float | None = Field(default=None, ge=0)
+    requested_seconds: float | None = Field(default=None, ge=0)
+    gpu_used: bool | None = None
+    model: str | None = None
+    model_id: str | None = None
+    transcription: str | None = None
+    tokens_processed: int | None = Field(default=None, ge=0)
+    task: str | None = None
+    gpu_start: JobSubmitGpuSnapshot | None = None
+    gpu_end: JobSubmitGpuSnapshot | None = None
+    output_format: str | None = None
+    output_path: str | None = None
+    output_size_bytes: int | None = Field(default=None, ge=0)
+    stdout: str | None = None
+    stderr: str | None = None
+    unit_type: str | None = None
+    units: float | None = Field(default=None, ge=0)
+    unit_price: Decimal | None = Field(default=None, ge=0)
+    price: Decimal | None = Field(default=None, ge=0)
+    aitbc_earned: Decimal | None = Field(default=None, ge=0)
+    cost: Decimal | None = Field(default=None, ge=0)
+
+
+class JobSubmitMetricsBody(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    duration_ms: int | None = Field(default=None, ge=0)
+    duration_seconds: float | None = Field(default=None, ge=0)
+    compute_time: float | None = Field(default=None, ge=0)
+    gpu_utilization: int | None = Field(default=None, ge=0, le=100)
+    memory_used: int | None = Field(default=None, ge=0)
+    memory_peak: int | None = Field(default=None, ge=0)
+    unit_type: str | None = None
+    units: float | None = Field(default=None, ge=0)
+    unit_price: Decimal | None = Field(default=None, ge=0)
+    price: Decimal | None = Field(default=None, ge=0)
+    aitbc_earned: Decimal | None = Field(default=None, ge=0)
+    cost: Decimal | None = Field(default=None, ge=0)
+
+
 class JobResultSubmit(BaseModel):
-    result: dict[str, Any]
-    metrics: dict[str, Any] = Field(default_factory=dict)
+    model_config = ConfigDict(extra="forbid")
+
+    result: JobSubmitResultBody
+    metrics: JobSubmitMetricsBody = Field(default_factory=JobSubmitMetricsBody)
     tee_attestation_id: str | None = Field(default=None, description="Existing TEE attestation ID")
     tee_quote: str | None = Field(default=None, description="Base64 TEE attestation quote to verify")
 
