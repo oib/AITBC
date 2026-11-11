@@ -36,14 +36,23 @@ scrape_configs:
     static_configs:
       - targets: ['127.0.0.1:9100']
 
-  # DEADMAN-ALERT-1 (#1768) R3, hub1 ONLY (hub's failover scrapes hub's own
-  # prometheus so a dead hub prometheus pages via ServiceDown on hub1's
-  # watcher; hub cannot page for itself). Uncomment in hub1's live file only,
-  # and set the target to hub's prometheus address.
+  # DEADMAN-ALERT-1 (#1768) R3 + SELF-WATCH-DEADMAN-1 (#1820), hub1 ONLY
+  # (hub's failover scrapes hub's own prometheus so a dead hub prometheus pages
+  # via ServiceDown on hub1's watcher; hub cannot page for itself). Uncomment
+  # in hub1's live file only. Hub prometheus binds 127.0.0.1:9090, so the
+  # scrape goes through hub's nginx /prom-metrics location (same IP allowlist
+  # + bearer token as /prom-write; reuses /etc/prometheus/hub-remote-write.token).
+  # NOTE: /metrics carries no ALERTS state, so this job alone cannot see a
+  # dead hub watcher — that leg runs through aitbc-hub-watch-deadman.timer +
+  # aitbc_hub1_rules.yml instead.
   # - job_name: 'hub-prometheus'
-  #   metrics_path: '/metrics'
+  #   metrics_path: '/prom-metrics'
+  #   scheme: https
+  #   authorization:
+  #     type: Bearer
+  #     credentials_file: /etc/prometheus/hub-remote-write.token
   #   static_configs:
-  #     - targets: ['<hub-address>:9090']
+  #     - targets: ['hub.aitbc.bubuit.net:443']
 
   # node2 (shop/follower) services
   - job_name: 'blockchain-node'

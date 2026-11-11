@@ -1,0 +1,51 @@
+# Alert rules that only make sense on hub1: the SELF-WATCH-DEADMAN-1
+# failover exporter (aitbc-hub-watch-deadman.timer) writes aitbc_hub_watch_*
+# into the node_exporter textfile here. Hub cannot page for its own
+# aitbc-prometheus-watch — a dead watcher leaves PrometheusWatchStale firing
+# on hub's Prometheus but the watcher IS the notification path, so nothing
+# pushes it. hub1 cannot see hub's ALERTS state through the /prom-metrics
+# scrape (Prometheus does not export alert state on /metrics), so the
+# exporter queries hub's alert API via nginx /prom-api-query and re-publishes
+# the result as ordinary metrics hub1's own watcher can page on.
+#
+# absent() rules fire permanently on hosts that never ran the timer, so load
+# this file ONLY on hub1 — every other host loads aitbc_rules.yml alone.
+groups:
+  - name: aitbc-hub1-failover
+    rules:
+      # Hub-side watcher dead-man, relayed. Fires while hub's
+      # PrometheusWatchStale alert is firing as seen through the exporter.
+      - alert: HubWatchDeadMan
+        expr: aitbc_hub_watch_deadman == 1
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Hub prometheus-watch dead-man firing (hub cannot self-report)"
+          description: "Hub's PrometheusWatchStale has been firing for over 2m as relayed by hub1's dead-man exporter — hub's aitbc-prometheus-watch is dead or its textfile heartbeat is stale, and hub's own watcher cannot push the alert. Check systemctl status aitbc-prometheus-watch on hub and the aitbc_prometheus_watch textfile metric."
+
+      # The relay itself is blind: exporter stopped, textfile gone, or hub's
+      # alert API unreachable for 15m. Cannot distinguish "hub watch fine"
+      # from "cannot check" without this — a silent probe is not health.
+      - alert: HubWatchProbeStale
+        expr: |
+          absent(aitbc_hub_watch_probe_timestamp_seconds)
+          or time() - aitbc_hub_watch_probe_timestamp_seconds > 900
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Hub-watch dead-man probe is stale ({{ $labels.instance }})"
+          description: "aitbc-hub-watch-deadman has not written its textfile metric for 15 minutes — hub1 cannot verify whether hub's prometheus-watch is alive. Check aitbc-hub-watch-deadman.timer on hub1."
+
+      # The probe runs but the hub alert API is unreachable (nginx down,
+      # token rotated, hub prometheus wedged). Warning, not critical: the
+      # hub-prometheus scrape's ServiceDown covers a dead prometheus itself.
+      - alert: HubPromApiUnreachable
+        expr: aitbc_hub_watch_api_up == 0
+        for: 10m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Hub prometheus alert API unreachable from hub1"
+          description: "aitbc-hub-watch-deadman cannot query hub's /prom-api-query — bearer token, nginx route, or hub Prometheus may be down. Hub watch state is unverified until this clears."

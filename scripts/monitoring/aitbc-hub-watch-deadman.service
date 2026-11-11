@@ -1,0 +1,29 @@
+[Unit]
+Description=AITBC hub-watch dead-man probe for Prometheus (node_exporter textfile)
+Documentation=https://github.com/oib/AITBC
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Root by design: the bearer token lives in a root:prometheus 0640 file and
+# the textfile dir is root-owned, matching aitbc-env-watch.
+Environment=AITBC_HUB_PROM_QUERY_URL=https://hub.aitbc.bubuit.net/prom-api-query
+Environment=AITBC_HUB_PROM_TOKEN_FILE=/etc/prometheus/hub-remote-write.token
+Environment=AITBC_TEXTFILE_DIR=/var/lib/prometheus/node-exporter
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/hub-watch-deadman-textfile.py
+SyslogIdentifier=aitbc-hub-watch-deadman
+
+# Reads one HTTPS endpoint and writes one file in the textfile directory.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/prometheus/node-exporter
+ReadOnlyPaths=/etc/prometheus
+ProtectKernelModules=true
+RestrictRealtime=true
+LockPersonality=true
+
+[Install]
+WantedBy=multi-user.target

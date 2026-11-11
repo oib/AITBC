@@ -1,0 +1,13 @@
+[Unit]
+Description=Probe hub prometheus-watch dead-man every minute
+Documentation=https://github.com/oib/AITBC
+
+[Timer]
+OnBootSec=1min
+OnUnitActiveSec=1min
+AccuracySec=10s
+Persistent=false
+Unit=aitbc-hub-watch-deadman.service
+
+[Install]
+WantedBy=timers.target
