@@ -706,8 +706,9 @@ exec /usr/bin/tar "$@"
 
 
 def test_generation_dirs_group_traversable_files_stay_private(env):
-    """#1821: backup-metrics runs as User=aitbc and stats generation dirs —
-    dirs must be group-traversable, but files stay 600 (#897)."""
+    """#1821: backup-metrics runs as User=aitbc — dirs must be
+    group-traversable and the chain DB dumps group-readable (the probe
+    runs `gzip -t` on them), while every other artifact stays 600 (#897)."""
     r = _run(env)
     assert r.returncode == 0, r.stderr
     gens = [d for d in env.base.iterdir() if d.is_dir()]
@@ -719,8 +720,14 @@ def test_generation_dirs_group_traversable_files_stay_private(env):
         # group must have r-x (backup-metrics lists + stats), others none
         assert mode & 0o050 == 0o050, f"{d}: mode {mode:o} not group-traversable"
         assert mode & 0o007 == 0, f"{d}: mode {mode:o} world-accessible"
-    files = [Path(p) for p, _, fns in os.walk(newest) for p in [os.path.join(p, f) for f in fns]]
-    files += [f for f in newest.iterdir() if f.is_file()]
-    assert files
-    for f in files:
+    all_files = [Path(dp) / f for dp, _, fns in os.walk(newest) for f in fns]
+    chain_dumps = [f for f in all_files if f.name.startswith("chain_") and f.name.endswith("_chain.db.gz")]
+    other_files = [f for f in all_files if f not in chain_dumps]
+    assert chain_dumps, "run produced no chain_*_chain.db.gz artifact"
+    for f in chain_dumps:
+        mode = f.stat().st_mode & 0o777
+        assert mode & 0o007 == 0, f"{f}: world-accessible chain dump"
+        assert mode & 0o040 == 0o040, f"{f}: chain dump not group-readable (gzip -t probe needs it)"
+    assert other_files
+    for f in other_files:
         assert f.stat().st_mode & 0o077 == 0, f"{f}: group/other-readable backup artifact"
