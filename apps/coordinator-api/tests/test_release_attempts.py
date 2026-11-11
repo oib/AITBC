@@ -758,3 +758,56 @@ class TestHashlessReleaseClaim:
         payment_session.refresh(payment)
         assert payment.status == "refunded"
         assert payment.refund_transaction_hash == "0xrealrefund"
+
+
+@pytest.mark.unit
+class TestReleaseAttemptDurability:
+    """#1824: attempt/425-meta writes must be committed on every exit.
+
+    The CAS updates leave the bump pending in the transaction; guard-refusal,
+    425-deferral and exception exits used to return without committing, so the
+    write died with the session -- META_RELEASE_ATTEMPTS and
+    release_425_first_at never persisted and the retry bound / 425 window
+    were unreachable. These pins simulate session teardown (rollback +
+    expire) after each exit and read the durable state back.
+    """
+
+    def test_guard_refusal_attempt_survives_rollback(self, payment_session):
+        job_id, payment_id = "job-dur-1", "pay-dur-1"
+        _make_job_and_payment(payment_session, job_id, payment_id)  # RUNNING blocks release
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.release_payment("client-1", job_id, payment_id, "t")) is False
+
+        payment_session.rollback()
+        payment_session.expire_all()
+        payment = payment_session.get(JobPayment, payment_id)
+        assert (payment.meta_data or {}).get("release_attempts") == 1
+
+    def test_425_marker_and_restore_survive_rollback(self, payment_session, monkeypatch):
+        _held_completed_payment(payment_session, "job-dur-2", "pay-dur-2")
+        _scripted_transport(monkeypatch, [_resp425])
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.release_payment("client-1", "job-dur-2", "pay-dur-2")) is False
+
+        payment_session.rollback()
+        payment_session.expire_all()
+        payment = payment_session.get(JobPayment, "pay-dur-2")
+        assert payment.status == "escrowed"
+        # The 425 restores the attempt budget, but the deferral marker is the
+        # clock the bound counts against -- both must be durable.
+        assert (payment.meta_data or {}).get("release_attempts", 0) == 0
+        assert payment.meta_data["release_425_first_at"]
+
+    def test_exception_attempt_survives_rollback(self, payment_session, monkeypatch):
+        _held_completed_payment(payment_session, "job-dur-3", "pay-dur-3")
+        service = PaymentService(payment_session)
+        monkeypatch.setattr(service, "_submit_release", AsyncMock(side_effect=RuntimeError("boom")))
+
+        assert asyncio.run(service.release_payment("client-1", "job-dur-3", "pay-dur-3")) is False
+
+        payment_session.rollback()
+        payment_session.expire_all()
+        payment = payment_session.get(JobPayment, "pay-dur-3")
+        assert (payment.meta_data or {}).get("release_attempts") == 1
