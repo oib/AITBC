@@ -4,10 +4,12 @@ Documentation=https://github.com/oib/AITBC
 After=aitbc-island-ipfs.service
 
 [Service]
-# Runs as root pending an operator perm decision: the swarm-probe env
-# file is root-only on hub/hub1 and carries probe overrides; dropping it
-# silently falls back to default peers (#1729).
 Type=oneshot
+User=aitbc
+Group=aitbc
+# Non-root since #1819: the swarm-probe env file is root:aitbc mode 640 on
+# hub/hub1, so EnvironmentFile=- still loads under User=aitbc (#1729
+# deferred pin, operator chmods done).
 # The island swarm is a libp2p private network: only a swarm-key holder can
 # complete the handshake, so this probe must run on an island member with a
 # live aitbc-island-ipfs repo. Each member probes the OTHER members —

@@ -26,9 +26,6 @@ ROOT_BY_DESIGN = frozenset(
         "scripts/utils/aitbc-recovery.service",
         "scripts/security/aitbc-security-nightly.service",
         "scripts/monitoring/aitbc-env-watch.service",
-        "scripts/monitoring/aitbc-backup-metrics.service",
-        "scripts/monitoring/aitbc-bridge-set.service",
-        "scripts/monitoring/aitbc-island-swarm-probe.service",
         "scripts/monitoring/aitbc-island-subscription-check.service",
         "scripts/ops/offsite-pull-backups.service",
     }

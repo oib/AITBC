@@ -62,3 +62,30 @@ def test_root_by_design_covers_exactly_the_documented_exceptions():
         f"undocumented root units: {no_user_line - set(mod.ROOT_BY_DESIGN)}; "
         f"stale allow-list entries: {set(mod.ROOT_BY_DESIGN) - no_user_line}"
     )
+
+
+def test_deferred_1729_pins_run_as_aitbc():
+    """#1819: the three #1729 follow-up pins, unblocked by operator chmods.
+
+    backup-metrics reads /var/backups/aitbc (root:aitbc g+rX on node2);
+    bridge-set and island-swarm-probe load root:aitbc 640 env files via
+    EnvironmentFile=-. All three must pin User=/Group=aitbc — dropping
+    either silently breaks the unit (env file skipped or backup dir
+    unreadable). island-subscription-check deliberately stays root: its
+    env holds a live AITBC_API_KEY."""
+    pinned = {
+        "scripts/monitoring/aitbc-backup-metrics.service",
+        "scripts/monitoring/aitbc-bridge-set.service",
+        "scripts/monitoring/aitbc-island-swarm-probe.service",
+    }
+    for rel in pinned:
+        lines = (REPO / rel).read_text().splitlines()
+        users = [line.split("=", 1)[1].strip() for line in lines if line.startswith("User=")]
+        groups = [line.split("=", 1)[1].strip() for line in lines if line.startswith("Group=")]
+        assert users == ["aitbc"], f"{rel}: User= must be aitbc, got {users}"
+        assert groups == ["aitbc"], f"{rel}: Group= must be aitbc, got {groups}"
+
+    sub = REPO / "scripts/monitoring/aitbc-island-subscription-check.service"
+    assert not any(line.startswith("User=") for line in sub.read_text().splitlines()), (
+        "island-subscription-check must stay root (live AITBC_API_KEY in env)"
+    )

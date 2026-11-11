@@ -4,10 +4,12 @@ Documentation=https://github.com/oib/AITBC
 After=aitbc-blockchain-node.service
 
 [Service]
-# Runs as root pending an operator perm decision: /var/backups/aitbc is
-# 750 root:root on node2, so User=aitbc cannot read backup freshness there
-# (#1729). Normalize the dir group, then pin User=aitbc.
 Type=oneshot
+User=aitbc
+Group=aitbc
+# Non-root since #1819: /var/backups/aitbc is root:aitbc g+rX on node2 and
+# the textfile dir is group-writable, so the exporter reads everything it
+# needs without root (#1729 deferred pin, operator chmods done).
 # Runs on every host that has aitbc-backup.timer: the metrics describe THIS
 # host's /var/backups/aitbc, so the timer belongs wherever the backup job does.
 Environment=AITBC_BACKUP_BASE=/var/backups/aitbc
