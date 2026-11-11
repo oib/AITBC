@@ -14,6 +14,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
+from aitbc.network.url_safety import avalidate_fleet_outbound_url
 
 from ..protocols.communication import AgentMessage, MessageType
 from ..protocols.message_types import DiscoveryMessage
@@ -537,6 +538,15 @@ class AgentDiscoveryService:
                 last_heartbeat=datetime.now(UTC),
                 registration_time=datetime.now(UTC),
             )
+            # SSRF-AUDIT-1 (#1523): same endpoint gate as /agents/register —
+            # discovery-supplied endpoints reach the same task-delivery sink.
+            http_endpoint = (discovery_data.endpoints or {}).get("http")
+            if http_endpoint:
+                try:
+                    await avalidate_fleet_outbound_url(http_endpoint)
+                except ValueError:
+                    logger.warning("Rejecting discovery agent %s: unsafe http endpoint", discovery_data.agent_id)
+                    return None
             if discovery_data.agent_id in self.registry.agents:
                 await self.registry.update_agent_status(discovery_data.agent_id, AgentStatus.ACTIVE)
             else:

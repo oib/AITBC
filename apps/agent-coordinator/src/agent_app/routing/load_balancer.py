@@ -14,6 +14,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.network.url_safety import avalidate_fleet_outbound_url
 
 from ..protocols.communication import AgentMessage
 from ..protocols.message_types import create_task_message
@@ -679,6 +680,14 @@ class TaskDistributor:
             http_endpoint = agent_info.endpoints.get("http")
             if not http_endpoint:
                 logger.error("Agent %s has no HTTP endpoint", agent_id)
+                return False
+            # SSRF-AUDIT-1 (#1523): send-time revalidation — registry records
+            # loaded from Redis predate the registration gate and could carry
+            # a loopback/link-local/metadata target.
+            try:
+                await avalidate_fleet_outbound_url(http_endpoint)
+            except ValueError as e:
+                logger.warning("Refusing task delivery to agent %s: unsafe endpoint (%s)", agent_id, e)
                 return False
             message_dict = task_message.to_dict()
 
