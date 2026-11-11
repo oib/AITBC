@@ -243,3 +243,28 @@ async def test_mesh_subscription_close_survives_task_self_removal() -> None:
 
     await sub.close()  # must not raise — dict mutates between the two loops
     assert sub._closed
+
+
+@pytest.mark.asyncio
+async def test_stalled_subscriber_does_not_block_publish() -> None:
+    """#1690: a full subscriber queue must not park publish() — the oldest
+    queued message is dropped, the freshest is delivered, and healthy
+    subscribers still receive every message."""
+    backend = InMemoryGossipBackend()
+    stalled = await backend.subscribe("blocks.test", max_queue_size=1)
+    healthy = await backend.subscribe("blocks.test", max_queue_size=10)
+
+    # Fill the stalled queue, then publish two more without draining it.
+    await backend.publish("blocks.test", {"height": 1})
+    await asyncio.wait_for(backend.publish("blocks.test", {"height": 2}), timeout=1.0)
+    await asyncio.wait_for(backend.publish("blocks.test", {"height": 3}), timeout=1.0)
+
+    # Healthy subscriber saw all three in order.
+    assert await _recv(healthy) == {"height": 1}
+    assert await _recv(healthy) == {"height": 2}
+    assert await _recv(healthy) == {"height": 3}
+
+    # Stalled queue kept the freshest message (oldest dropped for room).
+    assert await _recv(stalled) == {"height": 3}
+    with pytest.raises(asyncio.TimeoutError):
+        await _recv(stalled, timeout=0.2)
