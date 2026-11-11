@@ -30,6 +30,37 @@ from ..telemetry import (
 )
 from .base import GossipBackend, TopicSubscription
 
+# #1801: bounded set of connect-failure classes for the code_class metric
+# label and connect_failed event field — enough to tell an instant EINVAL
+# storm from timeouts/refusals without exploding label cardinality.
+_CONNECT_ERRNO_NAMES = {
+    "EINVAL",
+    "ECONNREFUSED",
+    "ETIMEDOUT",
+    "ECONNRESET",
+    "ECONNABORTED",
+    "EHOSTUNREACH",
+    "ENETUNREACH",
+    "EADDRNOTAVAIL",
+    "EAGAIN",
+    "EMFILE",
+    "ENFILE",
+    "ENOBUFS",
+    "EACCES",
+    "EPERM",
+}
+
+
+def _connect_error_class(exc: BaseException) -> str:
+    """Map a connect() failure to a bounded class label (#1801)."""
+    import errno as _errno
+
+    err = getattr(exc, "errno", None)
+    if err is None:
+        return "none"
+    name = _errno.errorcode.get(err, "")
+    return name if name in _CONNECT_ERRNO_NAMES else "other"
+
 
 class WebsocketGossipBackend(GossipBackend):
     """Cross-node gossip over a WebSocket (wss) connection.
@@ -278,11 +309,12 @@ class WebsocketGossipBackend(GossipBackend):
                 ping_timeout=10,
             )
         except Exception as e:
+            code_class = _connect_error_class(e)
             gossip_peer_connection_events_total.labels(
                 peer=self._peer_name,
                 topic_class=bounded_topic_label(topic),
                 event="connect_failed",
-                code_class="none",
+                code_class=code_class,
             ).inc()
             gossip_event(
                 "connect_failed",
@@ -290,6 +322,7 @@ class WebsocketGossipBackend(GossipBackend):
                 topic=topic,
                 latency_ms=round((time.monotonic() - connect_t0) * 1000.0, 1),
                 error=str(e)[:120],
+                error_code=code_class,
                 _level="info",
             )
             raise RuntimeError(f"Failed to connect to gossip websocket for {topic}: {e}") from e
