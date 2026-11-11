@@ -412,3 +412,32 @@ groups:
         annotations:
           summary: "No remote_write data from {{ $labels.node }}"
           description: "Hub received no samples from {{ $labels.node }} for ~7m: its prometheus, remote_write path or the host is down, so local alerting there is blind. Check prometheus and aitbc-prometheus-watch on that host."
+
+  # #1735 P6 (option B): the at1 Incus pool (btrfs raid1pool) has no per-
+  # container quota and btrfs quotas are off, so any container can fill it for
+  # all 24. Every container's "/" reports the whole pool, so node0/1/2's
+  # node-exporter already carries pool-level free space; one aggregate alert
+  # (not one per container). Restricted to the at1 containers by instance so a
+  # btrfs "/" on another host cannot mix in. Detects, does not contain.
+  - name: aitbc-incus-pool
+    rules:
+      - alert: IncusPoolFillWarning
+        expr: |
+          1 - (min(node_filesystem_avail_bytes{instance=~"node[012].*", fstype="btrfs", mountpoint="/"})
+               / max(node_filesystem_size_bytes{instance=~"node[012].*", fstype="btrfs", mountpoint="/"})) > 0.70
+        for: 15m
+        labels:
+          severity: warning
+        annotations:
+          summary: "at1 Incus pool over 70% full"
+          description: "The shared btrfs raid1pool is {{ $value | humanizePercentage }} full (seen from node0/1/2 /). No per-container quota exists: one container can fill it for every container, gitea included. See #1735 P6."
+      - alert: IncusPoolFillCritical
+        expr: |
+          1 - (min(node_filesystem_avail_bytes{instance=~"node[012].*", fstype="btrfs", mountpoint="/"})
+               / max(node_filesystem_size_bytes{instance=~"node[012].*", fstype="btrfs", mountpoint="/"})) > 0.85
+        for: 10m
+        labels:
+          severity: critical
+        annotations:
+          summary: "at1 Incus pool over 85% full"
+          description: "The shared btrfs raid1pool is {{ $value | humanizePercentage }} full: at 100% every container (prod nodes and gitea) loses writes. Find the grower (btrfs filesystem du on the container subvolumes) and free space now. See #1735 P6."

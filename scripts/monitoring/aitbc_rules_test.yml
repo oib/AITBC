@@ -2122,3 +2122,37 @@ tests:
             exp_annotations:
               summary: "No remote_write data from node2"
               description: "Hub received no samples from node2 for ~7m: its prometheus, remote_write path or the host is down, so local alerting there is blind. Check prometheus and aitbc-prometheus-watch on that host."
+
+  # #1735 P6: pool-fill alerts. Two at1 containers see the same pool (75%
+  # used): one aggregate warning, no critical. A non-at1 btrfs "/" (hub, 99%)
+  # is ignored.
+  - interval: 1m
+    input_series:
+      - series: 'node_filesystem_size_bytes{instance="node0:9100", fstype="btrfs", mountpoint="/"}'
+        values: '16000x40'
+      - series: 'node_filesystem_avail_bytes{instance="node0:9100", fstype="btrfs", mountpoint="/"}'
+        values: '4000x40'
+      - series: 'node_filesystem_size_bytes{instance="node1:9100", fstype="btrfs", mountpoint="/"}'
+        values: '16000x40'
+      - series: 'node_filesystem_avail_bytes{instance="node1:9100", fstype="btrfs", mountpoint="/"}'
+        values: '4000x40'
+      - series: 'node_filesystem_size_bytes{instance="hub:9100", fstype="btrfs", mountpoint="/"}'
+        values: '100x40'
+      - series: 'node_filesystem_avail_bytes{instance="hub:9100", fstype="btrfs", mountpoint="/"}'
+        values: '1x40'
+
+    alert_rule_test:
+      - eval_time: 10m
+        alertname: IncusPoolFillWarning
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: IncusPoolFillWarning
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+            exp_annotations:
+              summary: "at1 Incus pool over 70% full"
+              description: "The shared btrfs raid1pool is 75% full (seen from node0/1/2 /). No per-container quota exists: one container can fill it for every container, gitea included. See #1735 P6."
+      - eval_time: 30m
+        alertname: IncusPoolFillCritical
+        exp_alerts: []
