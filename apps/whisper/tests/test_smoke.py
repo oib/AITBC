@@ -158,23 +158,101 @@ def test_transcribe_sem_releases_after_job(monkeypatch) -> None:
 
 def test_transcribe_timeout_returns_504(monkeypatch) -> None:
     """A decode that outlives _TRANSCRIBE_TIMEOUT_SECONDS answers 504 instead
-    of holding the single concurrency slot until restart."""
+    of holding the request open until restart. The 504 abandons only the
+    await — the shielded decode keeps the slot until the worker exits
+    (#1688), so _inflight drains once the orphaned thread returns."""
     import time
 
     monkeypatch.setattr(whisper_main, "_model", _FakeModel())
     _patch_probe(monkeypatch)
     monkeypatch.setattr(whisper_main, "_TRANSCRIBE_TIMEOUT_SECONDS", 0.05)
+    monkeypatch.setattr(whisper_main, "_inflight", 0)
 
     def slow_sync(path, language, task, beam_size):
         time.sleep(0.4)
         return {"segment_list": [], "full_text": [], "language": "en", "language_probability": 0.9, "duration": 1.0}
 
     monkeypatch.setattr(whisper_main, "_transcribe_sync", slow_sync)
-    try:
-        _transcribe()
-    except Exception as exc:
-        assert getattr(exc, "status_code", None) == 504
-    else:  # pragma: no cover
-        raise AssertionError("expected HTTPException 504")
-    # The slot is released even though the orphaned worker is still draining.
-    assert whisper_main._inflight == 0
+
+    async def scenario():
+        request = asyncio.ensure_future(
+            whisper_main.transcribe(file=_FakeUpload(), language=None, task="transcribe", beam_size=5)
+        )
+        try:
+            await request
+        except whisper_main.HTTPException as exc:
+            assert exc.status_code == 504
+        else:  # pragma: no cover
+            raise AssertionError("expected HTTPException 504")
+        # The orphaned worker is still draining — the slot stays held, so a
+        # second request is refused rather than starting a concurrent decode.
+        assert whisper_main._inflight == whisper_main._MAX_CONCURRENT
+        try:
+            await whisper_main.transcribe(file=_FakeUpload(), language=None, task="transcribe", beam_size=5)
+        except whisper_main.HTTPException as exc:
+            assert exc.status_code == 503
+        else:  # pragma: no cover
+            raise AssertionError("expected HTTPException 503 while orphan decodes")
+        # The worker exits on its own; the supervised job then releases.
+        for _ in range(200):
+            if whisper_main._inflight == 0:
+                break
+            await asyncio.sleep(0.02)
+        assert whisper_main._inflight == 0
+
+    asyncio.run(scenario())
+
+
+# --- WHISPER-CANCEL-SLOT-1 (#1688): slot lifetime follows the worker thread ---
+
+
+def test_cancelled_request_keeps_slot_until_worker_done(monkeypatch) -> None:
+    """Cancelling the awaiting request must not free _inflight while the
+    faster-whisper worker thread is still decoding."""
+    import threading
+
+    monkeypatch.setattr(whisper_main, "_model", _FakeModel())
+    _patch_probe(monkeypatch)
+    monkeypatch.setattr(whisper_main, "_inflight", 0)
+
+    started = threading.Event()
+    finish = threading.Event()
+
+    def blocking_sync(path, language, task, beam_size):
+        started.set()
+        finish.wait(timeout=10)
+        return {"segment_list": [], "full_text": [], "language": "en", "language_probability": 0.9, "duration": 1.0}
+
+    monkeypatch.setattr(whisper_main, "_transcribe_sync", blocking_sync)
+
+    async def scenario():
+        request = asyncio.ensure_future(
+            whisper_main.transcribe(file=_FakeUpload(), language=None, task="transcribe", beam_size=5)
+        )
+        # Wait until the worker thread is actually inside the decode.
+        await asyncio.to_thread(started.wait, 5)
+        request.cancel()
+        cancelled = False
+        try:
+            await request
+        except asyncio.CancelledError:
+            cancelled = True
+        assert cancelled, "expected the request to be cancelled"
+        # The orphaned worker is still running — the slot must still be held,
+        # so a second request is refused rather than starting a concurrent decode.
+        assert whisper_main._inflight == whisper_main._MAX_CONCURRENT
+        try:
+            await whisper_main.transcribe(file=_FakeUpload(), language=None, task="transcribe", beam_size=5)
+        except whisper_main.HTTPException as exc:
+            assert exc.status_code == 503
+        else:  # pragma: no cover
+            raise AssertionError("expected HTTPException 503 while orphan decodes")
+        # Let the worker finish; the supervised job then releases the slot.
+        finish.set()
+        for _ in range(200):
+            if whisper_main._inflight == 0:
+                break
+            await asyncio.sleep(0.02)
+        assert whisper_main._inflight == 0
+
+    asyncio.run(scenario())

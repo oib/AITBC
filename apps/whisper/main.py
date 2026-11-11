@@ -268,6 +268,50 @@ def _transcribe_sync(path: str, language: str | None, task: str, beam_size: int)
     }
 
 
+async def _transcribe_job(tmp_path: str, language: str | None, task: str, beam_size: int) -> dict:
+    """Probe, decode and clean up — owning ``tmp_path`` and the ``_inflight``
+    slot for the whole worker-thread lifetime.
+
+    WHISPER-CANCEL-SLOT-1 (#1688): this used to run inline in the request
+    handler whose ``finally`` unlinked the temp file and released the slot on
+    *request* cancellation. ``asyncio.to_thread`` cannot kill an already
+    running worker, so a cancelled request freed the slot while faster-whisper
+    was still decoding — a second request could then start a concurrent decode
+    and defeat the ``_MAX_CONCURRENT`` bound the MemoryMax sizing depends on.
+    Owning the cleanup here means the slot stays held until the thread
+    actually returns or raises, however the awaiting request ends.
+    """
+    global _inflight
+    try:
+        try:
+            seconds = _probe_duration(tmp_path)
+        except Exception:
+            # Unreadable, or not one of the plain audio/video containers media_guard
+            # allows. faster-whisper would open the same file with no guard at all,
+            # so it never gets to see it (CE-001, #1170).
+            raise HTTPException(status_code=415, detail="Unsupported or unreadable media container") from None
+        if seconds is not None and seconds > _MAX_AUDIO_SECONDS:
+            raise HTTPException(
+                status_code=413,
+                detail=(f"Audio is {seconds / 60:.1f} minutes; the limit is {_MAX_AUDIO_SECONDS / 60:.0f} minutes"),
+            )
+        return await asyncio.to_thread(_transcribe_sync, tmp_path, language, task, beam_size)
+    finally:
+        try:
+            os.unlink(tmp_path)
+        finally:
+            # Release the slot even if the unlink raises — a missed
+            # decrement would wedge the service at 503 forever.
+            _inflight -= 1
+
+
+def _consume_task_exception(task: "asyncio.Task[dict]") -> None:
+    """Retrieve a finished decode task's exception so a cancelled request does
+    not leave an unretrieved-exception warning behind."""
+    if not task.cancelled():
+        task.exception()
+
+
 @app.post("/transcribe", dependencies=[Depends(require_job_access)])
 async def transcribe(
     file: Annotated[UploadFile, File(...)],
@@ -299,57 +343,40 @@ async def transcribe(
         _inflight -= 1
         raise
 
+    # The decode task owns the temp file and the slot until the worker thread
+    # exits (#1688). shield() keeps it alive when this request is cancelled or
+    # times out — the client is gone either way, but the slot must not be
+    # recycled under a still-running decode. wait_for only abandons the await;
+    # the shielded job keeps the slot until the thread returns.
+    decode = asyncio.ensure_future(_transcribe_job(tmp_path, language, task, beam_size))
+    decode.add_done_callback(_consume_task_exception)
+    t_start = time.time()
     try:
-        try:
-            seconds = _probe_duration(tmp_path)
-        except Exception:
-            # Unreadable, or not one of the plain audio/video containers media_guard
-            # allows. faster-whisper would open the same file with no guard at all,
-            # so it never gets to see it (CE-001, #1170).
-            raise HTTPException(status_code=415, detail="Unsupported or unreadable media container") from None
-        if seconds is not None and seconds > _MAX_AUDIO_SECONDS:
-            raise HTTPException(
-                status_code=413,
-                detail=(f"Audio is {seconds / 60:.1f} minutes; the limit is {_MAX_AUDIO_SECONDS / 60:.0f} minutes"),
-            )
+        result = await asyncio.wait_for(asyncio.shield(decode), timeout=_TRANSCRIBE_TIMEOUT_SECONDS)
+    except TimeoutError:
+        raise HTTPException(
+            status_code=504,
+            detail=f"Transcription exceeded the {_TRANSCRIBE_TIMEOUT_SECONDS:.0f}s limit",
+        ) from None
+    elapsed = round(time.time() - t_start, 2)
+    transcript = " ".join(result["full_text"])
+    result_hash = hashlib.sha256(transcript.encode()).hexdigest()
+    duration = result["duration"]
 
-        t_start = time.time()
-        try:
-            result = await asyncio.wait_for(
-                asyncio.to_thread(_transcribe_sync, tmp_path, language, task, beam_size),
-                timeout=_TRANSCRIBE_TIMEOUT_SECONDS,
-            )
-        except TimeoutError:
-            raise HTTPException(
-                status_code=504,
-                detail=f"Transcription exceeded the {_TRANSCRIBE_TIMEOUT_SECONDS:.0f}s limit",
-            ) from None
-        elapsed = round(time.time() - t_start, 2)
-        transcript = " ".join(result["full_text"])
-        result_hash = hashlib.sha256(transcript.encode()).hexdigest()
-        duration = result["duration"]
-
-        return JSONResponse(
-            {
-                "text": transcript,
-                "language": result["language"],
-                "language_probability": result["language_probability"],
-                "duration_seconds": duration,
-                "duration_minutes": round(duration / 60, 4),
-                "segments": result["segment_list"],
-                "model": _model_name,
-                "elapsed_seconds": elapsed,
-                "real_time_factor": round(elapsed / duration, 3) if duration > 0 else 0,
-                "result_hash": result_hash,
-            }
-        )
-    finally:
-        try:
-            os.unlink(tmp_path)
-        finally:
-            # Release the slot even if the unlink raises — a missed
-            # decrement would wedge the service at 503 forever.
-            _inflight -= 1
+    return JSONResponse(
+        {
+            "text": transcript,
+            "language": result["language"],
+            "language_probability": result["language_probability"],
+            "duration_seconds": duration,
+            "duration_minutes": round(duration / 60, 4),
+            "segments": result["segment_list"],
+            "model": _model_name,
+            "elapsed_seconds": elapsed,
+            "real_time_factor": round(elapsed / duration, 3) if duration > 0 else 0,
+            "result_hash": result_hash,
+        }
+    )
 
 
 if __name__ == "__main__":
