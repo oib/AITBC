@@ -430,3 +430,42 @@ class TestNoFabricatedBalances:
         # The old fabricated fallback must never appear.
         assert "balance" not in payload
         assert "10000000000000" not in body
+
+
+class TestVersionedExchangeAliases:
+    """AUDIT-APIVER-1 (#1573): the signed-order mutating routes are also served
+    under /v1/exchange/* — same dispatch, same auth, same status codes as the
+    deprecated /api/* spellings. /api/internal/* and /api/wallet/connect stay
+    unversioned by design."""
+
+    ALIASES = [
+        ("/api/orders", "/v1/exchange/orders"),
+        ("/api/orders/7/cancel", "/v1/exchange/orders/7/cancel"),
+        ("/api/exchange/nodes/register", "/v1/exchange/nodes/register"),
+        ("/api/exchange/nodes/payout", "/v1/exchange/nodes/payout"),
+    ]
+
+    @pytest.mark.parametrize("legacy,versioned", ALIASES)
+    def test_alias_answers_identically_to_legacy(self, server, legacy, versioned):
+        """No key and valid key: the versioned spelling must dispatch to the
+        same handler and produce the same status as the legacy one (a 404 on
+        cancel is the handler's order-not-found, not a missing route)."""
+        for api_key in (None, API_KEY):
+            legacy_status, _, _ = request(server, "POST", legacy, body={}, api_key=api_key)
+            versioned_status, _, _ = request(server, "POST", versioned, body={}, api_key=api_key)
+            assert versioned_status == legacy_status, (
+                f"{versioned} (key={api_key is not None}) -> {versioned_status} != {legacy} -> {legacy_status}"
+            )
+
+    @pytest.mark.parametrize("path", ["/v1/exchange/orders"])
+    def test_versioned_write_route_is_routed_and_authed(self, server, path):
+        """A routed write route answers 401 without a key — 404 would mean the
+        alias never reached the dispatcher. (register/payout legitimately 404
+        here: their feature flags are off in this fixture, on both spellings.)"""
+        status, _, _ = request(server, "POST", path, body={})
+        assert status == 401, f"POST {path} answered {status}, expected the auth check"
+
+    def test_unversioned_internal_and_wallet_routes_have_no_alias(self, server):
+        for path in ("/v1/exchange/internal/exchange-settlement", "/v1/exchange/wallet/connect"):
+            status, _, _ = request(server, "POST", path, body={}, api_key=API_KEY)
+            assert status == 404, f"POST {path} must stay unrouted"

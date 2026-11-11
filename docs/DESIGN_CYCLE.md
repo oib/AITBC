@@ -102,7 +102,7 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 
 | Piece | Port | CLI | Notes |
 |-------|------|-----|-------|
-| Exchange | 8106 | `aitbc exchange-island`, `aitbc exchange` | `simple_exchange` + API key. Paths are `/api/orders`, not `/v1/exchange/*` |
+| Exchange | 8106 | `aitbc exchange-island`, `aitbc exchange` | `simple_exchange` + API key. Signed-order writes are versioned at `/v1/exchange/*`; the `/api/*` spellings are deprecated legacy aliases |
 | Governance | 8105 | `aitbc governance`, `aitbc operations governance` | `operations` is deprecated and hidden from `aitbc --help` |
 | Agent coordinator | 8107 | `aitbc agent-comm`, `aitbc agent-msg`, `aitbc agent-task` | Hub-only. Paid A2A delegation live (2026-09-13): typed TaskRequest/Quote/Accept/Result/Paid payloads ride `agent-msg`; `POST /v1/tasks/submit` locks a buyer-signed escrow via `/rpc/escrow/create`, provider executor (`AGENT_EXECUTOR_ENABLED` on the miner) quotes/executes and calls `/v1/tasks/{id}/complete` for the on-chain release; `escrow_expiry_sweeper` refunds unanswered tasks on timeout. `GET /v1/tasks/{id}/escrow` + `/v1/tasks/escrow-config` expose escrow state and the settlement wallet to remote buyers. |
 | Trading | 8104 | `aitbc trade` | Inter-chain offers |
