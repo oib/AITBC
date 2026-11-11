@@ -47,6 +47,10 @@ def fake_connection_manager():
 @pytest.fixture
 def client(monkeypatch, tmp_path, messaging_app, fake_connection_manager):
     """TestClient with broadcast dependencies patched."""
+    from agent_app.config import settings
+
+    # #1846: these tests exercise broadcast mechanics, not authz.
+    monkeypatch.setattr(settings, "agent_msg_signature_mode", "disabled")
 
     # Wire the protocol layer to our fake connection manager.
     monkeypatch.setattr(communication_module, "get_connection_manager", lambda: fake_connection_manager)

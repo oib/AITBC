@@ -163,6 +163,10 @@ class TestUnpaidCompletionEndpoints:
 
     @pytest.fixture
     def app_client(self, monkeypatch):
+        from agent_app.config import settings
+
+        # #1846: settlement mechanics, not authz — anonymous calls 401 in advisory.
+        monkeypatch.setattr(settings, "agent_msg_signature_mode", "disabled")
         lb = _balancer_with_agent()
         monkeypatch.setattr(state, "load_balancer", lb)
         monkeypatch.setattr(state, "payment_escrow", None)

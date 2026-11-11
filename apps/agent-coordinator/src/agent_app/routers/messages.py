@@ -42,18 +42,17 @@ def _authorize_message_party(principal: AgentPrincipal | None, message: dict[str
 
     ``enforce``: the principal must be a party to the message — sender or
     receiver for reads, receiver only for ``mark_read`` (the read flag is the
-    receiver's state). ``advisory``: mismatches log and pass. ``disabled`` and
-    admin principals are untouched.
+    receiver's state). ``advisory``: a missing principal is rejected (401,
+    #1846 — authentication is mode-independent) while party mismatches log
+    and pass. ``disabled`` and admin principals are untouched.
     """
     mode = settings.agent_msg_signature_mode
     if mode == "disabled":
         return
     if principal is None:
-        if mode == "enforce":
-            raise HTTPException(
-                status_code=401, detail="agent authentication required", headers={"WWW-Authenticate": "Bearer"}
-            )
-        return
+        # #1846: authentication is mode-independent — anonymous callers get
+        # 401 in advisory too, not just enforce.
+        raise HTTPException(status_code=401, detail="agent authentication required", headers={"WWW-Authenticate": "Bearer"})
     if principal.is_admin:
         return
     sender, receiver = _message_parties(message)
@@ -105,9 +104,10 @@ def _resolve_history_scope(
     Enforce/advisory modes scope an authenticated non-admin principal to its
     own records: mismatched ``sender_id``/``receiver_id`` filters go through
     ``authorize_agent_scope`` (403 in enforce, logged in advisory) and an
-    unfiltered advisory query logs ``agent_authz_unscoped``. ``enforce`` with
-    no principal delegates to ``authorize_agent_scope`` for the 401. Returns
-    the principal's agent_id when scoped, ``None`` otherwise.
+    unfiltered advisory query logs ``agent_authz_unscoped``. ``enforce`` and
+    ``advisory`` with no principal delegate to ``authorize_agent_scope`` for
+    the 401 (#1846 — authentication is mode-independent). Returns the
+    principal's agent_id when scoped, ``None`` otherwise.
     """
     if mode != "disabled" and principal is not None and not principal.is_admin:
         scoped_agent = principal.agent_id
@@ -122,7 +122,9 @@ def _resolve_history_scope(
                 mode,
             )
         return scoped_agent
-    if mode == "enforce" and principal is None:
+    if mode != "disabled" and principal is None:
+        # #1846: anonymous history reads are rejected in advisory as well as
+        # enforce — authentication no longer depends on signature mode.
         authorize_agent_scope(principal, "", "history")
     return None
 
@@ -431,8 +433,9 @@ async def get_message_history(
     Enforce mode: an authenticated non-admin principal may only read its own
     records — ``sender_id``/``receiver_id`` filters must equal its agent_id,
     and an unfiltered query returns only messages it is a party to (never
-    ``get_all_messages``). Admin principals keep the full view. Advisory and
-    disabled keep the historical open behaviour (mismatches are logged).
+    ``get_all_messages``). Admin principals keep the full view. Advisory
+    requires a principal (#1846) but keeps the open record scope (mismatches
+    are logged); disabled keeps the historical open behaviour.
     """
     mode = settings.agent_msg_signature_mode
     scoped_agent = _resolve_history_scope(principal, sender_id, receiver_id, mode)
