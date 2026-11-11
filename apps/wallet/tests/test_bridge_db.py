@@ -28,6 +28,7 @@ from wallet_app.bridge.bridge_db import (
     get_deposit_by_id,
     get_deposits_by_recipient,
     update_deposit_status,
+    update_deposit_tx_hash,
 )
 
 
@@ -257,6 +258,40 @@ class TestBridgeDepositDb:
         # Canonical vocabulary still writes.
         assert update_deposit_status(deposit_id, "exchange_prepay")
         assert get_deposit_by_id(deposit_id)["status"] == "exchange_prepay"
+
+    def test_update_deposit_status_cas_blocks_stale_writer(self, bridge_db):
+        """#1796: expected_statuses makes the UPDATE conditional — a writer
+        holding a stale read cannot overwrite a state that already moved."""
+        deposit_id = insert_deposit(
+            tx_hash="0xcas" + "7" * 61,
+            from_address="0x9999999999999999999999999999999999999999",
+            amount_eth=Decimal("0.01"),
+            amount_ait=Decimal("100"),
+            recipient="0x1111111111111111111111111111111111111111",
+        )
+        assert update_deposit_status(deposit_id, "verified", expected_statuses={"pending"})
+        assert update_deposit_status(deposit_id, "completed", expected_statuses={"verified"})
+        # Stale writer still thinks the row is 'pending' — must not land.
+        assert not update_deposit_status(deposit_id, "verified", expected_statuses={"pending"})
+        # Wrong-source write also refused; matching source still works.
+        assert not update_deposit_status(deposit_id, "pending", expected_statuses={"verified"})
+        assert update_deposit_status(deposit_id, "failed", expected_statuses={"completed"})
+        assert get_deposit_by_id(deposit_id)["status"] == "failed"
+
+    def test_update_deposit_tx_hash_cas(self, bridge_db):
+        deposit_id = insert_deposit(
+            tx_hash="0xtxhash" + "5" * 57,
+            from_address="0x9999999999999999999999999999999999999999",
+            amount_eth=Decimal("0.01"),
+            amount_ait=Decimal("100"),
+            recipient="0x1111111111111111111111111111111111111111",
+        )
+        assert update_deposit_status(deposit_id, "verified")
+        # Not yet completed — the hash stamp must not land.
+        assert not update_deposit_tx_hash(deposit_id, "0xaittx", expected_statuses={"completed"})
+        assert update_deposit_status(deposit_id, "completed")
+        assert update_deposit_tx_hash(deposit_id, "0xaittx", expected_statuses={"completed"})
+        assert get_deposit_by_id(deposit_id)["ait_tx_hash"] == "0xaittx"
 
     def test_get_deposits_by_recipient_filters(self, bridge_db):
         insert_deposit(

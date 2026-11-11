@@ -138,7 +138,7 @@ def verify_deposit(
     if deposit["status"] != "pending":
         raise HTTPException(status_code=400, detail=f"Deposit already {deposit['status']}")
 
-    success = update_deposit_status(deposit["id"], "verified")
+    success = update_deposit_status(deposit["id"], "verified", expected_statuses={"pending"})
 
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update deposit status")
@@ -164,7 +164,7 @@ def complete_deposit(
     if deposit["status"] != "verified":
         raise HTTPException(status_code=400, detail="Deposit must be verified first")
 
-    success = update_deposit_status(deposit["id"], "completed")
+    success = update_deposit_status(deposit["id"], "completed", expected_statuses={"verified"})
 
     if not success:
         raise HTTPException(status_code=500, detail="Failed to update deposit status")

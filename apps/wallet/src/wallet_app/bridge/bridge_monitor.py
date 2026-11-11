@@ -424,11 +424,11 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
     genesis_address = _canonical_address(GENESIS_WALLET_ADDRESS)
     if not genesis_address:
         logger.error("GENESIS_WALLET_ADDRESS is not a valid 0x address: %s", GENESIS_WALLET_ADDRESS)
-        update_deposit_status(deposit_id, "pending")
+        update_deposit_status(deposit_id, "pending", expected_statuses={"pending"})
         return
 
     # 1. Verify
-    update_deposit_status(deposit_id, "verified")
+    update_deposit_status(deposit_id, "verified", expected_statuses={"pending"})
 
     # 2. Get nonce
     try:
@@ -437,7 +437,7 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
         nonce = account_data.get("nonce", 0)
     except Exception as e:
         logger.error("Failed to fetch genesis nonce for auto-mint: %s", e)
-        update_deposit_status(deposit_id, "pending")
+        update_deposit_status(deposit_id, "pending", expected_statuses={"pending", "verified"})
         return
 
     # 3. Build and sign transaction
@@ -479,12 +479,12 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
             raise ValueError(f"No tx hash returned: {result}")
 
         # 5. Complete
-        update_deposit_status(deposit_id, "completed")
-        update_deposit_tx_hash(deposit_id, tx_hash)
+        update_deposit_status(deposit_id, "completed", expected_statuses={"verified"})
+        update_deposit_tx_hash(deposit_id, tx_hash, expected_statuses={"completed"})
         logger.info("Auto-minted %s AIT to %s (tx: %s) for deposit %s", amount_ait, recipient, tx_hash, deposit_id)
     except Exception as e:
         logger.error("Error during auto-mint: %s", e)
-        update_deposit_status(deposit_id, "pending")
+        update_deposit_status(deposit_id, "pending", expected_statuses={"pending", "verified"})
 
 
 async def poll_once() -> dict[str, Any]:

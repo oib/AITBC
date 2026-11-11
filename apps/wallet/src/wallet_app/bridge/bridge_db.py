@@ -7,6 +7,7 @@ import logging
 import os
 import sqlite3
 from decimal import Decimal
+from collections.abc import Collection
 from typing import Any
 
 from wallet_app.utc_time import utc_now_iso
@@ -542,8 +543,14 @@ def get_pending_deposits(limit: int = 500, offset: int = 0) -> list[dict[str, An
 _ETH_DEPOSIT_STATUSES = frozenset({"pending", "verified", "completed", "exchange_prepay", "rejected", "failed"})
 
 
-def update_deposit_status(deposit_id: str, status: str) -> bool:
-    """Update deposit status."""
+def update_deposit_status(deposit_id: str, status: str, *, expected_statuses: Collection[str] | None = None) -> bool:
+    """Update deposit status.
+
+    ``expected_statuses`` is the CAS predicate (#1796): when given, the
+    UPDATE only lands while the row still sits in one of those statuses,
+    so a stale writer cannot overwrite a state that has already moved on
+    (e.g. re-verifying a completed deposit). rowcount 0 -> False.
+    """
     if status not in _ETH_DEPOSIT_STATUSES:
         raise ValueError(f"unknown deposit status: {status!r}")
     conn = _connect_db()
@@ -569,6 +576,10 @@ def update_deposit_status(deposit_id: str, status: str) -> bool:
     else:
         query = "UPDATE eth_deposits SET status = ? WHERE id = ?"  # nosec
         params = (status, deposit_id)
+    if expected_statuses:
+        expected = tuple(expected_statuses)
+        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
+        params = (*params, *expected)
     cursor.execute(query, params)
 
     conn.commit()
@@ -578,14 +589,22 @@ def update_deposit_status(deposit_id: str, status: str) -> bool:
     return rows_affected > 0
 
 
-def update_deposit_tx_hash(deposit_id: str, ait_tx_hash: str) -> bool:
-    """Record the AIT transaction hash for a completed deposit."""
+def update_deposit_tx_hash(deposit_id: str, ait_tx_hash: str, *, expected_statuses: Collection[str] | None = None) -> bool:
+    """Record the AIT transaction hash for a completed deposit.
+
+    Same CAS predicate as update_deposit_status (#1796): pass
+    ``{"completed"}`` so a delayed writer cannot stamp a hash onto a row
+    that has since moved to another state.
+    """
     conn = _connect_db()
     cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE eth_deposits SET ait_tx_hash = ? WHERE id = ?",
-        (ait_tx_hash, deposit_id),
-    )
+    query = "UPDATE eth_deposits SET ait_tx_hash = ? WHERE id = ?"
+    params: tuple = (ait_tx_hash, deposit_id)
+    if expected_statuses:
+        expected = tuple(expected_statuses)
+        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
+        params = (*params, *expected)
+    cursor.execute(query, params)
     conn.commit()
     rows_affected = cursor.rowcount
     conn.close()
