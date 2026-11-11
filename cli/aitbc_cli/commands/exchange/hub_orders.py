@@ -38,6 +38,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 from ...utils import DECIMAL, info, output, resolve_output_format, success
 from ...utils.address import to_canonical
 from ...utils.error_handling import abort
+from ...utils.fee_guard import ALLOW_HIGH_FEE_OPTION, validate_tx_fee
 from ...utils.http_client import AITBCHTTPClient, NetworkError, http_error_detail, http_response_status
 from ...utils.chain_id import resolve_chain_id
 from ...utils.island_credentials import get_chain_id as get_island_chain_id
@@ -438,13 +439,16 @@ def _print_fund_equivalent(send_line: str, wallet_path: Path | None) -> None:
     show_default=True,
     help="AIT chain fee for the lock transfer (standard chain fee)",
 )
+@ALLOW_HIGH_FEE_OPTION
 @click.option("--print", "print_only", is_flag=True, help="Emit the equivalent 'transactions send' line; broadcast nothing")
 @click.option("--wallet", default=None, help="Wallet name (not a file path) — must be the order owner's")
 @wallet_password_options
 @click.option("--rpc-url", default=None, help="Blockchain RPC URL for the lock transfer")
 @click.option("--exchange-url", default=None, help="Override exchange service base URL")
 @click.pass_context
-def order_fund(ctx, order_id, fee, print_only, wallet, password, password_file, password_stdin, rpc_url, exchange_url):
+def order_fund(
+    ctx, order_id, fee, allow_high_fee, print_only, wallet, password, password_file, password_stdin, rpc_url, exchange_url
+):
     """Fund an unfunded SELL order with its AIT escrow lock.
 
     Reads the funding instruction from my-orders (escrow address, required
@@ -460,6 +464,7 @@ def order_fund(ctx, order_id, fee, print_only, wallet, password, password_file, 
     broadcast live — a real transfer is an AIT move the operator names
     explicitly.
     """
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     address, wallet_id, wallet_path = _fund_wallet_address(ctx, wallet)
     client = _exchange_client(ctx, exchange_url)
     _nonce, doc = _node_state(client, ctx, address)

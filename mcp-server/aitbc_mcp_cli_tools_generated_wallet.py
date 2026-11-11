@@ -1182,6 +1182,7 @@ def aitbc_wallet_inspect(
 def aitbc_wallet_liquidity_claim(
     stake_id: Annotated[str, Field(description="Stake ID.")],
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -1208,7 +1209,7 @@ def aitbc_wallet_liquidity_claim(
     """Claim accrued liquidity rewards for the given stake ID."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"allow_high_fee": "allow-high-fee"},
         values={
             "stake_id": "stake-id",
             "fee": "fee",
@@ -1265,6 +1266,7 @@ def aitbc_wallet_liquidity_stake(
     pool: Annotated[str | None, Field(description="Liquidity pool name")] = None,
     lock_days: Annotated[int | None, Field(description="Lock period in days (higher APY)")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -1291,7 +1293,7 @@ def aitbc_wallet_liquidity_stake(
     """Stake tokens into an on-chain liquidity pool to earn rewards."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"allow_high_fee": "allow-high-fee"},
         values={
             "amount": "amount",
             "pool": "pool",
@@ -1348,6 +1350,7 @@ def aitbc_wallet_liquidity_stake(
 def aitbc_wallet_liquidity_unstake(
     stake_id: Annotated[str, Field(description="Stake ID.")],
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -1374,7 +1377,7 @@ def aitbc_wallet_liquidity_unstake(
     """Withdraw a liquidity stake and its accumulated rewards."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"allow_high_fee": "allow-high-fee"},
         values={
             "stake_id": "stake-id",
             "fee": "fee",

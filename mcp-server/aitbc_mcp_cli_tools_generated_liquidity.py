@@ -30,6 +30,7 @@ def aitbc_liquidity_build_claim(
     address: Annotated[str | None, Field(description="Sender address (overrides --wallet-name)")] = None,
     wallet_name: Annotated[str | None, Field(description="Wallet whose address is the sender")] = None,
     pool_id: Annotated[str | None, Field(description="Liquidity pool identifier (default: main)")] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (overrides config)")] = None,
     chain_id: Annotated[str | None, Field(description="Chain ID the transaction is built for")] = None,
@@ -43,7 +44,7 @@ def aitbc_liquidity_build_claim(
     """Build an unsigned LIQUIDITY_CLAIM transaction."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"as_json": "json"},
+        flags={"allow_high_fee": "allow-high-fee", "as_json": "json"},
         values={
             "stake_id": "stake-id",
             "address": "address",
@@ -94,6 +95,7 @@ def aitbc_liquidity_build_deposit(
     address: Annotated[str | None, Field(description="Sender address (overrides --wallet-name)")] = None,
     wallet_name: Annotated[str | None, Field(description="Wallet whose address is the sender")] = None,
     pool_id: Annotated[str | None, Field(description="Liquidity pool identifier (default: main)")] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (overrides config)")] = None,
     chain_id: Annotated[str | None, Field(description="Chain ID the transaction is built for")] = None,
@@ -107,7 +109,7 @@ def aitbc_liquidity_build_deposit(
     """Build an unsigned LIQUIDITY_DEPOSIT transaction."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"as_json": "json"},
+        flags={"allow_high_fee": "allow-high-fee", "as_json": "json"},
         values={
             "amount": "amount",
             "lock_days": "lock-days",
@@ -158,6 +160,7 @@ def aitbc_liquidity_build_withdraw(
     address: Annotated[str | None, Field(description="Sender address (overrides --wallet-name)")] = None,
     wallet_name: Annotated[str | None, Field(description="Wallet whose address is the sender")] = None,
     pool_id: Annotated[str | None, Field(description="Liquidity pool identifier (default: main)")] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (overrides config)")] = None,
     chain_id: Annotated[str | None, Field(description="Chain ID the transaction is built for")] = None,
@@ -171,7 +174,7 @@ def aitbc_liquidity_build_withdraw(
     """Build an unsigned LIQUIDITY_WITHDRAW transaction (stake must be unlocked)."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"as_json": "json"},
+        flags={"allow_high_fee": "allow-high-fee", "as_json": "json"},
         values={
             "stake_id": "stake-id",
             "address": "address",

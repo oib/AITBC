@@ -19,6 +19,7 @@ aitbc messaging send [OPTIONS]
 | `--topic` | text | `broadcast` | no | Topic slug (lowercased, whitespace → '-') |
 | `--reply-to` | text | — | no | Parent message tx_hash — makes the post a reply (bare or 0x-prefixed 64-hex) |
 | `--fee` | decimal | `0.01` | no | Transaction fee (AIT) |
+| `--allow-high-fee` | flag | `false` | no | Override the 10.00 AIT sanity ceiling on --fee |
 | `--confirm` | flag | `false` | no | Sign and submit once (default: dry run — prints the post, signs nothing) |
 | `--wait`, `--no-wait` | flag | `true` | no | With --confirm: poll /rpc/messaging/messages/<hash> until the post is indexed (default: --wait); --no-wait prints only the submitted hash |
 | `--wait-timeout` | float | `180.0` | no | Seconds --wait polls for |

@@ -23,6 +23,7 @@ aitbc messaging dm send [OPTIONS] RECIPIENT
 | `--wallet` | text | — | yes | Wallet that signs the DM |
 | `--message` | text | — | yes | Plaintext body (encrypted before it leaves this process) |
 | `--fee` | decimal | `0.01` | no | Transaction fee (AIT) |
+| `--allow-high-fee` | flag | `false` | no | Override the 10.00 AIT sanity ceiling on --fee |
 | `--confirm` | flag | `false` | no | Seal, sign and submit once (default: dry run) |
 | `--rpc-url` | text | — | no | Blockchain RPC URL |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
