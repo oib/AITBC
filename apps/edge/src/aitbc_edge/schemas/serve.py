@@ -1,6 +1,7 @@
 """Edge serve-related schemas for Edge API Service"""
 
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
@@ -26,6 +27,13 @@ class ComputeRequest(SQLModel, table=True):
     # EDGE-AUTHZ-BEFORE-COMMISSIONING (#1205): JWT ``sub`` of the submitter.
     # NULL on rows predating the column — admin-only until claimed.
     owner_id: str | None = Field(default=None, index=True)
+    # EDGE-PAY-1 (#1668): the verified escrow key (job_id, or legacy
+    # escrow_id) that authorized this request. Unique — one locked escrow
+    # authorizes exactly one compute request; NULL on unpaid rows.
+    escrow_id: str | None = Field(default=None, index=True, unique=True)
+    # Locked AIT amount reported by the escrow at verification time,
+    # kept for settlement/dispute accounting.
+    escrow_amount: Decimal | None = Field(default=None, max_digits=20, decimal_places=8)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     started_at: datetime | None = Field(default=None)

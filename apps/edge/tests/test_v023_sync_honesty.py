@@ -192,12 +192,13 @@ class TestRouteReturns501:
         app.include_router(database_router.router)
         client = TestClient(app)
 
-        # #1205: the route now requires a fleet JWT before it reaches the service.
+        # #1205: the route now requires a fleet JWT before it reaches the
+        # service; #1668 made it admin-only, so the pin uses an admin token.
         from aitbc.auth import create_access_token
 
         response = client.post(
             "/db_1/sync",
-            headers={"Authorization": f"Bearer {create_access_token('sync-test', 'client')}"},
+            headers={"Authorization": f"Bearer {create_access_token('sync-test', 'admin')}"},
         )
 
         assert response.status_code == 501
