@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
 import hmac
 import math
 import os
+from contextlib import asynccontextmanager
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
@@ -17,10 +20,33 @@ from sqlmodel import Field, SQLModel, select
 from aitbc.aitbc_logging import get_logger
 
 from .domain.jobs import Job, JobState
+from .executor import ensure_schema, execute_jobs_enabled, run_executor_loop, schedule_job
 from .storage import get_session
 
 logger = get_logger(__name__)
-app = FastAPI(title="AITBC AI Service", description="AI job operations service", version="1.0.0")
+
+
+@asynccontextmanager
+async def _lifespan(app: FastAPI):
+    stop = asyncio.Event()
+    task: asyncio.Task[None] | None = None
+    if execute_jobs_enabled():
+        await ensure_schema()
+        task = asyncio.create_task(run_executor_loop(stop))
+    yield
+    if task is not None:
+        stop.set()  # noqa: unawaited-async — asyncio.Event.set is synchronous
+        task.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await task
+
+
+app = FastAPI(
+    title="AITBC AI Service",
+    description="AI job operations service",
+    version="1.0.0",
+    lifespan=_lifespan,
+)
 
 # The multimodal/optimization routes below are stubs: they return canned
 # values and perform no real work. Every response is labelled so a caller
@@ -161,6 +187,8 @@ async def submit_job(
         session.add(job)
         await session.commit()
         await session.refresh(job)
+        if execute_jobs_enabled():
+            schedule_job(job.id)
         return JobView(
             id=job.id,
             client_id=job.client_id,
