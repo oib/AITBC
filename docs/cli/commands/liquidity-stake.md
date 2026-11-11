@@ -21,6 +21,7 @@ aitbc liquidity-stake [OPTIONS]
 | `--pool` | text | `main` | no | Liquidity pool name |
 | `--lock-days` | integer | `0` | no | Lock period in days (higher APY) |
 | `--fee` | decimal | `0.01` | no | Transaction fee in AIT |
+| `--allow-high-fee` | flag | `false` | no | Override the 10.00 AIT sanity ceiling on --fee |
 
 ## Examples
 

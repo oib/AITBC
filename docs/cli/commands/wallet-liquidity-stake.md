@@ -18,6 +18,7 @@ aitbc wallet liquidity-stake [OPTIONS]
 | `--pool` | text | `main` | no | Liquidity pool name |
 | `--lock-days` | integer | `0` | no | Lock period in days (higher APY) |
 | `--fee` | decimal | `0.01` | no | Transaction fee in AIT |
+| `--allow-high-fee` | flag | `false` | no | Override the 10.00 AIT sanity ceiling on --fee |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
 | `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
 | `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |

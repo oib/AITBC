@@ -166,6 +166,7 @@ def aitbc_transactions_send(
     to_address: Annotated[str, Field(description="To address")],
     amount: Annotated[str, Field(description="Amount to send")],
     fee: Annotated[str | None, Field(description="Transaction fee (standard chain fee)")] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -182,7 +183,7 @@ def aitbc_transactions_send(
     """Send a transaction from one wallet to another."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"use_explorer": "use-explorer"},
+        flags={"allow_high_fee": "allow-high-fee", "use_explorer": "use-explorer"},
         values={
             "from_wallet": "from",
             "to_address": "to",

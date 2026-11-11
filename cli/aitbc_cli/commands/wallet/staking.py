@@ -16,6 +16,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.validation import validate_address
 
 from ...config import get_config
+from ...utils.fee_guard import ALLOW_HIGH_FEE_OPTION, validate_tx_fee
 from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ...utils import DECIMAL, error, output, success
 from ...utils.error_handling import abort
@@ -562,6 +563,7 @@ def staking_info(
 @click.option("--pool", default="main", help="Liquidity pool name")
 @click.option("--lock-days", type=int, default=0, help="Lock period in days (higher APY)")
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
+@ALLOW_HIGH_FEE_OPTION
 @click.pass_context
 @wallet_password_options
 @wallet_override_options
@@ -571,6 +573,7 @@ def liquidity_stake(
     pool: str,
     lock_days: int,
     fee: Decimal,
+    allow_high_fee: bool,
     password: str | None,
     password_file: str | None,
     password_stdin: bool,
@@ -580,6 +583,11 @@ def liquidity_stake(
     chain_id_override: str | None,
 ):
     """Stake tokens into an on-chain liquidity pool to earn rewards."""
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
+    if amount <= 0:
+        error(f"Invalid amount: {amount} AIT (must be > 0)")
+        ctx.exit(1)
+        return
     _rebind_wallet_overrides(ctx, wallet_name_override, wallet_path_override, rpc_url_override, chain_id_override)
     wallet_name = ctx.obj["wallet_name"]
     # liquidity_stake re-saves the wallet file — configured-dir resolution only (CLI-6c).
@@ -680,6 +688,7 @@ def liquidity_stake(
 )
 @click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
+@ALLOW_HIGH_FEE_OPTION
 @click.pass_context
 @wallet_password_options
 @wallet_override_options
@@ -687,6 +696,7 @@ def liquidity_claim(
     ctx,
     stake_id: str,
     fee: Decimal,
+    allow_high_fee: bool,
     password: str | None,
     password_file: str | None,
     password_stdin: bool,
@@ -696,6 +706,7 @@ def liquidity_claim(
     chain_id_override: str | None,
 ):
     """Claim accrued liquidity rewards for the given stake ID."""
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     _rebind_wallet_overrides(ctx, wallet_name_override, wallet_path_override, rpc_url_override, chain_id_override)
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_sign_path")
@@ -761,6 +772,7 @@ def liquidity_claim(
 )
 @click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
+@ALLOW_HIGH_FEE_OPTION
 @click.pass_context
 @wallet_password_options
 @wallet_override_options
@@ -768,6 +780,7 @@ def liquidity_unstake(
     ctx,
     stake_id: str,
     fee: Decimal,
+    allow_high_fee: bool,
     password: str | None,
     password_file: str | None,
     password_stdin: bool,
@@ -777,6 +790,7 @@ def liquidity_unstake(
     chain_id_override: str | None,
 ):
     """Withdraw a liquidity stake and its accumulated rewards."""
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     _rebind_wallet_overrides(ctx, wallet_name_override, wallet_path_override, rpc_url_override, chain_id_override)
     wallet_name = ctx.obj["wallet_name"]
     # liquidity_unstake re-saves the wallet file — configured-dir resolution only (CLI-6c).

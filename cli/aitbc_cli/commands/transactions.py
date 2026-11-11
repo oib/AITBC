@@ -20,6 +20,7 @@ from aitbc.utils.validation import validate_address_strict
 from ..config import get_config
 from ..utils import DECIMAL, error, info, success, warning
 from ..utils.error_handling import CLIError, abort
+from ..utils.fee_guard import ALLOW_HIGH_FEE_OPTION, validate_tx_fee
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_response_status
 from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_paths import (
@@ -307,6 +308,7 @@ def _parse_payload_json(payload: str | None) -> dict[str, Any] | None:
 @click.option(
     "--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (standard chain fee)"
 )
+@ALLOW_HIGH_FEE_OPTION
 @wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.option("--type", "tx_type", default="TRANSFER", help="Transaction type (default TRANSFER)")
@@ -317,6 +319,7 @@ def send(
     to_address: str,
     amount: Decimal,
     fee: Decimal,
+    allow_high_fee: bool,
     password: str | None,
     password_file: str | None,
     password_stdin: bool,
@@ -326,6 +329,7 @@ def send(
     use_explorer: bool,
 ):
     """Send a transaction from one wallet to another."""
+    validate_tx_fee(click.get_current_context(silent=True), fee, allow_high_fee=allow_high_fee)
     password = resolve_wallet_password(
         from_wallet,
         password=password,

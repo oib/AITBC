@@ -34,6 +34,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
 from ..utils import DECIMAL, info, output, success, warning
 from ..utils.error_handling import abort
+from ..utils.fee_guard import ALLOW_HIGH_FEE_OPTION, validate_tx_fee
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.wallet_paths import find_wallet_file_report, wallet_not_found_message
 from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
@@ -278,6 +279,7 @@ def messaging():
     help="Parent message tx_hash — makes the post a reply (bare or 0x-prefixed 64-hex)",
 )
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (AIT)")
+@ALLOW_HIGH_FEE_OPTION
 @click.option("--confirm", is_flag=True, help="Sign and submit once (default: dry run — prints the post, signs nothing)")
 @click.option(
     "--wait/--no-wait",
@@ -295,6 +297,7 @@ def send(
     topic: str,
     reply_to: str | None,
     fee: Decimal,
+    allow_high_fee: bool,
     confirm: bool,
     wait: bool,
     wait_timeout: float,
@@ -309,6 +312,7 @@ def send(
     body length and fee and signs nothing. ``--confirm`` resolves the wallet
     password, signs once and submits once.
     """
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     if not message or not message.strip():
         abort(ctx, "Empty message refused — a post must carry a body")
     if len(message.encode("utf-8")) > MAX_MESSAGE_BODY_BYTES:
@@ -630,7 +634,9 @@ def _submit_action(
     target: str | None = None,
     value: int | None = None,
     grantee: str | None = None,
+    allow_high_fee: bool = False,
 ) -> None:
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     sender_address = _wallet_address(ctx, wallet_name)
     resolved_rpc = _resolve_transaction_rpc_url(rpc_url)
     try:
@@ -726,6 +732,7 @@ def _submit_action(
 def _action_options(f):
     f = click.option("--wallet", "wallet_name", required=True, help="Wallet name that signs the action")(f)
     f = click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (AIT)")(f)
+    f = ALLOW_HIGH_FEE_OPTION(f)
     f = click.option(
         "--confirm", is_flag=True, help="Sign and submit once (default: dry run — prints the action, signs nothing)"
     )(f)
@@ -740,6 +747,7 @@ def _action_options(f):
 
 
 def _target_action(ctx, kind: str, tx_hash: str, topic: str | None, kw: dict) -> None:
+    validate_tx_fee(ctx, kw["fee"], allow_high_fee=kw.get("allow_high_fee", False))
     rpc = _resolve_transaction_rpc_url(kw["rpc_url"])
     resolved_topic = topic or _target_topic(ctx, _rpc_client(rpc), tx_hash)
     canonical_topic = normalize_topic(resolved_topic)
@@ -766,6 +774,7 @@ def vote(
     topic,
     wallet_name,
     fee,
+    allow_high_fee,
     confirm,
     wait,
     wait_timeout,
@@ -783,6 +792,7 @@ def vote(
         {
             "wallet_name": wallet_name,
             "fee": fee,
+            "allow_high_fee": allow_high_fee,
             "confirm": confirm,
             "wait": wait,
             "wait_timeout": wait_timeout,
@@ -802,7 +812,19 @@ def _simple_target_command(kind: str, help_text: str):
     @_action_options
     @click.pass_context
     def cmd(
-        ctx, tx_hash, topic, wallet_name, fee, confirm, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+        ctx,
+        tx_hash,
+        topic,
+        wallet_name,
+        fee,
+        allow_high_fee,
+        confirm,
+        wait,
+        wait_timeout,
+        rpc_url,
+        password,
+        password_file,
+        password_stdin,
     ):
         _target_action(
             ctx,
@@ -812,6 +834,7 @@ def _simple_target_command(kind: str, help_text: str):
             {
                 "wallet_name": wallet_name,
                 "fee": fee,
+                "allow_high_fee": allow_high_fee,
                 "confirm": confirm,
                 "wait": wait,
                 "wait_timeout": wait_timeout,
@@ -839,6 +862,7 @@ def _lock_impl(
     target,
     wallet_name,
     fee,
+    allow_high_fee,
     confirm,
     wait,
     wait_timeout,
@@ -848,6 +872,7 @@ def _lock_impl(
     password_stdin,
 ):
     """Lock a topic or one thread (moderator only). Exactly one of --topic/--target."""
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     if (topic is None) == (target is None):
         abort(ctx, "Pass exactly one of --topic (whole topic) or --target (thread root)")
     canonical_topic: str | None
@@ -868,6 +893,7 @@ def _lock_impl(
         topic=canonical_topic,
         target=target,
         fee=fee,
+        allow_high_fee=allow_high_fee,
         wait=wait,
         wait_timeout=wait_timeout,
         rpc_url=rpc_url,
@@ -887,7 +913,21 @@ def _lock_impl(
 @click.option("--target", default=None, callback=_normalize_tx_hash, help="Lock the reply subtree under this message")
 @_action_options
 @click.pass_context
-def lock(ctx, topic, target, wallet_name, fee, confirm, wait, wait_timeout, rpc_url, password, password_file, password_stdin):
+def lock(
+    ctx,
+    topic,
+    target,
+    wallet_name,
+    fee,
+    allow_high_fee,
+    confirm,
+    wait,
+    wait_timeout,
+    rpc_url,
+    password,
+    password_file,
+    password_stdin,
+):
     """Lock a topic or one thread (moderator only)."""
     _lock_impl(
         ctx,
@@ -896,6 +936,7 @@ def lock(ctx, topic, target, wallet_name, fee, confirm, wait, wait_timeout, rpc_
         target,
         wallet_name,
         fee,
+        allow_high_fee,
         confirm,
         wait,
         wait_timeout,
@@ -912,7 +953,19 @@ def lock(ctx, topic, target, wallet_name, fee, confirm, wait, wait_timeout, rpc_
 @_action_options
 @click.pass_context
 def unlock(
-    ctx, topic, target, wallet_name, fee, confirm, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+    ctx,
+    topic,
+    target,
+    wallet_name,
+    fee,
+    allow_high_fee,
+    confirm,
+    wait,
+    wait_timeout,
+    rpc_url,
+    password,
+    password_file,
+    password_stdin,
 ):
     """Undo a lock (moderator only)."""
     _lock_impl(
@@ -922,6 +975,7 @@ def unlock(
         target,
         wallet_name,
         fee,
+        allow_high_fee,
         confirm,
         wait,
         wait_timeout,
@@ -942,7 +996,19 @@ def _mod_grant_command(kind: str, help_text: str):
     @_action_options
     @click.pass_context
     def cmd(
-        ctx, grantee, topic, wallet_name, fee, confirm, wait, wait_timeout, rpc_url, password, password_file, password_stdin
+        ctx,
+        grantee,
+        topic,
+        wallet_name,
+        fee,
+        allow_high_fee,
+        confirm,
+        wait,
+        wait_timeout,
+        rpc_url,
+        password,
+        password_file,
+        password_stdin,
     ):
         canonical_topic = normalize_topic(topic)
         if canonical_topic is None:
@@ -956,6 +1022,7 @@ def _mod_grant_command(kind: str, help_text: str):
             grantee=grantee,
             confirm=confirm,
             fee=fee,
+            allow_high_fee=allow_high_fee,
             wait=wait,
             wait_timeout=wait_timeout,
             rpc_url=rpc_url,
@@ -1107,6 +1174,7 @@ def dm_group():
 )
 @click.option("--wallet", "wallet_name", required=True, help="Wallet that signs the dm_key publication")
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (AIT)")
+@ALLOW_HIGH_FEE_OPTION
 @click.option("--confirm", is_flag=True, help="Generate the key (if needed) and sign+submit once (default: dry run)")
 @click.option(
     "--rotate",
@@ -1116,12 +1184,13 @@ def dm_group():
 @click.option("--rpc-url", default=None, help="Blockchain RPC URL")
 @wallet_password_options
 @click.pass_context
-def dm_keygen(ctx, wallet_name, fee, confirm, rotate, rpc_url, password, password_file, password_stdin):
+def dm_keygen(ctx, wallet_name, fee, allow_high_fee, confirm, rotate, rpc_url, password, password_file, password_stdin):
     """Create (or rotate) this wallet's DM key and publish the public half on-chain.
 
     DRY RUN by default. With --confirm: a new X25519 keypair is stored in the
     mode-600 dm-keys file and a ``dm_key`` envelope is signed and submitted.
     """
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     path = _dm_key_file(ctx, wallet_name)
     try:
         era, store = _dm_prepare_era(path, rotate=rotate)
@@ -1187,16 +1256,20 @@ def dm_keygen(ctx, wallet_name, fee, confirm, rotate, rpc_url, password, passwor
 @click.option("--wallet", "wallet_name", required=True, help="Wallet that signs the DM")
 @click.option("--message", required=True, help="Plaintext body (encrypted before it leaves this process)")
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee (AIT)")
+@ALLOW_HIGH_FEE_OPTION
 @click.option("--confirm", is_flag=True, help="Seal, sign and submit once (default: dry run)")
 @click.option("--rpc-url", default=None, help="Blockchain RPC URL")
 @wallet_password_options
 @click.pass_context
-def dm_send(ctx, recipient, wallet_name, message, fee, confirm, rpc_url, password, password_file, password_stdin):
+def dm_send(
+    ctx, recipient, wallet_name, message, fee, allow_high_fee, confirm, rpc_url, password, password_file, password_stdin
+):
     """Send an encrypted DM to a recipient who has published a dm_key.
 
     Metadata (sender, recipient, size, time) is public by design; only the
     body is sealed.
     """
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     from aitbc.crypto.signature_recovery import canonical_address
 
     try:

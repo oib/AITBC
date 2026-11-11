@@ -31,6 +31,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 from ..config import _resolve_api_key, _resolve_market_api_key, get_config
 from ..utils import DECIMAL, error, info, success, warning
 from ..utils.error_handling import abort
+from ..utils.fee_guard import ALLOW_HIGH_FEE_OPTION, validate_tx_fee
 from ..utils.chain_id import get_chain_id
 from ..utils.http_client import AITBCHTTPClient, get_logger
 from ..utils.wallet import decrypt_private_key
@@ -584,6 +585,7 @@ def island(ctx):
 @click.option(
     "--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, show_default=True, help="Transaction fee in AIT (standard chain fee)"
 )
+@ALLOW_HIGH_FEE_OPTION
 @wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.pass_context
@@ -596,6 +598,7 @@ def subscribe(
     quota: int,
     amount: Decimal,
     fee: Decimal,
+    allow_high_fee: bool,
     password: str | None,
     password_file: str | None,
     password_stdin: bool,
@@ -607,6 +610,7 @@ def subscribe(
     on-chain subscription record. The member can then request the swarm key
     with `aitbc-cli ipfs island swarm-key`.
     """
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     resolved_password = resolve_wallet_password(
         wallet_name,
         password=password,

@@ -86,6 +86,7 @@ def aitbc_ipfs_island_subscribe(
     duration: Annotated[int | None, Field(description="Subscription duration in blocks (default 1000)")] = None,
     quota: Annotated[int | None, Field(description="Quota in bytes (default 1 GiB)")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee in AIT (standard chain fee)")] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -99,7 +100,7 @@ def aitbc_ipfs_island_subscribe(
     """Subscribe to a private island IPFS network."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"allow_high_fee": "allow-high-fee"},
         values={
             "wallet_name": "wallet",
             "to_address": "to",

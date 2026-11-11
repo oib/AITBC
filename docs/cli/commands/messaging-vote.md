@@ -29,6 +29,7 @@ aitbc messaging vote [OPTIONS] TX_HASH DIRECTION
 | `--wait-timeout` | float | `180.0` | no | Seconds --wait polls for |
 | `--wait`, `--no-wait` | flag | `true` | no | With --confirm: poll the kind's read route until confirmed — the topic moderation actions list for hide/pin/lock kinds, the target's votes route for vote, the moderators list for grant/revoke (default: --wait); --no-wait prints only the submitted hash |
 | `--confirm` | flag | `false` | no | Sign and submit once (default: dry run — prints the action, signs nothing) |
+| `--allow-high-fee` | flag | `false` | no | Override the 10.00 AIT sanity ceiling on --fee |
 | `--fee` | decimal | `0.01` | no | Transaction fee (AIT) |
 | `--wallet` | text | — | yes | Wallet name that signs the action |
 

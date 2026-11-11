@@ -18,6 +18,7 @@ import click
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
 from ..utils import DECIMAL
+from ..utils.fee_guard import ALLOW_HIGH_FEE_OPTION
 from .wallet import wallet as _wallet_group
 from .wallet.staking import liquidity_stake as _wallet_liquidity_stake
 from .wallet.staking import stake as _wallet_stake
@@ -106,6 +107,7 @@ See also: `aitbc wallet liquidity-unstake` and `aitbc wallet liquidity-claim`.""
 @click.option("--pool", default="main", help="Liquidity pool name")
 @click.option("--lock-days", type=int, default=0, help="Lock period in days (higher APY)")
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
+@ALLOW_HIGH_FEE_OPTION
 @click.pass_context
 def liquidity_stake(
     ctx,
@@ -116,7 +118,15 @@ def liquidity_stake(
     pool: str,
     lock_days: int,
     fee: Decimal,
+    allow_high_fee: bool,
 ):
     """Stake tokens into an on-chain liquidity pool to earn rewards."""
     _bind_wallet(ctx, wallet_name, wallet_path, rpc_url)
-    return ctx.invoke(_wallet_liquidity_stake, amount=amount, pool=pool, lock_days=lock_days, fee=fee)
+    return ctx.invoke(
+        _wallet_liquidity_stake,
+        amount=amount,
+        pool=pool,
+        lock_days=lock_days,
+        fee=fee,
+        allow_high_fee=allow_high_fee,
+    )
