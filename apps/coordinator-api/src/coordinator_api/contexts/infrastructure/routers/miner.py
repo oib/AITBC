@@ -384,6 +384,24 @@ async def _maybe_slash_bond(session: Session, job: Job, condition: str, evidence
     await BondSlashingService(session).slash(job, SlashingCondition(condition), evidence)
 
 
+async def _retry_completed_settlement(session: Session, job: Job) -> dict[str, Any]:
+    """#1800: idempotent settlement retry for an already-completed job.
+
+    ``submit_result`` marks the job COMPLETED before the money moves and
+    ``release_payment`` requires that terminal state, so a failed settle
+    legitimately leaves COMPLETED + escrowed — a row the SettlementReconciler
+    already scans for. This gives the assigned miner the same retry on
+    demand: only the money movement is re-attempted; the receipt, metrics and
+    attestation work are not repeated, so resubmits cannot accumulate
+    JobReceipt rows or double-settle (the payment CAS from #1797 arbitrates).
+    """
+    from ...payments.services.payments import PaymentService
+
+    if await _settle_completed_job(session, PaymentService(session), job):
+        return {"status": "ok", "receipt": job.receipt, "settlement": "settled"}
+    return {"status": "settlement_pending", "receipt": job.receipt}
+
+
 async def _settle_completed_job(session: Session, payment_service: Any, job: Job) -> bool:
     """Open the customer's acceptance window, or pay the provider now (G3).
 
@@ -407,7 +425,8 @@ async def _settle_completed_job(session: Session, payment_service: Any, job: Job
             session.add(job)
             session.commit()
             logger.info("Auto-released payment %s for completed job %s", job.payment_id, job.id)
-        return bool(released)
+            return True
+        return False
     deadline = payment_service.open_acceptance_window(job.id, job.payment_id, window)
     if deadline is None:
         logger.error("Could not hold payment %s for acceptance on job %s", job.payment_id, job.id)
@@ -451,6 +470,16 @@ async def submit_result(
     if job.assigned_miner_id != user["sub"]:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="job is assigned to a different miner")
     if job.state != JobState.running:
+        # #1800: a job that completed but whose settlement failed keeps its
+        # escrow — answer a resubmit with a settlement retry instead of a
+        # permanent 409. The gate is deliberately narrow: only COMPLETED with
+        # the payment still escrowed. pending_acceptance/disputed payments are
+        # already inside the customer acceptance flow and must not be
+        # re-settled here; every other state is a real conflict.
+        if job.state == JobState.completed and job.payment_id:
+            held = await run_in_threadpool(session.get, JobPayment, job.payment_id)
+            if held is not None and held.status == "escrowed":
+                return await _retry_completed_settlement(session, job)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"job is {job.state}, not running")
     payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
     payment_amount = payment.amount if payment else None
