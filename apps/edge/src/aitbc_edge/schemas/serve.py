@@ -15,7 +15,9 @@ class ComputeRequest(SQLModel, table=True):
     __table_args__ = {"extend_existing": True}
 
     id: str = Field(default_factory=lambda: f"compute_req_{uuid4().hex[:8]}", primary_key=True)
-    request_id: str = Field(index=True)
+    # Public lookup key for get/cancel/result reads — must stay unique so a
+    # collision can never produce ambiguous scalar_one_or_none reads (#1685).
+    request_id: str = Field(index=True, unique=True)
     gpu_id: str = Field(index=True)
     model_name: str
     input_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=True))
