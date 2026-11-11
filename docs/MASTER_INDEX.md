@@ -876,7 +876,7 @@ Inbound markdown links per document (top referrers).
 | [contracts/agent-wallet-security.md](contracts/agent-wallet-security.md) | [contracts/README.md](contracts/README.md) |
 | [contracts/bridge-safe-redeploy-plan-795.md](contracts/bridge-safe-redeploy-plan-795.md) | [contracts/cross-chain-bridge-deployment.md](contracts/cross-chain-bridge-deployment.md) |
 | [contracts/bridge-sepolia-rehearsal.md](contracts/bridge-sepolia-rehearsal.md) | [contracts/README.md](contracts/README.md) |
-| [contracts/cross-chain-bridge-deployment.md](contracts/cross-chain-bridge-deployment.md) | [contracts/README.md](contracts/README.md) |
+| [contracts/cross-chain-bridge-deployment.md](contracts/cross-chain-bridge-deployment.md) | [contracts/README.md](contracts/README.md), [security/bridge-custodian.md](security/bridge-custodian.md) |
 | [contracts/dispute-resolution.md](contracts/dispute-resolution.md) | [contracts/README.md](contracts/README.md) |
 | [contracts/escrow.md](contracts/escrow.md) | [contracts/README.md](contracts/README.md) |
 | [contracts/guardian.md](contracts/guardian.md) | [contracts/README.md](contracts/README.md) |

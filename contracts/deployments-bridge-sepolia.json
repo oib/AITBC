@@ -107,6 +107,7 @@
     "timestamp": "2026-11-08T18:10:00Z",
     "txHash": "0x159fa503cdca090274d2006bccaedff70cde208879871f090753bbd0ac922858",
     "note": "SEPOLIA-REDEPLOY-2 (#795). Carries 503e08e53 (owner-set requiredConfirmations + CONFIRMED-expiry exit) and d215d1a8c (lockTxHash agreement, MAX_BRIDGE_AMOUNT, fee-forfeit pin). Deployed paused; Safe-owned in-run. NOTE: deploy-bridge.js's transferOwnership tx under-gassed (17,466 gas) and reverted - ownership transferred via manual tx 0x675a8f657ea299d93c4520e9992ba16af6fd468b9a815cef4ad9718f74c18020; pause() itself succeeded (0x2093fab6771e62ab5a02fded924f49ff687a139b4ba52fc50a26c294f0948e28).",
+    "bytecodeSource": "deployed bytecode corresponds to source commits 503e08e53 (owner-set requiredConfirmations + CONFIRMED-expiry exit) and d215d1a8c (lockTxHash agreement, MAX_BRIDGE_AMOUNT, fee-forfeit pin); PREDATES d338967f3 (#1463 EIP-712 bridge signatures, committed 2026-11-10) — the live contract still verifies the legacy signature format, so validator tooling must keep signing the old format until a REDEPLOY-3 (#1557 audit)",
     "activated": {
       "timestamp": "2026-11-08",
       "safe_exec_nonces": "22-28 via Safe 0xdd32618fa14eeeC4731882C958Ac80b194EA5aC7 (2-of-3 rehearsal signers)",

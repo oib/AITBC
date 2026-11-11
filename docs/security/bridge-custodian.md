@@ -7,18 +7,26 @@ hub-controlled Sepolia address and receive AIT on the AITBC chain. AIT→ETH
 withdrawals are explicitly disabled in the current release.
 
 The repository **does** contain a bridge contract —
-`contracts/contracts/CrossChainBridge.sol` — but the deployed Sepolia instance
-(`0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA`,
-`contracts/deployments-bridge-sepolia.json`) is **deprecated**: its `owner()`
-is the deployer key `0x818018F3…`, declared unrecoverable on 2026-08-31. Every
-`onlyOwner` path is permanently unreachable while the contract stays unpaused
-and able to receive funds — **do not point deposits at it**. A replacement
-deploy with an offline-held multisig owner is part of the key-split work;
-`fleet-config-check.sh` FAILs if this address appears in live config.
+`contracts/contracts/CrossChainBridge.sol`. The live Sepolia deployment is
+SEPOLIA-REDEPLOY-2 (`0x29D59bb1Ceb83A894Cc5a41dd99eb80f28A38ed9`, Safe-owned,
+wired as `BRIDGE_CONTRACT_ADDRESS`; see
+`contracts/deployments-bridge-sepolia.json` and
+[cross-chain-bridge-deployment.md](../contracts/cross-chain-bridge-deployment.md)).
+Its bytecode predates `d338967f3` (#1463 EIP-712 validator signatures), so it
+still verifies the legacy signature format — see the deployment doc's defect
+list before changing off-chain signing.
 
-Until that contract lands, bridging is a custodial payout, not a contract
-deposit flow: the monitor watches the deposit address and pays AIT from a
-payout wallet.
+Two earlier instances are **deprecated** and must not receive deposits:
+`0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA` (owner is the unrecoverable
+deployer key `0x818018F3…`, declared 2026-08-31 — every `onlyOwner` path is
+permanently unreachable while it stays unpaused) and
+`0xfbDd3Dc5ded99477D6bC0c2E267cE619B081e3e0` (BR-1 instance replaced by
+SEPOLIA-REDEPLOY-1 on 2026-10-21). `fleet-config-check.sh` FAILs if a
+deprecated address appears in live config.
+
+ETH→AIT bridging remains a custodial payout on top of the contract deposit
+flow: the monitor watches the deposit address and pays AIT from a payout
+wallet. AIT→ETH withdrawals are explicitly disabled in the current release.
 
 ## Trust assumptions
 

@@ -925,15 +925,17 @@ for var in BRIDGE_PAYOUT_ADDRESS AIT_USD_FIXED_PRICE BRIDGE_CONFIRMATIONS BRIDGE
     printf "  %-28s %s\n" "$var" "${val:-<unset>}"
 done
 
-echo "=== deprecated bridge contract references (owner key lost; unconfigurable forever) ==="
+echo "=== deprecated bridge contract references (superseded/dead; must not receive deposits) ==="
 # 0x24403CCf… is owned by 0x818018F3… whose key was declared unrecoverable
 # on 2026-08-31 — every onlyOwner path is frozen and the contract cannot
-# even be paused. Any live config still naming it can strand user funds.
-DEAD_BRIDGE_CONTRACT="0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA"
+# even be paused. 0xfbDd3Dc5… is the deprecated BR-1 instance replaced by
+# SEPOLIA-REDEPLOY-1/2. Any live config still naming either can strand
+# user funds.
+DEAD_BRIDGE_CONTRACTS="0x24403CCff489D9355A534D34d4F88bC5b3EcF6FA 0xfbDd3Dc5ded99477D6bC0c2E267cE619B081e3e0"
 for h in $HOSTS; do
     hits=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
         "for f in /etc/aitbc/*.env; do \
-             grep -v '^[[:space:]]*#' \"\$f\" 2>/dev/null | grep -q '$DEAD_BRIDGE_CONTRACT' && echo \"\$f\"; \
+             grep -v '^[[:space:]]*#' \"\$f\" 2>/dev/null | grep -qE '$(echo $DEAD_BRIDGE_CONTRACTS | tr ' ' '|')' && echo \"\$f\"; \
          done | tr '\n' ' '" \
         2>/dev/null || echo "UNREACHABLE")
     if [ "$hits" = "UNREACHABLE" ]; then
