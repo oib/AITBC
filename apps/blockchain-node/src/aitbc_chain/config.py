@@ -551,6 +551,11 @@ class ChainSettings(BaseSettings):
     # URLs of every *other* validator. The local bus is gossip_broadcast_url.
     # Leave empty on RPC processes; only the node process should dial peers.
     gossip_mesh_peer_urls: str = ""
+    # #1701 (default OFF): dedup mesh messages per subscription instead of
+    # backend-wide, so a second subscriber to the same topic (the persistent
+    # attest_response observer armed by vote_journal_justification_enabled)
+    # cannot swallow the messages another subscriber (the collector) needs.
+    gossip_mesh_dedup_per_subscription: bool = False
     default_peer_rpc_url: str | None = None  # HTTP RPC URL of default peer for bulk sync
 
     # Cross-site synchronization settings
