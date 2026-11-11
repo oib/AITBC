@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import os
 import secrets as _secrets
+import weakref
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -257,6 +258,36 @@ def _identity_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+# Live instances so a secret reload can refresh every consumer without a
+# restart (SECRET-RELOAD-1, #1776). WeakSet: instances die with their service.
+_env_backed_instances: weakref.WeakSet[Any] = weakref.WeakSet()
+
+
+def _refresh_env_backed_secrets() -> int:
+    """Re-resolve env-backed secrets on all live JWTAuth/JWTHandler instances.
+
+    Fail closed per instance: a resolution error keeps that instance's
+    previous secret set. Returns the number of instances refreshed.
+    """
+    refreshed = 0
+    for inst in list(_env_backed_instances):
+        try:
+            inst._refresh_secrets()
+            refreshed += 1
+        except Exception:
+            logger.exception("JWT secret refresh failed for %r; keeping previous secrets", inst)
+    return refreshed
+
+
+def reload_jwt_secrets() -> int:
+    """Refresh JWT signing/verification secrets after an env-file reload.
+
+    Called by ``aitbc.auth.secret_reload.reload_auth_secrets`` once new secret
+    values are live in ``os.environ``. Returns instances refreshed.
+    """
+    return _refresh_env_backed_secrets()
+
+
 # ---------------------------------------------------------------------------
 # Exception-style API (coordinator-api compatible)
 # ---------------------------------------------------------------------------
@@ -275,12 +306,22 @@ class JWTAuth:
         algorithm: str | None = None,
         expiration_hours: int | None = None,
     ) -> None:
+        self._env_backed = secret is None
         self.secret = secret or _resolve_secret()
         if secret:
             _validate_secret(self.secret)
         self.extra_secrets = _extra_verify_secrets()
         self.algorithm = _validate_algorithm(algorithm or _get_algorithm())
         self.expiration_hours = max(0, _get_expiry_hours() if expiration_hours is None else expiration_hours)
+        if self._env_backed:
+            _env_backed_instances.add(self)
+
+    def _refresh_secrets(self) -> None:
+        """Re-resolve env-backed signing/verify secrets (SECRET-RELOAD-1)."""
+        if not self._env_backed:
+            return
+        self.secret = _resolve_secret()
+        self.extra_secrets = _extra_verify_secrets()
 
     def create_token(self, payload: dict[str, Any]) -> str:
         """Create JWT token with optional expiration.
@@ -436,6 +477,7 @@ class JWTHandler:
     """
 
     def __init__(self, secret_key: str | None = None) -> None:
+        self._env_backed = secret_key is None
         self.secret_key = secret_key or _resolve_secret()
         if secret_key:
             _validate_secret(self.secret_key)
@@ -443,6 +485,15 @@ class JWTHandler:
         self.algorithm = _get_algorithm()
         self.token_expiry = timedelta(hours=_get_expiry_hours())
         self.refresh_expiry = timedelta(days=_get_refresh_expiry_days())
+        if self._env_backed:
+            _env_backed_instances.add(self)
+
+    def _refresh_secrets(self) -> None:
+        """Re-resolve env-backed signing/verify secrets (SECRET-RELOAD-1)."""
+        if not self._env_backed:
+            return
+        self.secret_key = _resolve_secret()
+        self.extra_secrets = _extra_verify_secrets()
 
     def generate_token(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
         """Generate JWT token with specified payload."""
