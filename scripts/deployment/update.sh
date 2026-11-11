@@ -54,6 +54,7 @@ AITBC_ROOT="${AITBC_ROOT:-/opt/aitbc}"
 VENV_DIR="$AITBC_ROOT/venv"
 NODE_ENV_FILE="${AITBC_NODE_ENV_FILE:-/etc/aitbc/node.env}"
 BLOCKCHAIN_ENV_FILE="${AITBC_BLOCKCHAIN_ENV_FILE:-/etc/aitbc/blockchain.env}"
+AITBC_ETC_DIR="${AITBC_ETC_DIR:-/etc/aitbc}"
 ACTIVE_SYSTEMD_DIR="${AITBC_SYSTEMD_DIR:-/etc/systemd/system}"
 HEALTH_CHECK_SCRIPT="$AITBC_ROOT/scripts/monitoring/health_check.sh"
 LINK_SYSTEMD_SCRIPT="$AITBC_ROOT/scripts/utils/link-systemd.sh"
@@ -696,27 +697,56 @@ enable_services() {
 # ----------------------------------------------------------------------------
 ensure_env_files() {
     log "Step 4a: Ensuring AITBC environment files exist..."
-    mkdir -p /etc/aitbc
+    mkdir -p "$AITBC_ETC_DIR"
 
-    local unit base env_file
+    # Env files may carry secrets (PROPOSER_KEY, API keys, DB passwords), so
+    # they are created owner-only (0600), never 0644. The owner follows the
+    # unit's User= so a service that reads its env file directly — rather
+    # than via systemd EnvironmentFile=, which systemd parses as root —
+    # keeps read access; anything unresolvable falls back to root.
+    local unit base env_file svc_user
     for unit in "$ACTIVE_SYSTEMD_DIR"/aitbc-*.service "$ACTIVE_SYSTEMD_DIR"/aitbc-*.timer; do
         [ -e "$unit" ] || continue
         base=$(basename "$unit")
         base="${base%.service}"
         base="${base%.timer}"
-        env_file="/etc/aitbc/${base}.env"
+        env_file="$AITBC_ETC_DIR/${base}.env"
         if [ ! -f "$env_file" ]; then
-            touch "$env_file"
-            chmod 644 "$env_file"
-            log "Created missing per-service env file: $env_file"
+            svc_user=$(sed -n 's/^User=//p' "$unit" | head -1 | tr -d '"')
+            case "$svc_user" in
+                "" | *[!a-zA-Z0-9_-]*) svc_user=root ;;
+            esac
+            if ! id "$svc_user" >/dev/null 2>&1; then
+                svc_user=root
+            fi
+            if install -o "$svc_user" -m 0600 /dev/null "$env_file" 2>/dev/null; then
+                log "Created missing per-service env file: $env_file ($svc_user 0600)"
+            else
+                # Non-root context (tests): owner stays the caller, still 0600.
+                touch "$env_file"
+                chmod 600 "$env_file"
+                log "Created missing per-service env file: $env_file (0600)"
+            fi
+        else
+            # Pre-existing env files: drop other-class access. World-readable
+            # secret-bearing env files are the #1719 finding; owner/group
+            # perms are preserved so legitimate readers are unaffected.
+            chmod o-rwx "$env_file" 2>/dev/null || true
         fi
     done
 
     for common in "$NODE_ENV_FILE" "$BLOCKCHAIN_ENV_FILE"; do
         if [ ! -f "$common" ]; then
-            touch "$common"
-            chmod 644 "$common"
-            log "Created missing shared env file: $common"
+            if id aitbc >/dev/null 2>&1; then
+                install -o aitbc -m 0600 /dev/null "$common" 2>/dev/null \
+                    || { touch "$common"; chmod 600 "$common"; }
+            else
+                install -o root -m 0600 /dev/null "$common" 2>/dev/null \
+                    || { touch "$common"; chmod 600 "$common"; }
+            fi
+            log "Created missing shared env file: $common (0600)"
+        else
+            chmod o-rwx "$common" 2>/dev/null || true
         fi
     done
     success "Environment files verified"
