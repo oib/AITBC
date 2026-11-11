@@ -241,7 +241,8 @@ def _attach_tee_attestation(
     """
     if not receipt:
         return receipt
-    model_id = model_registry.resolve_model_id(job, req.result)
+    result_payload = req.result.model_dump() if hasattr(req.result, "model_dump") else req.result
+    model_id = model_registry.resolve_model_id(job, result_payload)
     circuitless_zk = _zk_required_for(job, payment_amount) and (not model_id or model_registry.get_model(model_id) is None)
     if not _tee_required_for(job, payment_amount) and not circuitless_zk:
         receipt["tee_status"] = "not_required"
@@ -269,10 +270,10 @@ def _attach_tee_attestation(
             else:
                 receipt["tee_status"] = "verified"
                 receipt["tee_attestation_id"] = attestation.id
-                if not _quote_matches_transcript(attestation.quote, job, req.result):
+                if not _quote_matches_transcript(attestation.quote, job, result_payload):
                     receipt["tee_status"] = "transcript_mismatch"
         elif req.tee_quote:
-            if not _quote_matches_transcript(req.tee_quote, job, req.result):
+            if not _quote_matches_transcript(req.tee_quote, job, result_payload):
                 receipt["tee_status"] = "transcript_mismatch"
                 logger.error("TEE quote transcript mismatch for job %s", job.id)
                 return receipt
@@ -484,14 +485,15 @@ async def submit_result(
     payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
     payment_amount = payment.amount if payment else None
     is_shadow = _is_shadow_mode(job)
-    job.result = req.result
+    result_payload = req.result.model_dump()
+    metrics = req.metrics.model_dump(exclude_none=True)
+    job.result = result_payload
     job.state = JobState.completed
     job.error = None
-    metrics = dict(req.metrics or {})
     duration_ms = metrics.get("duration_ms")
-    if duration_ms is None and req.result:
+    if duration_ms is None:
         try:
-            execution_time = float(req.result.get("execution_time", 0))
+            execution_time = float(req.result.execution_time or 0)
             if execution_time > 0:
                 duration_ms = int(execution_time * 1000)
                 metrics["duration_ms"] = duration_ms
@@ -507,10 +509,10 @@ async def submit_result(
         metrics["duration_ms"] = duration_ms
     if duration_ms is not None:
         duration_ms = int(duration_ms)
-    receipt = await run_in_threadpool(receipt_service.create_receipt, job, user["sub"], req.result, metrics)
-    receipt = await _attach_zk_proof(receipt, job, req.result, payment_amount=payment_amount)
+    receipt = await run_in_threadpool(receipt_service.create_receipt, job, user["sub"], result_payload, metrics)
+    receipt = await _attach_zk_proof(receipt, job, result_payload, payment_amount=payment_amount)
     receipt = _attach_tee_attestation(receipt, job, req, session, payment_amount=payment_amount)
-    receipt = _apply_tee_computation_attestation(receipt, job, req.result, payment_amount=payment_amount)
+    receipt = _apply_tee_computation_attestation(receipt, job, result_payload, payment_amount=payment_amount)
     if receipt:
         receipt = await run_in_threadpool(receipt_service.sign_receipt, receipt)
     job.receipt = receipt
