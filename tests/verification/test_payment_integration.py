@@ -5,7 +5,6 @@ Tests job creation with payments, escrow, release, and refund flows
 """
 
 import asyncio
-import json
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.network import AITBCHTTPClient
@@ -133,13 +132,11 @@ class PaymentIntegrationTest:
 
                 # Submit job result
                 result_data = {
-                    "result": json.dumps(
-                        {
-                            "text": "AITBC is a decentralized AI computing market that uses blockchain for payments and zero-knowledge proofs for privacy.",
-                            "model": "llama3.2",
-                            "tokens_used": 42,
-                        }
-                    ),
+                    "result": {
+                        "text": "AITBC is a decentralized AI computing market that uses blockchain for payments and zero-knowledge proofs for privacy.",
+                        "model": "llama3.2",
+                        "tokens_used": 42,
+                    },
                     "metrics": {"duration_ms": 2500, "tokens_used": 42, "gpu_seconds": 0.5},
                 }
 

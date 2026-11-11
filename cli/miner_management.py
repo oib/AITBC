@@ -248,7 +248,12 @@ def submit_job_result(
             with open(result_file) as f:
                 result = f.read()
 
-        payload = {"result": result, "success": success, "metrics": {"duration_ms": duration, "completed_at": time.time()}}
+        # #1816: JobResultSubmit is schema-allowlisted — result is an object
+        # (no top-level "success" field); the flag maps onto result.status.
+        payload = {
+            "result": {"output": result, "status": "completed" if success else "failed"},
+            "metrics": {"duration_ms": duration, "completed_at": time.time()},
+        }
 
         response = requests.post(f"{coordinator_url}/v1/miners/{job_id}/result", headers=headers, json=payload, timeout=30)
 

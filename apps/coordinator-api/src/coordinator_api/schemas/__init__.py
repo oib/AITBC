@@ -493,6 +493,8 @@ class JobSubmitResultBody(BaseModel):
     output_size_bytes: int | None = Field(default=None, ge=0)
     stdout: str | None = None
     stderr: str | None = None
+    backend: str | None = None
+    tokens_used: int | None = Field(default=None, ge=0)
     unit_type: str | None = None
     units: float | None = Field(default=None, ge=0)
     unit_price: Decimal | None = Field(default=None, ge=0)
@@ -516,6 +518,9 @@ class JobSubmitMetricsBody(BaseModel):
     price: Decimal | None = Field(default=None, ge=0)
     aitbc_earned: Decimal | None = Field(default=None, ge=0)
     cost: Decimal | None = Field(default=None, ge=0)
+    completed_at: float | None = Field(default=None, ge=0)
+    tokens_used: int | None = Field(default=None, ge=0)
+    gpu_seconds: float | None = Field(default=None, ge=0)
 
 
 class JobResultSubmit(BaseModel):

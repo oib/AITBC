@@ -145,10 +145,9 @@ class AITBCMiner:
                         "status": "completed",
                         "output": f"Job {job['job_id']} processed by {self.miner_id}",
                         "execution_time_ms": 2000,
-                        "miner_id": self.miner_id,
                     }
 
-                    metrics = {"compute_time": 2.0, "energy_used": 0.1, "aitbc_earned": 10.0}
+                    metrics = {"compute_time": 2.0, "aitbc_earned": 10.0}
 
                     if self.submit_result(job["job_id"], result, metrics):
                         jobs_completed += 1
