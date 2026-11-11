@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1520
+- **Markdown files under docs/**: 1521
 
 | Directory | Files | Description |
 |---|---|---|
@@ -87,7 +87,7 @@ docs/
 | [market](market/) | 16 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
-| [ops](ops/) | 48 | Operational runbooks and key handling |
+| [ops](ops/) | 49 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 16 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
@@ -1141,6 +1141,7 @@ Inbound markdown links per document (top referrers).
 | [ops/companion-island-deploy.md](ops/companion-island-deploy.md) | [README.md](README.md), [decisions/README.md](decisions/README.md), [deployment/environment-configuration.md](deployment/environment-configuration.md), +1 more |
 | [ops/consensus-domain-separation-activation-runbook.md](ops/consensus-domain-separation-activation-runbook.md) | [ops/version-gated-activation-runbook.md](ops/version-gated-activation-runbook.md) |
 | [ops/counter-to-journal-recipe.md](ops/counter-to-journal-recipe.md) | [README.md](README.md) |
+| [ops/env-orphan-cleanup-runbook.md](ops/env-orphan-cleanup-runbook.md) | [README.md](README.md) |
 | [ops/escrow-relays.md](ops/escrow-relays.md) | [api/market-api.md](api/market-api.md), [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), [scenarios/44_stuck_tee_refund.md](scenarios/44_stuck_tee_refund.md) |
 | [ops/escrow-routing.md](ops/escrow-routing.md) | [README.md](README.md) |
 | [ops/escrow-settlement-ops.md](ops/escrow-settlement-ops.md) | [README.md](README.md) |

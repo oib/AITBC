@@ -70,6 +70,9 @@ Operator procedures for the live fleet:
   enable/rollback, and runtime states.
 - [Fleet wave runbook](ops/fleet-wave-runbook.md) — rolling restarts:
   hold gate, serial one-validator-at-a-time order, readback, ledger.
+- [Env orphan cleanup](ops/env-orphan-cleanup-runbook.md) — quarantine
+  procedure for `/etc/aitbc` env files whose services have no deployed
+  unit (#1549), plus the deploy-vs-retire list for repo-shipped units.
 - [Faucet runbook](ops/faucet-runbook.md) — the 3 AIT welcome grant:
   request flow, FAUCET_*/GENESIS_* split, budgets, pause/open, testing.
 - [Withdrawal release runbook](ops/withdraw-release-runbook.md) — the
