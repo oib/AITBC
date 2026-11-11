@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import base64
-import json
 from typing import Any
 
 from sqlalchemy import desc, func as sqlfunc
@@ -19,6 +18,7 @@ from .metrics import metrics_registry
 from .state import state_root_utils
 from .sync_base import SyncBase
 from .sync_divergence import report_divergence
+from .sync_peer_http import PeerResponseTooLarge, get_json_bounded
 
 logger = get_logger(__name__)
 
@@ -94,33 +94,10 @@ def _upsert_chain_parameters(
     return applied
 
 
-class _ResponseTooLarge(Exception):
-    """A peer sync response exceeded ``sync_state_response_max_bytes``."""
-
-
 class StateSyncMixin(SyncBase):
     """Pull account state snapshots and deltas from remote peers."""
 
     # Protocol base declares the attributes the concrete ChainSync sets.
-
-    async def _get_json_bounded(self, url: str, params: dict[str, Any], max_bytes: int) -> Any:
-        """GET *url* and parse the JSON body with a decompressed-size cap.
-
-        ``client.get`` + ``resp.json()`` buffers the entire body — and httpx
-        transparently decodes gzip/deflate — before any verification can run,
-        so a compressed bomb expands fully in memory (#1627). Stream the
-        decoded bytes instead and refuse once *max_bytes* is exceeded.
-        """
-        chunks: list[bytes] = []
-        total = 0
-        async with self._client.stream("GET", url, params=params) as resp:
-            resp.raise_for_status()
-            async for chunk in resp.aiter_bytes():
-                total += len(chunk)
-                if total > max_bytes:
-                    raise _ResponseTooLarge(f"sync response from {url} exceeds {max_bytes} bytes")
-                chunks.append(chunk)
-        return json.loads(b"".join(chunks))
 
     def _local_head(self, session: Any) -> tuple[int, str]:
         """Return (height, recorded state_root) of our highest local block."""
@@ -210,16 +187,26 @@ class StateSyncMixin(SyncBase):
             )
             return {"synced": 0, "diverged": True, "divergence_height": divergence.height}
         try:
-            data = await self._get_json_bounded(
+            data = await get_json_bounded(
+                self._client,
                 f"{source_url}/rpc/state/snapshot",
                 {"chain_id": self._chain_id},
                 settings.sync_state_response_max_bytes,
             )
+        except PeerResponseTooLarge as e:
+            self._logger.error("Failed to fetch state snapshot: %s", e)
+            return {"synced": 0, "error": str(e)}
         except Exception as e:
             self._logger.error("Failed to fetch state snapshot: %s", e)
             return {"synced": 0, "error": str(e)}
 
         remote_accounts = data.get("accounts", [])
+        max_accounts = settings.sync_state_max_accounts
+        if len(remote_accounts) > max_accounts:
+            return self._refuse_sync(
+                "accounts_cap",
+                f"state sync refused: snapshot lists {len(remote_accounts)} accounts (cap {max_accounts})",
+            )
         remote_root = data.get("state_root", "")
         remote_parameters = data.get("chain_parameters", [])
         remote_parameter_history = data.get("chain_parameter_history", [])
@@ -380,7 +367,8 @@ class StateSyncMixin(SyncBase):
 
         self._logger.info("Starting delta sync from %s, heights %d -> %d", source_url, from_height, to_height)
         try:
-            data = await self._get_json_bounded(
+            data = await get_json_bounded(
+                self._client,
                 f"{source_url}/rpc/state/delta",
                 {"from_height": from_height, "to_height": to_height, "chain_id": self._chain_id},
                 settings.sync_state_response_max_bytes,
@@ -411,6 +399,14 @@ class StateSyncMixin(SyncBase):
         except Exception as e:
             self._logger.error("Failed to decode state diff: %s", e)
             return await self.sync_state_from(source_url)
+
+        max_accounts = settings.sync_state_max_accounts
+        if len(diff.changes) > max_accounts:
+            return self._refuse_sync(
+                "accounts_cap",
+                f"delta sync refused: diff lists {len(diff.changes)} account changes (cap {max_accounts})",
+                to_height=to_height,
+            )
 
         # The diff's claimed root must equal our head's recorded root — a
         # source describing a different state at our head height is diverged.

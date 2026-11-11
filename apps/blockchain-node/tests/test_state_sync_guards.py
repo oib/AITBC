@@ -417,3 +417,35 @@ async def test_snapshot_wrong_resulting_root_rolls_back(session_factory):
     assert result["refused"] is True
     assert result["reason"] == "root_mismatch_local_head"
     assert _accounts(session_factory) == {ADDR_A: (1000, 3), ADDR_B: (500, 1)}
+
+
+@pytest.mark.asyncio
+async def test_snapshot_account_count_cap_refused_before_write(session_factory, monkeypatch):
+    """#1594: refuse a snapshot whose account list exceeds sync_state_max_accounts."""
+    root = _seed_state(session_factory)
+    monkeypatch.setattr(settings, "sync_state_max_accounts", 1)
+    payload = _snapshot_payload(root)
+    sync, _ = _sync(session_factory, {"state/snapshot": payload})
+    result = await sync.sync_state_from("http://peer")
+    assert result["refused"] is True
+    assert result["reason"] == "accounts_cap"
+    assert _accounts(session_factory) == {ADDR_A: (1000, 3), ADDR_B: (500, 1)}
+
+
+@pytest.mark.asyncio
+async def test_delta_account_change_count_cap_refused(session_factory, monkeypatch):
+    """#1594: refuse a delta whose change list exceeds sync_state_max_accounts."""
+    root = _seed_state(session_factory)
+    monkeypatch.setattr(settings, "sync_state_max_accounts", 0)
+    diff = StateDiff(
+        from_height=HEAD - 1,
+        to_height=HEAD,
+        to_state_root=root,
+        changes=[AccountChange(ADDR_A, 1000, 1000, 3, 3)],
+        chain_id=CHAIN,
+    )
+    sync, _ = _sync(session_factory, {"state/delta": _delta_payload(diff)})
+    result = await sync.delta_sync_from("http://peer", HEAD - 1, HEAD)
+    assert result["refused"] is True
+    assert result["reason"] == "accounts_cap"
+    assert _accounts(session_factory) == {ADDR_A: (1000, 3), ADDR_B: (500, 1)}

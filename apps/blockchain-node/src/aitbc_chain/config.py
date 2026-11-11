@@ -963,6 +963,15 @@ class ChainSettings(BaseSettings):
     # sync_aux_max_payload_bytes) or a delta (base64 diff up to ~90 MiB +
     # params + aux) — while still bounding a hostile peer's memory cost.
     sync_state_response_max_bytes: int = 268_435_456
+    # Account-row cap for peer-supplied snapshot lists and delta change sets
+    # (#1594): ``sync_state_response_max_bytes`` bounds wire size, but a dense
+    # JSON array can still enumerate millions of tiny rows — refuse before any
+    # ORM object is materialized. Set far above any production chain.
+    sync_state_max_accounts: int = 2_000_000
+    # Decompressed-size cap for /rpc/blocks-range bodies the bulk-sync client
+    # reads (#1594): the serve-side span is clamped, but a buggy peer can still
+    # ship an oversized payload; stream-read before ``json`` parse.
+    sync_blocks_range_response_max_bytes: int = 536_870_912
 
     # V-4 seal-path missing-data guard, dry-run mode (design
     # docs/design/bridge-state-root-grandfathering.md). Classifies every
