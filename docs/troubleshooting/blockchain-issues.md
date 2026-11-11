@@ -86,10 +86,17 @@ curl https://hub.example.net/rpc/head
 1. Reorg onto the proposer's chain
 
 ```bash
-# Force-sync is admin-signed (verify_admin_signature), not API-key gated
+# Force-sync needs BOTH X-API-Key and an admin signature over the body
+# (require_admin_signature: signer in bridge_admin_addresses, fresh
+# issued_at/nonce/target_chain_id). Easiest path is the CLI, which signs
+# and injects the key: `aitbc network force-sync --peer-url <url>`.
 curl -X POST http://localhost:8202/rpc/force-sync \
   -H "Content-Type: application/json" \
-  -d '{"peer_url": "https://hub.example.net", "admin_address": "<admin_addr>", "admin_signature": "<sig>"}'
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
+  -d '{"peer_url": "https://hub.example.net", "target_height": 12345,
+       "admin_address": "<admin_addr>", "admin_signature": "<sig>",
+       "issued_at": "<unix epoch, ±5min>", "nonce": "<unique>",
+       "target_chain_id": "<this node'"'"'s chain id>"}'
 ```
 
 1. Last resort — resync from scratch (destroys local chain state)

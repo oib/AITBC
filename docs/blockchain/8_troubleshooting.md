@@ -146,14 +146,21 @@ sqlite3 /var/lib/aitbc/data/ait-localnet/chain.db "PRAGMA integrity_check;"
 1. **Let auto-sync repair** — if the local head diverged, `auto_resync_*`
    settings already trigger a re-sync from `default_peer_rpc_url` after
    consecutive rejections.
-2. **Admin-signed force sync** — pull a trusted peer's full export:
+2. **Admin-signed force sync** — pull a trusted peer's full export. The route
+   requires `X-API-Key` **and** an admin signature over the body (fresh
+   `issued_at`/`nonce`/`target_chain_id`); the CLI signs and injects the key
+   for you — prefer `aitbc network force-sync --peer-url <url>`:
 
    ```bash
    curl -X POST http://localhost:8202/rpc/force-sync \
      -H "Content-Type: application/json" \
+     -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
      -d '{"peer_url":"https://hub.example.net",
           "admin_address":"0x<admin>",
-          "admin_signature":"0x<signature over the body>"}'
+          "admin_signature":"0x<signature over the body>",
+          "issued_at":"<unix epoch, ±5min>",
+          "nonce":"<unique>",
+          "target_chain_id":"<this node'"'"'s chain id>"}'
    ```
 
 3. **Manual reseed** — stop the node, move the bad `chain.db` aside, copy the

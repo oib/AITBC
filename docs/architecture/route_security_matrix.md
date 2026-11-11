@@ -62,8 +62,8 @@ This document catalogs the authentication and authorization patterns used across
 - **Agent Coordinator**: JWT + API keys (shared `aitbc/auth`)
 - **Exchange**: API key on write paths
 - **Edge**: JWT only
-- **Blockchain node**: `X-API-Key` on admin/control mutations (contracts deploy, governance, escrow router-level, GPU/identity writes, chain control), **tx-signature auth** on `/rpc/transaction` + `/rpc/staking/stake` (retired since v9 — returns 410), peer keys on subscription routes, admin signature on `/rpc/force-sync`
-- **Market**: one admin route key-gated
+- **Blockchain node**: `X-API-Key` on admin/control mutations (contracts deploy, governance, escrow router-level, GPU/identity writes, chain control), **tx-signature auth** on `/rpc/transaction` + `/rpc/staking/stake` (retired since v9 — returns 410), peer keys on subscription routes, `X-API-Key` **+** admin signature on `/rpc/force-sync` and `/rpc/import-chain`
+- **Market**: ~25 mutating routes key-gated (`require_market_api_key`); reads public
 
 ### 2. Environment Bypasses
 
@@ -123,7 +123,8 @@ Route                          | Method | Auth Level | Implementation
 /v1/escrow/release            | POST   | Level 3    | AdminOrClientDep (JWT, buyer-bound)
 /v1/escrow/refund             | POST   | Level 3    | AdminOrClientDep (JWT, buyer-bound)
 /rpc/subscribe, /rpc/heartbeat| POST   | Peer key   | verify_rpc_peer_key
-/rpc/force-sync               | POST   | Level 4    | admin-signed body
+/rpc/force-sync               | POST   | Level 4    | X-API-Key + admin-signed body (issued_at/nonce/target_chain_id)
+/rpc/import-chain             | POST   | Level 4    | X-API-Key + admin-signed body
 /v1/market/parameters/apply | POST | Level 2 | X-Api-Key (market api_key)
 ```
 

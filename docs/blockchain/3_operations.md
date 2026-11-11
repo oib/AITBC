@@ -126,8 +126,10 @@ Followers stay in sync without any inbound ports:
    blocks over the peer's RPC (`/rpc/head` for the target,
    `/rpc/blocks-range` for batches).
 3. **Force sync (operator, last resort):** `POST /rpc/force-sync` on the local
-   node with an admin-signed body `{peer_url, admin_address, admin_signature}`
-   pulls the peer's full export and reorgs to it. See
+   node with `X-API-Key` plus an admin-signed body
+   `{peer_url, admin_address, admin_signature, issued_at, nonce,
+   target_chain_id}` pulls the peer's full export and reorgs to it — prefer
+   `aitbc network force-sync`, which signs and injects the key. See
    [operational-features.md](./operational-features.md).
 
 Check sync state with `aitbc blockchain sync-status`, `aitbc blockchain
