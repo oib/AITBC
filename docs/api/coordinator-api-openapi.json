@@ -2262,15 +2262,33 @@
         "summary": "Quote Gpu",
         "description": "Prepare an unsigned energy quote and a bound job for a fixed-duration GPU rental.\n\nThe returned quote is valid for a short window. The buyer funds it through\nPOST /market/gpu/purchase using the same job_id and energy_quote.",
         "operationId": "quote_gpu_v1_market_gpu_quote_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/GPUQuoteRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -2278,8 +2296,8 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Quote Gpu V1 Market Gpu Quote Post"
                 }
               }
@@ -2297,6 +2315,16 @@
           },
           "400": {
             "description": "buyer_id does not match resolved address for agent {request.buyer_agent_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "buyer_id does not match authenticated buyer",
             "content": {
               "application/json": {
                 "schema": {
