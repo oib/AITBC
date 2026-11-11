@@ -1,12 +1,14 @@
 """Transaction event subscriber for gossip broker."""
 
 import asyncio
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, Any, Protocol, cast
+from collections.abc import Awaitable
 
 from aitbc.aitbc_logging import get_logger
 
 from ..config import Settings
 from ..metrics import event_queue_size, gossip_subscribers_total
+from ._resubscribe import resubscribe
 
 if TYPE_CHECKING:
     from ..bridge import BlockchainEventBridge
@@ -15,13 +17,10 @@ logger = get_logger(__name__)
 
 
 class SubscriptionProtocol(Protocol):
-    def get(self) -> object: ...
+    async def get(self) -> dict[str, Any]: ...
     @property
-    def queue(self) -> object: ...
+    def queue(self) -> "asyncio.Queue[object]": ...
     def close(self) -> None: ...
-
-
-logger = get_logger(__name__)
 
 
 class TransactionEventSubscriber:
@@ -32,6 +31,8 @@ class TransactionEventSubscriber:
         self._running = False
         self._bridge: BlockchainEventBridge | None = None
         self._subscription: SubscriptionProtocol | None = None
+        self._broker: Any = None
+        self._topic: str = "transactions"
 
     def set_bridge(self, bridge: "BlockchainEventBridge") -> None:
         """Set the bridge instance for event handling."""
@@ -50,7 +51,10 @@ class TransactionEventSubscriber:
             backend = create_backend(self.settings.gossip_backend, broadcast_url=self.settings.gossip_broadcast_url)
             self._broker = GossipBroker(backend)
             try:
-                self._subscription = await self._broker.subscribe("transactions", max_queue_size=100)
+                self._subscription = await cast(
+                    Awaitable[Any],
+                    self._broker.subscribe("transactions", max_queue_size=100),
+                )
                 gossip_subscribers_total.inc()
                 logger.info("Successfully subscribed to transactions topic")
             except Exception:
@@ -67,13 +71,25 @@ class TransactionEventSubscriber:
                 if self._subscription is None:
                     raise RuntimeError("Subscription not initialized")
                 tx_data = await self._subscription.get()
+            except asyncio.CancelledError:
+                logger.info("Transaction event subscriber cancelled")
+                break
+            except Exception as e:
+                logger.error("Transaction subscription read failed: %s", e, exc_info=True)
+                if self._broker is not None and self._topic:
+                    try:
+                        self._subscription = await resubscribe(
+                            self._broker, self._topic, self._subscription, max_queue_size=100
+                        )
+                    except Exception as sub_err:
+                        logger.error("Transaction subscription resubscribe failed: %s", sub_err, exc_info=True)
+                await asyncio.sleep(1)
+                continue
+            try:
                 event_queue_size.labels(topic="transactions").set(self._subscription.queue.qsize())
                 logger.info("Received transaction event: hash=%s", tx_data.get("hash"))
                 if self._bridge:
                     await self._bridge.handle_transaction_event(tx_data)
-            except asyncio.CancelledError:
-                logger.info("Transaction event subscriber cancelled")
-                break
             except Exception as e:
                 logger.error("Error processing transaction event: %s", e, exc_info=True)
                 await asyncio.sleep(1)
@@ -91,7 +107,7 @@ class TransactionEventSubscriber:
         self._running = False
         if self._subscription:
             self._subscription.close()
-        if hasattr(self, "_broker"):
+        if self._broker is not None:
             await self._broker.shutdown()
         gossip_subscribers_total.dec()
         logger.info("Transaction event subscriber stopped")
