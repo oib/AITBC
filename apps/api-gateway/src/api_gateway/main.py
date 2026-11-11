@@ -315,11 +315,23 @@ class _PreAuthIpLimiter:
     def _parse(cls, spec: str) -> tuple[int, float]:
         count_text, _, period_text = spec.partition("/")
         unit = period_text.strip().lower().rstrip("s") or "minute"
-        return int(count_text), cls._PERIODS.get(unit, 60.0)
+        limit = int(count_text)
+        if limit <= 0:
+            raise ValueError(f"non-positive rate limit in {spec!r}")
+        return limit, cls._PERIODS.get(unit, 60.0)
 
     def check(self, key: str, spec: str) -> bool:
-        """Record one hit for ``key``; return False when over ``spec``."""
-        limit, period = self._parse(spec)
+        """Record one hit for ``key``; return False when over ``spec``.
+
+        A malformed spec must not raise inside the per-request dependency —
+        that used to 500 every proxied call when the env value was bad
+        (APIGW-DEPTH-1 residual, #1581). Fall back to a conservative
+        60/minute; the env value itself is validated once at startup below.
+        """
+        try:
+            limit, period = self._parse(spec)
+        except (TypeError, ValueError):
+            limit, period = 60, 60.0
         now = time.monotonic()
         with self._lock:
             if len(self._windows) > self._MAX_KEYS:
@@ -333,6 +345,18 @@ class _PreAuthIpLimiter:
 
 
 _PREAUTH_LIMITER = _PreAuthIpLimiter()
+
+# Validate the configured spec once at startup so a malformed
+# API_GATEWAY_PREAUTH_RATE_LIMIT shows up in the boot log instead of only
+# as per-request fallback warnings (APIGW-DEPTH-1, #1581).
+try:
+    _PreAuthIpLimiter._parse(PREAUTH_RATE_LIMIT)
+except (TypeError, ValueError):
+    logger.error(
+        "Invalid API_GATEWAY_PREAUTH_RATE_LIMIT %r — falling back to '60/minute'",
+        PREAUTH_RATE_LIMIT,
+    )
+    PREAUTH_RATE_LIMIT = "60/minute"
 
 
 def pre_auth_ip_limit(request: Request) -> None:
@@ -695,6 +719,15 @@ def _resolve_target(path: str) -> tuple[str, str] | JSONResponse:
     the rest goes verbatim. Everything else goes through the v1 prefix table.
     Returns a JSONResponse (404) when nothing claims the path.
     """
+    # Dot-segment traversal (APIGW-DEPTH-1 residual, #1581): `..` survives the
+    # prefix checks and httpx normalizes it into the upstream URL, resolving a
+    # different path than the matched prefix implied. No auth bypass is known
+    # — upstream auth still applies — but no legitimate client sends dot
+    # segments through the gateway, so reject them outright (covers the v1
+    # table and the verbatim v2 path alike; %2e decodes to '.' upstream of
+    # this function via the path parameter).
+    if any(seg in (".", "..") for seg in path.split("/")):
+        return JSONResponse(status_code=status.HTTP_400_BAD_REQUEST, content={"error": "Invalid path"})
     if path.startswith("v2/"):
         # Service-qualified surface (publicly /api/v2/<service>/<path>): the
         # qualifier picks the upstream and the rest of the path goes verbatim —
