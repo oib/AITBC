@@ -173,21 +173,38 @@ def _safe_suffix(filename: str | None) -> str:
     return ext.lower()
 
 
+def _ipfs_pin_cid(cid: str) -> None:
+    """Pin ``cid`` on the island daemon so GC cannot drop job outputs (#1786)."""
+    import requests
+
+    resp = requests.post(
+        f"{_ISLAND_IPFS_API.rstrip('/')}/api/v0/pin/add",
+        params={"arg": cid},
+        timeout=600,
+    )
+    resp.raise_for_status()
+
+
 def _ipfs_add_file(path: str, filename: str) -> str:
     """Upload a local file to the island IPFS daemon; returns the CID.
 
     Streams from disk — outputs can be as large as the 512 MB upload cap, so
-    they must not be buffered whole (#799)."""
+    they must not be buffered whole (#799). Pins immediately after add (#1786)
+    so uploads are not GC-eligible like bare ``add`` leaves them (#1612)."""
     import requests
 
     with open(path, "rb") as f:
         resp = requests.post(
-            f"{_ISLAND_IPFS_API}/api/v0/add",
+            f"{_ISLAND_IPFS_API.rstrip('/')}/api/v0/add",
             files={"file": (filename, f)},
             timeout=600,
         )
     resp.raise_for_status()
-    return str(resp.json().get("Hash"))
+    cid = str(resp.json().get("Hash") or "")
+    if not cid:
+        raise ValueError("IPFS add returned no Hash")
+    _ipfs_pin_cid(cid)
+    return cid
 
 
 async def _spool_upload(file: UploadFile, suffix: str) -> str:
