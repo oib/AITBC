@@ -1,5 +1,6 @@
 """Tests for aitbc.oracles.price_oracle"""
 
+import json
 import os
 from decimal import Decimal
 from unittest.mock import patch
@@ -166,3 +167,69 @@ def test_disk_cache_tolerates_non_utf8_file(tmp_path, monkeypatch):
     oracle = CoinGeckoOracle()
     monkeypatch.setattr(CoinGeckoOracle, "_disk_cache_path", str(cache_file))
     assert oracle._read_disk_cache() == {}
+
+
+class _FakeResp:
+    def __init__(self, payload: dict) -> None:
+        self._body = json.dumps(payload).encode()
+
+    def read(self) -> bytes:
+        return self._body
+
+    def __enter__(self) -> "_FakeResp":
+        return self
+
+    def __exit__(self, *a: object) -> None:
+        return None
+
+
+def _gecko(monkeypatch, tmp_path, updated_at):
+    import urllib.request
+
+    entry = {"usd": 3000.0}
+    if updated_at is not None:
+        entry["last_updated_at"] = updated_at
+    monkeypatch.setattr(urllib.request, "urlopen", lambda *a, **k: _FakeResp({"ethereum": entry}))
+    monkeypatch.setattr(CoinGeckoOracle, "_disk_cache_path", str(tmp_path / "price_cache.json"))
+    monkeypatch.setattr(CoinGeckoOracle, "_cache", {})
+    return CoinGeckoOracle()
+
+
+def test_coingecko_rejects_stale_last_updated_at_1769(tmp_path, monkeypatch):
+    """A SUCCESSFUL response with an old last_updated_at must not be served (#1769)."""
+    import time
+
+    oracle = _gecko(monkeypatch, tmp_path, time.time() - 6 * 3600)
+    assert oracle.get_price("ETH", "USD") is None
+    assert CoinGeckoOracle._cache == {}
+    assert not (tmp_path / "price_cache.json").exists()  # stale answer never persisted
+
+
+def test_coingecko_accepts_fresh_and_missing_timestamp_1769(tmp_path, monkeypatch):
+    import time
+
+    fresh = _gecko(monkeypatch, tmp_path, time.time() - 30).get_price("ETH", "USD")
+    assert fresh is not None and fresh.price == Decimal("3000.0")
+    CoinGeckoOracle._cache.clear()
+    assert _gecko(monkeypatch, tmp_path, None).get_price("ETH", "USD") is not None
+
+
+def test_coingecko_max_age_env_override_and_bad_value_1769(tmp_path, monkeypatch):
+    import time
+
+    monkeypatch.setenv("COINGECKO_MAX_AGE_SECONDS", "86400")
+    assert _gecko(monkeypatch, tmp_path, time.time() - 6 * 3600).get_price("ETH", "USD") is not None
+    CoinGeckoOracle._cache.clear()
+    monkeypatch.setenv("COINGECKO_MAX_AGE_SECONDS", "garbage")
+    assert CoinGeckoOracle._max_age_seconds() == 3600
+
+
+def test_coingecko_stale_answer_falls_back_to_fresh_disk_cache_1769(tmp_path, monkeypatch):
+    import time
+
+    oracle = _gecko(monkeypatch, tmp_path, time.time() - 6 * 3600)
+    oracle._store_to_disk(
+        "ETH/USD", PriceResult(base="ETH", quote="USD", price=Decimal("2900"), source="coingecko", timestamp=time.time() - 120)
+    )
+    served = oracle.get_price("ETH", "USD")
+    assert served is not None and served.source == "cached" and served.price == Decimal("2900")

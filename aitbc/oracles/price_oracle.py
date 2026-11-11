@@ -211,6 +211,14 @@ class CoinGeckoOracle:
         }
         self._write_disk_cache(cache)
 
+    @staticmethod
+    def _max_age_seconds() -> int:
+        """Max accepted age of a CoinGecko ``last_updated_at`` (default 1 h, as the disk cache)."""
+        try:
+            return int(os.getenv("COINGECKO_MAX_AGE_SECONDS", "3600"))
+        except ValueError:
+            return 3600
+
     def get_price(self, base: str, quote: str = "USD") -> PriceResult | None:
         cache_key = f"{base}/{quote}"
         cached = self._cache.get(cache_key)
@@ -248,6 +256,21 @@ class CoinGeckoOracle:
                 timestamp=entry.get("last_updated_at", time.time()),
                 raw=entry,
             )
+            # #1769: a successful response can still carry an old
+            # last_updated_at (thin/delisted market). Paying out on it is worse
+            # than retrying, so an answer older than the bound is treated like
+            # a failed fetch: nothing is cached or persisted, and only the
+            # (itself age-bounded) disk fallback may answer.
+            max_age = self._max_age_seconds()
+            age = result.age_seconds()
+            if age > max_age:
+                logger.warning(
+                    "CoinGecko %s answer stale (age %.0fs > %ss) — treating source as unavailable",
+                    cache_key,
+                    age,
+                    max_age,
+                )
+                return self._get_cached_from_disk(cache_key)
             self._cache[cache_key] = result
             self._store_to_disk(cache_key, result)
             return result
