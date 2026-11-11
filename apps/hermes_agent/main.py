@@ -265,15 +265,22 @@ def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
 
     command = [_HERMES_PATH, "-z", request.prompt, "--usage-file", usage_path]
 
+    # HERMES-IPFS-DEPTH2-1 (#1633): an empty allowlist means "default only"
+    # (README), not "unrestricted" — resolve the effective allowed set once so
+    # a buyer-supplied value can never widen past the shop's configured
+    # defaults when no allowlist is set.
+    allowed_models = _HERMES_ALLOWED_MODELS or ([_HERMES_DEFAULT_MODEL] if _HERMES_DEFAULT_MODEL else [])
+    allowed_providers = _HERMES_ALLOWED_PROVIDERS or ([_HERMES_DEFAULT_PROVIDER] if _HERMES_DEFAULT_PROVIDER else [])
+
     model = request.model or _HERMES_DEFAULT_MODEL
     if model:
-        if _HERMES_ALLOWED_MODELS and model not in _HERMES_ALLOWED_MODELS:
+        if model not in allowed_models:
             raise HTTPException(status_code=400, detail=f"Model '{model}' is not allowed by this offer")
         command.extend(["--model", model])
 
     provider = request.provider or _HERMES_DEFAULT_PROVIDER
     if provider:
-        if _HERMES_ALLOWED_PROVIDERS and provider not in _HERMES_ALLOWED_PROVIDERS:
+        if provider not in allowed_providers:
             raise HTTPException(status_code=400, detail=f"Provider '{provider}' is not allowed by this offer")
         command.extend(["--provider", provider])
 
@@ -288,11 +295,24 @@ def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
     if request.toolsets is not None and not requested:
         # '', ',' or ' , ' means "use the default", not "run unrestricted".
         requested = [t.strip() for t in _HERMES_DEFAULT_TOOLSETS.split(",") if t.strip()]
-    if _HERMES_ALLOWED_TOOLSETS:
+    # HERMES-IPFS-DEPTH2-1 (#1633): empty allowlist falls back to the default
+    # toolsets as the allowed set — a non-empty request can never pass
+    # toolsets the shop did not configure.
+    allowed_toolsets = _HERMES_ALLOWED_TOOLSETS or [t.strip() for t in _HERMES_DEFAULT_TOOLSETS.split(",") if t.strip()]
+    if allowed_toolsets:
         for t in requested:
-            if t not in _HERMES_ALLOWED_TOOLSETS:
+            if t not in allowed_toolsets:
                 raise HTTPException(status_code=400, detail=f"Toolset '{t}' is not allowed by this offer")
-    if not requested and not _HERMES_ALLOWED_TOOLSETS:
+        if not requested:
+            # Nothing requested and no default: never fall through to hermes'
+            # full profile — emit the conservative set bounded by the allowlist.
+            requested = [t for t in (x.strip() for x in _CONSERVATIVE_TOOLSETS.split(",")) if t in allowed_toolsets] or list(
+                allowed_toolsets
+            )
+    elif requested:
+        # No allowlist and no default configured: refuse buyer-chosen toolsets.
+        raise HTTPException(status_code=400, detail="Toolsets are not configurable on this offer")
+    else:
         # Neither a request, a default, nor an allow-list configured: pass an explicit
         # conservative set instead of falling through to the service profile's full list.
         requested = [t.strip() for t in _CONSERVATIVE_TOOLSETS.split(",") if t.strip()]
@@ -366,6 +386,13 @@ async def _run_hermes_inner(request: HermesRunRequest):
             _kill_process_group(proc)
             await _reap_after_kill(proc)
             raise
+        # HERMES-IPFS-DEPTH2-1 (#1633): communicate() returning only proves the
+        # pipe-holding processes exited — a grandchild that detached its fds
+        # (redirected stdout/stderr) survives in the group on the success and
+        # non-zero-exit paths too. killpg is harmless when the group is already
+        # gone (ProcessLookupError) and the pgid cannot be recycled while a
+        # member still lives, so sweep it on every exit path.
+        _kill_process_group(proc)
         elapsed = time.time() - t_start
         stdout = out_b.decode(errors="replace")
         stderr = err_b.decode(errors="replace")
