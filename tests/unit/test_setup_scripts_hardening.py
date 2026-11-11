@@ -144,6 +144,26 @@ def test_setup_sh_declares_path_overrides():
         assert f'{var}="${{{var}:-{default}}}"' in SETUP, f"missing override {var}"
 
 
+def test_clone_repo_uses_aitbc_root_parent():
+    body = _func(SETUP, "clone_repo")
+    assert "cd /opt" not in body, "clone must not hardcode /opt"
+    assert 'dirname "${AITBC_ROOT}"' in body
+    assert 'basename "${AITBC_ROOT}"' in body
+
+
+def test_force_setup_refreshes_existing_checkout():
+    body = _func(SETUP, "clone_repo")
+    assert '"$FORCE_SETUP" = true' in body
+    assert "git fetch" in body
+    assert "merge --ff-only origin/main" in body
+
+
+def test_setup_sh_supports_dry_run_pin():
+    assert "SETUP_DRY_RUN=false" in SETUP
+    assert "--dry-run" in SETUP
+    assert "AITBC_SETUP_DRY_RUN" in SETUP
+
+
 def test_setup_sh_has_no_bare_system_paths_outside_defaults():
     """Every operational use of the deploy paths must go through the override
     vars — a bare literal means a scratch run would still hit the real tree."""
