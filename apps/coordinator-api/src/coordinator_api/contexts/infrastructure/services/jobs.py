@@ -540,9 +540,17 @@ class JobService:
     def _ensure_not_expired(self, job: Job, batch: list[Job] | None = None) -> Job:
         expires_at = _to_utc(job.expires_at)
         if job.state in {"QUEUED", "RUNNING"} and expires_at and (expires_at <= datetime.now(UTC)):
-            job.state = "EXPIRED"
-            job.error = "job expired"
-            self.session.add(job)
+            result = self.session.execute(
+                update(Job)
+                .where(col(Job.id) == job.id, col(Job.state).in_({"QUEUED", "RUNNING"}))
+                .values(state="EXPIRED", error="job expired")
+                .execution_options(synchronize_session=False)
+            )
+            if getattr(result, "rowcount", 0) != 1:
+                self.session.expunge(job)
+                refreshed = self.session.scalars(select(Job).where(Job.id == job.id)).first()
+                return refreshed if refreshed else job
+            self.session.refresh(job)
             if batch is not None:
                 # Defer the commit: the dispatch loop adds expired jobs to the
                 # batch and commits once after the loop instead of once per row.
@@ -734,12 +742,13 @@ class JobService:
             logger.error("Failed to execute job %s: %s", job_id, e)
             self.session.rollback()
             try:
-                statement = select(Job).where(Job.id == job_id)
-                job = self.session.scalars(statement).first()
-                if job:
-                    job.state = "FAILED"
-                    job.error = str(e)
-                    self.session.add(job)
+                fail_update = self.session.execute(
+                    update(Job)
+                    .where(col(Job.id) == job_id, col(Job.state) == "RUNNING")
+                    .values(state="FAILED", error=str(e))
+                    .execution_options(synchronize_session=False)
+                )
+                if getattr(fail_update, "rowcount", 0) == 1:
                     self.session.commit()
             except Exception:
                 pass

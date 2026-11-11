@@ -27,7 +27,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlmodel import Session, col, select
+from sqlmodel import Session, col, select, update
 
 from aitbc.aitbc_logging import get_logger
 
@@ -109,11 +109,24 @@ class StaleJobReaper:
         )
         return list(session.execute(stmt).scalars().all())
 
-    def _expire(self, session: Any, job: Job, reason: str) -> None:
-        """Apply the same transition JobService._ensure_not_expired already uses."""
-        job.state = "EXPIRED"
-        job.error = reason
-        session.add(job)
+    def _expire(self, session: Any, job: Job, reason: str) -> bool:
+        """Apply the same transition JobService._ensure_not_expired already uses.
+
+        The conditional UPDATE is the compare-and-swap: a concurrent
+        completion/cancel that committed first makes rowcount 0 so this sweep
+        does not clobber a terminal state (#1805).
+        """
+        result = session.execute(
+            update(Job)
+            .where(col(Job.id) == job.id, col(Job.state).in_(_ACTIVE_STATES))
+            .values(state="EXPIRED", error=reason)
+            .execution_options(synchronize_session=False)
+        )
+        if getattr(result, "rowcount", 0) != 1:
+            session.expunge(job)
+            return False
+        session.refresh(job)
+        return True
 
     def run_once(self) -> dict[str, int]:
         """One sweep. Returns counts for logging and tests."""
@@ -131,9 +144,14 @@ class StaleJobReaper:
                             job.expires_at,
                         )
                     else:
-                        self._expire(session, job, "job expired")
-                        counts["ttl_expired"] += 1
-                        logger.info("Expired abandoned job %s (TTL elapsed at %s)", job.id, job.expires_at)
+                        if self._expire(session, job, "job expired"):
+                            counts["ttl_expired"] += 1
+                            logger.info("Expired abandoned job %s (TTL elapsed at %s)", job.id, job.expires_at)
+                        else:
+                            logger.info(
+                                "Job %s left active states before expiry sweep; skipping",
+                                job.id,
+                            )
                 except Exception as e:
                     counts["failed"] += 1
                     logger.error("Failed to expire job %s: %s", job.id, e)
@@ -151,14 +169,19 @@ class StaleJobReaper:
                             self.miner_dead_seconds,
                         )
                     else:
-                        self._expire(session, job, "job abandoned: assigned miner offline")
-                        counts["miner_dead"] += 1
-                        logger.info(
-                            "Expired job %s: miner %s offline past %ss grace period",
-                            job.id,
-                            job.assigned_miner_id,
-                            self.miner_dead_seconds,
-                        )
+                        if self._expire(session, job, "job abandoned: assigned miner offline"):
+                            counts["miner_dead"] += 1
+                            logger.info(
+                                "Expired job %s: miner %s offline past %ss grace period",
+                                job.id,
+                                job.assigned_miner_id,
+                                self.miner_dead_seconds,
+                            )
+                        else:
+                            logger.info(
+                                "Job %s left RUNNING before miner-dead expiry; skipping",
+                                job.id,
+                            )
                 except Exception as e:
                     counts["failed"] += 1
                     logger.error("Failed to expire job %s: %s", job.id, e)
