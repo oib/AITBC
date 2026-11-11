@@ -325,11 +325,11 @@ class _MeshSubscription:
             )
             return
         self._sources[name] = source
-        self._peer_attached(name)
         self._tasks[name] = create_task_with_logging(
             self._forward(name, source),
             name=f"mesh-gossip-forward:{name}:{self._topic}",
         )
+        self._peer_attached(name)
 
     async def _retry_attach(self, name: str, backend: GossipBackend) -> None:
         from aitbc.aitbc_logging import get_logger
@@ -357,12 +357,12 @@ class _MeshSubscription:
             logger.info("Mesh gossip peer %s attached for %s", name, self._topic)
             gossip_event("subscribe_attached", peer=name, topic=self._topic, _level="info")
             self._sources[name] = source
-            self._peer_attached(name)
             # Replace ourselves with the forwarding loop for this source.
             self._tasks[name] = create_task_with_logging(
                 self._forward(name, source),
                 name=f"mesh-gossip-forward:{name}:{self._topic}",
             )
+            self._peer_attached(name)
             return
 
     async def _forward(self, name: str, source: TopicSubscription) -> None:
