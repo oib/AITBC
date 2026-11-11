@@ -42,6 +42,21 @@ Layer 12: HTLC contract (v0.9.0 B4) ✅ — Python-native contract moves funds w
 Layer 13: Proof chain (v0.9.0 B3) ✅ — tamper-evident proof chain (lock → verify → execute → release → settle)
 ```
 
+### Proof signature semantics (#1325)
+
+The validator/attestation signatures carried in a bridge proof are
+signatures over the **sealed block header** — they certify "these
+validators attested this header at this height/round", nothing more.
+Attestation is a structural vote (proposal authorization), not an
+execution verdict: attesters do not re-execute the block's transactions
+(see `docs/blockchain/5_validator.md`). Execution validity is anchored
+elsewhere: the issuing node only builds proofs for blocks committed in
+its own chain (which passed the import-side state transition +
+state-root comparison), and proof consumers verify Merkle inclusion
+against the committed `bridge_state_root`. A consumer must not read the
+signature set as "validators proved this block's execution" — read it as
+"validators attested this sealed header, and the issuer committed it".
+
 ## 3. Attack Vectors
 
 ### 3.1 Forged Proof (No Actual Lock)
