@@ -10,7 +10,6 @@ WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc
 EnvironmentFile=/etc/aitbc/blockchain.env
-EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 EnvironmentFile=/etc/aitbc/node.env
 Environment=OLLAMA_GATE_PORT=8271
 # Bind policy: internal service, loopback only (docs/deployment/NETWORK_POLICY.md).
