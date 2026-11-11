@@ -163,6 +163,14 @@ class TestCacheLayer:
         cache.set("key", {"data": 1})
         assert cache.get("key") is None
 
+    def test_cleanup_expired_mixed_entries(self):
+        cache = CacheLayer(enable=True, ttl=300)
+        cache.set("fresh", {"data": 1})
+        cache.cache["stale"] = ({"data": 2}, datetime.now(UTC) - timedelta(seconds=400))
+        assert cache.cleanup_expired() == 1
+        assert cache.get("fresh") == {"data": 1}
+        assert cache.get("stale") is None
+
 
 class TestRetryPolicy:
     def test_success_first_attempt(self):
