@@ -89,8 +89,14 @@ mkdir -p -m 0700 "${BACKUP_DIR}"
 # ── PostgreSQL ────────────────────────────────────────────────────────────────
 # Back up AITBC PostgreSQL databases that actually exist.
 # aitbc_user is a role, not a database; aitbc_poolhub is added for the pool-hub service.
-# aitbc/aitbc_ai/aitbc_coordinator/aitbc_exchange/aitbc_wallet exist but are
-# empty fleet-wide (24 Oct census, BACKUP-COVERAGE-1) — intentionally unlisted.
+# aitbc/aitbc_ai/aitbc_coordinator/aitbc_exchange/aitbc_wallet were empty
+# fleet-wide at the 24 Oct census (BACKUP-COVERAGE-1) and sat unlisted — but
+# "empty today" is not "empty forever": coordinator-api's DATABASE_URL once
+# pointed migrations at aitbc_coordinator while the app ran SQLite
+# (PG-TARGET-1), so a service can start writing there with no code change.
+# An empty pg_dump is ~20 KB, so they are listed anyway: the existence check
+# below skips hosts where they were never created, and the moment anything
+# lands in one the next nightly run covers it (#1528 BACKUP-AUDIT-1).
 PG_DBS=(
     "aitbc_governance"
     "aitbc_marketplace"
@@ -98,6 +104,11 @@ PG_DBS=(
     "aitbc_mempool"
     "aitbc_gpu"
     "aitbc_poolhub"
+    "aitbc"
+    "aitbc_ai"
+    "aitbc_coordinator"
+    "aitbc_exchange"
+    "aitbc_wallet"
 )
 
 for pg_db in "${PG_DBS[@]}"; do
