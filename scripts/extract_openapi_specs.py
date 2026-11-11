@@ -158,9 +158,10 @@ APPS = [
         "module": "main:app",
         "output": "explorer-openapi.json",
     },
-    # exchange stays undocumented: it is a BaseHTTPRequestHandler service, not
-    # FastAPI, so there is no app.openapi() to extract. Its v2 qualifier keeps
-    # "spec": null in api-v2-map.json until a hand-maintained spec exists.
+    # exchange stays undocumented: its routes dispatch through a hand-rolled
+    # BaseHTTPRequestHandler-style catch-all, so app.openapi() would only show
+    # the wrapper. Its v2 qualifier keeps "spec": null in api-v2-map.json
+    # until a hand-maintained spec exists.
 ]
 
 
