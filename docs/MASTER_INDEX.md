@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-09
+**Last Updated**: 2026-11-11
 
 ---
 
@@ -1591,7 +1591,7 @@ Inbound markdown links per document (top referrers).
 | [scenarios/88_bridge_island_lock_release.md](scenarios/88_bridge_island_lock_release.md) | [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), [cli/commands/bridge-balance.md](cli/commands/bridge-balance.md), [cli/commands/bridge-confirm.md](cli/commands/bridge-confirm.md), +28 more |
 | [scenarios/README.md](scenarios/README.md) | [development/2_setup.md](development/2_setup.md), [development/5_developer-guide.md](development/5_developer-guide.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), +71 more |
 | [scenarios/_TEMPLATE.md](scenarios/_TEMPLATE.md) | [scenarios/README.md](scenarios/README.md) |
-| [security/2_security-architecture.md](security/2_security-architecture.md) | [features/10-security.md](features/10-security.md), [security/README.md](security/README.md), [security/economic-analysis.md](security/economic-analysis.md), +1 more |
+| [security/2_security-architecture.md](security/2_security-architecture.md) | [features/10-security.md](features/10-security.md), [security/README.md](security/README.md), [security/api-key-management.md](security/api-key-management.md), +2 more |
 | [security/3_chaos-testing.md](security/3_chaos-testing.md) | [README.md](README.md), [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |
 | [security/4_security-audit-framework.md](security/4_security-audit-framework.md) | [README.md](README.md), [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |
 | [security/DEPENDENCY_MONITORING.md](security/DEPENDENCY_MONITORING.md) | [releases/v0.4/v0.4.15_REQUIREMENTS.md](releases/v0.4/v0.4.15_REQUIREMENTS.md), [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |

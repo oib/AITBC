@@ -11,7 +11,11 @@ Units load `/etc/aitbc/<unit>.env` — one file per systemd unit (e.g.
 illustration — the variable names shown there (`BLOCKCHAIN_NETWORK_ID`,
 `BLOCKCHAIN_GENESIS_BLOCK_HASH`, `COORDINATOR_DATABASE_URL`,
 `COORDINATOR_REDIS_URL`, `COORDINATOR_JWT_SECRET`, `MARKET_REDIS_URL`,
-`MARKET_API_KEY`) are **not** read by any service.
+`MARKET_API_KEY`) are **not** read by any service — with one nuance:
+`MARKET_API_KEY` *is* read by `aitbc-governance` (`validation_alias` in
+`apps/governance/.../config.py`) as the key it presents when calling market's
+`parameters/apply`; the market service itself reads its gate key from plain
+`API_KEY`/`AUTH_ENABLED` (its `api_key` field has no alias).
 
 Real names in use (verified against the unit files and Settings classes):
 

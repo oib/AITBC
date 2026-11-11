@@ -354,20 +354,26 @@ the height or hash already exists.
 POST /rpc/force-sync
 ```
 
-Force a reorganization to match a peer. **Admin-signed request body:**
+Force a reorganization to match a peer. Requires `X-API-Key` **and** an
+admin-signed request body:
 
 ```json
 {
   "peer_url": "https://peer.example.net",
   "admin_address": "0x...",
   "admin_signature": "0x...",
+  "issued_at": "<unix epoch, within ±5 min>",
+  "nonce": "<unique, single-use>",
+  "target_chain_id": "<this node's chain id>",
   "target_height": 2000
 }
 ```
 
 The node fetches `GET {peer_url}/rpc/export-chain` and imports it through the
-normal import path. `peer_url` must be a public `http`/`https` URL —
-loopback and RFC-1918 addresses are rejected (SSRF guard).
+normal import path. `peer_url` must be `http`/`https`; loopback, link-local,
+reserved, multicast and unspecified addresses are rejected (SSRF guard) —
+private LAN addresses are allowed for fleet peers. Prefer
+`aitbc network force-sync`, which signs and injects the API key.
 
 ## Contracts
 

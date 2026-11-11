@@ -6,9 +6,9 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Secret Expiration | Automatic TTL-based expiration for secrets | [docs/security/performance-features.md](../security/performance-features.md) | ✅ | — |
-| Secret Rotation | Version tracking for secret updates | [docs/security/performance-features.md](../security/performance-features.md) | ✅ | — |
-| Encryption Key Rotation | Master key rotation with re-encryption | [docs/security/performance-features.md](../security/performance-features.md) | ✅ | — |
+| Secret Expiration | Automatic TTL-based expiration for secrets (library — not consumed by services for `/etc/aitbc` secrets) | [docs/security/performance-features.md](../security/performance-features.md) | ✅ | — |
+| Secret Rotation | Version tracking for secret updates (library — not consumed by services) | [docs/security/performance-features.md](../security/performance-features.md) | ✅ | — |
+| Encryption Key Rotation | Master key rotation with re-encryption (library — not consumed by services) | [docs/security/performance-features.md](../security/performance-features.md) | ✅ | — |
 
 ### Input Validation
 

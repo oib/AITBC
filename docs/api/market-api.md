@@ -17,13 +17,13 @@ The market-service (`aitbc-market`, port 8102) manages hardware+software bundle 
 
 ### Mixed authentication model
 
-The market-service does **not** require an API key on every endpoint. Only the admin route `POST /v1/market/parameters/apply` (governance-approved parameter changes) is key-gated, via `APIKeyAuthenticator` from the shared `aitbc/auth` library:
+The market-service gates **mutating routes** with `require_market_api_key` (`APIKeyAuthenticator` from the shared `aitbc/auth` library, `auth_enabled`/`api_key` settings):
 
 ```http
 X-Api-Key: <market admin api key>
 ```
 
-Note the header is `X-Api-Key`, **not** `Authorization: Bearer` — Bearer JWTs are the coordinator-api's customer auth scheme and are not used here. When `settings.auth_enabled` is false the dependency is a no-op; when the service's `api_key` setting is unset the gated route returns `501 API key not configured`. All other endpoints on this service are currently unauthenticated.
+Note the header is `X-Api-Key`, **not** `Authorization: Bearer` — Bearer JWTs are the coordinator-api's customer auth scheme and are not used here. Gated routes include offer create/cancel/book, bid complete, match, market-job create/cancel/pin-confirm/release/refund, plugins, ratings sync/mark-synced, `POST /v1/transactions`, knowledge-graph writes, dynamic-pricing, edge-advertise, and `POST /v1/market/parameters/apply`. When `settings.auth_enabled` is false the dependency is a no-op; when the service's `api_key` setting is unset gated routes return `501 API key not configured`. Read endpoints (offers list, ratings, jobs public view, etc.) remain unauthenticated — `GET /v1/market/jobs` returns a redacted public view to anonymous callers and full rows to key/admin callers.
 
 The market-service calls the blockchain node's escrow RPC with its own `BLOCKCHAIN_RPC_API_KEY` (`X-API-Key` header) — that key is service-to-service and is not a customer credential. Customer-facing escrow create/release go through the coordinator's JWT relays instead (`POST /v1/escrow/relay`, `POST /v1/escrow/release`, buyer-bound to the JWT `sub`); see [escrow-relays runbook](../ops/escrow-relays.md). Direct `/rpc/escrow/*` stays for settlement-node internal ops and refund.
 

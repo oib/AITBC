@@ -16,5 +16,5 @@ Python contract source: [`apps/blockchain-node/src/aitbc_chain/contracts/agent_w
 
 ## Operational Notes
 
-- This is an in-memory Python implementation used by the blockchain-node RPC layer.
+- This is an in-memory Python implementation **not currently wired into the RPC layer or consensus** — no importer under `apps/blockchain-node/src/aitbc_chain/rpc/` references it; the controls described here are not enforced. See `docs/security/SECURITY_AGENT_WALLET_PROTECTION.md` (prototype banner) and `docs/contracts/guardian.md`.
 - See [`docs/api/blockchain-node-openapi.json`](../../docs/api/blockchain-node-openapi.json) for related RPC endpoints.
