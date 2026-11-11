@@ -12,6 +12,7 @@ from fastapi import FastAPI
 
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.health_checks import create_simple_health_response
+from aitbc.rate_limiting import RateLimitMiddleware, client_ip_for_rate_limit, parse_rate_limit
 
 configure_logging(level="INFO", service_name="blockchain-explorer", to_file=True)
 logger = get_logger(__name__)
@@ -40,6 +41,26 @@ app.include_router(export_router)
 app.include_router(journal_router)
 app.include_router(messages_router)
 app.include_router(csp_router)
+
+# EXPLORER-DEEP2-1 (#1745): every read endpoint was unauthenticated and
+# unbounded in request rate — the block endpoints alone can serialize
+# ~40k embedded tx rows per call. nginx's explorer_api zone only covers the
+# /explorer-api/ location on hosts that deploy it; the service also binds
+# directly via EXPLORER_BIND_HOST, so the bound lives in-app too. Keyed per
+# client IP through the shared resolver: X-Real-IP/X-Forwarded-For are
+# honoured only from trusted proxies (#1244), so nginx-fronted traffic keys
+# on the real client and a direct bind keys on the TCP peer. /health stays
+# exempt so probes cannot trip it. EXPLORER_RATE_LIMIT overrides the default
+# ("<count>/<second|minute|hour|day>", same grammar as the other services).
+_explorer_rate, _explorer_per = parse_rate_limit(os.getenv("EXPLORER_RATE_LIMIT", "120/minute"))
+app.add_middleware(
+    RateLimitMiddleware,
+    rate=_explorer_rate,
+    per=_explorer_per,
+    key_func=client_ip_for_rate_limit,
+    exclude_paths=["/health"],
+    error_message="Explorer rate limit exceeded",
+)
 
 
 @app.get("/health")

@@ -15,6 +15,7 @@ from chain_client import (
     default_chain_id,
     rpc_url_for,
     get_block,
+    get_block_transactions_batch,
     get_latest_blocks,
     normalize_block,
     scoped_where,
@@ -90,27 +91,16 @@ async def api_non_empty_blocks(
 
             blocks = []
             rows = await cursor.fetchall()
+            # EXPLORER-DEEP2-1 (#1745): one batched tx query for the whole
+            # page instead of one query per block. Same per-block cap and
+            # cap+1 truncation sentinel as before.
+            tx_rows_by_height = await get_block_transactions_batch(conn, cid, [row[0] for row in rows])
             for row in rows:
                 height, block_hash, proposer, timestamp, tx_count, state_root = row
 
-                # Get transactions for this block — chain-scoped like the
-                # join above (#1620); capped per block (EXPLORER-RESP-1,
-                # #1492) — +1 row detects truncation.
-                tx_scope, tx_scope_params = await chain_scope(conn, "transaction", cid)
-                tx_where, tx_params = scoped_where("block_height = ?", tx_scope, [height], tx_scope_params)
-                await cursor.execute(
-                    f"""
-                    SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
-                    FROM "transaction"
-                    WHERE {tx_where}
-                    ORDER BY created_at, tx_hash
-                    LIMIT ?
-                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-                    [*tx_params, MAX_EMBEDDED_TXS_PER_BLOCK + 1],
-                )
+                tx_rows = tx_rows_by_height.get(height, [])
 
                 transactions = []
-                tx_rows = list(await cursor.fetchall())
                 truncated = len(tx_rows) > MAX_EMBEDDED_TXS_PER_BLOCK
                 for tx_row in tx_rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
                     tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
@@ -199,27 +189,15 @@ async def api_block_by_hash(hash: str, chain_id: str | None = None) -> dict[str,
                 if result:
                     height, block_hash, proposer, timestamp, tx_count, state_root = result
 
-                    # Get transactions for this block — chain-scoped (#1620);
-                    # capped per block (EXPLORER-RESP-1, #1492) — +1 row
-                    # detects truncation.
-                    tx_scope, tx_scope_params = await chain_scope(conn, "transaction", cid)
-                    tx_where, tx_params = scoped_where("block_height = ?", tx_scope, [height], tx_scope_params)
-                    await cursor.execute(
-                        f"""
-                        SELECT tx_hash, sender, recipient, payload, type, status, created_at, value, fee, nonce
-                        FROM "transaction"
-                        WHERE {tx_where}
-                        ORDER BY created_at, tx_hash
-                        LIMIT ?
-                    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-                        [*tx_params, MAX_EMBEDDED_TXS_PER_BLOCK + 1],
-                    )
+                    # Get transactions for this block — chain-scoped (#1620)
+                    # via the shared batched fetch (#1745); the cap+1
+                    # sentinel still detects truncation.
+                    tx_rows = (await get_block_transactions_batch(conn, cid, [height])).get(height, [])
 
                     transactions = []
-                    rows = list(await cursor.fetchall())
-                    truncated = len(rows) > MAX_EMBEDDED_TXS_PER_BLOCK
-                    for row in rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
-                        tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = row
+                    truncated = len(tx_rows) > MAX_EMBEDDED_TXS_PER_BLOCK
+                    for tx_row in tx_rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
+                        tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
                         transactions.append(
                             {
                                 "tx_hash": tx_hash,
