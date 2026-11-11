@@ -1,6 +1,6 @@
 # AITBC Blockchain Node Environment Configuration Guide
 
-**Last Updated:** 2026-06-03
+**Last Updated:** 2026-11-11
 
 > **Important:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
@@ -25,6 +25,28 @@ AITBC uses three environment configuration files:
 > keys — loading any of them bleeds bc-2's identity and key material
 > into the island process. See
 > [companion-island-deploy.md](../ops/companion-island-deploy.md).
+
+## When configuration changes take effect (restart required)
+
+Fleet services run under **systemd**. Values from `EnvironmentFile=` are applied **once** when the unit starts. Editing `/etc/aitbc/*.env` (or any service-specific env under `/etc/aitbc/`) does not change what a **running** process reads until that unit is **restarted** (process replaced).
+
+In Python code, three patterns appear:
+
+| Pattern | Typical use | Effective after env file edit |
+|---|---|---|
+| Module-level `os.getenv(...)` at import | JWT/API keys, RPC keys, signing keys, many feature gates | **Restart required** — value is frozen at import |
+| Settings / config singleton at first import | Coordinators, gateways (`pydantic-settings`) | **Restart required** |
+| Per-call `os.getenv(...)` in a function | Some helpers (e.g. energy-operator address on RPC escrow routes) | Still **restart required** under systemd: the process environment is fixed for the lifetime of the PID |
+
+**Operator rule:** assume **every** env change needs a **unit restart** to take effect. There is no fleet-wide hot-reload of configuration today.
+
+### What matters most in operations
+
+1. **JWT and API-key secrets** — `JWT_SECRET`, `SECRET_KEY`, `COORDINATOR_API_KEY`, `API_KEY_HASH_SECRET`, `BLOCKCHAIN_RPC_API_KEY` / `_PEERS`, gateway `REQUIRE_AUTH` keys, and related hashes. These are the secrets operators rotate under pressure. If only some services restart, verifiers and issuers can disagree on the active secret → cross-service **401** failures during the window (`rotate_{jwt,api_key}_secret.sh` pain is documented on issue #1718). **Today:** edit env, then restart **all** units that load the secret **together** (see [Rotating these secrets](#rotating-these-secrets)). **Follow-up (separate row):** a narrow in-process reload for auth material (e.g. SIGHUP or admin endpoint) — not a generic config-reload framework.
+2. **Ops-flip flags** — payment/ZK/TEE guards, `AGENT_MSG_SIGNATURE_MODE`, and similar toggles are usually read at import. Flipping the file without restart changes nothing visible.
+3. **Consensus pins** — `STATE_TRANSITION_V*_HEIGHT`, gossip auth, and bridge gates are intentionally fleet-synchronized; activation uses coordinated validator restart waves ([Consensus and state-transition knobs](#consensus-and-state-transition-knobs)).
+
+Audit index: CONFIG-AUDIT-1 (#1520).
 
 ## node.env Reference
 
@@ -469,6 +491,14 @@ manager, or a secrets store. Do not put it behind a URL.
 
 Rotate if the file was ever fetched over HTTP, or if you deployed a hub whose values came
 from a published example.
+
+Because JWT and API-key material is frozen at process import (see [When configuration changes take effect](#when-configuration-changes-take-effect-restart-required)), rotation is always a **restart workflow**, not a live patch:
+
+1. Generate and install new values in the env files on every host that must share them.
+2. **Restart together** every unit that reads those variables — staggered restarts leave a window where some processes verify tokens with the old `JWT_SECRET` / `API_KEY_HASH_SECRET` while others issue with the new one (#1718).
+3. Prefer the scripted ordering in `scripts/ops/rotate_jwt_secret.sh` / `rotate_api_key_secret.sh` when using them; if you edit by hand, mirror the same “all consumers at once” rule.
+
+Signing keys (`ESCROW_RELEASE_PRIVATE_KEY`, bridge/wallet keys) follow the same rule: env change → restart the signing service before relying on the new key.
 
 ### Additional secrets
 
