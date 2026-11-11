@@ -72,3 +72,26 @@ def test_set_island_config_writes_atomically(tmp_path):
     assert config["Addresses"]["API"] == "/ip4/127.0.0.1/tcp/5002"
     assert config["AutoConf"] == {"Enabled": False}
     assert not (repo / "config.tmp").exists()
+
+
+def test_run_scrubs_service_env(monkeypatch):
+    """#1774: ipfs CLI children get the allowlisted env, not os.environ."""
+    monkeypatch.setenv("AITBC_TEST_SECRET", "hunter2")
+    monkeypatch.setenv("IPFS_CUSTOM", "kept")
+    captured = {}
+
+    class _Proc:
+        returncode = 0
+        stdout = ""
+        stderr = ""
+
+    def fake_run(cmd, env=None, check=True, capture_output=True, text=True):
+        captured["env"] = env
+        return _Proc()
+
+    monkeypatch.setattr(daemon.subprocess, "run", fake_run)
+    daemon._run(["ipfs", "version"])
+    env = captured["env"]
+    assert "AITBC_TEST_SECRET" not in env
+    assert env.get("IPFS_CUSTOM") == "kept"
+    assert "PATH" in env
