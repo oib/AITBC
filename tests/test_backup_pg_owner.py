@@ -28,3 +28,31 @@ def test_setup_reassigns_foreign_owned_tables():
     assert "tableowner <>" in src
     assert "OWNER TO" in src
     assert "foreign_tables" in src
+
+
+def test_backup_covers_previously_unlisted_dbs():
+    """#1528: DBs empty at the 24 Oct census must stay in PG_DBS.
+
+    'Empty fleet-wide' was never a guarantee — coordinator-api's
+    DATABASE_URL once pointed at aitbc_coordinator while the app ran
+    SQLite (PG-TARGET-1). An unlisted DB that later receives writes is
+    silently unbacked-up; an empty pg_dump costs ~20 KB, so every DB the
+    setup script can create must be listed (the existence check skips
+    hosts where it was never created).
+    """
+    src = BACKUP.read_text()
+    pg_dbs_block = src.split("PG_DBS=(", 1)[1].split(")", 1)[0]
+    for db in (
+        "aitbc",
+        "aitbc_ai",
+        "aitbc_coordinator",
+        "aitbc_exchange",
+        "aitbc_wallet",
+        "aitbc_governance",
+        "aitbc_marketplace",
+        "aitbc_trading",
+        "aitbc_mempool",
+        "aitbc_gpu",
+        "aitbc_poolhub",
+    ):
+        assert f'"{db}"' in pg_dbs_block, f"{db} missing from PG_DBS"
