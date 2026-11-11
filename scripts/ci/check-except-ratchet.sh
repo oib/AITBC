@@ -22,7 +22,7 @@ current="$(mktemp)"
 ruff_out="$(mktemp)"
 trap 'rm -f "$current" "$ruff_out"' EXIT
 ruff_rc=0
-"$PYTHON" -m ruff check . --select BLE001,S110 --output-format concise > "$ruff_out" 2>/dev/null || ruff_rc=$?
+"$PYTHON" -m ruff check . --select BLE001,S110 --color never --output-format concise > "$ruff_out" 2>/dev/null || ruff_rc=$?
 # ruff: 0 clean, 1 findings, >=2 couldn't run — only the last is a gate failure (#981)
 if [ "$ruff_rc" -ge 2 ]; then
     echo "except ratchet: ruff exited $ruff_rc — refusing to score an empty scan as green" >&2

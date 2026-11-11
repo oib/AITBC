@@ -7,7 +7,7 @@ run `scripts/ci/render-c901-watch-list.py > scripts/ci/c901-watch-list.md`.
 
 - **C901:** `scripts/ci/check-c901-ratchet.sh` (pre-push hook `c901-complexity-ratchet`)
 - **BLE001/S110:** `scripts/ci/check-except-ratchet.sh` (pre-push hook `except-ratchet`)
-- Baseline files: 175 C901 files, 488 except files
+- Baseline files: 175 C901 files, 492 except files
 
 ## Tier 1 — brushing complexity 11–12 in hot files
 
@@ -107,17 +107,17 @@ Extract a helper before adding branches to these functions.
 ## Except baseline hotspots (BLE001/S110)
 
 - `cli/aitbc_cli/commands/agent_sdk.py`: 32
-- `apps/agent-coordinator/src/agent_app/storage/message_storage.py`: 29
-- `cli/aitbc_cli/commands/edge.py`: 27
-- `apps/coordinator-api/src/coordinator_api/contexts/agent_identity/routers/agent_identity.py`: 26
-- `dev/gpu/gpu_acceleration/apple_silicon_provider.py`: 22
-- `apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py`: 21
-- `apps/coordinator-api/src/coordinator_api/contexts/market/routers/global_market_integration.py`: 21
+- `apps/agent-coordinator/src/agent_app/storage/message_storage.py`: 30
+- `apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py`: 28
+- `cli/aitbc_cli/commands/edge.py`: 28
+- `apps/coordinator-api/src/coordinator_api/contexts/agent_identity/routers/agent_identity.py`: 25
+- `apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py`: 23
+- `apps/agent-coordinator/src/agent_app/websocket/agent_stream.py`: 22
+- `apps/blockchain-node/src/aitbc_chain/main.py`: 22
 - `cli/aitbc_cli/commands/ai.py`: 21
 - `cli/aitbc_cli/commands/bridge.py`: 20
 - `cli/aitbc_cli/commands/trade.py`: 20
-- `apps/blockchain-node/src/aitbc_chain/main.py`: 19
+- `apps/blockchain-node/src/aitbc_chain/consensus/poa.py`: 19
 - `cli/aitbc_cli/commands/exchange/trading.py`: 19
-- `apps/blockchain-node/src/aitbc_chain/consensus/poa.py`: 18
 - `apps/coordinator-api/src/coordinator_api/contexts/agent_identity/services/manager.py`: 18
 - `cli/aitbc_cli/core/market.py`: 18
