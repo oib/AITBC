@@ -51,6 +51,16 @@ def test_message_accepts_zero_amount(tmp_path):
     assert _send(tmp_path, "MESSAGE", "0") == [f"Wallet 'no-such-wallet' not found at {tmp_path / 'no-such-wallet.json'}"]
 
 
+def test_agent_session_grant_accepts_zero_amount(tmp_path):
+    assert _send(tmp_path, "AGENT_SESSION_GRANT", "0") == [
+        f"Wallet 'no-such-wallet' not found at {tmp_path / 'no-such-wallet.json'}"
+    ]
+
+
+def test_agent_session_grant_rejects_nonzero_amount(tmp_path):
+    assert _send(tmp_path, "AGENT_SESSION_GRANT", "0.001") == ["AGENT_SESSION_GRANT transactions must have amount=0"]
+
+
 def test_zero_value_set_matches_node(tmp_path):
     # Keep the CLI mirror in sync with the apply-side source of truth.
     import pytest
