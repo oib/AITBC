@@ -266,7 +266,7 @@ groups:
         it carries. Check the receiver journal for 'duplicate sample' or other non-recoverable
         400s.
   - alert: AITBCJournalErrors
-    expr: aitbc_journal_error_messages{unit=~"aitbc-.*\\.service"} > 3
+    expr: aitbc_journal_error_messages{unit=~"aitbc-.*\\.service"} >= 3
     for: 5m
     labels:
       severity: warning
@@ -275,6 +275,16 @@ groups:
       description: '{{ $labels.unit }} produced {{ $value }} err-or-worse journal
         messages in the last 15 minutes. See the Service Journal card on alerts.html
         or: journalctl -u {{ $labels.unit }} -p err.'
+  - alert: AITBCJournalWarnings
+    expr: aitbc_journal_warning_messages{unit=~"aitbc-.*\\.service"} >= 20
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: '{{ $labels.unit }} logged warnings on {{ $labels.instance }}'
+      description: '{{ $labels.unit }} produced {{ $value }} warning journal messages
+        in the last 15 minutes after noise exclusions (#1639). Inspect journalctl
+        -u {{ $labels.unit }} for new patterns.'
   - alert: AITBCJournalScanStale
     expr: 'absent(aitbc_journal_scan_timestamp_seconds)
 

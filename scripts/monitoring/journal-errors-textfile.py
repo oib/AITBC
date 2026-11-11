@@ -59,7 +59,21 @@ TEXT_WARNING_LEVELS = ("WARNING", "WARN")
 TEXT_LEVEL_PATTERN = r"\[(WARNING|WARN|ERROR|CRITICAL|FATAL)\]"
 TEXT_LEVEL_RE = re.compile("^" + TEXT_LEVEL_PATTERN)
 
+# Structural noise (#1639): exclude from counters so warning/error alerts
+# reflect incidents, not steady-state PoA notices, gossip reconnect retries,
+# or localhost escrow API-key probe 403s (#1664).
+_JOURNAL_NOISE_PATTERNS: tuple[re.Pattern[str], ...] = (
+    re.compile(r"min_attestations", re.IGNORECASE),
+    re.compile(r"WebSocket gossip reconnect", re.IGNORECASE),
+    re.compile(r"missing or invalid X-API-Key", re.IGNORECASE),
+)
+
 _LABEL_SAFE = re.compile(r"[^a-zA-Z0-9_.-]")
+
+
+def is_ignored_journal_message(message: str) -> bool:
+    """Return True when a journal line is excluded from triage metrics."""
+    return any(pattern.search(message) for pattern in _JOURNAL_NOISE_PATTERNS)
 
 
 def entry_unit(record: dict) -> str:
@@ -158,6 +172,8 @@ def collect(window: str) -> tuple[Counter[tuple[int, str]], bool]:
         is_error = priority <= 3 or level_name in TEXT_ERROR_LEVELS
         is_warning = priority == 4 or level_name in TEXT_WARNING_LEVELS
         if not (is_error or is_warning):
+            continue
+        if is_ignored_journal_message(str(record.get("MESSAGE") or "")):
             continue
         unit = _LABEL_SAFE.sub("_", entry_unit(record))[:80]
         counts[(1 if is_error else 0, unit)] += 1

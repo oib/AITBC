@@ -35,6 +35,33 @@ def _load(name: str, path: Path):
 exporter = _load("journal_errors_textfile", REPO / "scripts/monitoring/journal-errors-textfile.py")
 
 
+def test_ignored_structural_noise_messages():
+    noise = [
+        {
+            "__CURSOR": "c-poa",
+            "PRIORITY": "6",
+            "MESSAGE": "[WARNING] Configured min_attestations 2 reduced to 1",
+            "_SYSTEMD_UNIT": "aitbc-blockchain-node-island.service",
+            "_TRANSPORT": "stdout",
+        },
+        {
+            "__CURSOR": "c-gossip",
+            "PRIORITY": "6",
+            "MESSAGE": "[WARNING] WebSocket gossip reconnect failed for blocks peer=hub after 1s: closed",
+            "_SYSTEMD_UNIT": "aitbc-blockchain-node.service",
+            "_TRANSPORT": "stdout",
+        },
+        {
+            "__CURSOR": "c-api",
+            "PRIORITY": "6",
+            "MESSAGE": "[WARNING] Rejected escrow RPC request: missing or invalid X-API-Key",
+            "_SYSTEMD_UNIT": "aitbc-blockchain-rpc.service",
+            "_TRANSPORT": "stdout",
+        },
+    ]
+    assert _count(iter(noise)) == Counter()
+
+
 def test_render_emits_zero_anchor_when_no_unit_has_errors():
     counts: Counter[tuple[int, str]] = Counter({(0, "aitbc-market.service"): 3})
     text = exporter.render(counts, 1700000000.0, True)
@@ -172,6 +199,8 @@ def _count(records):
         is_error = priority <= 3 or level_name in exporter.TEXT_ERROR_LEVELS
         is_warning = priority == 4 or level_name in exporter.TEXT_WARNING_LEVELS
         if not (is_error or is_warning):
+            continue
+        if exporter.is_ignored_journal_message(str(record.get("MESSAGE") or "")):
             continue
         unit = exporter._LABEL_SAFE.sub("_", exporter.entry_unit(record))[:80]
         counts[(1 if is_error else 0, unit)] += 1

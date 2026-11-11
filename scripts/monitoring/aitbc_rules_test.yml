@@ -581,6 +581,27 @@ tests:
               summary: "aitbc-foo.service logged errors on 127.0.0.1:9100"
               description: "aitbc-foo.service produced 4 err-or-worse journal messages in the last 15 minutes. See the Service Journal card on alerts.html or: journalctl -u aitbc-foo.service -p err."
 
+  # AITBCJournalWarnings: sustained warning burst after collector noise exclusions.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_journal_warning_messages{unit="aitbc-bar.service", instance="127.0.0.1:9100"}'
+        values: '0x2 25x15 0x6'
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: AITBCJournalWarnings
+        exp_alerts: []
+      - eval_time: 16m
+        alertname: AITBCJournalWarnings
+        exp_alerts:
+          - exp_labels:
+              alertname: AITBCJournalWarnings
+              severity: warning
+              unit: aitbc-bar.service
+              instance: 127.0.0.1:9100
+            exp_annotations:
+              summary: "aitbc-bar.service logged warnings on 127.0.0.1:9100"
+              description: "aitbc-bar.service produced 25 warning journal messages in the last 15 minutes after noise exclusions (#1639). Inspect journalctl -u aitbc-bar.service for new patterns."
+
   # AITBCJournalScanStale: the collector writes a scan timestamp every 5 min.
   # A dead timer leaves the textfile behind, so the series keeps its frozen
   # value — the samples track eval time to t=10m, then repeat 600, exactly
