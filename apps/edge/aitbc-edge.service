@@ -1,6 +1,7 @@
 [Unit]
 Description=AITBC Edge API Service
-After=network.target postgresql.service
+After=network.target postgresql.service aitbc-blockchain-rpc.service
+Wants=postgresql.service aitbc-blockchain-rpc.service aitbc-gpu.service aitbc-market.service aitbc-agent-coordinator.service
 
 [Service]
 Type=simple
