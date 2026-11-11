@@ -57,6 +57,7 @@ def aitbc_messaging_dm_inbox(
 def aitbc_messaging_dm_keygen(
     wallet_name: Annotated[str, Field(description="Wallet that signs the dm_key publication")],
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Generate the key (if needed) and sign+submit once (default: dry run)")
     ] = None,
@@ -77,7 +78,7 @@ def aitbc_messaging_dm_keygen(
     """Create (or rotate) this wallet's DM key and publish the public half on-chain."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm", "rotate": "rotate"},
+        flags={"allow_high_fee": "allow-high-fee", "confirm_opt": "confirm", "rotate": "rotate"},
         values={"wallet_name": "wallet", "fee": "fee", "rpc_url": "rpc-url", "password_file": "password-file"},
     )
     args = None
@@ -146,6 +147,7 @@ def aitbc_messaging_dm_send(
     wallet_name: Annotated[str, Field(description="Wallet that signs the DM")],
     message: Annotated[str, Field(description="Plaintext body (encrypted before it leaves this process)")],
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     confirm_opt: Annotated[bool | None, Field(description="Seal, sign and submit once (default: dry run)")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     password_file: Annotated[
@@ -160,7 +162,7 @@ def aitbc_messaging_dm_send(
     """Send an encrypted DM to a recipient who has published a dm_key."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm"},
+        flags={"allow_high_fee": "allow-high-fee", "confirm_opt": "confirm"},
         values={
             "wallet_name": "wallet",
             "message": "message",
@@ -221,6 +223,7 @@ def aitbc_messaging_hide(
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -231,7 +234,7 @@ def aitbc_messaging_hide(
     """Run `aitbc messaging hide`."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm", "allow_high_fee": "allow-high-fee"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -334,6 +337,7 @@ def aitbc_messaging_lock(
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -344,7 +348,7 @@ def aitbc_messaging_lock(
     """Lock a topic or one thread (moderator only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm", "allow_high_fee": "allow-high-fee"},
         values={
             "topic": "topic",
             "target": "target",
@@ -408,6 +412,7 @@ def aitbc_messaging_mod_grant(
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -418,7 +423,7 @@ def aitbc_messaging_mod_grant(
     """Run `aitbc messaging mod-grant`."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm", "allow_high_fee": "allow-high-fee"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -481,6 +486,7 @@ def aitbc_messaging_mod_revoke(
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -491,7 +497,7 @@ def aitbc_messaging_mod_revoke(
     """Run `aitbc messaging mod-revoke`."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm", "allow_high_fee": "allow-high-fee"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -603,6 +609,7 @@ def aitbc_messaging_pin(
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -613,7 +620,7 @@ def aitbc_messaging_pin(
     """Run `aitbc messaging pin`."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm", "allow_high_fee": "allow-high-fee"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -715,6 +722,7 @@ def aitbc_messaging_send(
         str | None, Field(description="Parent message tx_hash — makes the post a reply (bare or 0x-prefixed 64-hex)")
     ] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the post, signs nothing)")
     ] = None,
@@ -738,7 +746,7 @@ def aitbc_messaging_send(
     """Post a forum message as a signed MESSAGE transaction."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm"},
+        flags={"allow_high_fee": "allow-high-fee", "confirm_opt": "confirm"},
         values={
             "wallet_name": "wallet",
             "message": "message",
@@ -1016,6 +1024,7 @@ def aitbc_messaging_unhide(
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1026,7 +1035,7 @@ def aitbc_messaging_unhide(
     """Run `aitbc messaging unhide`."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm", "allow_high_fee": "allow-high-fee"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -1089,6 +1098,7 @@ def aitbc_messaging_unlock(
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1099,7 +1109,7 @@ def aitbc_messaging_unlock(
     """Undo a lock (moderator only)."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm", "allow_high_fee": "allow-high-fee"},
         values={
             "topic": "topic",
             "target": "target",
@@ -1163,6 +1173,7 @@ def aitbc_messaging_unpin(
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1173,7 +1184,7 @@ def aitbc_messaging_unpin(
     """Run `aitbc messaging unpin`."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm", "allow_high_fee": "allow-high-fee"},
         values={
             "topic": "topic",
             "password_file": "password-file",
@@ -1237,6 +1248,7 @@ def aitbc_messaging_vote(
     confirm_opt: Annotated[
         bool | None, Field(description="Sign and submit once (default: dry run — prints the action, signs nothing)")
     ] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (AIT)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1247,7 +1259,7 @@ def aitbc_messaging_vote(
     """Vote on a forum message. Last vote per signer wins; 'retract' clears it."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"confirm_opt": "confirm"},
+        flags={"confirm_opt": "confirm", "allow_high_fee": "allow-high-fee"},
         values={
             "topic": "topic",
             "password_file": "password-file",

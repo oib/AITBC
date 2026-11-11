@@ -444,6 +444,7 @@ def aitbc_exchange_order_cancel(
 def aitbc_exchange_order_fund(
     order_id: Annotated[str, Field(description="Positional argument: order_id")],
     fee: Annotated[str | None, Field(description="AIT chain fee for the lock transfer (standard chain fee)")] = None,
+    allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     print_only: Annotated[
         bool | None, Field(description="Emit the equivalent 'transactions send' line; broadcast nothing")
     ] = None,
@@ -462,7 +463,7 @@ def aitbc_exchange_order_fund(
     """Fund an unfunded SELL order with its AIT escrow lock."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"print_only": "print"},
+        flags={"allow_high_fee": "allow-high-fee", "print_only": "print"},
         values={
             "fee": "fee",
             "wallet": "wallet",

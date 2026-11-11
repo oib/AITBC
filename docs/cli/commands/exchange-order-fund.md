@@ -21,6 +21,7 @@ aitbc exchange order fund [OPTIONS] ORDER_ID
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--fee` | decimal | `0.01` | no | AIT chain fee for the lock transfer (standard chain fee) |
+| `--allow-high-fee` | flag | `false` | no | Override the 10.00 AIT sanity ceiling on --fee |
 | `--print` | flag | `false` | no | Emit the equivalent 'transactions send' line; broadcast nothing |
 | `--wallet` | text | — | no | Wallet name (not a file path) — must be the order owner's |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |

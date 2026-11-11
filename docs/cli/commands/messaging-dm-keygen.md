@@ -16,6 +16,7 @@ aitbc messaging dm keygen [OPTIONS]
 |---|---|---|---|---|
 | `--wallet` | text | — | yes | Wallet that signs the dm_key publication |
 | `--fee` | decimal | `0.01` | no | Transaction fee (AIT) |
+| `--allow-high-fee` | flag | `false` | no | Override the 10.00 AIT sanity ceiling on --fee |
 | `--confirm` | flag | `false` | no | Generate the key (if needed) and sign+submit once (default: dry run) |
 | `--rotate` | flag | `false` | no | Publish a fresh key even if one exists (old eras are kept in the key file for old ciphertext) |
 | `--rpc-url` | text | — | no | Blockchain RPC URL |

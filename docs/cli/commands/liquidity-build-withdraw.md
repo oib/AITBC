@@ -18,6 +18,7 @@ aitbc liquidity build-withdraw [OPTIONS]
 | `--address` | text | — | no | Sender address (overrides --wallet-name) |
 | `--wallet-name` | text | — | no | Wallet whose address is the sender |
 | `--pool-id` | text | `main` | no | Liquidity pool identifier (default: main) |
+| `--allow-high-fee` | flag | `false` | no | Override the 10.00 AIT sanity ceiling on --fee |
 | `--fee` | decimal | `0.01` | no | Transaction fee in AIT |
 | `--rpc-url` | text | — | no | Blockchain RPC URL (overrides config) |
 | `--chain-id` | text | — | no | Chain ID the transaction is built for |

@@ -19,6 +19,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
 from ..utils import DECIMAL, output, resolve_output_format
 from ..utils.error_handling import abort
+from ..utils.fee_guard import ALLOW_HIGH_FEE_OPTION, validate_tx_fee
 from ..utils.http_client import AITBCHTTPClient
 from ..utils.signed_rpc import resolve_rpc_url
 from ..utils.wallet_loader import load_wallet_for_payment
@@ -52,6 +53,7 @@ def _build_options(f):
     f = click.option("--chain-id", "chain_id", default=None, help="Chain ID the transaction is built for")(f)
     f = click.option("--rpc-url", "rpc_url", default=None, help="Blockchain RPC URL (overrides config)")(f)
     f = click.option("--fee", "fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")(f)
+    f = ALLOW_HIGH_FEE_OPTION(f)
     f = click.option("--pool-id", "pool_id", default="main", help="Liquidity pool identifier (default: main)")(f)
     f = click.option("--wallet-name", "wallet_name", default=None, help="Wallet whose address is the sender")(f)
     f = click.option("--address", "address", default=None, help="Sender address (overrides --wallet-name)")(f)
@@ -80,8 +82,11 @@ def liquidity():
 @click.option("--lock-days", "lock_days", default=0, type=int, help="Lock period in days (higher APY)")
 @_build_options
 @click.pass_context
-def build_deposit(ctx, amount: Decimal, lock_days, address, wallet_name, pool_id, fee, rpc_url, chain_id, as_json):
+def build_deposit(
+    ctx, amount: Decimal, lock_days, address, wallet_name, pool_id, fee, allow_high_fee, rpc_url, chain_id, as_json
+):
     """Build an unsigned LIQUIDITY_DEPOSIT transaction."""
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     body = {
         "address": _resolve_address(ctx, address, wallet_name),
         "amount": int(ait_to_units(amount)),
@@ -101,8 +106,9 @@ def build_deposit(ctx, amount: Decimal, lock_days, address, wallet_name, pool_id
 @click.option("--stake-id", "stake_id", required=True, help="Liquidity stake identifier to claim rewards from")
 @_build_options
 @click.pass_context
-def build_claim(ctx, stake_id, address, wallet_name, pool_id, fee, rpc_url, chain_id, as_json):
+def build_claim(ctx, stake_id, address, wallet_name, pool_id, fee, allow_high_fee, rpc_url, chain_id, as_json):
     """Build an unsigned LIQUIDITY_CLAIM transaction."""
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     body = {
         "address": _resolve_address(ctx, address, wallet_name),
         "stake_id": stake_id,
@@ -121,8 +127,9 @@ def build_claim(ctx, stake_id, address, wallet_name, pool_id, fee, rpc_url, chai
 @click.option("--stake-id", "stake_id", required=True, help="Liquidity stake identifier to withdraw")
 @_build_options
 @click.pass_context
-def build_withdraw(ctx, stake_id, address, wallet_name, pool_id, fee, rpc_url, chain_id, as_json):
+def build_withdraw(ctx, stake_id, address, wallet_name, pool_id, fee, allow_high_fee, rpc_url, chain_id, as_json):
     """Build an unsigned LIQUIDITY_WITHDRAW transaction (stake must be unlocked)."""
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
     body = {
         "address": _resolve_address(ctx, address, wallet_name),
         "stake_id": stake_id,
