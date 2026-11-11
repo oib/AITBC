@@ -904,6 +904,18 @@ class RemoteAttestationService:
             return None
         return height, epoch, block_hash
 
+    @staticmethod
+    def _count_refusal(reason: str) -> None:
+        """#1709: count every attestation refusal, not just freshness ones.
+
+        A past-skewed validator used to drop peer requests with only a
+        journal line — a silent quorum dropout no metric or peer could
+        see. ``attestation_refused_total`` is the alertable rate;
+        ``attestation_refused_<reason>_total`` breaks it down. Reasons are
+        code-controlled constants, so the suffix stays bounded."""
+        metrics_registry.increment("attestation_refused_total")
+        metrics_registry.increment(f"attestation_refused_{reason}_total")
+
     async def _handle_request(self, request: Any) -> None:
         if not isinstance(request, dict):
             return
@@ -930,7 +942,7 @@ class RemoteAttestationService:
         header_age = self._header_age_seconds(header)
         stale_reason = self._header_freshness_refusal(header_age)
         if stale_reason is not None:
-            metrics_registry.increment(f"attestation_refused_{stale_reason}_total")
+            self._count_refusal(stale_reason)
             logger.info(
                 "Attestation refusal: %s at height %s (header age %.1fs, bound %.0fs, future skew %.0fs)",
                 stale_reason,
@@ -967,6 +979,7 @@ class RemoteAttestationService:
             except (TypeError, ValueError):
                 declared_round = -1
             if request_round is None or declared_round != request_round:
+                self._count_refusal("round_auth_mismatch")
                 logger.info(
                     "Round authentication refusal: round mismatch/underivable at height %s — declared=%s derived=%s",
                     height_int,
@@ -977,6 +990,7 @@ class RemoteAttestationService:
             if round_lock:
                 tip_refusal = self._tip_authorizes(header, height_int, header_hash)
                 if tip_refusal is not None:
+                    self._count_refusal(f"tip_{tip_refusal}")
                     logger.info(
                         "Round-lock refusal: %s for %s at height %s",
                         tip_refusal,
@@ -997,6 +1011,7 @@ class RemoteAttestationService:
         if not round_lock and getattr(settings, "attestation_lock_enabled", True):
             existing = self.attestation_lock(height_int, window, att_sig_domain)
             if existing is not None and existing[0] != header_hash:
+                self._count_refusal("attestation_lock_rival")
                 logger.info(
                     "Attestation lock: refusing to sign rival %s at height %s — already attested %s",
                     header_hash[:18],
@@ -1010,7 +1025,7 @@ class RemoteAttestationService:
             # height indefinitely. Refuse; a duplicate inside the window
             # (existing is not None) falls through as an idempotent re-publish.
             if existing is None and self._signed_once_contains(height_int, header_hash, att_sig_domain):
-                metrics_registry.increment("attestation_refused_resign_after_expiry_total")
+                self._count_refusal("resign_after_expiry")
                 logger.info(
                     "Attestation refusal: %s at height %s already signed and its lock has lapsed",
                     header_hash[:18],
@@ -1021,6 +1036,7 @@ class RemoteAttestationService:
         # Only sign for blocks produced by a known validator in our set.
         validator_set = self._load_validator_set()
         if validator_set and canonical_address(proposer) not in {canonical_address(v) for v in validator_set}:
+            self._count_refusal("non_validator_proposer")
             return
 
         # The claimed proposer must be the scheduled one for (height, round):
@@ -1034,6 +1050,7 @@ class RemoteAttestationService:
                     height_int,
                     expected[:18],
                 )
+                self._count_refusal("not_scheduled_proposer")
                 return
 
         # The schedule check proves the claimed name, not authorship: a
@@ -1070,9 +1087,11 @@ class RemoteAttestationService:
                     height_int,
                     proposer[:18],
                 )
+                self._count_refusal("bad_proposer_signature")
                 return
         elif getattr(settings, "consensus_require_signed_attest_request", False):
             logger.info("Attestation refusal: unsigned attest_request at height %s", height_int)
+            self._count_refusal("unsigned_attest_request")
             return
         else:
             count_v9_would_reject("attest_unsigned_request")
@@ -1095,6 +1114,7 @@ class RemoteAttestationService:
                     verdict.block_hash[:18],
                     verdict.proposer[:18],
                 )
+                self._count_refusal("round_lock_refusal")
                 return
             abandoned = self._abandoned_round_rival(height_int, request_round, header_hash)
             if abandoned is not None:
@@ -1106,6 +1126,7 @@ class RemoteAttestationService:
                     request_round,
                     abandoned[:18],
                 )
+                self._count_refusal("abandon_same_round_refusal")
                 return
 
         # v9: before signing, verify every transaction in the request —
@@ -1134,6 +1155,7 @@ class RemoteAttestationService:
                     height_int,
                     refusal,
                 )
+                self._count_refusal(f"v9_{refusal}")
                 return
             logger.warning(
                 "v9 shadow: would refuse attestation for block %s at height %s — %s",
@@ -1244,19 +1266,21 @@ class RemoteAttestationService:
                 # #1298 T7a: post-H round-auth responses carry the round even
                 # with round_lock OFF — collectors use it as the verify hint.
                 response["round"] = request_round
+            # #1709: request_age_ms is this node's clock minus the proposer's
+            # request timestamp — transit, queueing, v9 checks, plus any clock
+            # offset between the hosts. Carried on the response so collectors
+            # can distinguish a slow-but-honest responder from a skewed one;
+            # it is unsigned transport metadata like `round`, not part of the
+            # attestation payload.
+            request_ts = request.get("timestamp")
+            if isinstance(request_ts, (int, float)):
+                response["request_age_ms"] = int((time.time() - float(request_ts)) * 1000)
             try:
                 await gossip_broker.publish(self._response_topic, response)
             except Exception as e:
                 logger.warning("Failed to publish attestation response: %s", e)
                 continue
-            # request_age_ms is this node's clock minus the proposer's request
-            # timestamp: request transit, queueing and the v9 checks, plus any
-            # clock offset between the two hosts. It is what separates a validator
-            # that answers late from one that never answers (V-9).
-            request_ts = request.get("timestamp")
-            request_age_ms = (
-                int((time.time() - float(request_ts)) * 1000) if isinstance(request_ts, (int, float)) else "unknown"
-            )
+            request_age_ms = response.get("request_age_ms", "unknown")
             logger.info(
                 "Attestation response published: height=%s validator=%s proposer=%s header_age_ms=%s request_age_ms=%s",
                 message["height"],
