@@ -18,6 +18,7 @@ import subprocess
 from dataclasses import dataclass
 
 from aitbc.exceptions import AmbiguousRequestError
+from aitbc.utils.env import subprocess_env
 from pathlib import Path
 from typing import Any
 
@@ -55,7 +56,7 @@ def _systemd_creds_decrypt(credential_file: Path) -> str:
     _check_credential_file(credential_file)
     argv = ["systemd-creds", "decrypt", f"--name={CREDENTIAL_NAME}", str(credential_file), "-"]
     try:
-        proc = subprocess.run(argv, capture_output=True, timeout=_CREDENTIAL_TIMEOUT_S, check=False)
+        proc = subprocess.run(argv, capture_output=True, timeout=_CREDENTIAL_TIMEOUT_S, check=False, env=subprocess_env())
     except subprocess.TimeoutExpired:
         raise CredentialMissing("systemd-creds decrypt timed out") from None
     except OSError:

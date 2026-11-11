@@ -19,6 +19,7 @@ from uuid import uuid4
 from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.utils.env import subprocess_env
 
 from coordinator_api.contexts.agent_coordination.domain.agent import (
     AgentExecution,
@@ -510,6 +511,7 @@ class AgentDeploymentManager:
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=subprocess_env(),
             )
             _stdout, stderr = await proc.communicate()
             if proc.returncode is not None and proc.returncode != 0:
@@ -530,6 +532,7 @@ class AgentDeploymentManager:
                     service_name,
                     stdout=asyncio.subprocess.PIPE,
                     stderr=asyncio.subprocess.PIPE,
+                    env=subprocess_env(),
                 )
                 stdout, _ = await proc.communicate()
                 if stdout.decode().strip() == "active":
@@ -556,6 +559,7 @@ class AgentDeploymentManager:
                 service_name,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=subprocess_env(),
             )
             stdout, _ = await proc.communicate()
             service_active = stdout.decode().strip() == "active"
@@ -666,6 +670,7 @@ class AgentDeploymentManager:
                 *cmd,
                 stdout=asyncio.subprocess.PIPE,
                 stderr=asyncio.subprocess.PIPE,
+                env=subprocess_env(),
             )
             _stdout, stderr = await proc.communicate()
             if proc.returncode is not None and proc.returncode != 0:

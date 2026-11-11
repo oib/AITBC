@@ -44,6 +44,7 @@ import httpx
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.utils import ait_to_units, units_to_ait
+from aitbc.utils.env import subprocess_env
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 from aitbc.crypto.signature_recovery import canonical_address
 
@@ -334,7 +335,7 @@ def _credential_via_systemd_creds(cfg: SellConfig) -> str:
         "-",
     ]
     try:
-        proc = subprocess.run(argv, capture_output=True, timeout=10.0, check=False)
+        proc = subprocess.run(argv, capture_output=True, timeout=10.0, check=False, env=subprocess_env())
     except subprocess.TimeoutExpired:
         raise _CredentialMissing("systemd-creds decrypt timed out") from None
     except OSError:
