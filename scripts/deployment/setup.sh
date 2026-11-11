@@ -1627,7 +1627,13 @@ setup_venvs() {
 ensure_service_env_files() {
     log "Ensuring per-service environment files exist..."
     mkdir -p ${AITBC_ETC_DIR}
-    local unit base env_file
+    # Env files can carry secrets (API keys, DB passwords), so stubs are
+    # created owner-only (0600), never 0644 — the same rule update.sh's
+    # ensure_env_files enforces (#1719; the 0644 stubs this function used to
+    # create are the #1730 finding). Owner follows the unit's User= so a
+    # service reading its env file directly keeps access; systemd itself
+    # parses EnvironmentFile= as root either way.
+    local unit base env_file svc_user
     for unit in ${AITBC_SYSTEMD_DIR}/aitbc-*.service ${AITBC_SYSTEMD_DIR}/aitbc-*.timer; do
         [ -e "$unit" ] || continue
         base=$(basename "$unit")
@@ -1635,9 +1641,25 @@ ensure_service_env_files() {
         base="${base%.timer}"
         env_file="${AITBC_ETC_DIR}/${base}.env"
         if [ ! -f "$env_file" ]; then
-            touch "$env_file"
-            chmod 644 "$env_file"
-            log "Created missing env file: $env_file"
+            svc_user=$(sed -n 's/^User=//p' "$unit" | head -1 | tr -d '"')
+            case "$svc_user" in
+                "" | *[!a-zA-Z0-9_-]*) svc_user=root ;;
+            esac
+            if ! id "$svc_user" >/dev/null 2>&1; then
+                svc_user=root
+            fi
+            if install -o "$svc_user" -m 0600 /dev/null "$env_file" 2>/dev/null; then
+                log "Created missing env file: $env_file ($svc_user 0600)"
+            else
+                # Non-root context (tests): owner stays the caller, still 0600.
+                touch "$env_file"
+                chmod 600 "$env_file"
+                log "Created missing env file: $env_file (0600)"
+            fi
+        else
+            # Pre-existing env files: drop other-class access; owner/group
+            # perms are preserved so legitimate readers are unaffected.
+            chmod o-rwx "$env_file" 2>/dev/null || true
         fi
     done
 
@@ -1646,9 +1668,16 @@ ensure_service_env_files() {
     # files do not cause resource failures, but we still want them present.
     for common in ${AITBC_ETC_DIR}/node.env ${AITBC_ETC_DIR}/blockchain.env; do
         if [ ! -f "$common" ]; then
-            touch "$common"
-            chmod 644 "$common"
-            log "Created missing shared env file: $common"
+            if id aitbc >/dev/null 2>&1; then
+                install -o aitbc -m 0600 /dev/null "$common" 2>/dev/null \
+                    || { touch "$common"; chmod 600 "$common"; }
+            else
+                install -o root -m 0600 /dev/null "$common" 2>/dev/null \
+                    || { touch "$common"; chmod 600 "$common"; }
+            fi
+            log "Created missing shared env file: $common (0600)"
+        else
+            chmod o-rwx "$common" 2>/dev/null || true
         fi
     done
 
@@ -2043,5 +2072,8 @@ main() {
     agent_print_followup
 }
 
-# Run main function
-main "$@"
+# Run main function — only when executed, never when sourced (same guard
+# as update.sh, so tests can source individual functions).
+if [[ "${BASH_SOURCE[0]:-$0}" == "${0}" ]]; then
+    main "$@"
+fi
