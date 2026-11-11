@@ -60,6 +60,13 @@ _inflight = 0
 # not an unhandled decode error.
 _LANGUAGE_RE = re.compile(r"^[a-zA-Z]{2,3}(-[a-zA-Z]{2,8})?$")
 _UPLOAD_CHUNK = 1024 * 1024
+# MEDIA-UPLOAD-1 (#1671): wall-clock bound on one transcription. _MAX_CONCURRENT
+# defaults to 1, so a pathological decode used to wedge the service until
+# restart; the timeout answers 504 instead. The to_thread worker cannot be
+# killed mid-decode — the slot frees for the next request while the orphan
+# finishes in the background (same limitation noted for asyncio.to_thread in
+# ffmpeg's _run_cmd comment). 1h matches ffmpeg's transcode timeout.
+_TRANSCRIBE_TIMEOUT_SECONDS = float(os.getenv("WHISPER_TRANSCRIBE_TIMEOUT_SECONDS", "3600"))
 # The whole request body, not just the file part: multipart adds boundaries and
 # the other form fields on top, so the header check needs slack the per-file
 # limit does not.
@@ -98,7 +105,7 @@ app = FastAPI(title="AITBC Whisper Service", version="1.0.0", lifespan=lifespan)
 
 @app.middleware("http")
 async def _reject_oversized_body(request: Request, call_next):
-    """Refuse an oversized upload at the header, before any of it is spooled.
+    """Refuse an oversized upload before any of it is spooled.
 
     The byte counter in _spool_upload bounds memory, but it runs too late to stop
     the transfer: resolving an UploadFile parameter means ``await request.form()``,
@@ -106,10 +113,18 @@ async def _reject_oversized_body(request: Request, call_next):
     ever entered. A middleware is the only place that sees the request early
     enough to refuse it.
 
-    Content-Length is absent on a chunked upload, and a caller can of course lie
-    about it -- which is precisely why the streaming limit stays as the backstop
-    rather than being replaced by this.
+    MEDIA-UPLOAD-1 (#1671): the header check only works when a Content-Length
+    exists. A chunked transfer has none, so ``request.form()`` would spool an
+    unbounded body to PrivateTmp before _spool_upload's counter ever ran —
+    chunked uploads are refused outright (411). Every accepted upload now
+    declares its length up front; _spool_upload remains the backstop for the
+    per-file limit and multipart overhead.
     """
+    if "chunked" in request.headers.get("transfer-encoding", "").lower():
+        return JSONResponse(
+            status_code=411,
+            content={"detail": "Chunked transfer encoding is not accepted; send Content-Length"},
+        )
     length = request.headers.get("content-length")
     if length is not None and length.isdigit() and int(length) > _MAX_BODY_BYTES:
         return JSONResponse(
@@ -299,7 +314,16 @@ async def transcribe(
             )
 
         t_start = time.time()
-        result = await asyncio.to_thread(_transcribe_sync, tmp_path, language, task, beam_size)
+        try:
+            result = await asyncio.wait_for(
+                asyncio.to_thread(_transcribe_sync, tmp_path, language, task, beam_size),
+                timeout=_TRANSCRIBE_TIMEOUT_SECONDS,
+            )
+        except TimeoutError:
+            raise HTTPException(
+                status_code=504,
+                detail=f"Transcription exceeded the {_TRANSCRIBE_TIMEOUT_SECONDS:.0f}s limit",
+            ) from None
         elapsed = round(time.time() - t_start, 2)
         transcript = " ".join(result["full_text"])
         result_hash = hashlib.sha256(transcript.encode()).hexdigest()

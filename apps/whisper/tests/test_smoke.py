@@ -151,3 +151,30 @@ def test_transcribe_sem_releases_after_job(monkeypatch) -> None:
     _transcribe()
     _transcribe()
     assert len(fake.calls) == 2
+
+
+# --- MEDIA-UPLOAD-1 (#1671): wall-clock bound on the decode ---
+
+
+def test_transcribe_timeout_returns_504(monkeypatch) -> None:
+    """A decode that outlives _TRANSCRIBE_TIMEOUT_SECONDS answers 504 instead
+    of holding the single concurrency slot until restart."""
+    import time
+
+    monkeypatch.setattr(whisper_main, "_model", _FakeModel())
+    _patch_probe(monkeypatch)
+    monkeypatch.setattr(whisper_main, "_TRANSCRIBE_TIMEOUT_SECONDS", 0.05)
+
+    def slow_sync(path, language, task, beam_size):
+        time.sleep(0.4)
+        return {"segment_list": [], "full_text": [], "language": "en", "language_probability": 0.9, "duration": 1.0}
+
+    monkeypatch.setattr(whisper_main, "_transcribe_sync", slow_sync)
+    try:
+        _transcribe()
+    except Exception as exc:
+        assert getattr(exc, "status_code", None) == 504
+    else:  # pragma: no cover
+        raise AssertionError("expected HTTPException 504")
+    # The slot is released even though the orphaned worker is still draining.
+    assert whisper_main._inflight == 0
