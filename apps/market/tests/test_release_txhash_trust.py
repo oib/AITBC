@@ -235,4 +235,8 @@ class TestSettleTxPartyAndAmountBinding:
         from sqlalchemy import select
 
         pay = (await session.execute(select(MarketJobPayment).where(MarketJobPayment.job_id == "job-refund-1"))).scalar_one()
+        # #1835: the settle write is now a Core CAS (synchronize_session=False)
+        # — the identity-mapped instance keeps its pre-write attributes, so
+        # refresh to read what actually committed.
+        await session.refresh(pay)
         assert pay.refunded_amount == Decimal("5")

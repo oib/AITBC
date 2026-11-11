@@ -29,12 +29,20 @@ def _uid() -> str:
 
 
 async def _seed_job() -> tuple[str, str, str]:
-    """Return (job_id, buyer_private_key, provider_private_key)."""
+    """Return (job_id, buyer_private_key, provider_private_key).
+
+    #1835 F7: dispute_market_job now requires a live escrowed payment — the
+    seed attaches one so the dispute/resolve routes have something to freeze.
+    """
+    from decimal import Decimal
+
     from aitbc.crypto.crypto import derive_ethereum_address
+    from market_service.domain.market import MarketJobPayment
 
     buyer_key, provider_key = "0x" + "11" * 32, "0x" + "22" * 32
     async with get_session_context() as session:
         job_id = f"job_disp_{_uid()}"
+        payment = MarketJobPayment(id=f"pay_{_uid()}", job_id=job_id, amount=Decimal("1.0"), status="escrowed")
         session.add(
             MarketJob(
                 id=job_id,
@@ -44,8 +52,11 @@ async def _seed_job() -> tuple[str, str, str]:
                 state="RUNNING",
                 offer_id="offer_x",
                 payload={},
+                payment_id=payment.id,
+                payment_status="escrowed",
             )
         )
+        session.add(payment)
         await session.commit()
     return job_id, buyer_key, provider_key
 

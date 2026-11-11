@@ -17,7 +17,7 @@ from typing import Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
-from sqlalchemy import update
+from sqlalchemy import or_, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
@@ -50,6 +50,10 @@ MAX_PAYMENT_AMOUNT = Decimal("1000000000000000")
 # Shop bearer tokens authorize in-flight work only; terminal lifecycle states
 # must not admit new shop calls (#1817, #1597 residual).
 _ACCESS_TOKEN_ACTIVE_STATES = frozenset({"QUEUED", "RUNNING"})
+
+# #1835 F7: cap dispute opens per job — each open freeze stalls the sweeper,
+# so unbounded re-arms are a settlement-griefing vector.
+_MAX_JOB_DISPUTES = 3
 
 
 def _validated_job_ttl(value: Any) -> int:
@@ -2641,11 +2645,24 @@ class MarketService:
             job = await self.session.get(MarketJob, job_id)
             if not job:
                 raise ValueError(f"Job not found: {job_id}")
+            # #1835 F7: a dispute only freezes live escrow — a paymentless or
+            # already-settled job has nothing to freeze, so disputing it is
+            # pure griefing. Re-arms after resolve are capped so dispute/
+            # resolve cycles cannot freeze settlement forever.
+            payment = await self.session.get(MarketJobPayment, job.payment_id) if job.payment_id else None
+            if payment is None or payment.status not in {"escrowed", "refund_pending"}:
+                raise ValueError(f"Job {job_id} has no escrowed payment to dispute")
             now = datetime.now(UTC).replace(tzinfo=None)
             if job.disputed_at is None or job.dispute_cleared_at is not None:
+                receipt = dict(job.receipt or {})
+                dispute_count = int(receipt.get("_dispute_count", 0) or 0)
+                if dispute_count >= _MAX_JOB_DISPUTES:
+                    raise ValueError(f"Job {job_id} has reached the dispute limit ({_MAX_JOB_DISPUTES})")
+                receipt["_dispute_count"] = dispute_count + 1
                 job.disputed_at = now
                 job.dispute_reason = (reason or "")[:500] or None
                 job.dispute_cleared_at = None
+                job.receipt = receipt
                 job.updated_at = now
                 self.session.add(job)
                 await self.session.commit()
@@ -2686,16 +2703,89 @@ class MarketService:
             payload["provider_confirmed"] = True
         return payload
 
-    async def _cas_payment_status(self, payment_id: str, from_status: str, values: dict[str, Any]) -> bool:
+    async def _cas_payment_status(self, payment_id: str, from_statuses: frozenset[str] | str, values: dict[str, Any]) -> bool:
         """#1790: conditional payment-status write — the from_status predicate
         in WHERE is the compare-and-swap; True iff this call won the flip."""
+        if isinstance(from_statuses, str):
+            status_pred = col(MarketJobPayment.status) == from_statuses
+        else:
+            status_pred = col(MarketJobPayment.status).in_(from_statuses)
         claim = await self.session.execute(
             update(MarketJobPayment)
-            .where(col(MarketJobPayment.id) == payment_id, col(MarketJobPayment.status) == from_status)
+            .where(col(MarketJobPayment.id) == payment_id, status_pred)
             .values(**values)
             .execution_options(synchronize_session=False)
         )
         return getattr(claim, "rowcount", 0) == 1
+
+    async def _cas_settle_terminal(
+        self,
+        job_id: str,
+        *,
+        allowed_states: set[str] | frozenset[str],
+        job_values: dict[str, Any],
+        payment: MarketJobPayment | None,
+        payment_from_statuses: frozenset[str] | str,
+        payment_values: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """#1835 F2: CAS the release/refund terminal writes.
+
+        The payment flip and the job transition are conditional UPDATEs —
+        the allowed-state set plus the no-open-dispute clause in WHERE are
+        the compare-and-swap; a concurrent cancel/settle/dispute that
+        committed during the RPC window wins. Returns None when the job CAS
+        won (caller commits); on a lost race the transaction is rolled back
+        (reverting the payment flip) and the winning job's dict is returned
+        (#1790 pattern).
+        """
+        if payment is not None:
+            await self._cas_payment_status(payment.id, payment_from_statuses, payment_values)
+        claim = await self.session.execute(
+            update(MarketJob)
+            .where(
+                col(MarketJob.id) == job_id,
+                col(MarketJob.state).in_(allowed_states),
+                or_(col(MarketJob.disputed_at).is_(None), col(MarketJob.dispute_cleared_at).is_not(None)),
+            )
+            .values(**job_values)
+            .execution_options(synchronize_session=False)
+        )
+        if getattr(claim, "rowcount", 0) == 1:
+            return None
+        await self.session.rollback()
+        winner = await self.session.get(MarketJob, job_id)
+        return self._job_to_dict(winner) if winner else {}
+
+    @staticmethod
+    def _settle_payment_values(
+        *,
+        status: str,
+        tx_hash: str,
+        amount: Any,
+        now: datetime,
+        amount_field: str,
+        hash_field: str,
+        ts_field: str,
+    ) -> dict[str, Any]:
+        values: dict[str, Any] = {
+            "status": status,
+            hash_field: tx_hash,
+            ts_field: now,
+            "updated_at": now,
+        }
+        if amount is not None:
+            values[amount_field] = Decimal(str(amount))
+        return values
+
+    @staticmethod
+    def _refundable_job_states(payment: MarketJobPayment | None) -> set[str]:
+        """#1835 F2: state set mirroring _guard_refund_settlement — QUEUED/
+        RUNNING only when the payment is already refund_pending (cancel
+        flagged it), never for a live escrowed payment."""
+        states = {"FAILED", "CANCELED", "EXPIRED", "REFUNDED"}
+        if payment is not None and payment.status == "refund_pending":
+            states |= {"QUEUED", "RUNNING"}
+        return states
 
     @staticmethod
     def _addresses_match(left: Any, right: Any) -> bool:
@@ -2898,6 +2988,11 @@ class MarketService:
             raise ValueError(f"Job {job_id} has no escrowed payment to release")
         if payment.status == "released" and job.state == "RELEASED":
             return self._job_to_dict(job)
+        # #1835 F1: an open dispute freezes settlement on every path, not
+        # just the sweeper — the chain escrow has no dispute concept, so
+        # without this check a dispute-then-release call pays out anyway.
+        if job.disputed_at is not None and job.dispute_cleared_at is None:
+            raise ValueError(f"Cannot release escrow for job {job_id}: an open dispute freezes settlement")
         if job.state in {"CANCELED", "FAILED", "REFUNDED"}:
             raise ValueError(f"Cannot release escrow for job {job_id} in state {job.state}")
         # Release pays the provider for delivered work. Legitimate callers
@@ -2924,6 +3019,9 @@ class MarketService:
             raise ValueError(f"Job {job_id} has no refundable escrowed payment")
         if payment.status == "refunded" and job.state == "REFUNDED":
             return self._job_to_dict(job)
+        # #1835 F1: same freeze as release — an open dispute blocks refund.
+        if job.disputed_at is not None and job.dispute_cleared_at is None:
+            raise ValueError(f"Cannot refund escrow for job {job_id}: an open dispute freezes settlement")
         if payment.status == "released" or job.state in {"RELEASED", "COMPLETED"}:
             raise ValueError(f"Cannot refund escrow for job {job_id}: payment already released")
         if job.state in {"QUEUED", "RUNNING"} and payment.status != "refund_pending":
@@ -2965,22 +3063,36 @@ class MarketService:
                 tx_hash = str(result.get("tx_hash", ""))
                 released_amount = result.get("released_amount")
 
-            job.state = "RELEASED"
-            job.payment_status = "released"
-            job.tx_hash = tx_hash
-            job.completed_at = datetime.now(UTC).replace(tzinfo=None)
-            job.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            now = datetime.now(UTC).replace(tzinfo=None)
+            # #1835 F2: terminal writes are CAS via _cas_settle_terminal —
+            # RUNNING/COMPLETED + no-open-dispute in WHERE is the swap; a
+            # concurrent cancel/dispute that committed during the RPC
+            # window wins and its state is reported instead.
+            lost = await self._cas_settle_terminal(
+                job_id,
+                allowed_states={"RUNNING", "COMPLETED"},
+                job_values={
+                    "state": "RELEASED",
+                    "payment_status": "released",
+                    "tx_hash": tx_hash,
+                    "completed_at": now,
+                    "updated_at": now,
+                },
+                payment=payment,
+                payment_from_statuses="escrowed",
+                payment_values=self._settle_payment_values(
+                    status="released",
+                    tx_hash=tx_hash,
+                    amount=released_amount,
+                    now=now,
+                    amount_field="released_amount",
+                    hash_field="transaction_hash",
+                    ts_field="released_at",
+                ),
+            )
+            if lost is not None:
+                return lost
 
-            if payment:
-                payment.status = "released"
-                payment.transaction_hash = tx_hash
-                payment.released_at = datetime.now(UTC).replace(tzinfo=None)
-                payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
-                if released_amount is not None:
-                    payment.released_amount = Decimal(str(released_amount))
-                self.session.add(payment)
-
-            self.session.add(job)
             await self.session.commit()
             await self.session.refresh(job)
 
@@ -3024,23 +3136,37 @@ class MarketService:
                 tx_hash = str(result.get("tx_hash", ""))
                 refunded_amount = result.get("refunded_amount")
 
-            job.state = "REFUNDED"
-            job.payment_status = "refunded"
-            job.refund_tx_hash = tx_hash
+            now = datetime.now(UTC).replace(tzinfo=None)
+            # #1835 F2: same CAS treatment as release — the refundable state
+            # set mirrors _guard_refund_settlement, plus the no-open-dispute
+            # predicate so a dispute landing mid-RPC also loses.
+            job_values: dict[str, Any] = {
+                "state": "REFUNDED",
+                "payment_status": "refunded",
+                "refund_tx_hash": tx_hash,
+                "updated_at": now,
+            }
             if reason:
-                job.receipt = {"reason": reason}
-            job.updated_at = datetime.now(UTC).replace(tzinfo=None)
+                job_values["receipt"] = {"reason": reason}
+            lost = await self._cas_settle_terminal(
+                job_id,
+                allowed_states=self._refundable_job_states(payment),
+                job_values=job_values,
+                payment=payment,
+                payment_from_statuses=frozenset({"escrowed", "refund_pending"}),
+                payment_values=self._settle_payment_values(
+                    status="refunded",
+                    tx_hash=tx_hash,
+                    amount=refunded_amount,
+                    now=now,
+                    amount_field="refunded_amount",
+                    hash_field="refund_transaction_hash",
+                    ts_field="refunded_at",
+                ),
+            )
+            if lost is not None:
+                return lost
 
-            if payment:
-                payment.status = "refunded"
-                payment.refund_transaction_hash = tx_hash
-                payment.refunded_at = datetime.now(UTC).replace(tzinfo=None)
-                payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
-                if refunded_amount is not None:
-                    payment.refunded_amount = Decimal(str(refunded_amount))
-                self.session.add(payment)
-
-            self.session.add(job)
             await self.session.commit()
             await self.session.refresh(job)
 
