@@ -2581,21 +2581,40 @@ class MarketService:
             if job.state in {"CANCELED", "REFUNDED", "RELEASED", "COMPLETED"}:
                 return self._job_to_dict(job)
 
-            job.state = "CANCELED"
-            job.receipt = {"reason": reason or "buyer_requested"}
-            job.error = None
-            job.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            now = datetime.now(UTC).replace(tzinfo=None)
 
-            payment = None
+            # #1790: payment flip is a CAS too — only an escrowed payment
+            # moves to refund_pending; rowcount is the truth, not the read.
+            payment_flipped = False
             if job.payment_id:
-                payment = await self.session.get(MarketJobPayment, job.payment_id)
-                if payment and payment.status == "escrowed":
-                    payment.status = "refund_pending"
-                    payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
-                    self.session.add(payment)
-                    job.payment_status = "refund_pending"
+                payment_flipped = await self._cas_payment_status(
+                    job.payment_id, "escrowed", {"status": "refund_pending", "updated_at": now}
+                )
 
-            self.session.add(job)
+            # #1790: CAS the lifecycle write — the state predicate in WHERE
+            # is the compare-and-swap. A concurrent cancel/settle that
+            # committed first makes rowcount 0; roll back (reverting the
+            # payment flip) and report the state that actually won.
+            claim = await self.session.execute(
+                update(MarketJob)
+                .where(
+                    col(MarketJob.id) == job_id,
+                    col(MarketJob.state).notin_({"CANCELED", "REFUNDED", "RELEASED", "COMPLETED"}),
+                )
+                .values(
+                    state="CANCELED",
+                    receipt={"reason": reason or "buyer_requested"},
+                    error=None,
+                    payment_status="refund_pending" if payment_flipped else job.payment_status,
+                    updated_at=now,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            if getattr(claim, "rowcount", 0) != 1:
+                await self.session.rollback()
+                job = await self.session.get(MarketJob, job_id)
+                return self._job_to_dict(job) if job else {}
+
             await self.session.commit()
             await self.session.refresh(job)
 
@@ -2604,6 +2623,29 @@ class MarketService:
             await self.session.rollback()
             logger.error("Error in cancel_market_job: %s: %s", type(e).__name__, e)
             raise
+
+    @staticmethod
+    def _pin_payload(job: MarketJob, size: int | None, pin_tx_hash: str | None, provider_confirmed: bool) -> dict[str, Any]:
+        payload = dict(job.payload or {})
+        payload["pinned"] = True
+        if size is not None:
+            payload["size"] = size
+        if pin_tx_hash:
+            payload["pin_tx_hash"] = pin_tx_hash
+        if provider_confirmed:
+            payload["provider_confirmed"] = True
+        return payload
+
+    async def _cas_payment_status(self, payment_id: str, from_status: str, values: dict[str, Any]) -> bool:
+        """#1790: conditional payment-status write — the from_status predicate
+        in WHERE is the compare-and-swap; True iff this call won the flip."""
+        claim = await self.session.execute(
+            update(MarketJobPayment)
+            .where(col(MarketJobPayment.id) == payment_id, col(MarketJobPayment.status) == from_status)
+            .values(**values)
+            .execution_options(synchronize_session=False)
+        )
+        return getattr(claim, "rowcount", 0) == 1
 
     @staticmethod
     def _addresses_match(left: Any, right: Any) -> bool:
@@ -2679,27 +2721,38 @@ class MarketService:
 
             # payload is a plain JSON column: reassign, don't mutate in place,
             # or SQLAlchemy never sees the change and the update is dropped.
-            payload = dict(job.payload or {})
-            payload["pinned"] = True
-            if size is not None:
-                payload["size"] = size
-            if pin_tx_hash:
-                payload["pin_tx_hash"] = pin_tx_hash
-            if provider_confirmed:
-                payload["provider_confirmed"] = True
-            job.payload = payload
+            payload = self._pin_payload(job, size, pin_tx_hash, provider_confirmed)
 
-            job.state = "RUNNING"
-            job.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            now = datetime.now(UTC).replace(tzinfo=None)
 
-            if payment and payment.status == "pending":
-                payment.status = "escrowed"
-                payment.escrowed_at = datetime.now(UTC).replace(tzinfo=None)
-                payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
-                self.session.add(payment)
-                job.payment_status = "escrowed"
+            # #1790: pending->escrowed is a CAS — rowcount decides, and the
+            # proof above already ran so a lost race cannot skip it.
+            payment_flipped = False
+            if payment is not None and payment.status == "pending":
+                payment_flipped = await self._cas_payment_status(
+                    payment.id, "pending", {"status": "escrowed", "escrowed_at": now, "updated_at": now}
+                )
 
-            self.session.add(job)
+            # #1790: CAS the QUEUED/RUNNING -> RUNNING transition. A
+            # concurrent cancel that committed first yields rowcount 0 —
+            # roll back (reverting the payment flip) and return the state
+            # that actually won instead of overwriting it.
+            claim = await self.session.execute(
+                update(MarketJob)
+                .where(col(MarketJob.id) == job_id, col(MarketJob.state).in_({"QUEUED", "RUNNING"}))
+                .values(
+                    state="RUNNING",
+                    payload=payload,
+                    payment_status="escrowed" if payment_flipped else job.payment_status,
+                    updated_at=now,
+                )
+                .execution_options(synchronize_session=False)
+            )
+            if getattr(claim, "rowcount", 0) != 1:
+                await self.session.rollback()
+                job = await self.session.get(MarketJob, job_id)
+                return self._job_to_dict(job) if job else {}
+
             await self.session.commit()
             await self.session.refresh(job)
 
