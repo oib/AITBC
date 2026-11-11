@@ -299,6 +299,67 @@ class GovernanceService:
         await self.session.refresh(proposal)
         return proposal
 
+    async def _stamp_executed_after_execute(
+        self,
+        proposal_id: str,
+        proposal: Proposal,
+        execution_log: ProposalExecutionLog,
+        *,
+        tx_hash: str | None,
+        block_height: int | None,
+        automation_result: dict[str, Any] | None,
+    ) -> Proposal:
+        """Conditionally move a SUCCEEDED proposal to EXECUTED (#1803)."""
+        executed_at = datetime.now(UTC)
+        metadata = proposal.proposal_metadata
+        if block_height is not None:
+            metadata = {
+                **(proposal.proposal_metadata or {}),
+                "execution_block_height": block_height,
+            }
+        values: dict[str, Any] = {
+            "status": ProposalStatus.EXECUTED,
+            "executed_at": executed_at,
+        }
+        if tx_hash:
+            values["execution_tx_hash"] = tx_hash
+        if block_height is not None:
+            values["proposal_metadata"] = metadata
+        stamp = await self.session.execute(
+            update(Proposal)
+            .where(
+                col(Proposal.proposal_id) == proposal_id,
+                col(Proposal.status) == ProposalStatus.SUCCEEDED,
+            )
+            .values(**values)
+        )
+        if getattr(stamp, "rowcount", None) == 0:
+            await self.session.refresh(proposal)
+            execution_log.status = "failed"
+            execution_log.error_message = "proposal no longer in succeeded state (concurrent execute)"
+            await self.session.commit()
+            return proposal
+
+        proposal.status = ProposalStatus.EXECUTED
+        proposal.executed_at = executed_at
+        if tx_hash:
+            proposal.execution_tx_hash = tx_hash
+        if block_height is not None:
+            proposal.proposal_metadata = metadata
+
+        await self.session.commit()
+
+        execution_log.status = "completed"
+        execution_log.result = {
+            "executed_at": executed_at.isoformat(),
+            "tx_hash": tx_hash,
+            "parameter_automation": automation_result,
+        }
+
+        await self.session.commit()
+        await self.session.refresh(proposal)
+        return proposal
+
     async def _sealing_block_time(self, proposal: Proposal, height: int) -> datetime | None:
         """Timestamp of the block that sealed the EXECUTE, or None if unreadable —
         the status write stays honest without it rather than inventing a time."""
@@ -996,32 +1057,14 @@ class GovernanceService:
                 if not automation_result.get("applied"):
                     raise ValueError(f"parameter apply failed: {automation_result}")
 
-            # Update proposal status
-            proposal.status = ProposalStatus.EXECUTED
-            proposal.executed_at = datetime.now(UTC)
-            if tx_hash:
-                proposal.execution_tx_hash = tx_hash
-            if block_height:
-                # V23-18: record the execution height alongside the creation height rather
-                # than overwriting it. proposal.block_height is the evidence the timelock
-                # check measures from; overwriting it at execution destroys the only record
-                # of whether the delay was actually honoured.
-                proposal.proposal_metadata = {
-                    **proposal.proposal_metadata,
-                    "execution_block_height": block_height,
-                }
-
-            # Log execution success
-            execution_log.status = "completed"
-            execution_log.result = {
-                "executed_at": proposal.executed_at.isoformat(),
-                "tx_hash": tx_hash,
-                "parameter_automation": automation_result,
-            }
-
-            await self.session.commit()
-            await self.session.refresh(proposal)
-            return proposal
+            return await self._stamp_executed_after_execute(
+                proposal_id,
+                proposal,
+                execution_log,
+                tx_hash=tx_hash,
+                block_height=block_height,
+                automation_result=automation_result,
+            )
         except Exception as e:
             # Log execution failure
             execution_log.status = "failed"
