@@ -1,14 +1,12 @@
 """Trading domain models."""
 
 from coordinator_api.contexts.trading.domain.pricing_models import (
-    MarketHeatmapView,
     MarketMetrics,
     PriceForecast,
     PriceTrend,
     PricingAuditLog,
     PricingHistory,
     PricingStrategyType,
-    PricingSummaryView,
     ProviderPricingStrategy,
     ResourceType,
 )
@@ -24,7 +22,6 @@ from coordinator_api.contexts.trading.domain.pricing_strategies import (
 )
 
 __all__ = [
-    "MarketHeatmapView",
     "MarketMetrics",
     "PriceForecast",
     "PriceTrend",
@@ -33,7 +30,6 @@ __all__ = [
     "PricingStrategy",
     "PricingStrategyConfig",
     "PricingStrategyType",
-    "PricingSummaryView",
     "ProviderPricingStrategy",
     "ResourceType",
     "RiskTolerance",

@@ -1,13 +1,15 @@
 {
   "_comment": "Modules under the guarded roots that nothing in this repository imports, recorded so the guard fails only on new ones. This list may shrink and must never grow. Regenerate after deleting something with: python scripts/lint/no_orphan_modules.py --update-baseline. 'verdict' is the reviewed decision for each entry -- 'delete' means it is queued for removal, 'keep' means it is unreachable on purpose and 'why' says why. An entry is debt with a number attached, not an accepted state.",
+  "total_modules": 32,
+  "total_lines": 6673,
   "orphans": {
     "apps/coordinator-api/src/coordinator_api/adapters/agent_core_adapters.py": {
-      "lines": 205,
+      "lines": 224,
       "verdict": "keep",
       "why": "The adapter half of the same design document."
     },
     "apps/coordinator-api/src/coordinator_api/agent_identity/core.py": {
-      "lines": 383,
+      "lines": 385,
       "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/agent_identity/registry.py": {
@@ -23,7 +25,7 @@
       "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/contexts/advanced_rl/domain/rl_config.py": {
-      "lines": 70,
+      "lines": 83,
       "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/agent_service.py": {
@@ -40,7 +42,7 @@
       "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/contexts/community/domain/community.py": {
-      "lines": 182,
+      "lines": 101,
       "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/contexts/cross_chain/schemas/atomic_swap.py": {
@@ -65,7 +67,7 @@
       "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/explorer.py": {
-      "lines": 346,
+      "lines": 359,
       "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/miners.py": {
@@ -74,10 +76,6 @@
     },
     "apps/coordinator-api/src/coordinator_api/contexts/ipfs/schemas/decentralized_memory.py": {
       "lines": 31,
-      "verdict": "unreviewed"
-    },
-    "apps/coordinator-api/src/coordinator_api/contexts/market/domain/market.py": {
-      "lines": 8,
       "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/contexts/market/services/external_providers.py": {
@@ -91,7 +89,7 @@
       "why": "Documented in 05-analytics.md and docs/features/market-stats.md."
     },
     "apps/coordinator-api/src/coordinator_api/contexts/market/services/resource_matcher.py": {
-      "lines": 222,
+      "lines": 227,
       "verdict": "keep",
       "why": "Documented with a working usage example in docs/market/advanced-market/04-ml-search.md and named by skills/agent-autonomy-testing/SKILL.md."
     },
@@ -103,16 +101,12 @@
       "lines": 11,
       "verdict": "unreviewed"
     },
-    "apps/coordinator-api/src/coordinator_api/contexts/portfolio/domain/agent_portfolio.py": {
-      "lines": 301,
-      "verdict": "unreviewed"
-    },
     "apps/coordinator-api/src/coordinator_api/contexts/security/services/kyc_aml_providers.py": {
       "lines": 365,
       "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py": {
-      "lines": 341,
+      "lines": 369,
       "verdict": "unreviewed"
     },
     "apps/coordinator-api/src/coordinator_api/contexts/trading/domain/pricing_strategies.py": {
@@ -136,10 +130,6 @@
       "lines": 60,
       "verdict": "unreviewed"
     },
-    "apps/coordinator-api/src/coordinator_api/models/confidential.py": {
-      "lines": 165,
-      "verdict": "unreviewed"
-    },
     "apps/coordinator-api/src/coordinator_api/sdk/enterprise_client.py": {
       "lines": 455,
       "verdict": "keep",
@@ -149,7 +139,5 @@
       "lines": 18,
       "verdict": "unreviewed"
     }
-  },
-  "total_lines": 7148,
-  "total_modules": 35
+  }
 }

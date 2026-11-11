@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1522
+- **Markdown files under docs/**: 1521
 
 | Directory | Files | Description |
 |---|---|---|
@@ -74,7 +74,7 @@ docs/
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
 | [cli](cli/) | 597 | Command-line interface reference |
-| [contracts](contracts/) | 14 | Smart contract and ZK verification docs |
+| [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
 | [deployment](deployment/) | 30 | Deployment and infrastructure setup |
@@ -881,7 +881,6 @@ Inbound markdown links per document (top referrers).
 | [contracts/escrow.md](contracts/escrow.md) | [contracts/README.md](contracts/README.md) |
 | [contracts/guardian.md](contracts/guardian.md) | [contracts/README.md](contracts/README.md) |
 | [contracts/htlc.md](contracts/htlc.md) | [contracts/README.md](contracts/README.md) |
-| [contracts/persistent-spending-tracker.md](contracts/persistent-spending-tracker.md) | [contracts/README.md](contracts/README.md) |
 | [contracts/upgrades.md](contracts/upgrades.md) | [contracts/README.md](contracts/README.md) |
 | [database/README.md](database/README.md) | — |
 | [decisions/2026-10-12-operator-decisions.md](decisions/2026-10-12-operator-decisions.md) | [decisions/README.md](decisions/README.md) |

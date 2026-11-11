@@ -24,9 +24,19 @@ from aitbc.env_compat import market_getenv
 # Importing the models is what puts them on `market_metadata`; create_all builds nothing
 # otherwise. This service's own tables live there rather than on the global SQLModel registry --
 # see domain/base.py (V23-72).
-from .domain import global_market as _global_models  # noqa: F401
 from .domain import market as _models  # noqa: F401
 from .domain.base import market_metadata
+
+# #1840: tables whose models were removed in the dead-table cleanup — dropped
+# idempotently at startup since this service has no migration chain.
+_DEAD_GLOBAL_MARKET_TABLES = (
+    "marketplace_regions",
+    "global_marketplace_configs",
+    "global_marketplace_offers",
+    "global_marketplace_transactions",
+    "global_marketplace_analytics",
+    "global_marketplace_governance",
+)
 
 logger = get_logger(__name__)
 DEFAULT_DB = f"sqlite+aiosqlite:///{DATA_DIR}/data/marketplace_service.db"
@@ -131,6 +141,14 @@ async def init_db() -> None:
     shared = MarketOffer.__table__  # type: ignore[attr-defined]
     async with engine.begin() as conn:
         await conn.run_sync(market_metadata.create_all)
+        # #1840: the global_marketplace_* mirror models were removed — this
+        # service has no alembic chain, so drop their (empty, census-verified)
+        # tables here; create_all never drops on its own. CASCADE on Postgres
+        # so residual FKs inside the dead cohort cannot block startup;
+        # SQLite has no CASCADE clause.
+        cascade = " CASCADE" if engine.dialect.name == "postgresql" else ""
+        for dead in _DEAD_GLOBAL_MARKET_TABLES:
+            await conn.execute(text(f'DROP TABLE IF EXISTS "{dead}"{cascade}'))
         await conn.run_sync(lambda sync_conn: shared.create(sync_conn, checkfirst=True))
         for table in list(market_metadata.sorted_tables) + [shared]:
             await conn.run_sync(

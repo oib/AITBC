@@ -24,12 +24,10 @@ async def db_session():
     )
     from trading_service.domain.trading import (  # noqa: F401 — register tables
         TradeAgreement,
-        TradeFeedback,
         TradeMatch,
         TradeNegotiation,
         TradeRequest,
         TradeSettlement,
-        TradingAnalytics,
     )
 
     engine = create_async_engine("sqlite+aiosqlite:///:memory:", echo=False)

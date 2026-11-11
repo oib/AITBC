@@ -129,40 +129,6 @@ class AgentReputation(SQLModel, table=True):
         )
 
 
-class TrustScoreCalculation(SQLModel, table=True):
-    """Trust score calculation records and factors"""
-
-    __tablename__ = "trust_score_calculations"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"trust_{uuid4().hex[:8]}", primary_key=True)
-    agent_id: str = Field(index=True)
-
-    # Calculation details
-    category: TrustScoreCategory
-    base_score: float = Field(ge=0, le=1000)
-    weight_factor: float = Field(default=1.0, ge=0, le=10)
-    adjusted_score: float = Field(ge=0, le=1000)
-
-    # Contributing factors
-    performance_factor: float = Field(default=1.0)
-    reliability_factor: float = Field(default=1.0)
-    community_factor: float = Field(default=1.0)
-    security_factor: float = Field(default=1.0)
-    economic_factor: float = Field(default=1.0)
-
-    # Calculation metadata
-    calculation_method: str = Field(default="weighted_average")
-    confidence_level: float = Field(default=0.8, ge=0, le=1.0)
-
-    # Timestamps
-    calculated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    effective_period: int = Field(default=86400)  # seconds
-
-    # Additional data
-    calculation_details: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-
 class ReputationEvent(SQLModel, table=True):
     """Reputation-changing events and transactions"""
 
@@ -196,45 +162,6 @@ class ReputationEvent(SQLModel, table=True):
     occurred_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     processed_at: datetime | None = None
     expires_at: datetime | None = None
-
-
-class AgentEconomicProfile(SQLModel, table=True):
-    """Detailed economic profile for agents"""
-
-    __tablename__ = "agent_economic_profiles"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"econ_{uuid4().hex[:8]}", primary_key=True)
-    agent_id: str = Field(index=True)
-
-    # Earnings breakdown
-    daily_earnings: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
-    weekly_earnings: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
-    monthly_earnings: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
-    yearly_earnings: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
-
-    # Performance metrics
-    average_job_value: float = Field(default=0.0)
-    peak_hourly_rate: float = Field(default=0.0)
-    utilization_rate: float = Field(default=0.0, ge=0, le=100.0)
-
-    # Market position
-    market_share: float = Field(default=0.0, ge=0, le=100.0)
-    competitive_ranking: int = Field(default=0)
-    price_tier: str = Field(default="standard")  # budget, standard, premium
-
-    # Risk metrics
-    default_risk_score: float = Field(default=0.0, ge=0, le=100.0)
-    volatility_score: float = Field(default=0.0, ge=0, le=100.0)
-    liquidity_score: float = Field(default=0.0, ge=0, le=100.0)
-
-    # Timestamps
-    profile_date: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    last_updated: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-    # Historical data
-    earnings_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
-    performance_history: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
 
 
 class CommunityFeedback(SQLModel, table=True):
@@ -287,44 +214,10 @@ class CommunityFeedback(SQLModel, table=True):
     feedback_context: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
 
-class ReputationLevelThreshold(SQLModel, table=True):
-    """Configuration for reputation level thresholds"""
-
-    __tablename__ = "reputation_level_thresholds"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"threshold_{uuid4().hex[:8]}", primary_key=True)
-    level: ReputationLevel
-
-    # Threshold requirements
-    min_trust_score: float = Field(ge=0, le=1000)
-    min_performance_rating: float = Field(ge=1.0, le=5.0)
-    min_reliability_score: float = Field(ge=0, le=100.0)
-    min_transactions: int = Field(default=0)
-    min_success_rate: float = Field(ge=0, le=100.0)
-
-    # Benefits and restrictions
-    max_concurrent_jobs: int = Field(default=1)
-    priority_boost: float = Field(default=1.0)
-    fee_discount: float = Field(default=0.0, ge=0, le=100.0)
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    is_active: bool = Field(default=True)
-
-    # Additional configuration
-    level_requirements: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    level_benefits: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-
 __all__ = [
-    "AgentEconomicProfile",
     "AgentReputation",
     "CommunityFeedback",
     "ReputationEvent",
     "ReputationLevel",
-    "ReputationLevelThreshold",
-    "TrustScoreCalculation",
     "TrustScoreCategory",
 ]

@@ -66,84 +66,6 @@ class DeveloperProfile(SQLModel, table=True):
     last_active: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class AgentSolution(SQLModel, table=True):
-    """A third-party agent solution available in the developer market"""
-
-    __tablename__ = "agent_solutions"
-
-    solution_id: str = Field(primary_key=True, default_factory=lambda: f"sol_{uuid.uuid4().hex[:8]}")
-    developer_id: str = Field(foreign_key="developer_profiles.developer_id")
-
-    title: str = Field(max_length=200)
-    description: str = Field(max_length=255)
-    version: str = Field(default="1.0.0")
-
-    capabilities: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-    frameworks: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    price_model: str = Field(default="free")  # free, one_time, subscription, usage_based
-    price_amount: Decimal = Field(default=Decimal("0.0"), max_digits=20, decimal_places=8)
-    currency: str = Field(default="AITBC")
-
-    status: SolutionStatus = Field(default=SolutionStatus.DRAFT, index=True)
-    downloads: int = Field(default=0)
-    average_rating: float = Field(default=0.0)
-    review_count: int = Field(default=0)
-
-    solution_meta_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    published_at: datetime | None = None
-
-
-class InnovationLab(SQLModel, table=True):
-    """Research program or innovation lab for agent development"""
-
-    __tablename__ = "innovation_labs"
-
-    lab_id: str = Field(primary_key=True, default_factory=lambda: f"lab_{uuid.uuid4().hex[:8]}")
-    title: str = Field(max_length=200)
-    description: str = Field(max_length=255)
-    research_area: str
-
-    lead_researcher_id: str = Field(foreign_key="developer_profiles.developer_id")
-    members: list[str] = Field(default_factory=list, sa_column=Column(JSON))  # List of developer_ids
-
-    status: LabStatus = Field(default=LabStatus.PROPOSED)
-    funding_goal: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
-    current_funding: Decimal = Field(default=Decimal("0"), max_digits=20, decimal_places=8)
-
-    milestones: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
-    publications: list[dict[str, Any]] = Field(default_factory=list, sa_column=Column(JSON))
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    target_completion: datetime | None = None
-
-
-class CommunityPost(SQLModel, table=True):
-    """A post in the community support/collaboration platform"""
-
-    __tablename__ = "community_posts"
-
-    post_id: str = Field(primary_key=True, default_factory=lambda: f"post_{uuid.uuid4().hex[:8]}")
-    author_id: str = Field(foreign_key="developer_profiles.developer_id")
-
-    title: str = Field(max_length=200)
-    content: str
-    category: str = Field(default="discussion")  # discussion, question, showcase, tutorial
-    tags: list[str] = Field(default_factory=list, sa_column=Column(JSON))
-
-    upvotes: int = Field(default=0)
-    views: int = Field(default=0)
-    is_resolved: bool = Field(default=False)
-
-    parent_post_id: str | None = Field(default=None, foreign_key="community_posts.post_id")
-
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-
 class Hackathon(SQLModel, table=True):
     """Innovation challenge or hackathon"""
 
@@ -170,13 +92,10 @@ class Hackathon(SQLModel, table=True):
 
 
 __all__ = [
-    "AgentSolution",
-    "CommunityPost",
     "DeveloperProfile",
     "DeveloperTier",
     "Hackathon",
     "HackathonStatus",
-    "InnovationLab",
     "LabStatus",
     "SolutionStatus",
 ]

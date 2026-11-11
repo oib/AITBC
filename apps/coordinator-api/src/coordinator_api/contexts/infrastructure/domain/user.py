@@ -79,19 +79,4 @@ class UserTransaction(SQLModel, table=True):
 
 Transaction = UserTransaction
 
-
-class UserSession(SQLModel, table=True):
-    """User session model"""
-
-    __tablename__ = "user_sessions"
-    __table_args__ = {"extend_existing": True}
-
-    id: int | None = Field(default=None, primary_key=True)
-    user_id: str = Field(foreign_key="users.id")
-    token: str = Field(unique=True, index=True)
-    expires_at: datetime
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    last_used: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-
-__all__ = ["Transaction", "User", "UserSession", "Wallet"]
+__all__ = []

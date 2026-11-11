@@ -3,7 +3,7 @@ Cross-Chain Reputation Extensions
 Extends the existing reputation system with cross-chain capabilities
 """
 
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
@@ -76,72 +76,6 @@ class CrossChainReputationAggregation(SQLModel, table=True):
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class CrossChainReputationEvent(SQLModel, table=True):
-    """Cross-chain reputation events and synchronizations"""
-
-    __tablename__ = "cross_chain_reputation_events"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"event_{uuid4().hex[:8]}", primary_key=True)
-    agent_id: str = Field(index=True)
-    source_chain_id: int = Field(index=True)
-    target_chain_id: int | None = Field(index=True)
-
-    # Event details
-    event_type: str = Field(max_length=50)  # aggregation, migration, verification, etc.
-    impact_score: float = Field(ge=-1.0, le=1.0)
-    description: str = Field(default="")
-
-    # Cross-chain data
-    source_reputation: float | None = Field(default=None)
-    target_reputation: float | None = Field(default=None)
-    reputation_change: float | None = Field(default=None)
-
-    # Event metadata
-    event_data: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
-    source: str = Field(default="system")  # system, user, oracle, etc.
-    verified: bool = Field(default=False)
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    processed_at: datetime | None = None
-
-
-class ReputationMetrics(SQLModel, table=True):
-    """Aggregated reputation metrics for analytics"""
-
-    __tablename__ = "reputation_metrics"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: f"metrics_{uuid4().hex[:8]}", primary_key=True)
-    chain_id: int = Field(index=True)
-    metric_date: date = Field(index=True)
-
-    # Aggregated metrics
-    total_agents: int = Field(default=0)
-    average_reputation: float = Field(default=0.0)
-    reputation_distribution: dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))
-
-    # Performance metrics
-    total_transactions: int = Field(default=0)
-    success_rate: float = Field(default=0.0)
-    dispute_rate: float = Field(default=0.0)
-
-    # Distribution metrics
-    level_distribution: dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))
-    score_distribution: dict[str, int] = Field(default_factory=dict, sa_column=Column(JSON))
-
-    # Cross-chain metrics
-    cross_chain_agents: int = Field(default=0)
-    average_consistency_score: float = Field(default=0.0)
-    chain_diversity_score: float = Field(default=0.0)
-
-    # Timestamps
-    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
-
-
-# Request/Response Models for Cross-Chain API
 class CrossChainReputationRequest(SQLModel):
     """Request model for cross-chain reputation operations"""
 
@@ -263,12 +197,10 @@ __all__ = [
     "CrossChainLeaderboardResponse",
     "CrossChainReputationAggregation",
     "CrossChainReputationConfig",
-    "CrossChainReputationEvent",
     "CrossChainReputationRequest",
     "CrossChainReputationResponse",
     "CrossChainReputationUpdateRequest",
     "CrossChainVerificationRequest",
     "ReputationAnomalyResponse",
-    "ReputationMetrics",
     "ReputationVerificationResponse",
 ]

@@ -354,51 +354,13 @@ class PricingAuditLog(SQLModel, table=True):
 
 
 # View definitions for common queries
-class PricingSummaryView(SQLModel):
-    """View for pricing summary analytics"""
-
-    __tablename__ = "pricing_summary_view"
-
-    provider_id: str
-    resource_type: ResourceType
-    region: str
-    current_price: Decimal
-    price_trend: PriceTrend
-    price_volatility: float
-    utilization_rate: float
-    strategy_used: PricingStrategyType
-    strategy_effectiveness: float
-    last_updated: datetime
-    total_revenue_7d: Decimal
-    market_share: float
-
-
-class MarketHeatmapView(SQLModel):
-    """View for market heatmap data"""
-
-    __tablename__ = "market_heatmap_view"
-
-    region: str
-    resource_type: ResourceType
-    demand_level: float
-    supply_level: float
-    average_price: Decimal
-    price_volatility: float
-    utilization_rate: float
-    market_sentiment: float
-    competitor_count: int
-    timestamp: datetime
-
-
 __all__ = [
-    "MarketHeatmapView",
     "MarketMetrics",
     "PriceForecast",
     "PriceTrend",
     "PricingAuditLog",
     "PricingHistory",
     "PricingStrategyType",
-    "PricingSummaryView",
     "ProviderPricingStrategy",
     "ResourceType",
 ]

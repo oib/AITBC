@@ -52,7 +52,7 @@ def _run_alembic(tmp_path: Path, *args: str) -> Path:
     ):
         env.pop(var, None)
     env["DATABASE_URL"] = f"sqlite:///{db_path}"
-    env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}"
+    env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}:{REPO_ROOT / 'packages' / 'aitbc-shared'}"
     env["AUDIT_LOG_DIR"] = str(tmp_path / "audit")
     env["TEST_MODE"] = "true"
 
@@ -85,7 +85,6 @@ import coordinator_api.contexts.analytics.domain.analytics  # noqa: F401
 import coordinator_api.contexts.certification.domain.certification  # noqa: F401
 import coordinator_api.contexts.community.domain  # noqa: F401
 import coordinator_api.contexts.ecosystem.domain  # noqa: F401
-import coordinator_api.contexts.market.domain.global_market  # noqa: F401
 """
 
 
@@ -109,7 +108,7 @@ print(json.dumps(tables))
 """
     )
     env = os.environ.copy()
-    env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}"
+    env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}:{REPO_ROOT / 'packages' / 'aitbc-shared'}"
     env["AITBC_SKIP_ENV_FILES"] = "1"
     result = subprocess.run(
         [sys.executable, "-c", script],
@@ -254,7 +253,7 @@ SQLModel.metadata.create_all(create_engine(sys.argv[1]))
     )
     env = os.environ.copy()
     env["AITBC_SKIP_ENV_FILES"] = "1"
-    env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}"
+    env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}:{REPO_ROOT / 'packages' / 'aitbc-shared'}"
     env["AUDIT_LOG_DIR"] = str(tmp_path / "audit_meta")
     env["TEST_MODE"] = "true"
     result = subprocess.run(
@@ -311,7 +310,7 @@ def test_001_downgrade_raises(tmp_path: Path):
     for var in ("SQLITE_URL", "MARKET_DATABASE_URL", "DATABASE_ADAPTER", "DB_TYPE", "ENVIRONMENT", "APP_ENV", "NODE_ENV"):
         env.pop(var, None)
     env["DATABASE_URL"] = f"sqlite:///{db_path}"
-    env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}"
+    env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}:{REPO_ROOT / 'packages' / 'aitbc-shared'}"
     env["AUDIT_LOG_DIR"] = str(tmp_path / "audit")
     env["TEST_MODE"] = "true"
     result = subprocess.run(

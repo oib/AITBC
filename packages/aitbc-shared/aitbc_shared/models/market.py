@@ -46,24 +46,3 @@ class MarketOffer(SQLModel, table=True):
     model_id: str | None = Field(default=None)
     protected: bool = Field(default=False)
     energy_quote_snapshot: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
-
-
-class MarketBid(SQLModel, table=True):
-    """Bid on a market offer"""
-
-    __tablename__ = "marketplace_bid"
-    __table_args__ = {"extend_existing": True}
-
-    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
-    provider: str = Field(index=True)
-    capacity: int = Field(default=0, nullable=False)
-    price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
-    notes: str | None = Field(default=None)
-    status: str = Field(default="pending", nullable=False, index=True)
-    submitted_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
-
-    @classmethod
-    def with_table_name(cls, table_name: str) -> type[MarketBid]:
-        """Create a dynamic table name for the model"""
-        cls.__tablename__ = table_name
-        return cls

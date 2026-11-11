@@ -16,7 +16,6 @@ These documents describe the Python contract implementations used by the blockch
 - [Escrow Contract](escrow.md)
 - [Guardian Contract](guardian.md)
 - [HTLC Contract](htlc.md)
-- [Persistent Spending Tracker](persistent-spending-tracker.md)
 - [Upgrades Contract](upgrades.md)
 
 ### Solidity contracts

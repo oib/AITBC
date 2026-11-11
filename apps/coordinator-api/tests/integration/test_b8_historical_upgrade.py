@@ -64,15 +64,28 @@ def test_historical_schema_upgrade_converges(tmp_path: Path):
     with engine.begin() as conn:
         for table in _TENANT_TABLES:
             conn.execute(text(f'DROP TABLE IF EXISTS "{table}"'))
-        # Sentinel data in a table the upgrade must not disturb.
-        conn.execute(text("DELETE FROM global_marketplace_configs"))
+        # #1840: head no longer carries marketplace_regions (dropped by
+        # f6a7b8c9d0e1), but a real pre-tenant database physically has it —
+        # add_global_marketplace predates the stamp point — and mid-chain
+        # revision f7e8d9c0b1a2 UPDATEs it during the re-upgrade. Recreate
+        # the shell so the emulation matches that historical state; the
+        # head drop removes it again before the final assertion.
         conn.execute(
             text(
-                "INSERT INTO global_marketplace_configs "
-                "(id, config_key, config_value, config_type, description, category, "
-                "is_public, is_encrypted, created_at, updated_at) "
-                "VALUES ('cfg_b8_sentinel', 'b8_sentinel', 'survived', 'string', "
-                "'B-8 sentinel', 'test', 1, 0, '2026-09-08 00:00:00', '2026-09-08 00:00:00')"
+                'CREATE TABLE IF NOT EXISTS "marketplace_regions" '
+                '("id" VARCHAR NOT NULL, "status" VARCHAR, PRIMARY KEY ("id"))'
+            )
+        )
+        # Sentinel data in a table the upgrade must not disturb. (#1840:
+        # global_marketplace_configs is dropped at head by f6a7b8c9d0e1 —
+        # dao_vote is a kept table with a stable, FK-free schema.)
+        conn.execute(text("DELETE FROM dao_vote"))
+        conn.execute(
+            text(
+                "INSERT INTO dao_vote "
+                "(id, proposal_id, member_id, support, weight, tx_hash, created_at) "
+                "VALUES ('vote_b8_sentinel', 'prop_b8', 'member_b8', 1, 1.0, NULL, "
+                "'2026-09-08 00:00:00')"
             )
         )
     engine.dispose()
@@ -98,8 +111,6 @@ def test_historical_schema_upgrade_converges(tmp_path: Path):
     assert not extra, f"Extra tables after historical upgrade: {extra}"
 
     with engine.connect() as conn:
-        rows = conn.execute(
-            text("SELECT config_value FROM global_marketplace_configs WHERE id = 'cfg_b8_sentinel'")
-        ).fetchall()
+        rows = conn.execute(text("SELECT proposal_id FROM dao_vote WHERE id = 'vote_b8_sentinel'")).fetchall()
     engine.dispose()
-    assert rows == [("survived",)], "sentinel row lost during upgrade"
+    assert rows == [("prop_b8",)], "sentinel row lost during upgrade"

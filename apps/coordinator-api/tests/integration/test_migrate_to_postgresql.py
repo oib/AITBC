@@ -148,14 +148,13 @@ def test_execute_copies_and_verifies(tmp_path, pg_url) -> None:
     assert result.returncode == 0, f"{result.stdout}\n{result.stderr}"
     assert "checksums verified" in result.stdout
 
-    # The schema came from alembic: the target is stamped at head and holds
-    # every table — including enum-typed marketplace_regions seeded by the
-    # migration itself on both sides.
+    # The schema came from alembic: the target is stamped at head. (The
+    # enum-typed marketplace_regions seed table was dropped at head by
+    # f6a7b8c9d0e1, #1840, on both sides.)
     assert _count(dsn, "miner") == 1
     assert _count(dsn, "job") == 1
     assert _count(dsn, "jobreceipt") == 1
     assert _count(dsn, "usage_records") == 1
-    assert _count(dsn, "marketplace_regions") == 4  # enum-label rows copied verbatim
 
 
 def test_nonempty_target_refused_then_insert_missing_only(tmp_path, pg_url) -> None:
