@@ -170,3 +170,13 @@ See [websocket.md](./websocket.md) for the full protocol.
 ## Versioning
 
 API versions are specified in the URL path (e.g., `/v1/jobs`). Breaking changes will be introduced in new major versions. Minor versions may add new features without breaking existing functionality.
+
+### Deprecation policy
+
+Deprecated spellings are announced with `Deprecation` and `Sunset` response
+headers (RFC 8594 / RFC 9745) and a docs note, and are removed no sooner than
+the `Sunset` date — currently six months after announcement. Service-local
+unversioned paths (e.g. the exchange's `/api/orders`) are legacy spellings;
+the canonical form is the `/v1/<domain>/...` route. Internal-only routes
+(`/api/internal/*`, `/api/wallet/connect`) are deliberately unversioned and
+are not part of the public contract.

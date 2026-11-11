@@ -93,6 +93,14 @@ GET  /v1/exchange/history           # exchange history
 GET  /exchange/price.json           # current price JSON
 ```
 
+The mutating signed-order routes are also served under the canonical
+versioned spellings `/v1/exchange/orders`, `/v1/exchange/orders/{id}/cancel`,
+`/v1/exchange/nodes/register` and `/v1/exchange/nodes/payout` (AUDIT-APIVER-1,
+#1573). The `/api/*` spellings above are deprecated legacy aliases — same
+dispatch, same auth — and carry `Deprecation`/`Sunset` headers at the edge;
+see `docs/api/README.md` for the deprecation policy. `/api/internal/*` and
+`/api/wallet/connect` stay unversioned (internal/daemon-facing).
+
 ### Signed orders & node registry (ETH-11 phase 2)
 
 Enforcement is controlled by `EXCHANGE_REQUIRE_SIGNED_ORDERS` (default **on**;
@@ -106,6 +114,10 @@ POST /api/exchange/nodes/register # claim a seeded registry row — signed regis
 GET  /api/exchange/nodes          # participants board (label, short address, status, open_orders, watchlisted)
 GET  /api/exchange/my-orders?addr=0x...   # one wallet's orders + next expected account_nonce
 ```
+
+(Deprecated `/api/*` spellings — the canonical forms are the `/v1/exchange/*`
+aliases listed above; `/api/exchange/nodes/payout` and
+`/api/internal/exchange-settlement` remain internal/flag-gated.)
 
 - **Envelope (place)**: `{side: "BUY"|"SELL", pair: "AIT/ETH", amount_ticks: int,
   price_ticks: int, expiry_height: int, account_nonce: int,

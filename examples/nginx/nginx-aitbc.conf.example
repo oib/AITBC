@@ -949,6 +949,17 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-API-Key "";
         proxy_set_header Authorization "";
+        # Location-level add_header replaces server-level inheritance, so the
+        # security set is repeated here plus the #1573 deprecation markers.
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'report-sample'; style-src 'self' 'report-sample'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; report-uri /csp-report; report-to csp-endpoint" always;
+        add_header Reporting-Endpoints "csp-endpoint=\"/csp-report\"" always;
+        add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header Deprecation "true" always;
+        add_header Sunset "Sun, 09 May 2027 00:00:00 GMT" always;
     }
     location ~ ^/api/orders/[^/]+/cancel$ {
         limit_except POST { deny all; }
@@ -961,6 +972,17 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-API-Key "";
         proxy_set_header Authorization "";
+        # Location-level add_header replaces server-level inheritance, so the
+        # security set is repeated here plus the #1573 deprecation markers.
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'report-sample'; style-src 'self' 'report-sample'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; report-uri /csp-report; report-to csp-endpoint" always;
+        add_header Reporting-Endpoints "csp-endpoint=\"/csp-report\"" always;
+        add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header Deprecation "true" always;
+        add_header Sunset "Sun, 09 May 2027 00:00:00 GMT" always;
     }
     location = /api/exchange/nodes/register {
         limit_except POST { deny all; }
@@ -973,6 +995,17 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-API-Key "";
         proxy_set_header Authorization "";
+        # Location-level add_header replaces server-level inheritance, so the
+        # security set is repeated here plus the #1573 deprecation markers.
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'report-sample'; style-src 'self' 'report-sample'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; report-uri /csp-report; report-to csp-endpoint" always;
+        add_header Reporting-Endpoints "csp-endpoint=\"/csp-report\"" always;
+        add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header Deprecation "true" always;
+        add_header Sunset "Sun, 09 May 2027 00:00:00 GMT" always;
     }
     location = /api/exchange/nodes/payout {
         limit_except POST { deny all; }
@@ -985,6 +1018,17 @@ server {
         proxy_set_header X-Forwarded-Proto $scheme;
         proxy_set_header X-API-Key "";
         proxy_set_header Authorization "";
+        # Location-level add_header replaces server-level inheritance, so the
+        # security set is repeated here plus the #1573 deprecation markers.
+        add_header X-Frame-Options "SAMEORIGIN" always;
+        add_header X-Content-Type-Options "nosniff" always;
+        add_header Referrer-Policy "strict-origin-when-cross-origin" always;
+        add_header Content-Security-Policy "default-src 'self'; script-src 'self' 'report-sample'; style-src 'self' 'report-sample'; connect-src 'self'; img-src 'self' data:; font-src 'self'; object-src 'none'; base-uri 'none'; frame-ancestors 'self'; report-uri /csp-report; report-to csp-endpoint" always;
+        add_header Reporting-Endpoints "csp-endpoint=\"/csp-report\"" always;
+        add_header Permissions-Policy "accelerometer=(), camera=(), geolocation=(), gyroscope=(), magnetometer=(), microphone=(), payment=(), usb=(), interest-cohort=()" always;
+        add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
+        add_header Deprecation "true" always;
+        add_header Sunset "Sun, 09 May 2027 00:00:00 GMT" always;
     }
     location = /api/exchange/nodes {
         limit_except GET { deny all; }
@@ -1000,6 +1044,59 @@ server {
     }
     location = /api/exchange/my-orders {
         limit_except GET { deny all; }
+        limit_req zone=exchange_api burst=10 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://exchange_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-API-Key "";
+        proxy_set_header Authorization "";
+    }
+
+    # AUDIT-APIVER-1 (#1573): canonical versioned spellings of the signed-order
+    # surface — same OPS-4 controls as the deprecated /api/* blocks above
+    # (exact matches only; the broad /v1/exchange/ prefix below stays for
+    # reads and must never gain mutating routes without matching blocks here).
+    location = /v1/exchange/orders {
+        limit_except POST { deny all; }
+        limit_req zone=exchange_api burst=10 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://exchange_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-API-Key "";
+        proxy_set_header Authorization "";
+    }
+    location ~ ^/v1/exchange/orders/[^/]+/cancel$ {
+        limit_except POST { deny all; }
+        limit_req zone=exchange_api burst=10 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://exchange_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-API-Key "";
+        proxy_set_header Authorization "";
+    }
+    location = /v1/exchange/nodes/register {
+        limit_except POST { deny all; }
+        limit_req zone=exchange_api burst=10 nodelay;
+        client_max_body_size 16k;
+        proxy_pass http://exchange_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header X-API-Key "";
+        proxy_set_header Authorization "";
+    }
+    location = /v1/exchange/nodes/payout {
+        limit_except POST { deny all; }
         limit_req zone=exchange_api burst=10 nodelay;
         client_max_body_size 16k;
         proxy_pass http://exchange_service;

@@ -117,11 +117,28 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
             return False
         return True
 
+    def _post_versioned_exchange_route(self, path: str) -> bool:
+        """Versioned spellings of the public mutating surface (#1573): the
+        signed-order routes are also served under /v1/exchange/* per the
+        repo's /v1/<domain> convention. /api/internal/* and
+        /api/wallet/connect stay unversioned (internal/daemon-facing)."""
+        if path == "/v1/exchange/orders":
+            self.handle_place_order()
+        elif path.startswith("/v1/exchange/orders/") and path.endswith("/cancel"):
+            self.handle_cancel_order(path[len("/v1/exchange/orders/") : -len("/cancel")].rstrip("/"))
+        elif path == "/v1/exchange/nodes/register":
+            self.handle_node_register()
+        elif path == "/v1/exchange/nodes/payout":
+            self.handle_set_payout()
+        else:
+            return False
+        return True
+
     def do_POST(self):
         """Handle POST requests"""
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
-        if self._post_api_route(path):
+        if self._post_api_route(path) or self._post_versioned_exchange_route(path):
             return
         if path == "/v1/market/offers":
             self.handle_market_create_offer()
