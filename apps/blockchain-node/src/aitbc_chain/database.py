@@ -162,6 +162,73 @@ def _safe_chain_key(chain_id: str = "") -> str:
         return settings.chain_id.strip() or "default"
 
 
+# #1772: the quarantine dicts above are process-local, but the fleet runs
+# aitbc-blockchain-node and aitbc-blockchain-rpc as separate processes (and
+# the rpc unit itself runs --workers N). A chain.db quarantined in the node
+# process for an unrecoverable WRITE error (READONLY / SQLITE_FULL — the
+# file still passes PRAGMA quick_check) left every other process's /ready
+# serving stale 200s. Persist the quarantine as a marker file beside
+# chain.db so every process serving the same store sees it; the existing
+# sweep + writability-probe confirm path (_confirm_quarantined_store_
+# writable) clears it once the store accepts writes again.
+QUARANTINE_MARKER_SUFFIX = ".quarantined"
+
+
+def _quarantine_marker_path(chain_id: str = "") -> Path:
+    """Marker file for ``chain_id``'s store: ``<chain.db>.quarantined``."""
+    return Path(str(settings.get_db_path(_safe_chain_key(chain_id))) + QUARANTINE_MARKER_SUFFIX)
+
+
+def _write_quarantine_marker(key: str, detail: str) -> None:
+    """Record ``key``'s quarantine where sibling processes can see it."""
+    path = _quarantine_marker_path(key)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(f"{path.name}.{os.getpid()}.tmp")
+        tmp.write_text(f"{detail}\nrecorded={datetime.now(UTC).isoformat()} pid={os.getpid()}\n")
+        os.replace(tmp, path)
+    except OSError:
+        # The in-process dict still quarantines this process; a missing
+        # marker only narrows the blast radius back to #1740 behaviour.
+        logger.warning("could not write chain.db quarantine marker %s", path, exc_info=True)
+
+
+def _remove_quarantine_marker(key: str) -> None:
+    try:
+        _quarantine_marker_path(key).unlink(missing_ok=True)
+    except OSError:
+        logger.warning("could not remove chain.db quarantine marker for %s", key, exc_info=True)
+
+
+def _remove_all_quarantine_markers() -> None:
+    """Drop every marker under the data dir (clear-all path)."""
+    try:
+        from aitbc.constants import DATA_DIR
+
+        for marker in (DATA_DIR / "data").glob(f"*/*{QUARANTINE_MARKER_SUFFIX}"):
+            marker.unlink(missing_ok=True)
+    except OSError:
+        logger.warning("could not sweep chain.db quarantine markers", exc_info=True)
+
+
+def _quarantine_marker_exists(key: str) -> bool:
+    try:
+        return _quarantine_marker_path(key).is_file()
+    except Exception:
+        return False
+
+
+def _engine_is_memory(engine: Engine | None) -> bool:
+    """True when ``engine`` is an in-memory store — markers are file-based
+    and meaningless for ``:memory:`` (tests, dev)."""
+    if engine is None:
+        return False
+    try:
+        return engine.url.database == ":memory:"
+    except Exception:
+        return False
+
+
 def _db_identity(key: str, engine: Engine | None = None, session: Session | None = None) -> str:
     target = engine
     if target is None and isinstance(session, Session):
@@ -178,8 +245,15 @@ def _db_identity(key: str, engine: Engine | None = None, session: Session | None
 
 
 def is_chain_db_quarantined(chain_id: str = "") -> bool:
-    """Whether ``chain_id``'s SQLite store is quarantined due to failed integrity check."""
-    return _safe_chain_key(chain_id) in _corrupted_chains
+    """Whether ``chain_id``'s SQLite store is quarantined.
+
+    #1772: true when THIS process recorded the quarantine OR a sibling
+    process (the node unit, another rpc worker) left a marker file beside
+    chain.db — split-unit deployments serve /ready from a process that
+    never saw the write error itself.
+    """
+    key = _safe_chain_key(chain_id)
+    return key in _corrupted_chains or _quarantine_marker_exists(key)
 
 
 def chain_db_quarantine_reason(chain_id: str = "") -> str | None:
@@ -194,12 +268,14 @@ def clear_chain_db_quarantine(chain_id: str = "") -> None:
         _corrupted_identities.clear()
         _last_integrity_check.clear()
         _last_checked_identity.clear()
+        _remove_all_quarantine_markers()
         return
     key = _safe_chain_key(chain_id)
     _corrupted_chains.pop(key, None)
     _corrupted_identities.pop(key, None)
     _last_integrity_check.pop(key, None)
     _last_checked_identity.pop(key, None)
+    _remove_quarantine_marker(key)
 
 
 # #1740: sqlite primary result codes that mean the store cannot accept
@@ -305,9 +381,12 @@ def quarantine_chain_db_for_error(
     # return a Connection mid-transaction, whose id would never match the
     # engine identity every other gate computes. When the bind is the Engine
     # itself the two strings are identical anyway.
-    identity = _db_identity(key, engine=_probe_engine_for(key, engine, session))
+    probe_engine = _probe_engine_for(key, engine, session)
+    identity = _db_identity(key, engine=probe_engine)
     _corrupted_chains[key] = f"chain.db write failure — quarantined: {detail}"
     _corrupted_identities[key] = identity
+    if not _engine_is_memory(probe_engine):
+        _write_quarantine_marker(key, _corrupted_chains[key])
     metrics_registry.increment("chain_db_write_error_quarantines_total")
     metrics_registry.set_gauge("chain_db_integrity_ok", 0.0)
     logger.critical(
@@ -371,16 +450,30 @@ def _confirm_quarantined_store_writable(
     probe_engine = _probe_engine_for(key, engine, session)
     probe_ok, probe_detail = _probe_chain_db_writable(probe_engine)
     if probe_ok:
+        # Store accepts writes again — lift the quarantine everywhere,
+        # including the shared marker sibling processes read (#1772).
+        _remove_quarantine_marker(key)
         return (True, detail)
     reason = f"chain.db write probe failed — still quarantined: {probe_detail}"
     _corrupted_chains[key] = reason
     _corrupted_identities[key] = identity
+    if not _engine_is_memory(probe_engine):
+        _write_quarantine_marker(key, reason)
     metrics_registry.set_gauge("chain_db_integrity_ok", 0.0)
     metrics_registry.increment("chain_db_quarantined_rejections_total")
     return (False, reason)
 
 
-def _record_integrity_verdict(key: str, identity: str, ok: bool, detail: str, *, raise_on_failure: bool) -> tuple[bool, str]:
+def _record_integrity_verdict(
+    key: str,
+    identity: str,
+    ok: bool,
+    detail: str,
+    *,
+    raise_on_failure: bool,
+    engine: Engine | None = None,
+    session: Session | None = None,
+) -> tuple[bool, str]:
     from .metrics import metrics_registry
 
     _last_integrity_check[key] = time.monotonic()
@@ -393,6 +486,14 @@ def _record_integrity_verdict(key: str, identity: str, ok: bool, detail: str, *,
         return (True, "ok")
     _corrupted_chains[key] = detail
     _corrupted_identities[key] = identity
+    # #1772: share the quarantine with sibling processes (node vs rpc
+    # units, other rpc workers) via the marker file beside chain.db.
+    # The ok path deliberately does NOT clear the marker: quick_check
+    # passing says nothing about writability (SQLITE_FULL/READONLY leave
+    # the file structurally fine), so only the writability-probe confirm
+    # in ensure_chain_db_healthy may lift it.
+    if not _engine_is_memory(_probe_engine_for(key, engine, session)):
+        _write_quarantine_marker(key, detail)
     metrics_registry.increment("chain_db_integrity_failures_total")
     metrics_registry.set_gauge("chain_db_integrity_ok", 0.0)
     logger.critical(
@@ -435,14 +536,18 @@ def verify_chain_db_integrity(
     try:
         rows = _run_quick_check_rows(target_engine, session)
     except Exception as exc:
-        return _record_integrity_verdict(key, identity, False, str(exc), raise_on_failure=raise_on_failure)
+        return _record_integrity_verdict(
+            key, identity, False, str(exc), raise_on_failure=raise_on_failure, engine=target_engine, session=session
+        )
     if rows is None:
         return (True, "ok")
     verdicts = [str(r[0]).strip() for r in rows if r]
     if verdicts == ["ok"]:
         return _record_integrity_verdict(key, identity, True, "ok", raise_on_failure=False)
     detail = "; ".join(verdicts[:3]) if verdicts else "empty PRAGMA quick_check result"
-    return _record_integrity_verdict(key, identity, False, detail, raise_on_failure=raise_on_failure)
+    return _record_integrity_verdict(
+        key, identity, False, detail, raise_on_failure=raise_on_failure, engine=target_engine, session=session
+    )
 
 
 def ensure_chain_db_healthy(
@@ -477,7 +582,10 @@ def ensure_chain_db_healthy(
     due = force or not same_identity or last is None or (interval > 0 and (time.monotonic() - last) >= interval)
     if not due:
         return (True, "ok")
-    was_quarantined = key in _corrupted_chains
+    # #1772: a marker left by a sibling process (node unit quarantined,
+    # this rpc worker unaware) must route through the writability-probe
+    # confirm too — quick_check alone cannot lift a write-error quarantine.
+    was_quarantined = key in _corrupted_chains or _quarantine_marker_exists(key)
     ok, detail = verify_chain_db_integrity(key, engine=target_engine, session=session, raise_on_failure=False)
     if ok and was_quarantined:
         return _confirm_quarantined_store_writable(key, identity, target_engine, session, detail)

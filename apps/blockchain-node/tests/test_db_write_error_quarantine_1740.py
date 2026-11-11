@@ -303,3 +303,89 @@ def test_ready_check_passes_on_healthy_init_db():
         _check_chain_db()  # must not raise
     finally:
         shutdown_db()
+
+
+# ── #1772: cross-process (split-unit) quarantine visibility ────────
+
+
+def test_quarantine_marker_survives_in_process_state_loss(tmp_path):
+    """#1772: the node unit quarantines on an unrecoverable write error; the
+    rpc unit's own ``_corrupted_chains`` stays empty and its quick_check
+    still passes. The marker file beside chain.db must keep the store
+    reported-quarantined for sibling processes, and only the sweep's
+    writability probe may lift it."""
+    import aitbc_chain.database as db_mod
+
+    engine = _file_engine(tmp_path)
+    chain = _unique_chain()
+    try:
+        quarantine_chain_db_for_error(chain, _sa_wrapped(_real_sqlite_full()), engine=engine)
+        marker = db_mod._quarantine_marker_path(chain)
+        assert marker.is_file()
+
+        # Simulate the sibling rpc process: same files on disk, empty
+        # in-process quarantine state.
+        db_mod._corrupted_chains.pop(chain, None)
+        db_mod._corrupted_identities.pop(chain, None)
+        assert is_chain_db_quarantined(chain)  # via the marker, not the dict
+
+        # Store writable again → the probe confirm lifts marker + quarantine.
+        ok, _detail = ensure_chain_db_healthy(chain, engine=engine, force=True)
+        assert ok is True
+        assert not marker.exists()
+        assert not is_chain_db_quarantined(chain)
+    finally:
+        engine.dispose()
+        clear_chain_db_quarantine(chain)
+
+
+def test_quarantine_marker_holds_while_writes_still_fail(tmp_path, monkeypatch):
+    """#1772: quick_check stays green on a READONLY/full-but-unimpaired
+    file — the marker must survive every sweep until the writability
+    probe passes, so /ready never flaps back to 200 mid-fault."""
+    import aitbc_chain.database as db_mod
+
+    engine = _file_engine(tmp_path)
+    chain = _unique_chain()
+    try:
+        quarantine_chain_db_for_error(chain, _sa_wrapped(_real_sqlite_full()), engine=engine)
+        db_mod._corrupted_chains.pop(chain, None)
+        db_mod._corrupted_identities.pop(chain, None)
+        marker = db_mod._quarantine_marker_path(chain)
+        assert marker.is_file()
+
+        monkeypatch.setattr(
+            "aitbc_chain.database._probe_chain_db_writable",
+            lambda _engine: (False, "database or disk is full"),
+        )
+        ok, why = ensure_chain_db_healthy(chain, engine=engine, force=True)
+        assert ok is False
+        assert "write probe failed" in why
+        assert marker.is_file()
+        assert is_chain_db_quarantined(chain)
+    finally:
+        engine.dispose()
+        clear_chain_db_quarantine(chain)
+
+
+def test_ready_check_fails_on_foreign_quarantine_marker(tmp_path):
+    """#1772 end-to-end: a process that never saw the write error (the rpc
+    unit) still fails /ready because the sibling's marker is visible —
+    the exact stale-200 shape from the v14(2) drill."""
+    import aitbc_chain.database as db_mod
+    from aitbc_chain.app import _check_chain_db
+    from aitbc_chain.rpc.utils import get_supported_chains
+
+    engine = _file_engine(tmp_path)
+    try:
+        cid = get_supported_chains()[0] if get_supported_chains() else settings.chain_id
+        quarantine_chain_db_for_error(cid, _sa_wrapped(_real_sqlite_full()), engine=engine)
+        # Sibling-process view: no in-process record, marker only.
+        db_mod._corrupted_chains.pop(cid, None)
+        db_mod._corrupted_identities.pop(cid, None)
+        assert is_chain_db_quarantined(cid)
+        with pytest.raises(RuntimeError, match="quarantined"):
+            _check_chain_db()
+    finally:
+        engine.dispose()
+        clear_chain_db_quarantine()
