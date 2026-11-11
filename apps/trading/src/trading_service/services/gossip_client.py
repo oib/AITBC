@@ -63,7 +63,9 @@ def _decode_payload(data: Any) -> Any:
         if data.startswith(COMPRESSION_PREFIX):
             try:
                 compressed = base64.b64decode(data[len(COMPRESSION_PREFIX) :])
-                return decompress_json(compressed)
+                # Cap the inflate: a tiny compressed blob can expand without
+                # bound (#1547). 4 MiB is ~4x the P2P gossip payload cap.
+                return decompress_json(compressed, max_bytes=4 * 1024 * 1024)
             except Exception:
                 pass  # fall through to JSON parse
         try:

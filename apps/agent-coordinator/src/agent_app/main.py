@@ -2,7 +2,7 @@ import os
 
 import uvicorn
 from fastapi import FastAPI
-from aitbc.middleware import setup_cors
+from aitbc.middleware import RequestValidationMiddleware, setup_cors
 
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.rate_limiting import RateLimitMiddleware, client_ip_for_rate_limit
@@ -27,6 +27,13 @@ def create_app() -> FastAPI:
     )
 
     setup_cors(app, allow_origins=validated_cors_origins(settings.cors_origins))
+
+    # Cap request bodies at the edge of the app: this service binds :8107
+    # directly and the api-gateway's 10MB cap only covers proxied paths —
+    # without this middleware every pydantic body and `await request.body()`
+    # was unbounded (DOS-AUDIT-1 / #1547). 5MB matches the nginx
+    # client_max_body_size on the proxied /agent/* locations.
+    app.add_middleware(RequestValidationMiddleware, max_request_size=5 * 1024 * 1024)
 
     # Add rate limiting middleware — scoped to mutating methods so GET
     # polling (dashboards, status pages, agent status reads) is never

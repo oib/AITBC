@@ -12,7 +12,7 @@ from typing import Any
 
 from anyio import to_thread
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
-from aitbc.middleware import LegacyPathRewriteMiddleware, setup_cors
+from aitbc.middleware import LegacyPathRewriteMiddleware, RequestValidationMiddleware, setup_cors
 from aitbc.rate_limiting import client_ip_for_rate_limit
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -649,6 +649,15 @@ def create_app() -> FastAPI:
 
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=1000)
+    # Cap request bodies (#1547): the RPC surface had no app-level limit, so
+    # any POST body was buffered unbounded. /import-chain is exempt — it
+    # legitimately carries a full chain export and is already gated by
+    # verify_rpc_api_key + require_admin_signature.
+    app.add_middleware(
+        RequestValidationMiddleware,
+        max_request_size=10 * 1024 * 1024,
+        exempt_prefixes=("/rpc/import-chain", "/v1/import-chain"),
+    )
     # app.add_middleware(RateLimitMiddleware, max_requests=100000, window_seconds=60)
     setup_cors(
         app,
