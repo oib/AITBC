@@ -62,6 +62,11 @@ class Settings(ServiceSettings):
     offer_sync_interval_seconds: int = Field(default=60)
     offer_staleness_threshold_seconds: int = Field(default=300)  # 5 min default
     offer_cache_ttl_seconds: int = Field(default=300)
+    # #1696: drop gossip OfferEvents older than the last one applied for the
+    # same (chain, offer). Defeats replay of an old DELETED/OFFER event; does
+    # not authenticate fresh forgeries (that needs a publisher key). Dormant:
+    # publishers on different hosts can have skewed clocks.
+    offer_event_stale_guard_enabled: bool = Field(default=False)
     offer_sync_max_bandwidth_kbps: int = Field(default=100)
     # Per-chain staleness overrides (JSON env var)
     offer_per_chain_staleness: dict[str, int] = Field(default_factory=dict)
