@@ -2843,7 +2843,7 @@ class StateTransition:
                 )
         if tx_type == "VALIDATOR_DEACTIVATE":
             skip_reason = self._handle_validator_deactivation(
-                session, chain_id, tx_data, tx_hash, sender_addr, value, block_height
+                session, chain_id, tx_data, tx_hash, sender_addr, value, block_height, block_time
             )
             if skip_reason:
                 # Same contract as the bond handlers: fee/nonce still apply,
@@ -3436,6 +3436,7 @@ class StateTransition:
         sender_addr: str,
         value: int,
         block_height: int | None = None,
+        block_time: datetime | None = None,
     ) -> str | None:
         """Apply a ``VALIDATOR_DEACTIVATE`` marker (#1198, spec v2).
 
@@ -3488,6 +3489,9 @@ class StateTransition:
                 chain_id=chain_id,
                 validator_addr=validator_addr,
                 evidence_hash=evidence_hash,
+                session=session,
+                block_height=block_height,
+                block_time=block_time,
             )
             if reason is not None:
                 return reason
