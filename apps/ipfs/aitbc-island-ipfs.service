@@ -25,6 +25,7 @@ Environment="IPFS_TELEMETRY=off"
 # logging module, and StreamHandler.emit() flushes per record.
 EnvironmentFile=-/etc/aitbc/%N.env
 WorkingDirectory=/opt/aitbc/apps/ipfs
+RuntimeDirectory=aitbc
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/ipfs/island_ipfs_daemon.py
 Restart=on-failure
 RestartSec=10

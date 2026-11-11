@@ -11,6 +11,7 @@ Environment="PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin"
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 EnvironmentFile=/etc/aitbc/node.env
+RuntimeDirectory=aitbc
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn src.ai_service:app --host 127.0.0.1 --port 8005 --no-access-log --log-level critical
 Restart=on-failure
 RestartSec=10

@@ -17,6 +17,7 @@ Environment="HOME=/var/lib/aitbc"
 Environment="AITBC_WALLET_DIR=/var/lib/aitbc/wallets"
 # Secret: AUTH_TOKEN moved to /etc/aitbc/%N.env (created at deploy time, not committed)
 EnvironmentFile=/etc/aitbc/%N.env
+RuntimeDirectory=aitbc
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/miner/production_miner.py
 Restart=on-failure
 RestartSec=10
