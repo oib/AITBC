@@ -194,6 +194,12 @@ class MarketJob(MarketBase, table=True):
     tx_hash: str | None = Field(default=None)
     refund_tx_hash: str | None = Field(default=None)
 
+    # Dispute freeze (#1783): while disputed_at is set and dispute_cleared_at
+    # is not, the sweeper must not settle or refund this job's escrow.
+    disputed_at: datetime | None = Field(default=None)
+    dispute_reason: str | None = Field(default=None, max_length=500)
+    dispute_cleared_at: datetime | None = Field(default=None)
+
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
 

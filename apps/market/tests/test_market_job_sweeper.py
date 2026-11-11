@@ -144,6 +144,16 @@ async def _apply_lifecycle(
         await session.commit()
 
 
+async def _age_job(job_id: str) -> None:
+    """Backdate job.updated_at past the sweeper min_age gate."""
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        assert job is not None
+        job.updated_at = (datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None)
+        session.add(job)
+        await session.commit()
+
+
 async def _payment_of(job_id: str) -> MarketJobPayment:
     async with get_session_context() as session:
         result = await session.execute(select(MarketJobPayment).where(col(MarketJobPayment.job_id) == job_id))
@@ -639,3 +649,99 @@ class TestSettleDeferralBound:
         assert job["payment_status"] == "escrowed"
         payment = await _payment_of(job_id)
         assert payment.meta_data["settle_deferral_first_at"] == first_at
+
+
+async def _set_dispute(job_id: str, *, disputed: bool = True, cleared: bool = False) -> None:
+    """Drive the dispute columns the way the dispute/resolve routes would."""
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        assert job is not None
+        now = datetime.now(UTC).replace(tzinfo=None)
+        if disputed:
+            job.disputed_at = now
+            job.dispute_reason = "test dispute"
+            job.dispute_cleared_at = now if cleared else None
+        session.add(job)
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_disputed_job_skips_release_and_refund(sweeper) -> None:
+    """#1783: an open dispute freezes both settlement passes."""
+    service, sw, rpc = sweeper
+
+    released_job = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "11" * 20,
+            "provider_address": "0x" + "22" * 20,
+            "escrow_contract_id": "escrow-disp-rel",
+            "expires_at": (datetime.now(UTC) - timedelta(days=2)).isoformat(),
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0", "status": "escrowed"},
+        }
+    )
+    await _apply_lifecycle(released_job["job_id"], state="COMPLETED", escrow_contract_id="escrow-disp-rel")
+    await _set_dispute(released_job["job_id"])
+
+    refunded_job = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "11" * 20,
+            "provider_address": "0x" + "22" * 20,
+            "escrow_contract_id": "escrow-disp-ref",
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0", "status": "escrowed"},
+        }
+    )
+    await _apply_lifecycle(
+        refunded_job["job_id"],
+        state="CANCELED",
+        escrow_contract_id="escrow-disp-ref",
+        updated_at=(datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None),
+    )
+    await _set_dispute(refunded_job["job_id"])
+
+    counts = await sw.sweep_once()
+    assert released_job["job_id"] not in rpc.released
+    assert refunded_job["job_id"] not in rpc.refunded
+    assert counts["disputed_frozen"] >= 2  # other suites may leave open disputes in the shared test DB
+
+    # Resolve both — the next sweep settles them normally. Resolve bumps
+    # job.updated_at, so age it past the sweeper's min_age gate first (the
+    # freeze semantics are what matter, not the 60s debounce).
+    await service.resolve_market_job_dispute(released_job["job_id"])
+    await service.resolve_market_job_dispute(refunded_job["job_id"])
+    await _age_job(released_job["job_id"])
+    await _age_job(refunded_job["job_id"])
+    counts = await sw.sweep_once()
+    assert released_job["job_id"] in rpc.released
+    assert refunded_job["job_id"] in rpc.refunded
+
+
+@pytest.mark.asyncio
+async def test_cleared_dispute_does_not_freeze(sweeper) -> None:
+    """#1783: a resolved dispute must not freeze settlement forever."""
+    service, sw, rpc = sweeper
+    created = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "11" * 20,
+            "provider_address": "0x" + "22" * 20,
+            "escrow_contract_id": "escrow-disp-clr",
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0", "status": "escrowed"},
+        }
+    )
+    await _apply_lifecycle(
+        created["job_id"],
+        state="CANCELED",
+        escrow_contract_id="escrow-disp-clr",
+        updated_at=(datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None),
+    )
+    await _set_dispute(created["job_id"], cleared=True)
+
+    await sw.sweep_once()
+    # The pin is the refund itself — disputed_frozen counts every open
+    # dispute in the shared test DB, so an exact zero is not assertable here.
+    assert created["job_id"] in rpc.refunded

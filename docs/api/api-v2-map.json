@@ -6956,6 +6956,20 @@
           ]
         },
         {
+          "public": "/api/v2/market/v1/market/jobs/{job_id}/dispute",
+          "upstream": "/v1/market/jobs/{job_id}/dispute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/jobs/{job_id}/dispute/resolve",
+          "upstream": "/v1/market/jobs/{job_id}/dispute/resolve",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
           "public": "/api/v2/market/v1/market/jobs/{job_id}/pin-confirm",
           "upstream": "/v1/market/jobs/{job_id}/pin-confirm",
           "methods": [

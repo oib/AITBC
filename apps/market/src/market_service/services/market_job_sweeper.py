@@ -14,6 +14,7 @@ from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy import func, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
@@ -34,6 +35,12 @@ logger = get_logger(__name__)
 # either instant-terminal or forever-silent.
 DEFAULT_SETTLE_DEFERRAL_MAX_SECONDS = 6 * 3600
 META_SETTLE_DEFERRAL_FIRST_AT = "settle_deferral_first_at"
+
+
+def _settleable_job_clause():
+    """#1783: jobs under an open dispute (disputed_at set, dispute_cleared_at
+    unset) are invisible to both the release and refund passes."""
+    return or_(col(MarketJob.disputed_at).is_(None), col(MarketJob.dispute_cleared_at).is_not(None))
 
 
 def _env_int(name: str, default: int) -> int:
@@ -120,7 +127,7 @@ class MarketJobSweeper:
 
     async def sweep_once(self) -> dict[str, int]:
         """Run one sweep and return counts."""
-        counts = {"released": 0, "refunded": 0, "failed": 0, "offers_expired": 0}
+        counts = {"released": 0, "refunded": 0, "failed": 0, "offers_expired": 0, "disputed_frozen": 0}
 
         async with self._session_factory() as session:
             now = datetime.now(UTC)
@@ -129,6 +136,19 @@ class MarketJobSweeper:
             await self._expire_stale_jobs(session, now_naive)
             await self._expire_stale_reservations(session, now_naive)
             counts["offers_expired"] = await self._expire_stale_offers(session, now_naive)
+
+            # #1783: an open dispute freezes settlement — count them loudly
+            # each sweep so a frozen escrow is never silent.
+            open_disputes = (
+                await session.execute(
+                    select(func.count())
+                    .select_from(MarketJob)
+                    .where(col(MarketJob.disputed_at).is_not(None), col(MarketJob.dispute_cleared_at).is_(None))
+                )
+            ).scalar() or 0
+            if open_disputes:
+                logger.warning("MarketJobSweeper: %s job(s) under dispute freeze — settlement skipped", open_disputes)
+                counts["disputed_frozen"] = int(open_disputes)
 
             # 1. Release: jobs that completed and are past the grace period.
             # EXPIRED is deliberately absent: expiry only ever lands on
@@ -146,6 +166,7 @@ class MarketJobSweeper:
                 .join(MarketJobPayment, col(MarketJob.payment_id) == MarketJobPayment.id)
                 .where(col(MarketJobPayment.status) == "escrowed")
                 .where(col(MarketJobPayment.escrowed_at).is_not(None))
+                .where(_settleable_job_clause())
                 .where(col(MarketJob.state).in_({"COMPLETED"}))
                 .where((col(MarketJob.expires_at).is_(None)) | (col(MarketJob.expires_at) < release_cutoff))
                 .limit(self.batch_size)
@@ -172,6 +193,7 @@ class MarketJobSweeper:
                 .join(MarketJobPayment, col(MarketJob.payment_id) == MarketJobPayment.id)
                 .where(col(MarketJobPayment.status).in_({"escrowed", "refund_pending"}))
                 .where(col(MarketJobPayment.escrowed_at).is_not(None))
+                .where(_settleable_job_clause())
                 # EXPIRED joins FAILED/CANCELED: an expired job is unfinished
                 # by definition, so its escrowed payment refunds the buyer
                 # even when the expire path missed the refund_pending flip
