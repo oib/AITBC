@@ -64,3 +64,38 @@ def check_page_offset(offset: int) -> int:
 def clamp_analytics_days(days: int) -> int:
     """Bound the activity-timeline window to ``1..MAX_ANALYTICS_DAYS``."""
     return max(1, min(int(days), MAX_ANALYTICS_DAYS))
+
+
+# Keyset cursors (#1717): ``<height>`` for height-ordered block lists and
+# ``<created_at>|<tx_hash>`` for the transaction search. Both echo stored
+# column values verbatim — the timestamp half keeps its raw TEXT form so
+# string comparison in SQL matches the ORDER BY exactly. Malformed cursors
+# reject with 400 rather than silently degrading to page one, which would
+# loop a caller forever.
+_HEIGHT_CURSOR_MAX = 20
+_TX_CURSOR_MAX_PART = 256
+
+
+def check_height_cursor(cursor: str | None) -> int | None:
+    """Parse a ``<height>`` keyset cursor for DESC height ordering."""
+    if cursor is None or cursor == "":
+        return None
+    if not cursor.isdigit() or len(cursor) > _HEIGHT_CURSOR_MAX:
+        raise HTTPException(status_code=400, detail="invalid cursor (want a block height from a previous next_cursor)")
+    return int(cursor)
+
+
+def check_tx_keyset_cursor(cursor: str | None) -> tuple[str, str] | None:
+    """Parse a ``<created_at>|<tx_hash>`` keyset cursor (DESC ordering)."""
+    if cursor is None or cursor == "":
+        return None
+    parts = cursor.split("|")
+    if len(parts) != 2 or not parts[0] or not parts[1]:
+        raise HTTPException(
+            status_code=400, detail="invalid cursor (want '<created_at>|<tx_hash>' from a previous next_cursor)"
+        )
+    if len(parts[0]) > 64 or len(parts[1]) > _TX_CURSOR_MAX_PART:
+        raise HTTPException(
+            status_code=400, detail="invalid cursor (want '<created_at>|<tx_hash>' from a previous next_cursor)"
+        )
+    return parts[0], parts[1]
