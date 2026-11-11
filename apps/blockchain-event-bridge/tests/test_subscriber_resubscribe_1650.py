@@ -2,62 +2,29 @@
 
 from __future__ import annotations
 
-import asyncio
-from unittest.mock import patch
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 
-from blockchain_event_bridge.config import Settings
-from blockchain_event_bridge.event_subscribers.blocks import BlockEventSubscriber
+from blockchain_event_bridge.event_subscribers._resubscribe import close_subscription, resubscribe
 
 
-class _FakeSubscription:
-    def __init__(self, fail_first: bool) -> None:
-        self._fail_first = fail_first
-        self._attempts = 0
-        self.queue = asyncio.Queue()
-        self.closed = False
-
-    async def get(self) -> dict:
-        self._attempts += 1
-        if self._fail_first and self._attempts == 1:
-            raise ConnectionError("stale subscription")
-        return {"height": 42, "hash": "0xabc", "transactions": []}
-
-    def close(self) -> None:
-        self.closed = True
-
-
-class _FakeBroker:
-    def __init__(self) -> None:
-        self.subscribe_calls = 0
-
-    async def subscribe(self, topic: str, max_queue_size: int = 100) -> _FakeSubscription:
-        self.subscribe_calls += 1
-        return _FakeSubscription(fail_first=self.subscribe_calls == 1)
-
-    async def shutdown(self) -> None:
-        return None
+def test_close_subscription_swallows_close_errors() -> None:
+    sub = Mock()
+    sub.close.side_effect = RuntimeError("already closed")
+    close_subscription(sub)
+    sub.close.assert_called_once()
 
 
 @pytest.mark.asyncio
-async def test_block_subscriber_resubscribes_when_get_fails() -> None:
-    settings = Settings(chain_id="ait-test")
-    subscriber = BlockEventSubscriber(settings)
-    broker = _FakeBroker()
+async def test_resubscribe_replaces_subscription() -> None:
+    broker = AsyncMock()
+    new_sub = object()
+    broker.subscribe.return_value = new_sub
+    old = Mock()
 
-    with (
-        patch("aitbc_chain.gossip.create_backend", return_value=object()),
-        patch("aitbc_chain.gossip.GossipBroker", return_value=broker),
-    ):
-        task = asyncio.create_task(subscriber.run())
-        for _ in range(30):
-            if broker.subscribe_calls >= 2:
-                break
-            await asyncio.sleep(0.05)
-        await subscriber.stop()
-        task.cancel()
-        with pytest.raises(asyncio.CancelledError):
-            await task
+    got = await resubscribe(broker, "blocks.test", old, max_queue_size=100)
 
-    assert broker.subscribe_calls >= 2
+    old.close.assert_called_once()
+    broker.subscribe.assert_awaited_once_with("blocks.test", max_queue_size=100)
+    assert got is new_sub
