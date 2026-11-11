@@ -66,9 +66,18 @@ Validators take turns producing blocks under `MultiValidatorPoA`:
 
 ### Transaction Validation
 
-- Verify transaction signatures
-- Check sender balance and nonce
-- Validate state-transition and smart contract execution
+Attestation is a *structural* vote, not an execution proof (#1325, AD
+ruling): attesters verify proposal authorization — block and transaction
+signatures, parent-hash linkage, nonce ordering against their own parent
+state, and round/lock rules — then vote. They do not re-execute the
+block's transactions and do not recompute the state root.
+
+Execution validity is enforced at import instead: every node applies the
+block's transactions through the full state transition and compares the
+resulting state root against the header's committed root (from
+`sync_require_state_root_height` on, an absent root is refused outright).
+A block attesters voted on can still be refused at import — that is the
+designed boundary, not a fault.
 
 ### Network Participation
 
