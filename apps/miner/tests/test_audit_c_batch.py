@@ -235,3 +235,62 @@ def test_inbox_message_exception_does_not_abort_sweep(monkeypatch) -> None:
     # Must not raise; message must NOT be marked done (retried next sweep).
     ate._process_inbox_message(message, state["done"], PROVIDER, {}, state, stats)
     assert "m-poison" not in state["done"]
+
+
+# --- #1788: silent model substitution ---------------------------------------
+
+
+def _inference_job(model_marker):
+    payload = {"type": "inference", "prompt": "hello"}
+    if model_marker is not None:
+        payload["model"] = model_marker
+    return {"job_id": "j-model", "payload": payload}
+
+
+def _capture_results(monkeypatch):
+    submitted = []
+    monkeypatch.setattr(pm, "submit_result", lambda jid, res: submitted.append((jid, res)))
+    monkeypatch.setattr(pm, "get_gpu_info", lambda: None)
+    monkeypatch.setattr(pm, "build_tee_quote", lambda *a, **k: None)
+    return submitted
+
+
+@pytest.mark.unit
+def test_requested_model_unavailable_fails_instead_of_substituting(monkeypatch, mock_http):
+    """An explicit model request that this miner cannot serve must fail the
+    job — not silently run a different model under the buyer's payment."""
+    submitted = _capture_results(monkeypatch)
+    with mock_http(post={"response": "should not happen", "eval_count": 1}):
+        assert pm.execute_job(_inference_job("huge-model:70b"), ["llama3.2:latest"]) is False
+    assert submitted and submitted[0][1]["result"]["status"] == "failed"
+    assert "huge-model:70b" in submitted[0][1]["result"]["error"]
+
+
+@pytest.mark.unit
+def test_requested_model_available_runs_and_reports_it(monkeypatch, mock_http):
+    submitted = _capture_results(monkeypatch)
+    with mock_http(post={"response": "hi", "eval_count": 3}):
+        assert pm.execute_job(_inference_job("llama3.2:latest"), ["llama3.2:latest", "qwen3:8b"]) is True
+    result = submitted[0][1]["result"]
+    assert result["status"] == "completed"
+    assert result["model"] == "llama3.2:latest"
+
+
+@pytest.mark.unit
+def test_unspecified_model_falls_back_and_reports_actual(monkeypatch, mock_http):
+    """No model requested: availability-first fallback stays, but the result
+    names the model that actually ran."""
+    submitted = _capture_results(monkeypatch)
+    with mock_http(post={"response": "hi", "eval_count": 2}):
+        assert pm.execute_job(_inference_job(None), ["qwen3:8b"]) is True
+    result = submitted[0][1]["result"]
+    assert result["status"] == "completed"
+    assert result["model"] == "qwen3:8b"
+
+
+@pytest.mark.unit
+def test_no_models_available_fails(monkeypatch, mock_http):
+    submitted = _capture_results(monkeypatch)
+    with mock_http(post={"response": "x"}):
+        assert pm.execute_job(_inference_job("anything"), []) is False
+    assert submitted[0][1]["result"]["status"] == "failed"

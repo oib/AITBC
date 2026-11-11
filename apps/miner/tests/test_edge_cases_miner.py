@@ -131,12 +131,20 @@ def test_execute_job_missing_job_id(mock_submit):
 @pytest.mark.integration
 @patch("production_miner.submit_result")
 def test_execute_job_model_fallback(mock_submit, mock_http):
-    """An unavailable model falls back to the first installed one, and says which it used."""
+    """#1788: an explicitly requested but unavailable model fails the job —
+    it must not silently substitute a different model. Fallback only applies
+    when the payload names no model at all."""
     with mock_http(post={"response": "test"}):
         job = {"job_id": "job_123", "payload": {"type": "inference", "prompt": "test", "model": "nonexistent"}}
-        assert production_miner.execute_job(job, ["llama3.2:latest"]) is True
+        assert production_miner.execute_job(job, ["llama3.2:latest"]) is False
 
-    assert mock_submit.call_args.args[1]["result"]["model"] == "llama3.2:latest"
+    assert "nonexistent" in mock_submit.call_args.args[1]["result"]["error"]
+
+    with mock_http(post={"response": "test"}):
+        job = {"job_id": "job_123", "payload": {"type": "inference", "prompt": "test"}}
+        assert production_miner.execute_job(job, ["qwen3:8b"]) is True
+
+    assert mock_submit.call_args.args[1]["result"]["model"] == "qwen3:8b"
 
 
 @pytest.mark.integration

@@ -851,13 +851,22 @@ def _execute_inference(job, available_models):
     job_id = job.get("job_id")
     payload = job.get("payload", {})
     prompt = payload.get("prompt", "")
-    model = payload.get("model", "llama3.2:latest")
-    if model not in available_models:
-        if available_models:
-            model = available_models[0]
-            logger.info("Using available model: %s", model)
-        else:
-            raise Exception("No models available in Ollama")
+    # #1788: an explicitly requested model must run or the job must fail —
+    # silently substituting a different model bills the buyer for capability
+    # they did not ask for. Only an *unspecified* model falls back.
+    requested_model = payload.get("model")
+    if requested_model:
+        model = requested_model
+        if model not in available_models:
+            raise Exception(f"Requested model '{model}' is not available on this miner")
+    else:
+        model = "llama3.2:latest"
+        if model not in available_models:
+            if available_models:
+                model = available_models[0]
+                logger.info("Default model unavailable; using available model: %s", model)
+            else:
+                raise Exception("No models available in Ollama")
     logger.info("Running inference on GPU with model: %s", model)
     start_time = time.time()
     constraints = job.get("constraints") or {}
