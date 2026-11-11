@@ -27,7 +27,31 @@ from ...auth import AuthManager
 
 from ._group import market
 from . import get_chain_id, get_market_wallet, get_next_nonce
-from .escrow import _escrow_create, _post_escrow_release
+from .escrow import _escrow_create, _post_escrow_release, refund_escrow
+
+
+def _refund_orphaned_escrow(ctx: click.Context, job_id: str, contract_id: str | None) -> None:
+    """Best-effort buyer refund when the provider call fails after escrow lock.
+
+    HERMES-ESCROW-SIGKILL-1 (#1767): a SIGKILL'd provider child (or a killed
+    service/CLI) fails the request after ``_escrow_create`` already locked
+    funds on-chain. These ``sw_job_*`` escrows have no market/coordinator job
+    row, so no sweeper ever sees them — without an inline refund the escrow
+    stays locked until the 30-day contract expiry (which nothing invokes).
+
+    ``refund_escrow`` raises ``click.Abort`` on failure; swallow it here — the
+    caller re-raises the original error and this only adds a warning with the
+    manual recovery path.
+    """
+    if not contract_id:
+        return
+    try:
+        refund_escrow(ctx, job_id, reason="job_failed")
+    except Exception:
+        warning(
+            f"Escrow refund failed for job {job_id} — the escrow stays locked; "
+            f"retry manually with `aitbc market escrow refund --job-id {job_id} --reason job_failed`"
+        )
 
 
 def _escrow_parties_for_market_run(
@@ -324,8 +348,12 @@ def _run_ollama(
     info("Running inference...")
     t_start = datetime.now()
     # URL validated
-    with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
-        resp_data = json.loads(resp.read())
+    try:
+        with urllib.request.urlopen(req, timeout=120) as resp:  # nosec B310
+            resp_data = json.loads(resp.read())
+    except Exception:
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        raise
     elapsed = (datetime.now() - t_start).total_seconds()
 
     response_text = resp_data.get("response", "")
@@ -484,8 +512,12 @@ def _run_whisper(
         },
     )
     # endpoint scheme validated
-    with _urllib.urlopen(req, timeout=300) as resp:  # nosec B310
-        resp_data = json.loads(resp.read())
+    try:
+        with _urllib.urlopen(req, timeout=300) as resp:  # nosec B310
+            resp_data = json.loads(resp.read())
+    except Exception:
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        raise
 
     elapsed = (datetime.now() - t_start).total_seconds()
     actual_duration_minutes = resp_data.get("duration_minutes", duration_minutes)
@@ -666,8 +698,12 @@ def _run_ffmpeg(
         },
     )
     # endpoint scheme validated
-    with _urllib.urlopen(req, timeout=3600) as resp:  # nosec B310
-        resp_data = json.loads(resp.read())
+    try:
+        with _urllib.urlopen(req, timeout=3600) as resp:  # nosec B310
+            resp_data = json.loads(resp.read())
+    except Exception:
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        raise
 
     elapsed = (datetime.now() - t_start).total_seconds()
     actual_hours = resp_data.get("processing_time_hours", estimated_hours)
@@ -804,14 +840,19 @@ def _run_hermes(
     info("Sending prompt to Hermes Agent service...")
     t_start = datetime.now()
     http_client = AITBCHTTPClient(base_url=hermes_base, timeout=max_time + 10)
-    resp_data = http_client.post(
-        "/run",
-        json={"prompt": prompt, "max_time": max_time},
-        headers=_shop_access_headers(job_id),
-    )
+    try:
+        resp_data = http_client.post(
+            "/run",
+            json={"prompt": prompt, "max_time": max_time},
+            headers=_shop_access_headers(job_id),
+        )
+    except Exception:
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        raise
     elapsed = (datetime.now() - t_start).total_seconds()
 
     if resp_data.get("status") != "completed":
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
         error(f"Hermes run did not complete: {resp_data.get('text', resp_data)}")
         raise click.Abort()
 
