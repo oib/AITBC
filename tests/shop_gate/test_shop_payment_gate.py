@@ -73,3 +73,20 @@ def test_access_key_must_be_a_single_safe_path_segment(svc_path, module, route):
             },
         )
     assert resp.status_code == 401
+
+
+@pytest.mark.parametrize("svc_path, module, route", PAID_ROUTES)
+def test_terminal_job_token_replay_rejected(svc_path, module, route):
+    """SHOP-TOKEN-REUSE-1 (#1817): market deny on terminal jobs → shop 401."""
+    app = _app(svc_path, module)
+    client = TestClient(app, raise_server_exceptions=False)
+    with patch("aitbc.shop_gate._verify", return_value=None):
+        resp = client.post(
+            route,
+            headers={
+                "X-Access-Key": "k0123456789abcdef",
+                "X-Access-Secret": "s",
+                "X-Job-Id": "job-done",
+            },
+        )
+    assert resp.status_code == 401
