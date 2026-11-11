@@ -2,8 +2,8 @@
 
 **Authoritative single source of truth for live AITBC service ports**
 
-**Last Updated**: 2026-09-13
-**Version**: 3.4
+**Last Updated**: 2026-11-11
+**Version**: 3.5
 
 ---
 
@@ -17,7 +17,7 @@ External traffic reaches these services through nginx on ports `80`/`443`.
 
 | Service | Local Port | Health | Nginx Path | Notes |
 |---------|-----------|--------|------------|-------|
-| API Gateway | 8201 | `/health` | `/api/` | Customer-facing API entry point |
+| API Gateway | 8201 | `/health` | `/api/` | Customer-facing API entry point. Bind is `API_GATEWAY_BIND_HOST` in `apps/api-gateway/aitbc-api-gateway.service` — pinned `127.0.0.1` (nginx proxies `localhost:8201` on every host; a remote-nginx deployment must set the private interface address explicitly). Live drift fixed under #1731: node2 ran `0.0.0.0` until 2026-11 |
 | Blockchain RPC | 8202 | `/health` | `/rpc/` | Public chain RPC and follower subscription |
 | Coordinator API | 8203 | `/health` | `/c/` | Job/market/escrow failover endpoint |
 
@@ -28,7 +28,7 @@ These services bind externally and may be reached directly.
 | Service | Port | Health | Bind | Notes |
 |---------|------|--------|------|-------|
 | Blockchain Explorer API | 8100 | `/health` | `127.0.0.1` | Block/transaction search; proxied at `/explorer-api/`. Pinned via `EXPLORER_BIND_HOST`; set it to the private interface address where nginx runs on another host |
-| Blockchain P2P (gossip relay) | 7070 | N/A | `0.0.0.0` | Hub-only WebSocket gossip for followers |
+| Blockchain P2P (gossip relay) | 7070 | N/A | `127.0.0.1` | Hub-only WebSocket gossip relay (`aitbc_chain.gossip.relay`); public followers reach it through nginx `/rpc/(subscribe\|gossip)/ws` on 443 — the relay itself is loopback-only (verified live 2026-11-11; the earlier `0.0.0.0` bind was drift) |
 | Blockchain Event Bridge | 8205 | `/health` | `127.0.0.1` | Chain event streaming; nginx `/` route if configured |
 
 ## Internal services (not nginx-proxied)
@@ -143,11 +143,14 @@ binds below are Debian package defaults, not a cross-node requirement.
 | Service | Port | Bind | Nodes | Notes |
 |---------|------|------|-------|-------|
 | PostgreSQL | 5432 | `127.0.0.1` / `::1` | all nodes | Local datastore for the `aitbc_*` databases; `listen_addresses = 'localhost'` |
-| Prometheus Server | 9090 | `*` (all) | customer, shop, hub | Debian `prometheus.service`; hub instance is localhost-only -- it has no routed path to the other nodes |
-| Prometheus Node Exporter | 9100 | `*` (all) | customer, shop, hub | `prometheus-node-exporter.service` |
-| Prometheus Redis Exporter | 9121 | `*` (all) | customer | `prometheus-redis-exporter.service` |
-| Prometheus Postgres Exporter | 9187 | `*` (all) | customer | `prometheus-postgres-exporter.service` |
-| Postfix | 25 | `0.0.0.0` / `[::]` | customer, shop, replica | Debian-default MTA (`inet_interfaces = all`); local delivery only. Also present on the non-AITBC infrastructure hosts |
+| Prometheus Server | 9090 | `127.0.0.1` | customer, shop, hub, hub1 | Debian `prometheus.service`; verified loopback on all five hosts 2026-11-11 — remote metrics arrive via `remote_write` through nginx `/prom-write`, not scrape |
+| Prometheus Node Exporter | 9100 | `127.0.0.1` | customer, shop, hub, hub1 | `prometheus-node-exporter.service`; loopback on all five hosts (ARGS pins `--web.listen-address=127.0.0.1:9100`) |
+| Prometheus Redis Exporter | 9121 | `*` (all) | customer (node0) | `prometheus-redis-exporter.service`; `ARGS=""` in `/etc/default/` → package default all-interfaces. Local prometheus scrapes it, so loopback would suffice — tightening is an ops change, tracked under #1731 |
+| Prometheus Postgres Exporter | 9187 | `*` (all) | customer (node0) | `prometheus-postgres-exporter.service`; same all-interfaces default, same pending tightening |
+| Blackbox Exporter | 9115 | `*` (all) | hub1 | `blackbox-exporter.service`; Debian unit default all-interfaces; probe targets are configured host-side |
+| coTURN (STUN/TURN) | 3478 | `10.1.223.93` + `127.0.0.1` | customer (node0) | `coturn.service`; bound to the LAN address (not `0.0.0.0`) — LAN-scoped by design for WebRTC-style relay; no public exposure |
+| LLMNR | 5355 | `0.0.0.0` / `[::]` | all nodes | `systemd-resolved` LLMNR/mDNS responder; OS-level noise, link-local multicast only — disable via `LLMNR=no` in resolved.conf if unwanted (ops change) |
+| Postfix | 25 | `0.0.0.0` / `[::]` | hub1, customer, shop, replica | Debian-default MTA (`inet_interfaces = all`); local delivery only. Verified live 2026-11-11: present on hub1/node0/node1/node2, **absent on hub**. Also present on the non-AITBC infrastructure hosts |
 
 ## Services without a listening port
 

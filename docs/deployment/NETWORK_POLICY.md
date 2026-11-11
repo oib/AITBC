@@ -1,7 +1,7 @@
 # Network Policy
 
-**Last Updated:** 2026-09-11
-**Version:** 2.0
+**Last Updated:** 2026-11-11
+**Version:** 2.1
 
 ## Overview
 
@@ -31,7 +31,7 @@ policy violation.
 | Surface | Port | Where | Why |
 |---------|------|-------|-----|
 | nginx (TLS) | 443, 80 | TLS terminator host | The entire customer-facing surface; proxies `/api/`, `/rpc/`, `/c/`, `/explorer-api/` |
-| Blockchain P2P | 7070 | Hub | Followers on other hosts gossip over the public internet; registered via `aitbc node hub register --public-address <ip> --public-port 7070` |
+| Blockchain P2P / gossip | 443 via nginx | nginx host | The gossip relay (`aitbc_chain.gossip.relay`) binds `127.0.0.1:7070` on the hub — verified live 2026-11-11. Public followers and validators reach it through nginx locations `/rpc/subscribe/ws` and `/rpc/gossip/ws` on 443; there is no direct public 7070 listener |
 | IPFS Swarm | 4002 | Island hosts | Private-swarm IPFS needs inbound peer connections; TCP and UDP (QUIC) |
 | Kubo IPFS (public swarm) | 4001 | Customer/shop GPU nodes | The public-swarm Kubo daemon needs inbound peer connections (TCP and UDP); distinct from the repo-managed island daemon on 4002 |
 
@@ -39,16 +39,19 @@ policy violation.
 
 ## Proxied backends: private interface
 
-TLS terminates on a *different host* from the services, so nginx reaches its
-backends over the private link. `127.0.0.1` would break the proxy; `0.0.0.0`
-would expose the backend directly. These bind the private interface address:
+TLS terminates on nginx. Where nginx is **co-located** with the service — the
+current fleet layout on every node — the backend binds `127.0.0.1` and nginx
+proxies `localhost:<port>` (verified live 2026-11-11: hub `8201`, node2 `8201`,
+`8202`, `8203`, `8100` all loopback). Where nginx lives on a *different host*,
+the backend binds the private interface address instead — `127.0.0.1` would
+break the proxy and `0.0.0.0` would expose the backend directly:
 
-| Service | Port |
-|---------|------|
-| API Gateway | 8201 |
-| Blockchain RPC | 8202 |
-| Blockchain Explorer | 8100 |
-| Coordinator API | 8203 |
+| Service | Port | Live bind (2026-11-11) |
+|---------|------|------------------------|
+| API Gateway | 8201 | `127.0.0.1` on hub; was `0.0.0.0` on node2 — drift corrected via unit/env change tracked on #1731 |
+| Blockchain RPC | 8202 | `127.0.0.1` all hosts |
+| Blockchain Explorer | 8100 | `127.0.0.1` all hosts |
+| Coordinator API | 8203 | `127.0.0.1` where running |
 
 ## Everything else: `127.0.0.1`
 
@@ -98,6 +101,10 @@ container on the bridge, whether or not a proxy fronts it from outside.
 | Prometheus node exporter | 9100 | Same host monitoring path; configured outside this repo |
 | Prometheus redis exporter | 9121 | Same host monitoring path; configured outside this repo |
 | Prometheus postgres exporter | 9187 | Same host monitoring path; configured outside this repo |
+| API Gateway | 8201 | Was `0.0.0.0` on node2 (repo unit default); customer traffic arrives via local nginx `localhost:8201`, so loopback is sufficient — unit template now pins `127.0.0.1`, live bind change pending on #1731 |
+| Blackbox exporter | 9115 | `*:9115` on hub1 — Debian unit default all-interfaces; host package config, not a repo unit |
+| coTURN | 3478 | Bound to the node0 LAN address `10.1.223.93` plus loopback — LAN-scoped by design, not `0.0.0.0`; host package config |
+| LLMNR | 5355 | `systemd-resolved` responder on all nodes — OS-level link-local multicast, not a repo unit |
 
 The previous last entry (Blockchain Node Metrics 9009) was closed by adding
 `AITBC_NODE_METRICS_HOST` to `observability/exporters.py` and pinning

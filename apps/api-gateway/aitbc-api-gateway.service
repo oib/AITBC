@@ -9,7 +9,10 @@ Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/api-gateway
 Environment="PATH=/opt/aitbc/venv/bin"
 Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/api-gateway/src:/opt/aitbc"
-Environment=API_GATEWAY_BIND_HOST=0.0.0.0
+# Bind is loopback by default: nginx proxies localhost:8201 on every host.
+# A deployment whose TLS terminator lives on a DIFFERENT host must override
+# with the private interface address (see docs/deployment/NETWORK_POLICY.md).
+Environment=API_GATEWAY_BIND_HOST=127.0.0.1
 # --proxy-headers + --forwarded-allow-ips 127.0.0.1: only the local nginx peer
 # may assert client identity; request.client.host then carries the post-realip
 # address and the rate limiter keys per real client instead of one global
