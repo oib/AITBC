@@ -208,3 +208,67 @@ def test_failed_run_leaves_scoped_rollback(sandbox, script: Path, key: str) -> N
         assert f"{key}_NEW" not in text
     # ...and the foreign backup was neither restored over nor deleted.
     assert foreign.read_text() == "foreign backup, do not touch\n"
+
+
+@pytest.mark.parametrize(
+    "script,key",
+    [(JWT_SCRIPT, "JWT_SECRET"), (APIKEY_SCRIPT, "API_KEY_HASH_SECRET")],
+    ids=lambda p: p.name if isinstance(p, Path) else p,
+)
+def test_discovers_shared_env_file_and_consuming_unit(sandbox, script: Path, key: str) -> None:
+    """#1718: the secret may live in a shared env file (e.g.
+    blockchain-secrets.env) consumed via EnvironmentFile= — the script must
+    rotate THAT file and restart the units that reference it, not a stale
+    hardcoded service list. Env files without the key are untouched."""
+    tmp_path, env_dir, _backup, bindir, env = sandbox
+    old_secret = "old-secret-that-is-long-enough-0123456789"
+    new_secret = "new-secret-0123456789abcdef0123456789abcdef"
+
+    # Shared secrets file carrying the key; a per-service file that does not.
+    (env_dir / "shared-secrets.env").write_text(f"{key}={old_secret}\nSHARED=1\n")
+    (env_dir / "aitbc-unrelated.env").write_text("OTHER=1\n")
+
+    # Fake systemd dir: one unit consuming the shared file by absolute path,
+    # one consuming it via the %N specifier, one consuming nothing relevant.
+    systemd_dir = tmp_path / "systemd"
+    systemd_dir.mkdir()
+    (systemd_dir / "aitbc-node.service").write_text("[Service]\nEnvironmentFile=/etc/aitbc/shared-secrets.env\n")
+    (systemd_dir / "aitbc-rpc.service").write_text(
+        "[Service]\nEnvironmentFile=/etc/aitbc/%N.env\nEnvironmentFile=-/etc/aitbc/shared-secrets.env\n"
+    )
+    (systemd_dir / "aitbc-other.service").write_text("[Service]\nEnvironmentFile=/etc/aitbc/aitbc-other.env\n")
+
+    # systemctl stub that records its argv and answers `cat` only for units
+    # present in the fake systemd dir — a shared env file must not spawn a
+    # bogus same-named restart.
+    calls = tmp_path / "systemctl.calls"
+    (bindir / "systemctl").write_text(
+        "#!/bin/bash\n"
+        f'echo "$@" >> {calls}\n'
+        'if [ "$1" = "cat" ]; then\n'
+        '    unit="${2%.service}"\n'
+        '    if [ -f "$AITBC_SYSTEMD_DIR/$unit.service" ]; then cat "$AITBC_SYSTEMD_DIR/$unit.service"; exit 0; fi\n'
+        "    exit 1\n"
+        "fi\n"
+        "exit 0\n"
+    )
+    (bindir / "systemctl").chmod(0o755)
+    env["AITBC_SYSTEMD_DIR"] = str(systemd_dir)
+
+    result = _run(script, env, stdin=f"{new_secret}\n")
+    assert result.returncode == 0, result.stdout + result.stderr
+
+    text = (env_dir / "shared-secrets.env").read_text()
+    assert f"{key}={new_secret}" in text
+    assert f"{key}_NEW" not in text
+    assert f"{key}_PREVIOUS={old_secret}" in text
+    assert "SHARED=1" in text
+
+    # The file without the key was never touched.
+    assert (env_dir / "aitbc-unrelated.env").read_text() == "OTHER=1\n"
+
+    # Both consuming units were restarted (twice: phases 2 and 5); the
+    # unrelated unit was not.
+    recorded = calls.read_text().splitlines()
+    restarts = [line.split()[1] for line in recorded if line.startswith("restart ")]
+    assert sorted(set(restarts)) == ["aitbc-node", "aitbc-rpc"]

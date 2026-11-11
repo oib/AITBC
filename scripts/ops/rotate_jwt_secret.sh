@@ -6,12 +6,19 @@
 # Usage: sudo ./rotate_jwt_secret.sh < secret.txt
 #        (or: NEW_SECRET=... sudo -E ./rotate_jwt_secret.sh)
 # The secret is never passed as an argument -- argv is visible via ps and shell history.
+#
+# #1718: the rotation targets are DISCOVERED, not hardcoded. The secret may
+# live in a shared env file (e.g. blockchain-secrets.env) or per-service
+# files, and the consuming units are whatever references those files via
+# EnvironmentFile=. Writing JWT_SECRET_NEW into env files nothing loads —
+# or restarting a stale hardcoded unit list — leaves consumers verifying
+# only the old secret while signers move to the new one.
 
 set -euo pipefail
 
 # Configuration
-SERVICES=("aitbc-coordinator-api" "aitbc-blockchain-node" "aitbc-market" "aitbc-exchange" "aitbc-gpu")
 ENV_DIR="${AITBC_ENV_DIR:-/etc/aitbc}"
+SYSTEMD_DIR="${AITBC_SYSTEMD_DIR:-/etc/systemd/system}"
 LOG_DIR="${AITBC_LOG_DIR:-/var/log/aitbc}"
 # Backups and the generated rollback script live in a per-run directory under a
 # root-private tree — never a fixed /tmp path, and a concurrent run's backups
@@ -30,6 +37,61 @@ while [ $# -gt 0 ]; do
         *) break ;;
     esac
 done
+
+# Env files under ENV_DIR that actually carry SECRET_KEY=.
+discover_env_files() {
+    local f
+    for f in "$ENV_DIR"/*.env; do
+        [ -f "$f" ] || continue
+        if grep -q "^${SECRET_KEY}=" "$f"; then
+            basename "$f"
+        fi
+    done
+}
+
+# Bare unit names (no .service suffix) that consume an env file: either the
+# file is named <unit>.env and <unit>.service exists (systemctl cat also
+# sees generated/dropped-in units), or a unit file under SYSTEMD_DIR lists
+# the env file in EnvironmentFile= — by path, basename, or a %N specifier
+# resolving to <unit>.env / <unit>-override.env.
+units_for_env_file() {
+    local env_base="$1" cand unit tok resolved uname
+    cand="${env_base%.env}"
+    # <unit>.env implies <unit>.service; systemctl cat fails for units that
+    # do not exist, so a shared file like blockchain-secrets.env cannot
+    # spawn a bogus "blockchain-secrets" restart.
+    if [ "$cand" != "$env_base" ] && systemctl cat "$cand.service" >/dev/null 2>&1; then
+        echo "$cand"
+    fi
+    for unit in "$SYSTEMD_DIR"/aitbc-*.service "$SYSTEMD_DIR"/aitbc-*.service.d/*.conf; do
+        [ -f "$unit" ] || continue
+        case "$unit" in
+            *.service.d/*.conf)
+                uname=$(basename "$(dirname "$unit")" .d)
+                uname="${uname%.service}"
+                ;;
+            *)
+                uname=$(basename "$unit" .service)
+                ;;
+        esac
+        while IFS= read -r tok; do
+            [ -n "$tok" ] || continue
+            resolved="${tok//%N/$uname}"
+            case "$resolved" in
+                */"$env_base" | "$env_base") echo "$uname" ;;
+            esac
+        done < <(grep -oE 'EnvironmentFile=-?[^ "'"'"']+' "$unit" 2>/dev/null | sed 's/^EnvironmentFile=-\{0,1\}//')
+    done
+}
+
+# Union of consuming units across every rotated env file, deduplicated.
+discover_units() {
+    local env_base u
+    for env_base in "${ENV_FILES[@]}"; do
+        units_for_env_file "$env_base"
+    done | sort -u
+}
+
 if [ "$DRY_RUN" = true ]; then
     if [ $# -gt 0 ]; then
         echo "error: unexpected arguments with --dry-run: $*" >&2
@@ -37,24 +99,29 @@ if [ "$DRY_RUN" = true ]; then
     fi
     echo "dry-run: ${SECRET_KEY} rotation plan (no writes, no restarts, no log file)"
     echo "  env dir:      $ENV_DIR"
+    echo "  systemd dir:  $SYSTEMD_DIR"
     echo "  backup root:  $BACKUP_ROOT (per-run 0700 dir + rollback.sh)"
     echo "  log file:     $LOG_FILE (not created in dry-run)"
+    ENV_FILES=()
+    while IFS= read -r f; do ENV_FILES+=("$f"); done < <(discover_env_files)
     found=0
-    for service in "${SERVICES[@]}"; do
-        env_file="$ENV_DIR/${service}.env"
-        if [ -f "$env_file" ]; then
-            found=1
-            state="present"
-            grep -q "^${SECRET_KEY}=" "$env_file" && state="${state} (${SECRET_KEY} already set)"
-            echo "  $service: would rewrite $env_file — $state"
+    if [ ${#ENV_FILES[@]} -gt 0 ]; then
+        found=1
+        UNITS=()
+        while IFS= read -r u; do UNITS+=("$u"); done < <(discover_units)
+        for env_base in "${ENV_FILES[@]}"; do
+            echo "  $env_base: would rewrite $ENV_DIR/$env_base"
+        done
+        if [ ${#UNITS[@]} -gt 0 ]; then
+            echo "  restarts: ${UNITS[*]} (two rolling passes, health-checked)"
         else
-            echo "  $service: $env_file absent — skipped"
+            echo "  restarts: none discovered — env files rotate; consumers pick up on next restart"
         fi
-    done
-    [ "$found" -eq 1 ] || echo "  warning: no service env files under $ENV_DIR — rotation would be a no-op"
+    else
+        echo "  warning: no env file under $ENV_DIR contains ${SECRET_KEY}= — rotation would be a no-op"
+    fi
     echo "  writes:   ${SECRET_KEY}_NEW alongside old → rolling restarts →"
     echo "           ${SECRET_KEY}=new, old retired into ${SECRET_KEY}_PREVIOUS"
-    echo "  restarts: ${SERVICES[*]} (two rolling passes, health-checked)"
     echo "  rollback: per-run rollback.sh restores only this run's backups"
     exit 0
 fi
@@ -167,8 +234,24 @@ fi
 if [ -z "${NEW_SECRET:-}" ]; then
     error_exit "New secret is empty"
 fi
-log "Starting JWT_SECRET rotation for rolling release"
+log "Starting ${SECRET_KEY} rotation for rolling release"
 log "New secret length: ${#NEW_SECRET} characters"
+
+# Discover targets before any write: env files carrying the key, and the
+# units that consume them.
+ENV_FILES=()
+while IFS= read -r f; do ENV_FILES+=("$f"); done < <(discover_env_files)
+if [ ${#ENV_FILES[@]} -eq 0 ]; then
+    error_exit "No env file under $ENV_DIR contains ${SECRET_KEY}= — nothing to rotate"
+fi
+UNITS=()
+while IFS= read -r u; do UNITS+=("$u"); done < <(discover_units)
+log "Rotating ${#ENV_FILES[@]} env file(s): ${ENV_FILES[*]}"
+if [ ${#UNITS[@]} -gt 0 ]; then
+    log "Consuming units: ${UNITS[*]}"
+else
+    log "${YELLOW}No consuming units discovered — env files will rotate; services pick up the new secret on their next restart${NC}"
+fi
 
 # Backup current secrets into this run's private directory. The backups hold
 # plaintext secrets, so the tree is 0700 throughout.
@@ -178,14 +261,13 @@ RUN_DIR="$(mktemp -d "$BACKUP_ROOT/run.XXXXXXXX")"
 chmod 700 "$RUN_DIR"
 ROLLBACK_FILE="$RUN_DIR/rollback.sh"
 log "Backing up current secrets to $RUN_DIR..."
-for service in "${SERVICES[@]}"; do
-    if [ -f "$ENV_DIR/${service}.env" ]; then
-        cp "$ENV_DIR/${service}.env" "$RUN_DIR/${service}.env"
-        log "Backed up ${service}.env"
-    fi
+for env_base in "${ENV_FILES[@]}"; do
+    cp "$ENV_DIR/$env_base" "$RUN_DIR/$env_base"
+    log "Backed up $env_base"
 done
 
 # Create rollback script — restores only this run's backups and nothing else.
+UNIT_LIST="${UNITS[*]:-}"
 cat > "$ROLLBACK_FILE" << ROLLBACK_EOF
 #!/bin/bash
 # Auto-generated rollback script for secret rotation
@@ -199,68 +281,78 @@ for backup in $RUN_DIR/*.env; do
     fi
 done
 # Restart all services
-systemctl restart ${SERVICES[@]}
+if [ -n "$UNIT_LIST" ]; then
+    systemctl restart $UNIT_LIST
+else
+    echo "No consuming units were discovered; restart services manually to restore the old secret."
+fi
 echo "Rollback complete"
 ROLLBACK_EOF
 chmod 700 "$ROLLBACK_FILE"
 log "Rollback script created: $ROLLBACK_FILE"
 
+restart_units() {
+    local u
+    for u in "${UNITS[@]}"; do
+        [ -n "$u" ] || continue
+        log "Restarting $u..."
+        systemctl restart "$u"
+        log "Waiting for $u to be healthy..."
+        sleep 10
+        if systemctl is-active --quiet "$u"; then
+            log "${GREEN}$u is healthy${NC}"
+        else
+            error_exit "$u failed to start"
+        fi
+        case "$u" in
+            "aitbc-coordinator-api")
+                if curl -fsS http://localhost:8203/health > /dev/null; then
+                    log "${GREEN}$u health check passed${NC}"
+                else
+                    error_exit "$u health check failed"
+                fi
+                ;;
+            "aitbc-market")
+                if curl -fsS http://localhost:8102/health > /dev/null 2>&1; then
+                    log "${GREEN}$u health check passed${NC}"
+                else
+                    log "${YELLOW}$u health check not available, skipping${NC}"
+                fi
+                ;;
+        esac
+    done
+}
+
 # Phase 1: Add new secret alongside old secret (dual-secret overlap)
 log "Phase 1: Adding new secret with dual-secret overlap..."
-for service in "${SERVICES[@]}"; do
-    env_file="$ENV_DIR/${service}.env"
-    if [ -f "$env_file" ]; then
-        # Add new secret as JWT_SECRET_NEW (set_env_var appends safely even when
-        # the file lacks a trailing newline — a bare `echo >>` would fuse
-        # the assignment onto the last line and lose the variable).
-        set_env_var "JWT_SECRET_NEW" "$NEW_SECRET" "$env_file"
-        log "Set JWT_SECRET_NEW in ${service}.env"
-    fi
+for env_base in "${ENV_FILES[@]}"; do
+    env_file="$ENV_DIR/$env_base"
+    # Add new secret as JWT_SECRET_NEW (set_env_var appends safely even when
+    # the file lacks a trailing newline — a bare `echo >>` would fuse
+    # the assignment onto the last line and lose the variable).
+    set_env_var "${SECRET_KEY}_NEW" "$NEW_SECRET" "$env_file"
+    log "Set ${SECRET_KEY}_NEW in $env_base"
 done
 
-# Phase 2: Rolling restart services one by one
+# Phase 2: Rolling restart services one by one. A restarted service signs
+# with the OLD secret and verifies {old, new}; a not-yet-restarted one keeps
+# its phase-1 env — JWT_SECRET_NEW stays in its process environment until
+# its own restart, so new-signed tokens still verify there. Both directions
+# of the overlap hold for the whole pass.
 log "Phase 2: Rolling restart services with dual-secret support..."
-for service in "${SERVICES[@]}"; do
-    log "Restarting $service..."
-    systemctl restart "$service"
-
-    # Wait for service to be healthy
-    log "Waiting for $service to be healthy..."
-    sleep 10
-
-    # Check service status
-    if systemctl is-active --quiet "$service"; then
-        log "${GREEN}$service is healthy${NC}"
-    else
-        error_exit "$service failed to start after restart"
-    fi
-
-    # Verify service is accepting requests (if applicable)
-    case "$service" in
-        "aitbc-coordinator-api")
-            if curl -fsS http://localhost:8203/health > /dev/null; then
-                log "${GREEN}$service health check passed${NC}"
-            else
-                error_exit "$service health check failed"
-            fi
-            ;;
-        "aitbc-market")
-            if curl -fsS http://localhost:8102/health > /dev/null 2>&1; then
-                log "${GREEN}$service health check passed${NC}"
-            else
-                log "${YELLOW}$service health check not available, skipping${NC}"
-            fi
-            ;;
-    esac
-done
+if [ ${#UNITS[@]} -gt 0 ]; then
+    restart_units
+else
+    log "${YELLOW}No units to restart — skipping rolling restart${NC}"
+fi
 
 # Phase 3: Verify all services are healthy with dual-secret support
 log "Phase 3: Verifying all services are healthy..."
-for service in "${SERVICES[@]}"; do
-    if systemctl is-active --quiet "$service"; then
-        log "${GREEN}$service is healthy${NC}"
+for u in "${UNITS[@]}"; do
+    if systemctl is-active --quiet "$u"; then
+        log "${GREEN}$u is healthy${NC}"
     else
-        error_exit "$service is not healthy after dual-secret phase"
+        error_exit "$u is not healthy after dual-secret phase"
     fi
 done
 
@@ -269,65 +361,44 @@ done
 # only, comma-separated with any earlier retirees) so tokens minted under it
 # stay valid until they expire — that is what makes the overlap real.
 log "Phase 4: Replacing old secret with new secret..."
-for service in "${SERVICES[@]}"; do
-    env_file="$ENV_DIR/${service}.env"
-    if [ -f "$env_file" ]; then
-        old_secret="$(sed -n 's/^JWT_SECRET=//p' "$env_file" | head -n1)"
-        previous="$(sed -n 's/^JWT_SECRET_PREVIOUS=//p' "$env_file" | head -n1)"
-        # Replace JWT_SECRET with the new secret
-        set_env_var "JWT_SECRET" "$NEW_SECRET" "$env_file"
-        # Move JWT_SECRET_NEW into the retired-secret slot
-        unset_env_var "JWT_SECRET_NEW" "$env_file"
-        if [ -n "$old_secret" ]; then
-            if [ -n "$previous" ]; then
-                previous="$old_secret,$previous"
-            else
-                previous="$old_secret"
-            fi
-            set_env_var "JWT_SECRET_PREVIOUS" "$previous" "$env_file"
+for env_base in "${ENV_FILES[@]}"; do
+    env_file="$ENV_DIR/$env_base"
+    old_secret="$(sed -n "s/^${SECRET_KEY}=//p" "$env_file" | head -n1)"
+    previous="$(sed -n "s/^${SECRET_KEY}_PREVIOUS=//p" "$env_file" | head -n1)"
+    # Replace JWT_SECRET with the new secret
+    set_env_var "$SECRET_KEY" "$NEW_SECRET" "$env_file"
+    # Move JWT_SECRET_NEW into the retired-secret slot
+    unset_env_var "${SECRET_KEY}_NEW" "$env_file"
+    if [ -n "$old_secret" ]; then
+        if [ -n "$previous" ]; then
+            previous="$old_secret,$previous"
+        else
+            previous="$old_secret"
         fi
-        log "Updated ${service}.env with new secret (old retained in JWT_SECRET_PREVIOUS)"
+        set_env_var "${SECRET_KEY}_PREVIOUS" "$previous" "$env_file"
     fi
+    log "Updated $env_base with new secret (old retained in ${SECRET_KEY}_PREVIOUS)"
 done
 
 # Phase 5: Final rolling restart with new secret signing.
-# JWT_SECRET_PREVIOUS still verifies old tokens; remove it once every token
-# minted under the retired secret has expired.
+# Not-yet-restarted services still verify {old, new} via the JWT_SECRET_NEW
+# in their phase-2 process environment; restarted ones verify {new, old} via
+# JWT_SECRET_PREVIOUS. JWT_SECRET_PREVIOUS stays until every token minted
+# under the retired secret has expired.
 log "Phase 5: Final rolling restart with new secret signing..."
-for service in "${SERVICES[@]}"; do
-    log "Restarting $service with new secret..."
-    systemctl restart "$service"
-
-    # Wait for service to be healthy
-    log "Waiting for $service to be healthy..."
-    sleep 10
-
-    # Check service status
-    if systemctl is-active --quiet "$service"; then
-        log "${GREEN}$service is healthy with new secret${NC}"
-    else
-        error_exit "$service failed to start with new secret"
-    fi
-
-    # Verify service is accepting requests
-    case "$service" in
-        "aitbc-coordinator-api")
-            if curl -fsS http://localhost:8203/health > /dev/null; then
-                log "${GREEN}$service health check passed${NC}"
-            else
-                error_exit "$service health check failed with new secret"
-            fi
-            ;;
-    esac
-done
+if [ ${#UNITS[@]} -gt 0 ]; then
+    restart_units
+else
+    log "${YELLOW}No units to restart — skipping final rolling restart${NC}"
+fi
 
 # Phase 6: Final verification
 log "Phase 6: Final verification..."
-for service in "${SERVICES[@]}"; do
-    if systemctl is-active --quiet "$service"; then
-        log "${GREEN}$service is healthy${NC}"
+for u in "${UNITS[@]}"; do
+    if systemctl is-active --quiet "$u"; then
+        log "${GREEN}$u is healthy${NC}"
     else
-        error_exit "$service is not healthy after final restart"
+        error_exit "$u is not healthy after final restart"
     fi
 done
 
@@ -339,6 +410,6 @@ log "Cleaning up this run's backup files..."
 rm -rf "$RUN_DIR"
 log "Rollback script and run backups removed"
 
-log "${GREEN}JWT_SECRET rotation completed successfully${NC}"
-log "Note: the retired secret remains in JWT_SECRET_PREVIOUS for token overlap; remove it after the longest token lifetime."
+log "${GREEN}${SECRET_KEY} rotation completed successfully${NC}"
+log "Note: the retired secret remains in ${SECRET_KEY}_PREVIOUS for token overlap; remove it after the longest token lifetime."
 log "Rotation log saved to: $LOG_FILE"
