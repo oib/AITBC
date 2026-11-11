@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from typing import Any
 
 import pytest
@@ -33,8 +34,8 @@ async def _recv(sub: TopicSubscription, timeout: float = 1.0) -> Any:
 
 
 @pytest.mark.asyncio
-async def test_flag_on_waits_until_flaky_peer_attaches(monkeypatch):
-    monkeypatch.setattr(settings, "gossip_mesh_subscribe_wait_peers_enabled", True)
+async def test_flag_on_waits_longer_than_flag_off_for_flaky_peer(monkeypatch):
+    """With the flag on, subscribe() blocks until retry attaches the peer leg."""
     local = InMemoryGossipBackend()
     flaky = _FlakyPeer()
     mesh = MeshGossipBackend(local, {"flaky": flaky}, retry_min_delay=0.05, retry_max_delay=0.2)
@@ -44,15 +45,39 @@ async def test_flag_on_waits_until_flaky_peer_attaches(monkeypatch):
         await asyncio.sleep(0.12)
         flaky.available = True
 
+    monkeypatch.setattr(settings, "gossip_mesh_subscribe_wait_peers_enabled", False)
     flip = asyncio.create_task(_flip())
-    t0 = asyncio.get_event_loop().time()
-    sub = await mesh.subscribe("consensus.attest_response.chain")
+    t_off = time.monotonic()
+    sub_off = await mesh.subscribe("blocks")
+    off_elapsed = time.monotonic() - t_off
+    sub_off.close()
     await flip
-    assert asyncio.get_event_loop().time() - t0 >= 0.1
-    assert flaky.subscribe_attempts >= 2
+    flaky.available = False
+    flaky.subscribe_attempts = 0
 
-    await flaky.inner.publish("consensus.attest_response.chain", {"hash": "0xabc", "validator": "0x1"})
-    assert await _recv(sub) == {"hash": "0xabc", "validator": "0x1"}
+    flip = asyncio.create_task(_flip())
+    monkeypatch.setattr(settings, "gossip_mesh_subscribe_wait_peers_enabled", True)
+    t_on = time.monotonic()
+    sub_on = await mesh.subscribe("blocks")
+    on_elapsed = time.monotonic() - t_on
+    await flip
+
+    assert on_elapsed >= 0.1
+    assert on_elapsed > off_elapsed
+    assert flaky.subscribe_attempts >= 2
+    sub_on.close()
+    await mesh.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_flag_on_happy_path_peer_messages_flow(monkeypatch):
+    monkeypatch.setattr(settings, "gossip_mesh_subscribe_wait_peers_enabled", True)
+    local, p1 = InMemoryGossipBackend(), InMemoryGossipBackend()
+    mesh = MeshGossipBackend(local, {"p1": p1})
+    await mesh.start()
+    sub = await mesh.subscribe("blocks")
+    await p1.publish("blocks", {"id": "m1", "v": 1})
+    assert await _recv(sub) == {"id": "m1", "v": 1}
     sub.close()
     await mesh.shutdown()
 
@@ -65,16 +90,16 @@ async def test_flag_off_returns_before_flaky_peer_attaches(monkeypatch):
     mesh = MeshGossipBackend(local, {"flaky": flaky}, retry_min_delay=0.05, retry_max_delay=0.2)
     await mesh.start()
 
-    t0 = asyncio.get_event_loop().time()
-    sub = await mesh.subscribe("consensus.attest_response.chain")
-    elapsed = asyncio.get_event_loop().time() - t0
+    t0 = time.monotonic()
+    sub = await mesh.subscribe("blocks")
+    elapsed = time.monotonic() - t0
     assert elapsed < 0.08
     assert flaky.subscribe_attempts >= 1
 
     flaky.available = True
     await asyncio.sleep(0.15)
-    await flaky.inner.publish("consensus.attest_response.chain", {"v": 2})
-    assert await _recv(sub) == {"v": 2}
+    await flaky.inner.publish("blocks", {"id": "m2", "v": 2})
+    assert await _recv(sub) == {"id": "m2", "v": 2}
     sub.close()
     await mesh.shutdown()
 
@@ -88,7 +113,7 @@ async def test_wait_bounded_by_timeout(monkeypatch):
     mesh = MeshGossipBackend(local, {"flaky": flaky}, retry_min_delay=0.3, retry_max_delay=0.5)
     await mesh.start()
 
-    sub = await asyncio.wait_for(mesh.subscribe("consensus.attest_response.chain"), timeout=1.0)
+    sub = await asyncio.wait_for(mesh.subscribe("blocks"), timeout=1.0)
     assert not flaky.available
     sub.close()
     await mesh.shutdown()
