@@ -31,6 +31,8 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
+from aitbc.utils.env import subprocess_env
+
 from routers.alerts import _prometheus_get
 
 router = APIRouter()
@@ -95,6 +97,7 @@ def _journalctl(extra: list[str], since_minutes: int, limit: int) -> list[dict[s
             capture_output=True,
             text=True,
             timeout=20,
+            env=subprocess_env(),
         )
     except (OSError, subprocess.TimeoutExpired) as exc:
         raise HTTPException(status_code=503, detail="journal unavailable on this host") from exc
@@ -175,6 +178,7 @@ def _journald_reachable() -> bool:
             capture_output=True,
             text=True,
             timeout=10,
+            env=subprocess_env(),
         )
     except (OSError, subprocess.TimeoutExpired):
         return False

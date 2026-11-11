@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.utils.env import subprocess_env
 
 from ..domain.gpu_market import (
     BOOKABLE_GPU_STATUSES,
@@ -122,6 +123,7 @@ class EdgeGPUService:
                 capture_output=True,
                 text=True,
                 timeout=10,
+                env=subprocess_env(),
             )
             if result.returncode != 0:
                 logger.warning("nvidia-smi failed: %s", result.stderr)
