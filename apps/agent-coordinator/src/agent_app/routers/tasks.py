@@ -1,3 +1,4 @@
+import asyncio
 import json
 import uuid
 from datetime import UTC, datetime
@@ -16,6 +17,7 @@ from ..routing.load_balancer import TaskPriority
 from ..services.agent_auth import (
     AgentPrincipal,
     authorize_admin_scope,
+    authorize_agent_scope,
     authorize_any_principal,
     optional_agent,
 )
@@ -27,6 +29,48 @@ router = APIRouter()
 # Resolves the caller's principal if credentials are present, ``None``
 # otherwise — the mode-gated gates decide what ``None`` means per endpoint.
 OptionalAgent = Annotated[AgentPrincipal | None, Depends(optional_agent)]
+
+
+def _settle_load_balancer_assignment(task_id: str, success: bool, error_message: str | None = None) -> bool:
+    """Mark the load-balancer assignment for ``task_id`` terminal (#1749).
+
+    Returns ``True`` when a *pending* assignment was settled. Already-terminal
+    or unknown task ids are left alone so a late duplicate report cannot
+    double-count metrics. No-op when the balancer is unavailable.
+    """
+    lb = state.load_balancer
+    if lb is None:
+        return False
+    assignment = lb.get_assignment(task_id)
+    if assignment is None or assignment.status != "pending":
+        return False
+    if success:
+        lb.complete_task(task_id, success=True)
+    else:
+        lb.fail_task(task_id, error_message=error_message)
+    return True
+
+
+def _settle_unpaid_task(task_id: str, principal: AgentPrincipal | None, action: str, success: bool) -> bool:
+    """Completion path for tasks that carry no payment escrow (#1749).
+
+    Unpaid submissions never reach the provider-signature checks (there is no
+    escrow agent to sign for), so the mode-gated agent-scope check is the auth:
+    ``disabled``/``advisory`` keep pre-auth behaviour, ``enforce`` requires a
+    principal bound to the assigned agent (admins bypass).
+    """
+    lb = state.load_balancer
+    if lb is None:
+        return False
+    assignment = lb.get_assignment(task_id)
+    if assignment is None or assignment.status != "pending":
+        return False
+    authorize_agent_scope(principal, assignment.agent_id, action)
+    if success:
+        lb.complete_task(task_id, success=True)
+    else:
+        lb.fail_task(task_id, error_message="reported_failed")
+    return True
 
 
 def _lock_escrow_on_chain(escrow: Any, payment: TaskPayment, task_id: str) -> str | None:
@@ -153,9 +197,12 @@ async def submit_task(
 
         task_id = request.task_data.get("task_id", str(uuid.uuid4()))
 
-        # v0.6.5: create payment escrow if payment provided and escrow enabled
+        # v0.6.5: create payment escrow if payment provided and escrow enabled.
+        # #1750: the on-chain lock submitter is a synchronous httpx.Client
+        # (up to 15s per call) — run the whole escrow create+lock off the
+        # event loop or a slow RPC stalls every endpoint and the websocket.
         try:
-            escrow_id, contract_id, escrow_status = _create_task_escrow(request, task_id, chain_id)
+            escrow_id, contract_id, escrow_status = await asyncio.to_thread(_create_task_escrow, request, task_id, chain_id)
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"Escrow error: {e}") from None
         except Exception:
@@ -476,7 +523,7 @@ async def _parse_complete_body(request: Request, entry: Any) -> tuple[int | None
 
 @router.post("/tasks/{task_id}/complete")
 @rate_limit(rate=50, per=60)
-async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
+async def complete_task(request: Request, task_id: str, principal: OptionalAgent) -> dict[str, Any]:
     """Mark a task as complete — releases escrow payment to agent (v0.6.5).
 
     Optional JSON body ``{"amount_units": int}`` bills a partial amount of the
@@ -486,12 +533,27 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
     that will be paid may release the escrow. The Phase-B3 ``agent_signature``
     (req-v1) form over ``{"task_id","amount_units","timestamp","nonce"}`` is
     accepted equivalently — see ``_require_provider_signature``.
+
+    #1749: tasks without a payment escrow settle the load-balancer assignment
+    directly (agent-scope auth); escrow-backed completions also mark the
+    assignment complete so ``pending_tasks`` is released.
     """
-    if not state.payment_escrow:
-        raise HTTPException(status_code=503, detail="Payment escrow not available")
-    entry = state.payment_escrow.get_escrow_for_task(task_id)
-    if not entry:
+    escrow_mgr = state.payment_escrow
+    entry = escrow_mgr.get_escrow_for_task(task_id) if escrow_mgr else None
+    if entry is None:
+        if _settle_unpaid_task(task_id, principal, "task_complete", success=True):
+            return {
+                "status": "success",
+                "message": f"Task {task_id} completed",
+                "task_id": task_id,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        if escrow_mgr is None:
+            raise HTTPException(status_code=503, detail="Payment escrow not available")
         raise HTTPException(status_code=404, detail="No escrow found for task")
+    # A non-None entry can only come from a non-None manager.
+    if escrow_mgr is None:  # pragma: no cover - unreachable, narrows for mypy
+        raise HTTPException(status_code=503, detail="Payment escrow not available")
     try:
         amount_units, body = await _parse_complete_body(request, entry)
     except (TypeError, ValueError) as e:
@@ -517,10 +579,13 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
                 amount_units=amount_units,
                 auto_reinvest_pct=float(auto_reinvest_pct) if auto_reinvest_pct is not None else None,
             )
-        state.payment_escrow.release(entry.escrow_id, submitter=submitter)
+        # #1750: the release submitter is synchronous httpx — off the loop.
+        entry = await asyncio.to_thread(escrow_mgr.release, entry.escrow_id, submitter=submitter)
         # The chain reports the reinvestment it performed; record it on the
         # entry so the escrow/task views can show it after the fact.
-        _record_reinvest_outcome(state.payment_escrow, entry, submitter)
+        _record_reinvest_outcome(escrow_mgr, entry, submitter)
+        # #1749: release the load-balancer assignment's pending_tasks slot.
+        _settle_load_balancer_assignment(task_id, success=True)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from None
     except Exception:
@@ -542,9 +607,19 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
     }
 
 
+async def _refund_task_escrow(escrow_mgr: Any, entry: Any, task_id: str) -> None:
+    """Refund ``entry``'s escrow on-chain, off the event loop (#1750)."""
+    submitter = None
+    if state.escrow_rpc and entry.tx_hash_lock:
+        from ..services.chain_escrow import make_refund_submitter
+
+        submitter = make_refund_submitter(state.escrow_rpc, task_id, reason="task_failed")
+    await asyncio.to_thread(escrow_mgr.refund, entry.escrow_id, submitter=submitter)
+
+
 @router.post("/tasks/{task_id}/fail")
 @rate_limit(rate=50, per=60)
-async def fail_task(request: Request, task_id: str) -> dict[str, Any]:
+async def fail_task(request: Request, task_id: str, principal: OptionalAgent) -> dict[str, Any]:
     """Mark a task as failed — refunds escrow payment to requester (v0.6.5).
 
     Requires a signature from the escrow's provider wallet over
@@ -553,12 +628,26 @@ async def fail_task(request: Request, task_id: str) -> dict[str, Any]:
     ``{"task_id","reason","timestamp","nonce"}`` is accepted equivalently.
     Buyer-side refunds happen via the escrow timeout sweeper, not
     this endpoint.
+
+    #1749: tasks without a payment escrow settle the load-balancer assignment
+    directly (agent-scope auth); escrow-backed failures also fail the
+    assignment so ``pending_tasks`` is released.
     """
-    if not state.payment_escrow:
-        raise HTTPException(status_code=503, detail="Payment escrow not available")
-    entry = state.payment_escrow.get_escrow_for_task(task_id)
-    if not entry:
+    escrow_mgr = state.payment_escrow
+    entry = escrow_mgr.get_escrow_for_task(task_id) if escrow_mgr else None
+    if entry is None:
+        if _settle_unpaid_task(task_id, principal, "task_fail", success=False):
+            return {
+                "status": "success",
+                "message": f"Task {task_id} failed",
+                "task_id": task_id,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+        if escrow_mgr is None:
+            raise HTTPException(status_code=503, detail="Payment escrow not available")
         raise HTTPException(status_code=404, detail="No escrow found for task")
+    if escrow_mgr is None:  # pragma: no cover - unreachable, narrows for mypy
+        raise HTTPException(status_code=503, detail="Payment escrow not available")
     body: dict[str, Any] = {}
     raw_body = await request.body()
     if raw_body:
@@ -570,12 +659,9 @@ async def fail_task(request: Request, task_id: str) -> dict[str, Any]:
             body = {}
     await _require_provider_signature(entry, "fail", task_id, body)
     try:
-        submitter = None
-        if state.escrow_rpc and entry.tx_hash_lock:
-            from ..services.chain_escrow import make_refund_submitter
-
-            submitter = make_refund_submitter(state.escrow_rpc, task_id, reason="task_failed")
-        state.payment_escrow.refund(entry.escrow_id, submitter=submitter)
+        await _refund_task_escrow(escrow_mgr, entry, task_id)
+        # #1749: release the load-balancer assignment's pending_tasks slot.
+        _settle_load_balancer_assignment(task_id, success=False, error_message="reported_failed")
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from None
     except Exception:
@@ -667,6 +753,11 @@ def expire_stale_escrows(request: Request, principal: OptionalAgent) -> dict[str
     from ..lifespan import _escrow_refund_submitter
 
     expired = state.payment_escrow.expire_stale(refund_submitter_for=_escrow_refund_submitter)
+    # #1749: expired escrows mean the task never completed — fail the
+    # load-balancer assignment so pending_tasks is released.
+    if state.load_balancer is not None:
+        for entry in expired:
+            state.load_balancer.fail_task(entry.task_id, error_message="escrow_expired")
     return {
         "status": "success",
         "expired_count": len(expired),

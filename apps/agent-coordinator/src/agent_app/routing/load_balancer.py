@@ -125,6 +125,12 @@ class LoadBalancer:
         self.total_assignments = 0
         self.successful_assignments = 0
         self.failed_assignments = 0
+        # #1749: bound the assignment map — it previously grew forever.
+        # Only terminal (non-pending) records are evicted; pending ones are
+        # capped indirectly by per-agent capacity and are failed by
+        # expire_stale_assignments() instead.
+        self._max_assignments = 10_000
+        self._assignment_timeout_seconds = 3600.0
         self._lock = asyncio.Lock()
 
     def set_strategy(self, strategy: LoadBalancingStrategy) -> None:
@@ -182,10 +188,18 @@ class LoadBalancer:
                 if not selected_agent:
                     logger.warning("No agent selected for task assignment")
                     return None
-                task_id = str(uuid.uuid4())
+                # #1749: correlate the assignment with the caller-visible
+                # task_id (the id the escrow layer and /tasks/{id}/complete
+                # key on) so the completion endpoints can find it. The id is
+                # written back into task_data so the distributor and the
+                # agent-facing task message carry the same identifier.
+                caller_task_id = task_data.get("task_id")
+                task_id = str(caller_task_id) if caller_task_id else str(uuid.uuid4())
+                task_data["task_id"] = task_id
                 assignment = TaskAssignment(task_id=task_id, agent_id=selected_agent, assigned_at=datetime.now(UTC))
                 self.task_assignments[task_id] = assignment
                 self.assignment_history.append(assignment)
+                self._evict_terminal_assignments()
                 self.total_assignments += 1
                 if selected_agent not in self.agent_metrics:
                     self.agent_metrics[selected_agent] = LoadMetrics()
@@ -207,7 +221,9 @@ class LoadBalancer:
                 return
             assignment = self.task_assignments[task_id]
             assignment.completed_at = datetime.now(UTC)
-            assignment.status = "completed"
+            # #1749: a failed task is not "completed" — keep real states so
+            # stats and any future reaper can tell them apart.
+            assignment.status = "completed" if success else "failed"
             assignment.success = success
             assignment.response_time = response_time
             assignment.error_message = error_message
@@ -231,6 +247,60 @@ class LoadBalancer:
         except Exception as e:
             logger.error("Error completing task %s: %s", task_id, e)
 
+    def fail_task(self, task_id: str, error_message: str | None = None) -> None:
+        """Mark an assignment failed (send error, agent report, expiry)."""
+        self.complete_task(task_id, success=False, error_message=error_message)
+
+    def get_assignment(self, task_id: str) -> TaskAssignment | None:
+        """Return the pending-or-terminal assignment record for ``task_id``."""
+        return self.task_assignments.get(task_id)
+
+    def expire_stale_assignments(self, max_age_seconds: float | None = None) -> list[str]:
+        """Fail pending assignments older than the timeout; return their ids.
+
+        #1749: assignments had no reaper — an agent that never reported left
+        ``pending_tasks`` elevated forever, eventually exhausting capacity.
+        """
+        timeout = self._assignment_timeout_seconds if max_age_seconds is None else max_age_seconds
+        now = datetime.now(UTC)
+        expired: list[str] = []
+        for task_id, assignment in list(self.task_assignments.items()):
+            if assignment.status != "pending":
+                continue
+            age = (now - assignment.assigned_at).total_seconds()
+            if age <= timeout:
+                continue
+            assignment.completed_at = now
+            assignment.status = "timeout"
+            assignment.error_message = assignment.error_message or f"no result within {timeout:.0f}s"
+            agent_id = assignment.agent_id
+            metrics = self.agent_metrics.get(agent_id)
+            if metrics is not None:
+                metrics.pending_tasks = max(0, metrics.pending_tasks - 1)
+                metrics.failed_tasks += 1
+            self.failed_assignments += 1
+            expired.append(task_id)
+            logger.warning("Task assignment %s timed out waiting for agent %s", task_id, agent_id)
+        return expired
+
+    def _evict_terminal_assignments(self) -> None:
+        """Drop oldest terminal records when the map exceeds its bound.
+
+        Pending assignments are never evicted here — evicting one would
+        orphan its ``pending_tasks`` count (``complete_task`` could no
+        longer find it to decrement). Stale pendings are failed by
+        ``expire_stale_assignments`` and become evictable.
+        """
+        if len(self.task_assignments) <= self._max_assignments:
+            return
+        terminal = sorted(
+            (a for a in self.task_assignments.values() if a.status != "pending"),
+            key=lambda a: a.assigned_at,
+        )
+        excess = len(self.task_assignments) - self._max_assignments
+        for assignment in terminal[: max(0, min(excess, len(terminal)))]:
+            self.task_assignments.pop(assignment.task_id, None)
+
     async def _find_eligible_agents(
         self,
         task_data: dict[str, Any],
@@ -238,9 +308,7 @@ class LoadBalancer:
         chain_id: str | None = None,
     ) -> list[str]:
         """Find eligible agents for task"""
-        logger.warning("=" * 60)
-        logger.warning("DEBUG: _find_eligible_agents() CALLED - NEW CODE LOADED")
-        logger.warning("=" * 60)
+        logger.debug("_find_eligible_agents() called")
         try:
             query: dict[str, Any] = {"status": AgentStatus.ACTIVE}
             if requirements:
@@ -273,9 +341,7 @@ class LoadBalancer:
                     if metrics.pending_tasks < 100:
                         eligible_agents.append(agent_id)
             logger.info("Eligible agents after filtering: %s", eligible_agents)
-            logger.warning("=" * 60)
-            logger.warning("DEBUG: RETURNING %s ELIGIBLE AGENTS", len(eligible_agents))
-            logger.warning("=" * 60)
+            logger.debug("Returning %s eligible agents", len(eligible_agents))
             return eligible_agents
         except Exception as e:
             logger.error("Error finding eligible agents: %s", e)
@@ -290,14 +356,14 @@ class LoadBalancer:
         """Select best agent based on current strategy"""
         if not eligible_agents:
             return None
-        logger.warning("DEBUG: _select_agent called with %s eligible agents: %s", len(eligible_agents), eligible_agents)
+        logger.debug("_select_agent called with %s eligible agents: %s", len(eligible_agents), eligible_agents)
         if self.strategy == LoadBalancingStrategy.ROUND_ROBIN:
             selection = self._round_robin_selection(eligible_agents)
-            logger.warning("DEBUG: Round robin selected: %s", selection)
+            logger.debug("Round robin selected: %s", selection)
             return selection
         elif self.strategy == LoadBalancingStrategy.LEAST_CONNECTIONS:
             selection = self._least_connections_selection(eligible_agents)
-            logger.warning("DEBUG: Least connections selected: %s", selection)
+            logger.debug("Least connections selected: %s", selection)
             return selection
         elif self.strategy == LoadBalancingStrategy.LEAST_RESPONSE_TIME:
             return self._least_response_time_selection(eligible_agents)
@@ -567,17 +633,25 @@ class TaskDistributor:
                 chain_id=task_info.get("chain_id"),
             )
             if agent_id:
+                # assign_task writes the correlated task_id back into
+                # task_data; fall back to a fresh id for safety.
+                assignment_task_id = str(task_info["task_data"].get("task_id") or uuid.uuid4())
                 task_message = create_task_message(
                     sender_id="task_distributor",
                     receiver_id=agent_id,
                     task_type=task_info["task_data"].get("task_type", "unknown"),
                     task_data=task_info["task_data"],
+                    task_id=assignment_task_id,
                 )
                 send_success = await self._send_task_to_agent(agent_id, task_message)
                 if send_success:
                     self.distribution_stats["tasks_distributed"] += 1
                 else:
+                    # #1749: a failed send used to leave pending_tasks
+                    # elevated forever — fail the assignment so capacity
+                    # accounting stays truthful.
                     logger.warning("Failed to send task to agent %s", agent_id)
+                    self.load_balancer.fail_task(assignment_task_id, error_message="send_failed")
                     self.distribution_stats["tasks_failed"] += 1
             else:
                 logger.warning("Failed to distribute task: no suitable agent found")
@@ -632,16 +706,10 @@ class TaskDistributor:
             logger.error("Error sending task to agent %s: %s", agent_id, e)
             return False
 
-    async def _simulate_task_completion(self, task_info: dict[str, Any], agent_id: str) -> None:
-        """Simulate task completion (for testing)"""
-        processing_time = 1.0 + hash(task_info["task_data"].get("task_id", "")) % 5
-        await asyncio.sleep(processing_time)
-        success = hash(agent_id) % 10 > 1
-        self.load_balancer.complete_task(task_info["task_data"].get("task_id", str(uuid.uuid4())), success, processing_time)
-        if success:
-            self.distribution_stats["tasks_completed"] += 1
-        else:
-            self.distribution_stats["tasks_failed"] += 1
+    # #1749: ``_simulate_task_completion`` removed — it was dead code and the
+    # only ``complete_task`` caller, which is why pending_tasks never
+    # decremented in production. Real completion now flows through
+    # ``/tasks/{task_id}/complete|fail`` and ``expire_stale_assignments``.
 
     def get_distribution_stats(self) -> dict[str, Any]:
         """Get distribution statistics"""

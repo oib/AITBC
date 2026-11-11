@@ -863,7 +863,7 @@
     "/v1/tasks/{task_id}/complete": {
       "post": {
         "summary": "Complete Task",
-        "description": "Mark a task as complete \u2014 releases escrow payment to agent (v0.6.5).\n\nOptional JSON body ``{\"amount_units\": int}`` bills a partial amount of the\nlocked escrow; the unbilled remainder is refunded to the buyer on-chain.\nRequires a signature from the escrow's provider wallet (``entry.agent``)\nover ``{\"action\",\"task_id\",\"signed_at\",\"amount_units\"}`` \u2014 only the party\nthat will be paid may release the escrow. The Phase-B3 ``agent_signature``\n(req-v1) form over ``{\"task_id\",\"amount_units\",\"timestamp\",\"nonce\"}`` is\naccepted equivalently \u2014 see ``_require_provider_signature``.",
+        "description": "Mark a task as complete \u2014 releases escrow payment to agent (v0.6.5).\n\nOptional JSON body ``{\"amount_units\": int}`` bills a partial amount of the\nlocked escrow; the unbilled remainder is refunded to the buyer on-chain.\nRequires a signature from the escrow's provider wallet (``entry.agent``)\nover ``{\"action\",\"task_id\",\"signed_at\",\"amount_units\"}`` \u2014 only the party\nthat will be paid may release the escrow. The Phase-B3 ``agent_signature``\n(req-v1) form over ``{\"task_id\",\"amount_units\",\"timestamp\",\"nonce\"}`` is\naccepted equivalently \u2014 see ``_require_provider_signature``.\n\n#1749: tasks without a payment escrow settle the load-balancer assignment\ndirectly (agent-scope auth); escrow-backed completions also mark the\nassignment complete so ``pending_tasks`` is released.",
         "operationId": "complete_task_v1_tasks__task_id__complete_post",
         "parameters": [
           {
@@ -965,7 +965,7 @@
     "/v1/tasks/{task_id}/fail": {
       "post": {
         "summary": "Fail Task",
-        "description": "Mark a task as failed \u2014 refunds escrow payment to requester (v0.6.5).\n\nRequires a signature from the escrow's provider wallet over\n``{\"action\",\"task_id\",\"signed_at\"}`` \u2014 the provider reports its own\nfailure; the Phase-B3 ``agent_signature`` (req-v1) form over\n``{\"task_id\",\"reason\",\"timestamp\",\"nonce\"}`` is accepted equivalently.\nBuyer-side refunds happen via the escrow timeout sweeper, not\nthis endpoint.",
+        "description": "Mark a task as failed \u2014 refunds escrow payment to requester (v0.6.5).\n\nRequires a signature from the escrow's provider wallet over\n``{\"action\",\"task_id\",\"signed_at\"}`` \u2014 the provider reports its own\nfailure; the Phase-B3 ``agent_signature`` (req-v1) form over\n``{\"task_id\",\"reason\",\"timestamp\",\"nonce\"}`` is accepted equivalently.\nBuyer-side refunds happen via the escrow timeout sweeper, not\nthis endpoint.\n\n#1749: tasks without a payment escrow settle the load-balancer assignment\ndirectly (agent-scope auth); escrow-backed failures also fail the\nassignment so ``pending_tasks`` is released.",
         "operationId": "fail_task_v1_tasks__task_id__fail_post",
         "parameters": [
           {

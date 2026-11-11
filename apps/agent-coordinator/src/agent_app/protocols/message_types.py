@@ -553,9 +553,20 @@ class MessageProcessor:
         }
 
 
-def create_task_message(sender_id: str, receiver_id: str, task_type: str, task_data: dict[str, Any]) -> AgentMessage:
-    """Create a task message"""
-    task_msg = TaskMessage(task_id=str(uuid.uuid4()), task_type=task_type, task_data=task_data)
+def create_task_message(
+    sender_id: str,
+    receiver_id: str,
+    task_type: str,
+    task_data: dict[str, Any],
+    task_id: str | None = None,
+) -> AgentMessage:
+    """Create a task message.
+
+    ``task_id`` lets the caller correlate the agent-facing message with the
+    load-balancer assignment / caller-visible task id (#1749); it defaults to
+    a fresh uuid for callers that have no external id.
+    """
+    task_msg = TaskMessage(task_id=task_id or str(uuid.uuid4()), task_type=task_type, task_data=task_data)
     return AgentMessage(
         sender_id=sender_id, receiver_id=receiver_id, message_type=MessageType.TASK_ASSIGNMENT, payload=task_msg.dict()
     )
