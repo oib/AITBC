@@ -2047,6 +2047,149 @@
         }
       }
     },
+    "/v1/market/jobs/{job_id}/dispute": {
+      "post": {
+        "summary": "Dispute Market Job",
+        "description": "Open a dispute freeze on a market job's escrow settlement (#1783).\n\nA presented wallet signature must verify AND belong to a job party \u2014\nsame rule as cancel (#1634). The unsigned API-key path stays for the\noperator tier.",
+        "operationId": "dispute_market_job_v1_market_jobs__job_id__dispute_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Dispute Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Dispute Market Job V1 Market Jobs  Job Id  Dispute Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "signer is not a party to this job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job not found: {job_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/jobs/{job_id}/dispute/resolve": {
+      "post": {
+        "summary": "Resolve Market Job Dispute",
+        "description": "Clear a dispute freeze so the sweeper can settle/refund (#1783).\n\nOperator-tier only: resolution is an admin action, not a party one.",
+        "operationId": "resolve_market_job_dispute_v1_market_jobs__job_id__dispute_resolve_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "title": "Response Resolve Market Job Dispute V1 Market Jobs  Job Id  Dispute Resolve Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/market/jobs/{job_id}/pin-confirm": {
       "post": {
         "summary": "Confirm Market Job Pin",
