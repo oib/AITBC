@@ -234,6 +234,15 @@ _V2_SERVICE_URLS: dict[str, str] = {name: str(SERVICES[name]["base_url"]) for na
 _V2_SERVICE_URLS["chain"] = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
 
 
+# SECRET-RELOAD-1 (#1776): reload JWT/API-key secrets from env files on SIGHUP.
+try:
+    from aitbc.auth import install_auth_reload_signal
+
+    install_auth_reload_signal()
+except Exception:  # pragma: no cover - never block service startup
+    pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifecycle events for the API Gateway."""

@@ -69,6 +69,15 @@ def create_app() -> FastAPI:
 app = create_app()
 
 
+# SECRET-RELOAD-1 (#1776): reload JWT/API-key secrets from env files on SIGHUP.
+try:
+    from aitbc.auth import install_auth_reload_signal
+
+    install_auth_reload_signal()
+except Exception:  # pragma: no cover - never block service startup
+    pass
+
+
 def main() -> None:
     uvicorn.run(
         "agent_app.main:app",

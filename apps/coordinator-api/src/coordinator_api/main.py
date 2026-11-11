@@ -506,6 +506,15 @@ async def _shutdown(task_manager) -> None:
         logger.error("Error during shutdown: %s", e)
 
 
+# SECRET-RELOAD-1 (#1776): reload JWT/API-key secrets from env files on SIGHUP.
+try:
+    from aitbc.auth import install_auth_reload_signal
+
+    install_auth_reload_signal()
+except Exception:  # pragma: no cover - never block service startup
+    pass
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifecycle events for the Coordinator API."""

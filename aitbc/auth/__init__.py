@@ -61,6 +61,7 @@ from .middleware import (
     require_role,
     security_headers,
 )
+from .secret_reload import install_auth_reload_signal, reload_auth_secrets
 from .password import (
     PasswordManager,
     hash_password_pbkdf2,
