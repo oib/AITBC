@@ -8,7 +8,7 @@ from aitbc.aitbc_logging import get_logger
 
 from ..config import Settings
 from ..metrics import event_queue_size, gossip_subscribers_total
-from ._resubscribe import resubscribe
+from ._resubscribe import read_gossip_with_recovery
 
 if TYPE_CHECKING:
     from ..bridge import BlockchainEventBridge
@@ -45,6 +45,24 @@ class TransactionEventSubscriber:
             return
         self._running = True
         logger.info("Starting transaction event subscriber...")
+        if not await self._connect_gossip():
+            return
+        while self._running:
+            outcome = await read_gossip_with_recovery(
+                self._broker,
+                self._topic,
+                self._subscription,
+                label="Transaction",
+                max_queue_size=100,
+            )
+            self._subscription = outcome.subscription
+            if outcome.kind == "cancelled":
+                break
+            if outcome.kind == "retry":
+                continue
+            await self._handle_transaction_message(outcome.message or {})
+
+    async def _connect_gossip(self) -> bool:
         try:
             from aitbc_chain.gossip import GossipBroker, create_backend
 
@@ -57,42 +75,28 @@ class TransactionEventSubscriber:
                 )
                 gossip_subscribers_total.inc()
                 logger.info("Successfully subscribed to transactions topic")
+                return True
             except Exception:
                 logger.info("Transactions topic not available - will extract from block events")
                 await self._run_mock()
-                return
+                return False
         except ImportError as e:
             logger.error("Failed to import gossip broker: %s", e)
             logger.info("Using mock implementation for development")
             await self._run_mock()
-            return
-        while self._running:
-            try:
-                if self._subscription is None:
-                    raise RuntimeError("Subscription not initialized")
-                tx_data = await self._subscription.get()
-            except asyncio.CancelledError:
-                logger.info("Transaction event subscriber cancelled")
-                break
-            except Exception as e:
-                logger.error("Transaction subscription read failed: %s", e, exc_info=True)
-                if self._broker is not None and self._topic:
-                    try:
-                        self._subscription = await resubscribe(
-                            self._broker, self._topic, self._subscription, max_queue_size=100
-                        )
-                    except Exception as sub_err:
-                        logger.error("Transaction subscription resubscribe failed: %s", sub_err, exc_info=True)
-                await asyncio.sleep(1)
-                continue
-            try:
-                event_queue_size.labels(topic="transactions").set(self._subscription.queue.qsize())
-                logger.info("Received transaction event: hash=%s", tx_data.get("hash"))
-                if self._bridge:
-                    await self._bridge.handle_transaction_event(tx_data)
-            except Exception as e:
-                logger.error("Error processing transaction event: %s", e, exc_info=True)
-                await asyncio.sleep(1)
+            return False
+
+    async def _handle_transaction_message(self, tx_data: dict[str, Any]) -> None:
+        try:
+            if self._subscription is None:
+                return
+            event_queue_size.labels(topic="transactions").set(self._subscription.queue.qsize())  # noqa: unawaited-async
+            logger.info("Received transaction event: hash=%s", tx_data.get("hash"))
+            if self._bridge:
+                await self._bridge.handle_transaction_event(tx_data)
+        except Exception as e:
+            logger.error("Error processing transaction event: %s", e, exc_info=True)
+            await asyncio.sleep(1)
 
     async def _run_mock(self) -> None:
         """Run a mock subscriber for development/testing."""
