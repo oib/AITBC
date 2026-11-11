@@ -4,6 +4,8 @@ Description=Pull nightly AITBC backup generations off-site to this host
 # user session. AGE_RECIPIENT must be set -- plaintext storage is refused.
 
 [Service]
+# Runs as the operator's own user by design: this is an IDE-host pull job
+# needing ssh keys, age and a real HOME — not a fleet service account (#1729).
 Type=oneshot
 Environment=AGE_RECIPIENT=
 ExecStart=/opt/aitbc/scripts/ops/offsite-pull-backups.sh

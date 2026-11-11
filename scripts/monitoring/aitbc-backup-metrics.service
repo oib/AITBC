@@ -4,6 +4,9 @@ Documentation=https://github.com/oib/AITBC
 After=aitbc-blockchain-node.service
 
 [Service]
+# Runs as root pending an operator perm decision: /var/backups/aitbc is
+# 750 root:root on node2, so User=aitbc cannot read backup freshness there
+# (#1729). Normalize the dir group, then pin User=aitbc.
 Type=oneshot
 # Runs on every host that has aitbc-backup.timer: the metrics describe THIS
 # host's /var/backups/aitbc, so the timer belongs wherever the backup job does.

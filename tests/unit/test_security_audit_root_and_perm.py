@@ -35,3 +35,30 @@ def test_more_permissive_is_critical_not_stricter(tmp_path):
     sev = {i["file"]: i["severity"] for i in issues if i["type"] == "file_permission"}
     assert sev["k.key"] == "critical"
     assert sev["k2.pem"] == "warning"
+
+
+def test_root_by_design_covers_exactly_the_documented_exceptions():
+    """#1729: every repo unit without User= must be a documented exception.
+
+    Units that ship no User= run as root — the audit allow-list must name
+    each one, and each allow-listed path must exist and still lack
+    User=aitbc (a unit that gained User=aitbc must leave the list).
+    """
+    missing_user = set()
+    for f in REPO.rglob("*.service"):
+        if any(part in {".git", "node_modules", "venv"} for part in f.parts):
+            continue
+        rel = f.relative_to(REPO).as_posix()
+        users = [line.split("=", 1)[1].strip() for line in f.read_text().splitlines() if line.startswith("User=")]
+        if not users or all(u == "root" for u in users):
+            missing_user.add(rel)
+    no_user_line = {
+        p for p in missing_user if not any(line.startswith("User=") for line in (REPO / p).read_text().splitlines())
+    }
+    # scripts/ units with an explicit User=root (backup, load-secrets, …)
+    # are deliberate and self-documenting; the #1729 allow-list covers the
+    # units that ship NO User= line at all.
+    assert no_user_line == set(mod.ROOT_BY_DESIGN), (
+        f"undocumented root units: {no_user_line - set(mod.ROOT_BY_DESIGN)}; "
+        f"stale allow-list entries: {set(mod.ROOT_BY_DESIGN) - no_user_line}"
+    )

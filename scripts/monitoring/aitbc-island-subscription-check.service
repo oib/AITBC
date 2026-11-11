@@ -4,13 +4,16 @@ Documentation=https://github.com/oib/AITBC
 After=network.target
 
 [Service]
+# Runs as root by design: the env file holds AITBC_API_KEY at mode 600
+# root:root — a secret that must not become group-readable just to drop
+# privileges (#1729). Move the key to a dedicated creds path or keep root.
 Type=oneshot
 # Optional: carries AITBC_API_KEY (the miner API key the CLI resolves via
 # os.environ). Leading '-' — a missing file must not fail the start; the
 # script reports the missing key itself (exit 3). Operator-created,
 # mode 600 root; see docs/ops/island-subscription-check.md.
 EnvironmentFile=-/etc/aitbc/aitbc-island-subscription-check.env
-ExecStart=/usr/local/sbin/aitbc-island-subscription-check.sh
+ExecStart=/opt/aitbc/scripts/monitoring/island-subscription-check.sh
 # Exits 1 when the on-chain island subscription is expired/missing,
 # 2 when the coordinator is unreachable, 3 when no AITBC_API_KEY is
 # configured, 4 when the configured key is refused (HTTP 401/403),

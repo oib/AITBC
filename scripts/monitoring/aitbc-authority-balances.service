@@ -5,6 +5,8 @@ After=aitbc-blockchain-rpc.service
 
 [Service]
 Type=oneshot
+User=aitbc
+Group=aitbc
 # Optional role:address pairs, public addresses. The exporter derives the
 # escrow_settlement, bridge_release and bond_slash watch addresses plus one
 # governance_executor series per governance_executors member from the live

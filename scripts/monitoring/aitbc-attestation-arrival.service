@@ -5,6 +5,8 @@ After=aitbc-blockchain-node.service
 
 [Service]
 Type=oneshot
+User=aitbc
+Group=aitbc
 # Attestation arrival is a property of the SEALED chain, which every host
 # holds byte-identical in its own data/*/chain.db — so this timer runs on
 # every host, like aitbc-escrow-settlements, not hub-only. Each node's

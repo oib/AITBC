@@ -5,6 +5,8 @@ After=aitbc-blockchain-node.service
 
 [Service]
 Type=oneshot
+User=aitbc
+Group=aitbc
 # Escrow rows are per-node bookkeeping in the node's own chain.db, so this
 # timer runs on every host -- not hub-only like aitbc-authority-balances.
 # AITBC_CHAIN_DB pins one database when set; otherwise every

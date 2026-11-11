@@ -16,7 +16,7 @@ Stack contents (on top of the v11 bake `d6fc3aba19`):
 
 | file | host(s) | destination | restart needed |
 |---|---|---|---|
-| `scripts/monitoring/native-energy-rate-refresh.sh` | hub only | `/usr/local/sbin/native-energy-rate-refresh.sh` (timer `ExecStart`) | none — next `aitbc-native-energy-rate-refresh` run picks it up |
+| `scripts/monitoring/native-energy-rate-refresh.sh` | hub only | runs in place — the unit `ExecStart`s `/opt/aitbc/scripts/monitoring/native-energy-rate-refresh.sh` (#1729; the `/usr/local/sbin` copy is no longer used) | `daemon-reload` + next timer run picks it up |
 | `apps/coordinator-api/` (config.py, market_gpu.py) | hub only | `/opt/aitbc` pull | `aitbc-coordinator-api` restart — the band check is process code |
 | `scripts/monitoring/aitbc_hub_rules.yml` | hub only | `/etc/prometheus/aitbc_hub_rules.yml` | `promtool check` + `systemctl reload prometheus` (or HUP) |
 | `aitbc/market/energy_pricing.py`, `cli/`, `apps/blockchain-node/rpc/escrow_routes.py` | all five | `/opt/aitbc` pull | none dedicated — the window value is unchanged (86400); rides the normal repo rollout. The node fallback and CLI binding are value-identical, so skipping a restart loses nothing. |
@@ -32,9 +32,11 @@ The rules must go live **after** the refresher has run once — otherwise
 legitimately missing file.
 
 1. **Repo pull on hub** — verify: `git -C /opt/aitbc log -1` shows the stack tip.
-2. **Install the refresher** — copy the script to `/usr/local/sbin/`,
-   keep a `.bak-a2` of the old one. Verify: `bash -n` clean,
-   `diff` against the repo copy empty.
+2. **Refresh the unit** — `daemon-reload` so the timer picks up the
+   repo-path `ExecStart` (#1729). The script itself needs no install:
+   it runs from the checkout. Verify: `systemctl cat
+   aitbc-native-energy-rate-refresh.service` shows the `/opt/aitbc`
+   ExecStart.
 3. **Restart `aitbc-coordinator-api` on hub** — the band check is code in
    that process. Verify: service active, and a probe POST with
    `ait_per_eur: "0.1"` returns 400 "plausible band" (rejection, not
@@ -70,7 +72,8 @@ legitimately missing file.
    (series drop immediately; safe even while rules are still loaded —
    `absent()` would fire `NativeEnergyRateRefreshStale`, so do the rules
    rollback first).
-3. Refresher: restore `/usr/local/sbin/native-energy-rate-refresh.sh.bak-a2`.
+3. Refresher: `git checkout` the pre-stack script in `/opt/aitbc` (the
+   unit runs the repo copy; a stale `/usr/local/sbin` copy is inert).
 4. Coordinator: check out the pre-stack `/opt/aitbc`, restart
    `aitbc-coordinator-api`. The POST returns to accepting any positive
    rate — the original SD-7 exposure, so only roll this back if the band

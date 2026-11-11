@@ -5,4 +5,9 @@ After=aitbc-coordinator-api.service
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/native-energy-rate-refresh.sh
+User=aitbc
+Group=aitbc
+# Only installed on hub (After=aitbc-coordinator-api): there
+# aitbc-coordinator-api.env is 600 aitbc:aitbc, readable by this user.
+# On hosts where that env is root-only this unit must not be installed (#1729).
+ExecStart=/opt/aitbc/scripts/monitoring/native-energy-rate-refresh.sh

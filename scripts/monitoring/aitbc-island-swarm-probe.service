@@ -4,6 +4,9 @@ Documentation=https://github.com/oib/AITBC
 After=aitbc-island-ipfs.service
 
 [Service]
+# Runs as root pending an operator perm decision: the swarm-probe env
+# file is root-only on hub/hub1 and carries probe overrides; dropping it
+# silently falls back to default peers (#1729).
 Type=oneshot
 # The island swarm is a libp2p private network: only a swarm-key holder can
 # complete the handshake, so this probe must run on an island member with a

@@ -30,8 +30,10 @@ AITBC_UNITS=(
     aitbc-blockchain-event-bridge.service
     aitbc-blockchain-explorer.service
     aitbc-blockchain-node.service
+    aitbc-blockchain-node-island.service
     aitbc-blockchain-p2p.service
     aitbc-blockchain-rpc.service
+    aitbc-blockchain-rpc-island.service
     aitbc-bridge-monitor.service
     aitbc-coordinator-api.service
     aitbc-edge.service

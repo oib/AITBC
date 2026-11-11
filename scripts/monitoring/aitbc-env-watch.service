@@ -3,6 +3,9 @@ Description=AITBC critical env-var presence for Prometheus (node_exporter textfi
 Documentation=https://github.com/oib/AITBC
 
 [Service]
+# Runs as root by design: its job is per-file readability of EVERY service
+# env file, including root-only ones; a non-root user would report blindness
+# as scrape_success=0 fleet-wide (#1729).
 Type=oneshot
 # Deploy on the host whose services are watched: entries name local env
 # files. Today only the hub's coordinator receipt-signing key is watched —

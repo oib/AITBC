@@ -5,6 +5,9 @@ After=network-online.target
 Wants=network-online.target
 
 [Service]
+# Runs as root by design: reads root-only security-nightly.env and needs
+# repo write access for pytest caches (#1729). A dedicated runner user is an
+# operator decision, not a repo default.
 Type=oneshot
 # Runs the four-tier security suite against a checkout at /opt/aitbc:
 # offline pins (unit/integration/config), read-only live edge probes, and

@@ -4,6 +4,9 @@ Documentation=https://github.com/oib/AITBC
 After=aitbc-blockchain-rpc.service
 
 [Service]
+# Runs as root pending an operator perm decision: bridge-set.env is
+# root-only on hub/hub1; EnvironmentFile=- would silently drop the config
+# under User=aitbc (#1729). Make the env group-readable, then pin.
 Type=oneshot
 # Reads hub chain.db read-only (SQLite mode=ro) and emits the bridge
 # validator-set gauges: active rows, members that are also current

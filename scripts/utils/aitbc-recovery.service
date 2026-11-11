@@ -4,6 +4,8 @@ After=network.target
 Before=aitbc-blockchain-node.service aitbc-coordinator-api.service aitbc-market.service
 
 [Service]
+# Runs as root by design: links systemd units and loads keystore secrets
+# into /etc/systemd/system, /etc/tmpfiles.d, /etc/aitbc/credentials (#1729).
 Type=oneshot
 ExecStart=/bin/bash -c '/opt/aitbc/scripts/utils/link-systemd.sh && /opt/aitbc/scripts/utils/load-keystore-secrets.sh'
 RemainAfterExit=yes
