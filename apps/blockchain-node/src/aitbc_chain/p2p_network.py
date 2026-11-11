@@ -88,6 +88,8 @@ class P2PNetworkService:
         # v0.6.2: Protocol versioning — track peers operating in legacy mode
         self._protocol_version: int = settings.gossip_protocol_version
         self._legacy_peers: set[str] = set()  # peer_ids with protocol_version < 2
+        self._join_response: dict[str, dict[str, Any]] = {}
+        self._gpu_provider_responses: dict[str, dict[str, Any]] = {}
         # v0.6.2: Peer capability exchange — callback invoked when a peer connects
         # with (peer_id, rpc_url, block_range). Set by the sync layer to register
         # peers with the PeerCapabilityTracker. Optional; if None, capability
@@ -302,8 +304,16 @@ class P2PNetworkService:
         except Exception as e:
             logger.debug("Failed to dial peer %s:%s: %s", host, port, e)
 
+    def _prune_peer_session_state(self, peer_id: str | None) -> None:
+        """Drop per-peer mesh bookkeeping when a stream ends (#1589)."""
+        if not peer_id:
+            return
+        self._join_response.pop(peer_id, None)
+        self._gpu_provider_responses.pop(peer_id, None)
+        self._legacy_peers.discard(peer_id)
+
     def _inbound_capacity_ok(self, ip: str) -> bool:
-        """Enforce total + per-source-IP inbound caps (#1630).
+        """Enforce total + per-source-IP inbound caps (#1630 / #1589 audit).
 
         Counts established peers (active_connections writers) plus
         handshakes still in flight (``_pending_inbound_by_ip``) so neither a
@@ -614,9 +624,8 @@ class P2PNetworkService:
                             logger.warning("Received join_request but not a hub, ignoring")
                     elif msg_type == "join_response":
                         logger.info("Received join_response from %s", peer_id)
-                        if not hasattr(self, "_join_response"):
-                            self._join_response = {}
-                        self._join_response[peer_id] = message
+                        if peer_id:
+                            self._join_response[peer_id] = message
                     elif msg_type == "gpu_provider_query":
                         logger.info("Received gpu_provider_query from %s", peer_id)
                         gpu_response = {
@@ -628,9 +637,8 @@ class P2PNetworkService:
                         await self._send_message(writer, gpu_response)
                     elif msg_type == "gpu_provider_response":
                         logger.info("Received gpu_provider_response from %s", peer_id)
-                        if not hasattr(self, "_gpu_provider_responses"):
-                            self._gpu_provider_responses = {}
-                        self._gpu_provider_responses[peer_id] = message
+                        if peer_id:
+                            self._gpu_provider_responses[peer_id] = message
                     elif msg_type == "new_transaction":
                         tx_data = message.get("tx")
                         if tx_data:
@@ -699,8 +707,7 @@ class P2PNetworkService:
             logger.info("Connection closed to %s", peer_id or addr)
             if peer_id and peer_id in self.active_connections:
                 del self.active_connections[peer_id]
-            # v0.6.2: Clean up legacy peer tracking on disconnect
-            self._legacy_peers.discard(peer_id)
+            self._prune_peer_session_state(peer_id)
             if endpoint in self.connected_endpoints:
                 self.connected_endpoints.remove(endpoint)
             writer.close()
