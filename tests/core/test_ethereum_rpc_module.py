@@ -189,20 +189,57 @@ class TestEthereumRPCClient:
     def test_get_transaction_receipt(self):
         client = ethereum_rpc.EthereumRPCClient()
         mock_w3 = Mock()
+
+        class _HexBytesLike:
+            """Mimic web3 HexBytes.hex() (body may omit 0x prefix)."""
+
+            def __init__(self, body: str) -> None:
+                self._body = body.removeprefix("0x")
+
+            def hex(self) -> str:
+                return self._body
+
+        class _LogLike:
+            def __init__(self, address: str, topics: list[_HexBytesLike], data: _HexBytesLike) -> None:
+                self.address = address
+                self.topics = topics
+                self.data = data
+
+        contract = "0xcontract"
         mock_receipt = Mock()
         mock_receipt.blockNumber = 100
         mock_receipt.status = 1
         mock_receipt.gasUsed = 21000
-        mock_receipt.contractAddress = "0xcontract"
-        mock_receipt.logs = [Mock(), Mock()]
+        mock_receipt.contractAddress = contract
+        mock_receipt.logs = [
+            _LogLike(
+                contract,
+                [_HexBytesLike("0x" + "aa" * 32), _HexBytesLike("0x" + "bb" * 32)],
+                _HexBytesLike("0xdeadbeef"),
+            ),
+        ]
         mock_w3.eth.get_transaction_receipt.return_value = mock_receipt
+        mock_w3.eth.get_transaction.return_value = {"to": "0xrecipient"}
+        mock_w3.eth.chain_id = 11155111
         client._w3 = mock_w3
 
         result = client.get_transaction_receipt("0xtxhash")
+        assert result is not None
         assert result["hash"] == "0xtxhash"
         assert result["block_number"] == 100
         assert result["status"] == 1
         assert result["confirmed"] is True
+        assert result["gas_used"] == 21000
+        assert result["contract_address"] == contract
+        assert result["to"] == "0xrecipient"
+        assert result["chainId"] == 11155111
+        assert result["logs"] == 1
+        assert len(result["log_entries"]) == 1
+        entry = result["log_entries"][0]
+        assert entry["address"] == contract
+        assert len(entry["topics"]) == 2
+        assert all(t.startswith("0x") for t in entry["topics"])
+        assert entry["data"] == "0xdeadbeef"
 
     def test_get_transaction_receipt_none(self):
         client = ethereum_rpc.EthereumRPCClient()
