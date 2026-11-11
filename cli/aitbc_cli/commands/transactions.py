@@ -43,7 +43,12 @@ DEFAULT_RPC_URL = "http://127.0.0.1:8202"
 # _ZERO_VALUE_TX_TYPES into a block_version >= 10 gate
 # (state_transition.py), so it is not part of the mirrored set. A nonzero
 # amount is still refused at apply; the CLI just no longer pre-empts it.
-_ZERO_VALUE_TX_TYPES = frozenset({"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET"})
+_ZERO_VALUE_TX_TYPES = frozenset(
+    {"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET", "VALIDATOR_DEACTIVATE"}
+)
+# v21 agent session lifecycle (AGENT-SPEND-B-1, #1142): mirrors
+# state_transition._is_zero_value_tx_type at block_version >= 21.
+_AGENT_SESSION_TX_TYPES = frozenset({"AGENT_SESSION_GRANT", "AGENT_SESSION_REVOKE"})
 
 
 def _resolve_transaction_rpc_url(rpc_url: str | None) -> str:
@@ -169,9 +174,10 @@ def _send_transaction_impl(
     # constants package exists) are REJECTED by apply when value != 0, so
     # they need --amount 0; for every other type a zero amount is a no-op
     # that only burns the fee, kept an error.
-    if tx_type.upper() in _ZERO_VALUE_TX_TYPES:
+    upper = tx_type.upper()
+    if upper in _ZERO_VALUE_TX_TYPES or upper in _AGENT_SESSION_TX_TYPES:
         if amount != 0:
-            error(f"{tx_type.upper()} transactions must have amount=0")
+            error(f"{upper} transactions must have amount=0")
             return None
     elif amount <= 0:
         logger.error("Invalid amount: %s must be positive", amount)
