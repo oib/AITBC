@@ -433,25 +433,58 @@ async def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials |
 # ---------------------------------------------------------------------------
 
 
+def _enforce_permissions(current_user: dict[str, Any] | None, required_permissions: list[str]) -> None:
+    if not current_user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+    user_permissions = current_user.get("permissions", [])
+    missing_permissions = [perm for perm in required_permissions if perm not in user_permissions]
+    if missing_permissions:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "Insufficient permissions", "missing_permissions": missing_permissions},
+        )
+
+
+def _enforce_role(current_user: dict[str, Any] | None, required_roles: list[str]) -> None:
+    if not current_user:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
+    user_role = current_user.get("role", "default")
+    if hasattr(user_role, "value"):
+        user_role = user_role.value
+    elif not isinstance(user_role, str):
+        user_role = str(user_role)
+    required_role_strings = [role.value if hasattr(role, "value") else str(role) for role in required_roles]
+    if user_role not in required_role_strings:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail={"error": "Insufficient role", "required_roles": required_role_strings, "current_role": user_role},
+        )
+
+
+def _with_auth_gate[F: Callable[..., Any]](func: F, enforce: Callable[[dict[str, Any] | None], None]) -> F:
+    """Wrap ``func`` (sync or async) so ``enforce`` sees ``current_user`` first."""
+    if asyncio.iscoroutinefunction(func):
+
+        @wraps(func)
+        async def async_wrapper(*args: Any, **kwargs: Any) -> Any:
+            enforce(kwargs.get("current_user"))
+            return await func(*args, **kwargs)
+
+        return cast(F, async_wrapper)
+
+    @wraps(func)
+    def sync_wrapper(*args: Any, **kwargs: Any) -> Any:
+        enforce(kwargs.get("current_user"))
+        return func(*args, **kwargs)
+
+    return cast(F, sync_wrapper)
+
+
 def require_permissions(required_permissions: list[str]) -> Callable[[F], F]:
     """Decorator to require specific permissions."""
 
     def decorator(func: F) -> F:
-        @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            current_user = kwargs.get("current_user")
-            if not current_user:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
-            user_permissions = current_user.get("permissions", [])
-            missing_permissions = [perm for perm in required_permissions if perm not in user_permissions]
-            if missing_permissions:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail={"error": "Insufficient permissions", "missing_permissions": missing_permissions},
-                )
-            return await func(*args, **kwargs)
-
-        return cast(F, wrapper)
+        return _with_auth_gate(func, lambda user: _enforce_permissions(user, required_permissions))
 
     return decorator
 
@@ -460,30 +493,7 @@ def require_role(required_roles: list[str]) -> Callable[[F], F]:
     """Decorator to require specific role."""
 
     def decorator(func: F) -> F:
-        @wraps(func)
-        async def wrapper(*args: Any, **kwargs: Any) -> Any:
-            current_user = kwargs.get("current_user")
-            if not current_user:
-                raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required")
-            user_role = current_user.get("role", "default")
-            if hasattr(user_role, "value"):
-                user_role = user_role.value
-            elif not isinstance(user_role, str):
-                user_role = str(user_role)
-            required_role_strings = []
-            for role in required_roles:
-                if hasattr(role, "value"):
-                    required_role_strings.append(role.value)
-                else:
-                    required_role_strings.append(str(role))
-            if user_role not in required_role_strings:
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail={"error": "Insufficient role", "required_roles": required_role_strings, "current_role": user_role},
-                )
-            return await func(*args, **kwargs)
-
-        return cast(F, wrapper)
+        return _with_auth_gate(func, lambda user: _enforce_role(user, required_roles))
 
     return decorator
 
