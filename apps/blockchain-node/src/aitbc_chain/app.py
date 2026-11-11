@@ -802,12 +802,7 @@ def create_app() -> FastAPI:
         """
         from aitbc.health_checks import run_readiness_checks
 
-        checks: dict[str, Callable[[], object]] = {
-            "database": _check_chain_db,
-            "supported_chains": _check_supported_chains,
-        }
-        if _effective_block_production_enabled():
-            checks["block_production"] = _check_can_sign
+        checks = _readiness_checks()
         failed = await asyncio.to_thread(run_readiness_checks, checks)
         if failed:
             return _not_ready_response(failed)
@@ -842,6 +837,51 @@ def _check_chain_db() -> None:
 def _check_supported_chains() -> bool:
     """At least one chain is configured to be served."""
     return bool([c for c in settings.supported_chains.split(",") if c.strip()] or settings.chain_id)
+
+
+def _readiness_checks() -> dict[str, Callable[[], object]]:
+    """Checks /ready runs. #1711: when the engine heartbeat file is
+    configured, readiness also requires a fresh "ready" heartbeat — a node
+    whose gossip transport is dead (the v12-11 stall) reports not-ready
+    instead of green."""
+    checks: dict[str, Callable[[], object]] = {
+        "database": _check_chain_db,
+        "supported_chains": _check_supported_chains,
+    }
+    if settings.node_engine_ready_file:
+        checks["node_engine"] = _check_node_engine_ready
+    if _effective_block_production_enabled():
+        checks["block_production"] = _check_can_sign
+    return checks
+
+
+def _check_node_engine_ready() -> None:
+    """#1711: the consensus engine's heartbeat must be fresh and ready.
+
+    Missing file, stale timestamp, malformed JSON, or any degraded
+    component all fail closed — the engine either is not running, is
+    shutting down, or cannot attest/import."""
+    import time
+
+    from .readiness import read_heartbeat
+
+    path = settings.node_engine_ready_file
+    data = read_heartbeat(path)
+    if data is None:
+        raise RuntimeError(f"node engine readiness file missing or unreadable: {path}")
+    ts = data.get("ts")
+    if not isinstance(ts, (int, float)):
+        raise RuntimeError("node engine readiness file has no timestamp")
+    age = time.time() - float(ts)
+    if age > settings.node_engine_ready_max_age_seconds:
+        raise RuntimeError(f"node engine readiness heartbeat is stale ({age:.0f}s old)")
+    if data.get("status") != "ready":
+        degraded = {
+            name: comp.get("detail", comp.get("ok"))
+            for name, comp in (data.get("components") or {}).items()
+            if not comp.get("ok")
+        }
+        raise RuntimeError(f"node engine reports degraded readiness: {degraded}")
 
 
 def _check_can_sign() -> None:

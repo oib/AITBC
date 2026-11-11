@@ -556,6 +556,13 @@ class ChainSettings(BaseSettings):
     # attest_response observer armed by vote_journal_justification_enabled)
     # cannot swallow the messages another subscriber (the collector) needs.
     gossip_mesh_dedup_per_subscription: bool = False
+    # #1711: node-engine readiness heartbeat. The consensus engine
+    # (aitbc_chain.main) has no HTTP surface, so it writes this JSON file on
+    # an interval; the RPC /ready probe fails while the file is missing,
+    # stale, or reports a non-ready component. Empty disables both sides.
+    node_engine_ready_file: str = ""
+    node_engine_ready_interval_seconds: float = 15.0
+    node_engine_ready_max_age_seconds: float = 45.0
     default_peer_rpc_url: str | None = None  # HTTP RPC URL of default peer for bulk sync
 
     # Cross-site synchronization settings

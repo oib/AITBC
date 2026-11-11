@@ -47,7 +47,9 @@ def backend(monkeypatch):
     import redis.asyncio as aioredis
 
     monkeypatch.setattr(aioredis.Redis, "from_url", staticmethod(lambda *a, **k: _FakeRedis()))
-    b = BroadcastGossipBackend("redis://fake")
+    # Passworded non-loopback URL: #1789 fail-closed auth check rejects
+    # unauthenticated remote redis URLs.
+    b = BroadcastGossipBackend("redis://:pw@fake")
     return b
 
 

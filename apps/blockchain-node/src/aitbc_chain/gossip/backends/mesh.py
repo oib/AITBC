@@ -274,6 +274,33 @@ class MeshGossipBackend(GossipBackend):
                 get_logger(__name__).warning("Mesh gossip peer %s shutdown raised: %s", name, e)
         await self._local.shutdown()
 
+    async def health(self) -> dict[str, Any]:
+        """#1711: local bus must answer AND at least one configured peer link
+        must be connected when peers are configured — with zero reachable
+        peers the node cannot see attest/block gossip at all."""
+        local = await self._local.health()
+        peer_results = {name: await peer.health() for name, peer in self._peers.items()}
+
+        def _peer_linked(result: dict[str, Any]) -> bool:
+            # #1711 rework: ``ok`` alone is vacuous for a peer that never
+            # completed a subscribe — the ws backend reports ok with an
+            # empty topic list (``_ref_counts`` only fills after
+            # ``_ensure_connection`` succeeds). A peer counts as connected
+            # only when it is ok AND holds at least one subscribed topic
+            # link, i.e. gossip can actually flow over it.
+            return bool(result.get("ok")) and len(result.get("topics") or []) > 0
+
+        connected = sum(1 for r in peer_results.values() if _peer_linked(r))
+        configured = len(self._peers)
+        ok = bool(local.get("ok")) and (configured == 0 or connected > 0)
+        return {
+            "ok": ok,
+            "local_bus": local,
+            "peers_connected": connected,
+            "peers_configured": configured,
+            "peer_detail": peer_results,
+        }
+
 
 class _MeshSubscription:
     """One merged topic subscription across the local bus and all peer links."""

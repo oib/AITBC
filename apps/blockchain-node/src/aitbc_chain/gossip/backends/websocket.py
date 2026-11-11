@@ -804,6 +804,17 @@ class WebsocketGossipBackend(GossipBackend):
                 return
         await self._cleanup(topic)
 
+    async def health(self) -> dict[str, Any]:
+        """#1711: every ref-counted topic must have an open websocket —
+        a dead link means subscriptions silently starve."""
+        subscribed = [t for t, n in self._ref_counts.items() if n > 0]
+        missing = [
+            t for t in subscribed if self._websockets.get(t) is None or not self._is_websocket_open(self._websockets[t])
+        ]
+        if missing:
+            return {"ok": False, "detail": f"topics without open ws: {missing}", "topics": subscribed}
+        return {"ok": True, "topics": subscribed}
+
     async def shutdown(self) -> None:
         self._running = False
         topics = list(self._websockets.keys())

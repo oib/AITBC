@@ -4,7 +4,7 @@ import json
 import os
 import signal
 from collections.abc import AsyncIterator, Callable
-from contextlib import asynccontextmanager
+from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Any
 
@@ -21,6 +21,7 @@ from .lease_tracker import lease_tracker
 from .logger import get_logger
 from .mempool import init_mempool
 from .observability import register_exporters
+from .readiness import NodeReadinessHeartbeat
 from .sync import ChainSync
 from .sync_manager import SyncManager
 from .sync_manager_http import SyncManagerStatusServer
@@ -198,6 +199,7 @@ class BlockchainNode:
             default_url=settings.default_peer_rpc_url,
         )
         self._multi_chain_manager: MultiChainManager | None = None
+        self._readiness_heartbeat: NodeReadinessHeartbeat | None = None
         self._settlement_coordinators: list[Any] = []
         self._sync: ChainSync | None = None
         self._sync_manager: SyncManager | None = None
@@ -476,6 +478,18 @@ class BlockchainNode:
         )
         await gossip_broker.set_backend(backend)
         logger.info("Gossip backend initialized successfully")
+        # #1711: readiness heartbeat — the RPC /ready probe fails while this
+        # file is missing/stale/degraded, so a node whose gossip transport
+        # is dead stops receiving traffic instead of silently failing to
+        # attest/import. Disabled when node_engine_ready_file is empty.
+        if settings.node_engine_ready_file:
+            self._readiness_heartbeat = NodeReadinessHeartbeat(
+                settings.node_engine_ready_file,
+                interval_seconds=settings.node_engine_ready_interval_seconds,
+            )
+            self._readiness_heartbeat.register_probe("gossip", gossip_broker.health)
+            await self._readiness_heartbeat.start()
+            logger.info("Node readiness heartbeat writing to %s", settings.node_engine_ready_file)
         chains = self._supported_chains()
         if not chains:
             from .chain_id import ChainIdNotConfigured
@@ -768,6 +782,10 @@ class BlockchainNode:
         for _chain_id, proposer in list(self._proposers.items()):
             await proposer.stop()
         self._proposers.clear()
+        if self._readiness_heartbeat is not None:
+            with suppress(Exception):
+                await self._readiness_heartbeat.stop()
+            self._readiness_heartbeat = None
         await gossip_broker.shutdown()
         await lease_tracker.stop()
         # #1705: dispose the chain engines last — shutdown_db also re-encrypts
