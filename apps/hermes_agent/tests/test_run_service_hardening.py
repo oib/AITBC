@@ -57,20 +57,30 @@ def _toolsets_arg(cmd):
 
 def test_empty_toolsets_uses_default(monkeypatch):
     monkeypatch.setattr(hermes, "_HERMES_PATH", "/bin/hermes")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_MODEL", "shop-model")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_PROVIDER", "shopprov")
     monkeypatch.setattr(hermes, "_HERMES_DEFAULT_TOOLSETS", "web,memory")
-    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_TOOLSETS", "web,memory")
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_TOOLSETS", ["web", "memory"])
     assert _toolsets_arg(hermes._build_command(_req(toolsets=","), "/tmp/u")) == "web,memory"
     assert _toolsets_arg(hermes._build_command(_req(toolsets=" , , "), "/tmp/u")) == "web,memory"
     assert _toolsets_arg(hermes._build_command(_req(toolsets=""), "/tmp/u")) == "web,memory"
 
 
-def test_unconfigured_env_forces_conservative_toolsets(monkeypatch):
-    """No default and no allow-list: pass an explicit safe set, not the profile's."""
+def test_unconfigured_env_fail_closed(monkeypatch):
+    """No defaults and no allow-lists: refuse instead of Hermes profile fallthrough."""
+    import pytest
+    from fastapi import HTTPException
+
     monkeypatch.setattr(hermes, "_HERMES_PATH", "/bin/hermes")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_MODEL", "")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_PROVIDER", "")
     monkeypatch.setattr(hermes, "_HERMES_DEFAULT_TOOLSETS", "")
-    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_TOOLSETS", "")
-    arg = _toolsets_arg(hermes._build_command(_req(), "/tmp/u"))
-    assert arg is not None and arg, "no --toolsets at all — falls through to the full profile"
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_MODELS", [])
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_PROVIDERS", [])
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_TOOLSETS", [])
+    with pytest.raises(HTTPException) as exc:
+        hermes._build_command(_req(), "/tmp/u")
+    assert exc.value.status_code == 503
 
 
 def test_run_requires_credential(monkeypatch):
@@ -145,7 +155,7 @@ def test_empty_allowlist_toolsets_bounded_by_default(monkeypatch):
 
 
 def test_no_allowlist_no_default_rejects_buyer_toolsets(monkeypatch):
-    """Nothing configured at all: buyer-chosen toolsets are refused outright."""
+    """Nothing configured at all: fail closed before buyer-chosen toolsets run."""
     import pytest
     from fastapi import HTTPException
 
@@ -155,7 +165,28 @@ def test_no_allowlist_no_default_rejects_buyer_toolsets(monkeypatch):
     monkeypatch.setattr(hermes, "_HERMES_DEFAULT_PROVIDER", "")
     with pytest.raises(HTTPException) as exc:
         hermes._build_command(_req(toolsets="shell"), "/tmp/u")
-    assert exc.value.status_code == 400
+    assert exc.value.status_code == 503
+
+
+# --- HERMES-ALLOWLIST-1 (#1804): empty resolved allow set is not allow-all ---
+
+
+def test_fail_closed_when_only_toolsets_missing(monkeypatch):
+    """Models and providers configured but toolsets resolve empty -> 503."""
+    import pytest
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(hermes, "_HERMES_PATH", "/bin/hermes")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_MODEL", "shop/model")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_PROVIDER", "shopprov")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_TOOLSETS", "")
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_MODELS", [])
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_PROVIDERS", [])
+    monkeypatch.setattr(hermes, "_HERMES_ALLOWED_TOOLSETS", [])
+    with pytest.raises(HTTPException) as exc:
+        hermes._build_command(_req(), "/tmp/u")
+    assert exc.value.status_code == 503
+    assert "Toolsets" in exc.value.detail
 
 
 def test_nonempty_allowlist_unrequested_emits_bounded_toolsets(monkeypatch):
