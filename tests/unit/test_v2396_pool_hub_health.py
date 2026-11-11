@@ -289,5 +289,5 @@ def test_prometheus_scrapes_pool_hub() -> None:
     jobs = {job["job_name"]: job for job in config["scrape_configs"]}
 
     assert "pool-hub" in jobs, "no scrape job for pool-hub"
-    assert jobs["pool-hub"]["static_configs"][0]["targets"] == ["localhost:8210"]
+    assert jobs["pool-hub"]["static_configs"][0]["targets"] == ["127.0.0.1:8210"]
     assert jobs["pool-hub"]["metrics_path"] == "/metrics"
