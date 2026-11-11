@@ -6,8 +6,8 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 
-from sqlalchemy import select
-from sqlmodel import Session
+from sqlalchemy import case, select, update
+from sqlmodel import Session, col
 
 from ..domain.grant import GrantMilestone, GrantProposal, GrantStatus, MilestoneStatus
 
@@ -149,14 +149,30 @@ class GrantService:
         voting_ends = _as_naive(grant.voting_ends)
         if voting_ends and now > voting_ends:
             raise ValueError("Voting period has ended")
-        if vote == "for":
-            grant.votes_for += voting_power
-        elif vote == "against":
-            grant.votes_against += voting_power
-        elif vote == "abstain":
-            grant.votes_abstain += voting_power
-        else:
+        counter = {"for": "votes_for", "against": "votes_against", "abstain": "votes_abstain"}.get(vote)
+        if counter is None:
             raise ValueError("Invalid vote type")
+        # #1798: the voter-id metadata must be durable before the counter
+        # UPDATE — a later refresh() would otherwise silently drop the
+        # unflushed JSON change.
+        self.session.flush()
+        # #1798: atomic increment — votes_for/against/abstain are SQL-side
+        # `col = col + power`, so concurrent votes cannot lose each other's
+        # counts. The status predicate is the CAS: a grant that resolved
+        # (or was cancelled) between the read and this write takes rowcount 0.
+        claim = self.session.execute(
+            update(GrantProposal)
+            .where(
+                col(GrantProposal.id) == grant_id,
+                col(GrantProposal.status).in_([GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW, GrantStatus.ACTIVE]),
+            )
+            .values(**{counter: getattr(GrantProposal, counter) + voting_power})
+            .execution_options(synchronize_session=False)
+        )
+        if getattr(claim, "rowcount", 0) != 1:
+            self.session.rollback()
+            raise ValueError("Grant is not open for voting")
+        self.session.refresh(grant)
         self._check_resolution(grant, now)
         self.session.add(grant)
         self.session.commit()
@@ -207,32 +223,86 @@ class GrantService:
         if grant.status not in {GrantStatus.APPROVED, GrantStatus.ACTIVE}:
             raise ValueError("Grant is not approved")
         if milestone_id:
-            milestone = self.session.get(GrantMilestone, milestone_id)
-            if not milestone or milestone.grant_id != grant_id:
-                raise ValueError("Milestone not found")
-            if milestone.status == MilestoneStatus.PAID:
-                raise ValueError("Milestone already paid")
-            if milestone.status != MilestoneStatus.APPROVED:
-                raise ValueError("Milestone is not approved for disbursement")
-            disburse_amount = _to_decimal(amount) if amount is not None else milestone.amount
-            _check_disburse_balance(grant, disburse_amount)
-            milestone.status = MilestoneStatus.PAID
-            milestone.completed_at = _utc_now()
-            grant.disbursed_amount += disburse_amount
-            self.session.add(milestone)
+            disburse_amount = self._claim_milestone_for_disburse(grant, milestone_id, amount)
         else:
             if amount is None:
                 raise ValueError("Amount required when no milestone is specified")
-            amount_dec = _to_decimal(amount)
-            _check_disburse_balance(grant, amount_dec)
-            grant.disbursed_amount += amount_dec
-        if grant.disbursed_amount >= grant.approved_amount:
-            grant.status = GrantStatus.COMPLETED
-        else:
-            grant.status = GrantStatus.ACTIVE
-        grant.executed_at = _utc_now()
-        grant.updated_at = _utc_now()
-        self.session.add(grant)
-        self.session.commit()
+            disburse_amount = _to_decimal(amount)
+            _check_disburse_balance(grant, disburse_amount)
+        self._cas_grant_disburse(grant_id, disburse_amount)
         self.session.refresh(grant)
         return grant
+
+    def _claim_milestone_for_disburse(
+        self,
+        grant: GrantProposal,
+        milestone_id: str,
+        amount: Decimal | str | float | None,
+    ) -> Decimal:
+        """Validate and atomically claim a milestone for disbursement (#1798).
+
+        Returns the amount to disburse. The PAID claim is a conditional
+        UPDATE — two concurrent disburses of the same milestone cannot both
+        mark it paid."""
+        milestone = self.session.get(GrantMilestone, milestone_id)
+        if not milestone or milestone.grant_id != grant.id:
+            raise ValueError("Milestone not found")
+        if milestone.status == MilestoneStatus.PAID:
+            raise ValueError("Milestone already paid")
+        if milestone.status != MilestoneStatus.APPROVED:
+            raise ValueError("Milestone is not approved for disbursement")
+        disburse_amount = _to_decimal(amount) if amount is not None else milestone.amount
+        _check_disburse_balance(grant, disburse_amount)
+        now = _utc_now()
+        claim = self.session.execute(
+            update(GrantMilestone)
+            .where(
+                col(GrantMilestone.id) == milestone_id,
+                col(GrantMilestone.status) == MilestoneStatus.APPROVED,
+            )
+            .values(status=MilestoneStatus.PAID, completed_at=now, updated_at=now)
+            .execution_options(synchronize_session=False)
+        )
+        if getattr(claim, "rowcount", 0) != 1:
+            self.session.rollback()
+            fresh = self.session.get(GrantMilestone, milestone_id)
+            if fresh is not None and fresh.status == MilestoneStatus.PAID:
+                raise ValueError("Milestone already paid")
+            raise ValueError("Milestone is not approved for disbursement")
+        return disburse_amount
+
+    def _cas_grant_disburse(self, grant_id: str, disburse_amount: Decimal) -> None:
+        """CAS the payout onto the grant row (#1798).
+
+        The remaining-balance predicate lives in WHERE, so a concurrent
+        disburse that already consumed the headroom makes rowcount 0 instead
+        of silently overdrawing approved_amount. The status CASE keeps
+        COMPLETED/ACTIVE truthful without a second read."""
+        now = _utc_now()
+        claim = self.session.execute(
+            update(GrantProposal)
+            .where(
+                col(GrantProposal.id) == grant_id,
+                col(GrantProposal.status).in_([GrantStatus.APPROVED, GrantStatus.ACTIVE]),
+                col(GrantProposal.approved_amount) - col(GrantProposal.disbursed_amount) >= disburse_amount,
+            )
+            .values(
+                disbursed_amount=col(GrantProposal.disbursed_amount) + disburse_amount,
+                status=case(
+                    (
+                        col(GrantProposal.disbursed_amount) + disburse_amount >= col(GrantProposal.approved_amount),
+                        GrantStatus.COMPLETED.name,
+                    ),
+                    else_=GrantStatus.ACTIVE.name,
+                ),
+                executed_at=now,
+                updated_at=now,
+            )
+            .execution_options(synchronize_session=False)
+        )
+        if getattr(claim, "rowcount", 0) != 1:
+            self.session.rollback()
+            fresh_grant = self.session.get(GrantProposal, grant_id)
+            if fresh_grant is not None and fresh_grant.status not in {GrantStatus.APPROVED, GrantStatus.ACTIVE}:
+                raise ValueError("Grant is not approved")
+            raise ValueError("disbursement exceeds the approved balance")
