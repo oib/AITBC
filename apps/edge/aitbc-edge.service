@@ -32,7 +32,7 @@ RuntimeDirectory=aitbc
 # never be skipped (same pattern as aitbc-coordinator-api.service). init_db's
 # create_all adds missing tables but never ALTERs — without this, a long-lived
 # edge DB silently drifts from the models (#1813; aitbc-test-shop ate it).
-ExecStartPre=/bin/sh -c 'cd /opt/aitbc/apps/edge && PYTHONPATH="/opt/aitbc:/opt/aitbc/apps/edge/src:$(find /opt/aitbc/packages/py -maxdepth 2 -type d -name src 2>/dev/null | tr "\n" ":")" exec /opt/aitbc/venv/bin/alembic upgrade head'
+ExecStartPre=/bin/sh -c 'cd /opt/aitbc/apps/edge && PP="/opt/aitbc:/opt/aitbc/apps/edge/src"; for d in /opt/aitbc/packages/py/*/src; do [ -d "$d" ] && PP="$PP:$d"; done; PYTHONPATH="$PP" exec /opt/aitbc/venv/bin/alembic upgrade head'
 ExecStart=/opt/aitbc/venv/bin/python -m aitbc_edge.main
 Restart=on-failure
 RestartSec=10
