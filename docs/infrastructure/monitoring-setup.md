@@ -129,6 +129,17 @@ With `--metrics-file` (env `AITBC_WATCH_METRICS_FILE`) the watcher atomically wr
 
 The shipped rules include `PrometheusWatchStale` (fires when the heartbeat is absent or older than five minutes). Deployment needs the textfile directory writable by the `aitbc` user — the fleet recipe is `chgrp aitbc /var/lib/prometheus/node-exporter && chmod 2775 ...` (the Debian nodes have no `acl` package for `setfacl`) — and a `ReadWritePaths=/var/lib/prometheus/node-exporter` drop-in for the unit (the deployed unit is a symlink into the checkout, so a drop-in in `aitbc-prometheus-watch.service.d/` carries it rather than uncommenting the repo file). The watcher writes the file world-readable; node-exporter runs as `prometheus` and skips unreadable files with `node_textfile_scrape_error 1`. A node that never ran the watcher has no series and stays invisible to the stale rule; if node-exporter itself dies, `ServiceDown` on the node job is the alert that fires instead.
 
+#### Dead-man coverage (DEADMAN-ALERT-1, #1768)
+
+| failure | alert | severity |
+|---|---|---|
+| host dies | `ServiceDown` (hub) | critical |
+| only the watcher dies | `PrometheusWatchStale` | critical (was warning; a dead watcher means no pushes from that host) |
+| a remote-write host's prometheus dies or wedges, host and node-exporter up | `RemoteWriteHostSilent` | critical |
+| hub's own prometheus dies | `ServiceDown` on hub1's `hub-prometheus` scrape job | critical |
+
+`RemoteWriteHostSilent` lives in `aitbc_hub_rules.yml` (hub only: on any other host every roster entry would look silent). It compares the static roster recording rule `aitbc_expected_remote_write_host` (keyed on the `node` external label) against each remote host's own prometheus self-scrape `up{job="prometheus"}` — a series only remote_write can deliver, so silence means the remote prometheus or its write path died, not merely a scrape target; `absent()` cannot do this per host. **Edit the roster in that file whenever a host joins or leaves the fleet.** Detection is ~7m (5m staleness lookback + `for: 2m`). The hub self-watch job is a commented sample in `scripts/monitoring/prometheus.yml`, to be enabled in hub1's live file only. Deploy order: hub first (`deploy-rules.sh`), then every other host for the `PrometheusWatchStale` severity change; not during a drill.
+
 ### Public alerts page
 
 The hub site serves `alerts.html` (linked from every page's nav), rendered from two blockchain-explorer endpoints that only make sense on the hub — its Prometheus aggregates the fleet via remote-write, so the firing list is fleet-wide:
