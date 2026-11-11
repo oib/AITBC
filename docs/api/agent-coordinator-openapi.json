@@ -1341,7 +1341,7 @@
           "agent-messaging"
         ],
         "summary": "Get Message History",
-        "description": "Get message history with optional filters.\n\nEnforce mode: an authenticated non-admin principal may only read its own\nrecords \u2014 ``sender_id``/``receiver_id`` filters must equal its agent_id,\nand an unfiltered query returns only messages it is a party to (never\n``get_all_messages``). Admin principals keep the full view. Advisory and\ndisabled keep the historical open behaviour (mismatches are logged).",
+        "description": "Get message history with optional filters.\n\nEnforce mode: an authenticated non-admin principal may only read its own\nrecords \u2014 ``sender_id``/``receiver_id`` filters must equal its agent_id,\nand an unfiltered query returns only messages it is a party to (never\n``get_all_messages``). Admin principals keep the full view. Advisory\nrequires a principal (#1846) but keeps the open record scope (mismatches\nare logged); disabled keeps the historical open behaviour.",
         "operationId": "get_message_history_api_v1_agent_messages_history_get",
         "parameters": [
           {
@@ -2704,7 +2704,7 @@
           "agent-keys"
         ],
         "summary": "Register Public Key",
-        "description": "Register a public key for an agent.\n\nPhase C agent-scoped: ``enforce`` requires a principal bound to\n``req.agent_id`` (agent JWT or ``X-Agent-*`` signed headers) or an admin,\nand a non-admin principal must carry an ``identity_address`` binding \u2014 the\nregistered key is then stamped with the principal's bound identity so the\nrecord shows which wallet authorized it. ``advisory`` logs and allows;\n``disabled`` is a no-op.",
+        "description": "Register a public key for an agent.\n\nPhase C agent-scoped: ``enforce`` requires a principal bound to\n``req.agent_id`` (agent JWT or ``X-Agent-*`` signed headers) or an admin,\nand a non-admin principal must carry an ``identity_address`` binding \u2014 the\nregistered key is then stamped with the principal's bound identity so the\nrecord shows which wallet authorized it. ``advisory`` requires a\nprincipal but logs scope mismatches; ``disabled`` is a no-op. Overwriting\nan already-registered key additionally requires an admin or the bound\nagent itself (#1846).",
         "operationId": "register_public_key_api_v1_agent_keys_register_post",
         "requestBody": {
           "content": {
@@ -2750,7 +2750,7 @@
             }
           },
           "403": {
-            "description": "agent_identity_required",
+            "description": "agent_identity_required / key_rotation_requires_admin_or_bound_agent",
             "content": {
               "application/json": {
                 "schema": {

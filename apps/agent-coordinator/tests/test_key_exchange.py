@@ -14,8 +14,17 @@ from agent_app.main import create_app
 
 
 @pytest.fixture(autouse=True)
-def clean_public_key_registry():
-    """Start each test with an empty in-memory public key registry."""
+def clean_public_key_registry(monkeypatch):
+    """Start each test with an empty in-memory public key registry.
+
+    #1846: key registration now requires a principal in advisory/enforce —
+    these tests exercise the key-exchange mechanics, not authz, so they run
+    in the disabled escape mode (auth coverage lives in
+    test_agent_coordinator_auth_floor_1846.py).
+    """
+    from agent_app.config import settings
+
+    monkeypatch.setattr(settings, "agent_msg_signature_mode", "disabled")
     public_keys.PUBLIC_KEY_REGISTRY.clear()
     yield
     public_keys.PUBLIC_KEY_REGISTRY.clear()

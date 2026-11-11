@@ -481,13 +481,15 @@ class TestHistoryAuthorization:
         assert resp.status_code == 200
         fake_storage.get_all_messages.assert_called_once()
 
-    def test_advisory_unfiltered_history_unchanged(self, client, fake_storage, monkeypatch):
+    def test_advisory_anonymous_history_401(self, client, fake_storage, monkeypatch):
+        """#1846: anonymous history reads are rejected in advisory too —
+        authentication no longer depends on signature mode."""
         from agent_app.config import settings
 
         monkeypatch.setattr(settings, "agent_msg_signature_mode", "advisory")
         resp = client.get("/api/v1/agent/messages/history")
-        assert resp.status_code == 200
-        fake_storage.get_all_messages.assert_called_once()
+        assert resp.status_code == 401
+        fake_storage.get_all_messages.assert_not_called()
 
 
 # --------------------------------------------------------------------------- #

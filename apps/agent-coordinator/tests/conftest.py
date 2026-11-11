@@ -143,6 +143,22 @@ def _rate_limiting_off(monkeypatch):
     monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "false")
 
 
+@pytest.fixture(autouse=True)
+def _signature_mode_advisory(monkeypatch):
+    """Pin AGENT_MSG_SIGNATURE_MODE=advisory for the suite.
+
+    #1846 flipped the in-code default to ``enforce``; most of this suite was
+    written against the old ``advisory`` default (signed-envelope and
+    scope-mismatch checks logged but allowed). Tests that exercise a specific
+    mode set it themselves — this fixture only restores the ambient default
+    the suite was authored under. The enforce-default itself is pinned in
+    test_agent_coordinator_auth_floor_1846.py.
+    """
+    from agent_app.config import settings
+
+    monkeypatch.setattr(settings, "agent_msg_signature_mode", "advisory")
+
+
 @pytest.fixture
 def coin_request_env(monkeypatch, tmp_path):
     """A hub with a real (empty) database, a fake signer and a known API key."""

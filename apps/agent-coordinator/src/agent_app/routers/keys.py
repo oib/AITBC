@@ -77,8 +77,10 @@ def register_public_key(request: Request, req: RegisterKeyRequest, principal: Op
     ``req.agent_id`` (agent JWT or ``X-Agent-*`` signed headers) or an admin,
     and a non-admin principal must carry an ``identity_address`` binding — the
     registered key is then stamped with the principal's bound identity so the
-    record shows which wallet authorized it. ``advisory`` logs and allows;
-    ``disabled`` is a no-op.
+    record shows which wallet authorized it. ``advisory`` requires a
+    principal but logs scope mismatches; ``disabled`` is a no-op. Overwriting
+    an already-registered key additionally requires an admin or the bound
+    agent itself (#1846).
     """
     authorize_agent_scope(principal, req.agent_id, "keys_register")
     if (
@@ -90,6 +92,15 @@ def register_public_key(request: Request, req: RegisterKeyRequest, principal: Op
         # A principal with no bound identity (a bare user JWT) cannot authorise
         # an agent's key registration — the binding is what ties key to wallet.
         raise HTTPException(status_code=403, detail="agent_identity_required")
+
+    if settings.agent_msg_signature_mode != "disabled":
+        existing = public_keys.PUBLIC_KEY_REGISTRY.get(req.agent_id)
+        if existing is not None and (principal is None or (not principal.is_admin and principal.agent_id != req.agent_id)):
+            # #1846: re-keying a registered agent is a rotation — only an
+            # admin or the agent bound to agent_id may overwrite; any other
+            # principal must not silently replace the key other callers use
+            # to encrypt messages for this agent.
+            raise HTTPException(status_code=403, detail="key_rotation_requires_admin_or_bound_agent")
 
     import base64
 

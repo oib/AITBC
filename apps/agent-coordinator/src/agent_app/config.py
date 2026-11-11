@@ -154,11 +154,14 @@ class Settings(ServiceSettings):
     island_members: list[str] = os.getenv("ISLAND_MEMBERS", "").split(",") if os.getenv("ISLAND_MEMBERS") else []
 
     # v2.0 phase A: agent-message envelope signatures
-    # (docs/agent-coordinator/agent-signed-envelopes.md §5/§8). ``disabled`` is
-    # no longer the in-code default — PI-API-004 (#1181) made ``advisory`` the
-    # floor: mismatches are logged fleet-wide by default and ``enforce`` is
-    # opted into via env. WS agent_id binding is enforced regardless of mode.
-    agent_msg_signature_mode: str = os.getenv("AGENT_MSG_SIGNATURE_MODE", "advisory")
+    # (docs/agent-coordinator/agent-signed-envelopes.md §5/§8). ``enforce`` is
+    # the in-code default — #1846 (R11 audit F1) closed the advisory
+    # anonymous-reachable hole: mutating/admin/message routes now require a
+    # principal credential in advisory AND enforce (``advisory`` only
+    # downgrades scope mismatches to log-and-allow). ``advisory``/``disabled``
+    # remain as explicit env opt-downs for migration. WS agent_id binding is
+    # enforced regardless of mode.
+    agent_msg_signature_mode: str = os.getenv("AGENT_MSG_SIGNATURE_MODE", "enforce")
     # not-money: a duration in seconds; the envelope timestamp tolerance
     agent_msg_max_skew_seconds: int = int(os.getenv("AGENT_MSG_MAX_SKEW_SECONDS", "300"))
 

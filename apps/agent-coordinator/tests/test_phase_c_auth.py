@@ -301,11 +301,13 @@ class TestAdminRouteGates:
         resp = self._call(client, method, url, kwargs)
         assert resp.status_code == 200, f"{method} {url}: {resp.text}"
 
-    def test_advisory_anonymous_allowed(self, client, fake_state, monkeypatch):
+    def test_advisory_anonymous_401(self, client, fake_state, monkeypatch):
+        """#1846: authentication is mode-independent — advisory rejects
+        anonymous callers on admin routes too (scope mismatches still pass)."""
         monkeypatch.setattr(settings, "agent_msg_signature_mode", "advisory")
         fake_state.agent_registry.discover_agents = AsyncMock(return_value=[])
         resp = client.post("/api/v1/agent/messages/broadcast", json={"message_type": "direct", "payload": {"a": 1}})
-        assert resp.status_code == 200
+        assert resp.status_code == 401
 
     def test_advisory_non_admin_allowed(self, client, fake_state, monkeypatch):
         monkeypatch.setattr(settings, "agent_msg_signature_mode", "advisory")
@@ -826,7 +828,11 @@ class TestMessageListLimitBounds:
         resp = client.get("/api/v1/agent/messages/history", params={"offset": bad})
         assert resp.status_code == 422, f"offset={bad}: {resp.status_code} {resp.text[:120]}"
 
-    def test_inbox_limit_in_range_ok(self, client, fake_state):
+    def test_inbox_limit_in_range_ok(self, client, fake_state, monkeypatch):
+        from agent_app.config import settings
+
+        # Bounds mechanics, not authz — anonymous reads 401 in advisory (#1846).
+        monkeypatch.setattr(settings, "agent_msg_signature_mode", "disabled")
         fake_state.message_storage.get_messages_by_receiver = AsyncMock(return_value=[])
         fake_state.message_storage.get_message_count = AsyncMock(return_value=0)
         for good in ("1", "100", "500"):
