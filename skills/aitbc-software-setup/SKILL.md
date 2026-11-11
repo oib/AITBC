@@ -92,12 +92,16 @@ cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
 # Then edit NODE_ID to be unique
 ```
 
-### 5. Add P2P Peers
+### 5. Add P2P Peers (validators only)
 
-Edit `/etc/aitbc/node.env`:
+`P2P_PEERS` has no reader — peer discovery is `GOSSIP_MESH_PEER_URLS`.
+Edit `/etc/aitbc/node.env` on **validator** nodes only:
 ```bash
-P2P_PEERS=hub.example.net:7070
+GOSSIP_MESH_PEER_URLS=wss://hub.example.net/rpc/gossip/ws
 ```
+Followers must NOT carry this (or `proposer_id`) — they receive blocks
+via the hub websocket subscription (`GOSSIP_BACKEND=websocket` +
+`GOSSIP_WEBSOCKET_URL` in `blockchain.env`).
 
 ## Service File Locations (Post-Restructure)
 
