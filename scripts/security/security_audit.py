@@ -18,6 +18,23 @@ logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(levelname)s - %(
 logger = logging.getLogger(__name__)
 
 
+# Units that run as root by documented design (#1729). Each carries an
+# in-unit comment with the reason; a unit NOT listed here that ships
+# without User= (or with User=root) still flags service_running_as_root.
+ROOT_BY_DESIGN = frozenset(
+    {
+        "scripts/utils/aitbc-recovery.service",
+        "scripts/security/aitbc-security-nightly.service",
+        "scripts/monitoring/aitbc-env-watch.service",
+        "scripts/monitoring/aitbc-backup-metrics.service",
+        "scripts/monitoring/aitbc-bridge-set.service",
+        "scripts/monitoring/aitbc-island-swarm-probe.service",
+        "scripts/monitoring/aitbc-island-subscription-check.service",
+        "scripts/ops/offsite-pull-backups.service",
+    }
+)
+
+
 class SecurityAudit:
     """Comprehensive security audit for AITBC production"""
 
@@ -537,7 +554,9 @@ class SecurityAudit:
                     # User=<non-root> does not. The old check was a
                     # tautology — every service file flagged (#1018).
                     user_lines = [line.split("=", 1)[1].strip() for line in content.splitlines() if line.startswith("User=")]
-                    if not user_lines or all(u == "root" for u in user_lines):
+                    if (not user_lines or all(u == "root" for u in user_lines)) and str(
+                        service_file.relative_to(self.project_root)
+                    ) not in ROOT_BY_DESIGN:
                         issues.append(
                             {
                                 "type": "service_running_as_root",
