@@ -10,6 +10,7 @@ import logging
 import os
 import sqlite3
 import uuid
+from collections.abc import Collection
 from contextlib import closing
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -330,8 +331,16 @@ def update_deposit(
     submitted_height: int | None = None,
     rebroadcast_count: int | None = None,
     clear_fields: list[str] | None = None,
+    expected_statuses: Collection[BridgeDepositStatus | str] | None = None,
 ) -> bool:
-    """Update bridge deposit record."""
+    """Update bridge deposit record.
+
+    ``expected_statuses`` is the CAS predicate (#1839): when given, the
+    UPDATE only lands while the row still sits in one of those statuses,
+    so a stale writer cannot resurrect a row another writer already moved
+    terminal (e.g. flip a written-off deposit back to SUBMITTED). rowcount
+    0 -> False. Status values may be passed as the enum or its ``.value``.
+    """
     if status == BridgeDepositStatus.WRITTEN_OFF and not error_message:
         raise ValueError("WRITTEN_OFF requires a written reason (error_message)")
     for f in clear_fields or []:
@@ -393,13 +402,24 @@ def update_deposit(
 
         params.extend(_tx_hash_keys(eth_tx_hash))
 
-        if updates:
+        if expected_statuses:
+            expected = tuple(s.value if isinstance(s, BridgeDepositStatus) else str(s) for s in expected_statuses)
+            query = (
+                f"UPDATE eth_deposits SET {', '.join(updates)} "  # nosec
+                f"WHERE lower(tx_hash) IN (?, ?) AND status IN ({', '.join('?' for _ in expected)})"
+            )
+            params.extend(expected)
+        elif updates:
             # every `updates` entry is a hardcoded "column = ?" literal above; values are bound via params
             # lower() + both spellings: legacy rows may hold a bare or mixed-case hash (#668)
             query = f"UPDATE eth_deposits SET {', '.join(updates)} WHERE lower(tx_hash) IN (?, ?)"  # nosec
+        else:
+            return False
+
+        if updates:
             cursor.execute(query, params)
             conn.commit()
-            return True
+            return cursor.rowcount > 0
 
         return False
 
