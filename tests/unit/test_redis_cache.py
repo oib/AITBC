@@ -67,3 +67,43 @@ def test_in_memory_fallback_still_works() -> None:
     assert cache.set("k", {"v": 1}) is True
     assert cache.get("k") == {"v": 1}
     assert cache.delete("k") is True
+
+
+def _fallback_cache(**kwargs) -> RedisCache:
+    with patch("redis.from_url", side_effect=ConnectionError("no route")):
+        return RedisCache(**kwargs)
+
+
+def test_fallback_honors_ttl() -> None:
+    """#1755: fallback entries must expire instead of living forever."""
+    cache = _fallback_cache(default_ttl=3600)
+    cache.set("short", "v", ttl=1)
+    cache.set("long", "v", ttl=3600)
+    assert cache.get("short") == "v"
+    # Force the deadline into the past — lazy expiry on read.
+    value, _ = cache._data["short"]
+    cache._data["short"] = (value, 0.0)
+    assert cache.get("short") is None
+    assert "short" not in cache._data
+    assert cache.get("long") == "v"
+
+
+def test_fallback_default_ttl_applies() -> None:
+    cache = _fallback_cache(default_ttl=30)
+    cache.set("k", "v")
+    _, expires_at = cache._data["k"]
+    assert expires_at is not None
+
+
+def test_fallback_is_bounded_lru() -> None:
+    """#1755: the fallback map evicts least-recently-used entries."""
+    cache = _fallback_cache(fallback_max_entries=3)
+    for i in range(3):
+        cache.set(f"k{i}", i)
+    cache.get("k0")  # touch k0 so k1 becomes the LRU entry
+    cache.set("k3", 3)
+    assert cache.get("k0") == 0
+    assert cache.get("k1") is None
+    assert cache.get("k2") == 2
+    assert cache.get("k3") == 3
+    assert len(cache._data) == 3
