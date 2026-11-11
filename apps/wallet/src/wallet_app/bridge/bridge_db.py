@@ -531,8 +531,21 @@ def get_pending_deposits(limit: int = 500, offset: int = 0) -> list[dict[str, An
     ]
 
 
+# Canonical eth_deposits lifecycle vocabulary (#1795 / #1424 residual):
+# the mint path walks pending -> verified -> completed; 'exchange_prepay'
+# rows are written by insert_exchange_prepay_deposit and consumed by the
+# settlement monitor; 'rejected' is the documented operator-terminal state
+# (bridge_routes /deposits filter); 'failed' is the monitor's terminal
+# error state (timestamp-free write, see test_coder_c_sweep). Anything
+# else is a typo that would park the row outside every worklist — reject
+# it here, the only write path for this column.
+_ETH_DEPOSIT_STATUSES = frozenset({"pending", "verified", "completed", "exchange_prepay", "rejected", "failed"})
+
+
 def update_deposit_status(deposit_id: str, status: str) -> bool:
     """Update deposit status."""
+    if status not in _ETH_DEPOSIT_STATUSES:
+        raise ValueError(f"unknown deposit status: {status!r}")
     conn = _connect_db()
     cursor = conn.cursor()
 

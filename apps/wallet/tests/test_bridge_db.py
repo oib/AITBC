@@ -237,6 +237,27 @@ class TestBridgeDepositDb:
         record = get_deposit_by_id(deposit_id)
         assert record["status"] == "completed"
 
+    def test_update_deposit_status_rejects_unknown_vocab(self, bridge_db):
+        """#1795: the status column has one canonical vocabulary — a typo'd
+        status must raise, not silently park the row outside every
+        worklist."""
+        deposit_id = insert_deposit(
+            tx_hash="0xvocab" + "9" * 59,
+            from_address="0x9999999999999999999999999999999999999999",
+            amount_eth=Decimal("0.01"),
+            amount_ait=Decimal("100"),
+            recipient="0x1111111111111111111111111111111111111111",
+        )
+        for bad in ("completedd", "done", "", "PENDING", "settled"):
+            with pytest.raises(ValueError, match="unknown deposit status"):
+                update_deposit_status(deposit_id, bad)
+        # Row untouched by the rejected writes.
+        record = get_deposit_by_id(deposit_id)
+        assert record["status"] == "pending"
+        # Canonical vocabulary still writes.
+        assert update_deposit_status(deposit_id, "exchange_prepay")
+        assert get_deposit_by_id(deposit_id)["status"] == "exchange_prepay"
+
     def test_get_deposits_by_recipient_filters(self, bridge_db):
         insert_deposit(
             tx_hash="0xaaa" * 21,
