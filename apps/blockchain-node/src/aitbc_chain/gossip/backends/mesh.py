@@ -319,6 +319,8 @@ class _MeshSubscription:
             get_logger(__name__).warning("Mesh gossip peer %s unavailable for %s; will retry: %s", name, self._topic, e)
             metrics_registry.increment("gossip_mesh_peer_subscribe_failed_total")
             self._pending_peers.add(name)
+            # Local legs that attached earlier may have set _peers_ready while this set was still empty.
+            self._peers_ready.clear()  # noqa: unawaited-async — asyncio.Event.clear() is synchronous
             self._tasks[name] = create_task_with_logging(
                 self._retry_attach(name, backend),
                 name=f"mesh-gossip-retry:{name}:{self._topic}",
