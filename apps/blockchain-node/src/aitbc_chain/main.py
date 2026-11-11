@@ -823,9 +823,9 @@ async def _run() -> None:
 if __name__ == "__main__":
     # SECRET-RELOAD-1 (#1776): reload JWT/API-key secrets from env files on SIGHUP.
     try:
-        from aitbc.auth import install_auth_reload_signal
-
-        install_auth_reload_signal()
-    except Exception:  # pragma: no cover - never block service startup
-        pass
+        from aitbc.auth import install_auth_reload_signal as _install_auth_reload_signal
+    except ImportError:
+        _install_auth_reload_signal = None  # type: ignore[assignment]
+    if _install_auth_reload_signal is not None:
+        _install_auth_reload_signal()
     run()
