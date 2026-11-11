@@ -22,7 +22,8 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
-from sqlmodel import Session, col, select, update
+from sqlalchemy import create_engine
+from sqlmodel import Session, SQLModel, col, select, update
 
 from coordinator_api.contexts.developer.schemas.developer import DeveloperCreate
 from coordinator_api.contexts.developer.services.developer_service import DeveloperService
@@ -94,6 +95,31 @@ def test_disburse_cas_completes_on_full_amount(db_session):
     final = svc.disburse(grant.id, amount="100")
     assert final.status == GrantStatus.COMPLETED
     assert Decimal(str(final.disbursed_amount)) == Decimal("100")
+
+
+@pytest.mark.unit
+def test_disburse_persists_across_sessions(tmp_path):
+    """Hotfix pin: disburse must COMMIT, not just execute the CAS UPDATE.
+
+    Every other mutator in GrantService commits; disburse returned 200 with
+    the payout rolled back when the request session closed. Uses a
+    file-backed engine so the verifying session gets its own connection —
+    the shared in-memory StaticPool connection would see uncommitted state
+    and mask the missing commit."""
+    engine = create_engine(
+        f"sqlite:///{tmp_path}/grant.db",
+        connect_args={"check_same_thread": False},
+    )
+    SQLModel.metadata.create_all(engine)
+    with Session(engine) as s1:
+        dev_id = _developer(s1)
+        svc = GrantService(s1)
+        grant = _approved_grant(s1, svc, dev_id, "100")
+        svc.disburse(grant.id, amount="40")
+    with Session(engine) as s2:
+        row = s2.get(GrantProposal, grant.id)
+        assert Decimal(str(row.disbursed_amount)) == Decimal("40")
+        assert row.status == GrantStatus.ACTIVE
 
 
 @pytest.mark.unit
