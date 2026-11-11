@@ -268,3 +268,42 @@ async def test_stalled_subscriber_does_not_block_publish() -> None:
     assert await _recv(stalled) == {"height": 3}
     with pytest.raises(asyncio.TimeoutError):
         await _recv(stalled, timeout=0.2)
+
+
+@pytest.mark.asyncio
+async def test_shared_dedup_starves_second_subscription_1701() -> None:
+    """Default (dormant flag OFF): the backend-wide dedup table lets only one
+    of two subscriptions on the same topic receive a given message. This pins
+    the #1701 root cause (observer steals the collector's attest_response)."""
+    local = InMemoryGossipBackend()
+    mesh = MeshGossipBackend(local, {})
+    await mesh.start()
+    a = await mesh.subscribe("t")
+    b = await mesh.subscribe("t")
+    await mesh.publish("t", {"n": 1})
+    got = 0
+    for sub in (a, b):
+        try:
+            await _recv(sub, timeout=0.3)
+            got += 1
+        except asyncio.TimeoutError:
+            pass
+    assert got == 1
+    await mesh.shutdown()
+
+
+@pytest.mark.asyncio
+async def test_per_subscription_dedup_delivers_to_every_subscription_1701() -> None:
+    local, peer = InMemoryGossipBackend(), InMemoryGossipBackend()
+    mesh = MeshGossipBackend(local, {"p": peer}, per_subscription_dedup=True)
+    await mesh.start()
+    a = await mesh.subscribe("t")
+    b = await mesh.subscribe("t")
+    # Same message over two links (local + peer) must still dedup inside one subscription.
+    await local.publish("t", {"n": 1})
+    await peer.publish("t", {"n": 1})
+    for sub in (a, b):
+        assert await _recv(sub) == {"n": 1}
+        with pytest.raises(asyncio.TimeoutError):
+            await _recv(sub, timeout=0.3)
+    await mesh.shutdown()
