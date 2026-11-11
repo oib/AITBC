@@ -306,19 +306,21 @@ def _parse_env_file(env_path: Path) -> dict[str, str]:
     try:
         if not env_path.exists():
             return values
+        with open(env_path) as f:
+            for line in f:
+                line = line.strip()
+                if not line or line.startswith(("#", ";")):
+                    continue
+                if "=" not in line:
+                    continue
+                key, value = line.split("=", 1)
+                key = key.strip()
+                value = value.strip().strip('"').strip("'")
+                values[key] = value
     except (PermissionError, OSError):
+        # Unreadable env files (e.g. root:aitbc 0600 read by the aitbc user)
+        # must not crash config load — treat as absent (OPS-PROMWATCH-EACCES-1).
         return values
-    with open(env_path) as f:
-        for line in f:
-            line = line.strip()
-            if not line or line.startswith(("#", ";")):
-                continue
-            if "=" not in line:
-                continue
-            key, value = line.split("=", 1)
-            key = key.strip()
-            value = value.strip().strip('"').strip("'")
-            values[key] = value
     return values
 
 
