@@ -18,7 +18,9 @@ from ..domain.governance import (
     GovernanceProfile,
     VoteType,
 )
+from ....auth import AdminDep, AdminOrClientDep
 from ....storage.db import get_session
+from ...infrastructure.domain.user import Wallet
 from ..services.governance_service import GovernanceService
 
 router = APIRouter(prefix="/governance-enhanced", tags=["Enhanced Governance"])
@@ -27,6 +29,48 @@ router = APIRouter(prefix="/governance-enhanced", tags=["Enhanced Governance"])
 # Dependency injection
 def get_governance_service(session: Annotated[Session, Depends(get_session)]) -> GovernanceService:
     return GovernanceService(session)
+
+
+# #1847 (audit F2/F3): these routes used to run with no caller binding — any
+# client JWT could propose/vote/delegate under arbitrary addresses and
+# self-assign voting power. Identity now comes from the token: the caller's
+# user id (JWT sub) plus the wallet addresses registered to that user, the
+# same ownership model agent-performance/agent-identity routes use. Admin
+# callers bypass object checks, matching those routers.
+def _is_admin(user: dict[str, Any]) -> bool:
+    return user.get("role") == "admin"
+
+
+def _caller_wallets(session: Session, user: dict[str, Any]) -> set[str]:
+    sub = str(user.get("sub") or "")
+    if not sub:
+        return set()
+    return {str(w.address).lower() for w in session.exec(select(Wallet).where(Wallet.user_id == sub)).all() if w.address}
+
+
+def _caller_identities(session: Session, user: dict[str, Any]) -> set[str]:
+    """Identities the caller may act as: JWT sub plus owned wallet addresses."""
+    identities = {str(user.get("sub") or "")}
+    identities.discard("")
+    identities |= _caller_wallets(session, user)
+    return identities
+
+
+def _require_identity(session: Session, user: dict[str, Any], claimed: str) -> None:
+    """403 unless ``claimed`` is the caller's sub or one of their wallets."""
+    if _is_admin(user):
+        return
+    identities = _caller_identities(session, user)
+    if claimed in identities or claimed.lower() in identities:
+        return
+    raise HTTPException(status_code=403, detail="identity is not bound to the caller")
+
+
+def _require_profile_owner(session: Session, user: dict[str, Any], profile: GovernanceProfile) -> None:
+    """403 unless the profile's user_id belongs to the caller (admin bypasses)."""
+    if _is_admin(user):
+        return
+    _require_identity(session, user, str(profile.user_id))
 
 
 # Regional Council Management Endpoints
@@ -41,8 +85,9 @@ async def create_regional_council(
     budget_allocation: Decimal,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
+    user: AdminDep,
 ) -> dict[str, Any]:
-    """Create a regional governance council"""
+    """Create a regional governance council (admin-only provisioning)."""
 
     try:
         council = await run_in_threadpool(
@@ -93,9 +138,11 @@ async def create_regional_proposal(
     proposer_address: str,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
     """Create a proposal for a specific regional council"""
 
+    _require_identity(session, user, proposer_address)
     try:
         proposal = await run_in_threadpool(
             governance_service.create_regional_proposal,
@@ -122,19 +169,24 @@ async def vote_on_regional_proposal(
     proposal_id: str,
     voter_address: str,
     vote_type: VoteType,
-    voting_power: float,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
-    """Vote on a regional proposal"""
+    """Vote on a regional proposal.
 
+    #1847: voting_power is no longer caller-supplied — the service derives
+    it from the voter's stored profile (own + delegated power).
+    """
+
+    _require_identity(session, user, voter_address)
     try:
-        vote = await run_in_threadpool(
-            governance_service.vote_on_regional_proposal, proposal_id, voter_address, vote_type, voting_power
-        )
+        vote = await run_in_threadpool(governance_service.vote_on_regional_proposal, proposal_id, voter_address, vote_type)
 
         return {"success": True, "vote": vote, "message": f"Vote cast successfully on proposal {proposal_id}"}
 
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
@@ -340,12 +392,18 @@ async def create_governance_profile(
     user_id: str,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
-    initial_voting_power: float = 0.0,
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
-    """Create or get a governance profile"""
+    """Create or get a governance profile.
 
+    #1847: user_id must be bound to the caller and initial_voting_power is
+    ignored — power is never minted from the request; it accrues from
+    stake/delegation server-side.
+    """
+
+    _require_identity(session, user, user_id)
     try:
-        profile = await run_in_threadpool(governance_service.get_or_create_profile, user_id, initial_voting_power or 0.0)
+        profile = await run_in_threadpool(governance_service.get_or_create_profile, user_id, 0.0)
 
         return {
             "success": True,
@@ -373,9 +431,18 @@ async def delegate_votes(
     delegatee_id: str,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
-    """Delegate voting power from one profile to another"""
+    """Delegate voting power from one profile to another.
 
+    #1847: the delegator profile must belong to the caller — previously any
+    client could point any profile's delegate_to at themselves (F3).
+    """
+
+    delegator_profile = session.exec(select(GovernanceProfile).where(GovernanceProfile.profile_id == delegator_id)).first()
+    if delegator_profile is None:
+        raise HTTPException(status_code=404, detail=f"Profile {delegator_id} not found")
+    _require_profile_owner(session, user, delegator_profile)
     try:
         delegator = await run_in_threadpool(governance_service.delegate_votes, delegator_id, delegatee_id)
 

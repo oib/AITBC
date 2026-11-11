@@ -593,7 +593,7 @@ class GovernanceService:
             title=title,
             description=description,
             category=proposal_type,
-            execution_payload={"amount_requested": amount_requested},
+            execution_payload={"amount_requested": str(amount_requested)},
             status=ProposalStatus.ACTIVE,
             voting_starts=now,
             voting_ends=now + timedelta(days=7),
@@ -607,16 +607,20 @@ class GovernanceService:
             "title": proposal.title,
             "description": proposal.description,
             "proposal_type": proposal.category,
-            "amount_requested": amount_requested,
+            "amount_requested": str(amount_requested),
             "proposer_address": proposer_address,
             "status": proposal.status.value,
             "created_at": proposal.created_at.isoformat(),
         }
 
-    def vote_on_regional_proposal(
-        self, proposal_id: str, voter_address: str, vote_type: Any, voting_power: float
-    ) -> dict[str, Any]:
-        from ..domain.governance import Proposal as DomainProposal, Vote as DomainVote, VoteType
+    def vote_on_regional_proposal(self, proposal_id: str, voter_address: str, vote_type: Any) -> dict[str, Any]:
+        """Cast a vote on a regional proposal.
+
+        #1847: voting power is derived from the voter's stored profile
+        (own + delegated) — never from the request — and one vote per
+        voter per proposal is enforced, matching cast_governance_vote.
+        """
+        from ..domain.governance import Proposal as DomainProposal, ProposalStatus, Vote as DomainVote, VoteType
         from sqlmodel import select as sm_select
 
         proposal = self._session_factory.execute(
@@ -624,7 +628,15 @@ class GovernanceService:
         ).scalar_one_or_none()
         if not proposal:
             raise ValueError(f"Proposal {proposal_id} not found")
+        if proposal.status != ProposalStatus.ACTIVE:
+            raise ValueError(f"Proposal is not active: {proposal.status.value}")
         voter = self.get_or_create_profile(voter_address)
+        existing = self._session_factory.execute(
+            sm_select(DomainVote).where(DomainVote.proposal_id == proposal_id, DomainVote.voter_id == voter.profile_id)
+        ).scalar_one_or_none()
+        if existing:
+            raise ValueError("voter has already voted on this proposal")
+        voting_power = float(voter.voting_power) + float(voter.delegated_power)
         vote = DomainVote(
             proposal_id=proposal_id,
             voter_id=voter.profile_id,

@@ -19,6 +19,7 @@ from ..domain.governance import GovernanceProfile, Proposal, TransparencyReport,
 from ..domain.slash_appeal import SlashAppeal
 from ....storage import get_session
 from ....auth import AdminDep, AuthDep
+from ...infrastructure.domain.user import Wallet
 from ..services.governance_service import GovernanceService
 
 logger = get_logger(__name__)
@@ -95,13 +96,48 @@ async def init_governance_profile(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _caller_identities(session: Session, user: dict[str, Any]) -> set[str]:
+    """#1847: identities the caller may act as — JWT sub plus owned wallets."""
+    from sqlmodel import select as sm_select
+
+    sub = str(user.get("sub") or "")
+    identities = {sub} if sub else set()
+    if sub:
+        identities |= {
+            str(w.address).lower()
+            for w in session.execute(sm_select(Wallet).where(Wallet.user_id == sub)).scalars().all()
+            if w.address
+        }
+    return identities
+
+
 @router.post("/profiles/{profile_id}/delegate", response_model=GovernanceProfile)
 @rate_limit(rate=20, per=60)
 async def delegate_voting_power(
-    request: Request, profile_id: str, delegation_request: DelegationRequest, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    profile_id: str,
+    delegation_request: DelegationRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> GovernanceProfile:
-    """Delegate your voting power to another DAO member"""
+    """Delegate your voting power to another DAO member.
+
+    #1847 (audit F3): the delegator profile must belong to the caller —
+    previously any client could mutate any profile pair.
+    """
     service = GovernanceService(session)
+    from sqlmodel import select as sm_select
+
+    delegator = (
+        session.execute(sm_select(GovernanceProfile).where(GovernanceProfile.profile_id == profile_id)).scalars().first()
+    )
+    if delegator is None:
+        raise HTTPException(status_code=404, detail=f"Profile {profile_id} not found")
+    if user.get("role") != "admin":
+        identities = _caller_identities(session, user)
+        owner = str(delegator.user_id)
+        if owner not in identities and owner.lower() not in identities:
+            raise HTTPException(status_code=403, detail="profile is not owned by the caller")
     try:
         profile = await run_in_threadpool(service.delegate_votes, profile_id, delegation_request.delegatee_id)
         return profile  # type: ignore[no-any-return]
