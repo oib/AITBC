@@ -427,8 +427,15 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
         update_deposit_status(deposit_id, "pending", expected_statuses={"pending"})
         return
 
-    # 1. Verify
-    update_deposit_status(deposit_id, "verified", expected_statuses={"pending"})
+    # 1. Verify — CAS (#1839): if another writer already moved the row
+    # (admin action, a second mint caller), abort BEFORE the nonce fetch
+    # and TRANSFER submit, or the loser's envelope double-mints.
+    if not update_deposit_status(deposit_id, "verified", expected_statuses={"pending"}):
+        logger.warning(
+            "Deposit %s left 'pending' before the verify CAS — another writer owns it; aborting mint",
+            deposit_id,
+        )
+        return
 
     # 2. Get nonce
     try:
@@ -478,9 +485,21 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
         if not tx_hash:
             raise ValueError(f"No tx hash returned: {result}")
 
-        # 5. Complete
-        update_deposit_status(deposit_id, "completed", expected_statuses={"verified"})
-        update_deposit_tx_hash(deposit_id, tx_hash, expected_statuses={"completed"})
+        # 5. Complete — CAS returns checked (#1839): a lost completed-write
+        # means the tx already hit the chain but the row moved on (admin
+        # write-off, second caller); that divergence needs an operator,
+        # not a silent pass. A lost tx_hash write leaves a completed row
+        # without its hash — logged for reconcile.
+        if not update_deposit_status(deposit_id, "completed", expected_statuses={"verified"}):
+            logger.error(
+                "Auto-mint tx %s submitted for deposit %s but the row left 'verified' — "
+                "paid-on-chain without a completed marker; manual reconcile needed",
+                tx_hash,
+                deposit_id,
+            )
+            return
+        if not update_deposit_tx_hash(deposit_id, tx_hash, expected_statuses={"completed"}):
+            logger.error("Auto-mint tx hash %s not recorded for completed deposit %s", tx_hash, deposit_id)
         logger.info("Auto-minted %s AIT to %s (tx: %s) for deposit %s", amount_ait, recipient, tx_hash, deposit_id)
     except Exception as e:
         logger.error("Error during auto-mint: %s", e)
