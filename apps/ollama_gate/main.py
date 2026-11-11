@@ -47,7 +47,7 @@ import threading
 from typing import Annotated, Any
 
 from contextlib import asynccontextmanager
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 
 import httpx
 import uvicorn  # noqa: E402
@@ -170,13 +170,28 @@ async def public_tags() -> Response:
     return await _proxy_get("/api/tags")
 
 
+# APIGW-OLLAMA-DEPTH2-1 (#1613): public GETs (/api/tags, /api/version) were
+# buffered unbounded via resp.content — cap them like the gated POST path.
+_PROXY_GET_MAX_BYTES = int(os.getenv("OLLAMA_GATE_PROXY_GET_MAX_BYTES", str(16 * 1024 * 1024)))
+
+
 async def _proxy_get(path: str) -> Response:
     assert _client is not None
-    resp = await _client.get(path)
+    upstream = await _client.send(_client.build_request("GET", path), stream=True)
+    chunks: list[bytes] = []
+    total = 0
+    try:
+        async for chunk in upstream.aiter_bytes():
+            total += len(chunk)
+            if total > _PROXY_GET_MAX_BYTES:
+                return JSONResponse(status_code=502, content={"error": "upstream response too large"})
+            chunks.append(chunk)
+    finally:
+        await upstream.aclose()
     return Response(
-        content=resp.content,
-        status_code=resp.status_code,
-        media_type=resp.headers.get("content-type"),
+        content=b"".join(chunks),
+        status_code=upstream.status_code,
+        media_type=upstream.headers.get("content-type"),
     )
 
 
@@ -261,18 +276,27 @@ async def _read_bounded_body(request: Request) -> bytes:
     return b"".join(chunks)
 
 
-async def _proxy_gated(request: Request, path: str, job: dict[str, Any]) -> Response:
-    """Stream a gated POST to the ollama backend and stream the answer back."""
+async def _proxy_gated(request: Request, path: str, job: dict[str, Any], release: Callable[[], None]) -> Response:
+    """Stream a gated POST to the ollama backend and stream the answer back.
+
+    ``release`` frees the concurrency slot + per-job marker. It runs when the
+    response stream finishes (or the client disconnects), NOT when this
+    coroutine returns — a StreamingResponse body is consumed after the
+    handler returns, so releasing here would let bounds lapse mid-generation
+    (#1613).
+    """
     assert _client is not None
     body = await _read_bounded_body(request)
     try:
         payload = json.loads(body)
     except (json.JSONDecodeError, UnicodeDecodeError):
+        release()
         return JSONResponse(status_code=400, content={"error": "request body must be valid JSON"})
     policy_error = _validate_paid_body(payload, job)
     if policy_error is not None:
         status_code, message = policy_error
         logger.info("ollama-gate policy reject on %s: %s", path, message)
+        release()
         return JSONResponse(status_code=status_code, content={"error": message})
     upstream = await _client.send(
         _client.build_request("POST", path, content=body, headers={"content-type": "application/json"}),
@@ -286,6 +310,7 @@ async def _proxy_gated(request: Request, path: str, job: dict[str, Any]) -> Resp
                 yield chunk
         finally:
             await upstream.aclose()
+            release()
 
     return StreamingResponse(
         _stream(),
@@ -312,20 +337,43 @@ async def _dispatch_gated(request: Request, path: str, job: dict[str, Any]) -> R
             logger.warning("ollama-gate tracked-job bound reached; rejecting %s", job_id)
             return _error(429, "too many tracked jobs")
         _inflight_jobs.add(job_id)
+
     try:
         # The semaphore wait runs in a worker thread so the event loop is not
         # blocked; bounded so callers get a 429 instead of hanging behind a
         # long generate.
         acquired = await asyncio.to_thread(_inflight.acquire, True, _QUEUE_TIMEOUT)
-        if not acquired:
-            return _error(429, "gate queue timeout")
-        try:
-            return await _proxy_gated(request, path, job)
-        finally:
-            _inflight.release()  # noqa: unawaited-async — threading.BoundedSemaphore.release is sync
-    finally:
+    except BaseException:
         with _jobs_mu:
             _inflight_jobs.discard(job_id)
+        raise
+    if not acquired:
+        with _jobs_mu:
+            _inflight_jobs.discard(job_id)
+        return _error(429, "gate queue timeout")
+
+    released = False
+
+    def _release() -> None:
+        """Free the semaphore + job marker exactly once (#1613)."""
+        nonlocal released
+        if released:
+            return
+        released = True
+        _inflight.release()  # noqa: unawaited-async — threading.BoundedSemaphore.release is sync
+        with _jobs_mu:
+            _inflight_jobs.discard(job_id)
+
+    try:
+        # The slot is held until the response stream ends — see
+        # _proxy_gated's docstring. On success _stream()'s finally calls
+        # _release(); here we only release when _proxy_gated raises
+        # before returning a response (early-error paths inside
+        # _proxy_gated release themselves).
+        return await _proxy_gated(request, path, job, _release)
+    except BaseException:
+        _release()
+        raise
 
 
 def _gated_handler(path: str):

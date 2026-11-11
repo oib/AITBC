@@ -83,6 +83,26 @@ def test_upstream_response_over_cap_is_502(client, monkeypatch):
     assert resp.json()["error"]["type"] == "upstream_response_too_large"
 
 
+def test_oversize_upstream_response_is_closed(client, monkeypatch):
+    """#1613: when the bounded read trips, the streaming response must be
+    aclose()d here — the caller never sees it, so its finally can't run."""
+    monkeypatch.setattr(gateway, "MAX_RESPONSE_BYTES", 8)
+    upstream = _ok(b"x" * 100)
+    closed = []
+    orig_aclose = upstream.aclose
+
+    async def _spy_aclose():
+        closed.append(True)
+        await orig_aclose()
+
+    upstream.aclose = _spy_aclose  # type: ignore[method-assign]
+    fake = _ScriptedClient(upstream)
+    monkeypatch.setattr(client.app.state, "http_client", fake)
+    resp = client.get("/v1/coordinator/jobs")
+    assert resp.status_code == 502
+    assert closed == [True]
+
+
 def test_upstream_deadline_is_outcome_unknown(client, monkeypatch):
     monkeypatch.setattr(gateway, "UPSTREAM_DEADLINE_SECONDS", 0.05)
     # A send that answers only after the deadline: the upstream may have
