@@ -404,19 +404,20 @@ class TestRedisCache:
     def test_get_fallback(self):
         with patch("redis.from_url", side_effect=Exception("No Redis")):
             cache = RedisCache(redis_url=None)
-        cache._data["key"] = "value"
+        cache.set("key", "value", ttl=None)
         assert cache.get("key") == "value"
 
     def test_set_fallback(self):
         with patch("redis.from_url", side_effect=Exception("No Redis")):
             cache = RedisCache(redis_url=None)
         assert cache.set("key", "value") is True
-        assert cache._data["key"] == "value"
+        # #1755: fallback entries are stored as (value, expires_at) tuples.
+        assert cache._data["key"][0] == "value"
 
     def test_delete_fallback(self):
         with patch("redis.from_url", side_effect=Exception("No Redis")):
             cache = RedisCache(redis_url=None)
-        cache._data["key"] = "value"
+        cache.set("key", "value")
         assert cache.delete("key") is True
         assert "key" not in cache._data
 
