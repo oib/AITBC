@@ -604,13 +604,24 @@ async def _send_and_read_bounded(
     """
     if deadline is None:
         response = await client.send(request, stream=True)
-        return response, await _read_bounded(response)
+        try:
+            return response, await _read_bounded(response)
+        except BaseException:
+            # APIGW-OLLAMA-DEPTH2-1 (#1613): on oversize/timeout mid-read the
+            # caller never receives `response`, so its finally-aclose can't
+            # run — close here or the connection leaks until GC.
+            await response.aclose()
+            raise
     remaining = deadline - time.monotonic()
     if remaining <= 0:
         raise TimeoutError("upstream deadline exhausted across retries")
     async with asyncio.timeout(remaining):
         response = await client.send(request, stream=True)
-        return response, await _read_bounded(response)
+        try:
+            return response, await _read_bounded(response)
+        except BaseException:
+            await response.aclose()
+            raise
 
 
 async def proxy_with_retry(

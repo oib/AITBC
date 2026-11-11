@@ -66,8 +66,8 @@ def test_valid_token_reaches_backend(client):
 
 
 def test_public_routes_pass_through(client):
-    mock_get = AsyncMock(return_value=_backend_response(body=b'{"models":[]}'))
-    with patch.object(gate._client, "get", mock_get):
+    mock_send = AsyncMock(return_value=_backend_response(body=b'{"models":[]}'))
+    with patch.object(gate._client, "send", mock_send):
         assert client.get("/api/tags").status_code == 200
         assert client.get("/api/version").status_code == 200
 
@@ -288,3 +288,74 @@ def test_body_under_cap_passes(monkeypatch):
     import asyncio
 
     assert asyncio.run(gate._read_bounded_body(req)) == b'{"model":"m"}'
+
+
+def test_bounds_held_until_stream_end():
+    """#1613: the semaphore slot + per-job marker release when the response
+    stream finishes, not when the handler returns the StreamingResponse."""
+    import asyncio
+
+    from starlette.requests import Request
+    from starlette.responses import StreamingResponse
+
+    sent = False
+
+    async def receive():
+        nonlocal sent
+        if not sent:
+            sent = True
+            return {"type": "http.request", "body": b'{"model":"m","prompt":"p"}', "more_body": False}
+        return {"type": "http.disconnect"}
+
+    scope = {"type": "http", "method": "POST", "path": "/api/generate", "headers": [], "query_string": b""}
+    req = Request(scope, receive)
+
+    class _Upstream:
+        status_code = 200
+        headers = {"content-type": "application/json"}
+
+        async def aiter_bytes(self):
+            yield b'{"a":'
+            yield b"1}"
+
+        async def aclose(self):
+            pass
+
+    async def fake_send(request, stream=False):
+        return _Upstream()
+
+    async def _run():
+        gate._inflight_jobs.discard("job-S")
+        with patch.object(gate._client, "send", AsyncMock(side_effect=fake_send)):
+            resp = await gate._dispatch_gated(req, "/api/generate", {"job_id": "job-S"})
+            assert isinstance(resp, StreamingResponse)
+            # Handler returned, stream not yet consumed: bounds must still hold.
+            assert "job-S" in gate._inflight_jobs
+            resp2 = await gate._dispatch_gated(req, "/api/generate", {"job_id": "job-S"})
+            assert resp2.status_code == 429
+            body = b"".join([c async for c in resp.body_iterator])
+            assert body == b'{"a":1}'
+            assert "job-S" not in gate._inflight_jobs
+
+    try:
+        asyncio.run(_run())
+    finally:
+        gate._inflight_jobs.discard("job-S")
+
+
+def test_public_get_response_is_bounded(client, monkeypatch):
+    """#1613: /api/tags + /api/version stream under a byte cap, not resp.content."""
+    monkeypatch.setattr(gate, "_PROXY_GET_MAX_BYTES", 4)
+
+    class _Big:
+        status_code = 200
+        headers = {"content-type": "application/json"}
+
+        async def aiter_bytes(self):
+            yield b"12345"
+
+        async def aclose(self):
+            pass
+
+    with patch.object(gate._client, "send", AsyncMock(return_value=_Big())):
+        assert client.get("/api/tags").status_code == 502
