@@ -26,6 +26,7 @@ from ..contexts.agent_identity.domain.agent_identity import (
     IdentityVerification,
     VerificationType,
 )
+from ..utils.sql_like import like_contains
 
 logger = get_logger(__name__)
 
@@ -340,10 +341,11 @@ class AgentIdentityCore:
         """Search identities with various filters"""
         stmt = select(AgentIdentity)
         if query:
+            pattern = like_contains(query)
             stmt = stmt.where(
-                AgentIdentity.display_name.ilike(f"%{query}%")  # type: ignore[attr-defined]
-                | AgentIdentity.description.ilike(f"%{query}%")  # type: ignore[attr-defined]
-                | AgentIdentity.agent_id.ilike(f"%{query}%")  # type: ignore[attr-defined]
+                AgentIdentity.display_name.ilike(pattern, escape="\\")  # type: ignore[attr-defined]
+                | AgentIdentity.description.ilike(pattern, escape="\\")  # type: ignore[attr-defined]
+                | AgentIdentity.agent_id.ilike(pattern, escape="\\")  # type: ignore[attr-defined]
             )
         if status:
             stmt = stmt.where(AgentIdentity.status == status)

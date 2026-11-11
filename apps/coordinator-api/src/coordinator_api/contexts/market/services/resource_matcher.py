@@ -5,10 +5,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy import String, cast
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
+from ....utils.sql_like import like_contains
 from ..domain.gpu_market import GPURegistry, ResourceEmbedding, SearchHistory, UserProfile
 
 logger = get_logger(__name__)
@@ -29,14 +31,17 @@ class ResourceMatcher:
             if "gpu_memory_max" in filters:
                 stmt = stmt.where(GPURegistry.memory_gb <= filters["gpu_memory_max"])
             if "model" in filters:
-                stmt = stmt.where(GPURegistry.model.ilike(f"%{filters['model']}%"))  # type: ignore[attr-defined]
+                stmt = stmt.where(GPURegistry.model.ilike(like_contains(str(filters["model"])), escape="\\"))  # type: ignore[attr-defined]
             if "region" in filters:
                 stmt = stmt.where(GPURegistry.region == filters["region"])
             if "price_max" in filters:
                 stmt = stmt.where(GPURegistry.price_per_hour <= filters["price_max"])
             if "capabilities" in filters:
                 for cap in filters["capabilities"]:
-                    stmt = stmt.where(GPURegistry.capabilities.contains(cap))  # type: ignore[attr-defined]
+                    # capabilities is a JSON list column; .contains() renders an
+                    # unescaped LIKE on SQLite — keep the substring semantics
+                    # but escape LIKE metacharacters (#1524).
+                    stmt = stmt.where(cast(GPURegistry.capabilities, String).like(like_contains(str(cap)), escape="\\"))
             gpus = self.session.execute(stmt).scalars().all()
             if user_id:
                 self._track_search(user_id, filters, len(gpus))

@@ -13,6 +13,7 @@ from sqlalchemy.orm import Session
 from aitbc.aitbc_logging import get_logger
 
 from ..domain.bounty import Bounty, BountyStats, BountyStatus, BountySubmission, BountyTier, SubmissionStatus
+from ....utils.sql_like import like_contains
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
@@ -463,10 +464,15 @@ class BountyService:
     async def search_bounties(self, query: str, page: int = 1, limit: int = 20) -> list[Bounty]:
         """Search bounties by text"""
         try:
-            search_pattern = f"%{query}%"
+            search_pattern = like_contains(query)
             stmt = (
                 select(Bounty)
-                .where(or_(Bounty.title.ilike(search_pattern), Bounty.description.ilike(search_pattern)))  # type: ignore[attr-defined]
+                .where(
+                    or_(
+                        Bounty.title.ilike(search_pattern, escape="\\"),  # type: ignore[attr-defined]
+                        Bounty.description.ilike(search_pattern, escape="\\"),  # type: ignore[attr-defined]
+                    )
+                )
                 .order_by(desc(Bounty.creation_time))  # type: ignore[arg-type]
             )
             offset = (page - 1) * limit
