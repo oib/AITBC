@@ -28,7 +28,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 WS = os.path.abspath(os.path.join(HERE, "..", ".."))  # /home/oib/windsurf/aitbc
 TASKS = os.path.join(HERE, "tasks.json")
 REPO = "/repos/oib/AITBC"
-LABEL_WEB, LABEL_NEEDS_VERIFY, LABEL_RIDER = 60, 58, 62
+LABEL_WEB, LABEL_NEEDS_VERIFY, LABEL_RIDER = 60, 72, 62  # 72 = state/needs-verify (legacy label 58 deleted)
 
 
 def tea(path, method=None, data=None):
@@ -242,13 +242,17 @@ def do_queue(a):
     raw, d, rows = load()
     rowof = {x["issue"]: x for x in rows if x.get("issue")}
     time.sleep(pace)
-    nv = tea("/issues?state=open&labels=needs-verify&type=issues&limit=50")
+    nv = tea("/issues?state=open&labels=state/needs-verify&type=issues&limit=50")
     print(f"== needs-verify ({len(nv)}) - waiting for the validator")
     for i in sorted(nv, key=lambda i: i["updated_at"]):
         time.sleep(pace)
         since = i["updated_at"]
         for x in tea(f"/issues/{i['number']}/timeline"):
-            if x["type"] == "label" and x.get("label", {}).get("name") == "needs-verify" and x.get("body") == "1":
+            if (
+                x["type"] == "label"
+                and x.get("label", {}).get("name") in ("needs-verify", "state/needs-verify")
+                and x.get("body") == "1"
+            ):
                 since = x["created_at"]
         r = rowof.get(i["number"], {})
         print(f"  #{i['number']} {r.get('id', '?')} waiting {_age(since)} | {i['title'][:70]}")
