@@ -32,6 +32,10 @@ RestartSec=10
 # its own SIGTERM race Kubo's and exits 255 (EXCEPTION). The exit is clean --
 # treat it as success.
 SuccessExitStatus=255
+# #1733: Kubo/LevelDB recreates provider-keystore files under the
+# process umask — 022 left them 644 after every restart. 077 keeps new
+# files owner-only; the daemon and its children run as the same user.
+UMask=0077
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-island-ipfs
