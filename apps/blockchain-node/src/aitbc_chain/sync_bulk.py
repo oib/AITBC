@@ -14,6 +14,8 @@ from .base_models import Transaction as ChainTransaction
 from .config import settings
 from .logger import get_logger
 from .metrics import metrics_registry
+from .rpc.blocks import _clamp_block_range
+from .sync_peer_http import PeerResponseTooLarge, get_json_bounded
 from .state.block_deltas import (
     invalidate_account_caches,
     reconcile_orphaned_transactions,
@@ -118,13 +120,17 @@ class BulkSyncMixin(SyncBase):
 
     async def fetch_blocks_range(self, start: int, end: int, source_url: str) -> list[dict[str, Any]]:
         """Fetch a range of blocks from a source RPC."""
+        clamped = _clamp_block_range(start, end, settings.blocks_range_max_span)
+        if clamped is None:
+            return []
+        start, end = clamped
         try:
-            resp = await self._client.get(
+            data = await get_json_bounded(
+                self._client,
                 f"{source_url}/rpc/blocks-range",
-                params={"start": start, "end": end, "chain_id": self._chain_id},
+                {"start": start, "end": end, "chain_id": self._chain_id},
+                settings.sync_blocks_range_response_max_bytes,
             )
-            resp.raise_for_status()
-            data = resp.json()
             if isinstance(data, list):
                 return data
             elif isinstance(data, dict) and "blocks" in data:
@@ -132,6 +138,15 @@ class BulkSyncMixin(SyncBase):
             else:
                 logger.error("Unexpected blocks-range response from %s: %s", source_url, data)
                 return []
+        except PeerResponseTooLarge as e:
+            logger.error(
+                "Failed to fetch blocks range %d-%d from %s: %s",
+                start,
+                end,
+                source_url,
+                e,
+            )
+            return []
         except Exception as e:
             # F-5b: put the error in the message so the journal formatter
             # renders it — the default JournalFormatter only renders
