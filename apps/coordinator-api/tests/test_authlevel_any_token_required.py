@@ -46,28 +46,38 @@ def auth_client() -> TestClient:
 
 
 def test_ipfs_prefix_resolves_to_any() -> None:
-    """Matrix pin: read + signature-gated /v1/ipfs routes stay AuthLevel.ANY.
+    """Matrix pin: aggregate-read + signature-gated /v1/ipfs routes stay AuthLevel.ANY.
 
     IPFS-API-AUTHZ-1 (#1686) moved the mutating memory/pin routes to
-    ADMIN_OR_CLIENT — asserted separately below.
+    ADMIN_OR_CLIENT; IPFS-AUTHZ-RESIDUAL-1 (#1766) moved the CID-disclosing
+    reads (``retrieve``, ``list/{agent_id}``) there too — both asserted
+    separately below. What remains at ANY is operational (``stats``,
+    ``health``) plus the island swarm-key routes, which carry their own
+    signature/subscription checks.
     """
     for path in (
         "/v1/ipfs/stats",
         "/v1/ipfs/health",
-        "/v1/ipfs/list/some-agent",
         "/v1/ipfs/island/swarm-key",
         "/v1/ipfs/island/swarm-key/nonce",
     ):
         assert get_auth_level(path) is AuthLevel.ANY, f"{path} resolved to {get_auth_level(path)}"
 
 
-def test_ipfs_mutating_routes_require_admin_or_client() -> None:
-    """IPFS-API-AUTHZ-1 (#1686): pin/unpin/deal routes are not ANY-role."""
+def test_ipfs_cid_disclosing_reads_require_admin_or_client() -> None:
+    """IPFS-AUTHZ-RESIDUAL-1 (#1766): retrieve + per-agent list are not ANY-role.
+
+    ``retrieve`` pulls arbitrary CIDs through the shared Kubo node and
+    ``list/{agent_id}`` enumerates another agent's memory CIDs — under ANY
+    every authenticated role (incl. miner) could do both.
+    """
     for path in (
         "/v1/ipfs/upload",
         "/v1/ipfs/batch-upload",
         "/v1/ipfs/create-deal",
         "/v1/ipfs/delete",
+        "/v1/ipfs/retrieve",
+        "/v1/ipfs/list/some-agent",
     ):
         assert get_auth_level(path) is AuthLevel.ADMIN_OR_CLIENT, f"{path} resolved to {get_auth_level(path)}"
         assert get_auth_level(path, "POST") is AuthLevel.ADMIN_OR_CLIENT
@@ -97,3 +107,22 @@ def test_ipfs_route_rejects_garbage_token(auth_client: TestClient) -> None:
     """A malformed bearer token is not 'any valid JWT' -> still 401."""
     response = auth_client.get("/v1/ipfs/stats", headers={"Authorization": "Bearer not-a-jwt"})
     assert response.status_code == 401
+
+
+def test_ipfs_cid_reads_reject_miner_role(auth_client: TestClient) -> None:
+    """#1766: a valid miner-role token must not reach retrieve/list.
+
+    Before the gate these resolved to AuthLevel.ANY — any role passed. The
+    client-role request below proves the gate admits the intended roles
+    (it fails later on request validation, not authorization).
+    """
+    from aitbc.auth.jwt import create_access_token
+
+    miner_headers = {"Authorization": f"Bearer {create_access_token('miner-1', 'miner')}"}
+    assert auth_client.post("/v1/ipfs/retrieve", json={"cid": "bafy"}, headers=miner_headers).status_code == 403
+    assert auth_client.get("/v1/ipfs/list/some-agent", headers=miner_headers).status_code == 403
+
+    client_headers = {"Authorization": f"Bearer {create_access_token('client-1', 'client')}"}
+    # cid is intentionally invalid/absent downstream — we only assert the
+    # request cleared authorization (not 401/403).
+    assert auth_client.post("/v1/ipfs/retrieve", json={}, headers=client_headers).status_code == 422

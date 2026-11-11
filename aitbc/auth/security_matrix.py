@@ -176,6 +176,14 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/ipfs/batch-upload": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/ipfs/create-deal": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/ipfs/delete": AuthLevel.ADMIN_OR_CLIENT,
+    # IPFS-AUTHZ-RESIDUAL-1 (#1766): reads that disclose per-agent memory CIDs
+    # or pull arbitrary content through the shared Kubo node are gated to
+    # admin/client like the mutating surface — ANY let every authenticated role
+    # enumerate another agent's memories and retrieve any CID. Aggregate
+    # stats/health and the signature/subscription-gated island swarm-key
+    # routes stay under the "/v1/ipfs*" ANY floor.
+    "/v1/ipfs/retrieve": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/ipfs/list/*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/ipfs*": AuthLevel.ANY,
     "/v1/inference*": AuthLevel.ANY,
     "/v1/agents*": AuthLevel.ANY,
