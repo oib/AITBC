@@ -16,6 +16,7 @@ Environment="BLOCKCHAIN_RPC_URL=http://localhost:8202"
 Environment="COORDINATOR_API_URL=http://localhost:8203"
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
+RuntimeDirectory=aitbc
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn blockchain_event_bridge.main:app --host 127.0.0.1 --port 8205 --workers 1 --timeout-keep-alive 30 --limit-concurrency 100 --backlog 256 --log-level critical --no-access-log
 Restart=on-failure
 RestartSec=10

@@ -16,6 +16,7 @@ EnvironmentFile=/etc/aitbc/blockchain-island.env
 EnvironmentFile=/etc/aitbc/node-island.env
 EnvironmentFile=-/etc/aitbc/blockchain-secrets-island.env
 EnvironmentFile=-/etc/aitbc/validator-secrets-island.env
+RuntimeDirectory=aitbc
 ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.main
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed

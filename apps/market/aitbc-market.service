@@ -17,6 +17,7 @@ EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 # Network binding: localhost only (internal service)
 Environment=MARKET_BIND_HOST=127.0.0.1
 Environment=MARKET_BIND_PORT=8102
+RuntimeDirectory=aitbc
 ExecStart=/opt/aitbc/venv/bin/python -m market_service.main
 Restart=on-failure
 RestartSec=10

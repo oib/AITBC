@@ -17,6 +17,7 @@ Environment="HOME=/var/lib/aitbc"
 # the ~/.postgresql lookup that made plaintext necessary under ProtectHome.
 EnvironmentFile=/etc/aitbc/%N.env
 EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
+RuntimeDirectory=aitbc
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn poolhub.app.main:app --host 127.0.0.1 --port 8210 --no-access-log --log-level critical
 Restart=on-failure
 RestartSec=10
