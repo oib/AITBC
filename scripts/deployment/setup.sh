@@ -32,6 +32,7 @@ OPEN_ISLAND_HUB=""
 NODE_ID=""
 SKIP_INTERACTIVE=false
 FORCE_SETUP=false
+SETUP_DRY_RUN=false
 USE_GITEA=false
 GITEA_REMOTE_ARG=""
 
@@ -65,6 +66,10 @@ while [[ $# -gt 0 ]]; do
             FORCE_SETUP=true
             shift
             ;;
+        --dry-run)
+            SETUP_DRY_RUN=true
+            shift
+            ;;
         --help)
             echo "Usage: $0 [OPTIONS]"
             echo ""
@@ -74,6 +79,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --gitea <URL>          Clone/pull from the canonical Gitea repo (or set AITBC_GITEA_REMOTE)"
             echo "  --remote URL           Git remote to clone from (overrides --gitea and the default)"
             echo "  --force                Re-run full setup even if already installed"
+            echo "  --dry-run              Print resolved paths and exit (no system mutation)"
             echo "  --help                 Show this help message"
             echo ""
             echo "Examples:"
@@ -427,7 +433,21 @@ clone_repo() {
 
     # Check if repository already exists
     if [ -d "${AITBC_ROOT}/.git" ]; then
-        success "AITBC repository already exists, skipping clone"
+        if [ "$FORCE_SETUP" = true ]; then
+            log "Refreshing existing checkout at ${AITBC_ROOT} (--force)..."
+            (
+                cd "${AITBC_ROOT}" || exit 1
+                git fetch --all --prune || error "git fetch failed in ${AITBC_ROOT}"
+                if git show-ref --verify --quiet refs/remotes/origin/main; then
+                    git merge --ff-only origin/main || error "non-fast-forward checkout; resolve manually"
+                else
+                    warning "origin/main missing after fetch — leaving checkout unchanged"
+                fi
+            )
+            success "Repository refreshed at ${AITBC_ROOT}"
+        else
+            success "AITBC repository already exists, skipping clone"
+        fi
         return 0
     fi
 
@@ -446,11 +466,15 @@ clone_repo() {
         *.invalid*) error "Refusing to clone from a scrub-placeholder remote: $git_remote" ;;
     esac
 
-    # Clone repository
-    cd /opt
-    git clone "$git_remote" aitbc || error "Failed to clone repository"
+    # Clone repository into the configured root (scratch-tree safe).
+    local parent name
+    parent="$(dirname "${AITBC_ROOT}")"
+    name="$(basename "${AITBC_ROOT}")"
+    mkdir -p "${parent}"
+    cd "${parent}" || error "Cannot cd to ${parent}"
+    git clone "$git_remote" "${name}" || error "Failed to clone repository"
 
-    cd "${AITBC_ROOT}"
+    cd "${AITBC_ROOT}" || error "Cannot cd to ${AITBC_ROOT}"
     # Ensure both the canonical Gitea and the GitHub public mirror are available
     # as named remotes, whichever one was used as the clone source.
     local origin_url
@@ -1848,6 +1872,19 @@ setup_autostart() {
 main() {
     echo "=== AITBC SETUP STARTED ==="
     log "Starting AITBC setup..."
+
+    if [ "$SETUP_DRY_RUN" = true ] || [ "${AITBC_SETUP_DRY_RUN:-}" = "1" ]; then
+        log "Dry run: would use AITBC_ROOT=${AITBC_ROOT}"
+        log "  AITBC_ETC_DIR=${AITBC_ETC_DIR}"
+        log "  AITBC_DATA_DIR=${AITBC_DATA_DIR}"
+        log "  AITBC_LOG_DIR=${AITBC_LOG_DIR}"
+        log "  AITBC_RUN_DIR=${AITBC_RUN_DIR}"
+        log "  AITBC_SYSTEMD_DIR=${AITBC_SYSTEMD_DIR}"
+        log "  AITBC_BIN_DIR=${AITBC_BIN_DIR}"
+        log "  FORCE_SETUP=${FORCE_SETUP}"
+        success "Dry run complete (no changes made)"
+        exit 0
+    fi
 
     # If already installed, forward to update.sh unless --force was given.
     # Signals of an existing install: ${AITBC_ETC_DIR}/node.env + ${AITBC_ROOT}/venv
