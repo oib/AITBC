@@ -13,7 +13,7 @@ from collections.abc import Callable
 from typing import Any, cast
 
 from aitbc_shared import MarketOffer
-from sqlalchemy import inspect, text
+from sqlalchemy import event, inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import select
 
@@ -32,6 +32,22 @@ logger = get_logger(__name__)
 DEFAULT_DB = f"sqlite+aiosqlite:///{DATA_DIR}/data/marketplace_service.db"
 DATABASE_URL = market_getenv("MARKET_DATABASE_URL", os.getenv("DATABASE_URL", DEFAULT_DB))
 engine = create_async_engine(DATABASE_URL, echo=False)
+if engine.dialect.name == "sqlite":
+    # #1761: WAL + busy_timeout on every pooled sqlite connection — the
+    # shared per-process test/prod DB hit 'database is locked' under
+    # intra-process aiosqlite writer contention (~40% flake rate on the
+    # dedup/unbounded_reads pins). Same pragmas as aitbc_shared.orm.
+    @event.listens_for(engine.sync_engine, "connect")
+    def _apply_sqlite_pragmas(dbapi_conn: object, _record: object) -> None:
+        cursor = dbapi_conn.cursor()  # type: ignore[attr-defined]
+        try:
+            cursor.execute("PRAGMA journal_mode=WAL")
+            cursor.execute("PRAGMA synchronous=NORMAL")
+            cursor.execute("PRAGMA busy_timeout=30000")
+        finally:
+            cursor.close()
+
+
 logger.info(
     "Storage module loaded: engine=%s, DATABASE_URL=%s",
     engine,
