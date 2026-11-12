@@ -364,16 +364,21 @@ def _resolve_api_key(config_data: dict[str, Any]) -> str | None:
 def _resolve_market_api_key(config: "CLIConfig") -> str | None:
     """Resolve the API key for the market service's gated mutating routes.
 
-    Order: MARKET_API_KEY env (explicit for this service), then the generic
-    CLI key (config file api_key / AITBC_API_KEY / credentials files via
-    _resolve_api_key), then the market service's own env file on a node that
-    runs aitbc-market.
+    Order: MARKET_OPERATOR_API_KEY env (the #1893 operator credential — it
+    authenticates every market route and bypasses the party-signature gates,
+    so an operator export wins when present), then MARKET_API_KEY env
+    (explicit for this service), then the generic CLI key (config file
+    api_key / AITBC_API_KEY / credentials files via _resolve_api_key), then
+    the market service's own env file on a node that runs aitbc-market.
     """
+    if os.environ.get("MARKET_OPERATOR_API_KEY"):
+        return os.environ["MARKET_OPERATOR_API_KEY"]
     if os.environ.get("MARKET_API_KEY"):
         return os.environ["MARKET_API_KEY"]
     if config.api_key:
         return str(config.api_key)
-    return _parse_env_file(Path("/etc/aitbc/aitbc-market.env")).get("API_KEY")
+    market_env = _parse_env_file(Path("/etc/aitbc/aitbc-market.env"))
+    return market_env.get("MARKET_OPERATOR_API_KEY") or market_env.get("API_KEY")
 
 
 def _load_config_file(config_path: Path) -> dict[str, Any]:

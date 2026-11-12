@@ -34,6 +34,7 @@ from ..ipfs import (
     _is_cid,
 )
 from ._group import market
+from ._signing import signed_job_request_fields
 from . import get_chain_id, get_market_wallet
 from .escrow import _escrow_create, _post_escrow_release, _post_escrow_rpc
 from .jobs import _resolve_offer, _track_coordinator_job
@@ -101,11 +102,19 @@ def _release_market_payment(ctx: click.Context, job_id: str) -> dict[str, Any] |
     if release_result is None:
         warning(f"Escrow release failed ({'; '.join(failures)}) — the escrow stays locked")
     tx_hash = release_result.get("tx_hash") if isinstance(release_result, dict) else None
+    payload: dict[str, Any] = {
+        "tx_hash": tx_hash,
+        "released_amount": release_result.get("released_amount") if release_result else None,
+    }
+    # #1907: the release route is party-gated (#1893) — sign as a job party
+    # when the market wallet key resolves, else the server requires the
+    # operator credential.
+    payload.update(signed_job_request_fields(ctx, f"/v1/market/jobs/{job_id}/release"))
     try:
         client = _market_client()
         return client.post(
             f"/v1/market/jobs/{job_id}/release",
-            json={"tx_hash": tx_hash, "released_amount": release_result.get("released_amount") if release_result else None},
+            json=payload,
         )
     except NetworkError as e:
         warning(f"Could not sync market release: {e}")
@@ -714,14 +723,18 @@ def cancel(
     if not tx_hash:
         warning(f"Escrow refund did not return a tx_hash yet (job canceled; sweeper will retry): {refund_result}")
     else:
+        refund_payload: dict[str, Any] = {
+            "tx_hash": tx_hash,
+            "refunded_amount": refund_result.get("refunded_amount") if refund_result else None,
+            "reason": reason,
+        }
+        # #1907: the refund route is party-gated (#1893) — sign as a job
+        # party when the market wallet key resolves.
+        refund_payload.update(signed_job_request_fields(ctx, f"/v1/market/jobs/{job_id}/refund"))
         try:
             _market_client().post(
                 f"/v1/market/jobs/{job_id}/refund",
-                json={
-                    "tx_hash": tx_hash,
-                    "refunded_amount": refund_result.get("refunded_amount") if refund_result else None,
-                    "reason": reason,
-                },
+                json=refund_payload,
             )
         except NetworkError as e:
             warning(f"Could not sync market refund: {e}")
