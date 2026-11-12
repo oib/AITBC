@@ -453,28 +453,32 @@ def _escrow_legs_by_job(session, job_ids: list[str]) -> dict[str, dict]:
         if not isinstance(job_id, str) or job_id not in wanted:
             continue
         legs = by_job.setdefault(job_id, _new_leg_acc())
-        at = tx.created_at
-        if at is not None and at.tzinfo is None:
-            at = at.replace(tzinfo=UTC)
-        if tx.type == "ESCROW_LOCK":
-            legs["lock_units"] += tx.value or 0
-            continue
-        action = (tx.payload or {}).get("action")
-        if tx.type == "ESCROW_RELEASE" and action == "escrow_release":
-            legs["release_values"].append(tx.value or 0)
-            legs["release_legs"].append({"tx_hash": tx.tx_hash, "value": tx.value or 0})
-        elif tx.type == "ESCROW_REFUND" and action == "escrow_refund":
-            legs["refund_values"].append(tx.value or 0)
-            if tx.tx_hash:
-                legs["refund_tx_hash"] = tx.tx_hash
-        elif tx.type == "ESCROW_FEE_SWEEP":
-            legs["swept_units"] += tx.value or 0
-        if at is not None and (legs["latest_settlement_at"] is None or at > legs["latest_settlement_at"]):
-            legs["latest_settlement_at"] = at
-        h = tx.block_height
-        if h is not None and (legs["min_settlement_height"] is None or h < legs["min_settlement_height"]):
-            legs["min_settlement_height"] = h
+        _accumulate_escrow_leg(legs, tx)
     return by_job
+
+
+def _accumulate_escrow_leg(legs: dict, tx: Transaction) -> None:
+    at = tx.created_at
+    if at is not None and at.tzinfo is None:
+        at = at.replace(tzinfo=UTC)
+    if tx.type == "ESCROW_LOCK":
+        legs["lock_units"] += tx.value or 0
+        return
+    action = (tx.payload or {}).get("action")
+    if tx.type == "ESCROW_RELEASE" and action == "escrow_release":
+        legs["release_values"].append(tx.value or 0)
+        legs["release_legs"].append({"tx_hash": tx.tx_hash, "value": tx.value or 0})
+    elif tx.type == "ESCROW_REFUND" and action == "escrow_refund":
+        legs["refund_values"].append(tx.value or 0)
+        if tx.tx_hash:
+            legs["refund_tx_hash"] = tx.tx_hash
+    elif tx.type == "ESCROW_FEE_SWEEP":
+        legs["swept_units"] += tx.value or 0
+    if at is not None and (legs["latest_settlement_at"] is None or at > legs["latest_settlement_at"]):
+        legs["latest_settlement_at"] = at
+    h = tx.block_height
+    if h is not None and (legs["min_settlement_height"] is None or h < legs["min_settlement_height"]):
+        legs["min_settlement_height"] = h
 
 
 def _floor_eligible_job_ids(
@@ -867,69 +871,75 @@ def change_owed_candidates(
         if row is None:
             continue
         legs = legs_by_id.get(job_id) or _new_leg_acc()
-        # Same floor rule as the fee pass: ANY settlement leg below the
-        # floor (a reused id's old era) poisons the derivation — skip.
-        if legs["min_settlement_height"] is None:
-            stats["no_legs"] += 1
-            continue
-        if legs["min_settlement_height"] < min_height:
-            stats["skipped_floor"] += 1
-            continue
-        # Heal first: a sealed refund leg marks the row regardless of where
-        # the submission came from. refunded_at stays unset — on a released
-        # escrow it means "refunded instead of released" (route semantics).
-        # The commit is explicit: session_scope is a plain autocommit=False
-        # session, so without it the mark rolls back at scope exit and the
-        # row is re-found (and re-counted) every tick (A6b).
-        refund_total = sum(legs["refund_values"])
-        if legs["refund_tx_hash"] and (row.refund_tx_hash != legs["refund_tx_hash"] or row.refunded_amount != refund_total):
-            # The mark-sweeper's own heal only writes refunded_at and the
-            # hash — a row it stamped keeps refunded_amount NULL and would
-            # re-enter this scan every cycle forever. Amount must equal the
-            # sealed sum before the row counts as marked.
-            row.refunded_amount = refund_total
-            row.refund_tx_hash = legs["refund_tx_hash"]
-            session.add(row)
-            session.commit()
-            stats["marked"] += 1
-            continue
-        if legs["lock_units"] <= 0 or not legs["release_values"]:
-            # No lock, or no sealed provider release: the row's released_at
-            # claim has no chain truth behind it (a dead release mark, or a
-            # foreign/mistyped settlement leg feeding min_settlement_height).
-            # Owed change only exists once the provider was actually paid —
-            # refunding ≈lock here would race the release re-drive (C19).
-            stats["no_legs"] += 1
-            continue
-        # A7: owed = lock − billed − refunded, with billed proven by the
-        # recompute (never by inversion and never by row columns alone).
-        bps = row.energy_fee_basis_points if row.energy_fee_basis_points is not None else DEFAULT_FEE_BPS
-        proof = recompute_release_proofs(
-            legs["release_legs"],
-            row.billed_legs,
-            fee_bps=bps,
-            protected=bool(row.protected),
-            credit_units=row.energy_provider_credit_units,
-            net_floor_units=row.energy_net_floor_units,
-            lock_units=legs["lock_units"],
-        )
-        if proof is None:
-            stats["deferred_unproven"] += 1
-            continue
-        billed_total = proof[0]
-        owed = legs["lock_units"] - billed_total - sum(legs["refund_values"])
-        if owed <= 0:
-            stats["no_owed"] += 1
-            continue
-        custody = legs["lock_units"] - sum(legs["release_values"]) - sum(legs["refund_values"]) - legs["swept_units"]
-        if owed > custody:
-            # Owed exceeds what custody holds — the chain would refuse the
-            # refund anyway, so never sign it; this shape means a leg is
-            # missing or the row/legs disagree and needs eyes, not backoff.
-            stats["deferred_unproven"] += 1
-            continue
-        candidates.append(_ChangeCandidate(job_id, row.buyer, row.provider, owed, custody))
+        candidate = _change_candidate_for_job(session, job_id, row, legs, min_height, stats)
+        if candidate is not None:
+            candidates.append(candidate)
     return candidates, stats, next_watermark
+
+
+def _change_candidate_for_job(session, job_id: str, row: Escrow, legs: dict, min_height: int, stats: dict[str, int]):
+    # Same floor rule as the fee pass: ANY settlement leg below the
+    # floor (a reused id's old era) poisons the derivation — skip.
+    if legs["min_settlement_height"] is None:
+        stats["no_legs"] += 1
+        return None
+    if legs["min_settlement_height"] < min_height:
+        stats["skipped_floor"] += 1
+        return None
+    # Heal first: a sealed refund leg marks the row regardless of where
+    # the submission came from. refunded_at stays unset — on a released
+    # escrow it means "refunded instead of released" (route semantics).
+    # The commit is explicit: session_scope is a plain autocommit=False
+    # session, so without it the mark rolls back at scope exit and the
+    # row is re-found (and re-counted) every tick (A6b).
+    refund_total = sum(legs["refund_values"])
+    if legs["refund_tx_hash"] and (row.refund_tx_hash != legs["refund_tx_hash"] or row.refunded_amount != refund_total):
+        # The mark-sweeper's own heal only writes refunded_at and the
+        # hash — a row it stamped keeps refunded_amount NULL and would
+        # re-enter this scan every cycle forever. Amount must equal the
+        # sealed sum before the row counts as marked.
+        row.refunded_amount = refund_total
+        row.refund_tx_hash = legs["refund_tx_hash"]
+        session.add(row)
+        session.commit()
+        stats["marked"] += 1
+        return None
+    if legs["lock_units"] <= 0 or not legs["release_values"]:
+        # No lock, or no sealed provider release: the row's released_at
+        # claim has no chain truth behind it (a dead release mark, or a
+        # foreign/mistyped settlement leg feeding min_settlement_height).
+        # Owed change only exists once the provider was actually paid —
+        # refunding ≈lock here would race the release re-drive (C19).
+        stats["no_legs"] += 1
+        return None
+    # A7: owed = lock − billed − refunded, with billed proven by the
+    # recompute (never by inversion and never by row columns alone).
+    bps = row.energy_fee_basis_points if row.energy_fee_basis_points is not None else DEFAULT_FEE_BPS
+    proof = recompute_release_proofs(
+        legs["release_legs"],
+        row.billed_legs,
+        fee_bps=bps,
+        protected=bool(row.protected),
+        credit_units=row.energy_provider_credit_units,
+        net_floor_units=row.energy_net_floor_units,
+        lock_units=legs["lock_units"],
+    )
+    if proof is None:
+        stats["deferred_unproven"] += 1
+        return None
+    billed_total = proof[0]
+    owed = legs["lock_units"] - billed_total - sum(legs["refund_values"])
+    if owed <= 0:
+        stats["no_owed"] += 1
+        return None
+    custody = legs["lock_units"] - sum(legs["release_values"]) - sum(legs["refund_values"]) - legs["swept_units"]
+    if owed > custody:
+        # Owed exceeds what custody holds — the chain would refuse the
+        # refund anyway, so never sign it; this shape means a leg is
+        # missing or the row/legs disagree and needs eyes, not backoff.
+        stats["deferred_unproven"] += 1
+        return None
+    return _ChangeCandidate(job_id, row.buyer, row.provider, owed, custody)
 
 
 async def _change_pass_once(now: datetime | None = None) -> dict[str, int]:

@@ -107,51 +107,57 @@ def _load_private_key_from_keystore(keystore_dir: Path, password: str, target_ad
     (V23-51..55). The file's own claim is the thing that was wrong, so it cannot also
     be the thing that is checked.
     """
-    from aitbc.crypto.signature_recovery import canonical_address
-
-    from .proposer_identity import address_of
-
     if not keystore_dir.exists():
         logger.warning("Keystore directory not found: %s", keystore_dir)
         return None
     for kf in keystore_dir.glob("*.json"):
-        try:
-            with open(kf) as f:
-                data = json.load(f)
-            addr = data.get("address")
-            if target_address and canonical_address(str(addr or "")) != canonical_address(target_address):
-                continue
-            private_key_hex = data.get("private_key", "")
-            if not private_key_hex:
-                continue
-            if data.get("encrypted", False):
-                try:
-                    from aitbc.crypto import decrypt_private_key
-
-                    private_key_hex = decrypt_private_key(private_key_hex, password)
-                except Exception as e:
-                    logger.warning("Failed to decrypt wallet key in %s: %s", kf.name, e)
-                    continue
-            if private_key_hex.startswith("0x"):
-                private_key_hex = private_key_hex[2:]
-
-            if addr:
-                derived = address_of(private_key_hex)
-                if canonical_address(derived) != canonical_address(str(addr)):
-                    logger.error(
-                        "Keystore file %s is mislabelled: it declares %s but its key controls %s. "
-                        "Refusing to use it — signing with it would produce blocks no peer can verify.",
-                        kf.name,
-                        addr,
-                        derived,
-                    )
-                    continue
-
-            return bytes.fromhex(private_key_hex)
-        except Exception as e:
-            logger.warning("Failed to load keystore file %s: %s: %s", kf.name, type(e).__name__, str(e))
-            continue
+        key = _keystore_file_key_bytes(kf, password, target_address)
+        if key is not None:
+            return key
     return None
+
+
+def _keystore_file_key_bytes(kf: Path, password: str, target_address: str | None) -> bytes | None:
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    from .proposer_identity import address_of
+
+    try:
+        with open(kf) as f:
+            data = json.load(f)
+        addr = data.get("address")
+        if target_address and canonical_address(str(addr or "")) != canonical_address(target_address):
+            return None
+        private_key_hex = data.get("private_key", "")
+        if not private_key_hex:
+            return None
+        if data.get("encrypted", False):
+            try:
+                from aitbc.crypto import decrypt_private_key
+
+                private_key_hex = decrypt_private_key(private_key_hex, password)
+            except Exception as e:
+                logger.warning("Failed to decrypt wallet key in %s: %s", kf.name, e)
+                return None
+        if private_key_hex.startswith("0x"):
+            private_key_hex = private_key_hex[2:]
+
+        if addr:
+            derived = address_of(private_key_hex)
+            if canonical_address(derived) != canonical_address(str(addr)):
+                logger.error(
+                    "Keystore file %s is mislabelled: it declares %s but its key controls %s. "
+                    "Refusing to use it — signing with it would produce blocks no peer can verify.",
+                    kf.name,
+                    addr,
+                    derived,
+                )
+                return None
+
+        return bytes.fromhex(private_key_hex)
+    except Exception as e:
+        logger.warning("Failed to load keystore file %s: %s: %s", kf.name, type(e).__name__, str(e))
+        return None
 
 
 if not settings.proposer_key:
