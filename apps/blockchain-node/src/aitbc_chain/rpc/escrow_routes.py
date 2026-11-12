@@ -198,6 +198,39 @@ def verify_rpc_peer_key(api_key: str | None = Security(_api_key_header)) -> str:
     )
 
 
+def rpc_fleet_key_accepted(api_key: str | None) -> bool:
+    """True when ``api_key`` is this node's RPC key or a configured
+    ``BLOCKCHAIN_RPC_API_KEY_PEERS`` fleet key — never an issued join key.
+
+    Bulk/state-disclosure routes accept fleet keys only: an issued join key
+    is self-serve (POST /rpc/join is anonymous, rate-limited) and must not
+    unlock a full chain export (#1871).
+    """
+    if not api_key:
+        return False
+    if _RPC_API_KEY and hmac.compare_digest(api_key.encode(), _RPC_API_KEY.encode()):
+        return True
+    return any(hmac.compare_digest(api_key.encode(), k.encode()) for k in _RPC_API_PEER_KEYS)
+
+
+def verify_rpc_export_key(api_key: str | None = Security(_api_key_header)) -> str:
+    """Require a fleet RPC key (this node's admin key or a configured peer
+    key) — issued join keys are rejected.
+
+    Used by bulk/state-disclosure routes such as ``/rpc/export-chain``.
+    ``force_sync`` callers keep working: each peer authenticates with its
+    own ``BLOCKCHAIN_RPC_API_KEY``, which the exporting node accepts via
+    its ``BLOCKCHAIN_RPC_API_KEY_PEERS`` list.
+    """
+    if rpc_fleet_key_accepted(api_key):
+        return api_key or ""
+    _logger.warning("Rejected export RPC request: missing, invalid, or join-scoped X-API-Key")
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Forbidden: missing or invalid API key",
+    )
+
+
 router = APIRouter(tags=["escrow"], dependencies=[Depends(verify_rpc_api_key)])
 
 

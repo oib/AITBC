@@ -148,7 +148,7 @@ aitbc blockchain restore --backup-file /backup/<file>.tar.gz --verify
 
 Manual alternatives that go through the RPC API:
 
-- `GET /rpc/export-chain?chain_id=<id>` — full JSON export
+- `GET /rpc/export-chain?chain_id=<id>` — full JSON export (`X-API-Key`: node or peer fleet key)
 - `POST /rpc/import-chain` — admin-signed import
 - `POST /rpc/importBlock` — single-block import (`X-API-Key` gated)
 
