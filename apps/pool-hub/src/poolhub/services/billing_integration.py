@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AsyncAITBCHTTPClient
 
 from ..models import MatchRequest, MatchResult, Miner
@@ -26,8 +26,8 @@ logger = get_logger(__name__)
 # Expected operational failure surface: DB session work, billing RPC calls,
 # and the decimal/datetime data-shape errors the sync loops can hit.
 _OPS_ERRORS = (
+    AITBCError,
     SQLAlchemyError,
-    NetworkError,
     OSError,
     ValueError,
     TypeError,

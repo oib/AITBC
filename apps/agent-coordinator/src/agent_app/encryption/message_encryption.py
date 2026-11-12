@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
-from cryptography.exceptions import InvalidSignature
+from cryptography.exceptions import InvalidSignature, InvalidTag, UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -26,6 +26,9 @@ logger = get_logger(__name__)
 # backends noted per file. Genuine BaseExceptions (incl.
 # asyncio.CancelledError) still propagate (#1865).
 _OPS_ERRORS = (
+    InvalidSignature,
+    InvalidTag,
+    UnsupportedAlgorithm,
     OSError,
     ValueError,
     TypeError,

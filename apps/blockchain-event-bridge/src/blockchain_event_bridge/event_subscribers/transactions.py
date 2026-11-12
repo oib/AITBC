@@ -5,6 +5,8 @@ from typing import TYPE_CHECKING, Any, Protocol, cast
 from collections.abc import Awaitable
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import AITBCError
+from websockets.exceptions import WebSocketException
 
 from ..config import Settings
 from ..metrics import event_queue_size, gossip_subscribers_total
@@ -15,9 +17,13 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-# Subscriber failure surface: gossip broker subscribe/queue errors and the
-# event-payload data-shape errors the bridge handler can raise.
+# Subscriber failure surface: gossip broker subscribe/queue errors (incl.
+# websockets handshake failures when the ws backend is configured), aitbc
+# client errors, and the event-payload data-shape errors the bridge handler
+# can raise.
 _OPS_ERRORS = (
+    AITBCError,
+    WebSocketException,
     OSError,
     RuntimeError,
     ValueError,
