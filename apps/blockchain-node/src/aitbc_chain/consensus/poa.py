@@ -149,22 +149,9 @@ def _validate_governance_payload(tx_type: str, payload: dict[str, Any]) -> list[
         pass  # SDK not available — use inline validation
 
     if errors is None:
-        required = _GOV_REQUIRED_FIELDS.get(tx_type)
-        if required is None:
+        if _GOV_REQUIRED_FIELDS.get(tx_type) is None:
             return [f"Unknown governance tx type: {tx_type}"]
-
-        errors = []
-        for field_name in required:
-            if field_name not in payload:
-                errors.append(f"missing required field: {field_name}")
-            elif not payload[field_name]:
-                errors.append(f"empty required field: {field_name}")
-
-        # Validate vote_type values for GOVERNANCE_VOTE
-        if tx_type == "GOVERNANCE_VOTE" and "vote_type" in payload:
-            vote_type = str(payload["vote_type"]).lower()
-            if vote_type not in ("for", "against", "abstain"):
-                errors.append(f"invalid vote_type: {vote_type} (must be 'for', 'against', or 'abstain')")
+        errors = _inline_governance_errors(tx_type, payload)
 
     # A parameter_change must carry its value key explicitly — ``value: null``
     # records a deliberate clear (""), but a missing ``value`` key would be
@@ -179,6 +166,23 @@ def _validate_governance_payload(tx_type: str, payload: dict[str, Any]) -> list[
         ):
             errors.append("parameter_change missing 'value' key")
 
+    return errors
+
+
+def _inline_governance_errors(tx_type: str, payload: dict[str, Any]) -> list[str]:
+    """Inline fallback validation used when the shared SDK is unavailable."""
+    errors: list[str] = []
+    for field_name in _GOV_REQUIRED_FIELDS[tx_type]:
+        if field_name not in payload:
+            errors.append(f"missing required field: {field_name}")
+        elif not payload[field_name]:
+            errors.append(f"empty required field: {field_name}")
+
+    # Validate vote_type values for GOVERNANCE_VOTE
+    if tx_type == "GOVERNANCE_VOTE" and "vote_type" in payload:
+        vote_type = str(payload["vote_type"]).lower()
+        if vote_type not in ("for", "against", "abstain"):
+            errors.append(f"invalid vote_type: {vote_type} (must be 'for', 'against', or 'abstain')")
     return errors
 
 
