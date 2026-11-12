@@ -8486,7 +8486,7 @@
           "disputes"
         ],
         "summary": "File a dispute",
-        "description": "File a new dispute for a job",
+        "description": "File a new dispute for a job.\n\nThe job must exist and the caller must be one of its parties\n(``client_id``, ``provider_address`` or ``assigned_miner_id``); admins\nbypass the party check. Parties and amount are taken from the job row \u2014\nthe request's ``client``/``provider``/``amount`` fields are accepted for\ncompatibility but never trusted (#1854).",
         "operationId": "file_dispute_v1_disputes_file_post",
         "parameters": [
           {
@@ -8541,6 +8541,26 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Caller is not a party to this job",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Job {req.job_id} not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -8734,7 +8754,7 @@
             }
           },
           "403": {
-            "description": "Not a registered arbitrator",
+            "description": "Not a registered arbitrator / stake_amount exceeds caller's active stake",
             "content": {
               "application/json": {
                 "schema": {
@@ -8796,7 +8816,7 @@
           "disputes"
         ],
         "summary": "Get dispute details",
-        "description": "Get details of a specific dispute",
+        "description": "Get details of a specific dispute.\n\nNon-admin callers may only read disputes they are a party to\n(client/provider/filed_by, matched against their full identity set);\nadmins read all (#1854).",
         "operationId": "get_dispute_v1_disputes__dispute_id__get",
         "parameters": [
           {
@@ -8806,6 +8826,22 @@
             "schema": {
               "type": "string",
               "title": "Dispute Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -8828,6 +8864,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Not a party to this dispute",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -8871,7 +8917,7 @@
           "disputes"
         ],
         "summary": "List disputes",
-        "description": "List disputes with optional filters",
+        "description": "List disputes with optional filters.\n\nNon-admin callers only see disputes they are a party to (#1854).",
         "operationId": "list_disputes_v1_disputes__get",
         "parameters": [
           {
@@ -8904,6 +8950,22 @@
                 }
               ],
               "title": "Party"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -8959,7 +9021,7 @@
           "disputes"
         ],
         "summary": "Register as arbitrator",
-        "description": "Register an address as an arbitrator.\n\nCallers may only register their own authenticated identity \u2014 the\n``address`` parameter is retained for compatibility and must match\nthe caller's subject (#1335). Staking requirements remain a\ndocumented TODO.",
+        "description": "Register an address as an arbitrator.\n\nCallers may only register their own authenticated identity \u2014 the\n``address`` parameter is retained for compatibility and must match\nthe caller's subject (#1335). Registration additionally requires\nACTIVE stake covering ``MIN_STAKE_AMOUNT`` on the caller's identities,\nso the arbitrator set cannot be self-minted by fresh accounts (#1854).",
         "operationId": "register_arbitrator_v1_disputes_arbitrators_register_post",
         "parameters": [
           {
@@ -9012,7 +9074,7 @@
             }
           },
           "403": {
-            "description": "Can only register your own identity as arbitrator",
+            "description": "Can only register your own identity as arbitrator / Arbitrator registration requires active stake >= {DisputeResolutionService.MIN_STAKE_AMOUNT}",
             "content": {
               "application/json": {
                 "schema": {

@@ -180,9 +180,20 @@ class DisputeResolutionService:
         return dispute
 
     def submit_evidence(
-        self, dispute_id: str, submitted_by: str, evidence_type: str, description: str, ipfs_hash: str | None = None
+        self,
+        dispute_id: str,
+        submitted_by: str,
+        evidence_type: str,
+        description: str,
+        ipfs_hash: str | None = None,
+        caller_identities: set[str] | None = None,
     ) -> bool:
-        """Submit evidence for a dispute"""
+        """Submit evidence for a dispute.
+
+        ``caller_identities`` lets the router pass the caller's full
+        identity set (sub + wallet addresses) so a provider whose dispute
+        party is stored as a wallet address still matches (#1854).
+        """
         dispute = self._disputes.get(dispute_id)
         if not dispute:
             raise ValueError(f"Dispute {dispute_id} not found")
@@ -190,7 +201,9 @@ class DisputeResolutionService:
             raise ValueError(f"Cannot submit evidence, dispute is {dispute.status.value}")
         if dispute.evidence_deadline and datetime.now(UTC) > dispute.evidence_deadline:
             raise ValueError("Evidence submission deadline has passed")
-        if submitted_by not in [dispute.client, dispute.provider]:
+        parties = {dispute.client.lower(), dispute.provider.lower()}
+        identities = {str(i).lower() for i in caller_identities} if caller_identities else set()
+        if submitted_by.lower() not in parties and not (parties & identities):
             raise ValueError("Only involved parties can submit evidence")
         evidence = DisputeEvidence(
             submitted_by=submitted_by,
