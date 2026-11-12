@@ -24,7 +24,7 @@ from ..utils.wallet_secret import wallet_password_options
 from ..utils import error, info, output, resolve_output_format, success
 from ..utils.agent_signing import identity_attestation_fields, load_signing_wallet, signed_request_headers
 from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_headers, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, auth_headers, get_logger
 
 logger = get_logger(__name__)
 
@@ -316,7 +316,12 @@ def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None
         # /agent/health, so probing it reported every remote coordinator as down.
         # /v1/tasks/status is a cheap GET that exists on both the proxied mount
         # and a direct localhost coordinator.
-        client = AITBCHTTPClient(base_url=resolve_coordinator_url(coordinator_url), timeout=2)
+        explicit = ctx.obj.get("api_key") if ctx is not None and ctx.obj else None
+        client = AITBCHTTPClient(
+            base_url=resolve_coordinator_url(coordinator_url),
+            timeout=2,
+            **auth_client_kwargs(explicit, get_config().api_key),
+        )
         client.get("/v1/tasks/status")
         return True
     except _OPS_ERRORS:
@@ -333,7 +338,11 @@ def get_agent_status(agent_id: str, coordinator_url: str | None = None) -> dict:
     """Get status information for an agent, preferring the coordinator."""
     coordinator_url = resolve_coordinator_url(coordinator_url)
     try:
-        client = AITBCHTTPClient(base_url=coordinator_url, timeout=5)
+        client = AITBCHTTPClient(
+            base_url=coordinator_url,
+            timeout=5,
+            **auth_client_kwargs(None, get_config().api_key),
+        )
         data = client.get(f"/v1/agents/{agent_id}") or {}
         return {
             "agent_id": data.get("agent_id") or agent_id,
@@ -1076,7 +1085,10 @@ try:
                 body["query"]["min_health_score"] = min_health
             if limit:
                 body["query"]["limit"] = limit
-            client = AITBCHTTPClient(base_url=coordinator_url, timeout=10)
+            explicit = ctx.obj.get("api_key") if ctx.obj else None
+            client = AITBCHTTPClient(
+                base_url=coordinator_url, timeout=10, **auth_client_kwargs(explicit, get_config().api_key)
+            )
             result: dict[str, Any] = client.post("/v1/agents/discover", json=body)
             output(
                 {

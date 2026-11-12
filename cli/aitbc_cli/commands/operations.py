@@ -21,7 +21,7 @@ from aitbc.utils.validation import validate_address
 from ..config import get_config
 from ..utils import DECIMAL, error, info, output, resolve_output_format, success
 from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_headers, get_logger
 from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_paths import (
     find_wallet_file,
@@ -272,7 +272,12 @@ def list(ctx, status: str | None, format: str):
         if status:
             query["status"] = status
 
-        response = requests.post(f"{coordinator_url}/v1/agents/discover", json=query, timeout=10)
+        response = requests.post(
+            f"{coordinator_url}/v1/agents/discover",
+            json=query,
+            headers=auth_headers(ctx.obj.get("api_key") if ctx.obj else None, get_config().api_key),
+            timeout=10,
+        )
 
         if response.status_code == 200:
             data = response.json()
