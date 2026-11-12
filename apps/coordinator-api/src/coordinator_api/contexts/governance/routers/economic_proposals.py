@@ -18,6 +18,7 @@ from ....metrics import governance_errors_total, governance_requests_total
 from ....storage import get_session
 from ....utils.cache import cached, get_cache_config
 from ..domain.economic_proposal import EconomicParameterProposal
+from ..domain.governance import effective_voting_power
 from ..schemas.economic_proposal import (
     EconomicProposalCreate,
     EconomicProposalResponse,
@@ -128,7 +129,7 @@ async def vote_on_proposal(
     # Weight comes from the caller's governance profile, not the body (#1071).
     voter_id = user["sub"]
     profile = await run_in_threadpool(GovernanceService(session).get_or_create_profile, voter_id, 0.0)
-    voting_power = float((profile.voting_power or 0.0) + (profile.delegated_power or 0.0))
+    voting_power = effective_voting_power(profile)
     try:
         return await run_in_threadpool(service.vote, proposal_id, payload.vote, voting_power)
     except ValueError as e:
