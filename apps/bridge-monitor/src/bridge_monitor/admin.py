@@ -178,12 +178,19 @@ def main() -> int:
     # EXCHANGE_PREPAY are terminal records of other lanes (float top-up
     # audit rows, exchange prepay routing) — flipping any of them to
     # written_off would corrupt an audit trail that is not a lost deposit.
+    # 'verified' (#1919) is the wallet side's mint-in-flight state —
+    # outside BridgeDepositStatus, but a legitimate stranded-row target:
+    # the detector alerts on it and the operator must be able to resolve
+    # it deliberately (recipient/--unpaid-with-recipient guards still
+    # apply, and a wallet-side TRANSFER may already have landed — check
+    # the chain before writing off).
     write_off_sources = frozenset(
         {
             BridgeDepositStatus.PENDING,
             BridgeDepositStatus.PROCESSING,
             BridgeDepositStatus.PENDING_RETRY,
             BridgeDepositStatus.SUBMITTED,
+            "verified",
         }
     )
 

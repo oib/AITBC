@@ -540,6 +540,18 @@ def get_pending_deposits(limit: int = 500, offset: int = 0) -> list[dict[str, An
 # error state (timestamp-free write, see test_coder_c_sweep). Anything
 # else is a typo that would park the row outside every worklist — reject
 # it here, the only write path for this column.
+#
+# This table is SHARED with aitbc-bridge-monitor, whose
+# BridgeDepositStatus vocabulary adds processing/pending_retry/submitted/
+# written_off/funding — all rejected here at write time, and vice versa
+# the monitor rejects 'verified'/'rejected' (#1919). The overlap is only
+# pending/completed/failed/exchange_prepay. Consequence: a 'verified'
+# (or 'pending') row the monitor did not create is invisible to every
+# monitor worklist — the monitor's stranded-row detector
+# (BRIDGE_STRANDED_DEPOSIT_HOURS) is the alert net, and resolution is
+# deliberate (admin write-off / manual-payout / wallet-side completion),
+# never an automatic monitor payout — a 'verified' row's wallet-side
+# TRANSFER may already have landed.
 _ETH_DEPOSIT_STATUSES = frozenset({"pending", "verified", "completed", "exchange_prepay", "rejected", "failed"})
 
 
