@@ -753,3 +753,57 @@ class TestIntegrationManagerZK:
         assert result["zk_proofs_generated"][0]["proof_id"].startswith("proof_")
         assert len(result["verification_results"]) == 1
         assert result["verification_results"][0]["verification_status"] is True
+
+
+class TestSharedSessionLock:
+    """#1908: managers composed on one Session share one asyncio.Lock.
+
+    The lock lives in ``session.info`` so AgentProductionManager's
+    deployment/monitoring/integration sub-managers — and their auditors —
+    serialize with each other, not just with themselves.
+    """
+
+    def test_lock_shared_across_managers_on_same_session(self, db_session: Session) -> None:
+        managers = [
+            AgentDeploymentManager(db_session),
+            AgentMonitoringManager(db_session),
+            AgentIntegrationManager(db_session),
+            AgentProductionManager(db_session),
+        ]
+        locks = {id(m._lock) for m in managers}
+        assert len(locks) == 1
+
+    def test_lock_distinct_per_session(self, db_session: Session, db_engine) -> None:
+        other = Session(db_engine)
+        try:
+            assert AgentDeploymentManager(db_session)._lock is not AgentDeploymentManager(other)._lock
+        finally:
+            other.close()
+
+    async def test_method_waits_for_held_lock(self, db_session: Session) -> None:
+        wf = _seed_workflow(db_session)
+        manager = AgentDeploymentManager(db_session)
+        async with manager._lock:
+            task = asyncio.create_task(manager.create_deployment_config(wf.id, "dep-blocked", {}))
+            await asyncio.sleep(0.1)
+            assert not task.done()
+        config = await task
+        assert config.deployment_name == "dep-blocked"
+
+    async def test_concurrent_calls_across_composed_managers(self, db_session: Session) -> None:
+        """gather() over different manager instances sharing one Session must
+        not race the sync Session across threadpool workers (#1904 class)."""
+        wf = _seed_workflow(db_session)
+        cfg = _seed_config(db_session, wf.id)
+        deployment = AgentDeploymentManager(db_session)
+        monitoring = AgentMonitoringManager(db_session)
+        await asyncio.gather(
+            deployment.create_deployment_config(wf.id, "dep-a", {}),
+            deployment.create_deployment_config(wf.id, "dep-b", {}),
+            monitoring.create_alerting_rules(cfg.id, {"rules": []}),
+            monitoring.get_deployment_metrics(cfg.id),
+        )
+        rows = db_session.scalars(select(AgentDeploymentConfig).where(AgentDeploymentConfig.workflow_id == wf.id)).all()
+        names = {c.deployment_name for c in rows}
+        # _seed_config already wrote one "dep" row for this workflow.
+        assert {"dep", "dep-a", "dep-b"} <= names
