@@ -1143,8 +1143,15 @@ def update_withdrawal_status(
     refund_tx_hash: str | None = None,
     error: str | None = None,
     release_nonce: int | None = None,
+    expected_statuses: Collection[str] | None = None,
 ) -> bool:
-    """Update withdrawal status and optional hashes."""
+    """Update withdrawal status and optional hashes.
+
+    ``expected_statuses`` is the CAS predicate (#1918), same shape as
+    update_deposit_status (#1796): when given, the UPDATE only lands while
+    the row still sits in one of those statuses, so a stale writer cannot
+    overwrite a state that has already moved on. rowcount 0 -> False.
+    """
     conn = _connect_db()
     cursor = conn.cursor()
 
@@ -1162,10 +1169,12 @@ def update_withdrawal_status(
             release_nonce = COALESCE(?, release_nonce)
         WHERE ait_tx_hash = ?
     """  # nosec
-    cursor.execute(
-        query,
-        (status, utc_now_iso(), eth_tx_hash, refund_tx_hash, error, release_nonce, ait_tx_hash),
-    )
+    params: tuple = (status, utc_now_iso(), eth_tx_hash, refund_tx_hash, error, release_nonce, ait_tx_hash)
+    if expected_statuses:
+        expected = tuple(expected_statuses)
+        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
+        params = (*params, *expected)
+    cursor.execute(query, params)
     conn.commit()
     rows_affected = cursor.rowcount
     conn.close()
@@ -1693,8 +1702,15 @@ def update_sell_lock_status(
     resolved_at: str | None = None,
     operator_note: str | None = None,
     error: str | None = None,
+    expected_statuses: Collection[str] | None = None,
 ) -> bool:
-    """Update a sell lock's status and optional lifecycle fields."""
+    """Update a sell lock's status and optional lifecycle fields.
+
+    ``expected_statuses`` is the CAS predicate (#1918), same shape as
+    update_deposit_status (#1796): when given, the UPDATE only lands while
+    the row still sits in one of those statuses, so a stale writer cannot
+    overwrite a state that has already moved on. rowcount 0 -> False.
+    """
     conn = _connect_db()
     cursor = conn.cursor()
 
@@ -1784,6 +1800,12 @@ def update_sell_lock_status(
             error,
             ait_tx_hash,
         )
+    if expected_statuses:
+        # Both query variants end `WHERE ait_tx_hash = ?`; the CAS clause
+        # appends after it. Placeholders are literal '?' per expected value.
+        expected = tuple(expected_statuses)
+        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
+        params = (*params, *expected)
     cursor.execute(query, params)
     conn.commit()
     rows_affected = cursor.rowcount
@@ -2139,6 +2161,7 @@ def update_exchange_settlement(
     escrow_out_nonce: int | None = None,
     escrow_out_tx: str | None = None,
     error: str | None = None,
+    expected_statuses: Collection[str] | None = None,
 ) -> bool:
     """Update a settlement row's status and optional lifecycle fields.
 
@@ -2150,6 +2173,10 @@ def update_exchange_settlement(
     status is validated against the full vocabulary in Python: the table
     carries no CHECK on this column, so a typo'd status would otherwise
     silently park the row outside every worklist.
+
+    ``expected_statuses`` is the CAS predicate (#1918), same shape as
+    update_deposit_status (#1796): when given, the UPDATE only lands while
+    the row still sits in one of those statuses. rowcount 0 -> False.
     """
     if status not in _EXCHANGE_SETTLEMENT_STATUSES:
         raise ValueError(f"unknown settlement status: {status!r}")
@@ -2218,6 +2245,12 @@ def update_exchange_settlement(
             error,
             settlement_id,
         )
+    if expected_statuses:
+        # Both query variants end `WHERE id = ?`; the CAS clause appends
+        # after it. Placeholders are literal '?' per expected value.
+        expected = tuple(expected_statuses)
+        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
+        params = (*params, *expected)
     cursor.execute(query, params)
     conn.commit()
     rows_affected = cursor.rowcount

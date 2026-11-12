@@ -172,6 +172,21 @@ def main() -> int:
             print(f"{k}: {v}")
         return 0
 
+    # Statuses a write-off may move FROM (#1918 CAS predicate): the live
+    # payout vocabulary only. COMPLETED/WRITTEN_OFF are already terminal,
+    # FAILED is the monitor's own terminal error state, and FUNDING/
+    # EXCHANGE_PREPAY are terminal records of other lanes (float top-up
+    # audit rows, exchange prepay routing) — flipping any of them to
+    # written_off would corrupt an audit trail that is not a lost deposit.
+    write_off_sources = frozenset(
+        {
+            BridgeDepositStatus.PENDING,
+            BridgeDepositStatus.PROCESSING,
+            BridgeDepositStatus.PENDING_RETRY,
+            BridgeDepositStatus.SUBMITTED,
+        }
+    )
+
     def cmd_write_off(tx_hash: str, reason: str | None, allow_recipient: bool = False, envelope_dead: bool = False) -> int:
         if not reason or not reason.strip():
             print("write-off requires --reason (a written justification is mandatory)")
@@ -184,7 +199,23 @@ def main() -> int:
         if denial:
             print(f"deposit {tx_hash} {denial}")
             return 1
-        update_deposit(tx_hash, status=BridgeDepositStatus.WRITTEN_OFF, error_message=reason.strip())
+        # CAS (#1918): the denial check ran on a snapshot — a sweep payout
+        # or another admin command may have moved the row since. The write
+        # only lands while the row still sits in the live payout vocabulary.
+        # A COMPLETED row reaches here only as a phantom (no payout hash —
+        # the denial check above refused a paid one), so it predicates on
+        # COMPLETED alone rather than the live set.
+        sources = (
+            {BridgeDepositStatus.COMPLETED} if d.get("status") == BridgeDepositStatus.COMPLETED.value else write_off_sources
+        )
+        if not update_deposit(
+            tx_hash,
+            status=BridgeDepositStatus.WRITTEN_OFF,
+            error_message=reason.strip(),
+            expected_statuses=sources,
+        ):
+            print(f"deposit {tx_hash} moved on since read — write-off not applied")
+            return 1
         print(f"deposit {tx_hash} written off: {reason.strip()}")
         return 0
 

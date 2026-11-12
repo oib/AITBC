@@ -1492,7 +1492,7 @@ class TestWithdrawPaginationAndRejects:
 
         refunded = []
 
-        async def _refund(h, user, gross, reason):
+        async def _refund(h, user, gross, reason, **_kw):
             refunded.append((h, user, gross, reason))
             from wallet_app.bridge.bridge_db import update_withdrawal_status
 
