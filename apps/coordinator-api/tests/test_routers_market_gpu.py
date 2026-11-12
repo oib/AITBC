@@ -1207,6 +1207,38 @@ def test_book_gpu_stale_pending_payment_hold_survives(
 
 
 @pytest.mark.unit
+def test_book_gpu_stale_aged_pending_payment_hold_expires(
+    client, client_token, available_gpu, pricing_engine_override, db_session
+):
+    """#1930 respin: the pending shield is age-bounded — a pending payment
+    older than _PENDING_SHIELD_TTL is dead (no reaper exists), so it must
+    not pin the hold forever. Fresh pending still shields (test above)."""
+    from datetime import timedelta
+
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+    from coordinator_api.contexts.market.routers.market_gpu import _PENDING_SHIELD_TTL
+    from sqlmodel import select
+
+    job = Job(id="job_pending_old", client_id="client1", payload={"type": "gpu_compute"}, constraints={})
+    db_session.add(job)
+    db_session.commit()
+    resp = _book_with_job(client, client_token, available_gpu, job_id=job.id)
+    assert resp.status_code == 201, resp.text
+    booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == available_gpu)).one()
+    booking.created_at = datetime.now(UTC) - timedelta(hours=2)
+    booking.payment_id = "pay_" + booking.id
+    db_session.add(booking)
+    payment = JobPayment(id="pay_" + booking.id, job_id=job.id, amount=Decimal("1.0"), status="pending")
+    payment.created_at = datetime.now(UTC) - _PENDING_SHIELD_TTL - timedelta(hours=1)
+    db_session.add(payment)
+    db_session.commit()
+    resp2 = _book_with_job(client, client_token, available_gpu)
+    assert resp2.status_code == 201, resp2.text
+    db_session.refresh(booking)
+    assert booking.status == "expired"
+
+
+@pytest.mark.unit
 def test_book_gpu_stale_skipped_payment_hold_expires(client, client_token, available_gpu, pricing_engine_override, db_session):
     """#1930: 'skipped' is terminal no-money (escrow unavailable) — it must
     NOT shield a stale hold from expiry."""
