@@ -1082,6 +1082,42 @@ def test_buy_gpu_rejects_bad_duration_over_api(client, client_token):
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("bad_duration", [0, -1, 8760.0001, float("nan"), float("inf"), float("-inf")])
+def test_book_request_rejects_out_of_range_duration(bad_duration):
+    """#1931: GPUBookRequest.duration_hours carries the same bounds and
+    finite checks as GPUBuyRequest — NaN previously slipped past the
+    manual <=0 / >8760 checks into timedelta(hours=nan)."""
+    from pydantic import ValidationError
+
+    from coordinator_api.contexts.market.routers.market_gpu import GPUBookRequest
+
+    with pytest.raises(ValidationError):
+        GPUBookRequest(duration_hours=bad_duration)
+
+
+@pytest.mark.unit
+def test_book_request_accepts_boundary_durations():
+    """#1931: the quote/buy bounds (0.0167h .. 8760h) stay bookable."""
+    from coordinator_api.contexts.market.routers.market_gpu import GPUBookRequest
+
+    for duration in (0.0167, 1.0, 8760):
+        req = GPUBookRequest(duration_hours=duration)
+        assert req.duration_hours == duration
+
+
+@pytest.mark.unit
+def test_book_gpu_rejects_nan_duration_over_api(client, client_token, available_gpu):
+    """#1931: a literal NaN in the request body is rejected with 422 before
+    any GPU lookup (sent raw — strict JSON serializers refuse to emit NaN)."""
+    resp = client.post(
+        f"/v1/market/gpu/{available_gpu}/book",
+        headers={"Authorization": f"Bearer {client_token}", "Content-Type": "application/json"},
+        content=b'{"duration_hours": NaN}',
+    )
+    assert resp.status_code == 422
+
+
+@pytest.mark.unit
 def test_delete_gpu_requires_owner_or_admin(client, miner_token, miner_b_token, admin_token, available_gpu, db_session):
     """CE-005: a non-owner non-admin cannot delete another miner's listing."""
     resp = client.delete(f"/v1/market/gpu/{available_gpu}", headers={"Authorization": f"Bearer {miner_b_token}"})

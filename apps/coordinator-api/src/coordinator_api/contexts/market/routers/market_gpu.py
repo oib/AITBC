@@ -184,7 +184,9 @@ class GPURegisterRequest(BaseModel):
 
 
 class GPUBookRequest(BaseModel):
-    duration_hours: float
+    # #1931: same bounds/finite checks as GPUBuyRequest (#1923/F13) — a
+    # plain float let NaN/inf reach timedelta/Decimal math downstream.
+    duration_hours: float = Field(ge=0.0167, le=8760, allow_inf_nan=False)
     job_id: str | None = None
 
 
