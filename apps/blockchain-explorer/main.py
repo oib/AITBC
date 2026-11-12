@@ -17,6 +17,11 @@ from aitbc.rate_limiting import RateLimitMiddleware, client_ip_for_rate_limit, p
 configure_logging(level="INFO", service_name="blockchain-explorer", to_file=True)
 logger = get_logger(__name__)
 
+# Health probe degrades to "error" rather than raising: httpx transport
+# failures and local socket/timeouts are the expected surface.
+_HEALTH_ERRORS = (httpx.HTTPError, OSError, TimeoutError)
+
+
 from chain_client import default_chain_id, rpc_url_for  # noqa: E402
 from routers.alerts import router as alerts_router  # noqa: E402
 from routers.analytics import router as analytics_router  # noqa: E402
@@ -71,7 +76,7 @@ async def health() -> dict[str, str]:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{rpc_url_for(default_chain_id())}/rpc/head", timeout=5.0)
             node_status = "ok" if response.status_code == 200 else "error"
-    except Exception:
+    except _HEALTH_ERRORS:
         node_status = "error"
 
     return create_simple_health_response(

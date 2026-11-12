@@ -76,7 +76,7 @@ class MemoryStore:
 
                 self._fernet = Fernet(_derive_fernet_key(self._master_key, self._salt))
                 logger.info("Memory service: encryption-at-rest enabled")
-            except Exception as e:
+            except (ImportError, ValueError, TypeError, AttributeError) as e:
                 logger.warning("Memory service: failed to initialize Fernet: %s", e)
                 self._master_key = None
         if not self._master_key:

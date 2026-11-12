@@ -2,10 +2,12 @@
 
 from datetime import UTC, datetime
 from decimal import Decimal, InvalidOperation
+import httpx
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from sqlmodel import col, select
+from sqlalchemy.exc import SQLAlchemyError
 
 from ..clients.gpu_service import GPUServiceClient
 from ..config import settings
@@ -13,6 +15,20 @@ from ..schemas.gpu import GPUListing
 from ..storage import get_session
 
 logger = get_logger(__name__)
+
+# Expected operational failure surface: GPU-service HTTP calls, market
+# advertise POSTs, and the sqlmodel fallback reads.
+_OPS_ERRORS = (
+    httpx.HTTPError,
+    SQLAlchemyError,
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+    TimeoutError,
+)
 
 
 def _profile_gpu_id(profile: dict[str, Any]) -> str:
@@ -86,7 +102,7 @@ class GPUService:
                 if profile.get("id") == gpu_id:
                     return profile
             return None
-        except Exception:
+        except _OPS_ERRORS:
             # Fall back to database
             from sqlmodel import select
 
@@ -156,6 +172,6 @@ class GPUService:
                 resp = await client.post(f"{settings.market_url}/v1/market/edge-advertise", json=payload)
                 resp.raise_for_status()
                 return {"status": "advertised", "gpu_count": len(profiles), "response": resp.json()}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to advertise to market: %s", e)
             return {"status": "failed", "error": str(e), "gpu_count": len(profiles)}

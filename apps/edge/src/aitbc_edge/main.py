@@ -5,6 +5,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
+import httpx
 from fastapi import FastAPI, Request
 from aitbc.middleware import setup_cors
 from fastapi.responses import JSONResponse
@@ -12,6 +13,8 @@ from fastapi.responses import JSONResponse
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.health_checks import create_simple_health_response
 from aitbc.async_tasks import create_task_with_logging
+from aitbc.exceptions import AITBCError
+from sqlalchemy.exc import SQLAlchemyError
 from aitbc.network import SharedHttpClient
 
 configure_logging(level="INFO", service_name="edge", to_file=True)
@@ -29,6 +32,21 @@ from .storage import init_db
 
 logger = get_logger(__name__)
 
+# Expected operational failure surface across heartbeat (aitbc HTTP client),
+# edge registration (httpx RPC client), and the readiness DB probe.
+_OPS_ERRORS = (
+    AITBCError,
+    httpx.HTTPError,
+    SQLAlchemyError,
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+    TimeoutError,
+)
+
 
 async def _report_health_to_coordinator() -> None:
     """Background task: periodically report health to agent-coordinator (v0.6.6)."""
@@ -39,7 +57,7 @@ async def _report_health_to_coordinator() -> None:
                 json={"service": "aitbc-edge", "status": "healthy", "port": settings.app_port},
                 timeout=10.0,
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.debug("Coordinator heartbeat failed: %s", e)
         await asyncio.sleep(settings.agent_heartbeat_interval_seconds)
 
@@ -81,7 +99,7 @@ async def _register_edge_node_on_blockchain() -> None:
                 await rpc_client.register_edge(payload, timeout=10.0)
                 logger.info("Edge node registered on blockchain: %s", node_id)
                 return
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 if attempt < max_attempts:
                     logger.debug("Edge registration attempt %d/%d failed: %s", attempt, max_attempts, e)
                     await asyncio.sleep(3)
@@ -141,7 +159,7 @@ async def readiness_check() -> dict[str, str] | JSONResponse:
         async with get_session() as session:
             await session.execute(text("SELECT 1"))
         return {"status": "ready", "service": "edge-api", "version": "0.1.0"}
-    except Exception:
+    except _OPS_ERRORS:
         logger.exception("Readiness check failed")
         return JSONResponse(
             status_code=503,

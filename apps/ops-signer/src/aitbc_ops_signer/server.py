@@ -103,7 +103,7 @@ def _audit_conn_event(config: Config, peer: PeerCred, *, result: str, reason: st
             peer_uid=peer[1],
         )
     except Exception:  # noqa: BLE001 - audit must never break the wire reply
-        pass
+        log.debug("audit emit failed", exc_info=True)
 
 
 def _drain_before_close(conn: socket.socket, timeout: float = 1.0) -> None:

@@ -28,6 +28,20 @@ from aitbc.utils.env import subprocess_env  # noqa: E402
 configure_logging(level="INFO", service_name="ffmpeg", to_file=True)
 logger = get_logger(__name__)
 
+# Subprocess probe failure surface: missing binaries (OSError), subprocess
+# errors, timeouts, and response-parsing data-shape errors.
+_OPS_ERRORS = (
+    OSError,
+    subprocess.SubprocessError,
+    TimeoutError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+)
+
+
 _device = os.getenv("FFMPEG_GPU_DEVICE", "0")
 _hw_accel = os.getenv("FFMPEG_HW_ACCEL", "cuda")
 
@@ -93,7 +107,7 @@ async def lifespan(app: FastAPI):
             logger.warning(f"{_hw_accel} hardware acceleration not available in FFmpeg")
         else:
             logger.info(f"FFmpeg service ready with {_hw_accel} hardware acceleration")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning(f"FFmpeg not available: {e}")
     yield
 
@@ -282,7 +296,7 @@ async def health():
             hw_accel=_hw_accel,
             ready=result.returncode == 0,
         )
-    except Exception as e:
+    except _OPS_ERRORS as e:
         return create_simple_health_response(
             "ffmpeg",
             status="error",
@@ -304,8 +318,8 @@ async def capabilities():
                     "name": result.stdout.strip().split(",")[0],
                     "memory": result.stdout.strip().split(",")[1] if "," in result.stdout else "Unknown",
                 }
-        except Exception:
-            pass
+        except _OPS_ERRORS as exc:
+            logger.debug("nvidia-smi probe failed: %s", exc)
 
         # Get supported encoders
         encoders = []
@@ -316,8 +330,8 @@ async def capabilities():
                 for line in result.stdout.split("\n"):
                     if "h264" in line.lower() or "hevc" in line.lower():
                         encoders.append(line.strip())
-        except Exception:
-            pass
+        except _OPS_ERRORS as exc:
+            logger.debug("ffmpeg encoder probe failed: %s", exc)
 
         return {
             "gpu": gpu_info,

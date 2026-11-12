@@ -135,7 +135,7 @@ def test_save_cache_entry_json_error():
     cache = ZKCircuitCache()
 
     # Mock json.dump to raise an exception
-    with patch("json.dump", side_effect=Exception("JSON error")):
+    with patch("json.dump", side_effect=TypeError("JSON error")):
         test_entry = {"circuit_file": "/test.circom"}
         cache._save_cache_entry("test_key", test_entry)
         # Should not raise exception, just print warning

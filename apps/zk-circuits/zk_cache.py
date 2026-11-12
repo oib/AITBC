@@ -16,6 +16,10 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Cache manifest/dependency scan failure surface: filesystem IO, JSON decode,
+# and the data-shape errors path/string handling can raise.
+_OPS_ERRORS = (OSError, ValueError, TypeError, KeyError, AttributeError, ArithmeticError)
+
 
 class ZKCircuitCache:
     """Cache system for ZK circuit compilation artifacts"""
@@ -56,8 +60,8 @@ class ZKCircuitCache:
                     dependencies.append(dep_path)
                     dependencies.extend(self._find_dependencies(dep_path))
         # intentional silent failure
-        except Exception:  # nosec B110
-            pass
+        except _OPS_ERRORS as exc:
+            logger.debug("dependency scan failed for %s: %s", circuit_file, exc)
         return list(set(dependencies))
 
     def is_cache_valid(self, circuit_file: Path, output_dir: Path) -> bool:
@@ -91,8 +95,8 @@ class ZKCircuitCache:
                     manifest = json.load(f)
                 return manifest.get(cache_key)  # type: ignore[no-any-return]
         # intentional silent failure
-        except Exception:  # nosec B110
-            pass
+        except _OPS_ERRORS as exc:
+            logger.debug("cache manifest read failed: %s", exc)
         return None
 
     def _save_cache_entry(self, cache_key: str, entry: dict):
@@ -105,7 +109,7 @@ class ZKCircuitCache:
             manifest[cache_key] = entry
             with open(self.cache_manifest, "w") as f:
                 json.dump(manifest, f, indent=2)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to save cache entry: %s", e)
 
     def get_cached_artifacts(self, circuit_file: Path, output_dir: Path) -> dict | None:
@@ -165,8 +169,8 @@ class ZKCircuitCache:
                     "cache_dir": str(self.cache_dir),
                 }
         # intentional silent failure
-        except Exception:  # nosec B110
-            pass
+        except _OPS_ERRORS as exc:
+            logger.debug("cache stats failed: %s", exc)
         return {"entries": 0, "total_size_mb": 0, "cache_dir": str(self.cache_dir)}
 
 

@@ -122,7 +122,7 @@ def parse_line(line: str) -> tuple[str, str, str] | None:
                 data = json.loads(attrs)
                 extra = ", ".join(f"{k}={v!r}" for k, v in data.items())
                 message = f"{message}: {extra}"
-            except Exception:
+            except (ValueError, TypeError, AttributeError):
                 message = f"{message} {attrs}"
 
         if caller:

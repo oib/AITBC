@@ -467,7 +467,7 @@ async def start_health_monitoring(rule_id: str):
             for region_id in rule["target_regions"]:
                 await check_region_health(region_id)
             await asyncio.sleep(30)
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError, TimeoutError) as e:
             logger.error("Health monitoring error for rule %s: %s", rule_id, str(e))
             await asyncio.sleep(10)
 

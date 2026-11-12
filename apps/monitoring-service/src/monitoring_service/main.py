@@ -14,6 +14,21 @@ from aitbc.aitbc_logging import configure_logging, get_logger
 
 configure_logging(level="INFO", service_name="monitoring", to_file=True)
 logger = get_logger(__name__)
+
+# Dashboard/metrics/health handlers degrade to an error payload instead of
+# raising: httpx transport failures plus the data-shape errors aggregating
+# service responses can raise.
+_OPS_ERRORS = (
+    httpx.HTTPError,
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+    TimeoutError,
+)
+
 app = FastAPI(title="AITBC Monitoring Service", description="System health and metrics monitoring service", version="1.0.0")
 
 # Service endpoints configuration
@@ -92,7 +107,7 @@ async def monitoring_dashboard() -> dict[str, Any]:
         logger.info("Monitoring dashboard data collected successfully")
         return dashboard_data
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to generate monitoring dashboard: %s", e)
         return {
             "error": "Failed to generate dashboard",
@@ -131,7 +146,7 @@ async def services_summary() -> dict[str, Any]:
 
         return summary
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to generate services summary: %s", e)
         return {"error": "Failed to generate summary", "timestamp": datetime.now(UTC).isoformat()}
 
@@ -178,7 +193,7 @@ async def system_metrics() -> dict[str, Any]:
 
         return metrics
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to collect system metrics: %s", e)
         return {"error": "Failed to collect metrics", "timestamp": datetime.now(UTC).isoformat()}
 
@@ -228,7 +243,7 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
                 if response.headers.get("content-type", "").startswith("application/json")
                 else None,
             }
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Service %s health check failed: %s", service_name, e)
         return {
             "status": "unhealthy",

@@ -227,11 +227,25 @@ def _probe_duration(path: str) -> float | None:
         return container.duration / av.time_base
 
 
+def _probe_errors() -> tuple[type[BaseException], ...]:
+    """Failure surface of ``_probe_duration``: the container parser's own
+    errors (PyAV is an optional runtime dep, so resolve lazily) plus the
+    OS/data-shape errors a header probe can raise."""
+    av_errors: tuple[type[BaseException], ...] = ()
+    try:
+        import av
+
+        av_errors = (av.error.FFmpegError,)
+    except (ImportError, AttributeError):
+        pass
+    return av_errors + (ImportError, OSError, ValueError, TypeError, AttributeError, ArithmeticError)
+
+
 def _audio_seconds(path: str) -> float | None:
     """``_probe_duration`` that answers None for something it cannot read."""
     try:
         return _probe_duration(path)
-    except Exception:
+    except _probe_errors():
         # Diagnosing the format is not this function's job; see _probe_duration.
         return None
 
@@ -285,7 +299,7 @@ async def _transcribe_job(tmp_path: str, language: str | None, task: str, beam_s
     try:
         try:
             seconds = _probe_duration(tmp_path)
-        except Exception:
+        except _probe_errors():
             # Unreadable, or not one of the plain audio/video containers media_guard
             # allows. faster-whisper would open the same file with no guard at all,
             # so it never gets to see it (CE-001, #1170).

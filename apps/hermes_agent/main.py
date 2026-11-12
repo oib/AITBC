@@ -15,6 +15,7 @@ import json
 import os
 import signal
 import shutil
+import subprocess
 import tempfile
 import time
 from contextlib import asynccontextmanager
@@ -126,7 +127,7 @@ async def _discover_version() -> str | None:
             return first
         if stderr.strip():
             return stderr.strip().splitlines()[0]
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError, TimeoutError, ValueError, TypeError) as e:
         logger.warning("Could not determine hermes version: %s", e)
     return None
 
@@ -408,8 +409,8 @@ async def _run_hermes_inner(request: HermesRunRequest):
                     loaded = json.load(f)
                 if isinstance(loaded, dict):
                     usage = loaded
-        except Exception:
-            pass
+        except (OSError, ValueError, TypeError) as exc:
+            logger.debug("usage stats unreadable, starting empty: %s", exc)
 
     if timed_out:
         raise HTTPException(
