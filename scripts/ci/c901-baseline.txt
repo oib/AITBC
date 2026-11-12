@@ -48,7 +48,7 @@
       1 apps/blockchain-node/src/aitbc_chain/state/liquidity_transition.py
       1 apps/blockchain-node/src/aitbc_chain/state/merkle_patricia_trie.py
       2 apps/blockchain-node/src/aitbc_chain/state/pure_state_transition.py
-      2 apps/blockchain-node/src/aitbc_chain/state/state_transition.py
+      1 apps/blockchain-node/src/aitbc_chain/state/state_transition.py
       3 apps/blockchain-node/src/aitbc_chain/sync_block_import.py
       3 apps/blockchain-node/src/aitbc_chain/sync_bulk.py
       2 apps/blockchain-node/src/aitbc_chain/sync_manager.py
