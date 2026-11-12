@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import os
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any, NamedTuple
@@ -1106,6 +1107,169 @@ def _escrow_lock_beneficiaries(session: Session, chain_id: str, job_id: str, tx_
     return (None, True) if seen else (None, False)
 
 
+_ESCROW_CONTEXT_TYPES = ("ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP")
+
+
+def _escrow_tx_job_id(tx_data: dict[str, Any]) -> str:
+    payload = tx_data.get("payload") or {}
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except Exception:
+            payload = {}
+    return payload.get("job_id") or tx_data.get("job_id") or ""
+
+
+def _escrow_v23_context_params(session: Session, chain_id: str, block_height: int | None) -> tuple[bool, int | None]:
+    """v23 gate + fee cap for ``build_escrow_context`` — below v23 the
+    context is bit-for-bit what it always was (no obligation fields)."""
+    if block_height is None or get_block_version_for_height(block_height) < 23:
+        return False, None
+    return True, _escrow_fee_cap_bps(session, chain_id, block_height)
+
+
+def _escrow_duplicate_settlement(tx_datas: list[dict[str, Any]]) -> bool:
+    """v23 (R12-05-F1/#1232, R14-06-F1/#1230): two settlement txs for one job
+    cannot share a single static ``remaining`` — the second must see the
+    first's settlement — so such a batch falls back to sequential, which
+    applies the checks in order."""
+    settlement_counts: dict[str, int] = {}
+    for tx_data in tx_datas:
+        if _tx_type(tx_data) not in _ESCROW_CONTEXT_TYPES:
+            continue
+        job_id = _escrow_tx_job_id(tx_data)
+        settlement_counts[job_id] = settlement_counts.get(job_id, 0) + 1
+    return any(count > 1 for count in settlement_counts.values())
+
+
+def _escrow_merge_existing_entry(
+    session: Session,
+    chain_id: str,
+    tx_type: str,
+    job_id: str,
+    entry: dict[str, Any],
+    resolved_fee_recipient: Callable[[], str | None],
+) -> dict[str, Any] | None:
+    """Fold a settlement tx into an existing context entry.
+
+    Returns the (possibly mutated) entry to store, or ``None`` when the
+    batch must go sequential so its own checks apply. An entry that already
+    covers this tx is returned unchanged.
+    """
+    if entry.get("tx_type") == tx_type:
+        return entry
+    if tx_type == "ESCROW_FEE_SWEEP":
+        # Release/refund + sweep for one job is the designed settlement
+        # cadence: the sweep adds no beneficiary constraint, it only
+        # needs the chain-level fee recipient on the entry.
+        entry["fee_recipient"] = resolved_fee_recipient()
+        return entry
+    if entry.get("tx_type") == "ESCROW_FEE_SWEEP":
+        # The sweep arrived first; this release/refund still needs its
+        # lock fields resolved against the same entry.
+        lock_tx = _get_escrow_lock(session, chain_id, job_id) if job_id else None
+        if lock_tx is None:
+            return None
+        entry["tx_type"] = tx_type
+        entry["lock_version"] = _get_escrow_lock_block_version(session, chain_id, job_id)
+        entry["expected_beneficiary"] = _escrow_beneficiary(lock_tx, tx_type)
+        return entry
+    # A second release/refund for the same job with a different tx_type
+    # would need a different beneficiary — an invalid batch anyway; let
+    # the sequential path apply its own checks.
+    return None
+
+
+def _escrow_new_context_entry(
+    session: Session,
+    chain_id: str,
+    tx_type: str,
+    job_id: str,
+    *,
+    v23: bool,
+    obligation_fields: Callable[[str], dict[str, Any]],
+    resolved_authority: Callable[[], str | None],
+    resolved_fee_recipient: Callable[[], str | None],
+) -> dict[str, Any] | None:
+    if tx_type == "ESCROW_FEE_SWEEP":
+        entry: dict[str, Any] = {
+            "tx_type": tx_type,
+            "escrow_addr": _escrow_address(job_id) if job_id else "",
+            "settlement_authority": resolved_authority(),
+            "fee_recipient": resolved_fee_recipient(),
+        }
+        if v23:
+            entry.update(obligation_fields(job_id))
+        return entry
+    lock_tx = _get_escrow_lock(session, chain_id, job_id) if job_id else None
+    if lock_tx is None:
+        return None
+    if v23:
+        # v23: beneficiary resolves across ALL sealed locks; ambiguity
+        # sends the batch sequential where validate_transaction refuses
+        # it identically.
+        expected_beneficiary, beneficiary_ambiguous = _escrow_lock_beneficiaries(session, chain_id, job_id, tx_type)
+        if beneficiary_ambiguous:
+            return None
+    else:
+        expected_beneficiary = _escrow_beneficiary(lock_tx, tx_type)
+    entry = {
+        "tx_type": tx_type,
+        "lock_version": _get_escrow_lock_block_version(session, chain_id, job_id),
+        "expected_beneficiary": expected_beneficiary,
+        "escrow_addr": _escrow_address(job_id),
+        # The pure path has no DB access — every entry carries the
+        # resolved chain-level values.
+        "settlement_authority": resolved_authority(),
+    }
+    if v23:
+        entry.update(obligation_fields(job_id))
+    return entry
+
+
+class _EscrowContextParams:
+    """Per-batch lazy resolvers for ``build_escrow_context``.
+
+    The chain-level parameters are not per-job — resolve them lazily on the
+    first escrow tx so batches without one never pay for the queries.
+    """
+
+    def __init__(self, session: Session, chain_id: str, block_height: int | None, fee_cap_bps: int | None) -> None:
+        self._session = session
+        self._chain_id = chain_id
+        self._block_height = block_height
+        self._fee_cap_bps = fee_cap_bps
+        self._authority: str | None = None
+        self._authority_resolved = False
+        self._fee_recipient: str | None = None
+        self._fee_recipient_resolved = False
+        self._obligation_cache: dict[str, dict[str, Any]] = {}
+
+    def authority(self) -> str | None:
+        if not self._authority_resolved:
+            self._authority = _escrow_settlement_authority(self._session, self._chain_id, self._block_height)
+            self._authority_resolved = True
+        return self._authority
+
+    def fee_recipient(self) -> str | None:
+        if not self._fee_recipient_resolved:
+            self._fee_recipient = _escrow_fee_recipient(self._session, self._chain_id, self._block_height)
+            self._fee_recipient_resolved = True
+        return self._fee_recipient
+
+    def obligation_fields(self, job_id: str) -> dict[str, Any]:
+        if job_id not in self._obligation_cache:
+            self._obligation_cache[job_id] = _escrow_obligation_state(
+                self._session, self._chain_id, job_id, fee_cap_bps=self._fee_cap_bps
+            )
+        state = self._obligation_cache[job_id]
+        return {
+            "remaining_obligation": state["remaining"],
+            "obligation_unbounded": state["unbounded"],
+            "fee_allowance": state["fee_allowance"],
+        }
+
+
 def build_escrow_context(
     session: Session, chain_id: str, tx_datas: list[dict[str, Any]], block_height: int | None = None
 ) -> dict[str, dict[str, Any]] | None:
@@ -1131,134 +1295,39 @@ def build_escrow_context(
     Batches with no escrow settlement txs return ``{}`` (cheap no-op).
     """
     context: dict[str, dict[str, Any]] = {}
-    # The chain-level parameters are not per-job — resolve them lazily on the
-    # first escrow tx so batches without one never pay for the queries.
-    authority: str | None = None
-    authority_resolved = False
-    fee_recipient: str | None = None
-    fee_recipient_resolved = False
-
-    def _resolved_authority() -> str | None:
-        nonlocal authority, authority_resolved
-        if not authority_resolved:
-            authority = _escrow_settlement_authority(session, chain_id, block_height)
-            authority_resolved = True
-        return authority
-
-    def _resolved_fee_recipient() -> str | None:
-        nonlocal fee_recipient, fee_recipient_resolved
-        if not fee_recipient_resolved:
-            fee_recipient = _escrow_fee_recipient(session, chain_id, block_height)
-            fee_recipient_resolved = True
-        return fee_recipient
-
     # v23 (R12-05-F1/#1232, R14-06-F1/#1230): each context entry carries the
     # job's obligation state so the pure path can enforce the bound without
     # a session. Two settlement txs for one job cannot share a single
     # static ``remaining`` — the second must see the first's settlement —
     # so such a batch falls back to sequential, which applies the checks
     # in order. Below v23 the context is bit-for-bit what it always was.
-    v23 = block_height is not None and get_block_version_for_height(block_height) >= 23
-    obligation_cache: dict[str, dict[str, Any]] = {}
+    v23, fee_cap_bps = _escrow_v23_context_params(session, chain_id, block_height)
+    params = _EscrowContextParams(session, chain_id, block_height, fee_cap_bps)
 
-    fee_cap_bps = _escrow_fee_cap_bps(session, chain_id, block_height) if v23 else None
-
-    def _obligation_fields(job_id: str) -> dict[str, Any]:
-        if job_id not in obligation_cache:
-            obligation_cache[job_id] = _escrow_obligation_state(session, chain_id, job_id, fee_cap_bps=fee_cap_bps)
-        state = obligation_cache[job_id]
-        return {
-            "remaining_obligation": state["remaining"],
-            "obligation_unbounded": state["unbounded"],
-            "fee_allowance": state["fee_allowance"],
-        }
-
-    if v23:
-        settlement_counts: dict[str, int] = {}
-        for tx_data in tx_datas:
-            tx_type = _tx_type(tx_data)
-            if tx_type not in ("ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP"):
-                continue
-            payload = tx_data.get("payload") or {}
-            if isinstance(payload, str):
-                try:
-                    payload = json.loads(payload)
-                except Exception:
-                    payload = {}
-            job_id = payload.get("job_id") or tx_data.get("job_id") or ""
-            settlement_counts[job_id] = settlement_counts.get(job_id, 0) + 1
-        if any(count > 1 for count in settlement_counts.values()):
-            return None
+    if v23 and _escrow_duplicate_settlement(tx_datas):
+        return None
 
     for tx_data in tx_datas:
         tx_type = _tx_type(tx_data)
-        if tx_type not in ("ESCROW_RELEASE", "ESCROW_REFUND", "ESCROW_FEE_SWEEP"):
+        if tx_type not in _ESCROW_CONTEXT_TYPES:
             continue
-        payload = tx_data.get("payload") or {}
-        if isinstance(payload, str):
-            try:
-                payload = json.loads(payload)
-            except Exception:
-                payload = {}
-        job_id = payload.get("job_id") or tx_data.get("job_id") or ""
-        if job_id in context:
-            entry = context[job_id]
-            if entry.get("tx_type") == tx_type:
-                continue
-            if tx_type == "ESCROW_FEE_SWEEP":
-                # Release/refund + sweep for one job is the designed settlement
-                # cadence: the sweep adds no beneficiary constraint, it only
-                # needs the chain-level fee recipient on the entry.
-                entry["fee_recipient"] = _resolved_fee_recipient()
-                continue
-            if entry.get("tx_type") == "ESCROW_FEE_SWEEP":
-                # The sweep arrived first; this release/refund still needs its
-                # lock fields resolved against the same entry.
-                lock_tx = _get_escrow_lock(session, chain_id, job_id) if job_id else None
-                if lock_tx is None:
-                    return None
-                entry["tx_type"] = tx_type
-                entry["lock_version"] = _get_escrow_lock_block_version(session, chain_id, job_id)
-                entry["expected_beneficiary"] = _escrow_beneficiary(lock_tx, tx_type)
-                continue
-            # A second release/refund for the same job with a different tx_type
-            # would need a different beneficiary — an invalid batch anyway; let
-            # the sequential path apply its own checks.
-            return None
-        if tx_type == "ESCROW_FEE_SWEEP":
-            entry = {
-                "tx_type": tx_type,
-                "escrow_addr": _escrow_address(job_id) if job_id else "",
-                "settlement_authority": _resolved_authority(),
-                "fee_recipient": _resolved_fee_recipient(),
-            }
-            if v23:
-                entry.update(_obligation_fields(job_id))
-            context[job_id] = entry
-            continue
-        lock_tx = _get_escrow_lock(session, chain_id, job_id) if job_id else None
-        if lock_tx is None:
-            return None
-        if v23:
-            # v23: beneficiary resolves across ALL sealed locks; ambiguity
-            # sends the batch sequential where validate_transaction refuses
-            # it identically.
-            expected_beneficiary, beneficiary_ambiguous = _escrow_lock_beneficiaries(session, chain_id, job_id, tx_type)
-            if beneficiary_ambiguous:
-                return None
+        job_id = _escrow_tx_job_id(tx_data)
+        existing = context.get(job_id)
+        if existing is not None:
+            entry = _escrow_merge_existing_entry(session, chain_id, tx_type, job_id, existing, params.fee_recipient)
         else:
-            expected_beneficiary = _escrow_beneficiary(lock_tx, tx_type)
-        entry = {
-            "tx_type": tx_type,
-            "lock_version": _get_escrow_lock_block_version(session, chain_id, job_id),
-            "expected_beneficiary": expected_beneficiary,
-            "escrow_addr": _escrow_address(job_id),
-            # The pure path has no DB access — every entry carries the
-            # resolved chain-level values.
-            "settlement_authority": _resolved_authority(),
-        }
-        if v23:
-            entry.update(_obligation_fields(job_id))
+            entry = _escrow_new_context_entry(
+                session,
+                chain_id,
+                tx_type,
+                job_id,
+                v23=v23,
+                obligation_fields=params.obligation_fields,
+                resolved_authority=params.authority,
+                resolved_fee_recipient=params.fee_recipient,
+            )
+        if entry is None:
+            return None
         context[job_id] = entry
     return context
 
