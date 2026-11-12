@@ -437,7 +437,7 @@ contract CrossChainBridgeOwnerSafeTest is Test {
         bridge.completeBridge(requestId, keccak256("unlock-tx"), proof);
 
         assertEq(targetToken.balanceOf(recipient), amount);
-        (, , , , , CrossChainBridge.BridgeStatus st, ) = bridge.getBridgeRequest(requestId);
+        (, , , , , CrossChainBridge.BridgeStatus st, , ) = bridge.getBridgeRequest(requestId);
         assertEq(uint256(st), uint256(CrossChainBridge.BridgeStatus.COMPLETED));
     }
 
@@ -522,13 +522,13 @@ contract CrossChainBridgeOwnerSafeTest is Test {
         bridge.confirmBridge(requestId, hashB, _signValidator(V2_PK, requestId, hashB));
 
         // the stored hash is still hashA; agreeing confirmers proceed.
-        (, , , , , CrossChainBridge.BridgeStatus st, ) = bridge.getBridgeRequest(requestId);
+        (, , , , , CrossChainBridge.BridgeStatus st, , ) = bridge.getBridgeRequest(requestId);
         assertEq(uint256(st), uint256(CrossChainBridge.BridgeStatus.PENDING));
         vm.prank(validator2);
         bridge.confirmBridge(requestId, hashA, _signValidator(V2_PK, requestId, hashA));
         vm.prank(validator3);
         bridge.confirmBridge(requestId, hashA, _signValidator(V3_PK, requestId, hashA));
-        (, , , , , st, ) = bridge.getBridgeRequest(requestId);
+        (, , , , , st, , ) = bridge.getBridgeRequest(requestId);
         assertEq(uint256(st), uint256(CrossChainBridge.BridgeStatus.CONFIRMED));
     }
 
