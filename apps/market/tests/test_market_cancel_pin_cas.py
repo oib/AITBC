@@ -65,7 +65,8 @@ async def test_cancel_then_confirm_pin_cannot_resurrect() -> None:
     async with get_session_context() as session:
         svc = MarketService(session)
         svc._rpc_client = _StubRPC()  # type: ignore[assignment]
-        out = await svc.confirm_market_job_pin(job_id, size=5)
+        # #1922: provider_confirmed is the only path that mints RUNNING.
+        out = await svc.confirm_market_job_pin(job_id, size=5, provider_confirmed=True)
     assert out["state"] == "CANCELED"
     state, pay = await _state_and_payment(job_id)
     assert state == "CANCELED"
@@ -84,7 +85,7 @@ async def test_concurrent_cancel_and_pin_exactly_one_wins() -> None:
             pin_svc._rpc_client = _StubRPC()  # type: ignore[assignment]
             await asyncio.gather(
                 cancel_svc.cancel_market_job(job_id, reason="race"),
-                pin_svc.confirm_market_job_pin(job_id, size=5),
+                pin_svc.confirm_market_job_pin(job_id, size=5, provider_confirmed=True),
                 return_exceptions=True,
             )
         state, pay = await _state_and_payment(job_id)
