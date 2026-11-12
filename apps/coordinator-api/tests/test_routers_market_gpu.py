@@ -1179,6 +1179,60 @@ def test_book_gpu_stale_post_escrowed_hold_survives(
 
 
 @pytest.mark.unit
+def test_book_gpu_stale_pending_payment_hold_survives(
+    client, client_token, available_gpu, pricing_engine_override, db_session
+):
+    """#1930: a bound payment still 'pending' (EVM receipt in flight) can
+    still land money — the hold must not be TTL-expired underneath it."""
+    from datetime import timedelta
+
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+    from sqlmodel import select
+
+    job = Job(id="job_pending_1", client_id="client1", payload={"type": "gpu_compute"}, constraints={})
+    db_session.add(job)
+    db_session.commit()
+    resp = _book_with_job(client, client_token, available_gpu, job_id=job.id)
+    assert resp.status_code == 201, resp.text
+    booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == available_gpu)).one()
+    booking.created_at = datetime.now(UTC) - timedelta(hours=1)
+    booking.payment_id = "pay_" + booking.id
+    db_session.add(booking)
+    db_session.add(JobPayment(id="pay_" + booking.id, job_id=job.id, amount=Decimal("1.0"), status="pending"))
+    db_session.commit()
+    resp2 = _book_with_job(client, client_token, available_gpu)
+    assert resp2.status_code == 409
+    db_session.refresh(booking)
+    assert booking.status == "active"
+
+
+@pytest.mark.unit
+def test_book_gpu_stale_skipped_payment_hold_expires(client, client_token, available_gpu, pricing_engine_override, db_session):
+    """#1930: 'skipped' is terminal no-money (escrow unavailable) — it must
+    NOT shield a stale hold from expiry."""
+    from datetime import timedelta
+
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+    from sqlmodel import select
+
+    job = Job(id="job_skipped_1", client_id="client1", payload={"type": "gpu_compute"}, constraints={})
+    db_session.add(job)
+    db_session.commit()
+    resp = _book_with_job(client, client_token, available_gpu, job_id=job.id)
+    assert resp.status_code == 201, resp.text
+    booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == available_gpu)).one()
+    booking.created_at = datetime.now(UTC) - timedelta(hours=1)
+    booking.payment_id = "pay_" + booking.id
+    db_session.add(booking)
+    db_session.add(JobPayment(id="pay_" + booking.id, job_id=job.id, amount=Decimal("1.0"), status="skipped"))
+    db_session.commit()
+    resp2 = _book_with_job(client, client_token, available_gpu)
+    assert resp2.status_code == 201, resp2.text
+    db_session.refresh(booking)
+    assert booking.status == "expired"
+
+
+@pytest.mark.unit
 @pytest.mark.parametrize("live_status", ["escrowed", "pending_acceptance", "disputed", "settlement_failed"])
 def test_delete_gpu_force_blocked_with_live_payment(client, miner_token, admin_token, db_session, live_status):
     """#1924: admin force-delete must not orphan a booking whose payment still
@@ -1260,6 +1314,9 @@ def test_purchase_sibling_bookings_do_not_share_payment(
                 id="pay_sib_b",
                 job_id=job_id,
                 amount=Decimal("1.0"),
+                # Created pending so the purchase path accepts it; flipped to
+                # a terminal no-money status below — #1930 made "pending"
+                # shield a hold (receipt in flight can still land money).
                 status="pending",
                 currency="AITBC",
                 payment_method="aitbc_token",
@@ -1299,13 +1356,18 @@ def test_purchase_sibling_bookings_do_not_share_payment(
     assert bookings[gpu_a].payment_id == "pay_sib_a"
     assert bookings[gpu_b].payment_id == "pay_sib_b"
 
-    # Age both holds past the TTL.
+    # Age both holds past the TTL. Sibling B's payment resolves to a terminal
+    # no-money state ("refunded" — money returned, nothing live) so its hold
+    # is genuinely unpaid; "pending" would now shield it (#1930).
+    unpaid = db_session.get(JobPayment, "pay_sib_b")
+    unpaid.status = "refunded"
+    db_session.add(unpaid)
     for b in bookings.values():
         b.created_at = datetime.now(UTC) - timedelta(hours=1)
         db_session.add(b)
     db_session.commit()
 
-    # GPU-B's own payment is pending → its hold expires and frees the GPU.
+    # GPU-B's own payment has no live money → its hold expires and frees the GPU.
     resp_b = _book_with_job(client, miner_token, gpu_b)
     assert resp_b.status_code == 201, resp_b.text
     db_session.refresh(bookings[gpu_b])
