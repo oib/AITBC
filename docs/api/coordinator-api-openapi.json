@@ -9659,15 +9659,33 @@
         "summary": "Create Confidential Transaction",
         "description": "Create a new confidential transaction with optional encryption",
         "operationId": "create_confidential_transaction_v1_confidential_transactions_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ConfidentialTransactionCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -9719,6 +9737,22 @@
             "schema": {
               "type": "string",
               "title": "Transaction Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -9783,6 +9817,22 @@
               "type": "string",
               "title": "Transaction Id"
             }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "requestBody": {
@@ -9827,7 +9877,7 @@
             }
           },
           "403": {
-            "description": "Access denied",
+            "description": "requester must match the authenticated principal / Access denied",
             "content": {
               "application/json": {
                 "schema": {
@@ -9894,6 +9944,22 @@
               "type": "string",
               "default": "audit",
               "title": "Purpose"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
