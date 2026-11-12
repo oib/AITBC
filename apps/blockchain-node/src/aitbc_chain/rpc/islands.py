@@ -73,9 +73,7 @@ class BridgeRequestResponse(BaseModel):
     message: str
 
 
-def _build_join_credentials(
-    island_id: str, island_name: str, island_chain_id: str, request: Request | None = None
-) -> dict[str, Any]:
+def _build_join_credentials(island_id: str, island_name: str, island_chain_id: str) -> dict[str, Any]:
     """Build the credentials block returned to a joining node."""
     # F-5d: prefer explicit operator overrides before socket.gethostname(),
     # which may return a hostname that is not resolvable from remote nodes.
@@ -86,14 +84,10 @@ def _build_join_credentials(
             "or hub_discovery_url so remote nodes can resolve this endpoint",
             hub_host,
         )
-    # Prefer an explicit operator override, then the forwarded scheme, then the
-    # ASGI scheme, then https as the production default.
-    public_scheme = (
-        os.getenv("AITBC_PROTOCOL")
-        or (request.headers.get("x-forwarded-proto") if request else None)
-        or (request.url.scheme if request else None)
-        or "https"
-    ).lower()
+    # Public scheme comes from operator configuration only — never from
+    # client-supplied X-Forwarded-Proto or the ASGI scheme (both reflectable
+    # through the proxy): same hardening as #1911/#1875 F7 (#1925).
+    public_scheme = (os.getenv("AITBC_PROTOCOL") or "https").lower()
     if public_scheme not in ("http", "https"):
         public_scheme = "https"
     public_rpc = os.getenv("RPC_PUBLIC_ENDPOINT", f"{public_scheme}://{hub_host}/rpc")
@@ -225,7 +219,7 @@ def join_island(payload: JoinIslandRequest, request: Request | None = None) -> J
         )
 
     chain_id = island.chain_id or (payload.chain_id if isinstance(payload.chain_id, str) else payload.chain_id[0])
-    credentials = _build_join_credentials(island.island_id, island.island_name, chain_id, request=request)
+    credentials = _build_join_credentials(island.island_id, island.island_name, chain_id)
     members = _island_members(island_manager, island.island_id)
 
     status = "joined" if joined else "already_member"

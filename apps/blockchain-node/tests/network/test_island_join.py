@@ -110,5 +110,61 @@ class TestJoinIslandRpc:
         assert response.status == "failed"
 
 
+class TestJoinCredentialScheme:
+    """#1925: advertised rpc_endpoint scheme comes from AITBC_PROTOCOL only —
+    never from client-supplied X-Forwarded-Proto or the ASGI scheme
+    (same reflected-header class as #1911/#1875 F7)."""
+
+    @pytest.fixture
+    def mock_island_manager(self):
+        manager = MagicMock()
+        island = MagicMock()
+        island.island_id = "ait-testchain.local-island"
+        island.island_name = "default"
+        island.chain_id = "ait-testchain.local"
+        island.is_hub = True
+        manager.get_island_info.return_value = island
+        manager.join_island.return_value = True
+        manager.island_peers = {}
+        manager.local_node_id = "hub-node"
+        return manager
+
+    def _request(self):
+        request = MagicMock()
+        request.headers = {"x-forwarded-proto": "http", "host": "evil.example"}
+        request.url = MagicMock()
+        request.url.scheme = "http"
+        return request
+
+    def test_join_ignores_spoofed_forwarded_proto(self, mock_island_manager, monkeypatch):
+        monkeypatch.delenv("AITBC_PROTOCOL", raising=False)
+        monkeypatch.delenv("RPC_PUBLIC_ENDPOINT", raising=False)
+        with patch("aitbc_chain.rpc.islands.get_island_manager", return_value=mock_island_manager):
+            response = join_island(
+                JoinIslandRequest(
+                    island_id="ait-testchain.local-island",
+                    island_name="default",
+                    chain_id="ait-testchain.local",
+                ),
+                request=self._request(),
+            )
+        assert response.credentials["rpc_endpoint"].startswith("https://")
+        assert "evil.example" not in response.credentials["rpc_endpoint"]
+
+    def test_join_scheme_follows_aitbc_protocol(self, mock_island_manager, monkeypatch):
+        monkeypatch.setenv("AITBC_PROTOCOL", "http")
+        monkeypatch.delenv("RPC_PUBLIC_ENDPOINT", raising=False)
+        with patch("aitbc_chain.rpc.islands.get_island_manager", return_value=mock_island_manager):
+            response = join_island(
+                JoinIslandRequest(
+                    island_id="ait-testchain.local-island",
+                    island_name="default",
+                    chain_id="ait-testchain.local",
+                ),
+                request=self._request(),
+            )
+        assert response.credentials["rpc_endpoint"].startswith("http://")
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
