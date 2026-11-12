@@ -260,6 +260,114 @@ def _warn_on_mismatch(req: RemoteExecuteRequest, stored_amount: int, stored_addr
         )
 
 
+def _replay_response(request_id: str, existing_hash: str | None, amount: int, recipient: str) -> dict[str, Any] | None:
+    """Idempotent-replay handling: None means proceed to execution."""
+    if not existing_hash:
+        return None
+    if str(existing_hash).startswith(EXECUTION_CLAIM_PREFIX):
+        # An earlier attempt may have been accepted by the node after its
+        # response was lost (#851): the claim carries that attempt's
+        # signed nonce, so check the chain before deciding — a retry that
+        # finds it returns the first tx instead of paying twice.
+        recovered = _recover_claimed_attempt(request_id, existing_hash, amount, recipient)
+        if recovered is not None:
+            logger.info("Execute request %s recovered the first attempt's tx", request_id)
+            return {
+                "success": True,
+                "already_executed": True,
+                "request_id": request_id,
+                "tx_hash": recovered,
+                "amount": amount,
+                "recipient": recipient,
+            }
+        raise HTTPException(
+            status_code=409,
+            detail=f"Coin request {request_id} is already being executed",
+        )
+    logger.info("Execute request %s replayed; returning the original transaction", request_id)
+    return {
+        "success": True,
+        "already_executed": True,
+        "request_id": request_id,
+        "tx_hash": existing_hash,
+        "amount": amount,
+        "recipient": recipient,
+    }
+
+
+def _gate_request_status(request_id: str, status: Any, expires_at: Any) -> None:
+    """Refuse execution unless the request is APPROVED and unexpired; flips
+    an approved-but-expired row to EXPIRED so it stops looking spendable."""
+    # expires_at bounds how long a registered request stays executable
+    # (REQUEST_TTL). An approved-but-expired grant must not disburse (#1579):
+    # flip it to EXPIRED so the row stops looking spendable and refuse. Rows
+    # already claimed or paid returned above — expiry never strands
+    # reconciliation of a payment that already happened.
+    if status == CoinRequestStatus.APPROVED and expires_at is not None and expires_at < datetime.now(UTC).replace(tzinfo=None):
+        with get_db_session() as session:
+            row = (
+                session.query(CoinRequest)
+                .filter(CoinRequest.id == request_id, CoinRequest.status == CoinRequestStatus.APPROVED)
+                .first()
+            )
+            if row is not None:
+                row.status = CoinRequestStatus.EXPIRED
+                row.audit_log = (row.audit_log or "") + (
+                    f" | Auto-expired at {datetime.now(UTC).isoformat()} — expires_at {expires_at.isoformat()} passed"
+                )
+        logger.warning("Execute refused: request %s expired at %s before execution", request_id, expires_at)
+        raise HTTPException(
+            status_code=409,
+            detail=f"Coin request {request_id} expired at {expires_at.isoformat()} before it was executed",
+        )
+
+    if status != CoinRequestStatus.APPROVED:
+        status_name = status.value if status is not None else "unknown"
+        logger.warning("Execute refused: request %s has status %s", request_id, status_name)
+        raise HTTPException(
+            status_code=409,
+            detail=f"Coin request {request_id} is not approved (status: {status_name})",
+        )
+
+
+def _prepare_attempt(tx_service: Any, request_id: str, claim: str, amount: int, recipient: str) -> tuple[str, dict]:
+    """Sign the payment and fold the attempt nonce+hash into the claim
+    (CAS on the marker we wrote). Returns (nonce_claim_marker, signed_tx).
+    Raises before this returns only for pre-submit failures, so the caller's
+    claim marker is still the plain one and safe to release (#851)."""
+    signed_tx = tx_service.generate_signed_transaction(to_address=recipient, amount=amount, fee=TRANSACTION_FEE)
+    if not signed_tx:
+        raise HTTPException(status_code=500, detail="Failed to generate signed transaction")
+
+    # Fold the attempt's nonce AND its locally-computed hash into the
+    # claim: if the submit below dies ambiguously the row keeps both, and a
+    # retry can ask the node for the tx by hash — not just scan by nonce
+    # (#1080).
+    attempt_hash = _compute_attempt_hash(signed_tx)
+    nonce_claim = (
+        f"{claim}:nonce={signed_tx.get('nonce')}:tx={attempt_hash}"
+        if attempt_hash
+        else f"{claim}:nonce={signed_tx.get('nonce')}"
+    )
+    with get_db_session() as session:
+        session.query(CoinRequest).filter(CoinRequest.id == request_id, CoinRequest.transaction_hash == claim).update(
+            {"transaction_hash": nonce_claim}, synchronize_session=False
+        )
+    return nonce_claim, signed_tx
+
+
+def _submit_signed_tx(tx_service: Any, signed_tx: dict) -> str:
+    """POST the signed tx; returns the node's transaction hash."""
+    from aitbc.network import AITBCHTTPClient
+
+    http_client = AITBCHTTPClient(base_url=tx_service.rpc_url, timeout=30)
+    result = http_client.post("/rpc/transaction", json=signed_tx)
+    tx_hash: str = result.get("transaction_hash") or ""
+    if not tx_hash:
+        raise HTTPException(status_code=502, detail="Blockchain did not return a transaction hash")
+    return tx_hash
+
+
 @router.post("/execute")
 @rate_limit(rate=20, per=60)
 def remote_execute_coin_request(
@@ -289,67 +397,16 @@ def remote_execute_coin_request(
 
     # A retry after a lost response must not pay again. Report the original outcome so
     # the caller can reconcile instead of being left unsure whether the first call landed.
-    if existing_hash:
-        if str(existing_hash).startswith(EXECUTION_CLAIM_PREFIX):
-            # An earlier attempt may have been accepted by the node after its
-            # response was lost (#851): the claim carries that attempt's
-            # signed nonce, so check the chain before deciding — a retry that
-            # finds it returns the first tx instead of paying twice.
-            recovered = _recover_claimed_attempt(req.request_id, existing_hash, amount, recipient)
-            if recovered is not None:
-                logger.info("Execute request %s recovered the first attempt's tx", req.request_id)
-                return {
-                    "success": True,
-                    "already_executed": True,
-                    "request_id": req.request_id,
-                    "tx_hash": recovered,
-                    "amount": amount,
-                    "recipient": recipient,
-                }
-            raise HTTPException(
-                status_code=409,
-                detail=f"Coin request {req.request_id} is already being executed",
-            )
-        logger.info("Execute request %s replayed; returning the original transaction", req.request_id)
-        return {
-            "success": True,
-            "already_executed": True,
-            "request_id": req.request_id,
-            "tx_hash": existing_hash,
-            "amount": amount,
-            "recipient": recipient,
-        }
+    replay = _replay_response(req.request_id, existing_hash, amount, recipient)
+    if replay is not None:
+        return replay
 
     # expires_at bounds how long a registered request stays executable
     # (REQUEST_TTL). An approved-but-expired grant must not disburse (#1579):
     # flip it to EXPIRED so the row stops looking spendable and refuse. Rows
     # already claimed or paid returned above — expiry never strands
     # reconciliation of a payment that already happened.
-    if status == CoinRequestStatus.APPROVED and expires_at is not None and expires_at < datetime.now(UTC).replace(tzinfo=None):
-        with get_db_session() as session:
-            row = (
-                session.query(CoinRequest)
-                .filter(CoinRequest.id == req.request_id, CoinRequest.status == CoinRequestStatus.APPROVED)
-                .first()
-            )
-            if row is not None:
-                row.status = CoinRequestStatus.EXPIRED
-                row.audit_log = (row.audit_log or "") + (
-                    f" | Auto-expired at {datetime.now(UTC).isoformat()} — expires_at {expires_at.isoformat()} passed"
-                )
-        logger.warning("Execute refused: request %s expired at %s before execution", req.request_id, expires_at)
-        raise HTTPException(
-            status_code=409,
-            detail=f"Coin request {req.request_id} expired at {expires_at.isoformat()} before it was executed",
-        )
-
-    if status != CoinRequestStatus.APPROVED:
-        status_name = status.value if status is not None else "unknown"
-        logger.warning("Execute refused: request %s has status %s", req.request_id, status_name)
-        raise HTTPException(
-            status_code=409,
-            detail=f"Coin request {req.request_id} is not approved (status: {status_name})",
-        )
+    _gate_request_status(req.request_id, status, expires_at)
 
     _warn_on_mismatch(req, amount, recipient)
 
@@ -393,33 +450,8 @@ def remote_execute_coin_request(
         raise HTTPException(status_code=409, detail=f"Coin request {req.request_id} is already being executed")
 
     try:
-        signed_tx = tx_service.generate_signed_transaction(to_address=recipient, amount=amount, fee=TRANSACTION_FEE)
-        if not signed_tx:
-            raise HTTPException(status_code=500, detail="Failed to generate signed transaction")
-
-        # Fold the attempt's nonce AND its locally-computed hash into the
-        # claim (CAS on the marker we wrote): if the submit below dies
-        # ambiguously the row keeps both, and a retry can ask the node for
-        # the tx by hash — not just scan by nonce (#1080).
-        attempt_hash = _compute_attempt_hash(signed_tx)
-        nonce_claim = (
-            f"{claim}:nonce={signed_tx.get('nonce')}:tx={attempt_hash}"
-            if attempt_hash
-            else f"{claim}:nonce={signed_tx.get('nonce')}"
-        )
-        with get_db_session() as session:
-            session.query(CoinRequest).filter(CoinRequest.id == req.request_id, CoinRequest.transaction_hash == claim).update(
-                {"transaction_hash": nonce_claim}, synchronize_session=False
-            )
-        claim = nonce_claim
-
-        from aitbc.network import AITBCHTTPClient
-
-        http_client = AITBCHTTPClient(base_url=tx_service.rpc_url, timeout=30)
-        result = http_client.post("/rpc/transaction", json=signed_tx)
-        tx_hash = result.get("transaction_hash")
-        if not tx_hash:
-            raise HTTPException(status_code=502, detail="Blockchain did not return a transaction hash")
+        claim, signed_tx = _prepare_attempt(tx_service, req.request_id, claim, amount, recipient)
+        tx_hash = _submit_signed_tx(tx_service, signed_tx)
     except HTTPException:
         # Only pre-submit failures may release the claim: signing failure and
         # the missing-tx-hash 502 mean nothing reached the node. Anything raised

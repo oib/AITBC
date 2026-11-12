@@ -323,6 +323,31 @@ class LoadBalancer:
         for assignment in terminal[: max(0, min(excess, len(terminal)))]:
             self.task_assignments.pop(assignment.task_id, None)
 
+    @staticmethod
+    def _build_discovery_query(requirements: dict[str, Any] | None, chain_id: str | None) -> dict[str, Any]:
+        """Build the registry discovery query for a task's requirements."""
+        query: dict[str, Any] = {"status": AgentStatus.ACTIVE}
+        if requirements:
+            for key in ("agent_type", "capabilities", "services", "min_health_score"):
+                if key in requirements:
+                    query[key] = requirements[key]
+        # v0.6.5: filter by chain_id if provided (agents on the same chain)
+        if chain_id:
+            query["chain_id"] = chain_id
+        return query
+
+    def _is_agent_eligible(self, agent_id: str) -> bool:
+        """Load/capacity check for one discovered agent."""
+        logger.info("Checking agent %s for eligibility", agent_id)
+        if agent_id in self.agent_weights:
+            weight = self.agent_weights[agent_id]
+            current_load = self._get_agent_load(agent_id)
+            logger.info("Agent %s: in agent_weights, load=%s, capacity=%s", agent_id, current_load, weight.capacity)
+            return current_load < weight.capacity
+        metrics = self.agent_metrics.get(agent_id, LoadMetrics())
+        logger.info("Agent %s: not in agent_weights, pending_tasks=%s", agent_id, metrics.pending_tasks)
+        return metrics.pending_tasks < 100
+
     async def _find_eligible_agents(
         self,
         task_data: dict[str, Any],
@@ -332,36 +357,10 @@ class LoadBalancer:
         """Find eligible agents for task"""
         logger.debug("_find_eligible_agents() called")
         try:
-            query: dict[str, Any] = {"status": AgentStatus.ACTIVE}
-            if requirements:
-                if "agent_type" in requirements:
-                    query["agent_type"] = requirements["agent_type"]
-                if "capabilities" in requirements:
-                    query["capabilities"] = requirements["capabilities"]
-                if "services" in requirements:
-                    query["services"] = requirements["services"]
-                if "min_health_score" in requirements:
-                    query["min_health_score"] = requirements["min_health_score"]
-            # v0.6.5: filter by chain_id if provided (agents on the same chain)
-            if chain_id:
-                query["chain_id"] = chain_id
+            query = self._build_discovery_query(requirements, chain_id)
             agents = await self.registry.discover_agents(query)
             logger.info("Found %s agents from registry with query %s", len(agents), query)
-            eligible_agents = []
-            for agent in agents:
-                agent_id = agent.agent_id
-                logger.info("Checking agent %s for eligibility", agent_id)
-                if agent_id in self.agent_weights:
-                    weight = self.agent_weights[agent_id]
-                    current_load = self._get_agent_load(agent_id)
-                    logger.info("Agent %s: in agent_weights, load=%s, capacity=%s", agent_id, current_load, weight.capacity)
-                    if current_load < weight.capacity:
-                        eligible_agents.append(agent_id)
-                else:
-                    metrics = self.agent_metrics.get(agent_id, LoadMetrics())
-                    logger.info("Agent %s: not in agent_weights, pending_tasks=%s", agent_id, metrics.pending_tasks)
-                    if metrics.pending_tasks < 100:
-                        eligible_agents.append(agent_id)
+            eligible_agents = [agent.agent_id for agent in agents if self._is_agent_eligible(agent.agent_id)]
             logger.info("Eligible agents after filtering: %s", eligible_agents)
             logger.debug("Returning %s eligible agents", len(eligible_agents))
             return eligible_agents
