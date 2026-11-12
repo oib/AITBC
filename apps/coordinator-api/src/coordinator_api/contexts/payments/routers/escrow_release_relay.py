@@ -80,8 +80,9 @@ async def relay_escrow_release(
 
     Auth: the on-chain escrow's ``buyer`` must equal the wallet bound to
     the JWT subject (admin may release any buyer's escrow — the chain
-    still owns settlement validation). The release amount is bounded by
-    the escrow's locked amount for non-admin callers. Replays of the same
+    still owns settlement validation). For non-admin callers a provided
+    amount must equal the escrow's full locked amount — partial releases
+    are admin-only (#1912). Replays of the same
     job — a stored relay row or an already-released escrow — return the
     stored ``tx_hash`` without a second chain call.
     """
