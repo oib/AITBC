@@ -217,6 +217,15 @@ class BlockchainService:
         payload = self._signed({"bounty_id": bounty_id, "user_address": creator_address})
         return self._client().post(f"{RPC}/bounty/{bounty_id}/expire", json=payload, headers=self._headers())
 
+    def list_provider_bonds(self, provider_address: str) -> dict[str, Any]:
+        """List verified on-chain bonds for a provider wallet (#1915).
+
+        Read-only chain query backing the local ``ProviderBond`` projection —
+        the chain only returns bonds it recorded via BOND_LOCK/BOND_RELEASE/
+        BOND_SLASH, so a hit here is chain-verified state, not a claim.
+        """
+        return self._client().get(f"{RPC}/bond/provider/{provider_address}", headers=self._headers())
+
 
 def validate_address(address: str) -> bool:
     if not address:

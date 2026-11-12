@@ -36,6 +36,21 @@ def _no_payment_monitor(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(exch_mod, "monitor_payment", _noop)
 
 
+@pytest.fixture(autouse=True)
+def _chain_bonds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1915: bond creation verifies against the chain — stub the provider
+    bond listing so miner-1's wallet shows one active on-chain bond."""
+    from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
+
+    def fake_list(self, provider_address: str) -> dict:
+        bonds = []
+        if provider_address.lower() == OWNER_WALLET.lower():
+            bonds = [{"bond_id": "cb-1881", "amount": 5 * 36_000_000, "status": "active", "locked_until": None}]
+        return {"success": True, "provider": provider_address, "bonds": bonds}
+
+    monkeypatch.setattr(BlockchainService, "list_provider_bonds", fake_list)
+
+
 def _headers(user_id: str, role: str = "client") -> dict[str, str]:
     return {"Authorization": f"Bearer {create_access_token(user_id, role)}"}
 
@@ -86,19 +101,19 @@ class TestBondObjectBinding:
     def test_owner_via_miner_wallet_can_create(self, client: TestClient, seeded) -> None:
         resp = client.post(
             "/v1/market/providers/miner-1/bonds",
-            json={"amount": "5"},
+            json={"bond_id": "cb-1881"},
             headers=_headers("owner1"),
         )
         assert resp.status_code == 200
 
     def test_miner_sub_can_lock_own_bond(self, client: TestClient, seeded) -> None:
-        client.post("/v1/market/providers/miner-1/bonds", json={"amount": "5"}, headers=_headers("owner1"))
+        client.post("/v1/market/providers/miner-1/bonds", json={"bond_id": "cb-1881"}, headers=_headers("owner1"))
         resp = client.post("/v1/market/providers/miner-1/bonds/lock", headers=_headers("miner-1", "miner"))
         assert resp.status_code == 200
         assert resp.json()["status"] == "locked"
 
     def test_admin_can_slash_any_provider(self, client: TestClient, seeded) -> None:
-        client.post("/v1/market/providers/miner-1/bonds", json={"amount": "5"}, headers=_headers("owner1"))
+        client.post("/v1/market/providers/miner-1/bonds", json={"bond_id": "cb-1881"}, headers=_headers("owner1"))
         resp = client.post(
             "/v1/market/providers/miner-1/bonds/slash",
             json={"reason": "fraud"},
