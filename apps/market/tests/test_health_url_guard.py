@@ -140,7 +140,7 @@ class TestAnchorNegativesBound:
         assert set(MarketService._anchor_negatives) == {("live", "b")}
 
     def test_map_is_capped_and_keeps_the_latest_deadlines(self, monkeypatch):
-        monkeypatch.setattr(ms, "_ANCHOR_NEGATIVES_MAX", 5)
+        monkeypatch.setattr("market_service.services.market_service.offers._ANCHOR_NEGATIVES_MAX", 5)
         monkeypatch.setattr(MarketService, "_anchor_negatives", {})
         now = time.monotonic()
         for i in range(8):

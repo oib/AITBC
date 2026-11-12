@@ -75,7 +75,13 @@ class TestMarketConfig:
 
         from market_service.services import market_service
 
+        # #1867: the monolith is now a package of mixin modules — scan them all.
+        import importlib
+        import pkgutil
+
         source = inspect.getsource(market_service)
+        for _, name, _ in pkgutil.iter_modules(market_service.__path__):
+            source += "\n" + inspect.getsource(importlib.import_module(f"market_service.services.market_service.{name}"))
         assert "8006" not in source  # no stale 8006 anywhere
         # v0.6.6: uses settings.blockchain_rpc_url (not hardcoded port)
         assert "settings.blockchain_rpc_url" in source
