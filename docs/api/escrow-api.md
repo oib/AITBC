@@ -6,6 +6,13 @@
 > **Auth:** the escrow router is key-gated at the router level — every endpoint
 > below, including `GET` state reads, requires `X-API-Key: $BLOCKCHAIN_RPC_API_KEY`
 > (from `/etc/aitbc/blockchain-secrets.env`).
+>
+> **Settlement routes (#1917):** `POST /rpc/escrow/{job_id}/release` and
+> `POST /rpc/escrow/{job_id}/refund` additionally require
+> `X-Settlement-Key: $BLOCKCHAIN_RPC_SETTLEMENT_API_KEY` — a dedicated
+> settlement-node credential. The shared RPC key alone is no longer
+> sufficient to move escrow funds; an unset settlement key makes the
+> routes answer `503` (fail-closed).
 **Service:** `aitbc-blockchain-rpc` (port 8202)
 
 ## Overview
@@ -201,10 +208,10 @@ All endpoints return standard error responses:
 | Code | Meaning |
 |---|---|
 | `400` | Invalid input (bad address format, missing fields, invalid amount, missing/invalid `lock_tx`/`lock_signature`) |
-| `403` | Missing or invalid `X-API-Key` (router-level gate on every escrow route) |
+| `403` | Missing or invalid `X-API-Key` (router-level gate on every escrow route); missing or invalid `X-Settlement-Key` on release/refund |
 | `404` | No escrow found for the given `job_id` |
 | `409` | Escrow already locked on-chain with different parameters |
-| `503` | EscrowManager not initialised, or `BLOCKCHAIN_RPC_API_KEY` unset on the node |
+| `503` | EscrowManager not initialised, `BLOCKCHAIN_RPC_API_KEY` unset on the node, or `BLOCKCHAIN_RPC_SETTLEMENT_API_KEY` unset (release/refund refuse until configured) |
 
 ---
 
@@ -245,15 +252,17 @@ curl -X POST http://localhost:8202/rpc/escrow/create \
 curl http://localhost:8202/rpc/escrow/bid-abc123 \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY"
 
-# Release to provider
+# Release to provider (requires X-Settlement-Key too, #1917)
 curl -X POST http://localhost:8202/rpc/escrow/bid-abc123/release \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" -d '{}'
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
+  -H "X-Settlement-Key: $BLOCKCHAIN_RPC_SETTLEMENT_API_KEY" -d '{}'
 
 # Refund buyer
 curl -X POST http://localhost:8202/rpc/escrow/bid-abc123/refund \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
+  -H "X-Settlement-Key: $BLOCKCHAIN_RPC_SETTLEMENT_API_KEY" \
   -d '{"reason": "provider_failed"}'
 ```
 

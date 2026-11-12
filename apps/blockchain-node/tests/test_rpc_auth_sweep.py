@@ -82,6 +82,64 @@ class TestGovernanceIdentityAuth:
         assert client.get("/rpc/identity/agent-1").status_code != 403
 
 
+class TestEscrowSettlementAuth:
+    """#1917: escrow release/refund move money, so they require the dedicated
+    settlement credential (X-Settlement-Key, BLOCKCHAIN_RPC_SETTLEMENT_API_KEY)
+    ON TOP OF the router-wide X-API-Key. Possession of the shared RPC key —
+    which every service and issued join key's parent holds — must no longer
+    be sufficient to settle an escrow. Other escrow routes (create, reads)
+    keep the base-key gate only."""
+
+    SETTLE_KEY = "settle-key-9"
+
+    @pytest.fixture
+    def client(self, monkeypatch):
+        monkeypatch.setattr(escrow_routes, "_RPC_SETTLEMENT_API_KEY", self.SETTLE_KEY)
+        return _app(escrow_routes.router)
+
+    def _post(self, client, path, *, api_key=KEY, settle_key="__unset__"):
+        headers = {"X-API-Key": api_key} if api_key is not None else {}
+        if settle_key != "__unset__":
+            headers["X-Settlement-Key"] = settle_key
+        return client.post(path, json={}, headers=headers)
+
+    @pytest.mark.parametrize("path", ["/rpc/escrow/job-1/release", "/rpc/escrow/job-1/refund"])
+    def test_rejects_missing_settlement_key(self, client, path):
+        """Valid base RPC key alone is no longer sufficient to settle."""
+        assert self._post(client, path).status_code == 403, path
+
+    @pytest.mark.parametrize("path", ["/rpc/escrow/job-1/release", "/rpc/escrow/job-1/refund"])
+    def test_rejects_wrong_settlement_key(self, client, path):
+        assert self._post(client, path, settle_key="nope").status_code == 403, path
+
+    @pytest.mark.parametrize("path", ["/rpc/escrow/job-1/release", "/rpc/escrow/job-1/refund"])
+    def test_rejects_missing_base_key_even_with_settlement_key(self, client, path):
+        """The settlement credential does not replace X-API-Key."""
+        assert self._post(client, path, api_key=None, settle_key=self.SETTLE_KEY).status_code == 403, path
+
+    @pytest.mark.parametrize("path", ["/rpc/escrow/job-1/release", "/rpc/escrow/job-1/refund"])
+    def test_valid_both_keys_reaches_handler(self, client, path):
+        """Both credentials pass auth; the handler then runs (and fails on
+        test scaffolding — no escrow manager / signing key — never 403)."""
+        resp = self._post(client, path, settle_key=self.SETTLE_KEY)
+        assert resp.status_code != 403, path
+
+    @pytest.mark.parametrize("path", ["/rpc/escrow/job-1/release", "/rpc/escrow/job-1/refund"])
+    def test_unset_settlement_key_fails_closed_503(self, client, monkeypatch, path):
+        """An unconfigured node refuses settlement outright — never open."""
+        monkeypatch.setattr(escrow_routes, "_RPC_SETTLEMENT_API_KEY", "")
+        resp = self._post(client, path, settle_key=self.SETTLE_KEY)
+        assert resp.status_code == 503, path
+
+    def test_non_settlement_routes_keep_base_key_only(self, client):
+        """Create/read stay on the shared key — the settlement credential is
+        scoped to release/refund and must not be required elsewhere."""
+        create = client.post("/rpc/escrow/create", json={}, headers={"X-API-Key": KEY})
+        assert create.status_code != 403
+        read = client.get("/rpc/escrow/job-1", headers={"X-API-Key": KEY})
+        assert read.status_code != 403
+
+
 class TestControlPlaneAuth:
     """Chain lifecycle and block import are operator operations."""
 

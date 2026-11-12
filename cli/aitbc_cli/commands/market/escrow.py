@@ -54,11 +54,23 @@ def _hub_base_url(config) -> str:
 
 
 def _get_rpc_client(config, base_url: str, timeout: int = 10) -> AITBCHTTPClient:
-    """Return an HTTP client for blockchain RPC calls, with the API key if configured."""
+    """Return an HTTP client for blockchain RPC calls, with the API key if configured.
+
+    The settlement credential (``blockchain_rpc_settlement_api_key`` →
+    ``X-Settlement-Key``, #1917) rides along whenever it is configured: the
+    chain only checks it on ``/rpc/escrow/{id}/release`` and ``/refund``, and
+    it only ever goes to the configured RPC/hub hosts — the same hosts that
+    already receive ``X-API-Key``.
+    """
+    headers = {}
+    settlement_key = getattr(config, "blockchain_rpc_settlement_api_key", None)
+    if settlement_key:
+        headers["X-Settlement-Key"] = settlement_key
     return AITBCHTTPClient(
         base_url=base_url,
         timeout=timeout,
         api_key=getattr(config, "blockchain_rpc_api_key", None),
+        headers=headers or None,
     )
 
 

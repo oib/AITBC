@@ -74,6 +74,7 @@ This document catalogs the authentication and authorization patterns used across
 - `Authorization: Bearer <jwt>` — customer/user JWT paths
 - `X-Api-Key` — coordinator service/legacy, market admin (`APIKeyAuthenticator` default header)
 - `X-API-Key` — blockchain node admin/control mutations + escrow + peer subscription routes (tx submit/stake are signature-verified instead)
+- `X-Settlement-Key` — blockchain node escrow release/refund only: a second, dedicated credential (`BLOCKCHAIN_RPC_SETTLEMENT_API_KEY`, #1917) required **in addition to** `X-API-Key` on `POST /rpc/escrow/{job_id}/release` and `.../refund`; unset fails closed with 503
 - The casing difference is real and per-service; both are matched case-insensitively by HTTP headers, but document the exact header each service expects.
 
 ### 4. Secret Management
@@ -118,7 +119,7 @@ Route                          | Method | Auth Level | Implementation
 /v1/miners/register           | POST   | Level 2/3  | MinerDep (JWT or X-Api-Key)
 /v1/jobs                      | POST   | Level 3    | AdminOrClientDep (JWT)
 /rpc/transaction              | POST   | Level 2    | Tx `signature` verified against `from` (no API key)
-/rpc/escrow/*                 | ALL    | Level 2    | X-API-Key (router-level)
+/rpc/escrow/*                 | ALL    | Level 2    | X-API-Key (router-level); release/refund also require X-Settlement-Key (#1917)
 /v1/escrow/relay              | POST   | Level 3    | AdminOrClientDep (JWT, buyer-bound)
 /v1/escrow/release            | POST   | Level 3    | AdminOrClientDep (JWT, buyer-bound)
 /v1/escrow/refund             | POST   | Level 3    | AdminOrClientDep (JWT, buyer-bound)

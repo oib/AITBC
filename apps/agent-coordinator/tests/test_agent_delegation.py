@@ -234,6 +234,32 @@ class TestChainEscrowClient:
         assert tx == "0xlockhash"
         assert submitter.last_response["contract_id"] == "esc-1"
 
+    def test_settlement_key_only_on_release_refund(self):
+        """#1917: X-Settlement-Key rides release/refund, never create."""
+        headers_seen = []
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            headers_seen.append((request.url.path, request.headers.get("x-settlement-key")))
+            if request.url.path.endswith("/release"):
+                return httpx.Response(200, json={"tx_hash": "0xrel"})
+            if request.url.path.endswith("/refund"):
+                return httpx.Response(200, json={"refund_tx_hash": "0xref"})
+            return httpx.Response(200, json={"contract_id": "esc-1", "lock_tx_hash": "0xlock"})
+
+        client = ChainEscrowClient(
+            "http://rpc.local:8202",
+            api_key="test-key",
+            settlement_api_key="settle-key",
+            transport=httpx.MockTransport(handler),
+        )
+        client.create(job_id="t", buyer="0xB", provider="0xP", amount_units=100, lock_tx={"type": "ESCROW_LOCK"})
+        client.release("t", amount_units=100)
+        client.refund("t", reason="r")
+        by_path = dict(headers_seen)
+        assert by_path["/rpc/escrow/create"] is None
+        assert by_path["/rpc/escrow/t/release"] == "settle-key"
+        assert by_path["/rpc/escrow/t/refund"] == "settle-key"
+
     def test_release_refund_paths_and_amount(self):
         calls = []
 

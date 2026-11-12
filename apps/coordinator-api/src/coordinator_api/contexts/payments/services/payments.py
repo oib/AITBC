@@ -411,6 +411,11 @@ class PaymentService:
         self.exchange_base_url = "http://127.0.0.1:8106"
         self.blockchain_rpc_url = settings.blockchain_rpc_url.rstrip("/")
         self.blockchain_rpc_api_key = settings.blockchain_rpc_api_key
+        self.blockchain_rpc_settlement_api_key = settings.blockchain_rpc_settlement_api_key
+
+    def _settlement_headers(self) -> dict[str, str]:
+        """X-Settlement-Key for the chain's escrow release/refund routes (#1917)."""
+        return {"X-Settlement-Key": self.blockchain_rpc_settlement_api_key} if self.blockchain_rpc_settlement_api_key else {}
 
     def _require_owned_job(self, job_id: str, client_id: str) -> Job:
         """Fetch a job and verify it belongs to the requesting client."""
@@ -1637,6 +1642,7 @@ class PaymentService:
             release_data = await client.post(
                 f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/release",
                 json=release_body,
+                headers=self._settlement_headers(),
             )
             # The RPC reports success only once the ESCROW_RELEASE transaction is
             # accepted on-chain. Leave the payment escrowed otherwise, so it can be
@@ -1974,6 +1980,7 @@ class PaymentService:
             refund_data = await client.post(
                 f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/refund",
                 json={"reason": reason},
+                headers=self._settlement_headers(),
             )
             if not refund_data or not refund_data.get("success"):
                 logger.error("Blockchain escrow refund failed for %s: %s", job_id, refund_data)

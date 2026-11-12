@@ -9,6 +9,7 @@ internal services.
 from __future__ import annotations
 
 import json
+import re
 from typing import Any, cast
 
 import click
@@ -162,8 +163,37 @@ def _send(client: AITBCHTTPClient, method: str, path: str, query_params, request
     return client.delete(path, params=query_params, idempotency_key=idempotency_key)
 
 
+# Chain escrow settlement routes additionally require the settlement
+# node's dedicated credential (X-Settlement-Key, #1917) on top of the
+# shared RPC key. ``aitbc http call --auth rpc`` attaches it automatically
+# for exactly those paths when the CLI config carries it.
+_ESCROW_SETTLEMENT_PATH_RE = re.compile(r"^(?:rpc/)?escrow/[^/]+/(?:release|refund)/?$")
+
+
+def _resolve_settlement_key() -> str | None:
+    """The configured escrow settlement credential, or None.
+
+    Same failure contract as ``_resolve_auth_key``: an unreadable/broken
+    config must not block the call — the chain then refuses the settlement
+    routes, which is the intended fail-closed behaviour.
+    """
+    import yaml
+
+    try:
+        return get_config().blockchain_rpc_settlement_api_key or None
+    except (OSError, ValueError, yaml.YAMLError):
+        return None
+
+
 def _auth_client(
-    *, base_url: str, timeout: int, url: str | None, api_key: str | None, resolved_key: str | None, auth_kind: str
+    *,
+    base_url: str,
+    timeout: int,
+    url: str | None,
+    api_key: str | None,
+    resolved_key: str | None,
+    auth_kind: str,
+    path: str = "",
 ):
     """Build the HTTP client with the right credential.
 
@@ -190,10 +220,24 @@ def _auth_client(
             timeout=timeout,
             headers={"X-Trading-Api-Key": trading_token},
         )
+    kwargs = {} if suppress_stored else auth_client_kwargs(api_key, resolved_key)
+    headers = dict(kwargs.pop("headers", {}) or {})
+    # The settlement credential is stored config like the RPC key: it only
+    # rides to the configured service base, never to a --url retarget —
+    # an explicit --api-key does not authorize leaking it either.
+    if (
+        auth_kind == "rpc"
+        and not url
+        and _ESCROW_SETTLEMENT_PATH_RE.match(path.strip("/"))
+        and (settlement_key := _resolve_settlement_key())
+    ):
+        headers["X-Settlement-Key"] = settlement_key
+    if headers:
+        kwargs["headers"] = headers
     return AITBCHTTPClient(
         base_url=base_url,
         timeout=timeout,
-        **({} if suppress_stored else auth_client_kwargs(api_key, resolved_key)),
+        **kwargs,
     )
 
 
@@ -293,6 +337,7 @@ def call_http(
         api_key=api_key,
         resolved_key=resolved_key,
         auth_kind=auth_kind,
+        path=path,
     )
     try:
         result = _send(client, method, path, query_params, request_body, idempotency_key)

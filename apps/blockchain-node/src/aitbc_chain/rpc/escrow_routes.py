@@ -54,6 +54,20 @@ _AUTO_STAKE_RETIRED_LOGGED = False
 _FALLBACK_MAX_RATE_AGE_SECONDS = DEFAULT_MAX_RATE_AGE_SECONDS
 _RPC_API_KEY = os.getenv("BLOCKCHAIN_RPC_API_KEY", "")
 _api_key_header: APIKeyHeader = APIKeyHeader(name="X-API-Key", auto_error=False)
+# Settlement-node credential (#1917): release/refund move money, so they
+# require a dedicated key in addition to the router-wide X-API-Key. Until
+# now any holder of the shared BLOCKCHAIN_RPC_API_KEY — including every
+# issued join key's parent credential — could settle any escrow. The
+# settlement key is a second header (X-Settlement-Key) so the base RPC key
+# check is untouched; unset means the routes refuse (fail-closed, same
+# contract as verify_rpc_api_key).
+_RPC_SETTLEMENT_API_KEY = os.getenv("BLOCKCHAIN_RPC_SETTLEMENT_API_KEY", "")
+if not _RPC_SETTLEMENT_API_KEY:
+    _logger.warning(
+        "BLOCKCHAIN_RPC_SETTLEMENT_API_KEY is not set; escrow release/refund endpoints will "
+        "refuse all requests until it is configured"
+    )
+_settlement_key_header = APIKeyHeader(name="X-Settlement-Key", auto_error=False)
 _RPC_API_PEER_KEYS = frozenset(k.strip() for k in os.getenv("BLOCKCHAIN_RPC_API_KEY_PEERS", "").split(",") if k.strip())
 _GENESIS_WALLET_PRIVATE_KEY = os.getenv("GENESIS_WALLET_PRIVATE_KEY", "")
 _ESCROW_RELEASE_PRIVATE_KEY = os.getenv("ESCROW_RELEASE_PRIVATE_KEY", "")
@@ -99,6 +113,7 @@ from .escrow_routes_helpers import (
     verify_rpc_api_key as verify_rpc_api_key,
     verify_rpc_export_key as verify_rpc_export_key,
     verify_rpc_peer_key as verify_rpc_peer_key,
+    verify_rpc_settlement_key as verify_rpc_settlement_key,
 )
 from .escrow_routes_lock import (
     _assert_lock_matches_contract as _assert_lock_matches_contract,
@@ -596,7 +611,11 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-@router.post("/escrow/{job_id}/release", summary="Release escrow to provider")
+@router.post(
+    "/escrow/{job_id}/release",
+    summary="Release escrow to provider",
+    dependencies=[Depends(verify_rpc_settlement_key)],
+)
 async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]:
     """Release locked funds to the provider after job completion.
     Accepts optional job_tx_hash as proof of work reference."""
@@ -667,7 +686,11 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         raise _escrow_busy(job_id) from None
 
 
-@router.post("/escrow/{job_id}/refund", summary="Refund escrow to buyer")
+@router.post(
+    "/escrow/{job_id}/refund",
+    summary="Refund escrow to buyer",
+    dependencies=[Depends(verify_rpc_settlement_key)],
+)
 async def refund_escrow(job_id: str, body: dict[str, Any] | None = None) -> dict[str, Any]:
     """Refund locked funds back to the buyer."""
     mgr = get_escrow_manager()

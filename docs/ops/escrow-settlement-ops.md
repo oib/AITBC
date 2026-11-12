@@ -71,7 +71,13 @@ holds for every 425 the node returns). On 425 it returns `None` and
 ### 1.3 Release and refund routes
 
 `POST /rpc/escrow/{job_id}/release` and `/refund`
-(`escrow_routes.py`) — each runs the 425 gate, then the **v2-era guard**
+(`escrow_routes.py`) — each requires **both** auth headers (#1917):
+`X-API-Key` (`BLOCKCHAIN_RPC_API_KEY`, router-level) **and**
+`X-Settlement-Key` (`BLOCKCHAIN_RPC_SETTLEMENT_API_KEY`, route-level;
+unset ⇒ 503, wrong/missing ⇒ 403). Only a settlement node — and the
+coordinator/CLI/MCP callers configured with the same settlement value —
+can invoke them; see `docs/ops/escrow-relays.md` §"Chain-side auth". Each
+then runs the 425 gate, then the **v2-era guard**
 (`_refuse_v2_lock`, see §1.4), then the idempotency lookups
 (`_find_existing_release`/`_find_existing_refund`: a sealed settlement for
 the same `job_id` returns that tx instead of re-paying), then signs the

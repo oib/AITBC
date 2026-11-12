@@ -5,7 +5,10 @@ inside the coordinator's network position, mirroring
 :mod:`escrow_release_relay`. The chain route
 ``POST /rpc/escrow/{job_id}/refund`` carries no caller signature — the
 node signs the refund with its own settlement key and pays only the
-escrow's recorded buyer — so the JWT boundary here is what keeps refund
+escrow's recorded buyer — and since #1917 it additionally requires the
+settlement credential as ``X-Settlement-Key`` on top of ``X-API-Key``;
+this service forwards ``blockchain_rpc_settlement_api_key`` as that
+header. The JWT boundary here is what keeps refund
 authority scoped: the escrow's on-chain ``buyer`` must equal the wallet
 bound to the JWT subject (admin exempt).
 
@@ -111,6 +114,7 @@ class EscrowRefundRelayService(EscrowRelayService):
             return await client.post(
                 f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/refund",
                 json=forward,
+                headers=self._settlement_headers(),
             )
         except Exception as exc:
             code, detail = _chain_detail(exc, "the node refused the escrow refund")
