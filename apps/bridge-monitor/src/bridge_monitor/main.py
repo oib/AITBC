@@ -23,6 +23,7 @@ from .storage import (
     get_cursor,
     get_deposit,
     get_deposits_for_retry,
+    get_stranded_deposits,
     get_submitted_deposits,
     depositor_tx_hashes,
     init_db,
@@ -33,6 +34,7 @@ from .storage import (
     try_admin_lock,
     update_deposit,
     valid_ait_recipient,
+    WALLET_LIFECYCLE_STATUSES,
 )
 
 configure_logging(level="INFO", service_name="bridge-monitor", to_file=True)
@@ -93,6 +95,12 @@ class BridgeMonitor:
         # older than this — the legitimate PENDING window inside one admin
         # command is sub-second, so 15min is generous.
         self.manual_orphan_seconds = 900
+        # Stranded-row detector (#1919): a non-terminal row no worklist
+        # owns (wallet-vocabulary 'verified', a crashed 'pending', an
+        # unrecognized status) is invisible to the retry queue, the seal
+        # sweep and the block scan — funds received, never paid, no alert.
+        # Rows younger than this horizon are still plausibly mid-flow.
+        self.stranded_deposit_hours = int(os.getenv("BRIDGE_STRANDED_DEPOSIT_HOURS", "24"))
         # Float alerts used to fire on every poll while a condition held — a
         # low float is persistent, so the fleet check counted dozens of
         # identical ALERT lines. Emit at most once per interval per
@@ -366,6 +374,20 @@ class BridgeMonitor:
                 # sweep owns it. Re-signing here would risk a double payout
                 # if the original lands.
                 logger.info("Deposit %s already has a submitted payout, skipping", tx_hash)
+                return
+            if status in WALLET_LIFECYCLE_STATUSES:
+                # Wallet-side lifecycle state (#1919): 'verified' means the
+                # wallet auto-mint verify CAS already won — its TRANSFER may
+                # be in flight or may already have landed, so paying here
+                # would double-mint; 'rejected' is the wallet's
+                # operator-terminal state. Neither is retryable monitor-side
+                # (_mark_for_retry's CAS cannot land anyway); the stranded
+                # detector alerts if one outlives its horizon.
+                logger.info(
+                    "Deposit %s in wallet-owned status %s — not a monitor payout; leaving for operator/stranded alert",
+                    tx_hash,
+                    status,
+                )
                 return
             # PROCESSING / PENDING_RETRY with no envelope — crash before the
             # first signed submit. Retry is safe: nothing was broadcast.
@@ -1314,6 +1336,41 @@ class BridgeMonitor:
         except Exception as e:  # noqa: BLE001 - queue health-check containment
             logger.warning("queue health check failed: %s", e)
 
+    def _check_stranded_deposits(self) -> None:
+        """Alert on non-terminal rows older than the horizon that no
+        worklist will pick up (#1919 ETH-DEPOSITS-VOCAB-1).
+
+        The block scan never revisits old txs, the retry queue reads only
+        ``pending_retry`` and the seal sweep only ``submitted`` — so a row
+        flipped to a wallet-vocabulary state (``verified`` by the wallet
+        admin route), left in ``pending``/``processing`` by a crash, or
+        carrying an unrecognized status is invisible to all of them:
+        funds received, never paid, and silent on both sides. Throttled
+        per row like the other #1706 alerts; a row's key clears once it
+        reaches a terminal or worklist-owned status.
+        """
+        from datetime import UTC, datetime, timedelta
+
+        try:
+            cutoff = (datetime.now(UTC) - timedelta(hours=self.stranded_deposit_hours)).isoformat()
+            stranded = get_stranded_deposits(cutoff)
+            seen = {d["eth_tx_hash"] for d in stranded}
+            for d in stranded:
+                tx_hash = d["eth_tx_hash"]
+                self._float_alert(
+                    f"stranded:{tx_hash}",
+                    f"ALERT: deposit {tx_hash} stranded in status '{d.get('status')}' "
+                    f"(created {d.get('created_at')}) — older than {self.stranded_deposit_hours}h and "
+                    "no worklist owns it; resolve deliberately (admin.py write-off / manual-payout, "
+                    "or the wallet-side mint/complete flow). Do NOT pay it automatically — a "
+                    "'verified' row's wallet-side TRANSFER may already have landed",
+                )
+            for key in [k for k in self._float_alert_last if k.startswith("stranded:")]:
+                if key.removeprefix("stranded:") not in seen:
+                    self._float_alert_last.pop(key, None)
+        except Exception as e:  # noqa: BLE001 - stranded-check containment
+            logger.warning("stranded deposit check failed: %s", e)
+
     def _payout_wallet_balance(self) -> int | None:
         """Payout account balance in units from the local RPC."""
         try:
@@ -1648,6 +1705,7 @@ class BridgeMonitor:
                     self.process_submitted_deposits()
                     self._fail_orphaned_manual_payouts()
                     self._check_queue_health()
+                    self._check_stranded_deposits()
                 except Exception as e:  # noqa: BLE001 - monitor service-loop containment
                     logger.error("Error in polling loop: %s", e)
                 elapsed = time.monotonic() - started

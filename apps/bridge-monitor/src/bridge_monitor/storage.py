@@ -75,6 +75,66 @@ class BridgeDepositStatus(StrEnum):
     EXCHANGE_PREPAY = "exchange_prepay"
 
 
+# eth_deposits status vocabulary map (#1919 ETH-DEPOSITS-VOCAB-1) — this
+# table is shared with wallet_app.bridge.bridge_db, whose
+# _ETH_DEPOSIT_STATUSES vocabulary is
+# {pending, verified, completed, exchange_prepay, rejected, failed}.
+# The two vocabularies overlap only partially:
+#   shared:        pending, completed, failed, exchange_prepay
+#   monitor-only:  processing, pending_retry, submitted, written_off, funding
+#   wallet-only:   verified, rejected
+# 'verified' means the wallet auto-mint verify CAS already won — its
+# TRANSFER may be in flight or may already have landed, so the monitor
+# must NEVER pay or retry these rows (double-mint). 'rejected' is the
+# wallet's operator-terminal state. Neither belongs to a monitor
+# worklist; the stranded-row detector below is the visibility net.
+#
+# Terminal for every worklist — settled, or deliberately unresolved
+# (includes the wallet side's 'rejected').
+DEPOSIT_TERMINAL_STATUSES: frozenset[str] = frozenset(
+    {
+        BridgeDepositStatus.COMPLETED.value,
+        BridgeDepositStatus.FAILED.value,
+        BridgeDepositStatus.WRITTEN_OFF.value,
+        BridgeDepositStatus.FUNDING.value,
+        BridgeDepositStatus.EXCHANGE_PREPAY.value,
+        "rejected",
+    }
+)
+# Owned by an active monitor worklist — the retry queue reads
+# PENDING_RETRY and the seal sweep reads SUBMITTED. Old rows in these
+# statuses are covered by the queue-depth / stuck-payout alerts, not the
+# stranded detector.
+DEPOSIT_WORKLIST_STATUSES: frozenset[str] = frozenset(
+    {
+        BridgeDepositStatus.PENDING_RETRY.value,
+        BridgeDepositStatus.SUBMITTED.value,
+    }
+)
+# Wallet-side lifecycle states: outside BridgeDepositStatus entirely.
+# 'verified' is a mint-in-flight intermediate (possibly already paid
+# wallet-side); 'rejected' is operator-terminal. The monitor treats both
+# as foreign-owned — never pays, never retries — and the stranded
+# detector alerts when one outlives its horizon.
+WALLET_LIFECYCLE_STATUSES: frozenset[str] = frozenset({"verified", "rejected"})
+
+
+def _coerce_deposit_status(status: object) -> BridgeDepositStatus:
+    """Normalize a status write to the enum (#1919).
+
+    Accepts a BridgeDepositStatus member or its ``.value`` string;
+    rejects anything outside the monitor vocabulary — including the
+    wallet-side states 'verified'/'rejected', which would park the row
+    outside every worklist with no owner. Lookup is by value, not
+    isinstance, so a member of a reloaded module generation still
+    coerces (StrEnum members compare as their value string).
+    """
+    try:
+        return BridgeDepositStatus(status)  # type: ignore[arg-type]
+    except (ValueError, TypeError):
+        raise ValueError(f"monitor writes only BridgeDepositStatus values, got {status!r}") from None
+
+
 def valid_ait_recipient(addr: object) -> bool:
     """True when the value is a syntactically valid AIT recipient address."""
     return (
@@ -269,8 +329,12 @@ def create_deposit(
     ``eth_tx_hash`` is stored canonicalized — both deposit writers (this
     monitor's unprefixed ``tx.hash.hex()`` and the wallet-side monitor's
     ``0x``-prefixed RPC hash) must land on one key or the UNIQUE dedupe
-    lets the same deposit pay twice (issue #668).
+    lets the same deposit pay twice (issue #668). ``status`` must be a
+    BridgeDepositStatus — the monitor never writes wallet-vocabulary
+    states ('verified', 'rejected'); a stray string would park the row
+    outside every worklist with no owner (#1919).
     """
+    status = _coerce_deposit_status(status)
     eth_tx_hash = canon_tx_hash(eth_tx_hash)
     deposit_id = f"deposit_{uuid.uuid4().hex[:8]}"
     with closing(_db_connection()) as conn:
@@ -343,6 +407,12 @@ def update_deposit(
     """
     if status == BridgeDepositStatus.WRITTEN_OFF and not error_message:
         raise ValueError("WRITTEN_OFF requires a written reason (error_message)")
+    if status is not None:
+        # #1919: wallet-vocabulary states ('verified', 'rejected') are not
+        # monitor writes — a stray string must fail loudly here, not land
+        # a row no worklist owns. Coerce by value so a valid .value string
+        # and a reloaded-generation member both normalize to the enum.
+        status = _coerce_deposit_status(status)
     for f in clear_fields or []:
         if f not in _CLEARABLE_COLUMNS:
             raise ValueError(f"cannot clear unknown field {f!r}")
@@ -535,6 +605,36 @@ def get_submitted_deposits() -> list[dict[str, Any]]:
         cursor.execute(
             f"{_DEPOSIT_SELECT} WHERE status = ? ORDER BY created_at ASC",
             (BridgeDepositStatus.SUBMITTED.value,),
+        )
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_stranded_deposits(cutoff_iso: str) -> list[dict[str, Any]]:
+    """Non-terminal rows older than ``cutoff_iso`` that no worklist owns (#1919).
+
+    The block scan never revisits old txs, the retry queue reads only
+    ``pending_retry`` and the seal sweep only ``submitted`` — so a row
+    left in ``pending``/``processing`` by a crash, flipped to a
+    wallet-vocabulary state (``verified`` by the wallet admin route), or
+    carrying an unrecognized status is invisible to every scan: funds
+    received, payout owed or deliberately unresolved, and no alert.
+    Terminal statuses and worklist-owned statuses are excluded — the
+    latter have their own health alerts. Resolution is always an operator
+    decision (write-off / manual-payout / wallet-side completion), never
+    an automatic pay: a ``verified`` row's wallet-side TRANSFER may
+    already have landed.
+    """
+    excluded = sorted(DEPOSIT_TERMINAL_STATUSES | DEPOSIT_WORKLIST_STATUSES)
+    placeholders = ", ".join("?" for _ in excluded)
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            # excluded values are hardcoded literals bound as parameters;
+            # identifiers come from the fixed _DEPOSIT_SELECT projection.
+            f"{_DEPOSIT_SELECT} WHERE (created_at IS NULL OR created_at < ?) "  # nosec
+            f"AND status NOT IN ({placeholders}) ORDER BY created_at ASC",
+            (cutoff_iso, *excluded),
         )
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
