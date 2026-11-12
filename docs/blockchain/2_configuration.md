@@ -43,9 +43,9 @@ ISLAND_ID=<uuid>                          # island identifier
 ## RPC and P2P
 
 ```bash
-RPC_BIND_HOST=0.0.0.0
+RPC_BIND_HOST=127.0.0.1     # loopback default (#1871); widen via env only for deliberate direct exposure
 RPC_BIND_PORT=8202          # blockchain RPC API (also serves /metrics, /health)
-P2P_BIND_HOST=0.0.0.0
+P2P_BIND_HOST=127.0.0.1     # gossip relay is hub-internal; widen only if a mesh peer must dial in
 P2P_BIND_PORT=8200          # code default; the hub gossip relay binds 7070  # check-ports: ignore
 ```
 
