@@ -288,8 +288,8 @@ async def _scan_order_locks(cfg: ExchangeCfg, head: int | None) -> dict[str, int
         recipient = tx.get("recipient") or tx.get("to") or ""
         if recipient.lower() != cfg.escrow.escrow_address.lower():
             continue
-        if tx.get("block_height") is None:
-            continue
+        if not wdm.tx_sealed_confirmed(tx):
+            continue  # not sealed, or sealed-but-failed — no value moved (#1916)
         payload = tx.get("payload") or {}
         order_id = _exchange_order_id(payload.get("sell_quote"))
         if order_id is None:
@@ -1071,7 +1071,7 @@ async def _find_escrow_outflow(cfg: ExchangeCfg, nonce: int, to_address: str, am
     foreign transaction at the same nonce can never be credited here."""
     txs = await sellmon._fetch_transfers(cfg.escrow.escrow_address)
     for tx in txs:
-        if tx.get("block_height") is None:
+        if not wdm.tx_sealed_confirmed(tx):
             continue
         sender = (tx.get("sender") or tx.get("from") or "").lower()
         if sender != cfg.escrow.escrow_address.lower():

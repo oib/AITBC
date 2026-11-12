@@ -578,6 +578,14 @@ async def _record_rejected_withdrawal(
         await _refund_withdrawal(ait_tx_hash, sender, gross_ait, reason)
 
 
+def tx_sealed_confirmed(tx: dict[str, Any]) -> bool:
+    """#1916: sealed-for-money-movement means ``status == 'confirmed'`` AND a
+    ``block_height``. ``sync_block_import`` stores apply-failed txs as
+    ``status='failed'`` WITH a block_height — height alone is not proof the
+    AIT leg applied, and a failed leg must never release real value."""
+    return tx.get("block_height") is not None and (tx.get("status") or "") == "confirmed"
+
+
 async def _fetch_withdraw_tx(ait_tx_hash: str) -> dict[str, Any] | None:
     """Canonical view of a BRIDGE_WITHDRAW tx, or None if the chain no longer seals it."""
     async with httpx.AsyncClient(timeout=10.0) as client:
@@ -611,6 +619,28 @@ async def _process_withdrawal(tx: dict[str, Any], head_height: int) -> str:
     block_height = tx.get("block_height")
     block_hash = tx.get("block_hash")
     gross_ait = units_to_ait(value)
+
+    # #1916: a failed-sealed tx carries block_height but moved no AIT — it is
+    # not a withdrawal at all. This check MUST precede every
+    # _record_rejected_withdrawal call below: those refund the sender, and a
+    # failed leg has no burned AIT to refund — paying it out would mint
+    # unbacked value. Ledger it 'orphaned' (terminal, no refund).
+    if (tx.get("status") or "") != "confirmed":
+        insert_withdrawal(
+            ait_tx_hash=ait_tx_hash,
+            from_address=sender,
+            eth_address=canonical_address(eth_address) if _is_valid_eth_address(eth_address) else eth_address,
+            amount_ait=gross_ait,
+            fee_ait=Decimal("0"),
+            net_ait=gross_ait,
+            amount_eth=Decimal("0"),
+            status="orphaned",
+            error=f"AIT leg sealed with status {tx.get('status')!r} — no value moved, nothing owed",
+            ait_block_height=int(block_height) if block_height is not None else None,
+            ait_block_hash=block_hash,
+        )
+        logger.error("Withdrawal %s orphaned: AIT leg status %r — no ETH sent, no refund", ait_tx_hash, tx.get("status"))
+        return "orphaned"
 
     if not _is_valid_eth_address(eth_address):
         await _record_rejected_withdrawal(
@@ -667,6 +697,24 @@ async def _process_withdrawal(tx: dict[str, Any], head_height: int) -> str:
         )
         logger.error("Withdrawal %s orphaned before release — no ETH sent, no refund needed", ait_tx_hash)
         return "orphaned"
+    if (canonical.get("status") or "") != "confirmed":
+        # #1916: the canonical row says the AIT leg failed — height alone is
+        # not proof value moved. Orphan, never release, never refund.
+        insert_withdrawal(
+            ait_tx_hash=ait_tx_hash,
+            from_address=sender,
+            eth_address=canonical_address(eth_address),
+            amount_ait=gross_ait,
+            fee_ait=Decimal("0"),
+            net_ait=gross_ait,
+            amount_eth=Decimal("0"),
+            status="orphaned",
+            error=f"canonical AIT leg status {canonical.get('status')!r} — the burn never applied",
+            ait_block_height=block_height,
+            ait_block_hash=block_hash,
+        )
+        logger.error("Withdrawal %s orphaned before release — canonical status %r", ait_tx_hash, canonical.get("status"))
+        return "orphaned"
     canon_height = canonical.get("block_height")
     canon_hash = canonical.get("block_hash")
     if canon_height != block_height or (canon_hash and block_hash and canon_hash != block_hash):
@@ -693,6 +741,26 @@ async def _process_withdrawal(tx: dict[str, Any], head_height: int) -> str:
         )
         return "awaiting_depth"
 
+    return await _price_record_and_release(
+        ait_tx_hash=ait_tx_hash,
+        sender=sender,
+        eth_address=eth_address,
+        gross_ait=gross_ait,
+        block_height=block_height,
+        block_hash=block_hash,
+    )
+
+
+async def _price_record_and_release(
+    *,
+    ait_tx_hash: str,
+    sender: str,
+    eth_address: str,
+    gross_ait: Decimal,
+    block_height: Any,
+    block_hash: str | None,
+) -> str:
+    """Price the confirmed withdrawal, ledger it pending, release the ETH leg."""
     estimate = await calculate_eth_amount(gross_ait)
     if not estimate:
         logger.error("Failed to calculate ETH amount for withdrawal %s", ait_tx_hash)
@@ -1050,6 +1118,16 @@ async def _drain_awaiting_depth(head_height: int) -> dict[str, int]:
                 )
                 drained["orphaned"] += 1
                 logger.error("Withdrawal %s orphaned — its block left the canonical chain", ait_tx_hash)
+                continue
+            if (canonical.get("status") or "") != "confirmed":
+                # #1916: failed-sealed canonical leg — the burn never applied.
+                update_withdrawal_status(
+                    ait_tx_hash,
+                    "orphaned",
+                    error=f"canonical AIT leg status {canonical.get('status')!r} — the burn never applied",
+                )
+                drained["orphaned"] += 1
+                logger.error("Withdrawal %s orphaned — canonical status %r", ait_tx_hash, canonical.get("status"))
                 continue
             canon_height = canonical.get("block_height")
             canon_hash = canonical.get("block_hash")
