@@ -28,8 +28,14 @@ class Settings(ServiceSettings):
     # Operator-tier credential (#1893): distinct from ``api_key`` so user-facing
     # key holders cannot invoke operator actions (dispute resolution, unsigned
     # party routes). Must differ from ``api_key``; when unset the operator tier
-    # is closed (fail closed).
-    operator_api_key: str | None = None
+    # is closed (fail closed). Reads MARKET_OPERATOR_API_KEY — the name the
+    # docs, provisioning and tests use; OPERATOR_API_KEY accepted as a legacy
+    # fallback. (``api_key`` deliberately reads plain ``API_KEY``; the
+    # MARKET_API_KEY name is the user/CLI-side credential.)
+    operator_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("MARKET_OPERATOR_API_KEY", "OPERATOR_API_KEY"),
+    )
 
     # Blockchain integration
     blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
