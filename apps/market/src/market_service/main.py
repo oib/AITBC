@@ -17,6 +17,7 @@ from typing import Annotated, Any
 
 import httpx
 from fastapi import BackgroundTasks, Depends, FastAPI, Header, HTTPException, Request
+from starlette.requests import HTTPConnection
 from aitbc.middleware import setup_cors
 from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -306,26 +307,122 @@ async def get_matching_service(session: Annotated[AsyncSession, Depends(get_sess
     return MatchingService(session)
 
 
-require_market_api_key = APIKeyAuthenticator(
+_market_user_key_auth = APIKeyAuthenticator(
     expected_key=settings.api_key,
     auth_enabled=settings.auth_enabled,
     success_role="market_admin",
 )
+_market_operator_key_auth = APIKeyAuthenticator(
+    expected_key=settings.operator_api_key,
+    auth_enabled=settings.auth_enabled,
+    success_role="market_operator",
+)
+
+
+async def require_market_api_key(request: HTTPConnection) -> dict[str, Any]:
+    """Accept the user-tier key or the operator-tier key (#1893).
+
+    ``MARKET_API_KEY`` is distributed to users (CLI ``market`` commands), so
+    holding it must not confer operator powers. ``MARKET_OPERATOR_API_KEY``
+    is the service/tooling credential; ``_is_operator`` tells the tiers
+    apart by which key was presented.
+    """
+    try:
+        return await _market_user_key_auth(request)
+    except HTTPException:
+        return await _market_operator_key_auth(request)
+
+
+require_market_operator_key = _market_operator_key_auth
+
+
+def _is_operator(request: Request) -> bool:
+    """True when the caller presented the operator-tier key (or auth is off).
+
+    Same header as ``require_market_api_key``; the presented value decides
+    the tier. An operator key equal to the user key would make every holder
+    an operator, so equality fails closed.
+    """
+    # Effective flag, not the setting: tests toggle the authenticators'
+    # auth_enabled per-test, and auth-disabled means the operator tier is
+    # open (same semantics as the dependency itself).
+    if not (_market_user_key_auth.auth_enabled and _market_operator_key_auth.auth_enabled):
+        return True
+    expected = _market_operator_key_auth.expected_key
+    if not expected or expected == _market_user_key_auth.expected_key:
+        return False
+    presented = request.headers.get("X-Api-Key")
+    return bool(presented) and hmac.compare_digest(str(presented), str(expected))
 
 
 def _is_market_admin(request: Request) -> bool:
-    """True when the caller carries the service API key (or auth is disabled).
+    """True when the caller carries either service key (or auth is disabled).
 
     Same semantics as ``require_market_api_key`` but non-raising, for routes
     that stay public and only upgrade the response for an admin caller.
     """
     if not settings.auth_enabled:
         return True
-    expected = settings.api_key
-    if not expected:
-        return False
     presented = request.headers.get("X-Api-Key")
-    return bool(presented) and hmac.compare_digest(str(presented), str(expected))
+    if not presented:
+        return False
+    return any(
+        expected and hmac.compare_digest(str(presented), str(expected))
+        for expected in (settings.api_key, settings.operator_api_key)
+    )
+
+
+async def _party_or_operator_gate(
+    request: Request,
+    data: dict[str, Any],
+    route: str,
+    allowed_addresses: set[str],
+    *,
+    action: str,
+) -> JSONResponse | None:
+    """#1893: object-scoped mutations need a wallet signature naming an
+    allowed party — or the operator credential. The user-tier API key alone
+    is not sufficient: it is distributed to CLI users, so an unsigned
+    request must not act as an arbitrary buyer/provider/offer owner.
+    Returns a ready error response, or None when the request may proceed.
+    """
+    if _is_operator(request):
+        return None
+    if not any(
+        (
+            data.get("signer_address"),
+            data.get("chain_id"),
+            data.get("issued_at") is not None,
+            data.get("signature"),
+        )
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={"error": f"{action} requires a party signature or the operator credential"},
+        )
+    error, signer = verify_jobs_request_signature(
+        signer_address=data.get("signer_address"),
+        chain_id=data.get("chain_id"),
+        issued_at=data.get("issued_at"),
+        route=route,
+        signature=data.get("signature"),
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+    )
+    if error or not signer:
+        return JSONResponse(status_code=403, content={"error": error or f"invalid {action} signature"})
+    if canonical_address(signer) not in allowed_addresses:
+        return JSONResponse(status_code=403, content={"error": "signer is not a party to this object"})
+    return None
+
+
+def _canonical_or_none(raw: Any) -> str | None:
+    """Canonicalize an address-like field, or None when it is not one."""
+    if not raw:
+        return None
+    try:
+        return canonical_address(str(raw))
+    except (TypeError, ValueError):
+        return None
 
 
 def _signed_jobs_request(
@@ -381,16 +478,19 @@ async def _job_party_signature_gate(
     job_id: str,
     data: dict[str, Any],
     route: str,
+    request: Request,
     *,
     action: str,
 ) -> JSONResponse | None:
     """#1784: settlement-route signature gate, same rule as cancel (#1634).
 
-    When any signature field is presented the wallet proof must verify AND
-    recover to a job party (buyer or provider); the unsigned API-key path
-    stays for the operator tier (sweeper, admin tooling). Returns a ready
-    error response, or None when the request may proceed — a rejected
-    signature never reaches the service, so escrow state is untouched.
+    #1893: the market API key is user-distributed, so an *unsigned* request
+    must present the operator credential — otherwise any key holder could
+    act as an arbitrary job party. When signature fields are presented the
+    wallet proof must verify AND recover to a job party (buyer or
+    provider). Returns a ready error response, or None when the request
+    may proceed — a rejected signature never reaches the service, so
+    escrow state is untouched.
     """
     if not any(
         (
@@ -400,7 +500,12 @@ async def _job_party_signature_gate(
             data.get("signature"),
         )
     ):
-        return None
+        if _is_operator(request):
+            return None
+        return JSONResponse(
+            status_code=403,
+            content={"error": f"{action} requires a job-party signature or the operator credential"},
+        )
     job = await svc.get_market_job(job_id)
     if not job:
         return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
@@ -505,6 +610,20 @@ async def book_offer(
         return early
     try:
         logger.info("POST /v1/market/offers/%s/book called with data keys: %s", offer_id, booking_data.keys())
+        # #1893: booking creates a bid + escrow naming the buyer — the buyer
+        # wallet in the body is self-asserted, so it must be proven by a
+        # signature (or the operator credential) before any offer state is
+        # touched or escrow is created.
+        buyer_canonical = _canonical_or_none(booking_data.get("wallet") or booking_data.get("buyer"))
+        book_gate = await _party_or_operator_gate(
+            request,
+            booking_data,
+            f"/v1/market/offers/{offer_id}/book",
+            {buyer_canonical} if buyer_canonical else set(),
+            action="book",
+        )
+        if book_gate is not None:
+            return await _reject_operation(key, attempt, book_gate)
         # `svc.book_offer` signals both "no such offer" and "offer is not available" by
         # raising ValueError, and this handler re-raised both into a 500 -- so booking a
         # typo'd offer id looked like the service had fallen over (V23-81). Checked here in
@@ -771,6 +890,7 @@ async def cancel_offer(
     # only reachable by a caller who happened to send `?reason=`, which is why this endpoint
     # looked merely awkward rather than broken. The body already defaults it (V23-83).
     reason: str | None = None,
+    cancel_data: dict[str, Any] | None = None,
 ) -> Any:
     """Cancel offer (migrated from Coordinator API)"""
     logger.info("POST /v1/market/offers/%s/cancel called", offer_id)
@@ -805,6 +925,18 @@ async def cancel_offer(
             attempt,
             JSONResponse(status_code=400, content={"error": f"Offer cannot be cancelled while it is {offer.status}"}),
         )
+    # #1893: only the offer's provider (or the operator credential) may
+    # cancel it — the user-tier API key alone is not sufficient.
+    provider_canonical = _canonical_or_none(getattr(offer, "provider", None))
+    offer_gate = await _party_or_operator_gate(
+        request,
+        cancel_data or {},
+        f"/v1/market/offers/{offer_id}/cancel",
+        {provider_canonical} if provider_canonical else set(),
+        action="offer cancel",
+    )
+    if offer_gate is not None:
+        return await _reject_operation(key, attempt, offer_gate)
     try:
         await svc.update_offer_status(offer_id, "cancelled")
     except ValueError:
@@ -1232,6 +1364,7 @@ async def get_market_job(
 @app.post("/v1/market/jobs/{job_id}/cancel", dependencies=[Depends(require_market_api_key)])
 async def cancel_market_job(
     job_id: str,
+    request: Request,
     svc: Annotated[MarketService, Depends(get_market_service)],
     cancel_data: dict[str, Any] | None = None,
 ) -> Any:
@@ -1239,35 +1372,14 @@ async def cancel_market_job(
     try:
         cancel_data = cancel_data or {}
         logger.info("POST /v1/market/jobs/%s/cancel called", job_id)
-        # #1634: a cancel flips the job to CANCELED and queues a refund, so a
-        # supplied wallet signature must verify AND belong to a job party —
-        # a bad or foreign signature is a 403, never silently ignored. The
-        # unsigned API-key path stays for the operator tier (the sweeper and
-        # CLI flows that hold no party key), matching the pin-confirm
-        # precedent: proofs are checked when presented.
-        if any(
-            (
-                cancel_data.get("signer_address"),
-                cancel_data.get("chain_id"),
-                cancel_data.get("issued_at") is not None,
-                cancel_data.get("signature"),
-            )
-        ):
-            job = await svc.get_market_job(job_id)
-            if not job:
-                return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
-            error, signer = verify_jobs_request_signature(
-                signer_address=cancel_data.get("signer_address"),
-                chain_id=cancel_data.get("chain_id"),
-                issued_at=cancel_data.get("issued_at"),
-                route=f"/v1/market/jobs/{job_id}/cancel",
-                signature=cancel_data.get("signature"),
-                expected_chain_id=settings.default_chain_id or resolve_chain_id(),
-            )
-            if error or not signer:
-                return JSONResponse(status_code=403, content={"error": error or "invalid cancel signature"})
-            if canonical_address(signer) not in _job_party_addresses(job):
-                return JSONResponse(status_code=403, content={"error": "signer is not a party to this job"})
+        # #1634/#1893: a cancel flips the job to CANCELED and queues a refund,
+        # so it needs a job-party wallet signature — or the operator
+        # credential for sweeper/admin flows. The shared gate enforces both.
+        gate = await _job_party_signature_gate(
+            svc, job_id, cancel_data, f"/v1/market/jobs/{job_id}/cancel", request, action="cancel"
+        )
+        if gate is not None:
+            return gate
         result = await svc.cancel_market_job(job_id, reason=cancel_data.get("reason", ""))
         return result
     except ValueError as e:
@@ -1280,41 +1392,23 @@ async def cancel_market_job(
 @app.post("/v1/market/jobs/{job_id}/dispute", dependencies=[Depends(require_market_api_key)])
 async def dispute_market_job(
     job_id: str,
+    request: Request,
     svc: Annotated[MarketService, Depends(get_market_service)],
     dispute_data: dict[str, Any] | None = None,
 ) -> Any:
     """Open a dispute freeze on a market job's escrow settlement (#1783).
 
-    A presented wallet signature must verify AND belong to a job party —
-    same rule as cancel (#1634). The unsigned API-key path stays for the
-    operator tier.
+    Same rule as cancel (#1634/#1893): a job-party wallet signature, or the
+    operator credential for sweeper/admin flows.
     """
     try:
         dispute_data = dispute_data or {}
         logger.info("POST /v1/market/jobs/%s/dispute called", job_id)
-        if any(
-            (
-                dispute_data.get("signer_address"),
-                dispute_data.get("chain_id"),
-                dispute_data.get("issued_at") is not None,
-                dispute_data.get("signature"),
-            )
-        ):
-            job = await svc.get_market_job(job_id)
-            if not job:
-                return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
-            error, signer = verify_jobs_request_signature(
-                signer_address=dispute_data.get("signer_address"),
-                chain_id=dispute_data.get("chain_id"),
-                issued_at=dispute_data.get("issued_at"),
-                route=f"/v1/market/jobs/{job_id}/dispute",
-                signature=dispute_data.get("signature"),
-                expected_chain_id=settings.default_chain_id or resolve_chain_id(),
-            )
-            if error or not signer:
-                return JSONResponse(status_code=403, content={"error": error or "invalid dispute signature"})
-            if canonical_address(signer) not in _job_party_addresses(job):
-                return JSONResponse(status_code=403, content={"error": "signer is not a party to this job"})
+        gate = await _job_party_signature_gate(
+            svc, job_id, dispute_data, f"/v1/market/jobs/{job_id}/dispute", request, action="dispute"
+        )
+        if gate is not None:
+            return gate
         result = await svc.dispute_market_job(job_id, reason=dispute_data.get("reason", ""))
         return result
     except ValueError as e:
@@ -1324,7 +1418,7 @@ async def dispute_market_job(
         raise
 
 
-@app.post("/v1/market/jobs/{job_id}/dispute/resolve", dependencies=[Depends(require_market_api_key)])
+@app.post("/v1/market/jobs/{job_id}/dispute/resolve", dependencies=[Depends(require_market_operator_key)])
 async def resolve_market_job_dispute(
     job_id: str,
     svc: Annotated[MarketService, Depends(get_market_service)],
@@ -1400,19 +1494,20 @@ async def confirm_market_job_pin(
 @app.post("/v1/market/jobs/{job_id}/release", dependencies=[Depends(require_market_api_key)])
 async def release_market_job_payment(
     job_id: str,
+    request: Request,
+    svc: Annotated[MarketService, Depends(get_market_service)],
     release_data: dict[str, Any] | None = None,
-    svc: Annotated[MarketService, Depends(get_market_service)] = None,  # type: ignore[assignment]
 ) -> Any:
     """Release the escrow payment for a market job.
 
-    A presented wallet signature must verify and belong to a job party
-    (#1784); unsigned stays the operator API-key path.
+    #1893: a job-party wallet signature, or the operator credential —
+    unsigned user-key requests are refused.
     """
     try:
         release_data = release_data or {}
         logger.info("POST /v1/market/jobs/%s/release called", job_id)
         gate = await _job_party_signature_gate(
-            svc, job_id, release_data, f"/v1/market/jobs/{job_id}/release", action="release"
+            svc, job_id, release_data, f"/v1/market/jobs/{job_id}/release", request, action="release"
         )
         if gate is not None:
             return gate
@@ -1428,14 +1523,21 @@ async def release_market_job_payment(
 @app.post("/v1/market/jobs/{job_id}/refund", dependencies=[Depends(require_market_api_key)])
 async def refund_market_job_payment(
     job_id: str,
+    request: Request,
     svc: Annotated[MarketService, Depends(get_market_service)],
     refund_data: dict[str, Any] | None = None,
 ) -> Any:
-    """Refund the escrow payment for a market job."""
+    """Refund the escrow payment for a market job.
+
+    #1893: a job-party wallet signature, or the operator credential —
+    unsigned user-key requests are refused.
+    """
     try:
         refund_data = refund_data or {}
         logger.info("POST /v1/market/jobs/%s/refund called", job_id)
-        gate = await _job_party_signature_gate(svc, job_id, refund_data, f"/v1/market/jobs/{job_id}/refund", action="refund")
+        gate = await _job_party_signature_gate(
+            svc, job_id, refund_data, f"/v1/market/jobs/{job_id}/refund", request, action="refund"
+        )
         if gate is not None:
             return gate
         result = await svc.refund_market_job_payment(job_id, reason=refund_data.get("reason", ""), refund_data=refund_data)
