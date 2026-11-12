@@ -1136,53 +1136,58 @@ async def _escrow_sweep(
     row held when this pass read it. Callers that hand in a status-patched
     row (``{**row, "status": ...}``) must pass the *ledger* status here —
     the patched value describes the intent, not the row's current state.
+
+    The whole check→nonce→sign→intent→broadcast section runs under the
+    shared ``AIT_ESCROW_SWEEP_LOCK`` so the sell lane cannot interleave a
+    colliding nonce (ESCROW-SWEEP-NONCE-RACE-1, #1920).
     """
     prior_status = expected_status or str(row["status"])
-    if _inflight_sweep():
-        logger.info("Settlement %s: escrow sweep deferred — another sweep in flight", row["id"])
-        return "deferred"
-    to_address, amount_units, exs_ref = _expected_sweep(cfg, row)
-    amount_ait = units_to_ait(amount_units)
-    nonce, balance = await sellmon._account_view(cfg.escrow.escrow_address)
-    required = amount_ait + _sweep_fee_ait()
-    if balance < required:
-        deficit = required - balance
-        await _update_with_retry(
+    async with sellmon.AIT_ESCROW_SWEEP_LOCK:
+        if _inflight_sweep():
+            logger.info("Settlement %s: escrow sweep deferred — another sweep in flight", row["id"])
+            return "deferred"
+        to_address, amount_units, exs_ref = _expected_sweep(cfg, row)
+        amount_ait = units_to_ait(amount_units)
+        nonce, balance = await sellmon._account_view(cfg.escrow.escrow_address)
+        required = amount_ait + _sweep_fee_ait()
+        if balance < required:
+            deficit = required - balance
+            await _update_with_retry(
+                str(row["id"]),
+                fee_park_status,
+                error=f"escrow fee float deficit {deficit} AIT (need {required}, have {balance})",
+                expected_statuses={prior_status},
+            )
+            return "fee_parked"
+        signed_tx = await sellmon._sign_escrow_transfer(
+            cfg.escrow, to_address, amount_ait, {"exs_ref": exs_ref, "reason": row["status"]}, nonce
+        )
+        persisted = await _update_with_retry(
             str(row["id"]),
-            fee_park_status,
-            error=f"escrow fee float deficit {deficit} AIT (need {required}, have {balance})",
+            intent_status,
+            escrow_out_nonce=nonce,
+            escrow_out_tx=json.dumps(signed_tx),
             expected_statuses={prior_status},
         )
-        return "fee_parked"
-    signed_tx = await sellmon._sign_escrow_transfer(
-        cfg.escrow, to_address, amount_ait, {"exs_ref": exs_ref, "reason": row["status"]}, nonce
-    )
-    persisted = await _update_with_retry(
-        str(row["id"]),
-        intent_status,
-        escrow_out_nonce=nonce,
-        escrow_out_tx=json.dumps(signed_tx),
-        expected_statuses={prior_status},
-    )
-    if not persisted:
-        # CAS lost (#1918): the row moved on since the snapshot — broadcasting
-        # now would send an outflow no ledger state owns.
-        logger.warning(
-            "Settlement %s: sweep intent write lost CAS (was %s) — row moved on; not broadcasting",
+        if not persisted:
+            # CAS lost (#1918): the row moved on since the snapshot — broadcasting
+            # now would send an outflow no ledger state owns.
+            logger.warning(
+                "Settlement %s: sweep intent write lost CAS (was %s) — row moved on; not broadcasting",
+                row["id"],
+                prior_status,
+            )
+            return "deferred"
+        tx_hash = await sellmon._broadcast_ait_tx(signed_tx)
+        logger.info(
+            "Settlement %s: escrow sweep broadcast (%s AIT -> %s, nonce %d, tx %s) — awaiting seal",
             row["id"],
-            prior_status,
+            amount_ait,
+            to_address,
+            nonce,
+            tx_hash,
         )
-        return "deferred"
-    tx_hash = await sellmon._broadcast_ait_tx(signed_tx)
-    logger.info(
-        "Settlement %s: escrow sweep broadcast (%s AIT -> %s, nonce %d, tx %s) — awaiting seal",
-        row["id"],
-        amount_ait,
-        to_address,
-        nonce,
-        tx_hash,
-    )
-    return "sent"
+        return "sent"
 
 
 async def _resolve_sweep(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
@@ -1265,50 +1270,53 @@ async def _handle_sealed_sweep(cfg: ExchangeCfg, row: dict[str, Any], outflow: d
         # the whole step next poll: leg2 is never broadcast unsigned.
         # Another lane may still hold an unsigned intent at the same
         # nonce — leg-2 defers in that case; the sealed leg-1 outflow is
-        # simply re-found next poll.
-        if _inflight_sweep(exclude_id=row_id):
-            logger.info("Settlement %s: fee leg deferred — another sweep in flight", row_id)
-            return
-        to2, amount2, ref2 = _expected_sweep(cfg, {**row, "settle_ait_tx_hash": sealed_hash})
-        if amount2 <= 0:
-            # EXCHANGE_FEE_PCT=0 or a fee under one chain unit — sending
-            # leg 2 would be a zero-value transfer; leg 1 alone settles.
-            await _set_status_and_mirror(cfg, row, "settled", settle_ait_tx_hash=sealed_hash, expected_statuses={status})
-            logger.info("Settlement %s: leg 1 sealed, no fee owed — settled", row_id)
-            return
-        nonce2, balance = await sellmon._account_view(cfg.escrow.escrow_address)
-        leg2_ait = units_to_ait(amount2)
-        if balance < leg2_ait + _sweep_fee_ait():
-            await _update_with_retry(
+        # simply re-found next poll. The whole check→nonce→sign→intent→
+        # broadcast section runs under the shared AIT_ESCROW_SWEEP_LOCK
+        # so the sell lane cannot interleave a colliding nonce (#1920).
+        async with sellmon.AIT_ESCROW_SWEEP_LOCK:
+            if _inflight_sweep(exclude_id=row_id):
+                logger.info("Settlement %s: fee leg deferred — another sweep in flight", row_id)
+                return
+            to2, amount2, ref2 = _expected_sweep(cfg, {**row, "settle_ait_tx_hash": sealed_hash})
+            if amount2 <= 0:
+                # EXCHANGE_FEE_PCT=0 or a fee under one chain unit — sending
+                # leg 2 would be a zero-value transfer; leg 1 alone settles.
+                await _set_status_and_mirror(cfg, row, "settled", settle_ait_tx_hash=sealed_hash, expected_statuses={status})
+                logger.info("Settlement %s: leg 1 sealed, no fee owed — settled", row_id)
+                return
+            nonce2, balance = await sellmon._account_view(cfg.escrow.escrow_address)
+            leg2_ait = units_to_ait(amount2)
+            if balance < leg2_ait + _sweep_fee_ait():
+                await _update_with_retry(
+                    row_id,
+                    "queued_fee_settle",
+                    settle_ait_tx_hash=sealed_hash,
+                    error=f"escrow fee float deficit before fee leg (need {leg2_ait + _sweep_fee_ait()}, have {balance})",
+                    expected_statuses={status},
+                )
+                return
+            signed2 = await sellmon._sign_escrow_transfer(
+                cfg.escrow, to2, leg2_ait, {"exs_ref": ref2, "reason": "settle_fee"}, nonce2
+            )
+            persisted = await _update_with_retry(
                 row_id,
-                "queued_fee_settle",
+                "settling",
                 settle_ait_tx_hash=sealed_hash,
-                error=f"escrow fee float deficit before fee leg (need {leg2_ait + _sweep_fee_ait()}, have {balance})",
+                escrow_out_nonce=nonce2,
+                escrow_out_tx=json.dumps(signed2),
                 expected_statuses={status},
             )
-            return
-        signed2 = await sellmon._sign_escrow_transfer(
-            cfg.escrow, to2, leg2_ait, {"exs_ref": ref2, "reason": "settle_fee"}, nonce2
-        )
-        persisted = await _update_with_retry(
-            row_id,
-            "settling",
-            settle_ait_tx_hash=sealed_hash,
-            escrow_out_nonce=nonce2,
-            escrow_out_tx=json.dumps(signed2),
-            expected_statuses={status},
-        )
-        if not persisted:
-            # CAS lost (#1918): the row moved on since the snapshot — leg 2
-            # must not broadcast for a state nobody owns.
-            logger.warning(
-                "Settlement %s: fee-leg intent lost CAS (was %s) — row moved on; not broadcasting",
-                row_id,
-                status,
-            )
-            return
-        tx_hash2 = await sellmon._broadcast_ait_tx(signed2)
-        logger.info("Settlement %s: fee leg broadcast (tx %s, nonce %d)", row_id, tx_hash2, nonce2)
+            if not persisted:
+                # CAS lost (#1918): the row moved on since the snapshot — leg 2
+                # must not broadcast for a state nobody owns.
+                logger.warning(
+                    "Settlement %s: fee-leg intent lost CAS (was %s) — row moved on; not broadcasting",
+                    row_id,
+                    status,
+                )
+                return
+            tx_hash2 = await sellmon._broadcast_ait_tx(signed2)
+            logger.info("Settlement %s: fee leg broadcast (tx %s, nonce %d)", row_id, tx_hash2, nonce2)
         return
     await _set_status_and_mirror(cfg, row, "settled", settle_fee_tx_hash=sealed_hash, expected_statuses={status})
     logger.info("Settlement %s: fee leg sealed — settled", row_id)
