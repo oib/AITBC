@@ -17,6 +17,7 @@ from uuid import uuid4
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any, cast
 
+import httpx
 from fastapi import WebSocket, WebSocketDisconnect
 
 if TYPE_CHECKING:
@@ -26,6 +27,23 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.crypto import TransactionService
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and sqlite ledger errors, JSON/request decode (ValueError/TypeError/
+# KeyError/AttributeError), lazy backend imports, websocket RuntimeErrors,
+# and outbound HTTP (httpx). Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ImportError,
+    RuntimeError,
+    sqlite3.Error,
+    httpx.HTTPError,
+)
 
 
 def _get_approval_strategy():
@@ -73,7 +91,7 @@ class ConnectionManager:
             old_websocket = self.active_connections[agent_id]
             try:
                 await old_websocket.close()
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Error closing old WebSocket for %s: %s", agent_id, e)
         await websocket.accept()
         self.active_connections[agent_id] = websocket
@@ -114,9 +132,9 @@ class ConnectionManager:
             for sub in subscriptions:
                 topic = sub.get("topic")
                 if topic:
-                    self.subscribe(agent_id, topic)
+                    self.subscribe(agent_id, topic)  # noqa: unawaited-async — sync method
                     logger.info("Restored subscription %s for %s", topic, agent_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Could not load subscriptions for %s: %s", agent_id, e)
 
     async def disconnect(self, agent_id: str) -> None:
@@ -125,7 +143,7 @@ class ConnectionManager:
             websocket = self.active_connections[agent_id]
             try:
                 await websocket.close()
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Error closing WebSocket for %s: %s", agent_id, e)
             del self.active_connections[agent_id]
         if agent_id in self.agent_topics:
@@ -145,7 +163,7 @@ class ConnectionManager:
                 websocket = self.active_connections[agent_id]
                 await websocket.send_json(message)
                 return True
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error sending message to %s: %s", agent_id, e)
                 await self.disconnect(agent_id)
                 return False
@@ -213,7 +231,7 @@ class ConnectionManager:
             try:
                 result = await handler(message, self, websocket)
                 results.append({"handler": handler.__name__, "result": result, "success": True})
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Handler error: %s", e)
                 results.append({"handler": handler.__name__, "error": str(e), "success": False})
         return {"message_type": message_type, "handlers_triggered": len(handlers), "results": results}
@@ -245,9 +263,12 @@ class AgentStreamHandler:
                 data = await websocket.receive_json()
                 await self._dispatch_stream_message(websocket, agent_id, data)
         except WebSocketDisconnect:
-            await self.connection_manager.disconnect(agent_id)
-        except Exception as e:
+            pass
+        except _OPS_ERRORS as e:
             logger.error("Error in message stream for %s: %s", agent_id, e)
+        finally:
+            # Runs on every exit path — an unexpected error propagates after
+            # cleanup instead of leaving a stale entry in active_connections.
             await self.connection_manager.disconnect(agent_id)
 
     async def _dispatch_stream_message(self, websocket: WebSocket, agent_id: str, data: dict[str, Any]) -> None:
@@ -263,14 +284,14 @@ class AgentStreamHandler:
         if message_type == "subscribe":
             topic = payload.get("topic")
             if topic:
-                self.connection_manager.subscribe(agent_id, topic)
+                self.connection_manager.subscribe(agent_id, topic)  # noqa: unawaited-async — sync method
                 await websocket.send_json(
                     {"type": "subscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
                 )
         elif message_type == "unsubscribe":
             topic = payload.get("topic")
             if topic:
-                self.connection_manager.unsubscribe(agent_id, topic)
+                self.connection_manager.unsubscribe(agent_id, topic)  # noqa: unawaited-async — sync method
                 await websocket.send_json(
                     {"type": "unsubscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
                 )
@@ -360,8 +381,10 @@ class AgentStreamHandler:
                 "timestamp": datetime.now(UTC).isoformat(),
             }
             await self.connection_manager.broadcast(offline_data)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error in presence stream for %s: %s", agent_id, e)
+        finally:
+            # Idempotent — also covers unexpected errors that propagate.
             await self.connection_manager.disconnect(agent_id)
 
 
@@ -444,7 +467,7 @@ def _has_received_initial_coins(sender: str, wallet_address: str) -> bool | None
         count = cursor.fetchone()[0]
         conn.close()
         return bool(count > 0)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Could not query coin_requests DB: %s", e)
         return None
 
@@ -453,7 +476,7 @@ def _submit_transaction(transaction: dict[str, Any]) -> dict[str, Any] | None:
     """Submit a signed transaction to the blockchain RPC."""
     try:
         rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
-        import httpx
+        import httpx  # noqa: F811 — lazy rebind keeps sys.modules stubs working in tests
 
         # Ensure chain_id is present in the transaction body
         if "chain_id" not in transaction or not transaction.get("chain_id"):
@@ -464,7 +487,7 @@ def _submit_transaction(transaction: dict[str, Any]) -> dict[str, Any] | None:
         result = resp.json()
         logger.info("Transaction submitted: %s", result)
         return cast(dict[str, Any], result)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to submit transaction: %s", e)
         return None
 
@@ -548,7 +571,7 @@ def _agent_db_conn() -> sqlite3.Connection | None:
             conn.execute(_AGENT_DB_SCHEMA)
             _ensure_agent_db_columns(conn)
             return conn
-        except Exception as e:
+        except _OPS_ERRORS as e:
             last_error = e
             if conn is not None:
                 try:
@@ -595,7 +618,7 @@ def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash:
         conn.commit()
         conn.close()
         logger.info("Recorded coin request in agent DB for %s", sender)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Could not record coin request in DB: %s", e)
 
 
@@ -679,17 +702,17 @@ def _record_claiming_coin_request(
                     return None, True
                 conn.execute(insert_sql, insert_params)
                 conn.execute("COMMIT")
-            except Exception:
+            except Exception:  # noqa: BLE001 — rollback must be attempted for any failure inside the write tx
                 try:
                     conn.execute("ROLLBACK")
-                except Exception:
-                    pass
+                except _OPS_ERRORS as rb_err:
+                    logger.debug("coin-request rollback failed: %s", rb_err)
                 raise
         else:
             conn.execute(insert_sql, insert_params)
         conn.close()
         return request_id, False
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Could not write claiming coin request in DB: %s", e)
         return None, False
 
@@ -831,17 +854,17 @@ def _budgeted_claim_coin_request(
             conn.execute("COMMIT")
             conn.close()
             return request_id, "claimed", None
-        except Exception:
+        except Exception:  # noqa: BLE001 — rollback must be attempted for any failure inside the write tx
             try:
                 conn.execute("ROLLBACK")
-            except Exception:
-                pass
+            except _OPS_ERRORS as rb_err:
+                logger.debug("coin-request rollback failed: %s", rb_err)
             raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         try:
             conn.close()
-        except Exception:
-            pass
+        except _OPS_ERRORS as close_err:
+            logger.debug("coin-request conn close failed: %s", close_err)
         logger.warning("Could not write budgeted coin-request claim in DB: %s", e)
         return None, "unavailable", None
 
@@ -870,7 +893,7 @@ def _finish_claimed_coin_request(request_id: str, tx_hash: str, *, failed: bool 
             )
         conn.commit()
         conn.close()
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Could not finish claiming coin request %s: %s", request_id, e)
 
 
@@ -908,7 +931,7 @@ def _record_pending_coin_request(sender: str, amount: int, wallet_address: str) 
         conn.close()
         logger.info("Recorded pending coin request %s for %s", request_id, sender)
         return request_id
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Could not record pending coin request in DB: %s", e)
         return f"req-{sender}-unknown"
 
@@ -927,6 +950,220 @@ def _wallet_match(authenticated: str | None, requested: str) -> bool:
     return canonical_address(authenticated) == canonical_address(requested)
 
 
+def _parse_coin_request(content: str, sender: str) -> tuple[Any, str]:
+    """Extract ``(amount, wallet_address)`` from a REQUEST_COINS payload."""
+    if "{" in content:
+        json_part = content[content.index("{") :]
+        data = json.loads(json_part)
+        return data.get("amount", 0), data.get("wallet_address", "")
+    return INITIAL_COIN_AMOUNT, sender
+
+
+def _pending_coin_response(
+    sender: str, amount: int, wallet_address: str, reason: str | None, extra_message: str = ""
+) -> dict[str, Any]:
+    """Parked-for-review response; also writes the PENDING ledger row."""
+    return {
+        "action": "coin_request_received",
+        "request_id": _record_pending_coin_request(sender, amount, wallet_address),
+        "amount": amount,
+        "wallet_address": wallet_address,
+        "status": "pending_approval",
+        "reason": reason,
+        "message": f"Coin request requires approval. Reason: {reason}.{extra_message}",
+    }
+
+
+def _wallet_mismatch_response(
+    sender: str, wallet_address: str, connection_manager: ConnectionManager
+) -> dict[str, Any] | None:
+    """Phase C payout-address gate. ``None`` means the request may proceed.
+
+    In enforce mode the requested payout address must equal the connection's
+    authenticated wallet — the registry-bound identity the ``?token=``
+    principal proved it controls. An unauthenticated connection (or an
+    operator principal, which carries no wallet) cannot name an address;
+    advisory logs ``coin_wallet_mismatch`` and allows; disabled keeps the
+    pre-auth behaviour.
+    """
+    from ..config import settings
+
+    mode = settings.agent_msg_signature_mode
+    if mode == "disabled":
+        return None
+    auth_wallet = connection_manager.connection_wallets.get(sender)
+    if _wallet_match(auth_wallet, wallet_address):
+        return None
+    logger.warning(
+        "coin_wallet_mismatch sender=%s auth_wallet=%s requested=%s mode=%s",
+        sender,
+        auth_wallet,
+        wallet_address,
+        mode,
+    )
+    if mode == "enforce":
+        return {
+            "action": "coin_request_failed",
+            "error": "wallet_mismatch",
+            "message": "wallet_address must equal the connection's authenticated wallet",
+        }
+    return None
+
+
+def _sign_submit_claim(wallet_address: str, amount: int, claim_id: str) -> tuple[str, dict[str, Any] | None]:
+    """Sign and submit a claimed grant. ``(tx_hash, None)`` or ``("", error)``.
+
+    Every failure path marks the claim FAILED so the ledger never shows an
+    in-flight claim for a payout that did not happen.
+    """
+    transaction = TransactionService().generate_signed_transaction(wallet_address, amount)
+    if not transaction:
+        _finish_claimed_coin_request(claim_id, "", failed=True)
+        return "", {"action": "coin_request_failed", "error": "Failed to generate signed transaction"}
+    result = _submit_transaction(transaction)
+    if not result or not result.get("success"):
+        _finish_claimed_coin_request(claim_id, "", failed=True)
+        return "", {"action": "coin_request_failed", "error": "Blockchain rejected transaction", "detail": result}
+    tx_hash = result.get("transaction_hash", "")
+    _finish_claimed_coin_request(claim_id, tx_hash)
+    return tx_hash, None
+
+
+async def _grant_confirmation(
+    connection_manager: ConnectionManager,
+    sender: str,
+    wallet_address: str,
+    amount: int,
+    tx_hash: str,
+    content: str,
+) -> None:
+    confirmation = {
+        "type": "COINS_TRANSFERRED",
+        "sender": os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
+        "recipient": sender,
+        "content": content,
+        "amount": amount,
+        "wallet_address": wallet_address,
+        "transaction_hash": tx_hash,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+    await connection_manager.send_personal_message(confirmation, sender)
+
+
+async def _repeat_coin_request(
+    sender: str, amount: int, wallet_address: str, connection_manager: ConnectionManager
+) -> dict[str, Any]:
+    """Approval-strategy path for a sender that already holds a grant."""
+    strategy, _approval_mode = _get_approval_strategy()
+    approval_request = {
+        "id": f"req-{sender}-{int(datetime.now(UTC).timestamp())}",
+        "sender": sender,
+        "recipient": os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
+        "amount": amount,
+        "wallet_address": wallet_address,
+        "created_at": datetime.now(UTC),
+    }
+    approval_decision = strategy.approve(approval_request)
+    if not approval_decision["approved"]:
+        # Strategy rejected or pending — record in DB for manual review
+        return _pending_coin_response(
+            sender,
+            amount,
+            wallet_address,
+            approval_decision["reason"],
+            " Use 'aitbc coin-requests approve <request_id>' to approve.",
+        )
+
+    # Budget check and claim insert are ONE BEGIN IMMEDIATE transaction
+    # (#1658 sibling): the old ws_budget_allows + _record_claiming_coin_request
+    # pair let two concurrent grants both pass the same 'spent' read and both
+    # pay. Repeat grants are legitimate here (the strategy ruled on them), so
+    # no first-grant dedupe gate.
+    claim_id, outcome, why = _budgeted_claim_coin_request(sender, amount, wallet_address)
+    if outcome == "budget":
+        return _pending_coin_response(sender, amount, wallet_address, why)
+    if claim_id is None:
+        return {
+            "action": "coin_request_failed",
+            "error": "coin-request ledger unavailable — not paying without a record",
+        }
+    tx_hash, err = _sign_submit_claim(wallet_address, amount, claim_id)
+    if err is not None:
+        return err
+    await _grant_confirmation(
+        connection_manager,
+        sender,
+        wallet_address,
+        amount,
+        tx_hash,
+        f"Coin request approved: {units_to_ait(amount)} AIT to {wallet_address}. Transaction: {tx_hash}",
+    )
+    return {
+        "action": "coins_transferred",
+        "amount": amount,
+        "wallet_address": wallet_address,
+        "transaction_hash": tx_hash,
+        "status": "completed",
+        "reason": approval_decision["reason"],
+    }
+
+
+async def _first_coin_request(sender: str, wallet_address: str, connection_manager: ConnectionManager) -> dict[str, Any]:
+    """First-time request: auto-transfer initial coins through the rolling
+    hourly/daily budget, atomically with the claim insert (#837/#1658)."""
+    claim_id, outcome, why = _budgeted_claim_coin_request(sender, INITIAL_COIN_AMOUNT, wallet_address, first_grant=True)
+    if outcome == "budget":
+        return _pending_coin_response(sender, INITIAL_COIN_AMOUNT, wallet_address, why)
+
+    # The row exists BEFORE the payout (#1082): a claim marker stands in for
+    # the tx hash so a mid-send crash leaves a findable claim instead of an
+    # unrecorded payout. The fused claim runs the prior-grant probe inside the
+    # same IMMEDIATE transaction as the budget reads, so a second worker
+    # racing the same wallet loses atomically instead of double-paying
+    # (#1542/#1604) and cannot overspend the budget.
+    if outcome == "prior_grant":
+        # Lost the race: another claim for this sender/wallet committed
+        # between the earlier probe and this insert. Park for review exactly
+        # like a detected prior grant — never pay twice.
+        return _pending_coin_response(
+            sender,
+            INITIAL_COIN_AMOUNT,
+            wallet_address,
+            "a coin grant for this wallet is already recorded",
+        )
+    if claim_id is None:
+        return {
+            "action": "coin_request_failed",
+            "error": "coin-request ledger unavailable — not paying without a record",
+        }
+
+    grant_amount = INITIAL_COIN_AMOUNT
+    logger.info(
+        "First-time coin request from %s — auto-transferring %s AIT to %s",
+        sender,
+        grant_amount,
+        wallet_address,
+    )
+    tx_hash, err = _sign_submit_claim(wallet_address, grant_amount, claim_id)
+    if err is not None:
+        return err
+    await _grant_confirmation(
+        connection_manager,
+        sender,
+        wallet_address,
+        grant_amount,
+        tx_hash,
+        f"Transferred {units_to_ait(grant_amount)} AIT to {wallet_address}",
+    )
+    return {
+        "action": "coins_transferred",
+        "amount": grant_amount,
+        "wallet_address": wallet_address,
+        "transaction_hash": tx_hash,
+        "status": "completed",
+    }
+
+
 async def request_coins_handler(
     message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
 ) -> dict[str, Any]:
@@ -939,14 +1176,7 @@ async def request_coins_handler(
     content = message.get("content", "")
     logger.info("REQUEST_COINS received from %s: %s", sender, content)
     try:
-        if "{" in content:
-            json_part = content[content.index("{") :]
-            data = json.loads(json_part)
-            amount = data.get("amount", 0)
-            wallet_address = data.get("wallet_address", "")
-        else:
-            amount = INITIAL_COIN_AMOUNT
-            wallet_address = sender
+        amount, wallet_address = _parse_coin_request(content, sender)
 
         # #837: the amount is caller-supplied JSON — it must be a positive int
         # inside the automatic ceiling before anything signs with it.
@@ -960,209 +1190,20 @@ async def request_coins_handler(
         if not wallet_address or wallet_address == "unknown":
             return {"action": "coin_request_failed", "error": "No wallet address provided"}
 
-        # Phase C: in enforce mode the requested payout address must equal the
-        # connection's authenticated wallet — the registry-bound identity the
-        # ``?token=`` principal proved it controls. An unauthenticated
-        # connection (or an operator principal, which carries no wallet) cannot
-        # name an address; advisory logs ``coin_wallet_mismatch`` and allows;
-        # disabled keeps the pre-auth behaviour.
-        from ..config import settings
-
-        mode = settings.agent_msg_signature_mode
-        if mode != "disabled":
-            auth_wallet = connection_manager.connection_wallets.get(sender)
-            if not _wallet_match(auth_wallet, wallet_address):
-                logger.warning(
-                    "coin_wallet_mismatch sender=%s auth_wallet=%s requested=%s mode=%s",
-                    sender,
-                    auth_wallet,
-                    wallet_address,
-                    mode,
-                )
-                if mode == "enforce":
-                    return {
-                        "action": "coin_request_failed",
-                        "error": "wallet_mismatch",
-                        "message": "wallet_address must equal the connection's authenticated wallet",
-                    }
+        gate = _wallet_mismatch_response(sender, wallet_address, connection_manager)
+        if gate is not None:
+            return gate
 
         # Check if this sender has already received initial coins. An
         # unreadable ledger is not "no prior grant" — park for review (#1082).
         prior = _has_received_initial_coins(sender, wallet_address)
         if prior is None:
-            request_id = _record_pending_coin_request(sender, amount, wallet_address)
-            return {
-                "action": "coin_request_received",
-                "request_id": request_id,
-                "amount": amount,
-                "wallet_address": wallet_address,
-                "status": "pending_approval",
-                "reason": "the coin-request ledger is unreadable",
-                "message": "Coin request requires approval. Reason: the coin-request ledger is unreadable.",
-            }
+            return _pending_coin_response(sender, amount, wallet_address, "the coin-request ledger is unreadable")
         if prior:
             logger.info("Coin request from %s: already received initial coins — running approval strategy", sender)
-            strategy, approval_mode = _get_approval_strategy()
-            approval_request = {
-                "id": f"req-{sender}-{int(datetime.now(UTC).timestamp())}",
-                "sender": sender,
-                "recipient": os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
-                "amount": amount,
-                "wallet_address": wallet_address,
-                "created_at": datetime.now(UTC),
-            }
-            approval_decision = strategy.approve(approval_request)
-            if approval_decision["approved"]:
-                # Budget check and claim insert are ONE BEGIN IMMEDIATE
-                # transaction now (#1658 sibling): the old ws_budget_allows +
-                # _record_claiming_coin_request pair let two concurrent grants
-                # both pass the same 'spent' read and both pay.
-                claim_id, outcome, why = _budgeted_claim_coin_request(sender, amount, wallet_address)
-                if outcome == "budget":
-                    request_id = _record_pending_coin_request(sender, amount, wallet_address)
-                    return {
-                        "action": "coin_request_received",
-                        "request_id": request_id,
-                        "amount": amount,
-                        "wallet_address": wallet_address,
-                        "status": "pending_approval",
-                        "reason": why,
-                        "message": f"Coin request requires approval. Reason: {why}.",
-                    }
-                # Strategy approved — record the claim BEFORE paying (#1082),
-                # so the ledger proves the payout was committed, not recorded
-                # after the fact. Repeat grants are legitimate here (the
-                # strategy ruled on them), so no first-grant dedupe gate.
-                if claim_id is None:
-                    return {
-                        "action": "coin_request_failed",
-                        "error": "coin-request ledger unavailable — not paying without a record",
-                    }
-                signed_tx = TransactionService().generate_signed_transaction(wallet_address, amount)
-                if not signed_tx:
-                    _finish_claimed_coin_request(claim_id, "", failed=True)
-                    return {"action": "coin_request_failed", "error": "Failed to generate signed transaction"}
-                result = _submit_transaction(signed_tx)
-                if not result or not result.get("success"):
-                    _finish_claimed_coin_request(claim_id, "", failed=True)
-                    return {
-                        "action": "coin_request_failed",
-                        "error": "Blockchain rejected transaction",
-                        "detail": result,
-                    }
-                tx_hash = result.get("transaction_hash", "")
-                _finish_claimed_coin_request(claim_id, tx_hash)
-                confirmation = {
-                    "type": "COINS_TRANSFERRED",
-                    "sender": os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
-                    "recipient": sender,
-                    "content": f"Coin request approved: {units_to_ait(amount)} AIT to {wallet_address}. Transaction: {tx_hash}",
-                    "amount": amount,
-                    "wallet_address": wallet_address,
-                    "transaction_hash": tx_hash,
-                    "timestamp": datetime.now(UTC).isoformat(),
-                }
-                await connection_manager.send_personal_message(confirmation, sender)
-                return {
-                    "action": "coins_transferred",
-                    "amount": amount,
-                    "wallet_address": wallet_address,
-                    "transaction_hash": tx_hash,
-                    "status": "completed",
-                    "reason": approval_decision["reason"],
-                }
-            else:
-                # Strategy rejected or pending — record in DB for manual review
-                request_id = _record_pending_coin_request(sender, amount, wallet_address)
-                return {
-                    "action": "coin_request_received",
-                    "request_id": request_id,
-                    "amount": amount,
-                    "wallet_address": wallet_address,
-                    "status": "pending_approval",
-                    "reason": approval_decision["reason"],
-                    "message": (
-                        f"Coin request requires approval. Reason: {approval_decision['reason']}. "
-                        "Use 'aitbc coin-requests approve <request_id>' to approve."
-                    ),
-                }
-
-        # First-time request: auto-transfer initial coins — through the same
-        # rolling hourly/daily budget the /register route enforces (#837),
-        # now checked atomically with the claim insert (#1658 sibling).
-        claim_id, outcome, why = _budgeted_claim_coin_request(sender, INITIAL_COIN_AMOUNT, wallet_address, first_grant=True)
-        if outcome == "budget":
-            request_id = _record_pending_coin_request(sender, INITIAL_COIN_AMOUNT, wallet_address)
-            return {
-                "action": "coin_request_received",
-                "request_id": request_id,
-                "amount": INITIAL_COIN_AMOUNT,
-                "wallet_address": wallet_address,
-                "status": "pending_approval",
-                "reason": why,
-                "message": f"Coin request requires approval. Reason: {why}.",
-            }
-        grant_amount = INITIAL_COIN_AMOUNT
-        logger.info("First-time coin request from %s — auto-transferring %s AIT to %s", sender, grant_amount, wallet_address)
-
-        # The row exists BEFORE the payout (#1082): a claim marker stands in
-        # for the tx hash so a mid-send crash leaves a findable claim instead
-        # of an unrecorded payout. The fused claim runs the prior-grant probe
-        # inside the same IMMEDIATE transaction as the budget reads, so a
-        # second worker racing the same wallet loses atomically instead of
-        # double-paying (#1542/#1604) and cannot overspend the budget.
-        already_granted = outcome == "prior_grant"
-        if already_granted:
-            # Lost the race: another claim for this sender/wallet committed
-            # between the earlier probe and this insert. Park for review
-            # exactly like a detected prior grant — never pay twice.
-            request_id = _record_pending_coin_request(sender, INITIAL_COIN_AMOUNT, wallet_address)
-            return {
-                "action": "coin_request_received",
-                "request_id": request_id,
-                "amount": INITIAL_COIN_AMOUNT,
-                "wallet_address": wallet_address,
-                "status": "pending_approval",
-                "reason": "a coin grant for this wallet is already recorded",
-                "message": ("Coin request requires approval. Reason: a coin grant for this wallet is already recorded."),
-            }
-        if claim_id is None:
-            return {"action": "coin_request_failed", "error": "coin-request ledger unavailable — not paying without a record"}
-
-        transaction = TransactionService().generate_signed_transaction(wallet_address, grant_amount)
-        if not transaction:
-            _finish_claimed_coin_request(claim_id, "", failed=True)
-            return {"action": "coin_request_failed", "error": "Failed to generate signed transaction"}
-
-        result = _submit_transaction(transaction)
-        if not result or not result.get("success"):
-            _finish_claimed_coin_request(claim_id, "", failed=True)
-            return {"action": "coin_request_failed", "error": "Blockchain rejected transaction", "detail": result}
-
-        tx_hash = result.get("transaction_hash", "")
-        _finish_claimed_coin_request(claim_id, tx_hash)
-
-        # Send confirmation message back to the agent over WebSocket
-        confirmation = {
-            "type": "COINS_TRANSFERRED",
-            "sender": os.getenv("AGENT_ID", os.getenv("HERMES_AGENT_ID", "hub-coordinator")),
-            "recipient": sender,
-            "content": f"Transferred {units_to_ait(grant_amount)} AIT to {wallet_address}",
-            "amount": grant_amount,
-            "wallet_address": wallet_address,
-            "transaction_hash": tx_hash,
-            "timestamp": datetime.now(UTC).isoformat(),
-        }
-        await connection_manager.send_personal_message(confirmation, sender)
-
-        return {
-            "action": "coins_transferred",
-            "amount": grant_amount,
-            "wallet_address": wallet_address,
-            "transaction_hash": tx_hash,
-            "status": "completed",
-        }
-    except Exception as e:
+            return await _repeat_coin_request(sender, amount, wallet_address, connection_manager)
+        return await _first_coin_request(sender, wallet_address, connection_manager)
+    except _OPS_ERRORS as e:
         logger.error("Failed to process coin request: %s", e)
         return {"action": "coin_request_failed", "error": str(e)}
 
