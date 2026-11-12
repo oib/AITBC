@@ -25,6 +25,18 @@ the dir resolves `AITBC_DATA_DIR` first, then `DATA_DIR`, then
 | `FUNDING` | inflow from a configured `BRIDGE_FUNDING_SOURCES` sender — recorded, never paid out |
 | `EXCHANGE_PREPAY` | inflow carrying an `EXCHANGE_DEPOSIT:<addr>` tag — credited to the buyer's prepaid exchange balance by the wallet-side settlement monitor (ETH-8 phase 3), never minted |
 
+The table is **shared** with `aitbc-wallet` (`wallet_app.bridge.bridge_db`),
+which writes its own lifecycle vocabulary on top of the overlap
+(`pending`/`completed`/`failed`/`exchange_prepay` are shared; the wallet adds
+`verified` — mint-in-flight — and `rejected` — operator-terminal; the monitor
+adds `processing`/`pending_retry`/`submitted`/`written_off`/`funding`). Each
+side rejects the other's statuses at write time (#1919). A row in a
+wallet-only or unrecognized status is invisible to every monitor worklist —
+the stranded-row detector (`BRIDGE_STRANDED_DEPOSIT_HOURS`) alerts on it
+rather than ever paying it automatically (a `verified` row's wallet-side
+TRANSFER may already have landed). Resolve via `write-off` (which accepts
+`verified` as a source), `manual-payout`, or the wallet-side flow.
+
 ## Operator commands
 
 Every payout goes through a ledger row — never send ad-hoc from the payout
@@ -73,6 +85,7 @@ cd /opt/aitbc && scripts/ops/bridge-admin.sh <command>
 | `PAYOUT_REBROADCAST_BLOCKS` / `PAYOUT_MAX_REBROADCAST` | `6` / `5` | rebroadcast cadence and budget for the same envelope |
 | `BRIDGE_STUCK_PAYOUT_BLOCKS` | `rebroadcast×max` | head-of-line blocking alert horizon |
 | `BRIDGE_QUEUE_ALERT_DEPTH` | `5` | `PENDING_RETRY` depth alert |
+| `BRIDGE_STRANDED_DEPOSIT_HOURS` | `24` | alert horizon for non-terminal rows no worklist owns (wallet-vocabulary `verified`, crashed `pending`/`processing`, unrecognized status) — throttled per row |
 | `BRIDGE_POLL_INTERVAL` | `30` | poll cadence (seconds); `BRIDGE_KICK_FILE`/`BRIDGE_BURST_*` accelerate demand-triggered polls |
 | `BRIDGE_CYCLE_TIMEOUT_SECONDS` | `300` | bound on one block-scan pass — a breach holds the cursor and alerts; a cycle exceeding it also logs `ALERT` |
 | `BRIDGE_HEAD_STALL_SECONDS` | `600` | alert when the ETH endpoint keeps serving the same head (stale LB backend) — deposits sealing on-chain are then not being scanned |

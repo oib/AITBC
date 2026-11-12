@@ -259,6 +259,29 @@ class TestBridgeDepositDb:
         assert update_deposit_status(deposit_id, "exchange_prepay")
         assert get_deposit_by_id(deposit_id)["status"] == "exchange_prepay"
 
+    def test_wallet_vocab_rejects_monitor_only_statuses(self, bridge_db):
+        """#1919: eth_deposits is shared with aitbc-bridge-monitor — its
+        BridgeDepositStatus adds processing/pending_retry/submitted/
+        written_off/funding. The wallet write path must reject them too:
+        a wallet-side write of a monitor state would strand the row
+        outside the wallet vocabulary just as surely as a typo."""
+        from wallet_app.bridge.bridge_db import _ETH_DEPOSIT_STATUSES
+
+        assert _ETH_DEPOSIT_STATUSES == frozenset(
+            {"pending", "verified", "completed", "exchange_prepay", "rejected", "failed"}
+        )
+        deposit_id = insert_deposit(
+            tx_hash="0xmonvocab" + "1" * 55,
+            from_address="0x9999999999999999999999999999999999999999",
+            amount_eth=Decimal("0.01"),
+            amount_ait=Decimal("100"),
+            recipient="0x1111111111111111111111111111111111111111",
+        )
+        for monitor_status in ("processing", "pending_retry", "submitted", "written_off", "funding"):
+            with pytest.raises(ValueError, match="unknown deposit status"):
+                update_deposit_status(deposit_id, monitor_status)
+        assert get_deposit_by_id(deposit_id)["status"] == "pending"
+
     def test_update_deposit_status_cas_blocks_stale_writer(self, bridge_db):
         """#1796: expected_statuses makes the UPDATE conditional — a writer
         holding a stale read cannot overwrite a state that already moved."""
