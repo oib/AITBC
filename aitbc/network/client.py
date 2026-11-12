@@ -107,8 +107,9 @@ _trusted_api_key_hosts: frozenset[str] | None = None
 # them, not just the ``api_key`` kwarg: ``auth_client_kwargs`` emits JWTs
 # as ``Authorization: Bearer`` and the trading path uses
 # ``X-Trading-Api-Key`` — checking only ``api_key`` let those ride to any
-# host (PI-SDK-01).
-_CREDENTIAL_HEADER_NAMES = frozenset({"authorization", "x-api-key", "x-trading-api-key"})
+# host (PI-SDK-01). ``x-settlement-key`` is the escrow release/refund
+# settlement credential (#1917) — same exposure rules.
+_CREDENTIAL_HEADER_NAMES = frozenset({"authorization", "x-api-key", "x-trading-api-key", "x-settlement-key"})
 
 
 def set_trusted_api_key_hosts(hosts: frozenset[str] | None) -> None:

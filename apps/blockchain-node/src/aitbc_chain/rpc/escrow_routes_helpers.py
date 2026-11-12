@@ -95,6 +95,29 @@ def verify_rpc_api_key(api_key: str | None = _er.Security(_er._api_key_header)) 
     return api_key
 
 
+def verify_rpc_settlement_key(api_key: str | None = _er.Security(_er._settlement_key_header)) -> str:
+    """Require the dedicated settlement credential on escrow release/refund.
+
+    Applied as a route-level dependency on top of the router-wide
+    ``verify_rpc_api_key``: the caller must present BOTH the shared RPC key
+    (X-API-Key) and the settlement node's key (X-Settlement-Key). An unset
+    ``BLOCKCHAIN_RPC_SETTLEMENT_API_KEY`` refuses with 503 — a keyless
+    settlement path must never silently stay open.
+    """
+    if not _er._RPC_SETTLEMENT_API_KEY:
+        raise _er.HTTPException(
+            status_code=_er.status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Escrow settlement RPC is not configured for authentication",
+        )
+    if api_key is None or not _er.hmac.compare_digest(api_key.encode(), _er._RPC_SETTLEMENT_API_KEY.encode()):
+        _er._logger.warning("Rejected escrow settlement RPC request: missing or invalid X-Settlement-Key")
+        raise _er.HTTPException(
+            status_code=_er.status.HTTP_403_FORBIDDEN,
+            detail="Forbidden: missing or invalid settlement API key",
+        )
+    return api_key
+
+
 def rpc_peer_key_accepted(api_key: str | None) -> bool:
     """True when ``api_key`` is this node's RPC key, a configured peer-node
     key, or a live issued join key.

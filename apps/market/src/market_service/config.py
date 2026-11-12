@@ -44,6 +44,8 @@ class Settings(ServiceSettings):
     # Blockchain integration
     blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
     blockchain_rpc_api_key: str = os.getenv("BLOCKCHAIN_RPC_API_KEY", "")
+    # Dedicated settlement credential for chain escrow release/refund (#1917).
+    blockchain_rpc_settlement_api_key: str = os.getenv("BLOCKCHAIN_RPC_SETTLEMENT_API_KEY", "")
     default_chain_id: str = ""
 
     # Agent coordinator integration (v0.6.6 matching → task queue)

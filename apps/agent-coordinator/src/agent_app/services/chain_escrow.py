@@ -46,6 +46,8 @@ class ChainEscrowClient:
     Args:
         base_url: Blockchain RPC base URL (``http://127.0.0.1:8202`` on hub).
         api_key: ``X-API-Key`` for the escrow routes (``BLOCKCHAIN_RPC_API_KEY``).
+        settlement_api_key: ``X-Settlement-Key`` for release/refund only
+            (``BLOCKCHAIN_RPC_SETTLEMENT_API_KEY``, #1917).
         timeout: Per-request timeout in seconds.
     """
 
@@ -55,23 +57,28 @@ class ChainEscrowClient:
         api_key: str | None = None,
         timeout: float = 15.0,
         transport: httpx.BaseTransport | None = None,
+        settlement_api_key: str | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         if self._base_url.endswith("/rpc"):
             self._base_url = self._base_url[: -len("/rpc")]
         headers = {"X-API-Key": api_key} if api_key else {}
+        self._settlement_api_key = settlement_api_key
         self._client = httpx.Client(base_url=self._base_url, headers=headers, timeout=timeout, transport=transport)
 
     def close(self) -> None:
         self._client.close()
 
-    def _post(self, path: str, body: dict[str, Any]) -> dict[str, Any]:
+    def _post(self, path: str, body: dict[str, Any], *, settlement: bool = False) -> dict[str, Any]:
         from aitbc.island_deferral import should_defer
 
         if should_defer("escrow-submit"):
             raise EscrowDegradedError(f"island-degraded: escrow submit deferred ({path})")
+        # Release/refund additionally require the settlement node's dedicated
+        # credential (X-Settlement-Key, #1917); create does not.
+        headers = {"X-Settlement-Key": self._settlement_api_key} if settlement and self._settlement_api_key else None
         try:
-            response = self._client.post(path, json=body)
+            response = self._client.post(path, json=body, headers=headers)
         except httpx.HTTPError as e:
             raise EscrowRPCError(f"escrow RPC {path} unreachable: {e}") from e
         if response.status_code >= 400:
@@ -152,14 +159,14 @@ class ChainEscrowClient:
             body["amount"] = str(units_to_ait(amount_units))
         if auto_reinvest_pct is not None:
             body["auto_reinvest_pct"] = str(auto_reinvest_pct)
-        result = self._post(f"/rpc/escrow/{job_id}/release", body)
+        result = self._post(f"/rpc/escrow/{job_id}/release", body, settlement=True)
         tx_hash = result.get("tx_hash") or result.get("release_tx_hash")
         logger.info("On-chain escrow released: job_id=%s tx=%s", job_id, tx_hash)
         return result
 
     def refund(self, job_id: str, *, reason: str = "timeout") -> str | None:
         """Refund escrow to the buyer; returns the refund tx hash."""
-        result = self._post(f"/rpc/escrow/{job_id}/refund", {"reason": reason})
+        result = self._post(f"/rpc/escrow/{job_id}/refund", {"reason": reason}, settlement=True)
         tx_hash = result.get("refund_tx_hash") or result.get("tx_hash")
         logger.info("On-chain escrow refunded: job_id=%s tx=%s", job_id, tx_hash)
         return str(tx_hash) if tx_hash else None

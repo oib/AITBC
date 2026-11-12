@@ -6,8 +6,10 @@ and that carries no caller auth — so these tests pin the JWT-side ruling:
 the on-chain escrow's ``buyer`` must equal the wallet bound to the JWT
 subject (admin exempt), the amount is bounded by the escrow's locked
 amount, replays return the stored tx_hash without a second chain call, and
-chain failures map 4xx → same code / else → 502. The chain client is
-stubbed — no live calls.
+chain failures map 4xx → same code / else → 502. The chain call now also
+carries the settlement credential as ``X-Settlement-Key`` (#1917) — the
+route additionally requires it on top of ``X-API-Key``. The chain client
+is stubbed — no live calls.
 """
 
 from __future__ import annotations
@@ -107,6 +109,33 @@ class TestEscrowReleaseRelay:
         assert "/rpc/escrow/mkt_job_1/release" in mock_client.post.call_args.args[0]
         sent = mock_client.post.call_args.kwargs["json"]
         assert sent == {"amount": "2.0", "job_tx_hash": "0xjobtx"}
+
+    def test_release_forwards_settlement_key(self, client, db_session, monkeypatch):
+        """#1917: the chain release route requires X-Settlement-Key in
+        addition to X-API-Key; the relay must forward the configured
+        BLOCKCHAIN_RPC_SETTLEMENT_API_KEY."""
+        from coordinator_api.config import settings
+
+        monkeypatch.setattr(settings, "blockchain_rpc_settlement_api_key", "settle-test-key")
+        _bind_wallet(db_session, "client-1", BUYER)
+        mock_client = _chain_client_mock()
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json=_payload(), headers=_token("client-1"))
+        assert resp.status_code == 200, resp.text
+        assert mock_client.post.call_args.kwargs["headers"] == {"X-Settlement-Key": "settle-test-key"}
+
+    def test_release_no_settlement_key_sends_no_header(self, client, db_session, monkeypatch):
+        """Unconfigured settlement key → empty headers; the chain then
+        refuses (fail-closed), which is the intended behaviour."""
+        from coordinator_api.config import settings
+
+        monkeypatch.setattr(settings, "blockchain_rpc_settlement_api_key", "")
+        _bind_wallet(db_session, "client-1", BUYER)
+        mock_client = _chain_client_mock()
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json=_payload(), headers=_token("client-1"))
+        assert resp.status_code == 200, resp.text
+        assert mock_client.post.call_args.kwargs["headers"] == {}
 
     def test_release_buyer_mismatch_forbidden(self, client, db_session):
         _bind_wallet(db_session, "client-1", OTHER_BUYER)

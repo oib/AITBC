@@ -85,7 +85,7 @@ whoever operates the terminator.
 There is no single "API key for all services" scheme:
 
 - **Coordinator API (8203)** — customers authenticate with `Authorization: Bearer <jwt>`; the JWT is issued by the wallet-signed login flow (`POST /v1/auth/nonce` → `POST /v1/login`). `X-Api-Key` is read by `APIKeyAuthenticator` for service/legacy callers; miner routes accept either (`require_miner`).
-- **Blockchain node RPC (8202)** — admin/control mutations (`/rpc/contracts/deploy`, `/rpc/governance/*`, `/rpc/escrow/*` router-level incl. GETs, `/rpc/gpu/*` writes, `/rpc/identity/*`, `/rpc/chains/*`, `/rpc/importBlock`) require `X-API-Key` matching `BLOCKCHAIN_RPC_API_KEY`. `POST /rpc/transaction` and `POST /rpc/staking/stake` (retired since v9 — returns 410; see ../design/v9-unsigned-protocol-transfers.md) are **signature-verified** (wallet signature in the body — no header key). `/rpc/subscribe`, `/rpc/heartbeat` and lease revocation additionally accept peer keys from `BLOCKCHAIN_RPC_API_KEY_PEERS`. `/rpc/force-sync` (and `/rpc/import-chain`) require **both** `X-API-Key` (`verify_rpc_api_key`) **and** an admin-signed request body (`require_admin_signature` — signer must be in `bridge_admin_addresses`, body carries `issued_at`/`nonce`/`target_chain_id` freshness fields).
+- **Blockchain node RPC (8202)** — admin/control mutations (`/rpc/contracts/deploy`, `/rpc/governance/*`, `/rpc/escrow/*` router-level incl. GETs, `/rpc/gpu/*` writes, `/rpc/identity/*`, `/rpc/chains/*`, `/rpc/importBlock`) require `X-API-Key` matching `BLOCKCHAIN_RPC_API_KEY`. `POST /rpc/transaction` and `POST /rpc/staking/stake` (retired since v9 — returns 410; see ../design/v9-unsigned-protocol-transfers.md) are **signature-verified** (wallet signature in the body — no header key). `/rpc/subscribe`, `/rpc/heartbeat` and lease revocation additionally accept peer keys from `BLOCKCHAIN_RPC_API_KEY_PEERS`. `/rpc/force-sync` (and `/rpc/import-chain`) require **both** `X-API-Key` (`verify_rpc_api_key`) **and** an admin-signed request body (`require_admin_signature` — signer must be in `bridge_admin_addresses`, body carries `issued_at`/`nonce`/`target_chain_id` freshness fields). Escrow fund-moving routes `POST /rpc/escrow/{job_id}/release` and `.../refund` require **both** `X-API-Key` **and** a second dedicated credential `X-Settlement-Key` (`BLOCKCHAIN_RPC_SETTLEMENT_API_KEY`, `verify_rpc_settlement_key`, #1917) — the shared RPC key alone cannot settle; unset fails closed with 503.
 - **Gossip WebSocket** — restricted topics require a signed validator challenge; there is no `?api_key=` WS auth.
 - **Market (8102)** — ~25 mutating routes are key-gated via `require_market_api_key` (`X-Api-Key`): offers create/cancel/book, bids complete, match, market-jobs create/cancel/pin-confirm/release/refund, plugins, ratings sync/mark-synced, `/v1/transactions`, knowledge-graph writes, dynamic-pricing, edge-advertise, parameters/apply. Read endpoints remain open.
 
@@ -101,6 +101,7 @@ Keys and JWT secrets live in `/etc/aitbc/*.env` files (mode `0600`) loaded by sy
 
 ```
 Header: X-API-Key: <key>    # blockchain RPC / escrow
+Header: X-Settlement-Key: <key>  # blockchain escrow release/refund only (#1917)
 Header: X-Api-Key: <key>    # coordinator service/legacy callers, market admin
 ```
 
@@ -165,6 +166,7 @@ install -m 0600 /dev/null /etc/aitbc/blockchain-secrets.env
 cat > /etc/aitbc/blockchain-secrets.env <<'EOF'
 BLOCKCHAIN_RPC_API_KEY=...
 BLOCKCHAIN_RPC_API_KEY_PEERS=key1,key2   # peer-node subscribe/heartbeat keys
+BLOCKCHAIN_RPC_SETTLEMENT_API_KEY=...    # escrow release/refund only (#1917)
 PROPOSER_PRIVATE_KEY=...
 EOF
 

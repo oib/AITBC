@@ -40,10 +40,14 @@ class BlockchainRPCClient:
         rpc_url: str = "http://localhost:8202",
         timeout: float = 10.0,
         api_key: str | None = None,
+        settlement_api_key: str | None = None,
     ) -> None:
         self._rpc_url = rpc_url.rstrip("/")
         self._timeout = timeout
         self._api_key = api_key or os.environ.get("BLOCKCHAIN_RPC_API_KEY")
+        # Dedicated settlement credential for release/refund (#1917); falls
+        # back to the node's env like the RPC key does.
+        self._settlement_api_key = settlement_api_key or os.environ.get("BLOCKCHAIN_RPC_SETTLEMENT_API_KEY")
 
     @property
     def rpc_url(self) -> str:
@@ -53,6 +57,11 @@ class BlockchainRPCClient:
     def _headers(self) -> dict[str, str] | None:
         """Return default request headers, including the RPC API key if configured."""
         return {"X-API-Key": self._api_key} if self._api_key else None
+
+    def _settlement_headers(self) -> dict[str, str] | None:
+        """X-Settlement-Key for escrow release/refund (#1917); None when unset —
+        the node then refuses, which is the intended fail-closed behaviour."""
+        return {"X-Settlement-Key": self._settlement_api_key} if self._settlement_api_key else None
 
     def _client(self) -> httpx.AsyncClient:
         """Return an httpx client with the configured headers."""
@@ -223,7 +232,11 @@ class BlockchainRPCClient:
         if not job_id:
             raise ValueError("release_escrow requires job_id")
         async with self._client() as client:
-            resp = await client.post(f"{self._rpc_url}/rpc/escrow/{job_id}/release", json=body)
+            resp = await client.post(
+                f"{self._rpc_url}/rpc/escrow/{job_id}/release",
+                json=body,
+                headers=self._settlement_headers(),
+            )
             if resp.status_code == 404:
                 return None
             resp.raise_for_status()
@@ -240,7 +253,11 @@ class BlockchainRPCClient:
         if not job_id:
             raise ValueError("refund_escrow requires job_id")
         async with self._client() as client:
-            resp = await client.post(f"{self._rpc_url}/rpc/escrow/{job_id}/refund", json=body)
+            resp = await client.post(
+                f"{self._rpc_url}/rpc/escrow/{job_id}/refund",
+                json=body,
+                headers=self._settlement_headers(),
+            )
             if resp.status_code == 404:
                 return None
             resp.raise_for_status()
