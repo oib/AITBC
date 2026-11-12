@@ -40755,6 +40755,8 @@
           },
           "duration_hours": {
             "type": "number",
+            "maximum": 8760.0,
+            "minimum": 0.0167,
             "title": "Duration Hours"
           },
           "payment_method": {
