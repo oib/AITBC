@@ -13,6 +13,45 @@ This is **not** a Tendermint/Cosmos RPC surface — there is no
 `broadcast_tx_*`, `node_info`, `sync_info`, `validator_info`, `/rpc/tx`, or
 `/rpc/block` subscription. The endpoints below are the ones that exist.
 
+## Read-surface posture (#1936)
+
+The `/rpc/*` read surface reachable through the edge vhost is
+**public-read-by-design for chain data** — the same posture as any public
+blockchain RPC (accounts, balances, blocks, transactions, mempool, state
+snapshot/delta, AI jobs, GPU/edge registrations, market listings, forum
+and DM ciphertext, on-chain dispute records, bridge transfer listings,
+consensus validator set). The explorer, public website, MCP read tools,
+monitoring textfile exporters, ops scripts and follower sync all consume
+these reads without credentials, and `docs/ops/failover-runbook.md` treats
+the chain-read paths as the flippable public read-path.
+
+What is **not** public:
+
+- Every mutating route requires `X-API-Key` (node key, a
+  `BLOCKCHAIN_RPC_API_KEY_PEERS` fleet key, or — on the lease routes — an
+  issued `/rpc/join` peer key). See the auth notes per section.
+- `GET /rpc/export-chain` requires a **fleet** key — issued join keys are
+  rejected (#1871).
+- `GET /rpc/lease/{node_id}` and `GET /rpc/subscribers` require a peer
+  key (#1936): lease/subscriber state is node-local fleet topology, not
+  chain data. Issued join keys are bound to their own `node_id`.
+- `/rpc/subscribe/ws` requires a peer key inside the handshake frame
+  (#1702); `/rpc/gossip/ws` allows anonymous subscribe but gates publish
+  on public topics behind a peer key or validator auth (#1874).
+- Node-local operational views that stay public by design:
+  `/rpc/network-info` (the documented join contract), `/rpc/info`,
+  `/rpc/status`, `/rpc/sync/config`, `/rpc/health`-style bridge
+  `security/status` + `oracle/status` probes (runbook/monitoring
+  consumers), `/rpc/chains`, `/rpc/islands`, `/rpc/mining/*` (admin-key
+  gated), `/rpc/join` (self-serve, rate-limited).
+
+`/rpc/state/snapshot` and `/rpc/state/delta` remain public deliberately
+(#1871 residual): every account they return is already readable
+individually via `/rpc/account/{address}`, and unauthenticated consumers
+(follower `sync_state`, `authority-balances-textfile.py`, MCP read
+tools, ops verify scripts) depend on them. They are rate-limited
+(`10/min`) as the bulk-disclosure mitigation.
+
 ## Transactions
 
 ### Submit Transaction
@@ -272,11 +311,11 @@ endpoints exist on the **hub**; followers call them outbound.
 
 | Endpoint | Auth | Purpose |
 |----------|------|---------|
-| `POST /rpc/subscribe` | `X-API-Key` must be in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS` | Register a lease: `{node_id, transport, chain_id, duration?}` |
+| `POST /rpc/subscribe` | peer key (node RPC key, `BLOCKCHAIN_RPC_API_KEY_PEERS` member, or issued `/rpc/join` key bound to the same `node_id`) | Register a lease: `{node_id, transport, chain_id, duration?}` |
 | `POST /rpc/heartbeat` | peer key | Extend the lease: `{node_id, chain_id}` |
-| `GET /rpc/lease/{node_id}` | — | Lease status for a subscriber |
+| `GET /rpc/lease/{node_id}` | peer key | Lease status for a subscriber (#1936) |
 | `DELETE /rpc/lease/{node_id}` | peer key | Revoke a lease |
-| `GET /rpc/subscribers` | — | List subscribers with valid leases |
+| `GET /rpc/subscribers` | peer key | List subscribers with valid leases (#1936) |
 
 **Response for `GET /rpc/subscribers`:**
 

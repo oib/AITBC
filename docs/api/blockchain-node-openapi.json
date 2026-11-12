@@ -2901,8 +2901,13 @@
           "subscription"
         ],
         "summary": "Get lease status for a subscriber",
-        "description": "Check the lease status for a subscriber",
+        "description": "Check the lease status for a subscriber.\n\nPeer-key gated (#1936): lease state is node-local subscription\nbookkeeping \u2014 the live follower topology of this hub \u2014 not chain\ndata, so it does not belong on the public read surface. The read\ntakes the same credential as the other lease routes, with the same\nissued-key node_id binding.",
         "operationId": "lease_status_route_rpc_lease__node_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "node_id",
@@ -2933,6 +2938,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -3006,8 +3021,13 @@
           "subscription"
         ],
         "summary": "Get all valid subscribers",
-        "description": "Get all subscribers with valid leases",
+        "description": "Get all subscribers with valid leases.\n\nPeer-key gated (#1936): the subscriber list is node-local lease\nstate (which fleet nodes hold live leases), not chain data \u2014 it\nstays off the public read surface like the rest of the lease API.",
         "operationId": "subscribers_route_rpc_subscribers_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -3045,6 +3065,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -14959,8 +14989,13 @@
           "subscription"
         ],
         "summary": "Get lease status for a subscriber",
-        "description": "Check the lease status for a subscriber",
+        "description": "Check the lease status for a subscriber.\n\nPeer-key gated (#1936): lease state is node-local subscription\nbookkeeping \u2014 the live follower topology of this hub \u2014 not chain\ndata, so it does not belong on the public read surface. The read\ntakes the same credential as the other lease routes, with the same\nissued-key node_id binding.",
         "operationId": "lease_status_route_v1_lease__node_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "node_id",
@@ -14991,6 +15026,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -15064,8 +15109,13 @@
           "subscription"
         ],
         "summary": "Get all valid subscribers",
-        "description": "Get all subscribers with valid leases",
+        "description": "Get all subscribers with valid leases.\n\nPeer-key gated (#1936): the subscriber list is node-local lease\nstate (which fleet nodes hold live leases), not chain data \u2014 it\nstays off the public read surface like the rest of the lease API.",
         "operationId": "subscribers_route_v1_subscribers_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -15103,6 +15153,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

@@ -306,7 +306,12 @@ def lease_status(ctx, node_id, rpc_url):
             abort(ctx, "node-id is required. Set NODE_ID in /etc/aitbc/node.env or use --node-id option")
 
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url or _hub_rpc_url(), timeout=10)
+        # Lease/subscriber reads are peer-key gated (#1936) — send the
+        # configured blockchain RPC key (fleet key or issued join key).
+        from ..config import get_config
+
+        api_key = (ctx.obj or {}).get("api_key") or get_config().blockchain_rpc_api_key
+        http_client = AITBCHTTPClient(base_url=rpc_url or _hub_rpc_url(), timeout=10, api_key=api_key)
         result = http_client.get(f"/rpc/lease/{node_id}")
         output(result, ctx.obj.get("output_format", "table"), title="Lease Status")
     except NetworkError as e:
@@ -328,7 +333,11 @@ def lease_status(ctx, node_id, rpc_url):
 def subscribers(ctx, chain_id, rpc_url):
     """List all active subscribers, optionally filtered by chain."""
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url or _hub_rpc_url(), timeout=10)
+        # Peer-key gated since #1936 — see lease_status above.
+        from ..config import get_config
+
+        api_key = (ctx.obj or {}).get("api_key") or get_config().blockchain_rpc_api_key
+        http_client = AITBCHTTPClient(base_url=rpc_url or _hub_rpc_url(), timeout=10, api_key=api_key)
         params = {"chain_id": chain_id} if chain_id else {}
         result = http_client.get("/rpc/subscribers", params=params)
         output(result, ctx.obj.get("output_format", "table"), title="Active Subscribers")
