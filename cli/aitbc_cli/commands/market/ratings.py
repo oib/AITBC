@@ -8,7 +8,7 @@ import click
 
 from aitbc.config.hub import normalize_hub_base
 
-from ...config import get_config
+from ...config import _resolve_market_api_key, get_config
 from ...utils import error, info, output, success
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
@@ -68,7 +68,11 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str, ma
             reviewer_id = get_wallet_address()
 
         # Call market service API
-        client = AITBCHTTPClient(base_url=_market_base_url(market_url), timeout=10)
+        client = AITBCHTTPClient(
+            base_url=_market_base_url(market_url),
+            timeout=10,
+            api_key=_resolve_market_api_key(get_config()),
+        )
         response = client.post(
             f"/v1/market/offer/{service_id}/rate",
             json={"rating": rating, "reviewer_id": reviewer_id, "comment": comment or ""},
@@ -180,7 +184,11 @@ def sync_ratings(ctx, remote_url: str, limit: int):
     """Sync ratings to and from a remote market node."""
     try:
         # Get local unsynced ratings
-        local_client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=10)
+        local_client = AITBCHTTPClient(
+            base_url="http://localhost:8102",
+            timeout=10,
+            api_key=_resolve_market_api_key(get_config()),
+        )
         unsynced_response = local_client.get("/v1/market/ratings/unsynced", params={"limit": limit})
         unsynced_ratings = unsynced_response.get("ratings", [])
 
@@ -188,7 +196,11 @@ def sync_ratings(ctx, remote_url: str, limit: int):
             info(f"Found {len(unsynced_ratings)} unsynced ratings to push to {remote_url}")
 
             # Push to remote
-            remote_client = AITBCHTTPClient(base_url=remote_url, timeout=30)
+            remote_client = AITBCHTTPClient(
+                base_url=remote_url,
+                timeout=30,
+                api_key=_resolve_market_api_key(get_config()),
+            )
             sync_response = remote_client.post("/v1/market/ratings/sync", json=unsynced_ratings)
 
             if sync_response.get("status") == "success":
