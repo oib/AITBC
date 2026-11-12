@@ -223,13 +223,16 @@ class TestEscrowPersistence:
 class TestEscrowEndpointsAfterRestart:
     """The reported regression: /tasks/{id}/escrow 404s after a restart."""
 
-    def _client(self) -> TestClient:
+    def _client(self, monkeypatch) -> TestClient:
+        monkeypatch.setenv("COORDINATOR_API_KEY", "test-operator-key")
         app = FastAPI()
         app.include_router(tasks_router.router)
         return TestClient(app)
 
+    _AUTH = {"X-Api-Key": "test-operator-key"}
+
     def test_task_escrow_endpoint_survives_restart(self, escrow_db, monkeypatch):
-        client = self._client()
+        client = self._client(monkeypatch)
 
         escrow = PaymentEscrow(store=TaskEscrowStore())
         entry = escrow.create_escrow(task_id="task-42", chain_id="c", requester="buyer", agent="prov", amount=50)
@@ -238,12 +241,12 @@ class TestEscrowEndpointsAfterRestart:
         escrow.persist_entry(entry)
         monkeypatch.setattr(state, "payment_escrow", escrow)
 
-        before = client.get("/tasks/task-42/escrow")
+        before = client.get("/tasks/task-42/escrow", headers=self._AUTH)
         assert before.status_code == 200
 
         # Simulate the restart: a fresh manager rehydrated from the same store.
         monkeypatch.setattr(state, "payment_escrow", PaymentEscrow(store=TaskEscrowStore()))
-        after = client.get("/tasks/task-42/escrow")
+        after = client.get("/tasks/task-42/escrow", headers=self._AUTH)
         assert after.status_code == 200
         body = after.json()["escrow"]
         assert body["escrow_id"] == entry.escrow_id
@@ -252,15 +255,15 @@ class TestEscrowEndpointsAfterRestart:
         assert body["contract_id"] == "contract-42"
 
     def test_escrow_id_endpoint_survives_restart(self, escrow_db, monkeypatch):
-        client = self._client()
+        client = self._client(monkeypatch)
 
         escrow = PaymentEscrow(store=TaskEscrowStore())
         entry = escrow.create_escrow(task_id="task-77", chain_id="c", requester="b", agent="p", amount=25)
         escrow.lock(entry.escrow_id, submitter=lambda *a: "lock-tx-77")
         monkeypatch.setattr(state, "payment_escrow", escrow)
-        assert client.get(f"/tasks/escrow/{entry.escrow_id}").status_code == 200
+        assert client.get(f"/tasks/escrow/{entry.escrow_id}", headers=self._AUTH).status_code == 200
 
         monkeypatch.setattr(state, "payment_escrow", PaymentEscrow(store=TaskEscrowStore()))
-        resp = client.get(f"/tasks/escrow/{entry.escrow_id}")
+        resp = client.get(f"/tasks/escrow/{entry.escrow_id}", headers=self._AUTH)
         assert resp.status_code == 200
         assert resp.json()["escrow"]["escrow_status"] == "locked"
