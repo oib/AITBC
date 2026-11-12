@@ -39,6 +39,24 @@ from ..monitoring.prometheus_metrics import metrics_registry
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS: tuple[type[Exception], ...] = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
+import sqlite3
+
+_OPS_ERRORS += (sqlite3.Error,)
+
 # 3 AIT in compute-units — matches INITIAL_COIN_AMOUNT in websocket.agent_stream, which is the
 # grant the hub makes automatically.
 DEFAULT_AUTO_APPROVE_MAX = ait_to_units(3)  # COIN_REQUEST_AUTO_APPROVE_MAX is set in AIT
@@ -142,7 +160,7 @@ def agent_db_granted_since(db_path: str, since_iso: str) -> int | None:
             ).fetchone()[0]
             conn.close()
             return int(total or 0)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             last_error = e
             if conn is not None:
                 try:

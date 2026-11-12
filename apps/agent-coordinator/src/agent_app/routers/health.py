@@ -10,6 +10,21 @@ from .. import state
 from ..services.agent_auth import AgentPrincipal, optional_agent
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
 router = APIRouter()
 
 # Resolves the caller's principal if credentials are present, ``None``
@@ -48,7 +63,7 @@ async def health_check(request: Request, response: Response, principal: Optional
     if redis_client is not None:
         try:
             await redis_client.ping()
-        except Exception:
+        except _OPS_ERRORS:
             logger.warning("Health check: agent registry Redis ping failed")
             result["status"] = HealthStatus.UNHEALTHY
             result["message"] = "Unhealthy: redis"
