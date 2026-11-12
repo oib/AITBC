@@ -480,6 +480,14 @@ class PersistentKeystoreService:
                 # Fetch nonce from blockchain if not provided
                 if nonce is None:
                     nonce = self._get_account_nonce(sender_address)
+                else:
+                    # #1859: a caller-supplied nonce below the confirmed
+                    # account nonce is a guaranteed node rejection — refuse
+                    # locally instead of signing a doomed transaction. Gaps
+                    # and future nonces remain the caller's choice.
+                    account_nonce = self._get_account_nonce(sender_address)
+                    if nonce < account_nonce:
+                        raise ValueError(f"nonce {nonce} is below the account nonce {account_nonce}")
 
                 # Ensure chain_id: explicit argument or the service's configured
                 # chain — never a hard-coded default on the signing path.
@@ -557,6 +565,11 @@ class PersistentKeystoreService:
                     "fee": fee,
                     "nonce": nonce,
                     "signature": signature_hex[:32] + "...",  # Truncated for security
+                    # #1859: broadcast-outcome classification — "definite"
+                    # means the node refused before mempool admission (safe
+                    # retry); "ambiguous" means the tx may have landed.
+                    **({"definite": True} if result.get("definite") else {}),
+                    **({"ambiguous": True} if result.get("ambiguous") else {}),
                 }
 
             finally:
@@ -610,12 +623,29 @@ class PersistentKeystoreService:
 
             response = httpx.post(f"{rpc_url}/rpc/transaction", json=request_data, timeout=30.0)
             response.raise_for_status()
-            return dict(response.json())
+            body = response.json()
+            # A 200 carrying success:false is the node explicitly refusing
+            # before mempool admission — definite, safe to retry.
+            if isinstance(body, dict) and body.get("success") is False:
+                return {"success": False, "definite": True, "error": body.get("error") or body.get("message") or "rejected"}
+            return dict(body)
 
         except httpx.HTTPStatusError as e:
-            return {"success": False, "error": f"HTTP {e.response.status_code}: {e.response.text}"}
+            # #1859: a 4xx is the node refusing before mempool admission —
+            # the tx provably never broadcast, so the failure is definite
+            # and a retry is safe. 5xx may have crashed mid-accept: ambiguous.
+            definite = 400 <= e.response.status_code < 500
+            return {
+                "success": False,
+                "definite": definite,
+                "ambiguous": not definite,
+                "error": f"HTTP {e.response.status_code}: {e.response.text}",
+            }
         except Exception as e:
-            return {"success": False, "error": str(e)}
+            # Timeout, connection reset, unreadable body — the request may
+            # have been accepted before the failure. Ambiguous: the caller
+            # must treat the outcome as unknown, never a clean rejection.
+            return {"success": False, "ambiguous": True, "error": str(e)}
 
     def update_metadata(self, wallet_id: str, metadata: dict[str, str]) -> bool:
         """Update wallet metadata"""
