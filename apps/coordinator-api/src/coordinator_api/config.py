@@ -279,6 +279,13 @@ class Settings(BaseAITBCConfig):
     # Blockchain RPC
     blockchain_rpc_url: str = Field(default="http://localhost:8202", description="Blockchain RPC URL")
     blockchain_rpc_api_key: str = Field(default="", description="API key for blockchain RPC escrow endpoints")
+    # Dedicated settlement credential for the chain's escrow release/refund
+    # routes (#1917): the node requires it as X-Settlement-Key IN ADDITION to
+    # the shared BLOCKCHAIN_RPC_API_KEY (X-API-Key). Same env name as the
+    # node's BLOCKCHAIN_RPC_SETTLEMENT_API_KEY so one value configures both.
+    blockchain_rpc_settlement_api_key: str = Field(
+        default="", description="Settlement API key (X-Settlement-Key) for chain escrow release/refund routes"
+    )
     # Server-side password used to encrypt agent wallets at rest. Must be set in production.
     wallet_encryption_password: str = ""
 

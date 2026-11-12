@@ -134,6 +134,9 @@ class Settings(ServiceSettings):
     # Blockchain integration (v0.6.5)
     blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
     blockchain_rpc_api_key: str = os.getenv("BLOCKCHAIN_RPC_API_KEY", "")
+    # Dedicated settlement credential for the chain's escrow release/refund
+    # routes (#1917) — sent as X-Settlement-Key in addition to X-API-Key.
+    blockchain_rpc_settlement_api_key: str = os.getenv("BLOCKCHAIN_RPC_SETTLEMENT_API_KEY", "")
     default_chain_id: str = os.getenv("DEFAULT_CHAIN_ID", "ait-hub")
     default_island_id: str = os.getenv("DEFAULT_ISLAND_ID", "")
 

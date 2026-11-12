@@ -1,8 +1,10 @@
 """Tests for POST /v1/escrow/refund (ESCROW-REFUND-1).
 
 The relay forwards ``{job_id, reason?}`` to the settlement node's
-``/rpc/escrow/{job_id}/refund`` — a route the node signs itself and that
-carries no caller auth — so these tests pin the JWT-side ruling from
+``/rpc/escrow/{job_id}/refund`` — a route the node signs itself; the chain
+additionally requires the settlement credential as ``X-Settlement-Key``
+(#1917) on top of ``X-API-Key``, which the relay forwards — so these
+tests pin the JWT-side ruling from
 #471: the on-chain escrow's ``buyer`` must equal the wallet bound to the
 JWT subject (admin exempt), the coordinator ``job`` row must exist and be
 terminal-unpaid (FAILED/CANCELED/EXPIRED, or past ``expires_at``),
@@ -180,6 +182,35 @@ class TestEscrowRefundRelay:
         # No caller-chosen amount — only the reason is forwarded.
         assert sent == {"reason": "buyer_requested"}
         assert "amount" not in sent
+
+    def test_refund_forwards_settlement_key(self, client, db_session, monkeypatch):
+        """#1917: the chain refund route requires X-Settlement-Key in
+        addition to X-API-Key; the relay must forward the configured
+        BLOCKCHAIN_RPC_SETTLEMENT_API_KEY."""
+        from coordinator_api.config import settings
+
+        monkeypatch.setattr(settings, "blockchain_rpc_settlement_api_key", "settle-test-key")
+        headers = _actor(db_session, "c-settle")
+        _add_job(db_session, client_id="c-settle", state="FAILED")
+        mock_client = _chain_client_mock()
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/refund", json=_payload(), headers=headers)
+        assert resp.status_code == 200, resp.text
+        assert mock_client.post.call_args.kwargs["headers"] == {"X-Settlement-Key": "settle-test-key"}
+
+    def test_refund_no_settlement_key_sends_no_header(self, client, db_session, monkeypatch):
+        """Unconfigured settlement key → empty headers; the chain then
+        refuses (fail-closed), which is the intended behaviour."""
+        from coordinator_api.config import settings
+
+        monkeypatch.setattr(settings, "blockchain_rpc_settlement_api_key", "")
+        headers = _actor(db_session, "c-nosettle")
+        _add_job(db_session, client_id="c-nosettle", state="FAILED")
+        mock_client = _chain_client_mock()
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/refund", json=_payload(), headers=headers)
+        assert resp.status_code == 200, resp.text
+        assert mock_client.post.call_args.kwargs["headers"] == {}
 
     def test_refund_forwards_reason(self, client, db_session):
         headers = _actor(db_session, "c-reason")

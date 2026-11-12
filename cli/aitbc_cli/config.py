@@ -43,6 +43,7 @@ CONFIG_FILE_KEYS: dict[str, str] = {
     "wallet_address": "WALLET_ADDRESS",
     "coordinator_api_key": "COORDINATOR_API_KEY",
     "blockchain_rpc_api_key": "BLOCKCHAIN_RPC_API_KEY",
+    "blockchain_rpc_settlement_api_key": "BLOCKCHAIN_RPC_SETTLEMENT_API_KEY",
     "edge_api_host": "edge_api_host",
     "edge_api_port": "edge_api_port",
     "chain_id": "chain_id",
@@ -126,6 +127,11 @@ class CLIConfig(BaseAITBCConfig):
         default=None,
         alias="BLOCKCHAIN_RPC_API_KEY",
         description="API key for the blockchain RPC (escrow routes require this)",
+    )
+    blockchain_rpc_settlement_api_key: str | None = Field(
+        default=None,
+        alias="BLOCKCHAIN_RPC_SETTLEMENT_API_KEY",
+        description="Settlement credential (X-Settlement-Key) for chain escrow release/refund routes (#1917)",
     )
     wallet_api_key: str | None = Field(
         default=None,

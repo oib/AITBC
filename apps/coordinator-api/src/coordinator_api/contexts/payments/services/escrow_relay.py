@@ -66,6 +66,15 @@ class EscrowRelayService:
         self.session = session
         self.blockchain_rpc_url = settings.blockchain_rpc_url.rstrip("/")
         self.blockchain_rpc_api_key = settings.blockchain_rpc_api_key
+        self.blockchain_rpc_settlement_api_key = settings.blockchain_rpc_settlement_api_key
+
+    def _settlement_headers(self) -> dict[str, str]:
+        """X-Settlement-Key for the chain's escrow release/refund routes (#1917).
+
+        Empty when unconfigured — the node then refuses the call, which is
+        the intended fail-closed behaviour, so no header is sent.
+        """
+        return {"X-Settlement-Key": self.blockchain_rpc_settlement_api_key} if self.blockchain_rpc_settlement_api_key else {}
 
     def _bound_wallet_address(self, client_id: str) -> str | None:
         """Return the wallet address bound to the JWT subject, if any."""

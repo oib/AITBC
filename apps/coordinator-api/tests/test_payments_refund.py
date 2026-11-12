@@ -134,6 +134,7 @@ class TestPaymentServiceRefund:
         mock_client.post.assert_called_once_with(
             "http://127.0.0.1:8202/rpc/escrow/job-refund-2/refund",
             json={"reason": "test"},
+            headers={},
         )
 
         from aitbc_shared import JobPayment
@@ -141,6 +142,26 @@ class TestPaymentServiceRefund:
         payment = payment_session.get(JobPayment, payment_id)
         assert payment.status == "refunded"
         assert payment.refund_transaction_hash == "0xnewrefundtx"
+
+    @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+    def test_refund_forwards_settlement_key(self, mock_client_cls, payment_session, monkeypatch):
+        """#1917: the direct refund submit must carry X-Settlement-Key when
+        BLOCKCHAIN_RPC_SETTLEMENT_API_KEY is configured."""
+        from coordinator_api.config import settings
+
+        monkeypatch.setattr(settings, "blockchain_rpc_settlement_api_key", "settle-test-key")
+        job_id = "job-refund-settle"
+        payment_id = "pay-refund-settle"
+        _make_job_and_payment(payment_session, job_id, payment_id)
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = {"state": "funded"}
+        mock_client.post.return_value = {"success": True, "refund_tx_hash": "0xrefsettle"}
+        mock_client_cls.return_value = mock_client
+
+        service = PaymentService(payment_session)
+        assert asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test")) is True
+        assert mock_client.post.call_args.kwargs["headers"] == {"X-Settlement-Key": "settle-test-key"}
 
     @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
     def test_refund_fails_when_payment_not_escrowed(self, mock_client_cls, payment_session):

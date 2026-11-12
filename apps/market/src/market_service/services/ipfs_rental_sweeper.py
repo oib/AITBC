@@ -77,6 +77,7 @@ class IpfsRentalSweeper:
         self._rpc_client = rpc_client or BlockchainRPCClient(
             rpc_url=settings.blockchain_rpc_url,
             api_key=settings.blockchain_rpc_api_key,
+            settlement_api_key=settings.blockchain_rpc_settlement_api_key,
         )
         self._session_factory = session_factory or _default_session_factory
         self._task: asyncio.Task[Any] | None = None

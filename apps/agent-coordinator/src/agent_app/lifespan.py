@@ -197,6 +197,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         state.escrow_rpc = ChainEscrowClient(
             settings.blockchain_rpc_url,
             api_key=settings.blockchain_rpc_api_key or None,
+            settlement_api_key=settings.blockchain_rpc_settlement_api_key or None,
         )
         logger.info(
             "Payment escrow enabled (timeout=%ss, chain_rpc=%s)",

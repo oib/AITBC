@@ -5,6 +5,23 @@ API-key-gated** (security matrix: `X-API-Key`, Level 2). A customer node
 has neither, so customer-facing escrow traffic goes through two JWT
 relays on the coordinator API instead.
 
+## Chain-side auth — two keys on settlement routes (#1917)
+
+Every `/rpc/` route requires `X-API-Key` (`BLOCKCHAIN_RPC_API_KEY`).
+`POST /rpc/escrow/{job_id}/release` and `.../refund` **additionally**
+require `X-Settlement-Key` (`BLOCKCHAIN_RPC_SETTLEMENT_API_KEY`) — a
+dedicated settlement-node credential. Possession of the shared RPC key
+is necessary but no longer sufficient to move escrow funds; only the
+settlement node (and the coordinator/CLI/MCP callers configured with
+the same value) can settle. An unset settlement key fails closed: the
+routes answer 503 until it is configured. The coordinator relays,
+`PaymentService` direct submits, the market service's
+`BlockchainRPCClient`, the agent-coordinator `ChainEscrowClient`, the
+CLI (`aitbc market escrow ...`, `aitbc http call --auth rpc`), and the
+MCP `release_escrow`/`refund_escrow` tools all forward it — deploys must
+set `BLOCKCHAIN_RPC_SETTLEMENT_API_KEY` on the chain node **and** every
+caller, or settlement calls start failing with 403/503.
+
 ## The `to` address rule
 
 Every escrow lock pays the **node wallet** of the settlement node —

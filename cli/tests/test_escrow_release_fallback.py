@@ -233,3 +233,34 @@ def test_run_ollama_release_uses_hub_fallback(monkeypatch):
         node_wallet="0xW",
     )
     assert calls == ["http://127.0.0.1:8202", "https://hub.aitbc.bubuit.net"]
+
+
+# --- _get_rpc_client: settlement credential header (#1917) ------------------
+
+
+def test_get_rpc_client_sends_settlement_key_when_configured():
+    """The dedicated settlement credential rides as X-Settlement-Key on the
+    RPC client; the chain only checks it on release/refund."""
+    cfg = SimpleNamespace(
+        blockchain_rpc_api_key="rpc-key",
+        blockchain_rpc_settlement_api_key="settle-key",
+    )
+    client = esc_mod._get_rpc_client(cfg, "http://127.0.0.1:8202")
+    try:
+        assert client.headers["X-API-Key"] == "rpc-key"
+        assert client.headers["X-Settlement-Key"] == "settle-key"
+    finally:
+        client.close()
+
+
+def test_get_rpc_client_no_settlement_key_no_header():
+    cfg = SimpleNamespace(
+        blockchain_rpc_api_key="rpc-key",
+        blockchain_rpc_settlement_api_key=None,
+    )
+    client = esc_mod._get_rpc_client(cfg, "http://127.0.0.1:8202")
+    try:
+        assert client.headers["X-API-Key"] == "rpc-key"
+        assert "X-Settlement-Key" not in client.headers
+    finally:
+        client.close()

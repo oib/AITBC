@@ -22,6 +22,7 @@ class _CoreMixin:
         self._rpc_client = BlockchainRPCClient(
             rpc_url=settings.blockchain_rpc_url,
             api_key=settings.blockchain_rpc_api_key,
+            settlement_api_key=settings.blockchain_rpc_settlement_api_key,
         )
 
     def get_current_timestamp(self) -> int:
