@@ -445,6 +445,71 @@ def _fee_sweep_recipient() -> str | None:
     return _er._to_canonical(raw) if raw else None
 
 
+async def _verify_job_tx_proof(job_tx_hash: str, job_id: str, buyer: str, provider: str) -> None:
+    """Verify ``job_tx_hash`` binds a sealed ``software_job`` completion record (#1929).
+
+    ``job_tx_hash`` is documented as proof of work but was previously stored
+    unverified. The convention (operator-approved on #1927, option b): the
+    buyer-side CLI submits a value-zero ``GPU_MARKET`` transaction whose
+    payload carries ``action="software_job"``, ``status="completed"``, the
+    escrow ``job_id``, both party addresses and a ``result_hash``. The
+    record is buyer-signed — the buyer attests the work completed — so the
+    chain ``sender`` must equal the escrow buyer and the payload parties
+    must equal the escrow's recorded buyer/provider.
+
+    Verify-when-present: callers that omit ``job_tx_hash`` are unaffected;
+    a supplied hash that does not resolve to a matching sealed record
+    rejects the release before any settlement state is touched.
+    """
+    if not buyer or not provider:
+        raise _er.HTTPException(
+            status_code=409,
+            detail="cannot verify job_tx_hash: escrow buyer/provider unknown",
+        )
+    try:
+        r = await _er.SharedHttpClient.get(f"{_er._HUB_RPC_URL}/transaction/{job_tx_hash}")
+    except Exception as e:
+        _er._logger.warning("job_tx_hash lookup failed for %s: %s", job_tx_hash, e)
+        raise _er.HTTPException(status_code=503, detail="job_tx_hash could not be verified right now; retry") from e
+    if r.status_code != 200:
+        raise _er.HTTPException(status_code=400, detail=f"job_tx_hash {job_tx_hash} does not resolve to a chain transaction")
+    tx = r.json() or {}
+    payload = tx.get("payload") or {}
+    if isinstance(payload, str):
+        try:
+            payload = _er.json.loads(payload)
+        except ValueError:
+            payload = {}
+    if not isinstance(payload, dict):
+        payload = {}
+    sealed = tx.get("status") == "confirmed" and tx.get("block_height") is not None
+    bound = (
+        tx.get("type") == "GPU_MARKET"
+        and sealed
+        and payload.get("action") == "software_job"
+        and payload.get("status") == "completed"
+        and payload.get("job_id") == job_id
+        and bool(payload.get("result_hash"))
+        and _er._to_canonical(payload.get("provider_address") or "") == _er._to_canonical(provider)
+        and _er._to_canonical(payload.get("buyer_address") or "") == _er._to_canonical(buyer)
+        and _er._to_canonical(tx.get("sender") or "") == _er._to_canonical(buyer)
+    )
+    if not bound:
+        _er._logger.warning(
+            "job_tx_hash %s rejected for job_id=%s: type=%s status=%s sealed=%s payload_action=%s",
+            job_tx_hash,
+            job_id,
+            tx.get("type"),
+            tx.get("status"),
+            sealed,
+            payload.get("action"),
+        )
+        raise _er.HTTPException(
+            status_code=400,
+            detail="job_tx_hash is not a sealed software_job completion record bound to this escrow",
+        )
+
+
 async def _find_existing_fee_sweep(job_id: str) -> str | None:
     """Return the hash of an ESCROW_FEE_SWEEP already on-chain for ``job_id``, if any.
 
