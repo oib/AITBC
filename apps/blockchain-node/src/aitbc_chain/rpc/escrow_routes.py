@@ -67,7 +67,7 @@ if not _RPC_SETTLEMENT_API_KEY:
         "BLOCKCHAIN_RPC_SETTLEMENT_API_KEY is not set; escrow release/refund endpoints will "
         "refuse all requests until it is configured"
     )
-_settlement_key_header = APIKeyHeader(name="X-Settlement-Key", auto_error=False)
+_settlement_key_header: APIKeyHeader = APIKeyHeader(name="X-Settlement-Key", auto_error=False)
 _RPC_API_PEER_KEYS = frozenset(k.strip() for k in os.getenv("BLOCKCHAIN_RPC_API_KEY_PEERS", "").split(",") if k.strip())
 _GENESIS_WALLET_PRIVATE_KEY = os.getenv("GENESIS_WALLET_PRIVATE_KEY", "")
 _ESCROW_RELEASE_PRIVATE_KEY = os.getenv("ESCROW_RELEASE_PRIVATE_KEY", "")
