@@ -1345,6 +1345,7 @@ def _http_read_tool(
     path: str,
     params: dict[str, str] | None = None,
     timeout: int = 30,
+    auth: str = "none",
 ) -> str:
     """Helper for read-only HTTP tools."""
     target = _host_for_role(role, host)
@@ -1356,7 +1357,7 @@ def _http_read_tool(
                 "known_services": sorted(HTTP_SERVICE_NAMES),
             }
         )
-    return _json(_run_http(target, service, path, "GET", params, None, timeout))
+    return _json(_run_http(target, service, path, "GET", params, None, timeout, auth=auth))
 
 
 def _build_dry_run(message: str, real_command: str, host: str | None = None) -> dict[str, Any]:
