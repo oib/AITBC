@@ -10,8 +10,19 @@ applies the same per-job access-token gate as ffmpeg/whisper/hermes
 Only the inference routes a paid offer can legitimately use are exposed;
 model-management routes (/api/pull, /api/create, /api/delete, /api/copy,
 /api/push, /api/blobs) are not proxied at all and answer 404 here.
-``/api/tags`` and ``/api/version`` stay public — model discovery is not
-paid work — and ``/health`` is the unit's own probe.
+``/health`` is the unit's own probe and stays open.
+
+OLLAMA-GATE-EDGE-TRUST-1 (#1937): ``/api/tags`` and ``/api/version`` used to
+stay public — "model discovery is not paid work". Live verification on
+node2 showed the nginx ``allow`` list in front of this gate can only trust
+the edge proxy addresses (10.1.223.1 / 192.168.0.1): every public client
+arrives through them, so the IP layer gives no per-client discrimination
+and unauthenticated internet traffic could enumerate the shop's model
+inventory. Both metadata routes now carry the same ``require_job_access``
+dependency as inference — a buyer discovers models through the market
+offer list, not through the ollama backend. The edge nginx allowlist still
+does its remaining job (keeping non-edge direct hits off the gate); this
+change removes the gate's unauthenticated metadata surface entirely.
 
 Paid-call policy (APIGW-OLLAMA-DEPTH2-1, #1613):
 
@@ -128,7 +139,8 @@ _DURATION_UNIT = {"ms": 0.001, "s": 1.0, "m": 60.0, "h": 3600.0}
 
 # Paid inference routes — gated. Everything else ollama serves is not proxied.
 _GATED_POSTS = ("/api/generate", "/api/chat", "/api/embed", "/api/embeddings")
-_PUBLIC_GETS = ("/api/tags", "/api/version")
+# /api/tags + /api/version are gated too (#1937) via explicit routes below;
+# only /health stays unauthenticated.
 
 _HOP_BY_HOP = {"connection", "keep-alive", "transfer-encoding", "content-length", "content-encoding"}
 
@@ -161,17 +173,19 @@ async def health() -> dict[str, Any]:
 
 
 @app.get("/api/version")
-async def public_version() -> Response:
+async def api_version(job: Annotated[dict[str, Any], Depends(require_job_access)]) -> Response:
+    # `job` is unused: the token proves a paid job exists; GETs carry no body
+    # to bind against the job's model.
     return await _proxy_get("/api/version")
 
 
 @app.get("/api/tags")
-async def public_tags() -> Response:
+async def api_tags(job: Annotated[dict[str, Any], Depends(require_job_access)]) -> Response:
     return await _proxy_get("/api/tags")
 
 
-# APIGW-OLLAMA-DEPTH2-1 (#1613): public GETs (/api/tags, /api/version) were
-# buffered unbounded via resp.content — cap them like the gated POST path.
+# APIGW-OLLAMA-DEPTH2-1 (#1613): the gated GETs (/api/tags, /api/version)
+# were buffered unbounded via resp.content — cap them like the gated POST path.
 _PROXY_GET_MAX_BYTES = int(os.getenv("OLLAMA_GATE_PROXY_GET_MAX_BYTES", str(16 * 1024 * 1024)))
 
 

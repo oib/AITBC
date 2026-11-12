@@ -65,11 +65,39 @@ def test_valid_token_reaches_backend(client):
         gate.app.dependency_overrides.pop(gate.require_job_access, None)
 
 
-def test_public_routes_pass_through(client):
-    mock_send = AsyncMock(return_value=_backend_response(body=b'{"models":[]}'))
-    with patch.object(gate._client, "send", mock_send):
-        assert client.get("/api/tags").status_code == 200
-        assert client.get("/api/version").status_code == 200
+def test_metadata_routes_require_job_access(client):
+    """OLLAMA-GATE-EDGE-TRUST-1 (#1937): /api/tags + /api/version are no longer
+    public — the edge IP allowlist cannot tell public buyers from attackers,
+    so model metadata needs the same per-job token as inference."""
+    for path in ("/api/tags", "/api/version"):
+        assert client.get(path).status_code == 401
+
+
+def test_metadata_routes_ignore_spoofed_forwarding_headers(client):
+    """A client-asserted edge/trusted IP in XFF or X-Real-IP must not buy
+    trust: the gate authorizes on the job token only, never on client IP."""
+    spoofed = {
+        "X-Forwarded-For": "10.1.223.1, 192.168.0.1",
+        "X-Real-IP": "95.216.198.140",
+        "X-Access-Key": "access-key-1",
+        "X-Access-Secret": "s",
+        "X-Job-Id": "job-A",
+    }
+    with patch("aitbc.shop_gate._verify", return_value=None):
+        for path in ("/api/tags", "/api/version"):
+            assert client.get(path, headers=spoofed).status_code == 401
+
+
+def test_metadata_routes_pass_with_valid_token(client):
+    gate.app.dependency_overrides[gate.require_job_access] = lambda: {"job_id": "job-A"}
+    try:
+        mock_send = AsyncMock(return_value=_backend_response(body=b'{"models":[]}'))
+        with patch.object(gate._client, "send", mock_send):
+            assert client.get("/api/tags").status_code == 200
+            assert client.get("/api/version").status_code == 200
+        assert mock_send.call_count == 2
+    finally:
+        gate.app.dependency_overrides.pop(gate.require_job_access, None)
 
 
 def test_model_management_routes_are_not_proxied(client):
@@ -343,9 +371,10 @@ def test_bounds_held_until_stream_end():
         gate._inflight_jobs.discard("job-S")
 
 
-def test_public_get_response_is_bounded(client, monkeypatch):
+def test_gated_get_response_is_bounded(client, monkeypatch):
     """#1613: /api/tags + /api/version stream under a byte cap, not resp.content."""
     monkeypatch.setattr(gate, "_PROXY_GET_MAX_BYTES", 4)
+    cleanup = _authed(client)
 
     class _Big:
         status_code = 200
@@ -359,3 +388,4 @@ def test_public_get_response_is_bounded(client, monkeypatch):
 
     with patch.object(gate._client, "send", AsyncMock(return_value=_Big())):
         assert client.get("/api/tags").status_code == 502
+    cleanup()
