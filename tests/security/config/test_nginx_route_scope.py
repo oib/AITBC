@@ -224,3 +224,84 @@ def test_key_injected_locations_precede_catchalls(nginx_conf: str) -> None:
     injected_ex = nginx_conf.index("^/exchange/v1/bridge/(settlements")
     generic_ex = nginx_conf.index(r"location ~ ^/exchange/v1/(exchange|bridge|receipts)")
     assert injected_ex < generic_ex, "key-injected /exchange/ bridge location must precede the generic exchange block"
+
+
+# ── #1875 F5/F6: public mutating surfaces get edge rate limits; the
+# agent-coordinator /v1/metrics* family leaves the public regex ─────────
+
+
+def test_agent_coordinator_v1_family_excludes_metrics(nginx_conf: str) -> None:
+    """``/v1/metrics*`` must not be proxied publicly: the monitoring router
+    requires an authenticated principal and Prometheus scrapes loopback
+    directly. Leaving ``metrics`` in the family regex would advertise a
+    public route that only 401s — and any future auth regression would
+    expose it silently. The path must fall through to ``location /v1/``
+    (return 404)."""
+    match = re.search(
+        r"location\s+~\s+\^/v1/\(([^)]+)\)\(/\|\$\)\s*\{",
+        nginx_conf,
+    )
+    assert match, "agent-coordinator /v1/ family regex missing"
+    families = match.group(1)
+    assert "metrics" not in families.split("|"), "metrics still in the public agent-coordinator /v1/ family regex (#1875 F6)"
+
+
+def test_public_rate_limit_zones_declared(nginx_conf: str) -> None:
+    """The http-context zone declarations ship as commented conf.d text —
+    pin them so the location-level ``limit_req zone=aitbc_*`` directives
+    below never reference an undeclared zone."""
+    for zone in ("aitbc_api", "aitbc_rpc", "aitbc_agent", "aitbc_edge"):
+        assert re.search(rf"limit_req_zone \$binary_remote_addr zone={zone}:", nginx_conf), (
+            f"{zone} limit_req_zone declaration missing from the http-context block (#1875 F5)"
+        )
+
+
+@pytest.mark.parametrize(
+    "location_re",
+    [
+        r"location /api/",
+        r"location /rpc/",
+        r"location /rpc/escrow/",
+        r"location /c/",
+        r"location /v1/jobs",
+        r"location /v1/payments",
+        r"location /v1/miners/",
+        r"location /v1/monitoring/",
+        r"location /v1/reputation/",
+        r"location /v1/exchange/",
+        r"location /v1/exchange/history",
+        r"location ~ \^/v1/market/\(gpu\|providers\|bonds\|miner-offers\|native-energy\|orders\|pricing\|sync-offers\)\(/\|\$\)",
+        r"location = /v1/market/offers",
+        r"location = /v1/market/plugins",
+        r"location /v1/market/",
+        r"location ~ \^/v1/bridge/\(settlements\|float\|sell/\(config-status\|quote\|list\)\)/\?\$",
+        r"location ~ \^/v1/bridge/ ",
+        r"location ~ \^/exchange/v1/\(exchange\|bridge\|receipts\)\(/\|\$\)",
+        r"location /agent/api/v1/",
+        r"location /agent/api/v1/agent/",
+        r"location /agent/v1/",
+        r"location ~ \^/agent/\(messages\|auth\|keys\|workflows\|coin-requests\|ws\)\(/\.\*\)\?\$",
+        r"location /api/v1/agent/",
+        r"location /api/v1/agent/coin-requests/",
+        r"location /api/v1/agent/messages/",
+        r"location /pool-hub/",
+        r"location /ollama/",
+    ],
+)
+def test_public_mutating_locations_rate_limited(nginx_conf: str, location_re: str) -> None:
+    """Every public mutating/high-traffic proxy location added under #1875
+    must carry a ``limit_req`` against one of the declared zones — the
+    in-app limiters are per-worker, so the edge is the only fleet-wide
+    budget."""
+    body = _location_body_at(nginx_conf, location_re)
+    assert re.search(r"limit_req zone=aitbc_(api|rpc|agent|edge) ", body), (
+        f"{location_re} has no aitbc_* limit_req — uncovered public surface (#1875 F5)"
+    )
+
+
+def test_metrics_family_fallthrough_returns_404(nginx_conf: str) -> None:
+    """The ``location /v1/`` prefix catch-all must still exist and 404 —
+    it is what /v1/metrics* now resolves to publicly."""
+    match = re.search(r"location /v1/ \{(.*?)\n    \}", nginx_conf, re.DOTALL)
+    assert match, "location /v1/ catch-all missing"
+    assert "return 404;" in match.group(1)

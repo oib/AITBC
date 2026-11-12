@@ -143,6 +143,8 @@ server {
     }
 
     location /v1/reputation/ {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://coordinator_api/v1/reputation/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -157,6 +159,8 @@ server {
 
     # -- Dashboard / Customer / Shop API routes (P1.2)
     location /v1/jobs {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://coordinator_api;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -168,6 +172,8 @@ server {
         add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
     }
     location /v1/payments {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://coordinator_api;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -181,6 +187,8 @@ server {
 
 
     location /v1/miners/ {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://coordinator_api;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -193,6 +201,8 @@ server {
     }
 
     location /v1/monitoring/ {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://coordinator_api;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -253,7 +263,14 @@ server {
 
     # Agent-coordinator's public /v1 families — the old /v1/ catch-all sent
     # every unknown /v1/* here; unknown families now get an explicit 404.
-    location ~ ^/v1/(agents|ai|alerts|auth|consensus|metrics|protected|roles|sla|system|tasks|users|advanced-features)(/|$) {
+    # /v1/metrics* is deliberately NOT in this family (#1875 F6): the
+    # agent-coordinator monitoring router now requires an authenticated
+    # principal, Prometheus scrapes it on 127.0.0.1:8107 directly, and the
+    # public regex would only advertise an endpoint that 401s anyway — it
+    # falls through to the /v1/ 404 below.
+    location ~ ^/v1/(agents|ai|alerts|auth|consensus|protected|roles|sla|system|tasks|users|advanced-features)(/|$) {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://agent_coordinator;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -312,6 +329,8 @@ server {
     # Adds no new exposure: /api/v1/agent/* was already fully reachable via
     # the compat passthrough below.
     location /agent/api/v1/ {
+        limit_req zone=aitbc_agent burst=60 nodelay;
+        limit_req_status 429;
         proxy_pass http://agent_coordinator/api/v1/agent/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -337,6 +356,8 @@ server {
     # /agent/api/v1/agent/... URL. Longer prefix keeps winning those
     # requests; remove once clients are repointed at /agent/api/v1/.
     location /agent/api/v1/agent/ {
+        limit_req zone=aitbc_agent burst=60 nodelay;
+        limit_req_status 429;
         proxy_pass http://agent_coordinator/api/v1/agent/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -357,6 +378,8 @@ server {
     # Agent Coordinator registry (/v1/agents/*) under the /agent mount,
     # so agent_coordinator_url=.../agent serves registry + messaging from one base.
     location /agent/v1/ {
+        limit_req zone=aitbc_agent burst=60 nodelay;
+        limit_req_status 429;
         proxy_pass http://agent_coordinator/v1/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -370,6 +393,8 @@ server {
     # for remaining consumers before deleting. The env/secret deny regex
     # earlier in this file still wins for anything env-like under /agent/.
     location ~ ^/agent/(messages|auth|keys|workflows|coin-requests|ws)(/.*)?$ {
+        limit_req zone=aitbc_agent burst=60 nodelay;
+        limit_req_status 429;
         proxy_pass http://agent_coordinator/api/v1/agent/$1$2;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
@@ -389,6 +414,8 @@ server {
     # ── API Gateway Reverse Proxy ─────────────────────────────
 
     location /api/ {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://api_gateway/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -426,6 +453,8 @@ server {
     # All mutating escrow calls (create, release, refund) are source-IP allowlisted
     # so follower/coordinator nodes keep working while the public internet is blocked.
     location /rpc/escrow/ {
+        limit_req zone=aitbc_rpc burst=30 nodelay;
+        limit_req_status 429;
         limit_except GET {
             allow 127.0.0.1;        # coordinator / localhost
             allow ::1;              # IPv6 localhost
@@ -491,6 +520,8 @@ server {
     }
 
     location /rpc/ {
+        limit_req zone=aitbc_rpc burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://blockchain_rpc/rpc/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -508,6 +539,8 @@ server {
     # ── Coordinator API (Legacy Failover) ─────────────────────
 
     location /c/ {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://coordinator_api/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -527,6 +560,8 @@ server {
     # (wallet_service fronts its whole app there — see #1200).
 
     location /v1/exchange/ {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://exchange_service/v1/exchange/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -647,6 +682,8 @@ server {
     # (OLLAMA-PROXY-GATE-1 #841 / APIGW-OLLAMA-DEPTH2-1 #1613). Pointing this
     # location at :11434 directly would bypass all of it.
     location /ollama/ {
+        limit_req zone=aitbc_edge burst=20 nodelay;
+        limit_req_status 429;
         proxy_pass http://127.0.0.1:8271/;
         proxy_http_version 1.1;
         proxy_set_header Host $host;
@@ -711,6 +748,8 @@ server {
     # the marketplace service below. The regex location wins over the
     # plain prefix block for these sub-paths.
     location ~ ^/v1/market/(gpu|providers|bonds|miner-offers|native-energy|orders|pricing|sync-offers)(/|$) {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://coordinator_api;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -726,6 +765,8 @@ server {
     # (operator decision 2026-09-23). Exact-match beats the /v1/market/
     # prefix below, so offers/plugins subroutes still reach :8102.
     location = /v1/market/offers {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://coordinator_api/v1/market/offers;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -738,6 +779,8 @@ server {
     }
 
     location = /v1/market/plugins {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://coordinator_api/v1/market/plugins;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -750,6 +793,8 @@ server {
     }
 
     location /v1/market/ {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://marketplace_service/v1/market/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -796,6 +841,8 @@ server {
 
     # Public-by-policy admin-keyed reads: edge injects X-API-Key (#1204).
     location ~ ^/v1/bridge/(settlements|float|sell/(config-status|quote|list))/?$ {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_set_header X-API-Key __WALLET_API_KEY__;
         proxy_pass http://wallet_service;
         proxy_set_header Host $host;
@@ -809,6 +856,8 @@ server {
     }
 
     location ~ ^/v1/bridge/ {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://wallet_service;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -821,6 +870,8 @@ server {
     }
 
     location /v1/exchange/history {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         proxy_pass http://exchange_service/v1/exchange/history;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -874,6 +925,8 @@ server {
 
     # Public exchange-facing wallet routes only.
     location ~ ^/exchange/v1/(exchange|bridge|receipts)(/|$) {
+        limit_req zone=aitbc_api burst=30 nodelay;
+        limit_req_status 429;
         rewrite ^/exchange/(.*)$ /$1 break;
         proxy_pass http://wallet_service;
         proxy_set_header Host $host;
@@ -1127,6 +1180,8 @@ server {
 
     # Pool Hub Reverse Proxy
     location /pool-hub/ {
+        limit_req zone=aitbc_edge burst=20 nodelay;
+        limit_req_status 429;
         proxy_pass http://pool_hub/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -1140,6 +1195,8 @@ server {
 
     # Public coin-request endpoints for open-island funding
     location /api/v1/agent/coin-requests/ {
+        limit_req zone=aitbc_agent burst=60 nodelay;
+        limit_req_status 429;
         proxy_pass http://agent_coordinator/api/v1/agent/coin-requests/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -1157,6 +1214,8 @@ server {
     # Same trust level as the public /v1/ coordinator routes; the WS stream
     # stays under /agent/api/v1/agent/messages/stream.
     location /api/v1/agent/messages/ {
+        limit_req zone=aitbc_agent burst=60 nodelay;
+        limit_req_status 429;
         proxy_pass http://agent_coordinator/api/v1/agent/messages/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -1177,6 +1236,8 @@ server {
     # gateway and 404'd. Longer prefixes above keep winning for messages and
     # coin-requests; every route here is equally reachable via /agent/api/v1/agent/.
     location /api/v1/agent/ {
+        limit_req zone=aitbc_agent burst=60 nodelay;
+        limit_req_status 429;
         proxy_pass http://agent_coordinator/api/v1/agent/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
@@ -1279,3 +1340,27 @@ server {
 # limit_req_zone $binary_remote_addr zone=explorer_api:10m rate=10r/s;
 # proxy_cache_path /var/cache/nginx/exchange-api levels=1:2
 #                  keys_zone=exchange_api_cache:10m max_size=50m inactive=60s;
+#
+# ── http context: public mutating-surface rate zones (#1875 F5) ──
+# The zones above only covered messaging/explorer/exchange/csp. Every other
+# public proxy location was unlimited at the edge, and the in-app limiters
+# are per-worker (aitbc-blockchain-rpc runs --workers 2), so the effective
+# budget was N x configured. Deployed on the hub as
+# /etc/nginx/conf.d/aitbc-public-limits.conf. Keys are $binary_remote_addr
+# AFTER realip resolution — the real client, not a spoofable header.
+#
+#   aitbc_api   — REST mutating surfaces: /api/, /c/, coordinator /v1/*
+#                 (jobs, payments, miners, monitoring, reputation), the
+#                 agent-coordinator /v1/ family regex, /v1/exchange/*,
+#                 /v1/market/*, public /v1/bridge/*, /exchange/v1/*.
+#   aitbc_rpc   — /rpc/ catch-all + /rpc/escrow/ (the WS endpoints and the
+#                 messaging locations keep their own zones/are long-lived).
+#   aitbc_agent — agent-coordinator namespaces (/agent/api/v1/*, /agent/v1/*,
+#                 /agent/(messages|auth|keys|workflows|coin-requests|ws),
+#                 /api/v1/agent/*): chatty by design, so the loosest zone.
+#   aitbc_edge  — expensive/auxiliary proxies: /pool-hub/, /ollama/.
+#
+# limit_req_zone $binary_remote_addr zone=aitbc_api:10m rate=10r/s;
+# limit_req_zone $binary_remote_addr zone=aitbc_rpc:10m rate=10r/s;
+# limit_req_zone $binary_remote_addr zone=aitbc_agent:10m rate=20r/s;
+# limit_req_zone $binary_remote_addr zone=aitbc_edge:1m rate=5r/s;
