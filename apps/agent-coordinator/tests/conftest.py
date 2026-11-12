@@ -164,7 +164,11 @@ def coin_request_env(monkeypatch, tmp_path):
     """A hub with a real (empty) database, a fake signer and a known API key."""
     FakeTransactionService.instances.clear()
     monkeypatch.setenv("COORDINATOR_API_KEY", API_KEY)
+    # #1855: coin-request/workflow routes trust only FOLLOWER_API_KEY by
+    # default — the fixture's API_KEY now rides the dedicated follower key.
+    monkeypatch.setenv("FOLLOWER_API_KEY", API_KEY)
     monkeypatch.delenv("SECRET_KEY", raising=False)
+    monkeypatch.delenv("AITBC_ALLOW_LEGACY_SHARED_KEYS", raising=False)
     monkeypatch.delenv("COIN_REQUEST_AUTO_APPROVE_MAX", raising=False)
     monkeypatch.setattr(coin_requests, "TransactionService", FakeTransactionService)
     monkeypatch.setattr("aitbc.network.AITBCHTTPClient", FakeHttpClient, raising=False)

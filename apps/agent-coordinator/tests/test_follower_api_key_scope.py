@@ -67,14 +67,38 @@ def test_the_follower_key_is_accepted_for_coin_requests(keys) -> None:
     _require_api_key(FOLLOWER_KEY)
 
 
-def test_the_hub_key_still_works_there_too(keys) -> None:
-    """Operators keep working; the split adds a key rather than replacing one."""
+def test_the_hub_key_is_refused_by_default(keys, monkeypatch) -> None:
+    """#1855: COORDINATOR_API_KEY no longer opens the faucet routes — only
+    the dedicated FOLLOWER_API_KEY does, unless the legacy hatch is armed."""
+    monkeypatch.delenv("AITBC_ALLOW_LEGACY_SHARED_KEYS", raising=False)
+    with pytest.raises(HTTPException) as raised:
+        _require_api_key(HUB_KEY)
+    assert raised.value.status_code == 401
+
+
+def test_the_hub_key_works_under_the_legacy_hatch(keys, monkeypatch) -> None:
+    """Migration path: unmigrated hubs keep working while the operator
+    provisions FOLLOWER_API_KEY, via explicit opt-in only."""
+    monkeypatch.setenv("AITBC_ALLOW_LEGACY_SHARED_KEYS", "1")
     _require_api_key(HUB_KEY)
 
 
-def test_secret_key_still_works_when_it_is_the_only_one_set(monkeypatch) -> None:
+def test_secret_key_is_refused_by_default(monkeypatch) -> None:
+    """#1855: the cluster-wide SECRET_KEY must not be a faucet credential."""
     monkeypatch.delenv("FOLLOWER_API_KEY", raising=False)
     monkeypatch.delenv("COORDINATOR_API_KEY", raising=False)
+    monkeypatch.delenv("AITBC_ALLOW_LEGACY_SHARED_KEYS", raising=False)
+    monkeypatch.setenv("SECRET_KEY", HUB_KEY)
+
+    with pytest.raises(HTTPException) as raised:
+        _require_api_key(HUB_KEY)
+    assert raised.value.status_code == 401
+
+
+def test_secret_key_still_works_under_the_legacy_hatch(monkeypatch) -> None:
+    monkeypatch.delenv("FOLLOWER_API_KEY", raising=False)
+    monkeypatch.delenv("COORDINATOR_API_KEY", raising=False)
+    monkeypatch.setenv("AITBC_ALLOW_LEGACY_SHARED_KEYS", "1")
     monkeypatch.setenv("SECRET_KEY", HUB_KEY)
 
     _require_api_key(HUB_KEY)

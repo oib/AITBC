@@ -87,13 +87,23 @@ def test_a_request_with_the_wrong_key_is_refused(client) -> None:
     assert signed_transactions() == []
 
 
-def test_the_secret_key_is_accepted_interchangeably(client, monkeypatch) -> None:
-    """`COORDINATOR_API_KEY or SECRET_KEY` — the two are one credential, not two.
-
-    Worth pinning because it is the reason splitting the values buys less than it appears to:
-    either one alone opens this endpoint.
-    """
+def test_secret_key_is_refused_by_default(client, monkeypatch) -> None:
+    """#1855: the cluster-wide SECRET_KEY no longer opens the faucet route —
+    one env leak must not yield treasury authority. Only the dedicated
+    FOLLOWER_API_KEY does, unless the legacy hatch is armed."""
     monkeypatch.delenv("COORDINATOR_API_KEY", raising=False)
+    monkeypatch.delenv("AITBC_ALLOW_LEGACY_SHARED_KEYS", raising=False)
+    monkeypatch.setenv("SECRET_KEY", "the-other-value")
+
+    assert _execute(client, key="the-other-value").status_code == 401
+    assert signed_transactions() == []
+
+
+def test_secret_key_accepted_under_the_legacy_hatch(client, monkeypatch) -> None:
+    """Migration path for hubs not yet provisioned with FOLLOWER_API_KEY."""
+    monkeypatch.delenv("COORDINATOR_API_KEY", raising=False)
+    monkeypatch.delenv("FOLLOWER_API_KEY", raising=False)
+    monkeypatch.setenv("AITBC_ALLOW_LEGACY_SHARED_KEYS", "1")
     monkeypatch.setenv("SECRET_KEY", "the-other-value")
 
     assert _execute(client, key="the-other-value").status_code == 200

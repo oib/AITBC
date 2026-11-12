@@ -51,9 +51,19 @@ def test_workflow_reads_wrong_key_rejected(monkeypatch):
         assert r.status_code in (401, 403), path
 
 
-def test_workflow_reads_accept_configured_key():
-    # SECRET_KEY defaults to "test-secret-key" in this module — a configured
-    # key must still reach the handlers (404/200, never 401).
+def test_workflow_reads_accept_configured_key(monkeypatch):
+    # #1855: the dedicated FOLLOWER_API_KEY is the default credential for
+    # these routes; SECRET_KEY only works under the legacy hatch.
+    monkeypatch.setenv("FOLLOWER_API_KEY", "follower-key")
+    monkeypatch.delenv("AITBC_ALLOW_LEGACY_SHARED_KEYS", raising=False)
+    c = TestClient(app)
+    r = c.get("/api/v1/agent/workflows", headers={"X-Api-Key": "follower-key"})
+    assert r.status_code != 401
+
+
+def test_workflow_reads_refuse_secret_key_by_default(monkeypatch):
+    monkeypatch.delenv("FOLLOWER_API_KEY", raising=False)
+    monkeypatch.delenv("AITBC_ALLOW_LEGACY_SHARED_KEYS", raising=False)
     c = TestClient(app)
     r = c.get("/api/v1/agent/workflows", headers={"X-Api-Key": "test-secret-key"})
-    assert r.status_code != 401
+    assert r.status_code in (401, 403)
