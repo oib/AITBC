@@ -52,6 +52,20 @@ except ImportError:
     get_remote_address = _dummy_get_remote_address
 configure_logging(level="INFO", service_name="api-gateway", to_file=True)
 logger = get_logger(__name__)
+
+# Proxy failure surface: outbound httpx calls to upstreams, request/response
+# data-shape errors, and local socket/timeouts — all answered as a 500.
+_OPS_ERRORS = (
+    httpx.HTTPError,
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    TimeoutError,
+)
+
 if SLOWAPI_AVAILABLE:
     limiter: Limiter | None = Limiter(key_func=get_remote_address)
 else:
@@ -1034,7 +1048,7 @@ async def proxy_request(
                 }
             },
         )
-    except Exception:
+    except _OPS_ERRORS:
         logger.error("Unexpected error in proxy")
         record_failure(service_name)
         return JSONResponse(status_code=500, content={"error": {"type": "internal_error", "message": "Internal server error"}})

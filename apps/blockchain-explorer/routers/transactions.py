@@ -191,8 +191,8 @@ async def api_transaction(tx_hash: str, chain_id: str | None = None) -> dict[str
             payload_data = json.loads(raw_payload)
         elif isinstance(raw_payload, dict):
             payload_data = raw_payload
-    except Exception:
-        pass
+    except (ValueError, TypeError) as exc:
+        logger.debug("unparseable tx payload for %s: %s", tx.get("tx_hash"), exc)
     value = tx.get("value") if tx.get("value") is not None else payload_data.get("amount", 0)
     fee = tx.get("fee") if tx.get("fee") is not None else payload_data.get("fee", 0)
     return {
