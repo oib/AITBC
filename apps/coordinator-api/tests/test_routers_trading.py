@@ -1,40 +1,40 @@
-"""Router tests for /v1/trading/* (#1289 round 9 batch 2).
+"""Router tests for /v1/trading/* (#1289 round 9 batch 2, #1876 authz).
 
-The trading router carries NO router-level auth dep — the only gate is
-the route security matrix (/v1/trading* -> ADMIN_OR_CLIENT), enforced by
-middleware before the handler runs. Tests therefore pin the middleware
-contract (401 unauthenticated, 403 for miner role) plus request
-validation, the create->get->list lifecycle on the real
-P2PTradingProtocol + sqlite, and the matches/negotiation/analytics
-surface.
+Pre-#1876 the trading router carried NO router-level auth dep — the only
+gate was the route security matrix (/v1/trading* -> ADMIN_OR_CLIENT),
+enforced by middleware. #1876 added per-handler AdminOrClientDep plus
+object-level binding: caller agent ids resolve through
+AgentIdentity.owner_address -> wallets owned by the JWT sub. Tests pin
+the middleware contract, request validation, the create->get->list
+lifecycle, and the cross-user denial surface.
 """
 
 from __future__ import annotations
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
-
-import pytest
 
 from aitbc.auth import create_access_token
 from coordinator_api.contexts.agent_identity.domain.agent_identity import AgentIdentity
 from coordinator_api.contexts.infrastructure.domain.user import Wallet
 from coordinator_api.contexts.trading.domain.trading import TradeMatch, TradeRequest, TradeStatus
 
+BASE = "/v1/trading"
+AGENT = "agent-buyer-1"
 BUYER_WALLET = "0x2222222222222222222222222222222222222222"
+OTHER_WALLET = "0x4a5b3bf95aa06072c568cfcb7392b4e86608b5d2"
 
 
 @pytest.fixture(autouse=True)
 def _bound_buyer_agent(db_session):
-    """#1881: trade mutations bind buyer_agent_id through AgentIdentity —
-    agent-buyer-1 is owned by client-1's wallet."""
+    """#1881/#1876: caller agent ids resolve via AgentIdentity.owner_address
+    -> wallets owned by the JWT sub. client-1 owns AGENT through
+    BUYER_WALLET; client-2 owns a different wallet and no trading agents."""
     db_session.add(Wallet(user_id="client-1", address=BUYER_WALLET))
+    db_session.add(Wallet(user_id="client-2", address=OTHER_WALLET))
     db_session.add(AgentIdentity(agent_id=AGENT, owner_address=BUYER_WALLET))
     db_session.commit()
-
-
-BASE = "/v1/trading"
-AGENT = "agent-buyer-1"
 
 
 def _headers(sub: str = "client-1", role: str = "client") -> dict[str, str]:
@@ -43,6 +43,10 @@ def _headers(sub: str = "client-1", role: str = "client") -> dict[str, str]:
 
 def _admin() -> dict[str, str]:
     return _headers("admin-a", "admin")
+
+
+def _other_client() -> dict[str, str]:
+    return _headers("client-2", "client")
 
 
 def _miner() -> dict[str, str]:
@@ -78,11 +82,11 @@ class TestTradingAuthBoundary:
         assert not check_role_match(AuthLevel.ADMIN_OR_CLIENT, "miner")
         assert not check_role_match(AuthLevel.ADMIN_OR_CLIENT, None)
 
-    def test_router_adds_no_dep(self, client: TestClient) -> None:
-        # documents the reliance on middleware: with TEST_MODE the matrix is
-        # off, so these reach the handler — if this ever 401s, a router dep
-        # was added (fine); the matrix pin above remains the contract.
-        assert client.get(f"{BASE}/requests").status_code == 200
+    def test_router_dep_rejects_unauthenticated(self, client: TestClient) -> None:
+        # #1876: the router now carries AdminOrClientDep per handler — with
+        # TEST_MODE middleware off the dep itself is the gate, so a missing
+        # token must 401 before reaching the handler.
+        assert client.get(f"{BASE}/requests").status_code == 401
 
 
 class TestTradeRequestLifecycle:
@@ -235,3 +239,94 @@ class TestMatchesAndNegotiation:
         self._seed_match(db_session, rid)
         rows = db_session.exec(select(TradeRequest).where(TradeRequest.request_id == rid)).all()
         assert len(rows) == 1
+
+
+class TestTradingObjectAuthz1876:
+    """#1876 pins: a client JWT may only read/act on trades where it owns a
+    party agent (AgentIdentity.owner_address -> caller wallets). Admin
+    bypasses; other clients get 403 or scoped-empty lists."""
+
+    def _make_request(self, client: TestClient) -> str:
+        resp = client.post(f"{BASE}/requests", json=_request_body(), headers=_headers())
+        assert resp.status_code == 200
+        return resp.json()["request_id"]
+
+    def _seed_match(self, db_session: Session, request_id: str) -> str:
+        from datetime import UTC, datetime
+
+        match = TradeMatch(
+            match_id="match_authz1",
+            request_id=request_id,
+            buyer_agent_id=AGENT,
+            seller_agent_id="agent-seller-1",
+            match_score=88.0,
+            confidence_level=0.9,
+            price_compatibility=90.0,
+            specification_compatibility=85.0,
+            timing_compatibility=80.0,
+            reputation_compatibility=95.0,
+            geographic_compatibility=70.0,
+            seller_offer={"price": "40"},
+            proposed_terms={"price": "40"},
+            status=TradeStatus.MATCHING,
+            created_at=datetime.now(UTC),
+        )
+        db_session.add(match)
+        db_session.commit()
+        return match.match_id
+
+    def test_cannot_create_request_as_foreign_agent(self, client: TestClient) -> None:
+        resp = client.post(
+            f"{BASE}/requests",
+            json=_request_body(buyer_agent_id="agent-not-mine"),
+            headers=_headers(),
+        )
+        assert resp.status_code == 403
+
+    def test_cannot_read_foreign_request(self, client: TestClient) -> None:
+        rid = self._make_request(client)
+        resp = client.get(f"{BASE}/requests/{rid}", headers=_other_client())
+        assert resp.status_code == 403
+        # admin still reads it
+        assert client.get(f"{BASE}/requests/{rid}", headers=_admin()).status_code == 200
+
+    def test_cannot_list_foreign_request_matches(self, client: TestClient, db_session: Session) -> None:
+        rid = self._make_request(client)
+        self._seed_match(db_session, rid)
+        resp = client.get(f"{BASE}/requests/{rid}/matches", headers=_other_client())
+        assert resp.status_code == 403
+        resp = client.post(f"{BASE}/requests/{rid}/matches", headers=_other_client())
+        assert resp.status_code == 403
+
+    def test_cannot_read_foreign_match_or_negotiate(self, client: TestClient, db_session: Session) -> None:
+        rid = self._make_request(client)
+        mid = self._seed_match(db_session, rid)
+        assert client.get(f"{BASE}/matches/{mid}", headers=_other_client()).status_code == 403
+        neg = client.post(
+            f"{BASE}/negotiations",
+            json={"match_id": mid, "initiator": "buyer", "strategy": "balanced"},
+            headers=_other_client(),
+        )
+        assert neg.status_code == 403
+
+    def test_cannot_read_foreign_agent_summary(self, client: TestClient) -> None:
+        resp = client.get(f"{BASE}/agents/{AGENT}/summary", headers=_other_client())
+        assert resp.status_code == 403
+
+    def test_lists_are_scoped_to_caller_agents(self, client: TestClient) -> None:
+        self._make_request(client)
+        rows = client.get(f"{BASE}/requests", headers=_other_client()).json()
+        assert rows == []
+        rows = client.get(f"{BASE}/requests", headers=_admin()).json()
+        assert any(r["buyer_agent_id"] == AGENT for r in rows)
+        # explicit foreign agent_id filter is denied, not silently emptied
+        resp = client.get(f"{BASE}/requests", params={"agent_id": AGENT}, headers=_other_client())
+        assert resp.status_code == 403
+
+    def test_simulate_requires_owned_agent(self, client: TestClient) -> None:
+        resp = client.post(
+            f"{BASE}/simulate-match",
+            json=_request_body(buyer_agent_id="agent-not-mine"),
+            headers=_headers(),
+        )
+        assert resp.status_code == 403

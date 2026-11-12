@@ -15,7 +15,7 @@ from typing import Any
 
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
-from sqlmodel import select
+from sqlmodel import func, select
 
 from ..contexts.agent_identity.domain.agent_identity import AgentIdentity
 from ..contexts.infrastructure.domain.user import Wallet
@@ -50,6 +50,23 @@ def agent_owner_addresses(session: Session, agent_id: str) -> set[str]:
     if identity is None or not identity.owner_address:
         return set()
     return {str(identity.owner_address).lower()}
+
+
+def caller_agent_ids(session: Session, user: dict[str, Any]) -> set[str]:
+    """Every agent_id whose AgentIdentity.owner_address is a caller wallet.
+
+    Used for party-scoped reads and list filtering where "owns any party"
+    is the rule rather than a single agent_id (#1876).
+    """
+    wallets = caller_wallets(session, user)
+    if not wallets:
+        return set()
+    return {
+        str(row.agent_id)
+        for row in session.execute(select(AgentIdentity).where(func.lower(AgentIdentity.owner_address).in_(wallets)))
+        .scalars()
+        .all()
+    }
 
 
 def require_agent_access(session: Session, user: dict[str, Any], agent_id: str) -> None:

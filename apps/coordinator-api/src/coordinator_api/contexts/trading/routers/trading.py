@@ -22,13 +22,35 @@ from aitbc.rate_limiting import rate_limit
 from ..domain.trading import TradeAgreement, TradeMatch, TradeNegotiation, TradeRequest, TradeSettlement, TradeType
 from ....auth import AdminOrClientDep
 from ....storage import get_session
-from ....utils.ownership import require_agent_access
+from ....utils.ownership import caller_agent_ids, is_admin, require_agent_access
 from ..services.trading_market.trading import P2PTradingProtocol
 from ....validators import validate_agent_id
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/trading", tags=["trading"])
+
+
+# #1876 (audit, TRADING-OBJECT-AUTHZ-1): #1881 bound the mutation surface;
+# the read surface stayed unbound — any client JWT could GET/enumerate
+# other agents' requests, matches, negotiations, summaries and volumes.
+# Reads now scope to the caller's agent ids (AgentIdentity.owner_address
+# -> wallets owned by the JWT sub, via utils.ownership); admin bypasses.
+def _scoped_agent_ids(session: Session, user: dict[str, Any]) -> set[str] | None:
+    """None = admin (unrestricted); otherwise the caller's agent ids."""
+    if is_admin(user):
+        return None
+    return caller_agent_ids(session, user)
+
+
+def _require_trade_party(session: Session, user: dict[str, Any], *agent_ids: str) -> None:
+    """403 unless the caller owns at least one of the trade's party agents."""
+    if is_admin(user):
+        return
+    owned = caller_agent_ids(session, user)
+    if any(str(agent_id) in owned for agent_id in agent_ids):
+        return
+    raise HTTPException(status_code=403, detail="trade is not bound to the caller")
 
 
 def _parse_period_bound(raw: str) -> datetime:
@@ -249,13 +271,17 @@ async def create_trade_request(
 @router.get("/requests/{request_id}", response_model=TradeRequestResponse)
 @rate_limit(rate=200, per=60)
 def get_trade_request(
-    request: Request, request_id: str, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    request_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
 ) -> TradeRequestResponse:
     """Get trade request details"""
     try:
         trade_request = session.execute(select(TradeRequest).where(TradeRequest.request_id == request_id)).scalars().first()
         if not trade_request:
             raise HTTPException(status_code=404, detail="Trade request not found")
+        require_agent_access(session, user, trade_request.buyer_agent_id)
         return TradeRequestResponse(
             request_id=trade_request.request_id,
             buyer_agent_id=trade_request.buyer_agent_id,
@@ -310,9 +336,13 @@ def get_trade_matches(
     request: Request,
     request_id: str,
     session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
     limit: int = Query(default=200, ge=1, le=1000),
 ) -> list[TradeMatchResponse]:
     """Get trade matches for a request"""
+    trade_request = session.execute(select(TradeRequest).where(TradeRequest.request_id == request_id)).scalars().first()
+    if trade_request is not None:
+        require_agent_access(session, user, trade_request.buyer_agent_id)
     try:
         matches = (
             session.execute(
@@ -400,7 +430,10 @@ async def initiate_negotiation(
 @router.get("/negotiations/{negotiation_id}", response_model=NegotiationResponse)
 @rate_limit(rate=200, per=60)
 def get_negotiation(
-    request: Request, negotiation_id: str, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    negotiation_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
 ) -> NegotiationResponse:
     """Get negotiation details"""
     try:
@@ -411,6 +444,7 @@ def get_negotiation(
         )
         if not negotiation:
             raise HTTPException(status_code=404, detail="Negotiation not found")
+        _require_trade_party(session, user, negotiation.buyer_agent_id, negotiation.seller_agent_id)
         return NegotiationResponse(
             negotiation_id=negotiation.negotiation_id,
             match_id=negotiation.match_id,
@@ -435,12 +469,18 @@ def get_negotiation(
 
 @router.get("/matches/{match_id}")
 @rate_limit(rate=200, per=60)
-def get_trade_match(request: Request, match_id: str, session: Annotated[Session, Depends(get_session)]) -> TradeMatchResponse:
+def get_trade_match(
+    request: Request,
+    match_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
+) -> TradeMatchResponse:
     """Get trade match details"""
     try:
         match = session.execute(select(TradeMatch).where(TradeMatch.match_id == match_id)).scalars().first()
         if not match:
             raise HTTPException(status_code=404, detail="Trade match not found")
+        _require_trade_party(session, user, match.buyer_agent_id, match.seller_agent_id)
         return TradeMatchResponse(
             match_id=match.match_id,
             request_id=match.request_id,
@@ -470,9 +510,13 @@ def get_trade_match(request: Request, match_id: str, session: Annotated[Session,
 @router.get("/agents/{agent_id}/summary", response_model=TradingSummaryResponse)
 @rate_limit(rate=200, per=60)
 async def get_trading_summary(
-    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    agent_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
 ) -> TradingSummaryResponse:
     """Get comprehensive trading summary for an agent"""
+    require_agent_access(session, user, agent_id)
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
         summary = await run_in_threadpool(trading_protocol.get_trading_summary, agent_id)
@@ -488,6 +532,7 @@ async def get_trading_summary(
 def list_trade_requests(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
     agent_id: str | None = None,
     trade_type: str | None = None,
     status: str | None = None,
@@ -495,9 +540,14 @@ def list_trade_requests(
 ) -> list[TradeRequestResponse]:
     """List trade requests with filters"""
     try:
+        scoped = _scoped_agent_ids(session, user)
         query = select(TradeRequest)
         if agent_id:
+            if scoped is not None and agent_id not in scoped:
+                raise HTTPException(status_code=403, detail="agent is not bound to the caller")
             query = query.where(TradeRequest.buyer_agent_id == agent_id)
+        elif scoped is not None:
+            query = query.where(col(TradeRequest.buyer_agent_id).in_(scoped))
         if trade_type:
             query = query.where(TradeRequest.trade_type == trade_type)
         if status:
@@ -521,6 +571,8 @@ def list_trade_requests(
             )
             for request in requests
         ]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error listing trade requests: %s", str(e))
         logger.exception("Unhandled exception")
@@ -532,6 +584,7 @@ def list_trade_requests(
 def list_trade_matches(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
     agent_id: str | None = None,
     min_score: float | None = None,
     status: str | None = None,
@@ -539,9 +592,19 @@ def list_trade_matches(
 ) -> list[TradeMatchResponse]:
     """List trade matches with filters"""
     try:
+        scoped = _scoped_agent_ids(session, user)
         query = select(TradeMatch)
         if agent_id:
+            if scoped is not None and agent_id not in scoped:
+                raise HTTPException(status_code=403, detail="agent is not bound to the caller")
             query = query.where(or_(TradeMatch.buyer_agent_id == agent_id, TradeMatch.seller_agent_id == agent_id))  # type: ignore[arg-type]
+        elif scoped is not None:
+            query = query.where(
+                or_(
+                    col(TradeMatch.buyer_agent_id).in_(scoped),
+                    col(TradeMatch.seller_agent_id).in_(scoped),
+                )
+            )
         if min_score:
             query = query.where(TradeMatch.match_score >= min_score)
         if status:
@@ -568,6 +631,8 @@ def list_trade_matches(
             )
             for match in matches
         ]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error listing trade matches: %s", str(e))
         logger.exception("Unhandled exception")
@@ -579,6 +644,7 @@ def list_trade_matches(
 def list_negotiations(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
     agent_id: str | None = None,
     status: str | None = None,
     strategy: str | None = None,
@@ -586,9 +652,19 @@ def list_negotiations(
 ) -> list[NegotiationResponse]:
     """List negotiations with filters"""
     try:
+        scoped = _scoped_agent_ids(session, user)
         query = select(TradeNegotiation)
         if agent_id:
+            if scoped is not None and agent_id not in scoped:
+                raise HTTPException(status_code=403, detail="agent is not bound to the caller")
             query = query.where(or_(TradeNegotiation.buyer_agent_id == agent_id, TradeNegotiation.seller_agent_id == agent_id))  # type: ignore[arg-type]
+        elif scoped is not None:
+            query = query.where(
+                or_(
+                    col(TradeNegotiation.buyer_agent_id).in_(scoped),
+                    col(TradeNegotiation.seller_agent_id).in_(scoped),
+                )
+            )
         if status:
             query = query.where(TradeNegotiation.status == status)
         if strategy:
@@ -611,6 +687,8 @@ def list_negotiations(
             )
             for negotiation in negotiations
         ]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error listing negotiations: %s", str(e))
         logger.exception("Unhandled exception")
@@ -752,6 +830,7 @@ def _regional_histogram(session: Session, start_dt: datetime, end_dt: datetime) 
 def get_trading_analytics(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
     period_type: str | None = None,
     start_date: str | None = None,
     end_date: str | None = None,
