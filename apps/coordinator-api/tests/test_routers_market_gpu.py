@@ -506,13 +506,22 @@ def miner_b_token() -> str:
     return create_access_token("miner_B", "miner")
 
 
-def _booked_gpu(client, token, db_session, client_id: str = "client1") -> str:
-    """A registered GPU in 'booked' status with an active booking row."""
+def _booked_gpu(client, token, db_session, client_id: str = "client1", payment_status: str | None = None) -> str:
+    """A registered GPU in 'booked' status with an active booking row.
+
+    ``payment_status`` set → the booking carries a JobPayment in that state
+    (purchase-path linkage, #1913)."""
     from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
 
     gpu_id = _register_gpu(client, token)
     gpu = db_session.get(GPURegistry, gpu_id)
     gpu.status = "booked"
+    payment_id = None
+    if payment_status is not None:
+        payment = JobPayment(job_id="job-paid-1", amount=Decimal("1.0"), status=payment_status)
+        db_session.add(payment)
+        db_session.flush()
+        payment_id = payment.id
     db_session.add(
         GPUBooking(
             gpu_id=gpu_id,
@@ -521,6 +530,7 @@ def _booked_gpu(client, token, db_session, client_id: str = "client1") -> str:
             total_cost=Decimal("1.0"),
             start_time=datetime.now(UTC),
             status="active",
+            payment_id=payment_id,
         )
     )
     db_session.commit()
@@ -562,6 +572,54 @@ def test_release_gpu_requires_owner_or_client(client, miner_token, miner_b_token
     assert gpu.status == "booked"
     resp = client.post(f"/v1/market/gpu/{gpu_id}/release", headers={"Authorization": f"Bearer {miner_token}"})
     assert resp.status_code == 200
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("live_status", ["pending", "confirmed", "escrowed", "disputed"])
+def test_release_gpu_blocked_while_payment_live(client, miner_token, db_session, live_status):
+    """#1913: a paid booking with live money must not be released — the bound
+    job/escrow would still settle after the GPU was freed (or strand the
+    buyer with no refund path)."""
+    gpu_id = _booked_gpu(client, miner_token, db_session, payment_status=live_status)
+    resp = client.post(f"/v1/market/gpu/{gpu_id}/release", headers={"Authorization": f"Bearer {miner_token}"})
+    assert resp.status_code == 409
+    assert "live payment" in resp.json()["detail"]
+    assert db_session.get(GPURegistry, gpu_id).status == "booked"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("settled_status", ["released", "refunded", "failed"])
+def test_release_gpu_allowed_after_payment_settled(client, miner_token, db_session, settled_status):
+    """#1913: once no live money remains, releasing the GPU is safe."""
+    gpu_id = _booked_gpu(client, miner_token, db_session, payment_status=settled_status)
+    resp = client.post(f"/v1/market/gpu/{gpu_id}/release", headers={"Authorization": f"Bearer {miner_token}"})
+    assert resp.status_code == 200
+    assert db_session.get(GPURegistry, gpu_id).status == "available"
+
+
+@pytest.mark.unit
+def test_release_gpu_dangling_payment_id_fails_closed(client, miner_token, db_session):
+    """#1913: a booking naming a payment row that doesn't exist is treated
+    as live — fail closed rather than free the GPU over unknown money."""
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+
+    gpu_id = _register_gpu(client, miner_token)
+    gpu = db_session.get(GPURegistry, gpu_id)
+    gpu.status = "booked"
+    db_session.add(
+        GPUBooking(
+            gpu_id=gpu_id,
+            client_id="client1",
+            duration_hours=1.0,
+            total_cost=Decimal("1.0"),
+            start_time=datetime.now(UTC),
+            status="active",
+            payment_id="missing-payment-id",
+        )
+    )
+    db_session.commit()
+    resp = client.post(f"/v1/market/gpu/{gpu_id}/release", headers={"Authorization": f"Bearer {miner_token}"})
+    assert resp.status_code == 409
 
 
 @pytest.mark.unit
