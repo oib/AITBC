@@ -205,3 +205,116 @@ class TestBondLifecycle:
         resp = client.post(f"{BASE}/providers/ghost2/bonds/lock", headers=_headers())
         assert resp.status_code == 200
         assert resp.json()["status"] == "locked"
+
+
+class TestEligibilityChainReverify:
+    """#1926: eligibility reads re-verify the local projection against chain —
+    a bond released/slashed on-chain post-activation must stop qualifying."""
+
+    def _active_bond(self, client: TestClient, _chain_bonds, bond_id: str = "cb-r1") -> dict:
+        _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, bond_id, "5")
+        resp = client.post(f"{BASE}/providers/p1/bonds", json={"bond_id": bond_id}, headers=_headers())
+        assert resp.status_code == 200, resp.text
+        return resp.json()
+
+    def test_chain_release_marks_ineligible(self, client: TestClient, _chain_bonds, monkeypatch) -> None:
+        monkeypatch.setenv("COORDINATOR_BOND_CHAIN_REVERIFY_SECONDS", "0")
+        self._active_bond(client, _chain_bonds)
+        assert client.get(f"{BASE}/providers/p1/eligibility", headers=_headers()).json()["eligible"] is True
+        # Bond released on-chain after local activation.
+        _chain_bonds[PROVIDER_WALLET][0]["status"] = "released"
+        elig = client.get(f"{BASE}/providers/p1/eligibility", headers=_headers()).json()
+        assert elig["eligible"] is False
+        assert elig["status"] == "released"
+
+    def test_chain_slash_marks_liquidated(self, client: TestClient, _chain_bonds, monkeypatch) -> None:
+        monkeypatch.setenv("COORDINATOR_BOND_CHAIN_REVERIFY_SECONDS", "0")
+        self._active_bond(client, _chain_bonds)
+        _chain_bonds[PROVIDER_WALLET][0]["status"] = "slashed"
+        elig = client.get(f"{BASE}/providers/p1/eligibility", headers=_headers()).json()
+        assert elig["eligible"] is False
+        assert elig["status"] == "liquidated"
+
+    def test_chain_amount_drift_reconciles(self, client: TestClient, _chain_bonds, monkeypatch) -> None:
+        monkeypatch.setenv("COORDINATOR_BOND_CHAIN_REVERIFY_SECONDS", "0")
+        self._active_bond(client, _chain_bonds)
+        _chain_bonds[PROVIDER_WALLET][0]["amount"] = int(Decimal("2") * UNITS_PER_AIT)
+        elig = client.get(f"{BASE}/providers/p1/eligibility", headers=_headers()).json()
+        assert Decimal(elig["amount"]) == Decimal("2")
+
+    def test_rpc_failure_keeps_local_answer_on_read(self, client: TestClient, db_session, monkeypatch) -> None:
+        """Read path is not money-moving: an RPC outage must not flip the
+        reported eligibility — the local projection stands."""
+        from coordinator_api.contexts.market.domain.provider_bond import (
+            ProviderBondStatus,
+            set_provider_bond_status,
+        )
+
+        set_provider_bond_status(
+            db_session,
+            "p1",
+            ProviderBondStatus.ACTIVE,
+            amount=Decimal("5"),
+            required_amount=Decimal("1"),
+            bond_id="cb-local",
+        )
+
+        def _raise(self, provider_address: str) -> dict:
+            raise NetworkError("chain unreachable")
+
+        monkeypatch.setattr(BlockchainService, "list_provider_bonds", _raise)
+        elig = client.get(f"{BASE}/providers/p1/eligibility", headers=_headers()).json()
+        assert elig["eligible"] is True
+        assert elig["status"] == "active"
+
+    def test_reconcile_returns_none_on_rpc_error(self, db_session, monkeypatch) -> None:
+        """Money-moving callers get None (fail closed) when chain can't be consulted."""
+        from coordinator_api.contexts.market.domain.provider_bond import (
+            ProviderBondStatus,
+            reconcile_provider_bond,
+            set_provider_bond_status,
+        )
+
+        set_provider_bond_status(
+            db_session,
+            "p1",
+            ProviderBondStatus.ACTIVE,
+            amount=Decimal("5"),
+            required_amount=Decimal("1"),
+            bond_id="cb-local",
+        )
+
+        def _raise(self, provider_address: str) -> dict:
+            raise NetworkError("chain unreachable")
+
+        monkeypatch.setattr(BlockchainService, "list_provider_bonds", _raise)
+        assert reconcile_provider_bond(db_session, "p1") is None
+
+    def test_reconcile_ttl_skips_repeat_rpc(self, db_session, _chain_bonds, monkeypatch) -> None:
+        """A fresh chain_verified_at suppresses the next RPC within the TTL."""
+        from coordinator_api.contexts.market.domain.provider_bond import (
+            ProviderBondStatus,
+            reconcile_provider_bond,
+            set_provider_bond_status,
+        )
+
+        _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-ttl", "5")
+        set_provider_bond_status(
+            db_session,
+            "p1",
+            ProviderBondStatus.ACTIVE,
+            amount=Decimal("5"),
+            required_amount=Decimal("1"),
+            bond_id="cb-ttl",
+        )
+        calls = {"n": 0}
+        real = BlockchainService.list_provider_bonds
+
+        def counting(self, provider_address: str) -> dict:
+            calls["n"] += 1
+            return real(self, provider_address)
+
+        monkeypatch.setattr(BlockchainService, "list_provider_bonds", counting)
+        assert reconcile_provider_bond(db_session, "p1") is not None
+        assert reconcile_provider_bond(db_session, "p1") is not None
+        assert calls["n"] == 1
