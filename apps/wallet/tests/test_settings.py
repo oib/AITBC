@@ -43,6 +43,7 @@ class TestLocalhostRpcGuard:
         monkeypatch.setenv(var, "production")
         monkeypatch.setenv("ALLOW_LOCAL_BLOCKCHAIN_RPC", "1")
         monkeypatch.setenv("TRUSTED_RECEIPT_KEY_IDS", "key-1")  # F4 guard: production requires the trust set
+        monkeypatch.setenv("WALLET_API_KEY", "test-wallet-key")  # #1857: production refuses the coordinator-key fallback
         monkeypatch.setenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
         assert Settings().blockchain_rpc_url == "http://localhost:8202"
 
@@ -66,6 +67,7 @@ class TestLocalhostRpcGuard:
 
         monkeypatch.setenv("NODE_ENV", "production")
         monkeypatch.setenv("TRUSTED_RECEIPT_KEY_IDS", "key-1")  # F4 guard: production requires the trust set
+        monkeypatch.setenv("WALLET_API_KEY", "test-wallet-key")  # #1857
         monkeypatch.setenv("BLOCKCHAIN_RPC_URL", "https://hub.example.com")
         assert Settings().blockchain_rpc_url == "https://hub.example.com"
 
@@ -81,6 +83,7 @@ class TestTrustedReceiptKeysGuard:
 
         monkeypatch.setenv("ENVIRONMENT", "production")
         monkeypatch.setenv("ALLOW_LOCAL_BLOCKCHAIN_RPC", "1")
+        monkeypatch.setenv("WALLET_API_KEY", "test-wallet-key")  # #1857: isolate the receipt-keys guard
         with pytest.raises(ValidationError, match="TRUSTED_RECEIPT_KEY_IDS"):
             Settings()
 
@@ -89,6 +92,7 @@ class TestTrustedReceiptKeysGuard:
 
         monkeypatch.setenv("ENVIRONMENT", "production")
         monkeypatch.setenv("ALLOW_LOCAL_BLOCKCHAIN_RPC", "1")
+        monkeypatch.setenv("WALLET_API_KEY", "test-wallet-key")  # #1857
         monkeypatch.setenv("TRUSTED_RECEIPT_KEY_IDS", "key-1,key-2")
         s = Settings()
         assert s.trusted_receipt_key_id_set == frozenset({"key-1", "key-2"})
