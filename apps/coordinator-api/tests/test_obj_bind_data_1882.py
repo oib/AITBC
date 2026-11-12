@@ -120,6 +120,30 @@ class TestIPFSObjectBinding:
         )
         assert resp.status_code == 403
 
+    def test_retrieve_foreign_agent_403_not_500(self, client: TestClient, seeded, monkeypatch) -> None:
+        """#1903: ``require_agent_access`` runs inside the try after the CID
+        resolves — without an ``except HTTPException`` passthrough the 403
+        was swallowed into a 500. Pin the status, not just fail-closed."""
+        import coordinator_api.contexts.ipfs.routers.ipfs as ipfs_mod
+
+        class _Meta:
+            agent_id = AGENT
+
+        class _Svc:
+            async def initialize(self):
+                return None
+
+            async def retrieve_memory(self, cid, verify_integrity=True):
+                return {}, _Meta()
+
+        monkeypatch.setattr(ipfs_mod, "get_ipfs_service", lambda: _Svc())
+        resp = client.post(
+            "/v1/ipfs/retrieve",
+            json={"cid": "bafy-test"},
+            headers=_headers("intruder"),
+        )
+        assert resp.status_code == 403
+
 
 # --- developer platform ---
 
