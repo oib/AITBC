@@ -102,7 +102,8 @@
       2 cli/miner_management.py
       1 cli/tests/run_cli_tests.py
       1 mcp-server/aitbc_mcp_cli_tools.py
-      3 mcp-server/aitbc_mcp_server.py
+      1 mcp-server/aitbc_mcp_mutating_tools.py
+      2 mcp-server/aitbc_mcp_server.py
       1 packages/py/aitbc-agent-sdk/src/aitbc_agent/cli_contract_client.py
       1 packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_provider.py
       1 scripts/docs/check_feature_status.py
