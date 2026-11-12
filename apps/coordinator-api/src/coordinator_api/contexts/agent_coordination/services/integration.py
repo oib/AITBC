@@ -5,15 +5,48 @@ Integrates agent orchestration with existing ML ZK proof system and provides dep
 MIGRATION IN PROGRESS: This file is being migrated to use shared AgentIntegrationService
 from aitbc-agent-core package. See agent_integration_factory.py for the factory pattern.
 After migration is complete, duplicated code will be removed.
+
+Session/threadpool audit (#1908)
+--------------------------------
+All four managers hold one sync ``Session`` and dispatch DB work through
+``run_in_threadpool``; the composed helpers (``AgentAuditor``,
+``AgentSecurityManager``, ``AgentTrustManager``, ``AgentSandboxManager``,
+``AIAgentOrchestrator``/``AgentStateManager``) share that same Session.
+
+Production wiring is sequential today: ``agent_integration_router`` builds a
+fresh manager set per request on the per-request ``get_session()`` Session
+and every ``await`` is sequential — no ``gather``/``create_task`` — so no
+two workers ever touch the Session concurrently. The hazard is latent: any
+caller that shares one manager/Session across coroutines reproduces the
+#1904 ``sqlite3.InterfaceError``.
+
+Defense in depth: every session-touching public method runs under a
+per-Session ``asyncio.Lock`` (``_serialized_session``) stored in
+``session.info`` — one lock per Session, shared by every manager composed
+on it. ``ZKProofService`` holds a Session reference it never uses.
+``AgentProductionManager.deploy_to_production`` deliberately does not hold
+the lock across its body — it only orchestrates already-locked sub-manager
+calls and holding it would self-deadlock on the non-reentrant
+``asyncio.Lock`` — so its two direct ``auditor.log_event`` calls take the
+lock individually. Private helpers (``_create_deployment_instance``,
+``_check_instance_health``, ``_remove_deployment_instance``) run inside
+their callers' lock and are not decorated. ``AgentStateManager``'s own
+#1904 lock is a different object, so mixing orchestrator calls with these
+managers on one Session is still unsynchronized — no current call path
+does that. Router endpoints also touch the Session directly
+(``session.get``/``session.execute`` via ``run_in_threadpool``) outside
+the lock, sequential per request under the same per-request reasoning.
 """
 
 import asyncio
+import functools
 import os
 import re
 import subprocess
+from collections.abc import Awaitable, Callable
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import Any, cast
 from uuid import uuid4
 
 import httpx
@@ -66,6 +99,45 @@ def _validate_unit_component(value: str, field: str) -> str:
     if not isinstance(value, str) or not _SAFE_UNIT_COMPONENT_RE.match(value):
         raise ValueError(f"invalid {field}: must be 1-63 chars of [A-Za-z0-9._-], starting alphanumeric")
     return value
+
+
+_SESSION_LOCK_KEY = "_aitbc_agent_coordination_session_lock"
+
+
+def _session_lock(session: Session) -> asyncio.Lock:
+    """Return the asyncio.Lock shared by every manager bound to ``session``.
+
+    The managers in this module are composed onto ONE Session —
+    ``AgentProductionManager`` fans out to ``AgentDeploymentManager``,
+    ``AgentMonitoringManager`` and ``AgentIntegrationManager``, each
+    constructing its own ``AgentAuditor`` — so a per-instance lock (the
+    #1904 ``AgentStateManager`` pattern) would not serialize across them.
+    ``session.info`` hands every manager built on the same Session the
+    same lock object.
+    """
+    lock = session.info.get(_SESSION_LOCK_KEY)
+    if not isinstance(lock, asyncio.Lock):
+        lock = asyncio.Lock()
+        session.info[_SESSION_LOCK_KEY] = lock
+    return lock
+
+
+def _serialized_session[F: Callable[..., Awaitable[Any]]](method: F) -> F:
+    """Run an async manager method under the per-Session asyncio lock.
+
+    Same serialization treatment as #1904's ``AgentStateManager._lock``,
+    keyed on the Session (see ``_session_lock``) so managers composed onto
+    one Session serialize with each other. Private helpers invoked from a
+    decorated public method run inside the held lock and must not be
+    decorated themselves — ``asyncio.Lock`` is not reentrant.
+    """
+
+    @functools.wraps(method)
+    async def wrapper(*args: Any, **kwargs: Any) -> Any:
+        async with args[0]._lock:
+            return await method(*args, **kwargs)
+
+    return cast(F, wrapper)
 
 
 def zk_integration_mock_enabled() -> bool:
@@ -196,11 +268,13 @@ class AgentIntegrationManager:
 
     def __init__(self, session: Session) -> None:
         self.session = session
+        self._lock = _session_lock(session)
         self.zk_service = ZKProofService(session)
         self.orchestrator = AIAgentOrchestrator(session, None)  # type: ignore[arg-type]
         self.security_manager = AgentSecurityManager(session)
         self.auditor = AgentAuditor(session)
 
+    @_serialized_session
     async def integrate_with_zk_system(
         self, execution_id: str, verification_level: VerificationLevel = VerificationLevel.BASIC
     ) -> dict[str, Any]:
@@ -351,9 +425,11 @@ class AgentDeploymentManager:
 
     def __init__(self, session: Session) -> None:
         self.session = session
+        self._lock = _session_lock(session)
         self.integration_manager = AgentIntegrationManager(session)
         self.auditor = AgentAuditor(session)
 
+    @_serialized_session
     async def create_deployment_config(
         self, workflow_id: str, deployment_name: str, deployment_config: dict[str, Any]
     ) -> AgentDeploymentConfig:
@@ -372,6 +448,7 @@ class AgentDeploymentManager:
         logger.info("Created deployment config: %s for workflow %s", config.id, workflow_id)
         return config
 
+    @_serialized_session
     async def deploy_agent_workflow(self, deployment_config_id: str, target_environment: str = "production") -> dict[str, Any]:
         """Deploy agent workflow to target environment"""
         _validate_unit_component(target_environment, "target_environment")
@@ -476,6 +553,7 @@ class AgentDeploymentManager:
                 "error": str(e),
             }
 
+    @_serialized_session
     async def monitor_deployment_health(self, deployment_config_id: str) -> dict[str, Any]:
         """Monitor health of deployment instances"""
         try:
@@ -638,6 +716,7 @@ class AgentDeploymentManager:
                 "consecutive_failures": instance.consecutive_failures,
             }
 
+    @_serialized_session
     async def scale_deployment(self, deployment_config_id: str, target_instances: int) -> dict[str, Any]:
         """Scale deployment to target number of instances"""
         try:
@@ -720,6 +799,7 @@ class AgentDeploymentManager:
             logger.error("Failed to remove instance %s: %s", instance_id, e)
             raise
 
+    @_serialized_session
     async def rollback_deployment(self, deployment_config_id: str) -> dict[str, Any]:
         """Rollback deployment to previous version"""
         try:
@@ -783,9 +863,11 @@ class AgentMonitoringManager:
 
     def __init__(self, session: Session) -> None:
         self.session = session
+        self._lock = _session_lock(session)
         self.deployment_manager = AgentDeploymentManager(session)
         self.auditor = AgentAuditor(session)
 
+    @_serialized_session
     async def get_deployment_metrics(self, deployment_config_id: str, time_range: str = "1h") -> dict[str, Any]:
         """Get metrics for deployment over time range"""
         try:
@@ -920,6 +1002,7 @@ class AgentMonitoringManager:
             logger.error("Metrics collection failed for instance %s: %s", instance.id, e)
             return {"instance_id": instance.instance_id, "error": str(e)}
 
+    @_serialized_session
     async def create_alerting_rules(self, deployment_config_id: str, alerting_rules: dict[str, Any]) -> dict[str, Any]:
         """Create alerting rules for deployment monitoring"""
         try:
@@ -962,6 +1045,7 @@ class AgentProductionManager:
 
     def __init__(self, session: Session) -> None:
         self.session = session
+        self._lock = _session_lock(session)
         self.integration_manager = AgentIntegrationManager(session)
         self.deployment_manager = AgentDeploymentManager(session)
         self.monitoring_manager = AgentMonitoringManager(session)
@@ -1007,20 +1091,27 @@ class AgentProductionManager:
                 production_result["overall_status"] = "partial_success"
             else:
                 production_result["overall_status"] = "success"
-            await self.auditor.log_event(
-                AuditEventType.EXECUTION_COMPLETED,
-                workflow_id=workflow_id,
-                security_level=SecurityLevel.INTERNAL,
-                event_data={"production_deployment": production_result},
-            )
+            # deploy_to_production is not @_serialized_session-decorated: it
+            # only orchestrates already-locked sub-manager calls, and holding
+            # the per-Session lock across them would self-deadlock. Its
+            # direct session touch — this audit write — takes the lock
+            # individually instead.
+            async with self._lock:
+                await self.auditor.log_event(
+                    AuditEventType.EXECUTION_COMPLETED,
+                    workflow_id=workflow_id,
+                    security_level=SecurityLevel.INTERNAL,
+                    event_data={"production_deployment": production_result},
+                )
             logger.info("Production deployment completed for workflow %s", workflow_id)
             return production_result
         except Exception as e:
             logger.error("Production deployment failed for workflow %s: %s", workflow_id, e)
-            await self.auditor.log_event(
-                AuditEventType.EXECUTION_FAILED,
-                workflow_id=workflow_id,
-                security_level=SecurityLevel.INTERNAL,
-                event_data={"error": str(e)},
-            )
+            async with self._lock:
+                await self.auditor.log_event(
+                    AuditEventType.EXECUTION_FAILED,
+                    workflow_id=workflow_id,
+                    security_level=SecurityLevel.INTERNAL,
+                    event_data={"error": str(e)},
+                )
             raise
