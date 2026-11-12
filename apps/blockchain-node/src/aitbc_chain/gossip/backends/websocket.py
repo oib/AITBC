@@ -340,14 +340,18 @@ class WebsocketGossipBackend(GossipBackend):
             )
             raise RuntimeError(f"Failed to connect to gossip websocket for {topic}: {e}") from e
 
-        await self._send_peer_auth(ws)
-
         try:
             await self._authenticate(topic, ws)
         except Exception as e:
             with suppress(Exception):
                 await ws.close()
             raise RuntimeError(f"Gossip websocket auth failed for {topic}: {e}") from e
+
+        # peer_auth goes out only after the challenge handshake completes:
+        # the server's peer_auth_ok/error reply would otherwise land in
+        # _authenticate's auth_ok wait slot and be misread as a rejection
+        # (#1874 follow-up — stalled fleet consensus gossip).
+        await self._send_peer_auth(ws)
 
         self._websockets[topic] = ws
         self._readers[topic] = create_task_with_logging(
