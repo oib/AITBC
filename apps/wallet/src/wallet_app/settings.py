@@ -75,8 +75,27 @@ class Settings(ServiceSettings):
 
     @model_validator(mode="after")
     def set_api_key_default(self) -> Settings:
-        # Fallback to coordinator API key for admin endpoint authentication
+        # Fallback to coordinator API key for admin endpoint authentication —
+        # but only outside the fail-closed gate. #1857: the coordinator key is
+        # the cluster-wide secret carried by many services, so letting it
+        # double as the wallet admin key means one env leak admin's every
+        # wallet (create/import with caller secrets, sign, broadcast). Same
+        # migration pattern as TRUSTED_RECEIPT_KEY_IDS below: production or an
+        # explicit REQUIRE_WALLET_API_KEY refuses the fallback; elsewhere the
+        # legacy behaviour stays until env rollout lands WALLET_API_KEY.
         if self.auth_enabled and self.api_key is None:
+            require_wallet_key = is_production() or os.getenv("REQUIRE_WALLET_API_KEY", "").strip().lower() in (
+                "1",
+                "true",
+                "yes",
+                "on",
+            )
+            if require_wallet_key:
+                raise ValueError(
+                    "WALLET_API_KEY must be set when auth is enabled in production "
+                    "(or REQUIRE_WALLET_API_KEY=1) — falling back to COORDINATOR_API_KEY "
+                    "makes the cluster-wide secret the wallet admin key (#1857)"
+                )
             self.api_key = self.coordinator_api_key
         # F4: an unset trust set means every receipt verifies under the legacy
         # any-key behavior — the spoofing surface the pin exists to close.

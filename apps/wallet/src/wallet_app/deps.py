@@ -27,8 +27,10 @@ async def require_admin_api_key(
 ) -> dict[str, Any]:
     """Require an API key for admin/minting endpoints.
 
-    In production, set WALLET_API_KEY (or reuse COORDINATOR_API_KEY) and pass it
-    as the X-API-Key header.
+    In production, set WALLET_API_KEY and pass it as the X-API-Key header.
+    The legacy COORDINATOR_API_KEY fallback only survives outside the
+    fail-closed gate (production / REQUIRE_WALLET_API_KEY=1 refuses it,
+    #1857).
     """
     authenticator = APIKeyAuthenticator(
         expected_key=config.api_key,
