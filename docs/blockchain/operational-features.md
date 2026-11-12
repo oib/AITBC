@@ -157,7 +157,8 @@ There are no `/rpc/export/blocks` or `/rpc/export/transactions` routes —
 Export the full chain to file:
 
 ```bash
-curl -s "http://localhost:8202/rpc/export-chain?chain_id=ait-mainnet" \
+curl -s -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
+  "http://localhost:8202/rpc/export-chain?chain_id=ait-mainnet" \
   > chain_export.json
 ```
 
