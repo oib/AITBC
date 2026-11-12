@@ -258,3 +258,62 @@ def test_cancelled_request_keeps_slot_until_worker_done(monkeypatch) -> None:
         assert whisper_main._inflight == 0
 
     asyncio.run(scenario())
+
+
+# --- WHISPER-DURATION-1 (#1653): ffprobe fallback for duration-less containers ---
+
+
+def _fake_proc(returncode: int, stdout: str) -> object:
+    proc = type("P", (), {})()
+    proc.returncode = returncode
+    proc.stdout = stdout
+    return proc
+
+
+def test_ffprobe_duration_returns_seconds(monkeypatch) -> None:
+    monkeypatch.setattr(whisper_main.shutil, "which", lambda name: "/usr/bin/ffprobe")
+    monkeypatch.setattr(
+        whisper_main.subprocess,
+        "run",
+        lambda *a, **k: _fake_proc(0, "923.4\n"),
+    )
+    assert whisper_main._ffprobe_duration("/tmp/x.bin") == 923.4
+
+
+def test_ffprobe_duration_missing_binary(monkeypatch) -> None:
+    monkeypatch.setattr(whisper_main.shutil, "which", lambda name: None)
+    assert whisper_main._ffprobe_duration("/tmp/x.bin") is None
+
+
+def test_ffprobe_duration_na_output(monkeypatch) -> None:
+    monkeypatch.setattr(whisper_main.shutil, "which", lambda name: "/usr/bin/ffprobe")
+    monkeypatch.setattr(whisper_main.subprocess, "run", lambda *a, **k: _fake_proc(0, "N/A\n"))
+    assert whisper_main._ffprobe_duration("/tmp/x.bin") is None
+
+
+def test_ffprobe_duration_nonzero_exit_and_errors(monkeypatch) -> None:
+    monkeypatch.setattr(whisper_main.shutil, "which", lambda name: "/usr/bin/ffprobe")
+    monkeypatch.setattr(whisper_main.subprocess, "run", lambda *a, **k: _fake_proc(1, ""))
+    assert whisper_main._ffprobe_duration("/tmp/x.bin") is None
+
+    def boom(*a, **k):
+        raise OSError("exec failed")
+
+    monkeypatch.setattr(whisper_main.subprocess, "run", boom)
+    assert whisper_main._ffprobe_duration("/tmp/x.bin") is None
+
+
+def test_ffprobe_uses_file_protocol_whitelist(monkeypatch) -> None:
+    """The probe must not follow nested/network resources (CE-001 parity)."""
+    seen: list[list[str]] = []
+    monkeypatch.setattr(whisper_main.shutil, "which", lambda name: "/usr/bin/ffprobe")
+
+    def spy(*a, **k):
+        seen.append(a[0] if a else k.get("args", []))
+        return _fake_proc(0, "1.0\n")
+
+    monkeypatch.setattr(whisper_main.subprocess, "run", spy)
+    whisper_main._ffprobe_duration("/tmp/x.bin")
+    argv = seen[0]
+    assert "-protocol_whitelist" in argv
+    assert argv[argv.index("-protocol_whitelist") + 1] == "file"
