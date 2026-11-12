@@ -14,6 +14,17 @@ from ..settings import settings
 
 logger = logging.getLogger(__name__)
 
+# Expected operational failure surface: registry HTTP calls plus the
+# data-shape errors validation arithmetic/dict access can raise.
+_OPS_ERRORS = (
+    requests.exceptions.RequestException,
+    TypeError,
+    ValueError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+)
+
 
 class ValidationResult:
     """Validation result for a service configuration"""
@@ -63,7 +74,7 @@ class HardwareValidator:
             # Overall validity
             result.valid = len(result.errors) == 0
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             result.valid = False
             result.errors.append(f"Validation error: {str(e)}")
 
@@ -76,7 +87,7 @@ class HardwareValidator:
             if response.status_code == 200:
                 return response.json()  # type: ignore
             return None
-        except Exception:
+        except _OPS_ERRORS:
             return None
 
     def _check_hardware_requirements(self, miner: Miner, service: dict[str, Any]) -> ValidationResult:
@@ -283,7 +294,7 @@ class HardwareValidator:
             compatible.sort(key=lambda x: x[1], reverse=True)
             return compatible
 
-        except Exception as exc:
+        except _OPS_ERRORS as exc:
             # #1374: an empty list is indistinguishable from "no compatible
             # services" — log the failure so matching outages are visible.
             logger.warning("Service compatibility check failed: %s", exc)

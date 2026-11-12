@@ -10,6 +10,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import and_, func, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aitbc.aitbc_logging import get_logger
@@ -21,6 +22,19 @@ from ..models import MatchRequest, MatchResult, Miner
 from ..settings import settings
 
 logger = get_logger(__name__)
+
+# Expected operational failure surface: DB session work, billing RPC calls,
+# and the decimal/datetime data-shape errors the sync loops can hit.
+_OPS_ERRORS = (
+    SQLAlchemyError,
+    NetworkError,
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+)
 
 # Same magnitude ceiling the market/trading money validators use
 # (MAX_PAYMENT_AMOUNT / MAX_MONEY_AMOUNT): a finite-but-absurd quantity or
@@ -80,7 +94,7 @@ class BillingIntegration:
                 job_id=job_id,
                 metadata=metadata,
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             self.logger.error("Failed to record usage: %s", e)
             return {"status": "failed", "error": str(e)}
 
@@ -252,7 +266,7 @@ class BillingIntegration:
                 )
                 results["miners_processed"] += 1
                 results["total_usage_records"] += len(sync_details)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 self.logger.error("Failed to sync usage for miner %s: %s", miner_id, e)
                 results["miners_failed"] += 1
         self.logger.info(
@@ -377,6 +391,6 @@ class BillingIntegrationScheduler:
                 async with self.session_factory() as session:
                     await BillingIntegration(session).sync_all_miners_usage(hours_back=interval_hours)
                 await asyncio.sleep(interval_hours * 3600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 self.logger.error("Error in billing sync loop: %s", e)
                 await asyncio.sleep(300)

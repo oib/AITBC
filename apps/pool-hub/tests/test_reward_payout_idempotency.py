@@ -15,6 +15,8 @@ from __future__ import annotations
 
 from unittest.mock import AsyncMock, patch
 
+import httpx
+
 import pytest
 from poolhub.clients.blockchain import PoolHubBlockchainClient
 
@@ -135,7 +137,9 @@ class TestDistributionIsIdempotent:
 
         with (
             patch.object(client._rpc, "get_nonce", new_callable=AsyncMock, return_value=0),
-            patch.object(client._rpc, "submit_transaction", new_callable=AsyncMock, side_effect=Exception("Network error")),
+            patch.object(
+                client._rpc, "submit_transaction", new_callable=AsyncMock, side_effect=httpx.ConnectError("Network error")
+            ),
         ):
             payouts = await client.distribute_rewards(block_height=100, session=session)
 

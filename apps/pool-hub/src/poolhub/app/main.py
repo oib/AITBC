@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from sqlalchemy.exc import SQLAlchemyError
 
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.middleware import register_request_validation_error_handler
@@ -40,7 +41,7 @@ async def lifespan(_: FastAPI) -> AsyncIterator[None]:
         # Enable citext extension if available (optional, ignore errors)
         try:
             await conn.execute(text("CREATE EXTENSION IF NOT EXISTS citext"))
-        except Exception:
+        except SQLAlchemyError:
             pass  # Extension not available — not required
     logger.info("Database tables ensured")
 
