@@ -37,7 +37,7 @@ from ..utils.agent_signing import (
     sign_send_envelope,
     signed_request_headers,
 )
-from ..utils.http_client import AITBCHTTPClient, get_logger, origin_base_url
+from ..utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, origin_base_url
 from ..utils.wallet_loader import load_wallet_for_payment
 from .ipfs import _daemon_available, _ipfs_add_file, _is_cid
 from .market.escrow import _get_blockchain_rpc_url
@@ -449,7 +449,11 @@ def hire(
     """Hire a provider agent: escrow locks on-chain, task runs, result returns as a CID."""
     config = get_config()
     base_url = _coordinator_url(ctx, coordinator_url)
-    client = AITBCHTTPClient(base_url=base_url, timeout=30)
+    client = AITBCHTTPClient(
+        base_url=base_url,
+        timeout=30,
+        **auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, get_config().api_key),
+    )
     buyer_agent = _buyer_agent_id(from_agent)
     max_price_ait = _parse_max_price(max_price)
 
@@ -549,7 +553,11 @@ def status(
 ):
     """Show escrow state and negotiation progress for a task."""
     base_url = _coordinator_url(ctx, coordinator_url)
-    client = AITBCHTTPClient(base_url=base_url, timeout=15)
+    client = AITBCHTTPClient(
+        base_url=base_url,
+        timeout=15,
+        **auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, get_config().api_key),
+    )
     buyer_agent = _buyer_agent_id(from_agent)
 
     signing_key = None
@@ -601,7 +609,11 @@ def result(
 ):
     """Fetch a finished task's result payload from island IPFS."""
     base_url = _coordinator_url(ctx, coordinator_url)
-    client = AITBCHTTPClient(base_url=base_url, timeout=15)
+    client = AITBCHTTPClient(
+        base_url=base_url,
+        timeout=15,
+        **auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, get_config().api_key),
+    )
     buyer_agent = _buyer_agent_id(from_agent)
 
     signing_key = None
