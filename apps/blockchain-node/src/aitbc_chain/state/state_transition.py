@@ -1574,37 +1574,66 @@ def _payload_auth_binds_transfer(tx_type: str, message: dict[str, Any], tx_data:
       ``submission_id`` instead. ``bounty_id`` must match whenever the
       signed message carries it.
     """
-    payload = tx_data.get("payload") or {}
-    if tx_type in ("STAKE_LOCK", "BOUNTY_LOCK"):
-        party = tx_data.get("from")
-        expected_action = "stake"
-    elif tx_type in ("STAKE_RELEASE", "BOUNTY_REFUND"):
-        party = tx_data.get("to")
-        expected_action = "unstake"
-    elif tx_type == "BOUNTY_PAYOUT":
-        party = None
-        expected_action = ""
-    else:
+    role = _payload_auth_role(tx_type)
+    if role is None:
         return False
-    if party:
-        try:
-            bound_party = _to_ait_address(str(party))
-        except (TypeError, ValueError):
-            return False
-        if bound_party not in _payload_auth_named_addresses(message):
-            return False
+    party, expected_action = role
+    if not _payload_auth_party_binds(party, message, tx_data):
+        return False
+    if not _payload_auth_chain_action_binds(message, tx_data, expected_action):
+        return False
+    if not _payload_auth_amount_binds(tx_type, message, tx_data):
+        return False
+    return _payload_auth_ids_binds(tx_type, message, tx_data.get("payload") or {})
+
+
+def _payload_auth_role(tx_type: str) -> tuple[str | None, str] | None:
+    """(party field, expected action) for the transfer type, or None."""
+    if tx_type in ("STAKE_LOCK", "BOUNTY_LOCK"):
+        return ("from", "stake")
+    if tx_type in ("STAKE_RELEASE", "BOUNTY_REFUND"):
+        return ("to", "unstake")
+    if tx_type == "BOUNTY_PAYOUT":
+        # operator-signed; the payee is resolved server-side
+        return (None, "")
+    return None
+
+
+def _payload_auth_party_binds(party_field: str | None, message: dict[str, Any], tx_data: dict[str, Any]) -> bool:
+    """The message must name the account the transfer debits/credits."""
+    if party_field is None:
+        return True
+    party = tx_data.get(party_field)
+    if not party:
+        return True  # absent party field skips the binding, as before
+    try:
+        bound_party = _to_ait_address(str(party))
+    except (TypeError, ValueError):
+        return False
+    return bound_party in _payload_auth_named_addresses(message)
+
+
+def _payload_auth_chain_action_binds(message: dict[str, Any], tx_data: dict[str, Any], expected_action: str) -> bool:
+    """A message's chain_id/action, when present, must match the transfer."""
     if message.get("chain_id") is not None and str(message.get("chain_id")) != str(tx_data.get("chain_id")):
         return False
-    if "action" in message and message.get("action") != expected_action:
+    return "action" not in message or message.get("action") == expected_action
+
+
+def _payload_auth_amount_binds(tx_type: str, message: dict[str, Any], tx_data: dict[str, Any]) -> bool:
+    """A lock's signed amount must equal the transferred value."""
+    if tx_type not in ("STAKE_LOCK", "BOUNTY_LOCK"):
+        return True
+    amount = message.get("amount", message.get("additional_amount", message.get("reward_amount")))
+    value = tx_data.get("value", tx_data.get("amount", 0))
+    try:
+        return amount is not None and int(amount) == int(value)
+    except (TypeError, ValueError):
         return False
-    if tx_type in ("STAKE_LOCK", "BOUNTY_LOCK"):
-        amount = message.get("amount", message.get("additional_amount", message.get("reward_amount")))
-        value = tx_data.get("value", tx_data.get("amount", 0))
-        try:
-            if amount is None or int(amount) != int(value):
-                return False
-        except (TypeError, ValueError):
-            return False
+
+
+def _payload_auth_ids_binds(tx_type: str, message: dict[str, Any], payload: dict[str, Any]) -> bool:
+    """stake_id / bounty_id / submission_id / lock_tx_hashes cross-checks."""
     msg_stake = message.get("stake_id")
     tx_stake = payload.get("stake_id") or payload.get("agent_stake_id")
     if tx_type == "STAKE_RELEASE":
@@ -1624,9 +1653,13 @@ def _payload_auth_binds_transfer(tx_type: str, message: dict[str, Any], tx_data:
         tx_sub = payload.get("submission_id")
         if msg_sub is None or tx_sub is None or str(msg_sub) != str(tx_sub):
             return False
-    # lock_tx_hashes are bound only when the signed message names them — the
-    # user-staking route signs them, operator-signed agent releases predate the
-    # field and must not break.
+    return _payload_auth_lock_hashes_binds(message, payload)
+
+
+def _payload_auth_lock_hashes_binds(message: dict[str, Any], payload: dict[str, Any]) -> bool:
+    """lock_tx_hashes bind only when the signed message names them — the
+    user-staking route signs them, operator-signed agent releases predate the
+    field and must not break."""
     msg_locks = message.get("lock_tx_hashes")
     tx_locks = payload.get("lock_tx_hashes")
     if msg_locks is not None and tx_locks is not None:
