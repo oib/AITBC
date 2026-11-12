@@ -17,12 +17,17 @@ import asyncio
 import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from decimal import InvalidOperation
 from typing import Any
 
+import httpx
+from fastapi import HTTPException
 from sqlalchemy import update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, col, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import AITBCError
 from aitbc.network import AsyncAITBCHTTPClient
 from aitbc_shared import JobPayment, PaymentEscrow
 
@@ -33,6 +38,33 @@ from ..acceptance import DISPUTED, HELD_STATES, META_DISPUTED_AT, REFUNDABLE_STA
 from .payments import PaymentService, _find_http_status_error, _lookup_chain_lock
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the stuck-escrow sweep -- it calls
+# PaymentService.refund_payment and probes the chain RPC, both money
+# paths, so the tuple mirrors the payment service's own surface:
+# filesystem/JSON, data-shape, runtime, SQLAlchemy session errors, lazy
+# imports, httpx transport errors, the aitbc error hierarchy,
+# HTTPException (ownership/validation failures the service raises),
+# decimal parse failures, timestamp overflows and assertion guards.
+# BaseExceptions still propagate (asyncio.CancelledError is re-raised
+# explicitly).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    IndexError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    AssertionError,
+    OverflowError,
+    ImportError,
+    SQLAlchemyError,
+    AITBCError,
+    httpx.HTTPError,
+    InvalidOperation,
+    HTTPException,
+)
 
 # First time the node answered 425 "lock not sealed" to this payment's refund.
 META_UNSEALED_SINCE = "unsealed_since"
@@ -198,7 +230,7 @@ class StuckEscrowSweeper:
                     refunded = await PaymentService(session).refund_payment(
                         job.client_id, job.id, job.payment_id, reason, is_admin=True
                     )
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     status_error = _find_http_status_error(e)
                     if status_error is not None and status_error.response.status_code == 425:
                         counts[await self._handle_unsealed_lock(session, job, _payment.id)] += 1
@@ -287,7 +319,7 @@ class StuckEscrowSweeper:
             meta[META_UNSEALED_SINCE] = now.isoformat()
             payment.meta_data = meta
             session.add(payment)
-            session.commit()
+            session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
             logger.warning(
                 "Refund for job %s payment %s deferred: the escrow lock is not sealed; "
                 "retrying each sweep and checking the lock after %ss",
@@ -302,7 +334,7 @@ class StuckEscrowSweeper:
             return "deferred"
         try:
             presence, lock_hash = await self._lock_presence(job.id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning(
                 "Could not tell where the escrow lock for job %s is; keeping payment %s held: %s",
                 job.id,
@@ -393,7 +425,7 @@ class StuckEscrowSweeper:
             record = await client.get_json(f"{rpc_url}/rpc/escrow/{job_id}")
             if isinstance(record, dict) and record.get("lock_tx_hash"):
                 lock_hash = str(record["lock_tx_hash"])
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.debug("No escrow record hash for job %s: %s", job_id, e)
         return LOCK_ABSENT, lock_hash
 
@@ -412,7 +444,7 @@ class StuckEscrowSweeper:
                 counts = await self.run_once()
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Stuck escrow sweep failed: %s", e)
                 continue
             if counts["candidates"]:

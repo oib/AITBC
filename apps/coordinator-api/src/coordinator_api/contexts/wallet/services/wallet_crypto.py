@@ -11,6 +11,18 @@ from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
 
+# Failure surface: eth_account/eth_utils key parsing (ValueError/TypeError),
+# hex decoding, and the cryptography primitives' error types.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+)
+
 
 def generate_ethereum_keypair() -> tuple[str, str, str]:
     """
@@ -51,7 +63,7 @@ def verify_keypair_consistency(private_key: str, expected_address: str) -> bool:
     try:
         account = Account.from_key(private_key)
         return to_checksum_address(account.address) == to_checksum_address(expected_address)
-    except Exception:
+    except _OPS_ERRORS:
         return False
 
 
@@ -165,7 +177,7 @@ def validate_private_key_format(private_key: str) -> bool:
         Account.from_key("0x" + private_key)
 
         return True
-    except Exception:
+    except _OPS_ERRORS:
         return False
 
 

@@ -27,10 +27,9 @@ def _admin() -> dict[str, str]:
 BOUNDED_LIST_ENDPOINTS = [
     ("/v1/agents/workflows", _admin()),
     ("/v1/agent-creativity/capabilities/agent-x", _admin()),
-    # The trading router carries no router-level auth dep — the matrix gate
-    # (/v1/trading* -> ADMIN_OR_CLIENT) is middleware-only and off under
-    # TEST_MODE, so the handler is reachable bare.
-    ("/v1/trading/requests/req-x/matches", {}),
+    # #1876 bound the trading read surface: the handler now takes
+    # AdminOrClientDep + agent-ownership scoping, so it needs a token.
+    ("/v1/trading/requests/req-x/matches", _admin()),
 ]
 
 

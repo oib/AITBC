@@ -3,9 +3,12 @@ Portfolio Management API Endpoints
 REST API for unified portfolio management across AITBC services
 """
 
+from collections.abc import Awaitable, Callable
 from datetime import UTC
+from decimal import InvalidOperation
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel
 
@@ -17,6 +20,22 @@ from ..services.portfolio_aggregation_service import PortfolioAggregationService
 logger = get_logger(__name__)
 router = APIRouter(prefix="/portfolio", tags=["portfolio"])
 portfolio_service = PortfolioAggregationService()
+
+# Expected failure surface for the 500-translate handlers and per-dependency
+# health probes below: outbound HTTP from the aggregation service (httpx),
+# response decode/Decimal conversion, pydantic validation (ValueError), and
+# data-shape/runtime errors. HTTPException is not in the tuple, so it
+# propagates to the client untouched.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AttributeError,
+    InvalidOperation,
+    KeyError,
+    OSError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+    httpx.HTTPError,
+)
 
 
 class PortfolioSummaryResponse(BaseModel):
@@ -40,6 +59,17 @@ class PortfolioHealthResponse(BaseModel):
     timestamp: str
 
 
+async def _probe_portfolio_dependency(fetch: Callable[[], Awaitable[dict[str, Any]]]) -> tuple[str, bool]:
+    """Run one dependency probe; returns (service status, overall degraded flag)."""
+    try:
+        data = await fetch()
+    except _OPS_ERRORS:
+        return "unhealthy", True
+    if data.get("error"):
+        return "degraded", True
+    return "healthy", False
+
+
 @router.get("/unified", response_model=PortfolioSummaryResponse)
 @rate_limit(rate=100, per=60)
 async def get_unified_portfolio(
@@ -58,7 +88,7 @@ async def get_unified_portfolio(
     try:
         portfolio_data = await portfolio_service.get_unified_portfolio(agent_address)
         return PortfolioSummaryResponse(**portfolio_data)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error getting unified portfolio: %s", str(e))
         logger.exception("Unhandled exception")
 
@@ -71,46 +101,18 @@ async def get_portfolio_health(request: Request) -> PortfolioHealthResponse:
     """Health check for portfolio aggregation service and dependencies"""
     services_status = {}
     overall_status = "healthy"
-    try:
-        wallet_data = await portfolio_service._get_wallet_balances()
-        services_status["wallet"] = "healthy" if not wallet_data.get("error") else "degraded"
-        if wallet_data.get("error"):
+    probes: tuple[tuple[str, Callable[[], Awaitable[dict[str, Any]]]], ...] = (
+        ("wallet", portfolio_service._get_wallet_balances),
+        ("exchange", portfolio_service._get_exchange_rates),
+        ("market", portfolio_service._get_market_stats),
+        ("trading", portfolio_service._get_trading_analytics),
+        ("ai", portfolio_service._get_ai_trade_signals),
+    )
+    for name, fetch in probes:
+        dep_status, degraded = await _probe_portfolio_dependency(fetch)
+        services_status[name] = dep_status
+        if degraded:
             overall_status = "degraded"
-    except Exception:
-        services_status["wallet"] = "unhealthy"
-        overall_status = "degraded"
-    try:
-        exchange_data = await portfolio_service._get_exchange_rates()
-        services_status["exchange"] = "healthy" if not exchange_data.get("error") else "degraded"
-        if exchange_data.get("error"):
-            overall_status = "degraded"
-    except Exception:
-        services_status["exchange"] = "unhealthy"
-        overall_status = "degraded"
-    try:
-        market_data = await portfolio_service._get_market_stats()
-        services_status["market"] = "healthy" if not market_data.get("error") else "degraded"
-        if market_data.get("error"):
-            overall_status = "degraded"
-    except Exception:
-        services_status["market"] = "unhealthy"
-        overall_status = "degraded"
-    try:
-        trading_data = await portfolio_service._get_trading_analytics()
-        services_status["trading"] = "healthy" if not trading_data.get("error") else "degraded"
-        if trading_data.get("error"):
-            overall_status = "degraded"
-    except Exception:
-        services_status["trading"] = "unhealthy"
-        overall_status = "degraded"
-    try:
-        ai_data = await portfolio_service._get_ai_trade_signals()
-        services_status["ai"] = "healthy" if not ai_data.get("error") else "degraded"
-        if ai_data.get("error"):
-            overall_status = "degraded"
-    except Exception:
-        services_status["ai"] = "unhealthy"
-        overall_status = "degraded"
     from datetime import datetime
 
     return PortfolioHealthResponse(status=overall_status, services=services_status, timestamp=datetime.now(UTC).isoformat())
@@ -125,7 +127,7 @@ async def get_portfolio_summary_only(
     try:
         portfolio_data = await portfolio_service.get_unified_portfolio(agent_address)
         return {"timestamp": portfolio_data["timestamp"], "agent_address": agent_address, "summary": portfolio_data["summary"]}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error getting portfolio summary: %s", str(e))
         logger.exception("Unhandled exception")
 

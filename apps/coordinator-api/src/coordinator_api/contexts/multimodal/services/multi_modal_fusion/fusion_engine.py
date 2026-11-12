@@ -209,7 +209,7 @@ class MultiModalFusionEngine:
                 num_heads=config["num_heads"],
             ).to(self.device)
             fusion_model.load_state_dict(model_info["fusion_model"])
-            fusion_model.eval()
+            fusion_model.eval()  # noqa: unawaited-async — sync nn.Module.eval()
             with torch.no_grad():
                 batch_data = self.prepare_batch_modal_data(test_data, 32)
                 fused_output = fusion_model(batch_data)

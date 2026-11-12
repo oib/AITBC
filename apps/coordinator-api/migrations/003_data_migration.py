@@ -20,6 +20,17 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    asyncpg.PostgresError,
+    asyncpg.InterfaceError,
+)
+
 
 class DataMigration:
     """Data migration utilities for Coordinator API"""
@@ -65,7 +76,7 @@ class DataMigration:
                         json.dumps(receipt.get("signature")) if receipt.get("signature") else None,
                     )
                     inserted += 1
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.warning("Skipped receipt %s: %s", receipt.get("receipt_id"), e)
                     skipped += 1
             logger.info("Migrated %s receipts, skipped %s", inserted, skipped)
@@ -78,7 +89,7 @@ class DataMigration:
         sqlite_conn = sqlite3.connect(sqlite_path)
         sqlite_conn.row_factory = sqlite3.Row
         cursor = sqlite_conn.cursor()
-        cursor.execute("SELECT * FROM jobs")
+        cursor.execute("SELECT * FROM jobs")  # noqa: unawaited-async — sync sqlite3
         jobs = cursor.fetchall()
         async with self.pool.acquire() as conn:
             inserted = 0
@@ -99,10 +110,10 @@ class DataMigration:
                         self._parse_datetime(job.get("completed_at")),
                     )
                     inserted += 1
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.warning("Skipped job %s: %s", job.get("job_id"), e)
             logger.info("Migrated %s jobs", inserted)
-        sqlite_conn.close()
+        sqlite_conn.close()  # noqa: unawaited-async — sync sqlite3
 
     async def migrate_miners_from_json(self, json_path: str):
         """Migrate miners from JSON file to database."""
@@ -124,7 +135,7 @@ class DataMigration:
                         miner.get("score", 100.0),
                     )
                     inserted += 1
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.warning("Skipped miner %s: %s", miner.get("miner_id"), e)
             logger.info("Migrated %s miners", inserted)
 

@@ -14,13 +14,13 @@ import json
 import os
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal, ROUND_UP
+from decimal import Decimal, InvalidOperation, ROUND_UP
 from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import ait_to_units
@@ -38,6 +38,23 @@ from ..domain.provider_bond import (
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort fallbacks below: aitbc helper
+# errors (NetworkError & friends via AITBCError), chain-RPC response decode,
+# lazy eth-account/crypto imports and signing (ValueError/ImportError),
+# Decimal/unit conversion, and data-shape/runtime errors. NetworkError keeps
+# its dedicated handler in slash() before this tuple is consulted.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AITBCError,
+    AttributeError,
+    ImportError,
+    InvalidOperation,
+    KeyError,
+    OSError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+)
 
 # G5: track the next slash-authority nonce in-memory so multiple BOND_SLASH
 # transactions submitted before the next block is mined do not reuse the same
@@ -147,7 +164,7 @@ class BondSlashingService:
         # coincurve/eth-keys chain out of the coordinator import graph
         try:
             derived = Account.from_key(private_key).address
-        except Exception as exc:
+        except (TypeError, ValueError) as exc:
             logger.error("BOND_SLASH_PRIVATE_KEY is not a valid private key: %s", exc)
             return ""
         if derived.lower() != authority.lower():
@@ -213,35 +230,85 @@ class BondSlashingService:
             logger.info("No active bond for job %s; nothing to slash", job.id)
             return {"slashed": False, "reason": "no active bond"}
 
-        # G5 follow-up: avoid re-slashing the same continuous downtime incident
-        # every cycle. A new outage starts when the miner comes back online and
-        # then goes offline again (heartbeat newer than the last slash).
-        if condition == SlashingCondition.DOWNTIME:
-            try:
-                cooldown_seconds = int(os.getenv("BOND_SLASH_DOWNTIME_COOLDOWN_SECONDS", "300"))
-            except (TypeError, ValueError):
-                cooldown_seconds = 300
-            bond_meta = bond.meta or {}
-            last_slash_str = bond_meta.get("last_downtime_slash_at")
-            if last_slash_str:
-                last_slash = datetime.fromisoformat(str(last_slash_str))
-                miner = await run_in_threadpool(self.session.get, Miner, job.assigned_miner_id)
-                last_heartbeat = getattr(miner, "last_heartbeat", None)
-                # A fresh heartbeat after the last slash means this is a new outage.
-                if last_heartbeat and last_heartbeat > last_slash:
-                    pass
-                elif datetime.now(UTC) - last_slash < timedelta(seconds=cooldown_seconds):
-                    logger.info(
-                        "Downtime slash for job %s is within the %ss cooldown window; skipping",
-                        job.id,
-                        cooldown_seconds,
-                    )
-                    return {
-                        "slashed": False,
-                        "reason": "downtime slash within cooldown",
-                        "cooldown_seconds": cooldown_seconds,
-                    }
+        cooldown_skip = await self._downtime_cooldown_skip(job, bond, condition)
+        if cooldown_skip is not None:
+            return cooldown_skip
 
+        prepared = await self._prepare_slash(job, bond, condition)
+        if isinstance(prepared, dict):
+            return prepared
+        slash_amount, provider, bond_id, expected_amount, expected_updated_at, bond_pk = prepared
+
+        tx = self._build_slash_tx(bond_id, provider, slash_amount)
+        try:
+            result = await self._submit_slash_tx(tx, job.id)
+        except NetworkError as e:
+            logger.error("Network error submitting BOND_SLASH for job %s: %s", job.id, e)
+            return {"slashed": False, "reason": "network error", "error": str(e)}
+        except _OPS_ERRORS as e:
+            logger.error("Failed to submit BOND_SLASH for job %s: %s", job.id, e)
+            return {"slashed": False, "reason": "transaction error", "error": str(e)}
+        if result is None:
+            return {"slashed": False, "reason": "nonce refused twice"}
+
+        return self._record_slash_result(
+            job,
+            bond,
+            condition,
+            evidence,
+            bond_id,
+            slash_amount,
+            result,
+            expected_amount=expected_amount,
+            expected_updated_at=expected_updated_at,
+            bond_pk=bond_pk,
+        )
+
+    async def _downtime_cooldown_skip(
+        self, job: Job, bond: ProviderBond, condition: SlashingCondition
+    ) -> dict[str, Any] | None:
+        """G5 follow-up: avoid re-slashing the same continuous downtime incident
+        every cycle. A new outage starts when the miner comes back online and
+        then goes offline again (heartbeat newer than the last slash).
+
+        Returns the skip result dict, or None when the slash may proceed."""
+        if condition != SlashingCondition.DOWNTIME:
+            return None
+        try:
+            cooldown_seconds = int(os.getenv("BOND_SLASH_DOWNTIME_COOLDOWN_SECONDS", "300"))
+        except (TypeError, ValueError):
+            cooldown_seconds = 300
+        bond_meta = bond.meta or {}
+        last_slash_str = bond_meta.get("last_downtime_slash_at")
+        if not last_slash_str:
+            return None
+        last_slash = datetime.fromisoformat(str(last_slash_str))
+        miner = await run_in_threadpool(self.session.get, Miner, job.assigned_miner_id)
+        last_heartbeat = getattr(miner, "last_heartbeat", None)
+        # A fresh heartbeat after the last slash means this is a new outage.
+        if last_heartbeat and last_heartbeat > last_slash:
+            return None
+        if datetime.now(UTC) - last_slash < timedelta(seconds=cooldown_seconds):
+            logger.info(
+                "Downtime slash for job %s is within the %ss cooldown window; skipping",
+                job.id,
+                cooldown_seconds,
+            )
+            return {
+                "slashed": False,
+                "reason": "downtime slash within cooldown",
+                "cooldown_seconds": cooldown_seconds,
+            }
+        return None
+
+    async def _prepare_slash(
+        self, job: Job, bond: ProviderBond, condition: SlashingCondition
+    ) -> dict[str, Any] | tuple[int, str, str, Decimal, Any, Any]:
+        """Compute the slash amount, resolve the provider wallet and snapshot
+        the bond row for the post-submit CAS write.
+
+        Returns an early-exit result dict, or
+        ``(slash_amount, provider, bond_id, expected_amount, expected_updated_at, bond_pk)``."""
         slash_amount = self._compute_slash_amount(bond, condition)
         if slash_amount <= 0:
             return {"slashed": False, "reason": "computed slash amount is zero"}
@@ -254,22 +321,24 @@ class BondSlashingService:
         bond_id = bond.bond_id or f"bond-{provider}"
 
         await run_in_threadpool(self.session.refresh, bond)
-        expected_amount = bond.amount
-        expected_updated_at = bond.updated_at
-        bond_pk = bond.id
+        return slash_amount, provider, bond_id, bond.amount, bond.updated_at, bond.id
 
-        tx = self._build_slash_tx(bond_id, provider, slash_amount)
-        try:
-            result = await self._submit_slash_tx(tx, job.id)
-        except NetworkError as e:
-            logger.error("Network error submitting BOND_SLASH for job %s: %s", job.id, e)
-            return {"slashed": False, "reason": "network error", "error": str(e)}
-        except Exception as e:
-            logger.error("Failed to submit BOND_SLASH for job %s: %s", job.id, e)
-            return {"slashed": False, "reason": "transaction error", "error": str(e)}
-        if result is None:
-            return {"slashed": False, "reason": "nonce refused twice"}
-
+    def _record_slash_result(
+        self,
+        job: Job,
+        bond: ProviderBond,
+        condition: SlashingCondition,
+        evidence: str,
+        bond_id: str,
+        slash_amount: int,
+        result: dict[str, Any],
+        *,
+        expected_amount: Decimal,
+        expected_updated_at: Any,
+        bond_pk: Any,
+    ) -> dict[str, Any]:
+        """Apply the confirmed on-chain slash to the bond row via CAS and build
+        the audit result."""
         tx_hash = result.get("transaction_hash") or result.get("tx_hash") or "unknown"
         new_amount = bond.amount - Decimal(slash_amount)
         if new_amount <= 0:
@@ -366,7 +435,7 @@ class BondSlashingService:
                 chain_nonce = int(r.get("nonce", 0))
             elif hasattr(r, "get") and not isinstance(r, dict):  # type: ignore[unreachable]
                 chain_nonce = int(r.get("nonce", 0))
-        except Exception as e:
+        except (AITBCError, TypeError, ValueError) as e:
             logger.warning("Failed to fetch nonce for %s: %s", address, e)
 
         pending = self._pending_mempool_nonce(address)
@@ -387,7 +456,7 @@ class BondSlashingService:
         try:
             client = AITBCHTTPClient(timeout=5.0)
             r = client.get(f"{self.blockchain_rpc_url}/mempool?chain_id={self.chain_id}&limit={_MEMPOOL_PROBE_LIMIT}")
-        except Exception as e:
+        except (AITBCError, AttributeError, TypeError, ValueError) as e:
             logger.warning("Mempool nonce probe failed for %s: %s", sender, e)
             return None
         pending = [

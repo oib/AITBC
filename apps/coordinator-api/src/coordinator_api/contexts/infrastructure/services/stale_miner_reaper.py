@@ -13,6 +13,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
@@ -21,6 +22,19 @@ from ..domain import Miner
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the reaper sweeps: filesystem/JSON,
+# data-shape, runtime and SQLAlchemy session/commit errors. BaseExceptions
+# still propagate (asyncio.CancelledError is re-raised explicitly).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -75,12 +89,12 @@ class StaleMinerReaper:
                     session.add(miner)
                     counts["offline"] += 1
                     logger.info("Marked miner %s as OFFLINE (last heartbeat %s)", miner.id, miner.last_heartbeat)
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     counts["failed"] += 1
                     logger.error("Failed to mark miner %s offline: %s", miner.id, e)
             try:
                 session.commit()
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 counts["failed"] += 1
                 logger.error("Stale miner reaper commit failed: %s", e)
                 session.rollback()
@@ -104,5 +118,5 @@ class StaleMinerReaper:
                 (await run_in_threadpool(self.run_once))
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Stale miner reaper sweep failed: %s", e)

@@ -23,6 +23,16 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+)
+
 # IPFS-DEPTH-1 (#1582): Kubo pin/add, pin/rm and cat take an *IPFS path* arg,
 # not just a bare CID — "ipfs/<cid>", "/ipfs/<cid>" or ".." segments can reach
 # repo objects outside the DAG. Only bare CIDs (alphanumeric base32/base58/
@@ -104,7 +114,7 @@ class IPFSClient:
                 data = response.json()
                 logger.info("IPFS node connected: %s...", data.get("ID", "unknown")[:16])
             return self._available
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("IPFS node not available: %s", e)
             self._available = False
             return False
@@ -161,7 +171,7 @@ class IPFSClient:
                 gateway_url=f"{self.gateway_url}/ipfs/{cid}",
                 pinned=pin,
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("IPFS upload failed: %s", e)
             raise
 
@@ -179,7 +189,7 @@ class IPFSClient:
                 )
                 return response.status_code == 200
             return False
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("External pinning failed: %s", e)
             return False
 
@@ -196,14 +206,14 @@ class IPFSClient:
             response = await self._client.post(f"{self.api_url}/api/v0/cat", params={"arg": cid}, timeout=30.0)
             if response.status_code == 200:
                 return response.content
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.debug("Could not fetch CID %s from local IPFS node: %s", cid, e)
         if self.public_gateway_fallback:
             try:
                 response = await self._client.get(f"{self.gateway_url}/ipfs/{cid}", timeout=30.0, follow_redirects=True)
                 if response.status_code == 200:
                     return response.content
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.debug("Could not fetch from IPFS gateway: %s", e)
         return None
 
@@ -215,7 +225,7 @@ class IPFSClient:
         try:
             response = await self._client.post(f"{self.api_url}/api/v0/pin/add", params={"arg": cid}, timeout=30.0)
             return response.status_code == 200
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Pin failed: %s", e)
             return False
 
@@ -227,7 +237,7 @@ class IPFSClient:
         try:
             response = await self._client.post(f"{self.api_url}/api/v0/pin/rm", params={"arg": cid}, timeout=30.0)
             return response.status_code == 200
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Unpin failed: %s", e)
             return False
 
@@ -246,7 +256,7 @@ class IPFSClient:
                     IPFSPin(cid=cid, name=info.get("Type", "unknown"), size=0, pinned_at=datetime.now(UTC), metadata=info)
                 )
             return pins
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("List pins failed: %s", e)
             return []
 

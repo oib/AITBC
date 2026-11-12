@@ -10,6 +10,15 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class Phase5Implementation:
     """Implementation manager for Phase 5: Enterprise Scale & Market"""
@@ -69,7 +78,7 @@ class Phase5Implementation:
                     {"week": week, "focus": focus, "status": "completed", "details": week_result}
                 )
                 logger.info("✅ Completed %s: %s", week, focus)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 phase5_result["errors"].append(f"Week {week} failed: {e}")
                 logger.error("❌ Failed to implement %s: %s", week, e)
         metrics = await self._collect_phase5_metrics()
@@ -121,7 +130,7 @@ class Phase5Implementation:
                 )
                 scaling_implementation["achievements"].append(f"✅ {feature} implemented")
                 logger.info("✅ Implemented scaling feature: %s", feature)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("❌ Failed to implement %s: %s", feature, e)
         test_results = await self._run_enterprise_scalability_tests()
         scaling_implementation["test_results"] = test_results
@@ -154,7 +163,7 @@ class Phase5Implementation:
                 )
                 market_implementation["achievements"].append(f"✅ {feature} implemented")
                 logger.info("✅ Implemented market feature: %s", feature)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("❌ Failed to implement %s: %s", feature, e)
         gpu_agents = await self._create_market_agents()
         market_implementation["gpu_agents"] = gpu_agents
@@ -188,7 +197,7 @@ class Phase5Implementation:
                 )
                 performance_implementation["achievements"].append(f"✅ {feature} implemented")
                 logger.info("✅ Implemented performance feature: %s", feature)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("❌ Failed to implement %s: %s", feature, e)
         benchmark_results = await self._run_performance_benchmarks()
         performance_implementation["benchmark_results"] = benchmark_results
@@ -221,7 +230,7 @@ class Phase5Implementation:
                 )
                 ecosystem_implementation["achievements"].append(f"✅ {feature} implemented")
                 logger.info("✅ Implemented ecosystem feature: %s", feature)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("❌ Failed to implement %s: %s", feature, e)
         partnerships = await self._establish_enterprise_partnerships()
         ecosystem_implementation["partnerships"] = partnerships
@@ -651,7 +660,7 @@ class Phase5Implementation:
                 result = await self._simulate_scalability_test(test)
                 test_results.append(result)
                 logger.info("✅ Scalability test passed: %s", test["name"])
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 test_results.append({"name": test["name"], "status": "failed", "error": str(e)})
                 logger.error("❌ Scalability test failed: %s - %s", test["name"], e)
         return test_results

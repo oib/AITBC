@@ -5,10 +5,11 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from starlette.concurrency import run_in_threadpool
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc_shared import JobPayment
 from aitbc.rate_limiting import parse_rate_limit, rate_limit
@@ -28,6 +29,30 @@ from ....storage import get_session
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["client"])
+
+# Expected failure surface for the client job/accept routes: filesystem/JSON,
+# data-shape, runtime, SQLAlchemy session errors, lazy imports inside the
+# payment/offer helpers, the aitbc error hierarchy (chain RPC clients
+# re-raise RateLimitError / CircuitBreakerOpenError unwrapped) and
+# HTTPException -- PaymentService raises it for ownership/validation
+# failures and the escrow-creation arm below has always converted those to
+# payment_status="skipped", so it must stay in the tuple to keep money-path
+# semantics identical. The submit/accept wrappers keep their explicit
+# ``except HTTPException`` arms ahead of this tuple, so recorded rejections
+# still win. BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    IndexError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    SQLAlchemyError,
+    AITBCError,
+    HTTPException,
+)
 
 # G1: whether a priced job must name the offer it was bought against. Off by default
 # because the GPU purchase path and existing clients still price jobs directly; an
@@ -117,7 +142,7 @@ async def submit_job(
     except HTTPException as e:
         await record_rejection(key, attempt, e.status_code, {"detail": e.detail})
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         await fail_operation(key, attempt, type(e).__name__)
         raise
     await complete_operation(key, attempt, view.model_dump(mode="json"), response_status=201)
@@ -199,7 +224,7 @@ async def _submit_job_impl(
                 await run_in_threadpool(session.commit)
                 await run_in_threadpool(session.refresh, job)
                 logger.info("Payment created for job %s: %s", job.id, payment.id)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 # Rollback any partial payment changes before marking as skipped.
                 # This prevents orphaned payment records from a partially-successful create_payment.
                 await run_in_threadpool(session.rollback)
@@ -271,7 +296,7 @@ def get_job_history(
             "from_time": from_time,
             "to_time": to_time,
         }
-    except Exception:
+    except _OPS_ERRORS:
         return {
             "items": [],
             "total": 0,
@@ -426,7 +451,7 @@ def get_blocks(
         except NetworkError as e:
             logger.error("Failed to fetch blocks: %s", e)
             return {"blocks": [], "total": 0, "limit": limit, "offset": offset, "error": "Failed to fetch blocks"}
-    except Exception:
+    except _OPS_ERRORS:
         return {"blocks": [], "total": 0, "limit": limit, "offset": offset, "error": "Failed to fetch blocks"}
 
 
@@ -458,7 +483,7 @@ async def accept_job(
     except HTTPException as e:
         await record_rejection(key, attempt, e.status_code, {"detail": e.detail})
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         await fail_operation(key, attempt, type(e).__name__)
         raise
     await complete_operation(key, attempt, view.model_dump(mode="json"))

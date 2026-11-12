@@ -110,6 +110,37 @@ class TEEAttestationService:
     def __init__(self, session: Session) -> None:
         self.session = session
 
+    def _enclave_trust(
+        self,
+        identity: EnclaveIdentity | None,
+        expected_measurement: str,
+    ) -> tuple[QuoteValidationResult | None, bytes | None, set[str] | None]:
+        """Resolve the registered-enclave trust inputs for quote verification.
+
+        Returns ``(failure, known_public_key, allowed_measurements)`` where
+        ``failure`` is a rejection result when the registered identity cannot
+        be used, and both trust inputs are ``None`` for an unregistered quote.
+        """
+        if identity is None:
+            return None, None, None
+        if identity.status == EnclaveStatus.REVOKED.value:
+            return QuoteValidationResult(False, False, "revoked"), None, None
+        known_public_key: bytes | None = None
+        if identity.public_key:
+            try:
+                known_public_key = base64.b64decode(identity.public_key)
+            except (binascii.Error, ValueError):
+                return QuoteValidationResult(False, False, "invalid_registered_public_key"), None, None
+        allowed_measurements: set[str] | None
+        if identity.allowed_measurements:
+            allowed_measurements = set(identity.allowed_measurements)
+        else:
+            # No explicit allowlist: the expected measurement itself is the
+            # only allowed value, so a registered enclave cannot be reused
+            # for a measurement the operator has not named.
+            allowed_measurements = {expected_measurement} if expected_measurement else None
+        return None, known_public_key, allowed_measurements
+
     def _validate_quote(
         self,
         quote_b64: str,
@@ -131,24 +162,10 @@ class TEEAttestationService:
         if expected_enclave_id and quote.enclave_id != expected_enclave_id:
             return QuoteValidationResult(False, False, "enclave_id_mismatch")
 
-        known_public_key: bytes | None = None
-        allowed_measurements: set[str] | None = None
         identity = self.get_enclave(expected_enclave_id) if expected_enclave_id else None
-        if identity is not None:
-            if identity.status == EnclaveStatus.REVOKED.value:
-                return QuoteValidationResult(False, False, "revoked")
-            if identity.public_key:
-                try:
-                    known_public_key = base64.b64decode(identity.public_key)
-                except (binascii.Error, ValueError):
-                    return QuoteValidationResult(False, False, "invalid_registered_public_key")
-            if identity.allowed_measurements:
-                allowed_measurements = set(identity.allowed_measurements)
-            else:
-                # No explicit allowlist: the expected measurement itself is the
-                # only allowed value, so a registered enclave cannot be reused
-                # for a measurement the operator has not named.
-                allowed_measurements = {expected_measurement} if expected_measurement else None
+        failure, known_public_key, allowed_measurements = self._enclave_trust(identity, expected_measurement)
+        if failure is not None:
+            return failure
 
         expected = expected_measurement or expected_enclave_id
         verifier = AttestationVerifier(allowed_measurements=allowed_measurements, require_signature=True)

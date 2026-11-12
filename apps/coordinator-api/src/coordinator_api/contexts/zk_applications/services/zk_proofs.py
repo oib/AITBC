@@ -20,6 +20,19 @@ from .zkey_header import ZKeyFormatError, read_zkey_contribution_count, read_zke
 
 logger = get_logger(__name__)
 
+# Failure surface: Node subprocess management (OSError, asyncio.TimeoutError),
+# JSON/ZKey parsing (ValueError family incl. ZKeyFormatError), dict/key access,
+# and the ZKBusyError/ZKTimeoutError RuntimeError subclasses.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    asyncio.TimeoutError,
+)
+
 
 # V23-24/V23-32: verification is off unless a deployment turns it on, matching the
 # blockchain node, which answers "ZK proof verification is not enabled on this node" rather
@@ -126,12 +139,12 @@ async def _kill_and_reap(proc: Any) -> None:
         proc.kill()
     except ProcessLookupError:
         return
-    except Exception as exc:  # a stand-in process object without kill()
+    except _OPS_ERRORS as exc:  # a stand-in process object without kill()
         logger.warning("could not kill node subprocess: %s", exc)
         return
     try:
         await asyncio.wait_for(proc.wait(), 5)
-    except Exception:
+    except _OPS_ERRORS:
         logger.warning("node subprocess did not exit after kill")
 
 
@@ -481,7 +494,7 @@ class ZKProofService:
                 "privacy_level": privacy_level,
                 "circuit_hash": await self._get_circuit_hash(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to generate ZK proof: %s", e)
             return None
 
@@ -511,7 +524,7 @@ class ZKProofService:
         except (ZKBusyError, ZKTimeoutError):
             # Not "these inputs cannot be proven": the router answers 503/504 instead of 400.
             raise
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to generate %s proof: %s", circuit_name, e)
             return None
 
@@ -555,7 +568,7 @@ class ZKProofService:
                 "model_id": model.model_id,
                 "model_name": model.name,
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to generate receipt_model proof: %s", e)
             return None
 
@@ -650,7 +663,7 @@ class ZKProofService:
                 }
             computation_correct = _computation_correct(circuit_name, public_signals, is_verified)
             return {"verified": is_verified, "computation_correct": computation_correct, "privacy_preserved": is_verified}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to verify proof: %s", e)
             return {"verified": False, "error": str(e)}
 
@@ -782,7 +795,7 @@ class ZKProofService:
                     script_file, timeout=ZK_PROVE_TIMEOUT_SECONDS, cwd=str(self.circuits_dir)
                 )
                 if returncode != 0:
-                    raise Exception(f"Proof generation failed (NODE_PATH={SNARKJS_NODE_PATH}): {stderr.decode()}")
+                    raise RuntimeError(f"Proof generation failed (NODE_PATH={SNARKJS_NODE_PATH}): {stderr.decode()}")
                 return dict(json.loads(stdout.decode()))
             finally:
                 os.unlink(script_file)
@@ -830,7 +843,7 @@ class ZKProofService:
                     return proof_data
                 else:
                     error_msg = stderr.decode() or stdout.decode()
-                    raise Exception(f"Proof generation failed (NODE_PATH={SNARKJS_NODE_PATH}): {error_msg}")
+                    raise RuntimeError(f"Proof generation failed (NODE_PATH={SNARKJS_NODE_PATH}): {error_msg}")
             finally:
                 os.unlink(script_file)
         finally:

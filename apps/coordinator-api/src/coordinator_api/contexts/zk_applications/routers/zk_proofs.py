@@ -34,6 +34,15 @@ from coordinator_api.storage import get_session
 
 router = APIRouter(prefix="/zk", tags=["zk-proofs"])
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 SessionDep = Depends(get_session)
 
 
@@ -284,7 +293,7 @@ def health_check(request: Request) -> dict[str, Any]:
             "status": "healthy" if zk_service.is_enabled() else "disabled",
             "available_circuits": list(zk_service.available_circuits.keys()),
         }
-    except Exception as e:
+    except _OPS_ERRORS as e:
         return {"status": "unhealthy", "error": str(e)}
 
 

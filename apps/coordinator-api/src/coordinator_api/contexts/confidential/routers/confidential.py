@@ -28,10 +28,20 @@ from ....schemas import (
     KeyRegistrationResponse,
 )
 from ...security.services.access_control import AccessController
-from ...security.services.encryption import EncryptedData, EncryptionService
+from ...security.services.encryption import EncryptedData, EncryptionError, EncryptionService
 from ...security.services.key_management import KeyManagementError, KeyManager
 
 logger = get_logger(__name__)
+
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    EncryptionError,
+)
 
 
 def _require_participant(principal: str, participant_id: str, role: str | None) -> None:
@@ -213,7 +223,7 @@ def access_confidential_data(
             return ConfidentialAccessResponse(
                 success=True, data=decrypted_data, access_id=f"access-{datetime.now(UTC).timestamp()}"
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Decryption failed: %s", e)
             return ConfidentialAccessResponse(success=False, error=str(e))
     except HTTPException:
@@ -262,7 +272,7 @@ def audit_access_confidential_data(
             return ConfidentialAccessResponse(
                 success=True, data=decrypted_data, access_id=f"audit-{datetime.now(UTC).timestamp()}"
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Audit decryption failed: %s", e)
             return ConfidentialAccessResponse(success=False, error=str(e))
     except HTTPException:

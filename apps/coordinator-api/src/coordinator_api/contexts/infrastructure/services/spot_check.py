@@ -17,6 +17,17 @@ from .jobs import JobService
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the spot-check log writer: filesystem and
+# JSON serialization errors. BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 def _spot_check_log_path() -> Path:
     """Return the log path for spot-check comparisons."""
@@ -44,7 +55,7 @@ def _write_log(record: dict[str, Any]) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         with open(path, "a", encoding="utf-8") as f:
             f.write(json.dumps(record, sort_keys=True, default=str) + "\n")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Failed to write spot-check log to %s: %s", path, e)
 
 

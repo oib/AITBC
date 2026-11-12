@@ -6,6 +6,7 @@ Provides REST API endpoints for production deployment and integration management
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, col, func, select
 from starlette.concurrency import run_in_threadpool
 
@@ -28,6 +29,20 @@ from ....storage import get_session
 from ....utils.alerting import alert_dispatcher
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort per-deployment handlers
+# below: sqlmodel session/DBAPI errors plus data-shape/runtime errors.
+# RuntimeError preserves catch of abort-style raises; BaseExceptions
+# still propagate.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 
 router = APIRouter(prefix="/agents/integration", tags=["Agent Integration"])
 
@@ -473,7 +488,7 @@ async def get_production_dashboard(
             try:
                 monitoring_manager = AgentMonitoringManager(session)
                 metrics = await monitoring_manager.get_deployment_metrics(config.id)
-            except Exception:
+            except _OPS_ERRORS:
                 metrics = {"aggregated_metrics": {}}
             dashboard_data["deployments"].append(
                 {
@@ -568,7 +583,7 @@ async def get_production_health(
                     health_status["unhealthy_deployments"] += 1
                 else:
                     health_status["unknown_deployments"] += 1
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Health check failed for deployment %s: %s", config.id, e)
                 health_status["unknown_deployments"] += 1
         if health_status["unhealthy_deployments"] > 0:

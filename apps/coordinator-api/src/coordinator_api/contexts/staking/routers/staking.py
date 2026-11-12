@@ -10,6 +10,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, ConfigDict, Field, field_validator
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlmodel import select
 from starlette.concurrency import run_in_threadpool
@@ -27,6 +28,16 @@ from ..services.staking_service import StakingService
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 
 
 async def get_current_user_required(
@@ -623,7 +634,7 @@ async def get_staking_leaderboard(
                 "generated_at": datetime.now(UTC).isoformat(),
             }  # type: ignore[assignment]
         return leaderboard  # type: ignore[return-value]
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to get staking leaderboard: %s", e)
         return {
             "period": period,

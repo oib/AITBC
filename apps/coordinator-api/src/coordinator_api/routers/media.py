@@ -20,8 +20,23 @@ from fastapi.responses import FileResponse
 
 from ..auth import AdminOrClientDep
 from ..config import settings
+from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
+logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort meta sidecar read below:
+# filesystem errors and data-shape errors from json.loads/attribute access
+# on a corrupt or non-object sidecar. Genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 router = APIRouter(tags=["media"])
 
@@ -191,7 +206,7 @@ async def upload_media(
             chunk_bytes = chunk if isinstance(chunk, bytes) else chunk.encode("utf-8")
             written += len(chunk_bytes)
             if written > effective_max:
-                f.close()
+                f.close()  # noqa: unawaited-async — sync file handle
                 storage_path.unlink(missing_ok=True)
                 if written > max_bytes:
                     raise HTTPException(
@@ -249,8 +264,8 @@ def download_media(token: str) -> FileResponse:
             meta = json.loads(meta_path.read_text())
             filename = meta.get("filename", filename)
             content_type = meta.get("content_type", content_type)
-        except Exception:
-            pass
+        except _OPS_ERRORS:
+            logger.debug("Ignoring unreadable media meta sidecar %s", meta_path, exc_info=True)
 
     # #1752: never reflect the uploader-declared type verbatim — active
     # content (text/html, image/svg+xml, ...) is normalized to

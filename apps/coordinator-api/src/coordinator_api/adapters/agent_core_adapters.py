@@ -36,7 +36,22 @@ from coordinator_api.contexts.agent_coordination.services.security import (
     AgentAuditor,
     AgentSecurityManager,
 )
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
+
+# Expected failure surface for the delegated validate_operation call below:
+# the wrapped app service may raise DB errors or ordinary ops/data errors;
+# the adapter fails closed on them. Genuine BaseExceptions still propagate
+# (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 
 
 class AgentExecutionAdapter(IAgentExecution):
@@ -100,7 +115,7 @@ class AgentSecurityManagerAdapter(ISecurityManager):
                 return await self._manager.validate_operation(operation, context)  # type: ignore[no-any-return]
             # Fallback: basic validation
             return True
-        except Exception:
+        except _OPS_ERRORS:
             # Fail closed on errors
             return False
 

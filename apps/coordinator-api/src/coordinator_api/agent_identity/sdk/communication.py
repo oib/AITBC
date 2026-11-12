@@ -20,8 +20,23 @@ from typing import Any
 from aitbc.aitbc_logging import get_logger
 
 from .client import AgentIdentityClient
+from .exceptions import AgentIdentityError
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the forum helpers below: SDK client errors
+# from identity lookups plus ordinary ops/data errors (dict shaping,
+# attribute access, datetime). Genuine BaseExceptions still propagate
+# (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    AgentIdentityError,
+)
 
 
 @dataclass
@@ -130,7 +145,7 @@ class AgentCommunicationClient:
             }
             result = await self._call_messaging_contract("create_topic", topic_data)
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error creating forum topic: %s", e)
             return {"success": False, "error": str(e), "error_code": "TOPIC_CREATION_FAILED"}
 
@@ -166,7 +181,7 @@ class AgentCommunicationClient:
             }
             result = await self._call_messaging_contract("post_message", message_data)
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error posting message: %s", e)
             return {"success": False, "error": str(e), "error_code": "MESSAGE_POSTING_FAILED"}
 
@@ -189,7 +204,7 @@ class AgentCommunicationClient:
             params = {"topic_id": topic_id, "limit": limit, "offset": offset, "sort_by": sort_by}
             result = await self._call_messaging_contract("get_messages", params)
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting topic messages: %s", e)
             return {"success": False, "error": str(e), "error_code": "GET_MESSAGES_FAILED"}
 
@@ -209,7 +224,7 @@ class AgentCommunicationClient:
             params = {"limit": limit, "offset": offset, "sort_by": sort_by}
             result = await self._call_messaging_contract("get_topics", params)
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting forum topics: %s", e)
             return {"success": False, "error": str(e), "error_code": "GET_TOPICS_FAILED"}
 
@@ -239,7 +254,7 @@ class AgentCommunicationClient:
             }
             result = await self._call_messaging_contract("vote_message", vote_data)
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error voting on message: %s", e)
             return {"success": False, "error": str(e), "error_code": "VOTE_FAILED"}
 
@@ -262,7 +277,7 @@ class AgentCommunicationClient:
             return await self.post_message(
                 topic_id=topic_id, content=content, message_type="reply", parent_message_id=message_id
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error replying to message: %s", e)
             return {"success": False, "error": str(e), "error_code": "REPLY_FAILED"}
 
@@ -281,7 +296,7 @@ class AgentCommunicationClient:
             params = {"query": query, "limit": limit}
             result = await self._call_messaging_contract("search_messages", params)
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error searching messages: %s", e)
             return {"success": False, "error": str(e), "error_code": "SEARCH_FAILED"}
 
@@ -299,7 +314,7 @@ class AgentCommunicationClient:
             target_agent_id = agent_id or self.agent_id
             result = await self._call_messaging_contract("get_agent_reputation", {"agent_id": target_agent_id})
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting agent reputation: %s", e)
             return {"success": False, "error": str(e), "error_code": "GET_REPUTATION_FAILED"}
 
@@ -332,7 +347,7 @@ class AgentCommunicationClient:
             }
             result = await self._call_messaging_contract("moderate_message", moderation_data)
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error moderating message: %s", e)
             return {"success": False, "error": str(e), "error_code": "MODERATION_FAILED"}
 
@@ -357,7 +372,7 @@ class AgentCommunicationClient:
                 if not topic_result.get("success"):
                     return topic_result
                 return await self.post_message(topic_result["topic_id"], content, "announcement")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error creating announcement: %s", e)
             return {"success": False, "error": str(e), "error_code": "ANNOUNCEMENT_FAILED"}
 
@@ -393,7 +408,7 @@ class AgentCommunicationClient:
             return await self.post_message(
                 topic_id=topic_id, content=answer, message_type="answer", parent_message_id=message_id
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error answering question: %s", e)
             return {"success": False, "error": str(e), "error_code": "ANSWER_FAILED"}
 
@@ -442,7 +457,7 @@ class AgentCommunicationClient:
                     "timestamp": datetime.now(UTC).isoformat(),
                 },
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting message details: %s", e)
             return {"success": False, "error": str(e), "error_code": "GET_MESSAGE_FAILED"}
 

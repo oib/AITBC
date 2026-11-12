@@ -4,16 +4,37 @@ Bridge manager for cross-chain settlements
 
 from decimal import Decimal
 import asyncio
+import sqlite3
 from dataclasses import asdict
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
+from asyncpg.exceptions import PostgresError
+
 from aitbc.async_tasks import create_task_with_logging
 
 from .bridges.base import BridgeAdapter, BridgeConfig, BridgeError, BridgeStatus, SettlementMessage, SettlementResult
 from .storage import SettlementStorage
+
+# Expected failure surface for the best-effort handlers below: bridge-domain
+# errors (BridgeError and subclasses), storage driver errors (sqlite3 /
+# asyncpg — the injected connection is driver-agnostic), lazy imports, and
+# data-shape errors. RuntimeError preserves catch of abort-style raises;
+# BaseExceptions still propagate.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    BridgeError,
+    ImportError,
+    sqlite3.Error,
+    PostgresError,
+)
 
 
 class BridgeManager:
@@ -86,7 +107,7 @@ class BridgeManager:
 
                 return result
 
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 if attempt < max_retries - 1:
                     # Wait before retry
                     await asyncio.sleep(2**attempt)  # Exponential backoff
@@ -141,7 +162,7 @@ class BridgeManager:
                 try:
                     await adapter.validate_message(message)
                     results[name] = await adapter.estimate_cost(message)
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     results[name] = {"error": str(e)}
 
         return results
@@ -306,7 +327,7 @@ class BridgeManager:
                 transaction_hash=result.transaction_hash,
                 completed_at=result.completed_at,
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             await self.storage.update_settlement(settlement_id, status=BridgeStatus.FAILED, error_message=str(e))
 
     async def get_settlement(self, settlement_id: str) -> SimpleNamespace | None:

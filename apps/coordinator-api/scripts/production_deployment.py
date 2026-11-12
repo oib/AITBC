@@ -11,6 +11,15 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class AgentOrchestrationDeployment:
     """Production deployment manager for agent orchestration system"""
@@ -41,7 +50,7 @@ class AgentOrchestrationDeployment:
                 step_result = await self._execute_deployment_step(step)
                 deployment_result["steps_completed"].append({"step": step, "status": "completed", "details": step_result})
                 logger.info("✅ Completed deployment step: %s", step)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 deployment_result["steps_failed"].append({"step": step, "status": "failed", "error": str(e)})
                 deployment_result["errors"].append(f"Step {step} failed: {e}")
                 logger.error("❌ Failed deployment step %s: %s", step, e)

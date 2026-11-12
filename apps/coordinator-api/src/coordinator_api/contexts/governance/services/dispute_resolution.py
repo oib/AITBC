@@ -222,16 +222,11 @@ class DisputeResolutionService:
         logger.info("Evidence submitted for dispute %s by %s", dispute_id, submitted_by)
         return True
 
-    def cast_vote(self, dispute_id: str, arbitrator: str, outcome: str, reasoning: str, stake_amount: int) -> bool:
-        """
-        Cast a vote as an arbitrator.
+    def _dispute_for_voting(self, dispute_id: str) -> DisputeCase:
+        """Fetch the dispute and enforce the voting-phase preconditions.
 
-        Args:
-            dispute_id: Dispute being voted on
-            arbitrator: Arbitrator address
-            outcome: "client_wins", "provider_wins", or "split"
-            reasoning: Explanation for vote
-            stake_amount: Amount staked on this vote
+        Advances an evidence-phase dispute to voting_phase once its evidence
+        deadline has passed, exactly as ``cast_vote`` did inline.
         """
         dispute = self._disputes.get(dispute_id)
         if not dispute:
@@ -243,6 +238,13 @@ class DisputeResolutionService:
                 dispute.status = DisputeStatus.voting_phase
         if dispute.voting_deadline and datetime.now(UTC) > dispute.voting_deadline:
             raise ValueError("Voting deadline has passed")
+        return dispute
+
+    def _validate_vote_participant(
+        self, dispute: DisputeCase, arbitrator: str, outcome: str, stake_amount: int
+    ) -> DisputeOutcome:
+        """Enforce arbitrator registration, minimum stake, valid outcome,
+        and the no-double-vote rule; returns the parsed outcome."""
         if arbitrator not in self._arbitrators:
             raise ValueError("Not a registered arbitrator")
         if stake_amount < self.MIN_STAKE_AMOUNT:
@@ -254,6 +256,21 @@ class DisputeResolutionService:
         for vote in dispute.votes:
             if vote.arbitrator == arbitrator:
                 raise ValueError("Arbitrator has already voted")
+        return outcome_enum
+
+    def cast_vote(self, dispute_id: str, arbitrator: str, outcome: str, reasoning: str, stake_amount: int) -> bool:
+        """
+        Cast a vote as an arbitrator.
+
+        Args:
+            dispute_id: Dispute being voted on
+            arbitrator: Arbitrator address
+            outcome: "client_wins", "provider_wins", or "split"
+            reasoning: Explanation for vote
+            stake_amount: Amount staked on this vote
+        """
+        dispute = self._dispute_for_voting(dispute_id)
+        outcome_enum = self._validate_vote_participant(dispute, arbitrator, outcome, stake_amount)
         vote = ArbitratorVote(
             arbitrator=arbitrator,
             outcome=outcome_enum,
