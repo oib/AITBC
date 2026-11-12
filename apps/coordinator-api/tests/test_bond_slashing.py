@@ -18,6 +18,7 @@ from aitbc_shared import JobPayment
 from eth_account import Account
 from fastapi import HTTPException
 
+from coordinator_api.contexts.blockchain.services.blockchain import BlockchainService
 from coordinator_api.contexts.infrastructure.domain import Job, Miner
 from coordinator_api.contexts.infrastructure.services.jobs import JobService
 from coordinator_api.contexts.infrastructure.services.miners import MinerService
@@ -27,6 +28,7 @@ from coordinator_api.contexts.market.domain.provider_bond import (
     is_provider_eligible,
     set_provider_bond_status,
 )
+from coordinator_api.contexts.payments.provider_binding import miner_wallet_address
 from sqlmodel import select
 from coordinator_api.contexts.market.services.bond_slash_sweeper import BondSlashSweeper
 from coordinator_api.contexts.market.services.bond_slashing import (
@@ -39,6 +41,31 @@ from coordinator_api.schemas import JobCreate, MinerRegister
 
 
 PROVIDER_WALLET = "0x1111111111111111111111111111111111111111"
+UNITS_PER_AIT = 36_000_000
+
+
+@pytest.fixture(autouse=True)
+def _chain_bond_listing(db_session, monkeypatch):
+    """#1926: dispatch eligibility re-verifies ProviderBond against chain.
+    Mirror the local projection as chain truth so these tests keep
+    exercising the bond-floor logic rather than the RPC stub."""
+
+    def fake_list(self, provider_address: str) -> dict:
+        provider_ids = {m.id for m in db_session.exec(select(Miner)).all() if miner_wallet_address(m) == provider_address}
+        entries = [
+            {
+                "bond_id": bond.bond_id,
+                "amount": int((bond.amount or Decimal("0")) * UNITS_PER_AIT),
+                "status": "active",
+                "locked_until": None,
+            }
+            for bond in db_session.exec(select(ProviderBond)).all()
+            if bond.provider_id in provider_ids
+            and bond.status in {ProviderBondStatus.ACTIVE.value, ProviderBondStatus.LOCKED.value}
+        ]
+        return {"success": True, "provider": provider_address, "bonds": entries}
+
+    monkeypatch.setattr(BlockchainService, "list_provider_bonds", fake_list)
 
 
 def _miner(db_session, miner_id: str = "miner1", wallet: str = PROVIDER_WALLET) -> Miner:

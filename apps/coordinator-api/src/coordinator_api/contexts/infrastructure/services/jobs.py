@@ -19,7 +19,11 @@ from ...payments.provider_binding import miner_wallet_address, same_address
 from ...payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
 from ...reputation.domain.reputation import AgentReputation
-from ....contexts.market.domain.provider_bond import _default_bond_min_amount, is_provider_eligible
+from ....contexts.market.domain.provider_bond import (
+    _default_bond_min_amount,
+    is_provider_eligible,
+    reconcile_provider_bond,
+)
 from ....utils.client_resolver import resolve_client
 from ....custom_types import JobState
 
@@ -683,6 +687,17 @@ class JobService:
     def _bond_check_allows(self, job: Job, miner: Miner, constraints: Constraints, payment: JobPayment | None) -> bool:
         if not _bond_required_for(job, payment):
             return True
+        # #1926: the local ProviderBond row is a projection refreshed on
+        # writes — re-verify it against chain before trusting it for a
+        # money-moving assignment. Fail closed when the chain can't be
+        # consulted (RPC error, no wallet, no bond_id to match).
+        if reconcile_provider_bond(self.session, miner.id) is None:
+            logger.info(
+                "Job %s requires a performance bond; miner %s bond could not be chain-verified",
+                job.id,
+                miner.id,
+            )
+            return False
         min_bond = constraints.min_bond_amount if constraints.min_bond_amount is not None else _default_bond_min_amount()
         if min_bond is not None and min_bond > 0:
             eligible = is_provider_eligible(self.session, miner.id, min_amount=min_bond)
