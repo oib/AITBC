@@ -359,8 +359,21 @@ class GovernanceService:
         )
         if not delegatee:
             raise ValueError(f"Profile {delegatee_id} not found")
-        delegator.delegate_to = delegatee_id
-        delegatee.delegated_power += delegator.voting_power
+        power = delegator.voting_power or 0.0
+        previous_delegate_to = delegator.delegate_to
+        if previous_delegate_to != delegatee_id:
+            if previous_delegate_to:
+                previous = (
+                    self._session_factory.execute(
+                        sm_select(GovernanceProfile).where(GovernanceProfile.profile_id == previous_delegate_to)
+                    )
+                    .scalars()
+                    .first()
+                )
+                if previous:
+                    previous.delegated_power = max(0.0, (previous.delegated_power or 0.0) - power)
+            delegatee.delegated_power = (delegatee.delegated_power or 0.0) + power
+            delegator.delegate_to = delegatee_id
         self._session_factory.commit()
         self._session_factory.refresh(delegator)
         return delegator
@@ -393,7 +406,12 @@ class GovernanceService:
 
     def cast_governance_vote(self, proposal_id: str, voter_id: str, vote_type: Any, reason: str | None = None) -> Any:
         """Cast a vote using SQLModel domain models."""
-        from ..domain.governance import GovernanceProfile, Proposal as DomainProposal, Vote as DomainVote
+        from ..domain.governance import (
+            GovernanceProfile,
+            Proposal as DomainProposal,
+            Vote as DomainVote,
+            effective_voting_power,
+        )
         from sqlmodel import select as sm_select
 
         proposal = (
@@ -408,7 +426,7 @@ class GovernanceService:
             .scalars()
             .first()
         )
-        power = voter.voting_power + voter.delegated_power if voter else 0.0
+        power = effective_voting_power(voter) if voter else 0.0
         existing = (
             self._session_factory.execute(
                 sm_select(DomainVote).where(DomainVote.proposal_id == proposal_id, DomainVote.voter_id == voter_id)
@@ -620,7 +638,13 @@ class GovernanceService:
         (own + delegated) — never from the request — and one vote per
         voter per proposal is enforced, matching cast_governance_vote.
         """
-        from ..domain.governance import Proposal as DomainProposal, ProposalStatus, Vote as DomainVote, VoteType
+        from ..domain.governance import (
+            Proposal as DomainProposal,
+            ProposalStatus,
+            Vote as DomainVote,
+            VoteType,
+            effective_voting_power,
+        )
         from sqlmodel import select as sm_select
 
         proposal = self._session_factory.execute(
@@ -636,7 +660,7 @@ class GovernanceService:
         ).scalar_one_or_none()
         if existing:
             raise ValueError("voter has already voted on this proposal")
-        voting_power = float(voter.voting_power) + float(voter.delegated_power)
+        voting_power = effective_voting_power(voter)
         vote = DomainVote(
             proposal_id=proposal_id,
             voter_id=voter.profile_id,

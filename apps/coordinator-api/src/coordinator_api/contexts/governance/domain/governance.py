@@ -157,6 +157,18 @@ class TransparencyReport(SQLModel, table=True):
     generated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+def effective_voting_power(profile: "GovernanceProfile") -> float:
+    """Power a profile may actually vote with.
+
+    A profile that has delegated (``delegate_to`` set) parks its own
+    ``voting_power`` at the delegatee — it keeps the stake record but must
+    not also count it (#1878). ``delegated_power`` is what others parked
+    here and always counts.
+    """
+    own = 0.0 if profile.delegate_to else (profile.voting_power or 0.0)
+    return own + (profile.delegated_power or 0.0)
+
+
 __all__ = [
     "DaoTreasury",
     "GovernanceProfile",
@@ -166,4 +178,5 @@ __all__ = [
     "TransparencyReport",
     "Vote",
     "VoteType",
+    "effective_voting_power",
 ]

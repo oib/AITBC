@@ -22,6 +22,7 @@ from ..schemas.grant import (
     GrantVoteRequest,
 )
 from ....auth import AdminDep, AuthDep
+from ..domain.governance import effective_voting_power
 from ..services.governance_service import GovernanceService
 from ..services.grant_service import GrantService
 
@@ -177,7 +178,7 @@ async def vote_grant(
     # never the body (#1071). A client used to mint 1e9 voting power per call.
     voter_id = user["sub"]
     profile = await run_in_threadpool(GovernanceService(session).get_or_create_profile, voter_id, 0.0)
-    voting_power = (profile.voting_power or 0.0) + (profile.delegated_power or 0.0)
+    voting_power = effective_voting_power(profile)
     try:
         return await run_in_threadpool(
             service.vote, grant_id=grant_id, vote=body.vote, voting_power=voting_power, voter_id=voter_id
