@@ -3,7 +3,10 @@
 
 The authority parameters (``governance_executors``,
 ``escrow_settlement_authority``, ``bond_slash_authority``,
-``bridge_release_authority``, ``escrow_fee_recipient``) change only through a
+``bridge_release_authority``, ``escrow_fee_recipient``,
+``validator_deactivation_authority``) and the UC-arming value parameters
+(``validator_deactivation_evidence_required``, ``unlock_proof_uc_*``)
+change only through a
 sealed ``GOVERNANCE_EXECUTE`` transaction signed by an address in the on-chain
 ``governance_executors`` set. The node-side ``execute_governance_proposal``
 route signs with the node's own key, so it cannot speak for the executor —
@@ -52,14 +55,17 @@ sys.path.insert(0, str(REPO))
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS  # noqa: E402
 from aitbc_chain.rpc.utils import _unsigned_tx_fields, sign_transaction_data, verify_transaction_signature  # noqa: E402
 
-# The five address-valued authority parameters this tool covers. Values are a
+# The address-valued authority parameters this tool covers. Values are a
 # 0x address; governance_executors takes a comma-separated list of them.
+# validator_deactivation_authority (#1198) is the sixth chain authority
+# parameter — same sealed-execute path, same single-address rule.
 AUTHORITY_PARAMETERS = (
     "governance_executors",
     "escrow_settlement_authority",
     "bond_slash_authority",
     "bridge_release_authority",
     "escrow_fee_recipient",
+    "validator_deactivation_authority",
 )
 
 # Authority parameters whose target must already hold a fee-paying balance
@@ -67,14 +73,35 @@ AUTHORITY_PARAMETERS = (
 # transactions, so rotating to an unfunded address silently disables the
 # capability. bridge_release_authority signs in-state bridge credits (no
 # account fees) and escrow_fee_recipient only receives fees, so neither is
-# gated here.
+# gated here. validator_deactivation_authority sends fee-paying
+# VALIDATOR_DEACTIVATE transactions, so it is gated like the other
+# fee-paying authorities.
 FEE_PAYING_TARGET_PARAMETERS = (
     "escrow_settlement_authority",
     "bond_slash_authority",
+    "validator_deactivation_authority",
 )
+
+# Non-address chain parameters this tool covers — the #1830 UC-arming set
+# (#1281/#1808). Values are validated per parameter below; the chain apply
+# path accepts arbitrary parameter_change values for names outside its
+# authority set, but the tool refuses malformed UC values before the wire.
+UC_VALUE_PARAMETERS = (
+    "validator_deactivation_evidence_required",
+    "unlock_proof_uc_enabled",
+    "unlock_proof_uc_min_responses",
+    "unlock_proof_uc_max_age_seconds",
+    "unlock_proof_uc_validator_set_digest",
+)
+
+ALL_PARAMETERS = AUTHORITY_PARAMETERS + UC_VALUE_PARAMETERS
 
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 _ZERO_ADDRESS = "0x" + "0" * 40
+_BOOL_RE = re.compile(r"^(true|false|1|0|yes|no)$", re.IGNORECASE)
+_POSITIVE_INT_RE = re.compile(r"^[0-9]+$")
+_POSITIVE_NUMBER_RE = re.compile(r"^[0-9]+(\.[0-9]+)?$")
+_DIGEST_RE = re.compile(r"^(0x)?[0-9a-fA-F]{64}$")
 
 # The execute tx costs DEFAULT_TX_FEE_UNITS; the headroom keeps the signer
 # (and, on rotation, the surviving executor) funded for follow-up changes
@@ -163,6 +190,46 @@ def _validate_target(value: str) -> list[str]:
             _fail(f"target list repeats {element} — refusing")
         seen.add(element.lower())
     return elements
+
+
+def _validate_uc_value(parameter: str, value: str) -> str:
+    """Validate and normalize a UC_VALUE_PARAMETERS value (#1830).
+
+    Mirrors what ``deactivation_evidence._uc_context``/``_evidence_required``
+    accept at apply time, so a malformed value fails here instead of sealing
+    a parameter that silently keeps the feature dormant.
+    """
+    v = value.strip()
+    if parameter in ("validator_deactivation_evidence_required", "unlock_proof_uc_enabled"):
+        if not _BOOL_RE.match(v):
+            _fail(f"{parameter} expects a boolean-ish value (true/false/1/0/yes/no), got {value!r}")
+        return v.lower()
+    if parameter == "unlock_proof_uc_min_responses":
+        if not _POSITIVE_INT_RE.match(v) or int(v) < 1:
+            _fail(f"{parameter} expects a positive integer, got {value!r}")
+        return str(int(v))
+    if parameter == "unlock_proof_uc_max_age_seconds":
+        if not _POSITIVE_NUMBER_RE.match(v) or float(v) <= 0:
+            _fail(f"{parameter} expects a positive number of seconds, got {value!r}")
+        return v
+    if parameter == "unlock_proof_uc_validator_set_digest":
+        if not _DIGEST_RE.match(v):
+            _fail(f"{parameter} expects a sha256 hex digest (64 hex chars), got {value!r}")
+        return v.lower().removeprefix("0x")
+    _fail(f"no validator for UC parameter {parameter!r}")
+
+
+def _validated_value(parameter: str, value: str) -> tuple[str, list[str]]:
+    """(canonical value to seal, element list for address-style reports).
+
+    Address parameters keep the raw comma-joined value; UC parameters seal
+    the normalized single value.
+    """
+    if parameter in UC_VALUE_PARAMETERS:
+        normalized = _validate_uc_value(parameter, value)
+        return normalized, [normalized]
+    elements = _validate_target(value)
+    return value, elements
 
 
 def _build_tx(executor: str, chain_id: str, nonce: int, proposal_id: str, parameter: str, value: str) -> dict:
@@ -303,9 +370,9 @@ def _new_proposal_id(parameter: str, nonce: int) -> str:
 
 
 def cmd_plan(args: argparse.Namespace) -> int:
-    if args.parameter not in AUTHORITY_PARAMETERS:
-        _fail(f"unknown authority parameter {args.parameter!r} — expected one of {', '.join(AUTHORITY_PARAMETERS)}")
-    target_elements = _validate_target(args.value)
+    if args.parameter not in ALL_PARAMETERS:
+        _fail(f"unknown parameter {args.parameter!r} — expected one of {', '.join(ALL_PARAMETERS)}")
+    target_value, target_elements = _validated_value(args.parameter, args.value)
 
     chain_id = args.chain_id or _fetch_chain_id(args.rpc_url)
     parameters = _fetch_parameters(args.rpc_url, chain_id)
@@ -329,12 +396,12 @@ def cmd_plan(args: argparse.Namespace) -> int:
 
     nonce, balance = _fetch_account(args.rpc_url, chain_id, executor)
     proposal_id = args.proposal_id or _new_proposal_id(args.parameter, nonce)
-    tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, args.value)
+    tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, target_value)
 
     print(f"chain_id:   {chain_id}")
     print(f"parameter:  {args.parameter}")
     print(f"current:    {current if current is not None else '(unset)'}")
-    print(f"target:     {args.value}")
+    print(f"target:     {target_value}")
     if args.parameter == "governance_executors":
         current_set = {e.strip().lower() for e in (current or "").split(",") if e.strip()}
         unproven: list[str] = []
@@ -375,22 +442,22 @@ def cmd_plan(args: argparse.Namespace) -> int:
     print("unsigned transaction:")
     print(json.dumps(tx, indent=2, sort_keys=True))
     print(f"signing digest (keccak256 of canonical unsigned fields): {_signing_digest(tx)}")
-    if current is not None and current.lower() == args.value.lower():
+    if current is not None and current.lower() == target_value.lower():
         print("note: current value already equals the target — sign-submit would refuse this change")
     return 0
 
 
 def cmd_sign_submit(args: argparse.Namespace) -> int:
-    if args.parameter not in AUTHORITY_PARAMETERS:
-        _fail(f"unknown authority parameter {args.parameter!r} — expected one of {', '.join(AUTHORITY_PARAMETERS)}")
-    target_elements = _validate_target(args.value)
+    if args.parameter not in ALL_PARAMETERS:
+        _fail(f"unknown parameter {args.parameter!r} — expected one of {', '.join(ALL_PARAMETERS)}")
+    target_value, target_elements = _validated_value(args.parameter, args.value)
     if not args.confirm:
         _fail("sign-submit requires --confirm")
 
     chain_id = args.chain_id or _fetch_chain_id(args.rpc_url)
     parameters = _fetch_parameters(args.rpc_url, chain_id)
     current = parameters.get(args.parameter)
-    if current is not None and current.lower() == args.value.lower():
+    if current is not None and current.lower() == target_value.lower():
         _fail(f"{args.parameter} is already {current} — nothing to change")
 
     private_key = _read_key_file(args.key_file)
@@ -452,7 +519,7 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
                 _check_fee_balance(f"new {args.parameter}", address, target_balance)
 
     proposal_id = args.proposal_id or _new_proposal_id(args.parameter, nonce)
-    tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, args.value)
+    tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, target_value)
     digest = _signing_digest(tx)
     tx["signature"] = sign_transaction_data(tx, private_key)
 
@@ -480,7 +547,7 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
     after = _fetch_parameters(args.rpc_url, chain_id).get(args.parameter)
     print(f"sealed at block {row.get('block_height')}")
     print(f"{args.parameter}: {current if current is not None else '(unset)'} -> {after}")
-    if after is None or after.lower() != args.value.lower():
+    if after is None or after.lower() != target_value.lower():
         _fail(f"parameter did not land: chain now reports {after!r}")
     return 0
 
@@ -497,8 +564,12 @@ def main() -> int:
     sub = parser.add_subparsers(dest="command", required=True)
 
     def add_common(p: argparse.ArgumentParser) -> None:
-        p.add_argument("--parameter", required=True, help="Authority parameter to change")
-        p.add_argument("--value", required=True, help="New value (0x address; comma-separated list for governance_executors)")
+        p.add_argument("--parameter", required=True, help="Chain parameter to change")
+        p.add_argument(
+            "--value",
+            required=True,
+            help="New value (0x address; comma-separated list for governance_executors; typed value for the UC set)",
+        )
         p.add_argument("--executor", default=None, help="Executor address (default: the single on-chain executor)")
         p.add_argument("--proposal-id", default=None, help="Proposal label (default: manual-<parameter>-<date>)")
         p.add_argument(

@@ -807,3 +807,117 @@ def test_default_proposal_id_carries_parameter_date_and_nonce(
     match = re.search(r"proposal_id: (manual-\S+)", capsys.readouterr().out)
     assert match is not None
     assert re.fullmatch(r"manual-escrow_fee_recipient-\d{4}-\d{2}-\d{2}-n\d+", match.group(1))
+
+
+# --- UC-arming value parameters (#1830) --------------------------------------
+
+
+UC_DIGEST = "e7de4166b2bf60c30f04dbcee17246817682a2817f63b5de1a1c8e10c188af09"
+
+
+@pytest.mark.parametrize(
+    ("parameter", "value", "expected"),
+    [
+        ("validator_deactivation_evidence_required", "true", "true"),
+        ("validator_deactivation_evidence_required", "TRUE", "true"),
+        ("unlock_proof_uc_enabled", "1", "1"),
+        ("unlock_proof_uc_min_responses", "2", "2"),
+        ("unlock_proof_uc_min_responses", "02", "2"),
+        ("unlock_proof_uc_max_age_seconds", "600", "600"),
+        ("unlock_proof_uc_max_age_seconds", "600.5", "600.5"),
+        ("unlock_proof_uc_validator_set_digest", UC_DIGEST, UC_DIGEST),
+        ("unlock_proof_uc_validator_set_digest", "0x" + UC_DIGEST.upper(), UC_DIGEST),
+    ],
+)
+def test_validate_uc_value_normalizes(parameter: str, value: str, expected: str) -> None:
+    assert tool._validate_uc_value(parameter, value) == expected
+
+
+@pytest.mark.parametrize(
+    ("parameter", "bad"),
+    [
+        ("validator_deactivation_evidence_required", "maybe"),
+        ("unlock_proof_uc_enabled", "2"),
+        ("unlock_proof_uc_min_responses", "0"),
+        ("unlock_proof_uc_min_responses", "1.5"),
+        ("unlock_proof_uc_min_responses", "-2"),
+        ("unlock_proof_uc_max_age_seconds", "0"),
+        ("unlock_proof_uc_max_age_seconds", "-1"),
+        ("unlock_proof_uc_max_age_seconds", "soon"),
+        ("unlock_proof_uc_validator_set_digest", "0x1234"),
+        ("unlock_proof_uc_validator_set_digest", "z" * 64),
+    ],
+)
+def test_validate_uc_value_rejects_malformed(parameter: str, bad: str) -> None:
+    with pytest.raises(SystemExit):
+        tool._validate_uc_value(parameter, bad)
+
+
+def test_plan_accepts_uc_parameter(fake: FakeRPC, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+    _run(
+        monkeypatch,
+        _argv("plan", "--parameter", "unlock_proof_uc_enabled", "--value", "true"),
+    )
+    out = capsys.readouterr().out
+    assert "unlock_proof_uc_enabled" in out
+    assert '"value": "true"' in out
+    assert "GOVERNANCE_EXECUTE" in out
+
+
+def test_plan_rejects_malformed_uc_value(fake: FakeRPC, monkeypatch: pytest.MonkeyPatch) -> None:
+    with pytest.raises(SystemExit):
+        _run(
+            monkeypatch,
+            _argv("plan", "--parameter", "unlock_proof_uc_min_responses", "--value", "two"),
+        )
+
+
+def test_sign_submit_uc_parameter_lands_normalized(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    key_path, account = _executor_key_file(tmp_path)
+    rpc = FakeRPC(
+        params=_params(governance_executors=account.address),
+        nonces={account.address: 3},
+        seal_after=1,
+        landed={"unlock_proof_uc_validator_set_digest": UC_DIGEST},
+    )
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+
+    _run(
+        monkeypatch,
+        _argv(
+            "sign-submit",
+            "--parameter",
+            "unlock_proof_uc_validator_set_digest",
+            "--value",
+            "0x" + UC_DIGEST.upper(),
+            "--key-file",
+            key_path,
+            "--confirm",
+        ),
+    )
+
+    _, body = rpc.posted[0]
+    payload = body["signed_tx"]["payload"]
+    assert payload["execution_payload"] == {
+        "action": "parameter_change",
+        "parameter": "unlock_proof_uc_validator_set_digest",
+        "value": UC_DIGEST,  # 0x prefix stripped, lowercased — the form _uc_context compares
+    }
+    assert "-> " + UC_DIGEST in capsys.readouterr().out
+
+
+def test_validator_deactivation_authority_is_covered(
+    fake: FakeRPC, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """The sixth chain authority parameter was missing from the tool — the
+    UC-arming set needs it for the VALIDATOR_DEACTIVATE sender gate."""
+    _run(
+        monkeypatch,
+        _argv("plan", "--parameter", "validator_deactivation_authority", "--value", TARGET),
+    )
+    out = capsys.readouterr().out
+    assert "validator_deactivation_authority" in out
+    assert TARGET in out
