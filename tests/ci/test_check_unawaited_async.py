@@ -35,7 +35,7 @@ class TestChangedFileModeSkipsTestPaths:
 
 
 def _repo(tmp_path: Path) -> Path:
-    (tmp_path / "pkg").mkdir()
+    (tmp_path / "apps" / "pkg").mkdir(parents=True)
     (tmp_path / "scripts" / "ci").mkdir(parents=True)
     (tmp_path / "scripts" / "ci" / "unawaited-async-baseline.txt").write_text("# unawaited-async findings baseline\n")
     return tmp_path
@@ -44,19 +44,44 @@ def _repo(tmp_path: Path) -> Path:
 class TestNonTestPathStillScanned:
     def test_commit_shaped_call_in_async_def_fails(self, ratchet, tmp_path, monkeypatch):
         root = _repo(tmp_path)
-        (root / "pkg" / "mod.py").write_text("async def f(s):\n    s.commit()\n")
+        (root / "apps" / "pkg" / "mod.py").write_text("async def f(s):\n    s.commit()\n")
         monkeypatch.setattr(ratchet, "REPO_ROOT", root)
         monkeypatch.setattr(ratchet, "BASELINE", root / "scripts" / "ci" / "unawaited-async-baseline.txt")
         monkeypatch.chdir(root)
-        assert ratchet.main(["pkg/mod.py"]) == 1
+        assert ratchet.main(["apps/pkg/mod.py"]) == 1
 
     def test_noqa_marker_absorbs_the_call(self, ratchet, tmp_path, monkeypatch):
         root = _repo(tmp_path)
-        (root / "pkg" / "mod.py").write_text("async def f(s):\n    s.commit()  # noqa: unawaited-async\n")
+        (root / "apps" / "pkg" / "mod.py").write_text("async def f(s):\n    s.commit()  # noqa: unawaited-async\n")
         monkeypatch.setattr(ratchet, "REPO_ROOT", root)
         monkeypatch.setattr(ratchet, "BASELINE", root / "scripts" / "ci" / "unawaited-async-baseline.txt")
         monkeypatch.chdir(root)
-        assert ratchet.main(["pkg/mod.py"]) == 0
+        assert ratchet.main(["apps/pkg/mod.py"]) == 0
+
+
+class TestChangedFileModeRespectsBaselineScope:
+    """#1928: file mode must agree with --all/--update scope. Findings under
+    scripts/ (outside SCOPE_DIRS) can never enter the baseline, so flagging
+    them is a structural false positive that blocked new-ref pushes."""
+
+    def test_scripts_path_is_skipped(self, ratchet, tmp_path, monkeypatch):
+        root = _repo(tmp_path)
+        (root / "scripts" / "ops").mkdir(parents=True)
+        (root / "scripts" / "ops" / "tool.py").write_text("async def f(s):\n    s.commit()\n")
+        monkeypatch.setattr(ratchet, "REPO_ROOT", root)
+        monkeypatch.setattr(ratchet, "BASELINE", root / "scripts" / "ci" / "unawaited-async-baseline.txt")
+        monkeypatch.chdir(root)
+        assert ratchet.main(["scripts/ops/tool.py"]) == 0
+
+    def test_absolute_path_outside_repo_is_skipped(self, ratchet, tmp_path, monkeypatch):
+        root = _repo(tmp_path)
+        outside = tmp_path.parent / "outside.py"
+        outside.write_text("async def f(s):\n    s.commit()\n")
+        monkeypatch.setattr(ratchet, "REPO_ROOT", root)
+        monkeypatch.setattr(ratchet, "BASELINE", root / "scripts" / "ci" / "unawaited-async-baseline.txt")
+        monkeypatch.chdir(root)
+        assert ratchet.main([str(outside)]) == 0
+        outside.unlink()
 
 
 class TestUpdateWritesNoTestLines:
