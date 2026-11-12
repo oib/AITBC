@@ -185,6 +185,8 @@ async def retrieve_memory(
         }
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except HTTPException:
+        raise
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
