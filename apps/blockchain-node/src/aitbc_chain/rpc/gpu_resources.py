@@ -11,7 +11,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ..chain_id import resolve_chain_id
 from ..metrics import metrics_registry
-from .escrow_routes import verify_rpc_api_key
+from .escrow_routes import verify_rpc_api_key, verify_rpc_peer_key
 from .router import router
 
 
@@ -105,7 +105,7 @@ def _active_allocation_counts(session: Any, chain_id: str, gpu_ids: list[str]) -
     return {str(gpu_id): int(count) for gpu_id, count in rows}
 
 
-@router.get("/gpus", summary="List all registered GPUs", tags=["gpu_resources"])
+@router.get("/gpus", summary="List all registered GPUs", tags=["gpu_resources"], dependencies=[Depends(verify_rpc_peer_key)])
 @rate_limit(rate=100, per=60)
 def list_gpus(chain_id: str | None = None, status: str | None = None, limit: int = 100) -> dict[str, Any]:
     """List GPUs registered on blockchain (bounded — sibling list convention)."""
@@ -164,7 +164,12 @@ def list_gpus(chain_id: str | None = None, status: str | None = None, limit: int
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/gpu/allocations/{gpu_id}", summary="Query GPU allocations", tags=["gpu_resources"])
+@router.get(
+    "/gpu/allocations/{gpu_id}",
+    summary="Query GPU allocations",
+    tags=["gpu_resources"],
+    dependencies=[Depends(verify_rpc_peer_key)],
+)
 def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Query GPU allocations from blockchain."""
     if chain_id is None:
@@ -253,7 +258,9 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/gpu/info/{gpu_id}", summary="Query GPU registration", tags=["gpu_resources"])
+@router.get(
+    "/gpu/info/{gpu_id}", summary="Query GPU registration", tags=["gpu_resources"], dependencies=[Depends(verify_rpc_peer_key)]
+)
 def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Query GPU registration from blockchain."""
     # Use env var or provided chain_id
@@ -468,7 +475,12 @@ def register_edge_node(request: EdgeNodeRegistrationRequest, chain_id: str | Non
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/edge/info/{node_id}", summary="Query edge node registration", tags=["gpu_resources"])
+@router.get(
+    "/edge/info/{node_id}",
+    summary="Query edge node registration",
+    tags=["gpu_resources"],
+    dependencies=[Depends(verify_rpc_peer_key)],
+)
 def get_edge_node(node_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Query edge node registration from blockchain (v0.6.6)."""
     if chain_id is None:
@@ -517,7 +529,9 @@ def get_edge_node(node_id: str, chain_id: str | None = None) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/edge/nodes", summary="List edge node registrations", tags=["gpu_resources"])
+@router.get(
+    "/edge/nodes", summary="List edge node registrations", tags=["gpu_resources"], dependencies=[Depends(verify_rpc_peer_key)]
+)
 @rate_limit(rate=100, per=60)
 def list_edge_nodes(chain_id: str | None = None, limit: int = 100) -> dict[str, Any]:
     """List edge node registrations for the chain.
