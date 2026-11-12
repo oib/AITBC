@@ -30,7 +30,7 @@ PROVIDER = "0xF4924759508E420eeD947BD33326731B11c4B7Df"
 PATCH_TARGET = "coordinator_api.contexts.payments.services.escrow_release_relay.AsyncAITBCHTTPClient"
 
 
-def _payload(job_id: str = "mkt_job_1", amount: str = "1.5") -> dict:
+def _payload(job_id: str = "mkt_job_1", amount: str = "2.0") -> dict:
     return {"job_id": job_id, "amount": amount, "job_tx_hash": "0xjobtx"}
 
 
@@ -106,7 +106,7 @@ class TestEscrowReleaseRelay:
         assert "/rpc/escrow/mkt_job_1" in mock_client.get.call_args.args[0]
         assert "/rpc/escrow/mkt_job_1/release" in mock_client.post.call_args.args[0]
         sent = mock_client.post.call_args.kwargs["json"]
-        assert sent == {"amount": "1.5", "job_tx_hash": "0xjobtx"}
+        assert sent == {"amount": "2.0", "job_tx_hash": "0xjobtx"}
 
     def test_release_buyer_mismatch_forbidden(self, client, db_session):
         _bind_wallet(db_session, "client-1", OTHER_BUYER)
@@ -283,6 +283,73 @@ class TestEscrowReleaseRelay:
         assert resp.status_code == 200, resp.text
         assert resp.json()["tx_hash"] == "0xwinner"
         assert resp.json()["duplicate"] is True
+
+
+class TestNonAdminAmountPolicy:
+    """#1912: a non-admin caller may only name the escrow's FULL locked
+    amount — the chain treats ``amount`` as billed and refunds the
+    remainder to the buyer, so a dust amount underpays the provider while
+    ``released_at`` blocks any alarm. Partial releases are admin-only."""
+
+    def test_dust_amount_rejected(self, client, db_session):
+        _bind_wallet(db_session, "client-1", BUYER)
+        mock_client = _chain_client_mock()
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post(
+                "/v1/escrow/release",
+                json=_payload(amount="0.00000001"),
+                headers=_token("client-1"),
+            )
+        assert resp.status_code == 400
+        assert "full locked amount" in resp.json()["detail"]
+        mock_client.post.assert_not_called()
+
+    def test_partial_amount_rejected(self, client, db_session):
+        """Any amount below the lock is refused — not just dust."""
+        _bind_wallet(db_session, "client-1", BUYER)
+        mock_client = _chain_client_mock()
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post(
+                "/v1/escrow/release",
+                json=_payload(amount="1.0"),  # lock is 2.0
+                headers=_token("client-1"),
+            )
+        assert resp.status_code == 400
+        mock_client.post.assert_not_called()
+
+    def test_full_lock_amount_accepted(self, client, db_session):
+        """Naming exactly the locked amount is equivalent to omitting it —
+        the CLI resolves and sends the lock, so this must keep working."""
+        _bind_wallet(db_session, "client-1", BUYER)
+        mock_client = _chain_client_mock()
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json=_payload(amount="2.0"), headers=_token("client-1"))
+        assert resp.status_code == 200, resp.text
+        sent = mock_client.post.call_args.kwargs["json"]
+        assert sent["amount"] == "2.0"
+
+    def test_unreadable_lock_amount_fails_closed(self, client, db_session):
+        """If the escrow row's amount can't be parsed, a provided amount
+        must be refused — the chain would honor a partial."""
+        _bind_wallet(db_session, "client-1", BUYER)
+        mock_client = _chain_client_mock(escrow=_escrow_state(amount="not-a-number"))
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post("/v1/escrow/release", json=_payload(), headers=_token("client-1"))
+        assert resp.status_code == 400
+        mock_client.post.assert_not_called()
+
+    def test_admin_partial_amount_still_forwarded(self, client, db_session):
+        """Admin/ops keeps the partial-release tool (bounded by the lock)."""
+        mock_client = _chain_client_mock()
+        with patch(PATCH_TARGET, return_value=mock_client):
+            resp = client.post(
+                "/v1/escrow/release",
+                json=_payload(job_id="mkt_admin_partial", amount="0.5"),
+                headers=_token("operator", role="admin"),
+            )
+        assert resp.status_code == 200, resp.text
+        sent = mock_client.post.call_args.kwargs["json"]
+        assert sent["amount"] == "0.5"
 
 
 def test_release_route_registered_in_security_matrix():

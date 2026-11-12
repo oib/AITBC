@@ -139,6 +139,31 @@ class EscrowReleaseRelayService(EscrowRelayService):
                 RESULT_UPSTREAM_5XX if code is not None else RESULT_CHAIN_TIMEOUT,
             ) from exc
 
+    def _check_amount_is_full_lock(self, amount_units: int, escrow: dict[str, Any], job_id: str) -> None:
+        """Non-admin releases may only name the escrow's full locked amount (#1912).
+
+        The chain treats ``amount`` as the billed figure and refunds the
+        unbilled remainder to the *buyer* — a caller-chosen dust amount pays
+        the provider ~nothing while ``released_at`` blocks any alarm. The
+        market sweeper always releases the full lock, so partial releases
+        are an admin/ops tool: a buyer either omits ``amount`` (the chain
+        releases the full lock) or names exactly the lock. An unreadable
+        escrow amount fails closed — the chain would honor a partial.
+        """
+        raw = escrow.get("amount")
+        try:
+            locked_units = ait_to_units(Decimal(str(raw)))
+        except (InvalidOperation, ValueError, TypeError):
+            locked_units = None
+        if locked_units is None or amount_units != locked_units:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=(
+                    "release amount must equal the escrow's full locked amount "
+                    f"({raw} AIT); omit 'amount' to release the full lock"
+                ),
+            )
+
     def _release_forward(
         self,
         body: dict[str, Any],
@@ -150,12 +175,16 @@ class EscrowReleaseRelayService(EscrowRelayService):
         """The {amount?, job_tx_hash?} body forwarded to the settlement node.
 
         Derivation runs only after ownership has passed: an omitted amount
-        means "release the full lock" — the chain's own rule.
+        means "release the full lock" — the chain's own rule. A provided
+        amount is bounded by the lock for everyone and, for non-admin
+        callers, must equal the lock exactly (#1912).
         """
         forward: dict[str, Any] = {}
         if amount_provided:
             amount_units = self._amount_units(body.get("amount"))
             self._check_amount_within_lock(is_admin, amount_units, escrow, job_id)
+            if not is_admin:
+                self._check_amount_is_full_lock(amount_units, escrow, job_id)
             forward["amount"] = str(body.get("amount"))
         return forward
 

@@ -12105,7 +12105,7 @@
           "escrow"
         ],
         "summary": "Relay an escrow release to the settlement node",
-        "description": "Relay an escrow release to the chain RPC.\n\nAuth: the on-chain escrow's ``buyer`` must equal the wallet bound to\nthe JWT subject (admin may release any buyer's escrow \u2014 the chain\nstill owns settlement validation). The release amount is bounded by\nthe escrow's locked amount for non-admin callers. Replays of the same\njob \u2014 a stored relay row or an already-released escrow \u2014 return the\nstored ``tx_hash`` without a second chain call.",
+        "description": "Relay an escrow release to the chain RPC.\n\nAuth: the on-chain escrow's ``buyer`` must equal the wallet bound to\nthe JWT subject (admin may release any buyer's escrow \u2014 the chain\nstill owns settlement validation). For non-admin callers a provided\namount must equal the escrow's full locked amount \u2014 partial releases\nare admin-only (#1912). Replays of the same\njob \u2014 a stored relay row or an already-released escrow \u2014 return the\nstored ``tx_hash`` without a second chain call.",
         "operationId": "relay_escrow_release_v1_escrow_release_post",
         "parameters": [
           {
