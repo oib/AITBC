@@ -13,6 +13,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 from ....auth import require_auth
 from ....storage import get_session
+from ....utils.ownership import caller_identities, is_admin
 from ..domain.provider_bond import (
     ProviderBond,
     ProviderBondStatus,
@@ -20,6 +21,9 @@ from ..domain.provider_bond import (
     is_provider_eligible,
     set_provider_bond_status,
 )
+from ...infrastructure.domain.miner import Miner
+from ...payments.provider_binding import miner_wallet_address
+from aitbc.crypto.signature_recovery import canonical_address
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/market", tags=["market-bonds"])
@@ -59,6 +63,31 @@ class BondAction(BaseModel):
     reason: str | None = None
 
 
+def _provider_accessible(session: Session, user: dict[str, Any], provider_id: str) -> bool:
+    """Whether the caller may act on ``provider_id``'s bond (#1881).
+
+    provider_id is a Miner.id: a miner-role JWT carries it as ``sub``; a
+    wallet-authenticated operator matches through the miner's registered
+    payout wallet or their own wallets. Admin bypasses; everything else
+    fails closed.
+    """
+    if is_admin(user):
+        return True
+    identities = caller_identities(session, user)
+    if str(provider_id).lower() in identities:
+        return True
+    miner = session.get(Miner, provider_id)
+    wallet = miner_wallet_address(miner) if miner is not None else None
+    if not wallet:
+        return False
+    return canonical_address(wallet).lower() in identities
+
+
+def _require_provider_access(session: Session, user: dict[str, Any], provider_id: str) -> None:
+    if not _provider_accessible(session, user, provider_id):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not the provider owner")
+
+
 def _to_decimal(value: str | float | int | Decimal | None) -> Decimal:
     if value is None:
         return Decimal("0.0")
@@ -96,6 +125,7 @@ def create_bond(
     supplies a smaller value, and the bond is left ``PENDING`` until the posted
     ``amount`` meets that floor.
     """
+    _require_provider_access(session, user, provider_id)
     amount = _to_decimal(body.amount)
     required_amount = _to_decimal(body.required_amount)
     floor = _default_bond_min_amount()
@@ -165,6 +195,7 @@ def lock_bond(
     user: Annotated[dict[str, Any], Depends(require_auth)],
 ) -> BondResponse:
     """Lock a provider's bond while a high-value job is in flight."""
+    _require_provider_access(session, user, provider_id)
     bond = set_provider_bond_status(session, provider_id, ProviderBondStatus.LOCKED)
     return _bond_response(bond)
 
@@ -178,6 +209,7 @@ def release_bond(
     user: Annotated[dict[str, Any], Depends(require_auth)],
 ) -> BondResponse:
     """Release a locked bond back to active status."""
+    _require_provider_access(session, user, provider_id)
     bond = set_provider_bond_status(session, provider_id, ProviderBondStatus.ACTIVE)
     return _bond_response(bond)
 
@@ -192,6 +224,7 @@ def slash_bond(
     user: Annotated[dict[str, Any], Depends(require_auth)],
 ) -> BondResponse:
     """Slash a provider's bond for misbehavior."""
+    _require_provider_access(session, user, provider_id)
     bond = set_provider_bond_status(
         session,
         provider_id,

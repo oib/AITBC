@@ -3809,6 +3809,16 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "not the provider owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -3996,6 +4006,16 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "not the provider owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4052,6 +4072,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "not the provider owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -4121,6 +4151,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "not the provider owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -10075,7 +10115,7 @@
             }
           },
           "403": {
-            "description": "Role required",
+            "description": "participant_id must match the authenticated principal / Role required",
             "content": {
               "application/json": {
                 "schema": {
@@ -10166,7 +10206,7 @@
             }
           },
           "403": {
-            "description": "Role required",
+            "description": "participant_id must match the authenticated principal / Role required",
             "content": {
               "application/json": {
                 "schema": {
@@ -10436,7 +10476,7 @@
             }
           },
           "403": {
-            "description": "Role required",
+            "description": "participant_id must match the authenticated principal / Role required",
             "content": {
               "application/json": {
                 "schema": {
@@ -13654,15 +13694,33 @@
         "summary": "Create Payment",
         "description": "Create a new ETH payment request",
         "operationId": "create_payment_v1_exchange_create_payment_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ExchangePaymentRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -13694,6 +13752,26 @@
                 }
               }
             }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -13715,6 +13793,22 @@
               "type": "string",
               "title": "Payment Id"
             }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -13734,6 +13828,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "not the payment owner / Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -29055,6 +29159,24 @@
         "summary": "Create Trade Request",
         "description": "Create a new trade request",
         "operationId": "create_trade_request_v1_trading_requests_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -29082,6 +29204,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -29285,6 +29417,22 @@
               "type": "string",
               "title": "Request Id"
             }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -29312,8 +29460,18 @@
               }
             }
           },
+          "403": {
+            "description": "Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found",
+            "description": "Trade request not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -29410,6 +29568,24 @@
         "summary": "Initiate Negotiation",
         "description": "Initiate negotiation between buyer and seller",
         "operationId": "initiate_negotiation_v1_trading_negotiations_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
           "required": true,
           "content": {
@@ -29441,8 +29617,18 @@
               }
             }
           },
+          "403": {
+            "description": "Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "Not Found",
+            "description": "Trade match not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -29959,15 +30145,33 @@
         "summary": "Simulate Trade Matching",
         "description": "Simulate trade matching without creating actual request",
         "operationId": "simulate_trade_matching_v1_trading_simulate_match_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/TradeRequestRequest"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -29975,8 +30179,8 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "additionalProperties": true,
                   "type": "object",
+                  "additionalProperties": true,
                   "title": "Response Simulate Trade Matching V1 Trading Simulate Match Post"
                 }
               }
@@ -29988,6 +30192,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
