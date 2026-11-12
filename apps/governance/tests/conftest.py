@@ -25,6 +25,14 @@ if _SRC not in sys.path:
 
 os.environ.pop("DB_TYPE", None)
 os.environ.pop("DATABASE_URL", None)
+# The write-surface API key (#1873) is exercised by
+# test_service_key_auth.py, which flips the authenticator attrs per-test;
+# the rest of the suite predates the perimeter and runs with it off.
+os.environ.setdefault("GOVERNANCE_AUTH_ENABLED", "false")
+# Same escape test_join.py uses: the suite fires far more than the 30/min
+# write budget (#1873) from one testclient IP; the limiter itself is pinned
+# by test_service_key_auth.py's dependency-level checks.
+os.environ.setdefault("AITBC_ENABLE_RATE_LIMITING", "false")
 
 
 @pytest.fixture

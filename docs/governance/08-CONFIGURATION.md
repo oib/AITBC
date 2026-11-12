@@ -22,7 +22,9 @@ The Governance Service can be configured via environment variables, configuratio
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | GOVERNANCE_BIND_PORT | Service port | 8105 | No |
-| GOVERNANCE_BIND_HOST | Bind host | 127.0.0.1 (unit default) | No |
+| GOVERNANCE_BIND_HOST | Bind host | 127.0.0.1 | No |
+| GOVERNANCE_API_KEY | `X-Api-Key` required on mutating routes (#1873); unset + auth enabled fails closed (501) | - | Yes for writes |
+| GOVERNANCE_AUTH_ENABLED | Enforce the write-surface API key | true | No |
 | LOG_LEVEL | Logging level (DEBUG/INFO/WARNING/ERROR) | INFO | No |
 
 ### Blockchain Configuration
@@ -134,7 +136,9 @@ if __name__ == "__main__":
 **Environment Variable:**
 
 ```bash
-export GOVERNANCE_BIND_HOST=0.0.0.0
+export GOVERNANCE_BIND_HOST=127.0.0.1
+# widen to 0.0.0.0 only for a deliberate direct exposure — the api-gateway
+# and local CLI are the only legitimate callers (#1873)
 ```
 
 ### Logging Configuration
