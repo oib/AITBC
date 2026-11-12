@@ -354,8 +354,8 @@ async def api_provider_reputation(provider_id: str, chain_id: str | None = None)
                 if first_dt.tzinfo is not None:
                     first_dt = first_dt.astimezone(UTC).replace(tzinfo=None)
                 days_active = max(0, (datetime.now(UTC).replace(tzinfo=None) - first_dt).days)
-            except Exception:
-                pass
+            except (ValueError, TypeError, OverflowError) as exc:
+                logger.debug("unparseable first-tx date for reputation: %s", exc)
 
         # Simple reputation formula
         score = min(100, 10 + (gpu_offers * 15) + (days_active * 2) + (confirmed_count * 5))
