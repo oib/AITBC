@@ -170,10 +170,14 @@ class _JobsMixin(_CoreMixin):
         # #1914: sender/recipient/value alone do not bind the tx to THIS bid —
         # any confirmed buyer→provider payment of sufficient size used to
         # complete it. The sealed tx must reference the bid or its offer in
-        # the payload, the same order-reference convention the chain's
-        # order_id index (_ORDER_ID_PAYLOAD_FIELDS) already resolves.
-        payload = tx.get("payload") or {}
-        refs = {str(payload.get(k)) for k in ("bid_id", "offer_id", "order_id") if payload.get(k) is not None}
+        # the payload. Accepted refs: bid_id/offer_id/order_id (the chain's
+        # order_id index convention) plus job_id — the escrow convention
+        # keys payload.job_id to the same id the market registers escrows
+        # under, so existing escrow-flow payments already carry it.
+        payload = tx.get("payload")
+        if not isinstance(payload, dict):
+            payload = {}
+        refs = {str(payload.get(k)) for k in ("bid_id", "offer_id", "order_id", "job_id") if payload.get(k) is not None}
         if bid.id not in refs and offer.id not in refs:
             raise ValueError(f"Transaction {tx_hash} is not bound to bid {bid.id} or offer {offer.id}")
 

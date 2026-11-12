@@ -730,7 +730,12 @@ async def complete_bid(
     request: Request,
     svc: Annotated[MarketService, Depends(get_market_service)],
 ) -> Any:
-    """Complete a market bid after on-chain payment confirms."""
+    """Complete a market bid after on-chain payment confirms.
+
+    The confirmed payment tx must carry a payload reference binding it to
+    this bid or its offer — ``bid_id``, ``offer_id``, ``order_id``, or
+    ``job_id`` (the escrow convention keys ``payload.job_id`` to the bid
+    id). A plain unbound transfer is refused (#1914)."""
     tx_hash = request_data.get("tx_hash") or request_data.get("transaction_hash", "")
     if not tx_hash:
         return JSONResponse(status_code=400, content={"error": "tx_hash is required"})
