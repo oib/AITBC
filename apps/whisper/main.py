@@ -192,11 +192,11 @@ async def _spool_upload(file: UploadFile, suffix: str) -> str:
                     detail=f"Upload exceeds the {_MAX_UPLOAD_BYTES // (1024 * 1024)}MB limit",
                 )
             tmp.write(chunk)
-        tmp.close()
+        tmp.close()  # noqa: unawaited-async — tempfile close is synchronous
     except BaseException:
         # delete=False means the file outlives its handle, and its name has not
         # been returned to anyone yet -- this is the only chance to remove it.
-        tmp.close()
+        tmp.close()  # noqa: unawaited-async — tempfile close is synchronous
         os.unlink(tmp.name)
         raise
     return tmp.name

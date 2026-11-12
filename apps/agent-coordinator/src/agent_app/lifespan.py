@@ -236,6 +236,6 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if state.peer_storage:
         await state.peer_storage.stop()
     if state.escrow_rpc:
-        state.escrow_rpc.close()
+        state.escrow_rpc.close()  # noqa: unawaited-async — ChainEscrowClient.close() is synchronous
         state.escrow_rpc = None
     logger.info("Agent Coordinator shut down")

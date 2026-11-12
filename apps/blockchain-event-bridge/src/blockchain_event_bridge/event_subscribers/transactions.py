@@ -110,7 +110,7 @@ class TransactionEventSubscriber:
         logger.info("Stopping transaction event subscriber...")
         self._running = False
         if self._subscription:
-            self._subscription.close()
+            self._subscription.close()  # noqa: unawaited-async — SubscriptionProtocol.close() is synchronous
         if self._broker is not None:
             await self._broker.shutdown()
         gossip_subscribers_total.dec()

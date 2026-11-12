@@ -61,7 +61,7 @@ async def health_endpoint(
         miners_online = len(active_miners)
         # Only on success: setting the gauge to 0 on failure is indistinguishable
         # from every miner having left.
-        miners_online_gauge.set(miners_online)
+        miners_online_gauge.set(miners_online)  # noqa: unawaited-async — prometheus Gauge.set() is synchronous
 
     healthy = db_ok and redis_ok and miners_error is None
     if not healthy:

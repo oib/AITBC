@@ -30,8 +30,8 @@ class AgentDaemonHandler:
     async def handle_transaction(self, tx_data: dict[str, Any]) -> None:
         """Handle a transaction that may require agent daemon response."""
         tx_hash = tx_data.get("hash", "unknown")
-        tx_data.get("type", "unknown")
-        tx_data.get("to")
+        tx_data.get("type", "unknown")  # noqa: unawaited-async — dict.get is synchronous
+        tx_data.get("to")  # noqa: unawaited-async — dict.get is synchronous
         logger.info("Checking transaction %s for agent daemon trigger", tx_hash)
         if self._is_agent_transaction(tx_data):
             self._notify_agent_daemon(tx_data)

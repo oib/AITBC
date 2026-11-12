@@ -106,8 +106,8 @@ class BlockEventSubscriber:
         logger.info("Stopping block event subscriber...")
         self._running = False
         if self._subscription:
-            self._subscription.close()
+            self._subscription.close()  # noqa: unawaited-async — SubscriptionProtocol.close() is synchronous
         if self._broker is not None:
             await self._broker.shutdown()
-        gossip_subscribers_total.set(0)
+        gossip_subscribers_total.set(0)  # noqa: unawaited-async — prometheus Gauge.set() is synchronous
         logger.info("Block event subscriber stopped")
