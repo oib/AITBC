@@ -75,3 +75,51 @@ def test_jobs_tuple_covers_invalid_operation() -> None:
     from decimal import InvalidOperation
 
     assert InvalidOperation in jobs_module._OPS_ERRORS
+
+
+# --- Round 3 (Validator FAIL 16:13): decimal arithmetic, asyncpg
+# InterfaceError, and web3/AITBCError surfaces that escaped the tuples.
+
+
+def test_market_gpu_tuple_covers_web3_aitbc_and_arithmetic() -> None:
+    from web3.exceptions import Web3Exception
+
+    from aitbc.exceptions import AITBCError
+    import importlib
+
+    market_gpu_module = importlib.import_module("coordinator_api.contexts.market.routers.market_gpu")
+
+    for exc in (Web3Exception, AITBCError, ArithmeticError):
+        assert exc in market_gpu_module._OPS_ERRORS
+
+
+def test_agent_identity_tuple_covers_arithmetic() -> None:
+    """Decimal(str(amount)) InvalidOperation must land in the 400 path, not 500."""
+    from decimal import InvalidOperation
+
+    import importlib
+
+    agent_identity_module = importlib.import_module("coordinator_api.contexts.agent_identity.routers.agent_identity")
+
+    assert InvalidOperation in agent_identity_module._OPS_ERRORS or ArithmeticError in agent_identity_module._OPS_ERRORS
+
+
+def test_settlement_tuples_cover_asyncpg_interface_error() -> None:
+    from asyncpg.exceptions import InterfaceError
+
+    from coordinator_api.settlement import hooks as hooks_module
+    from coordinator_api.settlement import manager as manager_module
+
+    assert InterfaceError in hooks_module._OPS_ERRORS
+    assert InterfaceError in manager_module._OPS_ERRORS
+
+
+def test_bridge_adapter_and_learning_tuples_cover_arithmetic() -> None:
+    """confirmation_blocks=0 and training_time=0.0 ZeroDivisionError sites."""
+    import importlib
+
+    learning_module = importlib.import_module("coordinator_api.contexts.analytics.services.ai_analytics.advanced_learning")
+    adapter_module = importlib.import_module("coordinator_api.contexts.cross_chain.services.cross_chain.bridge_client_adapter")
+
+    assert ArithmeticError in adapter_module._OPS_ERRORS
+    assert ArithmeticError in learning_module._OPS_ERRORS
