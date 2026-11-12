@@ -395,6 +395,210 @@ class GovernanceService:
             sealed_at = sealed_at.replace(tzinfo=UTC)
         return sealed_at
 
+    @staticmethod
+    def _apply_emergency_overrides(proposal: Proposal, now: datetime) -> None:
+        """v0.7.4: accelerated timelock/quorum for emergency proposals."""
+        # Override voting period and quorum for emergency proposals
+        proposal.voting_starts = now
+        proposal.voting_ends = now + timedelta(
+            seconds=settings.emergency_voting_period_blocks * 2  # ~2s block time
+        )
+        proposal.quorum_required = Decimal(str(settings.emergency_quorum_percent))
+        proposal.passing_threshold = settings.emergency_approval_percent / 100.0
+        # Store emergency metadata
+        proposal.proposal_metadata = {
+            **proposal.proposal_metadata,
+            "is_emergency": True,
+            "emergency_timelock_blocks": settings.emergency_timelock_blocks,
+            "normal_timelock_blocks": settings.timelock_blocks,
+        }
+
+    async def _ensure_governance_profile(self, user_id: str) -> None:
+        """Auto-create a governance profile for a user if one does not
+        already exist (fresh databases start with an empty profile table)."""
+        existing_profile = await self.get_profile(user_id)
+        if existing_profile:
+            return
+        await self.session.execute(
+            text(
+                """INSERT INTO governance_profiles
+                (profile_id, user_id, role, voting_power, delegated_power, total_votes_cast, proposals_created, proposals_passed, delegate_to, joined_at, last_voted_at)
+                VALUES (:profile_id, :user_id, 'MEMBER', 0, 0, 0, 0, 0, NULL, CURRENT_TIMESTAMP, NULL)
+                ON CONFLICT (profile_id) DO NOTHING"""
+            ),
+            {"profile_id": user_id, "user_id": user_id},
+        )
+        await self.session.commit()
+
+    @staticmethod
+    def _assert_voting_window(proposal_status: Proposal, vote_proposal_id: str) -> None:
+        """Reject votes outside the proposal's voting window (mirrors
+        close_proposal's tz handling)."""
+        now = datetime.now(UTC)
+        for bound, too_late in (
+            (proposal_status.voting_starts, False),
+            (proposal_status.voting_ends, True),
+        ):
+            if bound.tzinfo is None:
+                bound = bound.replace(tzinfo=UTC)
+            if (too_late and now > bound) or (not too_late and now < bound):
+                verb = "has ended" if too_late else "has not started"
+                raise ValueError(f"Voting period {verb} for proposal {vote_proposal_id}")
+
+    async def _submit_proposal_onchain(
+        self, proposal: Proposal, proposal_data: dict[str, Any], signed_tx: Any, is_emergency: bool
+    ) -> bool:
+        """Best-effort on-chain GOVERNANCE_PROPOSE submission. Returns True
+        when the submission failed (proposal keeps no block height)."""
+        if not settings.enable_onchain_submission:
+            return False
+        if signed_tx is not None:
+            try:
+                proposer_address = proposal_data.get("proposer_address", "")
+                self._verify_client_signed_tx(
+                    signed_tx,
+                    "GOVERNANCE_PROPOSE",
+                    proposer_address,
+                    {"proposal_id": proposal.proposal_id, "proposer": proposer_address, "chain_id": proposal.chain_id},
+                )
+                result = await self._blockchain.submit_signed_governance_tx(signed_tx)
+                proposal.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
+                proposal.block_height = result.get("block_height")
+                if proposal.block_height is not None:
+                    voting_period = settings.emergency_voting_period_blocks if is_emergency else settings.voting_period_blocks
+                    proposal.voting_ends_block = proposal.block_height + voting_period
+            except _OPS_ERRORS as e:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "Client-signed GOVERNANCE_PROPOSE submission failed for %s: %s — proposal has no "
+                    "recorded block height and will be refused execution while "
+                    "require_execution_timelock is set",
+                    proposal.proposal_id,
+                    e,
+                )
+                return True
+            return False
+        if not settings.proposer_private_key:
+            return False
+        try:
+            from aitbc.governance.onchain import build_proposal_tx
+            from aitbc.governance.types import ProposalData
+
+            proposer_address = proposal_data.get("proposer_address", "")
+            proposal_data_obj = ProposalData(
+                proposal_id=proposal.proposal_id,
+                proposer=proposer_address,
+                title=proposal.title,
+                description=proposal.description,
+                proposal_type=proposal.proposal_type,
+                parameters=proposal.proposal_value,
+            )
+            payload = build_proposal_tx(proposal_data_obj)
+            result = await self._blockchain.submit_governance_tx(
+                tx_type="GOVERNANCE_PROPOSE",
+                sender=proposer_address,
+                private_key=settings.proposer_private_key,
+                payload=payload,
+                chain_id=proposal.chain_id,
+            )
+            # The node's /rpc/transaction response uses transaction_hash
+            # (mempool admission); tx_hash is accepted as a fallback for
+            # peers that already return the mined form.
+            proposal.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
+            proposal.block_height = result.get("block_height")
+            # V23-18: record where voting closes, so the execution timelock can run
+            # from the end of voting rather than from proposal creation. Captured now
+            # because the voting-period setting may differ by the time this proposal
+            # is executed.
+            if proposal.block_height is not None:
+                voting_period = settings.emergency_voting_period_blocks if is_emergency else settings.voting_period_blocks
+                proposal.voting_ends_block = proposal.block_height + voting_period
+        except _OPS_ERRORS as e:
+            # On-chain submission stays best-effort: a chain hiccup must not stop a
+            # proposal being recorded. It does, however, leave the proposal without a
+            # block height — and execute_proposal refuses to execute such a proposal,
+            # because the timelock cannot be verified without one. Warn accordingly.
+            import logging
+
+            logging.getLogger(__name__).warning(
+                "On-chain GOVERNANCE_PROPOSE submission failed for %s: %s — proposal has no "
+                "recorded block height and will be refused execution while "
+                "require_execution_timelock is set",
+                proposal.proposal_id,
+                e,
+            )
+            return True
+        return False
+
+    async def _submit_vote_onchain(self, vote: Vote, vote_data: dict[str, Any], signed_tx: Any, voter_address: str) -> None:
+        """Best-effort on-chain GOVERNANCE_VOTE submission (client-signed or
+        proposer-key); failures are logged, never raised."""
+        if not settings.enable_onchain_submission:
+            return
+        if signed_tx is not None:
+            try:
+                voting_power = await self._blockchain.get_voting_power(voter_address, vote.chain_id)
+                self._verify_client_signed_tx(
+                    signed_tx,
+                    "GOVERNANCE_VOTE",
+                    voter_address,
+                    {
+                        "proposal_id": vote.proposal_id,
+                        "voter": voter_address,
+                        "vote_type": str(vote.vote_type),
+                        "voting_power": voting_power,
+                        "chain_id": vote.chain_id,
+                    },
+                )
+                vote.voting_power = voting_power
+                vote.power_at_snapshot = voting_power
+                result = await self._blockchain.submit_signed_governance_tx(signed_tx)
+                vote.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
+                vote.block_height = result.get("block_height")
+            except _OPS_ERRORS as e:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "Client-signed GOVERNANCE_VOTE submission failed for %s: %s",
+                    vote.proposal_id,
+                    e,
+                )
+            return
+        if not settings.proposer_private_key:
+            return
+        try:
+            from aitbc.governance.onchain import build_vote_tx
+            from aitbc.governance.types import VoteData
+
+            # Query on-chain balance for voting power snapshot
+            voting_power = await self._blockchain.get_voting_power(voter_address, vote.chain_id)
+            vote.voting_power = voting_power
+            vote.power_at_snapshot = voting_power
+
+            vote_data_obj = VoteData(
+                proposal_id=vote.proposal_id,
+                voter=voter_address,
+                vote_type=str(vote.vote_type),
+                voting_power=float(voting_power),
+                reason=vote.reason or "",
+                chain_id=vote.chain_id,
+            )
+            payload = build_vote_tx(vote_data_obj)
+            result = await self._blockchain.submit_governance_tx(
+                tx_type="GOVERNANCE_VOTE",
+                sender=voter_address,
+                private_key=settings.proposer_private_key,
+                payload=payload,
+                chain_id=vote.chain_id,
+            )
+            vote.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
+            vote.block_height = result.get("block_height")
+        except _OPS_ERRORS as e:
+            import logging
+
+            logging.getLogger(__name__).warning("On-chain GOVERNANCE_VOTE submission failed: %s", e)
+
     async def create_proposal(self, proposal_data: dict[str, Any]) -> Proposal:
         """Create a new proposal.
 
@@ -418,18 +622,7 @@ class GovernanceService:
         # already exist. The CLI passes the node/agent ID as the proposer, and
         # the profile table is otherwise empty on a fresh database.
         proposer_id = proposal_data.get("proposer_id") or "anonymous"
-        existing_profile = await self.get_profile(proposer_id)
-        if not existing_profile:
-            await self.session.execute(
-                text(
-                    """INSERT INTO governance_profiles
-                    (profile_id, user_id, role, voting_power, delegated_power, total_votes_cast, proposals_created, proposals_passed, delegate_to, joined_at, last_voted_at)
-                    VALUES (:profile_id, :user_id, 'MEMBER', 0, 0, 0, 0, 0, NULL, CURRENT_TIMESTAMP, NULL)
-                    ON CONFLICT (profile_id) DO NOTHING"""
-                ),
-                {"profile_id": proposer_id, "user_id": proposer_id},
-            )
-            await self.session.commit()
+        await self._ensure_governance_profile(proposer_id)
 
         proposal = Proposal(**proposal_data)
         # Ensure chain_id is set. If the proposal body did not provide one, the
@@ -452,101 +645,13 @@ class GovernanceService:
         # v0.7.4: Emergency proposal fast-track
         is_emergency = proposal.proposal_type == "emergency"
         if is_emergency:
-            # Override voting period and quorum for emergency proposals
-            proposal.voting_starts = now
-            proposal.voting_ends = now + timedelta(
-                seconds=settings.emergency_voting_period_blocks * 2  # ~2s block time
-            )
-            proposal.quorum_required = Decimal(str(settings.emergency_quorum_percent))
-            proposal.passing_threshold = settings.emergency_approval_percent / 100.0
-            # Store emergency metadata
-            proposal.proposal_metadata = {
-                **proposal.proposal_metadata,
-                "is_emergency": True,
-                "emergency_timelock_blocks": settings.emergency_timelock_blocks,
-                "normal_timelock_blocks": settings.timelock_blocks,
-            }
+            self._apply_emergency_overrides(proposal, now)
 
         # Proposals are immediately active so they can be voted on and closed.
         if proposal.status == ProposalStatus.DRAFT:
             proposal.status = ProposalStatus.ACTIVE
 
-        submission_failed = False
-        if settings.enable_onchain_submission and signed_tx is not None:
-            try:
-                proposer_address = proposal_data.get("proposer_address", "")
-                self._verify_client_signed_tx(
-                    signed_tx,
-                    "GOVERNANCE_PROPOSE",
-                    proposer_address,
-                    {"proposal_id": proposal.proposal_id, "proposer": proposer_address, "chain_id": proposal.chain_id},
-                )
-                result = await self._blockchain.submit_signed_governance_tx(signed_tx)
-                proposal.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
-                proposal.block_height = result.get("block_height")
-                if proposal.block_height is not None:
-                    voting_period = settings.emergency_voting_period_blocks if is_emergency else settings.voting_period_blocks
-                    proposal.voting_ends_block = proposal.block_height + voting_period
-            except _OPS_ERRORS as e:
-                submission_failed = True
-                import logging
-
-                logging.getLogger(__name__).warning(
-                    "Client-signed GOVERNANCE_PROPOSE submission failed for %s: %s — proposal has no "
-                    "recorded block height and will be refused execution while "
-                    "require_execution_timelock is set",
-                    proposal.proposal_id,
-                    e,
-                )
-        elif settings.enable_onchain_submission and settings.proposer_private_key:
-            try:
-                from aitbc.governance.onchain import build_proposal_tx
-                from aitbc.governance.types import ProposalData
-
-                proposer_address = proposal_data.get("proposer_address", "")
-                proposal_data_obj = ProposalData(
-                    proposal_id=proposal.proposal_id,
-                    proposer=proposer_address,
-                    title=proposal.title,
-                    description=proposal.description,
-                    proposal_type=proposal.proposal_type,
-                    parameters=proposal.proposal_value,
-                )
-                payload = build_proposal_tx(proposal_data_obj)
-                result = await self._blockchain.submit_governance_tx(
-                    tx_type="GOVERNANCE_PROPOSE",
-                    sender=proposer_address,
-                    private_key=settings.proposer_private_key,
-                    payload=payload,
-                    chain_id=proposal.chain_id,
-                )
-                # The node's /rpc/transaction response uses transaction_hash
-                # (mempool admission); tx_hash is accepted as a fallback for
-                # peers that already return the mined form.
-                proposal.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
-                proposal.block_height = result.get("block_height")
-                # V23-18: record where voting closes, so the execution timelock can run
-                # from the end of voting rather than from proposal creation. Captured now
-                # because the voting-period setting may differ by the time this proposal
-                # is executed.
-                if proposal.block_height is not None:
-                    voting_period = settings.emergency_voting_period_blocks if is_emergency else settings.voting_period_blocks
-                    proposal.voting_ends_block = proposal.block_height + voting_period
-            except _OPS_ERRORS as e:
-                # On-chain submission stays best-effort: a chain hiccup must not stop a
-                # proposal being recorded. It does, however, leave the proposal without a
-                # block height — and execute_proposal refuses to execute such a proposal,
-                # because the timelock cannot be verified without one. Warn accordingly.
-                submission_failed = True
-                import logging
-
-                logging.getLogger(__name__).warning(
-                    "On-chain GOVERNANCE_PROPOSE submission failed for %s: %s — proposal has no "
-                    "recorded block height and will be refused execution while "
-                    "require_execution_timelock is set",
-                    proposal.proposal_id,
-                    e,
-                )
+        submission_failed = self._submit_proposal_onchain(proposal, proposal_data, signed_tx, is_emergency)
 
         # V23-18 off-chain fallback: the mempool-admission response carries no
         # block_height even when on-chain submission succeeds, so a proposal
@@ -603,6 +708,45 @@ class GovernanceService:
         result = await self.session.execute(stmt)
         return list(result.scalars().all())
 
+    async def _persist_vote(self, vote: Vote, voter_id: str, vote_proposal_id: str) -> None:
+        """Insert the vote, bump proposal counters, commit — mapping the
+        unique-index IntegrityError to the sequential-path duplicate error."""
+        try:
+            self.session.add(vote)
+
+            # Update proposal vote counters. The add above means the next
+            # session.execute autoflushes the INSERT — the IntegrityError can
+            # surface here or at commit(), so both sit inside this try.
+            proposal = await self.get_proposal(vote.proposal_id)
+            if proposal:
+                if vote.vote_type == VoteType.FOR:
+                    proposal.yes_votes += vote.voting_power_used
+                    proposal.votes_for = proposal.yes_votes
+                elif vote.vote_type == VoteType.AGAINST:
+                    proposal.no_votes += vote.voting_power_used
+                    proposal.votes_against = proposal.no_votes
+                elif vote.vote_type == VoteType.ABSTAIN:
+                    proposal.votes_abstain += vote.voting_power_used
+
+            await self.session.commit()
+        except IntegrityError as exc:
+            # GOV-VOTE-RACE-1 (#1610): the duplicate-vote scan above is
+            # check-then-insert; _VOTE_UNIQUE_INDEX is the DB backstop for a
+            # racer that passed the same scan. Roll back (which also reverts
+            # the proposal vote-counter bump) and surface the same "already
+            # voted" error the sequential path raises. Matching on the index
+            # name keeps unrelated integrity failures (FK, PK) visible.
+            await self.session.rollback()
+            if _VOTE_UNIQUE_INDEX in str(exc):
+                raise ValueError(f"voter {voter_id} has already voted on proposal {vote_proposal_id}") from None
+            raise
+
+    async def _assert_not_duplicate_vote(self, vote_proposal_id: str, voter_id: str) -> None:
+        """One vote per voter per proposal — repeats used to stack weight (#1091)."""
+        for prior in await self.list_votes(proposal_id=vote_proposal_id):
+            if str(prior.voter_id or "").lower() == voter_id.lower():
+                raise ValueError(f"voter {voter_id} has already voted on proposal {vote_proposal_id}")
+
     async def create_vote(self, vote_data: dict[str, Any]) -> Vote:
         """Create a new vote.
 
@@ -637,32 +781,10 @@ class GovernanceService:
         # window check a vote cast after voting_ends still lands in the
         # tallies close_proposal reads — late weight can flip a decided
         # result (#v11 item 11). Mirror close_proposal's tz handling.
-        now = datetime.now(UTC)
-        for bound, too_late in (
-            (proposal_status.voting_starts, False),
-            (proposal_status.voting_ends, True),
-        ):
-            if bound.tzinfo is None:
-                bound = bound.replace(tzinfo=UTC)
-            if (too_late and now > bound) or (not too_late and now < bound):
-                verb = "has ended" if too_late else "has not started"
-                raise ValueError(f"Voting period {verb} for proposal {vote_proposal_id}")
-        for prior in await self.list_votes(proposal_id=vote_proposal_id):
-            if str(prior.voter_id or "").lower() == voter_id.lower():
-                raise ValueError(f"voter {voter_id} has already voted on proposal {vote_proposal_id}")
+        self._assert_voting_window(proposal_status, vote_proposal_id)
+        await self._assert_not_duplicate_vote(vote_proposal_id, voter_id)
 
-        existing_profile = await self.get_profile(voter_id)
-        if not existing_profile:
-            await self.session.execute(
-                text(
-                    """INSERT INTO governance_profiles
-                    (profile_id, user_id, role, voting_power, delegated_power, total_votes_cast, proposals_created, proposals_passed, delegate_to, joined_at, last_voted_at)
-                    VALUES (:profile_id, :user_id, 'MEMBER', 0, 0, 0, 0, 0, NULL, CURRENT_TIMESTAMP, NULL)
-                    ON CONFLICT (profile_id) DO NOTHING"""
-                ),
-                {"profile_id": voter_id, "user_id": voter_id},
-            )
-            await self.session.commit()
+        await self._ensure_governance_profile(voter_id)
 
         vote = Vote(**vote_data)
         # Match create_proposal: the service default wins over the model's
@@ -673,66 +795,7 @@ class GovernanceService:
         if not voter_address:
             voter_address = voter_id
 
-        if settings.enable_onchain_submission and signed_tx is not None:
-            try:
-                voting_power = await self._blockchain.get_voting_power(voter_address, vote.chain_id)
-                self._verify_client_signed_tx(
-                    signed_tx,
-                    "GOVERNANCE_VOTE",
-                    voter_address,
-                    {
-                        "proposal_id": vote.proposal_id,
-                        "voter": voter_address,
-                        "vote_type": str(vote.vote_type),
-                        "voting_power": voting_power,
-                        "chain_id": vote.chain_id,
-                    },
-                )
-                vote.voting_power = voting_power
-                vote.power_at_snapshot = voting_power
-                result = await self._blockchain.submit_signed_governance_tx(signed_tx)
-                vote.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
-                vote.block_height = result.get("block_height")
-            except _OPS_ERRORS as e:
-                import logging
-
-                logging.getLogger(__name__).warning(
-                    "Client-signed GOVERNANCE_VOTE submission failed for %s: %s",
-                    vote.proposal_id,
-                    e,
-                )
-        elif settings.enable_onchain_submission and settings.proposer_private_key:
-            try:
-                from aitbc.governance.onchain import build_vote_tx
-                from aitbc.governance.types import VoteData
-
-                # Query on-chain balance for voting power snapshot
-                voting_power = await self._blockchain.get_voting_power(voter_address, vote.chain_id)
-                vote.voting_power = voting_power
-                vote.power_at_snapshot = voting_power
-
-                vote_data_obj = VoteData(
-                    proposal_id=vote.proposal_id,
-                    voter=voter_address,
-                    vote_type=str(vote.vote_type),
-                    voting_power=float(voting_power),
-                    reason=vote.reason or "",
-                    chain_id=vote.chain_id,
-                )
-                payload = build_vote_tx(vote_data_obj)
-                result = await self._blockchain.submit_governance_tx(
-                    tx_type="GOVERNANCE_VOTE",
-                    sender=voter_address,
-                    private_key=settings.proposer_private_key,
-                    payload=payload,
-                    chain_id=vote.chain_id,
-                )
-                vote.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
-                vote.block_height = result.get("block_height")
-            except _OPS_ERRORS as e:
-                import logging
-
-                logging.getLogger(__name__).warning("On-chain GOVERNANCE_VOTE submission failed: %s", e)
+        await self._submit_vote_onchain(vote, vote_data, signed_tx, voter_address)
 
         # Off-chain voting power: derive from staked/held governance tokens when
         # on-chain submission is disabled or the chain query failed.
@@ -748,35 +811,7 @@ class GovernanceService:
         # the authoritative voting_power_used.
         vote.voting_power_used = vote.voting_power
 
-        try:
-            self.session.add(vote)
-
-            # Update proposal vote counters. The add above means the next
-            # session.execute autoflushes the INSERT — the IntegrityError can
-            # surface here or at commit(), so both sit inside this try.
-            proposal = await self.get_proposal(vote.proposal_id)
-            if proposal:
-                if vote.vote_type == VoteType.FOR:
-                    proposal.yes_votes += vote.voting_power_used
-                    proposal.votes_for = proposal.yes_votes
-                elif vote.vote_type == VoteType.AGAINST:
-                    proposal.no_votes += vote.voting_power_used
-                    proposal.votes_against = proposal.no_votes
-                elif vote.vote_type == VoteType.ABSTAIN:
-                    proposal.votes_abstain += vote.voting_power_used
-
-            await self.session.commit()
-        except IntegrityError as exc:
-            # GOV-VOTE-RACE-1 (#1610): the duplicate-vote scan above is
-            # check-then-insert; _VOTE_UNIQUE_INDEX is the DB backstop for a
-            # racer that passed the same scan. Roll back (which also reverts
-            # the proposal vote-counter bump) and surface the same "already
-            # voted" error the sequential path raises. Matching on the index
-            # name keeps unrelated integrity failures (FK, PK) visible.
-            await self.session.rollback()
-            if _VOTE_UNIQUE_INDEX in str(exc):
-                raise ValueError(f"voter {voter_id} has already voted on proposal {vote_proposal_id}") from None
-            raise
+        await self._persist_vote(vote, voter_id, vote_proposal_id)
         await self.session.refresh(vote)
         return vote
 

@@ -26,6 +26,68 @@ _OPS_ERRORS = (
 )
 
 
+# (max_vram_gb exclusive upper bound, level, metric value, bottleneck) per
+# service tier; first threshold the miner's VRAM falls under wins.
+_SERVICE_PERF_TIERS: dict[str, tuple[str, list[tuple[float, str, str, str | None]]]] = {
+    "stable_diffusion": (
+        "expected_fps",
+        [
+            (8, "high", "0.1-0.5 images/sec", "VRAM"),
+            (16, "medium", "0.5-2 images/sec", None),
+            (float("inf"), "low", "2-5 images/sec", None),
+        ],
+    ),
+    "image_generation": (
+        "expected_fps",
+        [
+            (8, "high", "0.1-0.5 images/sec", "VRAM"),
+            (16, "medium", "0.5-2 images/sec", None),
+            (float("inf"), "low", "2-5 images/sec", None),
+        ],
+    ),
+    "llm_inference": (
+        "expected_throughput",
+        [
+            (8, "high", "1-5 tokens/sec", "VRAM"),
+            (16, "medium", "5-20 tokens/sec", None),
+            (float("inf"), "low", "20-50+ tokens/sec", None),
+        ],
+    ),
+    "video_transcoding": (
+        "expected_fps",
+        [
+            (4, "high", "10-30 fps (720p)", "GPU Memory"),
+            (8, "medium", "30-60 fps (1080p)", None),
+            (float("inf"), "low", "60+ fps (4K)", None),
+        ],
+    ),
+    "ffmpeg": (
+        "expected_fps",
+        [
+            (4, "high", "10-30 fps (720p)", "GPU Memory"),
+            (8, "medium", "30-60 fps (1080p)", None),
+            (float("inf"), "low", "60+ fps (4K)", None),
+        ],
+    ),
+    "3d_rendering": (
+        "expected_throughput",
+        [
+            (8, "high", "0.01-0.1 samples/sec", "VRAM"),
+            (16, "medium", "0.1-1 samples/sec", None),
+            (float("inf"), "low", "1-5+ samples/sec", None),
+        ],
+    ),
+    "blender": (
+        "expected_throughput",
+        [
+            (8, "high", "0.01-0.1 samples/sec", "VRAM"),
+            (16, "medium", "0.1-1 samples/sec", None),
+            (float("inf"), "low", "1-5+ samples/sec", None),
+        ],
+    ),
+}
+
+
 class ValidationResult:
     """Validation result for a service configuration"""
 
@@ -209,58 +271,16 @@ class HardwareValidator:
 
         # Analyze based on service type
         service_id = service["id"]
-
-        if service_id in ["stable_diffusion", "image_generation"]:
-            # Image generation performance
-            if miner.gpu_vram_gb < 8:
-                impact["level"] = "high"
-                impact["bottleneck"] = "VRAM"
-                impact["expected_fps"] = "0.1-0.5 images/sec"
-            elif miner.gpu_vram_gb < 16:
-                impact["level"] = "medium"
-                impact["expected_fps"] = "0.5-2 images/sec"
-            else:
-                impact["level"] = "low"
-                impact["expected_fps"] = "2-5 images/sec"
-
-        elif service_id in ["llm_inference"]:
-            # LLM inference performance
-            if miner.gpu_vram_gb < 8:
-                impact["level"] = "high"
-                impact["bottleneck"] = "VRAM"
-                impact["expected_throughput"] = "1-5 tokens/sec"
-            elif miner.gpu_vram_gb < 16:
-                impact["level"] = "medium"
-                impact["expected_throughput"] = "5-20 tokens/sec"
-            else:
-                impact["level"] = "low"
-                impact["expected_throughput"] = "20-50+ tokens/sec"
-
-        elif service_id in ["video_transcoding", "ffmpeg"]:
-            # Video transcoding performance
-            if miner.gpu_vram_gb < 4:
-                impact["level"] = "high"
-                impact["bottleneck"] = "GPU Memory"
-                impact["expected_fps"] = "10-30 fps (720p)"
-            elif miner.gpu_vram_gb < 8:
-                impact["level"] = "medium"
-                impact["expected_fps"] = "30-60 fps (1080p)"
-            else:
-                impact["level"] = "low"
-                impact["expected_fps"] = "60+ fps (4K)"
-
-        elif service_id in ["3d_rendering", "blender"]:
-            # 3D rendering performance
-            if miner.gpu_vram_gb < 8:
-                impact["level"] = "high"
-                impact["bottleneck"] = "VRAM"
-                impact["expected_throughput"] = "0.01-0.1 samples/sec"
-            elif miner.gpu_vram_gb < 16:
-                impact["level"] = "medium"
-                impact["expected_throughput"] = "0.1-1 samples/sec"
-            else:
-                impact["level"] = "low"
-                impact["expected_throughput"] = "1-5+ samples/sec"
+        tiers = _SERVICE_PERF_TIERS.get(service_id)
+        if tiers is not None:
+            metric_key, thresholds = tiers
+            for max_vram, level, value, bottleneck in thresholds:
+                if miner.gpu_vram_gb < max_vram:
+                    impact["level"] = level
+                    if bottleneck:
+                        impact["bottleneck"] = bottleneck
+                    impact[metric_key] = value
+                    break
 
         # Add recommendations based on bottlenecks
         if impact["bottleneck"] == "VRAM":

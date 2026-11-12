@@ -345,20 +345,24 @@ async def capabilities():
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@app.post("/process", dependencies=[Depends(require_job_access)])
-async def process_video(
-    file: Annotated[UploadFile, File(...)],
-    output_format: str = Form(default="mp4"),
-    codec: str = Form(default="h264"),
-    resolution: str = Form(default="1080p"),
-    bitrate: str = Form(default="5M"),
-):
-    """Process video with GPU acceleration"""
-    if not file.filename:
-        raise HTTPException(status_code=400, detail="No file provided")
+async def _require_hwaccel() -> None:
+    """Probe `ffmpeg -hwaccels`; 503 when the configured accelerator is absent."""
+    try:
+        result = await _run_cmd(["ffmpeg", "-hwaccels"], timeout=15)
+        if _hw_accel not in result.stdout:
+            logger.exception("Unhandled exception")
 
-    # FFMPEG-ARGV-1 (#1456): validate caller-controlled fields before they are
-    # interpolated into the ffmpeg argv.
+            raise HTTPException(status_code=503, detail="Internal server error")
+    except Exception as e:
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=503, detail="Internal server error") from e
+
+
+def _validate_process_params(codec: str, bitrate: str, output_format: str) -> tuple[str, str, str]:
+    """Validate caller-controlled fields before they reach the ffmpeg argv
+    (FFMPEG-ARGV-1 #1456, FFMPEG-OUT-1 #1648); returns normalized
+    (codec_key, bitrate_value, output_format_key)."""
     codec_key = codec.strip().lower()
     if not _CODEC_RE.fullmatch(codec_key):
         raise HTTPException(status_code=400, detail="codec must be a short encoder label like 'h264' or 'hevc'")
@@ -381,18 +385,98 @@ async def process_video(
             status_code=400,
             detail=f"output_format must be one of {sorted(_OUTPUT_FORMATS)}",
         )
+    return codec_key, bitrate_value, output_format_key
+
+
+def _resolve_encoder(codec_key: str) -> str:
+    """Map the short codec label to an FFmpeg encoder name for the active
+    hardware accelerator (nvenc/vaapi/qsv, else the CPU x264/x265 pair)."""
+    if _hw_accel == "cuda":
+        return f"{codec_key}_nvenc"
+    if _hw_accel == "vaapi":
+        return f"{codec_key}_vaapi"
+    if _hw_accel == "qsv":
+        return f"{codec_key}_qsv"
+    if codec_key == "h264":
+        return "libx264"
+    if codec_key == "hevc":
+        return "libx265"
+    return codec_key
+
+
+def _build_ffmpeg_cmd(codec_key: str, bitrate_value: str, resolution: str, input_path: str, output_path: str) -> list[str]:
+    """Assemble the ffmpeg argv: guarded untrusted input, validated encode
+    params, optional resolution scale, and the #1648 output size bound."""
+    encoder = _resolve_encoder(codec_key)
+
+    # bufsize mirrors the (already validated) bitrate value and unit.
+    numeric = "".join(c for c in bitrate_value if c.isdigit() or c == ".")
+    unit = bitrate_value[-1].lower()
+    bufsize = f"{numeric}{unit}"
+
+    # Build FFmpeg command. Hardware-accelerated decode + encode when possible.
+    cmd = [
+        "ffmpeg",
+        "-hwaccel",
+        _hw_accel,
+        # CE-001 (#1170): the upload is untrusted and FFmpeg sniffs content, so a
+        # playlist named .mp4 would otherwise fetch nested resources of its choosing.
+        *ffmpeg_input_guard(),
+        "-i",
+        input_path,
+        "-c:v",
+        encoder,
+        "-preset",
+        "p6" if "_nvenc" in encoder else "medium",
+        "-b:v",
+        bitrate_value,
+        "-maxrate",
+        bitrate_value,
+        "-bufsize",
+        bufsize,
+    ]
+
+    # Add resolution scaling if specified
+    if resolution == "1080p":
+        cmd.extend(["-vf", "scale=1920:1080"])
+    elif resolution == "720p":
+        cmd.extend(["-vf", "scale=1280:720"])
+    elif resolution == "480p":
+        cmd.extend(["-vf", "scale=854:480"])
+
+    # -fs bounds the output file itself (#1648): bitrate is capped but
+    # duration is not, so without it a long input writes an unbounded
+    # file into PrivateTmp. ffmpeg exits non-zero when the limit hits.
+    cmd.extend(["-fs", str(_MAX_OUTPUT_BYTES), "-y", output_path])
+    return cmd
+
+
+def _hash_file(path: str) -> str:
+    """SHA-256 of a potentially large file, read in chunks so the output
+    does not reintroduce the unbounded buffer the upload guard removed."""
+    digest = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(_UPLOAD_CHUNK), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+@app.post("/process", dependencies=[Depends(require_job_access)])
+async def process_video(
+    file: Annotated[UploadFile, File(...)],
+    output_format: str = Form(default="mp4"),
+    codec: str = Form(default="h264"),
+    resolution: str = Form(default="1080p"),
+    bitrate: str = Form(default="5M"),
+):
+    """Process video with GPU acceleration"""
+    if not file.filename:
+        raise HTTPException(status_code=400, detail="No file provided")
+
+    codec_key, bitrate_value, output_format_key = _validate_process_params(codec, bitrate, output_format)
 
     # Validate GPU acceleration is available
-    try:
-        result = await _run_cmd(["ffmpeg", "-hwaccels"], timeout=15)
-        if _hw_accel not in result.stdout:
-            logger.exception("Unhandled exception")
-
-            raise HTTPException(status_code=503, detail="Internal server error")
-    except Exception as e:
-        logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=503, detail="Internal server error") from e
+    await _require_hwaccel()
 
     # FFMPEG-CONC-1 (#1459): admit at most _MAX_CONCURRENT transcodes. The
     # check-and-increment has no await between it and the increment, so it is
@@ -423,61 +507,7 @@ async def process_video(
     try:
         t_start = time.time()
 
-        # Map requested codec to an FFmpeg encoder name.
-        # `codec` from the CLI is a short label like "h264" or "hevc"; the actual
-        # encoder depends on the accelerator (nvenc for NVIDIA cuda, vaapi for AMD/Intel, etc.).
-        if _hw_accel == "cuda":
-            encoder = f"{codec_key}_nvenc"
-        elif _hw_accel == "vaapi":
-            encoder = f"{codec_key}_vaapi"
-        elif _hw_accel == "qsv":
-            encoder = f"{codec_key}_qsv"
-        elif codec_key == "h264":
-            encoder = "libx264"
-        elif codec_key == "hevc":
-            encoder = "libx265"
-        else:
-            encoder = codec_key
-
-        # bufsize mirrors the (already validated) bitrate value and unit.
-        numeric = "".join(c for c in bitrate_value if c.isdigit() or c == ".")
-        unit = bitrate_value[-1].lower()
-        bufsize = f"{numeric}{unit}"
-
-        # Build FFmpeg command. Hardware-accelerated decode + encode when possible.
-        cmd = [
-            "ffmpeg",
-            "-hwaccel",
-            _hw_accel,
-            # CE-001 (#1170): the upload is untrusted and FFmpeg sniffs content, so a
-            # playlist named .mp4 would otherwise fetch nested resources of its choosing.
-            *ffmpeg_input_guard(),
-            "-i",
-            input_path,
-            "-c:v",
-            encoder,
-            "-preset",
-            "p6" if "_nvenc" in encoder else "medium",
-            "-b:v",
-            bitrate_value,
-            "-maxrate",
-            bitrate_value,
-            "-bufsize",
-            bufsize,
-        ]
-
-        # Add resolution scaling if specified
-        if resolution == "1080p":
-            cmd.extend(["-vf", "scale=1920:1080"])
-        elif resolution == "720p":
-            cmd.extend(["-vf", "scale=1280:720"])
-        elif resolution == "480p":
-            cmd.extend(["-vf", "scale=854:480"])
-
-        # -fs bounds the output file itself (#1648): bitrate is capped but
-        # duration is not, so without it a long input writes an unbounded
-        # file into PrivateTmp. ffmpeg exits non-zero when the limit hits.
-        cmd.extend(["-fs", str(_MAX_OUTPUT_BYTES), "-y", output_path])
+        cmd = _build_ffmpeg_cmd(codec_key, bitrate_value, resolution, input_path, output_path)
 
         # Run FFmpeg
         process = await _run_cmd(cmd, timeout=3600)  # 1 hour timeout
@@ -491,14 +521,7 @@ async def process_video(
 
         await _validate_output(output_path)
 
-        # Calculate result hash. The output can be as large as the input, so it
-        # is read in chunks rather than buffered whole -- the upload guard only
-        # helps if the read-back does not reintroduce the same unbounded buffer.
-        digest = hashlib.sha256()
-        with open(output_path, "rb") as f:
-            for chunk in iter(lambda: f.read(_UPLOAD_CHUNK), b""):
-                digest.update(chunk)
-        file_hash = digest.hexdigest()
+        file_hash = _hash_file(output_path)
 
         # Get file size
         file_size = os.path.getsize(output_path)
