@@ -973,12 +973,13 @@ def _book_with_job(client, token, gpu_id, job_id=None):
 
 
 @pytest.mark.unit
-def test_book_gpu_stale_paid_hold_survives(client, client_token, available_gpu, pricing_engine_override, db_session):
-    """CE-004/#1199: a hold whose own job carries a funded payment does not expire.
-
-    Production shape: JobPayment.job_id is the Job.id stored on
-    GPUBooking.job_id — never the booking's bk_* primary key.
-    """
+def test_book_gpu_stale_hold_expires_despite_paid_job_link(
+    client, client_token, available_gpu, pricing_engine_override, db_session
+):
+    """#1923/F12: an unpaid book_gpu hold expires strictly by TTL even when
+    its caller-supplied job_id carries a same-client paid JobPayment — one
+    paid purchase must not pin unlimited squatting holds. Only a payment
+    bound via booking.payment_id protects a hold."""
     from datetime import timedelta
 
     from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
@@ -991,6 +992,7 @@ def test_book_gpu_stale_paid_hold_survives(client, client_token, available_gpu, 
     assert resp.status_code == 201, resp.text
     booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == available_gpu)).one()
     assert booking.job_id == job.id
+    assert booking.payment_id is None
     booking.created_at = datetime.now(UTC) - timedelta(hours=1)
     db_session.add(booking)
     db_session.add(
@@ -1002,11 +1004,11 @@ def test_book_gpu_stale_paid_hold_survives(client, client_token, available_gpu, 
         )
     )
     db_session.commit()
-    # Paid hold: a second booking attempt still conflicts and the hold survives.
+    # The paid payment is not bound to THIS booking → the hold expires.
     resp2 = _book_with_job(client, client_token, available_gpu)
-    assert resp2.status_code == 409
+    assert resp2.status_code == 201, resp2.text
     db_session.refresh(booking)
-    assert booking.status == "active"
+    assert booking.status == "expired"
 
 
 @pytest.mark.unit
@@ -1042,6 +1044,41 @@ def test_book_gpu_stale_foreign_paid_job_does_not_pin_hold(
     assert resp2.status_code == 201, resp2.text
     db_session.refresh(booking)
     assert booking.status == "expired"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("bad_duration", [0, -1, 8760.0001, float("nan"), float("inf"), float("-inf")])
+def test_buy_request_rejects_out_of_range_duration(bad_duration):
+    """#1923/F13: GPUBuyRequest.duration_hours carries the same bounds and
+    finite checks as GPUQuoteRequest — NaN/inf previously reached
+    timedelta/Decimal math unchecked."""
+    from pydantic import ValidationError
+
+    from coordinator_api.contexts.market.routers.market_gpu import GPUBuyRequest
+
+    with pytest.raises(ValidationError):
+        GPUBuyRequest(buyer_id="client1", gpu_id="gpu_x", duration_hours=bad_duration)
+
+
+@pytest.mark.unit
+def test_buy_request_accepts_boundary_durations():
+    """#1923/F13: the quote/book bounds (0.0167h .. 8760h) stay purchasable."""
+    from coordinator_api.contexts.market.routers.market_gpu import GPUBuyRequest
+
+    for duration in (0.0167, 1.0, 8760):
+        req = GPUBuyRequest(buyer_id="client1", gpu_id="gpu_x", duration_hours=duration)
+        assert req.duration_hours == duration
+
+
+@pytest.mark.unit
+def test_buy_gpu_rejects_bad_duration_over_api(client, client_token):
+    """#1923/F13: the bound is enforced at the edge — 422 before any lookup."""
+    resp = client.post(
+        "/v1/market/gpu/purchase",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={"buyer_id": "client1", "gpu_id": "gpu_nonexistent", "duration_hours": 0},
+    )
+    assert resp.status_code == 422
 
 
 @pytest.mark.unit
@@ -1086,6 +1123,9 @@ def test_book_gpu_stale_post_escrowed_hold_survives(
     assert resp.status_code == 201, resp.text
     booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == available_gpu)).one()
     booking.created_at = datetime.now(UTC) - timedelta(hours=1)
+    # #1923: only a payment BOUND via booking.payment_id protects a hold —
+    # bind it explicitly (job-linkage no longer counts for book_gpu holds).
+    booking.payment_id = "pay_" + booking.id
     db_session.add(booking)
     db_session.add(
         JobPayment(

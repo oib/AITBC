@@ -202,7 +202,10 @@ class OllamaTaskRequest(BaseModel):
 class GPUBuyRequest(BaseModel):
     buyer_id: str
     gpu_id: str
-    duration_hours: float
+    # #1923 (F13): same bounds/finite checks as GPUQuoteRequest — an
+    # unbounded float let NaN/inf/negative durations reach timedelta and
+    # Decimal math downstream.
+    duration_hours: float = Field(ge=0.0167, le=8760, allow_inf_nan=False)
     payment_method: str = "blockchain"
     job_id: str | None = None
     energy_quote: dict[str, Any] | None = None
@@ -331,16 +334,15 @@ def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
         created_at = created_at.replace(tzinfo=UTC)
     if datetime.now(UTC) - created_at < BOOKING_HOLD_TTL:
         return
-    # The funded check must follow the booking's own payment linkage
-    # (#1199, tightened by #1231): purchase-path bookings carry
-    # booking.payment_id — the JobPayment created for THAT booking —
-    # because job_id is shared across sibling bookings on one prepared
-    # job, and a job-level join would let one paid payment protect every
-    # unpaid sibling. Holds created by book_gpu carry no payment_id and
-    # keep the legacy job-linkage check. Either way the job must belong
-    # to the booking's client — book_gpu accepts a caller-supplied
-    # job_id, so an unqualified join would let a stranger's paid job pin
-    # this hold forever.
+    # The funded check keys ONLY on the payment bound to this booking
+    # (#1199, tightened by #1231, corrected by #1923/F12): purchase-path
+    # bookings carry booking.payment_id — the JobPayment created for THAT
+    # booking — because job_id is shared across sibling bookings on one
+    # prepared job, and a job-level join would let one paid payment
+    # protect every unpaid sibling. Holds created by book_gpu carry no
+    # payment_id and NO payment is ever bound to them, so they expire
+    # strictly by TTL: the old job-linkage fallback let one paid purchase
+    # pin unlimited squatting holds that all named the same job_id.
     if booking.payment_id:
         paid = session.execute(
             select(JobPayment.id)
@@ -352,19 +354,8 @@ def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
             )
             .limit(1)
         ).first()
-    else:
-        paid = session.execute(
-            select(JobPayment.id)
-            .join(Job, col(Job.id) == booking.job_id)
-            .where(
-                col(Job.client_id) == booking.client_id,
-                col(JobPayment.job_id) == Job.id,
-                col(JobPayment.status).in_(_PAID_PAYMENT_STATUSES),
-            )
-            .limit(1)
-        ).first()
-    if paid is not None:
-        return
+        if paid is not None:
+            return
     booking.status = "expired"
     gpu.status = "available"
     session.add(booking)
