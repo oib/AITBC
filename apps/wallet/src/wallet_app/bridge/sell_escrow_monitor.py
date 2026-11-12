@@ -70,6 +70,21 @@ logger = get_logger(__name__)
 _db_initialized = False
 _sell_polling_enabled: bool = True
 
+# AIT escrow nonce serialization across BOTH sweep lanes (sell locks and
+# exchange settlements): they share the escrow account's nonce space, and
+# the union inflight-check → nonce read → sign → intent-write → broadcast
+# sequence is not atomic on its own — two lanes interleaving can read the
+# same nonce, sign colliding envelopes, and the loser parks in
+# needs_review_sweep. One shared lock (the AIT-side twin of
+# ETH_RELEASE_NONCE_LOCK in bridge_withdraw_monitor) keeps a lane's whole
+# check→sign→intent→broadcast section atomic; the second lane's union
+# check then sees the first's persisted intent and defers. Both monitors
+# are asyncio tasks on the wallet service's single event loop, so an
+# asyncio.Lock suffices (same caveat as the ETH lock: the sell_admin CLI
+# runs in its own process and is covered only by the DB-level union
+# check, which still applies).
+AIT_ESCROW_SWEEP_LOCK = asyncio.Lock()
+
 # Sibling-lock statuses that consume a quote — everything still live or
 # ambiguous. 'orphaned'/'refunded'/'failed'/'settled' siblings do not block.
 _SELL_BINDING_STATUSES = (
@@ -717,68 +732,73 @@ async def _escrow_sweep(
     the row goes to ``intent_status`` — and stays there until the outflow is
     found *sealed* (see ``_resolve_escrow_sweep``). A broadcast returning a
     hash is not proof of seal, so terminal status is never written here.
-    """
-    if get_sell_inflight_sweep() or _exchange_inflight_sweep():
-        logger.info(
-            "Sell lock %s: escrow sweep %s deferred — another sweep is in flight",
-            row["ait_tx_hash"],
-            reason,
-        )
-        return "deferred"
 
-    amount_ait = Decimal(str(row["amount_ait"]))
-    nonce, balance = await _account_view(cfg.escrow_address)
-    required = amount_ait + _sweep_fee_ait()
-    if balance < required:
-        deficit = required - balance
-        update_sell_lock_status(
+    The whole check→nonce→sign→intent→broadcast section runs under
+    ``AIT_ESCROW_SWEEP_LOCK`` so the exchange settlement lane cannot
+    interleave a colliding nonce (ESCROW-SWEEP-NONCE-RACE-1, #1920).
+    """
+    async with AIT_ESCROW_SWEEP_LOCK:
+        if get_sell_inflight_sweep() or _exchange_inflight_sweep():
+            logger.info(
+                "Sell lock %s: escrow sweep %s deferred — another sweep is in flight",
+                row["ait_tx_hash"],
+                reason,
+            )
+            return "deferred"
+
+        amount_ait = Decimal(str(row["amount_ait"]))
+        nonce, balance = await _account_view(cfg.escrow_address)
+        required = amount_ait + _sweep_fee_ait()
+        if balance < required:
+            deficit = required - balance
+            update_sell_lock_status(
+                row["ait_tx_hash"],
+                fee_park_status,
+                error=f"{reason}{_FEE_FLOAT_DEFICIT_MARK} {deficit} AIT (need {required} AIT, have {balance})",
+                expected_statuses={row["status"]},
+            )
+            warn_key = (str(row["ait_tx_hash"]), str(deficit), fee_park_status)
+            if warn_key not in _fee_float_warned:
+                _fee_float_warned.add(warn_key)
+                logger.warning(
+                    "Sell lock %s: escrow fee float short %s AIT (balance %s, need %s) — parked %s",
+                    row["ait_tx_hash"],
+                    deficit,
+                    balance,
+                    required,
+                    fee_park_status,
+                )
+            return "fee_parked"
+
+        payload_extra = {"sell_ref": row["ait_tx_hash"], "reason": reason}
+        signed_tx = await _sign_escrow_transfer(cfg, to_address, amount_ait, payload_extra, nonce)
+        persisted = await _update_lock_status_with_retry(
             row["ait_tx_hash"],
-            fee_park_status,
-            error=f"{reason}{_FEE_FLOAT_DEFICIT_MARK} {deficit} AIT (need {required} AIT, have {balance})",
+            intent_status,
+            escrow_out_nonce=nonce,
+            escrow_out_tx=json.dumps(signed_tx),
             expected_statuses={row["status"]},
         )
-        warn_key = (str(row["ait_tx_hash"]), str(deficit), fee_park_status)
-        if warn_key not in _fee_float_warned:
-            _fee_float_warned.add(warn_key)
+        if not persisted:
+            # CAS lost (#1918): the row moved on since the snapshot — broadcasting
+            # now would send an outflow no ledger state owns.
             logger.warning(
-                "Sell lock %s: escrow fee float short %s AIT (balance %s, need %s) — parked %s",
+                "Sell lock %s: sweep intent write lost CAS (was %s) — row moved on; not broadcasting",
                 row["ait_tx_hash"],
-                deficit,
-                balance,
-                required,
-                fee_park_status,
+                row["status"],
             )
-        return "fee_parked"
-
-    payload_extra = {"sell_ref": row["ait_tx_hash"], "reason": reason}
-    signed_tx = await _sign_escrow_transfer(cfg, to_address, amount_ait, payload_extra, nonce)
-    persisted = await _update_lock_status_with_retry(
-        row["ait_tx_hash"],
-        intent_status,
-        escrow_out_nonce=nonce,
-        escrow_out_tx=json.dumps(signed_tx),
-        expected_statuses={row["status"]},
-    )
-    if not persisted:
-        # CAS lost (#1918): the row moved on since the snapshot — broadcasting
-        # now would send an outflow no ledger state owns.
-        logger.warning(
-            "Sell lock %s: sweep intent write lost CAS (was %s) — row moved on; not broadcasting",
+            return "deferred"
+        tx_hash = await _broadcast_ait_tx(signed_tx)
+        logger.info(
+            "Sell lock %s: escrow sweep %s broadcast (%s AIT -> %s, nonce %d, tx %s) — awaiting seal",
             row["ait_tx_hash"],
-            row["status"],
+            reason,
+            amount_ait,
+            to_address,
+            nonce,
+            tx_hash,
         )
-        return "deferred"
-    tx_hash = await _broadcast_ait_tx(signed_tx)
-    logger.info(
-        "Sell lock %s: escrow sweep %s broadcast (%s AIT -> %s, nonce %d, tx %s) — awaiting seal",
-        row["ait_tx_hash"],
-        reason,
-        amount_ait,
-        to_address,
-        nonce,
-        tx_hash,
-    )
-    return "sent"
+        return "sent"
 
 
 async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
