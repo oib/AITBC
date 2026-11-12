@@ -19,6 +19,7 @@ from ..config import settings
 from ..domain.market import MarketOffer
 from ..domain.offer_status import spellings_of
 from .market_service import max_page_size, offer_reservation_ttl_seconds
+from aitbc_errors import AITBCError
 
 logger = get_logger(__name__)
 
@@ -36,6 +37,7 @@ _OPS_ERRORS = (
     RuntimeError,
     httpx.HTTPError,
     SQLAlchemyError,
+    AITBCError,
 )
 
 

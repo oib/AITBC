@@ -10,6 +10,7 @@ import json
 import os
 import sqlite3
 import time
+import http.client
 import urllib.error
 import urllib.parse
 import urllib.request
@@ -24,6 +25,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.operations import BeginStatus, request_hash
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.decimal import to_decimal as _to_decimal
+from aitbc_errors import AITBCError
 
 from ..db import _SETTLEMENT_STATES, connect_db, get_db_path, ticks_to_decimal, to_ticks
 from .base import (
@@ -55,6 +57,8 @@ _OPS_ERRORS = (
     TypeError,
     AttributeError,
     RuntimeError,
+    http.client.HTTPException,
+    AITBCError,
 )
 
 

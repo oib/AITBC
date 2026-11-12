@@ -27,6 +27,7 @@ from .bridge import (
     start_withdrawal_monitoring,
 )
 from .settings import settings
+from aitbc_errors import AITBCError
 
 configure_logging(level="INFO", service_name="wallet", to_file=True)
 logger = get_logger(__name__)
@@ -45,6 +46,7 @@ _OPS_ERRORS = (
     AttributeError,
     RuntimeError,
     httpx.HTTPError,
+    AITBCError,
 )
 
 
