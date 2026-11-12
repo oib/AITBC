@@ -212,3 +212,89 @@ class TestBidTxReplay:
             await svc.complete_bid(bid.id, "0xOFFERBOUND")
         await session.refresh(bid)
         assert bid.status == "completed"
+
+    @pytest.mark.asyncio
+    async def test_job_id_bound_tx_completes_bid(self, session):
+        """#1914 respin: the chain's escrow convention keys payload.job_id to
+        the same id the market registers escrows under — a tx carrying only
+        job_id must bind, or every existing escrow-flow completion wedges."""
+        svc = MarketService(session)
+        offer = await svc.create_offer(
+            {
+                "provider": "0xProvider",
+                "price": "1",
+                "capacity": 1,
+                "gpu_model": "RTX4090",
+                "chain_id": "ait-testchain",
+            }
+        )
+        offer.status = "booked"
+        session.add(offer)
+        bid = Bid(
+            offer_id=offer.id,
+            provider="0xProvider",
+            buyer="0xBuyer",
+            capacity=1.0,
+            price=Decimal("1"),
+            status="pending",
+        )
+        session.add(bid)
+        await session.commit()
+        await session.refresh(bid)
+
+        tx = {
+            "hash": "0xJOBBOUND",
+            "status": "confirmed",
+            "sender": "0xBuyer",
+            "recipient": "0xProvider",
+            "value": 36_000_000,
+            "payload": {"job_id": bid.id},
+        }
+        svc._rpc_client.get_transaction = AsyncMock(return_value=tx)
+        with contextlib.suppress(Exception):
+            await svc.complete_bid(bid.id, "0xJOBBOUND")
+        await session.refresh(bid)
+        assert bid.status == "completed"
+
+    @pytest.mark.asyncio
+    async def test_non_dict_payload_fails_closed_not_500(self, session):
+        """#1914 respin: a tx whose payload is not a dict must fail closed
+        with ValueError (400), not AttributeError (500)."""
+        svc = MarketService(session)
+        offer = await svc.create_offer(
+            {
+                "provider": "0xProvider",
+                "price": "1",
+                "capacity": 1,
+                "gpu_model": "RTX4090",
+                "chain_id": "ait-testchain",
+            }
+        )
+        offer.status = "booked"
+        session.add(offer)
+        bid = Bid(
+            offer_id=offer.id,
+            provider="0xProvider",
+            buyer="0xBuyer",
+            capacity=1.0,
+            price=Decimal("1"),
+            status="pending",
+        )
+        session.add(bid)
+        await session.commit()
+        await session.refresh(bid)
+
+        for bad_payload in ("not-a-dict", ["bid_id"], 42):
+            tx = {
+                "hash": f"0xBADPAYLOAD-{type(bad_payload).__name__}",
+                "status": "confirmed",
+                "sender": "0xBuyer",
+                "recipient": "0xProvider",
+                "value": 36_000_000,
+                "payload": bad_payload,
+            }
+            svc._rpc_client.get_transaction = AsyncMock(return_value=tx)
+            with pytest.raises(ValueError, match="not bound"):
+                await svc.complete_bid(bid.id, tx["hash"])
+        await session.refresh(bid)
+        assert bid.status == "pending"

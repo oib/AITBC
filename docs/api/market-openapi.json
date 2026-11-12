@@ -479,7 +479,7 @@
     "/v1/market/bids/{bid_id}/complete": {
       "post": {
         "summary": "Complete Bid",
-        "description": "Complete a market bid after on-chain payment confirms.",
+        "description": "Complete a market bid after on-chain payment confirms.\n\nThe confirmed payment tx must carry a payload reference binding it to\nthis bid or its offer \u2014 ``bid_id``, ``offer_id``, ``order_id``, or\n``job_id`` (the escrow convention keys ``payload.job_id`` to the bid\nid). A plain unbound transfer is refused (#1914).",
         "operationId": "complete_bid_v1_market_bids__bid_id__complete_post",
         "parameters": [
           {
