@@ -23,6 +23,28 @@ except ImportError:
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS: tuple[type[Exception], ...] = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
+_OPS_ERRORS: tuple[type[Exception], ...] = _OPS_ERRORS
+try:
+    from redis.exceptions import RedisError as _RedisError
+
+    _OPS_ERRORS += (_RedisError,)
+except ImportError:
+    pass
+
 
 class WorkflowStatus(StrEnum):
     """Workflow execution status"""
@@ -288,7 +310,7 @@ class WorkflowOrchestrator:
                 if data:
                     workflows.append(WorkflowDefinition.from_dict(json.loads(data)))
             return workflows
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error listing workflows: %s", e)
             return []
 
@@ -305,7 +327,7 @@ class WorkflowOrchestrator:
                 if data:
                     executions.append(WorkflowExecution.from_dict(json.loads(data)))
             return executions
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error listing executions: %s", e)
             return []
 
@@ -340,7 +362,7 @@ class WorkflowOrchestrator:
                             completed_steps.add(step.step_id)
                             execution.results[step.step_id] = step.result
                             break
-                        except Exception as e:
+                        except _OPS_ERRORS as e:
                             step.error = str(e)
                             step.completed_at = datetime.now(UTC)
                             logger.warning(
@@ -358,7 +380,7 @@ class WorkflowOrchestrator:
             execution.completed_at = datetime.now(UTC)
             await self._save_workflow_execution(execution)
             logger.info("Workflow execution %s completed successfully", execution.execution_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Workflow execution %s failed: %s", execution.execution_id, e)
             execution.status = WorkflowStatus.FAILED
             execution.error = str(e)
@@ -448,7 +470,7 @@ class WorkflowOrchestrator:
                     if execution.status in [WorkflowStatus.RUNNING, WorkflowStatus.PENDING]:
                         self.active_executions[execution.execution_id] = execution
             logger.info("Loaded %s active executions", len(self.active_executions))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error loading active executions: %s", e)
 
 

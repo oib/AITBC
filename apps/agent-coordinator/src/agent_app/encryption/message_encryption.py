@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
@@ -19,6 +20,21 @@ from aitbc.aitbc_logging import get_logger
 from . import public_keys
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
 
 
 @dataclass
@@ -191,7 +207,7 @@ class MessageEncryptor:
             )
             logger.info("Encrypted message from %s to %s", sender_id, recipient_id)
             return encrypted_msg
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error encrypting message: %s", e)
             return None
 
@@ -237,13 +253,13 @@ class MessageEncryptor:
                     hashes.SHA256(),
                 )
                 logger.info("Signature verified for message from %s", encrypted_msg.sender_id)
-            except Exception as e:
+            except InvalidSignature as e:
                 logger.warning("Signature verification failed: %s", e)
                 return None
             message: dict[str, Any] = json.loads(message_json.decode("utf-8"))
             logger.info("Decrypted message from %s to %s", encrypted_msg.sender_id, recipient_id)
             return message
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error decrypting message: %s", e)
             return None
 
@@ -265,7 +281,7 @@ class MessageEncryptor:
             )
             logger.info("Signature verified for message from %s", sender_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Signature verification failed: %s", e)
             return False
 
@@ -304,7 +320,7 @@ class MessageEncryptor:
                         key_pair = AgentKeyPair.from_dict(data)
                         self.key_pairs[key_pair.agent_id] = key_pair
             logger.info("Loaded %s key pairs", len(self.key_pairs))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error loading keys: %s", e)
 
 

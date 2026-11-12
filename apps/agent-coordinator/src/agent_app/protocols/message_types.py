@@ -19,6 +19,21 @@ from .communication import AgentMessage, MessageType, Priority
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
+
 
 class MessageStatus(StrEnum):
     """Message processing status"""
@@ -298,7 +313,7 @@ class MessageRouter:
             await self.dead_letter_queue.put(message)
             self.routing_stats["messages_failed"] += 1
             return None
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error routing message %s: %s", message.id, e)
             await self.dead_letter_queue.put(message)
             self.routing_stats["messages_failed"] += 1
@@ -523,7 +538,7 @@ class MessageProcessor:
             processing_time = (datetime.now(UTC) - start_time).total_seconds()
             self.processing_stats["processing_time_total"] += processing_time
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error processing message %s: %s", message.id, e)
             self.processing_stats["errors"] += 1
             return False
@@ -537,7 +552,7 @@ class MessageProcessor:
                     await self.process_message(message)
                 else:
                     await asyncio.sleep(0.01)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error in processing loop: %s", e)
                 await asyncio.sleep(1)
 

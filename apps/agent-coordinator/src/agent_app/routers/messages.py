@@ -28,6 +28,21 @@ from ..services.nonce_store import get_nonce_store
 from ..websocket import get_connection_manager
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
 router = APIRouter(prefix="/api/v1/agent/messages", tags=["agent-messaging"])
 
 # FastAPI dependency alias used across the read/subscribe endpoints below:
@@ -186,7 +201,7 @@ def _sender_bound_identity(sender: str, recovered: str) -> str | None:
     if state.agent_registry:
         try:
             agent = state.agent_registry.get_agent_by_id(sender)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Registry lookup for sender %s failed: %s", sender, e)
     if agent is None or not agent.identity_address:
         return "unbound_sender"
@@ -299,7 +314,7 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
                         "signature_status": existing.get("signature_status"),
                         "sent_at": existing.get("sent_at", ""),
                     }
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Could not check idempotency for %s: %s", message_id, e)
 
         # Phase A envelope verification (agent-signed-envelopes.md §5):
@@ -360,7 +375,7 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
             try:
                 connection_manager = get_connection_manager()
                 ws_delivered = await connection_manager.send_personal_message(message_data, req.recipient)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Could not deliver message to %s over WebSocket: %s", req.recipient, e)
 
         status = "delivered" if ws_delivered else "pending"
@@ -391,7 +406,7 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error sending encrypted message: %s", e)
         logger.exception("Unhandled exception")
 
@@ -417,7 +432,7 @@ async def get_inbox(
         if unread_only:
             messages = [m for m in messages if not m.get("read", False) and m.get("status", "pending") != "read"]
         return {"agent_id": agent_id, "messages": messages, "count": len(messages), "timestamp": datetime.now(UTC).isoformat()}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error getting inbox: %s", e)
         logger.exception("Unhandled exception")
 
@@ -470,7 +485,7 @@ async def get_message_history(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error retrieving message history: %s", e)
         logger.exception("Unhandled exception")
 
@@ -510,7 +525,7 @@ async def discover_agents(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error discovering agents: %s", e)
         logger.exception("Unhandled exception")
 
@@ -537,7 +552,7 @@ async def subscribe_to_topic(request: Request, req: SubscribeRequest, principal:
             connection_manager = get_connection_manager()
             if req.agent_id in connection_manager.active_connections:
                 connection_manager.subscribe(req.agent_id, req.topic)  # noqa: unawaited-async — sync method
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Could not activate online subscription for %s: %s", req.agent_id, e)
 
         return {
@@ -548,7 +563,7 @@ async def subscribe_to_topic(request: Request, req: SubscribeRequest, principal:
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error subscribing to topic: %s", e)
         logger.exception("Unhandled exception")
 
@@ -575,7 +590,7 @@ async def unsubscribe_from_topic(request: Request, req: SubscribeRequest, princi
             connection_manager = get_connection_manager()
             if req.agent_id in connection_manager.active_connections:
                 connection_manager.unsubscribe(req.agent_id, req.topic)  # noqa: unawaited-async — sync method
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Could not deactivate online subscription for %s: %s", req.agent_id, e)
 
         return {
@@ -586,7 +601,7 @@ async def unsubscribe_from_topic(request: Request, req: SubscribeRequest, princi
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error unsubscribing from topic: %s", e)
         logger.exception("Unhandled exception")
 
@@ -614,7 +629,7 @@ async def get_agent_subscriptions(request: Request, agent_id: str, principal: Op
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error retrieving subscriptions for %s: %s", agent_id, e)
         logger.exception("Unhandled exception")
 
@@ -693,7 +708,7 @@ async def broadcast_message(request_http: Request, request: BroadcastRequest, pr
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error broadcasting message: %s", e)
         logger.exception("Unhandled exception")
 
@@ -717,7 +732,7 @@ async def get_message(request: Request, message_id: str, principal: OptionalAgen
         return {"status": "success", "message": message, "timestamp": datetime.now(UTC).isoformat()}
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error retrieving message %s: %s", message_id, e)
         logger.exception("Unhandled exception")
 
@@ -748,7 +763,7 @@ async def mark_message_read(request: Request, message_id: str, principal: Option
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error marking message %s as read: %s", message_id, e)
         logger.exception("Unhandled exception")
 
@@ -771,7 +786,7 @@ def get_load_balancer_stats(request: Request, principal: OptionalAgent) -> dict[
         return {"status": "success", "stats": stats, "timestamp": datetime.now(UTC).isoformat()}
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error getting load balancer stats: %s", e)
         logger.exception("Unhandled exception")
 
@@ -794,7 +809,7 @@ def get_registry_stats(request: Request, principal: OptionalAgent) -> dict[str, 
         return {"status": "success", "stats": stats, "timestamp": datetime.now(UTC).isoformat()}
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error getting registry stats: %s", e)
         logger.exception("Unhandled exception")
 
@@ -823,7 +838,7 @@ def get_agents_by_service(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error getting agents by service: %s", e)
         logger.exception("Unhandled exception")
 
@@ -852,7 +867,7 @@ def get_agents_by_capability(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error getting agents by capability: %s", e)
         logger.exception("Unhandled exception")
 
@@ -886,7 +901,7 @@ def set_load_balancing_strategy(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error setting load balancing strategy: %s", e)
         logger.exception("Unhandled exception")
 
@@ -923,7 +938,7 @@ async def add_peer(
             raise HTTPException(status_code=500, detail="Failed to add peer")
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error adding peer: %s", e)
         logger.exception("Unhandled exception")
 
@@ -960,7 +975,7 @@ async def remove_peer(
             raise HTTPException(status_code=500, detail="Failed to remove peer")
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error removing peer: %s", e)
         logger.exception("Unhandled exception")
 
@@ -989,7 +1004,7 @@ async def get_agent_peers(request: Request, agent_id: str, principal: OptionalAg
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error retrieving peers for agent %s: %s", agent_id, e)
         logger.exception("Unhandled exception")
 
@@ -1019,7 +1034,7 @@ async def get_all_peers(request: Request, principal: OptionalAgent) -> dict[str,
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error retrieving all peer connections: %s", e)
         logger.exception("Unhandled exception")
 
@@ -1043,7 +1058,7 @@ async def get_messages_for_agent(request: Request, agent_id: str, principal: Age
             return {"agent_id": agent_id, "count": 0, "messages": [], "timestamp": datetime.now(UTC).isoformat()}
         messages = await state.message_storage.get_messages_by_receiver(agent_id, 100, 0)
         return {"agent_id": agent_id, "count": len(messages), "messages": messages, "timestamp": datetime.now(UTC).isoformat()}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error getting messages for agent %s: %s", agent_id, e)
         logger.exception("Unhandled exception")
 

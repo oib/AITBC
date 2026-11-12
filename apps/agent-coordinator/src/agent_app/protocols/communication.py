@@ -16,6 +16,21 @@ from ..websocket import get_connection_manager
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
+
 
 class MessageType(StrEnum):
     """Message types for agent communication"""
@@ -127,7 +142,7 @@ class CommunicationProtocol:
                 return await self._send_to_agent(message)
             logger.warning("Cannot send message without receiver_id")
             return False
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error sending message: %s", e)
             return False
 
@@ -141,9 +156,9 @@ class CommunicationProtocol:
             for handler in handlers:
                 try:
                     await handler(message)
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.error("Error in message handler: %s", e)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error processing message: %s", e)
 
     def _is_message_expired(self, message: AgentMessage) -> bool:
@@ -170,7 +185,7 @@ class CommunicationProtocol:
                 connection_manager.agent_inboxes[message.receiver_id].append(message_data)
                 logger.info("Queued message for offline agent %s", message.receiver_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error sending message to %s: %s", message.receiver_id, e)
             return False
 
@@ -180,7 +195,7 @@ class CommunicationProtocol:
             connection_manager = get_connection_manager()
             await connection_manager.broadcast(message.to_dict())
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error broadcasting message: %s", e)
             return False
 

@@ -14,6 +14,21 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
+
 
 @dataclass
 class LearningExperience:
@@ -77,7 +92,7 @@ class RealTimeLearningSystem:
                 "experience_id": experience.experience_id,
                 "recorded_at": experience.timestamp.isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error recording experience: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -101,7 +116,7 @@ class RealTimeLearningSystem:
             self._update_predictive_models(patterns)
             self._optimize_system_parameters(patterns)
             logger.info("Adaptive learning triggered successfully")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error in adaptive learning: %s", e)
 
     def _analyze_patterns(self, experiences: list[LearningExperience]) -> dict[str, Any]:
@@ -176,7 +191,7 @@ class RealTimeLearningSystem:
                 "confidence": confidence,
                 "based_on": f"{len(similar_experiences)} similar experiences",
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error predicting performance: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -234,7 +249,7 @@ class RealTimeLearningSystem:
                 "adaptation_threshold": self.adaptation_threshold,
                 "last_adaptation": self._get_last_adaptation_time(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting learning statistics: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -268,7 +283,7 @@ class RealTimeLearningSystem:
                 "all_predictions": action_predictions,
                 "reasoning": f"Based on {len(self.experiences)} historical experiences",
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error recommending action: %s", e)
             return {"status": "error", "message": str(e)}
 
