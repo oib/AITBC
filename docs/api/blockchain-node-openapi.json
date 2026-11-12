@@ -10773,6 +10773,11 @@
         "summary": "List all registered GPUs",
         "description": "List GPUs registered on blockchain (bounded \u2014 sibling list convention).",
         "operationId": "list_gpus_rpc_gpus_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -10840,6 +10845,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -10862,6 +10877,11 @@
         "summary": "Query GPU allocations",
         "description": "Query GPU allocations from blockchain.",
         "operationId": "get_gpu_allocations_rpc_gpu_allocations__gpu_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "gpu_id",
@@ -10908,6 +10928,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11042,6 +11072,11 @@
         "summary": "Query GPU registration",
         "description": "Query GPU registration from blockchain.",
         "operationId": "get_gpu_rpc_gpu_info__gpu_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "gpu_id",
@@ -11088,6 +11123,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11340,6 +11385,11 @@
         "summary": "Query edge node registration",
         "description": "Query edge node registration from blockchain (v0.6.6).",
         "operationId": "get_edge_node_rpc_edge_info__node_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "node_id",
@@ -11390,6 +11440,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Edge node {node_id} not found",
             "content": {
@@ -11422,6 +11482,11 @@
         "summary": "List edge node registrations",
         "description": "List edge node registrations for the chain.\n\nRead-only. Exists so wave-Y row B4 (\"edge_node_registration has no stray\nrows\") and similar checks can count committed rows through the RPC without\ntouching the chain database file \u2014 every field returned is the public\nregistration record already produced by ``POST /rpc/edge/register``.\nRows are bounded like the other list endpoints (#1626); ``total`` still\nreports the full committed count so row-count checks stay exact.",
         "operationId": "list_edge_nodes_rpc_edge_nodes_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -11469,6 +11534,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11570,6 +11645,11 @@
         "summary": "List AI jobs",
         "description": "Get list of AI jobs, optionally filtered by wallet address or status.\n\n``cursor`` takes a previous ``next_cursor`` and pages by keyset over\n``(created_at, id)`` \u2014 immune to rows inserted between calls. ``offset``\ncounts *matching* jobs (post status-trim), which also fixes the fuzzy\npre-filter offset semantics this endpoint used to have.",
         "operationId": "ai_list_jobs_rpc_ai_jobs_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "wallet_address",
@@ -11673,6 +11753,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -11695,6 +11785,11 @@
         "summary": "Get AI job by ID",
         "description": "Get a specific AI job by ID",
         "operationId": "ai_get_job_rpc_ai_job__job_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "job_id",
@@ -11725,6 +11820,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11870,6 +11975,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -11880,7 +11995,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/mining/start": {
@@ -22861,6 +22981,11 @@
         "summary": "List all registered GPUs",
         "description": "List GPUs registered on blockchain (bounded \u2014 sibling list convention).",
         "operationId": "list_gpus_v1_gpus_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -22928,6 +23053,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -22950,6 +23085,11 @@
         "summary": "Query GPU allocations",
         "description": "Query GPU allocations from blockchain.",
         "operationId": "get_gpu_allocations_v1_gpu_allocations__gpu_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "gpu_id",
@@ -22996,6 +23136,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -23130,6 +23280,11 @@
         "summary": "Query GPU registration",
         "description": "Query GPU registration from blockchain.",
         "operationId": "get_gpu_v1_gpu_info__gpu_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "gpu_id",
@@ -23176,6 +23331,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -23428,6 +23593,11 @@
         "summary": "Query edge node registration",
         "description": "Query edge node registration from blockchain (v0.6.6).",
         "operationId": "get_edge_node_v1_edge_info__node_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "node_id",
@@ -23478,6 +23648,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Edge node {node_id} not found",
             "content": {
@@ -23510,6 +23690,11 @@
         "summary": "List edge node registrations",
         "description": "List edge node registrations for the chain.\n\nRead-only. Exists so wave-Y row B4 (\"edge_node_registration has no stray\nrows\") and similar checks can count committed rows through the RPC without\ntouching the chain database file \u2014 every field returned is the public\nregistration record already produced by ``POST /rpc/edge/register``.\nRows are bounded like the other list endpoints (#1626); ``total`` still\nreports the full committed count so row-count checks stay exact.",
         "operationId": "list_edge_nodes_v1_edge_nodes_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -23557,6 +23742,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -23658,6 +23853,11 @@
         "summary": "List AI jobs",
         "description": "Get list of AI jobs, optionally filtered by wallet address or status.\n\n``cursor`` takes a previous ``next_cursor`` and pages by keyset over\n``(created_at, id)`` \u2014 immune to rows inserted between calls. ``offset``\ncounts *matching* jobs (post status-trim), which also fixes the fuzzy\npre-filter offset semantics this endpoint used to have.",
         "operationId": "ai_list_jobs_v1_ai_jobs_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "wallet_address",
@@ -23761,6 +23961,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -23783,6 +23993,11 @@
         "summary": "Get AI job by ID",
         "description": "Get a specific AI job by ID",
         "operationId": "ai_get_job_v1_ai_job__job_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "job_id",
@@ -23813,6 +24028,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -23958,6 +24183,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -23968,7 +24203,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/mining/start": {

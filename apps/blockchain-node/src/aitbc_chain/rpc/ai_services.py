@@ -11,7 +11,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
-from fastapi import HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import ColumnElement, and_, literal_column, or_
 from sqlmodel import col, func as sql_func
@@ -26,6 +26,7 @@ from ..database import session_scope
 from ..keyset import cursor_dt, parse_or_400
 from ..logger import get_logger
 from ..metrics import metrics_registry
+from .escrow_routes import verify_rpc_peer_key
 from .router import router
 
 _logger = get_logger(__name__)
@@ -305,7 +306,7 @@ def _scan_job_candidates(session, stmt, cancelled_ids: set[str], status: str | N
     return collected, last_key, exhausted
 
 
-@router.get("/ai/jobs", summary="List AI jobs", tags=["ai"])
+@router.get("/ai/jobs", summary="List AI jobs", tags=["ai"], dependencies=[Depends(verify_rpc_peer_key)])
 def ai_list_jobs(
     wallet_address: str | None = None,
     status: str | None = None,
@@ -378,7 +379,7 @@ def ai_list_jobs(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/ai/job/{job_id}", summary="Get AI job by ID", tags=["ai"])
+@router.get("/ai/job/{job_id}", summary="Get AI job by ID", tags=["ai"], dependencies=[Depends(verify_rpc_peer_key)])
 def ai_get_job(job_id: str) -> dict[str, Any]:
     """Get a specific AI job by ID"""
     try:
@@ -491,7 +492,7 @@ def ai_cancel_job(job_id: str, cancel: AIJobCancelRequest, request: Request) -> 
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/ai/stats", summary="AI service statistics", tags=["ai"])
+@router.get("/ai/stats", summary="AI service statistics", tags=["ai"], dependencies=[Depends(verify_rpc_peer_key)])
 def ai_stats() -> dict[str, Any]:
     """Get AI service statistics"""
     try:
