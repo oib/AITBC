@@ -60,85 +60,98 @@ class AgentStateManager:
 
     def __init__(self, session: Session) -> None:
         self.session = session
+        # Session is sync SQLModel used via run_in_threadpool; concurrent
+        # coroutines would otherwise touch it from different worker threads
+        # at once (sqlite3.InterfaceError / unsafe cross-thread session use).
+        self._lock = asyncio.Lock()
 
     async def create_execution(
         self, workflow_id: str, client_id: str, verification_level: VerificationLevel = VerificationLevel.BASIC
     ) -> AgentExecution:
         """Create a new agent execution record"""
-        resolved_client_id, client_ref = await run_in_threadpool(resolve_client, self.session, client_id, auto_create=True)
-        execution = AgentExecution(
-            workflow_id=workflow_id,
-            client_id=resolved_client_id,
-            client_ref=client_ref,
-            verification_level=verification_level,
-        )
-        self.session.add(execution)
-        (await run_in_threadpool(self.session.commit))
-        (await run_in_threadpool(self.session.refresh, execution))
-        logger.info("Created agent execution: %s", execution.id)
-        return execution
+        async with self._lock:
+            resolved_client_id, client_ref = await run_in_threadpool(resolve_client, self.session, client_id, auto_create=True)
+            execution = AgentExecution(
+                workflow_id=workflow_id,
+                client_id=resolved_client_id,
+                client_ref=client_ref,
+                verification_level=verification_level,
+            )
+            self.session.add(execution)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, execution))
+            logger.info("Created agent execution: %s", execution.id)
+            return execution
 
     async def update_execution_status(self, execution_id: str, status: AgentStatus, **kwargs: Any) -> AgentExecution:
         """Update execution status and related fields"""
-        stmt = (
-            update(AgentExecution)
-            .where(
-                col(AgentExecution.id) == execution_id,
-                col(AgentExecution.status).in_(_EXECUTION_ACTIVE_STATUSES),
+        async with self._lock:
+            stmt = (
+                update(AgentExecution)
+                .where(
+                    col(AgentExecution.id) == execution_id,
+                    col(AgentExecution.status).in_(_EXECUTION_ACTIVE_STATUSES),
+                )
+                .values(status=status, updated_at=datetime.now(UTC), **kwargs)
+                .execution_options(synchronize_session=False)
             )
-            .values(status=status, updated_at=datetime.now(UTC), **kwargs)
-            .execution_options(synchronize_session=False)
-        )
-        result = await run_in_threadpool(self.session.execute, stmt)
-        await run_in_threadpool(self.session.commit)
-        execution = await run_in_threadpool(self.session.get, AgentExecution, execution_id)
-        if execution is None:
-            raise ValueError(f"Execution {execution_id} not found after update")
-        if getattr(result, "rowcount", 0) != 1:
-            logger.info(
-                "Skipped stale execution status update for %s (current=%s, attempted=%s)",
-                execution_id,
-                execution.status,
-                status,
-            )
+            result = await run_in_threadpool(self.session.execute, stmt)
+            await run_in_threadpool(self.session.commit)
+            execution = await run_in_threadpool(self.session.get, AgentExecution, execution_id)
+            if execution is None:
+                raise ValueError(f"Execution {execution_id} not found after update")
+            if getattr(result, "rowcount", 0) != 1:
+                logger.info(
+                    "Skipped stale execution status update for %s (current=%s, attempted=%s)",
+                    execution_id,
+                    execution.status,
+                    status,
+                )
+                return execution
+            logger.info("Updated execution %s status to %s", execution_id, status)
             return execution
-        logger.info("Updated execution %s status to %s", execution_id, status)
-        return execution
 
     async def get_execution(self, execution_id: str) -> AgentExecution | None:
         """Get execution by ID"""
-        return await run_in_threadpool(self.session.get, AgentExecution, execution_id)
+        async with self._lock:
+            return await run_in_threadpool(self.session.get, AgentExecution, execution_id)
 
     async def get_workflow(self, workflow_id: str) -> AIAgentWorkflow | None:
         """Get workflow by ID"""
-        return await run_in_threadpool(self.session.get, AIAgentWorkflow, workflow_id)
+        async with self._lock:
+            return await run_in_threadpool(self.session.get, AIAgentWorkflow, workflow_id)
 
     async def get_workflow_steps(self, workflow_id: str) -> list[AgentStep]:
         """Get all steps for a workflow"""
-        stmt = select(AgentStep).where(AgentStep.workflow_id == workflow_id).order_by(AgentStep.step_order)  # type: ignore[arg-type]
-        return (await run_in_threadpool(self.session.execute, stmt)).scalars().all()  # type: ignore[return-value]
+        async with self._lock:
+            stmt = (
+                select(AgentStep).where(AgentStep.workflow_id == workflow_id).order_by(AgentStep.step_order)  # type: ignore[arg-type]
+            )
+            return (await run_in_threadpool(self.session.execute, stmt)).scalars().all()  # type: ignore[return-value]
 
     async def create_step_execution(self, execution_id: str, step_id: str) -> AgentStepExecution:
         """Create a step execution record"""
-        step_execution = AgentStepExecution(execution_id=execution_id, step_id=step_id)
-        self.session.add(step_execution)
-        (await run_in_threadpool(self.session.commit))
-        (await run_in_threadpool(self.session.refresh, step_execution))
-        return step_execution
+        async with self._lock:
+            step_execution = AgentStepExecution(execution_id=execution_id, step_id=step_id)
+            self.session.add(step_execution)
+            (await run_in_threadpool(self.session.commit))
+            (await run_in_threadpool(self.session.refresh, step_execution))
+            return step_execution
 
     async def update_step_execution(self, step_execution_id: str, **kwargs: Any) -> AgentStepExecution:
         """Update step execution"""
-        stmt = (
-            update(AgentStepExecution)
-            .where(AgentStepExecution.id == step_execution_id)  # type: ignore[arg-type]
-            .values(updated_at=datetime.now(UTC), **kwargs)
-        )
-        (await run_in_threadpool(self.session.execute, stmt))
-        (await run_in_threadpool(self.session.commit))
-        step_execution = await run_in_threadpool(self.session.get, AgentStepExecution, step_execution_id)
-        if step_execution is None:
-            raise ValueError(f"Step execution {step_execution_id} not found after update")
-        return step_execution
+        async with self._lock:
+            stmt = (
+                update(AgentStepExecution)
+                .where(AgentStepExecution.id == step_execution_id)  # type: ignore[arg-type]
+                .values(updated_at=datetime.now(UTC), **kwargs)
+            )
+            (await run_in_threadpool(self.session.execute, stmt))
+            await run_in_threadpool(self.session.commit)
+            step_execution = await run_in_threadpool(self.session.get, AgentStepExecution, step_execution_id)
+            if step_execution is None:
+                raise ValueError(f"Step execution {step_execution_id} not found after update")
+            return step_execution
 
 
 class AgentVerifier:
