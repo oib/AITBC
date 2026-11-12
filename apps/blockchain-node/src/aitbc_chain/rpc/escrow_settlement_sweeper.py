@@ -186,6 +186,17 @@ def sweep_once(session, now: datetime, proposer_pending: set[str] | None) -> dic
     Returns counters for logging.
     """
     stats = {"rows": 0, "verified": 0, "demoted": 0, "remarked": 0, "skipped_locked": 0}
+    rows, sealed_map, by_job = _sweep_scan(session)
+    for row in rows:
+        stats["rows"] += 1
+        _sweep_reconcile_row(session, row, sealed_map, by_job, now, proposer_pending, stats)
+    return stats
+
+
+def _sweep_scan(session):
+    """Phase 1+2 of sweep_once: the claim rows, then every stored claim hash
+    resolved against the sealed table plus one bounded job-id probe for legs
+    still unresolved."""
     rows = session.exec(
         select(Escrow).where(
             (Escrow.released_at.is_not(None))  # type: ignore[union-attr]
@@ -208,82 +219,93 @@ def sweep_once(session, now: datetime, proposer_pending: set[str] | None) -> dic
             if (stored or "") not in sealed_map:
                 unmatched.append((r.job_id, tx_type))
     by_job = _sealed_by_jobs(session, unmatched)
+    return rows, sealed_map, by_job
 
-    for row in rows:
-        stats["rows"] += 1
-        # Serialise with the routes (#831): the same stripe flock the release/
-        # refund path polls, then a refresh so a settlement that landed between
-        # the SELECT and the lock is seen on fresh attributes. A contended row
-        # is skipped this tick — the next pass catches it.
-        with escrow_row_lock(session, row.job_id) as locked:
-            if not locked:
-                stats["skipped_locked"] += 1
-                continue
-            session.refresh(row)
-            changed = False
-            for leg_mark, leg_hash, leg_amount, tx_type, leg_status in (
-                ("released_at", "release_tx_hash", "released_amount", "ESCROW_RELEASE", "released"),
-                ("refunded_at", "refund_tx_hash", "refunded_amount", "ESCROW_REFUND", "refunded"),
-            ):
-                mark = getattr(row, leg_mark)
-                stored = getattr(row, leg_hash)
-                stored_sealed = sealed_map.get(stored) if stored else None
-                leg_tx = stored_sealed or by_job.get((row.job_id, tx_type))
-                if leg_tx is not None:
-                    if mark is None:
-                        # Re-mark only: the leg was unmarked (demoted, status-only,
-                        # or hash-only claim) and its settlement is proven. Fill
-                        # the hash when absent or itself unsealed — a stored hash
-                        # that IS sealed is never overwritten.
-                        setattr(row, leg_mark, leg_tx.created_at)
-                        if stored_sealed is None and stored != leg_tx.tx_hash:
-                            setattr(row, leg_hash, leg_tx.tx_hash)
-                        changed = True
-                        stats["remarked"] += 1
-                    else:
-                        # Verified healthy: the mark stands and the settlement is
-                        # sealed — nothing on the row is touched.
-                        stats["verified"] += 1
-                    if getattr(row, leg_amount) is None:
-                        # A sealed leg proves the amount too — marking only
-                        # time+hash leaves released rows in the change pass's
-                        # refunded_amount-IS-NULL scan forever, and a demote that
-                        # cleared the amount must heal when the leg seals.
-                        setattr(row, leg_amount, leg_tx.value or 0)
-                        changed = True
-                    continue
-                # Unsealed leg. Claimed by its timestamp mark or by status alone
-                # (the detector's claim channels). A claim without a timestamp
-                # cannot prove recency, so it is stale by definition — the
-                # illegible-timestamp rule, mirrored.
-                claimed = _claiming(row, leg_status, mark)
-                stale = mark is None or _mark_age_seconds(mark, now) > _MAX_AGE_SECONDS
-                if claimed and stale and proposer_pending is not None and (stored or "") not in proposer_pending:
-                    if mark is not None:
-                        setattr(row, leg_mark, None)
-                    if getattr(row, leg_amount) is not None:
-                        # The amount makes the same settlement claim as the mark:
-                        # a demoted leg proves it never sealed, so the amount must
-                        # not keep reporting money as moved (C21 I1).
-                        setattr(row, leg_amount, None)
-                    changed = True
-                    stats["demoted"] += 1
 
-            if not changed:
-                continue
-            # Re-derive the single status from whatever legs still claim settled.
-            if row.released_at is not None:
-                row.status = "released"
-            elif row.refunded_at is not None:
-                row.status = "refunded"
-            elif row.status in _SETTLED_STATUSES:
-                row.status = "settlement_failed"
-            # The lifecycle column follows the legs, not the status: a demoted row still
-            # holds its funds (FUNDED) and a re-marked one is settled again.
-            row.state = row_state_for(row.released_at, row.refunded_at)
-            session.add(row)
-            session.commit()
-    return stats
+def _sweep_reconcile_row(
+    session, row: Escrow, sealed_map: dict, by_job: dict, now: datetime, proposer_pending, stats: dict
+) -> None:
+    # Serialise with the routes (#831): the same stripe flock the release/
+    # refund path polls, then a refresh so a settlement that landed between
+    # the SELECT and the lock is seen on fresh attributes. A contended row
+    # is skipped this tick — the next pass catches it.
+    with escrow_row_lock(session, row.job_id) as locked:
+        if not locked:
+            stats["skipped_locked"] += 1
+            return
+        session.refresh(row)
+        changed = False
+        for leg in (
+            ("released_at", "release_tx_hash", "released_amount", "ESCROW_RELEASE", "released"),
+            ("refunded_at", "refund_tx_hash", "refunded_amount", "ESCROW_REFUND", "refunded"),
+        ):
+            if _sweep_leg(row, leg, sealed_map, by_job, now, proposer_pending, stats):
+                changed = True
+        if not changed:
+            return
+        # Re-derive the single status from whatever legs still claim settled.
+        if row.released_at is not None:
+            row.status = "released"
+        elif row.refunded_at is not None:
+            row.status = "refunded"
+        elif row.status in _SETTLED_STATUSES:
+            row.status = "settlement_failed"
+        # The lifecycle column follows the legs, not the status: a demoted row still
+        # holds its funds (FUNDED) and a re-marked one is settled again.
+        row.state = row_state_for(row.released_at, row.refunded_at)
+        session.add(row)
+        session.commit()
+
+
+def _sweep_leg(row: Escrow, leg, sealed_map: dict, by_job: dict, now: datetime, proposer_pending, stats: dict) -> bool:
+    """Reconcile one settlement leg of ``row`` against the sealed table.
+    Returns True when the row was mutated (remark, amount heal, or demote)."""
+    leg_mark, leg_hash, leg_amount, tx_type, leg_status = leg
+    mark = getattr(row, leg_mark)
+    stored = getattr(row, leg_hash)
+    stored_sealed = sealed_map.get(stored) if stored else None
+    leg_tx = stored_sealed or by_job.get((row.job_id, tx_type))
+    if leg_tx is not None:
+        mutated = False
+        if mark is None:
+            # Re-mark only: the leg was unmarked (demoted, status-only,
+            # or hash-only claim) and its settlement is proven. Fill
+            # the hash when absent or itself unsealed — a stored hash
+            # that IS sealed is never overwritten.
+            setattr(row, leg_mark, leg_tx.created_at)
+            if stored_sealed is None and stored != leg_tx.tx_hash:
+                setattr(row, leg_hash, leg_tx.tx_hash)
+            stats["remarked"] += 1
+            mutated = True
+        else:
+            # Verified healthy: the mark stands and the settlement is
+            # sealed — nothing on the row is touched.
+            stats["verified"] += 1
+        if getattr(row, leg_amount) is None:
+            # A sealed leg proves the amount too — marking only
+            # time+hash leaves released rows in the change pass's
+            # refunded_amount-IS-NULL scan forever, and a demote that
+            # cleared the amount must heal when the leg seals.
+            setattr(row, leg_amount, leg_tx.value or 0)
+            mutated = True
+        return mutated
+    # Unsealed leg. Claimed by its timestamp mark or by status alone
+    # (the detector's claim channels). A claim without a timestamp
+    # cannot prove recency, so it is stale by definition — the
+    # illegible-timestamp rule, mirrored.
+    claimed = _claiming(row, leg_status, mark)
+    stale = mark is None or _mark_age_seconds(mark, now) > _MAX_AGE_SECONDS
+    if claimed and stale and proposer_pending is not None and (stored or "") not in proposer_pending:
+        if mark is not None:
+            setattr(row, leg_mark, None)
+        if getattr(row, leg_amount) is not None:
+            # The amount makes the same settlement claim as the mark:
+            # a demoted leg proves it never sealed, so the amount must
+            # not keep reporting money as moved (C21 I1).
+            setattr(row, leg_amount, None)
+        stats["demoted"] += 1
+        return True
+    return False
 
 
 # --------------------------------------------------------------------------
@@ -627,39 +649,7 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
             _count_fee_pass(stats)
             return stats
         now = now or datetime.now(UTC)
-        global _fee_pass_watermark
-        candidates: list[_FeeSweepCandidate] = []
-        sel: dict[str, int] = {}
-
-        def _load_fee_candidates() -> None:
-            nonlocal candidates, sel
-            global _fee_pass_watermark
-            with session_scope() as session:
-                candidates, sel, _fee_pass_watermark = fee_sweep_candidates(
-                    session,
-                    now,
-                    max_jobs=settings.escrow_fee_sweep_pass_max_jobs,
-                    grace_seconds=settings.escrow_fee_sweep_pass_grace_seconds,
-                    min_height=settings.escrow_fee_sweep_pass_min_height,
-                    after_job_id=_fee_pass_watermark,
-                )
-                if _pass_submit_failures:
-                    # F2: drop backoff entries for jobs absent from the eligible
-                    # set — without this the map grows by one stale entry per
-                    # departed job forever. Eligible jobs inside the scan window
-                    # keep their backoff.
-                    eligible_ids = set(
-                        _floor_eligible_job_ids(
-                            session,
-                            settings.escrow_fee_sweep_pass_min_height,
-                            "",
-                            _FAILURE_PRUNE_SCAN_LIMIT,
-                        )
-                    )
-                    for stale in [j for j in _pass_submit_failures if j not in eligible_ids]:
-                        del _pass_submit_failures[stale]
-
-        await run_in_threadpool(_load_fee_candidates)
+        candidates, sel = await run_in_threadpool(_load_fee_candidates, now)
         for key in (
             "skipped_floor",
             "no_row",
@@ -679,61 +669,97 @@ async def _fee_sweep_pass_once(now: datetime | None = None) -> dict[str, int]:
             _count_fee_pass(stats)
             return stats
         authority = settlement_address.lower()
-        # Mempool entries are the submitted tx dicts verbatim — the sender key
-        # is "from" (mempool._tx_sender accepts "from" or "sender"); reading
-        # "sender" alone matches nothing real.
-        if any(
-            str(tx.get("from") or tx.get("sender") or "").lower() == authority
-            or str(tx.get("type") or "").startswith("ESCROW_")
-            for tx in pending
-        ):
+        if _pending_blocks_authority(pending, authority):
             stats["deferred_pending"] += 1
             _count_fee_pass(stats)
             return stats
-        dry_run = _fee_sweep_pass_dry_run()
-        now_ts = now.timestamp()
-        for cand in candidates:
-            failures, retry_at = _pass_submit_failures.get(cand.job_id, (0, 0.0))
-            if now_ts < retry_at:
-                stats["deferred_backoff"] += 1
-                continue
-            custody = await escrow_routes._escrow_custody_balance(cand.job_id)
-            if custody is None or custody != cand.expected_units:
-                stats["deferred_custody"] += 1
-                continue
-            if dry_run:
-                _logger.info(
-                    "ESCROW_FEE_SWEEP pass [dry-run] would sweep job_id=%s residue=%s (fee bound %s)",
-                    cand.job_id,
-                    cand.expected_units,
-                    cand.fee_bound_units,
-                )
-                stats["dry_run"] += 1
-                continue
-            tx_hash = await escrow_routes._submit_fee_sweep_tx(cand.job_id, cand.job_id, cand.expected_units)
-            if tx_hash:
-                _logger.info(
-                    "ESCROW_FEE_SWEEP pass submitted job_id=%s residue=%s tx=%s",
-                    cand.job_id,
-                    cand.expected_units,
-                    tx_hash,
-                )
-                _pass_submit_failures.pop(cand.job_id, None)
-                stats["submitted"] += 1
-            else:
-                # D9: exponential backoff per job — a permanently rejected
-                # sweep backs off instead of resubmitting every tick.
-                _pass_submit_failures[cand.job_id] = (
-                    failures + 1,
-                    now_ts + min(_FEE_PASS_BACKOFF_BASE_S * (2**failures), _FEE_PASS_BACKOFF_MAX_S),
-                )
-                stats["error"] += 1
-            break  # at most one submission per pass
+        await _submit_fee_sweep_candidates(candidates, stats, _fee_sweep_pass_dry_run(), now.timestamp())
     except Exception as e:  # noqa: BLE001 - pass containment: one bad pass must not kill the sweeper
         _logger.warning("ESCROW_FEE_SWEEP pass failed: %s", e)
         stats["error"] += 1
     _count_fee_pass(stats)
     return stats
+
+
+def _load_fee_candidates(now: datetime) -> tuple[list[_FeeSweepCandidate], dict[str, int]]:
+    global _fee_pass_watermark
+    with session_scope() as session:
+        candidates, sel, _fee_pass_watermark = fee_sweep_candidates(
+            session,
+            now,
+            max_jobs=settings.escrow_fee_sweep_pass_max_jobs,
+            grace_seconds=settings.escrow_fee_sweep_pass_grace_seconds,
+            min_height=settings.escrow_fee_sweep_pass_min_height,
+            after_job_id=_fee_pass_watermark,
+        )
+        if _pass_submit_failures:
+            # F2: drop backoff entries for jobs absent from the eligible
+            # set — without this the map grows by one stale entry per
+            # departed job forever. Eligible jobs inside the scan window
+            # keep their backoff.
+            eligible_ids = set(
+                _floor_eligible_job_ids(
+                    session,
+                    settings.escrow_fee_sweep_pass_min_height,
+                    "",
+                    _FAILURE_PRUNE_SCAN_LIMIT,
+                )
+            )
+            for stale in [j for j in _pass_submit_failures if j not in eligible_ids]:
+                del _pass_submit_failures[stale]
+    return candidates, sel
+
+
+def _pending_blocks_authority(pending: list[dict], authority: str) -> bool:
+    # Mempool entries are the submitted tx dicts verbatim — the sender key
+    # is "from" (mempool._tx_sender accepts "from" or "sender"); reading
+    # "sender" alone matches nothing real.
+    return any(
+        str(tx.get("from") or tx.get("sender") or "").lower() == authority or str(tx.get("type") or "").startswith("ESCROW_")
+        for tx in pending
+    )
+
+
+async def _submit_fee_sweep_candidates(
+    candidates: list[_FeeSweepCandidate], stats: dict[str, int], dry_run: bool, now_ts: float
+) -> None:
+    for cand in candidates:
+        failures, retry_at = _pass_submit_failures.get(cand.job_id, (0, 0.0))
+        if now_ts < retry_at:
+            stats["deferred_backoff"] += 1
+            continue
+        custody = await escrow_routes._escrow_custody_balance(cand.job_id)
+        if custody is None or custody != cand.expected_units:
+            stats["deferred_custody"] += 1
+            continue
+        if dry_run:
+            _logger.info(
+                "ESCROW_FEE_SWEEP pass [dry-run] would sweep job_id=%s residue=%s (fee bound %s)",
+                cand.job_id,
+                cand.expected_units,
+                cand.fee_bound_units,
+            )
+            stats["dry_run"] += 1
+            continue
+        tx_hash = await escrow_routes._submit_fee_sweep_tx(cand.job_id, cand.job_id, cand.expected_units)
+        if tx_hash:
+            _logger.info(
+                "ESCROW_FEE_SWEEP pass submitted job_id=%s residue=%s tx=%s",
+                cand.job_id,
+                cand.expected_units,
+                tx_hash,
+            )
+            _pass_submit_failures.pop(cand.job_id, None)
+            stats["submitted"] += 1
+        else:
+            # D9: exponential backoff per job — a permanently rejected
+            # sweep backs off instead of resubmitting every tick.
+            _pass_submit_failures[cand.job_id] = (
+                failures + 1,
+                now_ts + min(_FEE_PASS_BACKOFF_BASE_S * (2**failures), _FEE_PASS_BACKOFF_MAX_S),
+            )
+            stats["error"] += 1
+        break  # at most one submission per pass
 
 
 def _count_fee_pass(stats: dict[str, int]) -> None:
@@ -956,29 +982,7 @@ async def _change_pass_once(now: datetime | None = None) -> dict[str, int]:
             _count_change_pass(stats)
             return stats
         now = now or datetime.now(UTC)
-        global _change_pass_watermark
-        candidates: list[_ChangeCandidate] = []
-        sel: dict[str, int] = {}
-
-        def _load_change_candidates() -> None:
-            nonlocal candidates, sel
-            global _change_pass_watermark
-            with session_scope() as session:
-                candidates, sel, _change_pass_watermark = change_owed_candidates(
-                    session,
-                    now,
-                    max_jobs=settings.escrow_fee_sweep_pass_max_jobs,
-                    min_height=settings.escrow_fee_sweep_pass_min_height,
-                    after_job_id=_change_pass_watermark,
-                )
-                if _change_pass_failures:
-                    # Same prune rule as the fee pass: drop backoff entries for
-                    # jobs absent from the eligible (released, unmarked) set.
-                    eligible_ids = set(_released_unmarked_job_ids(session, "", _FAILURE_PRUNE_SCAN_LIMIT))
-                    for stale in [j for j in _change_pass_failures if j not in eligible_ids]:
-                        del _change_pass_failures[stale]
-
-        await run_in_threadpool(_load_change_candidates)
+        candidates, sel = await run_in_threadpool(_load_change_candidates, now)
         for key, n in sel.items():
             stats[key] += n
         if not candidates:
@@ -990,80 +994,94 @@ async def _change_pass_once(now: datetime | None = None) -> dict[str, int]:
             _count_change_pass(stats)
             return stats
         authority = settlement_address.lower()
-        if any(
-            str(tx.get("from") or tx.get("sender") or "").lower() == authority
-            or str(tx.get("type") or "").startswith("ESCROW_")
-            for tx in pending
-        ):
+        if _pending_blocks_authority(pending, authority):
             stats["deferred_pending"] += 1
             _count_change_pass(stats)
             return stats
-        dry_run = _change_pass_dry_run()
-        now_ts = now.timestamp()
-        for cand in candidates:
-            failures, retry_at = _change_pass_failures.get(cand.job_id, (0, 0.0))
-            if now_ts < retry_at:
-                stats["deferred_backoff"] += 1
-                continue
-            custody = await escrow_routes._escrow_custody_balance(cand.job_id)
-            if custody is None or custody != cand.custody_units:
-                stats["deferred_custody"] += 1
-                continue
-            if dry_run:
-                _logger.info(
-                    "ESCROW change pass [dry-run] would refund job_id=%s owed=%s to %s",
-                    cand.job_id,
-                    cand.owed_units,
-                    cand.buyer_address,
-                )
-                stats["dry_run"] += 1
-                continue
-            # A6c: re-probe immediately before signing — the earlier check is
-            # a stale snapshot by the time this candidate is reached. The
-            # residual race is a route release landing between this probe and
-            # the POST below; it cannot be closed by a lock around sign+POST
-            # either, because _get_account_nonce reads sealed state only —
-            # a second leg signed while the first is still pending would read
-            # the same sealed nonce and collide anyway. Pending or probe
-            # failure means no authority leg can be signed this tick — done.
-            pending = await _proposer_pending_txs()
-            if pending is None or any(
-                str(tx.get("from") or tx.get("sender") or "").lower() == authority
-                or str(tx.get("type") or "").startswith("ESCROW_")
-                for tx in pending
-            ):
-                stats["deferred_pending"] += 1
-                _count_change_pass(stats)
-                return stats
-            contract_id = await escrow_routes._find_contract_id(get_escrow_manager(), cand.job_id)
-            tx_hash = await escrow_routes._submit_refund_tx(
-                cand.buyer_address,
-                cand.provider_address,
-                units_to_ait(cand.owed_units),
-                cand.job_id,
-                contract_id or "",
-            )
-            if tx_hash:
-                _logger.info(
-                    "ESCROW change pass submitted job_id=%s owed=%s tx=%s",
-                    cand.job_id,
-                    cand.owed_units,
-                    tx_hash,
-                )
-                _change_pass_failures.pop(cand.job_id, None)
-                stats["submitted"] += 1
-            else:
-                _change_pass_failures[cand.job_id] = (
-                    failures + 1,
-                    now_ts + min(_FEE_PASS_BACKOFF_BASE_S * (2**failures), _FEE_PASS_BACKOFF_MAX_S),
-                )
-                stats["error"] += 1
-            break  # at most one submission per pass
+        await _submit_change_candidates(candidates, stats, authority, _change_pass_dry_run(), now.timestamp())
     except Exception as e:  # noqa: BLE001 - pass containment: one bad pass must not kill the sweeper
         _logger.warning("ESCROW change pass failed: %s", e)
         stats["error"] += 1
     _count_change_pass(stats)
     return stats
+
+
+def _load_change_candidates(now: datetime) -> tuple[list[_ChangeCandidate], dict[str, int]]:
+    global _change_pass_watermark
+    with session_scope() as session:
+        candidates, sel, _change_pass_watermark = change_owed_candidates(
+            session,
+            now,
+            max_jobs=settings.escrow_fee_sweep_pass_max_jobs,
+            min_height=settings.escrow_fee_sweep_pass_min_height,
+            after_job_id=_change_pass_watermark,
+        )
+        if _change_pass_failures:
+            # Same prune rule as the fee pass: drop backoff entries for
+            # jobs absent from the eligible (released, unmarked) set.
+            eligible_ids = set(_released_unmarked_job_ids(session, "", _FAILURE_PRUNE_SCAN_LIMIT))
+            for stale in [j for j in _change_pass_failures if j not in eligible_ids]:
+                del _change_pass_failures[stale]
+    return candidates, sel
+
+
+async def _submit_change_candidates(
+    candidates: list[_ChangeCandidate], stats: dict[str, int], authority: str, dry_run: bool, now_ts: float
+) -> None:
+    for cand in candidates:
+        failures, retry_at = _change_pass_failures.get(cand.job_id, (0, 0.0))
+        if now_ts < retry_at:
+            stats["deferred_backoff"] += 1
+            continue
+        custody = await escrow_routes._escrow_custody_balance(cand.job_id)
+        if custody is None or custody != cand.custody_units:
+            stats["deferred_custody"] += 1
+            continue
+        if dry_run:
+            _logger.info(
+                "ESCROW change pass [dry-run] would refund job_id=%s owed=%s to %s",
+                cand.job_id,
+                cand.owed_units,
+                cand.buyer_address,
+            )
+            stats["dry_run"] += 1
+            continue
+        # A6c: re-probe immediately before signing — the earlier check is
+        # a stale snapshot by the time this candidate is reached. The
+        # residual race is a route release landing between this probe and
+        # the POST below; it cannot be closed by a lock around sign+POST
+        # either, because _get_account_nonce reads sealed state only —
+        # a second leg signed while the first is still pending would read
+        # the same sealed nonce and collide anyway. Pending or probe
+        # failure means no authority leg can be signed this tick — done.
+        pending = await _proposer_pending_txs()
+        if pending is None or _pending_blocks_authority(pending, authority):
+            stats["deferred_pending"] += 1
+            return
+        contract_id = await escrow_routes._find_contract_id(get_escrow_manager(), cand.job_id)
+        tx_hash = await escrow_routes._submit_refund_tx(
+            cand.buyer_address,
+            cand.provider_address,
+            units_to_ait(cand.owed_units),
+            cand.job_id,
+            contract_id or "",
+        )
+        if tx_hash:
+            _logger.info(
+                "ESCROW change pass submitted job_id=%s owed=%s tx=%s",
+                cand.job_id,
+                cand.owed_units,
+                tx_hash,
+            )
+            _change_pass_failures.pop(cand.job_id, None)
+            stats["submitted"] += 1
+        else:
+            _change_pass_failures[cand.job_id] = (
+                failures + 1,
+                now_ts + min(_FEE_PASS_BACKOFF_BASE_S * (2**failures), _FEE_PASS_BACKOFF_MAX_S),
+            )
+            stats["error"] += 1
+        break  # at most one submission per pass
 
 
 def _count_change_pass(stats: dict[str, int]) -> None:
