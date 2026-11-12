@@ -8,11 +8,29 @@ For existing databases with REAL columns, ``init_db()`` automatically
 migrates them to TEXT via table rebuild.
 """
 
+import logging
 import os
 import sqlite3
 from decimal import Decimal, InvalidOperation
 
 from aitbc.constants import DATA_DIR
+
+_logger = logging.getLogger(__name__)
+
+# Expected failure surface for the migration/add-column helpers below:
+# sqlite storage errors, filesystem errors, data-shape errors, and decimal
+# decode failures (InvalidOperation). RuntimeError covers abort-style raises
+# a caller re-aborts with; genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    sqlite3.Error,
+    InvalidOperation,
+)
 
 # Fixed-point representation for SQL comparisons.
 #
@@ -516,8 +534,8 @@ def _add_columns(cursor, table: str, column_defs: list) -> None:
     for column_def in column_defs:
         try:
             cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column_def}")  # hardcoded lists only
-        except Exception:  # nosec
-            pass
+        except _OPS_ERRORS:  # nosec
+            _logger.debug("add-column skipped for %s: %s", table, column_def, exc_info=True)
 
 
 def _migrate_money_columns(conn, cursor) -> None:
@@ -536,7 +554,7 @@ def _migrate_money_columns(conn, cursor) -> None:
                 import logging
 
                 logging.getLogger(__name__).info("Migrated %s REAL columns to TEXT", table)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             import logging
 
             logging.getLogger(__name__).warning("Could not migrate %s: %s", table, e)

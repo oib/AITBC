@@ -16,9 +16,11 @@ import asyncio
 import logging
 from collections import OrderedDict
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, ClassVar
 
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -36,6 +38,23 @@ from ..config import settings
 from ..domain.inter_chain import IslandRegistryEntry
 
 logger = logging.getLogger(__name__)
+
+# Expected failure surface for the per-chain sync fallback below: HTTP/RPC
+# I/O from the blockchain client (httpx), sqlalchemy session errors, offer
+# decode/Decimal failures, and data-shape errors. RuntimeError covers
+# abort-style raises; genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    InvalidOperation,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    SQLAlchemyError,
+)
 
 # Offer statuses that must never be served to clients (#1567): the chain
 # keeps deactivated/withdrawn registrations visible via /rpc/gpus, and the
@@ -230,7 +249,7 @@ class OfferSyncService:
                 "elapsed_seconds": elapsed,
             }
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             entry.is_syncing = False
             entry.error_count += 1
             self._cache.mark_syncing(chain_id, False)

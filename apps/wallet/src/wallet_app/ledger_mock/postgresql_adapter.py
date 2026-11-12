@@ -11,6 +11,19 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Expected failure surface below: psycopg2 DBAPI errors, JSON encode
+# (TypeError/ValueError), and data-shape errors. RuntimeError covers
+# abort-style raises; genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    psycopg2.Error,
+)
+
 
 class PostgreSQLLedgerAdapter:
     """PostgreSQL implementation of the wallet ledger"""
@@ -43,7 +56,7 @@ class PostgreSQLLedgerAdapter:
             cursor.close()
             logger.info("Created wallet: %s", wallet_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to create wallet %s: %s", wallet_id, e)
             if self.connection:
                 self.connection.rollback()
@@ -64,7 +77,7 @@ class PostgreSQLLedgerAdapter:
             if result:
                 return dict(result)
             return None
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get wallet %s: %s", wallet_id, e)
             return None
 
@@ -81,7 +94,7 @@ class PostgreSQLLedgerAdapter:
             result = [dict(row) for row in cursor.fetchall()]
             cursor.close()
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to list wallets: %s", e)
             return []
 
@@ -99,7 +112,7 @@ class PostgreSQLLedgerAdapter:
             cursor.close()
             logger.debug("Added event %s to wallet %s", event_type, wallet_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to add event to wallet %s: %s", wallet_id, e)
             if self.connection:
                 self.connection.rollback()
@@ -118,7 +131,7 @@ class PostgreSQLLedgerAdapter:
             result = [dict(row) for row in cursor.fetchall()]
             cursor.close()
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get events for wallet %s: %s", wallet_id, e)
             return []
 
@@ -136,7 +149,7 @@ class PostgreSQLLedgerAdapter:
             result = bool(cursor.rowcount > 0)
             cursor.close()
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to update metadata for wallet %s: %s", wallet_id, e)
             if self.connection:
                 self.connection.rollback()
@@ -156,7 +169,7 @@ class PostgreSQLLedgerAdapter:
             result = bool(cursor.rowcount > 0)
             cursor.close()
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to delete wallet %s: %s", wallet_id, e)
             if self.connection:
                 self.connection.rollback()
@@ -182,7 +195,7 @@ class PostgreSQLLedgerAdapter:
             }
             cursor.close()
             return {"total_wallets": total_wallets, "total_events": total_events, "event_types": event_types}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get wallet stats: %s", e)
             return {}
 

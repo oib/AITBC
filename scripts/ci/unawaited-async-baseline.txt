@@ -4,17 +4,13 @@ aitbc/auth/middleware.py	is_allowed	self.redis_client.zadd(key, {str(current_tim
 apps/agent-coordinator/src/agent_app/lifespan.py	lifespan	state.escrow_rpc.close()	1
 apps/agent-coordinator/src/agent_app/routers/messages.py	subscribe_to_topic	connection_manager.subscribe(req.agent_id, req.topic)	1
 apps/agent-coordinator/src/agent_app/routers/messages.py	unsubscribe_from_topic	connection_manager.unsubscribe(req.agent_id, req.topic)	1
-apps/agent-coordinator/src/agent_app/routers/tasks.py	complete_task	state.payment_escrow.release(entry.escrow_id, submitter=submitter)	1
 apps/agent-coordinator/src/agent_app/websocket/agent_stream.py	_dispatch_stream_message	self.connection_manager.subscribe(agent_id, topic)	1
 apps/agent-coordinator/src/agent_app/websocket/agent_stream.py	_dispatch_stream_message	self.connection_manager.unsubscribe(agent_id, topic)	1
 apps/agent-coordinator/src/agent_app/websocket/agent_stream.py	_load_subscriptions	self.subscribe(agent_id, topic)	1
 apps/blockchain-event-bridge/src/blockchain_event_bridge/action_handlers/agent_daemon.py	handle_transaction	tx_data.get("to")	1
 apps/blockchain-event-bridge/src/blockchain_event_bridge/action_handlers/agent_daemon.py	handle_transaction	tx_data.get("type", "unknown")	1
-apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py	run	event_queue_size.labels(topic="blocks").set(self._subscription.queue.qsize())	1
-apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py	run	gossip_subscribers_total.set(1)	1
 apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py	stop	gossip_subscribers_total.set(0)	1
 apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py	stop	self._subscription.close()	1
-apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/transactions.py	run	event_queue_size.labels(topic="transactions").set(self._subscription.queue.qsize())	1
 apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/transactions.py	stop	self._subscription.close()	1
 apps/blockchain-node/scripts/ws_load_test.py	run_load	stop_event.set()	1
 apps/blockchain-node/src/aitbc_chain/chain_sync.py	_receive_blocks	self._receiver_ready.set()	1
@@ -108,13 +104,6 @@ apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sw
 apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py	run_once	self._sweep_lock.release()	1
 apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py	revoke_keys	os.rename(file_path, os.path.join(revoked_path, f"{participant_id}.json"))	1
 apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py	revoke_keys	os.rename(private_path, os.path.join(revoked_path, f"{participant_id}.priv"))	1
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	_get_current_quota	self.redis.setex(cache_key, self._cache_ttl, json.dumps(quota_data))	1
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	_get_current_usage	self.redis.setex(cache_key, self._cache_ttl, str(usage))	1
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	consume_quota	self.redis.expire(cache_key, self._cache_ttl)	1
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	quota_reservation	self.redis.delete(f"reservation:{reservation_id}")	1
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	quota_reservation	self.redis.setex(f"reservation:{reservation_id}", timeout, json.dumps(reservation_data))	1
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	release_quota	self.redis.expire(cache_key, self._cache_ttl)	1
-apps/coordinator-api/src/coordinator_api/contexts/security/services/quota_enforcement.py	reset_quota_period	self.redis.delete(cache_key)	1
 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/gpu_optimizer.py	optimize_resource_allocation	job_requirements.get("max_latency_ms", 1000)	1
 apps/coordinator-api/src/coordinator_api/main.py	readiness	session.execute(text("SELECT 1"))	1
 apps/coordinator-api/src/coordinator_api/routers/media.py	upload_media	f.close()	1
@@ -125,12 +114,5 @@ apps/coordinator-api/src/coordinator_api/utils/cache.py	warm_exchange_rates	cach
 apps/coordinator-api/src/coordinator_api/utils/cache.py	warm_market_stats	cache_manager.set("market_stats_overview", stats, ttl_seconds=300)	1
 apps/ffmpeg/main.py	_spool_upload	tmp.close()	2
 apps/gpu/src/gpu_service/main.py	register_gpu	gpu_data.get("registered_by", "0x0000000000000000000000000000000000000000")	1
-apps/market/src/market_service/services/ipfs_rental_sweeper.py	stop	self._stop_event.set()	1
-apps/market/src/market_service/services/market_job_sweeper.py	stop	self._stop_event.set()	1
 apps/pool-hub/src/poolhub/app/routers/health.py	health_endpoint	miners_online_gauge.set(miners_online)	1
-apps/trading/src/trading_service/services/offer_subscription_service.py	_attempt_reconnect	old.close()	1
-apps/trading/src/trading_service/services/offer_subscription_service.py	_subscribe_loop	subscription.close()	1
-apps/trading/src/trading_service/services/offer_subscription_service.py	stop_chain	sub.close()	1
-apps/wallet/simple_daemon.py	create_chain	request.get("coordinator_api_key")	1
-apps/wallet/src/wallet_app/bridge/exchange_settlement_monitor.py	_mirror_pass	conn.close()	1
 apps/whisper/main.py	_spool_upload	tmp.close()	2

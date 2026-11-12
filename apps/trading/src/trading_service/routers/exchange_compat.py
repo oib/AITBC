@@ -3,7 +3,7 @@
 import asyncio
 import os
 import time
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
@@ -21,6 +21,20 @@ from ..storage import get_session
 
 router = APIRouter(tags=["exchange"])
 logger = get_logger(__name__)
+
+# Expected failure surface for the config-parsing fallbacks below:
+# env-var Decimal conversion (ValueError/InvalidOperation/TypeError) and
+# data-shape errors. RuntimeError covers abort-style raises; genuine
+# BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    InvalidOperation,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 _brand = get_active_brand()
 
 ETHEREUM_CONFIG: dict[str, Any] = {
@@ -162,7 +176,7 @@ def get_exchange_rates() -> dict[str, Any]:
         fee_pct = Decimal(os.getenv("EXCHANGE_FEE_PCT", "0"))
         if not fee_pct.is_finite() or fee_pct < 0:
             fee_pct = Decimal("0")
-    except Exception:
+    except _OPS_ERRORS:
         fee_pct = Decimal("0")
     return {
         "eth_to_aitbc": ETHEREUM_CONFIG["exchange_rate"],

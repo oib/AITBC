@@ -6,6 +6,7 @@ import os
 from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 
+import httpx
 import uvicorn
 from fastapi import FastAPI, Response
 from fastapi.responses import JSONResponse
@@ -29,6 +30,22 @@ from .settings import settings
 
 configure_logging(level="INFO", service_name="wallet", to_file=True)
 logger = get_logger(__name__)
+
+# Expected failure surface for the startup auto-import fallbacks below:
+# daemon HTTP I/O (httpx), env/wallet file I/O and JSON decode
+# (OSError/ValueError), lazy imports (incl. the optional decrypt helper),
+# hex/base64 decode, and data-shape errors. RuntimeError covers
+# abort-style raises; genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+)
 
 
 def _daemon_auth_headers() -> dict[str, str]:
@@ -87,16 +104,13 @@ async def _import_genesis_wallet_from_env() -> None:
                 pass
             else:
                 logger.warning("Treasury (genesis) wallet import failed: %s %s", r.status_code, r.text)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Could not auto-import treasury (genesis) wallet: %s", e)
 
 
 async def _import_file_wallets() -> None:
     """Auto-import wallets from wallet directory into daemon on startup."""
-    import json
     from pathlib import Path
-
-    import httpx
 
     wallet_dir = Path(os.getenv("WALLET_DIR") or os.getenv("AITBC_WALLET_DIR") or "/var/lib/aitbc/wallets")
     if not wallet_dir.exists():
@@ -111,6 +125,27 @@ async def _import_file_wallets() -> None:
     if not keystore_password:
         logger.warning("WALLET_IMPORT_PASSWORD not set, skipping file wallet auto-import")
         return
+    file_passwords = _file_import_passwords()
+
+    max_retries = 10
+    retry_delay = 2
+    for attempt in range(max_retries):
+        try:
+            await _import_file_wallets_pass(wallet_files, file_passwords, keystore_password, daemon_url, wallet_dir)
+            return
+        except httpx.ConnectError:
+            if attempt < max_retries - 1:
+                logger.info("Daemon not ready, retrying in %ss... (attempt %s/%s)", retry_delay, attempt + 1, max_retries)
+                await asyncio.sleep(retry_delay)
+            else:
+                logger.warning("Could not auto-import file wallets: Daemon not ready after %s attempts", max_retries)
+        except _OPS_ERRORS as e:
+            logger.warning("Could not auto-import file wallets: %s", e)
+            return
+
+
+def _file_import_passwords() -> list[str]:
+    """Candidate passwords for decrypting encrypted wallet files, deduped."""
     file_passwords = []
     for env_name in [
         "WALLET_FILE_PASSWORD",
@@ -120,84 +155,102 @@ async def _import_file_wallets() -> None:
         val = os.getenv(env_name)
         if val and val not in file_passwords:
             file_passwords.append(val)
-    import asyncio
+    return file_passwords
 
-    max_retries = 10
-    retry_delay = 2
-    for attempt in range(max_retries):
+
+async def _import_file_wallets_pass(
+    wallet_files: list, file_passwords: list[str], keystore_password: str, daemon_url: str, wallet_dir
+) -> None:
+    """One import pass: list daemon wallets, then POST each file wallet that
+    is not already present."""
+    async with httpx.AsyncClient(timeout=5, headers=_daemon_auth_headers()) as client:
+        r = await client.get(f"{daemon_url}/v1/wallets")
+        existing = {w["wallet_id"] for w in r.json().get("items", [])}
+        imported = 0
+        for wallet_file in wallet_files:
+            if await _import_one_file_wallet(client, wallet_file, existing, file_passwords, keystore_password, daemon_url):
+                imported += 1
+        if imported > 0:
+            logger.info("Auto-imported %s wallet(s) from %s", imported, wallet_dir)
+
+
+async def _import_one_file_wallet(
+    client: httpx.AsyncClient,
+    wallet_file,
+    existing: set,
+    file_passwords: list[str],
+    keystore_password: str,
+    daemon_url: str,
+) -> bool:
+    """Import a single wallet JSON file via the daemon; True when imported."""
+    import json
+
+    try:
+        with open(wallet_file) as f:
+            data = json.load(f)
+        wallet_id = data.get("wallet_id") or wallet_file.stem
+        address = data.get("address", "")
+        raw_private_key = data.get("private_key", "")
+        if isinstance(raw_private_key, dict):
+            decrypted = _decrypt_private_key_dict(raw_private_key, file_passwords, wallet_file.name)
+            if decrypted is None:
+                return False
+            raw_private_key = decrypted
+        if not isinstance(raw_private_key, str):
+            logger.warning(
+                "Skipping wallet %s: private_key field is not a string (got %s)",
+                wallet_file.name,
+                type(raw_private_key).__name__,
+            )
+            return False
+        # Strip a literal '0x'/'0X' prefix only. str.lstrip() treats its
+        # argument as a set of characters to strip, not a fixed prefix, so
+        # the previous .lstrip("0x") silently dropped any leading '0' or
+        # 'x' characters -- e.g. "0x00ab..." became "ab...", corrupting a
+        # key that legitimately starts with zero bytes.
+        private_key_hex = raw_private_key[2:] if raw_private_key[:2] in ("0x", "0X") else raw_private_key
+        chain_id = data.get("chain_id") or resolve_chain_id()
+        if wallet_id in existing:
+            return False
+        if not private_key_hex:
+            return False
+        secret_b64 = base64.b64encode(bytes.fromhex(private_key_hex)).decode()
+        payload = {
+            "wallet_id": wallet_id,
+            "chain_id": chain_id,
+            "password": keystore_password,
+            "secret_key": secret_b64,
+            "metadata": {"address": address, "imported_from": str(wallet_file), "original_address": address},
+        }
+        r = await client.post(f"{daemon_url}/v1/wallets", json=payload)
+        if r.status_code in (200, 201):
+            logger.info("Auto-imported wallet: %s (%s)", wallet_id, address)
+            return True
+        return False
+    except _OPS_ERRORS as e:
+        logger.warning("Failed to import wallet %s: %s", wallet_file.name, e)
+        return False
+
+
+def _decrypt_private_key_dict(raw_private_key: dict, file_passwords: list[str], wallet_name: str) -> str | None:
+    """Try each configured file password against an encrypted private_key
+    dict; None (already logged) when none decrypts it."""
+    decrypted: str | None = None
+    for file_password in file_passwords:
         try:
-            async with httpx.AsyncClient(timeout=5, headers=_daemon_auth_headers()) as client:
-                r = await client.get(f"{daemon_url}/v1/wallets")
-                existing = {w["wallet_id"] for w in r.json().get("items", [])}
-                imported = 0
-                for wallet_file in wallet_files:
-                    try:
-                        with open(wallet_file) as f:
-                            data = json.load(f)
-                        wallet_id = data.get("wallet_id") or wallet_file.stem
-                        address = data.get("address", "")
-                        raw_private_key = data.get("private_key", "")
-                        if isinstance(raw_private_key, dict):
-                            decrypted: str | None = None
-                            for file_password in file_passwords:
-                                try:
-                                    from aitbc.security.encryption import decrypt_value
+            from aitbc.security.encryption import decrypt_value
 
-                                    decrypted = decrypt_value(raw_private_key, file_password)
-                                    break
-                                except Exception:
-                                    continue
-                            if decrypted is None:
-                                logger.warning(
-                                    "Skipping wallet %s: failed to decrypt private_key dict with any configured file password",
-                                    wallet_file.name,
-                                )
-                                continue
-                            raw_private_key = decrypted
-                        if not isinstance(raw_private_key, str):
-                            logger.warning(
-                                "Skipping wallet %s: private_key field is not a string (got %s)",
-                                wallet_file.name,
-                                type(raw_private_key).__name__,
-                            )
-                            continue
-                        # Strip a literal '0x'/'0X' prefix only. str.lstrip() treats its
-                        # argument as a set of characters to strip, not a fixed prefix, so
-                        # the previous .lstrip("0x") silently dropped any leading '0' or
-                        # 'x' characters -- e.g. "0x00ab..." became "ab...", corrupting a
-                        # key that legitimately starts with zero bytes.
-                        private_key_hex = raw_private_key[2:] if raw_private_key[:2] in ("0x", "0X") else raw_private_key
-                        chain_id = data.get("chain_id") or resolve_chain_id()
-                        if wallet_id in existing:
-                            continue
-                        if not private_key_hex:
-                            continue
-                        secret_b64 = base64.b64encode(bytes.fromhex(private_key_hex)).decode()
-                        payload = {
-                            "wallet_id": wallet_id,
-                            "chain_id": chain_id,
-                            "password": keystore_password,
-                            "secret_key": secret_b64,
-                            "metadata": {"address": address, "imported_from": str(wallet_file), "original_address": address},
-                        }
-                        r = await client.post(f"{daemon_url}/v1/wallets", json=payload)
-                        if r.status_code in (200, 201):
-                            imported += 1
-                            logger.info("Auto-imported wallet: %s (%s)", wallet_id, address)
-                    except Exception as e:
-                        logger.warning("Failed to import wallet %s: %s", wallet_file.name, e)
-                if imported > 0:
-                    logger.info("Auto-imported %s wallet(s) from %s", imported, wallet_dir)
-                return
-        except httpx.ConnectError:
-            if attempt < max_retries - 1:
-                logger.info("Daemon not ready, retrying in %ss... (attempt %s/%s)", retry_delay, attempt + 1, max_retries)
-                await asyncio.sleep(retry_delay)
-            else:
-                logger.warning("Could not auto-import file wallets: Daemon not ready after %s attempts", max_retries)
-        except Exception as e:
-            logger.warning("Could not auto-import file wallets: %s", e)
-            return
+            decrypted = decrypt_value(raw_private_key, file_password)
+            break
+        except _OPS_ERRORS:
+            continue
+    if decrypted is None:
+        logger.warning(
+            "Skipping wallet %s: failed to decrypt private_key dict with any configured file password",
+            wallet_name,
+        )
+        return None
+    return decrypted
 
 
 async def _operations_reconcile_loop() -> None:

@@ -6,10 +6,26 @@ Values are read from the environment or from `/etc/aitbc/blockchain.env` via
 
 from __future__ import annotations
 
+import logging
 import os
 from pathlib import Path
 from dataclasses import dataclass
 from typing import Any
+
+_logger = logging.getLogger(__name__)
+
+# Expected failure surface for the best-effort env-file load below: missing
+# dotenv (ImportError), unreadable/missing file (OSError), and data-shape
+# errors. RuntimeError covers abort-style raises that must keep propagating
+# semantics for anything outside this set; genuine BaseExceptions still do.
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 
 @dataclass(frozen=True)
@@ -86,8 +102,8 @@ def _load_bridge_config() -> BridgeConfig:
             env_file = os.getenv("BRIDGE_ENV_FILE", "/etc/aitbc/aitbc-exchange.env")
             if Path(env_file).exists():
                 load_dotenv(env_file, override=False)
-        except Exception:
-            pass
+        except _OPS_ERRORS:
+            _logger.debug("bridge env file load failed", exc_info=True)
 
     threshold_raw = os.getenv("BRIDGE_MULTISIG_THRESHOLD", "0")
     try:

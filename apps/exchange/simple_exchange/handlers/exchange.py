@@ -40,6 +40,23 @@ from .base import (
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the handler-level fallbacks below: lazy
+# imports (ImportError), RPC/filesystem I/O (OSError covers urllib errors,
+# socket and timeout failures), request/JSON decode and Decimal conversion
+# (ValueError/InvalidOperation), and data-shape errors. RuntimeError covers
+# abort-style raises a handler re-aborts with; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    InvalidOperation,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 # ── ETH-11 phase 2: signed orders on the hub exchange ─────────────────────
 # Design: docs/design/eth8-exchange-page.md sections 1–6, 9. Decisions
@@ -513,7 +530,7 @@ class ExchangeMixin:
         try:
             amount_dec = _to_decimal(amount_raw)
             price_dec = _to_decimal(price_raw)
-        except Exception:
+        except _OPS_ERRORS:
             self.send_error(400, "Invalid amount or price")  # type: ignore[attr-defined]
             return None
 
@@ -1900,14 +1917,14 @@ class ExchangeMixin:
                         "source": "blockchain",
                     }
                 )
-            except Exception:
+            except _OPS_ERRORS:
                 # No fabricated fallback: a treasury figure must come from the chain or not
                 # be served at all.
                 self.send_json_response(  # type: ignore[attr-defined]
                     {"error": "Treasury balance unavailable — blockchain RPC unreachable"}, status=503
                 )
 
-        except Exception:
+        except _OPS_ERRORS:
             self.send_error(500, "Internal server error")  # type: ignore[attr-defined]
 
     def health_check(self):
@@ -1952,7 +1969,7 @@ class ExchangeMixin:
             self.send_header("Content-Type", CONTENT_TYPE_LATEST)  # type: ignore[attr-defined]
             self.end_headers()  # type: ignore[attr-defined]
             self.wfile.write(output)  # type: ignore[attr-defined]
-        except Exception:
+        except _OPS_ERRORS:
             self.send_error(500, "Internal server error")  # type: ignore[attr-defined]
 
     def handle_exchange_history(self, parsed):
@@ -2061,7 +2078,7 @@ class ExchangeMixin:
                     "nonce": balance_data.get("nonce", 0),
                 }
             )
-        except Exception:
+        except _OPS_ERRORS:
             # Fail loudly if the blockchain is unreachable — no fabricated fallback.
             self.send_json_response(  # type: ignore[attr-defined]
                 {"error": "Failed to fetch balance from blockchain", "address": address}, status=503

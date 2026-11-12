@@ -21,6 +21,19 @@ from aitbc.aitbc_logging import get_logger
 from .manager import ChainManager
 
 logger = get_logger(__name__)
+
+# Expected failure surface below: sqlite storage errors, JSON decode
+# (ValueError), timestamp parse and data-shape errors. RuntimeError covers
+# abort-style raises; genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    sqlite3.Error,
+)
 CHAIN_ID_PATTERN = re.compile("^[a-zA-Z0-9_-]+$")
 
 
@@ -93,7 +106,7 @@ class MultiChainLedgerAdapter:
             with self.chain_locks[chain_id]:
                 self._create_chain_schema(conn, chain_id)
             logger.info("Initialized database for chain: %s", chain_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to initialize database for chain %s: %s", chain_id, e)
 
     def _create_chain_schema(self, conn: sqlite3.Connection, chain_id: str) -> None:
@@ -167,7 +180,7 @@ class MultiChainLedgerAdapter:
                 conn.commit()
                 logger.info("Created wallet %s in chain %s", wallet_id, chain_id)
                 return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to create wallet %s in chain %s: %s", wallet_id, chain_id, e)
             return False
 
@@ -200,7 +213,7 @@ class MultiChainLedgerAdapter:
                     created_at=parse_stored(row[4]),
                     updated_at=parse_stored(row[5]),
                 )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get wallet %s from chain %s: %s", wallet_id, chain_id, e)
             return None
 
@@ -234,7 +247,7 @@ class MultiChainLedgerAdapter:
                         )
                     )
                 return wallets
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to list wallets in chain %s: %s", chain_id, e)
             return []
 
@@ -256,7 +269,7 @@ class MultiChainLedgerAdapter:
                 )
                 conn.commit()
                 return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to record event for wallet %s in chain %s: %s", wallet_id, chain_id, e)
             return False
 
@@ -299,7 +312,7 @@ class MultiChainLedgerAdapter:
                         )
                     )
                 return events
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get events for wallet %s in chain %s: %s", wallet_id, chain_id, e)
             return []
 
@@ -336,7 +349,7 @@ class MultiChainLedgerAdapter:
                     "recent_activity": recent_activity,
                     "database_path": str(self._get_chain_db_path(chain_id)),
                 }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get stats for chain %s: %s", chain_id, e)
             return {}
 
@@ -357,7 +370,7 @@ class MultiChainLedgerAdapter:
             try:
                 conn.close()
                 logger.info("Closed connection for chain: %s", chain_id)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Failed to close connection for chain %s: %s", chain_id, e)
         self.chain_connections.clear()
         self.chain_locks.clear()

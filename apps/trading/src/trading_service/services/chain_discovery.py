@@ -11,6 +11,8 @@ from datetime import UTC, datetime
 from typing import Any
 from urllib.parse import urlparse
 
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -21,6 +23,21 @@ from ..config import settings
 from ..domain.inter_chain import IslandRegistryEntry
 
 logger = logging.getLogger(__name__)
+
+# Expected failure surface for the health/sync fallbacks below: HTTP/RPC
+# I/O from the blockchain client (httpx), sqlalchemy commit errors, and
+# data-shape errors. RuntimeError covers abort-style raises; genuine
+# BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    SQLAlchemyError,
+)
 
 
 class ChainDiscoveryService:
@@ -126,7 +143,7 @@ class ChainDiscoveryService:
                 "health": health,
                 "last_sync": now.isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Chain %s health check failed: %s", chain_id, e)
             endpoint = entry.endpoint
             now = datetime.now(UTC)
@@ -158,7 +175,7 @@ class ChainDiscoveryService:
                 chain.status = "active"
                 chain.last_sync = datetime.now(UTC)
                 results["synced"] += 1
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Failed to sync chain %s: %s", chain.chain_id, e)
                 chain.status = "unreachable"
                 chain.last_sync = datetime.now(UTC)

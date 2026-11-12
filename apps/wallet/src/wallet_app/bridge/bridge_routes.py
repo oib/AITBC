@@ -5,11 +5,12 @@ REST API endpoints for bridge operations.
 
 import logging
 import os
+import sqlite3
 import time
 from datetime import datetime, timedelta
 
 from wallet_app.utc_time import parse_stored, utc_now
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Annotated, Any
 
@@ -29,6 +30,23 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 import httpx
 
 from wallet_app.deps import require_admin_api_key
+
+# Expected failure surface for the best-effort fallbacks below: chain RPC
+# HTTP I/O (httpx), sqlite bridge-store errors, Decimal/JSON decode, and
+# data-shape errors. RuntimeError covers abort-style raises; genuine
+# BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    InvalidOperation,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    sqlite3.Error,
+)
 
 from .bridge_db import (
     _money_str,
@@ -761,8 +779,8 @@ async def bridge_get_withdraw(ait_tx_hash: str) -> dict[str, Any]:
                     "refund_tx_hash": None,
                     "monitor_status": "waiting",
                 }
-    except Exception:
-        pass
+    except _OPS_ERRORS:
+        logger.debug("On-chain withdrawal lookup failed for %s", ait_tx_hash, exc_info=True)
 
     raise HTTPException(status_code=404, detail="Withdrawal not found")
 

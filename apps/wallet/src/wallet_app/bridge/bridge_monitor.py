@@ -6,7 +6,8 @@ Polls Ethereum RPC for incoming ETH transactions to the bridge wallet address.
 import asyncio
 import json
 import os
-from decimal import Decimal
+import sqlite3
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import httpx
@@ -30,6 +31,24 @@ from .price_api import calculate_ait_amount
 from .url_redact import redact_text
 
 logger = get_logger(__name__)
+
+# Expected failure surface below: ETH/EVM RPC HTTP I/O (httpx via
+# SharedHttpClient), lazy eth_*/crypto imports (ImportError), sqlite
+# bridge-store errors, JSON/Decimal decode, and data-shape errors.
+# RuntimeError covers abort-style raises; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    InvalidOperation,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    sqlite3.Error,
+)
 
 # Configuration
 ETH_RPC_URL = os.getenv("ETH_RPC_URL", "https://eth.llamarpc.com")
@@ -281,35 +300,40 @@ async def get_eth_transactions(address: str) -> list[dict[str, Any]]:
         any_error = False
 
         for bn in block_numbers:
-            item = batch_results.get(bn, {})
-            if not isinstance(item, dict):
+            if _collect_block_txs(batch_results.get(bn, {}), bn, target, relevant_txs):
                 any_error = True
-                logger.warning("Missing block response for block %s", bn)
-                continue
-            if "error" in item:
-                any_error = True
-                logger.error("eth_getBlockByNumber(%s) error: %s", bn, item["error"])
-                continue
-
-            block_data = item.get("result")
-            if not block_data:
-                continue
-
-            transactions = block_data.get("transactions") or []
-            for tx in transactions:
-                if not isinstance(tx, dict):
-                    continue
-                to_address = tx.get("to") or ""
-                if str(to_address).lower() == target:
-                    relevant_txs.append(_normalize_eth_tx(tx))
 
         if not any_error:
             _LAST_SCANNED_BLOCK = latest
 
         return relevant_txs
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error fetching ETH transactions: %s", e)
         return []
+
+
+def _collect_block_txs(item: Any, bn: int, target: str, relevant_txs: list[dict[str, Any]]) -> bool:
+    """Append the target-address txs from one ``eth_getBlockByNumber`` batch
+    item to ``relevant_txs``; returns True when the item itself errored."""
+    if not isinstance(item, dict):
+        logger.warning("Missing block response for block %s", bn)
+        return True
+    if "error" in item:
+        logger.error("eth_getBlockByNumber(%s) error: %s", bn, item["error"])
+        return True
+
+    block_data = item.get("result")
+    if not block_data:
+        return False
+
+    transactions = block_data.get("transactions") or []
+    for tx in transactions:
+        if not isinstance(tx, dict):
+            continue
+        to_address = tx.get("to") or ""
+        if str(to_address).lower() == target:
+            relevant_txs.append(_normalize_eth_tx(tx))
+    return False
 
 
 async def process_transaction(tx: dict[str, Any]) -> bool:
@@ -351,22 +375,7 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
         return False
 
     if exchange_tag is not None:
-        try:
-            deposit_id = insert_exchange_prepay_deposit(tx_hash, from_address, amount_eth, exchange_tag)
-            logger.info(
-                "Recorded exchange-prepay deposit %s: %s ETH tagged '%s' (tx: %s)",
-                deposit_id,
-                amount_eth,
-                exchange_tag,
-                tx_hash,
-            )
-            return True
-        except ValueError:
-            logger.warning("Deposit already exists for tx %s", tx_hash)
-            return False
-        except Exception as e:  # noqa: BLE001 - record containment — a bad deposit row logs and skips
-            logger.error("Error recording exchange-prepay deposit %s: %s", tx_hash, e)
-            return False
+        return _record_exchange_prepay(tx_hash, from_address, amount_eth, exchange_tag)
 
     # Calculate AIT amount
     amount_ait = await calculate_ait_amount(amount_eth)
@@ -375,17 +384,9 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
         return False
 
     # Resolve recipient: tx data first, then default configured wallet.
-    recipient = _parse_recipient_from_input(tx_input)
-    if not recipient:
-        if DEFAULT_RECIPIENT:
-            recipient = _canonical_address(DEFAULT_RECIPIENT)
-            if not recipient:
-                logger.error("Default WALLET_ADDRESS is not a valid 0x address: %s", DEFAULT_RECIPIENT)
-                return False
-            logger.info("No AIT address in tx %s data; using default recipient %s", tx_hash, recipient)
-        else:
-            logger.error("No AIT recipient for tx %s and no WALLET_ADDRESS configured", tx_hash)
-            return False
+    recipient = _resolve_deposit_recipient(tx_input, tx_hash)
+    if recipient is None:
+        return False
 
     # Record deposit
     try:
@@ -403,20 +404,61 @@ async def process_transaction(tx: dict[str, Any]) -> bool:
     except ValueError:
         logger.warning("Deposit already exists for tx %s", tx_hash)
         return False
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error recording deposit: %s", e)
         return False
 
-    # Auto-mint if configured
+    await _maybe_auto_mint(deposit_id, recipient, amount_ait)
+    return True
+
+
+def _record_exchange_prepay(tx_hash: str, from_address: str, amount_eth: Decimal, exchange_tag: Any) -> bool:
+    """Record an EXCHANGE_DEPOSIT-tagged tx as 'exchange_prepay' so no poll
+    can pick it up as a payout; returns True when recorded."""
+    try:
+        deposit_id = insert_exchange_prepay_deposit(tx_hash, from_address, amount_eth, exchange_tag)
+        logger.info(
+            "Recorded exchange-prepay deposit %s: %s ETH tagged '%s' (tx: %s)",
+            deposit_id,
+            amount_eth,
+            exchange_tag,
+            tx_hash,
+        )
+        return True
+    except ValueError:
+        logger.warning("Deposit already exists for tx %s", tx_hash)
+        return False
+    except Exception as e:  # noqa: BLE001 - record containment — a bad deposit row logs and skips
+        logger.error("Error recording exchange-prepay deposit %s: %s", tx_hash, e)
+        return False
+
+
+def _resolve_deposit_recipient(tx_input: str, tx_hash: str) -> str | None:
+    """Recipient for a deposit: parsed from tx input, else the configured
+    default wallet; None (already logged) when neither resolves."""
+    recipient = _parse_recipient_from_input(tx_input)
+    if recipient:
+        return recipient
+    if DEFAULT_RECIPIENT:
+        recipient = _canonical_address(DEFAULT_RECIPIENT)
+        if not recipient:
+            logger.error("Default WALLET_ADDRESS is not a valid 0x address: %s", DEFAULT_RECIPIENT)
+            return None
+        logger.info("No AIT address in tx %s data; using default recipient %s", tx_hash, recipient)
+        return recipient
+    logger.error("No AIT recipient for tx %s and no WALLET_ADDRESS configured", tx_hash)
+    return None
+
+
+async def _maybe_auto_mint(deposit_id: str, recipient: str, amount_ait: Decimal) -> None:
+    """Auto-mint a recorded deposit when genesis wallet credentials exist."""
     if _canonical_address(GENESIS_WALLET_ADDRESS) and GENESIS_WALLET_PRIVATE_KEY:
         try:
             await _mint_deposit(deposit_id, recipient, amount_ait)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Auto-mint failed for deposit %s: %s", deposit_id, e)
     else:
         logger.info("Auto-mint skipped: GENESIS_WALLET_ADDRESS/PRIVATE_KEY not configured")
-
-    return True
 
 
 async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) -> None:
@@ -442,7 +484,7 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
         account_resp = await SharedHttpClient.get(f"{BLOCKCHAIN_RPC_URL}/rpc/account/{genesis_address}", timeout=10.0)
         account_data = account_resp.json()
         nonce = account_data.get("nonce", 0)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to fetch genesis nonce for auto-mint: %s", e)
         update_deposit_status(deposit_id, "pending", expected_statuses={"pending", "verified"})
         return
@@ -501,7 +543,7 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
         if not update_deposit_tx_hash(deposit_id, tx_hash, expected_statuses={"completed"}):
             logger.error("Auto-mint tx hash %s not recorded for completed deposit %s", tx_hash, deposit_id)
         logger.info("Auto-minted %s AIT to %s (tx: %s) for deposit %s", amount_ait, recipient, tx_hash, deposit_id)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error during auto-mint: %s", e)
         update_deposit_status(deposit_id, "pending", expected_statuses={"pending", "verified"})
 
@@ -537,7 +579,7 @@ async def poll_once() -> dict[str, Any]:
         try:
             if await process_transaction(tx):
                 recorded += 1
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error processing tx %s: %s", tx.get("hash", ""), e)
 
     return {
@@ -579,7 +621,7 @@ async def monitor_loop() -> None:
                 # to DEBUG so journal stays a signal channel.
                 log = logger.info if summary.get("recorded", 0) > 0 else logger.debug
                 log("Bridge poll completed: %s", summary)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error in monitor loop: %s", e)
 
         for _ in range(POLL_INTERVAL):

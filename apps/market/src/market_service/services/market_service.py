@@ -12,13 +12,14 @@ import re
 import socket
 import time
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 from urllib.parse import urlparse
 from uuid import uuid4
 
+import httpx
 from sqlalchemy import or_, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
@@ -34,6 +35,25 @@ from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer, Offer
 from ..domain.offer_status import spellings_of, to_offer_status, try_to_offer_status
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort fallbacks below: filesystem/OS
+# errors, HTTP/RPC I/O (httpx, incl. the lazily-imported health probes),
+# sqlalchemy storage errors, lazy imports, request/JSON/Decimal decode
+# (ValueError/InvalidOperation), and data-shape errors. RuntimeError covers
+# abort-style raises a caller re-aborts with; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    InvalidOperation,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    SQLAlchemyError,
+)
 
 
 # #1673: caller-supplied ttl_seconds reaches ``timedelta(seconds=...)`` when
@@ -937,48 +957,7 @@ class MarketService:
 
         try:
             # First, try to get offers from blockchain via RPC (v0.6.6: uses BlockchainRPCClient)
-            blockchain_offers = []
-            try:
-                # Query GPU offers from blockchain with chain_id filter. A GPU its
-                # registrant took out of service (GPU_DEREGISTER) stays on the chain
-                # as "deactivated"; the default listing leaves it out, and asking
-                # for a status explicitly still shows it.
-                offers = await self._rpc_client.query_offers(
-                    chain_id=chain_id,
-                    status=status if status else _GPU_LISTING_DEFAULT_STATUS,
-                )
-                for offer in offers:
-                    # #1566: a GPU holding open on-chain allocations stays
-                    # status='active' but is spoken for — an allocation does
-                    # not touch gpu.status. The chain RPC reports the count;
-                    # nodes predating the field yield 0 and keep old behavior.
-                    if int(offer.get("active_allocations") or 0) > 0:
-                        logger.info(
-                            "Skipping allocated GPU offer %s (active_allocations=%s)",
-                            offer.get("gpu_id", offer.get("id", "unknown")),
-                            offer.get("active_allocations"),
-                        )
-                        continue
-                    price_per_hour = offer.get("price_per_hour")
-                    if price_per_hour is None:
-                        logger.warning(
-                            "Skipping blockchain offer %s: missing price_per_hour",
-                            offer.get("gpu_id", offer.get("id", "unknown")),
-                        )
-                        continue
-                    try:
-                        blockchain_offers.append(_gpu_offer_to_service_dict(offer, chain_id, settings.hub_rpc_url))
-                    except Exception as e:
-                        logger.warning("Failed to parse blockchain offer: %s", e)
-                        continue
-
-                logger.info("Retrieved %s offers from blockchain RPC (chain_id=%s)", len(blockchain_offers), chain_id)
-                # The RPC page is unbounded — cap it before the merge so a
-                # large on-chain offer set cannot be materialised and
-                # re-merged in full (#1543 residual).
-                blockchain_offers = blockchain_offers[: max_page_size()]
-            except Exception as e:
-                logger.warning("Failed to get offers from blockchain RPC: %s", e)
+            blockchain_offers = await self._blockchain_gpu_offers(chain_id, status)
 
             # Second, get offers from local database
             query = select(SoftwareService)
@@ -1028,6 +1007,56 @@ class MarketService:
         except Exception as e:
             logger.error("Error in list_software_services: %s: %s", type(e).__name__, str(e))
             raise
+
+    async def _blockchain_gpu_offers(self, chain_id: str | None, status: str | None) -> list[dict[str, Any]]:
+        """GPU offers from the chain RPC, minus allocated/malformed rows.
+
+        Failures degrade to whatever was collected (usually empty) so the
+        local database listing still answers.
+        """
+        blockchain_offers: list[dict[str, Any]] = []
+        try:
+            # Query GPU offers from blockchain with chain_id filter. A GPU its
+            # registrant took out of service (GPU_DEREGISTER) stays on the chain
+            # as "deactivated"; the default listing leaves it out, and asking
+            # for a status explicitly still shows it.
+            offers = await self._rpc_client.query_offers(
+                chain_id=chain_id,
+                status=status if status else _GPU_LISTING_DEFAULT_STATUS,
+            )
+            for offer in offers:
+                # #1566: a GPU holding open on-chain allocations stays
+                # status='active' but is spoken for — an allocation does
+                # not touch gpu.status. The chain RPC reports the count;
+                # nodes predating the field yield 0 and keep old behavior.
+                if int(offer.get("active_allocations") or 0) > 0:
+                    logger.info(
+                        "Skipping allocated GPU offer %s (active_allocations=%s)",
+                        offer.get("gpu_id", offer.get("id", "unknown")),
+                        offer.get("active_allocations"),
+                    )
+                    continue
+                price_per_hour = offer.get("price_per_hour")
+                if price_per_hour is None:
+                    logger.warning(
+                        "Skipping blockchain offer %s: missing price_per_hour",
+                        offer.get("gpu_id", offer.get("id", "unknown")),
+                    )
+                    continue
+                try:
+                    blockchain_offers.append(_gpu_offer_to_service_dict(offer, chain_id, settings.hub_rpc_url))
+                except _OPS_ERRORS as e:
+                    logger.warning("Failed to parse blockchain offer: %s", e)
+                    continue
+
+            logger.info("Retrieved %s offers from blockchain RPC (chain_id=%s)", len(blockchain_offers), chain_id)
+            # The RPC page is unbounded — cap it before the merge so a
+            # large on-chain offer set cannot be materialised and
+            # re-merged in full (#1543 residual).
+            return blockchain_offers[: max_page_size()]
+        except _OPS_ERRORS as e:
+            logger.warning("Failed to get offers from blockchain RPC: %s", e)
+            return blockchain_offers
 
     @staticmethod
     def _anchor_belongs_to_provider(anchor_tx: dict[str, Any], offer: dict[str, Any], is_gpu: bool) -> bool:
@@ -1181,69 +1210,102 @@ class MarketService:
                 .all()
             )
             stored = {row.key: row for row in rows}
-            live: dict[str, tuple[dict[str, Any], bool, str, str]] = {}
-            for dbkey, (offer, is_gpu, raw) in wanted.items():
-                binding = self._anchor_binding_key(offer, is_gpu)
-                row = stored.get(dbkey)
-                if row is not None and row.block_height is not None and row.bound_provider and row.bound_provider == binding:
-                    offer["confirmed"] = True
-                    offer["tx_hash"] = offer.get("tx_hash") or row.tx_hash or None
-                    offer["block_height"] = row.block_height
-                    offer["block_hash"] = offer.get("block_hash") or row.block_hash
-                    offer["block_proposer"] = offer.get("block_proposer") or row.block_proposer
-                    if row.block_timestamp and not offer.get("block_timestamp"):
-                        offer["block_timestamp"] = row.block_timestamp
-                    if row.registered_at and not offer.get("registered_at"):
-                        offer["registered_at"] = row.registered_at
-                else:
-                    live[dbkey] = (offer, is_gpu, raw, binding)
             now = time.monotonic()
-            self._evict_anchor_negatives(now)
-            live = {k: v for k, v in live.items() if self._anchor_negatives.get((k, v[3]), 0.0) <= now}
+            live = self._partition_live_anchors(wanted, stored, now)
             if not live:
                 return
 
-            # key -> anchor candidates, newest-first. Keeping every candidate
-            # per key lets a skipped foreign tx fall through to the offer's
-            # own older anchor instead of shadowing it.
-            gpu_anchors: dict[str, list[dict[str, Any]]] = {}
-            offer_anchors: dict[str, list[dict[str, Any]]] = {}
-            for tx_type, anchors, field in (
-                ("GPU_MARKET", offer_anchors, "offer_id"),
-                ("GPU_REGISTER", gpu_anchors, "gpu_id"),
-            ):
-                for tx in await self._rpc_client.query_transactions(transaction_type=tx_type, chain_id=chain_id, limit=1000):
-                    try:
-                        key = (tx.get("payload") or {}).get(field)
-                    except AttributeError:
-                        continue  # malformed tx poisons only itself
-                    if key:
-                        anchors.setdefault(key, []).append(tx)
-            changed = False
-            for dbkey, (offer, is_gpu, raw, binding) in live.items():
-                candidates = (gpu_anchors if is_gpu else offer_anchors).get(raw) or []
-                anchor_tx = next(
-                    (tx for tx in candidates if self._anchor_belongs_to_provider(tx, offer, is_gpu)),
-                    None,
-                )
-                if anchor_tx is None:
-                    self._remember_anchor_negative((dbkey, binding), now + _ANCHOR_NEGATIVE_TTL_SECONDS)
-                    continue
-                ts_str, ts_dt = self._anchor_timestamp(anchor_tx)
-                offer["confirmed"] = True
-                offer["tx_hash"] = offer.get("tx_hash") or anchor_tx.get("tx_hash")
-                offer["block_height"] = anchor_tx.get("block_height")
-                offer["block_hash"] = offer.get("block_hash") or anchor_tx.get("block_hash")
-                offer["block_proposer"] = offer.get("block_proposer") or anchor_tx.get("block_proposer")
-                if ts_str and not offer.get("block_timestamp"):
-                    offer["block_timestamp"] = ts_str
-                if not offer.get("registered_at"):
-                    offer["registered_at"] = anchor_tx.get("created_at") or offer.get("block_timestamp")
-                changed |= self._persist_anchor(dbkey, offer, is_gpu, anchor_tx, ts_dt, stored.get(dbkey), local_rows)
+            gpu_anchors, offer_anchors = await self._fetch_chain_anchors(chain_id)
+            changed = self._apply_chain_anchors(live, gpu_anchors, offer_anchors, now, stored, local_rows)
             if changed:
                 await self.session.commit()
         except Exception as e:  # noqa: BLE001 - anchor resolution is best-effort enrichment
             logger.warning("Failed to resolve on-chain offer anchors: %s", e)
+
+    @classmethod
+    def _partition_live_anchors(
+        cls,
+        wanted: dict[str, tuple[dict[str, Any], bool, str]],
+        stored: dict[str, OfferAnchor],
+        now: float,
+    ) -> dict[str, tuple[dict[str, Any], bool, str, str]]:
+        """Apply stored OfferAnchor rows to their offers in place and return
+        the live set still needing chain resolution, minus entries inside
+        the negative-cache TTL."""
+        live: dict[str, tuple[dict[str, Any], bool, str, str]] = {}
+        for dbkey, (offer, is_gpu, raw) in wanted.items():
+            binding = cls._anchor_binding_key(offer, is_gpu)
+            row = stored.get(dbkey)
+            if row is not None and row.block_height is not None and row.bound_provider and row.bound_provider == binding:
+                offer["confirmed"] = True
+                offer["tx_hash"] = offer.get("tx_hash") or row.tx_hash or None
+                offer["block_height"] = row.block_height
+                offer["block_hash"] = offer.get("block_hash") or row.block_hash
+                offer["block_proposer"] = offer.get("block_proposer") or row.block_proposer
+                if row.block_timestamp and not offer.get("block_timestamp"):
+                    offer["block_timestamp"] = row.block_timestamp
+                if row.registered_at and not offer.get("registered_at"):
+                    offer["registered_at"] = row.registered_at
+            else:
+                live[dbkey] = (offer, is_gpu, raw, binding)
+        cls._evict_anchor_negatives(now)
+        return {k: v for k, v in live.items() if cls._anchor_negatives.get((k, v[3]), 0.0) <= now}
+
+    async def _fetch_chain_anchors(
+        self, chain_id: str | None
+    ) -> tuple[dict[str, list[dict[str, Any]]], dict[str, list[dict[str, Any]]]]:
+        """Fetch anchor candidates per key, newest-first, for both anchor tx
+        types. Keeping every candidate per key lets a skipped foreign tx
+        fall through to the offer's own older anchor instead of shadowing
+        it."""
+        gpu_anchors: dict[str, list[dict[str, Any]]] = {}
+        offer_anchors: dict[str, list[dict[str, Any]]] = {}
+        for tx_type, anchors, field in (
+            ("GPU_MARKET", offer_anchors, "offer_id"),
+            ("GPU_REGISTER", gpu_anchors, "gpu_id"),
+        ):
+            for tx in await self._rpc_client.query_transactions(transaction_type=tx_type, chain_id=chain_id, limit=1000):
+                try:
+                    key = (tx.get("payload") or {}).get(field)
+                except AttributeError:
+                    continue  # malformed tx poisons only itself
+                if key:
+                    anchors.setdefault(key, []).append(tx)
+        return gpu_anchors, offer_anchors
+
+    def _apply_chain_anchors(
+        self,
+        live: dict[str, tuple[dict[str, Any], bool, str, str]],
+        gpu_anchors: dict[str, list[dict[str, Any]]],
+        offer_anchors: dict[str, list[dict[str, Any]]],
+        now: float,
+        stored: dict[str, OfferAnchor],
+        local_rows: dict[str, SoftwareService] | None,
+    ) -> bool:
+        """Resolve each live offer against the fetched chain candidates and
+        persist new anchors; returns True when any row was written."""
+        changed = False
+        for dbkey, (offer, is_gpu, raw, binding) in live.items():
+            candidates = (gpu_anchors if is_gpu else offer_anchors).get(raw) or []
+            anchor_tx = next(
+                (tx for tx in candidates if self._anchor_belongs_to_provider(tx, offer, is_gpu)),
+                None,
+            )
+            if anchor_tx is None:
+                self._remember_anchor_negative((dbkey, binding), now + _ANCHOR_NEGATIVE_TTL_SECONDS)
+                continue
+            ts_str, ts_dt = self._anchor_timestamp(anchor_tx)
+            offer["confirmed"] = True
+            offer["tx_hash"] = offer.get("tx_hash") or anchor_tx.get("tx_hash")
+            offer["block_height"] = anchor_tx.get("block_height")
+            offer["block_hash"] = offer.get("block_hash") or anchor_tx.get("block_hash")
+            offer["block_proposer"] = offer.get("block_proposer") or anchor_tx.get("block_proposer")
+            if ts_str and not offer.get("block_timestamp"):
+                offer["block_timestamp"] = ts_str
+            if not offer.get("registered_at"):
+                offer["registered_at"] = anchor_tx.get("created_at") or offer.get("block_timestamp")
+            changed |= self._persist_anchor(dbkey, offer, is_gpu, anchor_tx, ts_dt, stored.get(dbkey), local_rows)
+        return changed
 
     async def get_software_service(self, plugin_id: str) -> dict[str, Any] | None:
         """Get a specific software service (local row or on-chain GPU offer)"""
@@ -1290,12 +1352,6 @@ class MarketService:
 
     async def register_software_service(self, data: dict[str, Any]) -> dict[str, Any]:
         """Register or update a software service"""
-        from datetime import UTC, datetime
-
-        from sqlalchemy import select
-
-        from ..domain.market import SoftwareService
-
         try:
             plugin_id = data.get("plugin_id")
             if not plugin_id:
@@ -1319,34 +1375,7 @@ class MarketService:
             # timestamps only from the server — a signed registration can no
             # longer write its own confirmation or reputation.
             data = {key: value for key, value in data.items() if key in _REGISTRATION_FIELDS}
-            query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)
-            result = await self.session.execute(query)
-            existing = result.scalar_one_or_none()
-            if existing:
-                # Ownership gate (the GPU_REGISTER check one layer up): a
-                # valid signature proves who is asking, not who owns the row.
-                # Updating an existing offer requires the row's provider —
-                # anyone else's valid signature gets 403, not a takeover.
-                if not existing.provider_address:
-                    raise PermissionError(f"offer {plugin_id} has no provider on record; updates are not permitted")
-                if canonical_address(existing.provider_address) != canonical_address(signer or ""):
-                    raise PermissionError(f"offer {plugin_id} belongs to provider {existing.provider_address}")
-                data.pop("provider_address", None)  # ownership never changes via update
-                for key, value in data.items():
-                    if hasattr(existing, key) and value is not None:
-                        setattr(existing, key, value)
-                existing.updated_at = datetime.now(UTC).replace(tzinfo=None)
-                await self.session.commit()
-                await self.session.refresh(existing)
-                logger.info("Updated software service: %s", plugin_id)
-            else:
-                data["plugin_id"] = plugin_id
-                service = SoftwareService(**data)
-                self.session.add(service)
-                await self.session.commit()
-                await self.session.refresh(service)
-                existing = service
-                logger.info("Registered software service: %s", plugin_id)
+            existing = await self._upsert_software_service(plugin_id, data, signer)
             return {
                 "plugin_id": existing.plugin_id,
                 "service_type": existing.service_type,
@@ -1358,6 +1387,46 @@ class MarketService:
         except Exception as e:
             logger.error("Error in register_software_service: %s: %s", type(e).__name__, str(e))
             raise
+
+    async def _upsert_software_service(self, plugin_id: str, data: dict[str, Any], signer: str | None) -> SoftwareService:
+        """Update the existing row for ``plugin_id`` or create a new one.
+
+        ``data`` must already be allow-listed to ``_REGISTRATION_FIELDS``.
+        Raises PermissionError when the signer is not the row's provider.
+        """
+        from sqlalchemy import select
+
+        from ..domain.market import SoftwareService
+
+        query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)  # type: ignore[arg-type]
+        result = await self.session.execute(query)
+        existing = result.scalar_one_or_none()
+        if existing:
+            # Ownership gate (the GPU_REGISTER check one layer up): a
+            # valid signature proves who is asking, not who owns the row.
+            # Updating an existing offer requires the row's provider —
+            # anyone else's valid signature gets 403, not a takeover.
+            if not existing.provider_address:
+                raise PermissionError(f"offer {plugin_id} has no provider on record; updates are not permitted")
+            if canonical_address(existing.provider_address) != canonical_address(signer or ""):
+                raise PermissionError(f"offer {plugin_id} belongs to provider {existing.provider_address}")
+            data.pop("provider_address", None)  # ownership never changes via update
+            for key, value in data.items():
+                if hasattr(existing, key) and value is not None:
+                    setattr(existing, key, value)
+            existing.updated_at = datetime.now(UTC).replace(tzinfo=None)
+            await self.session.commit()
+            await self.session.refresh(existing)
+            logger.info("Updated software service: %s", plugin_id)
+        else:
+            data["plugin_id"] = plugin_id
+            service = SoftwareService(**data)
+            self.session.add(service)
+            await self.session.commit()
+            await self.session.refresh(service)
+            existing = service
+            logger.info("Registered software service: %s", plugin_id)
+        return existing
 
     async def unregister_software_service(self, plugin_id: str, proof: dict[str, Any]) -> Any:
         """Unregister a software service.
@@ -1851,7 +1920,7 @@ class MarketService:
                         self.session.add(new_rating)
                         synced_count += 1
                     touched_services.add(remote_rating["service_id"])
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     failed_count += 1
                     logger.warning("Skipping malformed remote rating %s: %s", remote_rating.get("id", "?"), e)
             await self.session.commit()
@@ -2093,49 +2162,9 @@ class MarketService:
         from ..domain.market import IpfsRentalToken
 
         try:
-            access_key = data.get("access_key")
-            if not access_key:
-                raise ValueError("access_key is required")
+            access_key, data = self._normalize_ipfs_token_data(data)
 
-            # Store only the digest — a DB leak must not hand out working credentials.
-            if data.get("access_secret") and not is_hashed_secret(data["access_secret"]):
-                data["access_secret"] = hash_access_secret(data["access_secret"])
-
-            # v0.25.x: canonicalize secp256k1/EVM addresses at registration so
-            # the market DB always stores 0x EIP-55 addresses, regardless
-            # of what the CLI or offer data sent.
-            for addr_field in ("buyer_address", "provider_address"):
-                if addr_field in data and data[addr_field]:
-                    data[addr_field] = canonical_address(str(data[addr_field]))
-
-            # A token is only registered after the provider successfully pins the CID.
-            # Default to pinned=True so that normal rentals pay the provider at expiration.
-            data["pinned"] = bool(data.get("pinned", True))
-
-            # Normalize string timestamps into datetime objects for SQLite.
-            for field in ("created_at", "updated_at", "expires_at"):
-                if field in data:
-                    data[field] = self._parse_iso_dt(data[field])
-
-            # Column allowlist: settlement state (status, pinned, expires_at,
-            # tx_hash, timestamps) is service-owned — a caller writing it could
-            # steer the rental sweeper at a victim escrow (#815).
-            _TOKEN_WRITABLE = {
-                "access_key",
-                "access_secret",
-                "rental_id",
-                "offer_id",
-                "cid",
-                "buyer_address",
-                "provider_address",
-                "ipfs_api",
-                "public_endpoint",
-                "disk_quota_mb",
-                "size",
-            }
-            data = {k: v for k, v in data.items() if k in _TOKEN_WRITABLE}
-
-            stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)
+            stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)  # type: ignore[arg-type]
             result = await self.session.execute(stmt)
             existing = result.scalar_one_or_none()
             if existing:
@@ -2163,6 +2192,52 @@ class MarketService:
         except Exception as e:
             logger.error("Error in register_ipfs_rental_token: %s: %s", type(e).__name__, str(e))
             raise
+
+    def _normalize_ipfs_token_data(self, data: dict[str, Any]) -> tuple[str, dict[str, Any]]:
+        """Validate and normalize caller-supplied token fields; returns
+        ``(access_key, writable_data)`` with settlement-owned columns
+        stripped."""
+        access_key = data.get("access_key")
+        if not access_key:
+            raise ValueError("access_key is required")
+
+        # Store only the digest — a DB leak must not hand out working credentials.
+        if data.get("access_secret") and not is_hashed_secret(data["access_secret"]):
+            data["access_secret"] = hash_access_secret(data["access_secret"])
+
+        # v0.25.x: canonicalize secp256k1/EVM addresses at registration so
+        # the market DB always stores 0x EIP-55 addresses, regardless
+        # of what the CLI or offer data sent.
+        for addr_field in ("buyer_address", "provider_address"):
+            if addr_field in data and data[addr_field]:
+                data[addr_field] = canonical_address(str(data[addr_field]))
+
+        # A token is only registered after the provider successfully pins the CID.
+        # Default to pinned=True so that normal rentals pay the provider at expiration.
+        data["pinned"] = bool(data.get("pinned", True))
+
+        # Normalize string timestamps into datetime objects for SQLite.
+        for field in ("created_at", "updated_at", "expires_at"):
+            if field in data:
+                data[field] = self._parse_iso_dt(data[field])
+
+        # Column allowlist: settlement state (status, pinned, expires_at,
+        # tx_hash, timestamps) is service-owned — a caller writing it could
+        # steer the rental sweeper at a victim escrow (#815).
+        _TOKEN_WRITABLE = {
+            "access_key",
+            "access_secret",
+            "rental_id",
+            "offer_id",
+            "cid",
+            "buyer_address",
+            "provider_address",
+            "ipfs_api",
+            "public_endpoint",
+            "disk_quota_mb",
+            "size",
+        }
+        return access_key, {k: v for k, v in data.items() if k in _TOKEN_WRITABLE}
 
     async def get_ipfs_rental_token(self, access_key: str, access_secret: str) -> dict[str, Any] | None:
         """Validate an IPFS rental token and return its details."""
@@ -2298,13 +2373,13 @@ class MarketService:
         try:
             if await self._rpc_client.get_offer(offer_id):
                 return
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("GPU offer lookup for %s failed on chain RPC: %s", offer_id, e)
         try:
             txs = await self._rpc_client.query_transactions(transaction_type="GPU_MARKET", order_id=offer_id, limit=1)
             if txs:
                 return
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("GPU_MARKET anchor lookup for %s failed on chain RPC: %s", offer_id, e)
         raise ValueError(f"Unknown offer_id: {offer_id}")
 
@@ -2320,133 +2395,12 @@ class MarketService:
             if not job_id:
                 raise ValueError("job_id is required")
 
-            # #1553/#1634: a caller-supplied job id is a natural idempotency
-            # key for clients that do not use client_ref — a retry replays the
-            # existing row instead of dying on the PK. The replay is scoped to
-            # the same buyer/client so one tenant cannot probe another's job
-            # id; an id held by a different party is a conflict, not a replay.
-            if data.get("id"):
-                existing = await self.session.get(MarketJob, job_id)
-                if existing is not None:
-                    same_buyer = bool(data.get("buyer_address")) and existing.buyer_address == data.get("buyer_address")
-                    same_client = bool(data.get("client_id")) and existing.client_id == data.get("client_id")
-                    if not (same_buyer or same_client):
-                        raise ValueError(f"Job id already exists: {job_id}")
-                    logger.info("Replaying existing market job %s (caller-supplied id)", existing.id)
-                    payment = await self.session.get(MarketJobPayment, existing.payment_id) if existing.payment_id else None
-                    return {
-                        **self._job_to_dict(existing),
-                        "payment": self._payment_to_dict(payment) if payment else None,
-                        "deduplicated": True,
-                    }
+            replay = await self._market_job_replay(data, job_id)
+            if replay is not None:
+                return replay
 
-            # #1553: client_ref is the caller's idempotency handle — a retry
-            # of the same creation must replay the in-flight job, not stack a
-            # duplicate MarketJob+MarketJobPayment pair. Scoped to the buyer
-            # (or client_id when no buyer address is given) so two customers
-            # may reuse the same ref string. Only QUEUED/RUNNING jobs replay:
-            # a finished job under the same ref is a new job, not a retry.
-            client_ref = data.get("client_ref")
-            if client_ref:
-                replay = await self._find_inflight_job_by_client_ref(str(client_ref), data)
-                if replay is not None:
-                    logger.info("Replaying existing market job %s for client_ref %s", replay.id, client_ref)
-                    payment = await self.session.get(MarketJobPayment, replay.payment_id) if replay.payment_id else None
-                    return {
-                        **self._job_to_dict(replay),
-                        "payment": self._payment_to_dict(payment) if payment else None,
-                        "deduplicated": True,
-                    }
-
-            # #1564: a job may only reference an offer the market actually
-            # lists — the old code persisted any caller-supplied offer_id.
-            offer_id = data.get("offer_id")
-            if offer_id:
-                await self._require_known_offer(str(offer_id))
-
-            # #1673: bound ttl_seconds before it reaches timedelta() below —
-            # 1e18 used to OverflowError into a 500.
-            if data.get("ttl_seconds") is not None:
-                data["ttl_seconds"] = _validated_job_ttl(data["ttl_seconds"])
-
-            # Normalize timestamps
-            for field in ("requested_at", "expires_at", "created_at", "updated_at"):
-                if field in data:
-                    data[field] = self._parse_iso_dt(data[field])
-
-            # Store only the digest of the payload access secret.
-            payload = data.get("payload")
-            if isinstance(payload, dict):
-                secret = payload.get("access_secret")
-                if secret and not is_hashed_secret(secret):
-                    payload["access_secret"] = hash_access_secret(secret)
-
-            # Column allowlist: lifecycle/settlement columns (state, escrow ids,
-            # tx hashes, payment denormalization, service timestamps) are
-            # service-owned — a caller writing them seeds the job sweeper
-            # against a victim escrow (#815).
-            _JOB_WRITABLE = {
-                "client_id",
-                "client_ref",
-                "offer_id",
-                "plugin_id",
-                "service_type",
-                "model",
-                "buyer_address",
-                "provider_address",
-                "payload",
-                "constraints",
-                "ttl_seconds",
-                "expires_at",
-                "payment",
-            }
-            job_data = {k: v for k, v in data.items() if k in _JOB_WRITABLE}
-            job = MarketJob(**job_data)
-            job.id = job_id
-            # #1634: the column was write-never — persist the chain escrow
-            # binding at creation. The on-chain escrow for a market job is
-            # keyed by the market job id itself, so that is the linkage value
-            # (release/refund/sweeper all resolve /rpc/escrow/{job.id}).
-            job.escrow_contract_id = job.id
-            if not job.requested_at:
-                job.requested_at = datetime.now(UTC).replace(tzinfo=None)
-            # Derive expires_at from ttl_seconds when the caller did not set
-            # one (#1554): ttl was stored but never enforced, so jobs without
-            # an explicit expiry could hold escrowed funds forever.
-            if job.expires_at is None and job.ttl_seconds:
-                job.expires_at = job.requested_at + timedelta(seconds=int(job.ttl_seconds))
-            if not job.created_at:
-                job.created_at = datetime.now(UTC).replace(tzinfo=None)
-            if not job.updated_at:
-                job.updated_at = datetime.now(UTC).replace(tzinfo=None)
-
-            payment_data = data.get("payment") or {}
-            # Payment lifecycle fields (status, tx hashes, escrowed/released/
-            # refunded timestamps) are written by the payment path, never from
-            # the request — a caller-set "escrowed" row is what the sweeper
-            # steering relied on (#815).
-            try:
-                payment_amount = Decimal(str(payment_data.get("amount", payment_data.get("payment_amount", 0))))
-            except Exception as e:
-                raise ValueError("payment amount must be a valid number") from e
-            if not payment_amount.is_finite() or payment_amount < 0:
-                raise ValueError("payment amount must be a finite non-negative number")
-            if payment_amount > MAX_PAYMENT_AMOUNT:
-                raise ValueError(f"payment amount must not exceed {MAX_PAYMENT_AMOUNT}")
-            payment = MarketJobPayment(
-                id=payment_data.get("id") or uuid4().hex,
-                job_id=job.id,
-                amount=payment_amount,
-                currency=payment_data.get("currency", "AITBC"),
-                status="pending",
-                payment_method=payment_data.get("payment_method", "aitbc_token"),
-                escrow_address=payment_data.get("escrow_address"),
-                refund_address=payment_data.get("refund_address"),
-                meta_data=payment_data.get("meta_data"),
-                created_at=datetime.now(UTC).replace(tzinfo=None),
-                updated_at=datetime.now(UTC).replace(tzinfo=None),
-                expires_at=job.expires_at,
-            )
+            job = await self._prepare_market_job(data, job_id)
+            payment = self._build_market_job_payment(data.get("payment") or {}, job)
 
             job.access_key = (job.payload or {}).get("access_key")
             job.payment_id = payment.id
@@ -2468,6 +2422,147 @@ class MarketService:
             await self.session.rollback()
             logger.error("Error in create_market_job: %s: %s", type(e).__name__, e)
             raise
+
+    async def _market_job_replay(self, data: dict[str, Any], job_id: str) -> dict[str, Any] | None:
+        """Idempotent-replay lookups for ``create_market_job``; returns the
+        replay response dict or None when this is a genuinely new job."""
+        # #1553/#1634: a caller-supplied job id is a natural idempotency
+        # key for clients that do not use client_ref — a retry replays the
+        # existing row instead of dying on the PK. The replay is scoped to
+        # the same buyer/client so one tenant cannot probe another's job
+        # id; an id held by a different party is a conflict, not a replay.
+        if data.get("id"):
+            existing = await self.session.get(MarketJob, job_id)
+            if existing is not None:
+                same_buyer = bool(data.get("buyer_address")) and existing.buyer_address == data.get("buyer_address")
+                same_client = bool(data.get("client_id")) and existing.client_id == data.get("client_id")
+                if not (same_buyer or same_client):
+                    raise ValueError(f"Job id already exists: {job_id}")
+                logger.info("Replaying existing market job %s (caller-supplied id)", existing.id)
+                return await self._replay_market_job_response(existing)
+
+        # #1553: client_ref is the caller's idempotency handle — a retry
+        # of the same creation must replay the in-flight job, not stack a
+        # duplicate MarketJob+MarketJobPayment pair. Scoped to the buyer
+        # (or client_id when no buyer address is given) so two customers
+        # may reuse the same ref string. Only QUEUED/RUNNING jobs replay:
+        # a finished job under the same ref is a new job, not a retry.
+        client_ref = data.get("client_ref")
+        if client_ref:
+            replay = await self._find_inflight_job_by_client_ref(str(client_ref), data)
+            if replay is not None:
+                logger.info("Replaying existing market job %s for client_ref %s", replay.id, client_ref)
+                return await self._replay_market_job_response(replay)
+        return None
+
+    async def _replay_market_job_response(self, job: MarketJob) -> dict[str, Any]:
+        """Serialized replay response for an already-existing job."""
+        payment = await self.session.get(MarketJobPayment, job.payment_id) if job.payment_id else None
+        return {
+            **self._job_to_dict(job),
+            "payment": self._payment_to_dict(payment) if payment else None,
+            "deduplicated": True,
+        }
+
+    async def _prepare_market_job(self, data: dict[str, Any], job_id: str) -> MarketJob:
+        """Validate, normalize and allow-list ``data`` into a MarketJob with
+        its lifecycle defaults applied (pre-payment fields only)."""
+        # #1564: a job may only reference an offer the market actually
+        # lists — the old code persisted any caller-supplied offer_id.
+        offer_id = data.get("offer_id")
+        if offer_id:
+            await self._require_known_offer(str(offer_id))
+
+        # #1673: bound ttl_seconds before it reaches timedelta() below —
+        # 1e18 used to OverflowError into a 500.
+        if data.get("ttl_seconds") is not None:
+            data["ttl_seconds"] = _validated_job_ttl(data["ttl_seconds"])
+
+        # Normalize timestamps
+        for field in ("requested_at", "expires_at", "created_at", "updated_at"):
+            if field in data:
+                data[field] = self._parse_iso_dt(data[field])
+
+        # Store only the digest of the payload access secret.
+        payload = data.get("payload")
+        if isinstance(payload, dict):
+            secret = payload.get("access_secret")
+            if secret and not is_hashed_secret(secret):
+                payload["access_secret"] = hash_access_secret(secret)
+
+        # Column allowlist: lifecycle/settlement columns (state, escrow ids,
+        # tx hashes, payment denormalization, service timestamps) are
+        # service-owned — a caller writing them seeds the job sweeper
+        # against a victim escrow (#815).
+        _JOB_WRITABLE = {
+            "client_id",
+            "client_ref",
+            "offer_id",
+            "plugin_id",
+            "service_type",
+            "model",
+            "buyer_address",
+            "provider_address",
+            "payload",
+            "constraints",
+            "ttl_seconds",
+            "expires_at",
+            "payment",
+        }
+        job_data = {k: v for k, v in data.items() if k in _JOB_WRITABLE}
+        job = MarketJob(**job_data)
+        job.id = job_id
+        # #1634: the column was write-never — persist the chain escrow
+        # binding at creation. The on-chain escrow for a market job is
+        # keyed by the market job id itself, so that is the linkage value
+        # (release/refund/sweeper all resolve /rpc/escrow/{job.id}).
+        job.escrow_contract_id = job.id
+        self._apply_job_defaults(job)
+        return job
+
+    @staticmethod
+    def _apply_job_defaults(job: MarketJob) -> None:
+        """Fill server-owned timestamp/expiry defaults on a fresh job."""
+        if not job.requested_at:
+            job.requested_at = datetime.now(UTC).replace(tzinfo=None)
+        # Derive expires_at from ttl_seconds when the caller did not set
+        # one (#1554): ttl was stored but never enforced, so jobs without
+        # an explicit expiry could hold escrowed funds forever.
+        if job.expires_at is None and job.ttl_seconds:
+            job.expires_at = job.requested_at + timedelta(seconds=int(job.ttl_seconds))
+        if not job.created_at:
+            job.created_at = datetime.now(UTC).replace(tzinfo=None)
+        if not job.updated_at:
+            job.updated_at = datetime.now(UTC).replace(tzinfo=None)
+
+    @staticmethod
+    def _build_market_job_payment(payment_data: dict[str, Any], job: MarketJob) -> MarketJobPayment:
+        """Build the pending MarketJobPayment for ``job``; validates the
+        caller-supplied amount (lifecycle fields are never taken from the
+        request — a caller-set "escrowed" row is what the sweeper steering
+        relied on, #815)."""
+        try:
+            payment_amount = Decimal(str(payment_data.get("amount", payment_data.get("payment_amount", 0))))
+        except Exception as e:
+            raise ValueError("payment amount must be a valid number") from e
+        if not payment_amount.is_finite() or payment_amount < 0:
+            raise ValueError("payment amount must be a finite non-negative number")
+        if payment_amount > MAX_PAYMENT_AMOUNT:
+            raise ValueError(f"payment amount must not exceed {MAX_PAYMENT_AMOUNT}")
+        return MarketJobPayment(
+            id=payment_data.get("id") or uuid4().hex,
+            job_id=job.id,
+            amount=payment_amount,
+            currency=payment_data.get("currency", "AITBC"),
+            status="pending",
+            payment_method=payment_data.get("payment_method", "aitbc_token"),
+            escrow_address=payment_data.get("escrow_address"),
+            refund_address=payment_data.get("refund_address"),
+            meta_data=payment_data.get("meta_data"),
+            created_at=datetime.now(UTC).replace(tzinfo=None),
+            updated_at=datetime.now(UTC).replace(tzinfo=None),
+            expires_at=job.expires_at,
+        )
 
     async def _find_inflight_job_by_client_ref(self, client_ref: str, data: dict[str, Any]) -> MarketJob | None:
         """Return the in-flight job a ``client_ref`` retry refers to (#1553).
@@ -2801,7 +2896,7 @@ class MarketService:
             return False
         try:
             return canonical_address(str(left)) == canonical_address(str(right))
-        except Exception:
+        except _OPS_ERRORS:
             return str(left).strip().lower() == str(right).strip().lower()
 
     async def _require_locked_escrow(self, job: MarketJob, payment: MarketJobPayment) -> None:
@@ -3314,8 +3409,8 @@ class MarketService:
                             pin_resp = await client.post(pin_url, params={"stream": "true"}, timeout=10.0)
                             if pin_resp.status_code == 200:
                                 pinned_count = await _count_pin_lines(pin_resp)
-                    except Exception:
-                        pass
+                    except _OPS_ERRORS:
+                        logger.debug("IPFS pin listing for %s failed", health_url, exc_info=True)
 
                     return {
                         "healthy": True,
@@ -3326,7 +3421,7 @@ class MarketService:
                         "disk_usage_bytes": None,
                         "quota_mb": service.disk_quota_mb,
                     }
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     return {"healthy": False, "service_type": "ipfs", "reason": str(e)}
 
             # Generic HTTP health for other services
@@ -3337,8 +3432,8 @@ class MarketService:
                     resp = await client.get(health_url)
                     resp.raise_for_status()
                 return {"healthy": True, "service_type": service.service_type, "status_code": resp.status_code}
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 return {"healthy": False, "service_type": service.service_type, "reason": str(e)}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error in check_software_offer_health: %s: %s", type(e).__name__, e)
             raise

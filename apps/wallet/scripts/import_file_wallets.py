@@ -9,6 +9,21 @@ from pathlib import Path
 
 import httpx
 
+# Expected failure surface below: daemon HTTP I/O (httpx), file/JSON decode
+# (OSError/ValueError), hex/base64 decode, and data-shape errors.
+# RuntimeError covers abort-style raises; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+)
+
 WALLET_DAEMON_URL = os.getenv("WALLET_DAEMON_URL", "http://localhost:8108")
 WALLET_DIR = Path(os.getenv("WALLET_DIR") or os.getenv("AITBC_WALLET_DIR") or "/var/lib/aitbc/wallets")
 IMPORT_PASSWORD = os.getenv("WALLET_IMPORT_PASSWORD")
@@ -25,8 +40,6 @@ def _auth_headers() -> dict[str, str]:
 
 
 def import_wallets():
-    from aitbc.utils.chain_id import resolve_chain_id
-
     if not WALLET_DIR.exists():
         print(f"Wallet directory not found: {WALLET_DIR}")
         sys.exit(1)
@@ -38,7 +51,35 @@ def import_wallets():
 
     print(f"Found {len(wallet_files)} wallet(s) in {WALLET_DIR}")
 
-    # Check daemon is up with retry logic
+    _wait_for_daemon()
+
+    # Check existing wallets
+    existing = set()
+    try:
+        r = httpx.get(f"{WALLET_DAEMON_URL}/v1/wallets", timeout=5, headers=_auth_headers())
+        for w in r.json().get("items", []):
+            existing.add(w["wallet_id"])
+    except _OPS_ERRORS:
+        existing = set()
+
+    imported = 0
+    skipped = 0
+    failed = 0
+
+    for wallet_file in wallet_files:
+        outcome = _import_wallet_file(wallet_file, existing)
+        if outcome == "imported":
+            imported += 1
+        elif outcome == "skipped":
+            skipped += 1
+        else:
+            failed += 1
+
+    print(f"\nDone: {imported} imported, {skipped} skipped, {failed} failed")
+
+
+def _wait_for_daemon() -> None:
+    """Poll the daemon health endpoint until it answers or retries run out."""
     import time
 
     max_retries = 10
@@ -50,7 +91,7 @@ def import_wallets():
             r.raise_for_status()
             print(f"Daemon healthy: {r.json()}")
             break
-        except Exception as e:
+        except _OPS_ERRORS as e:
             if attempt < max_retries - 1:
                 print(f"Daemon not ready, retrying in {retry_delay}s... (attempt {attempt + 1}/{max_retries})")
                 time.sleep(retry_delay)
@@ -58,73 +99,61 @@ def import_wallets():
                 print(f"Daemon not available at {WALLET_DAEMON_URL} after {max_retries} attempts: {e}")
                 sys.exit(1)
 
-    # Check existing wallets
-    existing = set()
+
+def _import_wallet_file(wallet_file: Path, existing: set) -> str:
+    """Import one wallet file into the daemon.
+
+    Returns ``"imported"``, ``"skipped"`` or ``"failed"``."""
+    from aitbc.utils.chain_id import resolve_chain_id
+
     try:
-        r = httpx.get(f"{WALLET_DAEMON_URL}/v1/wallets", timeout=5, headers=_auth_headers())
-        for w in r.json().get("items", []):
-            existing.add(w["wallet_id"])
-    except Exception:
-        pass
+        with open(wallet_file) as f:
+            data = json.load(f)
 
-    imported = 0
-    skipped = 0
-    failed = 0
+        wallet_id = data.get("wallet_id") or wallet_file.stem
+        address = data.get("address", "")
+        private_key_hex = data.get("private_key", "").lstrip("0x")
+        chain_id = data.get("chain_id") or resolve_chain_id()
 
-    for wallet_file in wallet_files:
-        try:
-            with open(wallet_file) as f:
-                data = json.load(f)
+        if wallet_id in existing:
+            print(f"  SKIP  {wallet_id} (already in daemon)")
+            return "skipped"
 
-            wallet_id = data.get("wallet_id") or wallet_file.stem
-            address = data.get("address", "")
-            private_key_hex = data.get("private_key", "").lstrip("0x")
-            chain_id = data.get("chain_id") or resolve_chain_id()
+        if not private_key_hex:
+            print(f"  SKIP  {wallet_id} (no private key)")
+            return "skipped"
 
-            if wallet_id in existing:
-                print(f"  SKIP  {wallet_id} (already in daemon)")
-                skipped += 1
-                continue
+        # Encode private key as base64 (daemon expects base64)
+        private_key_bytes = bytes.fromhex(private_key_hex)
+        secret_b64 = base64.b64encode(private_key_bytes).decode()
 
-            if not private_key_hex:
-                print(f"  SKIP  {wallet_id} (no private key)")
-                skipped += 1
-                continue
+        payload = {
+            "wallet_id": wallet_id,
+            "chain_id": chain_id,
+            "password": IMPORT_PASSWORD,
+            "secret_key": secret_b64,
+            "metadata": {
+                "address": address,
+                "imported_from": str(wallet_file),
+                "original_address": address,
+            },
+        }
 
-            # Encode private key as base64 (daemon expects base64)
-            private_key_bytes = bytes.fromhex(private_key_hex)
-            secret_b64 = base64.b64encode(private_key_bytes).decode()
+        r = httpx.post(f"{WALLET_DAEMON_URL}/v1/wallets", json=payload, timeout=10, headers=_auth_headers())
+        if r.status_code in (200, 201):
+            result = r.json()
+            result.get("wallet", {})
+            print(f"  OK    {wallet_id} (address={address})")
+            return "imported"
+        if r.status_code == 400 and "already exists" in r.text:
+            print(f"  SKIP  {wallet_id} (already exists)")
+            return "skipped"
+        print(f"  FAIL  {wallet_id}: {r.status_code} {r.text}")
+        return "failed"
 
-            payload = {
-                "wallet_id": wallet_id,
-                "chain_id": chain_id,
-                "password": IMPORT_PASSWORD,
-                "secret_key": secret_b64,
-                "metadata": {
-                    "address": address,
-                    "imported_from": str(wallet_file),
-                    "original_address": address,
-                },
-            }
-
-            r = httpx.post(f"{WALLET_DAEMON_URL}/v1/wallets", json=payload, timeout=10, headers=_auth_headers())
-            if r.status_code in (200, 201):
-                result = r.json()
-                result.get("wallet", {})
-                print(f"  OK    {wallet_id} (address={address})")
-                imported += 1
-            elif r.status_code == 400 and "already exists" in r.text:
-                print(f"  SKIP  {wallet_id} (already exists)")
-                skipped += 1
-            else:
-                print(f"  FAIL  {wallet_id}: {r.status_code} {r.text}")
-                failed += 1
-
-        except Exception as e:
-            print(f"  ERROR {wallet_file.name}: {e}")
-            failed += 1
-
-    print(f"\nDone: {imported} imported, {skipped} skipped, {failed} failed")
+    except _OPS_ERRORS as e:
+        print(f"  ERROR {wallet_file.name}: {e}")
+        return "failed"
 
 
 if __name__ == "__main__":

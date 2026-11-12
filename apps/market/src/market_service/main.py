@@ -7,11 +7,12 @@ import asyncio
 import hmac
 import json
 import os
+import sqlite3
 from aitbc.constants import BLOCKCHAIN_RPC_URL as _DEFAULT_RPC_URL
 from aitbc.constants import DATA_DIR
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
 import httpx
@@ -61,6 +62,24 @@ from .storage import get_session, init_db  # noqa: E402
 
 configure_logging(level="INFO", service_name="market", to_file=True)
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort fallbacks below: filesystem/OS
+# and sqlite ledger errors, HTTP/RPC I/O (httpx), request/JSON/Decimal decode
+# (ValueError/InvalidOperation), lazy imports, and data-shape errors.
+# RuntimeError covers abort-style raises a handler re-aborts with; genuine
+# BaseExceptions (incl. asyncio.CancelledError) still propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    InvalidOperation,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    sqlite3.Error,
+)
 
 
 # SECRET-RELOAD-1 (#1776): reload JWT/API-key secrets from env files on SIGHUP.
@@ -206,7 +225,7 @@ async def _fail_operation(key: str, attempt: int, error: str, *, terminal: bool 
     if key and attempt:
         try:
             await _get_operations_ledger().fail_async(key, attempt, error, terminal=terminal)
-        except Exception:
+        except _OPS_ERRORS:
             logger.error("Failed to record operation failure for key %s", key)
 
 
@@ -468,7 +487,7 @@ async def _create_escrow_bg(job_id: str, buyer: str, provider: str, amount: Deci
                 logger.info("Escrow created for job %s: %s", job_id, resp.json().get("contract_id"))
             else:
                 logger.warning("Escrow creation returned %s: %s", resp.status_code, resp.text)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Escrow creation skipped (non-fatal): %s", e)
 
 
@@ -510,7 +529,7 @@ async def book_offer(
         # this is the belt-and-braces read of the same fields).
         try:
             amount = Decimal(str(booking_data.get("amount") or booking_data.get("price") or 0))
-        except Exception:
+        except _OPS_ERRORS:
             amount = Decimal("0")
         bid_id = result.get("bid_id")
         if bid_id and buyer and provider and amount.is_finite() and amount > 0:

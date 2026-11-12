@@ -109,7 +109,7 @@ class MarketJobSweeper:
 
     async def stop(self) -> None:
         """Stop the background sweep loop."""
-        self._stop_event.set()
+        self._stop_event.set()  # noqa: unawaited-async
         if self._task is not None:
             self._task.cancel()
             try:
@@ -564,15 +564,7 @@ class MarketJobSweeper:
         """
         now = datetime.now(UTC)
         meta = dict(payment.meta_data or {})
-        first_at: datetime | None = None
-        raw = meta.get(META_SETTLE_DEFERRAL_FIRST_AT)
-        if raw:
-            try:
-                first_at = datetime.fromisoformat(str(raw))
-                if first_at.tzinfo is None:
-                    first_at = first_at.replace(tzinfo=UTC)
-            except (TypeError, ValueError):
-                first_at = None
+        first_at = self._deferral_first_at(meta)
         if first_at is None:
             meta[META_SETTLE_DEFERRAL_FIRST_AT] = now.isoformat()
             payment.meta_data = meta
@@ -597,6 +589,39 @@ class MarketJobSweeper:
             return False
 
         # Past the bound: one read decides -- never terminal on a guess.
+        return await self._settlement_past_bound(session, job, payment, meta, outcome, contract_id, intended, now, elapsed)
+
+    @staticmethod
+    def _deferral_first_at(meta: dict[str, Any]) -> datetime | None:
+        """Parse the deferral stamp; a corrupt stamp restarts the bound."""
+        raw = meta.get(META_SETTLE_DEFERRAL_FIRST_AT)
+        if not raw:
+            return None
+        try:
+            first_at = datetime.fromisoformat(str(raw))
+        except (TypeError, ValueError):
+            return None
+        if first_at.tzinfo is None:
+            first_at = first_at.replace(tzinfo=UTC)
+        return first_at
+
+    async def _settlement_past_bound(
+        self,
+        session: AsyncSession,
+        job: MarketJob,
+        payment: MarketJobPayment,
+        meta: dict[str, Any],
+        outcome: str,
+        contract_id: str,
+        intended: str,
+        now: datetime,
+        elapsed: float,
+    ) -> bool:
+        """Past the bound: one ``GET /escrow/{id}`` read converts the guess
+        into evidence -- absent -> terminal ``settlement_failed``; a
+        released or refunded row with a sealed tx hash -> adopt that
+        verdict; anything else -> keep deferring with a loud log line.
+        """
         escrow: dict[str, Any] | None = None
         read_error: Exception | None = None
         try:
@@ -639,73 +664,7 @@ class MarketJobSweeper:
             return False
         state = escrow.get("state") if escrow is not None else None
         if read_error is None and escrow is not None and state in {"released", "refunded"}:
-            tx_hash = escrow.get("release_tx_hash") if state == "released" else escrow.get("refund_tx_hash")
-            if not tx_hash:
-                # A verdict row without a landed hash is the S-8 dead-hash
-                # shape: never adopt 'settled' from a hash that may never
-                # have sealed. Defer and let an operator look.
-                logger.error(
-                    "Escrow settlement for job %s payment %s deferred %.0fs past bound; "
-                    "escrow reports %s but its tx hash is empty -- still deferring",
-                    job.id,
-                    payment.id,
-                    elapsed,
-                    state,
-                )
-                return False
-            # Non-empty is not enough: the S-8 dead-hash shape is a hash that
-            # is present on the row but never sealed in a block. Adopt only
-            # once GET /rpc/transaction/{hash} finds it with a block height.
-            tx: dict[str, Any] | None = None
-            seal_error: Exception | None = None
-            try:
-                tx = await self._rpc_client.get_transaction(tx_hash)
-            except Exception as e:  # noqa: BLE001 - seal error captured — unsealed reads skip, never raise
-                seal_error = e
-            if tx is None or tx.get("block_height") is None:
-                logger.error(
-                    "Escrow settlement for job %s payment %s deferred %.0fs past bound; "
-                    "escrow reports %s but tx %s %s -- still deferring",
-                    job.id,
-                    payment.id,
-                    elapsed,
-                    state,
-                    tx_hash,
-                    f"lookup failed ({seal_error})"
-                    if seal_error is not None
-                    else "is not found on the chain"
-                    if tx is None
-                    else "is present but not sealed (no block height)",
-                )
-                return False
-            if state != intended:
-                # Reality wins: the row is authoritative for where the money
-                # went, so a settled escrow is adopted even when it is not the
-                # kind this sweep intended -- marking it 'failed' would strand
-                # a settled escrow, deferring forever is noise.
-                logger.error(
-                    "Escrow settlement for job %s payment %s: sweeper intended %s but "
-                    "the escrow reports %s -- adopting the row's verdict",
-                    job.id,
-                    payment.id,
-                    intended,
-                    state,
-                )
-            if not await self._adopt_escrow_verdict(session, job, payment, meta, escrow, now):
-                logger.info(
-                    "Concurrent writer won before adopting escrow verdict for job %s",
-                    job.id,
-                )
-                return False
-            logger.info(
-                "Escrow settlement for job %s payment %s deferred %.0fs past bound; "
-                "escrow read reports %s -- adopting the verdict",
-                job.id,
-                payment.id,
-                elapsed,
-                state,
-            )
-            return True
+            return await self._settlement_verdict(session, job, payment, meta, escrow, state, intended, now, elapsed)
         logger.error(
             "Escrow settlement for job %s payment %s deferred %.0fs past the %ss bound (%s); escrow %s -- still deferring",
             job.id,
@@ -718,6 +677,88 @@ class MarketJobSweeper:
             else f"still present (state={escrow.get('state') if escrow else 'unreadable'})",
         )
         return False
+
+    async def _settlement_verdict(
+        self,
+        session: AsyncSession,
+        job: MarketJob,
+        payment: MarketJobPayment,
+        meta: dict[str, Any],
+        escrow: dict[str, Any],
+        state: str,
+        intended: str,
+        now: datetime,
+        elapsed: float,
+    ) -> bool:
+        """Adopt the escrow row's released/refunded verdict once its tx hash
+        is proven sealed on-chain; otherwise keep deferring."""
+        tx_hash = escrow.get("release_tx_hash") if state == "released" else escrow.get("refund_tx_hash")
+        if not tx_hash:
+            # A verdict row without a landed hash is the S-8 dead-hash
+            # shape: never adopt 'settled' from a hash that may never
+            # have sealed. Defer and let an operator look.
+            logger.error(
+                "Escrow settlement for job %s payment %s deferred %.0fs past bound; "
+                "escrow reports %s but its tx hash is empty -- still deferring",
+                job.id,
+                payment.id,
+                elapsed,
+                state,
+            )
+            return False
+        # Non-empty is not enough: the S-8 dead-hash shape is a hash that
+        # is present on the row but never sealed in a block. Adopt only
+        # once GET /rpc/transaction/{hash} finds it with a block height.
+        tx: dict[str, Any] | None = None
+        seal_error: Exception | None = None
+        try:
+            tx = await self._rpc_client.get_transaction(tx_hash)
+        except Exception as e:  # noqa: BLE001 - seal error captured — unsealed reads skip, never raise
+            seal_error = e
+        if tx is None or tx.get("block_height") is None:
+            logger.error(
+                "Escrow settlement for job %s payment %s deferred %.0fs past bound; "
+                "escrow reports %s but tx %s %s -- still deferring",
+                job.id,
+                payment.id,
+                elapsed,
+                state,
+                tx_hash,
+                f"lookup failed ({seal_error})"
+                if seal_error is not None
+                else "is not found on the chain"
+                if tx is None
+                else "is present but not sealed (no block height)",
+            )
+            return False
+        if state != intended:
+            # Reality wins: the row is authoritative for where the money
+            # went, so a settled escrow is adopted even when it is not the
+            # kind this sweep intended -- marking it 'failed' would strand
+            # a settled escrow, deferring forever is noise.
+            logger.error(
+                "Escrow settlement for job %s payment %s: sweeper intended %s but "
+                "the escrow reports %s -- adopting the row's verdict",
+                job.id,
+                payment.id,
+                intended,
+                state,
+            )
+        if not await self._adopt_escrow_verdict(session, job, payment, meta, escrow, now):
+            logger.info(
+                "Concurrent writer won before adopting escrow verdict for job %s",
+                job.id,
+            )
+            return False
+        logger.info(
+            "Escrow settlement for job %s payment %s deferred %.0fs past bound; "
+            "escrow read reports %s -- adopting the verdict",
+            job.id,
+            payment.id,
+            elapsed,
+            state,
+        )
+        return True
 
     async def _adopt_escrow_verdict(
         self,

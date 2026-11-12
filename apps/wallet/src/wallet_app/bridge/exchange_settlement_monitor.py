@@ -1248,7 +1248,7 @@ async def _mirror_pass(cfg: ExchangeCfg) -> int:
             "FROM exchange_settlements WHERE kind = 'trade'"
         ).fetchall()
     finally:
-        conn.close()
+        conn.close()  # noqa: unawaited-async
     mirrored = 0
     for r in rows:
         row = {

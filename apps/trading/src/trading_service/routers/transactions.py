@@ -5,6 +5,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
+import httpx
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +18,20 @@ from ..services.trading_service import LegacyCreateConflictError, TradingService
 
 router = APIRouter(tags=["transactions"])
 logger = get_logger(__name__)
+
+# Expected failure surface for the blockchain-RPC block fetch below:
+# HTTP/transport errors (httpx), response JSON decode and data-shape
+# errors. RuntimeError covers abort-style raises; genuine BaseExceptions
+# still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+)
 
 
 async def _filtered_rows(session: AsyncSession, model, status_enum, type_enum, cap: int | None = None):
@@ -227,7 +242,7 @@ async def _fetch_blocks_from_chain(limit: int | None, chain_id: str | None) -> d
                     "total": 0,
                     "error": f"Blockchain RPC returned {resp.status_code}",
                 }
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to fetch blocks from blockchain: %s", e)
         return {
             "blocks": [],

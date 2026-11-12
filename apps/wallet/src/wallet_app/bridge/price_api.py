@@ -7,13 +7,31 @@ import asyncio
 import os
 import time
 from wallet_app.utc_time import utc_now_iso
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
+
+import httpx
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.oracles.price_oracle import AIT_REFERENCE_PRICE_EUR
 
 logger = get_logger(__name__)
+
+# Expected failure surface below: env-var Decimal conversion
+# (ValueError/InvalidOperation), lazy oracle import (ImportError), and
+# oracle feed I/O (OSError/httpx). RuntimeError covers abort-style raises;
+# genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    InvalidOperation,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+)
 
 # Last-resort flat USD value — only used when no ETH prices are available to
 # convert the EUR-anchored compute reference and no env override is set.
@@ -36,19 +54,19 @@ def _ait_usd_price(eth_usd: Decimal | None = None, eth_eur: Decimal | None = Non
         try:
             ait_eur = Decimal(eur_fixed)
             return ait_eur * eth_usd / eth_eur
-        except Exception:
+        except _OPS_ERRORS:
             logger.warning("Invalid AIT_EUR_FIXED_PRICE: %s", eur_fixed)
     usd_fixed = os.getenv("AIT_USD_FIXED_PRICE")
     if usd_fixed:
         try:
             return Decimal(usd_fixed)
-        except Exception:
+        except _OPS_ERRORS:
             logger.warning("Invalid AIT_USD_FIXED_PRICE: %s", usd_fixed)
     usd_env = os.getenv("AIT_USD_PRICE")
     if usd_env:
         try:
             return Decimal(usd_env)
-        except Exception:
+        except _OPS_ERRORS:
             logger.warning("Invalid AIT_USD_PRICE: %s", usd_env)
     if eth_usd is not None and eth_eur is not None and eth_eur > 0:
         return AIT_REFERENCE_PRICE_EUR * eth_usd / eth_eur
@@ -71,7 +89,7 @@ async def get_eth_prices() -> dict[str, Decimal] | None:
 
         if eth_usd and eth_eur:
             return {"usd": eth_usd.price, "eur": eth_eur.price}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to fetch ETH prices: %s", e)
 
     fixed_usd = os.getenv("ETH_USD_FIXED_PRICE")
