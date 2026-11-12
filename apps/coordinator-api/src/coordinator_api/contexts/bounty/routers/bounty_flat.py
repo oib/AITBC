@@ -15,6 +15,12 @@ criteria, ZK-proof flags, deadline semantics), the service has no
 claim step and no payment/escrow integration, and the previous
 implementation returned fabricated success for any bounty_id (claim and
 verify "succeeded" on nonexistent bounties with no auth at all).
+
+#1898: the four mutation stubs also take ``AuthDep`` — the matrix floor
+``/v1/bounty*=ANY`` cannot distinguish reads from writes, and a public
+mutation surface is wrong even when every handler is an honest 501.
+Object binding (creator/hunter/verifier vs principal) lands with the
+real implementations; until then authentication is the enforced floor.
 """
 
 from __future__ import annotations
@@ -28,6 +34,7 @@ from sqlmodel import Session, col, select
 
 from aitbc.rate_limiting import rate_limit
 
+from ....auth import AuthDep
 from ....storage import get_session
 from ..domain.bounty import Bounty, BountyStatus
 from ..services.bounty_service import BountyService
@@ -86,7 +93,7 @@ def _not_implemented() -> HTTPException:
 
 @router.post("/create", summary="Create a new bounty")
 @rate_limit(rate=20, per=60)
-def create_bounty(request: Request, req: CreateBountyRequest) -> dict[str, Any]:
+def create_bounty(request: Request, req: CreateBountyRequest, user: AuthDep) -> dict[str, Any]:
     """Create a new bounty task — honest 501 (see module docstring / #1337)"""
     raise _not_implemented()
 
@@ -171,20 +178,20 @@ async def get_bounty(
 
 @router.post("/claim", summary="Claim a bounty")
 @rate_limit(rate=20, per=60)
-def claim_bounty(request: Request, req: ClaimBountyRequest) -> dict[str, Any]:
+def claim_bounty(request: Request, req: ClaimBountyRequest, user: AuthDep) -> dict[str, Any]:
     """Claim an open bounty — honest 501 (BountyService has no claim step; see #1337)"""
     raise _not_implemented()
 
 
 @router.post("/submit", summary="Submit solution")
 @rate_limit(rate=30, per=60)
-def submit_solution(request: Request, req: SubmitSolutionRequest) -> dict[str, Any]:
+def submit_solution(request: Request, req: SubmitSolutionRequest, user: AuthDep) -> dict[str, Any]:
     """Submit a solution — honest 501 (see #1337)"""
     raise _not_implemented()
 
 
 @router.post("/verify", summary="Verify solution")
 @rate_limit(rate=20, per=60)
-def verify_solution(request: Request, req: VerifySolutionRequest) -> dict[str, Any]:
+def verify_solution(request: Request, req: VerifySolutionRequest, user: AuthDep) -> dict[str, Any]:
     """Verify a solution — honest 501 (payout-affecting; see #1337)"""
     raise _not_implemented()

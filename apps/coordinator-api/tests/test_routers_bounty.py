@@ -5,6 +5,12 @@ Tests for bounty router
 import pytest
 from fastapi.testclient import TestClient
 
+from aitbc.auth import create_access_token
+
+
+def _headers() -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token('client-1', 'client')}"}
+
 
 @pytest.mark.unit
 class TestBountyRouter:
@@ -28,7 +34,7 @@ class TestBountyRouter:
             "requirements": ["Python", "FastAPI"],
             "tags": ["backend", "api"],
         }
-        response = client.post("/v1/bounty/create", json=bounty_data)
+        response = client.post("/v1/bounty/create", json=bounty_data, headers=_headers())
         # #1337: mutations are honest 501 until the lifecycle is wired
         assert response.status_code == 501
 
@@ -49,6 +55,7 @@ class TestBountyRouter:
         response = client.post(
             "/v1/bounty/claim",
             json={"bounty_id": "bounty-x", "hunter": "0x2222222222222222222222222222222222222222"},
+            headers=_headers(),
         )
         # #1337: claim is an honest 501 — no fabricated "claimed" state
         assert response.status_code == 501
@@ -62,6 +69,7 @@ class TestBountyRouter:
                 "hunter": "0x2222222222222222222222222222222222222222",
                 "solution_url": "https://github.com/solution/repo",
             },
+            headers=_headers(),
         )
         # #1337: submit is an honest 501 — no fabricated submission
         assert response.status_code == 501
@@ -107,19 +115,22 @@ class TestBountyIntegration:
             "tags": ["integration"],
         }
         # #1337: mutations are honest 501 — the fabricated lifecycle is gone
-        create_response = client.post("/v1/bounty/create", json=create_data)
+        create_response = client.post("/v1/bounty/create", json=create_data, headers=_headers())
         assert create_response.status_code == 501
 
         list_response = client.get("/v1/bounty/list")
         assert list_response.status_code == 200
         assert list_response.json()["count"] == 0
 
-        claim_response = client.post("/v1/bounty/claim", json={"bounty_id": "bounty-x", "hunter": "0xHUNTER456"})
+        claim_response = client.post(
+            "/v1/bounty/claim", json={"bounty_id": "bounty-x", "hunter": "0xHUNTER456"}, headers=_headers()
+        )
         assert claim_response.status_code == 501
 
         submit_response = client.post(
             "/v1/bounty/submit",
             json={"bounty_id": "bounty-x", "hunter": "0xHUNTER456", "solution_url": "https://solution.example.com"},
+            headers=_headers(),
         )
         assert submit_response.status_code == 501
 
@@ -127,5 +138,6 @@ class TestBountyIntegration:
         verify_response = client.post(
             "/v1/bounty/verify",
             json={"bounty_id": "bounty-x", "verifier": "0xCREATOR123", "approved": True, "feedback": "Great work!"},
+            headers=_headers(),
         )
         assert verify_response.status_code == 501
