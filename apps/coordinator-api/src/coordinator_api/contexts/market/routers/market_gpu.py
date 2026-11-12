@@ -40,6 +40,7 @@ from ....validators import validate_ethereum_address
 from ....utils.client_resolver import resolve_client
 from ....utils.sql_like import like_contains
 
+from ...payments.acceptance import REFUNDABLE_STATES
 from ...trading.services.market_data_collector import MarketDataCollector
 from ....config import settings
 from ....storage.db import get_session
@@ -300,7 +301,11 @@ def _get_gpu_or_404(session: Session, gpu_id: str) -> GPURegistry:
 # lazily once it outlives BOOKING_HOLD_TTL without a funded payment recorded
 # against the booking.
 BOOKING_HOLD_TTL = timedelta(minutes=30)
-_PAID_PAYMENT_STATUSES = ("escrowed", "released", "confirmed")
+# JobPayment states where money is committed or has moved — a booking bound to
+# one must never be TTL-expired (#1924). REFUNDABLE_STATES covers the live
+# escrow set (escrowed/pending_acceptance/disputed/settlement_failed); released
+# and confirmed are kept from the original tuple as post-settlement states.
+_PAID_PAYMENT_STATUSES = tuple(sorted(REFUNDABLE_STATES | {"released", "confirmed"}))
 # JobPayment states where no live money remains — a paid GPU booking in one
 # of these may be released without stranding an escrow (#1913).
 _RELEASE_SAFE_PAYMENT_STATUSES = frozenset({"released", "refunded", "failed"})
@@ -1485,11 +1490,29 @@ def delete_gpu(
             status_code=http_status.HTTP_403_FORBIDDEN,
             detail="force delete requires an admin",
         )
-    if gpu.status == "booked" and (not force):
-        raise HTTPException(
-            status_code=http_status.HTTP_409_CONFLICT,
-            detail=f"GPU {gpu_id} is currently booked. Use force=true to delete anyway.",
+    if gpu.status == "booked":
+        if not force:
+            raise HTTPException(
+                status_code=http_status.HTTP_409_CONFLICT,
+                detail=f"GPU {gpu_id} is currently booked. Use force=true to delete anyway.",
+            )
+        # #1924: force-delete must not orphan a booking whose payment still has
+        # live money — same fail-closed rule as the release guard (#1913).
+        booking = (
+            session.execute(select(GPUBooking).where(GPUBooking.gpu_id == gpu.id, GPUBooking.status == "active").limit(1))
+            .scalars()
+            .first()
         )
+        if booking is not None and booking.payment_id:
+            payment = session.get(JobPayment, booking.payment_id)
+            if payment is None or payment.status not in _RELEASE_SAFE_PAYMENT_STATUSES:
+                raise HTTPException(
+                    status_code=http_status.HTTP_409_CONFLICT,
+                    detail="GPU has an active booking with a live payment — resolve the payment (cancel or refund the bound job) before force-deleting",
+                )
+        if booking is not None:
+            booking.status = "cancelled"
+            session.add(booking)
     session.delete(gpu)
     session.commit()
     return {"status": "deleted", "gpu_id": gpu_id}
