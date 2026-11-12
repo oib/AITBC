@@ -31,9 +31,9 @@ logger = get_logger(__name__)
 # Expected failure surface for the agent config/SDK/HTTP helpers below:
 # filesystem + JSON decode (OSError/ValueError cover requests' IOError-based
 # RequestException too), data-shape errors, SDK/runtime failures, and both
-# error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError also
-# covers click.Abort raised by abort() inside a try — the handler re-aborts
-# with context, matching the previous except-Exception behaviour. Genuine
+# error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError covers
+# generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. Genuine
 # BaseExceptions (KeyboardInterrupt, SystemExit, asyncio.CancelledError)
 # still propagate (#1864).
 _OPS_ERRORS = (

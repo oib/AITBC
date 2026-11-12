@@ -24,15 +24,18 @@ import httpx
 
 from aitbc.bridge import BridgeClient, BridgeConfig
 from aitbc.exceptions import AITBCError
+from eth_keys.exceptions import BadSignature
+from eth_utils.exceptions import ValidationError as EthValidationError
 
 from ..utils import info, output, warning
 from ..utils.error_handling import CLIError, abort
 
 # Expected failure surface for the bridge command handlers: filesystem/JSON,
 # subprocess, data-shape, runtime, httpx transport/HTTP errors and both error
-# hierarchies. RuntimeError also covers click.Abort raised by abort() inside
-# a try — the handler re-aborts with context, matching the previous
-# except-Exception behaviour. BaseExceptions still propagate (#1864).
+# hierarchies, eth-keys/eth-utils signing errors, and RuntimeError for
+# generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still
+# propagate (#1864).
 _OPS_ERRORS = (
     OSError,
     ValueError,
@@ -44,6 +47,8 @@ _OPS_ERRORS = (
     CLIError,
     AITBCError,
     httpx.HTTPError,
+    BadSignature,
+    EthValidationError,
 )
 
 
