@@ -6,6 +6,7 @@ loopback endpoint is stubbed at ``_post_event`` — no network, no live
 ledger, no keys.
 """
 
+import asyncio
 import json
 import logging
 import sqlite3
@@ -1320,6 +1321,67 @@ class TestDriver:
         # Deferred — still 'released', nothing broadcast.
         assert get_exchange_settlement("trade", 1)["status"] == "released"
         assert exchange_env["ait_sends"] == []
+
+    @pytest.mark.asyncio
+    async def test_concurrent_sweeps_serialize_on_shared_nonce_lock(self, exchange_env, monkeypatch):
+        """ESCROW-SWEEP-NONCE-RACE-1 (#1920): the sell and exchange lanes
+        share the escrow's nonce space. Two sweeps racing
+        check→nonce→sign→intent→broadcast must serialize on
+        ``AIT_ESCROW_SWEEP_LOCK`` — the loser sees the winner's persisted
+        intent and defers, never signing a colliding nonce."""
+        from wallet_app.bridge.bridge_db import get_sell_lock_by_ait_tx_hash, insert_sell_lock
+
+        sell_tx = "0x" + "a1" * 32
+        assert insert_sell_lock(
+            ait_tx_hash=sell_tx,
+            shop_ait_address="0xsender",
+            shop_eth_address=SELLER_ETH,
+            amount_ait=Decimal("1"),
+            status="released",
+        )
+        sell_row = get_sell_lock_by_ait_tx_hash(sell_tx)
+        assert sell_row is not None
+        sell_cfg = sellmon._sell_config()
+
+        ex_row = _trade_row(1, status="released")
+        ex_cfg = _cfg(exchange_env)
+        ex_sweep_row = {**ex_row, "status": "settling"}
+
+        # Widen the race window: the first nonce read inside the critical
+        # section yields so the sibling lane reaches its own check. Without
+        # the lock both lanes pass the union check before either writes its
+        # intent and both broadcast at the same nonce.
+        real_view = sellmon._account_view
+        calls = 0
+
+        async def _slow_view(address: str) -> tuple[int, Decimal]:
+            nonlocal calls
+            calls += 1
+            if calls == 1:
+                await asyncio.sleep(0.05)
+            return await real_view(address)
+
+        monkeypatch.setattr(sellmon, "_account_view", _slow_view)
+
+        sell_outcome, ex_outcome = await asyncio.gather(
+            sellmon._escrow_sweep(
+                sell_cfg, sell_row, sell_cfg.treasury_address, "sell_settle", "settling", "queued_fee_settle"
+            ),
+            esm._escrow_sweep(ex_cfg, ex_sweep_row, "settling", "queued_fee_settle", expected_status="released"),
+        )
+
+        assert sorted([sell_outcome, ex_outcome]) == ["deferred", "sent"]
+        assert len(exchange_env["ait_sends"]) == 1
+
+        # Exactly one intent persisted across both tables, and the single
+        # broadcast carries that row's nonce.
+        sell_fresh = get_sell_lock_by_ait_tx_hash(sell_tx)
+        ex_fresh = get_exchange_settlement("trade", 1)
+        inflight = [r for r in (sell_fresh, ex_fresh) if r is not None and r["status"] == "settling"]
+        assert len(inflight) == 1
+        winner = inflight[0]
+        assert winner["escrow_out_nonce"] is not None and winner["escrow_out_tx"]
+        assert exchange_env["ait_sends"][0]["nonce"] == int(winner["escrow_out_nonce"])
 
 
 # ---------------------------------------------------------------------------
