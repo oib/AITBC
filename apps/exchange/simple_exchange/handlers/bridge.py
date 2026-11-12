@@ -1,7 +1,7 @@
 """Bridge deposit, status, price, and estimate handlers."""
 
 import urllib.parse
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from aitbc.aitbc_logging import get_logger
@@ -11,6 +11,22 @@ from ..config import bridge_config
 from .base import _env_int, mutating_rate_limit_reached
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the handlers below: lazy third-party imports
+# (ImportError), filesystem/OS and RPC I/O errors (OSError), request/JSON
+# decode and Decimal conversion failures (ValueError/InvalidOperation), and
+# data-shape errors. RuntimeError covers abort-style raises a handler
+# re-aborts with; genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    InvalidOperation,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 # Repo root derived from this file (apps/exchange/simple_exchange/handlers/bridge.py),
 # so lazy sys.path inserts resolve inside the running checkout instead of a
@@ -92,7 +108,7 @@ class BridgeMixin:
             body = self._read_json_body()  # type: ignore[attr-defined]
             try:
                 eth_amount = _to_decimal(body.get("eth_amount", 0))
-            except Exception:
+            except _OPS_ERRORS:
                 self.send_json_response({"error": "eth_amount must be a valid number"}, status=400)  # type: ignore[attr-defined]
                 return
             ait_address = body.get("ait_address", "")
@@ -107,7 +123,7 @@ class BridgeMixin:
             bridge_eth_address = bridge_config.bridge_eth_address
             try:
                 min_eth_deposit = _to_decimal(bridge_config.min_eth_deposit)
-            except Exception:
+            except _OPS_ERRORS:
                 min_eth_deposit = Decimal("0.001")
             eth_network = bridge_config.eth_network
 
@@ -183,7 +199,7 @@ class BridgeMixin:
         try:
             from eth_hash.auto import keccak
             from aitbc.crypto.signature_recovery import SignatureMalformed, recover_address
-        except Exception:
+        except _OPS_ERRORS:
             # secp256k1 dependencies not available; cannot verify signatures
             return (False, 0)
 
@@ -222,7 +238,7 @@ class BridgeMixin:
             body = self._read_json_body()  # type: ignore[attr-defined]
             try:
                 ait_amount = _to_decimal(body.get("ait_amount", 0))
-            except Exception:
+            except _OPS_ERRORS:
                 self.send_json_response({"error": "ait_amount must be a valid number"}, status=400)  # type: ignore[attr-defined]
                 return
             eth_address = body.get("eth_address", "")
@@ -400,7 +416,7 @@ class BridgeMixin:
                     "note": "Bridge is operating in trusted-custodian mode; rates are indicative only.",
                 }
             )
-        except Exception:
+        except _OPS_ERRORS:
             self.send_json_response(
                 {  # type: ignore[attr-defined]
                     "rates": {},
@@ -424,7 +440,7 @@ class BridgeMixin:
             body = self._read_json_body()  # type: ignore[attr-defined]
             try:
                 eth_amount = _to_decimal(body.get("eth_amount", 0))
-            except Exception:
+            except _OPS_ERRORS:
                 self.send_json_response({"error": "eth_amount must be a valid number"}, status=400)  # type: ignore[attr-defined]
                 return
 

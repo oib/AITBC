@@ -14,6 +14,7 @@ from typing import Any, cast
 
 from aitbc_shared import MarketOffer
 from sqlalchemy import event, inspect, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 from sqlmodel import select
 
@@ -39,6 +40,20 @@ _DEAD_GLOBAL_MARKET_TABLES = (
 )
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort column backfill below:
+# sqlalchemy DDL/DBAPI errors plus data-shape errors from literal building.
+# RuntimeError covers abort-style raises; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 DEFAULT_DB = f"sqlite+aiosqlite:///{DATA_DIR}/data/marketplace_service.db"
 DATABASE_URL = market_getenv("MARKET_DATABASE_URL", os.getenv("DATABASE_URL", DEFAULT_DB))
 engine = create_async_engine(DATABASE_URL, echo=False)
@@ -115,7 +130,7 @@ def _ensure_table_columns_sync(conn, table) -> None:
         try:
             conn.execute(text(f"ALTER TABLE {table.name} ADD COLUMN {' '.join(parts)}"))
             logger.info("Added missing column %s.%s", table.name, col.name)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Could not add column %s.%s: %s", table.name, col.name, e)
 
 

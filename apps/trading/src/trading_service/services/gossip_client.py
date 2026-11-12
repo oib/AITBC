@@ -22,6 +22,7 @@ import asyncio
 import base64
 import json
 import logging
+import zlib
 from collections import defaultdict
 from contextlib import suppress
 from typing import Any
@@ -30,6 +31,34 @@ from aitbc.async_tasks import create_task_with_logging
 from aitbc.network import decompress_json
 
 logger = logging.getLogger(__name__)
+
+# redis is an optional dependency (lazy-imported below); fold its error base
+# into the ops tuple only when importable.
+try:
+    from redis.exceptions import RedisError as _RedisError
+
+    _REDIS_ERRORS: tuple[type[BaseException], ...] = (_RedisError,)
+except ImportError:
+    _REDIS_ERRORS = ()
+
+# Expected failure surface below: lazy redis import (ImportError), Redis
+# transport errors, payload decode failures (binascii/JSON are ValueError;
+# gzip/zlib raise OSError/EOFError/zlib.error), WebSocket-style send
+# failures, and data-shape errors. RuntimeError covers abort-style raises;
+# genuine BaseExceptions (incl. asyncio.CancelledError, handled explicitly
+# where required) still propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    EOFError,
+    zlib.error,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    *_REDIS_ERRORS,
+)
 
 # Magic prefix that marks a compressed payload (mirrors blockchain-node).
 COMPRESSION_PREFIX = "GZ:"
@@ -46,8 +75,8 @@ def _sanitize_url(url: str) -> str:
             if parsed.port:
                 netloc += f":{parsed.port}"
             return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
-    except Exception:
-        pass
+    except _OPS_ERRORS:
+        logger.debug("URL sanitize failed; using raw URL", exc_info=True)
     return url
 
 
@@ -66,8 +95,9 @@ def _decode_payload(data: Any) -> Any:
                 # Cap the inflate: a tiny compressed blob can expand without
                 # bound (#1547). 4 MiB is ~4x the P2P gossip payload cap.
                 return decompress_json(compressed, max_bytes=4 * 1024 * 1024)
-            except Exception:
-                pass  # fall through to JSON parse
+            except _OPS_ERRORS:
+                # fall through to JSON parse
+                logger.debug("Gossip payload decompress failed; trying plain JSON", exc_info=True)
         try:
             return json.loads(data)
         except json.JSONDecodeError:
@@ -118,7 +148,7 @@ class GossipSubscription:
         """Unsubscribe and release resources."""
         try:
             self._close_fn()
-        except Exception:
+        except _OPS_ERRORS:
             logger.debug("Error closing gossip subscription for %s", self.topic, exc_info=True)
 
 
@@ -169,7 +199,7 @@ class GossipClient:
                     await asyncio.to_thread(lambda: None)  # yield
                     pong = await self._redis.ping()
                     logger.info("GossipClient connected to Redis (%s): ping=%s", _sanitize_url(self._redis_url), pong)
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.warning(
                         "GossipClient Redis connection failed (%s), using in-memory fallback: %s",
                         _sanitize_url(self._redis_url),
@@ -185,14 +215,14 @@ class GossipClient:
             task.cancel()
             try:
                 await task
-            except (asyncio.CancelledError, Exception):
-                pass
+            except (asyncio.CancelledError, *_OPS_ERRORS):
+                logger.debug("Gossip task did not stop cleanly during shutdown", exc_info=True)
         self._tasks.clear()
         if self._redis is not None:
             try:
                 await self._redis.aclose()
-            except Exception:
-                pass
+            except _OPS_ERRORS:
+                logger.debug("Redis close failed during gossip shutdown", exc_info=True)
             self._redis = None
         async with self._mem_lock:
             self._mem_topics.clear()
@@ -212,44 +242,7 @@ class GossipClient:
 
         if self._redis is not None:
             stop_event = asyncio.Event()
-
-            async def _listen() -> None:
-                # #1534: pubsub/sub_redis must be closed on EVERY exit path —
-                # the old code only cleaned up after the listen() loop ended
-                # normally, so task.cancel() (GossipSubscription.close) leaked
-                # the dedicated connection and its server-side SUBSCRIBE.
-                sub_redis: Any = None
-                pubsub: Any = None
-                try:
-                    import redis.asyncio as aioredis
-
-                    sub_redis = aioredis.Redis.from_url(self._redis_url, socket_timeout=None, socket_connect_timeout=5)
-                    pubsub = sub_redis.pubsub()
-                    await pubsub.subscribe(topic)
-                    logger.info("GossipClient subscribed to Redis topic: %s", topic)
-                    async for message in pubsub.listen():
-                        if stop_event.is_set():
-                            break
-                        if message["type"] != "message":
-                            continue
-                        try:
-                            decoded = _decode_payload(message["data"])
-                            # Handle batched messages (list) or single (dict)
-                            if isinstance(decoded, list):
-                                for item in decoded:
-                                    await queue.put(item)
-                            else:
-                                await queue.put(decoded)
-                        except Exception:
-                            logger.debug("Error decoding gossip message for %s", topic, exc_info=True)
-                except asyncio.CancelledError:
-                    pass
-                except Exception as e:
-                    logger.warning("GossipClient Redis subscription error for %s: %s", topic, e)
-                finally:
-                    await _close_gossip_subscription(pubsub, sub_redis, topic)
-
-            task = create_task_with_logging(_listen(), name=f"gossip-sub-{topic}")
+            task = create_task_with_logging(self._redis_listen(topic, queue, stop_event), name=f"gossip-sub-{topic}")
             self._tasks.add(task)
 
             def _close() -> None:
@@ -263,17 +256,56 @@ class GossipClient:
             self._mem_topics[topic].append(queue)
 
         def _close_mem() -> None:
-            async def _remove() -> None:
-                async with self._mem_lock:
-                    queues = self._mem_topics.get(topic)
-                    if queues and queue in queues:
-                        queues.remove(queue)
-                        if not queues:
-                            self._mem_topics.pop(topic, None)
-
-            create_task_with_logging(_remove(), name=f"gossip-unsubscribe-{topic}")
+            create_task_with_logging(self._mem_remove(topic, queue), name=f"gossip-unsubscribe-{topic}")
 
         return GossipSubscription(topic=topic, queue=queue, close_fn=_close_mem)
+
+    async def _redis_listen(self, topic: str, queue: asyncio.Queue[Any], stop_event: asyncio.Event) -> None:
+        """Listen on the Redis pub/sub channel for ``topic`` and push decoded
+        messages onto ``queue`` until cancelled or ``stop_event`` is set."""
+        # #1534: pubsub/sub_redis must be closed on EVERY exit path —
+        # the old code only cleaned up after the listen() loop ended
+        # normally, so task.cancel() (GossipSubscription.close) leaked
+        # the dedicated connection and its server-side SUBSCRIBE.
+        sub_redis: Any = None
+        pubsub: Any = None
+        try:
+            import redis.asyncio as aioredis
+
+            sub_redis = aioredis.Redis.from_url(self._redis_url, socket_timeout=None, socket_connect_timeout=5)
+            pubsub = sub_redis.pubsub()
+            await pubsub.subscribe(topic)
+            logger.info("GossipClient subscribed to Redis topic: %s", topic)
+            async for message in pubsub.listen():
+                if stop_event.is_set():
+                    break
+                if message["type"] != "message":
+                    continue
+                try:
+                    decoded = _decode_payload(message["data"])
+                    # Handle batched messages (list) or single (dict)
+                    if isinstance(decoded, list):
+                        for item in decoded:
+                            await queue.put(item)
+                    else:
+                        await queue.put(decoded)
+                except _OPS_ERRORS:
+                    logger.debug("Error decoding gossip message for %s", topic, exc_info=True)
+        except asyncio.CancelledError:
+            pass
+        except _OPS_ERRORS as e:
+            logger.warning("GossipClient Redis subscription error for %s: %s", topic, e)
+        finally:
+            await _close_gossip_subscription(pubsub, sub_redis, topic)
+
+    async def _mem_remove(self, topic: str, queue: asyncio.Queue[Any]) -> None:
+        """Detach ``queue`` from the in-memory topic subscriber list."""
+        async with self._mem_lock:
+            queues = self._mem_topics.get(topic)
+            if queues and queue in queues:
+                queues.remove(queue)
+                if not queues:
+                    self._mem_topics.pop(topic, None)
 
     async def publish_local(self, topic: str, message: Any) -> None:
         """Publish a message to in-memory subscribers (fallback mode only).

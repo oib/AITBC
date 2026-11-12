@@ -5,6 +5,7 @@ Lifespan should call ``set_gossip_client`` / ``set_lease_tracker`` before
 any request is served when startup succeeds.
 """
 
+import logging
 from typing import Any
 
 from aitbc.trading.offer_types import OfferDiscoveryResult, OfferSyncStatusEntry
@@ -17,6 +18,31 @@ from .services.offer_search_service import OfferSearchService
 from .services.offer_subscription_service import OfferSubscriptionService
 from .services.offer_sync_service import OfferSyncService
 from .storage import get_session
+
+logger = logging.getLogger(__name__)
+
+# redis is an optional dependency (lazy-imported inside the gossip/lease
+# services); fold its error base into the ops tuple only when importable.
+try:
+    from redis.exceptions import RedisError as _RedisError
+
+    _REDIS_ERRORS: tuple[type[BaseException], ...] = (_RedisError,)
+except ImportError:
+    _REDIS_ERRORS = ()
+
+# Expected failure surface for the shutdown fallbacks below: Redis
+# transport errors via the gossip/lease services' close paths and
+# data-shape errors. RuntimeError covers abort-style raises; genuine
+# BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    *_REDIS_ERRORS,
+)
 
 
 _subscription_service: OfferSubscriptionService | None = None
@@ -136,12 +162,12 @@ async def shutdown() -> None:
     if _gossip_client is not None:
         try:
             await _gossip_client.stop()
-        except Exception:
-            pass
+        except _OPS_ERRORS:
+            logger.debug("Gossip client stop failed during shutdown", exc_info=True)
         _gossip_client = None
     if _lease_tracker is not None:
         try:
             await _lease_tracker.stop()
-        except Exception:
-            pass
+        except _OPS_ERRORS:
+            logger.debug("Lease tracker stop failed during shutdown", exc_info=True)
         _lease_tracker = None

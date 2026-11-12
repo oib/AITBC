@@ -13,6 +13,18 @@ from aitbc.operations import BeginResult, BeginStatus, OperationLedger
 
 from ..db import get_db_path
 
+# Expected failure surface for the best-effort helpers below: filesystem/OS
+# errors, data-shape errors, and RuntimeError for abort-style raises that a
+# caller may re-raise. Genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 MAX_BODY_BYTES = 2 * 1024 * 1024  # 2 MB
 RPC_TIMEOUT = 10  # seconds
 
@@ -84,7 +96,7 @@ def client_ip_for_rate_limit(handler) -> str:
     if callable(method):
         try:
             ip = method()
-        except Exception:
+        except _OPS_ERRORS:
             ip = None
         if isinstance(ip, str) and ip:
             return ip

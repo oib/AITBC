@@ -21,6 +21,30 @@ logger = logging.getLogger(__name__)
 
 LEASE_PREFIX = "lease:offer_subscriber:"
 
+# redis is an optional dependency (lazy-imported in start()); fold its error
+# base into the ops tuple only when importable.
+try:
+    from redis.exceptions import RedisError as _RedisError
+
+    _REDIS_ERRORS: tuple[type[BaseException], ...] = (_RedisError,)
+except ImportError:
+    _REDIS_ERRORS = ()
+
+# Expected failure surface below: lazy redis import (ImportError), Redis
+# transport errors, URL parse failures, float decode (ValueError), and
+# data-shape errors. RuntimeError covers abort-style raises; genuine
+# BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    *_REDIS_ERRORS,
+)
+
 
 def _sanitize_url(url: str) -> str:
     """Remove credentials from a URL before logging (same convention as aitbc_chain)."""
@@ -33,8 +57,8 @@ def _sanitize_url(url: str) -> str:
             if parsed.port:
                 netloc += f":{parsed.port}"
             return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
-    except Exception:
-        pass
+    except _OPS_ERRORS:
+        logger.debug("URL sanitize failed; using raw URL", exc_info=True)
     return url
 
 
@@ -69,7 +93,7 @@ class OfferLeaseTracker:
             )
             pong = await self._redis.ping()
             logger.info("OfferLeaseTracker connected to Redis (%s): ping=%s", _sanitize_url(self._redis_url), pong)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning(
                 "OfferLeaseTracker Redis connection failed (%s), using in-memory fallback: %s",
                 _sanitize_url(self._redis_url),
@@ -84,8 +108,8 @@ class OfferLeaseTracker:
         if self._redis is not None:
             try:
                 await self._redis.aclose()
-            except Exception:
-                pass
+            except _OPS_ERRORS:
+                logger.debug("Redis close failed during lease tracker shutdown", exc_info=True)
             self._redis = None
         self._mem_leases.clear()
         logger.info("OfferLeaseTracker stopped")
@@ -117,7 +141,7 @@ class OfferLeaseTracker:
                 )
                 await self._redis.expire(key, duration + 60)
                 logger.info("Registered offer subscriber %s (chain=%s) expiry=%s", node_id, chain_id, expiry)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Redis register failed for %s, using in-memory: %s", node_id, e)
                 self._mem_leases[node_id] = expiry
         else:
@@ -144,7 +168,7 @@ class OfferLeaseTracker:
                 await self._redis.expire(key, duration + 60)
                 logger.info("Extended offer lease for %s to %s", node_id, new_expiry)
                 return new_expiry
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Redis extend failed for %s, using in-memory: %s", node_id, e)
                 if node_id not in self._mem_leases:
                     return 0.0
@@ -173,7 +197,7 @@ class OfferLeaseTracker:
                     await self.revoke_lease(node_id)
                     return False
                 return True
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Redis validate failed for %s, using in-memory: %s", node_id, e)
                 return self._mem_validate(node_id)
         return self._mem_validate(node_id)
@@ -200,7 +224,7 @@ class OfferLeaseTracker:
             try:
                 result = await self._redis.delete(key)
                 return bool(result)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Redis revoke failed for %s, using in-memory: %s", node_id, e)
                 return self._mem_leases.pop(node_id, None) is not None
         return self._mem_leases.pop(node_id, None) is not None
@@ -224,7 +248,7 @@ class OfferLeaseTracker:
                     await self.revoke_lease(node_id)
                     return 0.0
                 return expiry
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Redis get-expiry failed for %s, using in-memory: %s", node_id, e)
                 expiry = self._mem_leases.get(node_id, 0.0)
                 if expiry and expiry < time.time():

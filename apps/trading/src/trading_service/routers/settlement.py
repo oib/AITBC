@@ -6,6 +6,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
 from fastapi.responses import JSONResponse
+import httpx
 from sqlalchemy import select
 
 from aitbc.aitbc_logging import get_logger
@@ -24,6 +25,20 @@ from ..services.inter_chain_service import InterChainTradeService
 
 router = APIRouter(tags=["settlement"])
 logger = get_logger(__name__)
+
+# Expected failure surface for the settlement-status read below: HTTP/RPC
+# I/O from the settlement client (httpx), config ValueErrors, and
+# data-shape errors. RuntimeError covers abort-style raises; genuine
+# BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+)
 
 # Claim-then-call bound for the in-flight markers (#1562): the external
 # create_escrow/settle RPCs are bounded by the HTTP timeout, so a marker
@@ -388,7 +403,7 @@ async def settlement_status(
             except Exception as exc:
                 sync_error = str(exc)
                 logger.exception("Settlement status sync failed for trade %s", trade_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Get settlement status failed for trade %s: %s", trade_id, e)
             escrow_status = "unknown"
             sync_error = str(e)

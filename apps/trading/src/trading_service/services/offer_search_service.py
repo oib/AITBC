@@ -14,11 +14,39 @@ from decimal import Decimal
 import logging
 from typing import Any
 
+import httpx
+
 from aitbc.trading.offer_types import SyncedOffer
 
 from ..config import settings
 
 logger = logging.getLogger(__name__)
+
+# meilisearch is an optional dependency (lazy-imported in _init_backend);
+# fold its error base into the ops tuple only when importable. httpx covers
+# the transport-level failures the client can leak.
+try:
+    from meilisearch.errors import MeilisearchError as _MeilisearchError
+
+    _SEARCH_ERRORS: tuple[type[BaseException], ...] = (_MeilisearchError,)
+except ImportError:
+    _SEARCH_ERRORS = ()
+
+# Expected failure surface for the search-backend fallbacks below: lazy
+# backend import (ImportError), backend API/transport errors, response
+# decode and data-shape errors. RuntimeError covers abort-style raises;
+# genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    *_SEARCH_ERRORS,
+)
 
 
 class OfferSearchService:
@@ -52,7 +80,7 @@ class OfferSearchService:
                     # Ensure index exists
                     try:
                         self._client.get_index(self._index_name)
-                    except Exception:
+                    except _OPS_ERRORS:
                         self._client.create_index(self._index_name)
                     logger.info("Meilisearch connected at %s", self._backend_url)
                 except ImportError:
@@ -61,7 +89,7 @@ class OfferSearchService:
             else:
                 logger.warning("Unknown search backend %s, falling back to in-memory", self._backend)
                 self._enabled = False
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Search backend init failed: %s, falling back to in-memory", e)
             self._enabled = False
 
@@ -74,7 +102,7 @@ class OfferSearchService:
         if self._enabled and self._client is not None:
             try:
                 self._client.index(self._index_name).add_documents([offer.to_dict()], "offer_id")
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Search index error for offer %s: %s", offer.offer_id, e)
                 self._in_memory_offers[offer.offer_id] = offer
         else:
@@ -85,7 +113,7 @@ class OfferSearchService:
         if self._enabled and self._client is not None:
             try:
                 self._client.index(self._index_name).delete_document(offer_id)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Search delete error for offer %s: %s", offer_id, e)
         self._in_memory_offers.pop(offer_id, None)
 
@@ -120,7 +148,7 @@ class OfferSearchService:
                 )
                 hits = results.get("hits", []) if isinstance(results, dict) else []
                 return [SyncedOffer.from_dict(hit) for hit in hits]
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Search query error: %s, falling back to in-memory", e)
 
         return self._in_memory_search(query, chain_id, service_type, min_price, max_price, limit)

@@ -13,8 +13,9 @@ import asyncio
 import json
 import math
 import os
+import sqlite3
 from wallet_app.utc_time import parse_stored, utc_now
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any, cast
 
 import httpx
@@ -40,6 +41,24 @@ from .price_api import calculate_eth_amount
 from .url_redact import redact_text
 
 logger = get_logger(__name__)
+
+# Expected failure surface below: ETH/EVM RPC HTTP I/O (httpx), lazy eth_*
+# imports (ImportError), key/address decode (ValueError/TypeError),
+# sqlite bridge-store errors, Decimal/JSON decode, and data-shape errors.
+# RuntimeError covers abort-style raises; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    InvalidOperation,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    sqlite3.Error,
+)
 
 # Configuration
 ETH_RPC_URL = os.getenv("ETH_RPC_URL", "https://eth.llamarpc.com")
@@ -125,7 +144,7 @@ def _eth_chain_id() -> int:
     """Return the Ethereum chain id for the configured network."""
     try:
         return int(ETH_NETWORK)
-    except Exception:
+    except _OPS_ERRORS:
         return _NETWORK_CHAIN_IDS.get(ETH_NETWORK.lower(), 11155111)
 
 
@@ -146,7 +165,7 @@ def _validate_release_key() -> tuple[str, str] | tuple[None, str]:
 
         account = EthAccount.from_key(key)
         derived = account.address
-    except Exception as e:
+    except _OPS_ERRORS as e:
         return (None, f"Failed to derive release address from private key: {e}")
     if canonical_address(derived).lower() != canonical_address(ETH_WALLET_ADDRESS).lower():
         return (None, f"Release key derives to {derived}, expected {ETH_WALLET_ADDRESS}")
@@ -157,7 +176,7 @@ def _is_valid_eth_address(address: str) -> bool:
     """Return True if ``address`` is a canonical 42-character 0x address."""
     try:
         normalized = canonical_address(address)
-    except Exception:
+    except _OPS_ERRORS:
         return False
     return normalized.startswith("0x") and len(normalized) == 42
 
@@ -406,7 +425,7 @@ async def _refund_withdrawal(ait_tx_hash: str, user: str, gross_ait: Decimal, re
         logger.info(
             "Refunded %s AIT to %s for failed withdrawal %s (refund tx: %s)", gross_ait, user, ait_tx_hash, refund_tx_hash
         )
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to refund withdrawal %s: %s", ait_tx_hash, e)
         update_withdrawal_status(ait_tx_hash, "failed", error=f"refund failed: {e}")
 
@@ -699,7 +718,7 @@ async def _process_withdrawal(tx: dict[str, Any], head_height: int) -> str:
     try:
         await _release_eth_for_withdrawal(withdrawal_id, ait_tx_hash, eth_address, amount_eth)
         return "released"
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("ETH release failed for withdrawal %s: %s", ait_tx_hash, e)
         # Never refund blind: a DB error after the broadcast can land us here
         # with the ETH already gone. Verify against the chain first.
@@ -1069,7 +1088,7 @@ async def _drain_awaiting_depth(head_height: int) -> dict[str, int]:
             )
             await _release_eth_for_withdrawal(row["id"], ait_tx_hash, row["eth_address"], amount_eth)
             drained["released"] += 1
-        except Exception as e:
+        except _OPS_ERRORS as e:
             drained["still_waiting"] += 1
             logger.error("Awaiting-depth drain failed for withdrawal %s: %s", ait_tx_hash, e)
             try:
@@ -1141,7 +1160,7 @@ async def _scan_withdraw_transactions(head_height: int) -> dict[str, Any]:
         for tx in transactions:
             try:
                 outcome = await _process_withdrawal(tx, head_height)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 outcome = "error"
                 logger.error("Error processing withdrawal tx %s: %s", tx.get("tx_hash", ""), e)
             outcomes[outcome] = outcomes.get(outcome, 0) + 1
@@ -1193,7 +1212,7 @@ async def withdrawal_monitor_loop() -> None:
                 )
                 log = logger.info if did_work else logger.debug
                 log("Withdrawal poll completed: %s", summary)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error in withdrawal monitor loop: %s", e)
 
         for _ in range(WITHDRAW_POLL_INTERVAL):

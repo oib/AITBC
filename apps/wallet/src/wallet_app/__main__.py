@@ -13,6 +13,20 @@ from wallet_app.settings import settings
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the startup fallback below: lazy chain
+# manager import (ImportError), config/file errors, and data-shape errors.
+# RuntimeError covers abort-style raises; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 def main() -> None:
     """Main entry point for the wallet daemon"""
@@ -31,7 +45,7 @@ def main() -> None:
         for chain in chains:
             logger.info("  - %s: %s (%s)", chain.chain_id, chain.name, chain.status.value)
         logger.info("Default chain: %s", chain_manager.default_chain_id)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to initialize chain manager: %s", e)
         logger.info("Continuing without multi-chain support...")
     logger.info("Starting server on %s:%s", settings.host, settings.port)
