@@ -642,7 +642,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                         await _gossip_ws_send_json(websocket, {"type": "peer_auth_ok"})
                     else:
                         _note_rejection(chain_id, topic, "peer_auth_invalid")
-                        await _gossip_ws_send_json(websocket, {"error": "Invalid peer key"})
+                        await _gossip_ws_send_json(websocket, {"type": "peer_auth_error", "error": "Invalid peer key"})
                     continue
 
                 # Handle authentication handshake.
