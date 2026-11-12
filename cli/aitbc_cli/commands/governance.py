@@ -246,7 +246,14 @@ def _get_client(ctx: click.Context | None = None, url: str | None = None) -> AIT
         config = ctx.obj.get("config") or get_config()
         if getattr(config, "governance_service_url", ""):
             base_url = config.governance_service_url
-    return AITBCHTTPClient(base_url=base_url, timeout=30)
+    # Mutating routes require X-Api-Key since #1873; send the service key
+    # when the operator has provisioned one (GOVERNANCE_API_KEY), else the
+    # generic configured key.
+    api_key = os.getenv("GOVERNANCE_API_KEY")
+    if not api_key:
+        cfg = (ctx.obj.get("config") if ctx is not None and ctx.obj else None) or get_config()
+        api_key = getattr(cfg, "api_key", None)
+    return AITBCHTTPClient(base_url=base_url, timeout=30, api_key=api_key or None)
 
 
 @click.group(

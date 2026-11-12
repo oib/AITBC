@@ -13,7 +13,7 @@ from typing import Annotated, Any
 
 import json
 
-from fastapi import Body, Depends, FastAPI, HTTPException, Query
+from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import delete, text
@@ -21,6 +21,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.auth import APIKeyAuthenticator  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.middleware import (
     ErrorHandlerMiddleware,
@@ -28,7 +29,9 @@ from aitbc.middleware import (
     RequestIDMiddleware,
     RequestValidationMiddleware,
 )
+from aitbc.rate_limiting import client_ip_for_rate_limit, get_rate_limiter, rate_limiting_enabled  # noqa: E402
 
+from .config import settings
 from .services.governance_service import GovernanceService
 from .storage import get_session, init_db
 
@@ -108,7 +111,37 @@ async def _check_fresh(payload: dict[str, Any], signature: str | None) -> None:
 
 
 configure_logging(level="INFO", service_name="governance", to_file=True)
+
 logger = get_logger(__name__)
+
+# Write-surface perimeter (#1873): the wallet signature on each mutating body
+# binds WHO may act; this key binds WHETHER the caller may reach the write
+# surface at all — the same perimeter the api-gateway applies one hop up.
+# Read routes stay open for explorers/monitoring. auth_enabled=true with no
+# GOVERNANCE_API_KEY fails closed (501): provision the key in the service
+# env file before the unit is expected to serve writes.
+require_governance_api_key = APIKeyAuthenticator(
+    expected_key=settings.api_key,
+    auth_enabled=settings.auth_enabled,
+    header_name="X-Api-Key",
+    success_role="governance_admin",
+)
+
+# Per-client write budget on top of the key check: 30 mutating calls per
+# minute per client IP. Governance writes are low-frequency operator actions;
+# anything near this rate is abuse or a retry storm.
+_governance_write_limiter = get_rate_limiter("governance_service_writes", rate=30, per=60)
+
+
+async def require_governance_write_access(request: Request) -> dict[str, Any]:
+    """API key + write budget for mutating routes (#1873)."""
+    identity = await require_governance_api_key(request)
+    if rate_limiting_enabled():
+        key = client_ip_for_rate_limit(request)
+        if not _governance_write_limiter.is_allowed(key):
+            logger.warning("Governance write rate limit exceeded for %s", key)
+            raise HTTPException(status_code=429, detail="Rate limit exceeded", headers={"Retry-After": "60"})
+    return identity
 
 
 async def _proposal_expiry_loop() -> None:
@@ -247,7 +280,7 @@ async def get_profile(profile_id: str, svc: Annotated[GovernanceService, Depends
     return await svc.get_profile(profile_id)
 
 
-@app.post("/v1/governance/profiles")
+@app.post("/v1/governance/profiles", dependencies=[Depends(require_governance_write_access)])
 async def create_profile(profile_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Create a new governance profile"""
     actor = str(profile_data.get("caller_address") or "")
@@ -278,7 +311,7 @@ async def get_proposal(proposal_id: str, svc: Annotated[GovernanceService, Depen
     return await svc.get_proposal(proposal_id)
 
 
-@app.post("/v1/governance/proposals")
+@app.post("/v1/governance/proposals", dependencies=[Depends(require_governance_write_access)])
 async def create_proposal(proposal_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Create a new proposal"""
     actor = str(proposal_data.get("proposer_address") or "")
@@ -303,7 +336,7 @@ async def get_votes(
     return await svc.list_votes(proposal_id=proposal_id, voter_id=voter_id, limit=limit, offset=offset)
 
 
-@app.post("/v1/governance/votes")
+@app.post("/v1/governance/votes", dependencies=[Depends(require_governance_write_access)])
 async def create_vote(vote_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]):
     """Create a new vote"""
     actor = str(vote_data.get("voter_address") or "")
@@ -361,7 +394,7 @@ def get_governance_params():
     return params
 
 
-@app.post("/v1/transactions")
+@app.post("/v1/transactions", dependencies=[Depends(require_governance_write_access)])
 async def submit_transaction(
     transaction_data: dict[str, Any], svc: Annotated[GovernanceService, Depends(get_governance_service)]
 ):
@@ -501,7 +534,7 @@ class StakeRequest(_SignedBody):
     timestamp: float
 
 
-@app.post("/v1/governance/stake")
+@app.post("/v1/governance/stake", dependencies=[Depends(require_governance_write_access)])
 async def stake_tokens(
     request: StakeRequest,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
@@ -548,7 +581,7 @@ class DelegateRequest(_SignedBody):
     timestamp: float
 
 
-@app.post("/v1/governance/delegate")
+@app.post("/v1/governance/delegate", dependencies=[Depends(require_governance_write_access)])
 async def delegate_voting_power(
     request: DelegateRequest,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
@@ -574,7 +607,7 @@ async def delegate_voting_power(
         return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
-@app.post("/v1/governance/proposals/{proposal_id}/close")
+@app.post("/v1/governance/proposals/{proposal_id}/close", dependencies=[Depends(require_governance_write_access)])
 async def close_proposal_endpoint(
     proposal_id: str,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
@@ -607,7 +640,7 @@ async def close_proposal_endpoint(
         return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
-@app.post("/v1/governance/proposals/{proposal_id}/execute")
+@app.post("/v1/governance/proposals/{proposal_id}/execute", dependencies=[Depends(require_governance_write_access)])
 async def execute_proposal_v2(
     proposal_id: str,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
@@ -682,7 +715,7 @@ async def _require_cross_chain_signature(body: dict[str, Any]) -> str:
     return caller
 
 
-@app.post("/v1/governance/proposals/{proposal_id}/propagate")
+@app.post("/v1/governance/proposals/{proposal_id}/propagate", dependencies=[Depends(require_governance_write_access)])
 async def propagate_proposal(
     proposal_id: str,
     request: PropagateRequest,
@@ -784,7 +817,7 @@ def _vote_public_dict(v: Any) -> dict[str, Any]:
     }
 
 
-@app.post("/v1/governance/proposals/{proposal_id}/aggregate-votes")
+@app.post("/v1/governance/proposals/{proposal_id}/aggregate-votes", dependencies=[Depends(require_governance_write_access)])
 async def aggregate_votes(
     proposal_id: str,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
@@ -824,7 +857,9 @@ async def aggregate_votes(
     }
 
 
-@app.post("/v1/governance/proposals/{proposal_id}/execute-cross-chain")
+@app.post(
+    "/v1/governance/proposals/{proposal_id}/execute-cross-chain", dependencies=[Depends(require_governance_write_access)]
+)
 async def execute_cross_chain(
     proposal_id: str,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
@@ -918,8 +953,10 @@ if __name__ == "__main__":
 
     import uvicorn
 
-    # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
-    host = os.getenv("GOVERNANCE_BIND_HOST", "0.0.0.0")  # nosec B104
+    # code default only; the effective bind is pinned per host in the systemd
+    # unit. loopback like every other internal service (#1873) — the
+    # api-gateway and local CLI are the only legitimate callers.
+    host = os.getenv("GOVERNANCE_BIND_HOST", "127.0.0.1")
     port = int(os.getenv("GOVERNANCE_BIND_PORT", "8105"))
 
     uvicorn.run(app, host=host, port=port, log_level="critical", access_log=False)
