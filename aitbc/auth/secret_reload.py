@@ -21,6 +21,7 @@ Design rules:
 from __future__ import annotations
 
 import os
+import re
 import signal
 import threading
 from dataclasses import dataclass, field
@@ -46,6 +47,23 @@ AUTH_SECRET_VARS = frozenset(
         "API_KEY_HASH_SECRET_PREVIOUS",
     }
 )
+
+# #1852: service-scoped JWT secrets are dynamic names
+# (``JWT_SECRET_<SCOPE>``, ``JWT_SECRET_<SCOPE>_NEW``/``_PREVIOUS``) — the
+# frozenset above cannot enumerate them, so the whitelist also accepts any
+# ``JWT_SECRET``/``API_KEY_HASH_SECRET`` name built from env-safe segments.
+_AUTH_SECRET_VAR_RE = re.compile(r"^(?:JWT_SECRET|API_KEY_HASH_SECRET)(?:_[A-Z0-9]+)*$")
+
+
+def _is_auth_secret_var(name: str) -> bool:
+    """Whitelist check: base names plus service-scoped ``*_SECRET_<SCOPE>*``."""
+    return name in AUTH_SECRET_VARS or bool(_AUTH_SECRET_VAR_RE.match(name))
+
+
+def _is_jwt_primary_name(name: str) -> bool:
+    """A JWT signing secret (not a rotation overlap entry)."""
+    return name.startswith("JWT_SECRET") and not name.endswith(("_NEW", "_PREVIOUS"))
+
 
 _DEFAULT_ENV_FILES = ("/etc/aitbc/blockchain-secrets.env",)
 
@@ -113,27 +131,21 @@ def _parse_env_file(path: Path) -> dict[str, str]:
 
 def _validate_candidate(values: dict[str, str]) -> list[str]:
     """Validate the whitelisted candidate set; return error strings."""
-    from aitbc.auth.jwt import _KNOWN_JWT_DEFAULTS, _validate_secret
+    from aitbc.auth.jwt import _validate_secret
 
     errors: list[str] = []
-    primary = (values.get("JWT_SECRET") or values.get("JWT_SECRET_KEY") or "").strip()
-    if primary:
-        if len(primary) < 32:
-            errors.append("JWT_SECRET is shorter than 32 characters")
-        elif primary.lower() in _KNOWN_JWT_DEFAULTS:
-            errors.append("JWT_SECRET is a known default value")
-        else:
+    for name, raw_secret in sorted(values.items()):
+        secret = (raw_secret or "").strip()
+        if not secret:
+            continue
+        if name.startswith("JWT_SECRET"):
+            if name.endswith("_PREVIOUS"):
+                continue  # comma-separated retired list — same as before
             try:
-                _validate_secret(primary)
+                _validate_secret(secret)
             except ValueError as exc:
-                errors.append(f"JWT_SECRET rejected: {exc}")
-    for name in ("JWT_SECRET_NEW",):
-        extra = (values.get(name) or "").strip()
-        if extra and len(extra) < 32:
-            errors.append(f"{name} is shorter than 32 characters")
-    for name in ("API_KEY_HASH_SECRET", "API_KEY_HASH_SECRET_NEW"):
-        secret = (values.get(name) or "").strip()
-        if secret and len(secret) < 16:
+                errors.append(f"{name} rejected: {exc}")
+        elif name.startswith("API_KEY_HASH_SECRET") and not name.endswith("_PREVIOUS") and len(secret) < 16:
             errors.append(f"{name} is suspiciously short (<16 chars)")
     return errors
 
@@ -158,8 +170,8 @@ def _collect_env_values(files: list[str]) -> tuple[dict[str, str], list[str], li
 def _plan_removals(candidates: dict[str, str]) -> tuple[list[str], str | None]:
     """Vars to drop because they vanished from the files; error if JWT primary lost."""
     removals = _FILE_SOURCED - candidates.keys()
-    primary_names = {"JWT_SECRET", "JWT_SECRET_KEY"}
-    if removals & primary_names and not (candidates.keys() & primary_names):
+    jwt_primaries = {n for n in _FILE_SOURCED | candidates.keys() if _is_jwt_primary_name(n)}
+    if removals & jwt_primaries and not (candidates.keys() & jwt_primaries):
         return [], "reload would remove the last JWT primary secret"
     return sorted(removals), None
 
@@ -188,7 +200,7 @@ def reload_auth_secrets(env_files: list[str] | None = None) -> ReloadReport:
         # No secrets file present — nothing to reload, leave environ alone.
         return ReloadReport(ok=True, files_read=[])
 
-    candidates = {k: v for k, v in merged.items() if k in AUTH_SECRET_VARS}
+    candidates = {k: v for k, v in merged.items() if _is_auth_secret_var(k)}
     removals, plan_error = _plan_removals(candidates)
     if plan_error:
         return ReloadReport(ok=False, errors=[plan_error], files_read=read)
