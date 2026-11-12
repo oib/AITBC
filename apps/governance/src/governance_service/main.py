@@ -146,6 +146,7 @@ async def require_governance_write_access(request: Request) -> dict[str, Any]:
             raise HTTPException(status_code=429, detail="Rate limit exceeded", headers={"Retry-After": "60"})
     return identity
 
+
 # Per-chain governance submission surface: chain RPC transport/status errors,
 # aitbc network errors, and tx data-shape errors — each chain fails
 # independently into the `failed` list.
