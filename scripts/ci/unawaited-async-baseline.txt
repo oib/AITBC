@@ -63,55 +63,6 @@ apps/blockchain-node/src/aitbc_chain/sync_state.py	delta_sync_from	session.rollb
 apps/blockchain-node/src/aitbc_chain/sync_state.py	sync_state_from	session.commit()	1
 apps/blockchain-node/src/aitbc_chain/sync_state.py	sync_state_from	session.flush()	1
 apps/blockchain-node/src/aitbc_chain/sync_state.py	sync_state_from	session.rollback()	1
-apps/coordinator-api/migrations/003_data_migration.py	migrate_jobs_from_sqlite	cursor.execute("SELECT * FROM jobs")	1
-apps/coordinator-api/migrations/003_data_migration.py	migrate_jobs_from_sqlite	sqlite_conn.close()	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	activate_identity	self.session.commit()	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	create_identity	self.session.commit()	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	create_identity	self.session.refresh(identity)	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	register_cross_chain_identity	self.session.commit()	2
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	register_cross_chain_identity	self.session.refresh(mapping)	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	revoke_identity	self.session.commit()	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	suspend_identity	self.session.commit()	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	update_cross_chain_mapping	self.session.commit()	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	update_cross_chain_mapping	self.session.refresh(mapping)	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	update_identity	self.session.commit()	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	update_identity	self.session.refresh(identity)	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	update_reputation	self.session.commit()	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	update_reputation	self.session.refresh(identity)	1
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	verify_cross_chain_identity	self.session.commit()	3
-apps/coordinator-api/src/coordinator_api/agent_identity/core.py	verify_cross_chain_identity	self.session.refresh(verification)	1
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	cleanup_expired_verifications	self.session.commit()	1
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	cleanup_expired_verifications	self.session.delete(verification)	1
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	register_cross_chain_identity	self.session.commit()	2
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	register_cross_chain_identity	self.session.refresh(mapping)	1
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	revoke_verification	self.session.commit()	1
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	update_identity_mapping	self.session.commit()	1
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	verify_cross_chain_identity	self.session.commit()	3
-apps/coordinator-api/src/coordinator_api/agent_identity/registry.py	verify_cross_chain_identity	self.session.refresh(verification)	1
-apps/coordinator-api/src/coordinator_api/contexts/advanced_rl/services/advanced_rl/engine.py	load_trained_agent	agent.eval()	1
-apps/coordinator-api/src/coordinator_api/contexts/blockchain/services/oracle_service.py	_fetch_from_api	price_data.get("usd_24h_change", 0.0)	1
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py	_settle_completed_job	session.commit()	2
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py	submit_result	session.commit()	5
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py	submit_result	session.execute( update(Job).where(col(Job.id) == job_id).values(state=JobState.failed.value, error=error_message) )	1
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py	submit_result	session.execute(update(Job).where(col(Job.id) == job_id).values(payment_status="refunded"))	1
-apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/redis_state.py	lpush	self._memory[mem_key].insert(0, value)	1
-apps/coordinator-api/src/coordinator_api/contexts/multimodal/services/multi_modal_fusion/fusion_engine.py	evaluate_fusion_performance	fusion_model.eval()	1
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/acceptance_sweeper.py	run_once	session.commit()	1
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/settlement_reconciler.py	run_once	session.commit()	1
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/stuck_escrow_sweeper.py	_handle_unsealed_lock	session.commit()	1
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py	_run_sweep	session.commit()	3
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py	run_once	self._sweep_lock.acquire(timeout=0.05)	1
-apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py	run_once	self._sweep_lock.release()	1
-apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py	revoke_keys	os.rename(file_path, os.path.join(revoked_path, f"{participant_id}.json"))	1
-apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py	revoke_keys	os.rename(private_path, os.path.join(revoked_path, f"{participant_id}.priv"))	1
-apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/gpu_optimizer.py	optimize_resource_allocation	job_requirements.get("max_latency_ms", 1000)	1
-apps/coordinator-api/src/coordinator_api/main.py	readiness	session.execute(text("SELECT 1"))	1
-apps/coordinator-api/src/coordinator_api/routers/media.py	upload_media	f.close()	1
-apps/coordinator-api/src/coordinator_api/settlement/hooks.py	_save_job	session.commit()	1
-apps/coordinator-api/src/coordinator_api/settlement/hooks.py	initiate_manual_settlement	session.commit()	1
-apps/coordinator-api/src/coordinator_api/utils/cache.py	async_wrapper	cache_manager.set(cache_key, result, ttl_seconds)	1
-apps/coordinator-api/src/coordinator_api/utils/cache.py	warm_exchange_rates	cache_manager.set("exchange_rates_current", rates, ttl_seconds=600)	1
-apps/coordinator-api/src/coordinator_api/utils/cache.py	warm_market_stats	cache_manager.set("market_stats_overview", stats, ttl_seconds=300)	1
 apps/ffmpeg/main.py	_spool_upload	tmp.close()	2
 apps/gpu/src/gpu_service/main.py	register_gpu	gpu_data.get("registered_by", "0x0000000000000000000000000000000000000000")	1
 apps/pool-hub/src/poolhub/app/routers/health.py	health_endpoint	miners_online_gauge.set(miners_online)	1

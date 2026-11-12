@@ -10,9 +10,11 @@ from uuid import uuid4
 
 import secrets
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError
 
 from coordinator_api.agent_identity.core import AgentIdentityCore
 from coordinator_api.agent_identity.registry import CrossChainRegistry
@@ -41,6 +43,24 @@ from .spend_session_service import SpendSessionService
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort paths below: SQLAlchemy
+# session errors, AITBC RPC client errors from the wallet adapters,
+# pydantic validation (ValueError subclass), and ordinary ops/data errors.
+# RuntimeError covers abort-style raises; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+    NetworkError,
+    RateLimitError,
+    CircuitBreakerOpenError,
+)
 
 
 class AgentWalletManager:
@@ -205,7 +225,7 @@ class AgentWalletManager:
             try:
                 balance = await self.get_wallet_balance(agent_id, wallet.chain_id)
                 total_balance += balance
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Failed to get balance for wallet %s: %s", wallet.id, e)
                 balance = Decimal("0")
             total_spent += wallet.total_spent
@@ -241,7 +261,7 @@ class AgentWalletManager:
         try:
             adapter = self._get_adapter(chain_id)
             return await adapter.validate_address(address)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error verifying address %s on chain %s: %s", address, chain_id, e)
             return False
 
@@ -255,7 +275,7 @@ class AgentWalletManager:
             try:
                 balance = await self.get_wallet_balance(agent_id, wallet.chain_id)
                 sync_results[wallet.chain_id] = {"success": True, "balance": balance, "address": wallet.chain_address}
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 sync_results[wallet.chain_id] = {"success": False, "error": str(e), "address": wallet.chain_address}
         return sync_results  # type: ignore[return-value]
 
@@ -321,7 +341,7 @@ class AgentIdentityManager:
                 wallet_results.append(
                     {"chain_id": chain_id, "wallet_id": wallet.id, "wallet_address": wallet.chain_address, "success": True}
                 )
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Failed to create wallet for chain %s: %s", chain_id, e)
                 wallet_results.append({"chain_id": chain_id, "error": "Wallet creation failed", "success": False})
         return {
@@ -355,13 +375,13 @@ class AgentIdentityManager:
                     else:
                         migration_result["wallet_created"] = False
                         migration_result["error"] = "Identity not found"
-                except Exception:
+                except _OPS_ERRORS:
                     migration_result["wallet_created"] = False
                     migration_result["wallet_error"] = "Wallet creation failed"
             else:
                 migration_result["wallet_created"] = False
             return migration_result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to migrate agent %s from chain %s to %s: %s", agent_id, from_chain, to_chain, e)
             return {
                 "agent_id": agent_id,
@@ -401,7 +421,7 @@ class AgentIdentityManager:
                 "verified_chains": list(verified_chains) if "verified_chains" in locals() else [],
                 "sync_timestamp": datetime.now(UTC).isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to sync reputation for agent %s: %s", agent_id, e)
             return {"agent_id": agent_id, "sync_successful": False, "error": "Sync failed"}
 
@@ -459,7 +479,7 @@ class AgentIdentityManager:
                 "wallets": wallet_stats,
                 "statistics": identity_stats,
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get identity summary for agent %s: %s", agent_id, e)
             return {"agent_id": agent_id, "error": "Failed to get summary"}
 
@@ -478,7 +498,7 @@ class AgentIdentityManager:
                         await self.registry.update_identity_mapping(
                             agent_id, int(chain_id), chain_update.get("new_address"), chain_update.get("verifier_address")
                         )
-                    except Exception as e:
+                    except _OPS_ERRORS as e:
                         logger.error("Failed to update cross-chain mapping for chain %s: %s", chain_id, e)
             wallet_updates = updates.get("wallet_updates", {})
             if wallet_updates:
@@ -486,7 +506,7 @@ class AgentIdentityManager:
                     try:
                         wallet_request = AgentWalletUpdate(**wallet_update)
                         await self.wallet_adapter.update_agent_wallet(agent_id, int(chain_id), wallet_request)
-                    except Exception as e:
+                    except _OPS_ERRORS as e:
                         logger.error("Failed to update wallet for chain %s: %s", chain_id, e)
             return {
                 "agent_id": agent_id,
@@ -494,7 +514,7 @@ class AgentIdentityManager:
                 "updated_fields": list(updates.keys()),
                 "updated_at": updated_identity.updated_at.isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to update agent identity %s: %s", agent_id, e)
             return {"agent_id": agent_id, "update_successful": False, "error": "Update failed"}
 
@@ -513,7 +533,7 @@ class AgentIdentityManager:
                 await self.registry.revoke_verification(identity.id, mapping.chain_id, reason)
             logger.info("Deactivated agent identity: %s, reason: %s", agent_id, reason)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to deactivate agent identity %s: %s", agent_id, e)
             return False
 
@@ -570,7 +590,7 @@ class AgentIdentityManager:
                             "last_activity": identity.last_activity.isoformat() if identity.last_activity else None,
                         }
                     )
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.error("Error getting details for identity %s: %s", identity.id, e)
                     continue
             return {
@@ -585,7 +605,7 @@ class AgentIdentityManager:
                 },
                 "pagination": {"limit": limit, "offset": offset},
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to search agent identities: %s", e)
             return {"results": [], "total_count": 0, "error": "Search failed"}
 
@@ -608,7 +628,7 @@ class AgentIdentityManager:
                 "issues": issues,
                 "timestamp": datetime.now(UTC).isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get registry health: %s", e)
             return {"status": "error", "error": "Health check failed", "timestamp": datetime.now(UTC).isoformat()}
 
@@ -631,7 +651,7 @@ class AgentIdentityManager:
                 return export_data
             else:
                 return {"error": f"Format {format} not supported"}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to export agent identity %s: %s", agent_id, e)
             return {"agent_id": agent_id, "export_successful": False, "error": "Export failed"}
 
@@ -667,7 +687,7 @@ class AgentIdentityManager:
             for chain_id in chain_mappings.keys():
                 try:
                     await self.wallet_adapter.create_agent_wallet(agent_id, chain_id, identity_data["owner_address"])
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.error("Failed to restore wallet for chain %s: %s", chain_id, e)
             return {
                 "agent_id": agent_id,
@@ -676,6 +696,6 @@ class AgentIdentityManager:
                 "restored_mappings": len(chain_mappings),
                 "import_timestamp": datetime.now(UTC).isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to import agent identity: %s", e)
             return {"import_successful": False, "error": "Import failed"}

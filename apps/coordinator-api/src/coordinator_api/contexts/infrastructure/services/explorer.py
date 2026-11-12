@@ -8,10 +8,11 @@ from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import TypedDict
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.network import AITBCHTTPClient
 
@@ -30,6 +31,24 @@ from ....schemas import (
 from ..domain import Job, JobReceipt
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the explorer read paths: filesystem/JSON,
+# data-shape, runtime, sqlite3 chain.db errors, SQLAlchemy session errors
+# (the list_blocks fallback queries the DB) and the aitbc error hierarchy
+# (AITBCHTTPClient re-raises RateLimitError / CircuitBreakerOpenError
+# unwrapped). BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    IndexError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    sqlite3.Error,
+    SQLAlchemyError,
+    AITBCError,
+)
 
 # chain.db is owned by aitbc_chain.database, whose connections get busy_timeout=60000.
 # These read paths used sqlite's 5 s default and opened the store read-write; match the
@@ -52,6 +71,76 @@ _STATUS_LABELS = {
     JobState.expired: "Expired",
 }
 _DEFAULT_HEIGHT_BASE = 100000
+
+
+class _AddrEntry(TypedDict):
+    address: str
+    balance: Decimal
+    tx_count: int
+    last_active: datetime
+    recent_transactions: deque[str]
+    earned: Decimal
+    spent: Decimal
+
+
+def _new_addr_entry() -> _AddrEntry:
+    return _AddrEntry(
+        address="",
+        balance=Decimal("0"),
+        tx_count=0,
+        last_active=datetime.min,
+        recent_transactions=deque(maxlen=5),
+        earned=Decimal("0"),
+        spent=Decimal("0"),
+    )
+
+
+def _ensure_naive_dt(val: object) -> datetime:
+    if isinstance(val, datetime):
+        return val.replace(tzinfo=None)
+    if isinstance(val, str):
+        try:
+            dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
+            return dt.replace(tzinfo=None)
+        except ValueError:
+            return datetime.min
+    return datetime.min
+
+
+def _touch_address(
+    address_map: dict[str, _AddrEntry],
+    address: str | None,
+    tx_id: str,
+    when: object,
+    earned: Decimal = Decimal("0"),
+    spent: Decimal = Decimal("0"),
+) -> None:
+    if not address:
+        return
+    entry = address_map[address]
+    entry["address"] = address
+    entry["tx_count"] = entry["tx_count"] + 1
+    when_dt = _ensure_naive_dt(when)
+    if when_dt > _ensure_naive_dt(entry["last_active"]):
+        entry["last_active"] = when_dt
+    entry["earned"] = entry["earned"] + earned
+    entry["spent"] = entry["spent"] + spent
+    entry["balance"] = entry["earned"] - entry["spent"]
+    recent: deque[str] = entry["recent_transactions"]
+    recent.appendleft(tx_id)
+
+
+def _job_price(job: Job) -> Decimal:
+    price = Decimal("0")
+    if job.receipt and isinstance(job.receipt, dict):
+        receipt_price = job.receipt.get("price")
+        if receipt_price is not None:
+            try:
+                # str() first: Decimal(0.1) captures the binary error, Decimal("0.1") does not.
+                price = Decimal(str(receipt_price))
+            except (TypeError, ValueError, InvalidOperation):
+                pass
+    return price
 
 
 class ExplorerService:
@@ -92,7 +181,7 @@ class ExplorerService:
                 return BlockListResponse(items=items, next_offset=next_offset)
             except NetworkError:
                 return BlockListResponse(items=[], next_offset=None)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to fetch blocks from RPC: %s, falling back to fake data", e)
             statement = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
             jobs = self.session.execute(statement.offset(offset).limit(limit)).scalars().all()
@@ -142,71 +231,12 @@ class ExplorerService:
         statement = select(Job).order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
         jobs = self.session.execute(statement.offset(offset).limit(limit)).scalars().all()
 
-        class _AddrEntry(TypedDict):
-            address: str
-            balance: Decimal
-            tx_count: int
-            last_active: datetime
-            recent_transactions: deque[str]
-            earned: Decimal
-            spent: Decimal
-
-        address_map: dict[str, _AddrEntry] = defaultdict(
-            lambda: _AddrEntry(
-                address="",
-                balance=Decimal("0"),
-                tx_count=0,
-                last_active=datetime.min,
-                recent_transactions=deque(maxlen=5),
-                earned=Decimal("0"),
-                spent=Decimal("0"),
-            )
-        )
-
-        def _ensure_dt(val: object) -> datetime:
-            if isinstance(val, datetime):
-                return val.replace(tzinfo=None)
-            if isinstance(val, str):
-                try:
-                    dt = datetime.fromisoformat(val.replace("Z", "+00:00"))
-                    return dt.replace(tzinfo=None)
-                except ValueError:
-                    return datetime.min
-            return datetime.min
-
-        def touch(
-            address: str | None,
-            tx_id: str,
-            when: object,
-            earned: Decimal = Decimal("0"),
-            spent: Decimal = Decimal("0"),
-        ) -> None:
-            if not address:
-                return
-            entry = address_map[address]
-            entry["address"] = address
-            entry["tx_count"] = entry["tx_count"] + 1
-            when_dt = _ensure_dt(when)
-            if when_dt > _ensure_dt(entry["last_active"]):
-                entry["last_active"] = when_dt
-            entry["earned"] = entry["earned"] + earned
-            entry["spent"] = entry["spent"] + spent
-            entry["balance"] = entry["earned"] - entry["spent"]
-            recent: deque[str] = entry["recent_transactions"]
-            recent.appendleft(tx_id)
+        address_map: dict[str, _AddrEntry] = defaultdict(_new_addr_entry)
 
         for job in jobs:
-            price = Decimal("0")
-            if job.receipt and isinstance(job.receipt, dict):
-                receipt_price = job.receipt.get("price")
-                if receipt_price is not None:
-                    try:
-                        # str() first: Decimal(0.1) captures the binary error, Decimal("0.1") does not.
-                        price = Decimal(str(receipt_price))
-                    except (TypeError, ValueError, InvalidOperation):
-                        pass
-            touch(job.assigned_miner_id, job.id, job.requested_at, earned=price)
-            touch(job.client_ref or job.client_id, job.id, job.requested_at, spent=price)
+            price = _job_price(job)
+            _touch_address(address_map, job.assigned_miner_id, job.id, job.requested_at, earned=price)
+            _touch_address(address_map, job.client_ref or job.client_id, job.id, job.requested_at, spent=price)
         sorted_addresses = sorted(address_map.values(), key=lambda entry: entry["last_active"], reverse=True)
         sliced = sorted_addresses[offset : offset + limit]
         items = [
@@ -270,7 +300,7 @@ class ExplorerService:
                 if "404" in str(e) or "not found" in str(e).lower():
                     return {"error": "Transaction not found", "hash": tx_hash}
                 return {"error": f"Failed to fetch transaction: {str(e)}", "hash": tx_hash}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to fetch transaction from RPC tx_hash=%s error=%s", tx_hash, str(e))
             return {"error": f"Failed to fetch transaction: {str(e)}", "hash": tx_hash}
 
@@ -311,7 +341,7 @@ class ExplorerService:
                     }
 
             return {"error": "Block not found", "hash": block_hash}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to fetch block by hash from database block_hash=%s error=%s", block_hash, str(e))
             return {"error": f"Failed to fetch block: {str(e)}", "hash": block_hash}
 
@@ -354,6 +384,6 @@ class ExplorerService:
                     }
 
             return {"error": "Transaction not found", "tx_hash": tx_hash}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to fetch transaction by hash from database tx_hash=%s error=%s", tx_hash, str(e))
             return {"error": f"Failed to fetch transaction: {str(e)}", "tx_hash": tx_hash}

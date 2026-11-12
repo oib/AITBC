@@ -70,7 +70,7 @@ def available_gpu(client, miner_token, db_session) -> str:
 
 @pytest.fixture
 def pricing_engine_override():
-    engine = type("FakeEngine", (), {"calculate_dynamic_price": AsyncMock(side_effect=Exception("skip"))})()
+    engine = type("FakeEngine", (), {"calculate_dynamic_price": AsyncMock(side_effect=RuntimeError("skip"))})()
     app.dependency_overrides[get_pricing_engine] = lambda: engine
     yield engine
     app.dependency_overrides.pop(get_pricing_engine, None)

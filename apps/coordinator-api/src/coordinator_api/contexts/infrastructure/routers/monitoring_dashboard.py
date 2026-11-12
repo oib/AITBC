@@ -9,14 +9,33 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import APIRouter, Request
+from sqlalchemy.exc import SQLAlchemyError
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
+
+# Expected failure surface for the monitoring endpoints: filesystem/JSON,
+# data-shape, runtime, lazy in-function imports (psutil, sqlmodel domain
+# modules), SQLAlchemy session errors and the aitbc error hierarchy
+# (AITBCHTTPClient re-raises RateLimitError / CircuitBreakerOpenError
+# unwrapped). BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    IndexError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    SQLAlchemyError,
+    AITBCError,
+)
 SERVICES = {
     "multimodal": {
         "name": "Multi-Modal Agent Service",
@@ -87,7 +106,7 @@ async def monitoring_dashboard(request: Request) -> dict[str, Any]:
         }
         logger.info("Monitoring dashboard data collected successfully")
         return dashboard_data
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to generate monitoring dashboard: %s", e)
         return {
             "error": "Failed to generate dashboard",
@@ -124,14 +143,14 @@ async def services_summary(request: Request) -> dict[str, Any]:
                 "last_check": health.get("timestamp"),
             }
         return summary
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to generate services summary: %s", e)
         return {"error": "Failed to generate summary", "timestamp": datetime.now(UTC).isoformat()}
 
 
 @router.get("/dashboard/metrics", tags=["monitoring"], summary="System Metrics")
 @rate_limit(rate=200, per=60)
-async def system_metrics(request: Request) -> dict[str, Any]:
+def system_metrics(request: Request) -> dict[str, Any]:
     """
     System-wide performance metrics
     """
@@ -167,7 +186,7 @@ async def system_metrics(request: Request) -> dict[str, Any]:
             },
         }
         return metrics
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to collect system metrics: %s", e)
         return {"error": "Failed to collect metrics", "timestamp": datetime.now(UTC).isoformat()}
 
@@ -189,7 +208,7 @@ async def collect_all_health_data() -> dict[str, Any]:
     return health_data
 
 
-async def check_service_health(service_name: str, service_config: dict[str, Any]) -> dict[str, Any]:
+async def check_service_health(service_name: str, service_config: dict[str, Any]) -> dict[str, Any]:  # noqa: fake-async — scheduled via asyncio.gather in collect_all_health_data
     """
     Check health status of a specific service
     """
@@ -201,7 +220,7 @@ async def check_service_health(service_name: str, service_config: dict[str, Any]
     except NetworkError as e:
         logger.warning("Service %s health check failed: %s", service_name, e)
         return {"status": "unhealthy", "error": str(e), "last_check": datetime.now(UTC).isoformat()}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         return {"status": "unhealthy", "error": str(e), "timestamp": datetime.now(UTC).isoformat()}
 
 
@@ -238,7 +257,7 @@ def calculate_overall_metrics(health_data: dict[str, Any]) -> dict[str, Any]:
 
 @router.get("/metrics", tags=["monitoring"], summary="Full monitoring metrics")
 @rate_limit(rate=100, per=60)
-async def monitoring_metrics_route(request: Request) -> dict[str, Any]:
+def monitoring_metrics_route(request: Request) -> dict[str, Any]:
     """Return coordinator, job, miner, and system metrics for the CLI monitor group."""
     from sqlmodel import select
     from ....storage.db import get_session
@@ -280,7 +299,7 @@ async def monitoring_metrics_route(request: Request) -> dict[str, Any]:
                     metrics["miners"]["online"] += 1
                 else:
                     metrics["miners"]["offline"] += 1
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to collect job/miner metrics: %s", e)
 
     # Add system metrics
@@ -295,7 +314,7 @@ async def monitoring_metrics_route(request: Request) -> dict[str, Any]:
             "memory_available_gb": memory.available / (1024**3),
             "disk_percent": disk.percent,
         }
-    except Exception:
+    except _OPS_ERRORS:
         metrics["system"] = {}
 
     return metrics

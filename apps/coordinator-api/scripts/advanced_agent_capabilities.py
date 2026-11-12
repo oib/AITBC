@@ -10,6 +10,15 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class AdvancedAgentCapabilities:
     """Manager for advanced AI agent capabilities implementation"""
@@ -57,7 +66,7 @@ class AdvancedAgentCapabilities:
                 task_result = await self._implement_multi_modal_task(task)
                 implementation_result["multi_modal_progress"][task] = {"status": "completed", "details": task_result}
                 logger.info("✅ Completed multi-modal task: %s", task)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 implementation_result["errors"].append(f"Multi-modal task {task} failed: {e}")
                 logger.error("❌ Failed multi-modal task %s: %s", task, e)
         for task in self.adaptive_learning_tasks:
@@ -65,7 +74,7 @@ class AdvancedAgentCapabilities:
                 task_result = await self._implement_adaptive_learning_task(task)
                 implementation_result["adaptive_learning_progress"][task] = {"status": "completed", "details": task_result}
                 logger.info("✅ Completed adaptive learning task: %s", task)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 implementation_result["errors"].append(f"Adaptive learning task {task} failed: {e}")
                 logger.error("❌ Failed adaptive learning task %s: %s", task, e)
         for capability in self.agent_capabilities:
@@ -75,7 +84,7 @@ class AdvancedAgentCapabilities:
                     {"capability": capability, "status": "implemented", "details": capability_result}
                 )
                 logger.info("✅ Implemented agent capability: %s", capability)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 implementation_result["errors"].append(f"Agent capability {capability} failed: {e}")
                 logger.error("❌ Failed agent capability %s: %s", capability, e)
         metrics = await self._collect_performance_metrics()

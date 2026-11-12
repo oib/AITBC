@@ -8,6 +8,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import and_, func, select, update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 from sqlmodel import col
 
@@ -17,6 +18,16 @@ from aitbc.utils.units import ait_to_units
 from ..domain.staking import AgentMetrics, AgentStake, PerformanceTier, StakeStatus, StakingPool
 
 logger = get_logger(__name__)
+
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 
 
 class StakingService:
@@ -334,7 +345,7 @@ class StakingService:
             lock_multiplier = lock_multipliers.get(lock_period, Decimal("1.0"))
             apy = base_apy * tier_multiplier * lock_multiplier
             return min(apy, Decimal("20.0"))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to calculate APY: %s", e)
             return Decimal("5.0")
 

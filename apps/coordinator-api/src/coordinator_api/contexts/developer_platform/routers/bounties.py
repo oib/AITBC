@@ -3,8 +3,10 @@
 import asyncio
 from typing import Annotated, Any
 
+import httpx
 from aitbc.rate_limiting import rate_limit
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -15,6 +17,21 @@ from ..services.developer_platform_service import DeveloperPlatformService
 from .common import get_developer_platform_service
 
 router = APIRouter(tags=["Developer Platform"])
+
+# Expected failure surface for the 500-translate handlers below: service/DB
+# errors (sqlmodel sessions -> SQLAlchemyError), outbound HTTP from the
+# service layer (httpx), and data-shape/runtime errors. HTTPException is not
+# in the tuple, so it propagates to the client untouched (#1863).
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AttributeError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    SQLAlchemyError,
+    TypeError,
+    ValueError,
+    httpx.HTTPError,
+)
 
 
 @router.post("/bounties", response_model=dict[str, Any])
@@ -42,7 +59,7 @@ async def create_bounty(
             "message": "Bounty created successfully",
         }
 
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error creating bounty") from None
 
 
@@ -77,7 +94,7 @@ async def list_bounties(
             for bounty in bounties
         ]
 
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error listing bounties") from None
 
 
@@ -115,7 +132,7 @@ async def get_my_submissions(
             )
         return result
 
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting submissions") from None
 
 
@@ -132,7 +149,7 @@ async def get_bounty_statistics(
         stats = await run_in_threadpool(dev_service.get_bounty_statistics)
         return stats
 
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting bounty statistics") from None
 
 
@@ -152,7 +169,7 @@ async def get_bounty_details(
 
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting bounty details") from None
 
 
@@ -183,7 +200,7 @@ async def submit_bounty_solution(
 
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error submitting bounty solution") from None
 
 
@@ -235,5 +252,5 @@ async def review_bounty_submission(
 
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error reviewing submission") from None

@@ -24,6 +24,15 @@ from aitbc.crypto.signature_recovery import (  # PYTHONPATH makes this available
 
 logger = get_logger(__name__)
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 def _to_ait_address(address: str) -> str:
     """Normalise to the EIP-55 ``0x`` spelling stored in the chain DB.
@@ -313,7 +322,7 @@ def verify_member_signature(
     msg_hash = keccak(message)
     try:
         return verify_signature(msg_hash, signature, member_address)
-    except Exception:
+    except _OPS_ERRORS:
         logger.warning("Swarm-key signature verification failed for %s", member_address)
         return False
 

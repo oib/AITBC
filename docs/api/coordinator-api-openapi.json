@@ -2476,7 +2476,7 @@
             }
           },
           "404": {
-            "description": "GPU {request.gpu_id} not found / Prepared job {request.job_id} not found",
+            "description": "GPU {gpu_id} not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -2486,7 +2486,7 @@
             }
           },
           "409": {
-            "description": "GPU {request.gpu_id} is not available for purchase",
+            "description": "GPU {gpu_id} is not available for purchase / GPU {request.gpu_id} is not available for purchase",
             "content": {
               "application/json": {
                 "schema": {

@@ -48,6 +48,27 @@ from .models import (
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the per-chain verification loop below:
+# SDK/HTTP client errors, response-shape errors (KeyError/TypeError/
+# AttributeError/ValueError from model construction), and the lazy
+# ``import hashlib``. Genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    aiohttp.ClientError,
+    AgentIdentityError,
+)
+
+# Sentinel returned by ``_handle_post_status`` when a 5xx response should be
+# retried on the next attempt (the retry sleep already happened inside the
+# helper, matching the original inline ``continue`` semantics).
+_POST_RETRY = object()
+
 
 class AgentIdentityClient:
     """Main client for the AITBC Agent Identity SDK"""
@@ -123,33 +144,48 @@ class AgentIdentityClient:
                 await asyncio.sleep(2**attempt)
         raise APIError("Max retries exceeded") from None
 
+    async def _handle_post_status(self, response: aiohttp.ClientResponse, attempt: int) -> Any:
+        """Map a POST response to its result.
+
+        Returns the parsed JSON body for success statuses, the ``_POST_RETRY``
+        sentinel for a retryable 5xx, and raises the matching SDK exception
+        for every other status.
+        """
+        status = response.status
+        if status in (200, 201):
+            return await response.json()
+        if status >= 500:
+            if attempt < self.max_retries:
+                await asyncio.sleep(2**attempt)
+                return _POST_RETRY
+            raise NetworkError(f"Server error: {response.status}")
+        return await self._post_status_error(response)
+
+    async def _post_status_error(self, response: aiohttp.ClientResponse) -> Any:
+        """Raise the SDK exception matching a non-2xx, non-5xx POST status."""
+        status = response.status
+        if status == 400:
+            error_data = await response.json()
+            raise ValidationError(error_data.get("detail", "Bad request"))
+        if status == 401:
+            raise AuthenticationError("Authentication failed")
+        if status == 403:
+            raise AuthenticationError("Access forbidden")
+        if status == 404:
+            raise AgentIdentityError("Resource not found")
+        if status == 429:
+            raise RateLimitError("Rate limit exceeded")
+        raise AgentIdentityError(f"HTTP {status}: {await response.text()}")
+
     async def _post(self, endpoint: str, data: dict[str, Any]) -> Any:
         """Make a POST request with retry logic"""
         for attempt in range(self.max_retries):
             try:
                 async with self.session.post(self.base_url + endpoint, json=data) as response:  # type: ignore[union-attr]
-                    if response.status == 200:
-                        return await response.json()
-                    elif response.status == 201:
-                        return await response.json()
-                    elif response.status == 400:
-                        error_data = await response.json()
-                        raise ValidationError(error_data.get("detail", "Bad request"))
-                    elif response.status == 401:
-                        raise AuthenticationError("Authentication failed")
-                    elif response.status == 403:
-                        raise AuthenticationError("Access forbidden")
-                    elif response.status == 404:
-                        raise AgentIdentityError("Resource not found")
-                    elif response.status == 429:
-                        raise RateLimitError("Rate limit exceeded")
-                    elif response.status >= 500:
-                        if attempt < self.max_retries:
-                            await asyncio.sleep(2**attempt)
-                            continue
-                        raise NetworkError(f"Server error: {response.status}")
-                    else:
-                        raise AgentIdentityError(f"HTTP {response.status}: {await response.text()}")
+                    result = await self._handle_post_status(response, attempt)
+                    if result is _POST_RETRY:
+                        continue
+                    return result
             except aiohttp.ClientError as e:
                 if attempt < self.max_retries:
                     await asyncio.sleep(2**attempt)
@@ -496,7 +532,7 @@ async def verify_identity_on_all_chains(
                 proof_data=proof_data,
             )
             verification_results.append(result)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to verify on chain %s: %s", mapping.chain_id, e)
     return verification_results
 

@@ -5,12 +5,27 @@ from typing import Any
 from fastapi import APIRouter, HTTPException
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc.utils.units import UNITS_PER_AIT, units_to_ait
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["blockchain"])
+
+# Expected failure surface for the status/sync/validators endpoints:
+# filesystem/JSON, data-shape, runtime, the lazy config import, and the
+# aitbc error hierarchy (AITBCHTTPClient re-raises RateLimitError /
+# CircuitBreakerOpenError unwrapped). BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    AITBCError,
+)
 
 
 def _rpc_get(path: str, *, timeout: float = 5.0) -> dict[str, Any]:
@@ -45,7 +60,7 @@ def _rpc_get(path: str, *, timeout: float = 5.0) -> dict[str, Any]:
 
 
 @router.get("/status")
-async def blockchain_status() -> dict[str, Any]:
+def blockchain_status() -> dict[str, Any]:
     """Get blockchain status."""
     try:
         from ....config import settings
@@ -62,12 +77,12 @@ async def blockchain_status() -> dict[str, Any]:
         }
     except NetworkError:
         return {"status": "synced", "block": 0, "proposer": "genesis", "note": "RPC unavailable - returning mock data"}
-    except Exception:
+    except _OPS_ERRORS:
         return {"status": "error", "error": "Failed to get blockchain status"}
 
 
 @router.get("/sync-status")
-async def blockchain_sync_status() -> dict[str, Any]:
+def blockchain_sync_status() -> dict[str, Any]:
     """Get blockchain synchronization status."""
     try:
         from ....config import settings
@@ -86,24 +101,24 @@ async def blockchain_sync_status() -> dict[str, Any]:
     except NetworkError as e:
         logger.error("RPC connection failed: %s", e)
         return {"status": "error", "error": "RPC connection failed"}
-    except Exception:
+    except _OPS_ERRORS:
         return {"status": "error", "error": "Failed to get sync status"}
 
 
 @router.get("/blocks/{height}")
-async def get_block(height: int) -> dict[str, Any]:
+def get_block(height: int) -> dict[str, Any]:
     """Get block by height."""
     return _rpc_get(f"/rpc/blocks/{height}")
 
 
 @router.get("/blocks/hash/{block_hash}")
-async def get_block_by_hash(block_hash: str) -> dict[str, Any]:
+def get_block_by_hash(block_hash: str) -> dict[str, Any]:
     """Get block by hash."""
     return _rpc_get(f"/rpc/blocks/hash/{block_hash}")
 
 
 @router.get("/transactions/{tx_hash}")
-async def get_transaction(tx_hash: str) -> dict[str, Any]:
+def get_transaction(tx_hash: str) -> dict[str, Any]:
     """Get transaction by hash."""
     try:
         from ....config import settings
@@ -118,7 +133,7 @@ async def get_transaction(tx_hash: str) -> dict[str, Any]:
 
 
 @router.get("/accounts/{address}")
-async def get_account(address: str) -> dict[str, Any]:
+def get_account(address: str) -> dict[str, Any]:
     """Get account balance and state."""
     try:
         from ....config import settings
@@ -133,7 +148,7 @@ async def get_account(address: str) -> dict[str, Any]:
 
 
 @router.get("/validators")
-async def get_validators() -> dict[str, Any]:
+def get_validators() -> dict[str, Any]:
     """List validators."""
     try:
         from ....config import settings
@@ -146,13 +161,13 @@ async def get_validators() -> dict[str, Any]:
     except NetworkError as e:
         logger.error("RPC connection failed: %s", e)
         return {"status": "error", "error": "RPC connection failed"}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to get validators: %s", e)
         return {"status": "error", "error": str(e)}
 
 
 @router.get("/supply")
-async def get_supply() -> dict[str, Any]:
+def get_supply() -> dict[str, Any]:
     """Get token supply.
 
     ``total_supply`` stays genesis-derived (``total_supply_basis``), while
@@ -198,7 +213,7 @@ async def get_supply() -> dict[str, Any]:
 
 
 @router.get("/state/dump")
-async def get_state_dump() -> dict[str, Any]:
+def get_state_dump() -> dict[str, Any]:
     """Get state dump."""
     try:
         from ....config import settings

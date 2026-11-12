@@ -18,6 +18,20 @@ from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: in-memory
+# dict/enumeration access, asyncio primitives, and lazy stdlib imports.
+# RuntimeError preserves catch of abort-style raises; BaseExceptions
+# still propagate.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+)
+
 
 class TTLCache[V]:
     """Simple LRU + TTL cache for bounding in-memory dict growth.
@@ -504,7 +518,7 @@ class CrossChainReputationService:
             async with semaphore:
                 try:
                     return await self.get_reputation_analytics(agent_id)
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.error("Error getting analytics for agent %s: %s", agent_id, e)
                     return None
 
@@ -575,7 +589,7 @@ class CrossChainReputationService:
             try:
                 await self._process_pending_syncs()
                 await asyncio.sleep(60)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error in reputation sync monitoring: %s", e)
                 await asyncio.sleep(60)
 
@@ -589,7 +603,7 @@ class CrossChainReputationService:
             try:
                 await self._distribute_stake_rewards()
                 await asyncio.sleep(3600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error in stake reward processing: %s", e)
                 await asyncio.sleep(3600)
 
@@ -617,7 +631,7 @@ class CrossChainReputationService:
                         if delegation.is_active and current_time > delegation.start_time + timedelta(days=30):
                             delegation.is_active = False
                 await asyncio.sleep(3600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error in cleanup: %s", e)
                 await asyncio.sleep(3600)
 

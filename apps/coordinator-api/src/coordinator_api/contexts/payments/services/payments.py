@@ -9,16 +9,19 @@ from collections.abc import Collection
 
 from aitbc_shared import JobPayment, PaymentEscrow
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
 from starlette.concurrency import run_in_threadpool
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, col, select, update
+
+from web3.exceptions import Web3Exception
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import WALLET_PORT
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AsyncAITBCHTTPClient
 from aitbc_agent_core import get_active_brand
 
@@ -64,6 +67,38 @@ from ..provider_binding import same_address
 logger = get_logger(__name__)
 _brand = get_active_brand()
 
+# Expected failure surface for the payment service -- this module moves
+# money, so the tuple is deliberately wider than the baseline:
+# filesystem/JSON, data-shape (pydantic ValidationError is a ValueError),
+# runtime, SQLAlchemy session errors, lazy in-function imports, httpx
+# transport/decoding errors, the aitbc error hierarchy (chain RPC clients
+# re-raise RateLimitError / CircuitBreakerOpenError unwrapped), web3
+# contract-call errors, decimal parse failures (InvalidOperation is an
+# ArithmeticError, not a ValueError), timestamp overflows, assertion
+# guards, and HTTPException -- PaymentService raises it for
+# ownership/validation failures and every handler below previously caught
+# it, so it stays in the tuple to keep money-path semantics identical.
+# Handlers that must re-raise HTTPException keep their explicit arms ahead
+# of this tuple. BaseExceptions (incl. asyncio.CancelledError) propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    IndexError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    AssertionError,
+    OverflowError,
+    ImportError,
+    SQLAlchemyError,
+    AITBCError,
+    httpx.HTTPError,
+    Web3Exception,
+    InvalidOperation,
+    HTTPException,
+)
+
 # P2.1: high-value jobs require a verified ZK receipt proof before escrow release.
 _ZK_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10"))
 _ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
@@ -91,7 +126,7 @@ def _resolve_authoritative_inputs(quote: EnergyQuote, session: Session | None = 
             profile = native_oracle.get_profile(quote.resource_id)
             rate = native_oracle.get_rate()
             return profile, rate
-        except Exception as exc:
+        except _OPS_ERRORS as exc:
             logger.warning(
                 "Native energy oracle read failed for resource %s; refusing protected funding: %s",
                 quote.resource_id,
@@ -119,7 +154,7 @@ def _resolve_authoritative_inputs(quote: EnergyQuote, session: Session | None = 
         profile = evm_oracle.get_profile(quote.resource_id, block_identifier=block)
         rate = evm_oracle.get_rate(block_identifier=block)
         return profile, rate
-    except Exception as exc:
+    except _OPS_ERRORS as exc:
         logger.warning(
             "Authoritative energy oracle read failed for resource %s; refusing protected funding: %s",
             quote.resource_id,
@@ -187,7 +222,7 @@ async def _lookup_escrow_record(blockchain_rpc_url: str, client: AsyncAITBCHTTPC
     """
     try:
         return await client.get(f"{blockchain_rpc_url}/rpc/escrow/{job_id}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         status_error = _find_http_status_error(e)
         if status_error is not None and status_error.response.status_code == 404:
             return None
@@ -567,7 +602,7 @@ class PaymentService:
                 )
                 if escrow is not None:
                     self.session.add(escrow)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Token escrow not available, skipping payment: %s", e)
                 payment.status = "skipped"
         elif payment_data.payment_method == "ethereum":
@@ -631,7 +666,7 @@ class PaymentService:
             await run_in_threadpool(self.session.refresh, payment)
             logger.info("Payment created successfully: %s", payment.id)
             return payment
-        except Exception as e:
+        except _OPS_ERRORS as e:
             await run_in_threadpool(self.session.rollback)
             logger.error("Failed to create payment: %s", e)
             raise
@@ -730,7 +765,7 @@ class PaymentService:
             logger.info("EVM protected payment %s confirmed for job %s", payment.id, payment.job_id)
         except HTTPException:
             raise
-        except Exception as exc:
+        except _OPS_ERRORS as exc:
             logger.warning("EVM receipt verification failed for %s: %s", payment_data.evm_tx_hash, exc)
             payment.status = "pending"
 
@@ -742,7 +777,7 @@ class PaymentService:
                 return int(r.get("nonce", 0))
             if hasattr(r, "get") and not isinstance(r, dict):  # type: ignore[unreachable]
                 return int(r.get("nonce", 0))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to fetch nonce for %s: %s", address, e)
         return 0
 
@@ -773,7 +808,7 @@ class PaymentService:
             raise ValueError("NODE_WALLET_ADDRESS or GENESIS_WALLET_ADDRESS not configured")
         try:
             node_wallet = canonical_address(node_wallet)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             raise ValueError(f"Invalid node wallet address {node_wallet}: {e}") from e
         if not validate_address(node_wallet):
             raise ValueError(f"Invalid node wallet address {node_wallet}: not a valid 0x address")
@@ -813,7 +848,7 @@ class PaymentService:
             return None
         try:
             canonical = canonical_address(address)
-        except Exception:
+        except _OPS_ERRORS:
             logger.warning("Invalid %s address for escrow: %s", role, address)
             return None
         if not validate_address(canonical):
@@ -1003,7 +1038,7 @@ class PaymentService:
             contract_id = (record or {}).get("contract_id")
             if lock_tx_hash is None:
                 lock_tx_hash = await _lookup_chain_lock(self.blockchain_rpc_url, client, payment.job_id)
-        except Exception:
+        except _OPS_ERRORS:
             self._mark_escrow_failed(
                 payment,
                 "funding_unknown",
@@ -1085,6 +1120,16 @@ class PaymentService:
                 self.session, payment_data.provider_agent_id, provider, role="provider", chain_id=resolve_chain
             )
 
+        return await self._submit_token_escrow_lock(payment, payment_data, buyer, provider)
+
+    async def _submit_token_escrow_lock(
+        self,
+        payment: JobPayment,
+        payment_data: JobPaymentCreate,
+        buyer: str,
+        provider: str,
+    ) -> PaymentEscrow | None:
+        """Build the buyer-signed ESCROW_LOCK and submit it; recover ambiguous failures."""
         try:
             nonce = payment_data.buyer_lock_nonce
             if nonce is None:
@@ -1109,7 +1154,7 @@ class PaymentService:
                 return None
 
             return await self._submit_escrow_create(payment, buyer, provider, lock_tx, meta)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             kind, detail = _escrow_failure_reason(e)
             if kind != "unavailable":
                 self._mark_escrow_failed(payment, kind, detail)
@@ -1160,7 +1205,7 @@ class PaymentService:
                 payment.updated_at = datetime.now(UTC)
                 await run_in_threadpool(self.session.commit)
                 return None
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error creating crypto escrow: %s", e)
             payment.status = "failed"
             payment.updated_at = datetime.now(UTC)
@@ -1266,7 +1311,7 @@ class PaymentService:
             spot = SpotCheckService(self.session).schedule_if_eligible(job)
             if spot is not None:
                 logger.info("Scheduled spot-check %s for disputed job %s", spot.id, job.id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Spot-check scheduling failed for disputed job %s: %s", job.id, e)
         return True
 
@@ -1768,7 +1813,7 @@ class PaymentService:
             # reinvest keys into it that the local `meta` does not have.
             await run_in_threadpool(self._end_425_streak, payment_id, dict(payment.meta_data or {}))
             return submitted
-        except Exception as e:
+        except _OPS_ERRORS as e:
             # No definitive outcome (transport failure, ambiguous post-send
             # error): the attempt already counted, but the 425-deferral marker
             # must survive -- an unreachable node is not proof the streak
@@ -1993,7 +2038,7 @@ class PaymentService:
             if reconciled is not None:
                 return reconciled
             return await self._submit_refund(client, payment, job, payment_id, job_id, reason)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error refunding payment: %s", e)
             raise
 

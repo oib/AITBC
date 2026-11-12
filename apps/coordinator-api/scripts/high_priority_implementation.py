@@ -10,6 +10,15 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class HighPriorityImplementation:
     """Manager for high priority implementation of Phase 6.5 and 6.6"""
@@ -55,7 +64,7 @@ class HighPriorityImplementation:
                 task_result = await self._implement_phase6_5_task(task)
                 implementation_result["phase_6_5_progress"][task] = {"status": "completed", "details": task_result}
                 logger.info("✅ Completed Phase 6.5 task: %s", task)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 implementation_result["errors"].append(f"Phase 6.5 task {task} failed: {e}")
                 logger.error("❌ Failed Phase 6.5 task %s: %s", task, e)
         for task in self.phase6_6_tasks:
@@ -63,7 +72,7 @@ class HighPriorityImplementation:
                 task_result = await self._implement_phase6_6_task(task)
                 implementation_result["phase_6_6_progress"][task] = {"status": "completed", "details": task_result}
                 logger.info("✅ Completed Phase 6.6 task: %s", task)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 implementation_result["errors"].append(f"Phase 6.6 task {task} failed: {e}")
                 logger.error("❌ Failed Phase 6.6 task %s: %s", task, e)
         for feature in self.high_priority_features:
@@ -73,7 +82,7 @@ class HighPriorityImplementation:
                     {"feature": feature, "status": "implemented", "details": feature_result}
                 )
                 logger.info("✅ Implemented high priority feature: %s", feature)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 implementation_result["errors"].append(f"High priority feature {feature} failed: {e}")
                 logger.error("❌ Failed high priority feature %s: %s", feature, e)
         metrics = await self._collect_implementation_metrics()

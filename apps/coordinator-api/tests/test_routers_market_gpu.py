@@ -55,7 +55,7 @@ def pricing_engine_override():
     """Make the dynamic-pricing dependency fail closed so it falls back to listing price."""
     from coordinator_api.contexts.market.routers.market_gpu import get_pricing_engine
 
-    engine = type("FakeEngine", (), {"calculate_dynamic_price": AsyncMock(side_effect=Exception("skip"))})()
+    engine = type("FakeEngine", (), {"calculate_dynamic_price": AsyncMock(side_effect=RuntimeError("skip"))})()
     app.dependency_overrides[get_pricing_engine] = lambda: engine
     yield engine
     app.dependency_overrides.pop(get_pricing_engine, None)

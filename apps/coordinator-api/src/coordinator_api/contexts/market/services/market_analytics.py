@@ -6,6 +6,7 @@ from datetime import UTC, datetime, timedelta
 from statistics import mean
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
@@ -13,6 +14,19 @@ from aitbc.aitbc_logging import get_logger
 from ..domain.gpu_market import GPUBooking, GPURegistry
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the metrics fallbacks below: session/DB errors
+# (sqlmodel -> SQLAlchemyError), statistics/data-shape errors, and runtime/OS
+# errors.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AttributeError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    SQLAlchemyError,
+    TypeError,
+    ValueError,
+)
 
 
 class MarketAnalytics:
@@ -59,7 +73,7 @@ class MarketAnalytics:
                 "avg_utilization": round(avg_utilization, 4),
                 "active_bookings": len(active_bookings),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to calculate realtime metrics: %s", e)
             return {}
 
@@ -84,7 +98,7 @@ class MarketAnalytics:
                 "avg_utilization": round(avg_utilization, 4),
                 "trend_direction": "increasing" if bookings_per_hour > 1 else "stable",
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to analyze trends: %s", e)
             return {}
 
@@ -108,7 +122,7 @@ class MarketAnalytics:
                 "forecasted_utilization": round(forecasted_utilization, 4),
                 "confidence": 0.7,
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to generate forecasts: %s", e)
             return {}
 
@@ -117,6 +131,6 @@ class MarketAnalytics:
         try:
             logger.info("Event tracked: %s for resource %s", event_type, resource_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to track event: %s", e)
             return False

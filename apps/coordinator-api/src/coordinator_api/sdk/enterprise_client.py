@@ -17,6 +17,20 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the SDK call sites below: aiohttp transport
+# and JSON-decode errors plus ordinary ops/data errors (dict shaping,
+# attribute access, pydantic validation). Genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    aiohttp.ClientError,
+)
+
 
 class SDKVersion(StrEnum):
     """SDK version"""
@@ -193,7 +207,7 @@ class EnterpriseClient:
                 else:
                     error_text = await response.text()
                     return APIResponse(success=False, error=f"Integration creation failed: {response.status} - {error_text}")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             self.logger.error("Failed to create integration: %s", e)
             return APIResponse(success=False, error=str(e))
 
@@ -213,7 +227,7 @@ class EnterpriseClient:
                     return APIResponse(
                         success=False, error=f"Failed to get integration status: {response.status} - {error_text}"
                     )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             self.logger.error("Failed to get integration status: %s", e)
             return APIResponse(success=False, error=str(e))
 
@@ -231,7 +245,7 @@ class EnterpriseClient:
                 else:
                     error_text = await response.text()
                     return APIResponse(success=False, error=f"Integration test failed: {response.status} - {error_text}")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             self.logger.error("Failed to test integration: %s", e)
             return APIResponse(success=False, error=str(e))
 
@@ -250,7 +264,7 @@ class EnterpriseClient:
                 else:
                     error_text = await response.text()
                     return APIResponse(success=False, error=f"Data sync failed: {response.status} - {error_text}")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             self.logger.error("Failed to sync data: %s", e)
             return APIResponse(success=False, error=str(e))
 
@@ -269,7 +283,7 @@ class EnterpriseClient:
                 else:
                     error_text = await response.text()
                     return APIResponse(success=False, error=f"Data push failed: {response.status} - {error_text}")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             self.logger.error("Failed to push data: %s", e)
             return APIResponse(success=False, error=str(e))
 
@@ -287,7 +301,7 @@ class EnterpriseClient:
                 else:
                     error_text = await response.text()
                     return APIResponse(success=False, error=f"Failed to get analytics: {response.status} - {error_text}")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             self.logger.error("Failed to get analytics: %s", e)
             return APIResponse(success=False, error=str(e))
 
@@ -305,7 +319,7 @@ class EnterpriseClient:
                 else:
                     error_text = await response.text()
                     return APIResponse(success=False, error=f"Failed to get quota status: {response.status} - {error_text}")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             self.logger.error("Failed to get quota status: %s", e)
             return APIResponse(success=False, error=str(e))
 
@@ -393,7 +407,7 @@ class WebhookHandler:
             try:
                 result = await handler(payload)
                 return {"status": "success", "result": result}
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 return {"status": "error", "error": str(e)}
         else:
             return {"status": "error", "error": f"No handler for event type: {event_type}"}

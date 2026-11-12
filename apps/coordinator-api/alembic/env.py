@@ -22,6 +22,11 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
+# Failure surface for the lazy metadata imports below: module import errors
+# plus attribute errors if a renamed model module no longer exports what we
+# import from it.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (ImportError, AttributeError)
+
 # Import the app settings so the DB URL matches the running service exactly.
 from coordinator_api.config import settings as app_settings
 
@@ -49,7 +54,7 @@ try:
     from sqlmodel import SQLModel
 
     target_metadata = SQLModel.metadata
-except Exception:  # pragma: no cover - defensive; metadata is optional for upgrade
+except _OPS_ERRORS:  # pragma: no cover - defensive; metadata is optional for upgrade
     target_metadata = None
 
 config = context.config

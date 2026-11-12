@@ -10,18 +10,37 @@ from __future__ import annotations
 import asyncio
 import os
 from datetime import UTC, datetime, timedelta
+from decimal import InvalidOperation
 from typing import Any
 from collections.abc import Callable
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import AITBCError
 from ....storage.db import get_engine
 from ...infrastructure.domain import Job, Miner
 from .bond_slashing import BondSlashingService, SlashingCondition
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the per-job and sweep-level fallbacks below:
+# session/DB errors (sqlmodel -> SQLAlchemyError), aitbc helper errors
+# (AITBCError covers NetworkError & friends raised inside slash()), and
+# data-shape/Decimal/runtime errors.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AITBCError,
+    AttributeError,
+    InvalidOperation,
+    KeyError,
+    OSError,
+    RuntimeError,
+    SQLAlchemyError,
+    TypeError,
+    ValueError,
+)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -92,7 +111,7 @@ class BondSlashSweeper:
                         counts["slashed"] += 1
                     else:
                         counts["skipped"] += 1
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     counts["failed"] += 1
                     logger.error("Bond slash sweep raised for job %s: %s", job.id, e)
         logger.debug(
@@ -116,5 +135,5 @@ class BondSlashSweeper:
                 await self.run_once()
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Bond slash sweep failed: %s", e)

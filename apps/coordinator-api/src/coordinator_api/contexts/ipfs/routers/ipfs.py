@@ -4,6 +4,8 @@ import logging
 import os
 from typing import Annotated, Any
 
+import httpx
+
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
@@ -18,6 +20,16 @@ from ..services.island_ipfs_access import get_member_swarm_key, issue_swarm_key_
 from aitbc.rate_limiting import rate_limit
 
 router = APIRouter()
+
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+)
 
 
 # Pydantic models for requests/responses
@@ -365,7 +377,7 @@ async def health_check() -> dict[str, Any]:
             "service": "ipfs-storage",
             "message": "IPFS service is operational",
         }
-    except Exception as e:
+    except _OPS_ERRORS as e:
         return {
             "status": "unhealthy",
             "service": "ipfs-storage",

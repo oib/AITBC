@@ -17,6 +17,16 @@ from aitbc.rate_limiting import rate_limit
 logger = get_logger(__name__)
 router = APIRouter(prefix="/multi-modal-rl", tags=["multi-modal-rl"])
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+)
+
 
 class JobCreate(BaseModel):
     """Job creation model"""
@@ -34,13 +44,13 @@ def get_ai_service_url() -> str:
         from ..config import settings
 
         return settings.ai_service_url.rstrip("/")  # type: ignore[no-any-return]
-    except Exception:
+    except _OPS_ERRORS:
         return "http://localhost:8106"
 
 
 @router.post("/jobs")
 @rate_limit(rate=20, per=60)
-async def submit_job(request: Request, req: JobCreate, client_id: str = "default_client") -> dict[str, Any]:
+def submit_job(request: Request, req: JobCreate, client_id: str = "default_client") -> dict[str, Any]:
     """Submit a job for execution (proxies to AI service)"""
     try:
         ai_url = get_ai_service_url()
@@ -52,14 +62,14 @@ async def submit_job(request: Request, req: JobCreate, client_id: str = "default
     except NetworkError as e:
         logger.error("AI service connection failed: %s", e)
         return {"error": "AI service connection failed"}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to submit job: %s", e)
         return {"error": "Failed to submit job"}
 
 
 @router.get("/jobs/{job_id}")
 @rate_limit(rate=200, per=60)
-async def get_job(request: Request, job_id: str, client_id: str = "default_client") -> dict[str, Any]:
+def get_job(request: Request, job_id: str, client_id: str = "default_client") -> dict[str, Any]:
     """Get job status (proxies to AI service)"""
     try:
         ai_url = get_ai_service_url()
@@ -69,14 +79,14 @@ async def get_job(request: Request, job_id: str, client_id: str = "default_clien
     except NetworkError as e:
         logger.error("AI service connection failed: %s", e)
         return {"error": "AI service connection failed"}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to get job: %s", e)
         return {"error": "Failed to get job"}
 
 
 @router.get("/jobs/{job_id}/result")
 @rate_limit(rate=200, per=60)
-async def get_job_result(request: Request, job_id: str, client_id: str = "default_client") -> dict[str, Any]:
+def get_job_result(request: Request, job_id: str, client_id: str = "default_client") -> dict[str, Any]:
     """Get job result (proxies to AI service)"""
     try:
         ai_url = get_ai_service_url()
@@ -86,14 +96,14 @@ async def get_job_result(request: Request, job_id: str, client_id: str = "defaul
     except NetworkError as e:
         logger.error("AI service connection failed: %s", e)
         return {"error": "AI service connection failed"}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to get job result: %s", e)
         return {"error": "Failed to get job result"}
 
 
 @router.post("/jobs/{job_id}/cancel")
 @rate_limit(rate=20, per=60)
-async def cancel_job(request: Request, job_id: str, client_id: str = "default_client") -> dict[str, Any]:
+def cancel_job(request: Request, job_id: str, client_id: str = "default_client") -> dict[str, Any]:
     """Cancel a job (proxies to AI service)"""
     try:
         ai_url = get_ai_service_url()
@@ -103,14 +113,14 @@ async def cancel_job(request: Request, job_id: str, client_id: str = "default_cl
     except NetworkError as e:
         logger.error("AI service connection failed: %s", e)
         return {"error": "AI service connection failed"}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to cancel job: %s", e)
         return {"error": "Failed to cancel job"}
 
 
 @router.get("/jobs")
 @rate_limit(rate=200, per=60)
-async def list_jobs(
+def list_jobs(
     request: Request, client_id: str = "default_client", limit: int = 10, state: str | None = None
 ) -> dict[str, Any]:
     """List jobs with filtering (proxies to AI service)"""
@@ -125,14 +135,14 @@ async def list_jobs(
     except NetworkError as e:
         logger.error("AI service connection failed: %s", e)
         return {"error": "AI service connection failed"}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to list jobs: %s", e)
         return {"error": "Failed to list jobs"}
 
 
 @router.get("/health")
 @rate_limit(rate=1000, per=60)
-async def health(request: Request) -> dict[str, Any]:
+def health(request: Request) -> dict[str, Any]:
     """Health check for multi-modal RL router"""
     try:
         ai_url = get_ai_service_url()
@@ -146,6 +156,6 @@ async def health(request: Request) -> dict[str, Any]:
             "ai_service": "unreachable",
             "note": "AI service not available on this node",
         }
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("AI service check failed: %s", e)
         return {"status": "degraded", "router": "multi-modal-rl", "ai_service": "error", "note": "AI service check failed"}

@@ -11,6 +11,18 @@ from aitbc.aitbc_logging import get_logger
 from ..domain.gpu_market import Plugin
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the plugin-hook isolation below: hook
+# callables are arbitrary code, so cover the common runtime/data-shape
+# failures; anything else now propagates loudly instead of being swallowed.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AttributeError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+)
 _plugin_manager = None
 
 
@@ -68,7 +80,7 @@ class PluginManager:
             try:
                 result = hook(context)
                 results.append(result)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Hook %s failed: %s", hook_name, e)
         context["hook_results"] = results
         return context

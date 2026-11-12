@@ -3,8 +3,13 @@ Settlement hooks for coordinator API integration
 """
 
 import asyncio
+import sqlite3
 from datetime import UTC, datetime
 from typing import Any
+
+import httpx
+from asyncpg.exceptions import PostgresError
+from sqlalchemy.exc import SQLAlchemyError
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.http_client import RequestIDPropagatingClient
@@ -13,10 +18,30 @@ from ..config import settings
 from ..contexts.infrastructure.domain import Job
 from ..contexts.wallet.services.money import to_atomic_units
 from ..storage.db import session_scope
-from .bridges.base import BridgeStatus, SettlementMessage, SettlementResult
+from .bridges.base import BridgeError, BridgeStatus, SettlementMessage, SettlementResult
 from .manager import BridgeManager
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort handlers below: bridge-domain
+# errors (BridgeError and subclasses), sqlmodel session/DBAPI errors,
+# settlement-storage driver errors (sqlite3 / asyncpg), httpx chain-info
+# calls, lazy stdlib imports, and data-shape errors. RuntimeError
+# preserves catch of abort-style raises; BaseExceptions still propagate.
+_OPS_ERRORS: tuple[type[Exception], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    BridgeError,
+    ImportError,
+    SQLAlchemyError,
+    httpx.HTTPError,
+    sqlite3.Error,
+    PostgresError,
+)
 
 
 class SettlementHook:
@@ -34,7 +59,7 @@ class SettlementHook:
         try:
             if await self._requires_cross_chain_settlement(job):
                 await self._initiate_settlement(job)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to handle job completion for %s: %s", job.id, e)
             await self._handle_settlement_error(job, e)
 
@@ -43,7 +68,7 @@ class SettlementHook:
         if job.cross_chain_payment_id:
             try:
                 await self._refund_cross_chain_payment(job)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Failed to refund cross-chain payment for %s: %s", job.id, e)
 
     async def initiate_manual_settlement(
@@ -62,7 +87,7 @@ class SettlementHook:
             result = await self.bridge_manager.settle_cross_chain(message, bridge_name=bridge_name)
             job.cross_chain_settlement_id = result.message_id
             job.cross_chain_bridge = bridge_name or self.bridge_manager.default_adapter
-            session.commit()
+            session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
             return result
 
     async def get_settlement_status(self, settlement_id: str) -> SettlementResult:
@@ -112,7 +137,7 @@ class SettlementHook:
         """Persist job changes via a fresh session (the job may have been loaded elsewhere)."""
         with session_scope() as session:
             session.merge(job)
-            session.commit()
+            session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
 
     async def _requires_cross_chain_settlement(self, job: Job) -> bool:
         """Check if job requires cross-chain settlement"""
@@ -138,7 +163,7 @@ class SettlementHook:
             job.cross_chain_settlement_status = result.status.value
             await self._save_job(job)
             logger.info("Initiated cross-chain settlement for job %s: %s", job.id, result.message_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to initiate settlement for job %s: %s", job.id, e)
             await self._handle_settlement_error(job, e)
 
@@ -177,11 +202,11 @@ class SettlementHook:
             if response.status_code == 200:
                 try:
                     chain_data = response.json()
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.warning("Failed to parse chain data: %s", e)
                     return 1
                 return chain_data.get("chain_id", 1)  # type: ignore[no-any-return]
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to get chain ID: %s", e)
         return 1
 
@@ -207,7 +232,7 @@ class SettlementHook:
             job.cross_chain_refund_id = result.message_id
             job.cross_chain_refund_status = result.status.value
             await self._save_job(job)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to refund cross-chain payment for %s: %s", job.id, e)
 
     async def _notify_settlement_failure(self, job: Job, error: Exception) -> None:
@@ -248,7 +273,7 @@ class SettlementMonitor:
                 for settlement in pending:
                     await self.bridge_manager.get_settlement_status(settlement["message_id"])
                 await asyncio.sleep(30)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error in settlement monitoring: %s", e)
                 await asyncio.sleep(60)
 

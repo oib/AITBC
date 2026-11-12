@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, col, select, update
 
 from fastapi import HTTPException, status
@@ -23,6 +24,24 @@ from ....utils.client_resolver import resolve_client
 from ....custom_types import JobState
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the job dispatch/execute helpers:
+# filesystem/JSON, data-shape (incl. pydantic ValidationError, a ValueError),
+# runtime, SQLAlchemy session errors, the lazy GPURegistry import inside
+# _provider_binding_blocks_dispatch, and list indexing. BaseExceptions
+# still propagate; business-logic ValueErrors are still re-raised after
+# the FAILED transition in execute_job.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    IndexError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    SQLAlchemyError,
+)
 
 # G3: these keys are server-only; clients must not be able to set them at job
 # creation, or they could forge spot-check evidence and trigger auto-adjudication.
@@ -144,6 +163,70 @@ def _to_utc(dt: datetime | None) -> datetime | None:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=UTC)
     return dt
+
+
+def _offer_binding_allows(job: Job, miner: Miner) -> bool:
+    """D3: G1 binds the offer to a specific provider. A job quoted against one
+    provider's offer must not be satisfied by another miner, even if that
+    miner's general capabilities happen to match the customer's constraints.
+    """
+    if not job.offer_id:
+        return True
+    if not job.provider_address:
+        logger.info("Job %s (offer %s) has no quoted provider; refusing dispatch", job.id, job.offer_id)
+        return False
+    wallet = miner_wallet_address(miner)
+    if not wallet or not same_address(wallet, job.provider_address):
+        logger.info(
+            "Job %s (offer %s) is bound to provider %s; miner %s does not match",
+            job.id,
+            job.offer_id,
+            job.provider_address,
+            miner.id,
+        )
+        return False
+    return True
+
+
+def _gpu_constraints_met(constraints: Constraints, capabilities: dict[str, Any]) -> bool:
+    gpu_specs = capabilities.get("gpus", []) or []
+    has_gpu = bool(gpu_specs)
+    if constraints.gpu:
+        if not has_gpu:
+            return False
+        names = [gpu.get("name") for gpu in gpu_specs]
+        if constraints.gpu not in names:
+            return False
+    if constraints.min_vram_gb:
+        # Use decimal GB (1000 MB/GB) rather than binary GiB so marketing
+        # memory values (e.g. 16 GB) do not reject cards that report a few
+        # MiB less than 16 * 1024 (e.g. 16380 MiB for a 16 GB RTX 4060 Ti).
+        required_mb = constraints.min_vram_gb * 1000
+        if not any((gpu.get("memory_mb") or 0) >= required_mb for gpu in gpu_specs):
+            return False
+    return True
+
+
+def _runtime_constraints_met(constraints: Constraints, capabilities: dict[str, Any]) -> bool:
+    if constraints.cuda:
+        cuda_info = capabilities.get("cuda")
+        if not cuda_info or constraints.cuda not in str(cuda_info):
+            return False
+    if constraints.models:
+        available_models = capabilities.get("models", [])
+        if not set(constraints.models).issubset(set(available_models)):
+            return False
+    if constraints.max_price is not None:
+        price = capabilities.get("price")
+        if price is None:
+            return False
+        try:
+            price_value = Decimal(str(price))
+        except (TypeError, ValueError, InvalidOperation):
+            return False
+        if price_value > Decimal(str(constraints.max_price)):
+            return False
+    return True
 
 
 class JobService:
@@ -413,7 +496,7 @@ class JobService:
                     .all()
                 )
                 profiles = {r.agent_id: r for r in rows}
-            except Exception:
+            except _OPS_ERRORS:
                 logger.debug("Could not batch-load reputation profiles", exc_info=True)
 
         out: dict[str, float] = dict(reported)
@@ -469,73 +552,90 @@ class JobService:
             expired: list[Job] = []
 
             for job in jobs:
-                try:
-                    job = self._ensure_not_expired(job, expired)
-                    if job.state != "QUEUED":
-                        continue
-                    if job.expires_at:
-                        expires_at = _to_utc(job.expires_at)
-                        if expires_at and expires_at <= now:
-                            continue
-                    payment = payments.get(job.payment_id)
-                    unpaid_reason = _payment_blocks_dispatch(job, payment)
-                    if unpaid_reason:
-                        logger.info("Job %s is not dispatchable: %s", job.id, unpaid_reason)
-                        continue
-                    mismatch_reason = _provider_binding_blocks_dispatch(self.session, job, miner, payment)
-                    if mismatch_reason:
-                        logger.info("Job %s is not dispatchable to miner %s: %s", job.id, miner.id, mismatch_reason)
-                        continue
-                    if not self._satisfies_constraints(job, miner, payment):
-                        continue
-                    if self._has_higher_reputation_miner(job, online_miners, miner, current_reputation, reputations):
-                        # A better-suited, higher-reputation miner is online and
-                        # has capacity. Leave this job for them to pick up.
-                        continue
-                    # Atomic claim (#1597): the SELECT above only *found* a
-                    # QUEUED candidate — two miners polling concurrently could
-                    # both pass every gate and both commit RUNNING, leaving two
-                    # miners believing they own the job. The conditional
-                    # UPDATE ... WHERE state='QUEUED' is the compare-and-swap:
-                    # rowcount != 1 means another dispatcher (or a cancel /
-                    # expiry write) won the row first, so move to the next
-                    # candidate instead of overwriting the winner.
-                    claim = self.session.execute(
-                        update(Job)
-                        .where(Job.id == job.id, Job.state == "QUEUED")  # type: ignore[arg-type]
-                        .values(state="RUNNING", assigned_miner_id=miner.id)
-                        .execution_options(synchronize_session=False)
-                    )
-                    if getattr(claim, "rowcount", 0) != 1:
-                        logger.info(
-                            "Job %s was claimed by another dispatcher before miner %s; skipping",
-                            job.id,
-                            miner.id,
-                        )
-                        # The in-session copy is stale (still QUEUED); detach it
-                        # so no later flush can write the losing transition.
-                        self.session.expunge(job)
-                        continue
-                    self.session.commit()
-                    self.session.refresh(job)
-                    return job
-                except Exception as e:
-                    logger.warning("Error checking job %s: %s", job.id, e)
-                    self.session.rollback()
-                    continue
+                claimed = self._try_claim_queued_job(
+                    job, miner, payments, online_miners, current_reputation, reputations, now, expired
+                )
+                if claimed is not None:
+                    return claimed
             if expired:
                 # Batch the deferred expiry commits into one write.
                 try:
                     self.session.commit()
                     for j in expired:
                         self.session.refresh(j)
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.warning("Error committing expired jobs: %s", e)
                     self.session.rollback()
             return None
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error acquiring next job: %s", e)
             raise
+
+    def _try_claim_queued_job(
+        self,
+        job: Job,
+        miner: Miner,
+        payments: dict[Any, JobPayment],
+        online_miners: list[Miner],
+        current_reputation: float,
+        reputations: dict[str, float],
+        now: datetime,
+        expired: list[Job],
+    ) -> Job | None:
+        try:
+            job = self._ensure_not_expired(job, expired)
+            if job.state != "QUEUED":
+                return None
+            if job.expires_at:
+                expires_at = _to_utc(job.expires_at)
+                if expires_at and expires_at <= now:
+                    return None
+            payment = payments.get(job.payment_id)
+            unpaid_reason = _payment_blocks_dispatch(job, payment)
+            if unpaid_reason:
+                logger.info("Job %s is not dispatchable: %s", job.id, unpaid_reason)
+                return None
+            mismatch_reason = _provider_binding_blocks_dispatch(self.session, job, miner, payment)
+            if mismatch_reason:
+                logger.info("Job %s is not dispatchable to miner %s: %s", job.id, miner.id, mismatch_reason)
+                return None
+            if not self._satisfies_constraints(job, miner, payment):
+                return None
+            if self._has_higher_reputation_miner(job, online_miners, miner, current_reputation, reputations):
+                # A better-suited, higher-reputation miner is online and
+                # has capacity. Leave this job for them to pick up.
+                return None
+            # Atomic claim (#1597): the SELECT above only *found* a
+            # QUEUED candidate — two miners polling concurrently could
+            # both pass every gate and both commit RUNNING, leaving two
+            # miners believing they own the job. The conditional
+            # UPDATE ... WHERE state='QUEUED' is the compare-and-swap:
+            # rowcount != 1 means another dispatcher (or a cancel /
+            # expiry write) won the row first, so move to the next
+            # candidate instead of overwriting the winner.
+            claim = self.session.execute(
+                update(Job)
+                .where(Job.id == job.id, Job.state == "QUEUED")  # type: ignore[arg-type]
+                .values(state="RUNNING", assigned_miner_id=miner.id)
+                .execution_options(synchronize_session=False)
+            )
+            if getattr(claim, "rowcount", 0) != 1:
+                logger.info(
+                    "Job %s was claimed by another dispatcher before miner %s; skipping",
+                    job.id,
+                    miner.id,
+                )
+                # The in-session copy is stale (still QUEUED); detach it
+                # so no later flush can write the losing transition.
+                self.session.expunge(job)
+                return None
+            self.session.commit()
+            self.session.refresh(job)
+            return job
+        except _OPS_ERRORS as e:
+            logger.warning("Error checking job %s: %s", job.id, e)
+            self.session.rollback()
+            return None
 
     def _ensure_not_expired(self, job: Job, batch: list[Job] | None = None) -> Job:
         expires_at = _to_utc(job.expires_at)
@@ -566,77 +666,35 @@ class JobService:
         constraints = Constraints(**job.constraints)
         capabilities = miner.capabilities or {}
 
-        # D3: G1 binds the offer to a specific provider. A job quoted against one
-        # provider's offer must not be satisfied by another miner, even if that
-        # miner's general capabilities happen to match the customer's constraints.
-        if job.offer_id:
-            if not job.provider_address:
-                logger.info("Job %s (offer %s) has no quoted provider; refusing dispatch", job.id, job.offer_id)
-                return False
-            wallet = miner_wallet_address(miner)
-            if not wallet or not same_address(wallet, job.provider_address):
-                logger.info(
-                    "Job %s (offer %s) is bound to provider %s; miner %s does not match",
-                    job.id,
-                    job.offer_id,
-                    job.provider_address,
-                    miner.id,
-                )
-                return False
+        if not _offer_binding_allows(job, miner):
+            return False
         if constraints.region and constraints.region != miner.region:
             return False
-        gpu_specs = capabilities.get("gpus", []) or []
-        has_gpu = bool(gpu_specs)
-        if constraints.gpu:
-            if not has_gpu:
-                return False
-            names = [gpu.get("name") for gpu in gpu_specs]
-            if constraints.gpu not in names:
-                return False
-        if constraints.min_vram_gb:
-            # Use decimal GB (1000 MB/GB) rather than binary GiB so marketing
-            # memory values (e.g. 16 GB) do not reject cards that report a few
-            # MiB less than 16 * 1024 (e.g. 16380 MiB for a 16 GB RTX 4060 Ti).
-            required_mb = constraints.min_vram_gb * 1000
-            if not any((gpu.get("memory_mb") or 0) >= required_mb for gpu in gpu_specs):
-                return False
-        if constraints.cuda:
-            cuda_info = capabilities.get("cuda")
-            if not cuda_info or constraints.cuda not in str(cuda_info):
-                return False
-        if constraints.models:
-            available_models = capabilities.get("models", [])
-            if not set(constraints.models).issubset(set(available_models)):
-                return False
-        if constraints.max_price is not None:
-            price = capabilities.get("price")
-            if price is None:
-                return False
-            try:
-                price_value = Decimal(str(price))
-            except (TypeError, ValueError, InvalidOperation):
-                return False
-            if price_value > Decimal(str(constraints.max_price)):
-                return False
+        if not _gpu_constraints_met(constraints, capabilities):
+            return False
+        if not _runtime_constraints_met(constraints, capabilities):
+            return False
         if constraints.min_reputation is not None:
             if self._get_miner_reputation(miner) < constraints.min_reputation:
                 return False
+        return self._bond_check_allows(job, miner, constraints, payment)
 
-        if _bond_required_for(job, payment):
-            min_bond = constraints.min_bond_amount if constraints.min_bond_amount is not None else _default_bond_min_amount()
-            if min_bond is not None and min_bond > 0:
-                eligible = is_provider_eligible(self.session, miner.id, min_amount=min_bond)
-            else:
-                eligible = is_provider_eligible(self.session, miner.id)
-            if not eligible:
-                logger.info(
-                    "Job %s requires a performance bond; miner %s is not eligible (min %s)",
-                    job.id,
-                    miner.id,
-                    min_bond,
-                )
-                return False
-
+    def _bond_check_allows(self, job: Job, miner: Miner, constraints: Constraints, payment: JobPayment | None) -> bool:
+        if not _bond_required_for(job, payment):
+            return True
+        min_bond = constraints.min_bond_amount if constraints.min_bond_amount is not None else _default_bond_min_amount()
+        if min_bond is not None and min_bond > 0:
+            eligible = is_provider_eligible(self.session, miner.id, min_amount=min_bond)
+        else:
+            eligible = is_provider_eligible(self.session, miner.id)
+        if not eligible:
+            logger.info(
+                "Job %s requires a performance bond; miner %s is not eligible (min %s)",
+                job.id,
+                miner.id,
+                min_bond,
+            )
+            return False
         return True
 
     def _get_miner_reputation(self, miner: Miner) -> float:
@@ -665,7 +723,7 @@ class JobService:
                 # trust_score is on a 0-1000 scale; normalize to 0-1.
                 trust_score: float = reputation.trust_score
                 return max(0.0, min(1.0, trust_score / 1000.0))
-        except Exception:
+        except _OPS_ERRORS:
             logger.debug("Could not load reputation profile for %s", miner.id, exc_info=True)
 
         total = (miner.jobs_completed or 0) + (miner.jobs_failed or 0)
@@ -738,7 +796,7 @@ class JobService:
                 extra={"job_id": job_id, "result_size": len(str(result)) if result else 0},
             )
             return job
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to execute job %s: %s", job_id, e)
             self.session.rollback()
             try:
@@ -750,6 +808,6 @@ class JobService:
                 )
                 if getattr(fail_update, "rowcount", 0) == 1:
                     self.session.commit()
-            except Exception:
-                pass
+            except _OPS_ERRORS:
+                logger.debug("Failed to mark job %s FAILED after execute error", job_id, exc_info=True)
             raise

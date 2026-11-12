@@ -644,7 +644,7 @@ class StrategyOptimizer:
             else:
                 return self._evaluate_simple_condition(condition_eval.strip())
 
-        except Exception:
+        except (AttributeError, KeyError, TypeError, ValueError):
             return False
 
     def _evaluate_simple_condition(self, condition: str) -> bool:
@@ -668,7 +668,7 @@ class StrategyOptimizer:
             else:
                 return bool(condition)
 
-        except Exception:
+        except (AttributeError, KeyError, TypeError, ValueError):
             return False
 
     def _apply_rule_action(self, config: PricingStrategyConfig, action: str, adjustment: float) -> None:

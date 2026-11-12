@@ -14,7 +14,7 @@ from fastapi import FastAPI, Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from aitbc.compliance.consent import ConsentTracker
-from aitbc.compliance.errors import PolicyViolationError
+from aitbc.compliance.errors import InvalidClassificationError, PolicyViolationError
 from aitbc.compliance.policies import DataClassification, SENSITIVE_CLASSIFICATIONS, normalize_classification
 
 
@@ -38,7 +38,7 @@ class ComplianceMiddleware(BaseHTTPMiddleware):
         if classification:
             try:
                 label = normalize_classification(classification)
-            except Exception:
+            except InvalidClassificationError:
                 return Response("Invalid data classification", status_code=400)
             if label in SENSITIVE_CLASSIFICATIONS and subject_id and purpose:
                 if not self.tracker.is_consented(subject_id, purpose, label):
