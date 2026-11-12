@@ -216,6 +216,42 @@ def _attestation_lock_peer_bases(peer_urls) -> list[str]:
     return bases
 
 
+class _SeqTxContext:
+    """Per-block shared state threaded through the sequential tx helpers.
+
+    ``processed_txs``/``changed_addresses``/``pending_records`` are the same
+    accumulators the monolithic loop used; ``pending_records`` stays deferred
+    — Transaction rows are added to the session only after ALL state
+    transitions succeed, because adding them inside per-tx savepoints let
+    new rows leak when the outer transaction rolled back (e.g. PBFT fail)."""
+
+    def __init__(
+        self,
+        session: Session,
+        account_map: dict[str, Account],
+        existing_tx_map: dict[str, int],
+        next_height: int,
+        timestamp: datetime,
+        block_version: int,
+        rejected: list[tuple[Any, str]] | None,
+    ) -> None:
+        self.session = session
+        self.account_map = account_map
+        self.existing_tx_map = existing_tx_map
+        self.next_height = next_height
+        self.timestamp = timestamp
+        self.block_version = block_version
+        self.rejected = rejected
+        self.processed_txs: list[Any] = []
+        self.changed_addresses: set[str] = set()
+        self.pending_records: list[Transaction] = []
+
+
+def _seq_reject(ctx: _SeqTxContext, tx: Any, reason: str) -> None:
+    if ctx.rejected is not None:
+        ctx.rejected.append((tx, reason))
+
+
 class _ProposalReleaseLedger:
     """#1300 §3 release-map bookkeeping for one proposal attempt.
 
@@ -3066,341 +3102,403 @@ class PoAProposer:
         ``rejected``, when given, collects ``(tx, reason)`` for every drained
         tx the loop refuses so the caller can persist a terminal status (#669).
         """
-
-        def _reject(tx: Any, reason: str) -> None:
-            if rejected is not None:
-                rejected.append((tx, reason))
-
-        processed_txs: list[Any] = []
-        changed_addresses: set[str] = set()  # tracks accounts modified during the tx loop
-        # Collect transaction records created or updated by this
-        # proposal and add them to the session only after all state
-        # transitions have succeeded. Adding them inside per-tx nested
-        # savepoints caused new Transaction rows to leak into the DB
-        # when the outer transaction was rolled back (e.g., PBFT fail).
-        pending_transaction_records: list[Transaction] = []
         # S-4: the active state-transition version for this block. Every path that
         # calls apply_transaction must use the same version so the state root is
         # deterministic and consistent with the stamped block_metadata.
-        block_version = get_block_version_for_height(next_height)
+        ctx = _SeqTxContext(
+            session=session,
+            account_map=account_map,
+            existing_tx_map=existing_tx_map,
+            next_height=next_height,
+            timestamp=timestamp,
+            block_version=get_block_version_for_height(next_height),
+            rejected=rejected,
+        )
         for tx in pending_txs:
             try:
-                tx_data = tx.content
-                sender = _to_ait_address(tx_data.get("from", ""))
-                recipient = _to_ait_address(tx_data.get("to", ""))
-                value = tx_data.get("amount", 0)
-                fee = tx_data.get("fee", 0)
-                tx_type = (tx_data.get("type") or "TRANSFER").upper()
-                self._logger.info(
-                    "[PROPOSE] Processing tx %s: from=%s, to=%s, amount=%s, fee=%s",
-                    tx.tx_hash,
-                    sender,
-                    recipient,
-                    value,
-                    fee,
-                )
-                if not sender or not recipient:
-                    self._logger.warning("[PROPOSE] Skipping tx %s: missing sender or recipient", tx.tx_hash)
-                    _reject(tx, "missing sender or recipient")
-                    continue
-                # Pre-registered transactions (e.g. bridge releases/refunds) are already
-                # applied by the originating RPC call. Record them in the block without
-                # re-running the state transition to avoid replay and double-credit.
-                existing_tx_record = session.exec(
-                    select(Transaction).where(
-                        Transaction.chain_id == self._config.chain_id,
-                        Transaction.tx_hash == tx.tx_hash,
-                    )
-                ).first()
-                if (
-                    existing_tx_record
-                    and existing_tx_record.status == "confirmed"
-                    and existing_tx_record.block_height is None
-                    and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK"}
-                ):
-                    # v5: a pre-registered credit row bypasses apply_transaction
-                    # here (it was already applied off-chain), so the bridge
-                    # authority signature check must run before stamping —
-                    # otherwise this node seals a credit that followers, who DO
-                    # validate the block content, reject. Skipping leaves the
-                    # row un-sealed for retry/next block rather than forking.
-                    if tx_type == "BRIDGE_LOCK":
-                        # Followers verify the lock's bridge_signature from
-                        # the block content (pure path counts below v9,
-                        # enforces at v9). Stamping an unsigned/invalid lock
-                        # here would seal a block they reject.
-                        bridge_authority = _bridge_release_authority(session, self._config.chain_id, next_height)
-                        if block_version >= 9:
-                            if not bridge_authority or not verify_bridge_lock_signature(
-                                tx.content, tx.tx_hash, bridge_authority
-                            ):
-                                self._logger.warning(
-                                    "[PROPOSE] Skipping pre-registered BRIDGE_LOCK tx %s: failed v9 bridge-lock authorization",
-                                    tx.tx_hash,
-                                )
-                                _reject(tx, "failed v9 bridge-lock authorization")
-                                continue
-                        elif not verify_bridge_lock_signature(tx.content, tx.tx_hash, bridge_authority or ""):
-                            count_v9_would_reject("bridge_lock_unsigned")
-                            self._logger.warning("v9 shadow: BRIDGE_LOCK tx %s lacks a valid bridge_signature", tx.tx_hash)
-                    if tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"} and block_version >= 5:
-                        expected_sender = "bridge_release" if tx_type == "BRIDGE_RELEASE" else "bridge_refund"
-                        bridge_authority = _bridge_release_authority(session, self._config.chain_id, next_height)
-                        skip_reason = ""
-                        if (
-                            _to_ait_address(tx.content.get("from", "")) != expected_sender
-                            or not bridge_authority
-                            or not verify_bridge_credit_signature(tx.content, tx.tx_hash, bridge_authority)
-                        ):
-                            skip_reason = "failed v5 bridge-credit authorization"
-                        elif tx_type == "BRIDGE_REFUND" and block_version >= 6:
-                            # v6 refund lock binding — followers run the same
-                            # check, so stamping an unbound refund would seal a
-                            # credit they reject.
-                            lock_hash = bridge_refund_lock_hash(tx.content)
-                            if not lock_hash:
-                                skip_reason = "missing payload.lock_tx_hash"
-                            else:
-                                reason = validate_bridge_refund_lock(
-                                    _refund_lock_record(session, self._config.chain_id, lock_hash, exclude_tx_hash=tx.tx_hash),
-                                    tx.content,
-                                )
-                                if reason:
-                                    skip_reason = reason
-                        if skip_reason:
-                            self._logger.warning(
-                                "[PROPOSE] Skipping pre-registered %s tx %s: %s",
-                                tx_type,
-                                tx.tx_hash,
-                                skip_reason,
-                            )
-                            _reject(tx, skip_reason)
-                            continue
-                    existing_tx_record.block_height = next_height
-                    existing_tx_record.timestamp = timestamp.isoformat()
-                    session.add(existing_tx_record)
-                    if block_version >= 24:
-                        # #1314 R2 path (a): no apply/savepoint on this path —
-                        # the explicit flush is the ONLY thing making the row
-                        # visible to later same-block reads (e.g. :2759
-                        # _refund_lock_record on a following BRIDGE_REFUND).
-                        session.flush()
-                    processed_txs.append(tx)
-                    existing_tx_map[tx.tx_hash] = next_height
-                    self._logger.info(
-                        "[PROPOSE] Included pre-registered %s tx %s in block %s",
-                        tx_type,
-                        tx.tx_hash,
-                        next_height,
-                    )
-                    continue
-
-                # v0.24.2: Block-scoped pre-registered credits (BRIDGE_RELEASE,
-                # BRIDGE_REFUND) have a magic sender and should be applied now, not earlier.
-                if getattr(settings, "block_scoped_preregistered_transactions", True) and tx_type in {
-                    "BRIDGE_RELEASE",
-                    "BRIDGE_REFUND",
-                }:
-                    state_transition = get_state_transition()
-                    tx_data_for_transition = tx.content.copy()
-                    tx_data_for_transition["nonce"] = 0
-                    tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
-                    success, error_msg = state_transition.apply_transaction_guarded(
-                        session,
-                        self._config.chain_id,
-                        tx_data_for_transition,
-                        tx.tx_hash,
-                        block_version=block_version,
-                        block_height=next_height,
-                        block_time=timestamp,
-                    )
-                    if not success:
-                        self._logger.warning("[PROPOSE] Failed to apply credit tx %s: %s", tx.tx_hash, error_msg)
-                        _reject(tx, error_msg or "credit apply failed")
-                        continue
-                    original_payload = tx.content.get("payload", {})
-                    transaction = Transaction(
-                        chain_id=self._config.chain_id,
-                        tx_hash=tx.tx_hash,
-                        sender=tx_data.get("from", ""),
-                        recipient=tx_data.get("to", ""),
-                        payload=original_payload,
-                        envelope=dict(tx.content),
-                        value=value,
-                        fee=fee,
-                        nonce=0,
-                        timestamp=timestamp.isoformat(),
-                        block_height=next_height,
-                        status="confirmed",
-                        type=tx_type,
-                    )
-                    pending_transaction_records.append(transaction)
-                    if block_version >= 24:
-                        # #1314 R2: match importer visibility — the row must be
-                        # flushed before the next transaction's apply queries
-                        # Transaction rows (e.g. refund/lock lookups).
-                        session.add(transaction)
-                        session.flush()
-                    changed_addresses.add(recipient)
-                    existing_tx_map[tx.tx_hash] = next_height
-                    processed_txs.append(tx)
-                    self._logger.info("[PROPOSE] Successfully applied credit tx %s", tx.tx_hash)
-                    continue
-
-                sender_account = account_map.get(sender)
-                if not sender_account and block_version >= 22:
-                    # v22 R1 (CONSENSUS-STATE-001): a sender missing from the
-                    # pre-block account map reads live state first — an
-                    # account created earlier in this same block is already
-                    # flushed — then falls back to virtual (0,0), matching
-                    # validate_transaction. apply_transaction materializes
-                    # the row on success, so a valid zero-cost tx from a
-                    # never-seen address is includable, not skipped (R1a).
-                    sender_account = session.get(Account, (self._config.chain_id, sender))
-                    if sender_account is not None:
-                        account_map[sender] = sender_account
-                if not sender_account and block_version < 22:
-                    self._logger.warning("[PROPOSE] Skipping tx %s: sender account not found for %s", tx.tx_hash, sender)
-                    _reject(tx, f"sender account not found for {sender}")
-                    continue
-                if block_version >= 24:
-                    # #1314 V5: authoritative scalar read — the account_map /
-                    # session.get path can serve identity-map-stale balance
-                    # and nonce. Same session/transaction; creates no Account;
-                    # virtual (0,0) semantics preserved for missing accounts.
-                    auth_balance, auth_nonce, auth_exists = read_current_account(session, self._config.chain_id, sender)
-                    sender_balance = auth_balance if auth_balance is not None else 0
-                    authoritative_nonce = auth_nonce if auth_exists else 0
-                else:
-                    sender_balance = sender_account.balance if sender_account else 0
-                    authoritative_nonce = sender_account.nonce if sender_account and sender_account.nonce is not None else 0
-                total_cost = value + fee
-                if sender_balance < total_cost:
-                    self._logger.warning(
-                        "[PROPOSE] Skipping tx %s: insufficient balance (has %s, needs %s)",
-                        tx.tx_hash,
-                        sender_balance,
-                        total_cost,
-                    )
-                    _reject(tx, f"insufficient balance (has {sender_balance}, needs {total_cost})")
-                    continue
-                # Resolve canonical tx type and validate governance
-                # payloads before mutating state so we can skip invalid
-                # transactions without rolling back earlier work.
-                tx_type = tx.content.get("type", "TRANSFER")
-                if tx_type:
-                    tx_type = tx_type.upper()
-                else:
-                    tx_type = "TRANSFER"
-                if tx_type.startswith("GOVERNANCE_"):
-                    gov_errors = _validate_governance_payload(tx_type, tx.content.get("payload", {}))
-                    if gov_errors:
-                        self._logger.warning(
-                            "[PROPOSE] Skipping governance tx %s: invalid payload: %s",
-                            tx.tx_hash,
-                            ", ".join(gov_errors),
-                        )
-                        _reject(tx, f"invalid governance payload: {', '.join(gov_errors)}")
-                        continue
-                existing_block_height = existing_tx_map.get(tx.tx_hash)
-                if existing_block_height is not None:
-                    self._logger.warning(
-                        "[PROPOSE] Skipping tx %s: already exists in database at block %s",
-                        tx.tx_hash,
-                        existing_block_height,
-                    )
-                    continue
-                # Do not create the recipient account here. The state
-                # transition calls _ensure_account itself, and only on
-                # paths that go on to succeed. Creating the row up front
-                # left it behind whenever apply_transaction returned
-                # False: the block state root is a full scan of the
-                # account table, so the proposer committed a header no
-                # other validator could reproduce. It was also wrong for
-                # BRIDGE_LOCK, where the state transition deliberately
-                # creates no recipient account at all.
-                recipient_account = account_map.get(recipient)
-                if recipient_account:
-                    self._logger.info("[PROPOSE] Recipient account exists for %s", recipient)
-                else:
-                    self._logger.info("[PROPOSE] Recipient account for %s will be created by the state transition", recipient)
-                state_transition = get_state_transition()
-                tx_data_for_transition = tx.content.copy()
-                if use_account_nonce_override(tx_data_for_transition, block_version):
-                    tx_data_for_transition["nonce"] = authoritative_nonce
-                tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
-                success, error_msg = state_transition.apply_transaction_guarded(
-                    session,
-                    self._config.chain_id,
-                    tx_data_for_transition,
-                    tx.tx_hash,
-                    block_version=block_version,
-                    block_height=next_height,
-                    block_time=timestamp,
-                )
-                if not success:
-                    self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
-                    _reject(tx, error_msg or "state transition rejected transaction")
-                    continue
-                if recipient_account is None:
-                    # The state transition created it; pick up the real
-                    # row so later transactions in this block see it.
-                    recipient_account = session.get(Account, (self._config.chain_id, recipient))
-                    if recipient_account is not None:
-                        account_map[recipient] = recipient_account
-                original_payload = tx.content.get("payload", {})
-                if existing_tx_record:
-                    existing_tx_record.block_height = next_height
-                    existing_tx_record.status = "confirmed"
-                    existing_tx_record.timestamp = timestamp.isoformat()
-                    existing_tx_record.nonce = tx_data_for_transition["nonce"]
-                    if existing_tx_record.envelope is None:
-                        existing_tx_record.envelope = dict(tx.content)
-                    pending_transaction_records.append(existing_tx_record)
-                    if block_version >= 24:
-                        session.add(existing_tx_record)
-                        session.flush()
-                else:
-                    transaction = Transaction(
-                        chain_id=self._config.chain_id,
-                        tx_hash=tx.tx_hash,
-                        # Raw, not the canonicalised locals: these are signed (V23-65).
-                        sender=tx_data.get("from", ""),
-                        recipient=tx_data.get("to", ""),
-                        payload=original_payload,
-                        envelope=dict(tx.content),
-                        value=value,
-                        fee=fee,
-                        nonce=tx_data_for_transition["nonce"],
-                        timestamp=timestamp.isoformat(),
-                        block_height=next_height,
-                        status="confirmed",
-                        type=tx_type,
-                    )
-                    pending_transaction_records.append(transaction)
-                    if block_version >= 24:
-                        session.add(transaction)
-                        session.flush()
-                # Track changed addresses for incremental state root computation
-                changed_addresses.add(sender)
-                changed_addresses.add(recipient)
-                # Track the newly committed tx hash so subsequent iterations
-                # in this loop detect it as a duplicate without another DB query.
-                existing_tx_map[tx.tx_hash] = next_height
-                processed_txs.append(tx)
-                self._logger.info("[PROPOSE] Successfully processed tx %s: updated balances", tx.tx_hash)
+                self._process_tx_sequential(ctx, tx)
             except Exception as e:
                 session.rollback()
                 self._logger.warning("Failed to process transaction %s: %s", tx.tx_hash, e)
-                _reject(tx, f"processing exception: {e}")
+                _seq_reject(ctx, tx, f"processing exception: {e}")
                 return [], set(), False
         # Add transaction records only after all state transitions for
         # this block have succeeded. This keeps them inside the outer
         # transaction so a subsequent PBFT or attestation failure rolls
         # them back together with the account state changes.
-        for record in pending_transaction_records:
+        for record in ctx.pending_records:
             session.add(record)
-        return processed_txs, changed_addresses, True
+        return ctx.processed_txs, ctx.changed_addresses, True
+
+    def _process_tx_sequential(self, ctx: _SeqTxContext, tx: Any) -> None:
+        """Run one drained tx through the sequential apply path.
+
+        Every refusal records ``(tx, reason)`` via ``_seq_reject`` and returns;
+        only the caller's per-tx ``except`` turns an exception into ``ok=False``.
+        Stage order is the original inline order — first refusal wins."""
+        tx_data = tx.content
+        sender = _to_ait_address(tx_data.get("from", ""))
+        recipient = _to_ait_address(tx_data.get("to", ""))
+        value = tx_data.get("amount", 0)
+        fee = tx_data.get("fee", 0)
+        tx_type = (tx_data.get("type") or "TRANSFER").upper()
+        self._logger.info(
+            "[PROPOSE] Processing tx %s: from=%s, to=%s, amount=%s, fee=%s",
+            tx.tx_hash,
+            sender,
+            recipient,
+            value,
+            fee,
+        )
+        if not sender or not recipient:
+            self._logger.warning("[PROPOSE] Skipping tx %s: missing sender or recipient", tx.tx_hash)
+            _seq_reject(ctx, tx, "missing sender or recipient")
+            return
+        # Pre-registered transactions (e.g. bridge releases/refunds) are already
+        # applied by the originating RPC call. Record them in the block without
+        # re-running the state transition to avoid replay and double-credit.
+        existing_tx_record = ctx.session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == self._config.chain_id,
+                Transaction.tx_hash == tx.tx_hash,
+            )
+        ).first()
+        if self._seq_stamp_preregistered(ctx, tx, tx_type, existing_tx_record):
+            return
+        if self._seq_block_scoped_credit(ctx, tx, tx_type, value, fee):
+            return
+        state = self._seq_sender_state(ctx, tx, sender)
+        if state is None:
+            return
+        sender_balance, authoritative_nonce = state
+        total_cost = value + fee
+        if sender_balance < total_cost:
+            self._logger.warning(
+                "[PROPOSE] Skipping tx %s: insufficient balance (has %s, needs %s)",
+                tx.tx_hash,
+                sender_balance,
+                total_cost,
+            )
+            _seq_reject(ctx, tx, f"insufficient balance (has {sender_balance}, needs {total_cost})")
+            return
+        # Resolve canonical tx type and validate governance
+        # payloads before mutating state so we can skip invalid
+        # transactions without rolling back earlier work.
+        tx_type = self._seq_canonical_tx_type(ctx, tx)
+        if tx_type is None:
+            return
+        existing_block_height = ctx.existing_tx_map.get(tx.tx_hash)
+        if existing_block_height is not None:
+            self._logger.warning(
+                "[PROPOSE] Skipping tx %s: already exists in database at block %s",
+                tx.tx_hash,
+                existing_block_height,
+            )
+            return
+        self._seq_apply_and_record(ctx, tx, sender, recipient, value, fee, tx_type, authoritative_nonce, existing_tx_record)
+
+    def _seq_stamp_preregistered(self, ctx: _SeqTxContext, tx: Any, tx_type: str, existing_tx_record) -> bool:
+        """Stamp a pre-registered row into the block, or reject it on an
+        authorization failure. Returns True when the tx is consumed."""
+        if not (
+            existing_tx_record
+            and existing_tx_record.status == "confirmed"
+            and existing_tx_record.block_height is None
+            and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK"}
+        ):
+            return False
+        if self._seq_bridge_lock_gate(ctx, tx, tx_type):
+            return True
+        skip_reason = self._seq_bridge_credit_gate(ctx, tx, tx_type)
+        if skip_reason:
+            self._logger.warning(
+                "[PROPOSE] Skipping pre-registered %s tx %s: %s",
+                tx_type,
+                tx.tx_hash,
+                skip_reason,
+            )
+            _seq_reject(ctx, tx, skip_reason)
+            return True
+        existing_tx_record.block_height = ctx.next_height
+        existing_tx_record.timestamp = ctx.timestamp.isoformat()
+        ctx.session.add(existing_tx_record)
+        if ctx.block_version >= 24:
+            # #1314 R2 path (a): no apply/savepoint on this path —
+            # the explicit flush is the ONLY thing making the row
+            # visible to later same-block reads (e.g. :2759
+            # _refund_lock_record on a following BRIDGE_REFUND).
+            ctx.session.flush()
+        ctx.processed_txs.append(tx)
+        ctx.existing_tx_map[tx.tx_hash] = ctx.next_height
+        self._logger.info(
+            "[PROPOSE] Included pre-registered %s tx %s in block %s",
+            tx_type,
+            tx.tx_hash,
+            ctx.next_height,
+        )
+        return True
+
+    def _seq_bridge_lock_gate(self, ctx: _SeqTxContext, tx: Any, tx_type: str) -> bool:
+        """v9 bridge-lock authorization for a pre-registered BRIDGE_LOCK.
+        Returns True only when the tx was rejected."""
+        if tx_type != "BRIDGE_LOCK":
+            return False
+        # v5: a pre-registered credit row bypasses apply_transaction
+        # here (it was already applied off-chain), so the bridge
+        # authority signature check must run before stamping —
+        # otherwise this node seals a credit that followers, who DO
+        # validate the block content, reject. Skipping leaves the
+        # row un-sealed for retry/next block rather than forking.
+        bridge_authority = _bridge_release_authority(ctx.session, self._config.chain_id, ctx.next_height)
+        if ctx.block_version >= 9:
+            # Followers verify the lock's bridge_signature from
+            # the block content (pure path counts below v9,
+            # enforces at v9). Stamping an unsigned/invalid lock
+            # here would seal a block they reject.
+            if not bridge_authority or not verify_bridge_lock_signature(tx.content, tx.tx_hash, bridge_authority):
+                self._logger.warning(
+                    "[PROPOSE] Skipping pre-registered BRIDGE_LOCK tx %s: failed v9 bridge-lock authorization",
+                    tx.tx_hash,
+                )
+                _seq_reject(ctx, tx, "failed v9 bridge-lock authorization")
+                return True
+        elif not verify_bridge_lock_signature(tx.content, tx.tx_hash, bridge_authority or ""):
+            count_v9_would_reject("bridge_lock_unsigned")
+            self._logger.warning("v9 shadow: BRIDGE_LOCK tx %s lacks a valid bridge_signature", tx.tx_hash)
+        return False
+
+    def _seq_bridge_credit_gate(self, ctx: _SeqTxContext, tx: Any, tx_type: str) -> str:
+        """v5/v6 authorization check for a pre-registered credit row.
+        Returns the skip reason, or "" when the tx may be stamped."""
+        if tx_type not in {"BRIDGE_RELEASE", "BRIDGE_REFUND"} or ctx.block_version < 5:
+            return ""
+        expected_sender = "bridge_release" if tx_type == "BRIDGE_RELEASE" else "bridge_refund"
+        bridge_authority = _bridge_release_authority(ctx.session, self._config.chain_id, ctx.next_height)
+        skip_reason = ""
+        if (
+            _to_ait_address(tx.content.get("from", "")) != expected_sender
+            or not bridge_authority
+            or not verify_bridge_credit_signature(tx.content, tx.tx_hash, bridge_authority)
+        ):
+            skip_reason = "failed v5 bridge-credit authorization"
+        elif tx_type == "BRIDGE_REFUND" and ctx.block_version >= 6:
+            # v6 refund lock binding — followers run the same
+            # check, so stamping an unbound refund would seal a
+            # credit they reject.
+            lock_hash = bridge_refund_lock_hash(tx.content)
+            if not lock_hash:
+                skip_reason = "missing payload.lock_tx_hash"
+            else:
+                reason = validate_bridge_refund_lock(
+                    _refund_lock_record(ctx.session, self._config.chain_id, lock_hash, exclude_tx_hash=tx.tx_hash),
+                    tx.content,
+                )
+                if reason:
+                    skip_reason = reason
+        return skip_reason
+
+    def _seq_block_scoped_credit(self, ctx: _SeqTxContext, tx: Any, tx_type: str, value, fee) -> bool:
+        """v0.24.2: apply block-scoped pre-registered credits
+        (BRIDGE_RELEASE, BRIDGE_REFUND) now rather than earlier.
+        Returns True when the tx is consumed."""
+        if not (
+            getattr(settings, "block_scoped_preregistered_transactions", True)
+            and tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"}
+        ):
+            return False
+        state_transition = get_state_transition()
+        tx_data_for_transition = tx.content.copy()
+        tx_data_for_transition["nonce"] = 0
+        tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
+        success, error_msg = state_transition.apply_transaction_guarded(
+            ctx.session,
+            self._config.chain_id,
+            tx_data_for_transition,
+            tx.tx_hash,
+            block_version=ctx.block_version,
+            block_height=ctx.next_height,
+            block_time=ctx.timestamp,
+        )
+        if not success:
+            self._logger.warning("[PROPOSE] Failed to apply credit tx %s: %s", tx.tx_hash, error_msg)
+            _seq_reject(ctx, tx, error_msg or "credit apply failed")
+            return True
+        original_payload = tx.content.get("payload", {})
+        transaction = Transaction(
+            chain_id=self._config.chain_id,
+            tx_hash=tx.tx_hash,
+            sender=tx.content.get("from", ""),
+            recipient=tx.content.get("to", ""),
+            payload=original_payload,
+            envelope=dict(tx.content),
+            value=value,
+            fee=fee,
+            nonce=0,
+            timestamp=ctx.timestamp.isoformat(),
+            block_height=ctx.next_height,
+            status="confirmed",
+            type=tx_type,
+        )
+        ctx.pending_records.append(transaction)
+        if ctx.block_version >= 24:
+            # #1314 R2: match importer visibility — the row must be
+            # flushed before the next transaction's apply queries
+            # Transaction rows (e.g. refund/lock lookups).
+            ctx.session.add(transaction)
+            ctx.session.flush()
+        ctx.changed_addresses.add(_to_ait_address(tx.content.get("to", "")))
+        ctx.existing_tx_map[tx.tx_hash] = ctx.next_height
+        ctx.processed_txs.append(tx)
+        self._logger.info("[PROPOSE] Successfully applied credit tx %s", tx.tx_hash)
+        return True
+
+    def _seq_sender_state(self, ctx: _SeqTxContext, tx: Any, sender: str):
+        """Resolve the sender's spendable balance and authoritative nonce.
+
+        Returns ``(sender_balance, authoritative_nonce)``, or None after
+        recording a refusal (missing sender account pre-v22)."""
+        sender_account = ctx.account_map.get(sender)
+        if not sender_account and ctx.block_version >= 22:
+            # v22 R1 (CONSENSUS-STATE-001): a sender missing from the
+            # pre-block account map reads live state first — an
+            # account created earlier in this same block is already
+            # flushed — then falls back to virtual (0,0), matching
+            # validate_transaction. apply_transaction materializes
+            # the row on success, so a valid zero-cost tx from a
+            # never-seen address is includable, not skipped (R1a).
+            sender_account = ctx.session.get(Account, (self._config.chain_id, sender))
+            if sender_account is not None:
+                ctx.account_map[sender] = sender_account
+        if not sender_account and ctx.block_version < 22:
+            self._logger.warning("[PROPOSE] Skipping tx %s: sender account not found for %s", tx.tx_hash, sender)
+            _seq_reject(ctx, tx, f"sender account not found for {sender}")
+            return None
+        if ctx.block_version >= 24:
+            # #1314 V5: authoritative scalar read — the account_map /
+            # session.get path can serve identity-map-stale balance
+            # and nonce. Same session/transaction; creates no Account;
+            # virtual (0,0) semantics preserved for missing accounts.
+            auth_balance, auth_nonce, auth_exists = read_current_account(ctx.session, self._config.chain_id, sender)
+            sender_balance = auth_balance if auth_balance is not None else 0
+            authoritative_nonce = auth_nonce if auth_exists else 0
+        else:
+            sender_balance = sender_account.balance if sender_account else 0
+            authoritative_nonce = sender_account.nonce if sender_account and sender_account.nonce is not None else 0
+        return sender_balance, authoritative_nonce
+
+    def _seq_canonical_tx_type(self, ctx: _SeqTxContext, tx: Any) -> str | None:
+        """Canonical upper tx type for the record, or None when a
+        GOVERNANCE_* payload failed validation (reason already recorded)."""
+        tx_type = tx.content.get("type", "TRANSFER")
+        if tx_type:
+            tx_type = tx_type.upper()
+        else:
+            tx_type = "TRANSFER"
+        if tx_type.startswith("GOVERNANCE_"):
+            gov_errors = _validate_governance_payload(tx_type, tx.content.get("payload", {}))
+            if gov_errors:
+                self._logger.warning(
+                    "[PROPOSE] Skipping governance tx %s: invalid payload: %s",
+                    tx.tx_hash,
+                    ", ".join(gov_errors),
+                )
+                _seq_reject(ctx, tx, f"invalid governance payload: {', '.join(gov_errors)}")
+                return None
+        return str(tx_type)
+
+    def _seq_apply_and_record(
+        self,
+        ctx: _SeqTxContext,
+        tx: Any,
+        sender: str,
+        recipient: str,
+        value,
+        fee,
+        tx_type: str,
+        authoritative_nonce,
+        existing_tx_record,
+    ) -> None:
+        """Apply the state transition and stage the Transaction record."""
+        recipient_account = ctx.account_map.get(recipient)
+        if recipient_account:
+            self._logger.info("[PROPOSE] Recipient account exists for %s", recipient)
+        else:
+            self._logger.info("[PROPOSE] Recipient account for %s will be created by the state transition", recipient)
+        state_transition = get_state_transition()
+        tx_data_for_transition = tx.content.copy()
+        if use_account_nonce_override(tx_data_for_transition, ctx.block_version):
+            tx_data_for_transition["nonce"] = authoritative_nonce
+        tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
+        success, error_msg = state_transition.apply_transaction_guarded(
+            ctx.session,
+            self._config.chain_id,
+            tx_data_for_transition,
+            tx.tx_hash,
+            block_version=ctx.block_version,
+            block_height=ctx.next_height,
+            block_time=ctx.timestamp,
+        )
+        if not success:
+            self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
+            _seq_reject(ctx, tx, error_msg or "state transition rejected transaction")
+            return
+        if recipient_account is None:
+            # The state transition created it; pick up the real
+            # row so later transactions in this block see it.
+            recipient_account = ctx.session.get(Account, (self._config.chain_id, recipient))
+            if recipient_account is not None:
+                ctx.account_map[recipient] = recipient_account
+        original_payload = tx.content.get("payload", {})
+        self._seq_write_tx_record(
+            ctx, tx, tx_type, value, fee, tx_data_for_transition["nonce"], existing_tx_record, original_payload
+        )
+        # Track changed addresses for incremental state root computation
+        ctx.changed_addresses.add(sender)
+        ctx.changed_addresses.add(recipient)
+        # Track the newly committed tx hash so subsequent iterations
+        # in this loop detect it as a duplicate without another DB query.
+        ctx.existing_tx_map[tx.tx_hash] = ctx.next_height
+        ctx.processed_txs.append(tx)
+        self._logger.info("[PROPOSE] Successfully processed tx %s: updated balances", tx.tx_hash)
+
+    def _seq_write_tx_record(
+        self, ctx: _SeqTxContext, tx: Any, tx_type: str, value, fee, nonce, existing_tx_record, original_payload
+    ) -> None:
+        """Stage the Transaction row: update the pre-registered record when
+        one exists, else build the new confirmed row. Records are flushed to
+        the session only by the caller after all transitions succeed."""
+        if existing_tx_record:
+            existing_tx_record.block_height = ctx.next_height
+            existing_tx_record.status = "confirmed"
+            existing_tx_record.timestamp = ctx.timestamp.isoformat()
+            existing_tx_record.nonce = nonce
+            if existing_tx_record.envelope is None:
+                existing_tx_record.envelope = dict(tx.content)
+            ctx.pending_records.append(existing_tx_record)
+            if ctx.block_version >= 24:
+                ctx.session.add(existing_tx_record)
+                ctx.session.flush()
+        else:
+            transaction = Transaction(
+                chain_id=self._config.chain_id,
+                tx_hash=tx.tx_hash,
+                # Raw, not the canonicalised locals: these are signed (V23-65).
+                sender=tx.content.get("from", ""),
+                recipient=tx.content.get("to", ""),
+                payload=original_payload,
+                envelope=dict(tx.content),
+                value=value,
+                fee=fee,
+                nonce=nonce,
+                timestamp=ctx.timestamp.isoformat(),
+                block_height=ctx.next_height,
+                status="confirmed",
+                type=tx_type,
+            )
+            ctx.pending_records.append(transaction)
+            if ctx.block_version >= 24:
+                ctx.session.add(transaction)
+                ctx.session.flush()
 
     def _process_txs_parallel(
         self,
