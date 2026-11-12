@@ -85,6 +85,20 @@ key may act on a given row depends on which tier it belongs to:
   there is no user principal at this tier. If trading ever exposes
   user-facing routes, this row's decision must be revisited.
 
+## Public financial-read surfaces (#1885)
+
+Per-address financial metadata reads were audited for enumerable
+disclosure. Decision: **intended-public where the data derives from public
+chain state; operator-only where it enumerates the ledger index.**
+
+| Surface | Decision | Enforcement |
+|---------|----------|-------------|
+| `GET /v1/bridge/deposits`, `GET /v1/bridge/withdrawals` (wallet bridge) | operator-only | No app-level auth by design — the enumerable indexes are restricted to loopback in nginx (`examples/nginx/nginx-aitbc.conf.example`, `location ~ ^/v1/bridge/(deposits\|withdrawals)`). Per-tx-hash and per-recipient lookups (`/deposit/{tx_hash}`, `/deposit/by-recipient/{address}`, `/withdraw/{ait_tx_hash}`) stay public: they require already knowing the lookup key, matching the publicness of the underlying chain data. |
+| `GET /v1/market/orders?wallet=` (exchange) | intended-public | The unfiltered order list is the public order book and already returns each order's `wallet`; the `wallet=` filter only narrows public data. |
+| `GET /api/exchange/my-orders?addr=` | intended-public | Returns the address's orders (public book rows), `next_nonce`, and unfunded-order funding instructions — all reconstructible from public chain/exchange state; the signed-order phase-2 flow needs no secrecy here. |
+| `POST /api/wallet/connect` | gated | Requires `EXCHANGE_API_KEY`; only confirms wallet existence via the wallet service. |
+| `DELETE /v1/market/orders/{id}?wallet=`, `DELETE /v1/market/offers/{id}?wallet=` | **residual** | API-key + self-asserted `wallet` query param — any key holder can cancel any wallet's order/offer. The simple-exchange market surface has no per-object signature scheme; tracked as a binding follow-up, not a read-disclosure issue. |
+
 ## See also
 
 - [Security overview](SECURITY.md) — the consolidated page that replaced the generic checklists
