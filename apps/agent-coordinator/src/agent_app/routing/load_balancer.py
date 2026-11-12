@@ -22,6 +22,27 @@ from .agent_discovery import AgentRegistry, AgentStatus
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS: tuple[type[Exception], ...] = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
+try:
+    import httpx
+
+    _OPS_ERRORS = _OPS_ERRORS + (httpx.HTTPError,)
+except ImportError:
+    pass
+
 
 class LoadBalancingStrategy(StrEnum):
     """Load balancing strategies"""
@@ -207,7 +228,7 @@ class LoadBalancer:
                 self.agent_metrics[selected_agent].pending_tasks += 1
                 logger.info("Task %s assigned to agent %s", task_id, selected_agent)
                 return selected_agent
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error assigning task: %s", e)
                 self.failed_assignments += 1
                 return None
@@ -245,7 +266,7 @@ class LoadBalancer:
                             metrics.avg_response_time * (total_completed - 1) + response_time
                         ) / total_completed
             logger.info("Task %s completed by agent %s, success: %s", task_id, assignment.agent_id, success)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error completing task %s: %s", task_id, e)
 
     def fail_task(self, task_id: str, error_message: str | None = None) -> None:
@@ -344,7 +365,7 @@ class LoadBalancer:
             logger.info("Eligible agents after filtering: %s", eligible_agents)
             logger.debug("Returning %s eligible agents", len(eligible_agents))
             return eligible_agents
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error finding eligible agents: %s", e)
             return []
 
@@ -620,7 +641,7 @@ class TaskDistributor:
                 self._work_event.clear()
                 if all(queue.empty() for queue in self.priority_queues.values()):
                     await self._work_event.wait()
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error in distribution loop: %s", e)
                 await asyncio.sleep(1)
 
@@ -657,7 +678,7 @@ class TaskDistributor:
             else:
                 logger.warning("Failed to distribute task: no suitable agent found")
                 self.distribution_stats["tasks_failed"] += 1
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error distributing task: %s", e)
             self.distribution_stats["tasks_failed"] += 1
         finally:
@@ -711,7 +732,7 @@ class TaskDistributor:
                 else:
                     logger.error("Failed to send task to agent %s: %s", agent_id, response.status_code)
                     return False
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error sending task to agent %s: %s", agent_id, e)
             return False
 

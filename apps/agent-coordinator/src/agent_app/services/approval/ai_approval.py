@@ -15,6 +15,29 @@ from aitbc.models import CoinRequest
 from .base_approval import ApprovalStrategy
 
 
+# Expected failure surface for the best-effort approval handlers below:
+# filesystem/OS and transport errors, JSON/data-shape decode, lazy imports,
+# outbound HTTP (httpx) and db-session errors. Genuine BaseExceptions still
+# propagate (#1865).
+_OPS_ERRORS: tuple[type[Exception], ...] = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+    httpx.HTTPError,
+)
+try:
+    from sqlalchemy.exc import SQLAlchemyError
+
+    _OPS_ERRORS += (SQLAlchemyError,)
+except ImportError:
+    pass
+
+
 class AIApprovalStrategy(ApprovalStrategy):
     """AI approval strategy using Ollama nemotron-3-super:cloud model."""
 
@@ -88,7 +111,7 @@ class AIApprovalStrategy(ApprovalStrategy):
 
             return {"approved": approved, "reason": reason, "signed_transaction": None}
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             reason = f"AI approval error: {str(e)}"
             self.log_decision(request, approved=False, reason=reason)
             return {"approved": False, "reason": reason, "signed_transaction": None}

@@ -27,6 +27,22 @@ import httpx
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS = (
+    httpx.HTTPError,
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
+
 
 class AlertSeverity(Enum):
     """Alert severity levels"""
@@ -253,7 +269,7 @@ class NotificationManager:
             elif channel == NotificationChannel.LOG:
                 self._send_log(alert, message)
             logger.info("Notification sent via %s for alert %s", channel.value, alert.alert_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to send notification via %s: %s", channel.value, e)
 
     def _send_email(self, alert: Alert, message: str) -> None:
@@ -287,7 +303,7 @@ class NotificationManager:
             server.login(self.email_config["username"], self.email_config["password"])
             server.send_message(msg)
             server.quit()
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to send email: %s", e)
 
     async def _send_slack(self, alert: Alert, message: str) -> None:
@@ -325,7 +341,7 @@ class NotificationManager:
             async with httpx.AsyncClient(timeout=10) as client:
                 response = await client.post(self.slack_config["webhook_url"], json=payload)
                 response.raise_for_status()
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to send Slack notification: %s", e)
 
     async def _send_webhook(self, alert: Alert, message: str) -> None:
@@ -337,7 +353,7 @@ class NotificationManager:
                 async with httpx.AsyncClient(timeout=10) as client:
                     response = await client.post(config["url"], json=payload, headers=config["headers"])
                     response.raise_for_status()
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Failed to send webhook to %s: %s", name, e)
 
     def _send_log(self, alert: Alert, message: str) -> None:
@@ -452,7 +468,7 @@ class AlertManager:
                         self.active_conditions[rule_id] = current_time
                 elif rule_id in self.active_conditions:
                     del self.active_conditions[rule_id]
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error evaluating rule %s: %s", rule_id, e)
 
     def _evaluate_condition(self, condition: str, metrics: dict[str, Any], threshold: float) -> bool:

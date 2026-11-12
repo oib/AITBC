@@ -47,6 +47,21 @@ from .nonce_store import get_nonce_store
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
+
 #: Fixed operator identity for the shared key and admin/operator JWTs that
 #: carry no ``agent_id`` claim (spec: "hub-coordinator only").
 OPERATOR_AGENT_ID = "hub-coordinator"
@@ -126,7 +141,7 @@ async def _bound_identity(agent_id: str) -> str | None:
         return None
     try:
         agent = registry.get_agent_by_id(agent_id)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Registry lookup for %s failed: %s", agent_id, e)
         return None
     if agent is None or not agent.identity_address:
@@ -142,7 +157,7 @@ async def jwt_principal(token: str | None) -> AgentPrincipal | None:
         from aitbc.auth import get_jwt_handler
 
         validation = get_jwt_handler().validate_token(token)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("agent_auth=fail reason=jwt_error error=%s", e)
         return None
     if not validation.get("valid"):
@@ -265,7 +280,7 @@ async def scoped_api_key_principal(token: str | None) -> AgentPrincipal | None:
     try:
         # validate_api_key does file I/O under a FileLock — keep it off the loop.
         validation = await asyncio.to_thread(api_key_manager.validate_api_key, token)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("agent_auth=fail reason=api_key_error error=%s", e)
         return None
     if not validation.get("valid"):

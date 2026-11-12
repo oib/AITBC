@@ -37,6 +37,21 @@ from ..services import coin_request_policy
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
+
 router = APIRouter(prefix="/api/v1/agent/coin-requests", tags=["coin-requests"])
 
 # Canonical blockchain fee (matches RPC default, v0.5.8 fee fix)
@@ -412,7 +427,7 @@ def remote_execute_coin_request(
         # the claim (with the nonce) stays and the retry reconciles.
         _release_claim_for_safe_exit(req.request_id, claim)
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.exception("Unhandled exception")
         _release_claim_for_safe_exit(req.request_id, claim)
 
@@ -472,7 +487,7 @@ def _compute_attempt_hash(signed_tx: dict) -> str | None:
 
         canonical = _json.dumps(signed_tx, sort_keys=True, separators=(",", ":")).encode()
         return f"0x{hashlib.sha256(canonical).hexdigest()}"
-    except Exception:
+    except _OPS_ERRORS:
         return None
 
 
@@ -498,7 +513,7 @@ def _canon(value) -> str:
         from aitbc.crypto.signature_recovery import canonical_address
 
         return (canonical_address(value) or "").lower()
-    except Exception:
+    except _OPS_ERRORS:
         return str(value or "").lower()
 
 
@@ -574,7 +589,7 @@ def _recover_claimed_attempt(request_id: str, claim: str, amount: int, recipient
                     {"transaction_hash": found}, synchronize_session=False
                 )
             return found
-    except Exception:
+    except _OPS_ERRORS:
         logger.exception("Chain check for claimed attempt on %s failed; keeping the claim", request_id)
         return None
 
@@ -596,5 +611,5 @@ def _release_claim(request_id: str, claim: str) -> None:
             session.query(CoinRequest).filter(CoinRequest.id == request_id, CoinRequest.transaction_hash == claim).update(
                 {"transaction_hash": None}, synchronize_session=False
             )
-    except Exception:
+    except _OPS_ERRORS:
         logger.exception("Could not release execution claim on %s; clear %s by hand to retry", request_id, claim)

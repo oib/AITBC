@@ -31,6 +31,28 @@ from .. import state
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS: tuple[type[Exception], ...] = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
+_OPS_ERRORS: tuple[type[Exception], ...] = _OPS_ERRORS
+try:
+    from redis.exceptions import RedisError as _RedisError
+
+    _OPS_ERRORS += (_RedisError,)
+except ImportError:
+    pass
+
 REGISTRATION_NONCE_TTL_SECONDS = 300
 
 #: Login nonces share the registration TTL — both guard a one-time proof.
@@ -101,7 +123,7 @@ class NonceStore:
             try:
                 await redis.set(key, nonce, ex=ttl)
                 return nonce
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Redis nonce issue failed, using memory fallback: %s", e)
         self._memory_set(key, nonce, ttl)
         return nonce
@@ -121,7 +143,7 @@ class NonceStore:
                     if stored is not None:
                         await redis.delete(key)
                 return _as_str(stored) == nonce
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Redis nonce consume failed, trying memory fallback: %s", e)
         return self._memory_pop_match(key, nonce)
 
@@ -133,7 +155,7 @@ class NonceStore:
             try:
                 was_set = await redis.set(key, "1", ex=expiry, nx=True)
                 return bool(was_set)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Redis nonce dedup failed, using memory fallback: %s", e)
         if self._memory_get(key) is not None:
             return False

@@ -15,6 +15,21 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
+
 # agent_id -> {"public_key": bytes, "key_id": str, "created_at": str,
 #              "identity_address": str | None}
 PUBLIC_KEY_REGISTRY: dict[str, dict[str, Any]] = {}
@@ -36,7 +51,7 @@ def register_public_key(agent_id: str, public_key: bytes, key_id: str = "", iden
         }
         logger.info("Registered public key for agent %s", agent_id)
         return True
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error registering public key for %s: %s", agent_id, e)
         return False
 

@@ -16,6 +16,39 @@ from . import state
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS: tuple[type[Exception], ...] = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
+try:
+    import httpx
+
+    _OPS_ERRORS = _OPS_ERRORS + (httpx.HTTPError,)
+except ImportError:
+    pass
+try:
+    from redis.exceptions import RedisError as _RedisError
+
+    _OPS_ERRORS += (_RedisError,)
+except ImportError:
+    pass
+try:
+    from sqlalchemy.exc import SQLAlchemyError
+
+    _OPS_ERRORS += (SQLAlchemyError,)
+except ImportError:
+    pass
+
 _task_registry = TaskRegistry()
 
 
@@ -30,7 +63,7 @@ def _sanitize_url(url: str) -> str:
             if parsed.port:
                 netloc += f":{parsed.port}"
             return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
-    except Exception:
+    except _OPS_ERRORS:
         pass
     return url
 
@@ -74,7 +107,7 @@ async def expire_old_requests() -> None:
                 expired = sweep_expired_coin_requests(session)
                 if expired:
                     logger.info("Expired %s coin requests past their TTL", expired)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error expiring old requests: %s", e)
         await asyncio.sleep(3600)
 
@@ -114,7 +147,7 @@ async def sweep_stale_escrows() -> None:
                     if state.load_balancer is not None:
                         for entry in expired:
                             state.load_balancer.fail_task(entry.task_id, error_message="escrow_expired")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error sweeping stale escrows: %s", e)
         await asyncio.sleep(max(_settings.task_payment_sweep_seconds, 5.0))
 
@@ -132,7 +165,7 @@ async def sweep_stale_assignments() -> None:
                 expired = state.load_balancer.expire_stale_assignments()
                 if expired:
                     logger.info("Timed out %d stale task assignment(s): %s", len(expired), expired)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error sweeping stale task assignments: %s", e)
         await asyncio.sleep(60)
 

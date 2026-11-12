@@ -34,23 +34,6 @@
       1 aitbc/training_setup/stage_runner.py
       1 aitbc/utils/time_utils.py
       1 aitbc/wallet/confidential.py
-      5 apps/agent-coordinator/src/agent_app/ai/realtime_learning.py
-      5 apps/agent-coordinator/src/agent_app/encryption/message_encryption.py
-      1 apps/agent-coordinator/src/agent_app/encryption/public_keys.py
-      5 apps/agent-coordinator/src/agent_app/lifespan.py
-      5 apps/agent-coordinator/src/agent_app/monitoring/alerting.py
-      5 apps/agent-coordinator/src/agent_app/protocols/communication.py
-      3 apps/agent-coordinator/src/agent_app/protocols/message_types.py
-      2 apps/agent-coordinator/src/agent_app/routers/coin_requests.py
-      1 apps/agent-coordinator/src/agent_app/routers/health.py
-      5 apps/agent-coordinator/src/agent_app/routers/messages.py
-      1 apps/agent-coordinator/src/agent_app/routers/websocket.py
-      6 apps/agent-coordinator/src/agent_app/routing/load_balancer.py
-      3 apps/agent-coordinator/src/agent_app/services/agent_auth.py
-      1 apps/agent-coordinator/src/agent_app/services/approval/ai_approval.py
-      1 apps/agent-coordinator/src/agent_app/services/coin_request_policy.py
-      3 apps/agent-coordinator/src/agent_app/services/nonce_store.py
-      4 apps/agent-coordinator/src/agent_app/workflow/orchestrator.py
       1 apps/api-gateway/examples/main.py
       1 apps/api-gateway/src/api_gateway/main.py
       3 apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/contracts.py

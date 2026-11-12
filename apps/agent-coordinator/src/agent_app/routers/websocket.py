@@ -14,6 +14,21 @@ from ..services.agent_auth import AgentPrincipal, require_agent, resolve_ws_prin
 from ..websocket import AgentStreamHandler, get_connection_manager
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort handlers below: filesystem/OS
+# and transport errors, JSON/data-shape decode, lazy imports, and the
+# backends noted per file. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ImportError,
+    RuntimeError,
+)
 router = APIRouter(prefix="/api/v1/agent", tags=["websocket"])
 
 
@@ -33,7 +48,7 @@ def _authenticate_websocket(websocket: WebSocket | None, token: str | None) -> b
         from aitbc.auth import get_jwt_handler
 
         return bool(get_jwt_handler().validate_token(token).get("valid"))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("WebSocket JWT validation failed: %s", e)
         return False
 
