@@ -48,9 +48,6 @@
       1 apps/blockchain-node/tests/test_gauge_wiring_review.py
       1 apps/blockchain-node/tests/test_parallel_performance.py
       1 apps/blockchain-node/tests/test_performance.py
-      1 apps/bridge-monitor/src/bridge_monitor/admin.py
-      4 apps/bridge-monitor/src/bridge_monitor/main.py
-      1 apps/bridge-monitor/src/bridge_monitor/storage.py
       1 apps/coordinator-api/alembic/versions/1c58c844d95e_add_client_ref_and_foreign_keys_to_job_.py
       1 apps/coordinator-api/scripts/migrate_complete.py
       1 apps/coordinator-api/src/coordinator_api/agent_identity/sdk/client.py
@@ -74,7 +71,6 @@
       1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/bid_strategy.py
       1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/dynamic_pricing.py
       1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/gpu_optimizer.py
-      3 apps/trading/examples/main.py
       3 cli/aitbc_cli/commands/agent.py
       2 cli/aitbc_cli/commands/agent_sdk.py
       1 cli/aitbc_cli/commands/analytics.py
