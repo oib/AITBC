@@ -22,6 +22,7 @@ from typing import Any
 import requests
 
 from aitbc.aitbc_logging import configure_logging, get_logger
+from aitbc.exceptions import AITBCError
 from aitbc.exceptions import NetworkError
 from aitbc.media_guard import ffmpeg_input_guard
 from aitbc.network import AITBCHTTPClient
@@ -80,6 +81,24 @@ coordinator_client = AITBCHTTPClient(
 # for the rotated log file (requires LOG_DIR env var, set in the unit file).
 configure_logging(level="INFO", service_name="miner", to_file=True)
 logger = get_logger(__name__)
+
+# Miner failure surface: job-execution handlers, nvidia-smi subprocess probes,
+# coordinator HTTP polling, TEE quote generation, and the data-shape errors
+# job payloads can raise.
+_OPS_ERRORS = (
+    AITBCError,
+    requests.exceptions.RequestException,
+    OSError,
+    subprocess.SubprocessError,
+    TimeoutError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+    LookupError,
+)
 sys.stdout.reconfigure(line_buffering=True)  # type: ignore[union-attr]
 sys.stderr.reconfigure(line_buffering=True)  # type: ignore[union-attr]
 ARCH_MAP = {
@@ -218,7 +237,7 @@ def publish_default_offers(ollama_models: list[str]) -> None:
                     result.stderr[:500],
                     result.stdout[:500],
                 )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Error publishing default offer %s/%s: %s", offer["service_type"], offer["model"], e)
     if deferred:
         logger.info("Deferred %d default offer(s) to next refresh", deferred)
@@ -245,7 +264,7 @@ def detect_cuda_version() -> str | None:
         )
         if result.returncode == 0:
             return result.stdout.strip()
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to detect CUDA/driver version: %s", e)
     return None
 
@@ -320,7 +339,7 @@ def get_gpu_info():
         if result.returncode == 0:
             info = result.stdout.strip().split(", ")
             return {"name": info[0], "memory_total": int(info[1]), "memory_used": int(info[2]), "utilization": int(info[3])}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to get GPU info: %s", e)
     return None
 
@@ -574,7 +593,7 @@ def build_tee_quote(job, output=""):
             quote_id=quote_id, enclave_id=enclave_id, measurement=enclave_id, report_data=report_data
         )
         return quote.to_base64()
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Failed to generate TEE quote for job %s: %s", job.get("job_id"), e)
         return None
 
@@ -679,8 +698,8 @@ def _download_media(url: str, dest: str) -> None:
         if parsed.scheme not in {"http", "https"}:
             raise ValueError(f"unsupported URL scheme: {parsed.scheme}")
         _fetch_http_media(url, dest, cap, time.monotonic() + _MEDIA_TOTAL_DEADLINE_S)
-    except Exception as e:
-        raise Exception(f"Failed to download media from {url}: {e}") from e
+    except _OPS_ERRORS as e:
+        raise RuntimeError(f"Failed to download media from {url}: {e}") from e
 
 
 # Buyer-controlled payload strings that end up in local file paths or ffmpeg
@@ -699,7 +718,7 @@ def _require_safe_name(value: str | None, field: str) -> str:
     """Return *value* when safe, else raise — used where a wrong value is a job bug."""
     candidate = (value or "").strip()
     if not _SAFE_NAME_RE.match(candidate):
-        raise Exception(f"Invalid {field} {value!r}: must be 1-16 alphanumeric characters")
+        raise RuntimeError(f"Invalid {field} {value!r}: must be 1-16 alphanumeric characters")
     return candidate
 
 
@@ -749,8 +768,8 @@ def _run_whisper(
             resp.raise_for_status()
             result = resp.json()
         return str(result.get("text", "")).strip()
-    except Exception as e:
-        raise Exception(f"Whisper transcription failed: {e}") from e
+    except _OPS_ERRORS as e:
+        raise RuntimeError(f"Whisper transcription failed: {e}") from e
 
 
 def _run_ffmpeg(input_path: str, output_path: str, output_format: str | None = None) -> dict[str, Any]:
@@ -774,9 +793,9 @@ def _run_ffmpeg(input_path: str, output_path: str, output_format: str | None = N
             "stderr": result.stderr[-500:] if result.stderr else "",
         }
     except subprocess.CalledProcessError as e:
-        raise Exception(f"FFmpeg re-encode failed: {e.stderr}") from e
-    except Exception as e:
-        raise Exception(f"FFmpeg re-encode error: {e}") from e
+        raise RuntimeError(f"FFmpeg re-encode failed: {e.stderr}") from e
+    except _OPS_ERRORS as e:
+        raise RuntimeError(f"FFmpeg re-encode error: {e}") from e
 
 
 def _submit_success(job_id, output, execution_time, extra=None, tee_quote=None):
@@ -841,7 +860,7 @@ def execute_job(job, available_models):
         logger.error("Unsupported job type: %s", job_type)
         _submit_failure(job_id, f"Unsupported job type: {job_type}")
         return False
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Job execution error: %s", e)
         _submit_failure(job_id, str(e))
         return False
@@ -858,7 +877,7 @@ def _execute_inference(job, available_models):
     if requested_model:
         model = requested_model
         if model not in available_models:
-            raise Exception(f"Requested model '{model}' is not available on this miner")
+            raise RuntimeError(f"Requested model '{model}' is not available on this miner")
     else:
         model = "llama3.2:latest"
         if model not in available_models:
@@ -866,7 +885,7 @@ def _execute_inference(job, available_models):
                 model = available_models[0]
                 logger.info("Default model unavailable; using available model: %s", model)
             else:
-                raise Exception("No models available in Ollama")
+                raise RuntimeError("No models available in Ollama")
     logger.info("Running inference on GPU with model: %s", model)
     start_time = time.time()
     constraints = job.get("constraints") or {}
@@ -906,7 +925,7 @@ def _execute_transcribe(job):
     payload = job.get("payload", {})
     url = payload.get("url") or payload.get("input")
     if not url:
-        raise Exception("Transcribe job requires 'url' or 'input' in payload")
+        raise RuntimeError("Transcribe job requires 'url' or 'input' in payload")
     filename = payload.get("filename", "")
     model = payload.get("model", "base")
     logger.info("Running transcription with model: %s", model)
@@ -937,7 +956,7 @@ def _execute_reencode(job):
     payload = job.get("payload", {})
     url = payload.get("url") or payload.get("input")
     if not url:
-        raise Exception("Re-encode job requires 'url' or 'input' in payload")
+        raise RuntimeError("Re-encode job requires 'url' or 'input' in payload")
     filename = payload.get("filename", "")
     output_format = payload.get("output_format") or payload.get("format") or "mp4"
     logger.info("Running re-encode to format: %s", output_format)
@@ -979,7 +998,7 @@ def _gpu_snapshot() -> dict[str, Any]:
                     "memory_used_mb": int(parts[2]),
                     "memory_total_mb": int(parts[3]),
                 }
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("nvidia-smi snapshot failed: %s", e)
     return {}
 
@@ -1133,7 +1152,7 @@ def poll_for_jobs():
             return None
         logger.error("HTTP error polling for jobs: %s", e)
         return None
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error polling for jobs: %s", e)
         return None
 
@@ -1242,7 +1261,7 @@ async def main():
             await asyncio.sleep(1)
     except KeyboardInterrupt:
         logger.info("Shutting down miner...")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error in main loop: %s", e)
 
 

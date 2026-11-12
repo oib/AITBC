@@ -9,10 +9,14 @@ from decimal import Decimal
 import logging
 from typing import Any, cast
 
+import httpx
+
 from sqlalchemy import text, update
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
+
+from aitbc.exceptions import AITBCError
 
 from ..clients.blockchain import BlockchainClient
 from ..config import settings
@@ -30,6 +34,23 @@ from ..domain.governance import (
 )
 
 logger = logging.getLogger(__name__)
+
+# Expected operational failure surface for the best-effort handlers below:
+# chain RPC calls (httpx transport/status, aitbc network errors), DB session
+# work, and the data-shape errors proposal/vote payload handling can raise.
+_OPS_ERRORS = (
+    httpx.HTTPError,
+    AITBCError,
+    SQLAlchemyError,
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+    TimeoutError,
+)
 
 # GOV-LIST-RECONCILE-COST-1: how many chain probes a list_proposals may run at
 # once (they are one RPC call each) and how long a "not executed" answer is
@@ -232,7 +253,7 @@ class GovernanceService:
             return None
         try:
             sealed = await self._blockchain.get_sealed_governance_proposal(proposal.proposal_id, proposal.chain_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("chain execute reconcile probe failed for %s: %s", proposal.proposal_id, e)
             return None
         if not sealed or not sealed.get("executed"):
@@ -366,7 +387,7 @@ class GovernanceService:
         try:
             block = await self._blockchain.get_block(height, proposal.chain_id)
             sealed_at = _parse_datetime((block or {}).get("timestamp"))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("chain execute reconcile could not read block %s for %s: %s", height, proposal.proposal_id, e)
             return None
         if sealed_at is not None and sealed_at.tzinfo is None:
@@ -466,7 +487,7 @@ class GovernanceService:
                 if proposal.block_height is not None:
                     voting_period = settings.emergency_voting_period_blocks if is_emergency else settings.voting_period_blocks
                     proposal.voting_ends_block = proposal.block_height + voting_period
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 submission_failed = True
                 import logging
 
@@ -511,7 +532,7 @@ class GovernanceService:
                 if proposal.block_height is not None:
                     voting_period = settings.emergency_voting_period_blocks if is_emergency else settings.voting_period_blocks
                     proposal.voting_ends_block = proposal.block_height + voting_period
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 # On-chain submission stays best-effort: a chain hiccup must not stop a
                 # proposal being recorded. It does, however, leave the proposal without a
                 # block height — and execute_proposal refuses to execute such a proposal,
@@ -545,7 +566,7 @@ class GovernanceService:
                     proposal.block_height,
                     proposal.voting_ends_block,
                 )
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning(
                     "Could not record off-chain block height for proposal %s: %s",
                     proposal.proposal_id,
@@ -672,7 +693,7 @@ class GovernanceService:
                 result = await self._blockchain.submit_signed_governance_tx(signed_tx)
                 vote.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
                 vote.block_height = result.get("block_height")
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 import logging
 
                 logging.getLogger(__name__).warning(
@@ -708,7 +729,7 @@ class GovernanceService:
                 )
                 vote.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
                 vote.block_height = result.get("block_height")
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 import logging
 
                 logging.getLogger(__name__).warning("On-chain GOVERNANCE_VOTE submission failed: %s", e)
@@ -719,7 +740,7 @@ class GovernanceService:
             try:
                 vote.voting_power = await self.calculate_voting_power(voter_address)
                 vote.power_at_snapshot = vote.voting_power
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Could not calculate off-chain voting power for %s: %s", voter_address, e)
 
         # Server-side voting power: do not let clients self-report unlimited weight.
@@ -808,7 +829,7 @@ class GovernanceService:
                     proposal.proposal_id,
                     proposal.voting_ends_block,
                 )
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning(
                     "Could not record voting_ends_block at close for proposal %s: %s",
                     proposal.proposal_id,
@@ -1234,5 +1255,5 @@ class GovernanceService:
                         "status_code": resp.status_code,
                         "error": resp.text,
                     }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             return {"applied": False, "target_service": target_service, "error": str(e)}
