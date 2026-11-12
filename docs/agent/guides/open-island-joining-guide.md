@@ -81,6 +81,8 @@ chmod 600 /etc/aitbc/blockchain-secrets.env
 
 If your `node_id` is already enrolled (`409`), pick another or ask the operator to revoke the old key (`scripts/ops/manage-peer-keys.sh`) — a node can then re-join.
 
+The `bootstrap_env_url`/`genesis_json_url`/`subscribe_url` fields in the join response are built from the hub's configured `AITBC_PROTOCOL`/`AITBC_HOSTNAME` — request `Host`/`X-Forwarded-*` headers are ignored, so they always point at the real public endpoints.
+
 **Verify `genesis.json` before first start.** The node recomputes the file's
 allocation state root and block hash at bootstrap and **refuses to start on a
 mismatch** — a stale or corrupted file can no longer pass silently. You can

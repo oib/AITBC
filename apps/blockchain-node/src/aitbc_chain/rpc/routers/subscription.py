@@ -21,6 +21,27 @@ from ..subscription import (
 router = APIRouter(tags=["subscription"])
 
 
+def _join_public_base_url() -> str:
+    """Public base URL advertised in the join response (#1875 F7).
+
+    Built from operator configuration only — ``AITBC_PROTOCOL`` /
+    ``AITBC_HOSTNAME``, then the node's FQDN — never from request headers:
+    ``/rpc/join`` is reachable through nginx, and reflecting client-supplied
+    ``X-Forwarded-*``/``Host`` would let any caller mint a response whose
+    bootstrap/subscribe URLs point at an attacker host. This mirrors the
+    ``/network-info`` resolution in ``routers/core.py``.
+    """
+    import os
+    import socket
+
+    protocol = (os.getenv("AITBC_PROTOCOL") or "https").lower()
+    if protocol not in ("http", "https"):
+        protocol = "https"
+    hostname = os.getenv("AITBC_HOSTNAME") or socket.getfqdn() or socket.gethostname()
+    hostname = hostname.split(":")[0]
+    return f"{protocol}://{hostname}"
+
+
 def _enforce_key_node_binding(api_key: str, node_id: str) -> None:
     """Issued join keys may only manage their own node_id's lease.
 
@@ -70,9 +91,7 @@ def join_route(request: Request, body: dict[str, Any]) -> dict[str, Any]:
 
     key = peer_keys.issue(node_id, client_ip, contact)
 
-    proto = request.headers.get("x-forwarded-proto", request.url.scheme)
-    host = request.headers.get("x-forwarded-host") or request.headers.get("host") or request.url.hostname
-    base_url = f"{proto}://{host}"
+    base_url = _join_public_base_url()
     return {
         "node_id": node_id,
         "peer_key": key,

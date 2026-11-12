@@ -92,6 +92,12 @@ scrape_configs:
   # The agent-coordinator only runs on hub — it is scraped there as job
   # `agent-coordinator` at 127.0.0.1:8107 with metrics_path /v1/metrics
   # (NOT /metrics — that 404s; the monitoring router mounts under /v1).
+  # #1875 F6: /v1/metrics* now requires an authenticated principal
+  # (AGENT_MSG_SIGNATURE_MODE=enforce) and is no longer in the public
+  # nginx /v1/ family — if this job is ever enabled it must carry a
+  # credential (e.g. `authorization:` with an operator/agent token file),
+  # or scrape via a loopback-only path. No live job exists today; this
+  # comment block is the only reference.
   # Services that do not run on this node are not listed even commented out:
   # a dead scrape target only produces scrape errors.
 

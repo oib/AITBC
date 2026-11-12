@@ -159,6 +159,47 @@ class TestIssuedKeyAuthorization:
         assert data["peer_key"].startswith("aitbc-peer-")
 
 
+class TestJoinPublicUrls:
+    """#1875 F7: the join response must advertise configured public URLs —
+    never values reflected from client-supplied Host/X-Forwarded-* headers
+    (the route is reachable through nginx, so a spoofed header would mint
+    bootstrap/subscribe URLs pointing at an attacker host)."""
+
+    def test_join_ignores_spoofed_forwarding_headers(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("AITBC_HOSTNAME", "hub.aitbc.bubuit.net")
+        monkeypatch.setenv("AITBC_PROTOCOL", "https")
+
+        response = client.post(
+            "/rpc/join",
+            json={"node_id": "header-spoof.example.net"},
+            headers={
+                "Host": "evil.example",
+                "X-Forwarded-Host": "evil.example",
+                "X-Forwarded-Proto": "http",
+            },
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        for url in (data["bootstrap_env_url"], data["genesis_json_url"], data["subscribe_url"]):
+            assert url.startswith("https://hub.aitbc.bubuit.net"), url
+            assert "evil.example" not in url
+
+    def test_join_without_config_never_reflects_host_header(self, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("AITBC_HOSTNAME", raising=False)
+        monkeypatch.delenv("AITBC_PROTOCOL", raising=False)
+
+        response = client.post(
+            "/rpc/join",
+            json={"node_id": "header-spoof-two.example.net"},
+            headers={"Host": "evil.example", "X-Forwarded-Host": "evil.example"},
+        )
+        assert response.status_code == 200, response.text
+        data = response.json()
+        for url in (data["bootstrap_env_url"], data["genesis_json_url"], data["subscribe_url"]):
+            assert "evil.example" not in url
+            assert not url.startswith("http://evil")
+
+
 class TestPeerKeyStore:
     def test_only_the_hash_is_stored(self, peer_db: Path) -> None:
         from aitbc_chain.rpc import peer_keys
