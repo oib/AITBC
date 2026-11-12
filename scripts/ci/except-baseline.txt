@@ -34,13 +34,6 @@
       1 aitbc/training_setup/stage_runner.py
       1 aitbc/utils/time_utils.py
       1 aitbc/wallet/confidential.py
-      1 apps/api-gateway/examples/main.py
-      1 apps/api-gateway/src/api_gateway/main.py
-      3 apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/contracts.py
-      1 apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/transactions.py
-      1 apps/blockchain-explorer/main.py
-      2 apps/blockchain-explorer/routers/analytics.py
-      2 apps/blockchain-explorer/routers/transactions.py
       2 apps/blockchain-node/examples/main.py
       4 apps/blockchain-node/migrations/versions/498540b266b4_add_escrow_status_and_tx_hashes.py
       1 apps/blockchain-node/migrations/versions/9f8e7d6c5b4a_backfill_escrows_from_lock_tx.py
@@ -53,10 +46,7 @@
      16 apps/blockchain-node/src/aitbc_chain/app.py
      10 apps/blockchain-node/src/aitbc_chain/chain_sync.py
       7 apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py
-      2 apps/blockchain-node/src/aitbc_chain/consensus/poa_ops.py
-      4 apps/blockchain-node/src/aitbc_chain/consensus/poa_proposal_gates.py
-     11 apps/blockchain-node/src/aitbc_chain/consensus/poa.py
-      2 apps/blockchain-node/src/aitbc_chain/consensus/poa_tx_pipeline.py
+     19 apps/blockchain-node/src/aitbc_chain/consensus/poa.py
      28 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py
       7 apps/blockchain-node/src/aitbc_chain/contracts/agent_wallet_security.py
       1 apps/blockchain-node/src/aitbc_chain/contracts/dispute_resolution.py
@@ -96,12 +86,7 @@
       1 apps/blockchain-node/src/aitbc_chain/protocol_escrow.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/auth.py
      12 apps/blockchain-node/src/aitbc_chain/rpc/dispute_resolution_service.py
-     11 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_helpers.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_lock.py
-      5 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
-      2 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_refund.py
-      3 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_release.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_submit.py
+     23 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/islands.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/market.py
       5 apps/blockchain-node/src/aitbc_chain/rpc/router.py
@@ -113,9 +98,7 @@
       1 apps/blockchain-node/src/aitbc_chain/state/bridge_credit.py
       4 apps/blockchain-node/src/aitbc_chain/state/pure_state_transition.py
       2 apps/blockchain-node/src/aitbc_chain/state/state_root_utils.py
-      7 apps/blockchain-node/src/aitbc_chain/state/state_transition_handlers.py
-      4 apps/blockchain-node/src/aitbc_chain/state/state_transition.py
-      4 apps/blockchain-node/src/aitbc_chain/state/state_transition_validation.py
+     16 apps/blockchain-node/src/aitbc_chain/state/state_transition.py
      10 apps/blockchain-node/src/aitbc_chain/subscription_client.py
       6 apps/blockchain-node/src/aitbc_chain/sync_block_import.py
       3 apps/blockchain-node/src/aitbc_chain/sync_bulk.py
@@ -129,36 +112,107 @@
       2 apps/blockchain-node/tests/test_db_integrity_check_1265.py
       1 apps/blockchain-node/tests/test_gossip_broadcast.py
       2 apps/blockchain-node/tests/test_gossip_relay.py
-      2 apps/edge/src/aitbc_edge/main.py
-      2 apps/edge/src/aitbc_edge/services/gpu_service.py
-      6 apps/ffmpeg/main.py
-      3 apps/governance/src/governance_service/main.py
-     10 apps/governance/src/governance_service/services/governance_service.py
-      1 apps/gpu/src/gpu_app/tee_runner.py
-      3 apps/gpu/src/gpu_service/main.py
-      7 apps/gpu/src/gpu_service/services/edge_gpu_service.py
-      1 apps/gpu/src/gpu_service/storage.py
-      1 apps/gpu/tests/test_edge_gpu_queue.py
-      3 apps/hermes_agent/main.py
-      1 apps/ipfs/kubo_log.py
-      1 apps/market/tests/test_bid_commit_expire.py
-      4 apps/market/tests/test_bid_tx_replay.py
-      1 apps/memory/src/memory_app/service.py
-     12 apps/miner/agent_task_executor.py
-      8 apps/miner/production_miner.py
-      4 apps/miner/tests/test_download_media_ssrf.py
-      4 apps/monitoring-service/src/monitoring_service/main.py
-      1 apps/ops-signer/src/aitbc_ops_signer/server.py
-      2 apps/pool-hub/src/poolhub/app/main.py
-      3 apps/pool-hub/src/poolhub/app/routers/health.py
-      1 apps/pool-hub/src/poolhub/clients/blockchain.py
-      1 apps/pool-hub/src/poolhub/repositories/feedback_repository.py
-      3 apps/pool-hub/src/poolhub/services/billing_integration.py
-      2 apps/pool-hub/src/poolhub/services/sla_collector.py
-      3 apps/pool-hub/src/poolhub/services/validation.py
-      2 apps/whisper/main.py
-      2 apps/whisper/tests/test_smoke.py
-      7 apps/zk-circuits/zk_cache.py
+      1 apps/coordinator-api/alembic/env.py
+     11 apps/coordinator-api/examples/agent_identity_sdk_example.py
+      3 apps/coordinator-api/migrations/003_data_migration.py
+      3 apps/coordinator-api/scripts/advanced_agent_capabilities.py
+      3 apps/coordinator-api/scripts/enterprise_scaling.py
+      2 apps/coordinator-api/scripts/geo_load_balancer.py
+      3 apps/coordinator-api/scripts/high_priority_implementation.py
+      3 apps/coordinator-api/scripts/migrate_complete.py
+      6 apps/coordinator-api/scripts/phase5_implementation.py
+      1 apps/coordinator-api/scripts/production_deployment.py
+      3 apps/coordinator-api/scripts/system_maintenance.py
+      1 apps/coordinator-api/src/coordinator_api/adapters/agent_core_adapters.py
+      4 apps/coordinator-api/src/coordinator_api/agent_identity/registry.py
+      1 apps/coordinator-api/src/coordinator_api/agent_identity/sdk/client.py
+     12 apps/coordinator-api/src/coordinator_api/agent_identity/sdk/communication.py
+      6 apps/coordinator-api/src/coordinator_api/agent_identity/wallet_adapter_enhanced.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/routers/agent_integration_router.py
+      4 apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/agent_market.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/agent_service.py
+     15 apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/communication.py
+     11 apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/integration.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/orchestrator.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/orchestrator_service.py
+      3 apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/security.py
+     25 apps/coordinator-api/src/coordinator_api/contexts/agent_identity/routers/agent_identity.py
+     18 apps/coordinator-api/src/coordinator_api/contexts/agent_identity/services/manager.py
+      8 apps/coordinator-api/src/coordinator_api/contexts/analytics/services/ai_analytics/advanced_learning.py
+      3 apps/coordinator-api/src/coordinator_api/contexts/blockchain/routers/blockchain.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/blockchain/routers/oracle.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/blockchain/services/blockchain.py
+      5 apps/coordinator-api/src/coordinator_api/contexts/blockchain/services/oracle_service.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/certification/services/certification/certification_system.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/compliance/services/consent_store.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/confidential/routers/confidential.py
+     17 apps/coordinator-api/src/coordinator_api/contexts/cross_chain/routers/cross_chain_integration.py
+      9 apps/coordinator-api/src/coordinator_api/contexts/cross_chain/services/cross_chain/bridge_client_adapter.py
+      4 apps/coordinator-api/src/coordinator_api/contexts/cross_chain/services/cross_chain/reputation.py
+      5 apps/coordinator-api/src/coordinator_api/contexts/cross_chain/services/multi_chain_transaction_manager.py
+     10 apps/coordinator-api/src/coordinator_api/contexts/developer_platform/routers/analytics.py
+      7 apps/coordinator-api/src/coordinator_api/contexts/developer_platform/routers/bounties.py
+      4 apps/coordinator-api/src/coordinator_api/contexts/developer_platform/routers/certifications.py
+      5 apps/coordinator-api/src/coordinator_api/contexts/developer_platform/routers/developers.py
+      3 apps/coordinator-api/src/coordinator_api/contexts/developer_platform/routers/hubs.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/governance/routers/governance_enhanced.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/governance/services/governance_service.py
+      4 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/admin.py
+      3 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/client.py
+      4 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/inference.py
+      9 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py
+      6 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/monitoring_dashboard.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/users.py
+      4 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/explorer.py
+      6 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py
+      5 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/redis_state.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/spot_check.py
+      4 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/stale_job_reaper.py
+      3 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/stale_miner_reaper.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/ipfs/routers/ipfs.py
+      7 apps/coordinator-api/src/coordinator_api/contexts/ipfs/services/ipfs_service.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/ipfs/services/island_ipfs_access.py
+      9 apps/coordinator-api/src/coordinator_api/contexts/market/routers/market_gpu.py
+      4 apps/coordinator-api/src/coordinator_api/contexts/market/services/bond_slashing.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/market/services/bond_slash_sweeper.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/market/services/external_providers.py
+      4 apps/coordinator-api/src/coordinator_api/contexts/market/services/market_analytics.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/market/services/plugin_manager.py
+      5 apps/coordinator-api/src/coordinator_api/contexts/market/services/resource_matcher.py
+      7 apps/coordinator-api/src/coordinator_api/contexts/multimodal/routers/multi_modal_rl.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/payments/services/acceptance_sweeper.py
+      9 apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/payments/services/settlement_reconciler.py
+      4 apps/coordinator-api/src/coordinator_api/contexts/payments/services/stuck_escrow_sweeper.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py
+      5 apps/coordinator-api/src/coordinator_api/contexts/portfolio/routers/portfolio.py
+     11 apps/coordinator-api/src/coordinator_api/contexts/portfolio/services/portfolio_aggregation_service.py
+      7 apps/coordinator-api/src/coordinator_api/contexts/reputation/services/reputation_engine.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/rewards/services/reward_service.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/security/services/access_control.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/security/services/encryption.py
+     10 apps/coordinator-api/src/coordinator_api/contexts/security/services/key_management.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/staking/routers/staking.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/staking/services/staking_service.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/trading/domain/pricing_strategies.py
+     14 apps/coordinator-api/src/coordinator_api/contexts/trading/services/market_data_collector.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/bid_strategy.py
+      9 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/dynamic_pricing.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/gpu_optimizer.py
+      4 apps/coordinator-api/src/coordinator_api/contexts/wallet/services/secure_wallet_service.py
+      2 apps/coordinator-api/src/coordinator_api/contexts/wallet/services/wallet_crypto.py
+      1 apps/coordinator-api/src/coordinator_api/contexts/zk_applications/routers/zk_proofs.py
+      6 apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/zk_proofs.py
+      9 apps/coordinator-api/src/coordinator_api/main.py
+      1 apps/coordinator-api/src/coordinator_api/middleware/compliance.py
+      2 apps/coordinator-api/src/coordinator_api/routers/media.py
+      8 apps/coordinator-api/src/coordinator_api/sdk/enterprise_client.py
+      4 apps/coordinator-api/src/coordinator_api/settlement/bridges/layerzero.py
+      7 apps/coordinator-api/src/coordinator_api/settlement/hooks.py
+      3 apps/coordinator-api/src/coordinator_api/settlement/manager.py
+      1 apps/coordinator-api/src/coordinator_api/utils/alerting.py
+      3 apps/coordinator-api/src/coordinator_api/utils/cache.py
+      1 apps/coordinator-api/tests/test_billing.py
       5 cli/aitbc_cli/auth/__init__.py
       2 cli/aitbc_cli/commands/account.py
       7 cli/aitbc_cli/commands/agent_comm.py

@@ -17,6 +17,7 @@ from collections.abc import AsyncIterator
 from pathlib import Path
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -50,7 +51,7 @@ class TestErrorImpliesNoRow:
         raised = False
         try:
             await svc.book_offer(offer_id, {"wallet": "0xBuyer"})
-        except Exception:
+        except (SQLAlchemyError, ValueError, TypeError, KeyError, AttributeError, RuntimeError):
             raised = True
         bids = list((await session.execute(select(Bid).where(Bid.offer_id == offer_id))).scalars())
         # atomicity: a raised route must not leave committed state behind
