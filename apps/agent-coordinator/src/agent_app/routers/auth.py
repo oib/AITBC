@@ -4,7 +4,15 @@ import hmac
 from fastapi import APIRouter, Body, Depends, Header, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.auth import api_key_manager, get_jwt_handler, get_current_user, Permission, Role, permission_manager
+from aitbc.auth import (
+    api_key_manager,
+    get_jwt_handler,
+    get_current_user,
+    Permission,
+    Role,
+    permission_manager,
+    principal_has_permission,
+)
 from aitbc.rate_limiting import rate_limit
 
 jwt_handler = get_jwt_handler()
@@ -143,7 +151,7 @@ def generate_api_key(
 ) -> dict[str, Any]:
     """Generate API key for user"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_MANAGE):
+        if not principal_has_permission(current_user, Permission.SECURITY_MANAGE):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         result = api_key_manager.generate_api_key(user_id, permissions or [])
         return result
@@ -192,7 +200,7 @@ def revoke_api_key(
     """
     api_key = x_api_key
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_MANAGE):
+        if not principal_has_permission(current_user, Permission.SECURITY_MANAGE):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         result = api_key_manager.revoke_api_key(api_key)
         return result

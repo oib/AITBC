@@ -3,7 +3,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.auth import Permission, Role, get_current_user, permission_manager, require_role
+from aitbc.auth import Permission, Role, get_current_user, permission_manager, principal_has_permission, require_role
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
@@ -17,7 +17,7 @@ def assign_user_role(
 ) -> dict[str, Any]:
     """Assign role to user"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.USER_MANAGE_ROLES):
+        if not principal_has_permission(current_user, Permission.USER_MANAGE_ROLES):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         try:
             role_enum = Role(role.lower())
@@ -41,7 +41,7 @@ def get_user_role(
 ) -> dict[str, Any]:
     """Get user's role"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.USER_VIEW):
+        if not principal_has_permission(current_user, Permission.USER_VIEW):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         result = permission_manager.get_user_role(user_id)
         return result
@@ -61,9 +61,7 @@ def get_user_permissions(
 ) -> dict[str, Any]:
     """Get user's permissions"""
     try:
-        if user_id != current_user["user_id"] and (
-            not permission_manager.has_permission(current_user["user_id"], Permission.USER_VIEW)
-        ):
+        if user_id != current_user["user_id"] and (not principal_has_permission(current_user, Permission.USER_VIEW)):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         result = permission_manager.get_user_permissions(user_id)
         return result
@@ -83,7 +81,7 @@ def grant_user_permission(
 ) -> dict[str, Any]:
     """Grant custom permission to user"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.USER_MANAGE_ROLES):
+        if not principal_has_permission(current_user, Permission.USER_MANAGE_ROLES):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         try:
             permission_enum = Permission(permission)
@@ -107,7 +105,7 @@ def revoke_user_permission(
 ) -> dict[str, Any]:
     """Revoke custom permission from user"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.USER_MANAGE_ROLES):
+        if not principal_has_permission(current_user, Permission.USER_MANAGE_ROLES):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         try:
             permission_enum = Permission(permission)
@@ -129,7 +127,7 @@ def revoke_user_permission(
 def list_all_roles(request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]) -> dict[str, Any]:
     """List all available roles and their permissions"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.USER_VIEW):
+        if not principal_has_permission(current_user, Permission.USER_VIEW):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         result = permission_manager.list_all_roles()
         return result
@@ -149,7 +147,7 @@ def get_role_permissions(
 ) -> dict[str, Any]:
     """Get all permissions for a specific role"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.USER_VIEW):
+        if not principal_has_permission(current_user, Permission.USER_VIEW):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         try:
             role_enum = Role(role.lower())
@@ -171,7 +169,7 @@ def get_permission_stats(
 ) -> dict[str, Any]:
     """Get statistics about permissions and users"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
+        if not principal_has_permission(current_user, Permission.SECURITY_VIEW):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         result = permission_manager.get_permission_stats()
         return result
