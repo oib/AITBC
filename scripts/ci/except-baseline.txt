@@ -34,9 +34,7 @@
       1 aitbc/training_setup/stage_runner.py
       1 aitbc/utils/time_utils.py
       1 aitbc/wallet/confidential.py
-      9 apps/agent-coordinator/src/agent_app/ai/advanced_ai.py
       5 apps/agent-coordinator/src/agent_app/ai/realtime_learning.py
-     11 apps/agent-coordinator/src/agent_app/consensus/distributed_consensus.py
       5 apps/agent-coordinator/src/agent_app/encryption/message_encryption.py
       1 apps/agent-coordinator/src/agent_app/encryption/public_keys.py
       5 apps/agent-coordinator/src/agent_app/lifespan.py
@@ -47,7 +45,6 @@
       1 apps/agent-coordinator/src/agent_app/routers/health.py
       5 apps/agent-coordinator/src/agent_app/routers/messages.py
       1 apps/agent-coordinator/src/agent_app/routers/websocket.py
-     13 apps/agent-coordinator/src/agent_app/routing/agent_discovery.py
       6 apps/agent-coordinator/src/agent_app/routing/load_balancer.py
       3 apps/agent-coordinator/src/agent_app/services/agent_auth.py
       1 apps/agent-coordinator/src/agent_app/services/approval/ai_approval.py
