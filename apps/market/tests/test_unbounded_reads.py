@@ -243,7 +243,7 @@ async def test_health_check_does_not_materialise_pin_body(capped):
         # own tests (test_health_url_guard.py), this one is about the stream.
         with (
             patch("httpx.AsyncClient", return_value=client),
-            patch("market_service.services.market_service._check_health_url", new=AsyncMock(return_value=None)),
+            patch("market_service.services.market_service.jobs._check_health_url", new=AsyncMock(return_value=None)),
         ):
             out = await svc.check_software_offer_health("ipfs_pin_1")
         assert not accessed, f"health check materialised the pin/ls body via .{accessed[0]}"
