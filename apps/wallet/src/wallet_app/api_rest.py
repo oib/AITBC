@@ -425,9 +425,7 @@ def send_transaction(
             # connection drop, 5xx, or an unclassified failure — may have
             # broadcast, so it stays terminal/uncertain for operator
             # resolution rather than risking a double-send.
-            _fail_send_operation(
-                idempotency_key, operation_attempt, error_msg, terminal=not bool(result.get("definite"))
-            )
+            _fail_send_operation(idempotency_key, operation_attempt, error_msg, terminal=not bool(result.get("definite")))
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
         logger.info(

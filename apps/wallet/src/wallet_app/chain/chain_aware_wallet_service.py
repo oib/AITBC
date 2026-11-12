@@ -18,6 +18,8 @@ from ..crypto.encryption import EncryptionError
 from ..keystore.persistent_service import PersistentKeystoreService
 from .manager import ChainManager
 from .multichain_ledger import ChainWalletMetadata, MultiChainLedgerAdapter
+from eth_keys.exceptions import BadSignature
+from eth_utils.exceptions import ValidationError as EthValidationError
 
 logger = get_logger(__name__)
 
@@ -37,6 +39,8 @@ _OPS_ERRORS = (
     httpx.HTTPError,
     sqlite3.Error,
     EncryptionError,
+    BadSignature,
+    EthValidationError,
 )
 
 

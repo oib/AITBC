@@ -39,6 +39,9 @@ from .bridge_db import (
 )
 from .price_api import calculate_eth_amount
 from .url_redact import redact_text
+from aitbc_errors import AITBCError
+from eth_keys.exceptions import BadSignature
+from eth_utils.exceptions import ValidationError as EthValidationError
 
 logger = get_logger(__name__)
 
@@ -58,6 +61,9 @@ _OPS_ERRORS = (
     RuntimeError,
     httpx.HTTPError,
     sqlite3.Error,
+    AITBCError,
+    BadSignature,
+    EthValidationError,
 )
 
 # Configuration

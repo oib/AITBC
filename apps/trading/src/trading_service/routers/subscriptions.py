@@ -9,6 +9,8 @@ from typing import Any
 
 from fastapi import APIRouter, Query, WebSocket, WebSocketDisconnect
 from fastapi.responses import JSONResponse
+import anyio
+from websockets.exceptions import ConnectionClosed
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -48,6 +50,10 @@ _OPS_ERRORS = (
     AttributeError,
     RuntimeError,
     *_REDIS_ERRORS,
+    anyio.EndOfStream,
+    anyio.BrokenResourceError,
+    anyio.ClosedResourceError,
+    ConnectionClosed,
 )
 
 # #1608: offer price filters are Decimal-compared against offer prices. Bound
