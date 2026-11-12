@@ -533,8 +533,8 @@ async def _scan_escrow_locks(cfg: SellConfig) -> dict[str, int]:
         recipient = tx.get("recipient") or tx.get("to") or ""
         if recipient.lower() != cfg.escrow_address.lower():
             continue
-        if tx.get("block_height") is None:
-            continue  # not sealed yet
+        if not wdm.tx_sealed_confirmed(tx):
+            continue  # not sealed, or sealed-but-failed — no value moved (#1916)
         ait_tx_hash = tx.get("tx_hash") or tx.get("hash") or ""
         if not ait_tx_hash:
             continue
@@ -672,10 +672,11 @@ async def _find_escrow_outflow(
     intent produced — matched on nonce AND recipient AND amount AND
     ``payload.sell_ref``, so a different transaction at the same nonce (a
     manual send, another row's sweep) can never be credited to this row.
-    Mempool-pending txs (no ``block_height``) do not count as sealed."""
+    Mempool-pending txs (no ``block_height``) and failed-sealed txs
+    (``status != 'confirmed'``) do not count as sealed (#1916)."""
     txs = await _fetch_transfers(cfg.escrow_address)
     for tx in txs:
-        if tx.get("block_height") is None:
+        if not wdm.tx_sealed_confirmed(tx):
             continue
         sender = (tx.get("sender") or tx.get("from") or "").lower()
         if sender != cfg.escrow_address.lower():
