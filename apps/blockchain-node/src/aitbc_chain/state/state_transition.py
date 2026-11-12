@@ -3409,144 +3409,281 @@ class StateTransition:
         if now.tzinfo is None:
             now = now.replace(tzinfo=UTC)
         if tx_type == "BOND_LOCK":
-            if not _is_bond_escrow(recipient_addr):
-                return "recipient is not the bond escrow address"
-            if value <= 0:
-                return "non-positive lock value"
-            lock_days = int(payload.get("lock_days", 30))
-            # Reuse an existing active bond with the same id if it exists (top-up).
-            existing = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)).first()
-            if block_version is not None and block_version >= 22:
-                # v22: absolute ceiling anchored on the immutable created_at —
-                # min(now + lock_days, created_at + PROTOCOL_MAX_LOCK_DURATION).
-                # Post-ceiling top-ups refused. Unreachable for consensus
-                # transactions (validate rejects first); defense for
-                # non-consensus callers of this handler.
-                created = (existing.created_at if existing is not None else now) or now
-                if created.tzinfo is None:
-                    created = created.replace(tzinfo=UTC)
-                ceiling = created + PROTOCOL_MAX_LOCK_DURATION
-                if existing is not None and now >= ceiling:
-                    return "bond lock horizon exhausted"
-                locked_until = min(now + timedelta(days=lock_days), ceiling)
-            else:
-                locked_until = now + timedelta(days=lock_days)
-            if existing:
-                if block_version is not None and block_version >= 22:
-                    # v22 defense-in-depth: the shared verdict already refused
-                    # these for consensus txs; keep apply honest for callers
-                    # that bypass validate.
-                    if existing.status != "active":
-                        return f"BOND_LOCK top-up refused: bond {bond_id} is {existing.status}, not active"
-                    if sender_addr != _to_ait_address(existing.provider or ""):
-                        return "top-up signer is not the bond provider"
-                    if _to_ait_address(payload.get("provider") or "") != _to_ait_address(existing.provider or ""):
-                        return "top-up provider does not match bond provider"
-                    if existing.amount + value > 2**63 - 1:
-                        return "BOND_LOCK refused: bond amount overflow"
-                existing.amount += value
-                existing.locked_until = locked_until
-                existing.updated_at = now
-                logger.info("Bond topped up: %s amount=%s locked_until=%s", bond_id, existing.amount, locked_until)
-            else:
-                # Named apart from the `bond` the BOND_RELEASE/BOND_SLASH branches
-                # load: those are Bond | None, and sharing the name pinned the
-                # inferred type to Bond.
-                new_bond = Bond(
-                    chain_id=chain_id,
-                    bond_id=bond_id,
-                    provider=_to_ait_address(provider),
-                    amount=value,
-                    locked_until=locked_until,
-                    status="active",
-                    created_tx_hash=tx_hash,
-                    created_at=now,
-                    updated_at=now,
-                )
-                session.add(new_bond)
-                logger.info("Bond locked: %s provider=%s amount=%s locked_until=%s", bond_id, provider, value, locked_until)
-        elif tx_type == "BOND_RELEASE":
-            if sender_addr != _to_ait_address(provider):
+            return self._bond_lock_effect(
+                session,
+                chain_id,
+                payload,
+                tx_hash,
+                sender_addr,
+                recipient_addr,
+                value,
+                provider,
+                bond_id,
+                now,
+                block_height,
+                block_version,
+            )
+        if tx_type == "BOND_RELEASE":
+            return self._bond_release_effect(
+                session,
+                chain_id,
+                payload,
+                tx_hash,
+                sender_addr,
+                recipient_addr,
+                value,
+                provider,
+                bond_id,
+                now,
+                block_height,
+                block_version,
+            )
+        if tx_type == "BOND_SLASH":
+            return self._bond_slash_effect(
+                session,
+                chain_id,
+                payload,
+                tx_hash,
+                sender_addr,
+                recipient_addr,
+                value,
+                provider,
+                bond_id,
+                now,
+                block_height,
+                block_version,
+            )
+        return None
+
+    def _bond_lock_effect(
+        self,
+        session: Session,
+        chain_id: str,
+        payload: dict[str, Any],
+        tx_hash: str,
+        sender_addr: str,
+        recipient_addr: str,
+        value: int,
+        provider: str,
+        bond_id: str,
+        now: datetime,
+        block_height: int | None,
+        block_version: int | None,
+    ) -> str | None:
+        if not _is_bond_escrow(recipient_addr):
+            return "recipient is not the bond escrow address"
+        if value <= 0:
+            return "non-positive lock value"
+        lock_days = int(payload.get("lock_days", 30))
+        # Reuse an existing active bond with the same id if it exists (top-up).
+        existing = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)).first()
+        horizon_error, locked_until = self._bond_lock_horizon(existing, now, lock_days, block_version)
+        if horizon_error is not None:
+            return horizon_error
+        if existing:
+            topup_error = self._bond_topup_error(existing, sender_addr, payload, value, bond_id, block_version)
+            if topup_error is not None:
+                return topup_error
+            existing.amount += value
+            existing.locked_until = locked_until
+            existing.updated_at = now
+            logger.info("Bond topped up: %s amount=%s locked_until=%s", bond_id, existing.amount, locked_until)
+        else:
+            # Named apart from the `bond` the BOND_RELEASE/BOND_SLASH branches
+            # load: those are Bond | None, and sharing the name pinned the
+            # inferred type to Bond.
+            new_bond = Bond(
+                chain_id=chain_id,
+                bond_id=bond_id,
+                provider=_to_ait_address(provider),
+                amount=value,
+                locked_until=locked_until,
+                status="active",
+                created_tx_hash=tx_hash,
+                created_at=now,
+                updated_at=now,
+            )
+            session.add(new_bond)
+            logger.info("Bond locked: %s provider=%s amount=%s locked_until=%s", bond_id, provider, value, locked_until)
+        return None
+
+    def _bond_lock_horizon(
+        self, existing: Bond | None, now: datetime, lock_days: int, block_version: int | None
+    ) -> tuple[str | None, datetime]:
+        """v22 lock horizon: ``min(now + lock_days, created_at +
+        PROTOCOL_MAX_LOCK_DURATION)`` — the absolute ceiling anchored on the
+        immutable created_at; post-ceiling top-ups refused. Below v22 (or for
+        non-consensus callers) the plain ``now + lock_days`` applies.
+        Unreachable for consensus transactions (validate rejects first);
+        defense for non-consensus callers of this handler."""
+        if block_version is None or block_version < 22:
+            return None, now + timedelta(days=lock_days)
+        # v22: absolute ceiling anchored on the immutable created_at —
+        # min(now + lock_days, created_at + PROTOCOL_MAX_LOCK_DURATION).
+        created = (existing.created_at if existing is not None else now) or now
+        if created.tzinfo is None:
+            created = created.replace(tzinfo=UTC)
+        ceiling = created + PROTOCOL_MAX_LOCK_DURATION
+        if existing is not None and now >= ceiling:
+            return "bond lock horizon exhausted", now
+        return None, min(now + timedelta(days=lock_days), ceiling)
+
+    def _bond_topup_error(
+        self,
+        existing: Bond,
+        sender_addr: str,
+        payload: dict[str, Any],
+        value: int,
+        bond_id: str,
+        block_version: int | None,
+    ) -> str | None:
+        """v22 defense-in-depth top-up guards: the shared verdict already
+        refused these for consensus txs; keep apply honest for callers that
+        bypass validate. Below v22 there are no extra guards."""
+        if block_version is None or block_version < 22:
+            return None
+        if existing.status != "active":
+            return f"BOND_LOCK top-up refused: bond {bond_id} is {existing.status}, not active"
+        if sender_addr != _to_ait_address(existing.provider or ""):
+            return "top-up signer is not the bond provider"
+        if _to_ait_address(payload.get("provider") or "") != _to_ait_address(existing.provider or ""):
+            return "top-up provider does not match bond provider"
+        if existing.amount + value > 2**63 - 1:
+            return "BOND_LOCK refused: bond amount overflow"
+        return None
+
+    def _bond_release_effect(
+        self,
+        session: Session,
+        chain_id: str,
+        payload: dict[str, Any],
+        tx_hash: str,
+        sender_addr: str,
+        recipient_addr: str,
+        value: int,
+        provider: str,
+        bond_id: str,
+        now: datetime,
+        block_height: int | None,
+        block_version: int | None,
+    ) -> str | None:
+        if sender_addr != _to_ait_address(provider):
+            return "not signed by the bond provider"
+        if recipient_addr != sender_addr:
+            return "recipient must be the provider"
+        if value != 0:
+            return "must have value=0"
+        bond = session.exec(
+            select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id, Bond.status == "active")
+        ).first()
+        if not bond:
+            return f"unknown or inactive bond {bond_id}"
+        if block_version is not None and block_version >= 22:
+            # v22: the persisted provider is authoritative — matching
+            # payload.provider proved nothing (BOND-RELEASE-001).
+            if sender_addr != _to_ait_address(bond.provider or ""):
                 return "not signed by the bond provider"
-            if recipient_addr != sender_addr:
-                return "recipient must be the provider"
-            if value != 0:
-                return "must have value=0"
-            bond = session.exec(
-                select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id, Bond.status == "active")
-            ).first()
-            if not bond:
-                return f"unknown or inactive bond {bond_id}"
-            if block_version is not None and block_version >= 22:
-                # v22: the persisted provider is authoritative — matching
-                # payload.provider proved nothing (BOND-RELEASE-001).
-                if sender_addr != _to_ait_address(bond.provider or ""):
-                    return "not signed by the bond provider"
-            if bond.locked_until:
-                locked_until = bond.locked_until
-                if locked_until.tzinfo is None:
-                    locked_until = locked_until.replace(tzinfo=UTC)
-                if now < locked_until:
-                    return f"lock period for {bond_id} has not expired"
-            elif block_version is not None and block_version >= 22:
-                # v22: NULL expiry fails closed; pre-v22 NULL rows stayed
-                # immediately releasable for replay compatibility.
-                return "no lock expiry recorded"
-            release_amount = bond.amount
-            if release_amount <= 0:
-                return "bond has nothing to release"
-            escrow = _ensure_account(session, chain_id, _BOND_ESCROW_ADDRESS)
-            sender = session.get(Account, (chain_id, sender_addr))
-            if escrow and sender:
-                session.refresh(escrow)
-                session.refresh(sender)
-                if escrow.balance < release_amount:
-                    return f"escrow balance {escrow.balance} below release amount {release_amount}"
-                escrow.balance -= release_amount
-                sender.balance += release_amount
-                logger.info("BOND_RELEASE %s moved %s from escrow to %s", tx_hash, release_amount, sender_addr)
-            bond.amount = 0
-            bond.released_tx_hash = tx_hash
-            bond.status = "released"
-            bond.updated_at = now
-            logger.info("Bond released: %s amount=%s", bond_id, release_amount)
-        elif tx_type == "BOND_SLASH":
-            slash_authority = _bond_slash_authority(session, chain_id, block_height)
-            if not slash_authority:
-                return "no slash authority configured (chain parameter or BOND_SLASH_AUTHORITY_ADDRESS)"
-            if sender_addr != _to_ait_address(slash_authority):
-                return "not signed by the configured slash authority"
-            if not _is_bond_burn(recipient_addr):
-                return "does not burn to the bond burn address"
-            if value != 0:
-                return "must have value=0"
-            slash_amount = int(payload.get("amount", 0))
-            if slash_amount <= 0:
-                return "missing positive amount in payload"
-            bond = session.exec(
-                select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id, Bond.status == "active")
-            ).first()
-            if not bond:
-                return f"unknown or inactive bond {bond_id}"
-            if slash_amount > bond.amount:
-                slash_amount = bond.amount
-            if slash_amount <= 0:
-                return "slash amount reduced to zero"
-            escrow = _ensure_account(session, chain_id, _BOND_ESCROW_ADDRESS)
-            burn = _ensure_account(session, chain_id, _BOND_BURN_ADDRESS)
-            if escrow and burn:
-                session.refresh(escrow)
-                session.refresh(burn)
-                if escrow.balance < slash_amount:
-                    return f"escrow balance {escrow.balance} below slash amount {slash_amount}"
-                escrow.balance -= slash_amount
-                burn.balance += slash_amount
-                logger.info("BOND_SLASH %s moved %s from escrow to burn", tx_hash, slash_amount)
-            bond.amount -= slash_amount
-            bond.slashed_tx_hash = tx_hash
-            bond.status = "slashed" if bond.amount <= 0 else "active"
-            bond.updated_at = now
-            logger.info("Bond slashed: %s amount=%s remaining=%s", bond_id, slash_amount, bond.amount)
+        lock_error = self._bond_release_lock_error(bond, now, bond_id, block_version)
+        if lock_error is not None:
+            return lock_error
+        release_amount = bond.amount
+        if release_amount <= 0:
+            return "bond has nothing to release"
+        payout_error = self._bond_release_payout(session, chain_id, sender_addr, release_amount, tx_hash)
+        if payout_error is not None:
+            return payout_error
+        bond.amount = 0
+        bond.released_tx_hash = tx_hash
+        bond.status = "released"
+        bond.updated_at = now
+        logger.info("Bond released: %s amount=%s", bond_id, release_amount)
+        return None
+
+    def _bond_release_lock_error(self, bond: Bond, now: datetime, bond_id: str, block_version: int | None) -> str | None:
+        if bond.locked_until:
+            locked_until = bond.locked_until
+            if locked_until.tzinfo is None:
+                locked_until = locked_until.replace(tzinfo=UTC)
+            if now < locked_until:
+                return f"lock period for {bond_id} has not expired"
+        elif block_version is not None and block_version >= 22:
+            # v22: NULL expiry fails closed; pre-v22 NULL rows stayed
+            # immediately releasable for replay compatibility.
+            return "no lock expiry recorded"
+        return None
+
+    def _bond_release_payout(
+        self, session: Session, chain_id: str, sender_addr: str, release_amount: int, tx_hash: str
+    ) -> str | None:
+        escrow = _ensure_account(session, chain_id, _BOND_ESCROW_ADDRESS)
+        sender = session.get(Account, (chain_id, sender_addr))
+        if escrow and sender:
+            session.refresh(escrow)
+            session.refresh(sender)
+            if escrow.balance < release_amount:
+                return f"escrow balance {escrow.balance} below release amount {release_amount}"
+            escrow.balance -= release_amount
+            sender.balance += release_amount
+            logger.info("BOND_RELEASE %s moved %s from escrow to %s", tx_hash, release_amount, sender_addr)
+        return None
+
+    def _bond_slash_effect(
+        self,
+        session: Session,
+        chain_id: str,
+        payload: dict[str, Any],
+        tx_hash: str,
+        sender_addr: str,
+        recipient_addr: str,
+        value: int,
+        provider: str,
+        bond_id: str,
+        now: datetime,
+        block_height: int | None,
+        block_version: int | None,
+    ) -> str | None:
+        slash_authority = _bond_slash_authority(session, chain_id, block_height)
+        if not slash_authority:
+            return "no slash authority configured (chain parameter or BOND_SLASH_AUTHORITY_ADDRESS)"
+        if sender_addr != _to_ait_address(slash_authority):
+            return "not signed by the configured slash authority"
+        if not _is_bond_burn(recipient_addr):
+            return "does not burn to the bond burn address"
+        if value != 0:
+            return "must have value=0"
+        slash_amount = int(payload.get("amount", 0))
+        if slash_amount <= 0:
+            return "missing positive amount in payload"
+        bond = session.exec(
+            select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id, Bond.status == "active")
+        ).first()
+        if not bond:
+            return f"unknown or inactive bond {bond_id}"
+        if slash_amount > bond.amount:
+            slash_amount = bond.amount
+        if slash_amount <= 0:
+            return "slash amount reduced to zero"
+        move_error = self._bond_slash_move(session, chain_id, slash_amount, tx_hash)
+        if move_error is not None:
+            return move_error
+        bond.amount -= slash_amount
+        bond.slashed_tx_hash = tx_hash
+        bond.status = "slashed" if bond.amount <= 0 else "active"
+        bond.updated_at = now
+        logger.info("Bond slashed: %s amount=%s remaining=%s", bond_id, slash_amount, bond.amount)
+        return None
+
+    def _bond_slash_move(self, session: Session, chain_id: str, slash_amount: int, tx_hash: str) -> str | None:
+        escrow = _ensure_account(session, chain_id, _BOND_ESCROW_ADDRESS)
+        burn = _ensure_account(session, chain_id, _BOND_BURN_ADDRESS)
+        if escrow and burn:
+            session.refresh(escrow)
+            session.refresh(burn)
+            if escrow.balance < slash_amount:
+                return f"escrow balance {escrow.balance} below slash amount {slash_amount}"
+            escrow.balance -= slash_amount
+            burn.balance += slash_amount
+            logger.info("BOND_SLASH %s moved %s from escrow to burn", tx_hash, slash_amount)
         return None
 
     def _handle_validator_deactivation(
