@@ -105,6 +105,24 @@ def test_aborted_chain_dump_fails(good_set, tmp_path):
     assert any("chain_broken" in e for e in errs)
 
 
+def test_service_db_artifact_passes_without_block_table(good_set, tmp_path):
+    """#1934: service DBs share the chain_* prefix but have no block table —
+    they must still get rebuild + integrity_check, not a false FAIL."""
+    _mk_chain_dump(good_set / "chain_bc-2_keystore.db.gz", table="keys")
+    errs, rep = bv.verify_set(good_set, tmp_path / "sc", None)
+    assert errs == []
+    svc = next(e for e in rep["chain"] if e["name"] == "chain_bc-2_keystore.db.gz")
+    assert svc["ok"]
+
+
+def test_chain_named_dump_still_requires_blocks(good_set, tmp_path):
+    """#1934: the …_chain.db.gz artifact keeps the block-table proof — a
+    chain dump without blocks must still fail."""
+    _mk_chain_dump(good_set / "chain_bc-2_chain.db.gz", table="meta")
+    errs, _ = bv.verify_set(good_set, tmp_path / "sc", None)
+    assert any("chain_bc-2_chain" in e and "block" in e for e in errs)
+
+
 def test_commitless_chain_dump_fails(good_set, tmp_path):
     """#910: a truncated dump without COMMIT is not a snapshot."""
     (good_set / "chain_trunc_chain.db.gz").write_bytes(
