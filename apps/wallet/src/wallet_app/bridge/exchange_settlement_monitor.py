@@ -1018,25 +1018,28 @@ async def _release_eth_for_settlement(cfg: ExchangeCfg, row: dict[str, Any]) -> 
         raise RuntimeError(error)
     account = EthAccount.from_key(key)
     async with wdm.ETH_RELEASE_NONCE_LOCK:
-        nonce = await wdm._eth_nonce(wdm.ETH_WALLET_ADDRESS)
-        raw, eth_tx_hash = wdm._sign_release_tx(account, seller_eth, amount_eth, nonce, gas_price, gas_limit)
-        persisted = await _update_with_retry(
-            str(row["id"]),
-            "releasing",
-            eth_tx_hash=eth_tx_hash,
-            release_nonce=nonce,
-            expected_statuses=prior_status,
-        )
-        if not persisted:
-            # CAS lost (#1918): the row moved on since the snapshot — the
-            # signed release must not broadcast for a state nobody owns.
-            logger.warning(
-                "Settlement %s: 'releasing' intent lost CAS (was %s) — row moved on; not broadcasting",
-                row["id"],
-                prior_status,
+        # #1921: cross-process flock — an admin release-retry signs from the
+        # same ETH_WALLET_ADDRESS nonce space; wait for it, never collide.
+        async with wdm._eth_release_file_lock():
+            nonce = await wdm._eth_nonce(wdm.ETH_WALLET_ADDRESS)
+            raw, eth_tx_hash = wdm._sign_release_tx(account, seller_eth, amount_eth, nonce, gas_price, gas_limit)
+            persisted = await _update_with_retry(
+                str(row["id"]),
+                "releasing",
+                eth_tx_hash=eth_tx_hash,
+                release_nonce=nonce,
+                expected_statuses=prior_status,
             )
-            return
-        sent = await wdm._broadcast_release_tx(raw)
+            if not persisted:
+                # CAS lost (#1918): the row moved on since the snapshot — the
+                # signed release must not broadcast for a state nobody owns.
+                logger.warning(
+                    "Settlement %s: 'releasing' intent lost CAS (was %s) — row moved on; not broadcasting",
+                    row["id"],
+                    prior_status,
+                )
+                return
+            sent = await wdm._broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
         logger.warning("Broadcast reported %s; keeping signed hash %s", sent, eth_tx_hash)
     await _mirror_trade_state(cfg, str(row["ref_id"]), "releasing", {**row, "eth_tx_hash": eth_tx_hash})

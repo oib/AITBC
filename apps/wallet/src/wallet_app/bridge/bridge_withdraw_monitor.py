@@ -14,7 +14,8 @@ import json
 import math
 import os
 import sqlite3
-from collections.abc import Collection
+from collections.abc import AsyncIterator, Collection
+from contextlib import asynccontextmanager
 from wallet_app.utc_time import parse_stored, utc_now
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
@@ -34,6 +35,8 @@ from .bridge_db import (
     get_withdrawal_by_ait_tx_hash,
     init_db,
     insert_withdrawal,
+    release_eth_release_lock,
+    try_eth_release_lock,
     update_withdrawal_block,
     update_withdrawal_pricing,
     update_withdrawal_status,
@@ -110,6 +113,44 @@ ETH_WITHDRAW_MIN_RESERVE = Decimal(os.getenv("ETH_WITHDRAW_MIN_RESERVE", "0.005"
 # needs_review. One shared lock keeps a lane's whole nonce→sign→broadcast
 # section atomic; the second lane's pending-count then sees the first's tx.
 ETH_RELEASE_NONCE_LOCK = asyncio.Lock()
+# WITHDRAW-RETRY-LOCK-1 (#1921): the cross-process half of the nonce
+# serialization — see bridge_db.try_eth_release_lock. Monitor lanes wait on
+# it by polling (never blocking the event loop); the flock dies with its
+# holder so the wait is bounded by the holder's command.
+_ETH_RELEASE_LOCK_POLL_SECONDS = 0.5
+_ETH_RELEASE_LOCK_WARN_AFTER_SECONDS = 30.0
+
+
+@asynccontextmanager
+async def _eth_release_file_lock() -> AsyncIterator[None]:
+    """Hold the cross-process ETH-release flock for a nonce→sign→record→
+    broadcast section.
+
+    ``ETH_RELEASE_NONCE_LOCK`` serializes release lanes inside this process
+    only; ``withdraw_admin release-retry`` is a separate process signing
+    from the same ``ETH_WALLET_ADDRESS`` nonce space. While an admin retry
+    holds the flock this lane waits — polling with ``asyncio.sleep`` so the
+    wallet service's event loop is never stalled — then proceeds. Re-entrant
+    within a process (the admin CLI wraps its whole command and calls
+    ``_release_eth_for_withdrawal`` inside it).
+    """
+    waited = 0.0
+    warned = False
+    while True:
+        fd = try_eth_release_lock()
+        if fd is not None:
+            break
+        await asyncio.sleep(_ETH_RELEASE_LOCK_POLL_SECONDS)
+        waited += _ETH_RELEASE_LOCK_POLL_SECONDS
+        if waited >= _ETH_RELEASE_LOCK_WARN_AFTER_SECONDS and not warned:
+            logger.warning("ETH-release flock held by another process for %.0fs — waiting", waited)
+            warned = True
+    try:
+        yield
+    finally:
+        release_eth_release_lock(fd)
+
+
 # Confirmation depth a release receipt must reach before it counts as proof.
 # Defaults to the deposit-side BRIDGE_CONFIRMATIONS (3) so both directions
 # agree on finality.
@@ -548,26 +589,30 @@ async def _release_eth_for_withdrawal(
 
     account = EthAccount.from_key(key)
     async with ETH_RELEASE_NONCE_LOCK:
-        if nonce is None:
-            nonce = await _eth_nonce(ETH_WALLET_ADDRESS)
-        raw, eth_tx_hash = _sign_release_tx(account, eth_address, amount_eth, nonce, gas_price, gas_limit)
+        # #1921: the flock covers the same nonce→sign→record→broadcast
+        # section across processes — an admin release-retry cannot collide
+        # on the account nonce while this lane holds it.
+        async with _eth_release_file_lock():
+            if nonce is None:
+                nonce = await _eth_nonce(ETH_WALLET_ADDRESS)
+            raw, eth_tx_hash = _sign_release_tx(account, eth_address, amount_eth, nonce, gas_price, gas_limit)
 
-        # Persist intent BEFORE broadcast: a crash after this line leaves
-        # evidence (nonce + deterministic hash) the resume check can verify.
-        persisted = await _update_status_with_retry(
-            ait_tx_hash,
-            intent_status,
-            eth_tx_hash=eth_tx_hash,
-            release_nonce=nonce,
-            expected_statuses=expected_statuses,
-        )
-        if not persisted:
-            # CAS lost (#1918): the row moved on since the caller read it —
-            # broadcasting now would pay a state nobody owns. Raise so the
-            # caller's failure path (which verifies on-chain first) owns it.
-            raise RuntimeError(f"withdrawal {ait_tx_hash} status write lost CAS — row moved on; release not broadcast")
+            # Persist intent BEFORE broadcast: a crash after this line leaves
+            # evidence (nonce + deterministic hash) the resume check can verify.
+            persisted = await _update_status_with_retry(
+                ait_tx_hash,
+                intent_status,
+                eth_tx_hash=eth_tx_hash,
+                release_nonce=nonce,
+                expected_statuses=expected_statuses,
+            )
+            if not persisted:
+                # CAS lost (#1918): the row moved on since the caller read it —
+                # broadcasting now would pay a state nobody owns. Raise so the
+                # caller's failure path (which verifies on-chain first) owns it.
+                raise RuntimeError(f"withdrawal {ait_tx_hash} status write lost CAS — row moved on; release not broadcast")
 
-        sent = await _broadcast_release_tx(raw)
+            sent = await _broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
         logger.warning("Broadcast reported %s; keeping signed hash %s", sent, eth_tx_hash)
 
