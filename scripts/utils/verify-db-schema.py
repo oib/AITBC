@@ -361,7 +361,6 @@ KNOWN_DBS: dict[str, Any] = {
         "path": _data_dir() / "marketplace_service.db",
         "modules": [
             "market_service.domain.market",
-            "market_service.domain.global_market",
             "market_service.domain.base",
         ],
         "metadata": [
