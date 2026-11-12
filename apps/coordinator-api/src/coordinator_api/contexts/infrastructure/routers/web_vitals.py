@@ -36,7 +36,7 @@ class WebVitalsMetric(BaseModel):
 
 @router.post("/web-vitals")
 @rate_limit(rate=100, per=60)
-async def collect_web_vitals(request: Request, metric: WebVitalsMetric) -> dict[str, Any]:
+def collect_web_vitals(request: Request, metric: WebVitalsMetric) -> dict[str, Any]:
     """
     Collect Web Vitals performance metrics from the frontend.
     This endpoint receives Core Web Vitals (LCP, FID, CLS, TTFB, FCP) for monitoring.
@@ -81,6 +81,6 @@ async def collect_web_vitals(request: Request, metric: WebVitalsMetric) -> dict[
 # Health check for web vitals endpoint
 @router.get("/web-vitals/health")
 @rate_limit(rate=1000, per=60)
-async def web_vitals_health(request: Request) -> dict[str, str]:
+def web_vitals_health(request: Request) -> dict[str, str]:
     """Health check for web vitals collection endpoint"""
     return {"status": "healthy", "service": "web-vitals"}
