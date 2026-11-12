@@ -79,7 +79,7 @@ class TestRefusesNonPublicTargets:
         dest = tmp_path / "out.bin"
         try:
             production_miner._download_media(url, str(dest))
-        except Exception:
+        except production_miner._OPS_ERRORS:
             pass  # refusal shape is unpinned; what matters is no request left
         get_mock.assert_not_called()
         assert not dest.exists()
@@ -99,6 +99,6 @@ class TestSizeCap:
         dest = tmp_path / "out.bin"
         try:
             production_miner._download_media(http_server["url"], str(dest))
-        except Exception:
+        except production_miner._OPS_ERRORS:
             pass  # an over-cap abort raises; a loopback refusal also lands here
         assert not dest.exists() or dest.stat().st_size <= cap

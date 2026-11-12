@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import DATA_DIR
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AsyncAITBCHTTPClient
 
 from ..config import Settings
@@ -16,6 +16,22 @@ if TYPE_CHECKING:
     from ..bridge import BlockchainEventBridge
 
 logger = get_logger(__name__)
+
+# Subscriber failure surface: RPC polling (NetworkError/aitbc client errors),
+# checkpoint file IO+JSON, and the event-payload data-shape errors handlers
+# can raise. asyncio.CancelledError is a BaseException and always propagates.
+_OPS_ERRORS = (
+    AITBCError,
+    NetworkError,
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+    TimeoutError,
+)
 
 # Number of recent blocks we keep uncommitted to tolerate chain reorganisations.
 # Events in blocks closer than this to the head are not marked as processed.
@@ -77,7 +93,7 @@ class ContractEventSubscriber:
             except asyncio.CancelledError:
                 logger.info("Contract event subscriber cancelled")
                 break
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error in contract event subscriber: %s", e, exc_info=True)
                 await asyncio.sleep(5)
 
@@ -89,7 +105,7 @@ class ContractEventSubscriber:
             if _CHECKPOINT_PATH.exists():
                 with open(_CHECKPOINT_PATH, encoding="utf-8") as f:
                     return cast(dict[str, int], json.load(f))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Could not load contract checkpoints from %s: %s", _CHECKPOINT_PATH, e)
         return {}
 
@@ -99,7 +115,7 @@ class ContractEventSubscriber:
             _CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
             with open(_CHECKPOINT_PATH, "w", encoding="utf-8") as f:
                 json.dump(self.last_processed_blocks, f)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Could not save contract checkpoints to %s: %s", _CHECKPOINT_PATH, e)
 
     async def _initialize_block_tracking(self) -> None:
@@ -141,7 +157,7 @@ class ContractEventSubscriber:
                     )
         except NetworkError as e:
             logger.error("Network error initializing block tracking: %s", e)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error initializing block tracking: %s", e)
 
     def _checkpoint_for(self, contract_name: str, current_height: int) -> int:
@@ -213,7 +229,7 @@ class ContractEventSubscriber:
                 self._save_checkpoints()
             except NetworkError as e:
                 logger.error("Network error polling events for %s: %s", contract_name, e)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error polling events for %s: %s", contract_name, e, exc_info=True)
 
     async def _process_contract_event(self, contract_name: str, log: dict[str, Any]) -> None:

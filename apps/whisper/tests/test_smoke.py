@@ -11,6 +11,8 @@ lifespan handler loads a faster-whisper model, which must not run in tests.
 from __future__ import annotations
 
 import asyncio
+
+from fastapi import HTTPException
 import importlib.util
 from pathlib import Path
 
@@ -122,8 +124,8 @@ def test_transcribe_rejects_bad_language(monkeypatch) -> None:
     _patch_probe(monkeypatch)
     try:
         _transcribe(language="not a language!!")
-    except Exception as exc:  # HTTPException
-        assert getattr(exc, "status_code", None) == 400
+    except HTTPException as exc:
+        assert exc.status_code == 400
     else:  # pragma: no cover
         raise AssertionError("expected HTTPException")
 
@@ -135,8 +137,8 @@ def test_transcribe_busy_returns_503(monkeypatch) -> None:
     monkeypatch.setattr(whisper_main, "_inflight", whisper_main._MAX_CONCURRENT)
     try:
         _transcribe()
-    except Exception as exc:
-        assert getattr(exc, "status_code", None) == 503
+    except HTTPException as exc:
+        assert exc.status_code == 503
     else:  # pragma: no cover
         raise AssertionError("expected HTTPException 503")
     # The refused request must not have consumed a slot.

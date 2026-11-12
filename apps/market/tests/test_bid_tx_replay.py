@@ -18,6 +18,7 @@ from pathlib import Path
 from unittest.mock import AsyncMock
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -73,11 +74,11 @@ class TestBidTxReplay:
         tx["payload"] = {"bid_id": bids[0]}
         try:
             await svc.complete_bid(bids[0], "0xPAYMENT")
-        except Exception:
+        except (SQLAlchemyError, ValueError, TypeError, KeyError, AttributeError, RuntimeError):
             pass  # the service commits then trips on an expired attr — state persists
         try:
             await svc.complete_bid(bids[1], "0xPAYMENT")
-        except Exception:
+        except (SQLAlchemyError, ValueError, TypeError, KeyError, AttributeError, RuntimeError):
             pass
         rows = (await session.execute(select(Bid).where(Bid.id.in_(bids)))).scalars().all()
         completed = [b.id for b in rows if b.status == "completed"]
