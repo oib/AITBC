@@ -12,7 +12,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 
-from ....auth import AdminOrClientDep, AuthDep
+from ....auth import AdminDep, AdminOrClientDep, AuthDep
 from ....config import settings
 from ....schemas import (
     AccessLogQuery,
@@ -365,6 +365,7 @@ async def rotate_encryption_key(
 def get_access_logs(
     request: Request,
     query: Annotated[AccessLogQuery, Depends()],
+    _admin: AdminDep,
 ) -> AccessLogResponse:
     """Get access logs for confidential transactions"""
     try:
@@ -380,6 +381,7 @@ def get_access_logs(
 @rate_limit(rate=1000, per=60)
 async def get_confidential_status(
     request: Request,
+    _user: AuthDep,
 ) -> dict[str, Any]:
     """Get status of confidential transaction system"""
     try:
