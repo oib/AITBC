@@ -23,6 +23,7 @@ backward compatibility.
 from __future__ import annotations
 
 import os
+import re
 import secrets as _secrets
 import weakref
 from datetime import UTC, datetime, timedelta
@@ -54,16 +55,36 @@ class AuthenticationError(Exception):
     pass
 
 
+def _service_scope() -> str:
+    """Per-service secret scope derived from the service's JWT identity (#1852).
+
+    ``JWT_ISSUER`` wins, then ``SERVICE_NAME``/``APP_NAME`` — the same
+    identity chain ``_jwt_issuer`` uses — normalized to an env-var-safe
+    token. Empty means the service has no distinct identity and keeps the
+    shared ``JWT_SECRET`` (pre-#1852 fleet behavior).
+    """
+    raw = os.getenv("JWT_ISSUER") or os.getenv("SERVICE_NAME") or os.getenv("APP_NAME") or ""
+    return re.sub(r"[^A-Z0-9]+", "_", raw.strip().upper()).strip("_")
+
+
+def _scoped_secret_name() -> str | None:
+    """``JWT_SECRET_<SCOPE>`` for the local service, or None when unscoped."""
+    scope = _service_scope()
+    return f"JWT_SECRET_{scope}" if scope else None
+
+
 def _resolve_secret() -> str:
     """Resolve JWT secret from environment.
 
-    Production services must supply ``JWT_SECRET`` or ``JWT_SECRET_KEY``.
-    Non-production/test environments may fall back to an ephemeral secret, but a
-    warning is logged because tokens produced with it are not stable across
-    restarts.
+    A service-scoped ``JWT_SECRET_<SCOPE>`` (#1852) wins over the shared
+    fleet ``JWT_SECRET``/``JWT_SECRET_KEY`` so one service's signing key
+    cannot verify tokens minted for another. Production services must
+    supply a secret; non-production/test environments may fall back to an
+    ephemeral secret, but a warning is logged because tokens produced with
+    it are not stable across restarts.
     """
-    value = os.getenv("JWT_SECRET") or os.getenv("JWT_SECRET_KEY") or ""
-    value = value.strip()
+    names = [n for n in (_scoped_secret_name(), "JWT_SECRET", "JWT_SECRET_KEY") if n]
+    value = next(((os.getenv(n) or "").strip() for n in names if (os.getenv(n) or "").strip()), "")
 
     if not value:
         if is_production():
@@ -89,14 +110,23 @@ def _extra_verify_secrets() -> list[str]:
     * ``JWT_SECRET_PREVIOUS`` — comma-separated retired secrets kept so tokens
       minted under an older secret stay valid until they expire.
 
-    Signing always uses the primary ``JWT_SECRET``; these extras only widen the
+    Signing always uses the primary secret; these extras only widen the
     verification set.
+
+    #1852: when the service runs on a scoped ``JWT_SECRET_<SCOPE>``, the
+    rotation overlap vars are scoped too (``JWT_SECRET_<SCOPE>_NEW`` /
+    ``_PREVIOUS``) and the fleet-wide ``JWT_SECRET_*`` extras are ignored —
+    a scoped service must not keep accepting tokens signed under the shared
+    fleet secret (or its retired values) during rotation.
     """
+    scoped = _scoped_secret_name()
+    scoped_active = bool(scoped and (os.getenv(scoped) or "").strip())
+    prefix = scoped if scoped_active else "JWT_SECRET"
     extras: list[str] = []
-    new = (os.getenv("JWT_SECRET_NEW") or "").strip()
+    new = (os.getenv(f"{prefix}_NEW") or "").strip()
     if new:
         extras.append(new)
-    previous = os.getenv("JWT_SECRET_PREVIOUS") or ""
+    previous = os.getenv(f"{prefix}_PREVIOUS") or ""
     extras.extend(part.strip() for part in previous.split(",") if part.strip())
     return extras
 
