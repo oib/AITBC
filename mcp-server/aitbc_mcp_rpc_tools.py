@@ -978,7 +978,8 @@ def list_subscribers(
     params: dict[str, str] = {}
     if chain_id is not None:
         params["chain_id"] = chain_id
-    return _http_read_tool(role, host, "blockchain-rpc", "subscribers", params)
+    # Peer-key gated since #1936 — lease/subscriber state is node-local.
+    return _http_read_tool(role, host, "blockchain-rpc", "subscribers", params, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -997,7 +998,8 @@ def get_lease_status(
     ] = None,
 ) -> str:
     """Get lease status for a block subscriber."""
-    return _http_read_tool(role, host, "blockchain-rpc", f"lease/{node_id}")
+    # Peer-key gated since #1936 — see list_subscribers.
+    return _http_read_tool(role, host, "blockchain-rpc", f"lease/{node_id}", auth="rpc")
 
 
 # ---------------------------------------------------------------------------

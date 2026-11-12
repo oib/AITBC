@@ -129,8 +129,20 @@ async def heartbeat_route(
 
 @router.get("/lease/{node_id}", summary="Get lease status for a subscriber")
 @rate_limit(rate=100, per=60)
-async def lease_status_route(request: Request, node_id: str) -> dict[str, Any]:  # noqa: ARG001
-    """Check the lease status for a subscriber"""
+async def lease_status_route(
+    request: Request,  # noqa: ARG001
+    node_id: str,
+    api_key: str = Depends(verify_rpc_peer_key),
+) -> dict[str, Any]:
+    """Check the lease status for a subscriber.
+
+    Peer-key gated (#1936): lease state is node-local subscription
+    bookkeeping — the live follower topology of this hub — not chain
+    data, so it does not belong on the public read surface. The read
+    takes the same credential as the other lease routes, with the same
+    issued-key node_id binding.
+    """
+    _enforce_key_node_binding(api_key, node_id)
     return await get_lease_status(node_id)
 
 
@@ -144,6 +156,15 @@ async def revoke_lease_route(request: Request, node_id: str, api_key: str = Depe
 
 @router.get("/subscribers", summary="Get all valid subscribers")
 @rate_limit(rate=100, per=60)
-async def subscribers_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
-    """Get all subscribers with valid leases"""
+async def subscribers_route(
+    request: Request,  # noqa: ARG001
+    chain_id: str | None = None,
+    api_key: str = Depends(verify_rpc_peer_key),  # noqa: ARG001
+) -> dict[str, Any]:
+    """Get all subscribers with valid leases.
+
+    Peer-key gated (#1936): the subscriber list is node-local lease
+    state (which fleet nodes hold live leases), not chain data — it
+    stays off the public read surface like the rest of the lease API.
+    """
     return await get_subscribers(chain_id)

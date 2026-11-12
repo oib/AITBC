@@ -195,7 +195,7 @@ Retrieve network configuration for joining the island. The node derives the publ
 
 `GET /rpc/subscribers`
 
-Retrieve the list of nodes holding a valid subscription lease (the effective peer list for block distribution).
+Peer-key gated (`X-API-Key`, #1936). Retrieve the list of nodes holding a valid subscription lease (the effective peer list for block distribution).
 
 **Response:** `200 OK`
 

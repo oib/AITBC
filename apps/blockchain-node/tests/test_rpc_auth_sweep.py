@@ -216,9 +216,32 @@ class TestSubscriptionAuth:
         assert c.post("/rpc/governance/vote", json={}, headers=h).status_code == 403
         assert c.post("/rpc/chains/stop", json={"chain_id": "x"}, headers=h).status_code == 403
 
-    def test_lease_reads_stay_public(self, client):
-        assert client.get("/rpc/lease/node-1").status_code != 403
-        assert client.get("/rpc/subscribers").status_code != 403
+    def test_lease_reads_require_peer_key(self, client):
+        """#1936: lease/subscriber reads expose node-local fleet topology,
+        not chain data — they take the same peer-key credential as the
+        rest of the lease API."""
+        assert client.get("/rpc/lease/node-1").status_code == 403
+        assert client.get("/rpc/subscribers").status_code == 403
+
+    def test_lease_reads_reject_wrong_key(self, client):
+        assert client.get("/rpc/lease/node-1", headers={"X-API-Key": "nope"}).status_code == 403
+        assert client.get("/rpc/subscribers", headers={"X-API-Key": "nope"}).status_code == 403
+
+    def test_lease_read_peer_key_reaches_handler(self, client):
+        resp = client.get("/rpc/subscribers", headers={"X-API-Key": "peer-key-a"})
+        assert resp.status_code != 403
+
+    def test_lease_status_issued_key_binding(self, client, monkeypatch, tmp_path):
+        """An issued join key may read only its own node_id's lease —
+        same binding the mutating lease routes enforce."""
+        monkeypatch.setenv("PEER_KEYS_DB", str(tmp_path / "peer_keys.db"))
+        from aitbc_chain.rpc import peer_keys
+
+        issued = peer_keys.issue("joiner.example.net", "10.9.9.9")
+        own = client.get("/rpc/lease/joiner.example.net", headers={"X-API-Key": issued})
+        assert own.status_code != 403
+        other = client.get("/rpc/lease/other-node", headers={"X-API-Key": issued})
+        assert other.status_code == 403
 
 
 class TestExportChainAuth:

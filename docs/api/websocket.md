@@ -35,7 +35,7 @@ curl -X POST https://hub.example.net/rpc/subscribe \
 
 `X-API-Key` must be the node's own RPC key or one of the peer keys listed in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS` environment variable. Without a valid key the subscribe call returns `403`.
 
-Leases are extended with `POST /rpc/heartbeat` (same peer-key auth). The current lease status can be checked with `GET /rpc/lease/{node_id}`.
+Leases are extended with `POST /rpc/heartbeat` (same peer-key auth). The current lease status can be checked with `GET /rpc/lease/{node_id}` — peer-key gated since #1936, same credential (an issued `/rpc/join` key is bound to its own `node_id`). `GET /rpc/subscribers` takes the same peer key.
 
 ### Step 2 — connect and identify
 
