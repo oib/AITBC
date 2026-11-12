@@ -187,10 +187,36 @@ GPU (`:8101`), FFmpeg (`:8230`), whisper, ollama and peertube-pruner blocks were
 removed from the public edge nginx — those services are node-local on GPU
 nodes only.
 
+### Edge topology — all nodes behind an edge host
+
+Every public `*.aitbc.bubuit.net` node name (`node0`, `node1`, `node2`) and
+`gitea.bubuit.net` resolves to a single edge host — `at1`
+(`at1.dynproxy.net`, `80.109.18.113`). TLS terminates there (Let's Encrypt
+`bubuit.net` cert, certbot-managed vhosts in `/etc/nginx/sites-enabled/`); the
+edge nginx then proxies by `server_name` to each node's LAN address
+(`node0` → `10.1.223.93`, `node1` → `10.1.223.40`, `node2` → `10.1.223.136`,
+`gitea` → the local Incus container). Websocket paths `/rpc/subscribe/ws` and
+`/rpc/gossip/ws` get dedicated upgrade-enabled locations with 3600s
+read/send timeouts; `/health` is a separate low-log location; everything else
+falls through to `/` → the node-local nginx, which applies its own vhost,
+auth, and rate limits. The edge sets `Host`, `X-Real-IP`,
+`X-Forwarded-For`, `X-Forwarded-Proto` — node services must therefore derive
+public URLs from configured FQDNs, never from reflected headers (see
+`_join_public_base_url` / the #1875/#1911 hardening).
+
+`hub` and `hub1` are **not** behind this edge — they sit on private Incus
+subnets behind their own TLS edges (`ns2` `152.53.242.245`, `ns3`
+`95.216.198.140`), so their public names resolve to those edge IPs directly.
+Fleet nodes cannot reach each other over SSH; the only host with ssh reach to
+every node is the operator's IDE host (`at1`) via jump aliases — which is also
+why `at1` can serve as the edge.
+
 ### Public surfaces by node kind (post-2026-09-23 dedup)
 
 A node serves one of three surfaces, depending on which services it runs. A node
-may present more than one.
+may present more than one. For `node0`–`node2` the public surface described
+below is what the **edge host forwards to** — the node-local nginx vhost is the
+enforcing layer; the edge only terminates TLS and proxies.
 
 | node kind | live surface |
 |---|---|
