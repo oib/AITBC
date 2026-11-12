@@ -7,7 +7,9 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
+from ....auth import AdminOrClientDep
 from ....storage.db import get_session
+from ....utils.ownership import require_identity_access
 from ..schemas.developer_platform import DeveloperCreate
 from ..services.developer_platform_service import DeveloperPlatformService
 from .common import get_developer_platform_service
@@ -22,8 +24,10 @@ async def register_developer(
     request_http: Request,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
     """Register a new developer profile."""
+    require_identity_access(session, user, request.wallet_address)
 
     try:
         profile = await run_in_threadpool(dev_service.register_developer, request)
@@ -85,8 +89,10 @@ async def update_developer_profile(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     dev_service: Annotated[DeveloperPlatformService, Depends(get_developer_platform_service)],
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
     """Update developer profile."""
+    require_identity_access(session, user, wallet_address)
 
     try:
         profile = await run_in_threadpool(dev_service.update_developer_profile, wallet_address, updates)

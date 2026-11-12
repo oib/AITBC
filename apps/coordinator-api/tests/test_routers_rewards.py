@@ -13,6 +13,12 @@ from __future__ import annotations
 import pytest
 from fastapi.testclient import TestClient
 
+from aitbc.auth import create_access_token
+
+
+def _admin() -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token('admin-a', 'admin')}"}
+
 
 @pytest.mark.unit
 class TestRewardProfileRoutes:
@@ -22,24 +28,24 @@ class TestRewardProfileRoutes:
         assert "agent_id" in resp.json()["detail"]
 
     def test_profile_unknown_agent_is_404(self, client: TestClient) -> None:
-        resp = client.get("/v1/rewards/profile/agent-ghost")
+        resp = client.get("/v1/rewards/profile/agent-ghost", headers=_admin())
         assert resp.status_code == 404
         assert resp.json()["detail"] == "Reward profile not found"
 
     def test_create_then_read_profile(self, client: TestClient) -> None:
-        create = client.post("/v1/rewards/profile/agent-new")
+        create = client.post("/v1/rewards/profile/agent-new", headers=_admin())
         assert create.status_code == 200
         assert create.json()["agent_id"] == "agent-new"
 
-        resp = client.get("/v1/rewards/profile/agent-new")
+        resp = client.get("/v1/rewards/profile/agent-new", headers=_admin())
         assert resp.status_code == 200
         body = resp.json()
         assert body["agent_id"] == "agent-new"
         assert body["current_tier"] == "bronze"
 
     def test_create_is_idempotent_for_existing_agent(self, client: TestClient) -> None:
-        first = client.post("/v1/rewards/profile/agent-dupe")
-        second = client.post("/v1/rewards/profile/agent-dupe")
+        first = client.post("/v1/rewards/profile/agent-dupe", headers=_admin())
+        second = client.post("/v1/rewards/profile/agent-dupe", headers=_admin())
         assert first.status_code == 200
         assert second.status_code == 200
         assert first.json()["agent_id"] == second.json()["agent_id"] == "agent-dupe"

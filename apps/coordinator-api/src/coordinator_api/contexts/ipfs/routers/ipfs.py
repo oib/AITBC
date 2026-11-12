@@ -2,12 +2,17 @@
 
 import logging
 import os
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
+from sqlmodel import Session
+
+from ....auth import AdminOrClientDep
 from ....config import settings
+from ....storage import get_session
+from ....utils.ownership import require_agent_access
 from ..services.ipfs_service import IPFSService
 from ..services.island_ipfs_access import get_member_swarm_key, issue_swarm_key_nonce
 from aitbc.rate_limiting import rate_limit
@@ -104,8 +109,15 @@ def get_ipfs_service() -> IPFSService:
 
 @router.post("/upload")
 @rate_limit(rate=20, per=60)
-async def upload_memory(request: IPFSUploadRequest, *, http_request: Request) -> dict[str, Any]:
+async def upload_memory(
+    request: IPFSUploadRequest,
+    *,
+    http_request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
+) -> dict[str, Any]:
     """Upload agent memory data to IPFS"""
+    require_agent_access(session, user, request.agent_id)
     try:
         service = get_ipfs_service()
         await service.initialize()
@@ -138,7 +150,13 @@ async def upload_memory(request: IPFSUploadRequest, *, http_request: Request) ->
 
 @router.post("/retrieve")
 @rate_limit(rate=60, per=60)
-async def retrieve_memory(request: IPFSRetrieveRequest, *, http_request: Request) -> dict[str, Any]:
+async def retrieve_memory(
+    request: IPFSRetrieveRequest,
+    *,
+    http_request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
+) -> dict[str, Any]:
     """Retrieve memory data from IPFS by CID"""
     try:
         service = get_ipfs_service()
@@ -148,6 +166,8 @@ async def retrieve_memory(request: IPFSRetrieveRequest, *, http_request: Request
             cid=request.cid,
             verify_integrity=request.verify_integrity,
         )
+        # Bind the cid's owning agent before disclosing its contents (#1882).
+        require_agent_access(session, user, metadata.agent_id)
 
         return {
             "success": True,
@@ -173,8 +193,15 @@ async def retrieve_memory(request: IPFSRetrieveRequest, *, http_request: Request
 
 @router.post("/batch-upload")
 @rate_limit(rate=20, per=60)
-async def batch_upload_memories(request: IPFSBatchUploadRequest, *, http_request: Request) -> dict[str, Any]:
+async def batch_upload_memories(
+    request: IPFSBatchUploadRequest,
+    *,
+    http_request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
+) -> dict[str, Any]:
     """Upload multiple memories in batches to IPFS"""
+    require_agent_access(session, user, request.agent_id)
     try:
         service = get_ipfs_service()
         await service.initialize()
@@ -242,9 +269,12 @@ async def create_filecoin_deal(request: IPFSCreateDealRequest, *, http_request: 
 @router.get("/list/{agent_id}")
 async def list_agent_memories(
     agent_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
     limit: int = Query(default=100, ge=1, le=1000),
 ) -> dict[str, Any]:
     """List all memory CIDs for an agent"""
+    require_agent_access(session, user, agent_id)
     try:
         service = get_ipfs_service()
         await service.initialize()
@@ -265,11 +295,22 @@ async def list_agent_memories(
 
 @router.delete("/delete")
 @rate_limit(rate=20, per=60)
-async def delete_memory(request: IPFSDeleteRequest, *, http_request: Request) -> dict[str, Any]:
+async def delete_memory(
+    request: IPFSDeleteRequest,
+    *,
+    http_request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
+) -> dict[str, Any]:
     """Delete/unpin memory from IPFS"""
     try:
         service = get_ipfs_service()
         await service.initialize()
+
+        # The request carries only a cid — resolve its owning agent from the
+        # stored metadata and bind before unpinning (#1882).
+        _, metadata = await service.retrieve_memory(cid=request.cid, verify_integrity=False)
+        require_agent_access(session, user, metadata.agent_id)
 
         success = await service.delete_memory(cid=request.cid)
 
