@@ -86,12 +86,14 @@ def _verify_wallet_signature(wallet_address: str, signature: str, nonce: str) ->
     # verification only runs on login attempts.
     from eth_account import Account
     from eth_account.messages import encode_defunct
+    from eth_keys.exceptions import BadSignature
+    from eth_utils.exceptions import ValidationError
 
     try:
         signable = encode_defunct(text=message)
         sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
         recovered = Account.recover_message(signable, signature=sig_bytes)
-    except _OPS_ERRORS:
+    except _OPS_ERRORS + (BadSignature, ValidationError):
         return False
 
     return bool(recovered.lower() == wallet_address.lower())

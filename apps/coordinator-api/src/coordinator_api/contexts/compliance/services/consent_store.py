@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 
 from aitbc.compliance.consent import ConsentRecord as AITBCConsentRecord
 from aitbc.compliance.consent import ConsentStore
+from aitbc.compliance.errors import InvalidClassificationError
 from aitbc.compliance.policies import DataClassification, normalize_classification
 from sqlmodel import select
 
@@ -31,7 +32,7 @@ class SQLConsentStore(ConsentStore):
         for value in row.meta.get("classifications") or []:
             try:
                 classifications.add(normalize_classification(value))
-            except (ValueError, TypeError):
+            except (InvalidClassificationError, ValueError, TypeError):
                 continue
         return AITBCConsentRecord(
             subject_id=row.subject_id,

@@ -97,6 +97,7 @@ _OPS_ERRORS = (
     Web3Exception,
     InvalidOperation,
     HTTPException,
+    EnergyPricingError,
 )
 
 # P2.1: high-value jobs require a verified ZK receipt proof before escrow release.

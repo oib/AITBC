@@ -41,6 +41,7 @@ _OPS_ERRORS = (
     RuntimeError,
     ImportError,
     SQLAlchemyError,
+    InvalidOperation,
 )
 
 # G3: these keys are server-only; clients must not be able to set them at job
