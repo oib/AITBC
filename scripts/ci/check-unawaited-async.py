@@ -26,6 +26,14 @@ Opt out for a deliberately fire-and-forget or sync receiver:
 Test paths are outside the ratchet's scope in every mode — changed-file
 arguments and the whole-scope scan apply the same filter, so ``--update``
 never writes baseline lines under ``tests/``.
+
+Changed-file mode additionally restricts arguments to ``SCOPE_DIRS`` — the
+same footprint ``--all``/``--update`` cover. A finding outside those dirs
+(e.g. ``scripts/``) can never appear in the baseline, so flagging it is a
+structural false positive: it blocks every push whose file set happens to
+include the path — new-ref pushes hand *every* repo ``.py`` to the hook
+(#1928). Same lesson as the tests/ exclusion above (RATCHET-UNAWAITED-
+TEST-BASELINE-1): file mode must agree with baseline scope.
 """
 
 from __future__ import annotations
@@ -124,6 +132,17 @@ DANGEROUS_VERBS = frozenset(
 
 def _in_scope(p: Path) -> bool:
     return "tests" not in p.parts and "__pycache__" not in p.parts
+
+
+def _in_baseline_scope(p: Path) -> bool:
+    """Changed-file-mode scope: only paths under ``SCOPE_DIRS`` can appear
+    in the baseline, so anything else is unratchetable by construction."""
+    try:
+        rel = p.resolve().relative_to(REPO_ROOT) if p.is_absolute() else p
+    except ValueError:
+        return False
+    rel_s = rel.as_posix()
+    return _in_scope(rel) and any(rel_s.startswith(d + "/") for d in SCOPE_DIRS)
 
 
 def _scan_scope() -> list[Path]:
@@ -245,7 +264,9 @@ def main(argv: list[str]) -> int:
         return _update_baseline()
 
     paths = (
-        _scan_scope() if "--all" in argv or not argv else [Path(a) for a in argv if a.endswith(".py") and _in_scope(Path(a))]
+        _scan_scope()
+        if "--all" in argv or not argv
+        else [Path(a) for a in argv if a.endswith(".py") and _in_baseline_scope(Path(a))]
     )
     baseline = _load_baseline()
     bad, seen = _check(paths)
