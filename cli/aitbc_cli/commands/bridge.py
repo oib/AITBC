@@ -23,9 +23,28 @@ import click
 import httpx
 
 from aitbc.bridge import BridgeClient, BridgeConfig
+from aitbc.exceptions import AITBCError
 
 from ..utils import info, output, warning
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
+
+# Expected failure surface for the bridge command handlers: filesystem/JSON,
+# subprocess, data-shape, runtime, httpx transport/HTTP errors and both error
+# hierarchies. RuntimeError also covers click.Abort raised by abort() inside
+# a try — the handler re-aborts with context, matching the previous
+# except-Exception behaviour. BaseExceptions still propagate (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    subprocess.SubprocessError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 def _canonical_hash(data: dict[str, Any]) -> bytes:
@@ -118,7 +137,7 @@ def _event_bridge_status() -> dict[str, str]:
         resp.raise_for_status()
         data = resp.json()
         return {"status": data.get("status", "unknown"), "bridge_status": "active"}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         return {"status": f"unreachable ({e})", "bridge_status": "inactive"}
 
 
@@ -132,7 +151,7 @@ def _systemctl(action: str) -> tuple[bool, str]:
             timeout=30,
         )
         return result.returncode == 0, (result.stdout + result.stderr).strip()
-    except Exception as e:
+    except _OPS_ERRORS as e:
         return False, str(e)
 
 
@@ -188,7 +207,7 @@ def _resolve_node_chain_id(rpc_url: str) -> str:
         resp = httpx.get(f"{rpc_url.rstrip('/')}/proposer", timeout=5.0)
         resp.raise_for_status()
         chain_id = resp.json().get("chain_id")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         raise click.ClickException(
             f"Could not resolve the node's chain ID from {rpc_url} ({e}); pass --source-chain explicitly"
         ) from e
@@ -308,7 +327,7 @@ def lock(
     try:
         result = asyncio.run(_lock())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Lock")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Bridge lock failed: {e}", from_exception=e)
 
 
@@ -330,7 +349,7 @@ def confirm(ctx, transfer_id, confirmer, signature, confirmer_private_key, proof
     """Confirm and release a cross-chain bridge transfer using a proof file."""
     try:
         proof = json.loads(Path(proof_file).read_text())
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to read proof file: {e}", from_exception=e)
 
     if confirmer_private_key:
@@ -350,7 +369,7 @@ def confirm(ctx, transfer_id, confirmer, signature, confirmer_private_key, proof
     try:
         result = asyncio.run(_confirm())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Confirm")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Bridge confirm failed: {e}", from_exception=e)
 
 
@@ -395,7 +414,7 @@ def unlock(ctx, transfer_id, sender, signature, wallet_name, wallet_password, rp
     try:
         result = asyncio.run(_unlock())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Unlock")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Bridge unlock failed: {e}", from_exception=e)
 
 
@@ -424,7 +443,7 @@ def status(ctx, transfer_id, rpc_url):
     try:
         result = asyncio.run(_status())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Transfer Status")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to get bridge status: {e}", from_exception=e)
 
 
@@ -489,7 +508,7 @@ def pending(ctx, chain_id, rpc_url):
     try:
         result = asyncio.run(_pending())
         output(result, ctx.obj.get("output_format", "table"), title="Pending Bridge Transfers")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to list pending transfers: {e}", from_exception=e)
 
 
@@ -514,7 +533,7 @@ def balance(ctx, chain_id, rpc_url):
     try:
         result = asyncio.run(_balance())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Balance")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to get bridge balance: {e}", from_exception=e)
 
 
@@ -538,7 +557,7 @@ def health(ctx, rpc_url):
     try:
         result = asyncio.run(_health())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Health")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Bridge health check failed: {e}", from_exception=e)
 
 
@@ -563,7 +582,7 @@ def security_status(ctx, rpc_url):
     try:
         result = asyncio.run(_security_status())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Security Status")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to get bridge security status: {e}", from_exception=e)
 
 
@@ -626,7 +645,7 @@ def register_validator(ctx, chain_id, address, public_key, private_key, admin_pr
                 payload["target_node_id"] = info["node_id"]
             if info.get("chain_id"):
                 payload["target_chain_id"] = info["chain_id"]
-        except Exception:  # noqa: BLE001,S110 - optional metadata probe: the unsigned payload still works
+        except _OPS_ERRORS:  # noqa: BLE001,S110 - optional metadata probe: the unsigned payload still works
             pass
         # Admin signature covers the payload excluding admin_signature itself
         sign_payload = {k: v for k, v in payload.items() if k != "admin_signature"}
@@ -652,7 +671,7 @@ def register_validator(ctx, chain_id, address, public_key, private_key, admin_pr
     try:
         result = asyncio.run(_register())
         output(result, ctx.obj.get("output_format", "table"), title="Validator Registration")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Validator registration failed: {e}", from_exception=e)
 
 
@@ -677,7 +696,7 @@ def oracle_status(ctx, rpc_url):
     try:
         result = asyncio.run(_oracle_status())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Oracle Status")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to get bridge oracle status: {e}", from_exception=e)
 
 
@@ -720,7 +739,7 @@ def get_proof(ctx, transfer_id, source_chain, block_height, block_hash, output_p
             ctx.obj.get("output_format", "table"),
             title="Bridge Proof",
         )
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to build bridge proof: {e}", from_exception=e)
 
 
@@ -745,7 +764,7 @@ def sign_proof(ctx, proof_file, private_key, output_path):
     """Sign a bridge proof with one or more validator private keys."""
     try:
         proof = json.loads(Path(proof_file).read_text())
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to read proof file: {e}", from_exception=e)
 
     if not private_key:
@@ -764,7 +783,7 @@ def sign_proof(ctx, proof_file, private_key, output_path):
     out_file = output_path or proof_file
     try:
         Path(out_file).write_text(json.dumps(proof, indent=2, sort_keys=True))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to write signed proof: {e}", from_exception=e)
 
     output(
@@ -791,7 +810,7 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
     """Store a bridge block header on the target node from a signed proof."""
     try:
         proof = json.loads(Path(proof_file).read_text())
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to read proof file: {e}", from_exception=e)
 
     proposer = _derive_address(admin_private_key) if not admin_address else admin_address
@@ -823,7 +842,7 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
             header_data["target_node_id"] = info["node_id"]
         if info.get("chain_id"):
             header_data["target_chain_id"] = info["chain_id"]
-    except Exception:  # noqa: BLE001,S110 - optional metadata probe: the unsigned payload still works
+    except _OPS_ERRORS:  # noqa: BLE001,S110 - optional metadata probe: the unsigned payload still works
         pass
     # Admin signature over the request payload, excluding admin_signature itself
     admin_signature = _sign_dict(admin_private_key, header_data)
@@ -837,7 +856,7 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
     try:
         result = asyncio.run(_store())
         output(result, ctx.obj.get("output_format", "table"), title="Stored Block Header")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to store block header: {e}", from_exception=e)
 
 
@@ -885,7 +904,7 @@ def ingest_header(ctx, source_rpc, target_rpc, height, chain_id, re_sign, privat
     try:
         result = asyncio.run(_ingest())
         output(result, ctx.obj.get("output_format", "table"), title="Ingested Block Header")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to ingest block header: {e}", from_exception=e)
 
 
@@ -946,7 +965,7 @@ def attest(ctx, header_file, source_rpc, height, chain_id, private_key, proposer
     try:
         result = asyncio.run(_attest())
         output(result, ctx.obj.get("output_format", "table"), title="Attested Block Header")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to attest block header: {e}", from_exception=e)
 
 

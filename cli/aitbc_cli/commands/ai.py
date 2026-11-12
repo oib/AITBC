@@ -16,6 +16,7 @@ from aitbc.compliance.policies import (
     load_policy_template,
     normalize_classification,
 )
+from aitbc.exceptions import AITBCError
 
 from ..config import get_config
 from ..utils import output, resolve_output_format, success, warning
@@ -37,6 +38,22 @@ from ..utils.wallet_loader import load_wallet_for_payment
 from ..utils.wallet_secret import wallet_password_options
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the AI job helpers/handlers: filesystem/JSON,
+# data-shape, runtime and both error hierarchies (CLIError, aitbc_errors).
+# RuntimeError also covers click.Abort raised by abort() inside a try — the
+# handler re-aborts with context, matching the previous except-Exception
+# behaviour. BaseExceptions still propagate (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    CLIError,
+    AITBCError,
+)
 
 _TERMINAL_STATES = {"COMPLETED", "FAILED", "CANCELED", "EXPIRED"}
 
@@ -161,7 +178,7 @@ def _media_url(input_url: str, http_client: AITBCHTTPClient | None = None) -> tu
         response.raise_for_status()
         result = response.json()
         return result.get("download_url", ""), result.get("filename", filename)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Media upload failed for %s: %s", path, e)
         with open(path, "rb") as f:
             encoded = base64.b64encode(f.read()).decode("ascii")
@@ -248,7 +265,7 @@ def _try_auto_accept(http_client: AITBCHTTPClient, job_id: str, accept_key: str)
             logger.warning("Transient error accepting job %s (will retry): %s", job_id, e)
             return False
         logger.warning("Could not auto-accept job %s: %s", job_id, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Could not auto-accept job %s: %s", job_id, e)
     return True
 
@@ -315,8 +332,8 @@ def _completed_job_payload(
             escrow_tx_hash = payment.get("transaction_hash")
         except NetworkError as e:
             logger.warning("Could not fetch payment for %s: %s", job_id, e)
-        except Exception:
-            pass
+        except _OPS_ERRORS:
+            logger.debug("Could not fetch payment for %s", job_id, exc_info=True)
 
     completed_at: str | None = None
     if isinstance((result_data or {}).get("receipt"), dict):
@@ -400,7 +417,7 @@ def _wait_for_job(
                 f"/v1/jobs/{job_id}/cancel",
                 idempotency_key=_new_idempotency_key(f"ai-cancel-{job_id}"),
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Could not cancel job %s after interrupt: %s", job_id, e)
         abort(ctx, f"Wait for job {job_id} cancelled by user")
 
@@ -896,7 +913,7 @@ def submit(
     except NetworkError as e:
         detail = http_error_detail(e)
         abort(ctx, f"Network error: {detail or e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error submitting job: {e}", from_exception=e)
 
 
@@ -1044,7 +1061,7 @@ def pay(
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error paying for job: {e}", from_exception=e)
 
 
@@ -1080,7 +1097,7 @@ def jobs(ctx, limit, status, coordinator_url, format):
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error listing jobs: {e}", from_exception=e)
 
 
@@ -1115,7 +1132,7 @@ def status(ctx, job_id, coordinator_url, format):
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting job status: {e}", from_exception=e)
 
 
@@ -1152,7 +1169,7 @@ def accept(ctx, job_id, coordinator_url, format):
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error accepting job: {e}", from_exception=e)
 
 
@@ -1197,7 +1214,7 @@ def refund(ctx, job_id, reason, coordinator_url):
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error refunding job: {e}", from_exception=e)
 
 
@@ -1225,7 +1242,7 @@ def _sweep_job(http_client: AITBCHTTPClient, job: dict[str, Any], reason: str, d
     except NetworkError as e:
         counts["failed"] += 1
         warning(f"Failed to refund payment {payment_id} for job {job_id}: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         counts["failed"] += 1
         warning(f"Failed to refund payment {payment_id} for job {job_id}: {e}")
 
@@ -1270,7 +1287,7 @@ def refund_sweep(ctx, limit, reason, dry_run, coordinator_url, format):
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error running refund sweep: {e}", from_exception=e)
 
 
@@ -1313,7 +1330,7 @@ def list(ctx, coordinator_url, format):
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error listing services: {e}", from_exception=e)
 
 
@@ -1348,7 +1365,7 @@ def service_status(ctx, name, coordinator_url, format):
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting service status: {e}", from_exception=e)
 
 
@@ -1384,7 +1401,7 @@ def test(ctx, name, coordinator_url, format):
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error testing service: {e}", from_exception=e)
 
 
@@ -1419,7 +1436,7 @@ def results(ctx, job_id, coordinator_url, format):
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting job results: {e}", from_exception=e)
 
 
@@ -1436,7 +1453,7 @@ def _refund_after_cancel(ctx, http_client: AITBCHTTPClient, result, job_id: str,
                 f"/v1/payments/{payment_id}/refund",
                 json={"job_id": job_id, "payment_id": payment_id, "reason": reason},
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Coordinator refund after cancel failed: %s", e)
     if not refund_result:
         # Fallback to on-chain escrow refund.
@@ -1490,7 +1507,7 @@ def cancel(ctx, job_id, wallet, password, password_file, password_stdin, refund,
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error cancelling job: {e}", from_exception=e)
 
 
@@ -1521,7 +1538,7 @@ def stats(ctx, coordinator_url, format):
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting statistics: {e}", from_exception=e)
 
 
@@ -1562,5 +1579,5 @@ def distribution_stats(ctx, coordinator_url, format):
 
     except NetworkError as e:
         _abort_for_network(ctx, e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting distribution statistics: {e}", from_exception=e)

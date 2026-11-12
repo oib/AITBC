@@ -17,11 +17,29 @@ These commands talk to the trading service REST API (port 8104).
 
 import click
 
+from aitbc.exceptions import AITBCError
+
 from ..utils import output, resolve_output_format
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the trading-service command handlers:
+# filesystem/JSON, data-shape, runtime and both error hierarchies.
+# RuntimeError also covers click.Abort raised by abort() inside a try — the
+# handler re-aborts with context, matching the previous except-Exception
+# behaviour. BaseExceptions still propagate (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    CLIError,
+    AITBCError,
+)
 
 TRADING_SERVICE_URL = "http://localhost:8104"
 
@@ -106,7 +124,7 @@ def create(ctx, source_chain, dest_chain, sender, recipient, amount, offer_id, p
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error creating trade: {e}")
 
 
@@ -140,7 +158,7 @@ def list(ctx, status, source_chain, dest_chain, limit, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error listing trades: {e}")
 
 
@@ -161,7 +179,7 @@ def chains(ctx, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error listing chains: {e}")
 
 
@@ -183,7 +201,7 @@ def get(ctx, trade_id, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting trade: {e}")
 
 
@@ -205,7 +223,7 @@ def status(ctx, trade_id, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting trade status: {e}")
 
 
@@ -229,7 +247,7 @@ def register_chain(ctx, chain_id, endpoint, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error registering chain: {e}")
 
 
@@ -251,7 +269,7 @@ def health(ctx, chain_id, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error checking chain health: {e}")
 
 
@@ -280,7 +298,7 @@ def history(ctx, source_chain, dest_chain, limit, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting trade history: {e}")
 
 
@@ -302,7 +320,7 @@ def match(ctx, trade_id, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error matching trade: {e}")
 
 
@@ -323,7 +341,7 @@ def match_all(ctx, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error matching trades: {e}")
 
 
@@ -372,7 +390,7 @@ def discover(ctx, source_chain, dest_chain, service_type, min_price, max_price, 
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error discovering offers: {e}")
 
 
@@ -401,7 +419,7 @@ def sync(ctx, chain_id, service_type, force, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error syncing offers: {e}")
 
 
@@ -423,7 +441,7 @@ def sync_status(ctx, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting sync status: {e}")
 
 
@@ -489,7 +507,7 @@ def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, 
         asyncio.run(_watch())
     except KeyboardInterrupt:
         click.echo("Stopped watching")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error watching offers: {e}")
 
 
@@ -511,7 +529,7 @@ def subscription_status(ctx, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting subscription status: {e}")
 
 
@@ -547,7 +565,7 @@ def search(ctx, query, chain_id, service_type, min_price, max_price, limit, form
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error searching offers: {e}")
 
 
@@ -615,7 +633,7 @@ def lock_escrow_cmd(ctx, trade_id, node_url, api_key, timeout, format):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error locking escrow: {e}")
 
 
@@ -660,7 +678,7 @@ def settle_cmd(ctx, trade_id, secret, node_url, api_key, format):
             output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error settling trade: {e}")
 
 
@@ -714,7 +732,7 @@ def settlement_status_cmd(ctx, trade_id, node_url, api_key, format):
             output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting settlement status: {e}")
 
 
@@ -755,7 +773,7 @@ def refund_cmd(ctx, trade_id, node_url, api_key, format):
             output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error refunding trade: {e}")
 
 

@@ -16,6 +16,7 @@ except ImportError:
     AITBCAgent = None
 
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.exceptions import AITBCError
 from aitbc.utils.validation import validate_address
 
 from ..config import get_config
@@ -26,6 +27,25 @@ from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the agent config/SDK/HTTP helpers below:
+# filesystem + JSON decode (OSError/ValueError cover requests' IOError-based
+# RequestException too), data-shape errors, SDK/runtime failures, and both
+# error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError also
+# covers click.Abort raised by abort() inside a try — the handler re-aborts
+# with context, matching the previous except-Exception behaviour. Genuine
+# BaseExceptions (KeyboardInterrupt, SystemExit, asyncio.CancelledError)
+# still propagate (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    CLIError,
+    AITBCError,
+)
 
 
 def get_agent_config_dir() -> Path:
@@ -123,7 +143,7 @@ def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url
             "capabilities": capabilities,
             "config_file": str(config_file),
         }
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
@@ -162,7 +182,7 @@ async def register_agent(
                 if data.get("agent_id") == agent_id:
                     agent_file = f
                     break
-            except Exception:
+            except _OPS_ERRORS:
                 continue
 
         if not agent_file:
@@ -221,7 +241,7 @@ async def register_agent(
     except NetworkError as e:
         logger.warning("Agent SDK registration failed: %s", e)
         return {"error": f"Failed to register agent with coordinator: {e}"}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
@@ -233,7 +253,7 @@ def get_agent_capabilities() -> dict[str, Any]:
 
     try:
         return ComputeProvider.assess_capabilities()  # type: ignore[no-any-return]
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
@@ -250,7 +270,7 @@ def list_local_agents(agent_dir: Path | None = None) -> list[dict[str, Any]]:
                 with open(agent_file) as f:
                     agent_data = json.load(f)
                 agents.append({"name": agent_file.stem, "file": str(agent_file), **agent_data})
-            except Exception:
+            except _OPS_ERRORS:
                 logger.debug("Failed to load agent config %s", agent_file, exc_info=True)
                 pass
 
@@ -289,7 +309,7 @@ def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None
         client = AITBCHTTPClient(base_url=resolve_coordinator_url(coordinator_url), timeout=2)
         client.get("/v1/tasks/status")
         return True
-    except Exception:
+    except _OPS_ERRORS:
         if ctx is not None:
             abort(
                 ctx,
@@ -331,7 +351,7 @@ def get_agent_status(agent_id: str, coordinator_url: str | None = None) -> dict:
             "last_seen": "N/A",
             "message": message,
         }
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.debug("Could not fetch agent status from coordinator: %s", e)
         return {
             "agent_id": agent_id,
@@ -367,7 +387,7 @@ def set_agent_config(name: str, key: str, value: str) -> dict:
             json.dump(config, f, indent=2)
 
         return {"success": True, "name": name, "key": key, "value": parsed_value}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
@@ -390,7 +410,7 @@ def get_agent_config(name: str, key: str | None = None) -> dict:
             return {"success": True, "name": name, "key": key, "value": config[key]}
         else:
             return {"success": True, "name": name, "config": config}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
@@ -420,7 +440,7 @@ def validate_agent_config(name: str) -> dict:
             return {"valid": False, "error": "Missing compute_type in capabilities"}
 
         return {"valid": True, "name": name, "message": "Configuration is valid"}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Agent config validation failed: %s", e, exc_info=True)
         return {"valid": False, "error": str(e)}
 
@@ -447,7 +467,7 @@ def import_agent_config(file_path: str, name: str | None = None) -> dict:
             json.dump(config, f, indent=2)
 
         return {"success": True, "name": agent_name, "config_file": str(config_file), "imported_from": file_path}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
@@ -471,7 +491,7 @@ def export_agent_config(name: str, output_path: str) -> dict:
             json.dump(config, f, indent=2)
 
         return {"success": True, "name": name, "exported_to": output_path}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
 
@@ -576,7 +596,7 @@ try:
 
             output(agent_data, resolve_output_format(ctx, format), title="Agent Created")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error creating agent: {str(e)}", from_exception=e)
 
     @agent.command(
@@ -623,7 +643,7 @@ try:
 
             output(reg_data, resolve_output_format(ctx, format), title="Agent Registration")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error registering agent: {str(e)}", from_exception=e)
 
     @agent.command(
@@ -694,7 +714,7 @@ try:
 
         except (CLIError, click.Abort):
             raise
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error registering identity: {str(e)}", from_exception=e)
 
     @agent.command(
@@ -729,7 +749,7 @@ try:
 
         except (CLIError, click.Abort):
             raise
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error getting identity: {str(e)}", from_exception=e)
 
     @agent.command(
@@ -766,7 +786,7 @@ try:
 
         except (CLIError, click.Abort):
             raise
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error verifying identity: {str(e)}", from_exception=e)
 
     @agent.command(
@@ -805,7 +825,7 @@ try:
 
             output(agent_list, resolve_output_format(ctx, format), title="Local Agents")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error listing agents: {str(e)}", from_exception=e)
 
     @agent.command(
@@ -836,7 +856,7 @@ try:
 
             output(status_list, resolve_output_format(ctx, format), title=f"Agent Status: {agent_id}")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error getting agent status: {str(e)}", from_exception=e)
 
     @agent.command(
@@ -867,7 +887,7 @@ try:
 
             output(caps_list, resolve_output_format(ctx, format), title="System Capabilities")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error detecting capabilities: {str(e)}", from_exception=e)
 
     @agent.command(
@@ -891,7 +911,7 @@ try:
 
             success(f"Configuration set: {name}.{key} = {result['value']}")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error setting configuration: {str(e)}", from_exception=e)
 
     @agent.command(
@@ -923,7 +943,7 @@ try:
             else:
                 output(result["config"], resolve_output_format(ctx, format), title=f"Agent Config: {name}")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error getting configuration: {str(e)}", from_exception=e)
 
     @agent.command(
@@ -945,7 +965,7 @@ try:
             else:
                 abort(ctx, f"Configuration validation failed: {result.get('error')}")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error validating configuration: {str(e)}", from_exception=e)
 
     @agent.command(
@@ -968,7 +988,7 @@ try:
 
             success(f"Configuration imported: {result['name']} -> {result['config_file']}")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error importing configuration: {str(e)}", from_exception=e)
 
     @agent.command(
@@ -991,7 +1011,7 @@ try:
 
             success(f"Configuration exported: {name} -> {result['exported_to']}")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error exporting configuration: {str(e)}", from_exception=e)
 
     @agent.group(
@@ -1060,7 +1080,7 @@ try:
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error discovering agents: {e}", from_exception=e)
 
     @agent.command(
@@ -1106,7 +1126,7 @@ try:
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error getting inbox: {e}", from_exception=e)
 
     @agent.command(
@@ -1155,7 +1175,7 @@ try:
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error subscribing to topic: {e}", from_exception=e)
 
     @agent.group(
@@ -1204,7 +1224,7 @@ try:
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error creating workflow: {e}", from_exception=e)
 
     @workflow.command(
@@ -1245,7 +1265,7 @@ try:
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error executing workflow: {e}", from_exception=e)
 
     @workflow.command(
@@ -1272,7 +1292,7 @@ try:
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error getting workflow status: {e}", from_exception=e)
 
     @workflow.command(
@@ -1298,7 +1318,7 @@ try:
         except requests.exceptions.RequestException as e:
             error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
             abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error listing workflows: {e}", from_exception=e)
 
 except ImportError:
