@@ -7,14 +7,18 @@ coordinator integration fields.
 """
 
 from __future__ import annotations
+
+import logging
 import os
 
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from aitbc_shared.core.config import ServiceSettings
 
-from pydantic import AliasChoices, Field
+from pydantic import AliasChoices, Field, model_validator
 from pydantic_settings import SettingsConfigDict
+
+logger = logging.getLogger(__name__)
 
 
 class Settings(ServiceSettings):
@@ -67,6 +71,19 @@ class Settings(ServiceSettings):
         default=8102,
         validation_alias=AliasChoices("MARKET_BIND_PORT"),
     )
+
+    @model_validator(mode="after")
+    def _check_operator_key_distinct(self) -> Settings:
+        """#1906: an operator key equal to the user key silently collapses the
+        tiers — ``_is_operator`` fails closed at runtime, so every operator
+        action is refused with no explanation. Warn loudly at startup."""
+        if self.operator_api_key is not None and self.api_key is not None and self.operator_api_key == self.api_key:
+            logger.warning(
+                "MARKET_OPERATOR_API_KEY equals API_KEY — the operator tier is "
+                "disabled (all operator actions will 403). Set a distinct "
+                "MARKET_OPERATOR_API_KEY."
+            )
+        return self
 
 
 settings = Settings()
