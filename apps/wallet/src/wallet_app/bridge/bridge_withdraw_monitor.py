@@ -14,6 +14,7 @@ import json
 import math
 import os
 import sqlite3
+from collections.abc import Collection
 from wallet_app.utc_time import parse_stored, utc_now
 from decimal import Decimal, InvalidOperation
 from typing import Any, cast
@@ -423,17 +424,39 @@ async def _submit_bridge_refund(recipient: str, amount_ait: Decimal) -> str:
         return tx_hash
 
 
-async def _refund_withdrawal(ait_tx_hash: str, user: str, gross_ait: Decimal, reason: str) -> None:
-    """Issue the AIT refund and update the withdrawal record."""
+async def _refund_withdrawal(
+    ait_tx_hash: str,
+    user: str,
+    gross_ait: Decimal,
+    reason: str,
+    *,
+    expected_statuses: Collection[str] | None = None,
+) -> None:
+    """Issue the AIT refund and update the withdrawal record.
+
+    ``expected_statuses`` is the CAS predicate (#1918): the status the row
+    held when this pass read it — a row another writer already moved must
+    not be flipped to refunded/failed by a stale pass."""
     try:
         refund_tx_hash = await _submit_bridge_refund(user, gross_ait)
-        update_withdrawal_status(ait_tx_hash, "refunded", refund_tx_hash=refund_tx_hash, error=reason)
-        logger.info(
-            "Refunded %s AIT to %s for failed withdrawal %s (refund tx: %s)", gross_ait, user, ait_tx_hash, refund_tx_hash
-        )
+        if update_withdrawal_status(
+            ait_tx_hash, "refunded", refund_tx_hash=refund_tx_hash, error=reason, expected_statuses=expected_statuses
+        ):
+            logger.info(
+                "Refunded %s AIT to %s for failed withdrawal %s (refund tx: %s)", gross_ait, user, ait_tx_hash, refund_tx_hash
+            )
+        else:
+            logger.warning(
+                "Withdrawal %s refund broadcast (%s) but status write lost CAS — row moved on",
+                ait_tx_hash,
+                refund_tx_hash,
+            )
     except _OPS_ERRORS as e:
         logger.error("Failed to refund withdrawal %s: %s", ait_tx_hash, e)
-        update_withdrawal_status(ait_tx_hash, "failed", error=f"refund failed: {e}")
+        if not update_withdrawal_status(
+            ait_tx_hash, "failed", error=f"refund failed: {e}", expected_statuses=expected_statuses
+        ):
+            logger.warning("Withdrawal %s 'failed' write lost CAS — row moved on", ait_tx_hash)
 
 
 _STATUS_PERSIST_ATTEMPTS = 3
@@ -448,12 +471,14 @@ async def _update_status_with_retry(
     refund_tx_hash: str | None = None,
     release_nonce: int | None = None,
     error: str | None = None,
+    expected_statuses: Collection[str] | None = None,
 ) -> bool:
     """Persist a withdrawal status, retrying transient DB errors.
 
     A status write that fails after an ETH send must never be allowed to
     fall through to a refund path: the caller either persists or raises,
     and the caller's except branch verifies on-chain before doing anything.
+    ``expected_statuses`` is the CAS predicate (#1918) — forwarded verbatim.
     """
     last_exc: Exception | None = None
     for attempt in range(_STATUS_PERSIST_ATTEMPTS):
@@ -465,6 +490,7 @@ async def _update_status_with_retry(
                 refund_tx_hash=refund_tx_hash,
                 error=error,
                 release_nonce=release_nonce,
+                expected_statuses=expected_statuses,
             )
         except Exception as e:  # noqa: BLE001 - persist retry — any store failure alike
             last_exc = e
@@ -489,6 +515,7 @@ async def _release_eth_for_withdrawal(
     *,
     intent_status: str = "releasing",
     nonce: int | None = None,
+    expected_statuses: Collection[str] | None = None,
 ) -> str:
     """Send the ETH release transaction and return the Ethereum tx hash.
 
@@ -527,7 +554,18 @@ async def _release_eth_for_withdrawal(
 
         # Persist intent BEFORE broadcast: a crash after this line leaves
         # evidence (nonce + deterministic hash) the resume check can verify.
-        await _update_status_with_retry(ait_tx_hash, intent_status, eth_tx_hash=eth_tx_hash, release_nonce=nonce)
+        persisted = await _update_status_with_retry(
+            ait_tx_hash,
+            intent_status,
+            eth_tx_hash=eth_tx_hash,
+            release_nonce=nonce,
+            expected_statuses=expected_statuses,
+        )
+        if not persisted:
+            # CAS lost (#1918): the row moved on since the caller read it —
+            # broadcasting now would pay a state nobody owns. Raise so the
+            # caller's failure path (which verifies on-chain first) owns it.
+            raise RuntimeError(f"withdrawal {ait_tx_hash} status write lost CAS — row moved on; release not broadcast")
 
         sent = await _broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
@@ -575,7 +613,8 @@ async def _record_rejected_withdrawal(
     )
     logger.error("Withdrawal %s rejected: %s", ait_tx_hash, reason)
     if gross_ait >= _REFUND_FEE_AIT:
-        await _refund_withdrawal(ait_tx_hash, sender, gross_ait, reason)
+        # The row was just inserted 'rejected' — CAS on that observed status.
+        await _refund_withdrawal(ait_tx_hash, sender, gross_ait, reason, expected_statuses={"rejected"})
 
 
 def tx_sealed_confirmed(tx: dict[str, Any]) -> bool:
@@ -790,7 +829,8 @@ async def _price_record_and_release(
     )
 
     try:
-        await _release_eth_for_withdrawal(withdrawal_id, ait_tx_hash, eth_address, amount_eth)
+        # insert_withdrawal wrote 'pending' — the release intent CASes on it.
+        await _release_eth_for_withdrawal(withdrawal_id, ait_tx_hash, eth_address, amount_eth, expected_statuses={"pending"})
         return "released"
     except _OPS_ERRORS as e:
         logger.error("ETH release failed for withdrawal %s: %s", ait_tx_hash, e)
@@ -956,6 +996,11 @@ async def _resolve_release_failure(ait_tx_hash: str, sender: str, gross_ait: Dec
     'not_sent' -> proven never released; mark failed and refund the AIT.
     'unknown' -> do not refund; mark needs_review for the operator.
     """
+    # The prior status is genuinely ambiguous here (the release-intent write
+    # may or may not have landed before the failure) — re-read the row and
+    # CAS every transition on what it holds now (#1918).
+    row = get_withdrawal_by_ait_tx_hash(ait_tx_hash)
+    expected = {row["status"]} if row else None
     outcome = await _verify_release_outcome(ait_tx_hash)
     if outcome == "sent":
         logger.warning(
@@ -964,19 +1009,27 @@ async def _resolve_release_failure(ait_tx_hash: str, sender: str, gross_ait: Dec
             exc,
         )
         try:
-            await _update_status_with_retry(ait_tx_hash, "completed")
+            await _update_status_with_retry(ait_tx_hash, "completed", expected_statuses=expected)
         except Exception as persist_err:  # noqa: BLE001 - persist best-effort inside the confirmed-error path
             logger.error("Could not persist completion for %s: %s", ait_tx_hash, persist_err)
     elif outcome == "not_sent":
-        update_withdrawal_status(ait_tx_hash, "failed", error=str(exc))
+        failed = update_withdrawal_status(ait_tx_hash, "failed", error=str(exc), expected_statuses=expected)
+        if not failed:
+            # CAS lost (#1918): the row moved on — do not broadcast a refund
+            # for a state another writer already owns.
+            logger.warning("Withdrawal %s 'failed' write lost CAS — row moved on; refund not sent", ait_tx_hash)
+            return
         # Refund the AIT so the user is not left with a burned balance.
-        await _refund_withdrawal(ait_tx_hash, sender, gross_ait, str(exc))
+        await _refund_withdrawal(ait_tx_hash, sender, gross_ait, str(exc), expected_statuses={"failed"})
     else:
-        update_withdrawal_status(
+        if not update_withdrawal_status(
             ait_tx_hash,
             "needs_review",
             error=f"release outcome unverifiable: {exc}",
-        )
+            expected_statuses=expected,
+        ):
+            logger.warning("Withdrawal %s 'needs_review' write lost CAS — row moved on", ait_tx_hash)
+            return
         logger.error(
             "Withdrawal %s marked needs_review — ETH release outcome unverifiable: %s",
             ait_tx_hash,
@@ -997,7 +1050,7 @@ async def _resume_unfinished_releases() -> dict[str, int]:
         try:
             outcome, reason = await _verify_release_outcome_detail(row["ait_tx_hash"])
             if outcome == "sent":
-                await _update_status_with_retry(row["ait_tx_hash"], "completed")
+                await _update_status_with_retry(row["ait_tx_hash"], "completed", expected_statuses={row["status"]})
                 resolved["completed"] += 1
                 logger.info("Resumed withdrawal %s: ETH release confirmed on chain", row["ait_tx_hash"])
             elif outcome == "not_sent":
@@ -1009,6 +1062,7 @@ async def _resume_unfinished_releases() -> dict[str, int]:
                         row["ait_tx_hash"],
                         "needs_review_release",
                         error="release retry reverted or never landed — operator decision required",
+                        expected_statuses={row["status"]},
                     )
                     resolved["parked"] += 1
                     logger.error(
@@ -1016,12 +1070,28 @@ async def _resume_unfinished_releases() -> dict[str, int]:
                         row["ait_tx_hash"],
                     )
                 else:
-                    update_withdrawal_status(row["ait_tx_hash"], "failed", error="release never reached the chain")
+                    failed = update_withdrawal_status(
+                        row["ait_tx_hash"],
+                        "failed",
+                        error="release never reached the chain",
+                        expected_statuses={row["status"]},
+                    )
+                    if not failed:
+                        # CAS lost (#1918): the row moved on — no refund for
+                        # a state another writer already owns.
+                        logger.warning(
+                            "Withdrawal %s 'failed' write lost CAS (was %s) — row moved on; refund not sent",
+                            row["ait_tx_hash"],
+                            row["status"],
+                        )
+                        resolved["still_open"] += 1
+                        continue
                     await _refund_withdrawal(
                         row["ait_tx_hash"],
                         row["from_address"],
                         Decimal(str(row["amount_ait"])),
                         "release never reached the chain",
+                        expected_statuses={"failed"},
                     )
                     resolved["failed"] += 1
             else:
@@ -1115,6 +1185,7 @@ async def _drain_awaiting_depth(head_height: int) -> dict[str, int]:
                     ait_tx_hash,
                     "orphaned",
                     error="withdraw tx no longer sealed in the canonical chain — the reorg un-burned the AIT",
+                    expected_statuses={row["status"]},
                 )
                 drained["orphaned"] += 1
                 logger.error("Withdrawal %s orphaned — its block left the canonical chain", ait_tx_hash)
@@ -1125,6 +1196,7 @@ async def _drain_awaiting_depth(head_height: int) -> dict[str, int]:
                     ait_tx_hash,
                     "orphaned",
                     error=f"canonical AIT leg status {canonical.get('status')!r} — the burn never applied",
+                    expected_statuses={row["status"]},
                 )
                 drained["orphaned"] += 1
                 logger.error("Withdrawal %s orphaned — canonical status %r", ait_tx_hash, canonical.get("status"))
@@ -1165,12 +1237,23 @@ async def _drain_awaiting_depth(head_height: int) -> dict[str, int]:
                 amount_eth=amount_eth,
             )
             # update_withdrawal_status COALESCEs error — clear it with "".
-            update_withdrawal_status(
+            # The row was 'awaiting_depth' at read; the release intent then
+            # CASes on the 'pending' this write just recorded (#1918).
+            pending = update_withdrawal_status(
                 ait_tx_hash,
                 "pending",
                 error="",
+                expected_statuses={row["status"]},
             )
-            await _release_eth_for_withdrawal(row["id"], ait_tx_hash, row["eth_address"], amount_eth)
+            if not pending:
+                # CAS lost — the row moved on since the snapshot; releasing
+                # now would pay a state nobody owns.
+                logger.warning("Withdrawal %s 'pending' write lost CAS — row moved on; release skipped", ait_tx_hash)
+                drained["still_waiting"] += 1
+                continue
+            await _release_eth_for_withdrawal(
+                row["id"], ait_tx_hash, row["eth_address"], amount_eth, expected_statuses={"pending"}
+            )
             drained["released"] += 1
         except _OPS_ERRORS as e:
             drained["still_waiting"] += 1

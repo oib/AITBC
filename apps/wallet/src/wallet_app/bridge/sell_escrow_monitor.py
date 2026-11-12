@@ -735,6 +735,7 @@ async def _escrow_sweep(
             row["ait_tx_hash"],
             fee_park_status,
             error=f"{reason}{_FEE_FLOAT_DEFICIT_MARK} {deficit} AIT (need {required} AIT, have {balance})",
+            expected_statuses={row["status"]},
         )
         warn_key = (str(row["ait_tx_hash"]), str(deficit), fee_park_status)
         if warn_key not in _fee_float_warned:
@@ -751,9 +752,22 @@ async def _escrow_sweep(
 
     payload_extra = {"sell_ref": row["ait_tx_hash"], "reason": reason}
     signed_tx = await _sign_escrow_transfer(cfg, to_address, amount_ait, payload_extra, nonce)
-    await _update_lock_status_with_retry(
-        row["ait_tx_hash"], intent_status, escrow_out_nonce=nonce, escrow_out_tx=json.dumps(signed_tx)
+    persisted = await _update_lock_status_with_retry(
+        row["ait_tx_hash"],
+        intent_status,
+        escrow_out_nonce=nonce,
+        escrow_out_tx=json.dumps(signed_tx),
+        expected_statuses={row["status"]},
     )
+    if not persisted:
+        # CAS lost (#1918): the row moved on since the snapshot — broadcasting
+        # now would send an outflow no ledger state owns.
+        logger.warning(
+            "Sell lock %s: sweep intent write lost CAS (was %s) — row moved on; not broadcasting",
+            row["ait_tx_hash"],
+            row["status"],
+        )
+        return "deferred"
     tx_hash = await _broadcast_ait_tx(signed_tx)
     logger.info(
         "Sell lock %s: escrow sweep %s broadcast (%s AIT -> %s, nonce %d, tx %s) — awaiting seal",
@@ -781,7 +795,12 @@ async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
     nonce = row.get("escrow_out_nonce")
     if nonce is None:
         # Intent persisted but nonce missing — undecidable, needs a human.
-        update_sell_lock_status(row["ait_tx_hash"], "needs_review_sweep", error="escrow sweep nonce missing")
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "needs_review_sweep",
+            error="escrow sweep nonce missing",
+            expected_statuses={row["status"]},
+        )
         return
     final_status = "settled" if row["status"] == "settling" else "refunded"
     hash_field = "settle_tx_hash" if final_status == "settled" else "refund_tx_hash"
@@ -789,7 +808,10 @@ async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
     outflow = await _find_escrow_outflow(cfg, int(nonce), to_address, amount_units, sell_ref)
     if outflow is not None:
         await _update_lock_status_with_retry(
-            row["ait_tx_hash"], final_status, **{hash_field: outflow.get("tx_hash") or outflow.get("hash")}
+            row["ait_tx_hash"],
+            final_status,
+            **{hash_field: outflow.get("tx_hash") or outflow.get("hash")},
+            expected_statuses={row["status"]},
         )
         logger.info("Sell lock %s: %s sealed at escrow nonce %d", row["ait_tx_hash"], final_status, nonce)
         return
@@ -801,6 +823,7 @@ async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
             row["ait_tx_hash"],
             "needs_review_sweep",
             error=f"escrow nonce {nonce} consumed by an unmatched transaction",
+            expected_statuses={row["status"]},
         )
         logger.error(
             "Sell lock %s: escrow nonce %d sealed to an unmatched tx — needs review",
@@ -813,7 +836,12 @@ async def _resolve_escrow_sweep(cfg: SellConfig, row: dict[str, Any]) -> None:
     # nonce — a fresh signature could double-pay, this cannot.
     stored = row.get("escrow_out_tx")
     if not stored:
-        update_sell_lock_status(row["ait_tx_hash"], "needs_review_sweep", error="escrow sweep blob missing")
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "needs_review_sweep",
+            error="escrow sweep blob missing",
+            expected_statuses={row["status"]},
+        )
         return
     signed_tx = json.loads(stored)
     tx_hash = await _broadcast_ait_tx(signed_tx)
@@ -882,6 +910,12 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
     if not wdm._is_valid_eth_address(eth_address):
         raise RuntimeError(f"Sell lock {row['ait_tx_hash']} has no valid shop ETH address")
 
+    # CAS predicate (#1918): the caller's snapshot may be stale (a sibling
+    # write in this pass, or a fabricated status-patched row) — predicate
+    # on the status the ledger holds right now.
+    fresh = get_sell_lock_by_ait_tx_hash(row["ait_tx_hash"])
+    prior_status = str(fresh["status"]) if fresh else str(row["status"])
+
     gas_price = await wdm._eth_gas_price()
     gas_limit = await wdm._release_gas_limit(eth_address, amount_eth)
     gas_cost = Decimal(gas_price * gas_limit) / Decimal(10**18)
@@ -896,6 +930,7 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
             row["ait_tx_hash"],
             "queued_reserve",
             error=f"{amount_eth} ETH exceeds BRIDGE_MAX_PAYOUT_FRACTION={cfg.max_payout_fraction} of float {balance}",
+            expected_statuses={prior_status},
         )
         return
     if available - required < cfg.min_reserve_eth:
@@ -904,6 +939,7 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
             row["ait_tx_hash"],
             "queued_reserve",
             error=f"deficit {deficit} ETH — need {required} + {cfg.min_reserve_eth} reserve, have {available}",
+            expected_statuses={prior_status},
         )
         return
 
@@ -917,7 +953,22 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
         nonce = await wdm._eth_nonce(wdm.ETH_WALLET_ADDRESS)
         raw, eth_tx_hash = wdm._sign_release_tx(account, eth_address, amount_eth, nonce, gas_price, gas_limit)
 
-        await _update_lock_status_with_retry(row["ait_tx_hash"], "releasing", eth_tx_hash=eth_tx_hash, release_nonce=nonce)
+        persisted = await _update_lock_status_with_retry(
+            row["ait_tx_hash"],
+            "releasing",
+            eth_tx_hash=eth_tx_hash,
+            release_nonce=nonce,
+            expected_statuses={prior_status},
+        )
+        if not persisted:
+            # CAS lost (#1918): the row moved on since the snapshot — the
+            # signed release must not broadcast for a state nobody owns.
+            logger.warning(
+                "Sell lock %s: 'releasing' intent lost CAS (was %s) — row moved on; not broadcasting",
+                row["ait_tx_hash"],
+                prior_status,
+            )
+            return
         sent = await wdm._broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
         logger.warning("Broadcast reported %s; keeping signed hash %s", sent, eth_tx_hash)
@@ -936,20 +987,37 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
 
 async def _resolve_lock_release_failure(cfg: SellConfig, row: dict[str, Any], exc: Exception) -> None:
     """Same rule as withdrawals: refund only on positive proof of no send."""
+    # The snapshot status is stale by now: the 'releasing' intent write
+    # landed before the broadcast that raised. Re-read so the CAS
+    # predicates on the status the ledger actually holds (#1918).
+    fresh = get_sell_lock_by_ait_tx_hash(row["ait_tx_hash"])
+    expected = {fresh["status"]} if fresh else {row["status"]}
     outcome, _reason = await _verify_sell_release_outcome(row)
     if outcome == "sent":
         logger.warning("Sell lock %s: ETH release confirmed despite error (%s)", row["ait_tx_hash"], exc)
         try:
-            await _update_lock_status_with_retry(row["ait_tx_hash"], "released")
+            await _update_lock_status_with_retry(row["ait_tx_hash"], "released", expected_statuses=expected)
         except Exception as persist_err:  # noqa: BLE001 - persist best-effort inside the confirmed-error path
             logger.error("Could not persist released for %s: %s", row["ait_tx_hash"], persist_err)
     elif outcome == "not_sent":
         # Release provably never landed — the row owes a refund but stays
         # open in 'refund_pending' so a deferred/failed sweep retries.
-        update_sell_lock_status(row["ait_tx_hash"], "refund_pending", error=f"release failed: {exc}")
-        await _refund_lock(cfg, row, f"release failed: {exc}")
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "refund_pending",
+            error=f"release failed: {exc}",
+            expected_statuses=expected,
+        )
+        # The row just moved to refund_pending — hand the sweep the status
+        # the ledger now holds or its own CAS would read the stale snapshot.
+        await _refund_lock(cfg, {**row, "status": "refund_pending"}, f"release failed: {exc}")
     else:
-        update_sell_lock_status(row["ait_tx_hash"], "needs_review", error=f"release outcome unverifiable: {exc}")
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "needs_review",
+            error=f"release outcome unverifiable: {exc}",
+            expected_statuses=expected,
+        )
         logger.error("Sell lock %s marked needs_review — release outcome unverifiable: %s", row["ait_tx_hash"], exc)
 
 
@@ -1002,14 +1070,31 @@ async def _price_lock_eth_amount(cfg: SellConfig, row: dict[str, Any], quote: di
         # Late lock on an expired quote: re-quote at the live feed.
         recomputed = await compute_sell_quote(Decimal(str(row["amount_ait"])))
         if recomputed is None:
-            update_sell_lock_status(row["ait_tx_hash"], "stale_price", error="expired quote and feed unavailable")
+            update_sell_lock_status(
+                row["ait_tx_hash"],
+                "stale_price",
+                error="expired quote and feed unavailable",
+                expected_statuses={row["status"]},
+            )
             return None
         eth_amount = recomputed["eth_amount"]
         update_sell_quote_status(quote_id, "expired")
-        update_sell_lock_status(row["ait_tx_hash"], "locked", eth_amount=eth_amount, requoted=1, error="requoted after expiry")
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "locked",
+            eth_amount=eth_amount,
+            requoted=1,
+            error="requoted after expiry",
+            expected_statuses={row["status"]},
+        )
     else:
         eth_amount = _eth_for_lock_at_quote(Decimal(str(row["amount_ait"])), quote)
-        update_sell_lock_status(row["ait_tx_hash"], "locked", eth_amount=eth_amount)
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "locked",
+            eth_amount=eth_amount,
+            expected_statuses={row["status"]},
+        )
         update_sell_quote_status(quote_id, "locked")
     return Decimal(str(eth_amount))
 
@@ -1034,7 +1119,12 @@ async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
         # No live quote — unmatched locks are orphan-refunded after the
         # window, never held. A second lock reusing an already-bound quote
         # lands here too.
-        update_sell_lock_status(row["ait_tx_hash"], "orphaned", error="no live quote for lock")
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "orphaned",
+            error="no live quote for lock",
+            expected_statuses={row["status"]},
+        )
         return
     quote_id = str(quote["id"])
 
@@ -1048,7 +1138,12 @@ async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
 
     # Re-check feed freshness immediately before spending ETH.
     if await get_eth_prices_fresh() is None:
-        update_sell_lock_status(row["ait_tx_hash"], "stale_price", error="price feed stale at release check")
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "stale_price",
+            error="price feed stale at release check",
+            expected_statuses={row["status"]},
+        )
         return
 
     amount_eth = Decimal(str(eth_amount))
@@ -1057,11 +1152,17 @@ async def _handle_locked(cfg: SellConfig, row: dict[str, Any]) -> None:
             row["ait_tx_hash"],
             "queued_reserve",
             error=f"{amount_eth} ETH exceeds SELL_MAX_ETH_PER_TX={cfg.max_eth_per_tx}",
+            expected_statuses={row["status"]},
         )
         return
     since = (utc_now() - timedelta(hours=24)).isoformat()
     if get_sell_eth_committed_since(since) + amount_eth > cfg.max_eth_per_day:
-        update_sell_lock_status(row["ait_tx_hash"], "queued_reserve", error="daily sell release cap reached")
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "queued_reserve",
+            error="daily sell release cap reached",
+            expected_statuses={row["status"]},
+        )
         return
 
     try:
@@ -1091,14 +1192,24 @@ async def _handle_inflight(cfg: SellConfig, row: dict[str, Any]) -> None:
     proven unsent → refund_pending + refund sweep, unknown → stays."""
     outcome, reason = await _verify_sell_release_outcome(row)
     if outcome == "sent":
-        await _update_lock_status_with_retry(row["ait_tx_hash"], "released")
+        await _update_lock_status_with_retry(row["ait_tx_hash"], "released", expected_statuses={row["status"]})
         logger.info("Sell lock %s: ETH release confirmed on chain", row["ait_tx_hash"])
     elif outcome == "not_sent":
-        update_sell_lock_status(row["ait_tx_hash"], "refund_pending", error="release never reached the chain")
-        await _refund_lock(cfg, row, "release never reached the chain")
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "refund_pending",
+            error="release never reached the chain",
+            expected_statuses={row["status"]},
+        )
+        await _refund_lock(cfg, {**row, "status": "refund_pending"}, "release never reached the chain")
     else:
         if row["status"] != "needs_review":
-            update_sell_lock_status(row["ait_tx_hash"], "needs_review", error="release outcome unverifiable")
+            update_sell_lock_status(
+                row["ait_tx_hash"],
+                "needs_review",
+                error="release outcome unverifiable",
+                expected_statuses={row["status"]},
+            )
         age = wdm._release_intent_age_seconds(row)
         age_txt = f"{int(age)}s" if age != float("inf") else "unknown"
         if reason == "absent_in_grace":
@@ -1140,8 +1251,13 @@ async def _handle_released(cfg: SellConfig, row: dict[str, Any]) -> None:
     if outcome == "sent":
         await _settle_lock(cfg, row)
     elif outcome == "not_sent":
-        update_sell_lock_status(row["ait_tx_hash"], "refund_pending", error="release transaction dropped or reverted")
-        await _refund_lock(cfg, row, "release transaction dropped or reverted")
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "refund_pending",
+            error="release transaction dropped or reverted",
+            expected_statuses={row["status"]},
+        )
+        await _refund_lock(cfg, {**row, "status": "refund_pending"}, "release transaction dropped or reverted")
     # 'unknown' keeps the row 'released' — re-checked next poll.
 
 
@@ -1156,7 +1272,12 @@ async def _handle_stale_price(cfg: SellConfig, row: dict[str, Any]) -> None:
     """Feed-stale park: re-admit at the live rate once the feed recovers;
     deadline still refunds while parked."""
     if await get_eth_prices_fresh() is not None:
-        update_sell_lock_status(row["ait_tx_hash"], "locked", error="feed recovered")
+        update_sell_lock_status(
+            row["ait_tx_hash"],
+            "locked",
+            error="feed recovered",
+            expected_statuses={row["status"]},
+        )
         await _handle_locked(cfg, {**row, "status": "locked"})
     elif _lock_age_seconds(row) > cfg.release_deadline_seconds:
         await _refund_lock(cfg, row, "release deadline passed while feed stale")

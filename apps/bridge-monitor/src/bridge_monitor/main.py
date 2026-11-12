@@ -938,41 +938,56 @@ class BridgeMonitor:
             if expected and canon_tx_hash(derived) != canon_tx_hash(expected):
                 logger.error("Stored envelope hash mismatch for %s (expected %s) — refusing rebroadcast", derived, expected)
                 continue
-            posted = self._post_signed_tx(envelope)
-            new_count = rebroadcast_count + 1
-            if posted:
-                # #1721: the chain's tx hash differs from the client-derived
-                # envelope hash — adopt whatever the RPC reported here too,
-                # or the seal probe keeps polling a hash that can never
-                # resolve and the abandon proof "proves" a landed payout dead.
-                self._adopt_posted_hash(tx_hash, posted, derived)
-                logger.warning(
-                    "Rebroadcast unsealed payout %s for deposit %s (attempt %s) — identical envelope",
-                    payout_hash,
-                    tx_hash,
-                    new_count,
-                )
-                update_deposit(
-                    tx_hash,
-                    rebroadcast_count=new_count,
-                    submitted_height=head,
-                    error_message="",
-                    expected_statuses={BridgeDepositStatus.SUBMITTED},
-                )
-            else:
-                update_deposit(
-                    tx_hash,
-                    rebroadcast_count=new_count,
-                    error_message="Rebroadcast failed",
-                    expected_statuses={BridgeDepositStatus.SUBMITTED},
-                )
-                if self._post_rejection_is_nonce_conflict():
-                    self._float_alert(
-                        f"rebroadcast_nonce:{tx_hash}",
-                        f"ALERT: rebroadcast of payout {payout_hash} for deposit {tx_hash} rejected — "
-                        f"nonce slot occupied ({(self._last_post_rejection or '')[:160]}). "
-                        "Auto-abandon will re-queue the deposit once the nonce proof holds",
+            # Serialize against admin mutations (#1918): the fresh-check →
+            # POST → count-write sequence below is check-then-act — an admin
+            # command holding the ledger lock could write-off or abandon the
+            # row between the re-check and the POST, and this rebroadcast
+            # would then pay a dead row. Non-blocking like the payout paths:
+            # a held lock defers the rebroadcast to the next poll. abandon_
+            # payout above takes no lock itself (its CAS-guarded write is
+            # the arbitration), so only this sequence is wrapped.
+            lock_fd = try_admin_lock()
+            if lock_fd is None:
+                logger.info("Deposit %s rebroadcast deferred — admin mutation holds the ledger lock", tx_hash)
+                continue
+            try:
+                posted = self._post_signed_tx(envelope)
+                new_count = rebroadcast_count + 1
+                if posted:
+                    # #1721: the chain's tx hash differs from the client-derived
+                    # envelope hash — adopt whatever the RPC reported here too,
+                    # or the seal probe keeps polling a hash that can never
+                    # resolve and the abandon proof "proves" a landed payout dead.
+                    self._adopt_posted_hash(tx_hash, posted, derived)
+                    logger.warning(
+                        "Rebroadcast unsealed payout %s for deposit %s (attempt %s) — identical envelope",
+                        payout_hash,
+                        tx_hash,
+                        new_count,
                     )
+                    update_deposit(
+                        tx_hash,
+                        rebroadcast_count=new_count,
+                        submitted_height=head,
+                        error_message="",
+                        expected_statuses={BridgeDepositStatus.SUBMITTED},
+                    )
+                else:
+                    update_deposit(
+                        tx_hash,
+                        rebroadcast_count=new_count,
+                        error_message="Rebroadcast failed",
+                        expected_statuses={BridgeDepositStatus.SUBMITTED},
+                    )
+                    if self._post_rejection_is_nonce_conflict():
+                        self._float_alert(
+                            f"rebroadcast_nonce:{tx_hash}",
+                            f"ALERT: rebroadcast of payout {payout_hash} for deposit {tx_hash} rejected — "
+                            f"nonce slot occupied ({(self._last_post_rejection or '')[:160]}). "
+                            "Auto-abandon will re-queue the deposit once the nonce proof holds",
+                        )
+            finally:
+                os.close(lock_fd)
 
     def _account_nonce(self, address: str) -> int | None:
         """On-chain nonce of an account from the local RPC."""

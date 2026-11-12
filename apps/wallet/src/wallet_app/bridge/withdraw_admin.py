@@ -423,7 +423,10 @@ async def _await_retry_outcome(wdm: Any, db: Any, row: dict[str, Any], tx_hash: 
     while True:
         outcome = await wdm._verify_release_outcome(ait_tx_hash)
         if outcome == "sent":
-            await wdm._update_status_with_retry(ait_tx_hash, "completed", eth_tx_hash=tx_hash)
+            # The retry left the row 'releasing_retry' — CAS on it (#1918).
+            await wdm._update_status_with_retry(
+                ait_tx_hash, "completed", eth_tx_hash=tx_hash, expected_statuses={"releasing_retry"}
+            )
             db.update_release_attempt(attempt_id, outcome="sent")
             print(f"withdrawal {row['id']} completed — receipt verified at depth")
             return 0
@@ -432,6 +435,7 @@ async def _await_retry_outcome(wdm: Any, db: Any, row: dict[str, Any], tx_hash: 
                 ait_tx_hash,
                 "needs_review_release",
                 error="release retry proven unsent — operator decision required",
+                expected_statuses={"releasing_retry"},
             )
             db.update_release_attempt(attempt_id, outcome="not_sent")
             print("retry proven unsent — row parked at needs_review_release")
@@ -484,6 +488,7 @@ async def _cmd_release_retry(wdm: Any, db: Any, args: argparse.Namespace) -> int
             Decimal(str(row["amount_eth"])),
             intent_status="releasing_retry",
             nonce=nonce,
+            expected_statuses={row["status"]},
         )
     except Exception as e:  # noqa: BLE001 - attempt containment — a failed broadcast is recorded, never raised
         db.update_release_attempt(attempt_id, outcome=f"failed: {redact_text(str(e))}")
@@ -526,7 +531,9 @@ async def _cmd_mark_review(wdm: Any, db: Any, args: argparse.Namespace) -> int:
     if not args.confirm:
         print("dry-run: would set 'needs_review' — the monitor then proves not_sent and refunds")
         return 0
-    db.update_withdrawal_status(ait_tx_hash, "needs_review", error=args.note.strip())
+    # CAS on the status this command read and gated on (#1918) — an admin
+    # write must not clobber a status the monitor moved since.
+    db.update_withdrawal_status(ait_tx_hash, "needs_review", error=args.note.strip(), expected_statuses={row["status"]})
     print("row → needs_review; next monitor poll proves the release unsent and refunds the AIT")
     return 0
 

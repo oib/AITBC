@@ -320,6 +320,7 @@ async def _cmd_confirm_swept(db: Any, sellmon: Any, args: argparse.Namespace) ->
         final_status,
         **{hash_field: sealed_hash},
         error=f"operator:confirm-swept {note}",
+        expected_statuses={row["status"]},
         **_audit_fields(args),
     )
     if not ok:
@@ -361,6 +362,7 @@ async def _cmd_requeue(db: Any, sellmon: Any, args: argparse.Namespace) -> int:
         ait_tx_hash,
         target,
         error=f"operator:requeue {note}",
+        expected_statuses={row["status"]},
         **_audit_fields(args),
     )
     if not ok:
@@ -400,6 +402,7 @@ async def _cmd_write_off(db: Any, args: argparse.Namespace) -> int:
         ait_tx_hash,
         "written_off",
         error=f"operator:write-off {args.reason}",
+        expected_statuses={row["status"]},
         **_audit_fields(args),
     )
     if not ok:
@@ -456,7 +459,9 @@ async def _cmd_sweep_now(db: Any, sellmon: Any, args: argparse.Namespace) -> int
 
     # Audit the operator action first; the sweep's own status write then
     # carries the lane change (its error write re-parks or persists intent).
-    db.update_sell_lock_status(ait_tx_hash, row["status"], **_audit_fields(args))
+    # CAS on the status just read (#1918): if the monitor moved the row
+    # since, the audit stamp must not land on a state it never saw.
+    db.update_sell_lock_status(ait_tx_hash, row["status"], expected_statuses={row["status"]}, **_audit_fields(args))
 
     outcome = await sellmon._escrow_sweep(cfg, row, to_address, reason, intent_status, fee_park_status)
     return _sweep_outcome_rc(outcome, intent_status, fee_park_status)

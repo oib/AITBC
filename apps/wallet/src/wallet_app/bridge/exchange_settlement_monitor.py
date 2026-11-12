@@ -817,15 +817,27 @@ async def _update_with_retry(row_id: str, status: str, **fields: Any) -> bool:
     raise RuntimeError(f"could not persist settlement {row_id} status {status}: {last_exc}")
 
 
-async def _set_status_and_mirror(cfg: ExchangeCfg, row: dict[str, Any], status: str, **fields: Any) -> None:
+async def _set_status_and_mirror(cfg: ExchangeCfg, row: dict[str, Any], status: str, **fields: Any) -> bool:
     """Ledger transition + best-effort mirror — the ledger is truth and the
     mirror only ever follows it, so a mirror failure is logged, never
     raised. order_refund rows have no tape row (ref_id shares the
     order/trade int space) — mirroring one could post trade_state onto an
-    unrelated trade, so they never mirror."""
-    await _update_with_retry(str(row["id"]), status, **fields)
+    unrelated trade, so they never mirror. Returns the ledger write's CAS
+    result so a caller can skip follow-on work (refund sweep, next leg)
+    when the row moved on (#1918)."""
+    persisted = await _update_with_retry(str(row["id"]), status, **fields)
+    if not persisted:
+        # CAS lost (#1918): the row moved on since the snapshot — the mirror
+        # must not be told a state the ledger never reached.
+        logger.warning(
+            "Settlement %s: write to %s lost CAS — row moved on; mirror skipped",
+            row["id"],
+            status,
+        )
+        return False
     if str(row.get("kind")) == "trade":
         await _mirror_trade_state(cfg, str(row["ref_id"]), status, {**row, **fields})
+    return True
 
 
 # Canonical replay lanes — the happy-path states the ledger actually walks.
@@ -956,11 +968,16 @@ async def _release_eth_for_settlement(cfg: ExchangeCfg, row: dict[str, Any]) -> 
     nonce persisted before broadcast."""
     seller_eth = str(row.get("seller_eth_address") or "")
     amount_eth = Decimal(str(row["eth_amount"]))
+    # CAS predicate (#1918): the caller's snapshot may be stale — predicate
+    # on the status the ledger holds right now.
+    fresh = get_exchange_settlement(str(row["kind"]), int(row["ref_id"]))
+    prior_status = {str(fresh["status"])} if fresh else {str(row["status"])}
     if not seller_eth or not wdm._is_valid_eth_address(seller_eth):
         await _update_with_retry(
             str(row["id"]),
             "needs_review",
             error="seller has no valid payout address on file",
+            expected_statuses=prior_status,
         )
         return
     gas_price = await wdm._eth_gas_price()
@@ -975,6 +992,7 @@ async def _release_eth_for_settlement(cfg: ExchangeCfg, row: dict[str, Any]) -> 
             str(row["id"]),
             "queued_reserve",
             error=f"{amount_eth} ETH exceeds EXCHANGE_SETTLEMENT_MAX_ETH_PER_TX={cfg.max_eth_per_tx}",
+            expected_statuses=prior_status,
         )
         return
     if amount_eth > fraction_cap:
@@ -982,6 +1000,7 @@ async def _release_eth_for_settlement(cfg: ExchangeCfg, row: dict[str, Any]) -> 
             str(row["id"]),
             "queued_reserve",
             error=f"{amount_eth} ETH exceeds BRIDGE_MAX_PAYOUT_FRACTION={cfg.max_payout_fraction} of float {balance}",
+            expected_statuses=prior_status,
         )
         return
     if available - required < cfg.min_reserve_eth:
@@ -989,6 +1008,7 @@ async def _release_eth_for_settlement(cfg: ExchangeCfg, row: dict[str, Any]) -> 
             str(row["id"]),
             "queued_reserve",
             error=f"deficit — need {required} + {cfg.min_reserve_eth} reserve, have {available}",
+            expected_statuses=prior_status,
         )
         return
     from eth_account import Account as EthAccount
@@ -1000,7 +1020,22 @@ async def _release_eth_for_settlement(cfg: ExchangeCfg, row: dict[str, Any]) -> 
     async with wdm.ETH_RELEASE_NONCE_LOCK:
         nonce = await wdm._eth_nonce(wdm.ETH_WALLET_ADDRESS)
         raw, eth_tx_hash = wdm._sign_release_tx(account, seller_eth, amount_eth, nonce, gas_price, gas_limit)
-        await _update_with_retry(str(row["id"]), "releasing", eth_tx_hash=eth_tx_hash, release_nonce=nonce)
+        persisted = await _update_with_retry(
+            str(row["id"]),
+            "releasing",
+            eth_tx_hash=eth_tx_hash,
+            release_nonce=nonce,
+            expected_statuses=prior_status,
+        )
+        if not persisted:
+            # CAS lost (#1918): the row moved on since the snapshot — the
+            # signed release must not broadcast for a state nobody owns.
+            logger.warning(
+                "Settlement %s: 'releasing' intent lost CAS (was %s) — row moved on; not broadcasting",
+                row["id"],
+                prior_status,
+            )
+            return
         sent = await wdm._broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
         logger.warning("Broadcast reported %s; keeping signed hash %s", sent, eth_tx_hash)
@@ -1091,9 +1126,18 @@ async def _escrow_sweep(
     row: dict[str, Any],
     intent_status: str,
     fee_park_status: str,
+    *,
+    expected_status: str | None = None,
 ) -> str:
     """Start the row's next escrow outflow — serialized across both sweep
-    lanes, float-checked, intent persisted before broadcast (ETH-9)."""
+    lanes, float-checked, intent persisted before broadcast (ETH-9).
+
+    ``expected_status`` is the CAS predicate (#1918): the ledger status the
+    row held when this pass read it. Callers that hand in a status-patched
+    row (``{**row, "status": ...}``) must pass the *ledger* status here —
+    the patched value describes the intent, not the row's current state.
+    """
+    prior_status = expected_status or str(row["status"])
     if _inflight_sweep():
         logger.info("Settlement %s: escrow sweep deferred — another sweep in flight", row["id"])
         return "deferred"
@@ -1107,12 +1151,28 @@ async def _escrow_sweep(
             str(row["id"]),
             fee_park_status,
             error=f"escrow fee float deficit {deficit} AIT (need {required}, have {balance})",
+            expected_statuses={prior_status},
         )
         return "fee_parked"
     signed_tx = await sellmon._sign_escrow_transfer(
         cfg.escrow, to_address, amount_ait, {"exs_ref": exs_ref, "reason": row["status"]}, nonce
     )
-    await _update_with_retry(str(row["id"]), intent_status, escrow_out_nonce=nonce, escrow_out_tx=json.dumps(signed_tx))
+    persisted = await _update_with_retry(
+        str(row["id"]),
+        intent_status,
+        escrow_out_nonce=nonce,
+        escrow_out_tx=json.dumps(signed_tx),
+        expected_statuses={prior_status},
+    )
+    if not persisted:
+        # CAS lost (#1918): the row moved on since the snapshot — broadcasting
+        # now would send an outflow no ledger state owns.
+        logger.warning(
+            "Settlement %s: sweep intent write lost CAS (was %s) — row moved on; not broadcasting",
+            row["id"],
+            prior_status,
+        )
+        return "deferred"
     tx_hash = await sellmon._broadcast_ait_tx(signed_tx)
     logger.info(
         "Settlement %s: escrow sweep broadcast (%s AIT -> %s, nonce %d, tx %s) — awaiting seal",
@@ -1139,7 +1199,7 @@ async def _resolve_sweep(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
     if status == "queued_fee_settle" and _expected_sweep(cfg, row)[1] <= 0:
         # A row parked by an older build with a zero/sub-unit fee — no fee
         # leg is owed, settle straight away.
-        await _set_status_and_mirror(cfg, row, "settled")
+        await _set_status_and_mirror(cfg, row, "settled", expected_statuses={status})
         return
     if status in ("queued_fee_settle", "queued_fee_refund"):
         # Fee-float park — retry the same leg's sweep initiation.
@@ -1167,12 +1227,18 @@ async def _resolve_sweep(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
             row_id,
             "needs_review_sweep",
             error=f"escrow nonce {nonce} consumed by an unmatched transaction",
+            expected_statuses={status},
         )
         logger.error("Settlement %s: escrow nonce %d sealed to an unmatched tx — needs review", row_id, nonce)
         return
     stored = row.get("escrow_out_tx")
     if not stored:
-        await _update_with_retry(row_id, "needs_review_sweep", error="escrow sweep blob missing")
+        await _update_with_retry(
+            row_id,
+            "needs_review_sweep",
+            error="escrow sweep blob missing",
+            expected_statuses={status},
+        )
         return
     tx_hash = await sellmon._broadcast_ait_tx(json.loads(stored))
     logger.info("Settlement %s: re-broadcast stored %s blob (tx %s) — still in flight", row_id, status, tx_hash)
@@ -1190,7 +1256,7 @@ async def _handle_sealed_sweep(cfg: ExchangeCfg, row: dict[str, Any], outflow: d
     nonce = row.get("escrow_out_nonce")
     sealed_hash = outflow.get("tx_hash") or outflow.get("hash")
     if status == "refunding":
-        await _set_status_and_mirror(cfg, row, "refunded", refund_tx_hash=sealed_hash)
+        await _set_status_and_mirror(cfg, row, "refunded", refund_tx_hash=sealed_hash, expected_statuses={status})
         logger.info("Settlement %s: refund sealed at escrow nonce %d", row_id, nonce)
         return
     if not row.get("settle_ait_tx_hash"):
@@ -1207,7 +1273,7 @@ async def _handle_sealed_sweep(cfg: ExchangeCfg, row: dict[str, Any], outflow: d
         if amount2 <= 0:
             # EXCHANGE_FEE_PCT=0 or a fee under one chain unit — sending
             # leg 2 would be a zero-value transfer; leg 1 alone settles.
-            await _set_status_and_mirror(cfg, row, "settled", settle_ait_tx_hash=sealed_hash)
+            await _set_status_and_mirror(cfg, row, "settled", settle_ait_tx_hash=sealed_hash, expected_statuses={status})
             logger.info("Settlement %s: leg 1 sealed, no fee owed — settled", row_id)
             return
         nonce2, balance = await sellmon._account_view(cfg.escrow.escrow_address)
@@ -1218,22 +1284,33 @@ async def _handle_sealed_sweep(cfg: ExchangeCfg, row: dict[str, Any], outflow: d
                 "queued_fee_settle",
                 settle_ait_tx_hash=sealed_hash,
                 error=f"escrow fee float deficit before fee leg (need {leg2_ait + _sweep_fee_ait()}, have {balance})",
+                expected_statuses={status},
             )
             return
         signed2 = await sellmon._sign_escrow_transfer(
             cfg.escrow, to2, leg2_ait, {"exs_ref": ref2, "reason": "settle_fee"}, nonce2
         )
-        await _update_with_retry(
+        persisted = await _update_with_retry(
             row_id,
             "settling",
             settle_ait_tx_hash=sealed_hash,
             escrow_out_nonce=nonce2,
             escrow_out_tx=json.dumps(signed2),
+            expected_statuses={status},
         )
+        if not persisted:
+            # CAS lost (#1918): the row moved on since the snapshot — leg 2
+            # must not broadcast for a state nobody owns.
+            logger.warning(
+                "Settlement %s: fee-leg intent lost CAS (was %s) — row moved on; not broadcasting",
+                row_id,
+                status,
+            )
+            return
         tx_hash2 = await sellmon._broadcast_ait_tx(signed2)
         logger.info("Settlement %s: fee leg broadcast (tx %s, nonce %d)", row_id, tx_hash2, nonce2)
         return
-    await _set_status_and_mirror(cfg, row, "settled", settle_fee_tx_hash=sealed_hash)
+    await _set_status_and_mirror(cfg, row, "settled", settle_fee_tx_hash=sealed_hash, expected_statuses={status})
     logger.info("Settlement %s: fee leg sealed — settled", row_id)
 
 
@@ -1282,16 +1359,40 @@ async def _handle_locked(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
 
 async def _resolve_release_failure(cfg: ExchangeCfg, row: dict[str, Any], exc: Exception) -> None:
     """Refund only on positive proof the release never sent."""
+    # The snapshot status is stale by now: the 'releasing' intent write
+    # landed before the broadcast that raised. Re-read so the CAS
+    # predicates on the status the ledger actually holds (#1918).
+    fresh = get_exchange_settlement(str(row["kind"]), int(row["ref_id"]))
+    expected = {str(fresh["status"])} if fresh else {str(row["status"])}
     outcome, _reason = await _verify_settlement_release_outcome(row)
     if outcome == "sent":
         logger.warning("Settlement %s: ETH release confirmed despite error (%s)", row["id"], exc)
-        await _set_status_and_mirror(cfg, row, "released")
+        await _set_status_and_mirror(cfg, row, "released", expected_statuses=expected)
     elif outcome == "not_sent":
-        await _update_with_retry(str(row["id"]), "refund_pending", error=f"release failed: {exc}")
+        persisted = await _update_with_retry(
+            str(row["id"]),
+            "refund_pending",
+            error=f"release failed: {exc}",
+            expected_statuses=expected,
+        )
+        if not persisted:
+            # CAS lost (#1918): the row moved on since the snapshot — no
+            # refund sweep and no mirror for a state nobody owns.
+            logger.warning(
+                "Settlement %s: refund_pending write lost CAS (was %s) — row moved on; refund not started",
+                row["id"],
+                row["status"],
+            )
+            return
         await _mirror_trade_state(cfg, str(row["ref_id"]), "refund_pending", row)
-        await _start_refund(cfg, row, f"release failed: {exc}")
+        await _start_refund(cfg, row, f"release failed: {exc}", from_status="refund_pending")
     else:
-        await _update_with_retry(str(row["id"]), "needs_review", error=f"release outcome unverifiable: {exc}")
+        await _update_with_retry(
+            str(row["id"]),
+            "needs_review",
+            error=f"release outcome unverifiable: {exc}",
+            expected_statuses=expected,
+        )
         logger.error("Settlement %s marked needs_review — release outcome unverifiable: %s", row["id"], exc)
 
 
@@ -1301,14 +1402,19 @@ async def _handle_inflight(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
     (needs_review rows park but keep re-verifying every poll)."""
     outcome, reason = await _verify_settlement_release_outcome(row)
     if outcome == "sent":
-        await _set_status_and_mirror(cfg, row, "released")
+        await _set_status_and_mirror(cfg, row, "released", expected_statuses={row["status"]})
         logger.info("Settlement %s: ETH release confirmed on chain", row["id"])
     elif outcome == "not_sent":
-        await _set_status_and_mirror(cfg, row, "refund_pending", error="release never reached the chain")
-        await _start_refund(cfg, row, "release never reached the chain")
+        persisted = await _set_status_and_mirror(
+            cfg, row, "refund_pending", error="release never reached the chain", expected_statuses={row["status"]}
+        )
+        if persisted:
+            await _start_refund(cfg, row, "release never reached the chain", from_status="refund_pending")
     else:
         if row["status"] not in ("needs_review", "needs_review_release"):
-            await _set_status_and_mirror(cfg, row, "needs_review", error="release outcome unverifiable")
+            await _set_status_and_mirror(
+                cfg, row, "needs_review", error="release outcome unverifiable", expected_statuses={row["status"]}
+            )
         if reason == "absent_in_grace":
             logger.warning(
                 "Settlement %s (%s) not yet visible on-chain — inside absence grace; parked",
@@ -1324,17 +1430,32 @@ async def _handle_released(cfg: ExchangeCfg, row: dict[str, Any]) -> None:
     settle sweeps, on 'not_sent' (reorg/dropped) refund the lock."""
     outcome, _reason = await _verify_settlement_release_outcome(row)
     if outcome == "sent":
-        await _escrow_sweep(cfg, {**row, "status": "settling"}, "settling", "queued_fee_settle")
+        # The ledger still reads 'released' — the patched row only names
+        # the intent the sweep is about to persist.
+        await _escrow_sweep(cfg, {**row, "status": "settling"}, "settling", "queued_fee_settle", expected_status="released")
     elif outcome == "not_sent":
-        await _set_status_and_mirror(cfg, row, "refund_pending", error="release transaction dropped or reverted")
-        await _start_refund(cfg, row, "release transaction dropped or reverted")
+        persisted = await _set_status_and_mirror(
+            cfg, row, "refund_pending", error="release transaction dropped or reverted", expected_statuses={row["status"]}
+        )
+        if persisted:
+            await _start_refund(cfg, row, "release transaction dropped or reverted", from_status="refund_pending")
 
 
-async def _start_refund(cfg: ExchangeCfg, row: dict[str, Any], reason: str) -> None:
+async def _start_refund(cfg: ExchangeCfg, row: dict[str, Any], reason: str, *, from_status: str | None = None) -> None:
     """Initiate the escrow refund sweep for this row (retriable until the
-    intent persists; in-flight rows belong to the resolver)."""
+    intent persists; in-flight rows belong to the resolver).
+
+    ``from_status`` is the ledger status the row holds *now* (#1918): a
+    caller that just wrote 'refund_pending' passes it so the sweep's CAS
+    does not predicate on the stale snapshot status."""
     try:
-        await _escrow_sweep(cfg, {**row, "status": "refunding"}, "refunding", "queued_fee_refund")
+        await _escrow_sweep(
+            cfg,
+            {**row, "status": "refunding"},
+            "refunding",
+            "queued_fee_refund",
+            expected_status=from_status or str(row["status"]),
+        )
         return
     except Exception as e:  # noqa: BLE001 - refund sweep failure resolved by the resolver
         logger.error("Refund sweep errored for settlement %s: %s", row["id"], e)
