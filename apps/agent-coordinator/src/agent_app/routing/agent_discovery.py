@@ -29,6 +29,28 @@ except ImportError:
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort registry/discovery handlers
+# below: filesystem/OS and asyncio transport errors, JSON and data-shape
+# decode (ValueError/TypeError/KeyError/AttributeError), lazy imports, and
+# redis driver errors when the optional client is installed. Genuine
+# BaseExceptions (incl. asyncio.CancelledError) still propagate (#1865).
+_OPS_ERRORS_BASE = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ImportError,
+    RuntimeError,
+)
+_OPS_ERRORS: tuple[type[Exception], ...]
+try:
+    from redis.exceptions import RedisError as _RedisError
+
+    _OPS_ERRORS = _OPS_ERRORS_BASE + (_RedisError,)
+except ImportError:
+    _OPS_ERRORS = _OPS_ERRORS_BASE
+
 #: Bounds for ``discover_agents`` — the query dict comes from an untrusted
 #: POST body, so an absent ``limit`` must not mean "return every agent" and a
 #: supplied one must not be able to ask for the whole registry (#1512).
@@ -203,7 +225,7 @@ class AgentRegistry:
             await self._publish_agent_event("agent_registered", agent_info)
             logger.info("Agent %s registered successfully", agent_info.agent_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error registering agent %s: %s", agent_info.agent_id, e)
             return False
 
@@ -224,7 +246,7 @@ class AgentRegistry:
             await self._save_agent_to_redis(agent)
             logger.info("Agent %s identity rotated to %s", agent_id, identity_address)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error updating identity for agent %s: %s", agent_id, e)
             return False
 
@@ -242,7 +264,7 @@ class AgentRegistry:
             await self._publish_agent_event("agent_unregistered", agent_info)
             logger.info("Agent %s unregistered successfully", agent_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error unregistering agent %s: %s", agent_id, e)
             return False
 
@@ -264,7 +286,7 @@ class AgentRegistry:
             await self._save_agent_to_redis(agent_info)
             await self._publish_agent_event("agent_status_updated", agent_info)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error updating agent status %s: %s", agent_id, e)
             return False
 
@@ -280,7 +302,7 @@ class AgentRegistry:
                 agent_info.health_score = self._calculate_health_score(agent_info)
             await self._save_agent_to_redis(agent_info)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error updating heartbeat for %s: %s", agent_id, e)
             return False
 
@@ -333,7 +355,7 @@ class AgentRegistry:
             results = results[:limit]
             logger.info("Discovered %s agents for query: %s", len(results), query)
             return results
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error discovering agents: %s", e)
             return []
 
@@ -462,12 +484,12 @@ class AgentRegistry:
                     agent_info = AgentInfo.from_dict(parsed)
                     self.agents[agent_info.agent_id] = agent_info
                     self._update_indexes(agent_info)
-                except Exception:
+                except _OPS_ERRORS:
                     # One bad key must not abort the whole load; log the key
                     # name only, never the value.
                     logger.debug("Skipping unreadable agent key in Redis scan: %s", key, exc_info=True)
             logger.info("Loaded %s agents from Redis", len(self.agents))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error loading agents from Redis: %s", e)
 
     async def _publish_agent_event(self, event_type: str, agent_info: AgentInfo) -> None:
@@ -489,7 +511,7 @@ class AgentRegistry:
                         if agent_info.status != AgentStatus.INACTIVE:
                             await self.update_agent_status(agent_id, AgentStatus.INACTIVE)
                             logger.warning("Agent %s marked as inactive due to old heartbeat", agent_id)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error in heartbeat monitor: %s", e)
                 await asyncio.sleep(5)
 
@@ -506,7 +528,7 @@ class AgentRegistry:
                         if inactive_age > max_inactive_age:
                             await self.unregister_agent(agent_id)
                             logger.info("Removed inactive agent %s", agent_id)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error in cleanup task: %s", e)
                 await asyncio.sleep(5)
 
@@ -564,7 +586,7 @@ class AgentDiscoveryService:
                 correlation_id=message.id,
             )
             return response
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error handling discovery request: %s", e)
             return None
 
@@ -584,7 +606,7 @@ class AgentDiscoveryService:
             if not agents:
                 return None
             return agents[0]
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error finding best agent: %s", e)
             return None
 
@@ -599,7 +621,7 @@ class AgentDiscoveryService:
                         endpoints[service_name] = []
                     endpoints[service_name].append(endpoint)
             return endpoints
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting service endpoints: %s", e)
             return {}
 
