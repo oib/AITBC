@@ -8,13 +8,34 @@ a local SQLite database so messages are still durably stored on the
 
 import json
 import os
+import sqlite3
 import time
 from datetime import UTC, datetime
 from typing import Any, cast
 
+from redis.exceptions import RedisError
+
 from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort storage fallbacks below:
+# filesystem/OS errors, JSON and timestamp decode (ValueError/TypeError/
+# KeyError/AttributeError), lazy backend imports, sqlite driver errors
+# (aiosqlite raises sqlite3.Error subclasses), and redis driver errors.
+# Genuine BaseExceptions (incl. asyncio.CancelledError) still propagate
+# (#1865).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ImportError,
+    RuntimeError,
+    sqlite3.Error,
+    RedisError,
+)
 
 # Redis retention bounds (#1529): every key this module writes either carries
 # a TTL or is rank-trimmed, so a busy coordinator cannot grow the keyspace
@@ -55,7 +76,7 @@ class MessageStorage:
         try:
             self.redis = await redis.from_url(self.redis_url, decode_responses=True)
             logger.info("Message storage connected to Redis")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Could not connect to Redis: %s", e)
             self.redis = None
 
@@ -80,7 +101,7 @@ class MessageStorage:
                 await self.sqlite_conn.execute("CREATE INDEX IF NOT EXISTS idx_messages_timestamp ON messages(timestamp)")
                 await self.sqlite_conn.commit()
                 logger.info("SQLite fallback initialised at %s", self.sqlite_db_path)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Could not initialise SQLite fallback: %s", e)
                 self.sqlite_conn = None
 
@@ -93,7 +114,7 @@ class MessageStorage:
             try:
                 await self.sqlite_conn.close()
                 logger.info("Message storage SQLite connection closed")
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error closing SQLite fallback: %s", e)
 
     def _extract_sender(self, message_data: dict[str, Any]) -> str | None:
@@ -107,10 +128,10 @@ class MessageStorage:
         try:
             dt = datetime.fromisoformat(timestamp_str.replace("Z", "+00:00"))
             return dt.timestamp()
-        except Exception:
+        except (TypeError, ValueError, AttributeError):
             try:
                 return float(timestamp_str)
-            except Exception:
+            except (TypeError, ValueError):
                 return datetime.now(UTC).timestamp()
 
     # ------------------------------------------------------------------
@@ -130,7 +151,7 @@ class MessageStorage:
         try:
             await self.sqlite_conn.execute("DELETE FROM messages WHERE timestamp < ?", (time.time() - MESSAGE_TTL_SECONDS,))
             await self.sqlite_conn.commit()
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("SQLite expiry purge failed: %s", e)
 
     async def _sqlite_store(self, message_id: str, message_data: dict[str, Any]) -> bool:
@@ -151,7 +172,7 @@ class MessageStorage:
             await self.sqlite_conn.commit()
             logger.debug("Stored message %s in SQLite", message_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("SQLite store failed for %s: %s", message_id, e)
             return False
 
@@ -167,7 +188,7 @@ class MessageStorage:
                     data["payload"] = json.loads(data["payload"])
                 return data
             return None
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("SQLite get failed for %s: %s", message_id, e)
             return None
 
@@ -191,7 +212,7 @@ class MessageStorage:
                 )
             await self.sqlite_conn.commit()
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("SQLite update status failed for %s: %s", message_id, e)
             return False
 
@@ -213,7 +234,7 @@ class MessageStorage:
                     data["payload"] = json.loads(data["payload"])
                 messages.append(data)
             return messages
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("SQLite query failed for %s=%s: %s", field, value, e)
             return []
 
@@ -233,7 +254,7 @@ class MessageStorage:
                     data["payload"] = json.loads(data["payload"])
                 messages.append(data)
             return messages
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("SQLite get_all failed: %s", e)
             return []
 
@@ -244,7 +265,7 @@ class MessageStorage:
             cursor = await self.sqlite_conn.execute("SELECT COUNT(*) FROM messages")
             row = await cursor.fetchone()
             return row[0] if row else 0
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("SQLite count failed: %s", e)
             return 0
 
@@ -255,7 +276,7 @@ class MessageStorage:
             await self.sqlite_conn.execute("DELETE FROM messages WHERE message_id = ?", (message_id,))
             await self.sqlite_conn.commit()
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("SQLite delete failed for %s: %s", message_id, e)
             return False
 
@@ -294,7 +315,7 @@ class MessageStorage:
                 await self._trim_index("messages:timestamp", MAX_TIMESTAMP_INDEX_ENTRIES)
                 logger.debug("Stored message %s in Redis", message_id)
                 stored_in_redis = True
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Redis store failed for %s: %s", message_id, e)
 
         if not stored_in_redis:
@@ -310,7 +331,7 @@ class MessageStorage:
                     if "payload" in message_data:
                         message_data["payload"] = json.loads(message_data["payload"])
                     return message_data
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Redis get failed for %s: %s", message_id, e)
         return await self._sqlite_get(message_id)
 
@@ -325,7 +346,7 @@ class MessageStorage:
                 # TTL — re-apply it so status writes cannot leak keys (#1529).
                 await self.redis.expire(message_key, MESSAGE_TTL_SECONDS)
                 redis_ok = True
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Redis update status failed for %s: %s", message_id, e)
         sqlite_ok = await self._sqlite_update_status(message_id, status)
         return redis_ok or sqlite_ok
@@ -335,7 +356,7 @@ class MessageStorage:
         if self.redis:
             try:
                 return await self.redis.zcard("messages:timestamp")
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Redis count failed: %s", e)
         return await self._sqlite_count()
 
@@ -365,7 +386,7 @@ class MessageStorage:
         if self.redis:
             try:
                 return await self._messages_for_index(f"messages:sender:{sender_id}", limit, offset)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Redis get by sender failed for %s: %s", sender_id, e)
         return await self._sqlite_get_by_field("sender", sender_id, limit, offset)
 
@@ -374,7 +395,7 @@ class MessageStorage:
         if self.redis:
             try:
                 return await self._messages_for_index(f"messages:receiver:{receiver_id}", limit, offset)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Redis get by receiver failed for %s: %s", receiver_id, e)
         return await self._sqlite_get_by_field("receiver", receiver_id, limit, offset)
 
@@ -390,7 +411,7 @@ class MessageStorage:
                     if message_data:
                         messages.append(message_data)
                 return messages
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Redis get all failed: %s", e)
         return await self._sqlite_get_all(limit, offset)
 
@@ -411,7 +432,7 @@ class MessageStorage:
                 await self.redis.zrem("messages:timestamp", message_id)
                 await self.redis.delete(f"message:{message_id}")
                 logger.debug("Deleted message %s from Redis", message_id)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Redis delete failed for %s: %s", message_id, e)
 
         return await self._sqlite_delete(message_id)
@@ -441,7 +462,7 @@ class MessageStorage:
             await self.redis.expire(f"subscriptions:topic:{topic}", SUBSCRIPTION_TTL_SECONDS)
             logger.debug("Stored subscription %s:%s", agent_id, topic)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error storing subscription %s:%s: %s", agent_id, topic, e)
             return False
 
@@ -455,7 +476,7 @@ class MessageStorage:
             await self.redis.delete(f"subscription:{agent_id}:{topic}")
             logger.debug("Removed subscription %s:%s", agent_id, topic)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error removing subscription %s:%s: %s", agent_id, topic, e)
             return False
 
@@ -478,7 +499,7 @@ class MessageStorage:
                         sub["filter"] = json.loads(sub["filter"])
                     subscriptions.append(sub)
             return subscriptions
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error retrieving subscriptions for %s: %s", agent_id, e)
             return []
 
@@ -490,7 +511,7 @@ class MessageStorage:
             raw = await self.redis.smembers(f"subscriptions:topic:{topic}")
             await self.redis.expire(f"subscriptions:topic:{topic}", SUBSCRIPTION_TTL_SECONDS)
             return [str(m) for m in raw]
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error retrieving subscribers for topic %s: %s", topic, e)
             return []
 
@@ -531,7 +552,7 @@ class PeerStorage:
                 await self.redis.expire(peer_key, PEER_TTL_SECONDS)
             logger.debug("Added peer %s for agent %s", peer_id, agent_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error adding peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
@@ -544,7 +565,7 @@ class PeerStorage:
             await self.redis.delete(f"peer_connection:{agent_id}:{peer_id}")
             logger.debug("Removed peer %s for agent %s", peer_id, agent_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error removing peer %s for agent %s: %s", peer_id, agent_id, e)
             return False
 
@@ -557,7 +578,7 @@ class PeerStorage:
             peer_ids_raw = await self.redis.smembers(peers_key)
             await self.redis.expire(peers_key, PEER_TTL_SECONDS)
             return [str(m) for m in peer_ids_raw]
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error retrieving peers for agent %s: %s", agent_id, e)
             return []
 
@@ -571,7 +592,7 @@ class PeerStorage:
             if metadata_raw:
                 await self.redis.expire(peer_key, PEER_TTL_SECONDS)
             return metadata_raw if metadata_raw else None
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error retrieving peer metadata for %s:%s: %s", agent_id, peer_id, e)
             return None
 
@@ -591,6 +612,6 @@ class PeerStorage:
                 peer_list: list[str] = [pid.decode("utf-8") if isinstance(pid, bytes) else str(pid) for pid in peer_ids]
                 connections[agent_id] = peer_list
             return connections
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error retrieving all peer connections: %s", e)
             return {}
