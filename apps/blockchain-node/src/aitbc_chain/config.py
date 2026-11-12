@@ -235,12 +235,18 @@ class ChainSettings(BaseSettings):
         else ["http://localhost:3000"]
     )
 
-    # intentional for distributed blockchain
-    rpc_bind_host: str = "0.0.0.0"  # nosec B104
+    # Loopback by default (#1871): the RPC surface is reached through nginx
+    # or co-located services; a deployment that deliberately exposes it
+    # sets RPC_BIND_HOST in its env file.
+    rpc_bind_host: str = "127.0.0.1"
     rpc_bind_port: int = 8202
 
-    # intentional for P2P peer connections
-    p2p_bind_host: str = "0.0.0.0"  # nosec B104
+    # Loopback by default as well: the only live consumer is the
+    # hub-internal gossip relay (its wrapper already defaults 127.0.0.1,
+    # #1065) and the advertised-endpoint calc treats loopback like
+    # bind-all. The dormant TCP mesh (p2p_network.py) can widen via env if
+    # it is ever re-enabled.
+    p2p_bind_host: str = "127.0.0.1"
     p2p_bind_port: int = 8200
     p2p_node_id: str = ""
     # Dormant TCP-mesh hardening bounds (#1630/#1631). p2p_network.py is not

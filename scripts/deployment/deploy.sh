@@ -230,9 +230,9 @@ configure_environment() {
             cat > /etc/aitbc/blockchain.env << EOF
 # Blockchain Configuration
 CHAIN_ID=ait-testnet
-RPC_BIND_HOST=0.0.0.0
+RPC_BIND_HOST=127.0.0.1
 RPC_BIND_PORT=8202
-P2P_BIND_HOST=0.0.0.0
+P2P_BIND_HOST=127.0.0.1
 P2P_BIND_PORT=7070
 ENABLE_BLOCK_PRODUCTION=true
 BLOCK_TIME_SECONDS=6

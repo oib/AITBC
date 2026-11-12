@@ -71,7 +71,7 @@ Audit index: CONFIG-AUDIT-1 (#1520).
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `p2p_bind_host` | Hub only | `0.0.0.0` | Interface to bind gossip relay service |
+| `p2p_bind_host` | Hub only | `127.0.0.1` | Interface to bind gossip relay service |
 | `p2p_bind_port` | No | `8200` | Node P2P listener port. Note: the hub's gossip-relay unit (`aitbc-blockchain-p2p`) binds **7070** via its wrapper's hardcoded `--port 7070`, not this variable |
 | `p2p_peers` | No | - | Comma-separated list of peer nodes (legacy, not used by subscription system) |
 | `trusted_proposers` | No | - | For follower nodes - trusted proposer addresses |
@@ -94,7 +94,7 @@ NODE_ID=hub
 
 # P2P Configuration
 p2p_node_id=node-ad4e9170aea04a349469d17758de7b27
-p2p_bind_host=0.0.0.0
+p2p_bind_host=127.0.0.1
 p2p_bind_port=8200   # default is 8200 — 7070 is the hub-only gossip relay (wrapper flag); setting it here collides with aitbc-blockchain-p2p on the same host
 proposer_id=0x88A13a03119cfaefe99Bd4657b5F4DD4A2199AD7
 
@@ -244,7 +244,7 @@ The `default_peer_rpc_url` must be a base URL with no `/rpc` suffix.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `rpc_bind_host` | No | `0.0.0.0` | RPC service bind host |
+| `rpc_bind_host` | No | `127.0.0.1` | RPC service bind host |
 | `rpc_bind_port` | No | `8202` | RPC service port |
 | `default_peer_rpc_url` | No | - | Default peer RPC URL for sync |
 
@@ -302,7 +302,7 @@ CHAIN_ID=ait-mainnet
 block_time_seconds=10
 
 # RPC Configuration
-rpc_bind_host=0.0.0.0
+rpc_bind_host=127.0.0.1
 rpc_bind_port=8202
 
 # Services Configuration
@@ -353,7 +353,7 @@ CHAIN_ID=ait-testnet
 block_time_seconds=10
 
 # RPC Configuration
-rpc_bind_host=0.0.0.0
+rpc_bind_host=127.0.0.1
 rpc_bind_port=8202
 
 # Services Configuration
@@ -772,7 +772,7 @@ enable_block_production=false
 
 ```bash
 # Add to node.env (hub nodes only — followers don't need the p2p service)
-p2p_bind_host=0.0.0.0
+p2p_bind_host=127.0.0.1
 p2p_bind_port=8200   # default is 8200 — 7070 is the hub-only gossip relay (wrapper flag); setting it here collides with aitbc-blockchain-p2p on the same host
 ```
 

@@ -37,7 +37,7 @@ ssh "$AITBC_SSH_TARGET" << 'EOF'
 cd /opt/blockchain-node
 
 # Create configuration
-write_blockchain_env "./data/chain.db" "0.0.0.0" 8202 "0.0.0.0" 7070 memory
+write_blockchain_env "./data/chain.db" "127.0.0.1" 8202 "127.0.0.1" 7070 memory
 
 # Create data directory
 mkdir -p data/devnet
@@ -86,7 +86,7 @@ User=root
 WorkingDirectory=/opt/blockchain-node
 Environment=PATH=/opt/blockchain-node/.venv/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/blockchain-node/src:/opt/blockchain-node/scripts
-ExecStart=/opt/blockchain-node/.venv/bin/python3 -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8202
+ExecStart=/opt/blockchain-node/.venv/bin/python3 -m uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8202
 Restart=always
 RestartSec=5
 

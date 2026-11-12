@@ -140,12 +140,12 @@ def test_gateway_unit_pins_loopback_bind_host(gateway_unit: str) -> None:
 
 _LOOPBACK = {"127.0.0.1", "localhost", "::1"}
 _BIND_HOST_NAME = re.compile(r"^(?:[A-Z0-9]+_)*BIND_HOST$|^(?:APP|EXCHANGE)_HOST$")
-# Deliberate exceptions: the customer-facing chain RPC binds all interfaces
-# by design (remote followers/customers reach it directly); the -island
-# variant stays loopback. Everything else internal is loopback-by-default.
-_BIND_HOST_ALLOWLIST = {
-    ("apps/blockchain-node/aitbc-blockchain-rpc.service", "RPC_BIND_HOST"),
-}
+# Deliberate exceptions: none. Every tracked unit binds loopback by
+# default (#1871 closed the last one — aitbc-blockchain-rpc shipped
+# RPC_BIND_HOST=0.0.0.0 while the live fleet pinned 127.0.0.1 via env
+# files, so a fresh deploy silently exposed the full RPC surface). Widening
+# a bind is an ops decision made in host env files, not unit edits.
+_BIND_HOST_ALLOWLIST: set[tuple[str, str]] = set()
 
 
 def test_service_units_bind_loopback_by_default() -> None:

@@ -113,7 +113,7 @@ SUPPORTED_CHAINS=ait-localnet   # defaults to CHAIN_ID
 AITBC_DATA_DIR=/var/lib/aitbc
 
 # Network
-RPC_BIND_HOST=0.0.0.0
+RPC_BIND_HOST=127.0.0.1
 RPC_BIND_PORT=8202
 
 # Consensus / block production
