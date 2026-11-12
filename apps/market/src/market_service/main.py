@@ -415,6 +415,53 @@ async def _party_or_operator_gate(
     return None
 
 
+async def _party_signature_precheck(
+    request: Request,
+    data: dict[str, Any],
+    route: str,
+    *,
+    action: str,
+) -> tuple[bool, str | None, JSONResponse | None]:
+    """Pre-lookup half of the #1893 party gate.
+
+    Runs before the target object is fetched so unsigned or badly-signed
+    callers cannot probe object existence/state. Returns
+    ``(is_operator, canonical_signer, error_response)`` — exactly one of
+    ``is_operator``/``signer`` is set on success; ``error_response`` is a
+    ready 403 when the request must be rejected. The caller still compares
+    ``signer`` against the object's party set after loading it.
+    """
+    if _is_operator(request):
+        return True, None, None
+    if not any(
+        (
+            data.get("signer_address"),
+            data.get("chain_id"),
+            data.get("issued_at") is not None,
+            data.get("signature"),
+        )
+    ):
+        return (
+            False,
+            None,
+            JSONResponse(
+                status_code=403,
+                content={"error": f"{action} requires a party signature or the operator credential"},
+            ),
+        )
+    error, signer = verify_jobs_request_signature(
+        signer_address=data.get("signer_address"),
+        chain_id=data.get("chain_id"),
+        issued_at=data.get("issued_at"),
+        route=route,
+        signature=data.get("signature"),
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+    )
+    if error or not signer:
+        return False, None, JSONResponse(status_code=403, content={"error": error or f"invalid {action} signature"})
+    return False, canonical_address(signer), None
+
+
 def _canonical_or_none(raw: Any) -> str | None:
     """Canonicalize an address-like field, or None when it is not one."""
     if not raw:
@@ -897,9 +944,25 @@ async def cancel_offer(
     key, attempt, early = await _begin_operation(request, "cancel_offer", {"offer_id": offer_id, "reason": reason})
     if early is not None:
         return early
+    # #1893 respin: signature precheck runs BEFORE the offer lookup so
+    # unsigned/badly-signed callers get 403 without learning whether the
+    # offer exists; the signer↔provider match still happens post-lookup.
+    is_operator, signer, gate_error = await _party_signature_precheck(
+        request,
+        cancel_data or {},
+        f"/v1/market/offers/{offer_id}/cancel",
+        action="offer cancel",
+    )
+    if gate_error is not None:
+        return await _reject_operation(key, attempt, gate_error)
     offer = await svc.get_offer(offer_id)
     if not offer:
         return await _reject_operation(key, attempt, JSONResponse(status_code=404, content={"error": "Offer not found"}))
+    provider_canonical = _canonical_or_none(getattr(offer, "provider", None))
+    if not is_operator and (signer is None or provider_canonical is None or signer != provider_canonical):
+        return await _reject_operation(
+            key, attempt, JSONResponse(status_code=403, content={"error": "signer is not a party to this object"})
+        )
 
     current = try_to_offer_status(offer.status)
     if current is OfferStatus.DELISTED:
@@ -925,18 +988,6 @@ async def cancel_offer(
             attempt,
             JSONResponse(status_code=400, content={"error": f"Offer cannot be cancelled while it is {offer.status}"}),
         )
-    # #1893: only the offer's provider (or the operator credential) may
-    # cancel it — the user-tier API key alone is not sufficient.
-    provider_canonical = _canonical_or_none(getattr(offer, "provider", None))
-    offer_gate = await _party_or_operator_gate(
-        request,
-        cancel_data or {},
-        f"/v1/market/offers/{offer_id}/cancel",
-        {provider_canonical} if provider_canonical else set(),
-        action="offer cancel",
-    )
-    if offer_gate is not None:
-        return await _reject_operation(key, attempt, offer_gate)
     try:
         await svc.update_offer_status(offer_id, "cancelled")
     except ValueError:
