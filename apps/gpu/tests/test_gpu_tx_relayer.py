@@ -15,6 +15,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -67,7 +68,7 @@ class _FakeResponse:
         return self._body
 
 
-class _HttpError(Exception):
+class _HttpError(httpx.HTTPError):
     """Duck-typed httpx.HTTPStatusError stand-in (carries .response)."""
 
     def __init__(self, status_code: int, body: Any):

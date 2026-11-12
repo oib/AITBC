@@ -8,6 +8,8 @@ from datetime import UTC, datetime
 from typing import Any, cast
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
@@ -26,6 +28,23 @@ from ..domain.gpu_market import (
 )
 
 logger = get_logger(__name__)
+
+# Expected operational failure surface: DB session work, redis queue mirror,
+# nvidia-smi subprocess probes, and the data-shape errors profile/metric
+# payloads can raise.
+_OPS_ERRORS = (
+    SQLAlchemyError,
+    RedisError,
+    OSError,
+    subprocess.SubprocessError,
+    TimeoutError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+)
 
 
 class JobStateError(ValueError):
@@ -72,7 +91,7 @@ class EdgeGPUService:
                 stmt = stmt.where(ConsumerGPUProfile.memory_gb >= min_memory_gb)  # type: ignore[operator]
             result = await self.session.execute(stmt)
             return list(result.scalars().all())
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to list GPU profiles: %s", e)
             return []
 
@@ -88,7 +107,7 @@ class EdgeGPUService:
             )
             result = await self.session.execute(stmt)
             return list(result.scalars().all())
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to list GPU metrics for %s: %s", gpu_id, e)
             return []
 
@@ -112,7 +131,7 @@ class EdgeGPUService:
                 created += 1
             if created:
                 await self.session.commit()
-        except Exception as e:
+        except _OPS_ERRORS as e:
             await self.session.rollback()
             logger.warning("Failed to seed GPU profiles: %s", e)
 
@@ -151,7 +170,7 @@ class EdgeGPUService:
         except subprocess.TimeoutExpired:
             logger.warning("nvidia-smi timeout - GPU discovery skipped")
             return []
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error running nvidia-smi: %s", e)
             return []
 
@@ -244,7 +263,7 @@ class EdgeGPUService:
                 "edge_optimized": len(gpu_list),
                 "discovery_method": "nvidia_smi",
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             await self.session.rollback()
             logger.error("Failed to discover GPUs for miner %s: %s", miner_id, e)
             return {"miner_id": miner_id, "gpus": [], "registered": 0, "edge_optimized": 0, "error": str(e)}
@@ -277,7 +296,7 @@ class EdgeGPUService:
                 {_gpu_queue_member(job): -priority},
             )
             await redis.aclose()
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to mirror GPU job to Redis queue: %s", e)
         return job
 
@@ -309,7 +328,7 @@ class EdgeGPUService:
                 if not job:
                     logger.warning("Redis GPU queue member %s has no DB row", member)
                 await self.session.rollback()
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Redis GPU queue lookup failed for %s: %s", gpu_id, e)
         finally:
             await redis.aclose()

@@ -69,7 +69,7 @@ def test_detect_cuda_version_success(mock_run):
 @patch("production_miner.subprocess.run")
 def test_detect_cuda_version_failure(mock_run):
     """Test CUDA version detection failure"""
-    mock_run.side_effect = Exception("nvidia-smi not found")
+    mock_run.side_effect = OSError("nvidia-smi not found")
     result = production_miner.detect_cuda_version()
     assert result is None
 
@@ -91,7 +91,7 @@ def test_get_gpu_info_success(mock_run):
 @patch("production_miner.subprocess.run")
 def test_get_gpu_info_failure(mock_run):
     """Test GPU info retrieval failure"""
-    mock_run.side_effect = Exception("nvidia-smi not found")
+    mock_run.side_effect = OSError("nvidia-smi not found")
     result = production_miner.get_gpu_info()
     assert result is None
 
