@@ -9,6 +9,8 @@ from typing import Any
 import click
 import httpx
 
+from aitbc.exceptions import AITBCError
+
 from ..config import get_config
 from ..utils import DECIMAL, info, output, resolve_output_format, success, warning
 from ..utils.error_handling import CLIError, abort
@@ -16,6 +18,23 @@ from ..utils.http_client import NetworkError, get_logger
 
 # Initialize logger
 logger = get_logger(__name__)
+
+# Expected failure surface for the edge command handlers: filesystem/JSON,
+# data-shape, SDK/runtime errors, httpx transport/HTTP errors, and both error
+# hierarchies. RuntimeError also covers click.Abort raised by abort() inside
+# a try — the handler re-aborts with context, matching the previous
+# except-Exception behaviour. BaseExceptions still propagate (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 # The edge service answers ``{"success": false, "message": ...}`` for real
 # failures and for some by-design idempotent outcomes alike, with no
@@ -77,7 +96,7 @@ def status(ctx):
         abort(None, f"Network error: {e}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error fetching edge status: {e}")
 
 
@@ -102,7 +121,7 @@ def balance(ctx):
         abort(None, f"Network error: {e}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error fetching edge balance: {e}")
 
 
@@ -134,7 +153,7 @@ def transfer(ctx, to_address: str, amount: Decimal, note: str | None):
         abort(None, f"Network error: {e}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error executing transfer: {e}")
 
 
@@ -150,7 +169,7 @@ def _edge_auth_headers() -> dict[str, str]:
         from ..auth import AuthManager
 
         token = AuthManager().get_admin_token()
-    except Exception:
+    except _OPS_ERRORS:
         token = None
     return {"Authorization": f"Bearer {token}"} if token else {}
 
@@ -218,7 +237,7 @@ def join(ctx, island_id: str, island_name: str, chain_id: str, role: str, is_hub
             abort(ctx, f"Failed to join island: {result.get('message', 'Unknown error')}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error joining island: {str(e)}")
 
 
@@ -247,7 +266,7 @@ def leave(ctx, island_id: str):
             abort(ctx, f"Failed to leave island: {result.get('message', 'Unknown error')}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error leaving island: {str(e)}")
 
 
@@ -273,7 +292,7 @@ def list_islands(ctx):
             output(islands, resolve_output_format(ctx))
         else:
             info("No islands found")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error listing islands: {str(e)}")
 
 
@@ -294,7 +313,7 @@ def get(ctx, island_id: str):
         response.raise_for_status()
         result = response.json()
         output(result, resolve_output_format(ctx))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting island details: {str(e)}")
 
 
@@ -325,7 +344,7 @@ def bridge(ctx, target_island_id: str):
             abort(ctx, f"Failed to request bridge: {result.get('message', 'Unknown error')}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error requesting bridge: {str(e)}")
 
 
@@ -373,7 +392,7 @@ def list_gpus(ctx, architecture: str | None, edge_optimized: bool, min_memory_gb
             output(gpus, resolve_output_format(ctx))
         else:
             info("No GPUs found")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error listing GPUs: {str(e)}")
 
 
@@ -394,7 +413,7 @@ def get_gpu(ctx, gpu_id: str):
         response.raise_for_status()
         result = response.json()
         output(result, resolve_output_format(ctx))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting GPU details: {str(e)}")
 
 
@@ -412,7 +431,7 @@ def remove_gpu(gpu_id: str):
         response.raise_for_status()
         result = response.json()
         success(result.get("message", f"GPU {gpu_id} removed"))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error removing GPU: {str(e)}")
 
 
@@ -434,7 +453,7 @@ def scan_gpus(ctx, miner_id: str):
         result = response.json()
         success(f"GPU scan initiated for miner {miner_id}")
         output(result, resolve_output_format(ctx))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error scanning GPUs: {str(e)}")
 
 
@@ -456,7 +475,7 @@ def gpu_metrics(ctx, gpu_id: str, limit: int):
         response.raise_for_status()
         result = response.json()
         output(result, resolve_output_format(ctx))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting GPU metrics: {str(e)}")
 
 
@@ -501,7 +520,7 @@ def init_db(ctx, database_id: str, island_id: str, capacity_gb: int):
             abort(ctx, f"Failed to initialize database: {result.get('message', 'Unknown error')}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error initializing database: {str(e)}")
 
 
@@ -531,7 +550,7 @@ def list_dbs(ctx, island_id: str | None):
             output(databases, resolve_output_format(ctx))
         else:
             info("No databases found")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error listing databases: {str(e)}")
 
 
@@ -552,7 +571,7 @@ def get_db(ctx, database_id: str):
         response.raise_for_status()
         result = response.json()
         output(result, resolve_output_format(ctx))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting database details: {str(e)}")
 
 
@@ -570,7 +589,7 @@ def delete_db(database_id: str):
         response.raise_for_status()
         result = response.json()
         success(result.get("message", f"Database {database_id} deleted"))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error deleting database: {str(e)}")
 
 
@@ -607,7 +626,7 @@ def sync_db(ctx, database_id: str):
         output(result, resolve_output_format(ctx))
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error syncing database: {e}", from_exception=e)
 
 
@@ -667,7 +686,7 @@ def submit_request(
             abort(ctx, f"Failed to submit request: {result.get('message', 'Unknown error')}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error submitting compute request: {str(e)}")
 
 
@@ -700,7 +719,7 @@ def list_requests(ctx, gpu_id: str | None, status: str | None):
             output(requests, resolve_output_format(ctx))
         else:
             info("No requests found")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error listing requests: {str(e)}")
 
 
@@ -721,7 +740,7 @@ def get_request(ctx, request_id: str):
         response.raise_for_status()
         result = response.json()
         output(result, resolve_output_format(ctx))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting request details: {str(e)}")
 
 
@@ -739,7 +758,7 @@ def cancel_request(request_id: str):
         response.raise_for_status()
         result = response.json()
         success(result.get("message", f"Request {request_id} cancelled"))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error cancelling request: {str(e)}")
 
 
@@ -760,7 +779,7 @@ def get_result(ctx, request_id: str):
         response.raise_for_status()
         result = response.json()
         output(result, resolve_output_format(ctx))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting result: {str(e)}")
 
 
@@ -803,7 +822,7 @@ def record(ctx, gpu_id: str, metrics: str):
             abort(ctx, f"Failed to record metrics: {result.get('message', 'Unknown error')}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error recording metrics: {str(e)}")
 
 
@@ -834,7 +853,7 @@ def list_metrics(ctx, gpu_id: str | None, limit: int):
             output(metrics, resolve_output_format(ctx))
         else:
             info("No metrics found")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error listing metrics: {str(e)}")
 
 
@@ -855,7 +874,7 @@ def get_metric(ctx, metric_id: str):
         response.raise_for_status()
         result = response.json()
         output(result, resolve_output_format(ctx))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting metric details: {str(e)}")
 
 
@@ -873,5 +892,5 @@ def delete_metric(metric_id: str):
         response.raise_for_status()
         result = response.json()
         success(result.get("message", f"Metric {metric_id} deleted"))
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error deleting metric: {str(e)}")

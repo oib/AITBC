@@ -4,8 +4,25 @@ Trading-related exchange commands.
 
 from decimal import Decimal
 
+from aitbc.exceptions import AITBCError
 from aitbc_cli.utils import output, success
-from ...utils.error_handling import abort
+from ...utils.error_handling import CLIError, abort
+
+# Expected failure surface for the exchange command handlers: data-shape,
+# runtime and both error hierarchies. RuntimeError also covers click.Abort
+# raised by abort() inside a try — the handler re-aborts with context,
+# matching the previous except-Exception behaviour. BaseExceptions still
+# propagate (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    CLIError,
+    AITBCError,
+)
 
 
 def register_command(ctx, name: str, api_key: str, api_secret: str | None, sandbox: bool):
@@ -13,7 +30,7 @@ def register_command(ctx, name: str, api_key: str, api_secret: str | None, sandb
     try:
         success(f"Registered with {name}")
         output({"exchange": name, "sandbox": sandbox, "status": "registered"})
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -24,7 +41,7 @@ def create_pair_command(
     try:
         success(f"Created pair {pair}")
         output({"pair": pair, "base_asset": base_asset, "quote_asset": quote_asset})
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -33,7 +50,7 @@ def start_trading_command(ctx, pair: str, exchange: str | None, order_type: tupl
     try:
         success(f"Started trading for {pair}")
         output({"pair": pair, "exchange": exchange, "order_type": order_type})
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -42,7 +59,7 @@ def list_pairs_command(ctx, pair: str | None, exchange: str | None, status: str 
     try:
         pairs = [{"pair": "AITBC/ETH", "status": "active", "exchange": "binance"}]
         output(pairs, title="Trading Pairs")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -51,7 +68,7 @@ def connect_command(ctx, exchange: str, api_key: str, secret: str, sandbox: bool
     try:
         success(f"Connected to {exchange}")
         output({"exchange": exchange, "sandbox": sandbox, "status": "connected"})
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -60,7 +77,7 @@ def status_command(ctx, exchange: str | None):
     try:
         status_data = {"exchange": exchange or "binance", "status": "connected", "latency": "50ms"}
         output(status_data, title="Exchange Status")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -68,7 +85,7 @@ def disconnect_command(ctx, exchange: str):
     """Disconnect from external exchange"""
     try:
         success(f"Disconnected from {exchange}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -77,7 +94,7 @@ def orderbook_command(ctx, exchange: str, symbol: str, limit: int):
     try:
         orderbook = {"exchange": exchange, "symbol": symbol, "bids": [[100.0, 1.0]], "asks": [[101.0, 1.0]]}
         output(orderbook, title="Order Book")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -90,7 +107,7 @@ def balance_command(ctx, exchange: str):
             "eth": 0.05,
         }  # not-money: ratio, threshold or configuration default — not an amount of money
         output(balance, title="Exchange Balance")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -99,7 +116,7 @@ def pairs_command(ctx, exchange: str):
     try:
         pairs = ["AITBC/ETH", "AITBC/ETH"]
         output(pairs, title=f"Pairs on {exchange}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -112,7 +129,7 @@ def order_command(ctx, order_id: str):
             "price": 100.0,
         }  # not-money: ratio, threshold or configuration default — not an amount of money
         output(order, title="Order Details")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -121,7 +138,7 @@ def orders_command(ctx, pair: str | None, status: str | None, limit: int):
     try:
         orders = [{"order_id": "1", "status": "filled", "pair": "AITBC/ETH"}]
         output(orders, title="Orders")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -130,7 +147,7 @@ def book_command(ctx, pair: str, limit: int):
     try:
         book = {"pair": pair, "bids": [[100.0, 1.0]], "asks": [[101.0, 1.0]]}
         output(book, title="Order Book")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -139,7 +156,7 @@ def history_command(ctx, pair: str | None, limit: int):
     try:
         history = [{"price": 100.0, "amount": 1.0, "time": "2024-01-01"}]  # not-money: stub/demo response, not a live amount
         output(history, title="Trade History")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -148,7 +165,7 @@ def list_exchanges_command(ctx):
     try:
         exchanges = ["binance", "coinbase", "kraken"]
         output(exchanges, title="Supported Exchanges")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -160,7 +177,7 @@ def price_command(ctx, base: str, quote: str):
             "price": 100.0,
         }  # not-money: ratio, threshold or configuration default — not an amount of money
         output(price, title="Price")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -170,7 +187,7 @@ def deposit_command(ctx, amount: Decimal, ait_address: str, dry_run: bool):
         success(f"Deposit {amount} to {ait_address}")
         if dry_run:
             success("(dry run - no actual deposit)")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -180,7 +197,7 @@ def withdraw_command(ctx, amount: Decimal, eth_address: str, dry_run: bool):
         success(f"Withdraw {amount} to {eth_address}")
         if dry_run:
             success("(dry run - no actual withdrawal)")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -189,5 +206,5 @@ def swap_command(ctx, from_token: str, to_token: str, amount: Decimal, slippage:
     try:
         success(f"Swap {amount} {from_token} to {to_token}")
         output({"from": from_token, "to": to_token, "amount": str(amount), "slippage": slippage})
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
