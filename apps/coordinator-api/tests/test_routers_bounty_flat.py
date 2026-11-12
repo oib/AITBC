@@ -18,9 +18,15 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
+from aitbc.auth import create_access_token
+
 from coordinator_api.contexts.bounty.domain.bounty import Bounty, BountyStatus
 
 BASE = "/v1/bounty"
+
+
+def _headers(sub: str = "client-1", role: str = "client") -> dict[str, str]:
+    return {"Authorization": f"Bearer {create_access_token(sub, role)}"}
 
 
 def _seed_bounty(
@@ -124,8 +130,23 @@ class TestBountyReads:
 
 class TestBountyMutationsHonest501:
     def test_create_validation_still_applies(self, client: TestClient) -> None:
-        assert client.post(f"{BASE}/create", json={}).status_code == 422
-        assert client.post(f"{BASE}/create", json=_create_body(reward=0)).status_code == 422
+        assert client.post(f"{BASE}/create", json={}, headers=_headers()).status_code == 422
+        assert client.post(f"{BASE}/create", json=_create_body(reward=0), headers=_headers()).status_code == 422
+
+    @pytest.mark.parametrize(
+        "path,body",
+        [
+            ("create", _create_body()),
+            ("claim", {"bounty_id": "b1", "hunter": "h1"}),
+            ("submit", {"bounty_id": "b1", "hunter": "h1", "solution_url": "https://x/s"}),
+            ("verify", {"bounty_id": "b1", "verifier": "v1", "approved": True}),
+        ],
+    )
+    def test_mutations_require_auth(self, client: TestClient, path: str, body: dict) -> None:
+        # #1898: matrix floor /v1/bounty*=ANY cannot split reads from writes —
+        # the mutation stubs take AuthDep so anonymous callers get 401, not 501.
+        resp = client.post(f"{BASE}/{path}", json=body)
+        assert resp.status_code == 401
 
     @pytest.mark.parametrize(
         "path,body",
@@ -138,13 +159,17 @@ class TestBountyMutationsHonest501:
     )
     def test_mutations_501_not_fabricated(self, client: TestClient, path: str, body: dict) -> None:
         # #1337: no fabricated success — honest not-implemented, and nothing persisted
-        resp = client.post(f"{BASE}/{path}", json=body)
+        resp = client.post(f"{BASE}/{path}", json=body, headers=_headers())
         assert resp.status_code == 501
         assert "not implemented" in resp.json()["detail"].lower()
 
     def test_verify_does_not_fake_payout(self, client: TestClient, db_session: Session) -> None:
         _seed_bounty(db_session)
-        resp = client.post(f"{BASE}/verify", json={"bounty_id": "bounty_test1", "verifier": "v1", "approved": True})
+        resp = client.post(
+            f"{BASE}/verify",
+            json={"bounty_id": "bounty_test1", "verifier": "v1", "approved": True},
+            headers=_headers(),
+        )
         assert resp.status_code == 501
         # the seeded bounty must be untouched
         got = client.get(f"{BASE}/bounty_test1").json()
