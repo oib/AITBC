@@ -1787,7 +1787,13 @@ class MarketService:
             raise
 
     async def sync_ratings_from_remote(self, remote_ratings: list[dict[str, Any]]) -> dict[str, Any]:
-        """Sync ratings from remote node"""
+        """Sync ratings from remote node.
+
+        Insert-only (#1851): an existing (service_id, reviewer) rating is
+        never overwritten by sync — first-seen wins, so a spoofed reviewer_id
+        cannot rewrite a real rating. ``updated`` stays in the response for
+        API compatibility and is always 0.
+        """
         try:
             from datetime import UTC, datetime
 
@@ -1821,13 +1827,13 @@ class MarketService:
                     result = await self.session.execute(stmt)
                     existing = result.scalar_one_or_none()
                     if existing:
-                        if remote_created > existing.created_at:
-                            existing.rating = rating_value
-                            existing.comment = remote_rating["comment"]
-                            existing.synced_at = datetime.now(UTC).replace(tzinfo=None)
-                            updated_count += 1
-                        else:
-                            skipped_count += 1
+                        # #1851: sync is insert-only. The (service_id,
+                        # reviewer) dedup key means a caller spoofing a known
+                        # reviewer_id could previously rewrite that reviewer's
+                        # real rating whenever the forged created_at was newer.
+                        # First-seen wins; rating edits on the source node do
+                        # not propagate (peer-trust model limitation).
+                        skipped_count += 1
                     else:
                         new_rating = ServiceRating(
                             id=remote_rating["id"],
