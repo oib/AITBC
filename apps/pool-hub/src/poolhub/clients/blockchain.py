@@ -16,12 +16,14 @@ from __future__ import annotations
 
 import json
 import logging
+
+import httpx
 import os
 from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.config.hub import hub_agent_url
@@ -33,6 +35,19 @@ from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 from ..models import Miner, RewardPayout
 
 logger = logging.getLogger(__name__)
+
+# Expected operational failure surface: DB session work, reward RPC calls
+# (httpx transport/status errors), and payout data-shape errors.
+_OPS_ERRORS = (
+    SQLAlchemyError,
+    httpx.HTTPError,
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+)
 
 # Transaction fields covered by the signature — must match the node verifier.
 _SIGNED_FIELDS = ("from", "to", "amount", "fee", "nonce", "payload", "type", "chain_id")
@@ -269,7 +284,7 @@ class PoolHubBlockchainClient:
                         "status": "paid",
                     }
                 )
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Failed to distribute reward to %s: %s", contrib.miner_id, e)
                 # Leave the claim in place: the miner may or may not have been paid on
                 # chain, and re-attempting blindly is how double payments happen.

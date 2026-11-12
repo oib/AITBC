@@ -11,6 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import desc, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aitbc.aitbc_logging import get_logger
@@ -19,6 +20,18 @@ from aitbc.async_tasks import create_task_with_logging
 from ..models import CapacitySnapshot, Feedback, MatchResult, Miner, MinerStatus, SLAMetric, SLAViolation
 
 logger = get_logger(__name__)
+
+# Expected operational failure surface: DB session work plus the
+# data-shape errors metric math over stored rows can raise.
+_OPS_ERRORS = (
+    SQLAlchemyError,
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+)
 
 
 def _as_utc(dt: datetime) -> datetime:
@@ -315,7 +328,7 @@ class SLACollector:
                 )
                 results["metrics_collected"].append(entry)
                 results["miners_processed"] += 1
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Failed to collect metrics for miner %s: %s", miner_id, e)
 
         # Single commit for uptime updates, metric rows, and violation changes
@@ -585,6 +598,6 @@ class SLACollectorScheduler:
                 async with self.session_factory() as session:
                     await SLACollector(session).collect_all_miner_metrics()
                 await asyncio.sleep(interval_seconds)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 self.logger.error("Error in SLA collection loop: %s", e)
                 await asyncio.sleep(60)

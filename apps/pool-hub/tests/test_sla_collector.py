@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from sqlalchemy.exc import SQLAlchemyError
 from unittest.mock import AsyncMock
 
 from sqlalchemy import func, select
@@ -169,7 +170,7 @@ async def test_scheduler_opens_session_per_pass_and_survives_errors(session_fact
         nonlocal calls
         calls += 1
         if calls % 2 == 1:
-            raise RuntimeError("boom")
+            raise SQLAlchemyError("boom")
 
     async def fast_sleep(_seconds):
         await real_sleep(0.001)
