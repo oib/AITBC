@@ -209,33 +209,20 @@ def get_status_route(request: Request, chain_id: str | None = None) -> dict[str,
 def get_network_info_route(request: Request) -> dict[str, Any]:
     """Get network configuration for open-island joining.
 
-    Uses trusted proxy headers for the public scheme and falls back to
-    AITBC_PROTOCOL for deployments where the reverse proxy is not under
-    direct control.
+    Public URLs are built from operator configuration only
+    (``AITBC_PROTOCOL``/``AITBC_HOSTNAME``, then the node FQDN) — never
+    from client-supplied ``Host``/``X-Forwarded-*`` headers (#1911): this
+    endpoint is reachable through nginx, and reflecting those headers
+    would let any caller mint join URLs pointing at an attacker host.
+    Shares ``_join_public_base_url`` with ``/rpc/join`` (#1875 F7).
     """
     import json
     import os
-    import socket
 
-    # 1. Public scheme: trust the upstream reverse proxy first, then a
-    # configured override. Reject anything that is not http/https.
-    forwarded_proto = request.headers.get("x-forwarded-proto")
-    # AITBC_PROTOCOL lets the operator override the scheme when the reverse
-    # proxy does not set, or overwrites, X-Forwarded-Proto.
-    protocol = os.getenv("AITBC_PROTOCOL") or forwarded_proto or request.url.scheme or "http"
-    protocol = protocol.lower()
-    if protocol not in ("http", "https"):
-        protocol = "https"
+    from .subscription import _join_public_base_url
 
-    # 2. Public hostname: explicit operator override wins, then a non-loopback
-    # Host header, then the system's FQDN. Local CLI calls set Host to 127.0.0.1
-    # or localhost; using that value would publish unreachable URLs.
-    hostname = os.getenv("AITBC_HOSTNAME") or request.headers.get("host") or socket.getfqdn() or socket.gethostname()
-    hostname = hostname.split(":")[0]
-    if not os.getenv("AITBC_HOSTNAME") and hostname in ("127.0.0.1", "localhost", "::1"):
-        hostname = socket.getfqdn() or socket.gethostname()
-
-    base_url = f"{protocol}://{hostname}"
+    base_url = _join_public_base_url()
+    hostname = base_url.split("://", 1)[1]
     rpc_url = f"{base_url}/rpc"
     wss_url = base_url.replace("https://", "wss://").replace("http://", "ws://")
     subscribe_url = f"{wss_url}/rpc/subscribe/ws"

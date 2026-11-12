@@ -72,3 +72,36 @@ def test_network_info_does_not_leak_secrets(_network_info_settings) -> None:
     flat = str(data)
     for secret in ("REDIS_URL", "COORDINATOR_API_KEY", "SECRET_KEY", "proposer_key"):
         assert secret not in flat
+
+
+def test_network_info_ignores_spoofed_forwarding_headers(_network_info_settings) -> None:
+    """#1911: advertised join URLs come from AITBC_* config, never from
+    client-supplied Host/X-Forwarded-* headers (same class as #1875 F7)."""
+    with TestClient(create_app()) as client:
+        response = client.get(
+            "/rpc/network-info",
+            headers={
+                "Host": "evil.example",
+                "X-Forwarded-Host": "evil.example",
+                "X-Forwarded-Proto": "http",
+            },
+        )
+        assert response.status_code == 200
+        data = response.json()
+    assert data["public_rpc_url"] == "https://hub.example.net/rpc"
+    assert "evil.example" not in str(data)
+
+
+def test_network_info_without_config_never_reflects_host_header(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv("AITBC_HOSTNAME", raising=False)
+    monkeypatch.delenv("AITBC_PROTOCOL", raising=False)
+    with TestClient(create_app()) as client:
+        response = client.get(
+            "/rpc/network-info",
+            headers={"Host": "evil.example", "X-Forwarded-Host": "evil.example"},
+        )
+        assert response.status_code == 200
+        data = response.json()
+    assert "evil.example" not in str(data)
