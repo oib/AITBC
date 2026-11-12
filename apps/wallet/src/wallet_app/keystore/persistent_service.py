@@ -25,6 +25,8 @@ from ..spend_policy import assert_transfer_allowed
 from ..settings import settings
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.validation import validate_address
+from eth_keys.exceptions import BadSignature
+from eth_utils.exceptions import ValidationError as EthValidationError
 
 logger = get_logger(__name__)
 
@@ -42,6 +44,8 @@ _OPS_ERRORS = (
     httpx.HTTPError,
     sqlite3.Error,
     EncryptionError,
+    BadSignature,
+    EthValidationError,
 )
 
 _DEFAULT_DB = settings.ledger_db_path.parent / "keystore.db"

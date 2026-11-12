@@ -12,6 +12,9 @@ import asyncio
 import logging
 from typing import Any
 
+import anyio
+from websockets.exceptions import ConnectionClosed
+
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.trading.subscription_types import OfferEvent, OfferNotification, OfferSubscription
 
@@ -28,6 +31,10 @@ _OPS_ERRORS = (
     TypeError,
     AttributeError,
     RuntimeError,
+    anyio.EndOfStream,
+    anyio.BrokenResourceError,
+    anyio.ClosedResourceError,
+    ConnectionClosed,
 )
 
 

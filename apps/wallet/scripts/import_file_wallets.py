@@ -8,6 +8,7 @@ import sys
 from pathlib import Path
 
 import httpx
+from aitbc_errors import AITBCError
 
 # Expected failure surface below: daemon HTTP I/O (httpx), file/JSON decode
 # (OSError/ValueError), hex/base64 decode, and data-shape errors.
@@ -22,6 +23,7 @@ _OPS_ERRORS = (
     AttributeError,
     RuntimeError,
     httpx.HTTPError,
+    AITBCError,
 )
 
 WALLET_DAEMON_URL = os.getenv("WALLET_DAEMON_URL", "http://localhost:8108")
