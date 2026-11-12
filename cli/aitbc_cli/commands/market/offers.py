@@ -19,7 +19,7 @@ from tabulate import tabulate
 from aitbc.config.hub import normalize_hub_base
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
-from ...config import get_config
+from ...config import _resolve_market_api_key, get_config
 from ...utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger, normalize_base_url
 from aitbc.crypto.crypto import sign_transaction_data
@@ -1340,7 +1340,11 @@ def offer(
             # P2.5: register the offer with the same market service that `market list`
             # queries, otherwise the offer is visible only on the local node.
             market_url = hub_url.replace("http://", "https://") if not hub_url.startswith("https://") else hub_url
-            plugin_client = AITBCHTTPClient(base_url=market_url, timeout=10)
+            plugin_client = AITBCHTTPClient(
+                base_url=market_url,
+                timeout=10,
+                api_key=_resolve_market_api_key(get_config()),
+            )
             plugin_id = f"{service_type}-{model_or_variant.replace(':', '-')}"
             issued_at = int(time.time())
             registration = {
@@ -1492,7 +1496,11 @@ def offer_disable(
             registration_message("unregister", plugin_id, wallet_address, chain_id, issued_at, offer_body_hash(proof)),
             private_key,
         )
-        client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+        client = AITBCHTTPClient(
+            base_url=hub_url,
+            timeout=15,
+            api_key=_resolve_market_api_key(get_config()),
+        )
         result = client.delete(
             f"/v1/market/offer/{quote(plugin_id, safe='')}",
             params={

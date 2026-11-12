@@ -33,6 +33,7 @@ from ...utils.energy_quote import (
 from ...utils.escrow import create_signed_escrow_lock
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.wallet_loader import load_wallet_for_payment
+from ._signing import signed_job_request_fields
 
 logger = get_logger(__name__)
 
@@ -606,7 +607,7 @@ def release(ctx, job_id, yes, json_output):
 @click.pass_context
 def refund(ctx, job_id, wallet, wallet_path, password, password_file, password_stdin, reason, yes, json_output):
     """Request a refund for a GPU rental."""
-    buyer_address, _, _ = load_wallet_for_payment(
+    wallet_creds = load_wallet_for_payment(
         ctx,
         wallet_name=wallet,
         wallet_path=wallet_path,
@@ -615,6 +616,7 @@ def refund(ctx, job_id, wallet, wallet_path, password, password_file, password_s
         password_stdin=password_stdin,
         require_private_key=False,
     )
+    buyer_address = wallet_creds[0]
 
     if not yes:
         click.confirm(f"Request refund for job {job_id}?", abort=True)
@@ -627,6 +629,10 @@ def refund(ctx, job_id, wallet, wallet_path, password, password_file, password_s
         api_key=_resolve_market_api_key(get_config()),
     )
     payload: dict[str, Any] = {"buyer_address": buyer_address, "reason": reason}
+    # #1907: the market refund route is party-gated (#1893) — sign as a job
+    # party when the wallet key resolves, else the operator credential is
+    # required server-side.
+    payload.update(signed_job_request_fields(ctx, f"/v1/market/jobs/{job_id}/refund", wallet=wallet_creds))
     try:
         result = client.post(f"/v1/market/jobs/{job_id}/refund", json=payload)
     except NetworkError as e:
