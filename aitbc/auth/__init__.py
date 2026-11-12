@@ -70,6 +70,7 @@ from .password import (
 )
 from .permissions import (
     Permission,
+    principal_has_permission,
     PermissionManager,
     Role,
     RolePermission,
@@ -105,6 +106,7 @@ __all__ = [
     "Role",
     "RolePermission",
     "permission_manager",
+    "principal_has_permission",
     # FastAPI Dependencies
     "AdminDep",
     "AdminOrClientDep",
