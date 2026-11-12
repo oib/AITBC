@@ -10,7 +10,7 @@ from fastapi import APIRouter, Request
 from pydantic import BaseModel
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc.rate_limiting import rate_limit
 
@@ -25,6 +25,7 @@ _OPS_ERRORS: tuple[type[BaseException], ...] = (
     AttributeError,
     RuntimeError,
     ImportError,
+    AITBCError,
 )
 
 
