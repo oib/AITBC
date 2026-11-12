@@ -23,6 +23,7 @@ from ..domain.provider_bond import (
     ProviderBondStatus,
     _default_bond_min_amount,
     is_provider_eligible,
+    reconcile_provider_bond,
     set_provider_bond_status,
 )
 from ...infrastructure.domain.miner import Miner
@@ -203,6 +204,12 @@ def get_eligibility(
     """Return whether a provider is eligible for high-value jobs."""
     statement = select(ProviderBond).where(ProviderBond.provider_id == provider_id)
     bond = session.exec(statement).first()
+    if bond is not None:
+        # #1926: best-effort chain refresh — this is a read path, not a
+        # money-moving decision, so the local answer stands when the chain
+        # can't be consulted.
+        reconcile_provider_bond(session, provider_id)
+        bond = session.exec(statement).first()
     if bond is None:
         return BondStatusResponse(
             provider_id=provider_id,
