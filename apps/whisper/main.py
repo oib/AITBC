@@ -11,6 +11,7 @@ import hashlib
 import os
 import re
 import shutil
+import subprocess
 import tempfile
 import time
 from contextlib import asynccontextmanager
@@ -216,15 +217,61 @@ def _probe_duration(path: str) -> float | None:
     being followed to nested resources. It raises for anything the guard or the
     parser rejects; callers decide what that means.
 
-    Returns None when the container carries no duration, which is normal for
-    streamed formats; the byte limit is what covers that case.
+    Returns None when neither the container nor ffprobe can say — the byte
+    limit is what covers that residual case.
     """
     import av
 
     with av.open(path, options=pyav_open_options()) as container:
-        if container.duration is None:
-            return None
-        return container.duration / av.time_base
+        if container.duration is not None:
+            return container.duration / av.time_base
+    # WHISPER-DURATION-1 (#1653): streamed/raw containers legitimately carry
+    # no container.duration, which left the duration cap wide open — a 100MB
+    # low-bitrate stream decodes to hours of PCM. ffprobe reads the same
+    # header through a different demuxer path and reports format.duration
+    # for files av cannot; it ships with the ffmpeg service tier.
+    return _ffprobe_duration(path)
+
+
+def _ffprobe_duration(path: str) -> float | None:
+    """``ffprobe`` format.duration fallback for duration-less containers.
+
+    Returns seconds, or None when ffprobe is absent, fails, or reports no
+    duration — callers treat None exactly like the PyAV miss.
+    """
+    ffprobe = shutil.which("ffprobe")
+    if ffprobe is None:
+        return None
+    try:
+        proc = subprocess.run(
+            [
+                ffprobe,
+                "-v",
+                "error",
+                "-protocol_whitelist",
+                "file",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "csv=p=0",
+                path,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=15,
+            check=False,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if proc.returncode != 0:
+        return None
+    raw = proc.stdout.strip()
+    try:
+        seconds = float(raw)
+    except ValueError:
+        return None
+    # ffprobe prints N/A for streams with no derivable duration.
+    return seconds if seconds > 0 else None
 
 
 def _probe_errors() -> tuple[type[BaseException], ...]:
