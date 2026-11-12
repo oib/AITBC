@@ -8,15 +8,6 @@
       1 aitbc/oracles/price_oracle.py
       1 aitbc/sync/parallel_fetcher.py
       1 aitbc/trading/subscription_client.py
-      1 apps/agent-coordinator/src/agent_app/config.py
-      1 apps/agent-coordinator/src/agent_app/consensus/distributed_consensus.py
-      1 apps/agent-coordinator/src/agent_app/routers/auth.py
-      1 apps/agent-coordinator/src/agent_app/routers/coin_requests.py
-      2 apps/agent-coordinator/src/agent_app/routers/messages.py
-      1 apps/agent-coordinator/src/agent_app/routers/monitoring.py
-      1 apps/agent-coordinator/src/agent_app/routing/agent_discovery.py
-      1 apps/agent-coordinator/src/agent_app/routing/load_balancer.py
-      1 apps/agent-coordinator/src/agent_app/websocket/agent_stream.py
       1 apps/blockchain-explorer/routers/blocks.py
       2 apps/blockchain-node/src/aitbc_chain/app.py
       1 apps/blockchain-node/src/aitbc_chain/aux_state.py
