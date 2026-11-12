@@ -15,6 +15,19 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
+# Subscriber failure surface: gossip broker subscribe/queue errors and the
+# event-payload data-shape errors the bridge handler can raise.
+_OPS_ERRORS = (
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+    TimeoutError,
+)
+
 
 class SubscriptionProtocol(Protocol):
     async def get(self) -> dict[str, Any]: ...
@@ -76,7 +89,7 @@ class TransactionEventSubscriber:
                 gossip_subscribers_total.inc()
                 logger.info("Successfully subscribed to transactions topic")
                 return True
-            except Exception:
+            except _OPS_ERRORS:
                 logger.info("Transactions topic not available - will extract from block events")
                 await self._run_mock()
                 return False
@@ -94,7 +107,7 @@ class TransactionEventSubscriber:
             logger.info("Received transaction event: hash=%s", tx_data.get("hash"))
             if self._bridge:
                 await self._bridge.handle_transaction_event(tx_data)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error processing transaction event: %s", e, exc_info=True)
             await asyncio.sleep(1)
 

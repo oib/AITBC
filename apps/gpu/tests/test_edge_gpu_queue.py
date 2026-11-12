@@ -16,7 +16,7 @@ try:
     _redis.ping()
     _redis.close()
     from redis.asyncio import Redis  # noqa: E402
-except Exception:
+except Exception:  # noqa: BLE001 - skip-guard: any import/connect failure means "no redis"
     pytestmark = pytest.mark.skip(
         f"Redis at {_REDIS_TEST_URL} is not reachable or requires auth; "
         "configure a reachable Redis instance to run these tests"
