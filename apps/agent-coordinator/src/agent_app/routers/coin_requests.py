@@ -26,9 +26,11 @@ from typing import Any
 
 from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel, field_validator
+from sqlalchemy.exc import SQLAlchemyError
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto import TransactionService
+from aitbc.exceptions import AITBCError
 from aitbc.rate_limiting import rate_limit
 from aitbc.db import get_db_session
 from aitbc.models import CoinRequest, CoinRequestStatus
@@ -42,6 +44,8 @@ logger = get_logger(__name__)
 # backends noted per file. Genuine BaseExceptions (incl.
 # asyncio.CancelledError) still propagate (#1865).
 _OPS_ERRORS = (
+    AITBCError,
+    SQLAlchemyError,
     OSError,
     ValueError,
     TypeError,
