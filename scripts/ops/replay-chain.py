@@ -694,7 +694,7 @@ async def _run(args: argparse.Namespace) -> int:
     import threading
 
     thread = threading.Thread(target=server.serve_forever, daemon=True)
-    thread.start()
+    thread.start()  # noqa: unawaited-async — threading.Thread.start is sync; name heuristic false positive
     try:
         sync = ChainSync(
             session_factory=lambda: session_scope(chain_id),

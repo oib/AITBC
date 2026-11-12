@@ -430,7 +430,7 @@ async def main():
 
     # Verify kubectl is available
     try:
-        subprocess.run(["kubectl", "version"], capture_output=True, check=True)
+        subprocess.run(["kubectl", "version"], capture_output=True, check=True)  # noqa: unawaited-async — subprocess.run is sync; name heuristic false positive
     except (subprocess.CalledProcessError, FileNotFoundError):
         logger.error("kubectl is not available or not configured")
         sys.exit(1)
