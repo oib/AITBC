@@ -8609,6 +8609,16 @@
               }
             }
           },
+          "409": {
+            "description": "Job has no provider assigned / Job has no payment amount",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -9061,7 +9071,7 @@
           "disputes"
         ],
         "summary": "Register as arbitrator",
-        "description": "Register an address as an arbitrator.\n\nCallers may only register their own authenticated identity \u2014 the\n``address`` parameter is retained for compatibility and must match\nthe caller's subject (#1335). Registration additionally requires\nACTIVE stake covering ``MIN_STAKE_AMOUNT`` on the caller's identities,\nso the arbitrator set cannot be self-minted by fresh accounts (#1854).",
+        "description": "Register an address as an arbitrator.\n\nCallers may only register their own authenticated identity \u2014 the\n``address`` parameter is retained for compatibility and must match\nthe caller's subject (#1335). Registration additionally requires\nACTIVE stake covering ``MIN_STAKE_AMOUNT`` on the caller's identities,\nso the arbitrator set cannot be self-minted by fresh accounts (#1854).\n\nNote (#1879): arbitrator stake is declarative weight, not escrowed \u2014\nthe same ACTIVE stake can back votes across unlimited disputes. The\nvote path bounds each vote's ``stake_amount`` by the caller's current\nactive total, which is the enforced limit for this in-memory service;\nreal escrow/slashing is out of scope until disputes move on-chain.",
         "operationId": "register_arbitrator_v1_disputes_arbitrators_register_post",
         "parameters": [
           {
