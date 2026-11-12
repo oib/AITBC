@@ -30,6 +30,11 @@ logger = get_logger(__name__)
 
 _DEFAULT_DB = settings.ledger_db_path.parent / "keystore.db"
 
+# #1858: domain tag separating /sign digests from transaction digests. Must
+# not start with "{" — canonical tx JSON always does, which makes the two
+# digest domains disjoint.
+_MESSAGE_SIGN_DOMAIN = b"aitbc.wallet.message.v1\x00"
+
 
 def _validate_send_inputs(*, amount: int, fee: int, nonce: int | None, recipient: str) -> None:
     """Refuse unsignable send parameters before they reach tx_data.
@@ -389,10 +394,15 @@ class PersistentKeystoreService:
     def sign_message(self, wallet_id: str, password: str, message: bytes, ip_address: str | None = None) -> bytes:
         """Sign a message with the wallet's secp256k1 key.
 
-        Returns the 65-byte recoverable signature over ``keccak256(message)``
-        (r || s || v), the same scheme ``sign_and_submit_transaction`` uses —
-        the previous Ed25519 signature could never verify against the
-        wallet's secp256k1 address (#1409).
+        Returns the 65-byte recoverable signature over a domain-separated
+        digest — ``keccak256(_MESSAGE_SIGN_DOMAIN + message)`` — so the
+        output can never verify as a transaction signature. #1858: the old
+        scheme signed ``keccak256(message)`` verbatim, identical to
+        ``sign_and_submit_transaction``; an admin-key holder could submit
+        ``message=<canonical tx JSON>`` and obtain a valid signature for
+        any tx payload. The domain tag starts with a non-``{"`` byte, so
+        ``tag + message`` can never equal a canonical tx JSON encoding —
+        the two digest domains are disjoint by construction.
         """
         try:
             # decrypt() returns a wipeable bytearray — use it directly so the
@@ -403,7 +413,7 @@ class PersistentKeystoreService:
                 from eth_utils import keccak
 
                 signing_key = _eth_keys.PrivateKey(bytes(secret_bytes))
-                signature = signing_key.sign_msg_hash(keccak(message))
+                signature = signing_key.sign_msg_hash(keccak(_MESSAGE_SIGN_DOMAIN + message))
                 self._log_access(wallet_id, "sign_success", True, ip_address)
                 return signature.to_bytes()
             finally:
