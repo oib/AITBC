@@ -682,6 +682,18 @@ class ChainSettings(BaseSettings):
         "yes",
     )
     gossip_max_message_size: int = int(os.getenv("GOSSIP_MAX_MESSAGE_SIZE", "1048576"))
+    # #1874: public gossip topics (transactions/status/mempool) are
+    # subscribe-open but publish-gated — a peer_auth frame carrying the
+    # node's BLOCKCHAIN_RPC_API_KEY (fleet key, configured peer key, or
+    # issued join key) is required before a publish is bridged to the
+    # broker. Only meaningful while gossip_auth_enabled is on; off restores
+    # the pre-#1874 open-publish behaviour as an escape hatch.
+    gossip_public_publish_require_key: bool = os.getenv("GOSSIP_PUBLIC_PUBLISH_REQUIRE_KEY", "true").lower() in (
+        "1",
+        "true",
+        "yes",
+        "on",
+    )
     # #1306: make broadcast-backend subscribe() wait until the redis SUBSCRIBE is live,
     # so a request published right after subscribing cannot lose fast responses.
     gossip_subscribe_wait_ready_enabled: bool = False

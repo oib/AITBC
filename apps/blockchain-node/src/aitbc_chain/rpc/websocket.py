@@ -453,8 +453,14 @@ async def gossip_websocket(websocket: WebSocket) -> None:
     topics (``blocks``, ``pbft``, ``consensus`` and any dotted sub-topic)
     requires a signed challenge/response using a key from ``VALIDATOR_SET``.
     Public topics (``transactions``, ``status``, ``mempool`` and any dotted
-    sub-topic) can be published without authentication but are still
-    rate-limited.
+    sub-topic) may be subscribed without authentication, but publishing
+    requires a peer credential (#1874): a ``{"type": "peer_auth",
+    "api_key": ...}`` frame carrying this node's RPC key, a configured
+    ``BLOCKCHAIN_RPC_API_KEY_PEERS`` key, or a live issued join key — the
+    same credential set ``/subscribe/ws`` and the lease routes accept.
+    ``GOSSIP_PUBLIC_PUBLISH_REQUIRE_KEY=false`` restores the pre-#1874
+    open-publish behaviour; per-IP connection caps and per-topic-class
+    message budgets apply either way.
 
     The server bridges messages into the node's ``gossip_broker`` so remote
     validators can publish and subscribe to gossip channels over the existing
@@ -502,6 +508,8 @@ async def gossip_websocket(websocket: WebSocket) -> None:
     challenge_ts: float = 0.0
     authorized = False
     authorized_address: str | None = None
+    # #1874: peer-key credential for public-topic publish (peer_auth frame).
+    peer_authorized = False
 
     try:
         try:
@@ -566,7 +574,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                 logger.warning("Error forwarding broker message for %s: %s", topic, e)
 
         async def _forward_client_to_broker() -> None:
-            nonlocal authorized, authorized_address
+            nonlocal authorized, authorized_address, peer_authorized
             while True:
                 try:
                     raw = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
@@ -617,6 +625,24 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     data = json.loads(raw)
                 except json.JSONDecodeError:
                     await _gossip_ws_send_json(websocket, {"error": "Invalid JSON"})
+                    continue
+
+                # Peer-key auth for public-topic publish (#1874). The key
+                # travels in-band, never in the URL — uvicorn access logs
+                # record the query string. Accepted set matches /subscribe/ws:
+                # own RPC key, configured peer key, or live issued join key.
+                if data.get("type") == "peer_auth":
+                    if not settings.gossip_auth_enabled:
+                        peer_authorized = True
+                        await _gossip_ws_send_json(websocket, {"type": "peer_auth_ok", "note": "auth not required"})
+                        continue
+                    peer_key = data.get("api_key")
+                    if isinstance(peer_key, str) and rpc_peer_key_accepted(peer_key):
+                        peer_authorized = True
+                        await _gossip_ws_send_json(websocket, {"type": "peer_auth_ok"})
+                    else:
+                        _note_rejection(chain_id, topic, "peer_auth_invalid")
+                        await _gossip_ws_send_json(websocket, {"error": "Invalid peer key"})
                     continue
 
                 # Handle authentication handshake.
@@ -690,6 +716,31 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                         _level="info",
                     )
                     await _gossip_ws_send_json(websocket, {"error": "Topic not authorized"})
+                    await _gossip_ws_close(websocket, code=1008)
+                    break
+
+                # #1874: public topics are subscribe-open but publish-gated —
+                # a peer credential (or validator auth) is required so an
+                # anonymous internet caller cannot inject forged tx/status/
+                # mempool gossip. GOSSIP_PUBLIC_PUBLISH_REQUIRE_KEY=false is
+                # the pre-#1874 escape hatch.
+                if (
+                    is_public_topic(topic)
+                    and settings.gossip_auth_enabled
+                    and settings.gossip_public_publish_require_key
+                    and not authorized
+                    and not peer_authorized
+                ):
+                    _note_rejection(chain_id, topic, "peer_key_required")
+                    gossip_event(
+                        "publish_rejected",
+                        peer=client_ip,
+                        topic=topic,
+                        reason="peer_key_required",
+                        event_id=_message_id(topic, data),
+                        _level="info",
+                    )
+                    await _gossip_ws_send_json(websocket, {"error": "Peer key required to publish on public topics"})
                     await _gossip_ws_close(websocket, code=1008)
                     break
 

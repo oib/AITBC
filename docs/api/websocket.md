@@ -84,8 +84,18 @@ A bidirectional channel bridged into the node's internal gossip broker. Used by 
 ### Topics
 
 - **Restricted** (publish requires validator authentication): `blocks`, `pbft`, `consensus`, and any dotted sub-topic such as `blocks.ait-localnet`.
-- **Public** (anyone may publish, still rate-limited): `transactions`, `status`, `mempool`, and any dotted sub-topic.
+- **Public** (anyone may subscribe; publish requires a peer key since #1874): `transactions`, `status`, `mempool`, and any dotted sub-topic.
 - Any other topic: subscribing is possible, but publishing is rejected unless the connection is validator-authenticated.
+
+### Peer authentication for public-topic publish (#1874)
+
+Public topics are subscribe-open but publish-gated: before the first publish the client must send an in-band credential frame (never a URL parameter — access logs record query strings):
+
+```json
+{"type": "peer_auth", "api_key": "<peer key>"}
+```
+
+The accepted set is the same one `/subscribe/ws` and the lease routes use (`rpc_peer_key_accepted`): the receiving node's own `BLOCKCHAIN_RPC_API_KEY`, a key listed in its `BLOCKCHAIN_RPC_API_KEY_PEERS`, or a live issued join key from `POST /rpc/join`. On success the server answers `{"type": "peer_auth_ok"}`; an invalid key gets `{"error": "Invalid peer key"}` and every publish is rejected with `{"error": "Peer key required to publish on public topics"}` followed by a `1008` close. A peer key never substitutes for validator authentication on restricted topics. `GOSSIP_PUBLIC_PUBLISH_REQUIRE_KEY=false` restores the pre-#1874 open-publish behaviour; `GOSSIP_AUTH_ENABLED=false` disables the whole WS auth layer (non-production escape).
 
 ### Validator authentication handshake
 
@@ -128,6 +138,7 @@ asyncio.run(watch_mempool())
 | `GOSSIP_MAX_MESSAGES_PER_MINUTE` | `2000` | Per `(client_ip, topic)` publish rate; excess messages get `{"error": "Rate limit exceeded"}` |
 | `GOSSIP_MAX_MESSAGE_SIZE` | `1048576` (1 MiB) | Larger messages get `{"error": "Message too large"}` and close `1009` |
 | `GOSSIP_AUTH_CHALLENGE_TTL` | `60.0` | Seconds a validator challenge stays valid |
+| `GOSSIP_PUBLIC_PUBLISH_REQUIRE_KEY` | `true` | Require a `peer_auth` credential for publishes on public topics (#1874); `false` restores open publish |
 
 > **Effective ceilings are 2x the configured values (accepted bound, #1249).** `aitbc-blockchain-rpc` runs `uvicorn --workers 2`, and every limiter above (per-IP connection counts, the per-`(client_ip, topic)` message rate, the per-IP validator-challenge mint rate of 20/min) is process-local. Each worker therefore keeps independent limiter state, and one source IP can use a full allowance on each worker: up to 2 x `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP` connections, 2 x `GOSSIP_MAX_MESSAGES_PER_MINUTE` messages per minute and 2 x 20 challenge mints per minute. The operator accepted this as the real bound (8 Nov 2026, #1249); it is not a bug, and no shared limiter backend is planned. Size the env values with the 2x in mind (halving them would also halve the allowance for a single worker, and the factor changes if `--workers` does). The aggregate `*_TOTAL` ceilings are process-local in the same way. The limits stay latent exposure only while the RPC stays loopback-bound behind nginx, which overwrites the identity headers.
 
@@ -146,7 +157,7 @@ The same general guidance applies: implement reconnection with exponential backo
 ## Troubleshooting
 
 - **`{"error": "No valid lease found..."}` on `/rpc/subscribe/ws`** — register first via `POST /rpc/subscribe` with a valid peer key, or renew via `POST /rpc/heartbeat`.
-- **Closed with `1008` on `/rpc/gossip/ws`** — missing `?topic=` parameter, per-IP connection cap hit, or a failed/missing validator auth on a restricted topic.
+- **Closed with `1008` on `/rpc/gossip/ws`** — missing `?topic=` parameter, per-IP connection cap hit, a failed/missing validator auth on a restricted topic, or a publish on a public topic without a valid `peer_auth` key (#1874).
 - **Closed with `1009`** — message exceeded `GOSSIP_MAX_MESSAGE_SIZE` (default 1 MiB).
 - **`{"error": "Not a validator"}`** — the `address` in `auth_response` is not in the node's `VALIDATOR_SET`.
 - **Connection refused on `:8202`** — that port is internal-only; use the nginx `wss://hub.example.net/rpc/...` path.

@@ -92,7 +92,7 @@ The same router is also mounted under `/v1`, so `/v1/blocks/{height}` etc. work 
 ### WebSocket Subscriptions
 
 - `/rpc/subscribe/ws` — Lease-based block push to subscribed followers (hub → follower). Requires a prior lease from `POST /rpc/subscribe`; the first client message must be `{"node_id", "chain_id", "transport": "websocket"}`.
-- `/rpc/gossip/ws?topic=<topic>` — Bidirectional gossip bridged into the node's gossip broker. Public topics (`transactions`, `status`, `mempool` + sub-topics) are publishable by anyone (rate-limited); restricted topics (`blocks`, `pbft`, `consensus` + sub-topics) require a signed validator challenge. Caps: `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP=32`, `GOSSIP_MAX_MESSAGES_PER_MINUTE=2000`, `GOSSIP_MAX_MESSAGE_SIZE=1 MiB`.
+- `/rpc/gossip/ws?topic=<topic>` — Bidirectional gossip bridged into the node's gossip broker. Public topics (`transactions`, `status`, `mempool` + sub-topics) are subscribe-open; publishing requires a `peer_auth` frame with a peer key (#1874). Restricted topics (`blocks`, `pbft`, `consensus` + sub-topics) require a signed validator challenge. Caps: `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP=32`, `GOSSIP_MAX_MESSAGES_PER_MINUTE=2000`, `GOSSIP_MAX_MESSAGE_SIZE=1 MiB`.
 
 There are no other WebSocket endpoints — no `/rpc/blocks` or `/rpc/transactions` streams.
 
