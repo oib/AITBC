@@ -193,3 +193,29 @@ class TestPartySignatureStillWorks:
         with TestClient(app) as client:
             r = client.post(f"/v1/market/jobs/{job_id}/release", json=proof, headers=_headers(USER_KEY))
         assert r.status_code == 200, r.text
+
+
+class TestOperatorKeyDistinctness:
+    """#1906: equal user/operator keys must warn at settings load."""
+
+    def test_equal_keys_warn(self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
+        from market_service.config import Settings
+
+        monkeypatch.setenv("API_KEY", "same-key")
+        monkeypatch.setenv("MARKET_OPERATOR_API_KEY", "same-key")
+        with caplog.at_level(logging.WARNING, logger="market_service.config"):
+            Settings()
+        assert "MARKET_OPERATOR_API_KEY equals API_KEY" in caplog.text
+
+    def test_distinct_keys_no_warn(self, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture) -> None:
+        import logging
+
+        from market_service.config import Settings
+
+        monkeypatch.setenv("API_KEY", "user-key")
+        monkeypatch.setenv("MARKET_OPERATOR_API_KEY", "op-key")
+        with caplog.at_level(logging.WARNING, logger="market_service.config"):
+            Settings()
+        assert "MARKET_OPERATOR_API_KEY equals API_KEY" not in caplog.text

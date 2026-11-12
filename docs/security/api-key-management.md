@@ -64,7 +64,7 @@ key may act on a given row depends on which tier it belongs to:
 | Key | Tier | Binding rule |
 |-----|------|--------------|
 | `MARKET_API_KEY` (`X-Api-Key`, market :8102) | **user-facing** — distributed to `aitbc market` CLI users | Party mutations need a wallet signature naming the job party / buyer / offer provider, **or** `MARKET_OPERATOR_API_KEY` (#1893). |
-| `MARKET_OPERATOR_API_KEY` | operator/service | Full operator tier: dispute resolution, sweeper flows, unsigned party routes. Must differ from `MARKET_API_KEY`; unset ⇒ operator tier closed. |
+| `MARKET_OPERATOR_API_KEY` | operator/service | Full operator tier: dispute resolution, sweeper flows, unsigned party routes. Must differ from `MARKET_API_KEY` — equal values log a startup warning and the operator tier fails closed (`_is_operator` never matches); unset ⇒ operator tier closed. |
 | `TRADING_API_KEY` (`X-Trading-Api-Key`, trading :8104) | **service-to-service** — node-local `/etc/aitbc/aitbc-trading.env`, no user distribution path | No per-object principal exists at this tier by design: trades are created by services, `settle` is bound by the HTLC secret in the request body, and `lock-escrow`/`cancel`/`match` act on service-created rows whose sender/recipient come from the stored trade, never the request. |
 | `EXCHANGE_API_KEY` (`X-Api-Key`, exchange) | **service/internal** — order placement is bound per-object | `EXCHANGE_REQUIRE_SIGNED_ORDERS` (default on) requires a registered node's secp256k1 signature over the order envelope; the legacy unsigned `user_address` path exists only as an explicit revert flag. |
 
