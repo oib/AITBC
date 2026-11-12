@@ -1068,6 +1068,78 @@ def test_delete_gpu_force_requires_admin(client, miner_token, admin_token, db_se
 
 
 @pytest.mark.unit
+@pytest.mark.parametrize("live_status", ["pending_acceptance", "disputed", "settlement_failed"])
+def test_book_gpu_stale_post_escrowed_hold_survives(
+    client, client_token, available_gpu, pricing_engine_override, db_session, live_status
+):
+    """#1924: holds whose payment is past 'escrowed' but still backed by live
+    money must not be TTL-expired — the paid-check now follows REFUNDABLE_STATES."""
+    from datetime import timedelta
+
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+    from sqlmodel import select
+
+    job = Job(id=f"job_{live_status}_1", client_id="client1", payload={"type": "gpu_compute"}, constraints={})
+    db_session.add(job)
+    db_session.commit()
+    resp = _book_with_job(client, client_token, available_gpu, job_id=job.id)
+    assert resp.status_code == 201, resp.text
+    booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == available_gpu)).one()
+    booking.created_at = datetime.now(UTC) - timedelta(hours=1)
+    db_session.add(booking)
+    db_session.add(
+        JobPayment(
+            id="pay_" + booking.id,
+            job_id=job.id,
+            amount=Decimal("1.0"),
+            status=live_status,
+        )
+    )
+    db_session.commit()
+    resp2 = _book_with_job(client, client_token, available_gpu)
+    assert resp2.status_code == 409
+    db_session.refresh(booking)
+    assert booking.status == "active"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("live_status", ["escrowed", "pending_acceptance", "disputed", "settlement_failed"])
+def test_delete_gpu_force_blocked_with_live_payment(client, miner_token, admin_token, db_session, live_status):
+    """#1924: admin force-delete must not orphan a booking whose payment still
+    has live money — same fail-closed rule as the #1913 release guard."""
+    gpu_id = _booked_gpu(client, miner_token, db_session, payment_status=live_status)
+    resp = client.delete(f"/v1/market/gpu/{gpu_id}?force=true", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 409
+    assert "live payment" in resp.json()["detail"]
+    assert db_session.get(GPURegistry, gpu_id).status == "booked"
+
+
+@pytest.mark.unit
+def test_delete_gpu_force_cancels_unpaid_booking(client, miner_token, admin_token, db_session):
+    """#1924: force-deleting a GPU with an unpaid hold cancels the booking row
+    instead of leaving it active/orphaned."""
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+    from sqlmodel import select
+
+    gpu_id = _booked_gpu(client, miner_token, db_session)
+    resp = client.delete(f"/v1/market/gpu/{gpu_id}?force=true", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    assert db_session.get(GPURegistry, gpu_id) is None
+    booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == gpu_id)).one()
+    assert booking.status == "cancelled"
+
+
+@pytest.mark.unit
+@pytest.mark.parametrize("settled_status", ["released", "refunded", "failed"])
+def test_delete_gpu_force_allowed_after_payment_settled(client, miner_token, admin_token, db_session, settled_status):
+    """#1924: once no live money remains, admin force-delete proceeds."""
+    gpu_id = _booked_gpu(client, miner_token, db_session, payment_status=settled_status)
+    resp = client.delete(f"/v1/market/gpu/{gpu_id}?force=true", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    assert db_session.get(GPURegistry, gpu_id) is None
+
+
+@pytest.mark.unit
 def test_purchase_sibling_bookings_do_not_share_payment(
     client, client_token, miner_token, db_session, native_pricing, pricing_engine_override, monkeypatch
 ):
