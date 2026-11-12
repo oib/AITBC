@@ -123,6 +123,12 @@ class DisputeResolutionService:
     EVIDENCE_PERIOD_HOURS = 48
     VOTING_PERIOD_HOURS = 24
     MIN_ARBITRATORS = 3
+    # Compute-units (AgentStake.amount is denominated in ait_to_units, 1 AIT =
+    # 36,000,000 units) — NOT AIT. This is a nonzero-stake sanity check, not
+    # the economic floor: AgentStake rows only exist for stakes meeting the
+    # upstream >=100 AIT staking requirement, so any ACTIVE row already
+    # clears it. Do not "fix" this by multiplying — the unit mismatch was
+    # the finding (#1879).
     MIN_STAKE_AMOUNT = 1000
 
     def __init__(self, session_factory: Any = None) -> None:

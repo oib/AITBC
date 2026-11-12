@@ -128,11 +128,20 @@ def file_dispute(request: Request, req: FileDisputeRequest, user: AuthDep, sessi
             if not (_caller_identities(session, user) & job_parties):
                 raise HTTPException(status_code=403, detail="Caller is not a party to this job")
 
+        # Parties/amount come from the job row only — a NULL provider or
+        # payment_amount is a data conflict, never a reason to trust the
+        # request body (#1879).
+        provider = job.provider_address or job.assigned_miner_id
+        if provider is None:
+            raise HTTPException(status_code=409, detail="Job has no provider assigned")
+        if job.payment_amount is None:
+            raise HTTPException(status_code=409, detail="Job has no payment amount")
+
         dispute = service.file_dispute(
             job_id=req.job_id,
             client=str(job.client_id),
-            provider=str(job.provider_address or job.assigned_miner_id or req.provider),
-            amount=int(job.payment_amount) if job.payment_amount is not None else req.amount,
+            provider=str(provider),
+            amount=int(job.payment_amount),
             reason=req.reason,
             filed_by=filed_by,
             initial_evidence=req.initial_evidence,
@@ -316,6 +325,12 @@ def register_arbitrator(request: Request, address: str, user: AuthDep, session: 
     the caller's subject (#1335). Registration additionally requires
     ACTIVE stake covering ``MIN_STAKE_AMOUNT`` on the caller's identities,
     so the arbitrator set cannot be self-minted by fresh accounts (#1854).
+
+    Note (#1879): arbitrator stake is declarative weight, not escrowed —
+    the same ACTIVE stake can back votes across unlimited disputes. The
+    vote path bounds each vote's ``stake_amount`` by the caller's current
+    active total, which is the enforced limit for this in-memory service;
+    real escrow/slashing is out of scope until disputes move on-chain.
     """
     try:
         service = get_dispute_service()
