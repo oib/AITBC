@@ -655,12 +655,33 @@ def _validate_authority_parameter_value(
     elements = [e.strip() for e in raw.split(",") if e.strip()]
     if not elements:
         return f"{prefix} must name at least one address"
+    canonical = _canonical_authority_addresses(elements, prefix)
+    if isinstance(canonical, str):
+        return canonical
+    shape_error = _authority_value_shape_error(parameter, canonical, prefix)
+    if shape_error is not None:
+        return shape_error
+    if parameter == "governance_executors" and not _executors_funded(session, chain_id, canonical, block_version):
+        return (
+            f"{prefix} has no member holding the executor minimum "
+            f"{_EXECUTOR_MIN_BALANCE_UNITS} units — an executor list that cannot pay a fee freezes governance"
+        )
+    return None
+
+
+def _canonical_authority_addresses(elements: list[str], prefix: str) -> list[str] | str:
+    """Canonicalize each comma element; error string on the first bad one."""
     canonical: list[str] = []
     for element in elements:
         try:
             canonical.append(canonical_address(element, strict=True))
         except ValueError:
             return f"{prefix} element {element!r:.60} is not a 0x + 40-hex address"
+    return canonical
+
+
+def _authority_value_shape_error(parameter: str, canonical: list[str], prefix: str) -> str | None:
+    """Zero-address, duplicate, and arity checks shared by all authority params."""
     seen: set[str] = set()
     for address in canonical:
         if address == _ZERO_ADDRESS:
@@ -670,28 +691,25 @@ def _validate_authority_parameter_value(
         seen.add(address)
     if parameter in _SINGLE_ADDRESS_PARAMETERS and len(canonical) > 1:
         return f"{prefix} must name exactly one address, got {len(canonical)}"
-    if parameter == "governance_executors":
-        funded = False
-        for address in canonical:
-            if block_version >= 24 or v24_rules_is_active():
-                # #1314 V2: scalar authoritative balance — bypasses
-                # identity-map staleness for executor funding checks. The
-                # version term covers admission callers outside the apply
-                # contextvar; the contextvar covers in-apply callers.
-                _bal, _nonce, _exists = read_current_account(session, chain_id, address)
-                balance = _bal if _bal is not None else 0
-            else:
-                account = session.get(Account, (chain_id, address))
-                balance = account.balance if account is not None else 0
-            if balance >= _EXECUTOR_MIN_BALANCE_UNITS:
-                funded = True
-                break
-        if not funded:
-            return (
-                f"{prefix} has no member holding the executor minimum "
-                f"{_EXECUTOR_MIN_BALANCE_UNITS} units — an executor list that cannot pay a fee freezes governance"
-            )
     return None
+
+
+def _executors_funded(session: Session, chain_id: str, canonical: list[str], block_version: int) -> bool:
+    """True when at least one executor holds the minimum balance."""
+    for address in canonical:
+        if block_version >= 24 or v24_rules_is_active():
+            # #1314 V2: scalar authoritative balance — bypasses
+            # identity-map staleness for executor funding checks. The
+            # version term covers admission callers outside the apply
+            # contextvar; the contextvar covers in-apply callers.
+            _bal, _nonce, _exists = read_current_account(session, chain_id, address)
+            balance = _bal if _bal is not None else 0
+        else:
+            account = session.get(Account, (chain_id, address))
+            balance = account.balance if account is not None else 0
+        if balance >= _EXECUTOR_MIN_BALANCE_UNITS:
+            return True
+    return False
 
 
 # v13: bound on the ``execution_payload`` a GOVERNANCE_PROPOSE commits to the
@@ -1640,14 +1658,42 @@ def _validate_stake_release_locks(
     overlap any already-sealed release, and the summed principal must cover the
     release value.
     """
+    claimed = _claimed_lock_hashes(tx_data, tx_hash)
+    if isinstance(claimed, str):
+        return (False, claimed)
+
+    locks = _load_claimed_locks(session, chain_id, claimed, recipient_addr, tx_hash, value)
+    if isinstance(locks, str):
+        return (False, locks)
+
+    matured = _claimed_locks_matured(session, chain_id, locks, value, tx_hash)
+    if isinstance(matured, str):
+        return (False, matured)
+
+    return _claimed_locks_unspent(session, chain_id, claimed, tx_hash)
+
+
+def _claimed_lock_hashes(tx_data: dict[str, Any], tx_hash: str) -> set[str] | str:
+    """Normalize + validate ``payload.lock_tx_hashes``; error string on failure."""
     payload = tx_data.get("payload") or {}
     raw_hashes = payload.get("lock_tx_hashes")
     if not isinstance(raw_hashes, list) or not raw_hashes or not all(isinstance(h, str) and h for h in raw_hashes):
-        return (False, f"STAKE_RELEASE {tx_hash} payload must carry a non-empty lock_tx_hashes list")
+        return f"STAKE_RELEASE {tx_hash} payload must carry a non-empty lock_tx_hashes list"
     claimed = {h.lower() for h in raw_hashes}
     if len(claimed) != len(raw_hashes):
-        return (False, f"STAKE_RELEASE {tx_hash} lock_tx_hashes contains duplicates")
+        return f"STAKE_RELEASE {tx_hash} lock_tx_hashes contains duplicates"
+    return claimed
 
+
+def _load_claimed_locks(
+    session: Session,
+    chain_id: str,
+    claimed: set[str],
+    recipient_addr: str,
+    tx_hash: str,
+    value: int,
+) -> list[Transaction] | str:
+    """Fetch each claimed lock; verify existence, payee, and principal coverage."""
     locks: list[Transaction] = []
     for h in claimed:
         lock = session.exec(
@@ -1659,18 +1705,25 @@ def _validate_stake_release_locks(
             )
         ).first()
         if lock is None:
-            return (False, f"STAKE_RELEASE {tx_hash} references unknown or unconfirmed lock {h}")
+            return f"STAKE_RELEASE {tx_hash} references unknown or unconfirmed lock {h}"
         if _to_ait_address(lock.sender or "") != recipient_addr:
-            return (False, f"STAKE_RELEASE {tx_hash} lock {h} belongs to {lock.sender}, not payee {recipient_addr}")
+            return f"STAKE_RELEASE {tx_hash} lock {h} belongs to {lock.sender}, not payee {recipient_addr}"
         locks.append(lock)
 
     locked_total = sum(int(lock.value or 0) for lock in locks)
     if locked_total < value:
-        return (
-            False,
-            f"STAKE_RELEASE {tx_hash} value {value} exceeds locked principal {locked_total}",
-        )
+        return f"STAKE_RELEASE {tx_hash} value {value} exceeds locked principal {locked_total}"
+    return locks
 
+
+def _claimed_locks_matured(
+    session: Session,
+    chain_id: str,
+    locks: list[Transaction],
+    value: int,
+    tx_hash: str,
+) -> str | None:
+    """Verify every ``lock_days`` window has elapsed at the next block height."""
     parent_height = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).one()
     next_height = (parent_height or 0) + 1
     for lock in locks:
@@ -1681,16 +1734,21 @@ def _validate_stake_release_locks(
         try:
             unlock_height = int(lock.block_height or 0) + int(str(lock_days)) * _STAKE_LOCK_BLOCKS_PER_DAY
         except (TypeError, ValueError):
-            return (False, f"STAKE_RELEASE {tx_hash} lock {lock.tx_hash} has invalid lock_days")
+            return f"STAKE_RELEASE {tx_hash} lock {lock.tx_hash} has invalid lock_days"
         if next_height < unlock_height:
-            return (
-                False,
-                f"STAKE_RELEASE {tx_hash} lock {lock.tx_hash} matures at height {unlock_height}, current {next_height}",
-            )
+            return f"STAKE_RELEASE {tx_hash} lock {lock.tx_hash} matures at height {unlock_height}, current {next_height}"
+    return None
 
-    # A lock may be spent only once: no sealed release may name any of the
-    # claimed hashes. Pending same-block duplicates are a mempool-policy
-    # concern (mempool drops them); only confirmed history is consensus state.
+
+def _claimed_locks_unspent(
+    session: Session,
+    chain_id: str,
+    claimed: set[str],
+    tx_hash: str,
+) -> tuple[bool, str]:
+    """A lock may be spent only once: no sealed release may name any claimed hash."""
+    # Pending same-block duplicates are a mempool-policy concern (mempool drops
+    # them); only confirmed history is consensus state.
     for prior in session.exec(
         select(Transaction).where(
             Transaction.chain_id == chain_id,
@@ -1703,6 +1761,18 @@ def _validate_stake_release_locks(
         if claimed & {str(h).lower() for h in prior_hashes}:
             return (False, f"STAKE_RELEASE {tx_hash} lock already released by {prior.tx_hash}")
     return (True, "")
+
+
+def _governance_execute_payload(tx_data: dict[str, Any], tx_hash: str) -> dict[str, Any] | None:
+    """Normalize the tx payload (JSON string or dict); None when unusable."""
+    payload = tx_data.get("payload", {}) or {}
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except Exception:
+            logger.warning("GOVERNANCE_EXECUTE payload is not valid JSON: %s", payload)
+            return None
+    return payload
 
 
 class StateTransition:
@@ -3144,13 +3214,9 @@ class StateTransition:
         """
         from ..base_models import GovernanceProposal
 
-        payload = tx_data.get("payload", {}) or {}
-        if isinstance(payload, str):
-            try:
-                payload = json.loads(payload)
-            except Exception:
-                logger.warning("GOVERNANCE_EXECUTE payload is not valid JSON: %s", payload)
-                return
+        payload = _governance_execute_payload(tx_data, tx_hash)
+        if payload is None:
+            return
 
         proposal_id = payload.get("proposal_id") or tx_data.get("proposal_id")
         execution_payload = payload.get("execution_payload", {}) or {}
@@ -3189,56 +3255,67 @@ class StateTransition:
             session.add(proposal)
 
         if action == "parameter_change":
-            parameter = execution_payload.get("parameter")
-            value = execution_payload.get("value")
-            if not parameter:
-                logger.warning("GOVERNANCE_EXECUTE tx %s parameter_change missing parameter name", tx_hash)
-                return
-            # ``value: null`` records a deliberate clear ("") — storing
-            # str(None) would write the literal "None", which resolvers feed
-            # to canonical_address as a nonsense address.
-            stored_value = "" if value is None else str(value)
-            existing = session.exec(
-                select(ChainParameter).where(
-                    ChainParameter.chain_id == chain_id,
-                    ChainParameter.parameter == parameter,
-                )
-            ).first()
-            if existing:
-                existing.value = stored_value
-                existing.proposal_id = proposal_id
-                if block_height is not None:
-                    existing.applied_height = block_height
-                existing.updated_at = datetime.now(UTC)
-            else:
-                session.add(
-                    ChainParameter(
-                        chain_id=chain_id,
-                        parameter=parameter,
-                        value=stored_value,
-                        proposal_id=proposal_id,
-                        applied_height=block_height,
-                    )
-                )
-            if block_height is not None:
-                record_chain_parameter_history(
-                    session, chain_id, parameter, stored_value, proposal_id, block_height, overwrite=True
-                )
-            # autoflush is off on these sessions — flush so a later tx in the
-            # same block sees the new parameter value in resolver queries.
-            session.flush()
-            logger.info(
-                "Chain parameter %s updated to %s by proposal %s (tx %s)",
-                parameter,
-                value,
-                proposal_id,
-                tx_hash,
-            )
+            self._apply_parameter_change(session, chain_id, execution_payload, proposal_id, tx_hash, block_height)
         elif action == "set_governance_address":
             # Reserved for adding/removing governance signing addresses
             logger.info("GOVERNANCE_EXECUTE set_governance_address not implemented: %s", execution_payload)
         else:
             logger.info("GOVERNANCE_EXECUTE unknown action %s: %s", action, execution_payload)
+
+    @staticmethod
+    def _apply_parameter_change(
+        session: Session,
+        chain_id: str,
+        execution_payload: dict[str, Any],
+        proposal_id: Any,
+        tx_hash: str,
+        block_height: int | None,
+    ) -> None:
+        parameter = execution_payload.get("parameter")
+        value = execution_payload.get("value")
+        if not parameter:
+            logger.warning("GOVERNANCE_EXECUTE tx %s parameter_change missing parameter name", tx_hash)
+            return
+        # ``value: null`` records a deliberate clear ("") — storing
+        # str(None) would write the literal "None", which resolvers feed
+        # to canonical_address as a nonsense address.
+        stored_value = "" if value is None else str(value)
+        existing = session.exec(
+            select(ChainParameter).where(
+                ChainParameter.chain_id == chain_id,
+                ChainParameter.parameter == parameter,
+            )
+        ).first()
+        if existing:
+            existing.value = stored_value
+            existing.proposal_id = proposal_id
+            if block_height is not None:
+                existing.applied_height = block_height
+            existing.updated_at = datetime.now(UTC)
+        else:
+            session.add(
+                ChainParameter(
+                    chain_id=chain_id,
+                    parameter=parameter,
+                    value=stored_value,
+                    proposal_id=proposal_id,
+                    applied_height=block_height,
+                )
+            )
+        if block_height is not None:
+            record_chain_parameter_history(
+                session, chain_id, parameter, stored_value, proposal_id, block_height, overwrite=True
+            )
+        # autoflush is off on these sessions — flush so a later tx in the
+        # same block sees the new parameter value in resolver queries.
+        session.flush()
+        logger.info(
+            "Chain parameter %s updated to %s by proposal %s (tx %s)",
+            parameter,
+            value,
+            proposal_id,
+            tx_hash,
+        )
 
     def _handle_bond_transaction(
         self,
