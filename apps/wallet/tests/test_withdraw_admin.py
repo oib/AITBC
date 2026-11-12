@@ -79,6 +79,8 @@ def _stub_network(monkeypatch: pytest.MonkeyPatch, admin, wdm, state: dict) -> N
     monkeypatch.setattr(admin, "_ait_rpc_get", _ait_get)
     monkeypatch.setattr(admin, "_RETRY_OUTCOME_WAIT_SECONDS", 0)
     monkeypatch.setattr(admin, "_RETRY_OUTCOME_POLL_SECONDS", 0)
+    monkeypatch.setattr(admin, "_ENVELOPE_VERIFY_DELAY_SECONDS", 0)
+    monkeypatch.setattr(admin, "_ENVELOPE_VERIFY_ATTEMPTS", 2)
     monkeypatch.setattr(wdm, "_eth_rpc", _wdm_rpc)
     monkeypatch.setattr(wdm, "_eth_gas_price", lambda: asyncio.ensure_future(_coro(1_000_000_000)))
     monkeypatch.setattr(wdm, "_eth_balance", lambda a: asyncio.ensure_future(_coro(Decimal("0.1"))))
@@ -444,6 +446,118 @@ class TestReleaseRetry:
         )
         assert rc == 1
         assert len(state["sent"]) == 1
+
+
+class TestReleaseRetryLock:
+    """#1921 (WITHDRAW-RETRY-LOCK-1): the --confirm path runs under the
+    cross-process ETH-release flock and verifies the recorded hash binds to
+    the signed envelope."""
+
+    @staticmethod
+    def _hold_foreign_lock(db_path: Path) -> int:
+        """Simulate another process holding ``<db>.eth_release.lock`` — a
+        raw flock on a separate fd conflicts with the command's try-lock
+        exactly like a monitor lane or a concurrent --confirm would."""
+        import fcntl
+
+        fd = os.open(f"{db_path}.eth_release.lock", os.O_RDWR | os.O_CREAT, 0o600)
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return fd
+
+    def _confirm_argv(self, env_path: Path, db_path: Path) -> list[str]:
+        return [
+            "--env-file",
+            str(env_path),
+            "--db",
+            str(db_path),
+            "release-retry",
+            AIT_HASH,
+            "--confirm",
+            "--note",
+            "ETH-14 recovery",
+        ]
+
+    def test_confirm_refuses_while_release_lock_held(self, admin_env):
+        """A busy flock (monitor lane or concurrent retry in flight) refuses
+        before any proof, write or broadcast."""
+        state, env_path, db_path = admin_env
+        _seed_completed_row()
+        state["rpc"][RPC_A] = _reverted_rpc()
+        state["rpc"][RPC_B] = _reverted_rpc()
+
+        fd = self._hold_foreign_lock(db_path)
+        try:
+            rc = _run(self._confirm_argv(env_path, db_path))
+        finally:
+            os.close(fd)
+        assert rc == 1
+        assert state["sent"] == []
+        assert get_release_attempts(AIT_HASH) == []
+        row = get_withdrawal_by_ait_tx_hash(AIT_HASH)
+        assert row["status"] == "completed"
+        assert row["retry_count"] == 0
+
+    def _envelope_tx(self, params: list, *, nonce: int = 1, value_wei: int | None = None):
+        """A matching eth_getTransactionByHash answer for the retry envelope."""
+        return {
+            "hash": params[0],
+            "nonce": hex(nonce),
+            "to": ETH_TO,
+            "from": TEST_ETH_ADDRESS,
+            "value": hex(value_wei if value_wei is not None else int(Decimal("0.00111306005378485") * 10**18)),
+        }
+
+    def test_confirm_accepts_matching_envelope(self, admin_env, capsys):
+        """The recorded hash resolves on-chain to the exact signed release."""
+        state, env_path, db_path = admin_env
+        _seed_completed_row()
+        state["rpc"][RPC_A] = _reverted_rpc()
+        state["rpc"][RPC_B] = _reverted_rpc()
+        state["verify_outcome"] = "sent"
+        state["rpc"][RPC_A]["eth_getTransactionByHash"] = lambda params: self._envelope_tx(params)
+
+        rc = _run(self._confirm_argv(env_path, db_path))
+        assert rc == 0
+        assert "envelope check" in capsys.readouterr().out
+        row = get_withdrawal_by_ait_tx_hash(AIT_HASH)
+        assert row["status"] == "completed"
+
+    def test_confirm_rejects_envelope_field_mismatch(self, admin_env):
+        """A recorded hash that resolves to a different nonce/to/value fails
+        closed — the attempt is marked and the row stays 'releasing_retry'
+        for the resume pass, never 'completed'."""
+        state, env_path, db_path = admin_env
+        _seed_completed_row()
+        state["rpc"][RPC_A] = _reverted_rpc()
+        state["rpc"][RPC_B] = _reverted_rpc()
+        state["verify_outcome"] = "sent"
+        # Wrong nonce: the fetched tx is not the envelope this run signed.
+        state["rpc"][RPC_A]["eth_getTransactionByHash"] = lambda params: self._envelope_tx(params, nonce=99)
+
+        rc = _run(self._confirm_argv(env_path, db_path))
+        assert rc == 1
+        assert len(state["sent"]) == 1  # the broadcast itself already happened
+        row = get_withdrawal_by_ait_tx_hash(AIT_HASH)
+        assert row["status"] == "releasing_retry"
+        attempts = get_release_attempts(AIT_HASH)
+        assert len(attempts) == 1
+        assert "envelope mismatch" in (attempts[0]["outcome"] or "")
+
+    def test_confirm_tolerates_unpropagated_hash(self, admin_env):
+        """A hash not yet visible on the RPC warns but does not fail — the
+        deterministic signed hash is already correct by construction and the
+        resume pass owns final verification."""
+        state, env_path, db_path = admin_env
+        _seed_completed_row()
+        state["rpc"][RPC_A] = _reverted_rpc()
+        state["rpc"][RPC_B] = _reverted_rpc()
+        state["verify_outcome"] = "sent"
+        # eth_getTransactionByHash answers {} for every hash (dict lookup miss).
+
+        rc = _run(self._confirm_argv(env_path, db_path))
+        assert rc == 0
+        row = get_withdrawal_by_ait_tx_hash(AIT_HASH)
+        assert row["status"] == "completed"
 
 
 class TestMarkReview:

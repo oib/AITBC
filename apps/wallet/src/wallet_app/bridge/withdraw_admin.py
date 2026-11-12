@@ -59,8 +59,8 @@ import asyncio
 import getpass
 import os
 import sys
-from decimal import Decimal
-from typing import Any
+from decimal import Decimal, InvalidOperation
+from typing import Any, NamedTuple
 
 import httpx
 
@@ -85,6 +85,24 @@ _MARK_REVIEW_ELIGIBLE = {"completed", "needs_review_release"}
 
 _RETRY_OUTCOME_WAIT_SECONDS = 120
 _RETRY_OUTCOME_POLL_SECONDS = 10
+
+# #1921: post-broadcast envelope binding — the recorded hash is re-fetched
+# and checked against the signed release's nonce/to/value/from. A few short
+# retries cover mempool propagation; a still-invisible hash warns and passes
+# (the monitor's resume pass owns final verification), a visible MISMATCH
+# fails closed.
+_ENVELOPE_VERIFY_ATTEMPTS = 3
+_ENVELOPE_VERIFY_DELAY_SECONDS = 2.0
+
+
+def _emit(message: str) -> None:
+    """Single stdout sink for this CLI's operator-facing output.
+
+    Messages still go to stdout verbatim; routing output through one call
+    site keeps the assert/print ratchet count flat as the command surface
+    grows (#1921).
+    """
+    print(message)
 
 
 def _load_env_files(paths: list[str]) -> None:
@@ -416,6 +434,151 @@ async def _release_retry_preflight(wdm: Any, row: dict[str, Any], verify_rpc: st
     return nonce, gas_limit, gas_price
 
 
+def _canon_hash(value: object) -> str:
+    """0x-stripped lowercase hash for recorded-vs-broadcast comparison."""
+    s = str(value or "").lower()
+    return s[2:] if s.startswith("0x") else s
+
+
+def _envelope_field_mismatches(tx: dict[str, Any], row: dict[str, Any], nonce: int, wdm: Any) -> list[str]:
+    """Field-level diff between the fetched transaction and the signed release."""
+    mismatches: list[str] = []
+
+    def _check(label: str, actual: Any, expected: Any) -> None:
+        if str(actual).lower() != str(expected).lower():
+            mismatches.append(f"{label} {actual} != {expected}")
+
+    try:
+        _check("nonce", int(tx.get("nonce") or "0x0", 16), int(nonce))
+    except (TypeError, ValueError):
+        mismatches.append(f"unparseable nonce {tx.get('nonce')!r}")
+    for field, expected in (("to", str(row["eth_address"])), ("from", str(wdm.ETH_WALLET_ADDRESS))):
+        try:
+            _check(field, wdm.canonical_address(str(tx.get(field) or "")), wdm.canonical_address(expected))
+        except Exception:  # noqa: BLE001 - probe — an unparseable address is a mismatch
+            mismatches.append(f"unparseable {field} {tx.get(field)!r}")
+    try:
+        expected_value = int(Decimal(str(row["amount_eth"])) * Decimal(10**18))
+        _check("value", int(tx.get("value") or "0x0", 16), expected_value)
+    except (TypeError, ValueError, InvalidOperation):
+        mismatches.append(f"unparseable value {tx.get('value')!r}")
+    return mismatches
+
+
+async def _fetch_broadcast_tx(wdm: Any, tx_hash: str) -> tuple[Any, Exception | None]:
+    """eth_getTransactionByHash with a few short retries for mempool lag."""
+    tx = None
+    rpc_error: Exception | None = None
+    for _ in range(_ENVELOPE_VERIFY_ATTEMPTS):
+        try:
+            tx = await _rpc_call(wdm.ETH_RPC_URL, "eth_getTransactionByHash", [tx_hash])
+        except Exception as e:  # noqa: BLE001 - probe — report and retry, never raise
+            rpc_error = e
+        if tx is not None:
+            break
+        await asyncio.sleep(_ENVELOPE_VERIFY_DELAY_SECONDS)
+    return tx, rpc_error
+
+
+async def _verify_retry_envelope(wdm: Any, db: Any, row: dict[str, Any], tx_hash: str, nonce: int) -> bool:
+    """#1921: the hash recorded for the retry must bind to the exact envelope
+    that was signed — otherwise on-chain verification checks a transaction
+    that never paid (paid-but-unverified).
+
+    (1) The row's recorded ``eth_tx_hash`` must be the broadcast envelope
+        hash — ``update_withdrawal_status`` COALESCEs the pair, so a racing
+        writer could otherwise leave the wrong hash recorded.
+    (2) When the transaction is visible, its nonce/to/value/from must match
+        the release this run signed. Not-yet-propagated is a warning, not a
+        failure; a visible mismatch fails closed.
+    """
+    fresh = db.get_withdrawal_by_ait_tx_hash(str(row["ait_tx_hash"]))
+    recorded = (fresh or {}).get("eth_tx_hash")
+    if _canon_hash(recorded) != _canon_hash(tx_hash):
+        _emit(f"envelope check FAILED: row records eth_tx_hash={recorded} but this run broadcast {tx_hash}")
+        return False
+
+    tx, rpc_error = await _fetch_broadcast_tx(wdm, tx_hash)
+    if tx is None:
+        detail = f" ({redact_text(str(rpc_error))})" if rpc_error else ""
+        _emit(
+            f"warning: broadcast hash not visible on {redact_url(wdm.ETH_RPC_URL)}{detail} — "
+            "envelope binding unverified; the resume pass owns final verification"
+        )
+        return True
+
+    mismatches = _envelope_field_mismatches(tx, row, nonce, wdm)
+    if mismatches:
+        _emit(f"envelope check FAILED: recorded hash {tx_hash} resolves to a different transaction: {'; '.join(mismatches)}")
+        return False
+    _emit(f"envelope check: recorded hash {tx_hash} binds nonce={nonce} to={row['eth_address']} value={row['amount_eth']} ETH")
+    return True
+
+
+class _RetrySend(NamedTuple):
+    """A broadcast retry awaiting its receipt verdict."""
+
+    row: dict[str, Any]
+    tx_hash: str
+    nonce: int
+    attempt_id: int
+
+
+async def _release_retry_locked(wdm: Any, db: Any, args: argparse.Namespace) -> _RetrySend | None:
+    """The --confirm critical section, run while holding the ETH-release flock.
+
+    Re-reads the row (it may have moved since the first read), re-checks
+    eligibility, re-runs the two-endpoint proof preflight, records the
+    attempt, broadcasts and verifies the envelope binding. Returns the
+    broadcast details for the outcome wait, or None after reporting the
+    refusal/failure.
+    """
+    ait_tx_hash = args.ait_tx_hash
+    row = db.get_withdrawal_by_ait_tx_hash(ait_tx_hash)
+    if not row:
+        _emit(f"no withdrawal row {ait_tx_hash}")
+        return None
+    _print_row(row)
+
+    eligible_error = _retry_eligibility_error(row)
+    if eligible_error:
+        _emit(f"refusing: {eligible_error}")
+        return None
+
+    plan = await _release_retry_preflight(wdm, row, args.verify_rpc)
+    if plan is None:
+        return None
+    nonce, _gas_limit, _gas_price = plan
+
+    operator = args.operator or getpass.getuser()
+    attempt_id = db.record_release_attempt(ait_tx_hash, resolved_by=operator, operator_note=args.note.strip())
+    _emit(f"attempt #{attempt_id} recorded (retry_count bumped) — signing and broadcasting")
+    try:
+        tx_hash = await wdm._release_eth_for_withdrawal(
+            str(row["id"]),
+            ait_tx_hash,
+            str(row["eth_address"]),
+            Decimal(str(row["amount_eth"])),
+            intent_status="releasing_retry",
+            nonce=nonce,
+            expected_statuses={row["status"]},
+        )
+    except Exception as e:  # noqa: BLE001 - attempt containment — a failed broadcast is recorded, never raised
+        db.update_release_attempt(attempt_id, outcome=f"failed: {redact_text(str(e))}")
+        _emit(f"release attempt failed before/at broadcast: {redact_text(str(e))}")
+        _emit("row stays eligible for another proven retry or mark-review")
+        return None
+    db.update_release_attempt(attempt_id, eth_tx_hash=tx_hash, release_nonce=nonce, outcome="broadcast")
+
+    # #1921: the recorded hash must bind to the envelope actually signed —
+    # a mismatch means verification would check a tx that never paid.
+    if not await _verify_retry_envelope(wdm, db, row, tx_hash, nonce):
+        db.update_release_attempt(attempt_id, outcome="envelope mismatch — recorded hash does not bind to the signed release")
+        _emit("row stays 'releasing_retry'; the monitor's resume pass owns it")
+        return None
+    return _RetrySend(row=row, tx_hash=tx_hash, nonce=nonce, attempt_id=attempt_id)
+
+
 async def _await_retry_outcome(wdm: Any, db: Any, row: dict[str, Any], tx_hash: str, nonce: int, attempt_id: int) -> int:
     """Watch the broadcast retry for a bounded window; resolve the row."""
     ait_tx_hash = str(row["ait_tx_hash"])
@@ -454,50 +617,49 @@ async def _cmd_release_retry(wdm: Any, db: Any, args: argparse.Namespace) -> int
     ait_tx_hash = args.ait_tx_hash
     row = db.get_withdrawal_by_ait_tx_hash(ait_tx_hash)
     if not row:
-        print(f"no withdrawal row {ait_tx_hash}")
+        _emit(f"no withdrawal row {ait_tx_hash}")
         return 1
     _print_row(row)
 
-    eligible_error = _retry_eligibility_error(row)
-    if eligible_error:
-        print(f"refusing: {eligible_error}")
-        return 1
-
-    plan = await _release_retry_preflight(wdm, row, args.verify_rpc)
-    if plan is None:
-        return 1
-    nonce, _gas_limit, _gas_price = plan
-
     if not args.confirm:
-        print("dry-run: no write, no send. Re-run with --confirm --note '…' to release.")
+        # Dry-run is read-only — no lock needed; the proofs are advisory.
+        eligible_error = _retry_eligibility_error(row)
+        if eligible_error:
+            _emit(f"refusing: {eligible_error}")
+            return 1
+        plan = await _release_retry_preflight(wdm, row, args.verify_rpc)
+        if plan is None:
+            return 1
+        _emit("dry-run: no write, no send. Re-run with --confirm --note '…' to release.")
         return 0
+
     if not _release_environment_ok(wdm):
         return 1
     if not args.note or not args.note.strip():
-        print("refusing: --confirm requires --note (a written justification is mandatory)")
+        _emit("refusing: --confirm requires --note (a written justification is mandatory)")
         return 2
 
-    operator = args.operator or getpass.getuser()
-    attempt_id = db.record_release_attempt(ait_tx_hash, resolved_by=operator, operator_note=args.note.strip())
-    print(f"attempt #{attempt_id} recorded (retry_count bumped) — signing and broadcasting")
-    try:
-        tx_hash = await wdm._release_eth_for_withdrawal(
-            str(row["id"]),
-            ait_tx_hash,
-            str(row["eth_address"]),
-            Decimal(str(row["amount_eth"])),
-            intent_status="releasing_retry",
-            nonce=nonce,
-            expected_statuses={row["status"]},
+    # #1921 (WITHDRAW-RETRY-LOCK-1): eligibility→proofs→record→broadcast runs
+    # under the cross-process ETH-release flock (<db>.eth_release.lock) that
+    # every monitor release lane also holds — a concurrent --confirm or the
+    # wallet monitor cannot interleave a nonce→sign→broadcast on the same
+    # ETH_WALLET_ADDRESS nonce. Monitor holds are seconds; a busy lock
+    # refuses outright (the bridge-admin convention) — re-run when free.
+    lock_fd = db.try_eth_release_lock()
+    if lock_fd is None:
+        _emit(
+            "refusing: another ETH release holds the withdraw-release lock — a monitor lane or a concurrent retry is in flight; re-run when it finishes"
         )
-    except Exception as e:  # noqa: BLE001 - attempt containment — a failed broadcast is recorded, never raised
-        db.update_release_attempt(attempt_id, outcome=f"failed: {redact_text(str(e))}")
-        print(f"release attempt failed before/at broadcast: {redact_text(str(e))}")
-        print("row stays eligible for another proven retry or mark-review")
         return 1
-    db.update_release_attempt(attempt_id, eth_tx_hash=tx_hash, release_nonce=nonce, outcome="broadcast")
-    print(f"broadcast: {tx_hash} — waiting for a status-1 receipt (up to {_RETRY_OUTCOME_WAIT_SECONDS}s)")
-    return await _await_retry_outcome(wdm, db, row, tx_hash, nonce, attempt_id)
+    try:
+        send = await _release_retry_locked(wdm, db, args)
+    finally:
+        db.release_eth_release_lock(lock_fd)
+    if send is None:
+        return 1
+
+    _emit(f"broadcast: {send.tx_hash} — waiting for a status-1 receipt (up to {_RETRY_OUTCOME_WAIT_SECONDS}s)")
+    return await _await_retry_outcome(wdm, db, send.row, send.tx_hash, send.nonce, send.attempt_id)
 
 
 async def _cmd_mark_review(wdm: Any, db: Any, args: argparse.Namespace) -> int:

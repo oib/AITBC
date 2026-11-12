@@ -1640,3 +1640,93 @@ class TestTxSealedConfirmed:
     )
     def test_predicate(self, monitor_env, tx, expected):
         assert monitor_env.tx_sealed_confirmed(tx) is expected
+
+
+class TestEthReleaseFileLock:
+    """#1921 (WITHDRAW-RETRY-LOCK-1): the release lanes' nonce→sign→record→
+    broadcast section is serialized across processes by the
+    ``<db>.eth_release.lock`` flock — the withdraw_admin CLI is a separate
+    process signing from the same ETH_WALLET_ADDRESS nonce space."""
+
+    @pytest.mark.asyncio
+    async def test_release_waits_for_foreign_flock(self, monitor_env, seed_withdrawal, monkeypatch):
+        import fcntl
+        import os
+
+        from wallet_app.bridge import bridge_db
+
+        async def _coro(value):
+            return value
+
+        monkeypatch.setattr(monitor_env, "_eth_balance", lambda a: asyncio.ensure_future(_coro(Decimal("0.1"))))
+        monkeypatch.setattr(monitor_env, "_eth_gas_price", lambda: asyncio.ensure_future(_coro(1_000_000_000)))
+
+        async def _nonce(address):
+            return 7
+
+        sent = []
+
+        async def _broadcast(raw: str) -> str:
+            sent.append(raw)
+            return "0x" + "00" * 32
+
+        monkeypatch.setattr(monitor_env, "_eth_nonce", _nonce)
+        monkeypatch.setattr(monitor_env, "_broadcast_release_tx", _broadcast)
+
+        # Another process (the withdraw_admin CLI) holds the flock.
+        lock_path = f"{bridge_db.DB_PATH}.eth_release.lock"
+        fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o600)
+        fcntl.flock(fd, fcntl.LOCK_EX)
+        try:
+            task = asyncio.create_task(
+                monitor_env._release_eth_for_withdrawal(
+                    withdrawal_id="withdrawal_lock_test",
+                    ait_tx_hash=seed_withdrawal,
+                    eth_address="0x2222222222222222222222222222222222222222",
+                    amount_eth=Decimal("0.001"),
+                )
+            )
+            await asyncio.sleep(0.4)
+            assert not task.done(), "release proceeded while the foreign flock was held"
+            assert sent == []
+            # Row must still be 'pending' — the intent write happens inside
+            # the locked section, after the nonce is chosen.
+            record = get_withdrawal_by_ait_tx_hash(seed_withdrawal)
+            assert record["status"] == "pending"
+        finally:
+            os.close(fd)  # releases the flock — the lane proceeds
+
+        eth_tx_hash = await task
+        assert eth_tx_hash.startswith("0x")
+        assert len(sent) == 1
+        record = get_withdrawal_by_ait_tx_hash(seed_withdrawal)
+        assert record["status"] == "releasing"
+        assert record["eth_tx_hash"] == eth_tx_hash
+
+    @pytest.mark.asyncio
+    async def test_lock_helpers_reentrant_in_process(self, monitor_env):
+        """The admin CLI holds the flock around its whole command while
+        _release_eth_for_withdrawal takes it again inside — the hold
+        registry must make that re-entrant, never self-deadlocking."""
+        import fcntl
+        import os
+
+        from wallet_app.bridge import bridge_db
+
+        outer = bridge_db.try_eth_release_lock()
+        assert outer is not None
+        try:
+            inner = bridge_db.try_eth_release_lock()
+            assert inner == outer
+            bridge_db.release_eth_release_lock(inner)
+            # Still held — the outer hold keeps the file locked.
+            probe = os.open(f"{bridge_db.DB_PATH}.eth_release.lock", os.O_RDWR)
+            with pytest.raises(OSError):
+                fcntl.flock(probe, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            os.close(probe)
+        finally:
+            bridge_db.release_eth_release_lock(outer)
+        # Fully released — a fresh try succeeds again.
+        fd = bridge_db.try_eth_release_lock()
+        assert fd is not None
+        bridge_db.release_eth_release_lock(fd)
