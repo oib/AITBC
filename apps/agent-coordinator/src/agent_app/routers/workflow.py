@@ -105,7 +105,11 @@ async def execute_workflow(request: Request, workflow_id: str, req: ExecuteWorkf
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/{workflow_id}/status", summary="Get workflow status")
+@router.get(
+    "/{workflow_id}/status",
+    summary="Get workflow status",
+    dependencies=[Depends(_require_workflow_key)],
+)
 async def get_workflow_status(request: Request, workflow_id: str) -> dict[str, Any]:
     """Get workflow execution status"""
     try:
@@ -124,7 +128,7 @@ async def get_workflow_status(request: Request, workflow_id: str) -> dict[str, A
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("", summary="List workflows")
+@router.get("", summary="List workflows", dependencies=[Depends(_require_workflow_key)])
 async def list_workflows(request: Request) -> dict[str, Any]:
     """List all workflow definitions"""
     try:
@@ -138,7 +142,7 @@ async def list_workflows(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.get("/executions", summary="List executions")
+@router.get("/executions", summary="List executions", dependencies=[Depends(_require_workflow_key)])
 async def list_executions(request: Request, workflow_id: str | None = None) -> dict[str, Any]:
     """List workflow executions"""
     try:
