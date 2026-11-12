@@ -215,11 +215,15 @@ class TestServiceHandlers:
     def test_ollama_prompt_parsing(self, monkeypatch):
         captured = {}
 
+        def fake_get(url, **kwargs):
+            return _resp({"models": [{"name": "llama3.2:3b"}]})
+
         def fake_post(url, **kwargs):
             captured["url"] = url
             captured["json"] = kwargs.get("json")
             return _resp({"response": "hi"}, content=b'{"response":"hi"}')
 
+        monkeypatch.setattr(ate.requests, "get", fake_get)
         monkeypatch.setattr(ate.requests, "post", fake_post)
         out = ate._exec_ollama({"model": "llama3.2:3b"}, json.dumps({"prompt": "say hi"}).encode())
         assert b"hi" in out
@@ -783,13 +787,45 @@ class TestExecutorResourceBounds:
     def test_ollama_num_predict_is_clamped(self, monkeypatch):
         captured = {}
 
+        def fake_get(url, **kwargs):
+            return _resp({"models": [{"name": "m"}]})
+
         def fake_post(url, **kwargs):
             captured["json"] = kwargs.get("json")
             return _resp({"response": "ok"}, content=b'{"response":"ok"}')
 
+        monkeypatch.setattr(ate.requests, "get", fake_get)
         monkeypatch.setattr(ate.requests, "post", fake_post)
         ate._exec_ollama({"model": "m"}, json.dumps({"prompt": "hi", "num_predict": 999999}).encode())
         assert captured["json"]["options"]["num_predict"] == ate._OLLAMA_MAX_NUM_PREDICT
+
+    def test_ollama_unlisted_model_rejected(self, monkeypatch):
+        """#1932 F8: a buyer-chosen model absent from /api/tags must not run —
+        /api/generate would auto-pull it."""
+        monkeypatch.setattr(ate.requests, "get", lambda *a, **k: _resp({"models": [{"name": "llama3.2:3b"}]}))
+        posted = []
+        monkeypatch.setattr(ate.requests, "post", lambda *a, **k: posted.append(a) or _resp({}))
+        with pytest.raises(ValueError, match="not available"):
+            ate._exec_ollama({"model": "attacker-chosen:7b"}, json.dumps({"prompt": "hi"}).encode())
+        assert posted == []
+
+    def test_ollama_latest_alias_accepted(self, monkeypatch):
+        """A bare 'name' request matches the 'name:latest' tag, like ollama."""
+        monkeypatch.setattr(ate.requests, "get", lambda *a, **k: _resp({"models": [{"name": "llama3.2:latest"}]}))
+        monkeypatch.setattr(ate.requests, "post", lambda *a, **k: _resp({"response": "ok"}, content=b'{"response":"ok"}'))
+        out = ate._exec_ollama({"model": "llama3.2"}, json.dumps({"prompt": "hi"}).encode())
+        assert b"ok" in out
+
+    def test_ollama_tags_probe_failure_fails_closed(self, monkeypatch):
+        import requests as real_requests
+
+        def boom(*a, **k):
+            raise real_requests.ConnectionError("down")
+
+        monkeypatch.setattr(ate.requests, "get", boom)
+        monkeypatch.setattr(ate.requests, "post", lambda *a, **k: _resp({}))
+        with pytest.raises(ValueError, match="availability check failed"):
+            ate._exec_ollama({"model": "m"}, json.dumps({"prompt": "hi"}).encode())
 
     def test_ollama_prompt_over_cap_rejected(self, monkeypatch):
         monkeypatch.setattr(ate, "_OLLAMA_MAX_PROMPT_CHARS", 100)

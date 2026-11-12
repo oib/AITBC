@@ -29,7 +29,7 @@ from ....schemas import (
 )
 from ...security.services.access_control import AccessController
 from ...security.services.encryption import EncryptedData, EncryptionError, EncryptionService
-from ...security.services.key_management import KeyManagementError, KeyManager
+from ...security.services.key_management import KeyManagementError, KeyManager, validate_participant_id
 
 logger = get_logger(__name__)
 
@@ -46,6 +46,12 @@ _OPS_ERRORS: tuple[type[BaseException], ...] = (
 
 def _require_participant(principal: str, participant_id: str, role: str | None) -> None:
     """Non-admin callers may only act on their own participant id (#1881)."""
+    # #1932 F1: participant_id becomes a filename under key_storage_dir —
+    # reject traversal/separator payloads for every role, admin included.
+    try:
+        validate_participant_id(participant_id)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e)) from e
     if role == "admin":
         return
     if str(participant_id) != str(principal):

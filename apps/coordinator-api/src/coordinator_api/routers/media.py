@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import re
 import time
 from pathlib import Path
 from typing import Annotated, Any
@@ -247,9 +248,16 @@ async def upload_media(
     }
 
 
+# #1932 F3: download tokens are uuid4().hex — anything else ("<hex>.json"
+# sidecar names, traversal segments, arbitrary paths) is not a blob token.
+_MEDIA_TOKEN_RE = re.compile(r"[0-9a-f]{32}")
+
+
 @router.get("/media/download/{token}", summary="Download a media file", tags=["media"], name="download_media")
 def download_media(token: str) -> FileResponse:
     """Download a previously uploaded media file by token."""
+    if not _MEDIA_TOKEN_RE.fullmatch(token):
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="media not found")
     media_dir = _media_dir()
     storage_path = media_dir / token
     meta_path = media_dir / f"{token}.json"

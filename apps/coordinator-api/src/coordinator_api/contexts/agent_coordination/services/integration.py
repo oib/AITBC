@@ -101,6 +101,18 @@ def _validate_unit_component(value: str, field: str) -> str:
     return value
 
 
+# #1932 F6: deployment fan-out spawns one systemd unit per instance, and both
+# min_instances (deploy) and target_instances (scale, a query param) are
+# caller-influenced. Clamp to the config's own max_instances AND a hard
+# ceiling so a crafted config cannot request an unbounded fan-out.
+_MAX_DEPLOYMENT_INSTANCES = 50
+
+
+def _instance_ceiling(config: "AgentDeploymentConfig") -> int:
+    """Effective per-deployment instance cap: config max_instances, hard-bound."""
+    return max(0, min(int(config.max_instances), _MAX_DEPLOYMENT_INSTANCES))
+
+
 _SESSION_LOCK_KEY = "_aitbc_agent_coordination_session_lock"
 
 
@@ -466,7 +478,17 @@ class AgentDeploymentManager:
                 "instances": [],
                 "deployment_errors": [],
             }
-            for i in range(config.min_instances):
+            # #1932 F6: never fan out past the config ceiling / hard cap.
+            instance_cap = _instance_ceiling(config)
+            desired_instances = max(0, min(int(config.min_instances), instance_cap))
+            if desired_instances < config.min_instances:
+                logger.warning(
+                    "Deployment config %s min_instances=%s clamped to %s",
+                    config.id,
+                    config.min_instances,
+                    desired_instances,
+                )
+            for i in range(desired_instances):
                 instance = await self._create_deployment_instance(config, target_environment, i)
                 deployment_result["instances"].append(instance)
                 if instance["status"] != "deployed":
@@ -730,6 +752,9 @@ class AgentDeploymentManager:
                 )
             ).all()
             current_count = len(current_instances)
+            # #1932 F6: target_instances arrives as a query param — clamp to
+            # the config ceiling / hard cap before any instance is spawned.
+            target_instances = max(0, min(int(target_instances), _instance_ceiling(config)))
             scaling_result: dict[str, Any] = {
                 "deployment_id": deployment_config_id,
                 "current_instances": current_count,
