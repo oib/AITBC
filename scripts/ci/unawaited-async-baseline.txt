@@ -1,17 +1,6 @@
 # unawaited-async findings baseline — regenerate: check-unawaited-async.py --update
 aitbc/auth/middleware.py	is_allowed	self.redis_client.expire(key, window_seconds)	1
 aitbc/auth/middleware.py	is_allowed	self.redis_client.zadd(key, {str(current_time): current_time})	1
-apps/agent-coordinator/src/agent_app/lifespan.py	lifespan	state.escrow_rpc.close()	1
-apps/agent-coordinator/src/agent_app/routers/messages.py	subscribe_to_topic	connection_manager.subscribe(req.agent_id, req.topic)	1
-apps/agent-coordinator/src/agent_app/routers/messages.py	unsubscribe_from_topic	connection_manager.unsubscribe(req.agent_id, req.topic)	1
-apps/agent-coordinator/src/agent_app/websocket/agent_stream.py	_dispatch_stream_message	self.connection_manager.subscribe(agent_id, topic)	1
-apps/agent-coordinator/src/agent_app/websocket/agent_stream.py	_dispatch_stream_message	self.connection_manager.unsubscribe(agent_id, topic)	1
-apps/agent-coordinator/src/agent_app/websocket/agent_stream.py	_load_subscriptions	self.subscribe(agent_id, topic)	1
-apps/blockchain-event-bridge/src/blockchain_event_bridge/action_handlers/agent_daemon.py	handle_transaction	tx_data.get("to")	1
-apps/blockchain-event-bridge/src/blockchain_event_bridge/action_handlers/agent_daemon.py	handle_transaction	tx_data.get("type", "unknown")	1
-apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py	stop	gossip_subscribers_total.set(0)	1
-apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/blocks.py	stop	self._subscription.close()	1
-apps/blockchain-event-bridge/src/blockchain_event_bridge/event_subscribers/transactions.py	stop	self._subscription.close()	1
 apps/blockchain-node/scripts/ws_load_test.py	run_load	stop_event.set()	1
 apps/blockchain-node/src/aitbc_chain/chain_sync.py	_receive_blocks	self._receiver_ready.set()	1
 apps/blockchain-node/src/aitbc_chain/chain_sync.py	stop	self._stop_event.set()	1
@@ -65,5 +54,3 @@ apps/blockchain-node/src/aitbc_chain/sync_state.py	sync_state_from	session.flush
 apps/blockchain-node/src/aitbc_chain/sync_state.py	sync_state_from	session.rollback()	1
 apps/ffmpeg/main.py	_spool_upload	tmp.close()	2
 apps/gpu/src/gpu_service/main.py	register_gpu	gpu_data.get("registered_by", "0x0000000000000000000000000000000000000000")	1
-apps/pool-hub/src/poolhub/app/routers/health.py	health_endpoint	miners_online_gauge.set(miners_online)	1
-apps/whisper/main.py	_spool_upload	tmp.close()	2

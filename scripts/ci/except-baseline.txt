@@ -53,8 +53,6 @@
       1 apps/agent-coordinator/src/agent_app/services/approval/ai_approval.py
       1 apps/agent-coordinator/src/agent_app/services/coin_request_policy.py
       3 apps/agent-coordinator/src/agent_app/services/nonce_store.py
-     30 apps/agent-coordinator/src/agent_app/storage/message_storage.py
-     22 apps/agent-coordinator/src/agent_app/websocket/agent_stream.py
       4 apps/agent-coordinator/src/agent_app/workflow/orchestrator.py
       1 apps/api-gateway/examples/main.py
       1 apps/api-gateway/src/api_gateway/main.py
