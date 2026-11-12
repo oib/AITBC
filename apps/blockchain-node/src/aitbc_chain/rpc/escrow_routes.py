@@ -107,6 +107,7 @@ from .escrow_routes_helpers import (
     _settlement_signing_nonce as _settlement_signing_nonce,
     _settlement_signing_ready as _settlement_signing_ready,
     _to_canonical as _to_canonical,
+    _verify_job_tx_proof as _verify_job_tx_proof,
     get_node_wallet_address as get_node_wallet_address,
     rpc_fleet_key_accepted as rpc_fleet_key_accepted,
     rpc_peer_key_accepted as rpc_peer_key_accepted,
