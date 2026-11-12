@@ -25,6 +25,11 @@ class Settings(ServiceSettings):
     # API key for governance/admin endpoints (e.g. live parameter changes)
     auth_enabled: bool = True
     api_key: str | None = None
+    # Operator-tier credential (#1893): distinct from ``api_key`` so user-facing
+    # key holders cannot invoke operator actions (dispute resolution, unsigned
+    # party routes). Must differ from ``api_key``; when unset the operator tier
+    # is closed (fail closed).
+    operator_api_key: str | None = None
 
     # Blockchain integration
     blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)

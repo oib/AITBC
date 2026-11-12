@@ -428,6 +428,21 @@
               }
             }
           },
+          "403": {
+            "description": "{action} requires a party signature or the operator credential / signer is not a party to this object",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
           "404": {
             "description": "Offer not found",
             "content": {
@@ -744,6 +759,24 @@
             }
           }
         ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Cancel Data"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -767,6 +800,21 @@
           },
           "400": {
             "description": "Offer already cancelled / Offer has an unknown status: '{offer.status}' / Offer cannot be cancelled while it is {offer.status}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "{action} requires a party signature or the operator credential / signer is not a party to this object",
             "content": {
               "application/json": {
                 "schema": {
@@ -2015,7 +2063,7 @@
             }
           },
           "403": {
-            "description": "signer is not a party to this job",
+            "description": "{action} requires a job-party signature or the operator credential / signer is not a party to this job",
             "content": {
               "application/json": {
                 "schema": {
@@ -2050,7 +2098,7 @@
     "/v1/market/jobs/{job_id}/dispute": {
       "post": {
         "summary": "Dispute Market Job",
-        "description": "Open a dispute freeze on a market job's escrow settlement (#1783).\n\nA presented wallet signature must verify AND belong to a job party \u2014\nsame rule as cancel (#1634). The unsigned API-key path stays for the\noperator tier.",
+        "description": "Open a dispute freeze on a market job's escrow settlement (#1783).\n\nSame rule as cancel (#1634/#1893): a job-party wallet signature, or the\noperator credential for sweeper/admin flows.",
         "operationId": "dispute_market_job_v1_market_jobs__job_id__dispute_post",
         "parameters": [
           {
@@ -2103,7 +2151,7 @@
             }
           },
           "403": {
-            "description": "signer is not a party to this job",
+            "description": "{action} requires a job-party signature or the operator credential / signer is not a party to this job",
             "content": {
               "application/json": {
                 "schema": {
@@ -2296,7 +2344,7 @@
     "/v1/market/jobs/{job_id}/release": {
       "post": {
         "summary": "Release Market Job Payment",
-        "description": "Release the escrow payment for a market job.\n\nA presented wallet signature must verify and belong to a job party\n(#1784); unsigned stays the operator API-key path.",
+        "description": "Release the escrow payment for a market job.\n\n#1893: a job-party wallet signature, or the operator credential \u2014\nunsigned user-key requests are refused.",
         "operationId": "release_market_job_payment_v1_market_jobs__job_id__release_post",
         "parameters": [
           {
@@ -2364,7 +2412,7 @@
             }
           },
           "403": {
-            "description": "signer is not a party to this job",
+            "description": "{action} requires a job-party signature or the operator credential / signer is not a party to this job",
             "content": {
               "application/json": {
                 "schema": {
@@ -2399,7 +2447,7 @@
     "/v1/market/jobs/{job_id}/refund": {
       "post": {
         "summary": "Refund Market Job Payment",
-        "description": "Refund the escrow payment for a market job.",
+        "description": "Refund the escrow payment for a market job.\n\n#1893: a job-party wallet signature, or the operator credential \u2014\nunsigned user-key requests are refused.",
         "operationId": "refund_market_job_payment_v1_market_jobs__job_id__refund_post",
         "parameters": [
           {
@@ -2467,7 +2515,7 @@
             }
           },
           "403": {
-            "description": "signer is not a party to this job",
+            "description": "{action} requires a job-party signature or the operator credential / signer is not a party to this job",
             "content": {
               "application/json": {
                 "schema": {

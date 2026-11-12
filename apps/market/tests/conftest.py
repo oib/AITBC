@@ -48,14 +48,21 @@ def _auth_disabled_for_tests(request):
     authenticator per test so legacy callers keep working. Modules that
     test the gate itself opt out by name.
     """
-    if request.module.__name__.split(".")[-1] in {"test_market_auth_missing", "test_access_secret_hashing"}:
+    if request.module.__name__.split(".")[-1] in {
+        "test_market_auth_missing",
+        "test_access_secret_hashing",
+        "test_market_operator_tier_1893",
+    }:
         yield
         return
-    from market_service.main import require_market_api_key
+    from market_service import main as market_main
 
-    old = require_market_api_key.auth_enabled
-    require_market_api_key.auth_enabled = False
+    auths = (market_main._market_user_key_auth, market_main._market_operator_key_auth)
+    old = [a.auth_enabled for a in auths]
+    for a in auths:
+        a.auth_enabled = False
     try:
         yield
     finally:
-        require_market_api_key.auth_enabled = old
+        for a, was in zip(auths, old, strict=True):
+            a.auth_enabled = was
