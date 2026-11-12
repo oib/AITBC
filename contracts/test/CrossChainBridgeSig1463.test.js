@@ -24,19 +24,21 @@ const TYPES = {
 };
 
 describe("CrossChainBridge EIP-712 confirmation signatures (#1463)", function () {
-  let token, bridge, bridge2, owner, validator, user;
+  let token, bridge, bridge2, owner, validator, validator2, user;
 
   async function deployBridge() {
     const Bridge = await ethers.getContractFactory("CrossChainBridge");
     const b = await Bridge.deploy(owner.address);
     await b.waitForDeployment();
     await b.addSupportedToken(await token.getAddress(), ethers.parseEther("500000"), 0, false);
+    // #795: initiateBridge requires >= MIN_QUORUM(2) active validators.
     await b.addValidator(validator.address, 1);
+    await b.addValidator(validator2.address, 1);
     return b;
   }
 
   beforeEach(async function () {
-    [owner, validator, user] = await ethers.getSigners();
+    [owner, validator, validator2, user] = await ethers.getSigners();
 
     const Token = await ethers.getContractFactory("AIToken");
     token = await Token.deploy(ethers.parseEther("1000000"));

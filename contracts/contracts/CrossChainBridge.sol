@@ -23,7 +23,13 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
     uint256 public constant BRIDGE_FEE_PERCENTAGE = 50; // 0.5% bridge fee
     uint256 public constant BASIS_POINTS = 10000;
     uint256 public constant MAX_FEE = 500; // Maximum 5% fee
-    uint256 public constant MIN_CONFIRMATIONS = 3;
+    // Quorum floor (#795): a bridge request can never require fewer than
+    // MIN_QUORUM active confirmations, and removeValidator cannot shrink the
+    // live set below it, so the floor is reachable by construction.
+    uint256 public constant MIN_QUORUM = 2;
+    // Cap on the validator set: confirm/finalize loop over activeValidators,
+    // so the set size bounds their gas.
+    uint256 public constant MAX_VALIDATORS = 16;
     uint256 public constant BRIDGE_TIMEOUT = 24 hours;
     uint256 public constant COMPLETION_TIMEOUT = 24 hours;
     uint256 public constant MAX_BRIDGE_AMOUNT = 1000000 * 1e18; // Max 1M tokens per bridge
@@ -70,6 +76,9 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
         uint256 confirmedAt;
         uint256 completedAt;
         uint256 confirmations;
+        // Quorum snapshot taken at initiation (#795): later validator-set or
+        // policy changes never rewrite an in-flight request's threshold.
+        uint256 requiredAtCreation;
         mapping(address => bool) hasConfirmed;
     }
 
@@ -105,10 +114,6 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
 
     // State variables
     uint256 public requestCounter;
-    // Owner-set quorum over the live validator set, clamped at confirm time
-    // to [1, activeValidators.length] so a dead-validator drop can never
-    // freeze the bridge (B's design note (b), #795).
-    uint256 public requiredConfirmations;
     uint256 public totalBridgedAmount;
     uint256 public totalFeesCollected;
     address public feeRecipient;
@@ -144,6 +149,7 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
     event BridgeCompleted(uint256 indexed requestId, bytes32 unlockTxHash);
     event BridgeFailed(uint256 indexed requestId, string reason);
     event BridgeCancelled(uint256 indexed requestId);
+    event BridgeFinalized(uint256 indexed requestId);
     event ValidatorAdded(address indexed validator, uint256 weight);
     event ValidatorRemoved(address indexed validator);
     event TokenSupported(address indexed token, uint256 bridgeLimit, uint256 fee);
@@ -177,7 +183,6 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
 
     constructor(address _feeRecipient) EIP712("CrossChainBridge", "1") {
         feeRecipient = _feeRecipient;
-        requiredConfirmations = MIN_CONFIRMATIONS;
 
         // Initialize with Ethereum mainnet
         _addChain(1, ChainType.ETHEREUM, "Ethereum", true, address(0), 12);
@@ -213,6 +218,10 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
         require(amount > 0, "Amount must be greater than 0");
         require(amount <= MAX_BRIDGE_AMOUNT, "Amount exceeds max bridge amount");
         require(targetChainId != block.chainid, "Same chain bridging not allowed");
+        // The floor guard keeps quorumFor(n) >= MIN_QUORUM satisfiable: with
+        // fewer than MIN_QUORUM active validators no request could ever reach
+        // quorum, so bridging is disabled rather than silently bricked.
+        require(activeValidators.length >= MIN_QUORUM, "Not enough active validators");
 
         // Calculate bridge fee
         uint256 fee = (amount * supportedTokens[sourceToken].feePercentage) / BASIS_POINTS;
@@ -237,6 +246,7 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
         request.fee = fee;
         request.status = BridgeStatus.PENDING;
         request.createdAt = block.timestamp;
+        request.requiredAtCreation = quorumFor(activeValidators.length);
 
         // Update statistics
         totalBridgedAmount += amount;
@@ -301,13 +311,32 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
         validators[msg.sender].lastValidation = block.timestamp;
         validators[msg.sender].totalValidations++;
 
-        // Check if we have enough confirmations
-        if (request.confirmations >= _requiredConfirmations()) {
-            request.status = BridgeStatus.CONFIRMED;
-            request.confirmedAt = block.timestamp;
+        // Check if quorum is met — the same check finalizeConfirmed uses, so
+        // there is one definition of "quorum met" on this contract.
+        if (_quorumMet(request)) {
+            _setConfirmed(requestId, request);
         }
 
         emit BridgeConfirmed(requestId, msg.sender, lockTxHash);
+    }
+
+    /**
+     * @dev Permissionlessly finalizes a PENDING request whose effective
+     * confirmations already meet its snapshot quorum (#795). Covers the
+     * stuck-request case: validators may stop confirming once the threshold
+     * was already reachable (e.g. a validator was removed after confirming),
+     * and no further confirmBridge call may ever arrive to flip the state.
+     */
+    function finalizeConfirmed(uint256 requestId)
+        external
+        nonReentrant
+        validRequest(requestId)
+    {
+        BridgeRequest storage request = bridgeRequests[requestId];
+        require(request.status == BridgeStatus.PENDING, "Request not pending");
+        require(block.timestamp <= request.createdAt + BRIDGE_TIMEOUT, "Bridge request expired");
+        require(_quorumMet(request), "Quorum not met");
+        _setConfirmed(requestId, request);
     }
 
     /**
@@ -411,7 +440,8 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
             uint256 amount,
             address recipient,
             BridgeStatus status,
-            uint256 createdAt
+            uint256 createdAt,
+            uint256 requiredAtCreation
         )
     {
         BridgeRequest storage request = bridgeRequests[requestId];
@@ -422,7 +452,8 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
             request.amount,
             request.recipient,
             request.status,
-            request.createdAt
+            request.createdAt,
+            request.requiredAtCreation
         );
     }
 
@@ -543,6 +574,8 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
     function addValidator(address validatorAddress, uint256 weight) external onlyOwner {
         require(validatorAddress != address(0), "Invalid validator address");
         require(!validators[validatorAddress].isActive, "Validator already exists");
+        // Bound the set: confirm/finalize cost grows linearly with it.
+        require(activeValidators.length < MAX_VALIDATORS, "Validator cap reached");
 
         validators[validatorAddress] = Validator({
             validatorAddress: validatorAddress,
@@ -562,6 +595,10 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
      */
     function removeValidator(address validatorAddress) external onlyOwner {
         require(validators[validatorAddress].isActive, "Validator not active");
+        // Floor guard (#795): the live set can never shrink below MIN_QUORUM,
+        // so quorumFor(n) >= MIN_QUORUM is always satisfiable and a request
+        // can never be stranded below the floor.
+        require(activeValidators.length - 1 >= MIN_QUORUM, "Validator floor reached");
 
         validators[validatorAddress].isActive = false;
 
@@ -595,13 +632,15 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
     }
 
     /**
-     * @dev Sets the confirmation quorum (#795). Bound to the live validator
-     * set: q must fit inside [1, activeValidators.length] at set time, and
-     * confirmBridge clamps again so later removals cannot freeze the bridge.
+     * @dev Quorum for a validator set of size n (#795, operator-approved
+     * card 1B): exact BFT-style ⌊2n/3⌋+1 with a hard floor of MIN_QUORUM.
+     * Truth table: n=2→2, 3→3, 4→3, 5→4, 6→5, 7→5, 8→6. Constants, not
+     * owner-tunable — a Safe owner cannot configure below the floor, and
+     * changing the policy means a redeploy (the safer failure mode).
      */
-    function setRequiredConfirmations(uint256 q) external onlyOwner {
-        require(q >= 1 && q <= activeValidators.length, "Quorum outside live validator set");
-        requiredConfirmations = q;
+    function quorumFor(uint256 n) public pure returns (uint256) {
+        uint256 q = (2 * n) / 3 + 1;
+        return q > MIN_QUORUM ? q : MIN_QUORUM;
     }
 
     function pause() external onlyOwner {
@@ -640,10 +679,36 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable, EIP712 {
         return digest.recover(signature) == signer;
     }
 
-    function _requiredConfirmations() internal view returns (uint256) {
-        uint256 q = requiredConfirmations > 0 ? requiredConfirmations : MIN_CONFIRMATIONS;
-        uint256 live = activeValidators.length > 0 ? activeValidators.length : 1;
-        return q < live ? q : live;
+    /// @dev Effective confirmations = active validators that confirmed.
+    /// A validator removed after confirming stops counting on pending
+    /// requests immediately (gap 3, #795); the raw `confirmations` counter
+    /// is kept only for the first-confirmer lock-hash check.
+    function _effectiveConfirmations(BridgeRequest storage request)
+        internal
+        view
+        returns (uint256 count)
+    {
+        for (uint256 i = 0; i < activeValidators.length; i++) {
+            if (request.hasConfirmed[activeValidators[i]]) {
+                count++;
+            }
+        }
+    }
+
+    /// @dev Threshold is the request's creation snapshot, clamped to the
+    /// current live set (which the floor guard keeps >= MIN_QUORUM).
+    function _quorumMet(BridgeRequest storage request) internal view returns (bool) {
+        uint256 live = activeValidators.length;
+        uint256 threshold = request.requiredAtCreation < live
+            ? request.requiredAtCreation
+            : live;
+        return _effectiveConfirmations(request) >= threshold;
+    }
+
+    function _setConfirmed(uint256 requestId, BridgeRequest storage request) internal {
+        request.status = BridgeStatus.CONFIRMED;
+        request.confirmedAt = block.timestamp;
+        emit BridgeFinalized(requestId);
     }
 
     function _addChain(

@@ -175,6 +175,14 @@ deployment exists yet. A further redeploy is tracked under #1557
   owner-set `requiredConfirmations` clamped to `[1, activeValidators.length]`
   at set time and re-clamped at confirm time; the dead per-chain
   `minConfirmations` lookup is removed from the decision path.
+  **Superseded on `origin/main` by the #795 redesign** (operator-approved
+  plan, c29666/c29698): `requiredConfirmations`/`setRequiredConfirmations`
+  are removed; quorum is `quorumFor(n) = max(2, ⌊2n/3⌋+1)` over the live
+  validator set, snapshotted per request (`requiredAtCreation`), counting
+  only currently-active confirmers, with a permissionless
+  `finalizeConfirmed` and a `MIN_QUORUM=2` floor (`removeValidator` cannot
+  shrink below it, `addValidator` caps at 16). **Pending REDEPLOY** — not
+  live on any deployment; pins in `test/CrossChainBridgeQuorum795.t.sol`.
 - `CONFIRMED` exit — **live on SEPOLIA-REDEPLOY-2** (`503e08e53`):
   `cancelBridge` accepts a CONFIRMED request past `confirmedAt +
   COMPLETION_TIMEOUT` (24h), caller sender-or-owner, principal-only refund.
