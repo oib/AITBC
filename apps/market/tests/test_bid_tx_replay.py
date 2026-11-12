@@ -10,6 +10,7 @@ next one. FAILS on current main: bid A and bid B both complete with the
 same hash.
 """
 
+import contextlib
 import sys
 from collections.abc import AsyncIterator
 from decimal import Decimal
@@ -68,6 +69,8 @@ class TestBidTxReplay:
             await session.refresh(bid)
             bids.append(bid.id)
 
+        # #1914: the payment tx must reference the bid/offer it settles.
+        tx["payload"] = {"bid_id": bids[0]}
         try:
             await svc.complete_bid(bids[0], "0xPAYMENT")
         except Exception:
@@ -80,3 +83,132 @@ class TestBidTxReplay:
         completed = [b.id for b in rows if b.status == "completed"]
         # desired: only the first bid may complete on this tx — the replay is refused
         assert bids[1] not in completed, "same tx_hash completed a second bid — replay not bound"
+
+    @pytest.mark.asyncio
+    async def test_zero_price_bid_cannot_complete(self, session):
+        """#1914: a legacy/corrupt bid row with price <= 0 must fail closed —
+        complete_bid may not skip the on-chain minimum for it."""
+        svc = MarketService(session)
+        offer = await svc.create_offer(
+            {
+                "provider": "0xProvider",
+                "price": "1",
+                "capacity": 1,
+                "gpu_model": "RTX4090",
+                "chain_id": "ait-testchain",
+            }
+        )
+        offer.status = "booked"
+        session.add(offer)
+        bid = Bid(
+            offer_id=offer.id,
+            provider="0xProvider",
+            buyer="0xBuyer",
+            capacity=1.0,
+            price=Decimal("0"),
+            status="pending",
+        )
+        session.add(bid)
+        await session.commit()
+        await session.refresh(bid)
+
+        tx = {
+            "hash": "0xDUST",
+            "status": "confirmed",
+            "sender": "0xBuyer",
+            "recipient": "0xProvider",
+            "value": 0,
+        }
+        svc._rpc_client.get_transaction = AsyncMock(return_value=tx)
+
+        with pytest.raises(ValueError, match="no positive price"):
+            await svc.complete_bid(bid.id, "0xDUST")
+        await session.refresh(bid)
+        assert bid.status == "pending"
+
+    @pytest.mark.asyncio
+    async def test_unbound_tx_cannot_complete_bid(self, session):
+        """#1914: a confirmed buyer→provider tx with sufficient value but no
+        payload reference to this bid/offer must not settle it."""
+        svc = MarketService(session)
+        offer = await svc.create_offer(
+            {
+                "provider": "0xProvider",
+                "price": "1",
+                "capacity": 1,
+                "gpu_model": "RTX4090",
+                "chain_id": "ait-testchain",
+            }
+        )
+        offer.status = "booked"
+        session.add(offer)
+        bid = Bid(
+            offer_id=offer.id,
+            provider="0xProvider",
+            buyer="0xBuyer",
+            capacity=1.0,
+            price=Decimal("1"),
+            status="pending",
+        )
+        session.add(bid)
+        await session.commit()
+        await session.refresh(bid)
+
+        for payload in ({}, {"offer_id": "0xUnrelatedOffer"}, {"order_id": "0xUnrelatedOrder"}):
+            tx = {
+                "hash": f"0xUNBOUND-{len(payload)}",
+                "status": "confirmed",
+                "sender": "0xBuyer",
+                "recipient": "0xProvider",
+                "value": 36_000_000,
+                "payload": payload,
+            }
+            svc._rpc_client.get_transaction = AsyncMock(return_value=tx)
+            with pytest.raises(ValueError, match="not bound"):
+                await svc.complete_bid(bid.id, tx["hash"])
+        await session.refresh(bid)
+        assert bid.status == "pending"
+
+    @pytest.mark.asyncio
+    async def test_offer_bound_tx_completes_bid(self, session):
+        """#1914: an offer-level reference (payload.offer_id) binds the tx just
+        as well as a bid-level one — the chain's order_id index treats them
+        equivalently."""
+        svc = MarketService(session)
+        offer = await svc.create_offer(
+            {
+                "provider": "0xProvider",
+                "price": "1",
+                "capacity": 1,
+                "gpu_model": "RTX4090",
+                "chain_id": "ait-testchain",
+            }
+        )
+        offer.status = "booked"
+        session.add(offer)
+        bid = Bid(
+            offer_id=offer.id,
+            provider="0xProvider",
+            buyer="0xBuyer",
+            capacity=1.0,
+            price=Decimal("1"),
+            status="pending",
+        )
+        session.add(bid)
+        await session.commit()
+        await session.refresh(bid)
+
+        tx = {
+            "hash": "0xOFFERBOUND",
+            "status": "confirmed",
+            "sender": "0xBuyer",
+            "recipient": "0xProvider",
+            "value": 36_000_000,
+            "payload": {"offer_id": offer.id},
+        }
+        svc._rpc_client.get_transaction = AsyncMock(return_value=tx)
+        # the service commits then trips on an expired attr — state persists
+        with contextlib.suppress(Exception):
+            await svc.complete_bid(bid.id, "0xOFFERBOUND")
+        await session.refresh(bid)
+        assert bid.status == "completed"

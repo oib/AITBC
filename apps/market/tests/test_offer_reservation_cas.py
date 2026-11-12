@@ -157,6 +157,51 @@ class TestBidPriceBounds:
         bid = (await session.execute(select(Bid).where(Bid.id == result["bid_id"]))).scalar_one()
         assert bid.price == Decimal("7.5")
 
+    async def test_zero_price_is_rejected(self, session):
+        """#1914: price=0 survives _money_decimal (non-negative) but makes
+        required_value <= 0 in complete_bid — any dust tx then settles the bid."""
+        with pytest.raises(ValueError, match="positive"):
+            await self._book_with_price(session, "0")
+
+    async def test_under_ask_price_is_rejected(self, session):
+        """#1914: a bid below the offer's advertised price must not book."""
+        with pytest.raises(ValueError, match="below the offer price"):
+            await self._book_with_price(session, "4.99")
+
+    async def test_rejected_price_leaves_offer_bookable(self, session):
+        """The rejection runs before the CAS claim — no 'booked' stranding,
+        no orphan bid row."""
+        svc = MarketService(session)
+        offer = await svc.create_offer(
+            {
+                "provider": "0xProviderAddr",
+                "price": "5",
+                "capacity": 1,
+                "gpu_model": "RTX4090",
+                "chain_id": "ait-testchain",
+            }
+        )
+        with pytest.raises(ValueError):
+            await svc.book_offer(offer.id, {"wallet": "0xBuyerOne", "price": "0"})
+        await session.refresh(offer)
+        assert offer.status == "available"
+        bids = (await session.execute(select(Bid).where(Bid.offer_id == offer.id))).scalars().all()
+        assert bids == []
+
+    async def test_price_equal_to_ask_still_books(self, session):
+        svc = MarketService(session)
+        offer = await svc.create_offer(
+            {
+                "provider": "0xProviderAddr",
+                "price": "5",
+                "capacity": 1,
+                "gpu_model": "RTX4090",
+                "chain_id": "ait-testchain",
+            }
+        )
+        result = await svc.book_offer(offer.id, {"wallet": "0xBuyerOne"})
+        assert result["status"] == "pending"
+
 
 class TestMatchAndAssignCAS:
     async def _mock_coordinator(self, svc: MatchingService) -> None:

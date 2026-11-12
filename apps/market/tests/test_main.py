@@ -309,7 +309,12 @@ def test_book_offer_that_is_not_available(client):
     assert created.status_code == 200
     offer_id = created.json()["id"]
 
-    first = client.post(f"/v1/market/offers/{offer_id}/book", json={"wallet": "0x4472315052d1bC56dd9aA6514B9796770C8c0611"})
+    # #1914: a price-less offer still needs a positive bid price — the buyer
+    # names it in the booking.
+    first = client.post(
+        f"/v1/market/offers/{offer_id}/book",
+        json={"wallet": "0x4472315052d1bC56dd9aA6514B9796770C8c0611", "price": "5"},
+    )
     assert first.status_code == 200
 
     response = client.post(f"/v1/market/offers/{offer_id}/book", json={"wallet": "0x256c41bf37d05c2FD5f58efcE46bbe7746CA299d"})
@@ -429,7 +434,8 @@ def test_cancel_a_booked_offer_is_refused(client):
     offer_id = _new_offer(client)
     assert (
         client.post(
-            f"/v1/market/offers/{offer_id}/book", json={"wallet": "0x2A90A998913478Cdb1c59CaC089C44A3BC59DEf0"}
+            f"/v1/market/offers/{offer_id}/book",
+            json={"wallet": "0x2A90A998913478Cdb1c59CaC089C44A3BC59DEf0", "price": "5"},
         ).status_code
         == 200
     )
@@ -502,7 +508,10 @@ def test_an_offer_stored_as_open_can_be_booked(client):
     """
     offer_id = _new_offer(client, status="open")
 
-    response = client.post(f"/v1/market/offers/{offer_id}/book", json={"wallet": "0x2A90A998913478Cdb1c59CaC089C44A3BC59DEf0"})
+    response = client.post(
+        f"/v1/market/offers/{offer_id}/book",
+        json={"wallet": "0x2A90A998913478Cdb1c59CaC089C44A3BC59DEf0", "price": "5"},
+    )
     assert response.status_code == 200
     assert client.get(f"/v1/market/offers/{offer_id}").json()["status"] == "booked"
 
