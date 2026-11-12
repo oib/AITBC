@@ -202,6 +202,20 @@ def _rejection_metadata(reason: str, height: int, timestamp: datetime) -> str:
     )
 
 
+def _attestation_lock_peer_bases(peer_urls) -> list[str]:
+    from .proposal_freshness import peer_base_url
+
+    bases: list[str] = []
+    for u in peer_urls:
+        if u.startswith(("http://", "https://")):
+            bases.append(u)
+        else:
+            base = peer_base_url(u)
+            if base:
+                bases.append(base)
+    return bases
+
+
 class _ProposalReleaseLedger:
     """#1300 §3 release-map bookkeeping for one proposal attempt.
 
@@ -1174,14 +1188,7 @@ class PoAProposer:
         key = (head.height if head is not None else -1, head.hash if head is not None and head.hash else "")
         peer_urls = settings.mesh_peer_urls_for_service(self._config.chain_id)
         if not peer_urls:
-            if self._config.chain_id != settings.chain_id and self._no_peers_warned.get("freshness") != key:
-                self._no_peers_warned["freshness"] = key
-                metrics_registry.increment("proposal_freshness_no_peers_total")
-                self._logger.warning(
-                    "[PROPOSE] freshness gate has no peers for chain %s — only chain-tagged "
-                    "GOSSIP_MESH_PEER_URLS entries reach it; proposing unverified",
-                    self._config.chain_id,
-                )
+            self._warn_freshness_no_peers(key)
             return True
         now = self._monotonic()
         if self._freshness_cache_key == key and now < self._freshness_cache_expires:
@@ -1200,25 +1207,34 @@ class PoAProposer:
         )
         result = await checker.check(key[0], key[1], quarantined=quarantined)
 
+        ok = self._freshness_verdict_ok(result, key)
+
+        if result.verdict is not FreshnessVerdict.UNVERIFIED:
+            ttl = getattr(settings, "proposal_freshness_cache_ttl_seconds", 5.0)
+            self._freshness_cache_key = key
+            self._freshness_cache_ok = ok
+            self._freshness_cache_expires = now + ttl
+        return ok
+
+    def _warn_freshness_no_peers(self, key) -> None:
+        if self._config.chain_id != settings.chain_id and self._no_peers_warned.get("freshness") != key:
+            self._no_peers_warned["freshness"] = key
+            metrics_registry.increment("proposal_freshness_no_peers_total")
+            self._logger.warning(
+                "[PROPOSE] freshness gate has no peers for chain %s — only chain-tagged "
+                "GOSSIP_MESH_PEER_URLS entries reach it; proposing unverified",
+                self._config.chain_id,
+            )
+
+    def _freshness_verdict_ok(self, result, key) -> bool:
+        """Map a FreshnessVerdict to proceed/skip, emitting metrics + logs.
+        Only STALE and HASH_MISMATCH block the proposal."""
+        from .proposal_freshness import FreshnessVerdict
+
         ok = True
         if result.verdict is FreshnessVerdict.STALE:
             ok = False
-            metrics_registry.increment("proposal_freshness_stale_total")
-            self._logger.warning(
-                "[PROPOSE] Peer %s is ahead at height %s (local %s) — pulling before proposing",
-                result.peer_url,
-                result.peer_height,
-                key[0],
-            )
-            if self._sync_manager is not None and result.peer_url:
-                try:
-                    # Recorded only when the pull actually starts — a deduped
-                    # call means someone else's pull is in flight and this
-                    # peer must not take the blame for it.
-                    if self._sync_manager.pull_from_peer(self._config.chain_id, result.peer_url):
-                        self._freshness_pulls[result.peer_url] = key[0]
-                except Exception as exc:  # noqa: BLE001 - peer pull probe: a failed kick must not abort proposing
-                    self._logger.warning("[PROPOSE] freshness pull from %s failed to start: %s", result.peer_url, exc)
+            self._freshness_stale_pull(result, key[0])
         elif result.verdict is FreshnessVerdict.HASH_MISMATCH:
             ok = False
             metrics_registry.increment("proposal_freshness_hash_mismatch_total")
@@ -1256,13 +1272,25 @@ class PoAProposer:
                 result.rival_votes,
                 result.our_votes,
             )
-
-        if result.verdict is not FreshnessVerdict.UNVERIFIED:
-            ttl = getattr(settings, "proposal_freshness_cache_ttl_seconds", 5.0)
-            self._freshness_cache_key = key
-            self._freshness_cache_ok = ok
-            self._freshness_cache_expires = now + ttl
         return ok
+
+    def _freshness_stale_pull(self, result, local_height: int) -> None:
+        metrics_registry.increment("proposal_freshness_stale_total")
+        self._logger.warning(
+            "[PROPOSE] Peer %s is ahead at height %s (local %s) — pulling before proposing",
+            result.peer_url,
+            result.peer_height,
+            local_height,
+        )
+        if self._sync_manager is not None and result.peer_url:
+            try:
+                # Recorded only when the pull actually starts — a deduped
+                # call means someone else's pull is in flight and this
+                # peer must not take the blame for it.
+                if self._sync_manager.pull_from_peer(self._config.chain_id, result.peer_url):
+                    self._freshness_pulls[result.peer_url] = local_height
+            except Exception as exc:  # noqa: BLE001 - peer pull probe: a failed kick must not abort proposing
+                self._logger.warning("[PROPOSE] freshness pull from %s failed to start: %s", result.peer_url, exc)
 
     def _reconcile_freshness_pulls(self, local_height: int, now: float) -> None:
         """Quarantine ahead peers whose pull finished without moving our head.
@@ -1318,10 +1346,25 @@ class PoAProposer:
         round_number)`` — identical rules to the attester-side signing
         check, so the two enforcement points cannot disagree.
         """
+        locked = self._attestation_lock_entry(next_height, round_number)
+        if locked is None:
+            return False
+        locked_hash, locked_proposer = locked
+        await self._attestation_lock_peer_scan(next_height, locked_hash, locked_proposer)
+        return True
+
+    def _attestation_lock_entry(self, next_height: int, round_number: int | None):
+        """Resolve the live attestation lock for this height.
+
+        Returns ``(locked_hash, locked_proposer)`` while a lock suppresses the
+        proposal, or None when the proposal may proceed. Applies the shared
+        U1/U2 round-lock verdict when ``attestation_round_lock_enabled`` is
+        set, else the height-window attestation lock — identical rules to the
+        attester-side signing check (#1242)."""
         if self._remote_attestation is None or self._sync_manager is None:
-            return False
+            return None
         if not getattr(settings, "attestation_lock_enabled", True):
-            return False
+            return None
         # #1298 T15: the SAME effective lapse window the attester enforces —
         # one shared constant, no attester/proposer drift.
         window = attestation_lock_window_seconds(next_height)
@@ -1331,13 +1374,13 @@ class PoAProposer:
                     "[PROPOSE] round lock enabled but no round for height %s — proceeding without suppression",
                     next_height,
                 )
-                return False
+                return None
             # A fresh proposal always has a different hash than anything we
             # signed, so every locked entry at this height conflicts; the
             # empty hash can never match an entry's block_hash.
             verdict = self._remote_attestation.round_lock_verdict(next_height, round_number, "")
             if verdict.permitted:
-                return False
+                return None
             locked_hash, locked_proposer = verdict.block_hash, verdict.proposer
             self._logger.info(
                 "[PROPOSE] Round-lock suppression at height %s round %s: %s (attested %s by %s)",
@@ -1350,11 +1393,16 @@ class PoAProposer:
         else:
             lock = self._remote_attestation.attestation_lock(next_height, window)
             if lock is None:
-                return False
+                return None
             locked_hash, locked_proposer = lock
+        return locked_hash, locked_proposer
 
-        from .proposal_freshness import peer_base_url
+    async def _attestation_lock_peer_scan(self, next_height: int, locked_hash: str, locked_proposer: str) -> None:
+        """Look for a mesh peer serving the attested block and kick a pull.
 
+        Always resolves — the caller holds the proposal either way: a peer
+        that serves the block gets a pull kicked toward it, and a fully
+        unserved lock is held until expiry (bounded liveness hit, #1298 T15)."""
         peer_urls = settings.mesh_peer_urls_for_service(self._config.chain_id)
         if (
             not peer_urls
@@ -1369,42 +1417,10 @@ class PoAProposer:
                 "attested block from a peer",
                 self._config.chain_id,
             )
-        bases: list[str] = []
-        for u in peer_urls:
-            if u.startswith(("http://", "https://")):
-                bases.append(u)
-            else:
-                base = peer_base_url(u)
-                if base:
-                    bases.append(base)
         timeout = getattr(settings, "proposal_freshness_peer_timeout_seconds", 2.0)
-        for base in dict.fromkeys(bases):
-            try:
-                resp = await SharedHttpClient.get(
-                    f"{base}/rpc/block/{next_height}",
-                    params={"chain_id": self._config.chain_id},
-                    timeout=timeout,
-                )
-                if resp.status_code != 200:
-                    continue
-                block = resp.json()
-            except Exception:  # noqa: BLE001 - per-peer fetch containment: one bad peer must not break the scan
-                continue
-            if not isinstance(block, dict) or block.get("hash") != locked_hash:
-                continue
-            self._logger.warning(
-                "[PROPOSE] Attestation lock: we attested %s at height %s (proposer %s) — pulling from %s instead of proposing",
-                locked_hash[:18],
-                next_height,
-                locked_proposer[:12],
-                base,
-            )
-            metrics_registry.increment("poa_attestation_lock_fetch_total")
-            try:
-                self._sync_manager.pull_from_peer(self._config.chain_id, base)
-            except Exception as exc:  # noqa: BLE001 - peer pull probe: a failed kick still leaves the lock held
-                self._logger.warning("[PROPOSE] attestation-lock pull from %s failed: %s", base, exc)
-            return True
+        for base in dict.fromkeys(_attestation_lock_peer_bases(peer_urls)):
+            if await self._attestation_lock_fetch_peer(base, next_height, locked_hash, locked_proposer, timeout):
+                return
         metrics_registry.increment("poa_attestation_lock_held_total")
         self._logger.warning(
             "[PROPOSE] Attestation lock held at height %s — we attested %s (proposer %s) but no peer serves it; holding until the lock expires",
@@ -1412,6 +1428,38 @@ class PoAProposer:
             locked_hash[:18],
             locked_proposer[:12],
         )
+
+    async def _attestation_lock_fetch_peer(
+        self, base: str, next_height: int, locked_hash: str, locked_proposer: str, timeout: float
+    ) -> bool:
+        """Fetch the attested block from one peer; on a hash match kick the
+        pull and return True. Any other outcome returns False."""
+        try:
+            resp = await SharedHttpClient.get(
+                f"{base}/rpc/block/{next_height}",
+                params={"chain_id": self._config.chain_id},
+                timeout=timeout,
+            )
+            if resp.status_code != 200:
+                return False
+            block = resp.json()
+        except Exception:  # noqa: BLE001 - per-peer fetch containment: one bad peer must not break the scan
+            return False
+        if not isinstance(block, dict) or block.get("hash") != locked_hash:
+            return False
+        self._logger.warning(
+            "[PROPOSE] Attestation lock: we attested %s at height %s (proposer %s) — pulling from %s instead of proposing",
+            locked_hash[:18],
+            next_height,
+            locked_proposer[:12],
+            base,
+        )
+        metrics_registry.increment("poa_attestation_lock_fetch_total")
+        try:
+            # _attestation_lock_entry already gated on _sync_manager being set.
+            self._sync_manager.pull_from_peer(self._config.chain_id, base)  # type: ignore[union-attr]
+        except Exception as exc:  # noqa: BLE001 - peer pull probe: a failed kick still leaves the lock held
+            self._logger.warning("[PROPOSE] attestation-lock pull from %s failed: %s", base, exc)
         return True
 
     def _own_addresses(self) -> set[str]:
