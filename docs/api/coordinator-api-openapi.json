@@ -2778,6 +2778,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "booking has a live payment \u2014 cancel or refund the bound job instead of releasing the GPU",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }

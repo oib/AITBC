@@ -296,6 +296,9 @@ def _get_gpu_or_404(session: Session, gpu_id: str) -> GPURegistry:
 # against the booking.
 BOOKING_HOLD_TTL = timedelta(minutes=30)
 _PAID_PAYMENT_STATUSES = ("escrowed", "released", "confirmed")
+# JobPayment states where no live money remains — a paid GPU booking in one
+# of these may be released without stranding an escrow (#1913).
+_RELEASE_SAFE_PAYMENT_STATUSES = frozenset({"released", "refunded", "failed"})
 
 
 def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
@@ -1296,6 +1299,19 @@ def release_gpu(
             status_code=http_status.HTTP_403_FORBIDDEN,
             detail="only the GPU owner or the booking client may release it",
         )
+    # #1913: a paid booking's money lives in Job/JobPayment/escrow — freeing
+    # the GPU here would leave the bound job live to settle afterward (the
+    # provider still gets paid for a rental the caller believes ended), and
+    # a buyer-initiated release would strand the escrow with no refund path.
+    # Paid holds end through the job cancel/refund flows; only unpaid holds
+    # or bookings whose payment already settled may be released here.
+    if booking is not None and booking.payment_id:
+        payment = session.get(JobPayment, booking.payment_id)
+        if payment is None or payment.status not in _RELEASE_SAFE_PAYMENT_STATUSES:
+            raise HTTPException(
+                status_code=http_status.HTTP_409_CONFLICT,
+                detail=("booking has a live payment — cancel or refund the bound job instead of releasing the GPU"),
+            )
     refund = Decimal("0")
     if booking:
         try:
