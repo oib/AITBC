@@ -380,6 +380,37 @@ _CLEARABLE_COLUMNS: dict[str, str] = {
 }
 
 
+def _validate_update_args(
+    status: BridgeDepositStatus | None, error_message: str | None, clear_fields: list[str] | None
+) -> None:
+    """Reject invalid update combinations before touching the DB."""
+    if status == BridgeDepositStatus.WRITTEN_OFF and not error_message:
+        raise ValueError("WRITTEN_OFF requires a written reason (error_message)")
+    for f in clear_fields or []:
+        if f not in _CLEARABLE_COLUMNS:
+            raise ValueError(f"cannot clear unknown field {f!r}")
+
+
+def _build_update_query(
+    updates: list[str], expected_statuses: Collection[BridgeDepositStatus | str] | None
+) -> tuple[str, list[Any]] | None:
+    """Assemble the UPDATE ... WHERE clause. Returns (query, extra_params)
+    or None when there is nothing to update."""
+    if expected_statuses:
+        expected = tuple(s.value if isinstance(s, BridgeDepositStatus) else str(s) for s in expected_statuses)
+        query = (
+            f"UPDATE eth_deposits SET {', '.join(updates)} "  # nosec
+            f"WHERE lower(tx_hash) IN (?, ?) AND status IN ({', '.join('?' for _ in expected)})"
+        )
+        return query, list(expected)
+    if not updates:
+        return None
+    # every `updates` entry is a hardcoded "column = ?" literal above; values are bound via params
+    # lower() + both spellings: legacy rows may hold a bare or mixed-case hash (#668)
+    query = f"UPDATE eth_deposits SET {', '.join(updates)} WHERE lower(tx_hash) IN (?, ?)"  # nosec
+    return query, []
+
+
 def update_deposit(
     eth_tx_hash: str,
     ait_amount: str | None = None,
@@ -405,17 +436,13 @@ def update_deposit(
     terminal (e.g. flip a written-off deposit back to SUBMITTED). rowcount
     0 -> False. Status values may be passed as the enum or its ``.value``.
     """
-    if status == BridgeDepositStatus.WRITTEN_OFF and not error_message:
-        raise ValueError("WRITTEN_OFF requires a written reason (error_message)")
     if status is not None:
         # #1919: wallet-vocabulary states ('verified', 'rejected') are not
         # monitor writes — a stray string must fail loudly here, not land
         # a row no worklist owns. Coerce by value so a valid .value string
         # and a reloaded-generation member both normalize to the enum.
         status = _coerce_deposit_status(status)
-    for f in clear_fields or []:
-        if f not in _CLEARABLE_COLUMNS:
-            raise ValueError(f"cannot clear unknown field {f!r}")
+    _validate_update_args(status, error_message, clear_fields)
     with closing(_db_connection()) as conn:
         cursor = conn.cursor()
 
@@ -425,42 +452,25 @@ def update_deposit(
         for f in clear_fields or []:
             updates.append(f"{_CLEARABLE_COLUMNS[f]} = NULL")
 
-        if ait_amount is not None:
-            updates.append("amount_ait = ?")
-            params.append(ait_amount)
-        if eth_usd_price is not None:
-            updates.append("eth_usd_price = ?")
-            params.append(eth_usd_price)
-        if ait_usd_price is not None:
-            updates.append("ait_usd_price = ?")
-            params.append(ait_usd_price)
-        if ait_tx_hash is not None:
-            updates.append("ait_tx_hash = ?")
-            params.append(ait_tx_hash)
-        if envelope_hash is not None:
-            updates.append("envelope_hash = ?")
-            params.append(envelope_hash)
-        if signed_tx is not None:
-            updates.append("signed_tx = ?")
-            params.append(signed_tx)
-        if submitted_height is not None:
-            updates.append("submitted_height = ?")
-            params.append(submitted_height)
-        if rebroadcast_count is not None:
-            updates.append("rebroadcast_count = ?")
-            params.append(rebroadcast_count)
+        for column, value in (
+            ("amount_ait", ait_amount),
+            ("eth_usd_price", eth_usd_price),
+            ("ait_usd_price", ait_usd_price),
+            ("ait_tx_hash", ait_tx_hash),
+            ("envelope_hash", envelope_hash),
+            ("signed_tx", signed_tx),
+            ("submitted_height", submitted_height),
+            ("rebroadcast_count", rebroadcast_count),
+            ("error_message", error_message),
+            ("retry_count", retry_count),
+            ("next_retry_at", next_retry_at),
+        ):
+            if value is not None:
+                updates.append(f"{column} = ?")
+                params.append(value)
         if status is not None:
             updates.append("status = ?")
             params.append(status.value)
-        if error_message is not None:
-            updates.append("error_message = ?")
-            params.append(error_message)
-        if retry_count is not None:
-            updates.append("retry_count = ?")
-            params.append(retry_count)
-        if next_retry_at is not None:
-            updates.append("next_retry_at = ?")
-            params.append(next_retry_at)
 
         if status is not None and status in (
             BridgeDepositStatus.COMPLETED,
@@ -472,19 +482,11 @@ def update_deposit(
 
         params.extend(_tx_hash_keys(eth_tx_hash))
 
-        if expected_statuses:
-            expected = tuple(s.value if isinstance(s, BridgeDepositStatus) else str(s) for s in expected_statuses)
-            query = (
-                f"UPDATE eth_deposits SET {', '.join(updates)} "  # nosec
-                f"WHERE lower(tx_hash) IN (?, ?) AND status IN ({', '.join('?' for _ in expected)})"
-            )
-            params.extend(expected)
-        elif updates:
-            # every `updates` entry is a hardcoded "column = ?" literal above; values are bound via params
-            # lower() + both spellings: legacy rows may hold a bare or mixed-case hash (#668)
-            query = f"UPDATE eth_deposits SET {', '.join(updates)} WHERE lower(tx_hash) IN (?, ?)"  # nosec
-        else:
+        built = _build_update_query(updates, expected_statuses)
+        if built is None:
             return False
+        query, extra_params = built
+        params.extend(extra_params)
 
         if updates:
             cursor.execute(query, params)
