@@ -6,6 +6,7 @@ import os
 import sys
 import time
 from decimal import Decimal
+from typing import Any
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
 from aitbc.aitbc_logging import configure_logging, get_logger
@@ -350,6 +351,112 @@ class BridgeMonitor:
             logger.warning("head height fetch failed: %s", e)
         return None
 
+    def _handle_existing_deposit(self, tx_hash: str, existing: dict) -> bool:
+        """Triage an already-recorded deposit; True when it was fully handled
+        (terminal/submitted skip, or non-terminal marked for retry)."""
+        status = existing.get("status")
+        if status in (
+            BridgeDepositStatus.COMPLETED.value,
+            BridgeDepositStatus.FAILED.value,
+            BridgeDepositStatus.WRITTEN_OFF.value,
+            BridgeDepositStatus.FUNDING.value,
+            BridgeDepositStatus.EXCHANGE_PREPAY.value,
+        ):
+            logger.info("Deposit %s already terminal (%s), skipping", tx_hash, status)
+            return True
+        if status == BridgeDepositStatus.SUBMITTED.value or existing.get("signed_tx"):
+            # A signed payout envelope already exists — the confirmation
+            # sweep owns it. Re-signing here would risk a double payout
+            # if the original lands.
+            logger.info("Deposit %s already has a submitted payout, skipping", tx_hash)
+            return True
+        if status in WALLET_LIFECYCLE_STATUSES:
+            # Wallet-side lifecycle state (#1919): 'verified' means the
+            # wallet auto-mint verify CAS already won — its TRANSFER may
+            # be in flight or may already have landed, so paying here
+            # would double-mint; 'rejected' is the wallet's
+            # operator-terminal state. Neither is retryable monitor-side
+            # (_mark_for_retry's CAS cannot land anyway); the stranded
+            # detector alerts if one outlives its horizon.
+            logger.info(
+                "Deposit %s in wallet-owned status %s — not a monitor payout; leaving for operator/stranded alert",
+                tx_hash,
+                status,
+            )
+            return True
+        # PROCESSING / PENDING_RETRY with no envelope — crash before the
+        # first signed submit. Retry is safe: nothing was broadcast.
+        logger.warning("Deposit %s in non-terminal state %s, marking for retry", tx_hash, status)
+        self._mark_for_retry(tx_hash, f"Recovered from non-terminal state: {status}")
+        return True
+
+    def _record_exchange_prepay(self, tx_hash: str, from_address: str, eth_amount: Decimal, tx_data: str) -> bool:
+        """Exchange-prepay lane (ETH-8 phase 3): an EXCHANGE_DEPOSIT tag routes
+        the ETH to the buyer's prepaid exchange balance via the wallet-side
+        settlement monitor — it must never take the AIT mint path. Recorded
+        atomically as 'exchange_prepay'; flag-off leaves the old path
+        untouched (tag fails recipient parsing → FAILED)."""
+        if os.getenv("EXCHANGE_SETTLEMENT_ENABLED", "false").lower() != "true":
+            return False
+        exchange_tag = self._parse_exchange_deposit_tag(tx_data)
+        if exchange_tag is None:
+            return False
+        deposit_id = create_deposit(
+            tx_hash,
+            from_address,
+            str(eth_amount),
+            f"EXCHANGE_DEPOSIT:{exchange_tag}",
+            status=BridgeDepositStatus.EXCHANGE_PREPAY,
+        )
+        if deposit_id:
+            logger.info(
+                "Recorded exchange-prepay deposit %s: %s ETH tagged '%s' (tx: %s)",
+                deposit_id,
+                eth_amount,
+                exchange_tag,
+                tx_hash,
+            )
+        else:
+            logger.info("Deposit %s already exists in database", tx_hash)
+        return True
+
+    def _compute_amount_and_gate(
+        self, tx_hash: str, from_address: str, eth_amount: Decimal, ait_recipient: str
+    ) -> tuple[Decimal | None, Decimal | None, Decimal | None]:
+        """Fetch oracle prices, compute the AIT payout, and apply the
+        no-price / below-minimum gates. Returns (ait_amount, eth_usd,
+        ait_usd); ait_amount None means the deposit was already resolved
+        (retry-queued or FAILED) and the caller must return."""
+        # Fetch oracle prices once for both calculation and storage
+        eth_usd_result = self.price_oracle.get_price("ETH", "USD")
+        ait_usd_result = self.price_oracle.get_price("AIT", "USD")
+        eth_usd = eth_usd_result.price if eth_usd_result else None
+        ait_usd = ait_usd_result.price if ait_usd_result else None
+        ait_amount = self.calculate_ait_amount(eth_amount, eth_usd=eth_usd, ait_usd=ait_usd)
+        if not ait_amount:
+            # Temporary failure (oracle/RPC outage): keep the recipient and
+            # leave the row PENDING_RETRY so a later pass recomputes the
+            # price — never strand funds received.
+            logger.error("Could not calculate AIT amount — deposit stays PENDING_RETRY")
+            create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient, deposit_address=self.bridge_eth_address)
+            self._mark_for_retry(tx_hash, "Price oracle unavailable")
+            return None, eth_usd, ait_usd
+        if ait_amount < self.min_ait_deposit:
+            logger.warning("Deposit %s: AIT amount %s below minimum %s, rejecting", tx_hash, ait_amount, self.min_ait_deposit)
+            create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient, deposit_address=self.bridge_eth_address)
+            update_deposit(
+                tx_hash,
+                ait_amount=str(ait_amount),
+                status=BridgeDepositStatus.FAILED,
+                error_message=f"AIT amount {ait_amount} below minimum {self.min_ait_deposit}",
+                expected_statuses={BridgeDepositStatus.PENDING},
+            )
+            logger.critical(
+                "ALERT: deposit %s permanently FAILED — %s ETH received but below minimum payout", tx_hash, eth_amount
+            )
+            return None, eth_usd, ait_usd
+        return ait_amount, eth_usd, ait_usd
+
     def process_deposit(self, tx_hash: str, from_address: str, eth_amount: Decimal, tx_data: str) -> None:
         """Process a single ETH deposit.
 
@@ -358,68 +465,12 @@ class BridgeMonitor:
         """
         logger.info("Processing deposit: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount)
         existing = get_deposit(tx_hash)
-        if existing:
-            status = existing.get("status")
-            if status in (
-                BridgeDepositStatus.COMPLETED.value,
-                BridgeDepositStatus.FAILED.value,
-                BridgeDepositStatus.WRITTEN_OFF.value,
-                BridgeDepositStatus.FUNDING.value,
-                BridgeDepositStatus.EXCHANGE_PREPAY.value,
-            ):
-                logger.info("Deposit %s already terminal (%s), skipping", tx_hash, status)
-                return
-            if status == BridgeDepositStatus.SUBMITTED.value or existing.get("signed_tx"):
-                # A signed payout envelope already exists — the confirmation
-                # sweep owns it. Re-signing here would risk a double payout
-                # if the original lands.
-                logger.info("Deposit %s already has a submitted payout, skipping", tx_hash)
-                return
-            if status in WALLET_LIFECYCLE_STATUSES:
-                # Wallet-side lifecycle state (#1919): 'verified' means the
-                # wallet auto-mint verify CAS already won — its TRANSFER may
-                # be in flight or may already have landed, so paying here
-                # would double-mint; 'rejected' is the wallet's
-                # operator-terminal state. Neither is retryable monitor-side
-                # (_mark_for_retry's CAS cannot land anyway); the stranded
-                # detector alerts if one outlives its horizon.
-                logger.info(
-                    "Deposit %s in wallet-owned status %s — not a monitor payout; leaving for operator/stranded alert",
-                    tx_hash,
-                    status,
-                )
-                return
-            # PROCESSING / PENDING_RETRY with no envelope — crash before the
-            # first signed submit. Retry is safe: nothing was broadcast.
-            logger.warning("Deposit %s in non-terminal state %s, marking for retry", tx_hash, status)
-            self._mark_for_retry(tx_hash, f"Recovered from non-terminal state: {status}")
+        if existing and self._handle_existing_deposit(tx_hash, existing):
             return
-        # Exchange-prepay lane (ETH-8 phase 3): an EXCHANGE_DEPOSIT tag
-        # routes the ETH to the buyer's prepaid exchange balance via the
-        # wallet-side settlement monitor — it must never take the AIT mint
-        # path. Recorded atomically as 'exchange_prepay'; flag-off leaves
-        # the old path untouched (tag fails recipient parsing → FAILED).
-        if os.getenv("EXCHANGE_SETTLEMENT_ENABLED", "false").lower() == "true":
-            exchange_tag = self._parse_exchange_deposit_tag(tx_data)
-            if exchange_tag is not None:
-                deposit_id = create_deposit(
-                    tx_hash,
-                    from_address,
-                    str(eth_amount),
-                    f"EXCHANGE_DEPOSIT:{exchange_tag}",
-                    status=BridgeDepositStatus.EXCHANGE_PREPAY,
-                )
-                if deposit_id:
-                    logger.info(
-                        "Recorded exchange-prepay deposit %s: %s ETH tagged '%s' (tx: %s)",
-                        deposit_id,
-                        eth_amount,
-                        exchange_tag,
-                        tx_hash,
-                    )
-                else:
-                    logger.info("Deposit %s already exists in database", tx_hash)
-                return
+
+        if self._record_exchange_prepay(tx_hash, from_address, eth_amount, tx_data):
+            return
+
         ait_recipient = self.parse_ait_recipient(tx_data)
         if not ait_recipient:
             logger.warning("Could not parse AIT recipient from tx data: %s", tx_data)
@@ -437,34 +488,10 @@ class BridgeMonitor:
                 from_address,
             )
             return
-        # Fetch oracle prices once for both calculation and storage
-        eth_usd_result = self.price_oracle.get_price("ETH", "USD")
-        ait_usd_result = self.price_oracle.get_price("AIT", "USD")
-        eth_usd = eth_usd_result.price if eth_usd_result else None
-        ait_usd = ait_usd_result.price if ait_usd_result else None
-        ait_amount = self.calculate_ait_amount(eth_amount, eth_usd=eth_usd, ait_usd=ait_usd)
-        if not ait_amount:
-            # Temporary failure (oracle/RPC outage): keep the recipient and
-            # leave the row PENDING_RETRY so a later pass recomputes the
-            # price — never strand funds received.
-            logger.error("Could not calculate AIT amount — deposit stays PENDING_RETRY")
-            create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient, deposit_address=self.bridge_eth_address)
-            self._mark_for_retry(tx_hash, "Price oracle unavailable")
+        ait_amount, eth_usd, ait_usd = self._compute_amount_and_gate(tx_hash, from_address, eth_amount, ait_recipient)
+        if ait_amount is None:
             return
-        if ait_amount < self.min_ait_deposit:
-            logger.warning("Deposit %s: AIT amount %s below minimum %s, rejecting", tx_hash, ait_amount, self.min_ait_deposit)
-            create_deposit(tx_hash, from_address, str(eth_amount), ait_recipient, deposit_address=self.bridge_eth_address)
-            update_deposit(
-                tx_hash,
-                ait_amount=str(ait_amount),
-                status=BridgeDepositStatus.FAILED,
-                error_message=f"AIT amount {ait_amount} below minimum {self.min_ait_deposit}",
-                expected_statuses={BridgeDepositStatus.PENDING},
-            )
-            logger.critical(
-                "ALERT: deposit %s permanently FAILED — %s ETH received but below minimum payout", tx_hash, eth_amount
-            )
-            return
+
         deposit_id = create_deposit(
             tx_hash, from_address, str(eth_amount), ait_recipient, deposit_address=self.bridge_eth_address
         )
@@ -717,42 +744,10 @@ class BridgeMonitor:
             tx_hash = d["eth_tx_hash"]
             ait_recipient = d["ait_recipient"]
             ait_amount_str = d.get("ait_amount")
-            # '0' means never priced — create_deposit writes amount_ait='0'
-            # before the oracle answer lands; a missing/unparseable value is
-            # the same state. Either way this is *first* pricing, not a
-            # reprice of an already-locked amount.
-            try:
-                v = Decimal(str(ait_amount_str))
-                priced = v.is_finite() and v > 0
-            except ArithmeticError:
-                priced = False
-            if not priced:
-                # Price was unavailable when first seen — first pricing now
-                # from the stored ETH amount rather than marking FAILED
-                # (funds were received; this is a temporary failure, not
-                # permanent). Fetch prices explicitly so the row records
-                # which inputs produced the amount.
-                try:
-                    eth_usd_result = self.price_oracle.get_price("ETH", "USD")
-                    ait_usd_result = self.price_oracle.get_price("AIT", "USD")
-                    eth_usd = eth_usd_result.price if eth_usd_result else None
-                    ait_usd = ait_usd_result.price if ait_usd_result else None
-                    ait_amount = self.calculate_ait_amount(Decimal(d["eth_amount"]), eth_usd=eth_usd, ait_usd=ait_usd)
-                except Exception as e:  # noqa: BLE001 - per-retry containment — failure marks the row for another retry
-                    logger.error("Retry %s price recalculation error: %s", tx_hash, e)
-                    self._mark_for_retry(tx_hash, f"Price recalculation error: {e}")
-                    continue
-                if not ait_amount:
-                    self._mark_for_retry(tx_hash, "Price oracle still unavailable")
-                    continue
-                ait_amount_str = str(ait_amount)
-                update_deposit(
-                    tx_hash,
-                    ait_amount=ait_amount_str,
-                    eth_usd_price=str(eth_usd) if eth_usd else None,
-                    ait_usd_price=str(ait_usd) if ait_usd else None,
-                    expected_statuses={BridgeDepositStatus.PENDING_RETRY},
-                )
+            priced_amount = self._reprice_retry_if_needed(d, tx_hash)
+            if priced_amount is None:
+                continue
+            ait_amount_str = priced_amount
             ait_amount = Decimal(ait_amount_str)
             if d.get("signed_tx"):
                 # A payout envelope already exists — hand it to the
@@ -797,60 +792,116 @@ class BridgeMonitor:
                 self._defer_for_slot(tx_hash, reason="admin mutation in progress — payout slot locked")
                 continue
             try:
-                if self._payout_in_flight():
-                    self._defer_for_slot(tx_hash)
-                    continue
-                logger.info("Retrying deposit %s: %s AIT to %s", tx_hash, ait_amount, ait_recipient)
-                try:
-                    transaction = self._build_signed_transfer(ait_recipient, ait_amount)
-                    payout_hash = self._envelope_tx_hash(transaction) if transaction else None
-                except Exception:
-                    # One bad row must not kill the queue — re-queue it and
-                    # continue with the rest. Nothing was broadcast, so a fresh
-                    # attempt next pass is safe.
-                    logger.exception("Retry %s: payout build failed unexpectedly", tx_hash)
-                    transaction, payout_hash = None, None
-                if not transaction or not payout_hash:
-                    self._mark_for_retry(tx_hash, "Retry: failed to build signed payout")
-                    continue
-                if not update_deposit(
-                    tx_hash,
-                    signed_tx=json.dumps(transaction),
-                    envelope_hash=payout_hash,
-                    submitted_height=self._head_height(),
-                    rebroadcast_count=0,
-                    ait_tx_hash=payout_hash,
-                    status=BridgeDepositStatus.SUBMITTED,
-                    retry_count=d.get("retry_count", 0),
-                    expected_statuses={BridgeDepositStatus.PENDING_RETRY},
-                ):
-                    # Lost the CAS — the row moved on (write-off, wallet-side
-                    # completion, …). Posting now would pay a row another
-                    # writer already settled or killed.
-                    logger.warning("Retry deposit %s SUBMITTED write lost CAS — row moved on; not posting", tx_hash)
-                    continue
-                posted = self._post_signed_tx(transaction)
-                # Same fix-up as _submit_payout: the seal probe keys on
-                # ait_tx_hash, so it must hold the hash the chain reported.
-                self._adopt_posted_hash(tx_hash, posted, payout_hash)
-                if posted:
-                    logger.info("Retry payout for deposit %s broadcast as %s", tx_hash, posted)
-                else:
-                    # Stay SUBMITTED — the sweep rebroadcasts the same envelope.
-                    update_deposit(
-                        tx_hash,
-                        error_message="Retry submit failed — awaiting rebroadcast",
-                        expected_statuses={BridgeDepositStatus.SUBMITTED},
-                    )
-                    if self._post_rejection_is_nonce_conflict():
-                        self._float_alert(
-                            f"retry_nonce:{tx_hash}",
-                            f"ALERT: retry payout {payout_hash} for deposit {tx_hash} rejected — "
-                            f"nonce slot occupied ({(self._last_post_rejection or '')[:160]}). "
-                            "The sweep's auto-abandon proof owns recovery",
-                        )
+                self._submit_retry_payout(d, tx_hash, ait_recipient, ait_amount)
             finally:
                 os.close(lock_fd)
+
+    def _reprice_retry_if_needed(self, d: dict, tx_hash: str) -> str | None:
+        """Return the authoritative ait_amount string for a retry row, or
+        None when this pass already resolved it (re-queued or moved on).
+
+        Price lock: the first computed ait_amount is authoritative — a retry
+        pays exactly the stored amount and never reprices an already-priced
+        deposit. Rows reach the recompute branch only when no price was ever
+        recorded (oracle was down at first sight); that recompute is first
+        pricing, not drift, and stores the prices it used for the audit trail.
+        """
+        ait_amount_str = d.get("ait_amount")
+        # '0' means never priced — create_deposit writes amount_ait='0'
+        # before the oracle answer lands; a missing/unparseable value is
+        # the same state. Either way this is *first* pricing, not a
+        # reprice of an already-locked amount.
+        try:
+            v = Decimal(str(ait_amount_str))
+            priced = v.is_finite() and v > 0
+        except ArithmeticError:
+            priced = False
+        if priced:
+            return str(ait_amount_str)
+        # Price was unavailable when first seen — first pricing now
+        # from the stored ETH amount rather than marking FAILED
+        # (funds were received; this is a temporary failure, not
+        # permanent). Fetch prices explicitly so the row records
+        # which inputs produced the amount.
+        try:
+            eth_usd_result = self.price_oracle.get_price("ETH", "USD")
+            ait_usd_result = self.price_oracle.get_price("AIT", "USD")
+            eth_usd = eth_usd_result.price if eth_usd_result else None
+            ait_usd = ait_usd_result.price if ait_usd_result else None
+            ait_amount = self.calculate_ait_amount(Decimal(d["eth_amount"]), eth_usd=eth_usd, ait_usd=ait_usd)
+        except Exception as e:  # noqa: BLE001 - per-retry containment — failure marks the row for another retry
+            logger.error("Retry %s price recalculation error: %s", tx_hash, e)
+            self._mark_for_retry(tx_hash, f"Price recalculation error: {e}")
+            return None
+        if not ait_amount:
+            self._mark_for_retry(tx_hash, "Price oracle still unavailable")
+            return None
+        ait_amount_str = str(ait_amount)
+        update_deposit(
+            tx_hash,
+            ait_amount=ait_amount_str,
+            eth_usd_price=str(eth_usd) if eth_usd else None,
+            ait_usd_price=str(ait_usd) if ait_usd else None,
+            expected_statuses={BridgeDepositStatus.PENDING_RETRY},
+        )
+        return ait_amount_str
+
+    def _submit_retry_payout(self, d: dict, tx_hash: str, ait_recipient: str, ait_amount: Decimal) -> None:
+        """Build, CAS-record, and post one retry payout. Runs under the admin
+        lock; every failure path re-queues or keeps SUBMITTED for the sweep —
+        nothing here broadcasts twice."""
+        if self._payout_in_flight():
+            self._defer_for_slot(tx_hash)
+            return
+        logger.info("Retrying deposit %s: %s AIT to %s", tx_hash, ait_amount, ait_recipient)
+        try:
+            transaction = self._build_signed_transfer(ait_recipient, ait_amount)
+            payout_hash = self._envelope_tx_hash(transaction) if transaction else None
+        except Exception:
+            # One bad row must not kill the queue — re-queue it and
+            # continue with the rest. Nothing was broadcast, so a fresh
+            # attempt next pass is safe.
+            logger.exception("Retry %s: payout build failed unexpectedly", tx_hash)
+            transaction, payout_hash = None, None
+        if not transaction or not payout_hash:
+            self._mark_for_retry(tx_hash, "Retry: failed to build signed payout")
+            return
+        if not update_deposit(
+            tx_hash,
+            signed_tx=json.dumps(transaction),
+            envelope_hash=payout_hash,
+            submitted_height=self._head_height(),
+            rebroadcast_count=0,
+            ait_tx_hash=payout_hash,
+            status=BridgeDepositStatus.SUBMITTED,
+            retry_count=d.get("retry_count", 0),
+            expected_statuses={BridgeDepositStatus.PENDING_RETRY},
+        ):
+            # Lost the CAS — the row moved on (write-off, wallet-side
+            # completion, …). Posting now would pay a row another
+            # writer already settled or killed.
+            logger.warning("Retry deposit %s SUBMITTED write lost CAS — row moved on; not posting", tx_hash)
+            return
+        posted = self._post_signed_tx(transaction)
+        # Same fix-up as _submit_payout: the seal probe keys on
+        # ait_tx_hash, so it must hold the hash the chain reported.
+        self._adopt_posted_hash(tx_hash, posted, payout_hash)
+        if posted:
+            logger.info("Retry payout for deposit %s broadcast as %s", tx_hash, posted)
+        else:
+            # Stay SUBMITTED — the sweep rebroadcasts the same envelope.
+            update_deposit(
+                tx_hash,
+                error_message="Retry submit failed — awaiting rebroadcast",
+                expected_statuses={BridgeDepositStatus.SUBMITTED},
+            )
+            if self._post_rejection_is_nonce_conflict():
+                self._float_alert(
+                    f"retry_nonce:{tx_hash}",
+                    f"ALERT: retry payout {payout_hash} for deposit {tx_hash} rejected — "
+                    f"nonce slot occupied ({(self._last_post_rejection or '')[:160]}). "
+                    "The sweep's auto-abandon proof owns recovery",
+                )
 
     def process_submitted_deposits(self) -> None:
         """Confirm or rebroadcast payouts whose deposits are SUBMITTED.
@@ -861,155 +912,172 @@ class BridgeMonitor:
         payout that sealed but failed at apply stays SUBMITTED and alerts:
         funds may or may not have moved; an operator decides, not the code.
         """
-        try:
-            import httpx
-        except ImportError:
-            return
         deposits = get_submitted_deposits()
         if not deposits:
             return
         head = self._head_height()
         for d in deposits:
-            tx_hash = d["eth_tx_hash"]
-            payout_hash = d.get("ait_tx_hash")
-            signed_raw = d.get("signed_tx")
-            if not signed_raw:
-                # Corrupt row — signed with an unknown key shape we cannot
-                # rebroadcast; alert rather than guess. Throttled (#1706):
-                # the row stays SUBMITTED, so an unthrottled critical would
-                # repeat every poll cycle forever.
-                self._float_alert(
-                    f"submitted_no_env:{tx_hash}",
-                    f"ALERT: deposit {tx_hash} is SUBMITTED with no stored envelope",
-                )
+            if self._triage_submitted_deposit(d, head):
                 continue
-            sealed_height = None
-            failed_on_chain = False
-            if payout_hash:
-                try:
-                    resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/transaction/{payout_hash}", timeout=5)
-                    if resp.status_code == 200:
-                        body = resp.json()
-                        sealed_height = body.get("block_height")
-                        st = (body.get("status") or "").lower()
-                        if st and st not in ("pending", "confirmed", "success", ""):
-                            failed_on_chain = True
-                except Exception as e:  # noqa: BLE001 - status probe — a fetch failure leaves the payout SUBMITTED
-                    logger.warning("payout status fetch failed for %s: %s", payout_hash, e)
-            if failed_on_chain:
-                self._float_alert(
-                    f"submitted_failed:{tx_hash}",
-                    f"ALERT: payout {payout_hash} for deposit {tx_hash} sealed with failed status — "
-                    "staying SUBMITTED for operator review",
-                )
-                continue
-            if sealed_height and head and head - int(sealed_height) >= self.payout_seal_depth:
-                # CAS (#1839): a write-off/abandon landing since the snapshot
-                # must not be flipped back to COMPLETED by a stale read.
-                if update_deposit(
+            self._rebroadcast_if_stale(d, head)
+
+    def _probe_payout_status(self, payout_hash: str) -> tuple[int | None, bool]:
+        """Fetch the payout tx status; returns (sealed_height, failed_on_chain).
+        A fetch failure leaves both unset — the payout stays SUBMITTED."""
+        import httpx
+
+        try:
+            resp = httpx.get(f"{self.blockchain_rpc_url}/rpc/transaction/{payout_hash}", timeout=5)
+            if resp.status_code == 200:
+                body = resp.json()
+                sealed_height = body.get("block_height")
+                st = (body.get("status") or "").lower()
+                failed = bool(st and st not in ("pending", "confirmed", "success", ""))
+                return sealed_height, failed
+        except Exception as e:  # noqa: BLE001 - status probe — a fetch failure leaves the payout SUBMITTED
+            logger.warning("payout status fetch failed for %s: %s", payout_hash, e)
+        return None, False
+
+    def _triage_submitted_deposit(self, d: dict, head: int | None) -> bool:
+        """Seal/abandon triage for one SUBMITTED deposit; True when the row
+        was resolved this pass (completed, alerted, abandoned, or skipped)."""
+        tx_hash = d["eth_tx_hash"]
+        payout_hash = d.get("ait_tx_hash")
+        signed_raw = d.get("signed_tx")
+        if not signed_raw:
+            # Corrupt row — signed with an unknown key shape we cannot
+            # rebroadcast; alert rather than guess. Throttled (#1706):
+            # the row stays SUBMITTED, so an unthrottled critical would
+            # repeat every poll cycle forever.
+            self._float_alert(
+                f"submitted_no_env:{tx_hash}",
+                f"ALERT: deposit {tx_hash} is SUBMITTED with no stored envelope",
+            )
+            return True
+        sealed_height = None
+        failed_on_chain = False
+        if payout_hash:
+            sealed_height, failed_on_chain = self._probe_payout_status(payout_hash)
+        if failed_on_chain:
+            self._float_alert(
+                f"submitted_failed:{tx_hash}",
+                f"ALERT: payout {payout_hash} for deposit {tx_hash} sealed with failed status — "
+                "staying SUBMITTED for operator review",
+            )
+            return True
+        if sealed_height and head and head - int(sealed_height) >= self.payout_seal_depth:
+            # CAS (#1839): a write-off/abandon landing since the snapshot
+            # must not be flipped back to COMPLETED by a stale read.
+            if update_deposit(
+                tx_hash,
+                status=BridgeDepositStatus.COMPLETED,
+                error_message="",
+                expected_statuses={BridgeDepositStatus.SUBMITTED},
+            ):
+                logger.info("Payout %s sealed at height %s — deposit %s COMPLETED", payout_hash, sealed_height, tx_hash)
+            else:
+                logger.info("Deposit %s left SUBMITTED before seal write — skipping COMPLETED", tx_hash)
+            return True
+        # The abandon proof, automated: if the payout account's chain
+        # nonce has passed the envelope's nonce and the envelope hash is
+        # not sealed, the envelope can never land — free the row for a
+        # fresh ledger-first payout instead of rebroadcasting a dead
+        # envelope until the counter runs out.
+        abandoned, why = self.abandon_payout(tx_hash)
+        if abandoned:
+            logger.warning("Sweep auto-abandoned stuck payout for deposit %s — %s", tx_hash, why)
+            return True
+        return False
+
+    def _rebroadcast_if_stale(self, d: dict, head: int | None) -> None:
+        """Rebroadcast the stored envelope once the seal window has passed.
+        Every skip path leaves the row SUBMITTED for the next poll."""
+        tx_hash = d["eth_tx_hash"]
+        payout_hash = d.get("ait_tx_hash")
+        signed_raw = d.get("signed_tx")
+        # Not sealed deep enough (or not sealed at all). A NULL
+        # submitted_height means the sign-time head fetch failed —
+        # unknown age must read as OLDEST, not as "now": falling back
+        # to the current head would keep the row inside the seal
+        # window forever and it would never be rebroadcast (#1436,
+        # same defect class as the stuck-payout alert below). A
+        # successful rebroadcast writes the real height back.
+        submitted_height = int(d.get("submitted_height") or 0)
+        rebroadcast_count = int(d.get("rebroadcast_count") or 0)
+        if head is None:
+            return  # can't judge distance — try next poll
+        if head - int(submitted_height) <= self.rebroadcast_blocks:
+            return  # still within the seal window
+        if rebroadcast_count >= self.max_rebroadcasts:
+            self._float_alert(
+                f"submitted_unsealed:{tx_hash}",
+                f"ALERT: payout {payout_hash} for deposit {tx_hash} unsealed after "
+                f"{rebroadcast_count} rebroadcasts — staying SUBMITTED",
+            )
+            return
+        # Fresh status check before rebroadcast (#1839): the snapshot `d`
+        # may be stale — an operator write-off (--envelope-dead) or
+        # abandon landing since would make this POST pay a dead row.
+        current = get_deposit(tx_hash)
+        if not current or current.get("status") != BridgeDepositStatus.SUBMITTED.value:
+            logger.info("Deposit %s left SUBMITTED since snapshot — skipping rebroadcast", tx_hash)
+            return
+        envelope = json.loads(signed_raw)
+        derived = self._envelope_tx_hash(envelope)
+        expected = d.get("envelope_hash") or d.get("ait_tx_hash")
+        # compare canonicalized — the stored hash keeps whatever
+        # spelling the RPC returned (#668)
+        if expected and canon_tx_hash(derived) != canon_tx_hash(expected):
+            logger.error("Stored envelope hash mismatch for %s (expected %s) — refusing rebroadcast", derived, expected)
+            return
+        # Serialize against admin mutations (#1918): the fresh-check →
+        # POST → count-write sequence is check-then-act — an admin command
+        # holding the ledger lock could write-off or abandon the row
+        # between the re-check and the POST, and this rebroadcast would
+        # then pay a dead row. Non-blocking like the payout paths: a held
+        # lock defers the rebroadcast to the next poll.
+        lock_fd = try_admin_lock()
+        if lock_fd is None:
+            logger.info("Deposit %s rebroadcast deferred — admin mutation holds the ledger lock", tx_hash)
+            return
+        try:
+            posted = self._post_signed_tx(envelope)
+            new_count = rebroadcast_count + 1
+            if posted:
+                # #1721: the chain's tx hash differs from the client-derived
+                # envelope hash — adopt whatever the RPC reported here too,
+                # or the seal probe keeps polling a hash that can never
+                # resolve and the abandon proof "proves" a landed payout dead.
+                self._adopt_posted_hash(tx_hash, posted, derived)
+                logger.warning(
+                    "Rebroadcast unsealed payout %s for deposit %s (attempt %s) — identical envelope",
+                    payout_hash,
                     tx_hash,
-                    status=BridgeDepositStatus.COMPLETED,
+                    new_count,
+                )
+                update_deposit(
+                    tx_hash,
+                    rebroadcast_count=new_count,
+                    submitted_height=head,
                     error_message="",
                     expected_statuses={BridgeDepositStatus.SUBMITTED},
-                ):
-                    logger.info("Payout %s sealed at height %s — deposit %s COMPLETED", payout_hash, sealed_height, tx_hash)
-                else:
-                    logger.info("Deposit %s left SUBMITTED before seal write — skipping COMPLETED", tx_hash)
-                continue
-            # The abandon proof, automated: if the payout account's chain
-            # nonce has passed the envelope's nonce and the envelope hash is
-            # not sealed, the envelope can never land — free the row for a
-            # fresh ledger-first payout instead of rebroadcasting a dead
-            # envelope until the counter runs out.
-            abandoned, why = self.abandon_payout(tx_hash)
-            if abandoned:
-                logger.warning("Sweep auto-abandoned stuck payout for deposit %s — %s", tx_hash, why)
-                continue
-            # Not sealed deep enough (or not sealed at all). A NULL
-            # submitted_height means the sign-time head fetch failed —
-            # unknown age must read as OLDEST, not as "now": falling back
-            # to the current head would keep the row inside the seal
-            # window forever and it would never be rebroadcast (#1436,
-            # same defect class as the stuck-payout alert below). A
-            # successful rebroadcast writes the real height back.
-            submitted_height = int(d.get("submitted_height") or 0)
-            rebroadcast_count = int(d.get("rebroadcast_count") or 0)
-            if head is None:
-                continue  # can't judge distance — try next poll
-            if head - int(submitted_height) <= self.rebroadcast_blocks:
-                continue  # still within the seal window
-            if rebroadcast_count >= self.max_rebroadcasts:
-                self._float_alert(
-                    f"submitted_unsealed:{tx_hash}",
-                    f"ALERT: payout {payout_hash} for deposit {tx_hash} unsealed after "
-                    f"{rebroadcast_count} rebroadcasts — staying SUBMITTED",
                 )
-                continue
-            # Fresh status check before rebroadcast (#1839): the snapshot `d`
-            # may be stale — an operator write-off (--envelope-dead) or
-            # abandon landing since would make this POST pay a dead row.
-            current = get_deposit(tx_hash)
-            if not current or current.get("status") != BridgeDepositStatus.SUBMITTED.value:
-                logger.info("Deposit %s left SUBMITTED since snapshot — skipping rebroadcast", tx_hash)
-                continue
-            envelope = json.loads(signed_raw)
-            derived = self._envelope_tx_hash(envelope)
-            expected = d.get("envelope_hash") or d.get("ait_tx_hash")
-            # compare canonicalized — the stored hash keeps whatever
-            # spelling the RPC returned (#668)
-            if expected and canon_tx_hash(derived) != canon_tx_hash(expected):
-                logger.error("Stored envelope hash mismatch for %s (expected %s) — refusing rebroadcast", derived, expected)
-                continue
-            # Serialize against admin mutations (#1918): the fresh-check →
-            # POST → count-write sequence below is check-then-act — an admin
-            # command holding the ledger lock could write-off or abandon the
-            # row between the re-check and the POST, and this rebroadcast
-            # would then pay a dead row. Non-blocking like the payout paths:
-            # a held lock defers the rebroadcast to the next poll. abandon_
-            # payout above takes no lock itself (its CAS-guarded write is
-            # the arbitration), so only this sequence is wrapped.
-            lock_fd = try_admin_lock()
-            if lock_fd is None:
-                logger.info("Deposit %s rebroadcast deferred — admin mutation holds the ledger lock", tx_hash)
-                continue
-            try:
-                posted = self._post_signed_tx(envelope)
-                new_count = rebroadcast_count + 1
-                if posted:
-                    # #1721: the chain's tx hash differs from the client-derived
-                    # envelope hash — adopt whatever the RPC reported here too,
-                    # or the seal probe keeps polling a hash that can never
-                    # resolve and the abandon proof "proves" a landed payout dead.
-                    self._adopt_posted_hash(tx_hash, posted, derived)
-                    logger.warning(
-                        "Rebroadcast unsealed payout %s for deposit %s (attempt %s) — identical envelope",
-                        payout_hash,
-                        tx_hash,
-                        new_count,
+            else:
+                update_deposit(
+                    tx_hash,
+                    rebroadcast_count=new_count,
+                    error_message="Rebroadcast failed",
+                    expected_statuses={BridgeDepositStatus.SUBMITTED},
+                )
+                if self._post_rejection_is_nonce_conflict():
+                    self._float_alert(
+                        f"rebroadcast_nonce:{tx_hash}",
+                        f"ALERT: rebroadcast of payout {payout_hash} for deposit {tx_hash} rejected — "
+                        f"nonce slot occupied ({(self._last_post_rejection or '')[:160]}). "
+                        "Auto-abandon will re-queue the deposit once the nonce proof holds",
                     )
-                    update_deposit(
-                        tx_hash,
-                        rebroadcast_count=new_count,
-                        submitted_height=head,
-                        error_message="",
-                        expected_statuses={BridgeDepositStatus.SUBMITTED},
-                    )
-                else:
-                    update_deposit(
-                        tx_hash,
-                        rebroadcast_count=new_count,
-                        error_message="Rebroadcast failed",
-                        expected_statuses={BridgeDepositStatus.SUBMITTED},
-                    )
-                    if self._post_rejection_is_nonce_conflict():
-                        self._float_alert(
-                            f"rebroadcast_nonce:{tx_hash}",
-                            f"ALERT: rebroadcast of payout {payout_hash} for deposit {tx_hash} rejected — "
-                            f"nonce slot occupied ({(self._last_post_rejection or '')[:160]}). "
-                            "Auto-abandon will re-queue the deposit once the nonce proof holds",
-                        )
-            finally:
-                os.close(lock_fd)
+        finally:
+            os.close(lock_fd)
 
     def _account_nonce(self, address: str) -> int | None:
         """On-chain nonce of an account from the local RPC."""
@@ -1553,119 +1621,7 @@ class BridgeMonitor:
                 logger.debug("No new blocks since cursor (%s)", start_block - 1)
                 return
 
-            # Bound the scan: each get_block has a per-request timeout, but
-            # a large catch-up range (or a dribbling endpoint resetting the
-            # inter-byte timer) can otherwise pin the whole cycle — and the
-            # payout sweep with it — in silence. A breach keeps the cursor
-            # on the last fully processed block; the next poll resumes.
-            scan_deadline = time.monotonic() + self.cycle_timeout
-            for block_num in range(start_block, latest_block + 1):
-                if time.monotonic() > scan_deadline:
-                    logger.critical(
-                        "ALERT: poll scan exceeded %ss at block %s of %s — cursor held at %s, remainder next cycle",
-                        self.cycle_timeout,
-                        block_num,
-                        latest_block,
-                        block_num - 1,
-                    )
-                    break
-                block = w3.eth.get_block(block_num, full_transactions=True)
-                if not block or not block.get("transactions"):
-                    set_cursor("last_processed_block", block_num)
-                    continue
-                block_ok = True
-                for tx in block["transactions"]:
-                    from_address = tx.get("from", "")
-                    if from_address and from_address.lower() == self.bridge_eth_address:
-                        # The bridge's own outbound sends are never deposits —
-                        # otherwise the wallet key holder could mint AIT
-                        # payouts for the price of gas. They are ledgered as
-                        # bridge_outbound rows (B13): refund to a known
-                        # depositor, release-leg or funding return as
-                        # withdrawal, anything else unidentified.
-                        self._record_outbound(w3, tx, block_num)
-                        continue
-                    to_address = tx.get("to", "")
-                    if to_address and to_address.lower() == self.bridge_eth_address:
-                        value = tx.get("value", 0)
-                        eth_amount = Decimal(value) / Decimal(10**18)
-                        tx_hash = canon_tx_hash(tx.hash.hex())
-                        if from_address.lower() in self.funding_sources:
-                            if create_deposit(
-                                tx_hash,
-                                from_address,
-                                str(eth_amount),
-                                "",
-                                status=BridgeDepositStatus.FUNDING,
-                                deposit_address=self.bridge_eth_address,
-                            ):
-                                logger.info(
-                                    "Operator funding recorded: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount
-                                )
-                            continue
-                        tx_data = tx.get("input", "0x")
-                        # An EXCHANGE_DEPOSIT tag is explicit user intent and
-                        # costs no payout — it bypasses the dust floor and
-                        # reaches the prepay lane at any amount.
-                        exchange_tag = (
-                            self._parse_exchange_deposit_tag(tx_data)
-                            if os.getenv("EXCHANGE_SETTLEMENT_ENABLED", "false").lower() == "true"
-                            else None
-                        )
-                        if eth_amount < self.min_eth_deposit and exchange_tag is None:
-                            # Dust is still an inflow — record it so the
-                            # ledger (and the payout audit) accounts for
-                            # every wei that reached the bridge wallet.
-                            # FAILED is terminal: an operator resolves it
-                            # deliberately (refund / write-off), never paid.
-                            if create_deposit(
-                                tx_hash,
-                                from_address,
-                                str(eth_amount),
-                                self.parse_ait_recipient(tx.get("input", "0x")) or "",
-                                deposit_address=self.bridge_eth_address,
-                            ):
-                                update_deposit(
-                                    tx_hash,
-                                    status=BridgeDepositStatus.FAILED,
-                                    error_message=(
-                                        f"below MIN_ETH_DEPOSIT {self.min_eth_deposit} — "
-                                        "dust inflow; resolve deliberately (refund or write-off)"
-                                    ),
-                                )
-                                logger.info(
-                                    "Sub-minimum deposit %s recorded as FAILED (%s ETH < %s)",
-                                    tx_hash,
-                                    eth_amount,
-                                    self.min_eth_deposit,
-                                )
-                            continue
-                        logger.info("Found deposit: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount)
-                        try:
-                            self.process_deposit(tx_hash, from_address, eth_amount, tx_data)
-                        except Exception:
-                            logger.exception("Unexpected error processing deposit %s, marking for retry", tx_hash)
-                            try:
-                                self._mark_for_retry(tx_hash, "Unexpected error during processing")
-                            except Exception:
-                                logger.exception("Failed to mark deposit %s for retry", tx_hash)
-                                block_ok = False
-                                # #1706: throttled per deposit — the cursor
-                                # stays held and this re-fires every poll
-                                # until the row lands or is resolved.
-                                self._float_alert(
-                                    f"block_cursor:{tx_hash}",
-                                    f"ALERT: block {block_num} deposit {tx_hash} could not be processed "
-                                    "or queued — block cursor held so the next poll retries it",
-                                )
-                # Advance cursor only after every deposit in this block is
-                # in a terminal or PENDING_RETRY state (or was skipped).
-                if not block_ok:
-                    # A deposit in this block has no ledger row and was not
-                    # queued — hold the cursor so the next poll rescans the
-                    # whole block instead of losing the inflow silently.
-                    break
-                set_cursor("last_processed_block", block_num)
+            self._scan_block_range(w3, start_block, latest_block)
         except Exception as e:  # noqa: BLE001 - poll containment — failures streak-count toward the alert
             self._poll_fail_streak += 1
             if self._poll_fail_streak >= 3:
@@ -1679,6 +1635,140 @@ class BridgeMonitor:
                 )
             else:
                 logger.error("Error polling Ethereum (%s consecutive): %s", self._poll_fail_streak, e)
+
+    def _scan_block_range(self, w3: Any, start_block: int, latest_block: int) -> None:
+        """Scan blocks start..latest, advancing the cursor per fully-processed
+        block. Bounded by cycle_timeout so a dribbling endpoint cannot pin
+        the payout sweep in silence; a breach holds the cursor."""
+        # Bound the scan: each get_block has a per-request timeout, but
+        # a large catch-up range (or a dribbling endpoint resetting the
+        # inter-byte timer) can otherwise pin the whole cycle — and the
+        # payout sweep with it — in silence. A breach keeps the cursor
+        # on the last fully processed block; the next poll resumes.
+        scan_deadline = time.monotonic() + self.cycle_timeout
+        for block_num in range(start_block, latest_block + 1):
+            if time.monotonic() > scan_deadline:
+                logger.critical(
+                    "ALERT: poll scan exceeded %ss at block %s of %s — cursor held at %s, remainder next cycle",
+                    self.cycle_timeout,
+                    block_num,
+                    latest_block,
+                    block_num - 1,
+                )
+                break
+            block = w3.eth.get_block(block_num, full_transactions=True)
+            if not block or not block.get("transactions"):
+                set_cursor("last_processed_block", block_num)
+                continue
+            block_ok = True
+            for tx in block["transactions"]:
+                if not self._handle_block_tx(w3, tx, block_num):
+                    block_ok = False
+            # Advance cursor only after every deposit in this block is
+            # in a terminal or PENDING_RETRY state (or was skipped).
+            if not block_ok:
+                # A deposit in this block has no ledger row and was not
+                # queued — hold the cursor so the next poll rescans the
+                # whole block instead of losing the inflow silently.
+                break
+            set_cursor("last_processed_block", block_num)
+
+    def _handle_block_tx(self, w3: Any, tx: Any, block_num: int) -> bool:
+        """Route one transaction: outbound ledgering, funding rows, dust
+        FAILED rows, or full deposit processing. False means the deposit
+        could not be processed OR queued — the block cursor must hold."""
+        from_address = tx.get("from", "")
+        if from_address and from_address.lower() == self.bridge_eth_address:
+            # The bridge's own outbound sends are never deposits —
+            # otherwise the wallet key holder could mint AIT
+            # payouts for the price of gas. They are ledgered as
+            # bridge_outbound rows (B13): refund to a known
+            # depositor, release-leg or funding return as
+            # withdrawal, anything else unidentified.
+            self._record_outbound(w3, tx, block_num)
+            return True
+        to_address = tx.get("to", "")
+        if not (to_address and to_address.lower() == self.bridge_eth_address):
+            return True
+        value = tx.get("value", 0)
+        eth_amount = Decimal(value) / Decimal(10**18)
+        tx_hash = canon_tx_hash(tx.hash.hex())
+        if from_address.lower() in self.funding_sources:
+            if create_deposit(
+                tx_hash,
+                from_address,
+                str(eth_amount),
+                "",
+                status=BridgeDepositStatus.FUNDING,
+                deposit_address=self.bridge_eth_address,
+            ):
+                logger.info("Operator funding recorded: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount)
+            return True
+        tx_data = tx.get("input", "0x")
+        # An EXCHANGE_DEPOSIT tag is explicit user intent and
+        # costs no payout — it bypasses the dust floor and
+        # reaches the prepay lane at any amount.
+        exchange_tag = (
+            self._parse_exchange_deposit_tag(tx_data)
+            if os.getenv("EXCHANGE_SETTLEMENT_ENABLED", "false").lower() == "true"
+            else None
+        )
+        if eth_amount < self.min_eth_deposit and exchange_tag is None:
+            self._record_dust_deposit(tx_hash, from_address, eth_amount, tx.get("input", "0x"))
+            return True
+        logger.info("Found deposit: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount)
+        return self._safe_process_deposit(tx_hash, from_address, eth_amount, tx_data, block_num)
+
+    def _record_dust_deposit(self, tx_hash: str, from_address: str, eth_amount: Decimal, tx_input: str) -> None:
+        """Dust is still an inflow — record it so the ledger (and the payout
+        audit) accounts for every wei that reached the bridge wallet.
+        FAILED is terminal: an operator resolves it deliberately (refund /
+        write-off), never paid."""
+        if create_deposit(
+            tx_hash,
+            from_address,
+            str(eth_amount),
+            self.parse_ait_recipient(tx_input) or "",
+            deposit_address=self.bridge_eth_address,
+        ):
+            update_deposit(
+                tx_hash,
+                status=BridgeDepositStatus.FAILED,
+                error_message=(
+                    f"below MIN_ETH_DEPOSIT {self.min_eth_deposit} — dust inflow; resolve deliberately (refund or write-off)"
+                ),
+            )
+            logger.info(
+                "Sub-minimum deposit %s recorded as FAILED (%s ETH < %s)",
+                tx_hash,
+                eth_amount,
+                self.min_eth_deposit,
+            )
+
+    def _safe_process_deposit(
+        self, tx_hash: str, from_address: str, eth_amount: Decimal, tx_data: str, block_num: int
+    ) -> bool:
+        """process_deposit with retry-queue fallback; False when even the
+        retry mark failed — the caller holds the block cursor."""
+        try:
+            self.process_deposit(tx_hash, from_address, eth_amount, tx_data)
+            return True
+        except Exception:
+            logger.exception("Unexpected error processing deposit %s, marking for retry", tx_hash)
+            try:
+                self._mark_for_retry(tx_hash, "Unexpected error during processing")
+            except Exception:
+                logger.exception("Failed to mark deposit %s for retry", tx_hash)
+                # #1706: throttled per deposit — the cursor
+                # stays held and this re-fires every poll
+                # until the row lands or is resolved.
+                self._float_alert(
+                    f"block_cursor:{tx_hash}",
+                    f"ALERT: block {block_num} deposit {tx_hash} could not be processed "
+                    "or queued — block cursor held so the next poll retries it",
+                )
+                return False
+            return True
 
     async def run(self) -> None:
         """Main polling loop.
