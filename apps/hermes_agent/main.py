@@ -259,52 +259,41 @@ async def _reap_after_kill(proc: asyncio.subprocess.Process) -> None:
         logger.warning("post-kill reap timed out or was cancelled for pid %s", proc.pid)
 
 
-def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
-    """Build the hermes one-shot command from the request and shop defaults."""
-    if not _HERMES_PATH:
-        raise HTTPException(status_code=503, detail="Hermes binary is not available")
-
-    command = [_HERMES_PATH, "-z", request.prompt, "--usage-file", usage_path]
-
-    # HERMES-IPFS-DEPTH2-1 (#1633): an empty allowlist means "default only"
-    # (README), not "unrestricted" — resolve the effective allowed set once so
-    # a buyer-supplied value can never widen past the shop's configured
-    # defaults when no allowlist is set.
+def _validated_allowlists() -> tuple[list[str], list[str]]:
+    """Resolve the effective model/provider allowlists (HERMES-IPFS-DEPTH2-1
+    #1633: empty allowlist means "default only", never unrestricted;
+    HERMES-ALLOWLIST-1 #1804: empty resolved set is a 503, not allow-all)."""
     allowed_models = _HERMES_ALLOWED_MODELS or ([_HERMES_DEFAULT_MODEL] if _HERMES_DEFAULT_MODEL else [])
     allowed_providers = _HERMES_ALLOWED_PROVIDERS or ([_HERMES_DEFAULT_PROVIDER] if _HERMES_DEFAULT_PROVIDER else [])
-    # HERMES-ALLOWLIST-1 (#1804): an empty resolved allow set is not allow-all —
-    # omitting --model/--provider/--toolsets would fall through to Hermes defaults.
     if not allowed_models:
         raise HTTPException(status_code=503, detail="Models are not configured for this offer")
     if not allowed_providers:
         raise HTTPException(status_code=503, detail="Providers are not configured for this offer")
+    return allowed_models, allowed_providers
 
-    model = request.model or _HERMES_DEFAULT_MODEL
-    if model:
-        if model not in allowed_models:
-            raise HTTPException(status_code=400, detail=f"Model '{model}' is not allowed by this offer")
-        command.extend(["--model", model])
 
-    provider = request.provider or _HERMES_DEFAULT_PROVIDER
-    if provider:
-        if provider not in allowed_providers:
-            raise HTTPException(status_code=400, detail=f"Provider '{provider}' is not allowed by this offer")
-        command.extend(["--provider", provider])
+def _append_allowed_option(
+    command: list[str], flag: str, requested: str | None, default: str | None, allowed: list[str], label: str
+) -> None:
+    """Append ``flag value`` when a non-default-or-allowed option was chosen."""
+    value = requested or default
+    if not value:
+        return
+    if value not in allowed:
+        raise HTTPException(status_code=400, detail=f"{label} '{value}' is not allowed by this offer")
+    command.extend([flag, value])
 
-    reasoning = request.reasoning or _HERMES_DEFAULT_REASONING
-    if reasoning:
-        if reasoning.lower() not in _REASONING_LEVELS:
-            raise HTTPException(status_code=400, detail=f"Invalid reasoning level '{reasoning}'")
-        command.extend(["--reasoning", reasoning.lower()])
 
+def _resolve_requested_toolsets(request: HermesRunRequest) -> list[str]:
+    """Buyer-requested toolsets validated against the shop allowlist
+    (HERMES-IPFS-DEPTH2-1 #1633: empty allowlist falls back to the default
+    toolsets; nothing requested and no default emits the conservative set
+    bounded by the allowlist — never hermes' full profile)."""
     raw = request.toolsets if request.toolsets is not None else _HERMES_DEFAULT_TOOLSETS
     requested = [t.strip() for t in (raw or "").split(",") if t.strip()]
     if request.toolsets is not None and not requested:
         # '', ',' or ' , ' means "use the default", not "run unrestricted".
         requested = [t.strip() for t in _HERMES_DEFAULT_TOOLSETS.split(",") if t.strip()]
-    # HERMES-IPFS-DEPTH2-1 (#1633): empty allowlist falls back to the default
-    # toolsets as the allowed set — a non-empty request can never pass
-    # toolsets the shop did not configure.
     allowed_toolsets = _HERMES_ALLOWED_TOOLSETS or [t.strip() for t in _HERMES_DEFAULT_TOOLSETS.split(",") if t.strip()]
     if not allowed_toolsets:
         raise HTTPException(status_code=503, detail="Toolsets are not configured for this offer")
@@ -312,11 +301,39 @@ def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
         if t not in allowed_toolsets:
             raise HTTPException(status_code=400, detail=f"Toolset '{t}' is not allowed by this offer")
     if not requested:
-        # Nothing requested and no default: never fall through to hermes'
-        # full profile — emit the conservative set bounded by the allowlist.
         requested = [t for t in (x.strip() for x in _CONSERVATIVE_TOOLSETS.split(",")) if t in allowed_toolsets] or list(
             allowed_toolsets
         )
+    return requested
+
+
+def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
+    """Build the hermes one-shot command from the request and shop defaults."""
+    if not _HERMES_PATH:
+        raise HTTPException(status_code=503, detail="Hermes binary is not available")
+
+    command = [_HERMES_PATH, "-z", request.prompt, "--usage-file", usage_path]
+
+    allowed_models, allowed_providers = _validated_allowlists()
+    _append_allowed_option(
+        command, "--model", request.model or _HERMES_DEFAULT_MODEL, _HERMES_DEFAULT_MODEL, allowed_models, "Model"
+    )
+    _append_allowed_option(
+        command,
+        "--provider",
+        request.provider or _HERMES_DEFAULT_PROVIDER,
+        _HERMES_DEFAULT_PROVIDER,
+        allowed_providers,
+        "Provider",
+    )
+
+    reasoning = request.reasoning or _HERMES_DEFAULT_REASONING
+    if reasoning:
+        if reasoning.lower() not in _REASONING_LEVELS:
+            raise HTTPException(status_code=400, detail=f"Invalid reasoning level '{reasoning}'")
+        command.extend(["--reasoning", reasoning.lower()])
+
+    requested = _resolve_requested_toolsets(request)
     if requested:
         command.extend(["--toolsets", ",".join(requested)])
 

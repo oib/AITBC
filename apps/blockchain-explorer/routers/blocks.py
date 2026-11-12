@@ -161,6 +161,117 @@ async def api_non_empty_blocks(
         return {"blocks": [], "next_cursor": None}
 
 
+async def _lookup_block_in_db(conn: Any, cid: str, clean_hash: str) -> dict[str, Any] | None:
+    """Direct chain.db lookup by hash (exact then legacy case-insensitive)."""
+    cursor = await conn.cursor()
+
+    # Canonical block hashes are 0x-prefixed lowercase hex, so
+    # exact-match candidates hit the hash index; the legacy
+    # case-insensitive scan remains as fallback (PI-EX-001).
+    # Both are chain-scoped — hash lookups must not cross chains
+    # in a multi-chain store (#1620).
+    scope_sql, scope_params = await chain_scope(conn, "block", cid)
+    bare_hash = clean_hash.lower()
+    where, params = scoped_where("hash IN (?, ?)", scope_sql, [f"0x{bare_hash}", bare_hash], scope_params)
+    await cursor.execute(
+        f"""
+        SELECT height, hash, proposer, timestamp, tx_count, state_root
+        FROM block
+        WHERE {where}
+    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+        params,
+    )
+
+    result = await cursor.fetchone()
+    if result is None:
+        legacy_where, legacy_params = scoped_where("lower(replace(hash, '0x', '')) = ?", scope_sql, [bare_hash], scope_params)
+        await cursor.execute(
+            f"""
+            SELECT height, hash, proposer, timestamp, tx_count, state_root
+            FROM block
+            WHERE {legacy_where}
+        """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+            legacy_params,
+        )
+        result = await cursor.fetchone()
+
+    if not result:
+        return None
+
+    height, block_hash, proposer, timestamp, tx_count, state_root = result
+
+    # Get transactions for this block — chain-scoped (#1620)
+    # via the shared batched fetch (#1745); the cap+1
+    # sentinel still detects truncation.
+    tx_rows = (await get_block_transactions_batch(conn, cid, [height])).get(height, [])
+
+    transactions = []
+    truncated = len(tx_rows) > MAX_EMBEDDED_TXS_PER_BLOCK
+    for tx_row in tx_rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
+        tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
+        transactions.append(
+            {
+                "tx_hash": tx_hash,
+                "sender": sender,
+                "recipient": recipient,
+                "payload": payload,
+                "amount": value,
+                "amount_ait": format_ait(value) if value else "0 AIT",
+                "fee": fee,
+                "fee_ait": format_ait(fee) if fee else "0 AIT",
+                "nonce": nonce,
+                "type": tx_type,
+                "status": status,
+                "created_at": created_at,
+            }
+        )
+
+    return {
+        "height": height,
+        "hash": block_hash,
+        "proposer": proposer,
+        "timestamp": timestamp,
+        "txCount": tx_count,
+        "stateRoot": state_root,
+        "transactions": transactions,
+        "transactions_truncated": truncated,
+    }
+
+
+async def _lookup_block_via_rpc(cid: str, clean_hash: str) -> dict[str, Any] | None:
+    """RPC fallback: head match, then scan the recent blocks-range."""
+    rpc_url = rpc_url_for(cid)
+
+    async with httpx.AsyncClient() as client:
+        head_response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": cid})
+        if head_response.status_code != 200:
+            return None
+        head = head_response.json()
+        current_hash = head.get("hash", "")
+        clean_current_hash = current_hash[2:] if current_hash.startswith("0x") else current_hash
+        if clean_current_hash and clean_current_hash.lower() == clean_hash.lower():
+            return normalize_block(head)
+
+        # Search through recent blocks using blocks-range
+        current_height = head.get("height", 0)
+        if current_height <= 0:
+            return None
+        start_height = max(1, current_height - 99)
+        range_response = await client.get(
+            f"{rpc_url}/rpc/blocks-range",
+            params={"start": start_height, "end": current_height, "include_tx": "false", "chain_id": cid},
+        )
+        if range_response.status_code != 200:
+            return None
+        range_data = range_response.json()
+        for block in range_data.get("blocks", []):
+            block_hash = block.get("hash", "")
+            clean_block_hash = block_hash[2:] if block_hash.startswith("0x") else block_hash
+            if clean_block_hash and clean_block_hash.lower() == clean_hash.lower():
+                return normalize_block(block)
+    return None
+
+
 @router.get("/api/blocks/by-hash/{hash}")
 async def api_block_by_hash(hash: str, chain_id: str | None = None) -> dict[str, Any]:
     """API endpoint for block by hash"""
@@ -170,114 +281,18 @@ async def api_block_by_hash(hash: str, chain_id: str | None = None) -> dict[str,
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
         cid = chain_id or default_chain_id()
-        # First try blockchain database for direct lookup
         db_path = chain_db_path()
 
         if db_path is not None:
             async with chain_db_connect(db_path) as conn:
-                cursor = await conn.cursor()
-
-                # Canonical block hashes are 0x-prefixed lowercase hex, so
-                # exact-match candidates hit the hash index; the legacy
-                # case-insensitive scan remains as fallback (PI-EX-001).
-                # Both are chain-scoped — hash lookups must not cross chains
-                # in a multi-chain store (#1620).
-                scope_sql, scope_params = await chain_scope(conn, "block", cid)
-                bare_hash = clean_hash.lower()
-                where, params = scoped_where("hash IN (?, ?)", scope_sql, [f"0x{bare_hash}", bare_hash], scope_params)
-                await cursor.execute(
-                    f"""
-                    SELECT height, hash, proposer, timestamp, tx_count, state_root
-                    FROM block
-                    WHERE {where}
-                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-                    params,
-                )
-
-                result = await cursor.fetchone()
-                if result is None:
-                    legacy_where, legacy_params = scoped_where(
-                        "lower(replace(hash, '0x', '')) = ?", scope_sql, [bare_hash], scope_params
-                    )
-                    await cursor.execute(
-                        f"""
-                        SELECT height, hash, proposer, timestamp, tx_count, state_root
-                        FROM block
-                        WHERE {legacy_where}
-                    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
-                        legacy_params,
-                    )
-                    result = await cursor.fetchone()
-
-                if result:
-                    height, block_hash, proposer, timestamp, tx_count, state_root = result
-
-                    # Get transactions for this block — chain-scoped (#1620)
-                    # via the shared batched fetch (#1745); the cap+1
-                    # sentinel still detects truncation.
-                    tx_rows = (await get_block_transactions_batch(conn, cid, [height])).get(height, [])
-
-                    transactions = []
-                    truncated = len(tx_rows) > MAX_EMBEDDED_TXS_PER_BLOCK
-                    for tx_row in tx_rows[:MAX_EMBEDDED_TXS_PER_BLOCK]:
-                        tx_hash, sender, recipient, payload, tx_type, status, created_at, value, fee, nonce = tx_row
-                        transactions.append(
-                            {
-                                "tx_hash": tx_hash,
-                                "sender": sender,
-                                "recipient": recipient,
-                                "payload": payload,
-                                "amount": value,
-                                "amount_ait": format_ait(value) if value else "0 AIT",
-                                "fee": fee,
-                                "fee_ait": format_ait(fee) if fee else "0 AIT",
-                                "nonce": nonce,
-                                "type": tx_type,
-                                "status": status,
-                                "created_at": created_at,
-                            }
-                        )
-
-                    return {
-                        "height": height,
-                        "hash": block_hash,
-                        "proposer": proposer,
-                        "timestamp": timestamp,
-                        "txCount": tx_count,
-                        "stateRoot": state_root,
-                        "transactions": transactions,
-                        "transactions_truncated": truncated,
-                    }
+                block = await _lookup_block_in_db(conn, cid, clean_hash)
+                if block is not None:
+                    return block
 
         # Fallback to RPC method
-        rpc_url = rpc_url_for(cid)
-
-        # Get current head to determine height range
-        async with httpx.AsyncClient() as client:
-            head_response = await client.get(f"{rpc_url}/rpc/head", params={"chain_id": cid})
-            if head_response.status_code == 200:
-                head = head_response.json()
-                current_hash = head.get("hash", "")
-                clean_current_hash = current_hash[2:] if current_hash.startswith("0x") else current_hash
-                if clean_current_hash and clean_current_hash.lower() == clean_hash.lower():
-                    return normalize_block(head)
-
-                # Search through recent blocks using blocks-range
-                current_height = head.get("height", 0)
-                if current_height > 0:
-                    start_height = max(1, current_height - 99)
-                    range_response = await client.get(
-                        f"{rpc_url}/rpc/blocks-range",
-                        params={"start": start_height, "end": current_height, "include_tx": "false", "chain_id": cid},
-                    )
-                    if range_response.status_code == 200:
-                        range_data = range_response.json()
-                        blocks = range_data.get("blocks", [])
-                        for block in blocks:
-                            block_hash = block.get("hash", "")
-                            clean_block_hash = block_hash[2:] if block_hash.startswith("0x") else block_hash
-                            if clean_block_hash and clean_block_hash.lower() == clean_hash.lower():
-                                return normalize_block(block)
+        block = await _lookup_block_via_rpc(cid, clean_hash)
+        if block is not None:
+            return block
 
         raise HTTPException(status_code=404, detail="Block not found")
     except HTTPException:
