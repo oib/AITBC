@@ -311,6 +311,12 @@ BOOKING_HOLD_TTL = timedelta(minutes=30)
 # escrow set (escrowed/pending_acceptance/disputed/settlement_failed); released
 # and confirmed are kept from the original tuple as post-settlement states.
 _PAID_PAYMENT_STATUSES = tuple(sorted(REFUNDABLE_STATES | {"released", "confirmed"}))
+# #1930: "pending" payments can still land money — an EVM receipt awaiting
+# verification may confirm after the booking TTL, which would strand paid
+# funds on a freed GPU. Pending rows are reaped to failed by
+# payments_operation_reconciler, so protecting them cannot squat forever.
+# "skipped" is terminal no-money (escrow unavailable) and does not protect.
+_EXPIRY_GUARDED_PAYMENT_STATUSES = tuple(sorted(set(_PAID_PAYMENT_STATUSES) | {"pending"}))
 # JobPayment states where no live money remains — a paid GPU booking in one
 # of these may be released without stranding an escrow (#1913).
 _RELEASE_SAFE_PAYMENT_STATUSES = frozenset({"released", "refunded", "failed"})
@@ -345,6 +351,10 @@ def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
     # payment_id and NO payment is ever bound to them, so they expire
     # strictly by TTL: the old job-linkage fallback let one paid purchase
     # pin unlimited squatting holds that all named the same job_id.
+    # #1930 audit: booking.payment_id is bound in exactly one place — the
+    # purchase path at booking creation — and no flow attaches a payment to
+    # an existing hold afterwards, so no legitimate paid flow depends on
+    # job linkage; book_gpu holds are paymentless by design.
     if booking.payment_id:
         paid = session.execute(
             select(JobPayment.id)
@@ -352,7 +362,7 @@ def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
             .where(
                 col(JobPayment.id) == booking.payment_id,
                 col(Job.client_id) == booking.client_id,
-                col(JobPayment.status).in_(_PAID_PAYMENT_STATUSES),
+                col(JobPayment.status).in_(_EXPIRY_GUARDED_PAYMENT_STATUSES),
             )
             .limit(1)
         ).first()
