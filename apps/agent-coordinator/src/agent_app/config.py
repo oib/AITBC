@@ -358,41 +358,45 @@ class ConfigLoader:
         return settings
 
     @staticmethod
-    def validate_config() -> None:
-        """Validate configuration settings"""
-        errors = []
+    def _validate_required(errors: list[str]) -> None:
+        """Validate required settings."""
+        if not settings.secret_key and settings.environment == Environment.PRODUCTION:
+            errors.append("SECRET_KEY must be set in production")
 
-        # Validate required settings
-        if not settings.secret_key:
-            if settings.environment == Environment.PRODUCTION:
-                errors.append("SECRET_KEY must be set in production")
-
-        # Validate ports
-        if settings.port < 1 or settings.port > 65535:
-            errors.append("Port must be between 1 and 65535")
-
-        # Validate Redis URL
         if not settings.redis_url:
             errors.append("Redis URL is required")
 
-        # Validate timeouts
+    @staticmethod
+    def _validate_ranges(errors: list[str]) -> None:
+        """Validate ports, timeouts, and size limits."""
+        if settings.port < 1 or settings.port > 65535:
+            errors.append("Port must be between 1 and 65535")
+
         if settings.heartbeat_interval <= 0:
             errors.append("Heartbeat interval must be positive")
 
         if settings.max_heartbeat_age <= settings.heartbeat_interval:
             errors.append("Max heartbeat age must be greater than heartbeat interval")
 
-        # Validate limits
         if settings.max_message_size <= 0:
             errors.append("Max message size must be positive")
 
         if settings.max_task_queue_size <= 0:
             errors.append("Max task queue size must be positive")
 
-        # Validate strategy
+    @staticmethod
+    def _validate_strategy(errors: list[str]) -> None:
+        """Validate the default load balancing strategy."""
         if settings.default_strategy not in ConfigConstants.LOAD_BALANCING_STRATEGIES:
             errors.append(f"Invalid load balancing strategy: {settings.default_strategy}")
 
+    @staticmethod
+    def validate_config() -> None:
+        """Validate configuration settings"""
+        errors: list[str] = []
+        ConfigLoader._validate_required(errors)
+        ConfigLoader._validate_ranges(errors)
+        ConfigLoader._validate_strategy(errors)
         if errors:
             raise ValueError(f"Configuration validation failed: {', '.join(errors)}")
 

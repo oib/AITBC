@@ -21,6 +21,38 @@ logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/auth", tags=["authentication"])
 
 
+def _resolve_demo_credentials(username: str, password: str) -> tuple[str, Role]:
+    """Map demo username/password env credentials to (user_id, role)."""
+    import os
+
+    # Get passwords from environment (no hardcoded defaults)
+    admin_password = os.getenv("ADMIN_PASSWORD")
+    operator_password = os.getenv("OPERATOR_PASSWORD")
+    user_password = os.getenv("USER_PASSWORD")
+
+    if not admin_password:
+        raise HTTPException(status_code=500, detail="ADMIN_PASSWORD environment variable not configured")
+    if not operator_password:
+        raise HTTPException(status_code=500, detail="OPERATOR_PASSWORD environment variable not configured")
+    if not user_password:
+        raise HTTPException(status_code=500, detail="USER_PASSWORD environment variable not configured")
+
+    demo_users = {
+        "admin": admin_password,
+        "operator": operator_password,
+        "user": user_password,
+    }
+
+    # Validate credentials (timing-safe password comparison)
+    if username == "admin" and hmac.compare_digest(password, demo_users["admin"]):
+        return "admin_001", Role.ADMIN
+    if username == "operator" and hmac.compare_digest(password, demo_users["operator"]):
+        return "operator_001", Role.OPERATOR
+    if username == "user" and hmac.compare_digest(password, demo_users["user"]):
+        return "user_001", Role.USER
+    raise HTTPException(status_code=401, detail="Invalid credentials")
+
+
 @router.post("/login")
 @rate_limit(rate=50, per=60)
 def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
@@ -37,38 +69,7 @@ def login(request: Request, login_data: dict[str, str]) -> dict[str, Any]:
         if username == "" or password == "":  # nosec
             raise HTTPException(status_code=422, detail="Username and password cannot be empty")
 
-        import os
-
-        # Get passwords from environment (no hardcoded defaults)
-        admin_password = os.getenv("ADMIN_PASSWORD")
-        operator_password = os.getenv("OPERATOR_PASSWORD")
-        user_password = os.getenv("USER_PASSWORD")
-
-        if not admin_password:
-            raise HTTPException(status_code=500, detail="ADMIN_PASSWORD environment variable not configured")
-        if not operator_password:
-            raise HTTPException(status_code=500, detail="OPERATOR_PASSWORD environment variable not configured")
-        if not user_password:
-            raise HTTPException(status_code=500, detail="USER_PASSWORD environment variable not configured")
-
-        demo_users = {
-            "admin": admin_password,
-            "operator": operator_password,
-            "user": user_password,
-        }
-
-        # Validate credentials (timing-safe password comparison)
-        if username == "admin" and hmac.compare_digest(password, demo_users["admin"]):
-            user_id = "admin_001"
-            role = Role.ADMIN
-        elif username == "operator" and hmac.compare_digest(password, demo_users["operator"]):
-            user_id = "operator_001"
-            role = Role.OPERATOR
-        elif username == "user" and hmac.compare_digest(password, demo_users["user"]):
-            user_id = "user_001"
-            role = Role.USER
-        else:
-            raise HTTPException(status_code=401, detail="Invalid credentials")
+        user_id, role = _resolve_demo_credentials(username, password)
 
         permission_manager.assign_role(user_id, role)
         token_result = jwt_handler.generate_token(

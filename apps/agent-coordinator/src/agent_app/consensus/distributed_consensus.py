@@ -159,6 +159,28 @@ class DistributedConsensus:
             logger.error("Error casting vote: %s", e)
             return {"status": "error", "message": str(e)}
 
+    def _consensus_outcome(
+        self, proposal: ConsensusProposal, yes_votes: int, no_votes: int, total_votes: int
+    ) -> tuple[bool, str] | None:
+        """Apply the configured voting rule; None while the outcome is undecided."""
+        required = proposal.required_votes
+        if self.current_algorithm == "majority_vote":
+            if yes_votes >= required:
+                return True, f"Majority reached: {yes_votes}/{total_votes}"
+            if no_votes >= required:
+                return False, f"Majority against: {no_votes}/{total_votes}"
+        elif self.current_algorithm == "supermajority":
+            if yes_votes >= required:
+                return True, f"Supermajority reached: {yes_votes}/{total_votes}"
+            if no_votes >= required:
+                return False, f"Supermajority against: {no_votes}/{total_votes}"
+        elif self.current_algorithm == "unanimous":
+            if total_votes == len(self.nodes) and yes_votes == total_votes:
+                return True, "Unanimous approval"
+            if no_votes > 0:
+                return False, f"Not unanimous: {yes_votes}/{total_votes}"
+        return None
+
     def _check_consensus(self, proposal: ConsensusProposal) -> None:
         """Check if consensus is reached for a proposal"""
         try:
@@ -174,27 +196,12 @@ class DistributedConsensus:
             active_nodes = sum(1 for node in self.nodes.values() if node.is_active)
             if total_votes < active_nodes * self.min_participation:
                 return
-            if self.current_algorithm == "majority_vote":
-                if yes_votes >= proposal.required_votes:
-                    proposal.status = "approved"
-                    self._finalize_proposal(proposal, True, f"Majority reached: {yes_votes}/{total_votes}")
-                elif no_votes >= proposal.required_votes:
-                    proposal.status = "rejected"
-                    self._finalize_proposal(proposal, False, f"Majority against: {no_votes}/{total_votes}")
-            elif self.current_algorithm == "supermajority":
-                if yes_votes >= proposal.required_votes:
-                    proposal.status = "approved"
-                    self._finalize_proposal(proposal, True, f"Supermajority reached: {yes_votes}/{total_votes}")
-                elif no_votes >= proposal.required_votes:
-                    proposal.status = "rejected"
-                    self._finalize_proposal(proposal, False, f"Supermajority against: {no_votes}/{total_votes}")
-            elif self.current_algorithm == "unanimous":
-                if total_votes == len(self.nodes) and yes_votes == total_votes:
-                    proposal.status = "approved"
-                    self._finalize_proposal(proposal, True, "Unanimous approval")
-                elif no_votes > 0:
-                    proposal.status = "rejected"
-                    self._finalize_proposal(proposal, False, f"Not unanimous: {yes_votes}/{total_votes}")
+            outcome = self._consensus_outcome(proposal, yes_votes, no_votes, total_votes)
+            if outcome is None:
+                return
+            approved, reason = outcome
+            proposal.status = "approved" if approved else "rejected"
+            self._finalize_proposal(proposal, approved, reason)
         except _OPS_ERRORS as e:
             logger.error("Error checking consensus: %s", e)
 

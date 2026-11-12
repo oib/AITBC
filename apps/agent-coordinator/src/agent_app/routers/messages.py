@@ -285,6 +285,88 @@ def _stamp_envelope_fields(message_data: dict[str, Any], req: SendMessageRequest
         message_data["signature_status"] = signature_status
 
 
+async def _existing_message_response(message_id: str, req: SendMessageRequest) -> dict[str, Any] | None:
+    """Return the stored record's response when message_id already exists."""
+    if not state.message_storage:
+        return None
+    try:
+        existing = await state.message_storage.get_message(message_id)
+    except _OPS_ERRORS as e:
+        logger.warning("Could not check idempotency for %s: %s", message_id, e)
+        return None
+    if not existing:
+        return None
+    return {
+        "status": "success",
+        "message_id": message_id,
+        "sender": existing.get("sender", req.sender),
+        "recipient": existing.get("recipient", req.recipient),
+        "encrypted": _coerce_bool(existing.get("encrypted", "False")),
+        "ws_delivered": _coerce_bool(existing.get("ws_delivered", "False")),
+        "message_status": existing.get("status", "unknown"),
+        "signature_status": existing.get("signature_status"),
+        "sent_at": existing.get("sent_at", ""),
+    }
+
+
+async def _verify_and_gate_signature(req: SendMessageRequest, message_id: str) -> str | None:
+    """Phase A envelope verification: advisory verifies-and-logs and stamps
+    ``signature_status``; enforce rejects. ``disabled`` (the in-code default)
+    changes nothing."""
+    signature_mode = settings.agent_msg_signature_mode
+    if signature_mode == "disabled":
+        return None
+    signature_status, sig_fail_reason = await _verify_message_signature(req)
+    if signature_status != "verified":
+        logger.warning(
+            "msg_sig_verify=fail sender=%s reason=%s message_id=%s mode=%s",
+            req.sender,
+            sig_fail_reason,
+            message_id,
+            signature_mode,
+        )
+        if signature_mode == "enforce":
+            raise HTTPException(status_code=403, detail=sig_fail_reason or "invalid_signature")
+    return signature_status
+
+
+def _prepare_message_data(req: SendMessageRequest, signature_status: str | None) -> dict[str, Any]:
+    """Build the stored/delivered payload: encrypt when asked, then stamp
+    the index/forwarding keys and envelope signature fields."""
+    encryptor = get_encryptor()
+    message_content = {
+        "content": req.content,
+        "message_type": req.message_type,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+    if req.encrypt:
+        encrypted_msg = encryptor.encrypt_message(message=message_content, sender_id=req.sender, recipient_id=req.recipient)
+        if not encrypted_msg:
+            raise HTTPException(status_code=500, detail="Failed to encrypt message")
+        message_data = encrypted_msg.to_dict()
+        message_data["encrypted"] = True
+    else:
+        message_data = {
+            "sender": req.sender,
+            "recipient": req.recipient,
+            "content": json.dumps(req.content),
+            "message_type": req.message_type,
+            "encrypted": False,
+            "priority": req.priority,
+            "timestamp": datetime.now(UTC).isoformat(),
+        }
+
+    # Ensure encrypted payloads also carry the index/forwarding keys
+    # used by the WebSocket layer and MessageStorage.
+    message_data.setdefault("sender", req.sender)
+    message_data.setdefault("recipient", req.recipient)
+    message_data.setdefault("message_type", req.message_type)
+    message_data.setdefault("priority", req.priority)
+
+    _stamp_envelope_fields(message_data, req, signature_status)
+    return message_data
+
+
 @router.post("/send")
 @rate_limit(rate=50, per=60)
 async def send_encrypted_message(request: Request, req: SendMessageRequest) -> dict[str, Any]:
@@ -299,75 +381,16 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
         message_id = req.message_id or f"msg_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
 
         # Idempotency check: return the existing record if present.
-        if state.message_storage:
-            try:
-                existing = await state.message_storage.get_message(message_id)
-                if existing:
-                    return {
-                        "status": "success",
-                        "message_id": message_id,
-                        "sender": existing.get("sender", req.sender),
-                        "recipient": existing.get("recipient", req.recipient),
-                        "encrypted": _coerce_bool(existing.get("encrypted", "False")),
-                        "ws_delivered": _coerce_bool(existing.get("ws_delivered", "False")),
-                        "message_status": existing.get("status", "unknown"),
-                        "signature_status": existing.get("signature_status"),
-                        "sent_at": existing.get("sent_at", ""),
-                    }
-            except _OPS_ERRORS as e:
-                logger.warning("Could not check idempotency for %s: %s", message_id, e)
+        existing_response = await _existing_message_response(message_id, req)
+        if existing_response is not None:
+            return existing_response
 
         # Phase A envelope verification (agent-signed-envelopes.md §5):
         # advisory verifies-and-logs and stamps ``signature_status``; enforce
         # rejects. ``disabled`` (the in-code default) changes nothing.
-        signature_mode = settings.agent_msg_signature_mode
-        signature_status: str | None = None
-        if signature_mode != "disabled":
-            signature_status, sig_fail_reason = await _verify_message_signature(req)
-            if signature_status != "verified":
-                logger.warning(
-                    "msg_sig_verify=fail sender=%s reason=%s message_id=%s mode=%s",
-                    req.sender,
-                    sig_fail_reason,
-                    message_id,
-                    signature_mode,
-                )
-                if signature_mode == "enforce":
-                    raise HTTPException(status_code=403, detail=sig_fail_reason or "invalid_signature")
+        signature_status = await _verify_and_gate_signature(req, message_id)
 
-        encryptor = get_encryptor()
-        message_content = {
-            "content": req.content,
-            "message_type": req.message_type,
-            "timestamp": datetime.now(UTC).isoformat(),
-        }
-        if req.encrypt:
-            encrypted_msg = encryptor.encrypt_message(
-                message=message_content, sender_id=req.sender, recipient_id=req.recipient
-            )
-            if not encrypted_msg:
-                raise HTTPException(status_code=500, detail="Failed to encrypt message")
-            message_data = encrypted_msg.to_dict()
-            message_data["encrypted"] = True
-        else:
-            message_data = {
-                "sender": req.sender,
-                "recipient": req.recipient,
-                "content": json.dumps(req.content),
-                "message_type": req.message_type,
-                "encrypted": False,
-                "priority": req.priority,
-                "timestamp": datetime.now(UTC).isoformat(),
-            }
-
-        # Ensure encrypted payloads also carry the index/forwarding keys
-        # used by the WebSocket layer and MessageStorage.
-        message_data.setdefault("sender", req.sender)
-        message_data.setdefault("recipient", req.recipient)
-        message_data.setdefault("message_type", req.message_type)
-        message_data.setdefault("priority", req.priority)
-
-        _stamp_envelope_fields(message_data, req, signature_status)
+        message_data = _prepare_message_data(req, signature_status)
 
         # Try real-time WebSocket delivery first; fall back to storage.
         ws_delivered = False
@@ -636,6 +659,50 @@ async def get_agent_subscriptions(request: Request, agent_id: str, principal: Op
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _parse_broadcast_enums(request: BroadcastRequest) -> tuple[Any, Any]:
+    """Validate the request's message_type/priority strings into enums."""
+    from ..protocols.communication import Priority
+
+    try:
+        message_type = MessageType(request.message_type)
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid message type: {request.message_type}") from None
+    try:
+        priority = Priority(request.priority.lower())
+    except ValueError:
+        raise HTTPException(status_code=400, detail=f"Invalid priority: {request.priority}") from None
+    return message_type, priority
+
+
+async def _send_broadcast_to_agent(agent: Any, request: BroadcastRequest, message_type: Any, priority: Any) -> bool:
+    """Store + forward one broadcast copy; True when it was persisted."""
+    from ..protocols.communication import AgentMessage
+
+    message = AgentMessage(
+        sender_id="agent-coordinator",
+        receiver_id=agent.agent_id,
+        message_type=message_type,
+        priority=priority,
+        payload=request.payload,
+    )
+    message_data = {
+        "sender_id": message.sender_id,
+        "receiver_id": message.receiver_id,
+        "message_type": message.message_type.value,
+        "priority": message.priority.value,
+        "payload": json.dumps(message.payload),
+        "protocol": "broadcast",
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+    stored = False
+    if state.message_storage:
+        await state.message_storage.store_message(message.id, message_data)
+        stored = True
+    if state.communication_manager:
+        await state.communication_manager.send_message("broadcast", message)
+    return stored
+
+
 @router.post("/broadcast")
 @rate_limit(rate=50, per=60)
 async def broadcast_message(request_http: Request, request: BroadcastRequest, principal: OptionalAgent) -> dict[str, Any]:
@@ -652,16 +719,8 @@ async def broadcast_message(request_http: Request, request: BroadcastRequest, pr
             raise HTTPException(status_code=503, detail="Communication manager not available")
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
-        from ..protocols.communication import AgentMessage, Priority
 
-        try:
-            message_type = MessageType(request.message_type)
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid message type: {request.message_type}") from None
-        try:
-            priority = Priority(request.priority.lower())
-        except ValueError:
-            raise HTTPException(status_code=400, detail=f"Invalid priority: {request.priority}") from None
+        message_type, priority = _parse_broadcast_enums(request)
         query: dict[str, Any] = {}
         if request.agent_type:
             query["agent_type"] = request.agent_type
@@ -678,27 +737,8 @@ async def broadcast_message(request_http: Request, request: BroadcastRequest, pr
             }
         recipients = []
         for agent in agents:
-            message = AgentMessage(
-                sender_id="agent-coordinator",
-                receiver_id=agent.agent_id,
-                message_type=message_type,
-                priority=priority,
-                payload=request.payload,
-            )
-            message_data = {
-                "sender_id": message.sender_id,
-                "receiver_id": message.receiver_id,
-                "message_type": message.message_type.value,
-                "priority": message.priority.value,
-                "payload": json.dumps(message.payload),
-                "protocol": "broadcast",
-                "timestamp": datetime.now(UTC).isoformat(),
-            }
-            if state.message_storage:
-                await state.message_storage.store_message(message.id, message_data)
+            if await _send_broadcast_to_agent(agent, request, message_type, priority):
                 recipients.append(agent.agent_id)
-            if state.communication_manager:
-                await state.communication_manager.send_message("broadcast", message)
         return {
             "status": "success",
             "message": f"Broadcast sent to {len(recipients)} agents",

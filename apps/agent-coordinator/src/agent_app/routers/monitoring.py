@@ -17,6 +17,23 @@ router = APIRouter()
 OptionalAgent = Annotated[AgentPrincipal | None, Depends(optional_agent)]
 
 
+def _render_metric_samples(name: str, metric_data: dict[str, Any]) -> list[str]:
+    """Render one metric's sample lines in Prometheus text format."""
+    lines: list[str] = []
+    if metric_data["type"] in ("counter", "gauge"):
+        for labels, value in metric_data["values"].items():
+            if labels != "_default":
+                lines.append(f"{name}{{{labels}}} {value}")
+            else:
+                lines.append(f"{name} {value}")
+    elif metric_data["type"] == "histogram":
+        for key, count in metric_data["counts"].items():
+            lines.append(f"{name}_count{{{key}}} {count}")
+        for key, sum_val in metric_data["sums"].items():
+            lines.append(f"{name}_sum{{{key}}} {sum_val}")
+    return lines
+
+
 @router.get("/metrics")
 @rate_limit(rate=1000, per=60)
 def get_prometheus_metrics(
@@ -27,27 +44,11 @@ def get_prometheus_metrics(
     """Get metrics in Prometheus format"""
     try:
         metrics = metrics_registry.get_all_metrics()
-        prometheus_output = []
+        prometheus_output: list[str] = []
         for name, metric_data in metrics.items():
             prometheus_output.append(f"# HELP {name} {metric_data['description']}")
             prometheus_output.append(f"# TYPE {name} {metric_data['type']}")
-            if metric_data["type"] == "counter":
-                for labels, value in metric_data["values"].items():
-                    if labels != "_default":
-                        prometheus_output.append(f"{name}{{{labels}}} {value}")
-                    else:
-                        prometheus_output.append(f"{name} {value}")
-            elif metric_data["type"] == "gauge":
-                for labels, value in metric_data["values"].items():
-                    if labels != "_default":
-                        prometheus_output.append(f"{name}{{{labels}}} {value}")
-                    else:
-                        prometheus_output.append(f"{name} {value}")
-            elif metric_data["type"] == "histogram":
-                for key, count in metric_data["counts"].items():
-                    prometheus_output.append(f"{name}_count{{{key}}} {count}")
-                for key, sum_val in metric_data["sums"].items():
-                    prometheus_output.append(f"{name}_sum{{{key}}} {sum_val}")
+            prometheus_output.extend(_render_metric_samples(name, metric_data))
         return Response(content="\n".join(prometheus_output), media_type="text/plain")
     except Exception as e:
         logger.error("Error getting metrics: %s", e)

@@ -306,6 +306,36 @@ class AgentRegistry:
             logger.error("Error updating heartbeat for %s: %s", agent_id, e)
             return False
 
+    @staticmethod
+    def _filter_candidates(candidates: list[AgentInfo], query: dict[str, Any]) -> list[AgentInfo]:
+        """Narrow the agent snapshot by the discovery query's criteria."""
+        if "agent_type" in query:
+            agent_type = AgentType(query["agent_type"])
+            candidates = [a for a in candidates if a.agent_type == agent_type]
+        if "status" in query:
+            status = AgentStatus(query["status"])
+            candidates = [a for a in candidates if a.status == status]
+        if "capabilities" in query:
+            required_capabilities = set(query["capabilities"])
+            candidates = [a for a in candidates if required_capabilities.issubset(a.capabilities)]
+        if "services" in query:
+            required_services = set(query["services"])
+            candidates = [a for a in candidates if required_services.issubset(a.services)]
+        if "tags" in query:
+            required_tags = set(query["tags"])
+            candidates = [a for a in candidates if required_tags.issubset(a.tags)]
+        # v0.6.5: chain/island filters
+        if "chain_id" in query:
+            chain_id = query["chain_id"]
+            candidates = [a for a in candidates if a.chain_id == chain_id]
+        if "island_id" in query:
+            island_id = query["island_id"]
+            candidates = [a for a in candidates if a.island_id == island_id]
+        if "min_health_score" in query:
+            min_score = query["min_health_score"]
+            candidates = [a for a in candidates if a.health_score >= min_score]
+        return candidates
+
     async def discover_agents(self, query: dict[str, Any]) -> list[AgentInfo]:
         """Discover agents based on query criteria"""
         results = []
@@ -315,31 +345,7 @@ class AgentRegistry:
             # mutator is between its own await points can miss or double-count agents.
             async with self._lock:
                 candidate_agents = list(self.agents.values())
-            if "agent_type" in query:
-                agent_type = AgentType(query["agent_type"])
-                candidate_agents = [a for a in candidate_agents if a.agent_type == agent_type]
-            if "status" in query:
-                status = AgentStatus(query["status"])
-                candidate_agents = [a for a in candidate_agents if a.status == status]
-            if "capabilities" in query:
-                required_capabilities = set(query["capabilities"])
-                candidate_agents = [a for a in candidate_agents if required_capabilities.issubset(a.capabilities)]
-            if "services" in query:
-                required_services = set(query["services"])
-                candidate_agents = [a for a in candidate_agents if required_services.issubset(a.services)]
-            if "tags" in query:
-                required_tags = set(query["tags"])
-                candidate_agents = [a for a in candidate_agents if required_tags.issubset(a.tags)]
-            # v0.6.5: chain/island filters
-            if "chain_id" in query:
-                chain_id = query["chain_id"]
-                candidate_agents = [a for a in candidate_agents if a.chain_id == chain_id]
-            if "island_id" in query:
-                island_id = query["island_id"]
-                candidate_agents = [a for a in candidate_agents if a.island_id == island_id]
-            if "min_health_score" in query:
-                min_score = query["min_health_score"]
-                candidate_agents = [a for a in candidate_agents if a.health_score >= min_score]
+            candidate_agents = self._filter_candidates(candidate_agents, query)
             results = sorted(candidate_agents, key=lambda a: a.health_score, reverse=True)
             # ``limit`` arrives from an untrusted query dict (POST /agents/discover
             # takes the body verbatim): absent meant "return every agent", a
