@@ -159,6 +159,22 @@ class TestDisputeLifecycle:
         resp = client.post(f"{BASE}/file", json=body, headers=_headers(CLIENT_SUB))
         assert resp.status_code == 404
 
+    def test_file_null_provider_is_409_not_body_fallback(
+        self, client: TestClient, db_session: Session, dispute_service
+    ) -> None:
+        # #1879: NULL provider_address/assigned_miner_id must not fall back
+        # to the request body's provider — that re-trusts caller input.
+        _make_job(db_session, job_id="job-noprovider", provider_address=None)
+        body = {"job_id": "job-noprovider", "client": CLIENT_SUB, "provider": "0x" + "ab" * 20, "amount": 1, "reason": "r"}
+        resp = client.post(f"{BASE}/file", json=body, headers=_headers(CLIENT_SUB))
+        assert resp.status_code == 409
+
+    def test_file_null_amount_is_409_not_body_fallback(self, client: TestClient, db_session: Session, dispute_service) -> None:
+        _make_job(db_session, job_id="job-noamount", amount=None)
+        body = {"job_id": "job-noamount", "client": CLIENT_SUB, "provider": PROVIDER_ADDR, "amount": 999, "reason": "r"}
+        resp = client.post(f"{BASE}/file", json=body, headers=_headers(CLIENT_SUB))
+        assert resp.status_code == 409
+
     def test_file_non_party_rejected(self, client: TestClient, db_session: Session, dispute_service) -> None:
         _make_job(db_session)
         body = {"job_id": JOB_ID, "client": "random-sub", "provider": PROVIDER_ADDR, "amount": 1, "reason": "r"}
