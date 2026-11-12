@@ -33,6 +33,15 @@ from ...security.services.key_management import KeyManagementError, KeyManager
 
 logger = get_logger(__name__)
 
+
+def _require_participant(principal: str, participant_id: str, role: str | None) -> None:
+    """Non-admin callers may only act on their own participant id (#1881)."""
+    if role == "admin":
+        return
+    if str(participant_id) != str(principal):
+        raise HTTPException(status_code=403, detail="participant_id must match the authenticated principal")
+
+
 router = APIRouter(prefix="/confidential", tags=["confidential"])
 security = HTTPBearer()
 encryption_service: EncryptionService | None = None
@@ -270,9 +279,10 @@ def audit_access_confidential_data(
 async def register_encryption_key(
     request: Request,
     request_data: KeyRegistrationRequest,
-    _user: AdminOrClientDep,
+    user: AdminOrClientDep,
 ) -> KeyRegistrationResponse:
     """Register public key for confidential transactions"""
+    _require_participant(str(user.get("sub") or ""), request_data.participant_id, user.get("role"))
     try:
         km = get_key_manager()
         existing_pair = km.storage.get_key_pair_sync(request_data.participant_id)
@@ -313,9 +323,10 @@ async def register_encryption_key(
 async def rotate_encryption_key(
     request: Request,
     participant_id: str,
-    _user: AdminOrClientDep,
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
     """Rotate encryption keys for participant"""
+    _require_participant(str(user.get("sub") or ""), participant_id, user.get("role"))
     try:
         km = get_key_manager()
         new_key_pair = await km.rotate_keys(participant_id)
@@ -383,7 +394,7 @@ async def get_confidential_status(
 @rate_limit(rate=20, per=60)
 def create_confidential_payment(
     request: ConfidentialPaymentCreate,
-    _user: AdminOrClientDep,
+    user: AdminOrClientDep,
     *,
     http_request: Request,
 ) -> ConfidentialPaymentView:
@@ -394,6 +405,7 @@ def create_confidential_payment(
     the envelope and returns a receipt; otherwise it returns 503 Service
     Unavailable so callers fall back to local simulated settlement.
     """
+    _require_participant(str(user.get("sub") or ""), request.sender_id, user.get("role"))
     if not settings.confidential_tee_enabled:
         raise HTTPException(
             status_code=503,
