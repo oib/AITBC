@@ -21,9 +21,9 @@ logger = get_logger(__name__)
 
 # Expected failure surface for the edge command handlers: filesystem/JSON,
 # data-shape, SDK/runtime errors, httpx transport/HTTP errors, and both error
-# hierarchies. RuntimeError also covers click.Abort raised by abort() inside
-# a try — the handler re-aborts with context, matching the previous
-# except-Exception behaviour. BaseExceptions still propagate (#1864).
+# hierarchies. RuntimeError covers generic runtime failures; abort() raises
+# CLIError (already listed), preserving the previous re-abort behaviour.
+# BaseExceptions still propagate (#1864).
 _OPS_ERRORS = (
     OSError,
     ValueError,
