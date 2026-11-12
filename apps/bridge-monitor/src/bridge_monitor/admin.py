@@ -39,6 +39,9 @@ import sys
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from .main import BridgeMonitor
+from .storage import BridgeDepositStatus, create_deposit, get_deposit, get_deposits, init_db, update_deposit
+
 
 def _load_env_file(path: str) -> None:
     """Populate os.environ from an EnvironmentFile-style env file."""
@@ -105,6 +108,170 @@ def write_off_denial_reason(d: dict, allow_recipient: bool, envelope_dead: bool 
     return None
 
 
+def cmd_list(status: str | None, limit: int) -> int:
+    # A negative LIMIT is unlimited in SQLite — clamp so --limit -1
+    # cannot dump the whole ledger.
+    limit = max(1, limit)
+    filt = None
+    if status is not None:
+        try:
+            filt = BridgeDepositStatus(status.lower())
+        except ValueError:
+            print(f"unknown status {status!r} — one of: {', '.join(s.value for s in BridgeDepositStatus)}")
+            return 2
+    rows = get_deposits(status=filt, limit=limit)
+    for d in rows:
+        print(
+            f"{d.get('created_at', '')}  {d.get('status', ''):<15} "
+            f"{d.get('eth_tx_hash', '')}  {d.get('eth_from_address', '')}  "
+            f"{d.get('eth_amount', '')} ETH" + (f"  err={d['error_message']}" if d.get("error_message") else "")
+        )
+    if not rows:
+        print("no rows" + (f" with status {filt.value}" if filt else ""))
+    return 0
+
+
+def cmd_status(tx_hash: str) -> int:
+    d = get_deposit(tx_hash)
+    if not d:
+        print(f"no deposit row {tx_hash}")
+        return 1
+    for k, v in d.items():
+        if k == "signed_tx":
+            v = f"<{len(v)} chars>" if v else v
+        print(f"{k}: {v}")
+    return 0
+
+
+# Statuses a write-off may move FROM (#1918 CAS predicate): the live
+# payout vocabulary only. COMPLETED/WRITTEN_OFF are already terminal,
+# FAILED is the monitor's own terminal error state, and FUNDING/
+# EXCHANGE_PREPAY are terminal records of other lanes (float top-up
+# audit rows, exchange prepay routing) — flipping any of them to
+# written_off would corrupt an audit trail that is not a lost deposit.
+# 'verified' (#1919) is the wallet side's mint-in-flight state —
+# outside BridgeDepositStatus, but a legitimate stranded-row target:
+# the detector alerts on it and the operator must be able to resolve
+# it deliberately (recipient/--unpaid-with-recipient guards still
+# apply, and a wallet-side TRANSFER may already have landed — check
+# the chain before writing off).
+_WRITE_OFF_SOURCES = frozenset(
+    {
+        BridgeDepositStatus.PENDING,
+        BridgeDepositStatus.PROCESSING,
+        BridgeDepositStatus.PENDING_RETRY,
+        BridgeDepositStatus.SUBMITTED,
+        "verified",
+    }
+)
+
+
+def cmd_write_off(tx_hash: str, reason: str | None, allow_recipient: bool = False, envelope_dead: bool = False) -> int:
+    if not reason or not reason.strip():
+        print("write-off requires --reason (a written justification is mandatory)")
+        return 2
+    d = get_deposit(tx_hash)
+    if not d:
+        print(f"no deposit row {tx_hash}")
+        return 1
+    denial = write_off_denial_reason(d, allow_recipient, envelope_dead)
+    if denial:
+        print(f"deposit {tx_hash} {denial}")
+        return 1
+    # CAS (#1918): the denial check ran on a snapshot — a sweep payout
+    # or another admin command may have moved the row since. The write
+    # only lands while the row still sits in the live payout vocabulary.
+    # A COMPLETED row reaches here only as a phantom (no payout hash —
+    # the denial check above refused a paid one), so it predicates on
+    # COMPLETED alone rather than the live set.
+    sources = {BridgeDepositStatus.COMPLETED} if d.get("status") == BridgeDepositStatus.COMPLETED.value else _WRITE_OFF_SOURCES
+    if not update_deposit(
+        tx_hash,
+        status=BridgeDepositStatus.WRITTEN_OFF,
+        error_message=reason.strip(),
+        expected_statuses=sources,
+    ):
+        print(f"deposit {tx_hash} moved on since read — write-off not applied")
+        return 1
+    print(f"deposit {tx_hash} written off: {reason.strip()}")
+    return 0
+
+
+def cmd_abandon(tx_hash: str) -> int:
+    ok, msg = BridgeMonitor().abandon_payout(tx_hash)
+    print(msg)
+    return 0 if ok else 1
+
+
+def _report(msg: str, code: int) -> int:
+    print(msg)
+    return code
+
+
+def cmd_manual_payout(to: str, amount: str) -> int:
+    try:
+        ait_amount = Decimal(amount)
+    except ArithmeticError:
+        return _report(f"invalid amount {amount!r}", 2)
+    # Decimal('NaN') parses fine but every comparison with it raises
+    # InvalidOperation; Decimal('Infinity') passes "> 0" and would sign
+    # an infinite payout. Both must die here, before a row exists.
+    if not ait_amount.is_finite() or ait_amount <= 0:
+        return _report("amount must be a finite number > 0", 2)
+    # Same recipient rule as every other payout path — a non-hex
+    # 'address' only fails later inside the signer, leaving an orphan
+    # row behind.
+    if not _valid_recipient(to):
+        return _report(f"invalid AIT recipient {to!r}", 2)
+    # Serialize like the monitor's own payout paths: the nonce comes
+    # from committed chain state, so a second in-flight envelope signs
+    # the SAME nonce and the two collide in the mempool — the exact
+    # failure _payout_in_flight exists to prevent. Construct the
+    # monitor before creating the row so a missing env var cannot
+    # leave an orphan PENDING row either.
+    mon = BridgeMonitor()
+    if mon._payout_in_flight():
+        return _report(
+            "a payout envelope is already in flight (SUBMITTED) — refusing: "
+            "a second envelope would sign the same nonce and collide. "
+            "Wait for it to seal or run abandon-and-resign first",
+            1,
+        )
+    tx_hash = f"manual-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S.%f')}"
+    if not create_deposit(tx_hash, "manual", "0", to):
+        return _report(f"cannot create manual payout row {tx_hash}", 1)
+    if not mon._submit_payout(tx_hash, to, ait_amount):
+        # Nothing was broadcast, and no sweep owns a 'manual-*' PENDING
+        # row (the retry pass would reprice eth_amount='0' forever) —
+        # leave the row terminally FAILED, not in limbo.
+        update_deposit(
+            tx_hash,
+            status=BridgeDepositStatus.FAILED,
+            error_message="manual payout: failed to build signed payout",
+        )
+        return _report(f"manual payout {tx_hash}: failed to build signed payout — row marked FAILED", 1)
+    return _report(f"manual payout {tx_hash}: {ait_amount} AIT to {to} submitted — sweep owns sealing", 0)
+
+
+def _dispatch(ns: argparse.Namespace, parser: argparse.ArgumentParser) -> int:
+    """Route the parsed command to its handler."""
+    if ns.command == "status":
+        return cmd_status(ns.args[0]) if len(ns.args) == 1 else parser.error("status needs <tx_hash>")
+    if ns.command == "list":
+        return cmd_list(ns.status, ns.limit)
+    if ns.command == "write-off":
+        if len(ns.args) != 1:
+            parser.error("write-off needs <tx_hash>")
+        return cmd_write_off(ns.args[0], ns.reason, ns.unpaid_with_recipient, ns.envelope_dead)
+    if ns.command == "abandon-and-resign":
+        return cmd_abandon(ns.args[0]) if len(ns.args) == 1 else parser.error("abandon-and-resign needs <tx_hash>")
+    if ns.command == "manual-payout":
+        if len(ns.args) != 2:
+            parser.error("manual-payout needs <to> <amount_ait>")
+        return cmd_manual_payout(ns.args[0], ns.args[1])
+    return 2
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="bridge_monitor.admin")
     parser.add_argument("command", choices=["status", "list", "write-off", "abandon-and-resign", "manual-payout"])
@@ -134,150 +301,7 @@ def main() -> int:
     # Storage path comes from DATA_DIR like the service; allow override so
     # an operator can point at a copied DB for inspection. init_db() runs
     # the additive migrations so a ledger older than the code still reads.
-    from .main import BridgeMonitor
-    from .storage import BridgeDepositStatus, create_deposit, get_deposit, get_deposits, init_db, update_deposit
-
     init_db()
-
-    def cmd_list(status: str | None, limit: int) -> int:
-        # A negative LIMIT is unlimited in SQLite — clamp so --limit -1
-        # cannot dump the whole ledger.
-        limit = max(1, limit)
-        filt = None
-        if status is not None:
-            try:
-                filt = BridgeDepositStatus(status.lower())
-            except ValueError:
-                print(f"unknown status {status!r} — one of: {', '.join(s.value for s in BridgeDepositStatus)}")
-                return 2
-        rows = get_deposits(status=filt, limit=limit)
-        for d in rows:
-            print(
-                f"{d.get('created_at', '')}  {d.get('status', ''):<15} "
-                f"{d.get('eth_tx_hash', '')}  {d.get('eth_from_address', '')}  "
-                f"{d.get('eth_amount', '')} ETH" + (f"  err={d['error_message']}" if d.get("error_message") else "")
-            )
-        if not rows:
-            print("no rows" + (f" with status {filt.value}" if filt else ""))
-        return 0
-
-    def cmd_status(tx_hash: str) -> int:
-        d = get_deposit(tx_hash)
-        if not d:
-            print(f"no deposit row {tx_hash}")
-            return 1
-        for k, v in d.items():
-            if k == "signed_tx":
-                v = f"<{len(v)} chars>" if v else v
-            print(f"{k}: {v}")
-        return 0
-
-    # Statuses a write-off may move FROM (#1918 CAS predicate): the live
-    # payout vocabulary only. COMPLETED/WRITTEN_OFF are already terminal,
-    # FAILED is the monitor's own terminal error state, and FUNDING/
-    # EXCHANGE_PREPAY are terminal records of other lanes (float top-up
-    # audit rows, exchange prepay routing) — flipping any of them to
-    # written_off would corrupt an audit trail that is not a lost deposit.
-    # 'verified' (#1919) is the wallet side's mint-in-flight state —
-    # outside BridgeDepositStatus, but a legitimate stranded-row target:
-    # the detector alerts on it and the operator must be able to resolve
-    # it deliberately (recipient/--unpaid-with-recipient guards still
-    # apply, and a wallet-side TRANSFER may already have landed — check
-    # the chain before writing off).
-    write_off_sources = frozenset(
-        {
-            BridgeDepositStatus.PENDING,
-            BridgeDepositStatus.PROCESSING,
-            BridgeDepositStatus.PENDING_RETRY,
-            BridgeDepositStatus.SUBMITTED,
-            "verified",
-        }
-    )
-
-    def cmd_write_off(tx_hash: str, reason: str | None, allow_recipient: bool = False, envelope_dead: bool = False) -> int:
-        if not reason or not reason.strip():
-            print("write-off requires --reason (a written justification is mandatory)")
-            return 2
-        d = get_deposit(tx_hash)
-        if not d:
-            print(f"no deposit row {tx_hash}")
-            return 1
-        denial = write_off_denial_reason(d, allow_recipient, envelope_dead)
-        if denial:
-            print(f"deposit {tx_hash} {denial}")
-            return 1
-        # CAS (#1918): the denial check ran on a snapshot — a sweep payout
-        # or another admin command may have moved the row since. The write
-        # only lands while the row still sits in the live payout vocabulary.
-        # A COMPLETED row reaches here only as a phantom (no payout hash —
-        # the denial check above refused a paid one), so it predicates on
-        # COMPLETED alone rather than the live set.
-        sources = (
-            {BridgeDepositStatus.COMPLETED} if d.get("status") == BridgeDepositStatus.COMPLETED.value else write_off_sources
-        )
-        if not update_deposit(
-            tx_hash,
-            status=BridgeDepositStatus.WRITTEN_OFF,
-            error_message=reason.strip(),
-            expected_statuses=sources,
-        ):
-            print(f"deposit {tx_hash} moved on since read — write-off not applied")
-            return 1
-        print(f"deposit {tx_hash} written off: {reason.strip()}")
-        return 0
-
-    def cmd_abandon(tx_hash: str) -> int:
-        ok, msg = BridgeMonitor().abandon_payout(tx_hash)
-        print(msg)
-        return 0 if ok else 1
-
-    def _report(msg: str, code: int) -> int:
-        print(msg)
-        return code
-
-    def cmd_manual_payout(to: str, amount: str) -> int:
-        try:
-            ait_amount = Decimal(amount)
-        except ArithmeticError:
-            return _report(f"invalid amount {amount!r}", 2)
-        # Decimal('NaN') parses fine but every comparison with it raises
-        # InvalidOperation; Decimal('Infinity') passes "> 0" and would sign
-        # an infinite payout. Both must die here, before a row exists.
-        if not ait_amount.is_finite() or ait_amount <= 0:
-            return _report("amount must be a finite number > 0", 2)
-        # Same recipient rule as every other payout path — a non-hex
-        # 'address' only fails later inside the signer, leaving an orphan
-        # row behind.
-        if not _valid_recipient(to):
-            return _report(f"invalid AIT recipient {to!r}", 2)
-        # Serialize like the monitor's own payout paths: the nonce comes
-        # from committed chain state, so a second in-flight envelope signs
-        # the SAME nonce and the two collide in the mempool — the exact
-        # failure _payout_in_flight exists to prevent. Construct the
-        # monitor before creating the row so a missing env var cannot
-        # leave an orphan PENDING row either.
-        mon = BridgeMonitor()
-        if mon._payout_in_flight():
-            return _report(
-                "a payout envelope is already in flight (SUBMITTED) — refusing: "
-                "a second envelope would sign the same nonce and collide. "
-                "Wait for it to seal or run abandon-and-resign first",
-                1,
-            )
-        tx_hash = f"manual-{datetime.now(UTC).strftime('%Y%m%dT%H%M%S.%f')}"
-        if not create_deposit(tx_hash, "manual", "0", to):
-            return _report(f"cannot create manual payout row {tx_hash}", 1)
-        if not mon._submit_payout(tx_hash, to, ait_amount):
-            # Nothing was broadcast, and no sweep owns a 'manual-*' PENDING
-            # row (the retry pass would reprice eth_amount='0' forever) —
-            # leave the row terminally FAILED, not in limbo.
-            update_deposit(
-                tx_hash,
-                status=BridgeDepositStatus.FAILED,
-                error_message="manual payout: failed to build signed payout",
-            )
-            return _report(f"manual payout {tx_hash}: failed to build signed payout — row marked FAILED", 1)
-        return _report(f"manual payout {tx_hash}: {ait_amount} AIT to {to} submitted — sweep owns sealing", 0)
 
     # Mutating commands run under the admin lock: the ledger's
     # one-envelope-in-flight invariant is check-then-act, so two concurrent
@@ -290,21 +314,7 @@ def main() -> int:
             print("another bridge-admin mutation is in progress — refusing to run concurrently", file=sys.stderr)
             return 1
     try:
-        if ns.command == "status":
-            return cmd_status(ns.args[0]) if len(ns.args) == 1 else parser.error("status needs <tx_hash>")
-        if ns.command == "list":
-            return cmd_list(ns.status, ns.limit)
-        if ns.command == "write-off":
-            if len(ns.args) != 1:
-                parser.error("write-off needs <tx_hash>")
-            return cmd_write_off(ns.args[0], ns.reason, ns.unpaid_with_recipient, ns.envelope_dead)
-        if ns.command == "abandon-and-resign":
-            return cmd_abandon(ns.args[0]) if len(ns.args) == 1 else parser.error("abandon-and-resign needs <tx_hash>")
-        if ns.command == "manual-payout":
-            if len(ns.args) != 2:
-                parser.error("manual-payout needs <to> <amount_ait>")
-            return cmd_manual_payout(ns.args[0], ns.args[1])
-        return 2
+        return _dispatch(ns, parser)
     finally:
         if lock_fd is not None:
             os.close(lock_fd)

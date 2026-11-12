@@ -320,67 +320,40 @@ async def process_order(order: dict) -> list[dict]:
 
 async def process_market_order(order: dict, book: dict) -> list[dict]:
     """Process a market order"""
-    trades_executed = []
-    if order["side"] == "buy":
-        ask_prices = sorted(book["asks"].keys())
-        for price in ask_prices:
-            if order["remaining_quantity"] <= 0:
-                break
-            orders_at_price = book["asks"][price][:]
-            for matching_order in orders_at_price:
-                if order["remaining_quantity"] <= 0:
-                    break
-                trade = await execute_trade(order, matching_order, price)
-                if trade:
-                    trades_executed.append(trade)
-    else:
-        bid_prices = sorted(book["bids"].keys(), reverse=True)
-        for price in bid_prices:
-            if order["remaining_quantity"] <= 0:
-                break
-            orders_at_price = book["bids"][price][:]
-            for matching_order in orders_at_price:
-                if order["remaining_quantity"] <= 0:
-                    break
-                trade = await execute_trade(order, matching_order, price)
-                if trade:
-                    trades_executed.append(trade)
-    return trades_executed
+    book_side = "asks" if order["side"] == "buy" else "bids"
+    prices = sorted(book[book_side].keys(), reverse=order["side"] == "sell")
+    return await _walk_book(order, book, book_side, prices)
 
 
 async def process_limit_order(order: dict, book: dict) -> list[dict]:
     """Process a limit order"""
-    trades_executed = []
     if order["side"] == "buy":
-        ask_prices = sorted([p for p in book["asks"].keys() if float(p) <= order["price"]])
-        for price in ask_prices:
-            if order["remaining_quantity"] <= 0:
-                break
-            orders_at_price = book["asks"][price][:]
-            for matching_order in orders_at_price:
-                if order["remaining_quantity"] <= 0:
-                    break
-                trade = await execute_trade(order, matching_order, price)
-                if trade:
-                    trades_executed.append(trade)
-        if order["remaining_quantity"] > 0:
-            price_key = str(order["price"])
-            book["bids"][price_key].append(order)
+        book_side = "asks"
+        own_side = "bids"
+        prices = sorted(p for p in book["asks"].keys() if float(p) <= order["price"])
     else:
-        bid_prices = sorted([p for p in book["bids"].keys() if float(p) >= order["price"]], reverse=True)
-        for price in bid_prices:
+        book_side = "bids"
+        own_side = "asks"
+        prices = sorted((p for p in book["bids"].keys() if float(p) >= order["price"]), reverse=True)
+    trades_executed = await _walk_book(order, book, book_side, prices)
+    if order["remaining_quantity"] > 0:
+        book[own_side][str(order["price"])].append(order)
+    return trades_executed
+
+
+async def _walk_book(order: dict, book: dict, book_side: str, prices: list) -> list[dict]:
+    """Match an incoming order against resting orders on one book side,
+    best price first, until the order is filled or the side is exhausted."""
+    trades_executed = []
+    for price in prices:
+        if order["remaining_quantity"] <= 0:
+            break
+        for matching_order in book[book_side][price][:]:
             if order["remaining_quantity"] <= 0:
                 break
-            orders_at_price = book["bids"][price][:]
-            for matching_order in orders_at_price:
-                if order["remaining_quantity"] <= 0:
-                    break
-                trade = await execute_trade(order, matching_order, price)
-                if trade:
-                    trades_executed.append(trade)
-        if order["remaining_quantity"] > 0:
-            price_key = str(order["price"])
-            book["asks"][price_key].append(order)
+            trade = await execute_trade(order, matching_order, price)
+            if trade:
+                trades_executed.append(trade)
     return trades_executed
 
 
@@ -413,19 +386,7 @@ async def execute_trade(order1: dict, order2: dict, price: float) -> dict | None
         else:
             total_value = order["average_price"] * (order["filled_quantity"] - trade_quantity) + price * trade_quantity
             order["average_price"] = total_value / order["filled_quantity"]
-    symbol = order1["symbol"]
-    book = order_books[symbol]
-    price_key = str(price)
-    for order in [order1, order2]:
-        if order["remaining_quantity"] <= 0:
-            if order["side"] == "buy" and price_key in book["bids"]:
-                book["bids"][price_key] = [o for o in book["bids"][price_key] if o["order_id"] != order["order_id"]]
-                if not book["bids"][price_key]:
-                    del book["bids"][price_key]
-            elif order["side"] == "sell" and price_key in book["asks"]:
-                book["asks"][price_key] = [o for o in book["asks"][price_key] if o["order_id"] != order["order_id"]]
-                if not book["asks"][price_key]:
-                    del book["asks"][price_key]
+    _remove_filled_from_book(order1, order2, price)
     logger.info("Trade executed: %s - %s @ %s", trade_id, trade_quantity, price)
     return trade
 
@@ -492,3 +453,18 @@ if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(app, host=os.getenv("BIND_HOST", "127.0.0.1"), port=8012, log_level="info")
+
+
+def _remove_filled_from_book(order1: dict, order2: dict, price: float) -> None:
+    """Drop fully-filled orders from their price level; delete the level
+    when it empties."""
+    book = order_books[order1["symbol"]]
+    price_key = str(price)
+    for order in [order1, order2]:
+        if order["remaining_quantity"] > 0:
+            continue
+        side_key = "bids" if order["side"] == "buy" else "asks"
+        if price_key in book[side_key]:
+            book[side_key][price_key] = [o for o in book[side_key][price_key] if o["order_id"] != order["order_id"]]
+            if not book[side_key][price_key]:
+                del book[side_key][price_key]
