@@ -84,8 +84,15 @@ def test_signature_recovers_the_wallet_address(keystore: PersistentKeystoreServi
     signature = keystore.sign_message("alice", TEST_PASSWORD, message)
 
     assert len(signature) == 65
-    recovered = eth_keys.Signature(signature).recover_public_key_from_msg_hash(keccak(message))
+    # #1858: sign_message is domain-separated — recovery is over
+    # keccak(DOMAIN + message), never the bare tx-scheme digest.
+    from wallet_app.keystore.persistent_service import _MESSAGE_SIGN_DOMAIN
+
+    recovered = eth_keys.Signature(signature).recover_public_key_from_msg_hash(keccak(_MESSAGE_SIGN_DOMAIN + message))
     assert to_checksum_address(recovered.to_checksum_address()) == record.public_key
+    # And it must NOT recover under the bare-message (tx) digest.
+    wrong = eth_keys.Signature(signature).recover_public_key_from_msg_hash(keccak(message))
+    assert to_checksum_address(wrong.to_checksum_address()) != record.public_key
 
 
 def test_sign_with_wrong_password_raises(keystore: PersistentKeystoreService) -> None:
