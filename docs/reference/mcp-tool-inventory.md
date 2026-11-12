@@ -2,7 +2,7 @@
 
 # MCP tool inventory
 
-**812 tools** across 84 modules.
+**812 tools** across 90 modules.
 
 | Kind | Tools |
 |---|---|
@@ -13,6 +13,8 @@
 
 | File | Tools |
 |---|---|
+| mcp-server/aitbc_mcp_chain_tools.py | 24 |
+| mcp-server/aitbc_mcp_cli_pivot_tools.py | 27 |
 | mcp-server/aitbc_mcp_cli_tools.py | 83 |
 | mcp-server/aitbc_mcp_cli_tools_generated_account.py | 2 |
 | mcp-server/aitbc_mcp_cli_tools_generated_agent.py | 20 |
@@ -93,13 +95,68 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | 34 |
 | mcp-server/aitbc_mcp_cli_tools_generated_workflow.py | 4 |
 | mcp-server/aitbc_mcp_cli_tools_generated_zk.py | 3 |
+| mcp-server/aitbc_mcp_control_tools.py | 5 |
+| mcp-server/aitbc_mcp_http_tools.py | 10 |
 | mcp-server/aitbc_mcp_liquidity_tools.py | 6 |
+| mcp-server/aitbc_mcp_mutating_tools.py | 9 |
+| mcp-server/aitbc_mcp_node_tools.py | 8 |
+| mcp-server/aitbc_mcp_ops_tools.py | 6 |
 | mcp-server/aitbc_mcp_rpc_tools.py | 71 |
-| mcp-server/aitbc_mcp_server.py | 89 |
 | mcp-server/aitbc_mcp_zk_tools.py | 5 |
 
 | Tool | File | Kind | Route or command |
 |---|---|---|---|
+| `get_account_balance` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/balance/{address}` |
+| `get_account_state_delta` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/state/delta` |
+| `get_account_state_snapshot` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/state/snapshot` |
+| `get_ai_job_onchain` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/ai/job/{job_id}` |
+| `get_bond` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/bond/{bond_id}` |
+| `get_bridge_transfer` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/bridge/transfer/{transfer_id}` |
+| `get_consensus_status` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/consensus/status` |
+| `get_cross_chain_pools` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/cross-chain/pools` |
+| `get_cross_chain_rates` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/cross-chain/rates` |
+| `get_escrow_state` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/escrow/{job_id}` |
+| `get_genesis_allocations` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/genesis_allocations` |
+| `get_gpu_info` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET gpu:v1/gpu/{gpu_id}` |
+| `get_island` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/islands/{island_id}` |
+| `get_staking_info` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/staking/{address}` |
+| `get_sync_config` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/sync/config` |
+| `list_ai_jobs_onchain` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/ai/jobs` |
+| `list_chains` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/chains` |
+| `list_gpus` | mcp-server/aitbc_mcp_chain_tools.py | cli | `aitbc gpu list-gpus` |
+| `list_islands` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/islands` |
+| `list_pending_bridge_transfers` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/bridge/pending` |
+| `list_provider_bonds` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/bond/provider/{provider}` |
+| `list_validators` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/consensus/validators` |
+| `query_blockchain_transactions` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/transactions` |
+| `reconcile_account_balance` | mcp-server/aitbc_mcp_chain_tools.py | rpc | `GET /rpc/balance/{address}/reconcile` |
+| `get_account` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc account get` |
+| `get_ai_job_results` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc ai results` |
+| `get_ai_job_status` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc ai status` |
+| `get_aitbc_version` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc version` |
+| `get_auth_status` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc auth status` |
+| `get_bond_status` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc bond status` |
+| `get_market_status` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc market status` |
+| `get_node_info` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc node info` |
+| `get_remote_file` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc system file` |
+| `get_service_logs` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc system logs` |
+| `get_service_status` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc system status` |
+| `get_systemd_show` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc system show` |
+| `get_systemd_unit` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc system cat` |
+| `get_transaction_status` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc transactions status` |
+| `get_wallet_balance` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc wallet balance` |
+| `list_accounts` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc account list` |
+| `list_ai_jobs` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc ai jobs` |
+| `list_aitbc_cli_group` | mcp-server/aitbc_mcp_cli_pivot_tools.py | other | `—` |
+| `list_aitbc_node_config` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc node list` |
+| `list_market_offers` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc market list` |
+| `list_pending_transactions` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc transactions pending` |
+| `list_wallet_transactions` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc wallet transactions` |
+| `list_wallets` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc wallet list` |
+| `read_aitbc_cli` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc <dynamic>` |
+| `restart_service` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc system restart` |
+| `run_aitbc_cli` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc <dynamic>` |
+| `search_transactions` | mcp-server/aitbc_mcp_cli_pivot_tools.py | cli | `aitbc transactions search` |
 | `aitbc_ai_distribution_stats` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc ai distribution-stats` |
 | `aitbc_ai_service_list` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc ai service list` |
 | `aitbc_ai_service_service_status` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc ai service service-status` |
@@ -741,12 +798,50 @@
 | `aitbc_zk_circuits` | mcp-server/aitbc_mcp_cli_tools_generated_zk.py | generated | `aitbc zk circuits` |
 | `aitbc_zk_health` | mcp-server/aitbc_mcp_cli_tools_generated_zk.py | generated | `aitbc zk health` |
 | `aitbc_zk_verify` | mcp-server/aitbc_mcp_cli_tools_generated_zk.py | generated | `aitbc zk verify` |
+| `restart_node` | mcp-server/aitbc_mcp_control_tools.py | other | `—` |
+| `run_aitbc_command` | mcp-server/aitbc_mcp_control_tools.py | other | `—` |
+| `run_cron_job` | mcp-server/aitbc_mcp_control_tools.py | cli | `aitbc system run-script` |
+| `start_node` | mcp-server/aitbc_mcp_control_tools.py | other | `—` |
+| `stop_node` | mcp-server/aitbc_mcp_control_tools.py | other | `—` |
+| `call_aitbc_http` | mcp-server/aitbc_mcp_http_tools.py | rpc | `—` |
+| `get_account_info` | mcp-server/aitbc_mcp_http_tools.py | rpc | `GET /rpc/account/{address}` |
+| `get_block_info` | mcp-server/aitbc_mcp_http_tools.py | rpc | `GET /rpc/blocks/{height}` |
+| `get_blockchain_head` | mcp-server/aitbc_mcp_http_tools.py | rpc | `GET /rpc/head` |
+| `get_blockchain_info` | mcp-server/aitbc_mcp_http_tools.py | rpc | `GET /rpc/info` |
+| `get_blockchain_status` | mcp-server/aitbc_mcp_http_tools.py | rpc | `GET /rpc/status` |
+| `get_mempool` | mcp-server/aitbc_mcp_http_tools.py | rpc | `GET /rpc/mempool` |
+| `get_network_info` | mcp-server/aitbc_mcp_http_tools.py | rpc | `GET /rpc/network-info` |
+| `get_transaction_info` | mcp-server/aitbc_mcp_http_tools.py | rpc | `GET /rpc/transaction/{tx_hash}` |
+| `list_blocks` | mcp-server/aitbc_mcp_http_tools.py | rpc | `GET /rpc/blocks-range` |
 | `build_liquidity_claim` | mcp-server/aitbc_mcp_liquidity_tools.py | rpc | `POST /rpc/liquidity/build-claim` |
 | `build_liquidity_deposit` | mcp-server/aitbc_mcp_liquidity_tools.py | rpc | `POST /rpc/liquidity/build-deposit` |
 | `build_liquidity_withdraw` | mcp-server/aitbc_mcp_liquidity_tools.py | rpc | `POST /rpc/liquidity/build-withdraw` |
 | `get_liquidity_pool` | mcp-server/aitbc_mcp_liquidity_tools.py | rpc | `GET /rpc/liquidity/pools/{pool_id}` |
 | `get_liquidity_stakes` | mcp-server/aitbc_mcp_liquidity_tools.py | rpc | `blockchain-rpc:<dynamic>` |
 | `list_liquidity_pools` | mcp-server/aitbc_mcp_liquidity_tools.py | rpc | `GET /rpc/liquidity/pools` |
+| `create_performance_bond` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc bond create` |
+| `get_zk_refund_sweep_candidates` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai refund-sweep` |
+| `manage_ai_job` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai <dynamic>` |
+| `pay_for_ai_job` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai pay` |
+| `run_zk_refund_sweep` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai refund-sweep` |
+| `send_aitbc_transaction` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc transactions send` |
+| `stake_aitbc` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc wallet stake` |
+| `submit_ai_job` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai submit` |
+| `unstake_aitbc` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc wallet unstake` |
+| `get_block` | mcp-server/aitbc_mcp_node_tools.py | cli | `aitbc blockchain block` |
+| `get_chain_height` | mcp-server/aitbc_mcp_node_tools.py | cli | `aitbc blockchain height` |
+| `get_service_health` | mcp-server/aitbc_mcp_node_tools.py | cli | `aitbc system check` |
+| `get_trigger_status` | mcp-server/aitbc_mcp_node_tools.py | cli | `aitbc bridge status` |
+| `list_cron_jobs` | mcp-server/aitbc_mcp_node_tools.py | cli | `aitbc system cron` |
+| `list_nodes` | mcp-server/aitbc_mcp_node_tools.py | other | `—` |
+| `list_rebalance_triggers` | mcp-server/aitbc_mcp_node_tools.py | other | `—` |
+| `node_status` | mcp-server/aitbc_mcp_node_tools.py | cli | `aitbc system check` |
+| `check_aitbc_system_health` | mcp-server/aitbc_mcp_ops_tools.py | cli | `aitbc system check` |
+| `get_aitbc_agent_inbox` | mcp-server/aitbc_mcp_ops_tools.py | cli | `aitbc agent inbox` |
+| `get_aitbc_agent_status` | mcp-server/aitbc_mcp_ops_tools.py | cli | `aitbc agent status` |
+| `get_aitbc_dashboard_customer` | mcp-server/aitbc_mcp_ops_tools.py | cli | `aitbc dashboard customer` |
+| `get_aitbc_dashboard_shop` | mcp-server/aitbc_mcp_ops_tools.py | cli | `aitbc dashboard shop` |
+| `list_aitbc_ipfs_pins` | mcp-server/aitbc_mcp_ops_tools.py | cli | `aitbc ipfs list` |
 | `add_agent_stake` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/agent-staking/stake/{stake_id}/add` |
 | `allocate_gpu` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/gpu/allocate` |
 | `bridge_confirm` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/bridge/confirm` |
@@ -818,95 +913,6 @@
 | `unbond_agent_stake` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/agent-staking/stake/{stake_id}/unbond` |
 | `unstake_tokens` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/staking/unstake` |
 | `verify_bounty` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/bounty/{bounty_id}/verify` |
-| `call_aitbc_http` | mcp-server/aitbc_mcp_server.py | rpc | `—` |
-| `check_aitbc_system_health` | mcp-server/aitbc_mcp_server.py | cli | `aitbc system check` |
-| `create_performance_bond` | mcp-server/aitbc_mcp_server.py | cli | `aitbc bond create` |
-| `get_account` | mcp-server/aitbc_mcp_server.py | cli | `aitbc account get` |
-| `get_account_balance` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/balance/{address}` |
-| `get_account_info` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/account/{address}` |
-| `get_account_state_delta` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/state/delta` |
-| `get_account_state_snapshot` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/state/snapshot` |
-| `get_ai_job_onchain` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/ai/job/{job_id}` |
-| `get_ai_job_results` | mcp-server/aitbc_mcp_server.py | cli | `aitbc ai results` |
-| `get_ai_job_status` | mcp-server/aitbc_mcp_server.py | cli | `aitbc ai status` |
-| `get_aitbc_agent_inbox` | mcp-server/aitbc_mcp_server.py | cli | `aitbc agent inbox` |
-| `get_aitbc_agent_status` | mcp-server/aitbc_mcp_server.py | cli | `aitbc agent status` |
-| `get_aitbc_dashboard_customer` | mcp-server/aitbc_mcp_server.py | cli | `aitbc dashboard customer` |
-| `get_aitbc_dashboard_shop` | mcp-server/aitbc_mcp_server.py | cli | `aitbc dashboard shop` |
-| `get_aitbc_version` | mcp-server/aitbc_mcp_server.py | cli | `aitbc version` |
-| `get_auth_status` | mcp-server/aitbc_mcp_server.py | cli | `aitbc auth status` |
-| `get_block` | mcp-server/aitbc_mcp_server.py | cli | `aitbc blockchain block` |
-| `get_block_info` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/blocks/{height}` |
-| `get_blockchain_head` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/head` |
-| `get_blockchain_info` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/info` |
-| `get_blockchain_status` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/status` |
-| `get_bond` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/bond/{bond_id}` |
-| `get_bond_status` | mcp-server/aitbc_mcp_server.py | cli | `aitbc bond status` |
-| `get_bridge_transfer` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/bridge/transfer/{transfer_id}` |
-| `get_chain_height` | mcp-server/aitbc_mcp_server.py | cli | `aitbc blockchain height` |
-| `get_consensus_status` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/consensus/status` |
-| `get_cross_chain_pools` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/cross-chain/pools` |
-| `get_cross_chain_rates` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/cross-chain/rates` |
-| `get_escrow_state` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/escrow/{job_id}` |
-| `get_genesis_allocations` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/genesis_allocations` |
-| `get_gpu_info` | mcp-server/aitbc_mcp_server.py | rpc | `GET gpu:v1/gpu/{gpu_id}` |
-| `get_island` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/islands/{island_id}` |
-| `get_market_status` | mcp-server/aitbc_mcp_server.py | cli | `aitbc market status` |
-| `get_mempool` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/mempool` |
-| `get_network_info` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/network-info` |
-| `get_node_info` | mcp-server/aitbc_mcp_server.py | cli | `aitbc node info` |
-| `get_remote_file` | mcp-server/aitbc_mcp_server.py | cli | `aitbc system file` |
-| `get_service_health` | mcp-server/aitbc_mcp_server.py | cli | `aitbc system check` |
-| `get_service_logs` | mcp-server/aitbc_mcp_server.py | cli | `aitbc system logs` |
-| `get_service_status` | mcp-server/aitbc_mcp_server.py | cli | `aitbc system status` |
-| `get_staking_info` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/staking/{address}` |
-| `get_sync_config` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/sync/config` |
-| `get_systemd_show` | mcp-server/aitbc_mcp_server.py | cli | `aitbc system show` |
-| `get_systemd_unit` | mcp-server/aitbc_mcp_server.py | cli | `aitbc system cat` |
-| `get_transaction_info` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/transaction/{tx_hash}` |
-| `get_transaction_status` | mcp-server/aitbc_mcp_server.py | cli | `aitbc transactions status` |
-| `get_trigger_status` | mcp-server/aitbc_mcp_server.py | cli | `aitbc bridge status` |
-| `get_wallet_balance` | mcp-server/aitbc_mcp_server.py | cli | `aitbc wallet balance` |
-| `get_zk_refund_sweep_candidates` | mcp-server/aitbc_mcp_server.py | cli | `aitbc ai refund-sweep` |
-| `list_accounts` | mcp-server/aitbc_mcp_server.py | cli | `aitbc account list` |
-| `list_ai_jobs` | mcp-server/aitbc_mcp_server.py | cli | `aitbc ai jobs` |
-| `list_ai_jobs_onchain` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/ai/jobs` |
-| `list_aitbc_cli_group` | mcp-server/aitbc_mcp_server.py | other | `—` |
-| `list_aitbc_ipfs_pins` | mcp-server/aitbc_mcp_server.py | cli | `aitbc ipfs list` |
-| `list_aitbc_node_config` | mcp-server/aitbc_mcp_server.py | cli | `aitbc node list` |
-| `list_blocks` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/blocks-range` |
-| `list_chains` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/chains` |
-| `list_cron_jobs` | mcp-server/aitbc_mcp_server.py | cli | `aitbc system cron` |
-| `list_gpus` | mcp-server/aitbc_mcp_server.py | cli | `aitbc gpu list-gpus` |
-| `list_islands` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/islands` |
-| `list_market_offers` | mcp-server/aitbc_mcp_server.py | cli | `aitbc market list` |
-| `list_nodes` | mcp-server/aitbc_mcp_server.py | other | `—` |
-| `list_pending_bridge_transfers` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/bridge/pending` |
-| `list_pending_transactions` | mcp-server/aitbc_mcp_server.py | cli | `aitbc transactions pending` |
-| `list_provider_bonds` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/bond/provider/{provider}` |
-| `list_rebalance_triggers` | mcp-server/aitbc_mcp_server.py | other | `—` |
-| `list_validators` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/consensus/validators` |
-| `list_wallet_transactions` | mcp-server/aitbc_mcp_server.py | cli | `aitbc wallet transactions` |
-| `list_wallets` | mcp-server/aitbc_mcp_server.py | cli | `aitbc wallet list` |
-| `manage_ai_job` | mcp-server/aitbc_mcp_server.py | cli | `aitbc ai <dynamic>` |
-| `node_status` | mcp-server/aitbc_mcp_server.py | cli | `aitbc system check` |
-| `pay_for_ai_job` | mcp-server/aitbc_mcp_server.py | cli | `aitbc ai pay` |
-| `query_blockchain_transactions` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/transactions` |
-| `read_aitbc_cli` | mcp-server/aitbc_mcp_server.py | cli | `aitbc <dynamic>` |
-| `reconcile_account_balance` | mcp-server/aitbc_mcp_server.py | rpc | `GET /rpc/balance/{address}/reconcile` |
-| `restart_node` | mcp-server/aitbc_mcp_server.py | other | `—` |
-| `restart_service` | mcp-server/aitbc_mcp_server.py | cli | `aitbc system restart` |
-| `run_aitbc_cli` | mcp-server/aitbc_mcp_server.py | cli | `aitbc <dynamic>` |
-| `run_aitbc_command` | mcp-server/aitbc_mcp_server.py | other | `—` |
-| `run_cron_job` | mcp-server/aitbc_mcp_server.py | cli | `aitbc system run-script` |
-| `run_zk_refund_sweep` | mcp-server/aitbc_mcp_server.py | cli | `aitbc ai refund-sweep` |
-| `search_transactions` | mcp-server/aitbc_mcp_server.py | cli | `aitbc transactions search` |
-| `send_aitbc_transaction` | mcp-server/aitbc_mcp_server.py | cli | `aitbc transactions send` |
-| `stake_aitbc` | mcp-server/aitbc_mcp_server.py | cli | `aitbc wallet stake` |
-| `start_node` | mcp-server/aitbc_mcp_server.py | other | `—` |
-| `stop_node` | mcp-server/aitbc_mcp_server.py | other | `—` |
-| `submit_ai_job` | mcp-server/aitbc_mcp_server.py | cli | `aitbc ai submit` |
-| `unstake_aitbc` | mcp-server/aitbc_mcp_server.py | cli | `aitbc wallet unstake` |
 | `generate_zk_proof` | mcp-server/aitbc_mcp_zk_tools.py | rpc | `POST coordinator-api:v1/zk/generate` |
 | `get_zk_health` | mcp-server/aitbc_mcp_zk_tools.py | rpc | `GET coordinator-api:v1/zk/health` |
 | `get_zk_info` | mcp-server/aitbc_mcp_zk_tools.py | rpc | `GET coordinator-api:v1/zk/info` |
