@@ -56,6 +56,35 @@ periodically; treat them as approximate.
   (`systemctl restart <unit>`); rotate issued keys via
   `revoke_api_key` + `generate_api_key`.
 
+## Caller-to-object binding model (#1883)
+
+Service API keys authenticate the *caller tier*, not the *object*. Whether a
+key may act on a given row depends on which tier it belongs to:
+
+| Key | Tier | Binding rule |
+|-----|------|--------------|
+| `MARKET_API_KEY` (`X-Api-Key`, market :8102) | **user-facing** — distributed to `aitbc market` CLI users | Party mutations need a wallet signature naming the job party / buyer / offer provider, **or** `MARKET_OPERATOR_API_KEY` (#1893). |
+| `MARKET_OPERATOR_API_KEY` | operator/service | Full operator tier: dispute resolution, sweeper flows, unsigned party routes. Must differ from `MARKET_API_KEY`; unset ⇒ operator tier closed. |
+| `TRADING_API_KEY` (`X-Trading-Api-Key`, trading :8104) | **service-to-service** — node-local `/etc/aitbc/aitbc-trading.env`, no user distribution path | No per-object principal exists at this tier by design: trades are created by services, `settle` is bound by the HTLC secret in the request body, and `lock-escrow`/`cancel`/`match` act on service-created rows whose sender/recipient come from the stored trade, never the request. |
+| `EXCHANGE_API_KEY` (`X-Api-Key`, exchange) | **service/internal** — order placement is bound per-object | `EXCHANGE_REQUIRE_SIGNED_ORDERS` (default on) requires a registered node's secp256k1 signature over the order envelope; the legacy unsigned `user_address` path exists only as an explicit revert flag. |
+
+### Documented residuals
+
+- **Market creation routes** (`POST /v1/market/jobs`, `/v1/market/offers`)
+  still accept self-asserted `buyer_address`/`provider_address` under the
+  user key. Bounded: payment rows are always created `status="pending"`
+  (caller-set escrow state was removed in #815), and every money-moving
+  follow-up (cancel/dispute/release/refund/book/offer-cancel) now requires
+  the named party's signature or the operator key, so a fabricated row
+  cannot move funds. Binding creation to a signature is a follow-up if
+  job/offer spam becomes a problem.
+- **Exchange address-keyed reads** (`/api/exchange/my-orders?addr=`,
+  `/api/wallet/connect`) are tracked under #1895 — authentication of the
+  read surface, not object binding.
+- **Trading cancel/match** on inter-chain trades remain service-key only;
+  there is no user principal at this tier. If trading ever exposes
+  user-facing routes, this row's decision must be revisited.
+
 ## See also
 
 - [Security overview](SECURITY.md) — the consolidated page that replaced the generic checklists
