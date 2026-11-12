@@ -788,8 +788,9 @@ class TestWsAuthToken:
         with (
             patch.object(agent, "load_signing_wallet", return_value=(ACCOUNT.address, PRIVATE_KEY)),
             patch.object(agent, "check_registry_binding", return_value="not bound"),
+            patch.object(agent, "auth_client_kwargs", return_value={}),
         ):
-            assert agent._ws_auth_token(MagicMock(), "http://x", "agent-1", "w1", None, "api-key") == "api-key"
+            assert agent._ws_auth_token(MagicMock(obj={}), "http://x", "agent-1", "w1", None, "api-key") == "api-key"
 
     def test_falls_back_when_login_endpoint_missing(self):
         from aitbc_cli.commands import agent
@@ -798,8 +799,9 @@ class TestWsAuthToken:
             patch.object(agent, "load_signing_wallet", return_value=(ACCOUNT.address, PRIVATE_KEY)),
             patch.object(agent, "check_registry_binding", return_value=None),
             patch.object(agent, "agent_login_token", return_value=None),
+            patch.object(agent, "auth_client_kwargs", return_value={}),
         ):
-            assert agent._ws_auth_token(MagicMock(), "http://x", "agent-1", "w1", None, "api-key") == "api-key"
+            assert agent._ws_auth_token(MagicMock(obj={}), "http://x", "agent-1", "w1", None, "api-key") == "api-key"
 
     def test_returns_agent_jwt_when_wallet_bound(self):
         from aitbc_cli.commands import agent
@@ -808,8 +810,9 @@ class TestWsAuthToken:
             patch.object(agent, "load_signing_wallet", return_value=(ACCOUNT.address, PRIVATE_KEY)),
             patch.object(agent, "check_registry_binding", return_value=None),
             patch.object(agent, "agent_login_token", return_value="agent.jwt"),
+            patch.object(agent, "auth_client_kwargs", return_value={}),
         ):
-            assert agent._ws_auth_token(MagicMock(), "http://x", "agent-1", "w1", None, "api-key") == "agent.jwt"
+            assert agent._ws_auth_token(MagicMock(obj={}), "http://x", "agent-1", "w1", None, "api-key") == "agent.jwt"
 
     # --- CLI-AGENT-WS-TOKEN-FALLBACK-1 (#1209): no shared-key fallback -------
 
@@ -861,3 +864,45 @@ class TestWsAuthToken:
         result = runner.invoke(messaging, ["ping", "--help"])
         assert result.exit_code == 0
         assert "--wallet" in result.output
+
+
+class TestCoordinatorCredentialPropagation:
+    """#1880 respin: read surfaces are auth-gated — CLI clients must attach
+    the resolved credential (explicit --api-key > stored JWT > config key)
+    instead of probing anonymously."""
+
+    def test_check_agent_coordinator_sends_credentials(self):
+        from aitbc_cli.commands import agent_sdk
+
+        ctx = MagicMock()
+        ctx.obj = {"api_key": "explicit-key"}
+        with (
+            patch.object(agent_sdk, "resolve_coordinator_url", return_value="http://c"),
+            patch.object(agent_sdk, "get_config", return_value=MagicMock(api_key="cfg-key")),
+            patch.object(agent_sdk, "auth_client_kwargs", return_value={"api_key": "explicit-key"}) as m,
+            patch.object(agent_sdk, "AITBCHTTPClient") as client_cls,
+        ):
+            client_cls.return_value.get.return_value = {}
+            assert agent_sdk._check_agent_coordinator(None, ctx) is True
+        m.assert_called_once_with("explicit-key", "cfg-key")
+        assert client_cls.call_args.kwargs["api_key"] == "explicit-key"
+
+    def test_agent_discover_sends_credentials(self, runner):
+        from aitbc_cli.commands import agent_sdk
+
+        with (
+            patch.object(agent_sdk, "resolve_coordinator_url", return_value="http://c"),
+            patch.object(agent_sdk, "_check_agent_coordinator", return_value=True),
+            patch.object(agent_sdk, "get_config", return_value=MagicMock(api_key="cfg-key")),
+            patch.object(agent_sdk, "auth_client_kwargs", return_value={"api_key": "explicit-key"}) as m,
+            patch.object(agent_sdk, "AITBCHTTPClient") as client_cls,
+        ):
+            client_cls.return_value.post.return_value = {"agents": [], "count": 0}
+            result = runner.invoke(
+                agent_sdk.agent,
+                ["discover", "agents"],
+                obj={"api_key": "explicit-key", "output_format": "json"},
+            )
+        assert result.exit_code == 0, result.output
+        m.assert_called()
+        assert client_cls.call_args.kwargs.get("api_key") == "explicit-key"

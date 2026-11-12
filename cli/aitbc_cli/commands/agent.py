@@ -23,7 +23,7 @@ from ..utils.agent_signing import (
     sign_send_envelope,
     signed_request_headers,
 )
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger
 from ..utils.wallet_paths import find_wallet_file, wallet_search_dirs
 from ..utils.wallet_secret import wallet_password_options
 
@@ -112,7 +112,11 @@ def _ws_auth_token(
         signing = None
     if signing is not None:
         address, private_key = signing
-        client = AITBCHTTPClient(base_url=base_url, timeout=10)
+        client = AITBCHTTPClient(
+            base_url=base_url,
+            timeout=10,
+            **auth_client_kwargs(ctx.obj.get("api_key") if ctx and ctx.obj else None, get_config().api_key),
+        )
         binding_error = check_registry_binding(client, sender, address)
         if not binding_error:
             token = agent_login_token(client, sender, address, private_key)
@@ -271,7 +275,11 @@ def send(
     )
 
     try:
-        http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
+        http_client = AITBCHTTPClient(
+            base_url=base_url,
+            timeout=10,
+            **auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, get_config().api_key),
+        )
     except Exception as e:
         abort(None, f"Error creating coordinator client: {e}")
         return
@@ -374,7 +382,11 @@ def receive(
     base_url = (coordinator_url or config.agent_coordinator_url or "http://localhost:8107").rstrip("/")
 
     try:
-        http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
+        http_client = AITBCHTTPClient(
+            base_url=base_url,
+            timeout=10,
+            **auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, config.api_key),
+        )
         params: dict[str, Any] = {"agent_id": agent_id, "limit": limit}
         if unread_only:
             params["unread_only"] = "true"
@@ -404,7 +416,11 @@ def peers(ctx, coordinator_url: str | None):
     base_url = (coordinator_url or config.agent_coordinator_url or "http://localhost:8107").rstrip("/")
 
     try:
-        http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
+        http_client = AITBCHTTPClient(
+            base_url=base_url,
+            timeout=10,
+            **auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, config.api_key),
+        )
         peers_data = http_client.get("/api/v1/agent/messages/discover")
         success("Agent Coordinator Peers:")
         output(peers_data, ctx.obj.get("output_format", "table"))
