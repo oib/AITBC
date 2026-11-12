@@ -17,6 +17,8 @@ from aitbc.compliance.policies import (
     normalize_classification,
 )
 from aitbc.exceptions import AITBCError
+from eth_keys.exceptions import BadSignature
+from eth_utils.exceptions import ValidationError as EthValidationError
 
 from ..config import get_config
 from ..utils import output, resolve_output_format, success, warning
@@ -41,9 +43,9 @@ logger = get_logger(__name__)
 
 # Expected failure surface for the AI job helpers/handlers: filesystem/JSON,
 # data-shape, runtime and both error hierarchies (CLIError, aitbc_errors).
-# RuntimeError also covers click.Abort raised by abort() inside a try — the
-# handler re-aborts with context, matching the previous except-Exception
-# behaviour. BaseExceptions still propagate (#1864).
+# RuntimeError covers generic runtime failures; abort() raises CLIError
+# (already listed), preserving the previous re-abort behaviour.
+# BaseExceptions still propagate (#1864).
 _OPS_ERRORS = (
     OSError,
     ValueError,
@@ -53,6 +55,8 @@ _OPS_ERRORS = (
     RuntimeError,
     CLIError,
     AITBCError,
+    BadSignature,
+    EthValidationError,
 )
 
 _TERMINAL_STATES = {"COMPLETED", "FAILED", "CANCELED", "EXPIRED"}

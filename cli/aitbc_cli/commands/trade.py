@@ -16,6 +16,7 @@ These commands talk to the trading service REST API (port 8104).
 """
 
 import click
+import httpx
 
 from aitbc.exceptions import AITBCError
 
@@ -27,9 +28,9 @@ logger = get_logger(__name__)
 
 # Expected failure surface for the trading-service command handlers:
 # filesystem/JSON, data-shape, runtime and both error hierarchies.
-# RuntimeError also covers click.Abort raised by abort() inside a try — the
-# handler re-aborts with context, matching the previous except-Exception
-# behaviour. BaseExceptions still propagate (#1864).
+# RuntimeError covers generic runtime failures; abort() raises CLIError
+# (already listed), preserving the previous re-abort behaviour.
+# BaseExceptions still propagate (#1864).
 _OPS_ERRORS = (
     OSError,
     ValueError,
@@ -39,6 +40,7 @@ _OPS_ERRORS = (
     RuntimeError,
     CLIError,
     AITBCError,
+    httpx.HTTPError,
 )
 
 TRADING_SERVICE_URL = "http://localhost:8104"
