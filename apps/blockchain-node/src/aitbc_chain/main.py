@@ -160,6 +160,26 @@ def _keystore_file_key_bytes(kf: Path, password: str, target_address: str | None
         return None
 
 
+def _gossip_tx_envelope(tx_data: Any) -> Any:
+    """Unwrap P2P-style transaction envelopes and drop control messages.
+
+    Returns the payload dict, or None for non-dict payloads and ping/pong
+    control messages that generic websocket gossip clients may deliver to
+    the transaction topic."""
+    if isinstance(tx_data, str):
+        import json
+
+        tx_data = json.loads(tx_data)
+    if not isinstance(tx_data, dict):
+        return None
+    msg_type = tx_data.get("type")
+    if msg_type == "new_transaction":
+        tx_data = tx_data.get("tx") or {}
+    elif msg_type in ("ping", "pong"):
+        return None
+    return tx_data
+
+
 if not settings.proposer_key:
     try:
         pwd = _load_keystore_password()
@@ -319,6 +339,38 @@ class BlockchainNode:
         chains = self._supported_chains()
         # v0.6.2: Subscribe to chain-specific transaction topics for v0.6.3 readiness.
         # Also subscribe to legacy "transactions" topic for backward compatibility.
+        tx_subs = await self._subscribe_tx_topics(chains)
+        if tx_subs is None:
+            return
+
+        async def process_txs() -> None:
+            from .mempool import get_mempool as get_mempool_instance
+
+            mempool = get_mempool_instance()
+            while True:
+                try:
+                    # Round-robin across all transaction subscriptions
+                    for tx_sub in tx_subs:
+                        try:
+                            tx_data = await asyncio.wait_for(tx_sub.queue.get(), timeout=0.01)
+                        except TimeoutError:
+                            continue
+                        await self._gossip_tx_message(tx_sub, tx_data, mempool)
+                except Exception as exc:
+                    logger.error("Error processing transaction from gossip: %s", exc)
+
+        self._task_registry.create_task(process_txs, name="gossip_process_txs")
+        # Block subscriptions are now owned by SyncManager.
+
+        await self._subscribe_pbft_topics(chains)
+
+        logger.info("Gossip subscribers setup completed")
+
+    async def _subscribe_tx_topics(self, chains: list[str]) -> list[Any] | None:
+        """Subscribe to the legacy + per-chain transaction topics.
+
+        Returns the subscription list, or None when no topic could be
+        subscribed (caller aborts setup)."""
         tx_subs: list[Any] = []
         try:
             # Legacy global topic (backward compat with v0.6.1 peers)
@@ -337,98 +389,13 @@ class BlockchainNode:
                     logger.warning("Failed to subscribe to %s: %s", chain_topic, e)
             if not tx_subs:
                 logger.error("Failed to subscribe to any transaction topic")
-                return
+                return None
         except Exception as e:
             logger.error("Failed to subscribe to transactions: %s", e)
-            return
+            return None
+        return tx_subs
 
-        async def process_txs() -> None:
-            from .metrics import gossip_tx_rejected_total
-            from .rpc.transactions import _validate_transaction_admission
-            from .rpc.utils import gossip_transaction_drop_reason, normalize_transaction_data
-
-            from .mempool import get_mempool as get_mempool_instance
-
-            mempool = get_mempool_instance()
-            while True:
-                try:
-                    # Round-robin across all transaction subscriptions
-                    for tx_sub in tx_subs:
-                        try:
-                            tx_data = await asyncio.wait_for(tx_sub.queue.get(), timeout=0.01)
-                        except TimeoutError:
-                            continue
-                        if isinstance(tx_data, str):
-                            import json
-
-                            tx_data = json.loads(tx_data)
-                        if not isinstance(tx_data, dict):
-                            continue
-                        # Unwrap P2P-style transaction envelopes and drop control
-                        # messages (ping/pong) that may be delivered to the
-                        # transaction topic by generic websocket gossip clients.
-                        msg_type = tx_data.get("type")
-                        if msg_type == "new_transaction":
-                            tx_data = tx_data.get("tx") or {}
-                        elif msg_type in ("ping", "pong"):
-                            continue
-                        if not isinstance(tx_data, dict) or not tx_data.get("from"):
-                            logger.debug(
-                                "Ignoring non-transaction gossip message on %s: %s",
-                                getattr(tx_sub, "topic", "unknown"),
-                                tx_data,
-                            )
-                            continue
-                        # The transactions topics are public-publish: enforce
-                        # the REST signature policy here rather than trusting
-                        # the transport, or an unsigned tx naming any funded
-                        # sender would be mineable (the consensus check only
-                        # fires when a signature is present).
-                        drop_reason = gossip_transaction_drop_reason(tx_data)
-                        if drop_reason is not None:
-                            gossip_tx_rejected_total.labels(reason=drop_reason).inc()
-                            logger.warning(
-                                "Dropped gossip transaction on %s: %s (sender=%s)",
-                                getattr(tx_sub, "topic", "unknown"),
-                                drop_reason,
-                                tx_data.get("from"),
-                            )
-                            continue
-                        chain_id = tx_data.get("chain_id", settings.chain_id)
-                        try:
-                            tx_data = normalize_transaction_data(tx_data, chain_id)
-                        except ValueError as exc:
-                            gossip_tx_rejected_total.labels(reason="malformed").inc()
-                            logger.debug(
-                                "Dropped malformed gossip transaction on %s: %s",
-                                getattr(tx_sub, "topic", "unknown"),
-                                exc,
-                            )
-                            continue
-                        # Public intake enforces the same account-level rules as
-                        # REST submission: supported chain, known sender,
-                        # balance covering every signed pending tx, and a nonce
-                        # within the lookahead window. Without this, a throwaway
-                        # key could fill the pool with signed junk carrying an
-                        # arbitrary fee and evict genuine transactions.
-                        try:
-                            _validate_transaction_admission(tx_data, mempool)
-                            mempool.add(tx_data, chain_id=chain_id)
-                        except ValueError as exc:
-                            gossip_tx_rejected_total.labels(reason="admission").inc()
-                            logger.debug(
-                                "Dropped gossip transaction on %s: %s (sender=%s)",
-                                getattr(tx_sub, "topic", "unknown"),
-                                exc,
-                                tx_data.get("from"),
-                            )
-                            continue
-                except Exception as exc:
-                    logger.error("Error processing transaction from gossip: %s", exc)
-
-        self._task_registry.create_task(process_txs, name="gossip_process_txs")
-        # Block subscriptions are now owned by SyncManager.
-
+    async def _subscribe_pbft_topics(self, chains: list[str]) -> None:
         # v0.7.7: Subscribe to PBFT gossip topics for each chain that has PBFT enabled.
         for chain_id in chains:
             proposer = self._proposers.get(chain_id)
@@ -463,12 +430,107 @@ class BlockchainNode:
                     except Exception as e:
                         logger.error("Failed to subscribe to %s: %s", pbft_topic, e)
 
-        logger.info("Gossip subscribers setup completed")
+    async def _gossip_tx_message(self, tx_sub: Any, tx_data: Any, mempool) -> None:
+        """Validate and admit one gossip-delivered transaction payload."""
+        from .metrics import gossip_tx_rejected_total
+        from .rpc.transactions import _validate_transaction_admission
+        from .rpc.utils import gossip_transaction_drop_reason, normalize_transaction_data
+
+        tx_data = _gossip_tx_envelope(tx_data)
+        if tx_data is None:
+            return
+        if not isinstance(tx_data, dict) or not tx_data.get("from"):
+            logger.debug(
+                "Ignoring non-transaction gossip message on %s: %s",
+                getattr(tx_sub, "topic", "unknown"),
+                tx_data,
+            )
+            return
+        # The transactions topics are public-publish: enforce
+        # the REST signature policy here rather than trusting
+        # the transport, or an unsigned tx naming any funded
+        # sender would be mineable (the consensus check only
+        # fires when a signature is present).
+        drop_reason = gossip_transaction_drop_reason(tx_data)
+        if drop_reason is not None:
+            gossip_tx_rejected_total.labels(reason=drop_reason).inc()
+            logger.warning(
+                "Dropped gossip transaction on %s: %s (sender=%s)",
+                getattr(tx_sub, "topic", "unknown"),
+                drop_reason,
+                tx_data.get("from"),
+            )
+            return
+        chain_id = tx_data.get("chain_id", settings.chain_id)
+        try:
+            tx_data = normalize_transaction_data(tx_data, chain_id)
+        except ValueError as exc:
+            gossip_tx_rejected_total.labels(reason="malformed").inc()
+            logger.debug(
+                "Dropped malformed gossip transaction on %s: %s",
+                getattr(tx_sub, "topic", "unknown"),
+                exc,
+            )
+            return
+        # Public intake enforces the same account-level rules as
+        # REST submission: supported chain, known sender,
+        # balance covering every signed pending tx, and a nonce
+        # within the lookahead window. Without this, a throwaway
+        # key could fill the pool with signed junk carrying an
+        # arbitrary fee and evict genuine transactions.
+        try:
+            _validate_transaction_admission(tx_data, mempool)
+            mempool.add(tx_data, chain_id=chain_id)
+        except ValueError as exc:
+            gossip_tx_rejected_total.labels(reason="admission").inc()
+            logger.debug(
+                "Dropped gossip transaction on %s: %s (sender=%s)",
+                getattr(tx_sub, "topic", "unknown"),
+                exc,
+                tx_data.get("from"),
+            )
 
     async def start(self) -> None:
         logger.info(
             "Starting blockchain node", extra={"supported_chains": getattr(settings, "supported_chains", settings.chain_id)}
         )
+        await self._start_gossip_backend()
+        chains = self._supported_chains()
+        if not chains:
+            from .chain_id import ChainIdNotConfigured
+
+            raise ChainIdNotConfigured(
+                "no chain configured: set CHAIN_ID or SUPPORTED_CHAINS in the node's env files; "
+                "refusing to start with no chain rather than a hard-coded fallback"
+            )
+        logger.info("Initializing databases for chains: %s", chains)
+        for chain_id in chains:
+            init_db(chain_id)
+            logger.info("Initialized database for chain: %s", chain_id)
+
+        if getattr(settings, "db_integrity_check_enabled", True):
+            self._task_registry.create_task(functools.partial(self._db_integrity_sweep, chains), name="db_integrity_sweep")
+
+        await self._start_sync_manager(chains)
+
+        init_mempool(
+            backend=settings.mempool_backend,
+            db_url=settings.mempool_db_url,
+            max_size=settings.mempool_max_size,
+            min_fee=settings.min_fee,
+        )
+        await self._start_island_manager()
+        self._wire_p2p_peer_capability()
+        await self._start_multi_chain_manager()
+        await self._start_chain_role()
+        await self._start_settlement_monitors()
+        await self._setup_gossip_subscribers()
+        try:
+            await self._stop_event.wait()
+        finally:
+            await self._shutdown()
+
+    async def _start_gossip_backend(self) -> None:
         register_exporters(["prometheus"])
         backend = create_backend(
             settings.gossip_backend,
@@ -496,112 +558,95 @@ class BlockchainNode:
             self._readiness_heartbeat.register_probe("gossip", gossip_broker.health)
             await self._readiness_heartbeat.start()
             logger.info("Node readiness heartbeat writing to %s", settings.node_engine_ready_file)
-        chains = self._supported_chains()
-        if not chains:
-            from .chain_id import ChainIdNotConfigured
 
-            raise ChainIdNotConfigured(
-                "no chain configured: set CHAIN_ID or SUPPORTED_CHAINS in the node's env files; "
-                "refusing to start with no chain rather than a hard-coded fallback"
-            )
-        logger.info("Initializing databases for chains: %s", chains)
-        for chain_id in chains:
-            init_db(chain_id)
-            logger.info("Initialized database for chain: %s", chain_id)
-
-        if getattr(settings, "db_integrity_check_enabled", True):
-            self._task_registry.create_task(functools.partial(self._db_integrity_sweep, chains), name="db_integrity_sweep")
-
-        if settings.sync_manager_enabled:
-            use_gossip = settings.sync_manager_use_gossip
-            use_subscription = settings.sync_manager_use_subscription
-            if settings.blockchain_mode == "hub" and not settings.multi_validator_consensus_enabled:
-                use_gossip = False
-                use_subscription = False
-            # Followers without a configured proposer cannot authenticate on
-            # validator-only gossip topics, so avoid the noisy auth failures.
-            if not settings.proposer_id or not settings.proposer_key:
-                use_gossip = False
-            self._sync_manager = SyncManager(
-                chains=chains,
-                node_id=os.getenv("NODE_ID", settings.p2p_node_id or "unknown-node"),
-                proposer_id=settings.proposer_id,
-                production_chains=self._block_production_chains(),
-                use_gossip=use_gossip,
-                use_subscription=use_subscription and settings.subscription_enabled,
-                own_gossip=False,
-                skip_init_db=True,
-            )
-            await self._sync_manager.start()
-
-            if settings.sync_manager_http_enabled:
-                self._sync_http_server = SyncManagerStatusServer(
-                    self._sync_manager,
-                    host=settings.sync_manager_http_host,
-                    port=settings.sync_manager_http_port,
-                )
-                self._sync_http_task = asyncio.create_task(
-                    self._sync_http_server.start(),
-                    name="sync_manager_http_server",
-                )
-                logger.info(
-                    "SyncManager HTTP status server listening on %s:%s",
-                    settings.sync_manager_http_host,
-                    settings.sync_manager_http_port,
-                )
-        else:
+    async def _start_sync_manager(self, chains: list[str]) -> None:
+        if not settings.sync_manager_enabled:
             logger.info("SyncManager disabled by sync_manager_enabled=false")
-
-        init_mempool(
-            backend=settings.mempool_backend,
-            db_url=settings.mempool_db_url,
-            max_size=settings.mempool_max_size,
-            min_fee=settings.min_fee,
+            return
+        use_gossip = settings.sync_manager_use_gossip
+        use_subscription = settings.sync_manager_use_subscription
+        if settings.blockchain_mode == "hub" and not settings.multi_validator_consensus_enabled:
+            use_gossip = False
+            use_subscription = False
+        # Followers without a configured proposer cannot authenticate on
+        # validator-only gossip topics, so avoid the noisy auth failures.
+        if not settings.proposer_id or not settings.proposer_key:
+            use_gossip = False
+        self._sync_manager = SyncManager(
+            chains=chains,
+            node_id=os.getenv("NODE_ID", settings.p2p_node_id or "unknown-node"),
+            proposer_id=settings.proposer_id,
+            production_chains=self._block_production_chains(),
+            use_gossip=use_gossip,
+            use_subscription=use_subscription and settings.subscription_enabled,
+            own_gossip=False,
+            skip_init_db=True,
         )
-        if _island_manager_available and create_island_manager is not None:
-            try:
-                node_id = os.getenv("NODE_ID", "unknown-node")
-                default_island_id = os.getenv("DEFAULT_ISLAND_ID", f"{self._supported_chains()[0]}-island")
-                default_chain_id = self._supported_chains()[0]
-                logger.info(
-                    "Creating island manager with node_id=%s, default_island=%s, default_chain=%s",
-                    node_id,
-                    default_island_id,
-                    default_chain_id,
-                )
-                island_mgr = create_island_manager(node_id, default_island_id, default_chain_id)
-                logger.info("Island manager created successfully")
+        await self._sync_manager.start()
 
-                # Auto-join islands from bridge_islands config
-                if settings.bridge_islands:
-                    registry = IslandRegistry(settings.island_registry)
-                    bridge_island_ids = [i.strip() for i in settings.bridge_islands.split(",") if i.strip()]
-                    for island_id in bridge_island_ids:
-                        entry = registry.get_entry(island_id)
-                        if entry:
-                            island_mgr.join_island(
-                                island_id=entry.island_id,
-                                island_name=entry.island_name,
-                                chain_id=entry.chain_id,
-                                is_hub=False,
-                            )
-                            logger.info("Auto-joined island %s (chain: %s)", entry.island_id, entry.chain_id)
-                        else:
-                            logger.warning("Island %s in bridge_islands but not in island_registry", island_id)
+        if settings.sync_manager_http_enabled:
+            self._sync_http_server = SyncManagerStatusServer(
+                self._sync_manager,
+                host=settings.sync_manager_http_host,
+                port=settings.sync_manager_http_port,
+            )
+            self._sync_http_task = asyncio.create_task(
+                self._sync_http_server.start(),
+                name="sync_manager_http_server",
+            )
+            logger.info(
+                "SyncManager HTTP status server listening on %s:%s",
+                settings.sync_manager_http_host,
+                settings.sync_manager_http_port,
+            )
 
-                # Start background tasks if enabled
-                if settings.island_tasks_enabled:
-                    self._task_registry.create_task(island_mgr.start, name="island_manager_tasks")
-                    logger.info("Island manager background tasks started")
-                else:
-                    logger.info(
-                        "Island manager initialized (background tasks disabled)",
-                        extra={"node_id": node_id, "default_island": default_island_id},
-                    )
-            except Exception as e:
-                logger.error("Failed to initialize island manager: %s", e)
-        else:
+    async def _start_island_manager(self) -> None:
+        if not (_island_manager_available and create_island_manager is not None):
             logger.warning("Island manager not available - island operations will be disabled")
+            return
+        try:
+            node_id = os.getenv("NODE_ID", "unknown-node")
+            default_island_id = os.getenv("DEFAULT_ISLAND_ID", f"{self._supported_chains()[0]}-island")
+            default_chain_id = self._supported_chains()[0]
+            logger.info(
+                "Creating island manager with node_id=%s, default_island=%s, default_chain=%s",
+                node_id,
+                default_island_id,
+                default_chain_id,
+            )
+            island_mgr = create_island_manager(node_id, default_island_id, default_chain_id)
+            logger.info("Island manager created successfully")
+
+            # Auto-join islands from bridge_islands config
+            if settings.bridge_islands:
+                registry = IslandRegistry(settings.island_registry)
+                bridge_island_ids = [i.strip() for i in settings.bridge_islands.split(",") if i.strip()]
+                for island_id in bridge_island_ids:
+                    entry = registry.get_entry(island_id)
+                    if entry:
+                        island_mgr.join_island(
+                            island_id=entry.island_id,
+                            island_name=entry.island_name,
+                            chain_id=entry.chain_id,
+                            is_hub=False,
+                        )
+                        logger.info("Auto-joined island %s (chain: %s)", entry.island_id, entry.chain_id)
+                    else:
+                        logger.warning("Island %s in bridge_islands but not in island_registry", island_id)
+
+            # Start background tasks if enabled
+            if settings.island_tasks_enabled:
+                self._task_registry.create_task(island_mgr.start, name="island_manager_tasks")
+                logger.info("Island manager background tasks started")
+            else:
+                logger.info(
+                    "Island manager initialized (background tasks disabled)",
+                    extra={"node_id": node_id, "default_island": default_island_id},
+                )
+        except Exception as e:
+            logger.error("Failed to initialize island manager: %s", e)
+
+    def _wire_p2p_peer_capability(self) -> None:
         # v0.6.2: Wire P2P peer capability callback to sync peer tracker.
         # When the P2P service runs in-process, discovered peers are registered
         # with the ChainSync PeerCapabilityTracker, enabling parallel sync.
@@ -630,25 +675,30 @@ class BlockchainNode:
                     logger.warning("Failed to wire P2P peer capability callback: %s", e)
             else:
                 logger.debug("P2P service not available in-process — peer capability callback not wired")
+
+    async def _start_multi_chain_manager(self) -> None:
         # Multi-chain manager: start secondary chains from island_chains config (v0.6.4)
-        if _multi_chain_manager_available and create_multi_chain_manager is not None and base_ports_from_env is not None:
-            try:
-                default_chain_id = self._supported_chains()[0]
-                base_db_path = Path(settings.get_db_path(default_chain_id))
-                base_rpc_port, base_p2p_port = base_ports_from_env()
-                self._multi_chain_manager = create_multi_chain_manager(
-                    default_chain_id=default_chain_id,
-                    base_db_path=base_db_path,
-                    base_rpc_port=base_rpc_port,
-                    base_p2p_port=base_p2p_port,
-                )
-                # Start secondary chains (default chain is managed by main proposer logic)
-                await self._multi_chain_manager.start_secondary_chains()
-                # Start health check background task
-                self._task_registry.create_task(self._multi_chain_manager.start, name="multi_chain_manager")
-                logger.info("Multi-chain manager initialized and secondary chains started")
-            except Exception as e:
-                logger.error("Failed to initialize multi-chain manager: %s", e)
+        if not (_multi_chain_manager_available and create_multi_chain_manager is not None and base_ports_from_env is not None):
+            return
+        try:
+            default_chain_id = self._supported_chains()[0]
+            base_db_path = Path(settings.get_db_path(default_chain_id))
+            base_rpc_port, base_p2p_port = base_ports_from_env()
+            self._multi_chain_manager = create_multi_chain_manager(
+                default_chain_id=default_chain_id,
+                base_db_path=base_db_path,
+                base_rpc_port=base_rpc_port,
+                base_p2p_port=base_p2p_port,
+            )
+            # Start secondary chains (default chain is managed by main proposer logic)
+            await self._multi_chain_manager.start_secondary_chains()
+            # Start health check background task
+            self._task_registry.create_task(self._multi_chain_manager.start, name="multi_chain_manager")
+            logger.info("Multi-chain manager initialized and secondary chains started")
+        except Exception as e:
+            logger.error("Failed to initialize multi-chain manager: %s", e)
+
+    async def _start_chain_role(self) -> None:
         if is_block_producer(settings):
             logger.info(
                 "Running as block producer (blockchain_mode=%s, multi_validator=%s)",
@@ -665,21 +715,19 @@ class BlockchainNode:
             await self._bootstrap_genesis_for_follower()
         else:
             logger.warning("Unknown blockchain_mode: %s, defaulting to follower behavior", settings.blockchain_mode)
+
+    async def _start_settlement_monitors(self) -> None:
         # Settlement timeout monitor: refunds escrows stuck in non-terminal
         # states (incl. any that timed out while the node was down).
-        if settings.escrow_enabled:
-            from .cross_chain.settlement_coordinator import AtomicSettlementCoordinator
+        if not settings.escrow_enabled:
+            return
+        from .cross_chain.settlement_coordinator import AtomicSettlementCoordinator
 
-            for chain_id in self._supported_chains():
-                coordinator = AtomicSettlementCoordinator(chain_id=chain_id)
-                await coordinator.start_monitor()
-                self._settlement_coordinators.append(coordinator)
-            logger.info("Settlement timeout monitors started for %d chains", len(self._settlement_coordinators))
-        await self._setup_gossip_subscribers()
-        try:
-            await self._stop_event.wait()
-        finally:
-            await self._shutdown()
+        for chain_id in self._supported_chains():
+            coordinator = AtomicSettlementCoordinator(chain_id=chain_id)
+            await coordinator.start_monitor()
+            self._settlement_coordinators.append(coordinator)
+        logger.info("Settlement timeout monitors started for %d chains", len(self._settlement_coordinators))
 
     def request_stop(self) -> None:
         """Signal the run loop to exit through the normal shutdown path.
@@ -757,34 +805,10 @@ class BlockchainNode:
 
     async def _shutdown(self) -> None:
         logger.info("Shutting down blockchain node, cancelling background tasks...")
-        if self._sync_http_server is not None:
-            try:
-                await self._sync_http_server.stop()
-            except Exception as e:
-                logger.error("Error stopping sync manager HTTP server: %s", e)
-        if self._sync_http_task is not None:
-            try:
-                await self._sync_http_task
-            except Exception as e:
-                logger.error("Error waiting for sync manager HTTP task: %s", e)
-        if self._sync_manager is not None:
-            try:
-                await self._sync_manager.stop()
-            except Exception as e:
-                logger.error("Error stopping sync manager: %s", e)
-        # Stop multi-chain manager (stops all secondary chains gracefully)
-        if self._multi_chain_manager is not None:
-            try:
-                await self._multi_chain_manager.stop()
-            except Exception as e:
-                logger.error("Error stopping multi-chain manager: %s", e)
+        await self._stop_sync_http()
+        await self._stop_managers()
         await self._task_registry.cancel_all(timeout=10.0)
-        for coordinator in self._settlement_coordinators:
-            try:
-                await coordinator.stop_monitor()
-            except Exception as e:
-                logger.error("Error stopping settlement monitor: %s", e)
-        self._settlement_coordinators.clear()
+        await self._stop_settlement_monitors()
         for _chain_id, proposer in list(self._proposers.items()):
             await proposer.stop()
         self._proposers.clear()
@@ -802,6 +826,39 @@ class BlockchainNode:
                 shutdown_db(chain_id)
             except Exception as e:
                 logger.error("Error shutting down db for chain %s: %s", chain_id, e)
+
+    async def _stop_sync_http(self) -> None:
+        if self._sync_http_server is not None:
+            try:
+                await self._sync_http_server.stop()
+            except Exception as e:
+                logger.error("Error stopping sync manager HTTP server: %s", e)
+        if self._sync_http_task is not None:
+            try:
+                await self._sync_http_task
+            except Exception as e:
+                logger.error("Error waiting for sync manager HTTP task: %s", e)
+
+    async def _stop_managers(self) -> None:
+        if self._sync_manager is not None:
+            try:
+                await self._sync_manager.stop()
+            except Exception as e:
+                logger.error("Error stopping sync manager: %s", e)
+        # Stop multi-chain manager (stops all secondary chains gracefully)
+        if self._multi_chain_manager is not None:
+            try:
+                await self._multi_chain_manager.stop()
+            except Exception as e:
+                logger.error("Error stopping multi-chain manager: %s", e)
+
+    async def _stop_settlement_monitors(self) -> None:
+        for coordinator in self._settlement_coordinators:
+            try:
+                await coordinator.stop_monitor()
+            except Exception as e:
+                logger.error("Error stopping settlement monitor: %s", e)
+        self._settlement_coordinators.clear()
 
 
 @asynccontextmanager

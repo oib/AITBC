@@ -30,7 +30,6 @@
       4 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py
       1 apps/blockchain-node/src/aitbc_chain/database.py
       2 apps/blockchain-node/src/aitbc_chain/gossip/backends/broadcast.py
-      4 apps/blockchain-node/src/aitbc_chain/main.py
       3 apps/blockchain-node/src/aitbc_chain/mempool.py
       3 apps/blockchain-node/src/aitbc_chain/p2p_network.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/accounts.py
