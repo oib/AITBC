@@ -34,12 +34,17 @@ import asyncio
 import os
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
+from decimal import InvalidOperation
 from typing import Any
 
 import filelock
+import httpx
+from fastapi import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, col, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import AITBCError
 from aitbc_shared import JobPayment, PaymentEscrow
 
 from ....storage.db import get_engine
@@ -48,6 +53,32 @@ from ..acceptance import PENDING_ACCEPTANCE, SETTLEMENT_FAILED, deadline_from
 from .payments import PaymentService, _computation_is_correct, _zk_required_for_payment, get_receipt_of_record
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the ZK refund sweep -- it calls
+# PaymentService.refund_payment, a money path, so the tuple mirrors the
+# payment service's own surface: filesystem/JSON, data-shape, runtime,
+# SQLAlchemy session errors, lazy imports, filelock/httpx errors, the
+# aitbc error hierarchy, HTTPException (ownership/validation failures the
+# service raises), decimal parse failures, timestamp overflows and
+# assertion guards. BaseExceptions still propagate
+# (asyncio.CancelledError is re-raised explicitly).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    IndexError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    AssertionError,
+    OverflowError,
+    ImportError,
+    SQLAlchemyError,
+    AITBCError,
+    httpx.HTTPError,
+    InvalidOperation,
+    HTTPException,
+)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -155,7 +186,7 @@ class ZkRefundSweeper:
         counts = {"candidates": 0, "refunded": 0, "failed": 0, "skipped": 0}
         locked = False
         try:
-            self._sweep_lock.acquire(timeout=0.05)
+            self._sweep_lock.acquire(timeout=0.05)  # noqa: unawaited-async — sync filelock.FileLock
             locked = True
         except filelock.Timeout:
             logger.debug("ZK refund sweep skipped: another worker holds the sweep lock")
@@ -170,7 +201,89 @@ class ZkRefundSweeper:
             return await self._run_sweep(counts)
         finally:
             if locked:
-                self._sweep_lock.release()
+                self._sweep_lock.release()  # noqa: unawaited-async — sync filelock.FileLock
+
+    async def _attempt_zk_refund(self, session: Any, job: Job, payment_id: str, counts: dict[str, int]) -> bool | None:
+        """Call ``PaymentService.refund_payment`` for one candidate.
+
+        Returns the service's verdict, or ``None`` when the call raised —
+        already counted as failed and logged, so the caller skips the
+        post-refund reconciliation entirely (matching the old ``continue``).
+        """
+        receipt = _get_canonical_receipt(session, job)
+        reason = "ZK proof verification failed"
+        if receipt and receipt.get("zk_status"):
+            reason = f"ZK proof verification failed (zk_status={receipt['zk_status']})"
+        try:
+            return await PaymentService(session).refund_payment(job.client_id, job.id, payment_id, reason, is_admin=True)
+        except _OPS_ERRORS as e:
+            counts["failed"] += 1
+            logger.error("ZK refund sweep raised for job %s: %s", job.id, e)
+            return None
+
+    def _finalize_zk_refund(self, session: Any, job: Job, counts: dict[str, int]) -> None:
+        # PaymentService commits its own changes. Reload to enforce the
+        # on-chain record invariant: a refund is only final when the
+        # payment row carries the authoritative on-chain tx hash.
+        payment = session.get(JobPayment, job.payment_id)
+        escrow = session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == job.payment_id)).first()
+        if payment and payment.status == "refunded" and payment.refund_transaction_hash:
+            job.payment_status = "refunded"
+            session.add(job)
+            session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+            counts["refunded"] += 1
+            logger.info("Refunded payment %s for job %s due to failed ZK receipt", job.payment_id, job.id)
+        else:
+            # PaymentService returned success but left no on-chain hash.
+            # This is an unbacked escrow or a submission that did not settle.
+            # Treat as failed so the ledger does not show a refund without proof.
+            counts["failed"] += 1
+            logger.warning(
+                "Job %s ZK refund returned no on-chain record (refund_transaction_hash=%s); treating as failed",
+                job.id,
+                getattr(payment, "refund_transaction_hash", None),
+            )
+            if payment:
+                payment.status = "failed"
+                payment.refunded_at = None
+                payment.updated_at = datetime.now(UTC)
+                session.add(payment)
+            job.payment_status = "failed"
+            session.add(job)
+            if escrow:
+                escrow.is_refunded = False
+                escrow.is_active = False
+                escrow.refunded_at = None
+                session.add(escrow)
+            session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+
+    def _handle_zk_refund_refusal(self, session: Any, job: Job, counts: dict[str, int]) -> None:
+        counts["failed"] += 1
+        # PaymentService refused the refund. If the row is already marked
+        # ``refunded`` locally but has no on-chain record, it is stale
+        # residue that can never be valid; downgrade it to ``failed`` so
+        # the sweeper stops retrying and the ledger is not stuck.
+        payment = session.get(JobPayment, job.payment_id)
+        escrow = session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == job.payment_id)).first()
+        if payment and payment.status == "refunded" and not payment.refund_transaction_hash:
+            logger.warning(
+                "Job %s ZK refund is marked refunded but has no on-chain record; downgrading to failed",
+                job.id,
+            )
+            payment.status = "failed"
+            payment.refunded_at = None
+            payment.updated_at = datetime.now(UTC)
+            session.add(payment)
+            job.payment_status = "failed"
+            session.add(job)
+            if escrow:
+                escrow.is_refunded = False
+                escrow.is_active = False
+                escrow.refunded_at = None
+                session.add(escrow)
+            session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        else:
+            logger.warning("Job %s ZK refund did not settle; retrying next sweep", job.id)
 
     async def _run_sweep(self, counts: dict[str, int]) -> dict[str, int]:
         with self._session_factory() as session:
@@ -178,80 +291,13 @@ class ZkRefundSweeper:
                 counts["candidates"] += 1
                 if not job.payment_id:
                     continue
-                receipt = _get_canonical_receipt(session, job)
-                reason = "ZK proof verification failed"
-                if receipt and receipt.get("zk_status"):
-                    reason = f"ZK proof verification failed (zk_status={receipt['zk_status']})"
-                try:
-                    refunded = await PaymentService(session).refund_payment(
-                        job.client_id, job.id, job.payment_id, reason, is_admin=True
-                    )
-                except Exception as e:
-                    counts["failed"] += 1
-                    logger.error("ZK refund sweep raised for job %s: %s", job.id, e)
+                refunded = await self._attempt_zk_refund(session, job, job.payment_id, counts)
+                if refunded is None:
                     continue
                 if refunded:
-                    # PaymentService commits its own changes. Reload to enforce the
-                    # on-chain record invariant: a refund is only final when the
-                    # payment row carries the authoritative on-chain tx hash.
-                    payment = session.get(JobPayment, job.payment_id)
-                    escrow = session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == job.payment_id)).first()
-                    if payment and payment.status == "refunded" and payment.refund_transaction_hash:
-                        job.payment_status = "refunded"
-                        session.add(job)
-                        session.commit()
-                        counts["refunded"] += 1
-                        logger.info("Refunded payment %s for job %s due to failed ZK receipt", job.payment_id, job.id)
-                    else:
-                        # PaymentService returned success but left no on-chain hash.
-                        # This is an unbacked escrow or a submission that did not settle.
-                        # Treat as failed so the ledger does not show a refund without proof.
-                        counts["failed"] += 1
-                        logger.warning(
-                            "Job %s ZK refund returned no on-chain record (refund_transaction_hash=%s); treating as failed",
-                            job.id,
-                            getattr(payment, "refund_transaction_hash", None),
-                        )
-                        if payment:
-                            payment.status = "failed"
-                            payment.refunded_at = None
-                            payment.updated_at = datetime.now(UTC)
-                            session.add(payment)
-                        job.payment_status = "failed"
-                        session.add(job)
-                        if escrow:
-                            escrow.is_refunded = False
-                            escrow.is_active = False
-                            escrow.refunded_at = None
-                            session.add(escrow)
-                        session.commit()
+                    self._finalize_zk_refund(session, job, counts)
                 else:
-                    counts["failed"] += 1
-                    # PaymentService refused the refund. If the row is already marked
-                    # ``refunded`` locally but has no on-chain record, it is stale
-                    # residue that can never be valid; downgrade it to ``failed`` so
-                    # the sweeper stops retrying and the ledger is not stuck.
-                    payment = session.get(JobPayment, job.payment_id)
-                    escrow = session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == job.payment_id)).first()
-                    if payment and payment.status == "refunded" and not payment.refund_transaction_hash:
-                        logger.warning(
-                            "Job %s ZK refund is marked refunded but has no on-chain record; downgrading to failed",
-                            job.id,
-                        )
-                        payment.status = "failed"
-                        payment.refunded_at = None
-                        payment.updated_at = datetime.now(UTC)
-                        session.add(payment)
-                        job.payment_status = "failed"
-                        session.add(job)
-                        if escrow:
-                            escrow.is_refunded = False
-                            escrow.is_active = False
-                            escrow.refunded_at = None
-                            session.add(escrow)
-                        session.commit()
-                    else:
-                        logger.warning("Job %s ZK refund did not settle; retrying next sweep", job.id)
+                    self._handle_zk_refund_refusal(session, job, counts)
         logger.debug(
             "ZK refund sweep complete: candidates=%s refunded=%s failed=%s",
             counts["candidates"],
@@ -273,7 +319,7 @@ class ZkRefundSweeper:
                 counts = await self.run_once()
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("ZK refund sweep failed: %s", e)
                 continue
             if counts["candidates"]:

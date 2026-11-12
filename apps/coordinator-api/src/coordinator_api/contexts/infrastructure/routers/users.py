@@ -28,6 +28,19 @@ from ....storage import get_session
 
 router = APIRouter(tags=["users"])
 
+# Expected failure surface for wallet-signature verification: the lazy
+# eth_account import, hex decoding and recover_message data-shape errors.
+# BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+)
+
 # Redis-backed state (falls back to in-memory if Redis unavailable)
 _state = RedisStateManager.get_instance_sync()
 _SESSION_NS = "sessions"
@@ -78,7 +91,7 @@ def _verify_wallet_signature(wallet_address: str, signature: str, nonce: str) ->
         signable = encode_defunct(text=message)
         sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
         recovered = Account.recover_message(signable, signature=sig_bytes)
-    except Exception:
+    except _OPS_ERRORS:
         return False
 
     return bool(recovered.lower() == wallet_address.lower())

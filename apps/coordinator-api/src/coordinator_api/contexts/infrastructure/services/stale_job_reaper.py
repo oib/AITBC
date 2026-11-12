@@ -27,6 +27,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, col, select, update
 
 from aitbc.aitbc_logging import get_logger
@@ -36,6 +37,19 @@ from ..domain import Job, Miner
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the reaper sweeps: filesystem/JSON,
+# data-shape, runtime and SQLAlchemy session/commit errors. BaseExceptions
+# still propagate (asyncio.CancelledError is re-raised explicitly).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 
 _ACTIVE_STATES = {"QUEUED", "RUNNING"}
 
@@ -144,7 +158,7 @@ class StaleJobReaper:
                     logger.info("Expired abandoned job %s (TTL elapsed at %s)", job.id, job.expires_at)
                 else:
                     logger.info("Job %s left active states before expiry sweep; skipping", job.id)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 counts["failed"] += 1
                 logger.error("Failed to expire job %s: %s", job.id, e)
 
@@ -171,7 +185,7 @@ class StaleJobReaper:
                     )
                 else:
                     logger.info("Job %s left RUNNING before miner-dead expiry; skipping", job.id)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 counts["failed"] += 1
                 logger.error("Failed to expire job %s: %s", job.id, e)
 
@@ -186,7 +200,7 @@ class StaleJobReaper:
             if not self.dry_run:
                 try:
                     session.commit()
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     counts["failed"] += 1
                     logger.error("Stale job reaper commit failed: %s", e)
                     session.rollback()
@@ -215,5 +229,5 @@ class StaleJobReaper:
                 (await run_in_threadpool(self.run_once))
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Stale job reaper sweep failed: %s", e)

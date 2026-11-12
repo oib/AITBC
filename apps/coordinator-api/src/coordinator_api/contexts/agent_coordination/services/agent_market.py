@@ -17,6 +17,18 @@ from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the background monitoring loops below:
+# in-memory dict/enumeration access and asyncio.sleep. RuntimeError
+# preserves catch of abort-style raises; BaseExceptions still propagate.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class ServiceStatus(StrEnum):
     """Service status types"""
@@ -504,6 +516,38 @@ class AgentServiceMarket:
             logger.error("Failed to join guild: %s", e)
             raise
 
+    @staticmethod
+    def _service_matches(
+        service: Service,
+        query_lower: str | None,
+        service_type: ServiceType | None,
+        min_price: Decimal | None,
+        max_price: Decimal | None,
+        min_rating: float | None,
+        tags: list[str] | None,
+    ) -> bool:
+        """Return True when ``service`` passes every search_services filter."""
+        if service.status != ServiceStatus.ACTIVE:
+            return False
+        if service_type and service.service_type != service_type:
+            return False
+        if min_price and service.base_price < min_price:
+            return False
+        if max_price and service.base_price > max_price:
+            return False
+        if min_rating and service.average_rating < min_rating:
+            return False
+        if tags and (not any(tag in service.tags for tag in tags)):
+            return False
+        if query_lower:
+            if (
+                query_lower not in service.name.lower()
+                and query_lower not in service.description.lower()
+                and (not any(query_lower in tag.lower() for tag in service.tags))
+            ):
+                return False
+        return True
+
     async def search_services(
         self,
         query: str | None = None,
@@ -517,29 +561,12 @@ class AgentServiceMarket:
     ) -> list[Service]:
         """Search services with various filters"""
         try:
-            results = []
-            for service in self.services.values():
-                if service.status != ServiceStatus.ACTIVE:
-                    continue
-                if service_type and service.service_type != service_type:
-                    continue
-                if min_price and service.base_price < min_price:
-                    continue
-                if max_price and service.base_price > max_price:
-                    continue
-                if min_rating and service.average_rating < min_rating:
-                    continue
-                if tags and (not any(tag in service.tags for tag in tags)):
-                    continue
-                if query:
-                    query_lower = query.lower()
-                    if (
-                        query_lower not in service.name.lower()
-                        and query_lower not in service.description.lower()
-                        and (not any(query_lower in tag.lower() for tag in service.tags))
-                    ):
-                        continue
-                results.append(service)
+            query_lower = query.lower() if query else None
+            results = [
+                service
+                for service in self.services.values()
+                if self._service_matches(service, query_lower, service_type, min_price, max_price, min_rating, tags)
+            ]
             results.sort(key=lambda x: (x.average_rating, x.reputation), reverse=True)
             return results[offset : offset + limit]
         except Exception as e:
@@ -708,7 +735,7 @@ class AgentServiceMarket:
                         request.status = RequestStatus.EXPIRED
                         logger.info("Request expired: %s", request.id)
                 await asyncio.sleep(3600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error monitoring timeouts: %s", e)
                 await asyncio.sleep(3600)
 
@@ -719,7 +746,7 @@ class AgentServiceMarket:
                 for category in self.categories.values():
                     category.trending = category.service_count > 10
                 await asyncio.sleep(3600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error updating analytics: %s", e)
                 await asyncio.sleep(3600)
 
@@ -728,7 +755,7 @@ class AgentServiceMarket:
         while True:
             try:
                 await asyncio.sleep(1800)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error processing recommendations: %s", e)
                 await asyncio.sleep(1800)
 
@@ -746,6 +773,6 @@ class AgentServiceMarket:
                     if active_members > 0:
                         guild.reputation = total_reputation // active_members
                 await asyncio.sleep(3600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error maintaining guild reputation: %s", e)
                 await asyncio.sleep(3600)

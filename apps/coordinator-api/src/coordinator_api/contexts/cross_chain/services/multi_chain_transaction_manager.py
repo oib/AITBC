@@ -4,6 +4,7 @@ Advanced transaction management system for cross-chain operations with routing, 
 """
 
 import asyncio
+import httpx
 from collections import defaultdict
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -11,9 +12,11 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import desc
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError
 
 from ....agent_identity.wallet_adapter_enhanced import EnhancedWalletAdapter, SecurityLevel, WalletAdapterFactory
 from ....contexts.wallet.services.money import from_atomic_units, parse_decimal
@@ -30,6 +33,37 @@ from ...reputation.services.reputation_engine import CrossChainReputationEngine
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort handlers below: sqlmodel
+# session/DBAPI errors, wallet-adapter/bridge network errors (aitbc
+# NetworkError family + httpx), lazy eth-*/web3 imports, and data-shape
+# errors. RuntimeError preserves catch of abort-style raises;
+# BaseExceptions still propagate.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+    httpx.HTTPError,
+    ImportError,
+    NetworkError,
+    RateLimitError,
+    CircuitBreakerOpenError,
+)
+try:
+    # eth_keys is an optional signing dep (the wallet adapters lazy-import
+    # eth_account/eth_utils); include its failures when present so a bad
+    # signature still lands on the same best-effort paths as before.
+    from eth_keys.exceptions import BadSignature as _EthBadSignature
+    from eth_keys.exceptions import ValidationError as _EthValidationError
+except ImportError:
+    _eth_sig_errors: tuple[type[BaseException], ...] = ()
+else:
+    _eth_sig_errors = (_EthBadSignature, _EthValidationError)
+_OPS_ERRORS += _eth_sig_errors
 
 
 class ChainTransactionManager:
@@ -431,7 +465,7 @@ class ChainTransactionManager:
                 transaction.status = TransactionStatus.COMPLETED
                 transaction.updated_at = datetime.now(UTC)
                 (await run_in_threadpool(self.session.commit))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error updating transaction status: %s", e)
 
     async def _estimate_processing_time(self, transaction: ChainTransaction) -> float:
@@ -483,7 +517,7 @@ class ChainTransactionManager:
             for tx in transactions:
                 if current_time - tx.updated_at > stuck_threshold:
                     logger.warning("Stuck transaction detected: %s", tx.id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error checking stuck transactions: %s", e)
 
     async def _estimate_processing_time_v2(self, transaction: dict[str, Any]) -> float:
@@ -501,41 +535,38 @@ class ChainTransactionManager:
             }
             multiplier = priority_multiplier.get(transaction["priority"], 1.0)
             return base_time * multiplier  # type: ignore[no-any-return]
-        except Exception:
+        except _OPS_ERRORS:
             return 120.0
+
+    def _submitted_progress_v2(self, transaction: dict[str, Any]) -> float:
+        """Progress for a SUBMITTED transaction, including confirmations."""
+        progress = 60.0
+        if transaction["confirmations"] > 0:
+            confirmation_progress = min(
+                transaction["confirmations"] / self.routing_config["confirmation_threshold"] * 30, 30.0
+            )
+            progress += confirmation_progress
+        return progress
 
     async def _calculate_transaction_progress_v2(self, transaction: dict[str, Any]) -> float:
         """Calculate transaction progress percentage"""
         try:
             status = transaction["status"]
-            if status == TransactionStatus.COMPLETED.value:
-                return 100.0
-            elif status in [
-                TransactionStatus.FAILED.value,
-                TransactionStatus.CANCELLED.value,
-                TransactionStatus.EXPIRED.value,
-            ]:
-                return 0.0
-            elif status == TransactionStatus.QUEUED.value:
-                return 10.0
-            elif status == TransactionStatus.PENDING.value:
-                return 20.0
-            elif status == TransactionStatus.PROCESSING.value:
-                return 50.0
-            elif status == TransactionStatus.SUBMITTED.value:
-                progress = 60.0
-                if transaction["confirmations"] > 0:
-                    confirmation_progress = min(
-                        transaction["confirmations"] / self.routing_config["confirmation_threshold"] * 30, 30.0
-                    )
-                    progress += confirmation_progress
-                return progress
-            elif status == TransactionStatus.CONFIRMED.value:
-                return 90.0
-            elif status == TransactionStatus.RETRYING.value:
-                return 40.0
-            return 0.0
-        except Exception:
+            if status == TransactionStatus.SUBMITTED.value:
+                return self._submitted_progress_v2(transaction)
+            progress_by_status = {
+                TransactionStatus.COMPLETED.value: 100.0,
+                TransactionStatus.FAILED.value: 0.0,
+                TransactionStatus.CANCELLED.value: 0.0,
+                TransactionStatus.EXPIRED.value: 0.0,
+                TransactionStatus.QUEUED.value: 10.0,
+                TransactionStatus.PENDING.value: 20.0,
+                TransactionStatus.PROCESSING.value: 50.0,
+                TransactionStatus.CONFIRMED.value: 90.0,
+                TransactionStatus.RETRYING.value: 40.0,
+            }
+            return progress_by_status.get(status, 0.0)
+        except _OPS_ERRORS:
             return 0.0
 
     def _get_min_reputation_for_transaction_v2(
@@ -592,6 +623,6 @@ class ChainTransactionManager:
                 + urgency_factor * 0.1
             )
             return score  # type: ignore[no-any-return]
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error calculating routing score: %s", e)
             return 0.5

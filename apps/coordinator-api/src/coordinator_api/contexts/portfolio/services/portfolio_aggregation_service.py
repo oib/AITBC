@@ -5,9 +5,10 @@ Aggregates portfolio data from wallet, exchange, market, trading, and AI service
 
 import os
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
+import httpx
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.env_compat import market_getenv
@@ -15,6 +16,20 @@ from aitbc.http_client import RequestIDPropagatingClient
 from aitbc.utils.units import units_to_ait
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the per-service fallbacks below: outbound HTTP
+# to the sibling services (httpx), JSON decode (ValueError), unit/Decimal
+# conversion, and data-shape/runtime errors.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AttributeError,
+    InvalidOperation,
+    KeyError,
+    OSError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+    httpx.HTTPError,
+)
 
 
 class PortfolioAggregationService:
@@ -68,7 +83,7 @@ class PortfolioAggregationService:
                 "ai_signals": ai_data,
                 "summary": portfolio_summary,
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error aggregating portfolio data: %s", str(e))
             raise
 
@@ -82,7 +97,7 @@ class PortfolioAggregationService:
             if response.status_code == 200:
                 try:
                     data = response.json()
-                except Exception as e:
+                except (TypeError, ValueError) as e:
                     logger.warning("Failed to parse wallet data: %s", e)
                     return {"wallets": [], "total_wallets": 0, "total_balance": 0, "error": str(e)}
                 wallets = data.get("items", [])
@@ -102,14 +117,14 @@ class PortfolioAggregationService:
                         )
                         if bal_resp.status_code == 200:
                             total_units += int(bal_resp.json().get("balance", 0) or 0)
-                    except Exception as e:
+                    except _OPS_ERRORS as e:
                         logger.warning("Failed to fetch balance for wallet %s: %s", wallet_id, e)
                 total_balance = units_to_ait(total_units)
                 return {"wallets": wallets, "total_wallets": len(wallets), "total_balance": total_balance}
             else:
                 logger.warning("Wallet service returned status %s", response.status_code)
                 return {"wallets": [], "total_wallets": 0, "total_balance": 0, "error": "Wallet service unavailable"}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error fetching wallet balances: %s", str(e))
             return {"wallets": [], "total_wallets": 0, "total_balance": 0, "error": str(e)}
 
@@ -120,13 +135,13 @@ class PortfolioAggregationService:
             if response.status_code == 200:
                 try:
                     return dict(response.json())
-                except Exception as e:
+                except (TypeError, ValueError) as e:
                     logger.warning("Failed to parse exchange rates: %s", e)
                     return {"rates": {}, "error": str(e)}
             else:
                 logger.warning("Exchange service returned status %s", response.status_code)
                 return {"rates": {}, "error": "Exchange service unavailable"}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error fetching exchange rates: %s", str(e))
             return {"rates": {}, "error": str(e)}
 
@@ -137,7 +152,7 @@ class PortfolioAggregationService:
             if response.status_code == 200:
                 try:
                     data = response.json()
-                except Exception as e:
+                except (TypeError, ValueError) as e:
                     logger.warning("Failed to parse market stats: %s", e)
                     return {"offers": 0, "bids": 0, "capacity": 0, "error": str(e)}
                 return {
@@ -149,7 +164,7 @@ class PortfolioAggregationService:
             else:
                 logger.warning("Market service returned status %s", response.status_code)
                 return {"offers": 0, "capacity": 0, "error": "Market service unavailable"}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error fetching market stats: %s", str(e))
             return {"offers": 0, "capacity": 0, "error": str(e)}
 
@@ -168,13 +183,13 @@ class PortfolioAggregationService:
             if response.status_code == 200:
                 try:
                     return dict(response.json())
-                except Exception as e:
+                except (TypeError, ValueError) as e:
                     logger.warning("Failed to parse trading analytics: %s", e)
                     return {"error": str(e)}
             else:
                 logger.warning("Trading service returned status %s", response.status_code)
                 return {"error": "Trading service unavailable"}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error fetching trading analytics: %s", str(e))
             return {"error": str(e)}
 
@@ -215,7 +230,7 @@ class PortfolioAggregationService:
             else:
                 logger.warning("AI service returned status %s", response.status_code)
                 return {"signals": [], "error": "AI service unavailable"}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error fetching AI signals: %s", str(e))
             return {"signals": [], "error": str(e)}
 
@@ -267,7 +282,7 @@ class PortfolioAggregationService:
                     "simulated": bool(ai_data.get("simulated", False)),
                 },
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error calculating portfolio summary: %s", str(e))
             return {"total_aitbc_balance": 0, "eth_equivalent": 0, "exchange_rate": 0, "error": str(e)}
 

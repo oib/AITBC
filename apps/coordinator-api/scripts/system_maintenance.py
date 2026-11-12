@@ -12,6 +12,15 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class MaintenancePriority(StrEnum):
     """Maintenance task priority levels"""
@@ -86,7 +95,7 @@ class SystemMaintenanceManager:
                     {"category": category, "status": "completed", "details": category_result}
                 )
                 logger.info("✅ Completed maintenance category: %s", category)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 maintenance_result["errors"].append(f"Category {category} failed: {e}")
                 logger.error("❌ Failed maintenance category %s: %s", category, e)
         metrics = await self._collect_comprehensive_metrics()
@@ -453,7 +462,7 @@ class AdvancedAgentCapabilityDeveloper:
                     {"capability": capability, "status": "developed", "details": capability_result}
                 )
                 logger.info("✅ Developed capability: %s", capability)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("❌ Failed to develop capability %s: %s", capability, e)
         roadmap = await self._create_future_roadmap()
         development_result["future_roadmap"] = roadmap
@@ -558,7 +567,7 @@ class GPUEnhancementDeveloper:
                     {"enhancement": enhancement, "status": "developed", "details": enhancement_result}
                 )
                 logger.info("✅ Developed GPU enhancement: %s", enhancement)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("❌ Failed to develop enhancement %s: %s", enhancement, e)
                 if "enhancements_developed" not in enhancement_result:
                     enhancement_result["enhancements_developed"] = []

@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy import desc
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
@@ -16,6 +17,16 @@ from ..domain.reputation import AgentReputation, ReputationEvent, ReputationLeve
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 
 
 class CrossChainReputationEngine:
@@ -52,7 +63,7 @@ class CrossChainReputationEngine:
                 self.session.add(new_reputation)
                 (await run_in_threadpool(self.session.commit))
             return score
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error calculating reputation for agent %s on chain %s: %s", agent_id, chain_id, e)
             return 0.0
 
@@ -88,7 +99,7 @@ class CrossChainReputationEngine:
                 normalized_scores = chain_scores
             await self._store_cross_chain_aggregation(agent_id, chain_scores, normalized_scores)
             return chain_scores
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error aggregating cross-chain reputation for agent %s: %s", agent_id, e)
             return {}
 
@@ -137,7 +148,7 @@ class CrossChainReputationEngine:
             await self.aggregate_cross_chain_reputation(agent_id)
             logger.info("Updated reputation for agent %s from %s event", agent_id, event_type)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error updating reputation from event: %s", e)
             return False
 
@@ -156,7 +167,7 @@ class CrossChainReputationEngine:
                 if event.trust_score_after is not None:
                     scores.append(event.trust_score_after / 1000.0)
             return scores
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting reputation trend for agent %s: %s", agent_id, e)
             return []
 
@@ -194,7 +205,7 @@ class CrossChainReputationEngine:
                             }
                         )
             return anomalies
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error detecting reputation anomalies for agent %s: %s", agent_id, e)
             return []
 
@@ -286,7 +297,7 @@ class CrossChainReputationEngine:
                 )
                 self.session.add(aggregation)
             (await run_in_threadpool(self.session.commit))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error storing cross-chain aggregation for agent %s: %s", agent_id, e)
 
     def _determine_reputation_level(self, score: float) -> ReputationLevel:
@@ -344,6 +355,6 @@ class CrossChainReputationEngine:
                 "created_at": reputation.created_at,
                 "updated_at": reputation.updated_at,
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting reputation summary for agent %s: %s", agent_id, e)
             return {"agent_id": agent_id, "error": str(e)}

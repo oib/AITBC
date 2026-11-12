@@ -2,8 +2,10 @@
 
 from typing import Annotated, Any
 
+import httpx
 from aitbc.rate_limiting import rate_limit
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -15,6 +17,21 @@ from ..services.developer_platform_service import DeveloperPlatformService
 from .common import get_developer_platform_service
 
 router = APIRouter(tags=["Developer Platform"])
+
+# Expected failure surface for the 500-translate handlers below: service/DB
+# errors (sqlmodel sessions -> SQLAlchemyError), outbound HTTP from the
+# service layer (httpx), and data-shape/runtime errors. HTTPException is not
+# in the tuple, so it propagates to the client untouched (#1863).
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AttributeError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    SQLAlchemyError,
+    TypeError,
+    ValueError,
+    httpx.HTTPError,
+)
 
 
 @router.post("/register", response_model=dict[str, Any])
@@ -43,7 +60,7 @@ async def register_developer(
 
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error registering developer") from None
 
 
@@ -77,7 +94,7 @@ async def get_developer_profile(
 
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting developer profile") from None
 
 
@@ -107,7 +124,7 @@ async def update_developer_profile(
 
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error updating developer profile") from None
 
 
@@ -139,7 +156,7 @@ async def get_leaderboard(
             for i, dev in enumerate(developers)
         ]
 
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting leaderboard") from None
 
 
@@ -159,5 +176,5 @@ async def get_developer_stats(
 
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting developer stats") from None

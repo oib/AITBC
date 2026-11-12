@@ -13,6 +13,7 @@ from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
+from cryptography.exceptions import InvalidTag
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
 from aitbc.aitbc_logging import get_logger
@@ -22,6 +23,22 @@ from coordinator_api.contexts.cross_chain.services.cross_chain.reputation import
 )
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the handlers below: in-memory dict/lock
+# access, AES-256-GCM decrypt failures (InvalidTag), lazy uuid imports,
+# and the ValueError/PermissionError the methods raise for bad input.
+# RuntimeError preserves catch of abort-style raises; BaseExceptions
+# still propagate.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    InvalidTag,
+    ImportError,
+)
 
 
 class MessageType(StrEnum):
@@ -201,7 +218,7 @@ class AgentCommunicationService:
                     )
             logger.info("Authorized agent: %s", agent_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to authorize agent %s: %s", agent_id, e)
             return False
 
@@ -218,7 +235,7 @@ class AgentCommunicationService:
                     del self.communication_stats[agent_id]
             logger.info("Revoked authorization for agent: %s", agent_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to revoke agent %s: %s", agent_id, e)
             return False
 
@@ -233,7 +250,7 @@ class AgentCommunicationService:
                     del self.blocked_lists[agent_id][contact_id]
             logger.info("Added contact %s for agent %s", contact_id, agent_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to add contact: %s", e)
             return False
 
@@ -245,7 +262,7 @@ class AgentCommunicationService:
                     del self.contact_lists[agent_id][contact_id]
             logger.info("Removed contact %s for agent %s", contact_id, agent_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to remove contact: %s", e)
             return False
 
@@ -260,7 +277,7 @@ class AgentCommunicationService:
                     del self.contact_lists[agent_id][blocked_id]
             logger.info("Blocked agent %s for agent %s", blocked_id, agent_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to block agent: %s", e)
             return False
 
@@ -272,7 +289,7 @@ class AgentCommunicationService:
                     del self.blocked_lists[agent_id][blocked_id]
             logger.info("Unblocked agent %s for agent %s", blocked_id, agent_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to unblock agent: %s", e)
             return False
 
@@ -332,7 +349,7 @@ class AgentCommunicationService:
             await self._get_or_create_channel(sender, recipient, ChannelType.DIRECT)
             logger.info("Message sent from %s to %s: %s", sender, recipient, message_id)
             return message_id
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to send message: %s", e)
             raise
 
@@ -350,7 +367,7 @@ class AgentCommunicationService:
             await self._update_message_stats(message.sender, message.recipient, "delivered")
             logger.info("Message delivered: %s", message_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to deliver message %s: %s", message_id, e)
             return False
 
@@ -376,7 +393,7 @@ class AgentCommunicationService:
                 return decrypted_content.decode("utf-8")
             else:
                 return message.content.decode("utf-8")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to read message %s: %s", message_id, e)
             return None
 
@@ -393,7 +410,7 @@ class AgentCommunicationService:
                 self.communication_stats[message.sender].total_earnings += message.price
             logger.info("Payment processed for message %s: %s", message_id, amount)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to process payment for message %s: %s", message_id, e)
             return False
 
@@ -433,7 +450,7 @@ class AgentCommunicationService:
                     self.communication_stats[agent2].active_channels += 1
             logger.info("Channel created: %s between %s and %s", channel_id, agent1, agent2)
             return channel_id
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to create channel: %s", e)
             raise
 
@@ -465,7 +482,7 @@ class AgentCommunicationService:
                 self.message_templates[template_id] = template
             logger.info("Template created: %s", template_id)
             return template_id
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to create template: %s", e)
             raise
 
@@ -493,7 +510,7 @@ class AgentCommunicationService:
                 template.usage_count += 1
             logger.info("Template used: %s -> %s", template_id, message_id)
             return message_id
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to use template %s: %s", template_id, e)
             raise
 
@@ -514,7 +531,7 @@ class AgentCommunicationService:
                             filtered_messages.append(message)
             filtered_messages.sort(key=lambda x: x.timestamp, reverse=True)
             return filtered_messages[offset : offset + limit]
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get messages for %s: %s", agent_id, e)
             return []
 
@@ -531,7 +548,7 @@ class AgentCommunicationService:
                         if message.recipient == agent_id and message.status == MessageStatus.DELIVERED:
                             unread_messages.append(message)
             return unread_messages
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get unread messages for %s: %s", agent_id, e)
             return []
 
@@ -545,7 +562,7 @@ class AgentCommunicationService:
                 if channel_id in self.channels:
                     channels.append(self.channels[channel_id])
             return channels
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get channels for %s: %s", agent_id, e)
             return []
 
@@ -555,7 +572,7 @@ class AgentCommunicationService:
             if agent_id not in self.communication_stats:
                 raise ValueError(f"Agent {agent_id} not found")
             return self.communication_stats[agent_id]
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get stats for %s: %s", agent_id, e)
             raise
 
@@ -697,7 +714,7 @@ class AgentCommunicationService:
                     continue
                 await asyncio.sleep(0.1)
                 await self.deliver_message(message.id)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error processing message queue: %s", e)
                 await asyncio.sleep(5)
 
@@ -719,7 +736,7 @@ class AgentCommunicationService:
                 if expired_messages:
                     logger.info("Cleaned up %s expired messages", len(expired_messages))
                 await asyncio.sleep(3600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error cleaning up messages: %s", e)
                 await asyncio.sleep(3600)
 
@@ -749,7 +766,7 @@ class AgentCommunicationService:
                 if inactive_channels:
                     logger.info("Cleaned up %s inactive channels", len(inactive_channels))
                 await asyncio.sleep(3600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error cleaning up channels: %s", e)
                 await asyncio.sleep(3600)
 

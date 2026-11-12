@@ -48,6 +48,7 @@ def _serialize_decimals(data: dict[str, Any]) -> dict[str, Any]:
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
+from sqlalchemy.exc import SQLAlchemyError
 
 # Importing the pricing persistence models at module load registers their tables
 # with SQLModel.metadata so init_db()/create_all() creates them at startup.
@@ -61,6 +62,23 @@ from ...domain.pricing_models import (  # noqa: E402
 )
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the pricing/forecast/persistence fallbacks
+# below: Decimal & numpy arithmetic (ArithmeticError covers
+# decimal.InvalidOperation/ZeroDivisionError; lazy numpy import ->
+# ImportError), lazily-imported sqlmodel session ops (SQLAlchemyError),
+# data-shape errors, and runtime/OS errors.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    ArithmeticError,
+    AttributeError,
+    ImportError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    SQLAlchemyError,
+    TypeError,
+    ValueError,
+)
 
 
 class PricingStrategy(StrEnum):
@@ -299,7 +317,7 @@ class DynamicPricingEngine:
             )
             logger.info("Calculated dynamic price for %s: %s (was %s)", resource_id, final_price, base_price_dec)
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to calculate dynamic price for %s: %s", resource_id, e)
             raise
 
@@ -340,7 +358,7 @@ class DynamicPricingEngine:
                 )
                 forecast_points.append(forecast_point)
             return forecast_points
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to generate price forecast for %s: %s", resource_id, e)
             return []
 
@@ -356,7 +374,7 @@ class DynamicPricingEngine:
                 await self._persist_provider_strategy(provider_id, strategy, constraints)
             logger.info("Set strategy %s for provider %s", strategy.value, provider_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to set strategy for provider %s: %s", provider_id, e)
             return False
 
@@ -417,7 +435,7 @@ class DynamicPricingEngine:
 
         try:
             await asyncio.to_thread(_write)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to persist strategy for provider %s: %s", provider_id, e)
 
     async def _calculate_pricing_factors(
@@ -628,34 +646,48 @@ class DynamicPricingEngine:
         else:
             return PriceTrend.STABLE
 
+    @staticmethod
+    def _demand_supply_notes(factors: PricingFactors) -> list[str]:
+        """Reasoning notes derived from demand and supply levels."""
+        notes = []
+        if factors.demand_level > 0.8:
+            notes.append("High demand increases prices")
+        elif factors.demand_level < 0.3:
+            notes.append("Low demand allows competitive pricing")
+        if factors.supply_level < 0.3:
+            notes.append("Limited supply justifies premium pricing")
+        elif factors.supply_level > 0.8:
+            notes.append("High supply enables competitive pricing")
+        return notes
+
+    @staticmethod
+    def _adjustment_notes(factors: PricingFactors) -> list[str]:
+        """Reasoning notes for time-of-day, performance, and competition."""
+        notes = []
+        hour = datetime.now(UTC).hour
+        if 8 <= hour <= 20:
+            notes.append("Business hours premium applied")
+        elif 2 <= hour <= 6:
+            notes.append("Late night discount applied")
+        if factors.performance_multiplier > 1.05:
+            notes.append("High performance justifies premium")
+        elif factors.performance_multiplier < 0.95:
+            notes.append("Performance issues require discount")
+        if factors.competition_multiplier != 1.0:
+            if factors.competition_multiplier < 1.0:
+                notes.append("Competitive pricing applied")
+            else:
+                notes.append("Premium pricing over competitors")
+        return notes
+
     async def _generate_pricing_reasoning(
         self, factors: PricingFactors, strategy: PricingStrategy, market_conditions: MarketConditions, trend: PriceTrend
     ) -> list[str]:
         """Generate reasoning for pricing decisions"""
         reasoning = []
         reasoning.append(f"Strategy: {strategy.value} applied")
-        if factors.demand_level > 0.8:
-            reasoning.append("High demand increases prices")
-        elif factors.demand_level < 0.3:
-            reasoning.append("Low demand allows competitive pricing")
-        if factors.supply_level < 0.3:
-            reasoning.append("Limited supply justifies premium pricing")
-        elif factors.supply_level > 0.8:
-            reasoning.append("High supply enables competitive pricing")
-        hour = datetime.now(UTC).hour
-        if 8 <= hour <= 20:
-            reasoning.append("Business hours premium applied")
-        elif 2 <= hour <= 6:
-            reasoning.append("Late night discount applied")
-        if factors.performance_multiplier > 1.05:
-            reasoning.append("High performance justifies premium")
-        elif factors.performance_multiplier < 0.95:
-            reasoning.append("Performance issues require discount")
-        if factors.competition_multiplier != 1.0:
-            if factors.competition_multiplier < 1.0:
-                reasoning.append("Competitive pricing applied")
-            else:
-                reasoning.append("Premium pricing over competitors")
+        reasoning.extend(self._demand_supply_notes(factors))
+        reasoning.extend(self._adjustment_notes(factors))
         reasoning.append(f"Price trend: {trend.value}")
         return reasoning
 
@@ -756,7 +788,7 @@ class DynamicPricingEngine:
 
         try:
             await asyncio.to_thread(_write)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             # Persistence is best-effort: never let a DB issue break price calculation.
             logger.warning("Failed to persist price point for %s: %s", resource_id, e)
 
@@ -869,7 +901,7 @@ class DynamicPricingEngine:
         try:
             self.pricing_history = await asyncio.to_thread(_read)
             logger.info("Loaded pricing history for %d resources", len(self.pricing_history))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to load pricing history (starting empty): %s", e)
             self.pricing_history = {}
 
@@ -911,7 +943,7 @@ class DynamicPricingEngine:
         try:
             self.provider_strategies, self.price_constraints = await asyncio.to_thread(_read)
             logger.info("Loaded strategies for %d providers", len(self.provider_strategies))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to load provider strategies (starting empty): %s", e)
 
     async def _update_market_conditions(self) -> None:
@@ -920,7 +952,7 @@ class DynamicPricingEngine:
             try:
                 self.market_conditions_cache.clear()
                 await asyncio.sleep(300)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error updating market conditions: %s", e)
                 await asyncio.sleep(60)
 
@@ -937,7 +969,7 @@ class DynamicPricingEngine:
                         if volatility > self.max_volatility_threshold:
                             logger.warning("High volatility detected for %s: %s", resource_id, volatility)
                 await asyncio.sleep(600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error monitoring volatility: %s", e)
                 await asyncio.sleep(120)
 
@@ -946,7 +978,7 @@ class DynamicPricingEngine:
         while True:
             try:
                 await asyncio.sleep(3600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error optimizing strategies: %s", e)
                 await asyncio.sleep(300)
 

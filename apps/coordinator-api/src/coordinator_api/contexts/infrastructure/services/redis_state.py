@@ -15,7 +15,27 @@ import asyncio
 import json
 from typing import Any
 
+from redis.exceptions import RedisError
+
+from aitbc.aitbc_logging import get_logger
+
 from coordinator_api.config import settings
+
+logger = get_logger(__name__)
+
+# Expected failure surface for the Redis-backed state helpers:
+# filesystem/JSON, data-shape, runtime, redis client errors and the lazy
+# ``import redis.asyncio`` in _init. BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    RedisError,
+)
 
 
 class RedisStateManager:
@@ -45,8 +65,8 @@ class RedisStateManager:
         if self._redis is not None:
             try:
                 await self._redis.aclose()
-            except Exception:
-                pass
+            except _OPS_ERRORS:
+                logger.debug("Redis aclose during reconnect failed", exc_info=True)
             self._redis = None
         self._initialized = False
         await self._init()
@@ -63,8 +83,8 @@ class RedisStateManager:
                         await self._redis.delete(*keys)
                     if cursor == 0:
                         break
-            except Exception:
-                pass
+            except _OPS_ERRORS:
+                logger.debug("Cache invalidation scan failed for %s", namespace, exc_info=True)
         else:
             keys_to_remove = [k for k in self._memory if k.startswith(f"{self._cache_prefix}:{namespace}:")]
             for k in keys_to_remove:
@@ -110,7 +130,8 @@ class RedisStateManager:
                 )
                 await self._redis.ping()
                 self._loop = asyncio.get_running_loop()
-            except Exception:
+            except _OPS_ERRORS:
+                logger.debug("Redis init failed; falling back to in-memory state", exc_info=True)
                 self._redis = None
                 self._loop = None
 
@@ -259,7 +280,7 @@ class RedisStateManager:
             mem_key = f"{namespace}:{key}"
             if mem_key not in self._memory:
                 self._memory[mem_key] = []
-            self._memory[mem_key].insert(0, value)
+            self._memory[mem_key].insert(0, value)  # noqa: unawaited-async — list.insert
         await self._invalidate_cache(namespace)
 
     async def lrange(self, namespace: str, key: str, start: int = 0, end: int = -1) -> list[dict[str, Any]]:

@@ -10,6 +10,17 @@ from datetime import UTC, datetime
 import aiohttp
 from aiohttp import web
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    aiohttp.ClientError,
+    asyncio.TimeoutError,
+)
+
 # Regional endpoints configuration. The edge_node values are example labels;
 # real deployments set them via AITBC_EDGE_* environment variables or config.
 regions = {
@@ -33,7 +44,7 @@ class GeoLoadBalancer:
                 async with session.get(f"{region_config['url']}/health/live", timeout=5) as response:
                     region_config["healthy"] = response.status == 200
                     region_config["last_check"] = datetime.now(UTC).isoformat()
-        except Exception as e:
+        except _OPS_ERRORS as e:
             region_config["healthy"] = False
             region_config["last_check"] = datetime.now(UTC).isoformat()
             region_config["error"] = str(e)
@@ -90,7 +101,7 @@ class GeoLoadBalancer:
 
                     return resp
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             return web.json_response({"error": "Proxy error", "message": str(e), "region": region_name}, status=502)
 
 

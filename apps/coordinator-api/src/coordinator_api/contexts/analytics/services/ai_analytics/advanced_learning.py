@@ -38,6 +38,19 @@ else:
 
 logger = get_logger(__name__)
 
+# Failure surface: in-memory model/session bookkeeping (KeyError/AttributeError/
+# TypeError/ValueError), the lazy numpy import (ImportError), asyncio sleeps.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    asyncio.TimeoutError,
+)
+
 
 class LearningType(StrEnum):
     """Types of learning approaches"""
@@ -251,7 +264,7 @@ class AdvancedLearningService:
             )
             logger.info("Model created: %s for agent %s", model_id, agent_id)
             return model
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to create model: %s", e)
             raise
 
@@ -301,7 +314,7 @@ class AdvancedLearningService:
             create_task_with_logging(self._execute_learning_session(session_id), name="execute_learning_session")
             logger.info("Learning session started: %s", session_id)
             return session
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to start learning session: %s", e)
             raise
 
@@ -341,7 +354,7 @@ class AdvancedLearningService:
             create_task_with_logging(self._execute_meta_learning(session_id, algorithm), name="execute_meta_learning")
             logger.info("Meta-learning started: %s", session_id)
             return session_id
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to execute meta-learning: %s", e)
             raise
 
@@ -383,7 +396,7 @@ class AdvancedLearningService:
             )
             logger.info("Federated learning setup: %s", session_id)
             return session_id
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to setup federated learning: %s", e)
             raise
 
@@ -403,7 +416,7 @@ class AdvancedLearningService:
             analytics.last_evaluation = datetime.now(UTC)
             logger.info("Prediction made with model %s", model_id)
             return prediction
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to predict with model %s: %s", model_id, e)
             raise
 
@@ -425,7 +438,7 @@ class AdvancedLearningService:
             analytics.data_efficiency = adaptation_results.get("data_efficiency", 0.0)
             logger.info("Model adapted: %s", model_id)
             return adaptation_results
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to adapt model %s: %s", model_id, e)
             raise
 
@@ -460,7 +473,7 @@ class AdvancedLearningService:
                 "last_evaluation": analytics.last_evaluation,
             }
             return performance
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get model performance: %s", e)
             raise
 
@@ -492,7 +505,7 @@ class AdvancedLearningService:
             model.last_updated = datetime.now(UTC)
             logger.info("Model optimized: %s", model_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to optimize model %s: %s", model_id, e)
             return False
 
@@ -534,7 +547,7 @@ class AdvancedLearningService:
             analytics.total_training_time += model.training_time
             analytics.convergence_speed = session.iterations / model.training_time
             logger.info("Learning session completed: %s", session_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to execute learning session %s: %s", session_id, e)
             session.status = LearningStatus.FAILED
 
@@ -560,7 +573,7 @@ class AdvancedLearningService:
             session.end_time = datetime.now(UTC)
             session.status = LearningStatus.COMPLETED
             logger.info("Meta-learning completed: %s", session_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to execute meta-learning %s: %s", session_id, e)
             session.status = LearningStatus.FAILED
 
@@ -586,7 +599,7 @@ class AdvancedLearningService:
             session.end_time = datetime.now(UTC)
             session.status = LearningStatus.COMPLETED
             logger.info("Federated learning completed: %s", session_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to execute federated learning %s: %s", session_id, e)
             session.status = LearningStatus.FAILED
 
@@ -672,7 +685,7 @@ class AdvancedLearningService:
                             session.end_time = current_time
                             logger.warning("Learning session %s timed out", session_id)
                 await asyncio.sleep(60)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error monitoring learning sessions: %s", e)
                 await asyncio.sleep(60)
 
@@ -684,7 +697,7 @@ class AdvancedLearningService:
                     if session.learning_type == LearningType.FEDERATED and session.status == LearningStatus.TRAINING:
                         await asyncio.sleep(1)
                 await asyncio.sleep(30)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error processing federated learning: %s", e)
                 await asyncio.sleep(30)
 
@@ -696,7 +709,7 @@ class AdvancedLearningService:
                     if model.status == LearningStatus.ACTIVE:
                         await self.optimize_model(model_id)
                 await asyncio.sleep(3600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error optimizing models: %s", e)
                 await asyncio.sleep(3600)
 
@@ -715,7 +728,7 @@ class AdvancedLearningService:
                 if inactive_sessions:
                     logger.info("Cleaned up %s inactive sessions", len(inactive_sessions))
                 await asyncio.sleep(3600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error cleaning up sessions: %s", e)
                 await asyncio.sleep(3600)
 

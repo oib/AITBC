@@ -7,6 +7,7 @@ import asyncio
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, col, select, update
 
 from aitbc.aitbc_logging import get_logger
@@ -32,6 +33,20 @@ logger = get_logger(__name__)
 
 # Non-terminal execution states — terminal rows are immutable (#1806 / #1424).
 _EXECUTION_ACTIVE_STATUSES = (AgentStatus.PENDING, AgentStatus.RUNNING)
+
+# Expected failure surface for the best-effort handlers below: sqlmodel
+# session/DBAPI errors plus data-shape and runtime errors from in-memory
+# verification and step bookkeeping. RuntimeError preserves catch of
+# abort-style raises; BaseExceptions still propagate.
+_OPS_ERRORS: tuple[type[Exception], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 
 
 class CoordinatorClient:
@@ -149,7 +164,7 @@ class AgentVerifier:
                 verification_result = await self._full_verify_step(step_execution)
             else:
                 verification_result = await self._basic_verify_step(step_execution)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Step verification failed: %s", e)
             verification_result["error"] = str(e)
         return verification_result
@@ -294,7 +309,7 @@ class AIAgentOrchestrator:
                     step_states=step_results,
                 )
             await self._complete_execution(execution_id, step_results)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             await self._handle_execution_failure(execution_id, e)
 
     async def _execute_single_step(self, execution_id: str, step: AgentStep, inputs: dict[str, Any]) -> AgentStepExecution:

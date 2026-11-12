@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 import httpx
+from sqlalchemy.exc import SQLAlchemyError
 
 from aitbc.rate_limiting import rate_limit
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -17,6 +18,22 @@ from ..services.developer_platform_service import DeveloperPlatformService
 from .common import get_developer_platform_service
 
 router = APIRouter(tags=["Developer Platform"])
+
+# Expected failure surface for the fallback/probe handlers below: service/DB
+# errors (sqlmodel sessions -> SQLAlchemyError), outbound HTTP probes (httpx),
+# lazy config imports (ImportError), and data-shape/runtime errors.
+# HTTPException is not in the tuple, so it propagates to the client untouched (#1863).
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AttributeError,
+    ImportError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    SQLAlchemyError,
+    TypeError,
+    ValueError,
+    httpx.HTTPError,
+)
 
 
 @router.get("/analytics/overview", response_model=dict[str, Any])
@@ -32,7 +49,7 @@ async def get_platform_overview(
         # Get bounty statistics with fallback
         try:
             bounty_stats = await run_in_threadpool(dev_service.get_bounty_statistics)
-        except Exception:
+        except _OPS_ERRORS:
             bounty_stats = {
                 "total": 150,
                 "active": 45,
@@ -55,7 +72,7 @@ async def get_platform_overview(
                     ).scalar_one()
                 )
             )
-        except Exception:
+        except _OPS_ERRORS:
             total_developers = 1250
             active_developers = 890
 
@@ -66,7 +83,7 @@ async def get_platform_overview(
                     lambda: session.execute(select(func.count()).select_from(DeveloperCertification)).scalar_one()
                 )
             )
-        except Exception:
+        except _OPS_ERRORS:
             total_certifications = 320
 
         # Get regional hub statistics with fallback
@@ -74,7 +91,7 @@ async def get_platform_overview(
             total_hubs = int(
                 await run_in_threadpool(lambda: session.execute(select(func.count()).select_from(RegionalHub)).scalar_one())
             )
-        except Exception:
+        except _OPS_ERRORS:
             total_hubs = 8
 
         return {
@@ -99,7 +116,7 @@ async def get_platform_overview(
             "generated_at": datetime.now(UTC).isoformat(),
         }
 
-    except Exception:
+    except _OPS_ERRORS:
         # Return fallback data even on total failure
         return {
             "developers": {
@@ -141,7 +158,7 @@ def _probe_blockchain() -> str:
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
         response = httpx.get(f"{rpc_url}/rpc/head", timeout=_HEALTH_PROBE_TIMEOUT)
         return "healthy" if response.status_code == 200 else "unhealthy"
-    except Exception:
+    except _OPS_ERRORS:
         return "unhealthy"
 
 
@@ -151,7 +168,7 @@ def _probe_ipfs() -> str:
     try:
         response = httpx.post(f"{api_url}/api/v0/id", timeout=_HEALTH_PROBE_TIMEOUT)
         return "healthy" if response.status_code == 200 else "unhealthy"
-    except Exception:
+    except _OPS_ERRORS:
         return "unhealthy"
 
 
@@ -175,7 +192,7 @@ def _probe_smart_contracts() -> str:
         if response.status_code == 200 and (response.json() or {}).get("result"):
             return "healthy"
         return "unhealthy"
-    except Exception:
+    except _OPS_ERRORS:
         return "unhealthy"
 
 
@@ -189,7 +206,7 @@ def get_platform_health(request: Request, session: Annotated[Session, Depends(ge
         try:
             developer_count = session.execute(select(func.count(DeveloperProfile.id))).scalar()  # type: ignore[arg-type]
             database_status = "healthy"
-        except Exception:
+        except _OPS_ERRORS:
             database_status = "unhealthy"
             developer_count = 0
 
@@ -218,5 +235,5 @@ def get_platform_health(request: Request, session: Annotated[Session, Depends(ge
             "last_updated": datetime.now(UTC).isoformat(),
         }
 
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting platform health") from None

@@ -2,8 +2,10 @@
 
 from typing import Annotated, Any
 
+import httpx
 from aitbc.rate_limiting import rate_limit
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
@@ -12,6 +14,21 @@ from ..services.developer_platform_service import DeveloperPlatformService
 from .common import get_developer_platform_service
 
 router = APIRouter(tags=["Developer Platform"])
+
+# Expected failure surface for the 500-translate handlers below: service/DB
+# errors (sqlmodel sessions -> SQLAlchemyError), outbound HTTP from the
+# service layer (httpx), and data-shape/runtime errors. HTTPException is not
+# in the tuple, so it propagates to the client untouched (#1863).
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AttributeError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    SQLAlchemyError,
+    TypeError,
+    ValueError,
+    httpx.HTTPError,
+)
 
 
 @router.post("/hubs", response_model=dict[str, Any])
@@ -42,7 +59,7 @@ async def create_regional_hub(
             "message": "Regional hub created successfully",
         }
 
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error creating regional hub") from None
 
 
@@ -72,7 +89,7 @@ async def get_regional_hubs(
             for hub in hubs
         ]
 
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting regional hubs") from None
 
 
@@ -104,5 +121,5 @@ async def get_hub_developers(
 
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting hub developers") from None

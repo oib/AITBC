@@ -8,6 +8,8 @@ from sqlalchemy import desc
 from sqlmodel import Session, col, select
 from starlette.concurrency import run_in_threadpool
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import parse_rate_limit, rate_limit
 from aitbc_shared import JobPayment
@@ -25,6 +27,21 @@ from ....utils.cache import cached, get_cache_config
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+# Expected failure surface for the admin endpoints: filesystem/JSON,
+# data-shape, runtime, lazy in-function imports, SQLAlchemy session errors
+# and list indexing. BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    IndexError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    SQLAlchemyError,
+)
 
 
 @router.get("/debug-settings", summary="Debug settings")
@@ -95,7 +112,7 @@ def create_test_miner(
             "session_token": session_token,
             "message": "Test miner created successfully",
         }
-    except Exception:
+    except _OPS_ERRORS:
         logger.error("Failed to create test miner")
         raise HTTPException(status_code=500, detail="Failed to create test miner") from None
 
@@ -246,7 +263,7 @@ def get_system_status(
             "system": system_info,
             "status": "healthy" if online_miners > 0 else "degraded",
         }
-    except Exception:
+    except _OPS_ERRORS:
         logger.error("Failed to get system status")
         return {"status": "error", "error": "Failed to get system status"}
 
@@ -610,7 +627,7 @@ def _sweeper_config(factory: Any) -> dict[str, Any]:
     """
     try:
         instance = factory()
-    except Exception as exc:  # pragma: no cover - defensive
+    except _OPS_ERRORS as exc:  # pragma: no cover - defensive
         logger.warning("Could not read sweeper config for %s: %s", factory, exc)
         return {"error": f"{type(exc).__name__}: {exc}"}
     return {
@@ -638,7 +655,7 @@ def collect_sweeper_report() -> dict[str, Any]:
     for name, is_enabled, factory, purpose in _sweeper_specs():
         try:
             enabled = bool(is_enabled())
-        except Exception as exc:  # pragma: no cover - defensive
+        except _OPS_ERRORS as exc:  # pragma: no cover - defensive
             logger.warning("Could not evaluate enable flag for %s: %s", name, exc)
             enabled = False
         # A run_forever task that is enabled but absent from the registry was

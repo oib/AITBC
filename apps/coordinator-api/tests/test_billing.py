@@ -11,6 +11,17 @@ from decimal import Decimal
 
 import pytest
 
+# Failure surface for token decoding helpers below: base64/JSON decode
+# (ValueError family), attribute/key lookups on the decoded payload.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 # ---------------------------------------------------------------------------
 # Lightweight stubs for the ORM models so we don't need a real DB
 # ---------------------------------------------------------------------------
@@ -231,7 +242,7 @@ async def extract_from_token(token: str, secret: str = "test-secret") -> dict | 
         if "tenant_id" not in payload:
             return None
         return payload
-    except Exception:
+    except _OPS_ERRORS:
         return None
 
 

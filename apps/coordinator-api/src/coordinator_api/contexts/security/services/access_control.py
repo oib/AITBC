@@ -12,6 +12,18 @@ from ....schemas import ConfidentialAccessRequest
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the access-verification helpers:
+# filesystem/JSON, data-shape and runtime errors. BaseExceptions still
+# propagate; anything outside this tuple is a bug, not a denial.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class AccessPurpose(StrEnum):
     """Standard access purposes"""
@@ -137,7 +149,7 @@ class AccessController:
             allowed = self._apply_policies(request, participant_info, transaction)
             self._cache_result(cache_key, allowed)
             return allowed
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Access verification failed: %s", e)
             return False
 

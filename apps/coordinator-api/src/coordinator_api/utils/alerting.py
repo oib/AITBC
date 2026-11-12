@@ -9,6 +9,18 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Expected failure surface for alert delivery below: urllib/json/datetime
+# ops plus the RuntimeError raised for webhook failures. Genuine
+# BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class AlertDispatcher:
     def __init__(self, cooldown_seconds: int = 300, max_history: int = 100):
@@ -37,7 +49,7 @@ class AlertDispatcher:
                 self._last_sent[name] = datetime.now(UTC)
                 results["sent"].append(name)
                 self._record_alert(name, alert, delivery_status="sent")
-            except Exception as exc:
+            except _OPS_ERRORS as exc:
                 logger.error("Alert delivery failed for %s: %s", name, exc)
                 results["failed"].append({"name": name, "error": str(exc)})
                 self._record_alert(name, alert, delivery_status="failed", error_message=str(exc))

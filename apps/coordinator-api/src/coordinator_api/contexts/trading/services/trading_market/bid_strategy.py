@@ -15,6 +15,18 @@ from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the bid-calculation and monitor-loop fallbacks
+# below: Decimal/arithmetic on prices (ArithmeticError covers
+# decimal.InvalidOperation and ZeroDivisionError) and data-shape/runtime
+# errors. Everything else still propagates.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    ArithmeticError,
+    AttributeError,
+    KeyError,
+    TypeError,
+    ValueError,
+)
+
 
 def _D(value: float | int | str | Decimal) -> Decimal:
     """Convert a numeric value to Decimal for financial arithmetic."""
@@ -175,7 +187,7 @@ class BidStrategyEngine:
                 self.bid_history.append(bid_result)
             logger.info("Calculated bid for task %s: %s AITBC/hour", task_requirements.task_id, bid_price)
             return bid_result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to calculate bid: %s", e)
             raise
 
@@ -252,6 +264,49 @@ class BidStrategyEngine:
         logger.debug("Selected strategy %s for task %s", optimal_strategy, task_requirements.task_id)
         return optimal_strategy
 
+    def _market_multiplier(self, market_conditions: MarketConditions) -> Decimal:
+        """Compute the market-conditions multiplier for bid pricing."""
+        market_multiplier = Decimal("1.0")
+        if market_conditions.demand_level > 0.8:
+            market_multiplier *= Decimal("1.2")
+        if market_conditions.supply_level < 0.3:
+            market_multiplier *= Decimal("1.3")
+        if market_conditions.price_volatility > self.volatility_threshold:
+            market_multiplier *= Decimal("1.1")
+        return market_multiplier
+
+    @staticmethod
+    def _time_factor(task_requirements: TaskRequirements) -> Decimal:
+        """Compute the deadline-proximity time factor."""
+        time_factor = Decimal("1.0")
+        if task_requirements.deadline:
+            time_remaining = (task_requirements.deadline - datetime.now(UTC)).total_seconds() / 3600
+            if time_remaining < 2:
+                time_factor = Decimal("1.5")
+            elif time_remaining < 6:
+                time_factor = Decimal("1.2")
+            elif time_remaining < 24:
+                time_factor = Decimal("1.1")
+        return time_factor
+
+    @staticmethod
+    def _apply_custom_parameters(
+        base_price: Decimal,
+        tier_multiplier: Decimal,
+        risk_premium: Decimal,
+        custom_parameters: dict[str, Any] | None,
+    ) -> tuple[Decimal, Decimal, Decimal]:
+        """Apply caller-supplied parameter adjustments, returning the
+        adjusted ``(base_price, tier_multiplier, risk_premium)``."""
+        if custom_parameters:
+            if "base_price_adjustment" in custom_parameters:
+                base_price *= Decimal(1) + _D(custom_parameters["base_price_adjustment"])
+            if "tier_multiplier_adjustment" in custom_parameters:
+                tier_multiplier *= Decimal(1) + _D(custom_parameters["tier_multiplier_adjustment"])
+            if "risk_premium_adjustment" in custom_parameters:
+                risk_premium *= Decimal(1) + _D(custom_parameters["risk_premium_adjustment"])
+        return base_price, tier_multiplier, risk_premium
+
     async def _calculate_bid_parameters(
         self,
         task_requirements: TaskRequirements,
@@ -277,23 +332,9 @@ class BidStrategyEngine:
             BidStrategy.CONSERVATIVE: Decimal("0.9"),
         }
         urgency_multiplier = urgency_multipliers[strategy]
-        market_multiplier = Decimal("1.0")
-        if market_conditions.demand_level > 0.8:
-            market_multiplier *= Decimal("1.2")
-        if market_conditions.supply_level < 0.3:
-            market_multiplier *= Decimal("1.3")
-        if market_conditions.price_volatility > self.volatility_threshold:
-            market_multiplier *= Decimal("1.1")
+        market_multiplier = self._market_multiplier(market_conditions)
         competition_factor = _D(market_conditions.demand_level / max(market_conditions.supply_level, 0.1))
-        time_factor = Decimal("1.0")
-        if task_requirements.deadline:
-            time_remaining = (task_requirements.deadline - datetime.now(UTC)).total_seconds() / 3600
-            if time_remaining < 2:
-                time_factor = Decimal("1.5")
-            elif time_remaining < 6:
-                time_factor = Decimal("1.2")
-            elif time_remaining < 24:
-                time_factor = Decimal("1.1")
+        time_factor = self._time_factor(task_requirements)
         risk_premiums = {
             BidStrategy.URGENT_BID: Decimal("0.2"),
             BidStrategy.COST_OPTIMIZED: Decimal("0.05"),
@@ -302,13 +343,9 @@ class BidStrategyEngine:
             BidStrategy.CONSERVATIVE: Decimal("0.08"),
         }
         risk_premium = risk_premiums[strategy]
-        if custom_parameters:
-            if "base_price_adjustment" in custom_parameters:
-                base_price *= Decimal(1) + _D(custom_parameters["base_price_adjustment"])
-            if "tier_multiplier_adjustment" in custom_parameters:
-                tier_multiplier *= Decimal(1) + _D(custom_parameters["tier_multiplier_adjustment"])
-            if "risk_premium_adjustment" in custom_parameters:
-                risk_premium *= Decimal(1) + _D(custom_parameters["risk_premium_adjustment"])
+        base_price, tier_multiplier, risk_premium = self._apply_custom_parameters(
+            base_price, tier_multiplier, risk_premium, custom_parameters
+        )
         return BidParameters(
             base_price=base_price,
             urgency_multiplier=urgency_multiplier,
@@ -484,7 +521,7 @@ class BidStrategyEngine:
                     if len(self.market_history) > self.price_history_days * 24:
                         self.market_history = self.market_history[-(self.price_history_days * 24) :]
                 await asyncio.sleep(300)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error monitoring market conditions: %s", e)
                 await asyncio.sleep(60)
 

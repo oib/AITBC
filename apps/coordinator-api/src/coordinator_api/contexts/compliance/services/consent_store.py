@@ -31,7 +31,7 @@ class SQLConsentStore(ConsentStore):
         for value in row.meta.get("classifications") or []:
             try:
                 classifications.add(normalize_classification(value))
-            except Exception:
+            except (ValueError, TypeError):
                 continue
         return AITBCConsentRecord(
             subject_id=row.subject_id,

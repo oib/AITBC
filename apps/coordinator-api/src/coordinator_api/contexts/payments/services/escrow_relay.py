@@ -127,11 +127,11 @@ class EscrowRelayService:
         )
         return by_pair
 
-    async def relay(self, client_id: str, is_admin: bool, body: dict[str, Any]) -> dict[str, Any]:
-        """Validate, dedup and forward the escrow create payload to the chain.
-
-        Returns ``{"contract_id": ..., "duplicate": bool}``.
-        """
+    @staticmethod
+    def _validated_relay_fields(
+        body: dict[str, Any],
+    ) -> tuple[str, str, str, dict[str, Any], str | None, str | None]:
+        """Extract and validate the relayed escrow fields (400 on bad input)."""
         job_id = body.get("job_id")
         buyer = body.get("buyer")
         provider = body.get("provider")
@@ -153,7 +153,19 @@ class EscrowRelayService:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="buyer_agent_id must be a string")
         if provider_agent_id is not None and not isinstance(provider_agent_id, str):
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="provider_agent_id must be a string")
+        return job_id, buyer, provider, lock_tx, buyer_agent_id, provider_agent_id
 
+    async def _authorize_relay(
+        self,
+        client_id: str,
+        is_admin: bool,
+        buyer: str,
+        provider: str,
+        buyer_agent_id: str | None,
+        provider_agent_id: str | None,
+        amount: Any,
+    ) -> None:
+        """Agent-address binding checks plus the buyer-binding and amount-cap gates."""
         resolve_chain = default_resolve_chain_id()
         if buyer_agent_id:
             await assert_agent_address_binding(self.session, buyer_agent_id, buyer, role="buyer", chain_id=resolve_chain)
@@ -162,34 +174,42 @@ class EscrowRelayService:
                 self.session, provider_agent_id, provider, role="provider", chain_id=resolve_chain
             )
 
-        amount_units = self._amount_units(body.get("amount"))
+        amount_units = self._amount_units(amount)
         if not is_admin:
             await run_in_threadpool(self._check_buyer_binding, client_id, buyer)
         self._check_amount_cap(is_admin, amount_units)
 
-        lock_hash = _lock_tx_hash(lock_tx)
-        existing = await run_in_threadpool(self._existing_relay, client_id, job_id, lock_hash)
-        if existing is not None:
-            if existing.lock_hash != lock_hash:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"an escrow was already relayed for job {job_id} with a different lock",
-                )
-            if buyer_agent_id and existing.buyer_agent_id and existing.buyer_agent_id != buyer_agent_id:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"escrow for job {job_id} is already bound to buyer agent {existing.buyer_agent_id}",
-                )
-            if provider_agent_id and existing.provider_agent_id and existing.provider_agent_id != provider_agent_id:
-                raise HTTPException(
-                    status_code=status.HTTP_409_CONFLICT,
-                    detail=f"escrow for job {job_id} is already bound to provider agent {existing.provider_agent_id}",
-                )
-            return {"contract_id": existing.contract_id, "duplicate": True}
+    @staticmethod
+    def _dedup_relay_result(
+        existing: EscrowRelay,
+        job_id: str,
+        lock_hash: str,
+        buyer_agent_id: str | None,
+        provider_agent_id: str | None,
+    ) -> dict[str, Any]:
+        """Return the duplicate response or raise 409 on a conflicting replay."""
+        if existing.lock_hash != lock_hash:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"an escrow was already relayed for job {job_id} with a different lock",
+            )
+        if buyer_agent_id and existing.buyer_agent_id and existing.buyer_agent_id != buyer_agent_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"escrow for job {job_id} is already bound to buyer agent {existing.buyer_agent_id}",
+            )
+        if provider_agent_id and existing.provider_agent_id and existing.provider_agent_id != provider_agent_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"escrow for job {job_id} is already bound to provider agent {existing.provider_agent_id}",
+            )
+        return {"contract_id": existing.contract_id, "duplicate": True}
 
+    async def _post_escrow_create(self, body: dict[str, Any]) -> Any:
+        """POST the raw payload to the chain; translate failures to HTTP errors."""
         client = AsyncAITBCHTTPClient(timeout=10.0, api_key=self.blockchain_rpc_api_key)
         try:
-            chain_response = await client.post(
+            return await client.post(
                 f"{self.blockchain_rpc_url}/rpc/escrow/create",
                 json=body,
             )
@@ -219,6 +239,22 @@ class EscrowRelayService:
                 RESULT_UPSTREAM_5XX if status_error is not None else RESULT_CHAIN_TIMEOUT,
             ) from exc
 
+    async def relay(self, client_id: str, is_admin: bool, body: dict[str, Any]) -> dict[str, Any]:
+        """Validate, dedup and forward the escrow create payload to the chain.
+
+        Returns ``{"contract_id": ..., "duplicate": bool}``.
+        """
+        job_id, buyer, provider, lock_tx, buyer_agent_id, provider_agent_id = self._validated_relay_fields(body)
+        await self._authorize_relay(
+            client_id, is_admin, buyer, provider, buyer_agent_id, provider_agent_id, body.get("amount")
+        )
+
+        lock_hash = _lock_tx_hash(lock_tx)
+        existing = await run_in_threadpool(self._existing_relay, client_id, job_id, lock_hash)
+        if existing is not None:
+            return self._dedup_relay_result(existing, job_id, lock_hash, buyer_agent_id, provider_agent_id)
+
+        chain_response = await self._post_escrow_create(body)
         contract_id = chain_response.get("contract_id") if isinstance(chain_response, dict) else None
         row = EscrowRelay(
             client_id=client_id,

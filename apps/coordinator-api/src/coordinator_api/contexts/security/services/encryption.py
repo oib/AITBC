@@ -8,6 +8,7 @@ import os
 from datetime import UTC, datetime
 from typing import Any
 
+from cryptography.exceptions import InvalidKey, InvalidTag, UnsupportedAlgorithm
 from cryptography.hazmat.backends import default_backend
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric.x25519 import X25519PrivateKey, X25519PublicKey
@@ -17,7 +18,46 @@ from cryptography.hazmat.primitives.serialization import Encoding, PublicFormat
 
 from aitbc.aitbc_logging import get_logger
 
+from .key_management import KeyManagementError
+
 logger = get_logger(__name__)
+
+
+class EncryptionError(Exception):
+    """Base exception for encryption errors"""
+
+    pass
+
+
+class DecryptionError(EncryptionError):
+    """Exception for decryption errors"""
+
+    pass
+
+
+class AccessDeniedError(EncryptionError):
+    """Exception for access denied errors"""
+
+    pass
+
+
+# Expected failure surface for the encryption helpers: filesystem/JSON,
+# data-shape, runtime, the module error hierarchy, the key-management
+# backend errors a duck-typed KeyManager may raise, and the cryptography
+# primitives' own error types. BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    EncryptionError,
+    KeyManagementError,
+    InvalidTag,
+    InvalidKey,
+    UnsupportedAlgorithm,
+)
 
 
 class KeyManager:
@@ -100,7 +140,7 @@ class EncryptionService:
                     public_key = self.key_manager.get_public_key(participant)  # type: ignore[attr-defined]
                     encrypted_dek = self._encrypt_dek(dek, public_key)
                     encrypted_keys[participant] = encrypted_dek
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     # Previously this logged and continued, so encrypting for a participant
                     # with no registered key produced a payload that participant could never
                     # decrypt -- and reported success. With a single unknown participant the
@@ -113,12 +153,12 @@ class EncryptionService:
                     audit_public_key = self.key_manager.get_audit_key()  # type: ignore[attr-defined]
                     encrypted_dek = self._encrypt_dek(dek, audit_public_key)
                     encrypted_keys["audit"] = encrypted_dek
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.error("Failed to encrypt DEK for audit: %s", e)
             return EncryptedData(
                 ciphertext=actual_ciphertext, encrypted_keys=encrypted_keys, algorithm=self.algorithm, nonce=nonce, tag=tag
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Encryption failed: %s", e)
             raise EncryptionError(f"Failed to encrypt data: {e}") from e
 
@@ -145,7 +185,7 @@ class EncryptionService:
             data = json.loads(plaintext.decode())
             self._log_access(transaction_id=None, participant_id=participant_id, purpose=purpose, success=True)
             return data  # type: ignore[no-any-return]
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Decryption failed for participant %s: %s", participant_id, e)
             self._log_access(transaction_id=None, participant_id=participant_id, purpose=purpose, success=False, error=str(e))
             raise DecryptionError(f"Failed to decrypt data: {e}") from e
@@ -182,7 +222,7 @@ class EncryptionService:
                 authorization=audit_authorization,
             )
             return data  # type: ignore[no-any-return]
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Audit decryption failed: %s", e)
             raise DecryptionError(f"Failed to decrypt for audit: {e}") from e
 
@@ -234,23 +274,5 @@ class EncryptionService:
                 "authorization": authorization,
             }
             logger.info("Confidential data access: %s", json.dumps(log_entry))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to log access: %s", e)
-
-
-class EncryptionError(Exception):
-    """Base exception for encryption errors"""
-
-    pass
-
-
-class DecryptionError(EncryptionError):
-    """Exception for decryption errors"""
-
-    pass
-
-
-class AccessDeniedError(EncryptionError):
-    """Exception for access denied errors"""
-
-    pass

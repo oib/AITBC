@@ -17,8 +17,25 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.caching import generate_cache_key
+from sqlalchemy.exc import SQLAlchemyError
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort cache paths below:
+# filesystem errors, data-shape errors from the deep size estimator, lazy
+# import failures, and DB errors from service calls made while warming.
+# RuntimeError covers abort-style raises; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    SQLAlchemyError,
+)
 
 # COORD-CACHE-MEM-1 (#1689): bounds for the deep-size estimator. Cached values
 # are arbitrary payloads (lists/dicts/ORM-derived objects); recursion is
@@ -214,7 +231,7 @@ def cached(ttl_seconds: int = 300, key_prefix: str = "") -> Callable[[Any], Any]
             if cached_result is not None:
                 return cached_result
             result = await func(*args, **kwargs)
-            cache_manager.set(cache_key, result, ttl_seconds)
+            cache_manager.set(cache_key, result, ttl_seconds)  # noqa: unawaited-async — sync CacheManager.set
             return result
 
         @wraps(func)
@@ -254,7 +271,7 @@ async def cleanup_expired_cache() -> None:
             if removed_count > 0:
                 logger.info("Background cleanup removed %s expired entries", removed_count)
             await asyncio.sleep(300)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Cache cleanup error: %s", e)
             await asyncio.sleep(60)
 
@@ -272,18 +289,18 @@ class CacheWarmer:
 
             service = MarketService(self.session)
             stats = service.get_stats()
-            cache_manager.set("market_stats_overview", stats, ttl_seconds=300)
+            cache_manager.set("market_stats_overview", stats, ttl_seconds=300)  # noqa: unawaited-async — sync CacheManager.set
             logger.info("Market stats cache warmed up")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to warm market stats cache: %s", e)
 
     async def warm_exchange_rates(self) -> None:
         """Warm up exchange rates cache"""
         try:
             rates = {"AITBC_ETH": 1e-05, "AITBC_USD": 0.1}
-            cache_manager.set("exchange_rates_current", rates, ttl_seconds=600)
+            cache_manager.set("exchange_rates_current", rates, ttl_seconds=600)  # noqa: unawaited-async — sync CacheManager.set
             logger.info("Exchange rates cache warmed up")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to warm exchange rates cache: %s", e)
 
 

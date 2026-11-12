@@ -36,6 +36,15 @@ def _validate_password_strength(password: str) -> dict[str, Any]:
 
 logger = get_logger(__name__)
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class SecureWalletService:
     """Secure wallet service with proper cryptography and key management"""
@@ -177,8 +186,8 @@ class SecureWalletService:
 
             to_checksum_address(wallet.address)
             results["address_format_valid"] = True
-        except Exception:
-            pass
+        except _OPS_ERRORS:
+            logger.debug("Wallet address failed checksum validation", exc_info=True)
         if wallet.public_key and wallet.encrypted_private_key:
             results["has_keypair_data"] = True
         return results
@@ -360,7 +369,7 @@ class SecureWalletService:
             else:
                 audit["encryption_secure"] = False
                 audit["encryption_issues"] = ["Uses legacy or broken encryption"]
-        except Exception:
+        except _OPS_ERRORS:
             audit["encryption_secure"] = False
             audit["encryption_issues"] = ["Uses legacy or broken encryption"]
         try:
@@ -368,7 +377,7 @@ class SecureWalletService:
 
             to_checksum_address(wallet.address)
             audit["address_valid"] = True
-        except Exception:
+        except _OPS_ERRORS:
             audit["address_valid"] = False
             audit["address_issues"] = ["Invalid Ethereum address format"]
         audit["has_public_key"] = bool(wallet.public_key)

@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, desc, select
 
 from aitbc.aitbc_logging import get_logger
@@ -13,6 +14,19 @@ from aitbc.aitbc_logging import get_logger
 from ..domain.gpu_market import ExternalProvider, GPURegistry, ProviderMapping, SyncStatus
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the per-resource and sync-level fallbacks
+# below: session/DB errors (sqlmodel -> SQLAlchemyError), provider payload
+# shape (KeyError/TypeError/ValueError/AttributeError), and runtime/OS errors.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AttributeError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    SQLAlchemyError,
+    TypeError,
+    ValueError,
+)
 
 
 class ExternalProviderService:
@@ -67,7 +81,7 @@ class ExternalProviderService:
                 try:
                     self._map_to_internal(provider_id, resource)
                     synced_count += 1
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.error("Failed to map resource %s: %s", resource.get("id"), e)
                     failed_count += 1
             sync_status.resources_synced = synced_count
@@ -78,7 +92,7 @@ class ExternalProviderService:
             self.session.commit()
             self.session.refresh(sync_status)
             return sync_status
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to sync resources: %s", e)
             sync_status.status = "failed"
             sync_status.error_message = str(e)

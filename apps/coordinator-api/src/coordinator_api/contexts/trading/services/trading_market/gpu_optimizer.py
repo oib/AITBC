@@ -18,6 +18,28 @@ _cuda_checked = False
 logger = get_logger(__name__)
 
 
+def _gpu_probe_errors(cuda: Any) -> tuple[type[BaseException], ...]:
+    """Exception tuple for the CUDA probe/init fallbacks.
+
+    ``pycuda.driver.Error`` only exists once the driver module imports, so the
+    tuple is built per call site: the base ops errors plus the driver error
+    class when ``cuda`` is the real module (``None`` before a successful
+    import).
+    """
+    errors: list[type[BaseException]] = [
+        ImportError,
+        OSError,
+        RuntimeError,
+        AttributeError,
+        TypeError,
+        ValueError,
+    ]
+    driver_error = getattr(cuda, "Error", None)
+    if isinstance(driver_error, type) and issubclass(driver_error, BaseException):
+        errors.append(driver_error)
+    return tuple(errors)
+
+
 def _ensure_cuda() -> Any:
     """Import and initialise PyCUDA on first GPU use, not at module import.
 
@@ -30,15 +52,19 @@ def _ensure_cuda() -> Any:
     global _cuda, _cuda_checked
     if not _cuda_checked:
         _cuda_checked = True
+        cuda_mod: Any = None
         try:
-            import pycuda.driver as cuda
+            import pycuda.driver as _cuda_drv
 
-            cuda.init()
+            # Bind before init() so a driver Error raised there is still
+            # matched by _gpu_probe_errors(cuda_mod) below.
+            cuda_mod = _cuda_drv
+            _cuda_drv.init()
             import pycuda.autoinit  # noqa: F401
             from pycuda.compiler import SourceModule  # noqa: F401
 
-            _cuda = cuda
-        except Exception as e:
+            _cuda = _cuda_drv
+        except _gpu_probe_errors(cuda_mod) as e:
             logger.debug(
                 "PyCUDA not available or no CUDA-capable device detected: %s. GPU optimization will run in simulation mode",
                 e,
@@ -135,7 +161,7 @@ class MarketGPUOptimizer:
                         }
                     )
                 logger.info("Initialized %s real GPU devices", len(self.gpu_devices))
-            except Exception as e:
+            except _gpu_probe_errors(cuda) as e:
                 logger.error("Error initializing GPUs: %s", e)
                 self.simulation_mode = True
                 self._initialize_gpu_devices()
@@ -146,6 +172,41 @@ class MarketGPUOptimizer:
                 "fragmentation": 0.0,
             }
 
+    def _select_best_gpu(self, required_memory: int, priority: int) -> int:
+        """Return the id of the best-scoring GPU that can fit the job, or -1."""
+        best_gpu_id = -1
+        best_score = -1.0
+        for gpu in self.gpu_devices:
+            if gpu["free_memory"] < required_memory:
+                continue
+            if gpu["temperature"] > self.config["thermal_throttle_threshold"] and priority < 8:
+                continue
+            1.0 - gpu["free_memory"] / gpu["total_memory"]
+            comp_utilization = gpu["utilization"]
+            score = 100.0
+            score -= comp_utilization * 40.0
+            score -= (gpu["temperature"] - 40.0) * 1.5
+            mem_fit_ratio = required_memory / gpu["free_memory"]
+            score += mem_fit_ratio * 20.0
+            if score > best_score:
+                best_score = score
+                best_gpu_id = gpu["id"]
+        return best_gpu_id
+
+    async def _no_gpu_result(self, job_requirements: dict[str, Any], priority: int, required_memory: int) -> dict[str, Any]:
+        """Handle the case where no GPU can fit the job: retry after
+        defragmentation or preemption, else report the job as queued."""
+        if await self._attempt_memory_defragmentation():
+            return await self.optimize_resource_allocation(job_requirements)
+        if await self._preempt_low_priority_jobs(priority, required_memory):
+            return await self.optimize_resource_allocation(job_requirements)
+        return {
+            "success": False,
+            "reason": "Insufficient GPU resources available even after optimization",
+            "queued": True,
+            "estimated_wait_ms": 5000,
+        }
+
     async def optimize_resource_allocation(self, job_requirements: dict[str, Any]) -> dict[str, Any]:
         """
         Optimize GPU resource allocation for a new market job
@@ -153,38 +214,12 @@ class MarketGPUOptimizer:
         """
         required_memory = job_requirements.get("memory_bytes", 1024 * 1024 * 1024)
         required_compute = job_requirements.get("compute_units", 1.0)
-        job_requirements.get("max_latency_ms", 1000)
+        job_requirements.get("max_latency_ms", 1000)  # noqa: unawaited-async — dict.get
         priority = job_requirements.get("priority", 1)
         with self.lock:
-            best_gpu_id = -1
-            best_score = -1.0
-            for gpu in self.gpu_devices:
-                if gpu["free_memory"] < required_memory:
-                    continue
-                if gpu["temperature"] > self.config["thermal_throttle_threshold"] and priority < 8:
-                    continue
-                1.0 - gpu["free_memory"] / gpu["total_memory"]
-                comp_utilization = gpu["utilization"]
-                score = 100.0
-                score -= comp_utilization * 40.0
-                score -= (gpu["temperature"] - 40.0) * 1.5
-                mem_fit_ratio = required_memory / gpu["free_memory"]
-                score += mem_fit_ratio * 20.0
-                if score > best_score:
-                    best_score = score
-                    best_gpu_id = gpu["id"]
+            best_gpu_id = self._select_best_gpu(required_memory, priority)
             if best_gpu_id == -1:
-                if await self._attempt_memory_defragmentation():
-                    return await self.optimize_resource_allocation(job_requirements)
-                elif await self._preempt_low_priority_jobs(priority, required_memory):
-                    return await self.optimize_resource_allocation(job_requirements)
-                else:
-                    return {
-                        "success": False,
-                        "reason": "Insufficient GPU resources available even after optimization",
-                        "queued": True,
-                        "estimated_wait_ms": 5000,
-                    }
+                return await self._no_gpu_result(job_requirements, priority, required_memory)
             job_id = f"job_{uuid4().hex[:8]}" if "job_id" not in job_requirements else job_requirements["job_id"]
             allocation = self._allocate_memory(best_gpu_id, required_memory, job_id)
             if not allocation["success"]:

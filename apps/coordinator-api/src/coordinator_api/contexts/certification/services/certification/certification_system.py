@@ -19,9 +19,20 @@ from aitbc_shared.models import ReputationDTO
 from sqlmodel import Session, and_, select
 
 from aitbc.aitbc_logging import get_logger
+from sqlalchemy.exc import SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 
 
 class CertificationSystem:
@@ -85,7 +96,7 @@ class CertificationSystem:
                 verification_results[requirement] = result
                 if not result["passed"]:
                     errors.append(f"Requirement '{requirement}' failed: {result.get('reason', 'Unknown reason')}")
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error verifying requirement %s for agent %s: %s", requirement, agent_id, str(e))
                 errors.append(f"Verification error for '{requirement}': {str(e)}")
         if errors:

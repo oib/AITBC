@@ -25,6 +25,21 @@ from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(prefix="/inference", tags=["inference"])
 
+# Expected failure surface for the Ollama-backed endpoints:
+# filesystem/JSON, data-shape, runtime and httpx transport/decoding errors
+# from SharedHttpClient. BaseExceptions still propagate; the explicit
+# httpx.ConnectError / HTTPStatusError arms ahead of this tuple are
+# unchanged.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+)
+
 # Ollama configuration
 OLLAMA_BASE_URL = "http://localhost:11434"
 
@@ -97,7 +112,7 @@ async def generate(request: Request, req: InferenceRequest) -> dict[str, Any]:
         logging.getLogger(__name__).exception("Unhandled exception")
 
         raise HTTPException(status_code=502, detail="Internal server error") from None
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
@@ -141,7 +156,7 @@ async def generate_stream(request: Request, req: InferenceRequest):
                         except json.JSONDecodeError:
                             continue
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             yield f"data: {json.dumps({'error': str(e)})}\n\n"
 
     return StreamingResponse(stream_generator(), media_type="text/event-stream")
@@ -181,7 +196,7 @@ async def batch_generate(request: Request, req: BatchInferenceRequest) -> dict[s
                 else:
                     errors.append({"index": i, "error": f"HTTP {response.status_code}"})
 
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 errors.append({"index": i, "error": str(e)})
 
         return {
@@ -196,7 +211,7 @@ async def batch_generate(request: Request, req: BatchInferenceRequest) -> dict[s
 
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Ollama service not available") from None
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
@@ -225,7 +240,7 @@ async def list_models(request: Request) -> dict[str, Any]:
         }
     except httpx.ConnectError:
         raise HTTPException(status_code=503, detail="Ollama service not available") from None
-    except Exception:
+    except _OPS_ERRORS:
         return {"models": [], "count": 0}
 
 
@@ -248,7 +263,7 @@ async def pull_model(request: Request, model_name: str) -> dict[str, Any]:
         logging.getLogger(__name__).exception("Unhandled exception")
 
         raise HTTPException(status_code=502, detail="Internal server error") from None
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
@@ -260,7 +275,7 @@ async def inference_health(request: Request) -> dict[str, Any]:
     try:
         response = await SharedHttpClient.get(f"{OLLAMA_BASE_URL}/api/tags", timeout=5.0)
         ollama_available = response.status_code == 200
-    except Exception:
+    except _OPS_ERRORS:
         ollama_available = False
     # Ollama is the only backend this router serves; reporting "healthy"
     # while it is down told every probe the inference surface was fine.

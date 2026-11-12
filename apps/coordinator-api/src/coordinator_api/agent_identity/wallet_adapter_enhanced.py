@@ -16,7 +16,7 @@ from typing import Any, cast
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.crypto import derive_ethereum_address, encrypt_private_key, sign_transaction_data
 from aitbc.network import AITBCHTTPClient, Web3Client
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError
 from aitbc_agent_core import get_active_brand
 
 _brand = get_active_brand()
@@ -25,6 +25,36 @@ from ..contexts.agent_identity.domain.agent_identity import ChainType
 from ..contexts.wallet.services.money import from_atomic_units, to_atomic_units, validate_positive_amount
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the fail-closed helpers below: ops/data
+# errors, lazy eth-* import failures, AITBC RPC client errors, and (when the
+# optional eth_keys stack is installed) signature-verification failures.
+# RuntimeError covers abort-style raises; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    NetworkError,
+    RateLimitError,
+    CircuitBreakerOpenError,
+)
+try:
+    # eth_keys is an optional signing dep (the adapters lazy-import
+    # eth_account/eth_utils); include its verification failures when present
+    # so the fail-closed verify paths keep their old swallow-and-return-False
+    # behavior for malformed signatures.
+    from eth_keys.exceptions import BadSignature as _EthBadSignature
+    from eth_keys.exceptions import ValidationError as _EthValidationError
+except ImportError:
+    _eth_sig_errors: tuple[type[BaseException], ...] = ()
+else:
+    _eth_sig_errors = (_EthBadSignature, _EthValidationError)
+_OPS_ERRORS += _eth_sig_errors
 
 
 class WalletStatus(StrEnum):
@@ -149,7 +179,7 @@ class EnhancedWalletAdapter(ABC):
             message_to_verify = f"{message}:{signature_data['timestamp']}:{signature_data['nonce']}"
             message_hash = hashlib.sha256(message_to_verify.encode()).hexdigest()
             return await self._verify_signature(message_hash, signature_data["signature"], address)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error verifying signature: %s", e)
             return False
 
@@ -362,7 +392,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
                 return True
             except ValueError:
                 return False
-        except Exception:
+        except _OPS_ERRORS:
             return False
 
     async def get_transaction_history(
@@ -567,7 +597,7 @@ class EthereumWalletAdapter(EnhancedWalletAdapter):
             sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
             recovered = Account._recover_hash(hash_bytes, signature=sig_bytes)
             return str(recovered).lower() == address.lower()
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to verify signature: %s", e)
             return False
 
@@ -782,14 +812,14 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
 
                 return is_checksum_address(address)
             return False
-        except Exception:
+        except _OPS_ERRORS:
             return False
 
     async def _get_nonce(self, address: str) -> int:
         try:
             response = self._http_client.get(f"rpc/account/{address}", params=self._chain_params())
             return response.get("nonce", 0)  # type: ignore[no-any-return]
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting nonce for %s: %s", address, e)
             return 0
 
@@ -836,7 +866,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
             sig_bytes = bytes.fromhex(signature.removeprefix("0x"))
             recovered = Account._recover_hash(hash_bytes, signature=sig_bytes)
             return str(recovered).lower() == address.lower()
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to verify signature: %s", e)
             return False
 

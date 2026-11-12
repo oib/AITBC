@@ -14,6 +14,8 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 import hashlib
 import json
 import os
+
+import httpx
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
@@ -25,6 +27,16 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.utils.validation import validate_address
 
 logger = get_logger(__name__)
+
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+)
 
 
 def _utc_now() -> datetime:
@@ -302,7 +314,7 @@ class GovernanceService:
             else:
                 logger.warning("Failed to get account balance for %s", address)
                 return 0
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Error querying voting power for %s: %s", address, e)
             return 0
 

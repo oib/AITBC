@@ -1,16 +1,18 @@
 import os
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, Response, status
 from pydantic import BaseModel
 from starlette.concurrency import run_in_threadpool
 from sqlalchemy import update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, col, select
 from aitbc_shared import JobPayment
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import AITBCError
 from aitbc.rate_limiting import parse_rate_limit, rate_limit
 
 from ....auth import MinerDep
@@ -43,6 +45,34 @@ from aitbc.tee import AttestationQuote, computation_transcript
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["miner"])
+
+# Expected failure surface for the miner endpoints -- this router moves
+# money (escrow release/refund, bond slashing, settlement retry), so the
+# tuple is deliberately wider than the baseline: filesystem/JSON,
+# data-shape (pydantic ValidationError is a ValueError), runtime,
+# SQLAlchemy session errors, lazy in-function imports (reputation,
+# bond-slashing, payment services), decimal parse failures
+# (InvalidOperation is an ArithmeticError, not a ValueError), timestamp
+# overflows, the aitbc error hierarchy, and HTTPException -- several arms
+# below have no explicit ``except HTTPException`` and previously folded it
+# into their error payload, so it stays in the tuple to keep money-path
+# semantics identical. Handlers that DO re-raise HTTPException keep their
+# explicit arms ahead of this tuple. BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    IndexError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    OverflowError,
+    ImportError,
+    SQLAlchemyError,
+    AITBCError,
+    InvalidOperation,
+    HTTPException,
+)
 
 # P2.1: high-value jobs require a ZK receipt proof before escrow release.
 # -1 disables the threshold, 0 always requires a proof, default 10 AIT.
@@ -166,6 +196,15 @@ async def _attach_zk_proof(
         receipt["computation_correct"] = False
         return receipt
 
+    return await _attach_model_execution_proof(receipt, job, model_id, result)
+
+
+async def _attach_model_execution_proof(
+    receipt: dict[str, Any],
+    job: Any,
+    model_id: str,
+    result: dict[str, Any] | None,
+) -> dict[str, Any]:
     try:
         model_proof = await zk_proof_service.generate_model_proof(job, result)
         if not model_proof:
@@ -209,7 +248,7 @@ async def _attach_zk_proof(
             )
             job_result = JobResult(result=result or {})
             binding_proof = await zk_proof_service.generate_receipt_proof(receipt_model, job_result)
-        except Exception as bind_err:
+        except _OPS_ERRORS as bind_err:
             logger.warning("Receipt binding proof for job %s failed (non-fatal): %s", job.id, bind_err)
             binding_proof = None
 
@@ -219,7 +258,7 @@ async def _attach_zk_proof(
         if binding_proof:
             receipt["receipt_binding_proof"] = binding_proof
         logger.info("Model-execution proof generated and verified for job %s", job.id)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error generating ZK proof for job %s: %s", job.id, e)
         receipt["zk_status"] = f"error: {e}"
         receipt["computation_correct"] = False
@@ -255,56 +294,80 @@ def _attach_tee_attestation(
 
     try:
         if req.tee_attestation_id:
-            attestation = service.get_attestation(req.tee_attestation_id)
-            if not attestation:
-                receipt["tee_status"] = "attestation_not_found"
-            elif attestation.status != TEEAttestationStatus.VERIFIED.value:
-                # v0.14.4: only VERIFIED (registered) attestations count.
-                receipt["tee_status"] = "attestation_not_verified"
-            elif enclave_id and attestation.enclave_id != enclave_id:
-                receipt["tee_status"] = "enclave_mismatch"
-            elif expected_measurement and attestation.measurement != expected_measurement:
-                receipt["tee_status"] = "measurement_mismatch"
-            elif not attestation.registered:
-                receipt["tee_status"] = "unregistered_enclave"
-            else:
-                receipt["tee_status"] = "verified"
-                receipt["tee_attestation_id"] = attestation.id
-                if not _quote_matches_transcript(attestation.quote, job, result_payload):
-                    receipt["tee_status"] = "transcript_mismatch"
+            _tee_attestation_by_id(service, req, job, result_payload, receipt, enclave_id, expected_measurement)
         elif req.tee_quote:
-            if not _quote_matches_transcript(req.tee_quote, job, result_payload):
-                receipt["tee_status"] = "transcript_mismatch"
-                logger.error("TEE quote transcript mismatch for job %s", job.id)
-                return receipt
-            if not enclave_id:
-                try:
-                    enclave_id = AttestationQuote.from_base64(req.tee_quote).enclave_id
-                    expected_measurement = expected_measurement or enclave_id
-                except (ValueError, TypeError, KeyError):
-                    enclave_id = "unknown"
-            attestation = service.verify_and_store(
-                enclave_id or "unknown",
-                req.tee_quote,
-                measurement=expected_measurement or "",
-                require_registered=True,
-            )
-            if attestation.status == TEEAttestationStatus.VERIFIED.value:
-                receipt["tee_status"] = "verified"
-                receipt["tee_attestation_id"] = attestation.id
-                logger.info("TEE attestation verified for job %s: %s", job.id, attestation.id)
-            elif attestation.status == TEEAttestationStatus.SELF_CONSISTENT.value:
-                receipt["tee_status"] = "unregistered_enclave"
-            else:
-                receipt["tee_status"] = "attestation_rejected"
+            _tee_attestation_by_quote(service, req, job, result_payload, receipt, enclave_id, expected_measurement)
         else:
             receipt["tee_status"] = "tee_quote_missing"
             logger.error("TEE attestation required but no quote supplied for job %s", job.id)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error verifying TEE attestation for job %s: %s", job.id, e)
         receipt["tee_status"] = f"error: {e}"
 
     return receipt
+
+
+def _tee_attestation_by_id(
+    service: TEEAttestationService,
+    req: Any,
+    job: Any,
+    result_payload: dict[str, Any],
+    receipt: dict[str, Any],
+    enclave_id: str,
+    expected_measurement: str,
+) -> None:
+    attestation = service.get_attestation(req.tee_attestation_id)
+    if not attestation:
+        receipt["tee_status"] = "attestation_not_found"
+    elif attestation.status != TEEAttestationStatus.VERIFIED.value:
+        # v0.14.4: only VERIFIED (registered) attestations count.
+        receipt["tee_status"] = "attestation_not_verified"
+    elif enclave_id and attestation.enclave_id != enclave_id:
+        receipt["tee_status"] = "enclave_mismatch"
+    elif expected_measurement and attestation.measurement != expected_measurement:
+        receipt["tee_status"] = "measurement_mismatch"
+    elif not attestation.registered:
+        receipt["tee_status"] = "unregistered_enclave"
+    else:
+        receipt["tee_status"] = "verified"
+        receipt["tee_attestation_id"] = attestation.id
+        if not _quote_matches_transcript(attestation.quote, job, result_payload):
+            receipt["tee_status"] = "transcript_mismatch"
+
+
+def _tee_attestation_by_quote(
+    service: TEEAttestationService,
+    req: Any,
+    job: Any,
+    result_payload: dict[str, Any],
+    receipt: dict[str, Any],
+    enclave_id: str,
+    expected_measurement: str,
+) -> None:
+    if not _quote_matches_transcript(req.tee_quote, job, result_payload):
+        receipt["tee_status"] = "transcript_mismatch"
+        logger.error("TEE quote transcript mismatch for job %s", job.id)
+        return
+    if not enclave_id:
+        try:
+            enclave_id = AttestationQuote.from_base64(req.tee_quote).enclave_id
+            expected_measurement = expected_measurement or enclave_id
+        except (ValueError, TypeError, KeyError):
+            enclave_id = "unknown"
+    attestation = service.verify_and_store(
+        enclave_id or "unknown",
+        req.tee_quote,
+        measurement=expected_measurement or "",
+        require_registered=True,
+    )
+    if attestation.status == TEEAttestationStatus.VERIFIED.value:
+        receipt["tee_status"] = "verified"
+        receipt["tee_attestation_id"] = attestation.id
+        logger.info("TEE attestation verified for job %s: %s", job.id, attestation.id)
+    elif attestation.status == TEEAttestationStatus.SELF_CONSISTENT.value:
+        receipt["tee_status"] = "unregistered_enclave"
+    else:
+        receipt["tee_status"] = "attestation_rejected"
 
 
 def _apply_tee_computation_attestation(
@@ -424,7 +487,7 @@ async def _settle_completed_job(session: Session, payment_service: Any, job: Job
         if released:
             job.payment_status = "released"
             session.add(job)
-            session.commit()
+            session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
             logger.info("Auto-released payment %s for completed job %s", job.payment_id, job.id)
             return True
         return False
@@ -434,7 +497,7 @@ async def _settle_completed_job(session: Session, payment_service: Any, job: Job
         return False
     job.payment_status = PENDING_ACCEPTANCE
     session.add(job)
-    session.commit()
+    session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
     logger.info(
         "Job %s completed; payment %s held for customer acceptance until %s",
         job.id,
@@ -447,6 +510,170 @@ async def _settle_completed_job(session: Session, payment_service: Any, job: Job
 def _is_shadow_mode(job: Job) -> bool:
     """Return True if this job is a shadow-mode spot-check re-run."""
     return bool((job.constraints or {}).get("shadow_mode")) or bool((job.constraints or {}).get("spot_check_for"))
+
+
+def _resolve_duration_ms(req: JobResultSubmit, metrics: dict[str, Any], job: Job, job_id: str) -> int | None:
+    duration_ms = metrics.get("duration_ms")
+    if duration_ms is None:
+        try:
+            execution_time = float(req.result.execution_time or 0)
+            if execution_time > 0:
+                duration_ms = int(execution_time * 1000)
+                metrics["duration_ms"] = duration_ms
+        except (TypeError, ValueError):
+            pass
+    if duration_ms is None and job.requested_at:
+        now = datetime.now(UTC)
+        requested_at = job.requested_at if job.requested_at.tzinfo else job.requested_at.replace(tzinfo=UTC)
+        duration_ms = int((now - requested_at).total_seconds() * 1000)
+        if duration_ms < 0:
+            logger.warning("Computed negative duration_ms for job %s; setting to 0", job_id)
+            duration_ms = 0
+        metrics["duration_ms"] = duration_ms
+    if duration_ms is not None:
+        duration_ms = int(duration_ms)
+    return duration_ms
+
+
+async def _tee_gate_failure(
+    session: Session,
+    job: Job,
+    job_id: str,
+    payment_service: Any,
+    tee_status: Any,
+) -> None:
+    error_message = f"TEE attestation required before escrow release (status: {tee_status})"
+    # v0.14.3: force the failure state and error to the database with an
+    # explicit update. The ORM object can become stale across the async
+    # event loop and PaymentService calls, so SQL is used for the final
+    # job-state transition.
+    session.execute(  # noqa: unawaited-async — sync Session (sqlmodel)
+        update(Job).where(col(Job.id) == job_id).values(state=JobState.failed.value, error=error_message)
+    )
+    session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+    job.error = error_message
+    job.state = JobState.failed
+    logger.error("Escrow release blocked for job %s: TEE status %s", job.id, tee_status)
+    # v0.14.3: TEE failure now triggers an automatic refund so the
+    # customer is not left with an escrowed stuck job.
+    refunded = await payment_service.refund_payment(
+        job.client_id, job.id, job.payment_id, reason=f"TEE attestation failed: {tee_status}", is_admin=True
+    )
+    if refunded:
+        logger.info(
+            "Refunded payment %s for job %s after TEE attestation failure",
+            job.payment_id,
+            job.id,
+        )
+    else:
+        logger.error(
+            "Failed to refund payment %s for job %s after TEE attestation failure",
+            job.payment_id,
+            job.id,
+        )
+    if refunded:
+        session.execute(update(Job).where(col(Job.id) == job_id).values(payment_status="refunded"))  # noqa: unawaited-async — sync Session (sqlmodel)
+        session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        job.payment_status = "refunded"
+    await _maybe_slash_bond(session, job, "fraud", f"TEE attestation failed: {tee_status}")
+
+
+async def _zk_gate_failure(session: Session, job: Job, zk_status: Any) -> None:
+    job.error = f"ZK proof required before escrow release (status: {zk_status})"
+    session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+    logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
+    await _maybe_slash_bond(session, job, "bad_result", f"ZK proof failed: {zk_status}")
+
+
+async def _settle_escrowed_payment(
+    session: Session,
+    job: Job,
+    payment_amount: Decimal | None,
+    receipt: dict[str, Any] | None,
+    job_id: str,
+) -> bool:
+    from ...payments.services.payments import PaymentService
+
+    payment_service = PaymentService(session)
+    success = True
+    # V23-46: release_payment(client_id, job_id, payment_id, reason). This is the
+    # miner router, so user["sub"] is the miner -- the owning client is job.client_id,
+    # which is what _require_owned_job checks against.
+    # P2.2: confidential jobs only release when a verified TEE attestation is present.
+    # P2.1: high-value jobs only release when a verified ZK proof is present.
+    if _tee_required_for(job, payment_amount):
+        tee_status = (receipt or {}).get("tee_status")
+        # "auto_attested" is the coordinator's own self-signed fallback
+        # quote (see _attach_tee_attestation) -- no real enclave is
+        # involved, so it still clears the release gate (unchanged
+        # behavior) but is recorded as distinct from a real quote.
+        if tee_status not in {"verified", "auto_attested"}:
+            await _tee_gate_failure(session, job, job_id, payment_service, tee_status)
+            success = False
+        elif not _computation_is_correct(receipt, job):
+            await _zk_gate_failure(session, job, (receipt or {}).get("zk_status"))
+            success = False
+        else:
+            success = await _settle_completed_job(session, payment_service, job)
+    elif _zk_required_for(job, payment_amount) and not _computation_is_correct(receipt, job):
+        await _zk_gate_failure(session, job, (receipt or {}).get("zk_status"))
+        success = False
+    else:
+        success = await _settle_completed_job(session, payment_service, job)
+    if not success:
+        logger.error("Failed to settle payment %s for job %s", job.payment_id, job.id)
+    return success
+
+
+async def _sync_receipt_row(session: Session, job: Job, receipt: dict[str, Any] | None) -> None:
+    if job.receipt_id and receipt:
+        receipt_row = await run_in_threadpool(
+            lambda: session.execute(select(JobReceipt).where(JobReceipt.receipt_id == job.receipt_id)).scalars().first()
+        )
+        if receipt_row:
+            receipt_row.payload = receipt
+            session.add(receipt_row)
+            await run_in_threadpool(session.commit)
+
+
+async def _finalize_result_response(
+    session: Session,
+    job: Job,
+    job_id: str,
+    miner_sub: str,
+    duration_ms: int | None,
+    receipt: dict[str, Any] | None,
+    is_shadow: bool,
+    spot_check_record: dict[str, Any] | None,
+) -> dict[str, Any]:
+    # For deterministic-decoding jobs that are not themselves spot-checks,
+    # schedule a shadow re-run. This is log-only and does not block settlement.
+    if not is_shadow:
+        try:
+            await run_in_threadpool(SpotCheckService(session).schedule_if_eligible, job)
+        except _OPS_ERRORS as spot_err:
+            logger.warning("Failed to schedule spot-check for job %s: %s", job_id, spot_err)
+
+    # Record job completion in the reputation service.
+    if is_shadow:
+        return {"status": "ok", "receipt": receipt, "spot_check": spot_check_record or {}}
+
+    try:
+        from ....contexts.reputation.services.reputation_service import ReputationService
+
+        reputation_service = ReputationService(session)
+        earnings = Decimal(str(receipt.get("price", "0"))) if receipt else Decimal("0")
+        await reputation_service.record_job_completion(
+            agent_id=miner_sub,
+            job_id=job_id,
+            success=True,
+            response_time=float(duration_ms or 0),
+            earnings=earnings,
+        )
+    except _OPS_ERRORS as rep_err:
+        logger.warning("Failed to record reputation for completed job %s: %s", job_id, rep_err)
+
+    return {"status": "ok", "receipt": receipt}
 
 
 @router.post("/miners/{job_id}/result", summary="Submit job result")
@@ -490,25 +717,7 @@ async def submit_result(
     job.result = result_payload
     job.state = JobState.completed
     job.error = None
-    duration_ms = metrics.get("duration_ms")
-    if duration_ms is None:
-        try:
-            execution_time = float(req.result.execution_time or 0)
-            if execution_time > 0:
-                duration_ms = int(execution_time * 1000)
-                metrics["duration_ms"] = duration_ms
-        except (TypeError, ValueError):
-            pass
-    if duration_ms is None and job.requested_at:
-        now = datetime.now(UTC)
-        requested_at = job.requested_at if job.requested_at.tzinfo else job.requested_at.replace(tzinfo=UTC)
-        duration_ms = int((now - requested_at).total_seconds() * 1000)
-        if duration_ms < 0:
-            logger.warning("Computed negative duration_ms for job %s; setting to 0", job_id)
-            duration_ms = 0
-        metrics["duration_ms"] = duration_ms
-    if duration_ms is not None:
-        duration_ms = int(duration_ms)
+    duration_ms = _resolve_duration_ms(req, metrics, job, job_id)
     receipt = await run_in_threadpool(receipt_service.create_receipt, job, user["sub"], result_payload, metrics)
     receipt = await _attach_zk_proof(receipt, job, result_payload, payment_amount=payment_amount)
     receipt = _attach_tee_attestation(receipt, job, req, session, payment_amount=payment_amount)
@@ -519,93 +728,17 @@ async def submit_result(
     job.receipt_id = receipt["receipt_id"] if receipt else None
     job.completed_at = datetime.now(UTC)
     session.add(job)
-    session.commit()
+    session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
     # Keep the JobReceipt row in sync with the final receipt (after ZK/TEE
     # attachments) so downstream consumers use the authoritative payload.
-    if job.receipt_id and receipt:
-        receipt_row = await run_in_threadpool(
-            lambda: session.execute(select(JobReceipt).where(JobReceipt.receipt_id == job.receipt_id)).scalars().first()
-        )
-        if receipt_row:
-            receipt_row.payload = receipt
-            session.add(receipt_row)
-            await run_in_threadpool(session.commit)
+    await _sync_receipt_row(session, job, receipt)
     success = True
     payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
     spot_check_record: dict[str, Any] | None = None
     if is_shadow:
         spot_check_record = await run_in_threadpool(SpotCheckService(session).complete_spot_check, job)
     elif payment and payment.status == "escrowed":
-        from ...payments.services.payments import PaymentService
-
-        payment_service = PaymentService(session)
-        # V23-46: release_payment(client_id, job_id, payment_id, reason). This is the
-        # miner router, so user["sub"] is the miner -- the owning client is job.client_id,
-        # which is what _require_owned_job checks against.
-        # P2.2: confidential jobs only release when a verified TEE attestation is present.
-        # P2.1: high-value jobs only release when a verified ZK proof is present.
-        if _tee_required_for(job, payment_amount):
-            tee_status = (receipt or {}).get("tee_status")
-            # "auto_attested" is the coordinator's own self-signed fallback
-            # quote (see _attach_tee_attestation) -- no real enclave is
-            # involved, so it still clears the release gate (unchanged
-            # behavior) but is recorded as distinct from a real quote.
-            if tee_status not in {"verified", "auto_attested"}:
-                error_message = f"TEE attestation required before escrow release (status: {tee_status})"
-                # v0.14.3: force the failure state and error to the database with an
-                # explicit update. The ORM object can become stale across the async
-                # event loop and PaymentService calls, so SQL is used for the final
-                # job-state transition.
-                session.execute(
-                    update(Job).where(col(Job.id) == job_id).values(state=JobState.failed.value, error=error_message)
-                )
-                session.commit()
-                job.error = error_message
-                job.state = JobState.failed
-                logger.error("Escrow release blocked for job %s: TEE status %s", job.id, tee_status)
-                # v0.14.3: TEE failure now triggers an automatic refund so the
-                # customer is not left with an escrowed stuck job.
-                refunded = await payment_service.refund_payment(
-                    job.client_id, job.id, job.payment_id, reason=f"TEE attestation failed: {tee_status}", is_admin=True
-                )
-                if refunded:
-                    logger.info(
-                        "Refunded payment %s for job %s after TEE attestation failure",
-                        job.payment_id,
-                        job.id,
-                    )
-                else:
-                    logger.error(
-                        "Failed to refund payment %s for job %s after TEE attestation failure",
-                        job.payment_id,
-                        job.id,
-                    )
-                if refunded:
-                    session.execute(update(Job).where(col(Job.id) == job_id).values(payment_status="refunded"))
-                    session.commit()
-                    job.payment_status = "refunded"
-                await _maybe_slash_bond(session, job, "fraud", f"TEE attestation failed: {tee_status}")
-                success = False
-            elif not _computation_is_correct(receipt, job):
-                zk_status = (receipt or {}).get("zk_status")
-                job.error = f"ZK proof required before escrow release (status: {zk_status})"
-                session.commit()
-                logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
-                await _maybe_slash_bond(session, job, "bad_result", f"ZK proof failed: {zk_status}")
-                success = False
-            else:
-                success = await _settle_completed_job(session, payment_service, job)
-        elif _zk_required_for(job, payment_amount) and not _computation_is_correct(receipt, job):
-            zk_status = (receipt or {}).get("zk_status")
-            job.error = f"ZK proof required before escrow release (status: {zk_status})"
-            session.commit()
-            logger.error("Escrow release blocked for job %s: ZK status %s", job.id, zk_status)
-            await _maybe_slash_bond(session, job, "bad_result", f"ZK proof failed: {zk_status}")
-            success = False
-        else:
-            success = await _settle_completed_job(session, payment_service, job)
-        if not success:
-            logger.error("Failed to settle payment %s for job %s", job.payment_id, job.id)
+        success = await _settle_escrowed_payment(session, job, payment_amount, receipt, job_id)
     await run_in_threadpool(
         miner_service.release,
         user["sub"],
@@ -614,34 +747,9 @@ async def submit_result(
         receipt_id=receipt["receipt_id"] if receipt else None,
     )
 
-    # For deterministic-decoding jobs that are not themselves spot-checks,
-    # schedule a shadow re-run. This is log-only and does not block settlement.
-    if not is_shadow:
-        try:
-            await run_in_threadpool(SpotCheckService(session).schedule_if_eligible, job)
-        except Exception as spot_err:
-            logger.warning("Failed to schedule spot-check for job %s: %s", job_id, spot_err)
-
-    # Record job completion in the reputation service.
-    if is_shadow:
-        return {"status": "ok", "receipt": receipt, "spot_check": spot_check_record or {}}
-
-    try:
-        from ....contexts.reputation.services.reputation_service import ReputationService
-
-        reputation_service = ReputationService(session)
-        earnings = Decimal(str(receipt.get("price", "0"))) if receipt else Decimal("0")
-        await reputation_service.record_job_completion(
-            agent_id=user["sub"],
-            job_id=job_id,
-            success=True,
-            response_time=float(duration_ms or 0),
-            earnings=earnings,
-        )
-    except Exception as rep_err:
-        logger.warning("Failed to record reputation for completed job %s: %s", job_id, rep_err)
-
-    return {"status": "ok", "receipt": receipt}
+    return await _finalize_result_response(
+        session, job, job_id, user["sub"], duration_ms, receipt, is_shadow, spot_check_record
+    )
 
 
 @router.post("/miners/{job_id}/fail", summary="Submit job failure")
@@ -675,7 +783,7 @@ async def submit_failure(
                 response_time=0.0,
                 earnings=Decimal("0"),
             )
-        except Exception as rep_err:
+        except _OPS_ERRORS as rep_err:
             logger.warning("Failed to record reputation for failed job %s: %s", job_id, rep_err)
 
         return {"status": "ok"}
@@ -724,7 +832,7 @@ async def list_miner_jobs(
             "offset": offset,
             "miner_id": miner_id,
         }
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error listing miner jobs: %s", e)
         return {"jobs": [], "total": 0, "limit": limit, "offset": offset, "miner_id": miner_id, "error": "Failed to list jobs"}
 
@@ -811,7 +919,7 @@ async def get_miner_earnings(
         }
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error getting miner earnings: %s", e)
         raise HTTPException(status_code=500, detail="failed to compute miner earnings") from e
 
@@ -839,7 +947,7 @@ async def update_miner_capabilities(
         }
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found") from None
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error updating miner capabilities: %s", e)
         logger.exception("Unhandled exception")
 
@@ -863,7 +971,7 @@ async def deregister_miner(
         return {"miner_id": miner_id, "status": "deregistered"}
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="miner not found") from None
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error deregistering miner: %s", e)
         logger.exception("Unhandled exception")
 
@@ -897,7 +1005,7 @@ async def fail_job(
                 response_time=0.0,
                 earnings=Decimal("0"),
             )
-        except Exception as rep_err:
+        except _OPS_ERRORS as rep_err:
             logger.warning("Failed to record reputation for failed job %s: %s", job_id, rep_err)
 
         return {"job_id": job_id, "status": "failed"}
@@ -905,7 +1013,7 @@ async def fail_job(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error failing job %s: %s", job_id, e)
         logger.exception("Unhandled exception")
 
@@ -986,7 +1094,7 @@ async def complete_job(
                 response_time=response_time,
                 earnings=earnings,
             )
-        except Exception as rep_err:
+        except _OPS_ERRORS as rep_err:
             logger.warning("Failed to record reputation for job %s: %s", job_id, rep_err)
 
         logger.info(
@@ -1008,7 +1116,7 @@ async def complete_job(
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error completing job %s: %s", job_id, e)
         logger.exception("Unhandled exception")
 

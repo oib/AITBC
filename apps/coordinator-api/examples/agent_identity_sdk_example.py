@@ -8,6 +8,8 @@ import asyncio
 import json
 import os
 
+import aiohttp
+
 # Import SDK components
 # Note: In a real installation, this would be:
 # from aitbc_agent_identity_sdk import AgentIdentityClient, VerificationType
@@ -18,7 +20,20 @@ from datetime import UTC, datetime
 sys.path.append(os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from coordinator_api.agent_identity.sdk.client import AgentIdentityClient
+from coordinator_api.agent_identity.sdk.exceptions import AgentIdentityError
 from coordinator_api.agent_identity.sdk.models import VerificationType
+
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    aiohttp.ClientError,
+    asyncio.TimeoutError,
+    AgentIdentityError,
+)
 
 
 async def basic_identity_example():
@@ -76,7 +91,7 @@ async def basic_identity_example():
                 try:
                     balance = await client.get_wallet_balance(identity.agent_id, int(chain_id))
                     print(f"   Chain {chain_id}: {balance} tokens")
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     print(f"   Chain {chain_id}: Error getting balance - {e}")
 
             # 5. Verify identity on all chains
@@ -111,7 +126,7 @@ async def basic_identity_example():
 
                     print(f"   ✅ Chain {mapping.chain_id}: Verified (ID: {verification.verification_id})")
 
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     print(f"   ❌ Chain {mapping.chain_id}: Verification failed - {e}")
 
             # 6. Search for identities
@@ -156,7 +171,7 @@ async def basic_identity_example():
 
             print("\n🎉 Example completed successfully!")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             print(f"\n❌ Error during example: {e}")
             import traceback
 
@@ -200,7 +215,7 @@ async def advanced_transaction_example():
                 print(f"   Gas used: {tx.gas_used}")
                 print(f"   Status: {tx.status}")
 
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 print(f"   ❌ Transaction failed: {e}")
 
             # 3. Get transaction history
@@ -213,7 +228,7 @@ async def advanced_transaction_example():
                     print(f"   - {tx.hash[:10]}... {tx.amount} ETH to {tx.to_address[:10]}...")
                     print(f"     Status: {tx.status}, Block: {tx.block_number}")
 
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 print(f"   ❌ Failed to get history: {e}")
 
             # 4. Update identity
@@ -230,12 +245,12 @@ async def advanced_transaction_example():
                 print(f"   ✅ Identity updated: {result.identity_id}")
                 print(f"   Updated fields: {', '.join(result.updated_fields)}")
 
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 print(f"   ❌ Update failed: {e}")
 
             print("\n🎉 Advanced example completed!")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             print(f"\n❌ Error during advanced example: {e}")
             import traceback
 
@@ -293,7 +308,7 @@ async def search_and_discovery_example():
                 try:
                     address = await client.resolve_identity(test_agent_id, chain_id)
                     print(f"   Chain {chain_id}: {address}")
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     print(f"   Chain {chain_id}: Not found - {e}")
 
             # 5. Resolve address to agent
@@ -307,12 +322,12 @@ async def search_and_discovery_example():
                 try:
                     agent_id = await client.resolve_address(address, chain_id)
                     print(f"   {address[:10]}... on chain {chain_id}: {agent_id}")
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     print(f"   {address[:10]}... on chain {chain_id}: Not found - {e}")
 
             print("\n🎉 Search and discovery example completed!")
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             print(f"\n❌ Error during search example: {e}")
             import traceback
 
@@ -350,7 +365,7 @@ async def main():
 
     except KeyboardInterrupt:
         print("\n\n⏹️  Example interrupted by user")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         print(f"\n\n💥 Unexpected error: {e}")
         import traceback
 

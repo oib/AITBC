@@ -3,8 +3,10 @@
 from datetime import UTC, datetime
 from typing import Annotated, Any
 
+import httpx
 from aitbc.rate_limiting import rate_limit
 from fastapi import APIRouter, Depends, HTTPException, Request
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 
@@ -15,6 +17,21 @@ from ..services.developer_platform_service import DeveloperPlatformService
 from .common import get_developer_platform_service
 
 router = APIRouter(tags=["Developer Platform"])
+
+# Expected failure surface for the 500-translate handlers below: service/DB
+# errors (sqlmodel sessions -> SQLAlchemyError), outbound HTTP from the
+# service layer (httpx), and data-shape/runtime errors. HTTPException is not
+# in the tuple, so it propagates to the client untouched (#1863).
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AttributeError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    SQLAlchemyError,
+    TypeError,
+    ValueError,
+    httpx.HTTPError,
+)
 
 
 @router.post("/certifications", response_model=dict[str, Any])
@@ -44,7 +61,7 @@ async def grant_certification(
 
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error granting certification") from None
 
 
@@ -83,7 +100,7 @@ def get_certification_types(request: Request) -> list[dict[str, Any]]:
 
         return certification_types
 
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting certification types") from None
 
 
@@ -127,7 +144,7 @@ async def get_developer_certifications(
 
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting certifications") from None
 
 
@@ -156,5 +173,5 @@ def verify_certification(
 
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error verifying certification") from None

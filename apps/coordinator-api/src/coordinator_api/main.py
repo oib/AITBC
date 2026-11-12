@@ -9,9 +9,11 @@ from fastapi import APIRouter, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from aitbc.middleware import setup_cors
 from fastapi.responses import JSONResponse, Response
+from sqlalchemy.exc import SQLAlchemyError
 from prometheus_client import Counter, Histogram, generate_latest, make_asgi_app
 from prometheus_client.core import CollectorRegistry
 from prometheus_client.exposition import CONTENT_TYPE_LATEST
+from redis.exceptions import RedisError
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from slowapi.util import get_remote_address
@@ -95,6 +97,22 @@ configure_logging(
     to_file=True,
 )
 logger = get_logger(__name__)
+
+# Expected failure surface for the non-fatal startup/shutdown/readiness
+# helpers below: DB init/teardown errors, Redis client errors, lazy import
+# failures, and ordinary ops/data errors. RuntimeError covers abort-style
+# raises; genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    SQLAlchemyError,
+    RedisError,
+)
 
 ml_zk_proofs: APIRouter | None = None
 try:
@@ -334,12 +352,12 @@ async def _init_databases() -> None:
     try:
         init_db()
         logger.info("Database initialized successfully")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Database initialization failed (non-fatal): %s", e)
     try:
         await init_async_db()
         logger.info("Async database initialized successfully")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Async database initialization failed (non-fatal): %s", e)
 
 
@@ -364,7 +382,7 @@ async def _init_redis_state() -> None:
             logger.info("Redis state manager connected successfully")
         else:
             logger.info("Redis state manager running in in-memory mode (REDIS_ENABLED=%s)", settings.redis.enabled)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Redis state manager initialization failed (non-fatal, falls back to in-memory): %s", e)
 
 
@@ -384,7 +402,7 @@ def _warmup_database() -> None:
         finally:
             session.close()
         logger.info("Database warmup completed successfully")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Database warmup failed: %s", e)
 
 
@@ -492,17 +510,17 @@ async def _shutdown(task_manager) -> None:
         logger.info("Closing database connections...")
         try:
             logger.info("Database connections closed successfully")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Error closing database connections: %s", e)
         try:
             await close_async_db()
             logger.info("Async database connections closed successfully")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Error closing async database connections: %s", e)
         logger.info("Cleaning up rate limiting state...")
         logger.info("Cleaning up audit resources...")
         logger.info("Graceful shutdown completed")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error during shutdown: %s", e)
 
 
@@ -823,7 +841,7 @@ def _register_health_endpoints(app: FastAPI) -> None:
             from .storage import get_session
 
             for session in get_session():
-                session.execute(text("SELECT 1"))
+                session.execute(text("SELECT 1"))  # noqa: unawaited-async — sync Session (sqlmodel)
                 break
             return JSONResponse(
                 status_code=200,
@@ -833,7 +851,7 @@ def _register_health_endpoints(app: FastAPI) -> None:
                     "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
                 },
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Readiness check failed", extra={"exc": str(e)})
             return JSONResponse(status_code=503, content={"status": "not ready", "error": "Service not ready"})
 
@@ -941,7 +959,7 @@ def _opt(app: FastAPI, loaded: list[str], entry: tuple) -> None:
         loaded.append(name)
         if post:
             post()
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("%s: %s", fail_msg, e)
 
 

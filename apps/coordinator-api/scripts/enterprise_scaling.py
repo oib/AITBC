@@ -11,6 +11,15 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class ScalingStrategy(StrEnum):
     """Scaling strategy types"""
@@ -78,7 +87,7 @@ class EnterpriseWorkloadManager:
                     {"feature": feature, "status": "implemented", "details": feature_result}
                 )
                 logger.info("✅ Implemented scaling feature: %s", feature)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 scaling_result["errors"].append(f"Feature {feature} failed: {e}")
                 logger.error("❌ Failed to implement feature %s: %s", feature, e)
         test_results = await self._run_scalability_tests()
@@ -262,7 +271,7 @@ class EnterpriseWorkloadManager:
                 result = await self._simulate_scalability_test(test)
                 test_results.append(result)
                 logger.info("✅ Scalability test passed: %s", test["name"])
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 test_results.append({"name": test["name"], "status": "failed", "error": str(e)})
                 logger.error("❌ Scalability test failed: %s - %s", test["name"], e)
         return test_results
@@ -360,7 +369,7 @@ class AgentMarketDevelopment:
                     {"feature": feature, "status": "developed", "details": feature_result}
                 )
                 logger.info("✅ Developed market feature: %s", feature)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 market_result["errors"].append(f"Feature {feature} failed: {e}")
                 logger.error("❌ Failed to develop feature %s: %s", feature, e)
         gpu_agents = await self._create_gpu_accelerated_agents()

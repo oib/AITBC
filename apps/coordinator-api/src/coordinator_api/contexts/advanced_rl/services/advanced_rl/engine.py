@@ -289,7 +289,7 @@ class AdvancedReinforcementLearningEngine:
             return None
         agent.load_state_dict(state_dict)
         agent.to(self.device)
-        agent.eval()
+        agent.eval()  # noqa: unawaited-async — sync nn.Module.eval()
         return agent
 
     async def get_agent_action(self, agent: nn.Module, state: list[float], algorithm: str) -> int | np.ndarray:

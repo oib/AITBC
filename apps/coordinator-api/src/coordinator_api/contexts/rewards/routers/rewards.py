@@ -105,6 +105,44 @@ class BatchProcessResponse(BaseModel):
     total: int
 
 
+def _next_reward_tier(current_tier: RewardTier) -> RewardTier | None:
+    if current_tier == RewardTier.BRONZE:
+        return RewardTier.SILVER
+    if current_tier == RewardTier.SILVER:
+        return RewardTier.GOLD
+    if current_tier == RewardTier.GOLD:
+        return RewardTier.PLATINUM
+    if current_tier == RewardTier.PLATINUM:
+        return RewardTier.DIAMOND
+    return None
+
+
+def _tier_benefits_for(current_tier: RewardTier) -> dict[str, Any]:
+    tier_benefits: dict[str, Any] = {
+        "max_concurrent_jobs": 1,
+        "priority_boost": 1.0,
+        "fee_discount": 0.0,
+        "support_level": "basic",
+    }
+    if current_tier == RewardTier.SILVER:
+        tier_benefits.update(
+            {"max_concurrent_jobs": 2, "priority_boost": 1.1, "fee_discount": 5.0, "support_level": "priority"}
+        )
+    elif current_tier == RewardTier.GOLD:
+        tier_benefits.update(
+            {"max_concurrent_jobs": 3, "priority_boost": 1.2, "fee_discount": 10.0, "support_level": "priority"}
+        )
+    elif current_tier == RewardTier.PLATINUM:
+        tier_benefits.update(
+            {"max_concurrent_jobs": 5, "priority_boost": 1.5, "fee_discount": 15.0, "support_level": "premium"}
+        )
+    elif current_tier == RewardTier.DIAMOND:
+        tier_benefits.update(
+            {"max_concurrent_jobs": 10, "priority_boost": 2.0, "fee_discount": 20.0, "support_level": "premium"}
+        )
+    return tier_benefits
+
+
 class MilestoneResponse(BaseModel):
     """Response model for milestone achievements"""
 
@@ -214,38 +252,14 @@ def get_tier_progress(
         reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         trust_score = reputation.trust_score if reputation else 500.0
         current_tier = profile.current_tier
-        next_tier = None
-        if current_tier == RewardTier.BRONZE:
-            next_tier = RewardTier.SILVER
-        elif current_tier == RewardTier.SILVER:
-            next_tier = RewardTier.GOLD
-        elif current_tier == RewardTier.GOLD:
-            next_tier = RewardTier.PLATINUM
-        elif current_tier == RewardTier.PLATINUM:
-            next_tier = RewardTier.DIAMOND
+        next_tier = _next_reward_tier(current_tier)
         requirements_met = {  # not-money: ratio, threshold or configuration default — not an amount of money
             "minimum_trust_score": trust_score >= 400,
             "minimum_performance": profile.performance_score >= 3.0,
             "minimum_activity": profile.rewards_distributed >= 1,
             "minimum_earnings": profile.total_earnings >= 0.1,
         }
-        tier_benefits = {"max_concurrent_jobs": 1, "priority_boost": 1.0, "fee_discount": 0.0, "support_level": "basic"}
-        if current_tier == RewardTier.SILVER:
-            tier_benefits.update(
-                {"max_concurrent_jobs": 2, "priority_boost": 1.1, "fee_discount": 5.0, "support_level": "priority"}
-            )
-        elif current_tier == RewardTier.GOLD:
-            tier_benefits.update(
-                {"max_concurrent_jobs": 3, "priority_boost": 1.2, "fee_discount": 10.0, "support_level": "priority"}
-            )
-        elif current_tier == RewardTier.PLATINUM:
-            tier_benefits.update(
-                {"max_concurrent_jobs": 5, "priority_boost": 1.5, "fee_discount": 15.0, "support_level": "premium"}
-            )
-        elif current_tier == RewardTier.DIAMOND:
-            tier_benefits.update(
-                {"max_concurrent_jobs": 10, "priority_boost": 2.0, "fee_discount": 20.0, "support_level": "premium"}
-            )
+        tier_benefits = _tier_benefits_for(current_tier)
         return TierProgressResponse(
             agent_id=agent_id,
             current_tier=current_tier.value,

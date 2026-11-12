@@ -8,6 +8,7 @@ import json
 from typing import TYPE_CHECKING, Any
 
 from eth_utils.address import to_checksum_address
+from eth_utils.exceptions import ValidationError
 
 if TYPE_CHECKING:
     from web3 import Web3
@@ -22,6 +23,34 @@ from .base import (
     SettlementMessage,
     SettlementResult,
 )
+
+# Expected failure surface for the fail-closed handlers below: web3/eth
+# call and ABI errors, checksum/address validation, bridge-domain errors,
+# lazy web3 imports, and data-shape errors. RuntimeError preserves catch of
+# abort-style raises; BaseExceptions still propagate.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    BridgeError,
+    ImportError,
+    ValidationError,
+)
+try:
+    # web3/eth_abi are lazy deps of the adapter; include their failures
+    # when present so contract-call and ABI errors keep landing on the
+    # same FAILED-result paths as the old broad catch.
+    from eth_abi.exceptions import DecodingError as _EthAbiDecodingError
+    from eth_abi.exceptions import EncodingError as _EthAbiEncodingError
+    from web3.exceptions import Web3Exception as _Web3Exception
+except ImportError:
+    _chain_errors: tuple[type[BaseException], ...] = ()
+else:
+    _chain_errors = (_Web3Exception, _EthAbiEncodingError, _EthAbiDecodingError)
+_OPS_ERRORS += _chain_errors
 
 
 class LayerZeroAdapter(BridgeAdapter):
@@ -106,7 +135,7 @@ class LayerZeroAdapter(BridgeAdapter):
                 fee_paid=fees["layerZeroFee"],
             )
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             return SettlementResult(message_id="", status=BridgeStatus.FAILED, error_message=str(e))
 
     async def verify_delivery(self, message_id: str) -> bool:
@@ -119,7 +148,7 @@ class LayerZeroAdapter(BridgeAdapter):
             delivered_logs = self.endpoint.events.Delivered().processReceipt(receipt)  # type: ignore[union-attr]
             return len(delivered_logs) > 0
 
-        except Exception:
+        except _OPS_ERRORS:
             return False
 
     async def get_message_status(self, message_id: str) -> SettlementResult:
@@ -148,7 +177,7 @@ class LayerZeroAdapter(BridgeAdapter):
             # Still in progress
             return SettlementResult(message_id=message_id, status=BridgeStatus.IN_PROGRESS, transaction_hash=message_id)
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             return SettlementResult(message_id=message_id, status=BridgeStatus.FAILED, error_message=str(e))
 
     async def estimate_cost(self, message: SettlementMessage) -> dict[str, int]:
@@ -244,7 +273,7 @@ class LayerZeroAdapter(BridgeAdapter):
             # Add 20% buffer
             return int(gas_estimate * 1.2)
 
-        except Exception:
+        except _OPS_ERRORS:
             # Return default estimate
             return 300000
 

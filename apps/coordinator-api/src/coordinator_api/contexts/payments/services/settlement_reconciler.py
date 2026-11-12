@@ -21,16 +21,47 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from collections.abc import Callable
+from decimal import InvalidOperation
 
+import httpx
+from fastapi import HTTPException
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import AITBCError
 
 from ....storage.db import get_engine
 from ...infrastructure.domain.job import Job
 from aitbc_shared import JobPayment
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the settlement reconciler -- it calls
+# PaymentService.release_payment, a money path, so the tuple mirrors the
+# payment service's own surface: filesystem/JSON, data-shape, runtime,
+# SQLAlchemy session errors, lazy imports, httpx transport errors, the
+# aitbc error hierarchy, HTTPException (ownership/validation failures the
+# service raises), decimal parse failures, timestamp overflows and
+# assertion guards. BaseExceptions still propagate
+# (asyncio.CancelledError is re-raised explicitly).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    IndexError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    AssertionError,
+    OverflowError,
+    ImportError,
+    SQLAlchemyError,
+    AITBCError,
+    httpx.HTTPError,
+    InvalidOperation,
+    HTTPException,
+)
 
 
 def _env_int(name: str, default: int) -> int:
@@ -103,14 +134,14 @@ class SettlementReconciler:
                     settled = await PaymentService(session).release_payment(
                         job.client_id, job.id, job.payment_id, reason="Settlement reconciliation retry"
                     )
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     counts["failed"] += 1
                     logger.error("Reconciliation raised for job %s: %s", job.id, e)
                     continue
                 if settled:
                     job.payment_status = "released"
                     session.add(job)
-                    session.commit()
+                    session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
                     counts["settled"] += 1
                     logger.info("Reconciled escrow settlement for job %s", job.id)
                 else:
@@ -141,7 +172,7 @@ class SettlementReconciler:
                 counts = await self.run_once()
             except asyncio.CancelledError:
                 raise
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Settlement reconciliation pass failed: %s", e)
                 continue
             if counts["retried"]:

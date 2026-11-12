@@ -20,6 +20,19 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Expected failure surface for best-effort broadcast fan-out: in-memory
+# dict/enumeration access plus the ValueError send_message raises for
+# unregistered agents. RuntimeError preserves catch of abort-style raises;
+# BaseExceptions still propagate.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class MessageType(Enum):
     """Types of agent messages"""
@@ -208,7 +221,7 @@ class AgentService:
                         metadata=metadata,
                     )
                     messages.append(msg)
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.warning("Broadcast to %s failed: %s", agent_id, e)
         logger.info("Broadcast sent by %s to %s agents", sender, len(messages))
         return messages

@@ -2,12 +2,26 @@
 """Complete migration script for Coordinator API"""
 
 import json
+import logging
 import sqlite3
 from decimal import Decimal
 
 import psycopg2
 
 from aitbc.constants import DATA_DIR
+
+logger = logging.getLogger(__name__)
+
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    psycopg2.Error,
+    sqlite3.Error,
+)
 
 # Database configurations
 SQLITE_DB = str(DATA_DIR / "data/coordinator.db")
@@ -18,6 +32,75 @@ PG_CONFIG = {
     "password": "aitbc_password",  # nosec
     "port": 5432,
 }
+
+
+_JSON_COLUMNS = [
+    "payload",
+    "constraints",
+    "result",
+    "receipt",
+    "capabilities",
+    "extra_metadata",
+    "sla",
+    "attributes",
+    "metadata",
+]
+_DECIMAL_COLUMNS = ["balance", "price", "average_job_duration_ms"]
+
+
+def _coerce_row_values(column_names: list[str], row) -> list:
+    """Convert a raw SQLite row into PostgreSQL-ready values."""
+    values = []
+    for i, value in enumerate(row):
+        col_name = column_names[i]
+        # Handle special cases
+        if col_name in _JSON_COLUMNS and value:
+            if isinstance(value, str):
+                try:
+                    value = json.loads(value)
+                except ValueError:
+                    logger.debug("value is not valid JSON; keeping raw string", exc_info=True)
+        elif col_name in _DECIMAL_COLUMNS and value is not None:
+            value = Decimal(str(value))
+        values.append(value)
+    return values
+
+
+def _migrate_table(sqlite_cursor, pg_cursor, table_name: str) -> None:
+    """Migrate all rows of a single validated table."""
+    # Get table schema
+    # Validate table name to prevent SQL injection
+    sqlite_cursor.execute(f'PRAGMA table_info("{table_name}")')
+    columns = sqlite_cursor.fetchall()
+    column_names = [col[1] for col in columns]
+
+    # Get data
+    # table_name is validated against the allowed_tables allowlist by the caller
+    sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')  # nosec
+    rows = sqlite_cursor.fetchall()
+
+    if not rows:
+        print(f"  No data in {table_name}")
+        return
+
+    # Build insert query
+    # table_name validated against allowed_tables above; column_names
+    # nosec B608
+    # come from PRAGMA table_info (the DB's own schema), never external input.
+    insert_sql = f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec
+
+    # Insert data
+    count = 0
+    for row in rows:
+        values = _coerce_row_values(column_names, row)
+        try:
+            pg_cursor.execute(insert_sql, values)
+            count += 1
+        except _OPS_ERRORS as e:
+            print(f"  Error inserting row: {e}")
+            print(f"  Values: {values}")
+
+    print(f"  Migrated {count} rows from {table_name}")
 
 
 def migrate_all_data():
@@ -38,84 +121,21 @@ def migrate_all_data():
     sqlite_cursor.execute("SELECT name FROM sqlite_master WHERE type='table'")
     tables = [row[0] for row in sqlite_cursor.fetchall()]
 
+    # Database configurations
+    allowed_tables = ["user", "wallet", "transaction", "agent", "job", "receipt", "market_listing"]
+
     for table_name in tables:
         if table_name == "sqlite_sequence":
             continue
 
         print(f"\nMigrating {table_name}...")
 
-        # Get table schema
         # Validate table name to prevent SQL injection
-        allowed_tables = ["user", "wallet", "transaction", "agent", "job", "receipt", "market_listing"]
         if table_name not in allowed_tables:
             print(f"  Skipping table {table_name} (not in allowed list)")
             continue
 
-        sqlite_cursor.execute(f'PRAGMA table_info("{table_name}")')
-        columns = sqlite_cursor.fetchall()
-        column_names = [col[1] for col in columns]
-
-        # Get data
-        # table_name is validated against the allowed_tables allowlist above
-        sqlite_cursor.execute(f'SELECT * FROM "{table_name}"')  # nosec
-        rows = sqlite_cursor.fetchall()
-
-        if not rows:
-            print(f"  No data in {table_name}")
-            continue
-
-        # Build insert query
-        # table_name validated against allowed_tables above; column_names
-        # nosec B608
-        # come from PRAGMA table_info (the DB's own schema), never external input.
-        if table_name == "user":
-            insert_sql = (
-                f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec
-            )
-        else:
-            insert_sql = (
-                f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec
-            )
-
-        # Insert data
-        count = 0
-        for row in rows:
-            values = []
-            for i, value in enumerate(row):
-                col_name = column_names[i]
-                # Handle special cases
-                if (
-                    col_name
-                    in [
-                        "payload",
-                        "constraints",
-                        "result",
-                        "receipt",
-                        "capabilities",
-                        "extra_metadata",
-                        "sla",
-                        "attributes",
-                        "metadata",
-                    ]
-                    and value
-                ):
-                    if isinstance(value, str):
-                        try:
-                            value = json.loads(value)
-                        except Exception:  # nosec
-                            pass
-                elif col_name in ["balance", "price", "average_job_duration_ms"] and value is not None:
-                    value = Decimal(str(value))
-                values.append(value)
-
-            try:
-                pg_cursor.execute(insert_sql, values)
-                count += 1
-            except Exception as e:
-                print(f"  Error inserting row: {e}")
-                print(f"  Values: {values}")
-
-        print(f"  Migrated {count} rows from {table_name}")
+        _migrate_table(sqlite_cursor, pg_cursor, table_name)
 
     pg_conn.commit()
     sqlite_conn.close()

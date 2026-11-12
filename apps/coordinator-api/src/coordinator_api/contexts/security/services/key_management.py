@@ -23,6 +23,38 @@ from ....schemas import KeyPair, KeyRotationLog
 logger = get_logger(__name__)
 
 
+class KeyManagementError(Exception):
+    """Base exception for key management errors"""
+
+    pass
+
+
+class KeyNotFoundError(KeyManagementError):
+    """Raised when key is not found"""
+
+    pass
+
+
+class AccessDeniedError(KeyManagementError):
+    """Raised when access is denied"""
+
+    pass
+
+
+# Expected failure surface for the key-management helpers: filesystem/JSON,
+# data-shape, runtime and the module error hierarchy (which also covers
+# NotImplementedError via RuntimeError). BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    KeyManagementError,
+)
+
+
 class KeyManager:
     """Manages encryption keys for confidential transactions"""
 
@@ -51,7 +83,7 @@ class KeyManager:
             self._key_cache[participant_id] = {"public_key": public_key, "version": key_pair.version}
             logger.info("Generated key pair for participant: %s", participant_id)
             return key_pair
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to generate key pair for %s: %s", participant_id, e)
             raise KeyManagementError(f"Key generation failed: {e}") from e
 
@@ -78,7 +110,7 @@ class KeyManager:
             await self.storage.log_rotation(rotation_log)
             try:
                 await self._reencrypt_transactions(participant_id, current_key, new_key_pair)
-            except Exception:
+            except _OPS_ERRORS:
                 # Roll back to the *original* key pair, not to the new one carrying the old
                 # version number. The previous code did the latter -- it restored
                 # `new_key_pair.version` and stored `new_key_pair`, so a rotation that
@@ -98,7 +130,7 @@ class KeyManager:
             # sibling handler returns "Internal server error". 501 is also the honest status
             # for a feature that is documented as unimplemented.
             raise
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to rotate keys for %s: %s", participant_id, e)
             raise KeyManagementError(f"Key rotation failed: {e}") from e
 
@@ -164,7 +196,7 @@ class KeyManager:
             signature = auth_json.pop("signature")
             expected = hmac.new(secret.encode(), json.dumps(auth_json, sort_keys=True).encode(), "sha256").hexdigest()
             return hmac.compare_digest(signature, expected)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to verify audit authorization: %s", e)
             return False
 
@@ -190,7 +222,7 @@ class KeyManager:
             ).hexdigest()
             auth_json = json.dumps(payload, sort_keys=True)
             return base64.b64encode(auth_json.encode()).decode()
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to create audit authorization: %s", e)
             raise KeyManagementError(f"Authorization creation failed: {e}") from e
 
@@ -207,7 +239,7 @@ class KeyManager:
                     del self._key_cache[participant_id]
                 logger.info("Revoked keys for participant: %s", participant_id)
             return success
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to revoke keys for %s: %s", participant_id, e)
             return False
 
@@ -239,10 +271,10 @@ class KeyManager:
                             asyncio.run(store(audit_key_pair))
                     else:
                         store(audit_key_pair)
-            except Exception:
-                pass
+            except _OPS_ERRORS:
+                logger.debug("Audit key persistence skipped", exc_info=True)
             self._audit_key = audit_public  # type: ignore[assignment]
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to generate audit key: %s", e)
             raise KeyManagementError(f"Audit key generation failed: {e}") from e
 
@@ -331,7 +363,7 @@ class FileKeyStorage(KeyStorageBackend):
             async with aiofiles.open(file_path, "w") as f:
                 await f.write(json.dumps(metadata))
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to store key pair: %s", e)
             return False
 
@@ -354,7 +386,7 @@ class FileKeyStorage(KeyStorageBackend):
                 created_at=datetime.fromisoformat(metadata["created_at"]),
                 version=metadata["version"],
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get key pair: %s", e)
             return None
 
@@ -377,7 +409,7 @@ class FileKeyStorage(KeyStorageBackend):
                 created_at=datetime.fromisoformat(metadata["created_at"]),
                 version=metadata["version"],
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get key pair: %s", e)
             return None
 
@@ -401,7 +433,7 @@ class FileKeyStorage(KeyStorageBackend):
             async with aiofiles.open(audit_path, "w") as f:
                 await f.write(json.dumps(metadata))
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to store audit key: %s", e)
             return False
 
@@ -428,11 +460,11 @@ class FileKeyStorage(KeyStorageBackend):
             revoked_path = os.path.join(self.storage_path, "revoked")
             os.makedirs(revoked_path, exist_ok=True)
             if os.path.exists(file_path):
-                os.rename(file_path, os.path.join(revoked_path, f"{participant_id}.json"))
+                os.rename(file_path, os.path.join(revoked_path, f"{participant_id}.json"))  # noqa: unawaited-async — sync os.rename
             if os.path.exists(private_path):
-                os.rename(private_path, os.path.join(revoked_path, f"{participant_id}.priv"))
+                os.rename(private_path, os.path.join(revoked_path, f"{participant_id}.priv"))  # noqa: unawaited-async — sync os.rename
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to revoke keys: %s", e)
             return False
 
@@ -454,24 +486,6 @@ class FileKeyStorage(KeyStorageBackend):
                     + "\n"
                 )
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to log rotation: %s", e)
             return False
-
-
-class KeyManagementError(Exception):
-    """Base exception for key management errors"""
-
-    pass
-
-
-class KeyNotFoundError(KeyManagementError):
-    """Raised when key is not found"""
-
-    pass
-
-
-class AccessDeniedError(KeyManagementError):
-    """Raised when access is denied"""
-
-    pass

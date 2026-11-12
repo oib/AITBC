@@ -9,6 +9,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, func, select
 from starlette.concurrency import run_in_threadpool
 
@@ -24,6 +25,16 @@ from ...infrastructure.domain.user import Wallet
 from ..services.governance_service import GovernanceService
 
 router = APIRouter(prefix="/governance-enhanced", tags=["Enhanced Governance"])
+
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 
 
 # Dependency injection
@@ -587,7 +598,7 @@ async def get_governance_system_health(
                 await run_in_threadpool(session.execute, select(func.count(GovernanceProfile.profile_id)))  # type: ignore[arg-type]
             ).scalar()
             database_status = "healthy"
-        except Exception:
+        except _OPS_ERRORS:
             database_status = "unhealthy"
             profile_count = 0
 

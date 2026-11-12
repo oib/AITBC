@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 from uuid import uuid4
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
@@ -22,6 +23,20 @@ from ..contexts.agent_identity.domain.agent_identity import (
 )
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the per-item/per-mapping best-effort paths
+# below: SQLAlchemy session/commit errors plus ordinary ops/data errors
+# (dict/list shaping, datetime, str ops). RuntimeError covers abort-style
+# raises; genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 
 
 class CrossChainRegistry:
@@ -57,8 +72,8 @@ class CrossChainRegistry:
                     chain_address=chain_address.lower(),
                 )
                 self.session.add(mapping)
-                self.session.commit()
-                self.session.refresh(mapping)
+                self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+                self.session.refresh(mapping)  # noqa: unawaited-async — sync Session (sqlmodel)
                 if verifier_address:
                     await self.verify_cross_chain_identity(
                         identity.id,
@@ -78,11 +93,11 @@ class CrossChainRegistry:
                 )
                 if str(chain_id) not in identity.supported_chains:
                     identity.supported_chains.append(str(chain_id))
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Failed to register mapping for chain %s: %s", chain_id, e)
                 registration_results.append({"chain_id": chain_id, "chain_address": chain_address, "error": str(e)})
         identity.updated_at = datetime.now(UTC)
-        self.session.commit()
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         return {
             "agent_id": agent_id,
             "identity_id": identity.id,
@@ -124,7 +139,7 @@ class CrossChainRegistry:
         mapping.is_verified = False
         mapping.verified_at = None
         mapping.verification_proof = None
-        self.session.commit()
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         if verifier_address:
             await self.verify_cross_chain_identity(
                 await self._get_identity_id(agent_id),
@@ -163,17 +178,17 @@ class CrossChainRegistry:
             expires_at=datetime.now(UTC) + timedelta(days=30),
         )
         self.session.add(verification)
-        self.session.commit()
-        self.session.refresh(verification)
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        self.session.refresh(verification)  # noqa: unawaited-async — sync Session (sqlmodel)
         mapping.is_verified = True
         mapping.verified_at = datetime.now(UTC)
         mapping.verification_proof = proof_data
-        self.session.commit()
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         if self._is_higher_verification_level(verification_type, identity.verification_level):
             identity.verification_level = verification_type
             identity.is_verified = True
             identity.verified_at = datetime.now(UTC)
-            self.session.commit()
+            self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.info("Verified cross-chain identity: %s on chain %s", identity_id, chain_id)
         return verification
 
@@ -191,7 +206,7 @@ class CrossChainRegistry:
         mapping.chain_meta_data["verification_revoked"] = True
         mapping.chain_meta_data["revocation_reason"] = reason
         mapping.chain_meta_data["revoked_at"] = datetime.now(UTC).isoformat()
-        self.session.commit()
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.warning("Revoked verification for identity %s on chain %s: %s", identity_id, chain_id, reason)
         return True
 
@@ -289,7 +304,7 @@ class CrossChainRegistry:
                 migration_result["verification_copied"] = False
             migration_result["migration_successful"] = True
             logger.info("Successfully migrated agent %s from chain %s to %s", agent_id, from_chain, to_chain)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             migration_result["error"] = str(e)
             logger.error("Failed to migrate agent %s from chain %s to %s: %s", agent_id, from_chain, to_chain, e)
         return migration_result
@@ -315,7 +330,7 @@ class CrossChainRegistry:
                         "verification_id": result.id,
                     }
                 )
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 results.append(
                     {
                         "identity_id": verification_data["identity_id"],
@@ -370,11 +385,11 @@ class CrossChainRegistry:
                     mapping.is_verified = False
                     mapping.verified_at = None
                     mapping.verification_proof = None
-                self.session.delete(verification)
+                self.session.delete(verification)  # noqa: unawaited-async — sync Session (sqlmodel)
                 cleaned_count += 1
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error cleaning up verification %s: %s", verification.id, e)
-        self.session.commit()
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.info("Cleaned up %s expired verification records", cleaned_count)
         return cleaned_count
 

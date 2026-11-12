@@ -54,8 +54,8 @@ class AgentIdentityCore:
             tags=request.tags,
         )
         self.session.add(identity)
-        self.session.commit()
-        self.session.refresh(identity)
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        self.session.refresh(identity)  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.info("Created agent identity: %s for agent: %s", identity.id, request.agent_id)
         return identity
 
@@ -85,8 +85,8 @@ class AgentIdentityCore:
             if hasattr(identity, field):
                 setattr(identity, field, value)
         identity.updated_at = datetime.now(UTC)
-        self.session.commit()
-        self.session.refresh(identity)
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        self.session.refresh(identity)  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.info("Updated agent identity: %s", identity_id)
         return identity
 
@@ -113,12 +113,12 @@ class AgentIdentityCore:
             wallet_address=wallet_address.lower() if wallet_address else None,
         )
         self.session.add(mapping)
-        self.session.commit()
-        self.session.refresh(mapping)
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        self.session.refresh(mapping)  # noqa: unawaited-async — sync Session (sqlmodel)
         if str(chain_id) not in identity.supported_chains:
             identity.supported_chains.append(str(chain_id))
             identity.updated_at = datetime.now(UTC)
-            self.session.commit()
+            self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.info("Registered cross-chain identity: %s -> %s:%s", identity_id, chain_id, chain_address)
         return mapping
 
@@ -164,18 +164,18 @@ class AgentIdentityCore:
             proof_data=proof_data,
         )
         self.session.add(verification)
-        self.session.commit()
-        self.session.refresh(verification)
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        self.session.refresh(verification)  # noqa: unawaited-async — sync Session (sqlmodel)
         mapping.is_verified = True
         mapping.verified_at = datetime.now(UTC)
         mapping.verification_proof = proof_data
-        self.session.commit()
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         identity = await self.get_identity(identity_id)
         if identity and chain_id == identity.primary_chain:
             identity.is_verified = True
             identity.verified_at = datetime.now(UTC)
             identity.verification_level = verification_type
-            self.session.commit()
+            self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.info("Verified cross-chain identity: %s on chain %s", identity_id, chain_id)
         return verification
 
@@ -212,8 +212,8 @@ class AgentIdentityCore:
                 else:
                     setattr(mapping, field, value)
         mapping.updated_at = datetime.now(UTC)
-        self.session.commit()
-        self.session.refresh(mapping)
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        self.session.refresh(mapping)  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.info("Updated cross-chain mapping: %s -> %s", identity_id, chain_id)
         return mapping
 
@@ -227,7 +227,7 @@ class AgentIdentityCore:
         identity.updated_at = datetime.now(UTC)
         identity.identity_data["revocation_reason"] = reason
         identity.identity_data["revoked_at"] = datetime.now(UTC).isoformat()
-        self.session.commit()
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.warning("Revoked agent identity: %s, reason: %s", identity_id, reason)
         return True
 
@@ -240,7 +240,7 @@ class AgentIdentityCore:
         identity.updated_at = datetime.now(UTC)
         identity.identity_data["suspension_reason"] = reason
         identity.identity_data["suspended_at"] = datetime.now(UTC).isoformat()
-        self.session.commit()
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.warning("Suspended agent identity: %s, reason: %s", identity_id, reason)
         return True
 
@@ -257,7 +257,7 @@ class AgentIdentityCore:
             del identity.identity_data["suspension_reason"]
         if "suspended_at" in identity.identity_data:
             del identity.identity_data["suspended_at"]
-        self.session.commit()
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.info("Activated agent identity: %s", identity_id)
         return True
 
@@ -279,8 +279,8 @@ class AgentIdentityCore:
         identity.reputation_score = base_score * (0.7 + 0.3 * volume_factor)
         identity.last_activity = datetime.now(UTC)
         identity.updated_at = datetime.now(UTC)
-        self.session.commit()
-        self.session.refresh(identity)
+        self.session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        self.session.refresh(identity)  # noqa: unawaited-async — sync Session (sqlmodel)
         logger.info("Updated reputation for identity %s: %s", identity_id, identity.reputation_score)
         return identity
 

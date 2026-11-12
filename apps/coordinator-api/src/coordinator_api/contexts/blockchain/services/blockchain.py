@@ -10,17 +10,33 @@ from __future__ import annotations
 
 import json
 import re
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc.utils.units import ait_to_units
 
 from ....config import settings
 
 logger = get_logger(__name__)
+
+# Expected failure surface for get_balance: filesystem/JSON, data-shape,
+# runtime, the aitbc error hierarchy (AITBCHTTPClient re-raises
+# RateLimitError / CircuitBreakerOpenError unwrapped) and decimal parse
+# failures from units_to_ait. BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    IndexError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    AITBCError,
+    InvalidOperation,
+)
 
 BLOCKCHAIN_RPC = settings.blockchain_rpc_url
 RPC = f"{BLOCKCHAIN_RPC}/rpc"
@@ -240,6 +256,6 @@ def get_balance(address: str) -> Decimal | None:
     except NetworkError as e:
         logger.error("Error getting balance: %s", e)
         return None
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error getting balance: %s", e)
         return None

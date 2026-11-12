@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import and_, desc, func, or_, select
+from sqlalchemy import Select, and_, desc, func, or_, select
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
@@ -22,6 +22,41 @@ logger = get_logger(__name__)
 def _as_utc(dt: datetime) -> datetime:
     """Normalize a possibly-naive datetime (e.g. round-tripped through sqlite) to aware UTC."""
     return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
+def _apply_bounty_filters(
+    query: Select[tuple[Bounty]],
+    *,
+    status: BountyStatus | None,
+    tier: BountyTier | None,
+    creator_id: str | None,
+    category: str | None,
+    min_reward: Decimal | None,
+    max_reward: Decimal | None,
+    deadline_before: datetime | None,
+    deadline_after: datetime | None,
+    requires_zk_proof: bool | None,
+) -> Select[tuple[Bounty]]:
+    """Apply the optional get_bounties filters to the base query."""
+    if status:
+        query = query.where(Bounty.status == status)  # type: ignore[arg-type]
+    if tier:
+        query = query.where(Bounty.tier == tier)  # type: ignore[arg-type]
+    if creator_id:
+        query = query.where(Bounty.creator_id == creator_id)  # type: ignore[arg-type]
+    if category:
+        query = query.where(Bounty.category == category)  # type: ignore[arg-type]
+    if min_reward:
+        query = query.where(Bounty.reward_amount >= min_reward)  # type: ignore[arg-type]
+    if max_reward:
+        query = query.where(Bounty.reward_amount <= max_reward)  # type: ignore[arg-type]
+    if deadline_before:
+        query = query.where(Bounty.deadline <= deadline_before)  # type: ignore[arg-type]
+    if deadline_after:
+        query = query.where(Bounty.deadline >= deadline_after)  # type: ignore[arg-type]
+    if requires_zk_proof is not None:
+        query = query.where(Bounty.requires_zk_proof == requires_zk_proof)  # type: ignore[arg-type]
+    return query
 
 
 class BountyService:
@@ -116,25 +151,18 @@ class BountyService:
     ) -> list[Bounty]:
         """Get filtered list of bounties"""
         try:
-            query = select(Bounty)
-            if status:
-                query = query.where(Bounty.status == status)  # type: ignore[arg-type]
-            if tier:
-                query = query.where(Bounty.tier == tier)  # type: ignore[arg-type]
-            if creator_id:
-                query = query.where(Bounty.creator_id == creator_id)  # type: ignore[arg-type]
-            if category:
-                query = query.where(Bounty.category == category)  # type: ignore[arg-type]
-            if min_reward:
-                query = query.where(Bounty.reward_amount >= min_reward)  # type: ignore[arg-type]
-            if max_reward:
-                query = query.where(Bounty.reward_amount <= max_reward)  # type: ignore[arg-type]
-            if deadline_before:
-                query = query.where(Bounty.deadline <= deadline_before)  # type: ignore[arg-type]
-            if deadline_after:
-                query = query.where(Bounty.deadline >= deadline_after)  # type: ignore[arg-type]
-            if requires_zk_proof is not None:
-                query = query.where(Bounty.requires_zk_proof == requires_zk_proof)  # type: ignore[arg-type]
+            query = _apply_bounty_filters(
+                select(Bounty),
+                status=status,
+                tier=tier,
+                creator_id=creator_id,
+                category=category,
+                min_reward=min_reward,
+                max_reward=max_reward,
+                deadline_before=deadline_before,
+                deadline_after=deadline_after,
+                requires_zk_proof=requires_zk_proof,
+            )
             # Tag filtering is applied in Python below: Bounty.tags is a plain
             # JSON column and .contains([tag]) renders a LIKE that can never
             # match the serialized list (#1341). Bounty volumes are small;

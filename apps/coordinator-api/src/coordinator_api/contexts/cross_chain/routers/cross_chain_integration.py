@@ -33,15 +33,50 @@ from coordinator_api.contexts.cross_chain.services.multi_chain_transaction_manag
 )
 from coordinator_api.storage.db import get_session
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 
 from ....auth import AdminDep, AuthDep
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError
 from aitbc.rate_limiting import rate_limit
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the endpoint guards below: sqlmodel
+# session/DBAPI errors, wallet-adapter/bridge network errors (aitbc
+# NetworkError family + httpx), lazy eth-*/web3 imports, and data-shape
+# errors. RuntimeError preserves catch of abort-style raises;
+# BaseExceptions still propagate. HTTPException is always re-raised
+# first by the handlers that need it.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+    httpx.HTTPError,
+    ImportError,
+    NetworkError,
+    RateLimitError,
+    CircuitBreakerOpenError,
+)
+try:
+    # eth_keys is an optional signing dep (the wallet adapters lazy-import
+    # eth_account/eth_utils); include its failures when present so a bad
+    # signature still lands on the same 500 path as before.
+    from eth_keys.exceptions import BadSignature as _EthBadSignature
+    from eth_keys.exceptions import ValidationError as _EthValidationError
+except ImportError:
+    _eth_sig_errors: tuple[type[BaseException], ...] = ()
+else:
+    _eth_sig_errors = (_EthBadSignature, _EthValidationError)
+_OPS_ERRORS += _eth_sig_errors
 
 router = APIRouter(prefix="/cross-chain", tags=["Cross-Chain Integration"])
 
@@ -172,7 +207,7 @@ async def get_wallet_balance(
         return balance_data
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting balance") from None
 
 
@@ -229,7 +264,7 @@ async def execute_wallet_transaction(
         return transaction_data
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error executing transaction") from None
 
 
@@ -261,7 +296,7 @@ async def get_wallet_transaction_history(
         return transactions
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting transaction history") from None
 
 
@@ -295,7 +330,7 @@ async def sign_message(
         return {"signature": signature_data, "message": message, "chain_id": chain_id}
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error signing message") from None
 
 
@@ -325,7 +360,7 @@ async def verify_signature(
         }
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error verifying signature") from None
 
 
@@ -374,7 +409,7 @@ async def create_bridge_request(
         return bridge_request
     except HTTPException:
         raise
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error creating bridge request") from None
 
 
@@ -388,7 +423,7 @@ async def get_bridge_request_status(
         bridge_service = BridgeClientAdapter(session=session)
         status = await run_in_threadpool(asyncio.run, bridge_service.get_bridge_request_status(bridge_request_id))
         return status
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting bridge request status") from None
 
 
@@ -406,7 +441,7 @@ async def cancel_bridge_request(
         bridge_service = BridgeClientAdapter(session=session)
         result = await run_in_threadpool(asyncio.run, bridge_service.cancel_bridge_request(bridge_request_id, reason))
         return result
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error cancelling bridge request") from None
 
 
@@ -420,7 +455,7 @@ async def get_bridge_statistics(
         bridge_service = BridgeClientAdapter(session=session)
         stats = await run_in_threadpool(asyncio.run, bridge_service.get_bridge_statistics(time_period_hours))
         return stats
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting bridge statistics") from None
 
 
@@ -432,7 +467,7 @@ async def get_liquidity_pools(request: Request, session: Annotated[Session, Depe
         bridge_service = BridgeClientAdapter(session=session)
         pools = await run_in_threadpool(asyncio.run, bridge_service.get_liquidity_pools())
         return pools
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting liquidity pools") from None
 
 
@@ -484,7 +519,7 @@ async def submit_transaction(
             ),
         )
         return result
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error submitting transaction") from None
 
 
@@ -550,7 +585,7 @@ async def get_transaction_history(
                 },
             ][:limit]
         return history
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Error getting transaction history: %s", e)
         return [
             {  # not-money: ratio, threshold or configuration default — not an amount of money
@@ -595,7 +630,7 @@ async def get_transaction_statistics(
         await run_in_threadpool(asyncio.run, tx_manager.initialize(chain_configs))
         stats = await run_in_threadpool(asyncio.run, tx_manager.get_transaction_statistics(time_period_hours, chain_id))
         return stats
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting transaction statistics") from None
 
 
@@ -627,7 +662,7 @@ async def optimize_transaction_routing(
             ),
         )
         return optimization
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error optimizing routing") from None
 
 
@@ -642,7 +677,7 @@ def get_supported_chains(request: Request) -> list[dict[str, Any]]:
             info = WalletAdapterFactory.get_chain_info(chain_id)
             chain_info.append({"chain_id": chain_id, **info})
         return chain_info
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting supported chains") from None
 
 
@@ -659,7 +694,7 @@ def get_chain_info(request: Request, chain_id: int, session: Annotated[Session, 
             "adapter_available": True,
         }
         return chain_info
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting chain info") from None
 
 
@@ -746,7 +781,7 @@ def get_cross_chain_config(request: Request, session: Annotated[Session, Depends
             "security_levels": [level.value for level in SecurityLevel],
             "last_updated": datetime.now(UTC).isoformat(),
         }
-    except Exception:
+    except _OPS_ERRORS:
         raise HTTPException(status_code=500, detail="Error getting configuration") from None
 
 

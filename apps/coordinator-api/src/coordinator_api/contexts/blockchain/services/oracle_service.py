@@ -13,15 +13,31 @@ import asyncio
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from enum import Enum
 from typing import Any
+
+import httpx
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.http_client import RequestIDPropagatingClient
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the price-feed helpers: filesystem/JSON,
+# data-shape, runtime, httpx transport/decoding errors and decimal parse
+# failures. BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    InvalidOperation,
+)
 
 
 class PriceSource(Enum):
@@ -134,7 +150,7 @@ class ChainlinkAdapter:
                 confidence=0.95,
                 round_id=round_id,
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Chainlink fetch failed for %s: %s", pair, e)
             return None
 
@@ -235,7 +251,7 @@ class AggregatedPriceFeed:
                 return None
             try:
                 data = response.json()
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Failed to parse CoinGecko response: %s", e)
                 return None
             if coin_id not in data:
@@ -243,7 +259,7 @@ class AggregatedPriceFeed:
                 return None
             price_data = data[coin_id]
             price = price_data.get("usd")
-            price_data.get("usd_24h_change", 0.0)
+            price_data.get("usd_24h_change", 0.0)  # noqa: unawaited-async — dict.get
             if price is None:
                 logger.warning("CoinGecko response missing price for %s", coin_id)
                 return None
@@ -256,7 +272,7 @@ class AggregatedPriceFeed:
                 timestamp=datetime.now(UTC),
                 confidence=0.9,
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("CoinGecko API error for %s: %s", pair, e)
             return None
 
@@ -310,7 +326,7 @@ class OracleService:
                 await asyncio.sleep(60)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Price update error: %s", e)
                 await asyncio.sleep(10)
 
@@ -335,7 +351,7 @@ class OracleService:
         for callback in subscribers_copy:
             try:
                 create_task_with_logging(callback(data), name="oracle_callback")
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Price subscriber error: %s", e)
         return data.to_dict()
 

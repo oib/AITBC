@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import String, cast
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
@@ -14,6 +15,19 @@ from ....utils.sql_like import like_contains
 from ..domain.gpu_market import GPURegistry, ResourceEmbedding, SearchHistory, UserProfile
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the search/recommendation fallbacks below:
+# session/DB errors (sqlmodel -> SQLAlchemyError), filter/payload data-shape
+# errors, numeric ranking errors, and runtime/OS errors.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AttributeError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    SQLAlchemyError,
+    TypeError,
+    ValueError,
+)
 
 
 class ResourceMatcher:
@@ -61,7 +75,7 @@ class ResourceMatcher:
                 for gpu, rank in ranked_gpus[:limit]
             ]
             return results
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to perform advanced search: %s", e)
             return []
 
@@ -78,7 +92,7 @@ class ResourceMatcher:
                 filters["region"] = profile.preferred_regions[0]
             results = self.advanced_search(filters, user_id, limit)
             return results
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to get recommendations: %s", e)
             return []
 
@@ -102,7 +116,7 @@ class ResourceMatcher:
                 self.session.add(new_embedding)
             self.session.commit()
             return embedding
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to generate embeddings: %s", e)
             return []
 
@@ -137,7 +151,7 @@ class ResourceMatcher:
                 for gpu in similar_gpus
             ]
             return results
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to find similar resources: %s", e)
             return []
 
@@ -147,7 +161,7 @@ class ResourceMatcher:
             search = SearchHistory(user_id=user_id, filters=filters, results_count=results_count)
             self.session.add(search)
             self.session.commit()
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to track search: %s", e)
 
     def _rank_resources(

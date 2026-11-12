@@ -10,6 +10,7 @@ from enum import StrEnum
 from typing import Any, cast
 from uuid import uuid4
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 
 from aitbc.aitbc_logging import get_logger
@@ -26,6 +27,20 @@ logger = get_logger(__name__)
 SANDBOX_MONITORING_NOT_IMPLEMENTED = (
     "Sandbox runtime monitoring is not implemented — it requires container-runtime, "
     "process, network, and filesystem integration. No fabricated metrics are served."
+)
+
+# Expected failure surface for the best-effort handlers below: sqlmodel
+# session/DBAPI errors plus data-shape/runtime errors. RuntimeError also
+# covers NotImplementedError raised by unimplemented sandbox paths;
+# BaseExceptions still propagate.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
 )
 
 
@@ -273,7 +288,7 @@ class AgentAuditor:
             if "signature" not in event_data or "public_key" not in event_data:
                 return None
             return None
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Signature verification failed: %s", e)
             return False
 
@@ -594,7 +609,7 @@ class AgentSandboxManager:
                 logger.info("Marked sandbox as inactive for execution %s", execution_id)
                 return True
             return False
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to cleanup sandbox for execution %s: %s", execution_id, e)
             return False
 
@@ -718,7 +733,7 @@ class AgentSecurityManager:
                 )
             else:
                 monitoring_result["security_status"] = "secure"
-        except Exception as e:
+        except _OPS_ERRORS as e:
             monitoring_result["security_status"] = "monitoring_failed"
             monitoring_result["alerts"].append(f"Security monitoring failed: {e}")
             await self.auditor.log_event(

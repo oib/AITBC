@@ -4,14 +4,15 @@ import asyncio
 import statistics
 import time
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Annotated, Any
 from uuid import uuid4
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy.exc import OperationalError
+from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session, col, func, select, update
 
@@ -20,6 +21,7 @@ from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
 from aitbc.market.energy_oracle import EVMEnergyOracle, EnergyOracleError
 from aitbc.market.energy_pricing import (
     DEFAULT_FEE_BASIS_POINTS,
+    EnergyPricingError,
     EnergyQuote,
     NATIVE_UNITS_PER_AIT,
     SettlementRoute,
@@ -53,6 +55,26 @@ from ..services.native_energy import NativeEnergyOracle
 from ..services.ollama_queue import get_queue
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort fallbacks and error-translate
+# handlers below: session/DB errors (sqlmodel -> SQLAlchemyError), outbound
+# HTTP/RPC I/O (httpx via the energy oracle and payment rails), energy-pricing
+# domain errors, Decimal parsing, lazy imports, and data-shape/runtime errors.
+# HTTPException is not in the tuple, so it propagates to the client untouched (#1863).
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AttributeError,
+    EnergyPricingError,
+    ImportError,
+    InvalidOperation,
+    KeyError,
+    OSError,
+    RuntimeError,
+    SQLAlchemyError,
+    TypeError,
+    ValueError,
+    httpx.HTTPError,
+)
+
 router = APIRouter(tags=["market-gpu"])
 pricing_engine = None
 market_collector = None
@@ -103,7 +125,7 @@ def _validated_price_per_hour(raw: Any) -> Decimal:
     """Return a finite Decimal price in [0, _MAX_PRICE_PER_HOUR] or raise 400."""
     try:
         price = Decimal(str(raw))
-    except Exception as exc:
+    except (InvalidOperation, TypeError, ValueError) as exc:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail=f"invalid price_per_hour: {raw!r}") from exc
     if not price.is_finite() or price < 0 or price > _MAX_PRICE_PER_HOUR:
         raise HTTPException(
@@ -402,7 +424,7 @@ def _build_energy_quote(
     try:
         profile = oracle.get_profile(gpu.resource_id)
         rate = oracle.get_rate()
-    except Exception as exc:
+    except _OPS_ERRORS as exc:
         logger.error("Failed to read energy inputs for %s: %s", gpu.resource_id, exc)
         raise HTTPException(
             status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -422,7 +444,7 @@ def _build_energy_quote(
             block = oracle.rpc.get_block("latest")
             evm_block_number = int(block["number"])
             evm_block_hash = block["hash"]
-        except Exception as exc:
+        except _OPS_ERRORS as exc:
             logger.warning("Could not pin EVM block for energy quote: %s", exc)
 
     quote = build_minimum_quote(
@@ -464,7 +486,7 @@ def _build_energy_quote(
                 operator_address=settings.energy_operator_address,
                 operator_signature=bytes.fromhex(signature_hex.removeprefix("0x")),
             )
-        except Exception as exc:
+        except _OPS_ERRORS as exc:
             logger.error("Failed to sign energy quote: %s", exc)
             raise HTTPException(
                 status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -690,39 +712,29 @@ def quote_gpu(
     }
 
 
-@router.post("/market/gpu/purchase")
-@rate_limit(rate=20, per=60)
-async def buy_gpu(
-    request: GPUBuyRequest,
-    session: Annotated[Session, Depends(get_session)],
-    engine: Annotated[DynamicPricingEngine, Depends(get_pricing_engine)],
-    user: AuthDep,
-    *,
-    http_request: Request,
-) -> dict[str, Any]:
-    """Buy GPU compute from market with blockchain payment and AI job scheduling."""
-    # #1075: the purchase must belong to the caller — a body-supplied buyer_id
-    # let a client book a rental on someone else's account.
-    if request.buyer_id != user["sub"]:
-        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="buyer_id does not match authenticated buyer")
+async def _lock_gpu_for_purchase(session: Session, gpu_id: str) -> GPURegistry:
+    """Expire a stale unpaid hold, take the row lock and fetch the GPU."""
     # CE-004: expire a stale unpaid hold before taking the row lock — the
     # reaper commits, which would otherwise drop the FOR UPDATE lock early.
-    gpu_preview = session.get(GPURegistry, request.gpu_id)
+    gpu_preview = session.get(GPURegistry, gpu_id)
     if gpu_preview is not None:
         _expire_stale_booking(session, gpu_preview)
     # Lock the GPU row while booking: two concurrent purchases could both see
     # "available" and double-book the same GPU.
     gpu = await run_in_threadpool(
-        lambda: session.exec(select(GPURegistry).where(GPURegistry.id == request.gpu_id).with_for_update()).first()
+        lambda: session.exec(select(GPURegistry).where(GPURegistry.id == gpu_id).with_for_update()).first()
     )
     if not gpu:
-        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=f"GPU {request.gpu_id} not found")
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=f"GPU {gpu_id} not found")
     if gpu.status != "available":
-        raise HTTPException(
-            status_code=http_status.HTTP_409_CONFLICT, detail=f"GPU {request.gpu_id} is not available for purchase"
-        )
-    from datetime import datetime, timedelta
+        raise HTTPException(status_code=http_status.HTTP_409_CONFLICT, detail=f"GPU {gpu_id} is not available for purchase")
+    return gpu
 
+
+async def _resolve_purchase_terms(
+    request: GPUBuyRequest, gpu: GPURegistry, engine: DynamicPricingEngine
+) -> tuple[datetime, float, datetime, Decimal, Decimal, EnergyQuote | None]:
+    """Resolve start/end times, the dynamic price and the total cost."""
     start_time = datetime.now(UTC)
     duration_hours = request.duration_hours
     # E1: if the buyer supplied a signed energy quote, use its frozen terms.
@@ -731,7 +743,7 @@ async def buy_gpu(
         try:
             supplied_quote = EnergyQuote.from_dict(request.energy_quote)
             duration_hours = supplied_quote.duration_seconds / 3600
-        except Exception as exc:
+        except (EnergyPricingError, TypeError, ValueError) as exc:
             raise HTTPException(
                 status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=f"Invalid energy_quote: {exc}",
@@ -746,7 +758,7 @@ async def buy_gpu(
             region=gpu.region,
         )
         current_price = dynamic_result.recommended_price
-    except Exception as exc:
+    except _OPS_ERRORS as exc:
         # #1374: pricing-engine failure silently repriced the booking at the
         # static rate — log it so the fallback is visible in ops.
         logger.warning("Dynamic pricing failed for gpu %s, using static price: %s", gpu.id, exc)
@@ -755,6 +767,21 @@ async def buy_gpu(
     total_cost = duration_dec * current_price
     if supplied_quote is not None:
         total_cost = units_to_ait(supplied_quote.principal_units)
+    return start_time, duration_hours, end_time, current_price, total_cost, supplied_quote
+
+
+async def _create_purchase_booking(
+    session: Session,
+    request: GPUBuyRequest,
+    gpu: GPURegistry,
+    *,
+    start_time: datetime,
+    end_time: datetime,
+    duration_hours: float,
+    total_cost: Decimal,
+    supplied_quote: EnergyQuote | None,
+) -> GPUBooking:
+    """Resolve the buyer, build the GPUBooking hold and CAS the GPU to booked."""
     try:
         resolved_client_id, client_ref = await run_in_threadpool(resolve_client, session, request.buyer_id, auto_create=True)
     except ValueError as exc:
@@ -805,157 +832,230 @@ async def buy_gpu(
     await run_in_threadpool(session.commit)
     await run_in_threadpool(session.refresh, gpu)
     await run_in_threadpool(session.refresh, booking)
-    job_id = None
-    payment_id = None
-    payment_status = None
-    payment = None
-    try:
-        from sqlmodel import Session as SQLModelSession
+    return booking
 
-        from ....contexts.payments.services.payments import PaymentService
-        from ....custom_types import Constraints
-        from ....schemas import JobCreate, JobPaymentCreate
-        from ...infrastructure.services.jobs import JobService
 
-        job_session = SQLModelSession(bind=session.bind)
-        job_service = JobService(job_session)
-        if request.job_id:
-            # E1: a prepared quote already created and bound the job.
-            job = await run_in_threadpool(job_session.get, Job, request.job_id)
-            if not job:
+async def _open_purchase_job(
+    session: Session,
+    request: GPUBuyRequest,
+    booking: GPUBooking,
+    gpu: GPURegistry,
+    *,
+    start_time: datetime,
+    total_cost: Decimal,
+    duration_hours: float,
+    end_time: datetime,
+) -> tuple[Any, str, Decimal, float, datetime]:
+    """Create the AI job for the purchase, or bind the prepared job (E1).
+
+    Returns ``(job, job_id, total_cost, duration_hours, end_time)`` — the last
+    three may have been rebound to the prepared job's frozen quote terms."""
+    from sqlmodel import Session as SQLModelSession
+
+    from ....custom_types import Constraints
+    from ....schemas import JobCreate
+    from ...infrastructure.services.jobs import JobService
+
+    job_session = SQLModelSession(bind=session.bind)
+    job_service = JobService(job_session)
+    if request.job_id:
+        # E1: a prepared quote already created and bound the job.
+        job = await run_in_threadpool(job_session.get, Job, request.job_id)
+        if not job:
+            raise HTTPException(
+                status_code=http_status.HTTP_404_NOT_FOUND,
+                detail=f"Prepared job {request.job_id} not found",
+            )
+        # E1: carry the frozen quote and binding fields from the prepared job.
+        quote_snapshot = request.energy_quote or job.energy_quote_snapshot
+        if quote_snapshot and job.energy_quote_snapshot:
+            supplied = quote_snapshot.get("quote_id")
+            stored = job.energy_quote_snapshot.get("quote_id")
+            if supplied != stored:
                 raise HTTPException(
-                    status_code=http_status.HTTP_404_NOT_FOUND,
-                    detail=f"Prepared job {request.job_id} not found",
+                    status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Energy quote does not match the prepared job",
                 )
-            # E1: carry the frozen quote and binding fields from the prepared job.
-            quote_snapshot = request.energy_quote or job.energy_quote_snapshot
-            if quote_snapshot and job.energy_quote_snapshot:
-                supplied = quote_snapshot.get("quote_id")
-                stored = job.energy_quote_snapshot.get("quote_id")
-                if supplied != stored:
-                    raise HTTPException(
-                        status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail="Energy quote does not match the prepared job",
-                    )
-            if quote_snapshot:
-                try:
-                    quote = EnergyQuote.from_dict(quote_snapshot)
-                    booking.protected = True
-                    booking.total_cost = units_to_ait(quote.principal_units)
-                    booking.energy_quote_snapshot = quote.to_dict(include_signature=False)
-                    booking.duration_seconds = quote.duration_seconds
-                    booking.duration_hours = quote.duration_seconds / 3600
-                    booking.gpu_count = quote.gpu_count
-                    booking.resource_id = quote.resource_id
-                    booking.model_id = quote.model_id
-                except Exception as exc:
-                    raise HTTPException(
-                        status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail=f"Invalid energy quote for prepared job: {exc}",
-                    ) from exc
-            else:
-                booking.protected = job.protected
-            booking.job_id = job.id
-            job_id = job.id
-            total_cost = booking.total_cost
-            duration_hours = booking.duration_hours
-            duration_dec = Decimal(str(duration_hours))
-            end_time = start_time + timedelta(seconds=booking.duration_seconds or 0)
+        if quote_snapshot:
+            try:
+                quote = EnergyQuote.from_dict(quote_snapshot)
+                booking.protected = True
+                booking.total_cost = units_to_ait(quote.principal_units)
+                booking.energy_quote_snapshot = quote.to_dict(include_signature=False)
+                booking.duration_seconds = quote.duration_seconds
+                booking.duration_hours = quote.duration_seconds / 3600
+                booking.gpu_count = quote.gpu_count
+                booking.resource_id = quote.resource_id
+                booking.model_id = quote.model_id
+            except (EnergyPricingError, TypeError, ValueError) as exc:
+                raise HTTPException(
+                    status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"Invalid energy quote for prepared job: {exc}",
+                ) from exc
         else:
-            job_create = JobCreate(
-                payload={
-                    "type": "gpu_compute",
-                    "gpu_id": request.gpu_id,
-                    "task": "general_compute",
-                    "duration_hours": duration_hours,
-                    "gpu_count": quote_gpu_count,
-                },
-                constraints=Constraints(
-                    gpu=quote_model_id,
-                    region=gpu.region,
-                    min_vram_gb=None,
-                    max_price=total_cost * Decimal("1.1"),
-                ),
-                ttl_seconds=max(300, int(duration_dec * 3600)),
-                payment_amount=total_cost,
-                payment_currency="AITBC",
-            )
-            job = await run_in_threadpool(job_service.create_job, client_id=request.buyer_id, req=job_create)
-            job_id = job.id
-        job_session.close()  # noqa: unawaited-async — SQLModelSession.close() is synchronous
-        logger.info("Using job %s for GPU purchase %s", job_id, booking_id)
-        try:
-            payment_session = SQLModelSession(bind=session.bind)
-            payment_service = PaymentService(payment_session)
-            quote_payload = request.energy_quote or (job.energy_quote_snapshot if request.job_id else None)
+            booking.protected = job.protected
+        booking.job_id = job.id
+        job_id = job.id
+        total_cost = booking.total_cost
+        duration_hours = booking.duration_hours
+        end_time = start_time + timedelta(seconds=booking.duration_seconds or 0)
+    else:
+        duration_dec = Decimal(str(duration_hours))
+        job_create = JobCreate(
+            payload={
+                "type": "gpu_compute",
+                "gpu_id": request.gpu_id,
+                "task": "general_compute",
+                "duration_hours": duration_hours,
+                "gpu_count": booking.gpu_count,
+            },
+            constraints=Constraints(
+                gpu=booking.model_id,
+                region=gpu.region,
+                min_vram_gb=None,
+                max_price=total_cost * Decimal("1.1"),
+            ),
+            ttl_seconds=max(300, int(duration_dec * 3600)),
+            payment_amount=total_cost,
+            payment_currency="AITBC",
+        )
+        job = await run_in_threadpool(job_service.create_job, client_id=request.buyer_id, req=job_create)
+        job_id = job.id
+    job_session.close()  # noqa: unawaited-async — SQLModelSession.close() is synchronous
+    logger.info("Using job %s for GPU purchase %s", job_id, booking.id)
+    return job, job_id, total_cost, duration_hours, end_time
 
-            # Resolve the payment method. The CLI sends "blockchain" for the
-            # legacy native path or "evm" for EVM-protected rentals. The
-            # PaymentService expects "aitbc_token" for the native rail and
-            # "evm" for the EVM rail.
-            if request.payment_method == "blockchain":
-                payment_method = "aitbc_token"
+
+async def _create_purchase_payment(
+    session: Session,
+    request: GPUBuyRequest,
+    booking: GPUBooking,
+    job: Any,
+    *,
+    total_cost: Decimal,
+    duration_hours: float,
+) -> tuple[Any, str | None, str | None]:
+    """Create the JobPayment for the purchase.
+
+    Payment-rail failures are logged and reported as ``failed`` rather than
+    raised — the caller rolls the booking back on failed/skipped. Returns
+    ``(payment, payment_id, payment_status)``."""
+    from sqlmodel import Session as SQLModelSession
+
+    from ....contexts.payments.services.payments import PaymentService
+    from ....schemas import JobPaymentCreate
+
+    payment: Any = None
+    payment_id: str | None = None
+    payment_status: str | None = None
+    try:
+        payment_session = SQLModelSession(bind=session.bind)
+        payment_service = PaymentService(payment_session)
+        quote_payload = request.energy_quote or (job.energy_quote_snapshot if request.job_id else None)
+
+        # Resolve the payment method. The CLI sends "blockchain" for the
+        # legacy native path or "evm" for EVM-protected rentals. The
+        # PaymentService expects "aitbc_token" for the native rail and
+        # "evm" for the EVM rail.
+        if request.payment_method == "blockchain":
+            payment_method = "aitbc_token"
+        else:
+            payment_method = request.payment_method
+
+        from ...payments.services.escrow_agent_binding import (
+            assert_agent_address_binding,
+            default_resolve_chain_id,
+            resolve_agent_payment_address,
+        )
+
+        resolve_chain = default_resolve_chain_id()
+        buyer_address = request.buyer_address
+        provider_address = request.provider_address
+        if request.buyer_agent_id:
+            if buyer_address:
+                await assert_agent_address_binding(
+                    session, request.buyer_agent_id, buyer_address, role="buyer", chain_id=resolve_chain
+                )
             else:
-                payment_method = request.payment_method
+                buyer_address = await resolve_agent_payment_address(session, request.buyer_agent_id, resolve_chain)
+        if request.provider_agent_id:
+            if provider_address:
+                await assert_agent_address_binding(
+                    session, request.provider_agent_id, provider_address, role="provider", chain_id=resolve_chain
+                )
+            else:
+                provider_address = await resolve_agent_payment_address(session, request.provider_agent_id, resolve_chain)
+        payment_create = JobPaymentCreate(
+            job_id=job.id,
+            amount=total_cost,
+            currency="AITBC",
+            payment_method=payment_method,
+            escrow_timeout_seconds=max(300, int(duration_hours * 3600)),
+            protected=booking.protected,
+            energy_quote=quote_payload,
+            buyer_address=buyer_address,
+            provider_address=provider_address,
+            buyer_lock_signature=request.buyer_lock_signature,
+            buyer_lock_nonce=request.buyer_lock_nonce,
+            buyer_lock_fee=request.buyer_lock_fee,
+            evm_tx_hash=request.evm_tx_hash,
+            evm_agreement_id=request.evm_agreement_id,
+            evm_escrow_id=request.evm_escrow_id,
+            buyer_agent_id=request.buyer_agent_id,
+            provider_agent_id=request.provider_agent_id,
+        )
+        payment = await payment_service.create_payment(client_id=request.buyer_id, job_id=job.id, payment_data=payment_create)
+        payment_id = payment.id
+        payment_status = payment.status
+        payment_session.close()  # noqa: unawaited-async — SQLModelSession.close() is synchronous
+        logger.info("Created payment %s for job %s", payment.id, job.id)
+    except _OPS_ERRORS as e:
+        logger.error("Failed to create payment for job %s: %s", job.id, e)
+        payment_id = None
+        payment_status = "failed"
+    return payment, payment_id, payment_status
 
-            from ...payments.services.escrow_agent_binding import (
-                assert_agent_address_binding,
-                default_resolve_chain_id,
-                resolve_agent_payment_address,
-            )
 
-            resolve_chain = default_resolve_chain_id()
-            buyer_address = request.buyer_address
-            provider_address = request.provider_address
-            if request.buyer_agent_id:
-                if buyer_address:
-                    await assert_agent_address_binding(
-                        session, request.buyer_agent_id, buyer_address, role="buyer", chain_id=resolve_chain
-                    )
-                else:
-                    buyer_address = await resolve_agent_payment_address(session, request.buyer_agent_id, resolve_chain)
-            if request.provider_agent_id:
-                if provider_address:
-                    await assert_agent_address_binding(
-                        session, request.provider_agent_id, provider_address, role="provider", chain_id=resolve_chain
-                    )
-                else:
-                    provider_address = await resolve_agent_payment_address(session, request.provider_agent_id, resolve_chain)
-            payment_create = JobPaymentCreate(
-                job_id=job.id,
-                amount=total_cost,
-                currency="AITBC",
-                payment_method=payment_method,
-                escrow_timeout_seconds=max(300, int(duration_hours * 3600)),
-                protected=booking.protected,
-                energy_quote=quote_payload,
-                buyer_address=buyer_address,
-                provider_address=provider_address,
-                buyer_lock_signature=request.buyer_lock_signature,
-                buyer_lock_nonce=request.buyer_lock_nonce,
-                buyer_lock_fee=request.buyer_lock_fee,
-                evm_tx_hash=request.evm_tx_hash,
-                evm_agreement_id=request.evm_agreement_id,
-                evm_escrow_id=request.evm_escrow_id,
-                buyer_agent_id=request.buyer_agent_id,
-                provider_agent_id=request.provider_agent_id,
-            )
-            payment = await payment_service.create_payment(
-                client_id=request.buyer_id, job_id=job.id, payment_data=payment_create
-            )
-            payment_id = payment.id
-            payment_status = payment.status
-            payment_session.close()  # noqa: unawaited-async — SQLModelSession.close() is synchronous
-            logger.info("Created payment %s for job %s", payment.id, job.id)
-        except Exception as e:
-            logger.error("Failed to create payment for job %s: %s", job.id, e)
-            payment_id = None
-            payment_status = "failed"
+async def _buy_gpu_job_payment(
+    session: Session,
+    request: GPUBuyRequest,
+    booking: GPUBooking,
+    gpu: GPURegistry,
+    *,
+    start_time: datetime,
+    total_cost: Decimal,
+    duration_hours: float,
+    end_time: datetime,
+) -> tuple[Any, str | None, str | None, Any, Decimal, float, datetime]:
+    """Create the purchase's job + payment and persist the booking linkage.
+
+    On validation failure the booking/GPU committed above are released before
+    the exception propagates; on payment failure the booking is rolled back
+    and a 402 is raised. Returns
+    ``(job_id, payment_id, payment_status, payment, total_cost, duration_hours, end_time)``."""
+    job_id: str | None = None
+    payment_id: str | None = None
+    payment_status: str | None = None
+    payment: Any = None
+    try:
+        job, job_id, total_cost, duration_hours, end_time = await _open_purchase_job(
+            session,
+            request,
+            booking,
+            gpu,
+            start_time=start_time,
+            total_cost=total_cost,
+            duration_hours=duration_hours,
+            end_time=end_time,
+        )
+        payment, payment_id, payment_status = await _create_purchase_payment(
+            session, request, booking, job, total_cost=total_cost, duration_hours=duration_hours
+        )
         booking.job_id = job.id
         booking.payment_id = payment_id
         await run_in_threadpool(session.add, booking)
         await run_in_threadpool(session.commit)
-        logger.info("Successfully created job %s and payment %s for GPU purchase %s", job.id, payment_id, booking_id)
+        logger.info("Successfully created job %s and payment %s for GPU purchase %s", job.id, payment_id, booking.id)
     except HTTPException:
         # Validation failures (prepared-job 404/422, binding 403) must still
         # release the booking/GPU committed above before propagating.
@@ -969,7 +1069,7 @@ async def buy_gpu(
         gpu.status = "available"
         await run_in_threadpool(session.commit)
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Failed to create job/payment for GPU purchase: %s", e)
 
     # Payment failure rolls back booking and GPU; the job is cancelled if payment
@@ -992,9 +1092,51 @@ async def buy_gpu(
             status_code=http_status.HTTP_402_PAYMENT_REQUIRED,
             detail=detail,
         )
+    return job_id, payment_id, payment_status, payment, total_cost, duration_hours, end_time
+
+
+@router.post("/market/gpu/purchase")
+@rate_limit(rate=20, per=60)
+async def buy_gpu(
+    request: GPUBuyRequest,
+    session: Annotated[Session, Depends(get_session)],
+    engine: Annotated[DynamicPricingEngine, Depends(get_pricing_engine)],
+    user: AuthDep,
+    *,
+    http_request: Request,
+) -> dict[str, Any]:
+    """Buy GPU compute from market with blockchain payment and AI job scheduling."""
+    # #1075: the purchase must belong to the caller — a body-supplied buyer_id
+    # let a client book a rental on someone else's account.
+    if request.buyer_id != user["sub"]:
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="buyer_id does not match authenticated buyer")
+    gpu = await _lock_gpu_for_purchase(session, request.gpu_id)
+    start_time, duration_hours, end_time, current_price, total_cost, supplied_quote = await _resolve_purchase_terms(
+        request, gpu, engine
+    )
+    booking = await _create_purchase_booking(
+        session,
+        request,
+        gpu,
+        start_time=start_time,
+        end_time=end_time,
+        duration_hours=duration_hours,
+        total_cost=total_cost,
+        supplied_quote=supplied_quote,
+    )
+    job_id, payment_id, payment_status, _payment, total_cost, duration_hours, end_time = await _buy_gpu_job_payment(
+        session,
+        request,
+        booking,
+        gpu,
+        start_time=start_time,
+        total_cost=total_cost,
+        duration_hours=duration_hours,
+        end_time=end_time,
+    )
 
     return {
-        "purchase_id": booking_id,
+        "purchase_id": booking.id,
         "gpu_id": request.gpu_id,
         "buyer_id": request.buyer_id,
         "job_id": job_id,
@@ -1087,7 +1229,7 @@ async def book_gpu(
             region=gpu.region,
         )
         current_price = dynamic_result.recommended_price
-    except Exception as exc:
+    except _OPS_ERRORS as exc:
         # #1374: pricing-engine failure silently repriced the booking at the
         # static rate — log it so the fallback is visible in ops.
         logger.warning("Dynamic pricing failed for gpu %s, using static price: %s", gpu.id, exc)
@@ -1262,7 +1404,7 @@ async def send_payment(
             job_id=payment_create.job_id,
             payment_data=payment_create,
         )
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Payment failed for task %s: %s", request.task_id or request.booking_id, e)
         raise HTTPException(
             status_code=http_status.HTTP_402_PAYMENT_REQUIRED,
@@ -1405,7 +1547,7 @@ def add_gpu_review(
         return {"status": "review_added", "gpu_id": gpu_id, "review_id": review.id, "average_rating": gpu.average_rating}
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error(
             "Failed to add review for GPU %s: %s",
             gpu_id,
@@ -1414,7 +1556,7 @@ def add_gpu_review(
         )
         try:
             session.rollback()
-        except Exception as rollback_error:
+        except SQLAlchemyError as rollback_error:
             logger.error("Failed to rollback transaction: %s", str(rollback_error))
             raise HTTPException(
                 status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Failed to add review"
@@ -1498,7 +1640,7 @@ async def get_pricing(
                     "reasoning": dynamic_result.reasoning,
                 }
             )
-        except Exception:
+        except _OPS_ERRORS:
             dynamic_prices.append(
                 {
                     "gpu_id": gpu.id,
@@ -1530,7 +1672,7 @@ async def get_pricing(
                 "market_sentiment": market_data.market_sentiment,
                 "confidence_score": market_data.confidence_score,
             }
-    except Exception:
+    except _OPS_ERRORS:
         market_analysis = None
     # #1373: zero-priced listings make the static average 0 — the percent
     # change denominator must be guarded.
@@ -1589,7 +1731,7 @@ def register_native_energy_profile(
     eur = data.get("eur_per_kwh")
     try:
         eur_scaled = int(Decimal(str(eur)) * scale) if eur is not None else int(data.get("eur_per_kwh_scaled", 0))
-    except Exception:
+    except (InvalidOperation, TypeError, ValueError):
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="eur_per_kwh is not a valid number") from None
 
     tbp = int(data.get("tbp_watts", 0))
@@ -1646,7 +1788,7 @@ def publish_native_energy_rate(
         ait_scaled = (
             int(Decimal(str(ait_per_eur)) * scale) if ait_per_eur is not None else int(data.get("ait_per_eur_scaled", 0))
         )
-    except Exception:
+    except (InvalidOperation, TypeError, ValueError):
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="ait_per_eur is not a valid number") from None
     if ait_scaled <= 0:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="ait_per_eur must be positive")

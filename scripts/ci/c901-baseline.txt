@@ -61,29 +61,6 @@
       1 apps/bridge-monitor/src/bridge_monitor/admin.py
       4 apps/bridge-monitor/src/bridge_monitor/main.py
       1 apps/bridge-monitor/src/bridge_monitor/storage.py
-      1 apps/coordinator-api/alembic/versions/1c58c844d95e_add_client_ref_and_foreign_keys_to_job_.py
-      1 apps/coordinator-api/scripts/migrate_complete.py
-      1 apps/coordinator-api/src/coordinator_api/agent_identity/sdk/client.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/services/agent_market.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/bounty/services/bounty_service.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/cross_chain/services/multi_chain_transaction_manager.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/governance/services/dispute_resolution.py
-      3 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/explorer.py
-      2 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/receipts.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/market/routers/market_gpu.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/market/services/bond_slashing.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/payments/services/escrow_relay.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/portfolio/routers/portfolio.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/rewards/routers/rewards.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/rewards/services/reward_service.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/tee/attestation.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/bid_strategy.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/dynamic_pricing.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/gpu_optimizer.py
       1 apps/ffmpeg/main.py
       2 apps/governance/src/governance_service/services/governance_service.py
       1 apps/hermes_agent/main.py

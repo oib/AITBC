@@ -20,6 +20,18 @@ from .task_decomposition import GPU_Tier, SubTask, SubTaskStatus, TaskDecomposit
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the monitoring loops below: in-memory
+# dict/lock access and asyncio.sleep. RuntimeError preserves catch of
+# abort-style raises; BaseExceptions (e.g. CancelledError) still propagate.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class OrchestratorStatus(StrEnum):
     """Orchestrator status"""
@@ -441,7 +453,7 @@ class AgentOrchestrator:
                         logger.info("Task %s failed", task_id)
                 await self._update_resource_utilization()
                 await asyncio.sleep(self.monitoring_interval)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error in execution monitoring: %s", e)
                 await asyncio.sleep(60)
 
@@ -460,7 +472,7 @@ class AgentOrchestrator:
                         self.agent_status[agent_id] = AgentStatus.AVAILABLE
                         logger.info("Agent %s back online", agent_id)
                 await asyncio.sleep(60)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error updating agent status: %s", e)
                 await asyncio.sleep(60)
 

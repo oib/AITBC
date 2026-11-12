@@ -10,9 +10,10 @@ Provides:
 from __future__ import annotations
 
 import logging
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
+import httpx
 from fastapi import APIRouter, HTTPException, Request, status
 from pydantic import BaseModel
 
@@ -21,6 +22,21 @@ from ..services.oracle_service import get_oracle_service
 from aitbc.rate_limiting import rate_limit
 
 router = APIRouter(prefix="/oracle", tags=["oracle"])
+
+# Expected failure surface for the oracle endpoints: the service's own
+# helpers can surface httpx transport errors and decimal parse failures on
+# top of the usual data-shape/runtime errors. BaseExceptions still
+# propagate; HTTPException is re-raised explicitly where it can occur.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    InvalidOperation,
+)
 
 
 class SetPriceRequest(BaseModel):
@@ -57,7 +73,7 @@ async def get_price(request: Request, pair: str) -> dict[str, Any]:
 
     except HTTPException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
@@ -76,7 +92,7 @@ async def get_all_prices(request: Request) -> dict[str, Any]:
             "timestamp": __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat(),
         }
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
@@ -96,7 +112,7 @@ async def set_price(request: Request, req: SetPriceRequest, user: AdminDep) -> d
 
         return {"success": True, **result}
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logging.getLogger(__name__).exception("Unhandled exception")
 
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal server error") from e
@@ -116,5 +132,5 @@ async def health_check(request: Request) -> dict[str, Any]:
         prices = await oracle.get_all_prices()
 
         return {"status": "healthy", "available_pairs": len(prices), "pairs": list(prices.keys())}
-    except Exception as e:
+    except _OPS_ERRORS as e:
         return {"status": "unhealthy", "error": str(e)}

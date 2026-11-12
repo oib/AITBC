@@ -9,6 +9,7 @@ from typing import Any
 from uuid import uuid4
 
 from sqlalchemy import asc, desc
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, and_, select
 
 from aitbc.aitbc_logging import get_logger
@@ -28,6 +29,16 @@ from ..domain.rewards import (
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+)
 
 
 class RewardCalculator:
@@ -104,6 +115,10 @@ class RewardCalculator:
         )
         if not reward_profile:
             return Decimal("0")
+        return self._loyalty_bonus_amount(reward_profile)
+
+    @staticmethod
+    def _loyalty_bonus_amount(reward_profile: AgentRewardProfile) -> Decimal:
         bonus = Decimal("0")
         if reward_profile.current_streak >= 30:
             bonus += Decimal("0.3")
@@ -498,7 +513,7 @@ class RewardEngine:
             try:
                 await self.process_reward_distribution(distribution.id)
                 processed += 1
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 failed += 1
                 logger.error("Failed to process distribution %s: %s", distribution.id, str(e))
         return {"processed": processed, "failed": failed, "total": len(pending_distributions)}

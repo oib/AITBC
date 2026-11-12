@@ -16,6 +16,8 @@ from enum import StrEnum
 from typing import Any
 from uuid import uuid4
 
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import JSON, Column, Field, Session, SQLModel, select
 
 from aitbc.aitbc_logging import get_logger
@@ -32,6 +34,24 @@ from .security import AgentAuditor, AgentSecurityManager, AuditEventType, Securi
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort handlers below: sqlmodel
+# session/DBAPI errors, systemd subprocess/file ops (OSError,
+# SubprocessError), lazy httpx health/metrics calls, mock-ZK RuntimeError,
+# and data-shape errors. RuntimeError preserves catch of abort-style
+# raises; BaseExceptions still propagate.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+    httpx.HTTPError,
+    ImportError,
+    subprocess.SubprocessError,
+)
 
 
 # CE-003: instance_id is composed from user-supplied deployment_name and
@@ -231,7 +251,7 @@ class AgentIntegrationManager:
                                 "verification_time": verification_result["verification_time"],
                             }
                         )
-                    except Exception as e:
+                    except _OPS_ERRORS as e:
                         integration_result["integration_errors"].append(
                             {"step_id": step_execution.step_id, "error": str(e), "error_type": "zk_proof_generation"}
                         )
@@ -247,7 +267,7 @@ class AgentIntegrationManager:
                     "verified": workflow_verification["verified"],
                     "verification_time": workflow_verification["verification_time"],
                 }
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 integration_result["integration_errors"].append({"error": str(e), "error_type": "workflow_proof_generation"})
             if integration_result["integration_errors"]:
                 integration_result["integration_status"] = "partial_success"
@@ -433,7 +453,7 @@ class AgentDeploymentManager:
                 instance.health_status = "healthy"
                 instance.endpoint_url = f"http://localhost:{instance.port}"
                 instance.last_health_check = datetime.now(UTC)
-            except Exception as deploy_error:
+            except _OPS_ERRORS as deploy_error:
                 logger.error("Systemd deployment failed for %s: %s", instance_id, deploy_error)
                 instance.status = DeploymentStatus.FAILED
                 instance.health_status = "unhealthy"
@@ -448,7 +468,7 @@ class AgentDeploymentManager:
             if instance_error is not None:
                 result["error"] = instance_error
             return result
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to create instance %s: %s", instance_number, e)
             return {
                 "instance_id": f"{config.deployment_name}-{environment}-{instance_number}",
@@ -582,7 +602,7 @@ class AgentDeploymentManager:
                                 health_status = "degraded"
                         else:
                             health_status = "unhealthy"
-                except Exception as http_error:
+                except _OPS_ERRORS as http_error:
                     logger.warning("HTTP health check failed for %s: %s", instance.instance_id, http_error)
                     health_status = "degraded" if service_active else "unhealthy"
             else:
@@ -605,7 +625,7 @@ class AgentDeploymentManager:
                 "response_time": response_time,
                 "last_check": instance.last_health_check.isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Health check failed for instance %s: %s", instance.id, e)
             instance.health_status = "unhealthy"
             instance.last_health_check = datetime.now(UTC)
@@ -691,7 +711,7 @@ class AgentDeploymentManager:
                     logger.info("Removed systemd service: %s", service_name)
                 except subprocess.CalledProcessError as e:
                     logger.warning("Failed to remove systemd service %s: %s", service_name, e.stderr)
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.warning("Error removing systemd service: %s", e)
                 instance.status = DeploymentStatus.TERMINATED
                 (await run_in_threadpool(self.session.commit))
@@ -738,7 +758,7 @@ class AgentDeploymentManager:
                         rollback_result["rollback_errors"].append(
                             {"instance_id": instance.instance_id, "error": "No previous version available"}
                         )
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     rollback_result["rollback_errors"].append({"instance_id": instance.instance_id, "error": str(e)})
             if rollback_result["rollback_errors"]:
                 config.status = DeploymentStatus.FAILED
@@ -871,7 +891,7 @@ class AgentMonitoringManager:
                                     "uptime_percentage": instance.uptime_percentage,
                                 }
                             )
-                except Exception as http_error:
+                except _OPS_ERRORS as http_error:
                     logger.warning("Failed to fetch metrics from %s: %s", instance.instance_id, http_error)
                     metrics_data.update(
                         {
@@ -896,7 +916,7 @@ class AgentMonitoringManager:
                 )
             metrics_data["last_health_check"] = instance.last_health_check.isoformat() if instance.last_health_check else None
             return metrics_data
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Metrics collection failed for instance %s: %s", instance.id, e)
             return {"instance_id": instance.instance_id, "error": str(e)}
 
@@ -980,7 +1000,7 @@ class AgentProductionManager:
                     deployment_config_id=deployment.id, alerting_rules=deployment_config.get("alerting_rules", {})
                 )
                 production_result["monitoring_status"] = monitoring_setup["status"]
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 production_result["monitoring_status"] = "failed"
                 production_result["errors"].append(f"Monitoring setup failed: {e}")
             if production_result["errors"]:

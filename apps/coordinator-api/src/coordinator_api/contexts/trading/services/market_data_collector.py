@@ -21,6 +21,22 @@ from aitbc.async_tasks import create_task_with_logging
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the collector/aggregator/websocket fallbacks
+# below: arithmetic on collected metrics (ArithmeticError covers
+# ZeroDivisionError and decimal.InvalidOperation), data-shape errors,
+# websocket transport (WebSocketException; ConnectionClosed keeps its own
+# handler), and runtime/OS errors.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    ArithmeticError,
+    AttributeError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+    websockets.exceptions.WebSocketException,
+)
+
 
 class DataSource(StrEnum):
     """Market data source types"""
@@ -133,7 +149,7 @@ class MarketDataCollector:
             try:
                 await self._collect_from_source(source)
                 await asyncio.sleep(interval)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error collecting data from %s: %s", source.value, e)
                 await asyncio.sleep(60)
 
@@ -171,7 +187,7 @@ class MarketDataCollector:
                     metadata={"available_gpus": available_gpus, "total_gpus": total_gpus, "supply_level": supply_level},
                 )
                 await self._add_data_point(data_point)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error collecting GPU metrics: %s", e)
 
     async def _collect_booking_data(self) -> None:
@@ -197,7 +213,7 @@ class MarketDataCollector:
                     },
                 )
                 await self._add_data_point(data_point)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error collecting booking data: %s", e)
 
     async def _collect_regional_demand(self) -> None:
@@ -232,7 +248,7 @@ class MarketDataCollector:
                     metadata={"hour": hour, "peak_hours": peak_hours, "demand_multiplier": demand_multiplier},
                 )
                 await self._add_data_point(data_point)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error collecting regional demand: %s", e)
 
     async def _collect_competitor_prices(self) -> None:
@@ -258,7 +274,7 @@ class MarketDataCollector:
                     metadata={"competitor_prices": competitor_prices, "price_count": len(competitor_prices)},
                 )
                 await self._add_data_point(data_point)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error collecting competitor prices: %s", e)
 
     async def _collect_performance_data(self) -> None:
@@ -284,7 +300,7 @@ class MarketDataCollector:
                     },
                 )
                 await self._add_data_point(data_point)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error collecting performance data: %s", e)
 
     async def _collect_market_sentiment(self) -> None:
@@ -307,7 +323,7 @@ class MarketDataCollector:
                     metadata={"recent_activity": recent_activity, "price_trend": price_trend, "volume_change": volume_change},
                 )
                 await self._add_data_point(data_point)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error collecting market sentiment: %s", e)
 
     async def _add_data_point(self, data_point: MarketDataPoint) -> None:
@@ -320,7 +336,7 @@ class MarketDataCollector:
             for callback in self.data_callbacks[data_point.source]:
                 try:
                     await callback(data_point)
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.error("Error in data callback: %s", e)
         await self._broadcast_data_point(data_point)
 
@@ -330,7 +346,7 @@ class MarketDataCollector:
             try:
                 await self._perform_aggregation()
                 await asyncio.sleep(60)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error aggregating market data: %s", e)
                 await asyncio.sleep(30)
 
@@ -388,7 +404,7 @@ class MarketDataCollector:
                 data_sources=data_sources,
                 confidence_score=confidence,
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error aggregating data for %s_%s: %s", resource_type, region, e)
             return None
 
@@ -511,7 +527,7 @@ class MarketDataCollector:
                         if self.aggregated_data[key].timestamp < cutoff_time:
                             del self.aggregated_data[key]
                 await asyncio.sleep(3600)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error cleaning up old data: %s", e)
                 await asyncio.sleep(300)
 
@@ -528,18 +544,18 @@ class MarketDataCollector:
                     async for _message in websocket:
                         pass
                 except websockets.exceptions.ConnectionClosed:
-                    pass
+                    logger.debug("WebSocket client %s closed the connection", connection_id)
                 finally:
                     if connection_id in self.websocket_connections:
                         del self.websocket_connections[connection_id]
                     logger.info("WebSocket client disconnected: %s", connection_id)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error handling WebSocket connection: %s", e)
 
         try:
             self.websocket_server = await websockets.serve(handle_websocket, "localhost", self.websocket_port)
             logger.info("WebSocket server started on port %s", self.websocket_port)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to start WebSocket server: %s", e)
 
     async def _broadcast_data_point(self, data_point: MarketDataPoint) -> None:
@@ -563,7 +579,7 @@ class MarketDataCollector:
                 await websocket.send(message_str)
             except websockets.exceptions.ConnectionClosed:
                 disconnected.append(connection_id)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error sending WebSocket message: %s", e)
                 disconnected.append(connection_id)
         for connection_id in disconnected:

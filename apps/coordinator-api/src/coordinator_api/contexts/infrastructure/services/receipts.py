@@ -48,37 +48,7 @@ class ReceiptService:
             default="gpu_seconds",
         )
 
-        units = _coerce_float(
-            _first_present(
-                [
-                    metrics.get("units"),
-                    result_payload.get("units"),
-                ]
-            )
-        )
-        if units is None:
-            duration_ms = _coerce_float(metrics.get("duration_ms"))
-            if duration_ms is None:
-                duration_ms = _coerce_float(result_payload.get("duration_ms"))
-            if duration_ms is not None and duration_ms < 0:
-                logger.warning("Ignoring negative duration_ms %s for job %s", duration_ms, job.id)
-                duration_ms = None
-            if duration_ms is not None:
-                units = max(0.0, duration_ms / 1000.0)
-            else:
-                duration_seconds = _coerce_float(
-                    _first_present(
-                        [
-                            metrics.get("duration_seconds"),
-                            metrics.get("compute_time"),
-                            result_payload.get("execution_time"),
-                            result_payload.get("duration"),
-                        ]
-                    )
-                )
-                units = max(0.0, duration_seconds) if duration_seconds is not None else None
-        if units is None:
-            units = 0.0
+        units = _compute_units(metrics, result_payload, job)
 
         unit_price = _coerce_float(
             _first_present(
@@ -91,31 +61,12 @@ class ReceiptService:
         if unit_price is None:
             unit_price = 0.02  # not-money: ratio, threshold or configuration default — not an amount of money
 
-        price = _coerce_float(
-            _first_present(
-                [
-                    metrics.get("price"),
-                    result_payload.get("price"),
-                    metrics.get("aitbc_earned"),
-                    result_payload.get("aitbc_earned"),
-                    metrics.get("cost"),
-                    result_payload.get("cost"),
-                ]
-            )
-        )
-        if price is None:
-            price = round(
-                max(0.0, units) * max(0.0, unit_price), 6
-            )  # not-money: ratio, threshold or configuration default — not an amount of money
+        price = _compute_price(metrics, result_payload, units, unit_price)
         status_value = job.state.value if hasattr(job.state, "value") else job.state
         # Keep the signed receipt values positive and consistent.
         units = max(0.0, units)
         price = max(0.0, price)  # not-money: ratio, threshold or configuration default — not an amount of money
-        if result_metrics:
-            result_metrics = dict(result_metrics)
-            result_metrics["duration_ms"] = int(units * 1000)
-            if result_metrics.get("duration_ms") and result_metrics["duration_ms"] < 0:
-                result_metrics["duration_ms"] = int(units * 1000)
+        result_metrics = _normalize_result_metrics(result_metrics, units)
 
         payload = {  # not-money: ratio, threshold or configuration default — not an amount of money
             "version": "1.0",
@@ -165,6 +116,71 @@ class ReceiptService:
             attestation_payload.pop("signature", None)
             payload["attestations"] = [self._attestation_signer.sign(attestation_payload)]
         return payload
+
+
+def _compute_units(metrics: dict[str, Any], result_payload: dict[str, Any], job: Job) -> float:
+    units = _coerce_float(
+        _first_present(
+            [
+                metrics.get("units"),
+                result_payload.get("units"),
+            ]
+        )
+    )
+    if units is None:
+        duration_ms = _coerce_float(metrics.get("duration_ms"))
+        if duration_ms is None:
+            duration_ms = _coerce_float(result_payload.get("duration_ms"))
+        if duration_ms is not None and duration_ms < 0:
+            logger.warning("Ignoring negative duration_ms %s for job %s", duration_ms, job.id)
+            duration_ms = None
+        if duration_ms is not None:
+            units = max(0.0, duration_ms / 1000.0)
+        else:
+            duration_seconds = _coerce_float(
+                _first_present(
+                    [
+                        metrics.get("duration_seconds"),
+                        metrics.get("compute_time"),
+                        result_payload.get("execution_time"),
+                        result_payload.get("duration"),
+                    ]
+                )
+            )
+            units = max(0.0, duration_seconds) if duration_seconds is not None else None
+    if units is None:
+        units = 0.0
+    return units
+
+
+# not-money: unit_price is a compute-unit price ratio (default 0.02), not an AIT amount
+def _compute_price(metrics: dict[str, Any], result_payload: dict[str, Any], units: float, unit_price: float) -> float:
+    price = _coerce_float(
+        _first_present(
+            [
+                metrics.get("price"),
+                result_payload.get("price"),
+                metrics.get("aitbc_earned"),
+                result_payload.get("aitbc_earned"),
+                metrics.get("cost"),
+                result_payload.get("cost"),
+            ]
+        )
+    )
+    if price is None:
+        price = round(
+            max(0.0, units) * max(0.0, unit_price), 6
+        )  # not-money: ratio, threshold or configuration default — not an amount of money
+    return price
+
+
+def _normalize_result_metrics(result_metrics: dict[str, Any] | None, units: float) -> dict[str, Any] | None:
+    if result_metrics:
+        result_metrics = dict(result_metrics)
+        result_metrics["duration_ms"] = int(units * 1000)
+        if result_metrics.get("duration_ms") and result_metrics["duration_ms"] < 0:
+            result_metrics["duration_ms"] = int(units * 1000)
+    return result_metrics
 
 
 def _first_present(values: list[Any | None], default: Any | None = None) -> Any | None:

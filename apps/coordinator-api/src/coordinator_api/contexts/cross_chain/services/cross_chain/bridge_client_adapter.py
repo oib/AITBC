@@ -22,11 +22,15 @@ from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel import Session, func, select, update
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.bridge import BridgeClient, BridgeConfig, BridgeTransfer
+from aitbc.exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError
 from aitbc.utils.chain_id import DEFAULT_CHAIN_ID, resolve_chain_id
 from aitbc.constants import BLOCKCHAIN_RPC_URL
-from sqlmodel import Session, func, select, update
 
 from .....agent_identity.wallet_adapter_enhanced import (
     EnhancedWalletAdapter,
@@ -43,6 +47,37 @@ from starlette.concurrency import run_in_threadpool
 HTLC_CONTRACT_ADDRESS = "0xhtlc_contract_0000000000000000000000000000000000000"
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort handlers below: sqlmodel
+# session/DBAPI errors, BridgeClient httpx calls, wallet-adapter network
+# errors, lazy eth-*/settlement imports, and data-shape errors.
+# RuntimeError preserves catch of abort-style raises; BaseExceptions
+# still propagate.
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    SQLAlchemyError,
+    httpx.HTTPError,
+    ImportError,
+    NetworkError,
+    RateLimitError,
+    CircuitBreakerOpenError,
+)
+try:
+    # eth_keys is an optional signing dep (the wallet adapters lazy-import
+    # eth_account/eth_utils); include its failures when present so a bad
+    # signature still lands on the same best-effort paths as before.
+    from eth_keys.exceptions import BadSignature as _EthBadSignature
+    from eth_keys.exceptions import ValidationError as _EthValidationError
+except ImportError:
+    _eth_sig_errors: tuple[type[BaseException], ...] = ()
+else:
+    _eth_sig_errors = (_EthBadSignature, _EthValidationError)
+_OPS_ERRORS += _eth_sig_errors
 
 __all__ = ["BridgeClientAdapter", "BridgeProtocol", "BridgeSecurityLevel", "HTLC_CONTRACT_ADDRESS"]
 
@@ -537,7 +572,7 @@ class BridgeClientAdapter:
                 await self._execute_htlc_swap(bridge_request)
             else:
                 raise ValueError(f"Unsupported protocol: {bridge_request.protocol}")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error processing bridge request %s: %s", bridge_request_id, e)
             try:
                 update_stmt = (
@@ -547,7 +582,7 @@ class BridgeClientAdapter:
                 )
                 (await run_in_threadpool(self.session.execute, update_stmt))
                 (await run_in_threadpool(self.session.commit))
-            except Exception:
+            except _OPS_ERRORS:
                 logger.warning("Failed to update bridge request status to failed: %s", bridge_request_id)
 
     async def _execute_atomic_swap(self, bridge_request: BridgeRequest) -> None:
@@ -788,7 +823,7 @@ class BridgeClientAdapter:
             from .....config import settings as _settings
 
             contract_address = getattr(_settings, "escrow_htlc_contract_address", "") or HTLC_CONTRACT_ADDRESS
-        except Exception:
+        except _OPS_ERRORS:
             contract_address = HTLC_CONTRACT_ADDRESS
 
         # Build calldata encoding the HTLC parameters (function selector + args)
@@ -858,7 +893,7 @@ class BridgeClientAdapter:
             else:
                 gas_cost_wei = int(gas_limit) * gas_price
             return from_atomic_units(gas_cost_wei)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error estimating network fee: %s", e)
             return Decimal("0.01")
 
@@ -867,7 +902,7 @@ class BridgeClientAdapter:
         try:
             adapter = self.wallet_adapters[chain_id]
             return await adapter.get_transaction_status(transaction_hash)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting transaction details: %s", e)
             return {"status": "unknown"}
 
@@ -881,7 +916,7 @@ class BridgeClientAdapter:
                 tx_block = int(tx_details["block_number"], 16)
                 return current_block - tx_block
             return 0
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting transaction confirmations: %s", e)
             return 0
 
@@ -919,7 +954,7 @@ class BridgeClientAdapter:
                     progress += confirmation_progress
                 return min(progress, 90.0)
             return 0.0
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error calculating bridge progress: %s", e)
             return 0.0
 
@@ -927,7 +962,7 @@ class BridgeClientAdapter:
         """Process refund for cancelled bridge request"""
         try:
             logger.info("Processing refund for bridge request %s", bridge_request.id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error processing refund: %s", e)
 
     async def _initialize_liquidity_pool(self, chain_id: int, config: dict[str, Any]) -> None:
@@ -943,5 +978,5 @@ class BridgeClientAdapter:
                 "last_updated": datetime.now(UTC),
             }
             logger.info("Initialized liquidity pool for chain %s", chain_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error initializing liquidity pool: %s", e)
