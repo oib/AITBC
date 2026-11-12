@@ -160,6 +160,13 @@ async def _release_settle_locked_impl(
     escrow_record = plan.escrow_record
     contract_id = plan.contract_id
     contract = mgr.escrow_contracts.get(contract_id)
+    # #1929: a supplied job_tx_hash must resolve to a sealed software_job
+    # record bound to this escrow before any settlement state is touched.
+    # Verify-when-present — omitting the hash keeps the legacy path.
+    if job_tx_hash:
+        buyer = getattr(escrow_record, "buyer", "") or (contract.client_address if contract else "")
+        provider = getattr(escrow_record, "provider", "") or (contract.agent_address if contract else "")
+        await _er._verify_job_tx_proof(str(job_tx_hash), job_id, buyer, provider)
     if contract:
         for ms in contract.milestones:
             ms["completed"] = True

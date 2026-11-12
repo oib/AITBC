@@ -262,6 +262,106 @@ async def test_find_existing_release_filters_server_side(monkeypatch):
     assert "transaction_type=ESCROW_RELEASE" in url
 
 
+# --- #1929: job_tx_hash must resolve to a sealed software_job record ---
+
+JOBTX_BUYER = "0x1111111111111111111111111111111111111111"
+JOBTX_PROVIDER = "0x2222222222222222222222222222222222222222"
+
+
+def _jobtx_response(**overrides):
+    """A valid sealed software_job GPU_MARKET row, field-overridable."""
+    body = {
+        "tx_hash": "0xjobtx",
+        "type": "GPU_MARKET",
+        "status": "confirmed",
+        "block_height": 1234,
+        "sender": JOBTX_BUYER,
+        "payload": {
+            "action": "software_job",
+            "status": "completed",
+            "job_id": "job-123",
+            "buyer_address": JOBTX_BUYER,
+            "provider_address": JOBTX_PROVIDER,
+            "result_hash": "0xresult",
+        },
+    }
+    body.update(overrides)
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.json.return_value = body
+    return resp
+
+
+@pytest.mark.asyncio
+async def test_verify_job_tx_proof_accepts_bound_sealed_record(monkeypatch):
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    escrow_routes = _reload_routes()
+    with patch.object(
+        escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=_jobtx_response()
+    ) as mock_get:
+        await escrow_routes._verify_job_tx_proof("0xjobtx", "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
+    assert "/transaction/0xjobtx" in mock_get.call_args.args[0]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        pytest.param(lambda b: b.update(status="pending"), id="unconfirmed"),
+        pytest.param(lambda b: b.update(block_height=None), id="unsealed"),
+        pytest.param(lambda b: b.update(type="ESCROW_LOCK"), id="wrong-type"),
+        pytest.param(lambda b: b["payload"].update(action="software_offer"), id="wrong-action"),
+        pytest.param(lambda b: b["payload"].update(status="running"), id="not-completed"),
+        pytest.param(lambda b: b["payload"].update(job_id="job-other"), id="wrong-job"),
+        pytest.param(lambda b: b["payload"].update(result_hash=""), id="no-result-hash"),
+        pytest.param(lambda b: b["payload"].update(provider_address=FOREIGN_ADDRESS), id="wrong-provider"),
+        pytest.param(lambda b: b["payload"].update(buyer_address=FOREIGN_ADDRESS), id="wrong-buyer"),
+        pytest.param(lambda b: b.update(sender=FOREIGN_ADDRESS), id="wrong-signer"),
+    ],
+)
+async def test_verify_job_tx_proof_rejects_unbound_records(monkeypatch, mutate):
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    escrow_routes = _reload_routes()
+    body = _jobtx_response().json.return_value
+    mutate(body)
+    resp = _jobtx_response()
+    resp.json.return_value = body
+    with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=resp):
+        with pytest.raises(HTTPException) as excinfo:
+            await escrow_routes._verify_job_tx_proof("0xjobtx", "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
+    assert excinfo.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_verify_job_tx_proof_rejects_unknown_hash(monkeypatch):
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    escrow_routes = _reload_routes()
+    resp = MagicMock()
+    resp.status_code = 404
+    with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=resp):
+        with pytest.raises(HTTPException) as excinfo:
+            await escrow_routes._verify_job_tx_proof("0xnope", "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
+    assert excinfo.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_verify_job_tx_proof_fails_closed_on_rpc_error(monkeypatch):
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    escrow_routes = _reload_routes()
+    with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, side_effect=RuntimeError("hub down")):
+        with pytest.raises(HTTPException) as excinfo:
+            await escrow_routes._verify_job_tx_proof("0xjobtx", "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
+    assert excinfo.value.status_code == 503
+
+
+@pytest.mark.asyncio
+async def test_verify_job_tx_proof_requires_known_parties():
+    escrow_routes = _reload_routes()
+    with pytest.raises(HTTPException) as excinfo:
+        await escrow_routes._verify_job_tx_proof("0xjobtx", "job-123", "", JOBTX_PROVIDER)
+    assert excinfo.value.status_code == 409
+
+
 def test_build_lock_tx_rejects_node_wallet_as_provider(monkeypatch):
     """A lock whose provider is the node wallet would pay the operator, not a miner."""
     monkeypatch.setenv("NODE_WALLET_ADDRESS", "0x1111111111111111111111111111111111111111")
