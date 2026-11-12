@@ -344,8 +344,8 @@ class CrossChainSettlementService:
 
         with session_scope(self.chain_id) as session:
             session.add(record)
-            session.commit()
-            session.refresh(record)
+            session.commit()  # noqa: unawaited-async — sync Session via session_scope
+            session.refresh(record)  # noqa: unawaited-async — sync Session via session_scope
 
         logger.info(
             "Created escrow %s for trade %s: %s→%s amount=%d timeout=%ds",
@@ -434,9 +434,9 @@ class CrossChainSettlementService:
 
             session.add(proof_record)
             session.add(record)
-            session.commit()
-            session.refresh(record)
-            session.refresh(proof_record)
+            session.commit()  # noqa: unawaited-async — sync Session via session_scope
+            session.refresh(record)  # noqa: unawaited-async — sync Session via session_scope
+            session.refresh(proof_record)  # noqa: unawaited-async — sync Session via session_scope
 
             # HTLC state transition: created → funded
             self._htlc_sm.transition(HTLCState.CREATED, HTLCState.FUNDED)
@@ -511,8 +511,8 @@ class CrossChainSettlementService:
             record.status = EscrowStatus.VERIFIED.value
             session.add(proof_record)
             session.add(record)
-            session.commit()
-            session.refresh(proof_record)
+            session.commit()  # noqa: unawaited-async — sync Session via session_scope
+            session.refresh(proof_record)  # noqa: unawaited-async — sync Session via session_scope
 
             result = {
                 "escrow_id": escrow_id,
@@ -583,14 +583,14 @@ class CrossChainSettlementService:
             record.dest_execution_tx_hash = exec_tx_hash
             session.add(proof_record)
             session.add(record)
-            session.commit()
-            session.refresh(proof_record)
+            session.commit()  # noqa: unawaited-async — sync Session via session_scope
+            session.refresh(proof_record)  # noqa: unawaited-async — sync Session via session_scope
 
             # Mark completed on destination (the settle step handles source)
             record.status = EscrowStatus.COMPLETED.value
             session.add(record)
-            session.commit()
-            session.refresh(record)
+            session.commit()  # noqa: unawaited-async — sync Session via session_scope
+            session.refresh(record)  # noqa: unawaited-async — sync Session via session_scope
 
             result = {
                 "escrow_id": escrow_id,
@@ -712,9 +712,9 @@ class CrossChainSettlementService:
             session.add(release_record)
             session.add(settlement_record)
             session.add(record)
-            session.commit()
-            session.refresh(record)
-            session.refresh(settlement_record)
+            session.commit()  # noqa: unawaited-async — sync Session via session_scope
+            session.refresh(record)  # noqa: unawaited-async — sync Session via session_scope
+            session.refresh(settlement_record)  # noqa: unawaited-async — sync Session via session_scope
 
             # HTLC state transition: funded → completed
             self._htlc_sm.transition(HTLCState.FUNDED, HTLCState.COMPLETED)
@@ -815,9 +815,9 @@ class CrossChainSettlementService:
             if proof_record is not None:
                 session.add(proof_record)
             session.add(record)
-            session.commit()
+            session.commit()  # noqa: unawaited-async — sync Session via session_scope
             if proof_record is not None:
-                session.refresh(proof_record)
+                session.refresh(proof_record)  # noqa: unawaited-async — sync Session via session_scope
 
             # HTLC state transition: funded → refunded (or expired → refunded)
             # We attempt funded→refunded; if the escrow was never locked it
@@ -937,8 +937,8 @@ class CrossChainSettlementService:
             record.timeout_seconds += extension_seconds
             record.timeout_extended = True
             session.add(record)
-            session.commit()
-            session.refresh(record)
+            session.commit()  # noqa: unawaited-async — sync Session via session_scope
+            session.refresh(record)  # noqa: unawaited-async — sync Session via session_scope
 
             result = {
                 "escrow_id": escrow_id,
