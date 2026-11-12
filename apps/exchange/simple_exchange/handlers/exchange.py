@@ -748,7 +748,7 @@ class ExchangeMixin:
             head = self._rpc_get("/rpc/head")  # type: ignore[attr-defined]
             height = head.get("height")
             return height if isinstance(height, int) else None
-        except (urllib.error.URLError, OSError, ValueError, KeyError, TypeError):
+        except (urllib.error.URLError, OSError, ValueError, KeyError, TypeError, http.client.HTTPException):
             return None
 
     def _ait_eth_band(self) -> tuple[Decimal, Decimal] | None:

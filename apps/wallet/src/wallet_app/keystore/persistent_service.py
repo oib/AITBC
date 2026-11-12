@@ -438,7 +438,7 @@ class PersistentKeystoreService:
                 return signature.to_bytes()
             finally:
                 wipe_buffer(secret_bytes)
-        except (KeyError, ValueError):
+        except _OPS_ERRORS:
             self._log_access(wallet_id, "sign_failed", False, ip_address)
             raise
 
