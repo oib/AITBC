@@ -13,6 +13,19 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort consensus handlers below:
+# in-memory data-shape and arithmetic/decode errors only — this module does
+# no I/O. Genuine BaseExceptions still propagate (#1865).
+_OPS_ERRORS = (
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ArithmeticError,
+    RuntimeError,
+)
+
 
 @dataclass
 class ConsensusProposal:
@@ -71,7 +84,7 @@ class DistributedConsensus:
                 "registered_at": datetime.now(UTC).isoformat(),
                 "total_nodes": len(self.nodes),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error registering node: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -105,7 +118,7 @@ class DistributedConsensus:
                 "deadline": proposal.deadline.isoformat(),
                 "algorithm": self.current_algorithm,
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error creating proposal: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -118,7 +131,7 @@ class DistributedConsensus:
         """
         try:
             self._check_consensus(proposal)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error initiating voting: %s", e)
 
     def cast_vote(self, proposal_id: str, node_id: str, vote: bool) -> dict[str, Any]:
@@ -142,7 +155,7 @@ class DistributedConsensus:
                 "votes_count": len(proposal.current_votes),
                 "required_votes": proposal.required_votes,
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error casting vote: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -182,7 +195,7 @@ class DistributedConsensus:
                 elif no_votes > 0:
                     proposal.status = "rejected"
                     self._finalize_proposal(proposal, False, f"Not unanimous: {yes_votes}/{total_votes}")
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error checking consensus: %s", e)
 
     def _finalize_proposal(self, proposal: ConsensusProposal, approved: bool, reason: str) -> None:
@@ -202,7 +215,7 @@ class DistributedConsensus:
             self.consensus_history.append(history_record)
             self._cleanup_old_proposals()
             logger.info("Proposal %s %s: %s", proposal.proposal_id, "approved" if approved else "rejected", reason)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error finalizing proposal: %s", e)
 
     def _cleanup_old_proposals(self) -> None:
@@ -216,7 +229,7 @@ class DistributedConsensus:
             ]
             for pid in expired_proposals:
                 del self.proposals[pid]
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error cleaning up proposals: %s", e)
 
     def get_proposal_status(self, proposal_id: str) -> dict[str, Any]:
@@ -242,7 +255,7 @@ class DistributedConsensus:
                 },
                 "algorithm": self.current_algorithm,
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting proposal status: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -254,7 +267,7 @@ class DistributedConsensus:
                 return {"status": "error", "message": f"Invalid algorithm. Valid options: {valid_algorithms}"}
             self.current_algorithm = algorithm
             return {"status": "success", "algorithm": algorithm, "changed_at": datetime.now(UTC).isoformat()}
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error setting consensus algorithm: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -303,7 +316,7 @@ class DistributedConsensus:
                 "active_proposals": len(self.proposals),
                 "last_updated": datetime.now(UTC).isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting consensus statistics: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -320,7 +333,7 @@ class DistributedConsensus:
                 "is_active": is_active,
                 "updated_at": datetime.now(UTC).isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error updating node status: %s", e)
             return {"status": "error", "message": str(e)}
 
