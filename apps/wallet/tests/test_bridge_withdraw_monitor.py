@@ -1325,6 +1325,7 @@ class TestWithdrawSealDepth:
             "hash": f"0x{tx_id:064x}",
             "block_height": height,
             "block_hash": f"0x{'ab' * 32}",
+            "status": "confirmed",
             "sender": "0x" + "11" * 20,
             "from": "0x" + "11" * 20,
             "payload": {"eth_address": eth_address} if eth_address else {},
@@ -1359,7 +1360,7 @@ class TestWithdrawSealDepth:
             return [tx] if before_id is None else []
 
         async def _canonical(h):
-            return {"block_height": 50, "block_hash": tx["block_hash"]}
+            return {"block_height": 50, "block_hash": tx["block_hash"], "status": "confirmed"}
 
         monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
         monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _canonical)
@@ -1407,7 +1408,7 @@ class TestWithdrawSealDepth:
         )
 
         async def _canonical(h):
-            return {"block_height": 190, "block_hash": "0x" + "ab" * 32}
+            return {"block_height": 190, "block_hash": "0x" + "ab" * 32, "status": "confirmed"}
 
         async def _fetch(before_id=None):
             return []
@@ -1431,7 +1432,7 @@ class TestWithdrawSealDepth:
             return [tx] if before_id is None else []
 
         async def _moved(h):
-            return {"block_height": 99, "block_hash": "0x" + "cd" * 32}
+            return {"block_height": 99, "block_hash": "0x" + "cd" * 32, "status": "confirmed"}
 
         monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
         monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _moved)
@@ -1470,7 +1471,7 @@ class TestWithdrawPaginationAndRejects:
             return pages.get(before_id, [])
 
         async def _canonical(h):
-            return {"block_height": 500, "block_hash": "0x" + "ab" * 32}
+            return {"block_height": 500, "block_hash": "0x" + "ab" * 32, "status": "confirmed"}
 
         monkeypatch.setattr(monitor_env, "get_bridge_withdraw_transactions", _fetch)
         monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _canonical)
@@ -1552,3 +1553,90 @@ class TestWithdrawPaginationAndRejects:
         summary = await monitor_env.poll_withdrawals_once()
         assert summary["skipped"] is True
         assert called == []
+
+
+class TestFailedSealedLeg:
+    """#1916: sync_block_import stores apply-failed txs status='failed' WITH a
+    block_height. Height alone is not proof the AIT leg applied — a
+    failed-sealed BRIDGE_WITHDRAW must never release ETH, and must never
+    trigger the AIT refund path (nothing was burned to refund)."""
+
+    @pytest.mark.parametrize("bad_status", ["failed", "rejected", None])
+    @pytest.mark.asyncio
+    async def test_non_confirmed_sealed_tx_is_orphaned_without_refund(self, monitor_env, monkeypatch, bad_status):
+        from unittest.mock import AsyncMock
+
+        refund = AsyncMock()
+        release = AsyncMock()
+        monkeypatch.setattr(monitor_env, "_refund_withdrawal", refund)
+        monkeypatch.setattr(monitor_env, "_release_eth_for_withdrawal", release)
+
+        tx = {
+            "tx_hash": "0x" + "f" * 64,
+            "sender": "0x" + "11" * 20,
+            "payload": {"eth_address": "0x" + "22" * 20},
+            "value": 10**18,
+            "block_height": 100,
+            "block_hash": "0x" + "ab" * 32,
+            "status": bad_status,
+        }
+        outcome = await monitor_env._process_withdrawal(tx, head_height=200)
+        assert outcome == "orphaned"
+        record = get_withdrawal_by_ait_tx_hash(tx["tx_hash"])
+        assert record is not None
+        assert record["status"] == "orphaned"
+        assert "no value moved" in record["error"]
+        refund.assert_not_called()
+        release.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_canonical_failed_status_orphans_awaiting_depth(self, monitor_env, monkeypatch):
+        """A row already awaiting depth whose canonical tx reads 'failed'
+        must orphan on the drain pass — never release."""
+        from unittest.mock import AsyncMock
+
+        tx_hash = "0x" + "e" * 64
+        insert_withdrawal(
+            ait_tx_hash=tx_hash,
+            from_address="0x" + "11" * 20,
+            eth_address="0x" + "22" * 20,
+            amount_ait=Decimal("10"),
+            fee_ait=Decimal("0"),
+            net_ait=Decimal("10"),
+            amount_eth=Decimal("0"),
+            status="awaiting_depth",
+            ait_block_height=100,
+            ait_block_hash="0x" + "ab" * 32,
+        )
+
+        async def _canonical(h):
+            return {"block_height": 100, "block_hash": "0x" + "ab" * 32, "status": "failed"}
+
+        release = AsyncMock()
+        monkeypatch.setattr(monitor_env, "_fetch_withdraw_tx", _canonical)
+        monkeypatch.setattr(monitor_env, "_release_eth_for_withdrawal", release)
+
+        drained = await monitor_env._drain_awaiting_depth(200)
+        assert drained["orphaned"] == 1
+        record = get_withdrawal_by_ait_tx_hash(tx_hash)
+        assert record["status"] == "orphaned"
+        release.assert_not_called()
+
+
+class TestTxSealedConfirmed:
+    """The shared predicate every AIT-side consumer now gates on (#1916)."""
+
+    @pytest.mark.parametrize(
+        "tx,expected",
+        [
+            ({"block_height": 5, "status": "confirmed"}, True),
+            ({"block_height": 5, "status": "failed"}, False),
+            ({"block_height": 5, "status": "rejected"}, False),
+            ({"block_height": 5}, False),  # missing status -> not sealed
+            ({"block_height": 5, "status": "pending"}, False),
+            ({"status": "confirmed"}, False),  # no height -> not sealed
+            ({}, False),
+        ],
+    )
+    def test_predicate(self, monitor_env, tx, expected):
+        assert monitor_env.tx_sealed_confirmed(tx) is expected

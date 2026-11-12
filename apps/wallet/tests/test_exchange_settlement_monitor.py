@@ -239,6 +239,7 @@ def _lock_tx(order_id, tx_hash: str, sender: str, units: int, sealed: bool = Tru
         "recipient": None,  # filled by the caller with the escrow address
         "value": units,
         "block_height": 600 if sealed else None,
+        "status": "confirmed",
         "payload": {"sell_quote": order_id},
         "nonce": 0,
     }
@@ -375,6 +376,22 @@ class TestLockScan:
         assert post["locked_ticks"] == 10_100_000_000
         mark = monitor_mark("lock:0xlock1")
         assert mark is not None and mark["outcome"] == "funded"
+
+    @pytest.mark.asyncio
+    async def test_failed_sealed_lock_is_never_funded(self, exchange_env):
+        """#1916: a lock TRANSFER sealed with status='failed' carries
+        block_height but moved no AIT — order_funded against it would mark
+        an order backed by nothing."""
+        cfg = _cfg(exchange_env)
+        oid = _insert_order(exchange_env, order_type="SELL", funded_state="unfunded")
+        lock = _lock_tx(oid, "0xfailedlock", SELLER_AIT, 3_636_000_000)
+        lock["status"] = "failed"
+        lock["recipient"] = exchange_env["escrow"]
+        exchange_env["transfers"].append(lock)
+        stats = await esm._scan_order_locks(cfg, head=1000)
+        assert stats["funded"] == 0
+        assert stats["scanned"] == 0
+        assert not any(p["event"] == "order_funded" for p in exchange_env["posts"])
 
     @pytest.mark.asyncio
     async def test_marked_lock_is_not_reposted(self, exchange_env):
@@ -849,6 +866,7 @@ class TestBackingScan:
             "recipient": exchange_env["escrow"],
             "value": 540_000_000,
             "block_height": 500,
+            "status": "confirmed",
             "payload": {"sell_quote": oid},
         }
         exchange_env["transfers"].append(back)
@@ -907,6 +925,7 @@ class TestBackingScan:
                 "recipient": exchange_env["escrow"],
                 "value": 540_000_000,
                 "block_height": 500,
+                "status": "confirmed",
                 "payload": {"sell_quote": oid},
             }
         )
@@ -958,6 +977,7 @@ class TestBackingScan:
                 "recipient": exchange_env["escrow"],
                 "value": 360_000_000,
                 "block_height": 500,
+                "status": "confirmed",
                 "payload": {"sell_quote": oid},
             }
         )
@@ -1213,6 +1233,7 @@ class TestDriver:
             "recipient": BUYER_AIT,
             "value": 360_000_000,  # 10 AIT in chain units
             "block_height": 610,
+            "status": "confirmed",
             "nonce": 3,
             "payload": {"exs_ref": row["id"], "reason": "settling"},
         }
@@ -1242,6 +1263,7 @@ class TestDriver:
             "recipient": TEST_TREASURY,
             "value": 1_800_000,  # 0.05 AIT fee in chain units
             "block_height": 611,
+            "status": "confirmed",
             "nonce": 4,
             "payload": {"exs_ref": row["id"], "reason": "settle_fee"},
         }
@@ -1408,6 +1430,7 @@ class TestFixup:
             "recipient": BUYER_AIT,
             "value": 360_000_000,
             "block_height": 610,
+            "status": "confirmed",
             "nonce": 3,
             "payload": {"exs_ref": row["id"], "reason": "settling"},
         }
@@ -1436,6 +1459,7 @@ class TestFixup:
             "recipient": BUYER_AIT,
             "value": 360_000_000,
             "block_height": 610,
+            "status": "confirmed",
             "nonce": 3,
             "payload": {"exs_ref": row["id"], "reason": "settling"},
         }

@@ -543,6 +543,21 @@ class TestQuoteAndLockMatching:
         await _prove_release_sent(sell_env, "0x" + "aa" * 32)
         assert get_sell_lock_by_ait_tx_hash("0x" + "aa" * 32)["status"] == "released"
 
+    @pytest.mark.asyncio
+    async def test_failed_sealed_lock_is_never_recorded(self, sell_env):
+        """#1916: a TRANSFER sealed with status='failed' carries block_height
+        but moved no AIT — it must not become a sell lock (a phantom lock
+        would release real AIT against nothing)."""
+        quote_id = _insert_quote()
+        tx = _lock_tx(quote_id)
+        tx["status"] = "failed"
+        sell_env["transfers"] = [tx]
+
+        result = await sellmon.poll_sells_once()
+        assert result["recorded"] == 0
+        assert get_sell_lock_by_ait_tx_hash(tx["tx_hash"]) is None
+        assert len(sell_env["eth_sends"]) == 0
+
 
 class TestCapsAndReserve:
     @pytest.mark.asyncio
