@@ -10,6 +10,7 @@ from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import inspect, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from aitbc.aitbc_logging import get_logger
@@ -92,7 +93,7 @@ def _ensure_all_columns_sync(conn) -> None:
             try:
                 conn.execute(text(f"ALTER TABLE {table.name} ADD COLUMN {' '.join(parts)}"))
                 logger.info("Added missing column %s.%s", table.name, col.name)
-            except Exception as e:
+            except SQLAlchemyError as e:
                 logger.warning("Could not add column %s.%s: %s", table.name, col.name, e)
 
 

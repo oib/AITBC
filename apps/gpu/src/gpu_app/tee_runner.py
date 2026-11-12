@@ -93,7 +93,7 @@ def run_tee_task(
         task.result = {"executed": True, "payload_keys": list(task.payload.keys())}
         task.status = TEEExecutionStatus.COMPLETED
         task.add_log("execution completed inside TEE")
-    except Exception as exc:
+    except (TypeError, ValueError, KeyError, AttributeError, ArithmeticError) as exc:
         task.status = TEEExecutionStatus.FAILED
         task.add_log(f"execution error: {exc}")
     submit_tee_task(task, coordinator_url=coordinator_url, api_key=api_key)

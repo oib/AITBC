@@ -49,6 +49,20 @@ from aitbc.utils.units import ait_to_units
 
 logger = get_logger(__name__)
 
+# Executor failure surface: island IPFS HTTP calls, local state/key file IO,
+# envelope signing/crypto, decimal math, and the data-shape errors task
+# payloads can raise.
+_OPS_ERRORS = (
+    requests.exceptions.RequestException,
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+)
+
 # --- Configuration ---------------------------------------------------------
 
 COORDINATOR_URL = os.environ.get("AGENT_COORDINATOR_URL") or os.environ.get("COORDINATOR_URL", "https://hub.aitbc.invalid")
@@ -101,7 +115,7 @@ def _load_state() -> dict[str, Any]:
         data = json.loads(STATE_PATH.read_text())
     except FileNotFoundError:
         return {"done": [], "quotes": {}}  # first run — no state yet, nothing to warn about
-    except Exception as e:
+    except (OSError, ValueError, TypeError) as e:
         _quarantine_state_file(e)
         return {"done": [], "quotes": {}}
     if isinstance(data, dict):
@@ -121,7 +135,7 @@ def _save_state(state: dict[str, Any]) -> None:
         tmp = STATE_PATH.with_name(f"{STATE_PATH.name}.tmp")
         tmp.write_text(json.dumps(state, indent=2))
         tmp.replace(STATE_PATH)
-    except Exception as e:
+    except (OSError, TypeError, ValueError) as e:
         logger.warning("Could not persist executor state: %s", e)
 
 
@@ -179,7 +193,7 @@ def _signing_material(provider_wallet: str = "") -> tuple[str | None, str | None
             data = json.loads(Path(key_file).read_text())
             if data.get("private_key"):
                 key = str(data["private_key"])
-        except Exception:
+        except (OSError, ValueError, TypeError):
             key = None
 
     if key is None:
@@ -191,7 +205,7 @@ def _signing_material(provider_wallet: str = "") -> tuple[str | None, str | None
 
         try:
             address = derive_ethereum_address(key)
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError) as e:
             logger.error("Configured agent signing key is invalid (%s) — running unsigned", e)
             result = (None, None)
         else:
@@ -284,7 +298,7 @@ def _send_message(sender: str, recipient: str, message_type: str, content: dict[
         }
         try:
             body["signature"] = sign_agent_envelope(body, key)
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError) as e:
             logger.error("Envelope signing failed (%s) — sending unsigned", e)
             body.pop("signer", None)
             body.pop("signature_version", None)
@@ -604,8 +618,8 @@ def _ipfs_object_size(cid: str) -> int | None:
         if resp.status_code == 200:
             size = resp.json().get("CumulativeSize") or resp.json().get("DataSize")
             return int(size) if size is not None else None
-    except Exception:
-        pass  # stat is advisory; the cat stream below still bounds the read
+    except (requests.exceptions.RequestException, ValueError, TypeError) as exc:
+        logger.debug("ipfs object stat failed for %s: %s", cid, exc)  # cat stream still bounds the read
     return None
 
 
@@ -870,7 +884,7 @@ def _handle_task_request(
     buyer = message.get("sender", "")
     try:
         max_price = Decimal(str(req.get("max_price", "0")))
-    except Exception:
+    except (ValueError, TypeError, ArithmeticError):
         max_price = Decimal(0)
 
     offer = price_table.get(service_type)
@@ -1006,7 +1020,7 @@ def _handle_task_accept(
             # Charge the pin against the buyer's cumulative quota; over quota
             # reclaims the pin and fails the task (#1614).
             _account_ipfs_pin(state, str(buyer), req, result_bytes)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Task %s execution failed: %s", task_id, e)
         _send_message(
             agent_id,
@@ -1027,8 +1041,8 @@ def _handle_task_accept(
     quote_units = None
     try:
         quote_units = ait_to_units(Decimal(str(quote["price"])))
-    except Exception:
-        pass
+    except (ValueError, TypeError, ArithmeticError) as exc:
+        logger.debug("quoted price not unit-convertible for %s: %s", task_id, exc)
     complete = _complete_task(task_id, provider_wallet, amount_units=quote_units)
     if complete:
         tx_hash = complete.get("tx_hash_release")
@@ -1078,7 +1092,7 @@ def _process_inbox_message(
             outcome = _handle_task_accept(message, content, AGENT_EXECUTOR_ID, provider_wallet, state)
         elif message_type == "task_reject":
             state["quotes"].pop(content.get("task_id", ""), None)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.error("Inbox message %s (%s) handling failed: %s", msg_id, message_type, e)
         return
     if outcome in stats:

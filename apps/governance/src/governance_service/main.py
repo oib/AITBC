@@ -18,10 +18,13 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import delete, text
 from sqlalchemy.exc import IntegrityError
+
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.auth import APIKeyAuthenticator  # noqa: E402
+from aitbc.exceptions import AITBCError  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.middleware import (
     ErrorHandlerMiddleware,
@@ -52,7 +55,7 @@ def _verify_caller_signature(address: str, signature: str | None, payload: dict[
             return verify_signature(keccak(message), signature, address)
         except SignatureMalformed:
             return False
-    except Exception:
+    except (ImportError, TypeError, ValueError, AttributeError, ArithmeticError):
         return False
 
 
@@ -142,6 +145,22 @@ async def require_governance_write_access(request: Request) -> dict[str, Any]:
             logger.warning("Governance write rate limit exceeded for %s", key)
             raise HTTPException(status_code=429, detail="Rate limit exceeded", headers={"Retry-After": "60"})
     return identity
+
+# Per-chain governance submission surface: chain RPC transport/status errors,
+# aitbc network errors, and tx data-shape errors — each chain fails
+# independently into the `failed` list.
+_CHAIN_SUBMIT_ERRORS = (
+    httpx.HTTPError,
+    AITBCError,
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+    TimeoutError,
+)
 
 
 async def _proposal_expiry_loop() -> None:
@@ -769,7 +788,7 @@ async def propagate_proposal(
             tx_hashes[chain_id] = tx_hash
             propagated_to.append(chain_id)
             logger.info("Propagated proposal %s to chain %s (tx=%s)", proposal_id, chain_id, tx_hash)
-        except Exception as e:
+        except _CHAIN_SUBMIT_ERRORS as e:
             logger.error("Failed to propagate proposal %s to chain %s: %s", proposal_id, chain_id, e)
             failed.append(chain_id)
 
@@ -926,7 +945,7 @@ async def execute_cross_chain(
             tx_hashes[chain_id] = tx_hash
             executed_on.append(chain_id)
             logger.info("Executed proposal %s on chain %s (tx=%s)", proposal_id, chain_id, tx_hash)
-        except Exception as e:
+        except _CHAIN_SUBMIT_ERRORS as e:
             logger.error("Failed to execute proposal %s on chain %s: %s", proposal_id, chain_id, e)
             failed.append(chain_id)
 

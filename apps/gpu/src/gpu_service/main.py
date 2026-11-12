@@ -5,6 +5,8 @@ Manages GPU resource operations
 
 import os
 import subprocess
+
+import httpx
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from decimal import Decimal, InvalidOperation
@@ -13,11 +15,13 @@ from typing import Annotated, Any
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.auth import APIKeyAuthenticator  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
+from aitbc.exceptions import AITBCError  # noqa: E402
 from aitbc.market import BlockchainRPCClient, OfferFSM, OfferStatus  # noqa: E402
 from aitbc.utils.env import subprocess_env  # noqa: E402
 from aitbc.middleware import (
@@ -33,6 +37,35 @@ from .services.edge_gpu_service import EdgeGPUService, JobStateError
 from .storage import get_session, init_db
 
 configure_logging(level="INFO", service_name="gpu", to_file=True)
+# nvidia-smi probe surface after the FileNotFoundError/TimeoutExpired
+# specials: subprocess execution plus output-parsing data-shape errors.
+_SMI_ERRORS = (
+    OSError,
+    subprocess.SubprocessError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    LookupError,
+)
+
+# On-chain admission surface: the market RPC client (httpx transport/status,
+# aitbc network errors) plus tx data-shape errors.
+_RPC_ERRORS = (
+    httpx.HTTPError,
+    AITBCError,
+    SQLAlchemyError,
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+    TimeoutError,
+)
+
 logger = get_logger(__name__)
 
 # v0.6.6: Shared blockchain RPC client (chain-aware) and offer FSM
@@ -55,7 +88,7 @@ def _admission_refusal(exc: Exception) -> tuple[int, Any] | None:
     if 400 <= response.status_code < 500:
         try:
             detail: Any = response.json()
-        except Exception:
+        except (ValueError, TypeError):
             detail = response.text
         return response.status_code, detail
     return None
@@ -188,7 +221,7 @@ def discover_gpu_specs() -> dict[str, Any]:
     except subprocess.TimeoutExpired:
         logger.warning("nvidia-smi timeout - GPU discovery skipped")
         return {}
-    except Exception as e:
+    except _SMI_ERRORS as e:
         logger.error("Error running nvidia-smi: %s", e)
         return {}
 
@@ -554,7 +587,7 @@ async def _handle_gpu_offer(session: AsyncSession, transaction_data: dict[str, A
         blockchain_tx_hash = result.get("transaction_hash")
         if blockchain_tx_hash:
             logger.info("GPU_REGISTER submitted on-chain: %s", blockchain_tx_hash)
-    except Exception as blockchain_error:
+    except _RPC_ERRORS as blockchain_error:
         refusal = _admission_refusal(blockchain_error)
         if refusal is not None:
             status_code, detail = refusal
