@@ -127,7 +127,9 @@
       1 apps/blockchain-node/src/aitbc_chain/state/bridge_credit.py
       4 apps/blockchain-node/src/aitbc_chain/state/pure_state_transition.py
       2 apps/blockchain-node/src/aitbc_chain/state/state_root_utils.py
-     16 apps/blockchain-node/src/aitbc_chain/state/state_transition.py
+      7 apps/blockchain-node/src/aitbc_chain/state/state_transition_handlers.py
+      4 apps/blockchain-node/src/aitbc_chain/state/state_transition.py
+      4 apps/blockchain-node/src/aitbc_chain/state/state_transition_validation.py
      10 apps/blockchain-node/src/aitbc_chain/subscription_client.py
       6 apps/blockchain-node/src/aitbc_chain/sync_block_import.py
       3 apps/blockchain-node/src/aitbc_chain/sync_bulk.py
