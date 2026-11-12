@@ -24,7 +24,7 @@ from ..utils.wallet_secret import wallet_password_options
 from ..utils import error, info, output, resolve_output_format, success
 from ..utils.agent_signing import identity_attestation_fields, load_signing_wallet, signed_request_headers
 from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_headers, get_logger
 
 logger = get_logger(__name__)
 
@@ -98,6 +98,16 @@ def resolve_coordinator_url(coordinator_url: str | None = None) -> str:
 def coordinator_agent_api_url(path: str, coordinator_url: str | None = None) -> str:
     """Build a URL on the coordinator's ``/api/v1/agent`` surface (messages, workflows)."""
     return f"{resolve_coordinator_url(coordinator_url)}/api/v1/agent/{path.lstrip('/')}"
+
+
+def _workflow_auth_headers(ctx: Any) -> dict[str, str]:
+    """Credential headers for the workflow API — ``--api-key``/stored JWT/config key.
+
+    Workflow routes require ``X-Api-Key``/Bearer since #1853; send the best
+    available credential via the shared resolver (#1880).
+    """
+    explicit = ctx.obj.get("api_key") if ctx and ctx.obj else None
+    return auth_headers(explicit, get_config().api_key)
 
 
 def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url: str | None = None) -> dict:
@@ -1212,7 +1222,12 @@ try:
                 steps = json.load(f)
 
             data = {"name": name, "description": description or "", "steps": steps, "created_by": "cli"}
-            response = requests.post(coordinator_agent_api_url("workflows", coordinator_url), json=data, timeout=10)
+            response = requests.post(
+                coordinator_agent_api_url("workflows", coordinator_url),
+                json=data,
+                headers=_workflow_auth_headers(ctx),
+                timeout=10,
+            )
             response.raise_for_status()
             result = response.json()
             output(result, resolve_output_format(ctx, format), title="Created Workflow")
@@ -1252,7 +1267,10 @@ try:
 
             data = {"input_parameters": input_params}
             response = requests.post(
-                coordinator_agent_api_url(f"workflows/{workflow_id}/execute", coordinator_url), json=data, timeout=10
+                coordinator_agent_api_url(f"workflows/{workflow_id}/execute", coordinator_url),
+                json=data,
+                headers=_workflow_auth_headers(ctx),
+                timeout=10,
             )
             response.raise_for_status()
             result = response.json()
@@ -1285,7 +1303,11 @@ try:
         try:
             import requests
 
-            response = requests.get(coordinator_agent_api_url(f"workflows/{workflow_id}/status", coordinator_url), timeout=10)
+            response = requests.get(
+                coordinator_agent_api_url(f"workflows/{workflow_id}/status", coordinator_url),
+                headers=_workflow_auth_headers(ctx),
+                timeout=10,
+            )
             response.raise_for_status()
             result = response.json()
             output(result, resolve_output_format(ctx, format), title=f"Workflow Status: {workflow_id}")
@@ -1311,7 +1333,9 @@ try:
         try:
             import requests
 
-            response = requests.get(coordinator_agent_api_url("workflows", coordinator_url), timeout=10)
+            response = requests.get(
+                coordinator_agent_api_url("workflows", coordinator_url), headers=_workflow_auth_headers(ctx), timeout=10
+            )
             response.raise_for_status()
             result = response.json()
             output(result, resolve_output_format(ctx, format), title="Workflows")

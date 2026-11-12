@@ -17,7 +17,13 @@ from ..encryption import get_encryptor
 from ..models import BroadcastRequest
 from ..protocols.communication import MessageType
 from ..routing.load_balancer import LoadBalancingStrategy
-from ..services.agent_auth import AgentPrincipal, authorize_admin_scope, authorize_agent_scope, optional_agent
+from ..services.agent_auth import (
+    AgentPrincipal,
+    authorize_admin_scope,
+    authorize_agent_scope,
+    authorize_any_principal,
+    optional_agent,
+)
 from ..services.nonce_store import get_nonce_store
 from ..websocket import get_connection_manager
 
@@ -475,11 +481,13 @@ async def get_message_history(
 @rate_limit(rate=200, per=60)
 async def discover_agents(
     request: Request,
+    principal: OptionalAgent,
     capability: str | None = Query(None, description="Filter by capability"),
     agent_type: str | None = Query(None, description="Filter by agent type"),
     min_health_score: float = Query(0.0, description="Minimum health score"),
     limit: int = Query(50, ge=1, le=500, description="Maximum results"),
 ) -> dict[str, Any]:
+    authorize_any_principal(principal, "messages_discover")
     """Discover agents by criteria"""
     try:
         if not state.agent_registry:
@@ -795,7 +803,12 @@ def get_registry_stats(request: Request, principal: OptionalAgent) -> dict[str, 
 
 @router.get("/agents/service/{service}")
 @rate_limit(rate=200, per=60)
-def get_agents_by_service(request: Request, service: str) -> dict[str, Any]:
+def get_agents_by_service(
+    request: Request,
+    principal: OptionalAgent,
+    service: str,
+) -> dict[str, Any]:
+    authorize_any_principal(principal, "messages_agents_by_service")
     """Get agents that provide a specific service"""
     try:
         if not state.agent_registry:
@@ -819,7 +832,12 @@ def get_agents_by_service(request: Request, service: str) -> dict[str, Any]:
 
 @router.get("/agents/capability/{capability}")
 @rate_limit(rate=200, per=60)
-def get_agents_by_capability(request: Request, capability: str) -> dict[str, Any]:
+def get_agents_by_capability(
+    request: Request,
+    principal: OptionalAgent,
+    capability: str,
+) -> dict[str, Any]:
+    authorize_any_principal(principal, "messages_agents_by_capability")
     """Get agents that have a specific capability"""
     try:
         if not state.agent_registry:

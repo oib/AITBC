@@ -18,7 +18,7 @@ from .. import state
 from ..config import settings
 from ..models import AgentRegistrationRequest, AgentStatusUpdate, IdentityRotationRequest
 from ..routing.agent_discovery import create_agent_info
-from ..services.agent_auth import AgentPrincipal, authorize_agent_scope, optional_agent
+from ..services.agent_auth import AgentPrincipal, authorize_agent_scope, authorize_any_principal, optional_agent
 from ..services.nonce_store import REGISTRATION_NONCE_TTL_SECONDS, get_nonce_store
 
 logger = get_logger(__name__)
@@ -174,7 +174,12 @@ async def register_agent(request_http: Request, request: AgentRegistrationReques
 
 @router.post("/agents/discover")
 @rate_limit(rate=200, per=60)
-async def discover_agents(request: Request, query: dict[str, Any]) -> dict[str, Any]:
+async def discover_agents(
+    request: Request,
+    principal: OptionalAgent,
+    query: dict[str, Any],
+) -> dict[str, Any]:
+    authorize_any_principal(principal, "agents_discover")
     """Discover agents based on criteria"""
     try:
         if not state.agent_registry:
@@ -226,7 +231,12 @@ async def issue_registration_nonce(request: Request, agent_id: str = Query(..., 
 
 @router.get("/agents/{agent_id}")
 @rate_limit(rate=200, per=60)
-def get_agent(request: Request, agent_id: str) -> dict[str, Any]:
+def get_agent(
+    request: Request,
+    principal: OptionalAgent,
+    agent_id: str,
+) -> dict[str, Any]:
+    authorize_any_principal(principal, "agents_get")
     """Get agent information by ID"""
     try:
         if not state.agent_registry:

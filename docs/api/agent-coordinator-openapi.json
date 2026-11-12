@@ -90,7 +90,6 @@
     "/v1/agents/discover": {
       "post": {
         "summary": "Discover Agents",
-        "description": "Discover agents based on criteria",
         "operationId": "discover_agents_v1_agents_discover_post",
         "requestBody": {
           "content": {
@@ -207,7 +206,6 @@
     "/v1/agents/{agent_id}": {
       "get": {
         "summary": "Get Agent",
-        "description": "Get agent information by ID",
         "operationId": "get_agent_v1_agents__agent_id__get",
         "parameters": [
           {
@@ -606,7 +604,6 @@
     "/v1/tasks/status": {
       "get": {
         "summary": "Get Task Status",
-        "description": "Get task distribution statistics",
         "operationId": "get_task_status_v1_tasks_status_get",
         "responses": {
           "200": {
@@ -647,7 +644,6 @@
     "/v1/tasks/queues": {
       "get": {
         "summary": "Get Queue Sizes",
-        "description": "Get task queue sizes",
         "operationId": "get_queue_sizes_v1_tasks_queues_get",
         "responses": {
           "200": {
@@ -760,7 +756,6 @@
     "/v1/tasks/queues/stats": {
       "get": {
         "summary": "Get Queue Stats",
-        "description": "Get detailed queue statistics",
         "operationId": "get_queue_stats_v1_tasks_queues_stats_get",
         "responses": {
           "200": {
@@ -801,7 +796,6 @@
     "/v1/tasks/escrow/{escrow_id}": {
       "get": {
         "summary": "Get Escrow Status",
-        "description": "Get payment escrow status by escrow ID.",
         "operationId": "get_escrow_status_v1_tasks_escrow__escrow_id__get",
         "parameters": [
           {
@@ -1057,7 +1051,6 @@
     "/v1/tasks/{task_id}/escrow": {
       "get": {
         "summary": "Get Task Escrow",
-        "description": "Get the payment escrow for a task (v0.25).",
         "operationId": "get_task_escrow_v1_tasks__task_id__escrow_get",
         "parameters": [
           {
@@ -1119,7 +1112,6 @@
     "/v1/tasks/escrow-config": {
       "get": {
         "summary": "Get Escrow Config",
-        "description": "Escrow settlement parameters for buyers (v0.25).\n\nReturns the node wallet the coordinator settles escrows through, so a\nremote buyer can sign its ESCROW_LOCK to the right custodian without\nknowing the hub's local RPC topology. The address is public on-chain.",
         "operationId": "get_escrow_config_v1_tasks_escrow_config_get",
         "responses": {
           "200": {
@@ -1460,7 +1452,6 @@
           "agent-messaging"
         ],
         "summary": "Discover Agents",
-        "description": "Discover agents by criteria",
         "operationId": "discover_agents_api_v1_agent_messages_discover_get",
         "parameters": [
           {
@@ -2123,7 +2114,6 @@
           "agent-messaging"
         ],
         "summary": "Get Agents By Service",
-        "description": "Get agents that provide a specific service",
         "operationId": "get_agents_by_service_api_v1_agent_messages_agents_service__service__get",
         "parameters": [
           {
@@ -2188,7 +2178,6 @@
           "agent-messaging"
         ],
         "summary": "Get Agents By Capability",
-        "description": "Get agents that have a specific capability",
         "operationId": "get_agents_by_capability_api_v1_agent_messages_agents_capability__capability__get",
         "parameters": [
           {
@@ -5237,7 +5226,6 @@
     "/v1/metrics": {
       "get": {
         "summary": "Get Prometheus Metrics",
-        "description": "Get metrics in Prometheus format",
         "operationId": "get_prometheus_metrics_v1_metrics_get",
         "responses": {
           "200": {
@@ -5264,7 +5252,6 @@
     "/v1/metrics/summary": {
       "get": {
         "summary": "Get Metrics Summary",
-        "description": "Get metrics summary for dashboard",
         "operationId": "get_metrics_summary_v1_metrics_summary_get",
         "responses": {
           "200": {
@@ -5295,7 +5282,6 @@
     "/v1/metrics/health": {
       "get": {
         "summary": "Get Health Metrics",
-        "description": "Get health metrics for monitoring",
         "operationId": "get_health_metrics_v1_metrics_health_get",
         "responses": {
           "200": {

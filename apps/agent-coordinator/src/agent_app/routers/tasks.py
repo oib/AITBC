@@ -242,7 +242,11 @@ async def submit_task(
 
 @router.get("/tasks/status")
 @rate_limit(rate=200, per=60)
-def get_task_status(request: Request) -> dict[str, Any]:
+def get_task_status(
+    request: Request,
+    principal: OptionalAgent,
+) -> dict[str, Any]:
+    authorize_any_principal(principal, "tasks_status")
     """Get task distribution statistics"""
     try:
         if not state.task_distributor:
@@ -260,7 +264,11 @@ def get_task_status(request: Request) -> dict[str, Any]:
 
 @router.get("/tasks/queues")
 @rate_limit(rate=200, per=60)
-def get_queue_sizes(request: Request) -> dict[str, Any]:
+def get_queue_sizes(
+    request: Request,
+    principal: OptionalAgent,
+) -> dict[str, Any]:
+    authorize_any_principal(principal, "tasks_queues")
     """Get task queue sizes"""
     try:
         if not state.task_distributor:
@@ -313,7 +321,11 @@ def clear_queue(request: Request, priority: str, principal: OptionalAgent) -> di
 
 @router.get("/tasks/queues/stats")
 @rate_limit(rate=200, per=60)
-def get_queue_stats(request: Request) -> dict[str, Any]:
+def get_queue_stats(
+    request: Request,
+    principal: OptionalAgent,
+) -> dict[str, Any]:
+    authorize_any_principal(principal, "tasks_queues_stats")
     """Get detailed queue statistics"""
     try:
         if not state.task_distributor:
@@ -342,7 +354,12 @@ def get_queue_stats(request: Request) -> dict[str, Any]:
 
 @router.get("/tasks/escrow/{escrow_id}")
 @rate_limit(rate=200, per=60)
-def get_escrow_status(request: Request, escrow_id: str) -> dict[str, Any]:
+def get_escrow_status(
+    request: Request,
+    principal: OptionalAgent,
+    escrow_id: str,
+) -> dict[str, Any]:
+    authorize_any_principal(principal, "tasks_escrow_status")
     """Get payment escrow status by escrow ID."""
     if not state.payment_escrow:
         raise HTTPException(status_code=503, detail="Payment escrow not available")
@@ -682,7 +699,12 @@ async def fail_task(request: Request, task_id: str, principal: OptionalAgent) ->
 
 @router.get("/tasks/{task_id}/escrow")
 @rate_limit(rate=200, per=60)
-def get_task_escrow(request: Request, task_id: str) -> dict[str, Any]:
+def get_task_escrow(
+    request: Request,
+    principal: OptionalAgent,
+    task_id: str,
+) -> dict[str, Any]:
+    authorize_any_principal(principal, "tasks_task_escrow")
     """Get the payment escrow for a task (v0.25)."""
     if not state.payment_escrow:
         raise HTTPException(status_code=503, detail="Payment escrow not available")
@@ -719,7 +741,11 @@ def get_task_escrow(request: Request, task_id: str) -> dict[str, Any]:
 
 @router.get("/tasks/escrow-config")
 @rate_limit(rate=200, per=60)
-def get_escrow_config(request: Request) -> dict[str, Any]:
+def get_escrow_config(
+    request: Request,
+    principal: OptionalAgent,
+) -> dict[str, Any]:
+    authorize_any_principal(principal, "tasks_escrow_config")
     """Escrow settlement parameters for buyers (v0.25).
 
     Returns the node wallet the coordinator settles escrows through, so a

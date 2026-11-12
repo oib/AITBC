@@ -8,15 +8,22 @@ from aitbc.auth import get_current_user
 from aitbc.rate_limiting import rate_limit
 
 from .. import state
+from ..services.agent_auth import AgentPrincipal, authorize_any_principal, optional_agent
 from ..monitoring.prometheus_metrics import metrics_registry, performance_monitor
 
 logger = get_logger(__name__)
 router = APIRouter()
 
+OptionalAgent = Annotated[AgentPrincipal | None, Depends(optional_agent)]
+
 
 @router.get("/metrics")
 @rate_limit(rate=1000, per=60)
-def get_prometheus_metrics(request: Request) -> Response:
+def get_prometheus_metrics(
+    request: Request,
+    principal: OptionalAgent,
+) -> Response:
+    authorize_any_principal(principal, "metrics")
     """Get metrics in Prometheus format"""
     try:
         metrics = metrics_registry.get_all_metrics()
@@ -51,7 +58,11 @@ def get_prometheus_metrics(request: Request) -> Response:
 
 @router.get("/metrics/summary")
 @rate_limit(rate=500, per=60)
-def get_metrics_summary(request: Request) -> dict[str, Any]:
+def get_metrics_summary(
+    request: Request,
+    principal: OptionalAgent,
+) -> dict[str, Any]:
+    authorize_any_principal(principal, "metrics_summary")
     """Get metrics summary for dashboard"""
     try:
         summary = performance_monitor.get_performance_summary()
@@ -80,7 +91,11 @@ def get_metrics_summary(request: Request) -> dict[str, Any]:
 
 @router.get("/metrics/health")
 @rate_limit(rate=500, per=60)
-def get_health_metrics(request: Request) -> dict[str, Any]:
+def get_health_metrics(
+    request: Request,
+    principal: OptionalAgent,
+) -> dict[str, Any]:
+    authorize_any_principal(principal, "metrics_health")
     """Get health metrics for monitoring"""
     try:
         import psutil
