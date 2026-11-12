@@ -453,7 +453,13 @@ class TestRestartServiceTargetVisibility:
                 stderr="zsh:1: datei oder Verzeichnis nicht gefunden: /usr/local/bin/aitbc\n",
             )
         )
+        # #1867: tools live in companion modules bound to the real
+        # aitbc_mcp_server globals, while test_aitbc_mcp_cli_tools replaces
+        # mcp_server._run_remote at import time.  Borrow the isolated module's
+        # pristine _run_remote so the executed path runs for real.
         with (
+            mock.patch.object(mcp_server, "_HOSTS_CONFIG", dict(self._HOSTS)),
+            mock.patch.object(mcp_server, "_run_remote", server._run_remote),
             mock.patch.object(server, "_HOSTS_CONFIG", dict(self._HOSTS)),
             mock.patch.object(server, "_is_local_host", return_value=False),
             mock.patch.object(server.subprocess, "run", run),
