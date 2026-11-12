@@ -26,9 +26,15 @@ class Settings(ServiceSettings):
 
     # Service bind (kept for backward compat with GOVERNANCE_BIND_HOST/PORT env vars;
     # ServiceSettings also provides app_host/app_port)
-    # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
-    bind_host: str = Field(default="0.0.0.0")  # nosec B104
+    # code default only; the effective bind is pinned per host in the systemd unit. loopback like every other internal service (#1873) — the api-gateway and local CLI are the only legitimate callers.
+    bind_host: str = Field(default="127.0.0.1")
     bind_port: int = Field(default=8105)
+
+    # Write-surface perimeter (#1873): mutating routes require X-Api-Key.
+    # auth_enabled=true with no api_key fails closed (501) — provision
+    # GOVERNANCE_API_KEY in the service env file; read routes stay open.
+    api_key: str | None = Field(default=None)
+    auth_enabled: bool = Field(default=True)
 
     # Blockchain integration (v0.7.3) — port 8202 is the canonical blockchain RPC port
     blockchain_rpc_url: str = Field(default=BLOCKCHAIN_RPC_URL)

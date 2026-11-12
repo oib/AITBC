@@ -8,11 +8,13 @@ This document covers security considerations for the Governance Service, includi
 
 ### Service-to-Service Authentication
 
-The governance service itself has **no** API-key middleware — there is no
-`verify_api_key` dependency or `API_KEY` env var in `apps/governance/src`.
-`X-API-Key` gating is implemented on blockchain-node `/rpc/governance/*`
-(`routers/staking.py`), a different service; external authorization is
-expected to happen at the api-gateway.
+Mutating routes (`POST /v1/governance/*`, `POST /v1/transactions`) require
+`X-Api-Key` matching `GOVERNANCE_API_KEY` since #1873, plus a per-client-IP
+write budget (30/min). Read routes stay open. With `GOVERNANCE_AUTH_ENABLED`
+unset/true and no key configured the write surface fails closed (501) —
+provision the key in the service env file. `X-API-Key` gating on
+blockchain-node `/rpc/governance/*` (`routers/staking.py`) is a different
+service; external authorization is also applied at the api-gateway.
 
 ### Wallet-Based Authentication
 

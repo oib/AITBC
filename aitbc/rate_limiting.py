@@ -34,6 +34,13 @@ def _is_rate_limiting_enabled() -> bool:
     return os.getenv("AITBC_ENABLE_RATE_LIMITING", "true").lower() not in ("false", "0", "no", "off")
 
 
+def rate_limiting_enabled() -> bool:
+    """Public wrapper for manual rate-limit sites (dependencies, middleware)
+    that must honour the same ``AITBC_ENABLE_RATE_LIMITING`` escape as the
+    ``rate_limit`` decorator."""
+    return _is_rate_limiting_enabled()
+
+
 def get_rate_limiter(name: str, rate: int = 100, per: int = 60) -> RateLimiter:
     """
     Get or create a rate limiter for a specific endpoint
