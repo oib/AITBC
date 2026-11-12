@@ -12,6 +12,7 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
 from pydantic import BaseModel, Field, field_validator, model_validator
+from sqlalchemy import and_, or_
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session, col, func, select, update
@@ -313,10 +314,12 @@ BOOKING_HOLD_TTL = timedelta(minutes=30)
 _PAID_PAYMENT_STATUSES = tuple(sorted(REFUNDABLE_STATES | {"released", "confirmed"}))
 # #1930: "pending" payments can still land money — an EVM receipt awaiting
 # verification may confirm after the booking TTL, which would strand paid
-# funds on a freed GPU. Pending rows are reaped to failed by
-# payments_operation_reconciler, so protecting them cannot squat forever.
+# funds on a freed GPU. But pending is terminal-ambiguous (no reaper moves
+# it), so the shield is age-bounded: a pending payment protects the hold
+# only while it is younger than _PENDING_SHIELD_TTL — far beyond any real
+# receipt-confirmation window, and it caps the squat at that bound.
 # "skipped" is terminal no-money (escrow unavailable) and does not protect.
-_EXPIRY_GUARDED_PAYMENT_STATUSES = tuple(sorted(set(_PAID_PAYMENT_STATUSES) | {"pending"}))
+_PENDING_SHIELD_TTL = timedelta(hours=24)
 # JobPayment states where no live money remains — a paid GPU booking in one
 # of these may be released without stranding an escrow (#1913).
 _RELEASE_SAFE_PAYMENT_STATUSES = frozenset({"released", "refunded", "failed"})
@@ -362,7 +365,13 @@ def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
             .where(
                 col(JobPayment.id) == booking.payment_id,
                 col(Job.client_id) == booking.client_id,
-                col(JobPayment.status).in_(_EXPIRY_GUARDED_PAYMENT_STATUSES),
+                or_(
+                    col(JobPayment.status).in_(_PAID_PAYMENT_STATUSES),
+                    and_(
+                        col(JobPayment.status) == "pending",
+                        col(JobPayment.created_at) > datetime.now(UTC) - _PENDING_SHIELD_TTL,
+                    ),
+                ),
             )
             .limit(1)
         ).first()
