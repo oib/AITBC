@@ -651,7 +651,7 @@ class GovernanceService:
         if proposal.status == ProposalStatus.DRAFT:
             proposal.status = ProposalStatus.ACTIVE
 
-        submission_failed = self._submit_proposal_onchain(proposal, proposal_data, signed_tx, is_emergency)
+        submission_failed = await self._submit_proposal_onchain(proposal, proposal_data, signed_tx, is_emergency)
 
         # V23-18 off-chain fallback: the mempool-admission response carries no
         # block_height even when on-chain submission succeeds, so a proposal
