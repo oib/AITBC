@@ -462,6 +462,12 @@ def test_the_market_offer_routes_document_their_404():
         ("get", "/v1/market/offer/{plugin_id}/health"),
         ("post", "/v1/market/jobs/{job_id}/cancel"),
         ("post", "/v1/market/jobs/{job_id}/pin-confirm"),
+        # Added by #1783/#1784 dispute+settlement routes; the regenerated spec
+        # documents their 404s but this pin was not updated (f9b38f985e).
+        ("post", "/v1/market/jobs/{job_id}/dispute"),
+        ("post", "/v1/market/jobs/{job_id}/dispute/resolve"),
+        ("post", "/v1/market/jobs/{job_id}/refund"),
+        ("post", "/v1/market/jobs/{job_id}/release"),
     }
     found = {(m.lower(), p) for p, m, op in _operations(spec) if "404" in op.get("responses", {})}
     assert not sorted(expected - found), f"still undocumented: {sorted(expected - found)}"
