@@ -41,6 +41,7 @@ logger = get_logger(__name__)
 # Failure surface: in-memory model/session bookkeeping (KeyError/AttributeError/
 # TypeError/ValueError), the lazy numpy import (ImportError), asyncio sleeps.
 _OPS_ERRORS: tuple[type[BaseException], ...] = (
+    ArithmeticError,
     OSError,
     ValueError,
     KeyError,

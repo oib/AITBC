@@ -11,7 +11,7 @@ from types import SimpleNamespace
 from typing import Any
 from uuid import uuid4
 
-from asyncpg.exceptions import PostgresError
+from asyncpg.exceptions import InterfaceError, PostgresError
 
 from aitbc.async_tasks import create_task_with_logging
 
@@ -33,6 +33,7 @@ _OPS_ERRORS: tuple[type[BaseException], ...] = (
     BridgeError,
     ImportError,
     sqlite3.Error,
+    InterfaceError,
     PostgresError,
 )
 

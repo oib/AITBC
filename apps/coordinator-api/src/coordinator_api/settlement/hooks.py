@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import httpx
-from asyncpg.exceptions import PostgresError
+from asyncpg.exceptions import InterfaceError, PostgresError
 from sqlalchemy.exc import SQLAlchemyError
 
 from aitbc.aitbc_logging import get_logger
@@ -40,6 +40,7 @@ _OPS_ERRORS: tuple[type[Exception], ...] = (
     SQLAlchemyError,
     httpx.HTTPError,
     sqlite3.Error,
+    InterfaceError,
     PostgresError,
 )
 
