@@ -56,7 +56,12 @@ async def test_shutdown_awaits_sync_http_stop(monkeypatch):
         # #1705: _shutdown disposes chain DBs per supported chain; empty list
         # keeps the fake on the pre-#1705 path (no real shutdown_db calls).
         _supported_chains=lambda: [],
+        _readiness_heartbeat=None,
     )
+    # _shutdown delegates stop phases to helper methods; bind the real ones
+    # onto the namespace the same way a constructed node would have them.
+    for _name in ("_stop_sync_http", "_stop_managers", "_stop_settlement_monitors"):
+        setattr(node, _name, getattr(BlockchainNode, _name).__get__(node))
     await BlockchainNode._shutdown(node)
     await task
     assert server.stopped is True  # False pre-fix: stop() coroutine was discarded
