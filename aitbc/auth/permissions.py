@@ -355,10 +355,28 @@ class PermissionManager:
 permission_manager = PermissionManager()
 
 
+def principal_has_permission(user: dict[str, Any], permission: Permission) -> bool:
+    """Effective permission check honoring a presented API key's scope.
+
+    JWT/session principals keep the role-store check. API-key principals
+    (``auth_type == "api_key"``) must additionally list the permission in the
+    key's declared ``permissions`` scope — the grant is the intersection of
+    the bound user's role-store permissions and the key scope (#1856). Keys
+    with an empty scope therefore reach no permission-gated route.
+    """
+    user_id = user.get("user_id") or user.get("sub") or ""
+    if not permission_manager.has_permission(str(user_id), permission):
+        return False
+    if user.get("auth_type") == "api_key":
+        return permission.value in (user.get("permissions") or [])
+    return True
+
+
 __all__ = [
     "Permission",
     "PermissionManager",
     "Role",
     "RolePermission",
     "permission_manager",
+    "principal_has_permission",
 ]

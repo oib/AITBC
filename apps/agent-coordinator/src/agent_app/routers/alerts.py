@@ -4,7 +4,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.auth import Permission, get_current_user, permission_manager
+from aitbc.auth import Permission, get_current_user, principal_has_permission
 from aitbc.rate_limiting import rate_limit
 
 from .. import state
@@ -24,7 +24,7 @@ def get_alerts(
 ) -> dict[str, Any]:
     """Get alerts with optional status filter"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
+        if not principal_has_permission(current_user, Permission.SECURITY_VIEW):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         if status == "active":
             alerts = alert_manager.get_active_alerts()
@@ -47,7 +47,7 @@ def resolve_alert(
 ) -> dict[str, Any]:
     """Resolve an alert"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_MANAGE):
+        if not principal_has_permission(current_user, Permission.SECURITY_MANAGE):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         result = alert_manager.resolve_alert(alert_id)
         return result
@@ -65,7 +65,7 @@ def resolve_alert(
 def get_alert_stats(request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]) -> dict[str, Any]:
     """Get alert statistics"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
+        if not principal_has_permission(current_user, Permission.SECURITY_VIEW):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         stats = alert_manager.get_alert_stats()
         return {"status": "success", "stats": stats}
@@ -83,7 +83,7 @@ def get_alert_stats(request: Request, current_user: Annotated[dict[str, Any], De
 def get_alert_rules(request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]) -> dict[str, Any]:
     """Get alert rules"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
+        if not principal_has_permission(current_user, Permission.SECURITY_VIEW):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         rules = [rule.to_dict() for rule in alert_manager.rules.values()]
         return {"status": "success", "rules": rules, "total": len(rules)}
@@ -105,7 +105,7 @@ def get_sla_status(
 ) -> dict[str, Any]:
     """Get SLA status"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_VIEW):
+        if not principal_has_permission(current_user, Permission.SECURITY_VIEW):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         if sla_id:
             sla_status = alert_manager.sla_monitor.get_sla_compliance(sla_id)
@@ -128,7 +128,7 @@ def record_sla_metric(
 ) -> dict[str, Any]:
     """Record SLA metric"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.SECURITY_MANAGE):
+        if not principal_has_permission(current_user, Permission.SECURITY_MANAGE):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         alert_manager.sla_monitor.record_metric(sla_id, value)
         return {
@@ -151,7 +151,7 @@ def record_sla_metric(
 def get_system_health(request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]) -> dict[str, Any]:
     """Get comprehensive system status"""
     try:
-        if not permission_manager.has_permission(current_user["user_id"], Permission.SYSTEM_HEALTH):
+        if not principal_has_permission(current_user, Permission.SYSTEM_HEALTH):
             raise HTTPException(status_code=403, detail="Insufficient permissions")
         performance = performance_monitor.get_performance_summary()
         alerts = alert_manager.get_active_alerts()
