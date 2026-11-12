@@ -1157,8 +1157,10 @@ def poll_for_jobs():
         return None
 
 
-async def main():
-    """Main miner loop"""
+async def _initialize() -> tuple[list, int] | None:
+    """Startup sequence: GPU/Ollama probes, coordinator wait, miner + pool-hub
+    registration, default offer publish. Returns (models, max_concurrent_jobs)
+    or None when a fatal prerequisite failed."""
     logger.info("Starting Real GPU Miner Client on Host...")
     gpu_info = get_gpu_info()
     if not gpu_info:
@@ -1174,11 +1176,11 @@ async def main():
         logger.info("Ollama models available: %s", ", ".join(models))
     if not await wait_for_coordinator():
         logger.error("Coordinator not available")
-        return
+        return None
     session_token = register_miner()
     if not session_token:
         logger.error("Failed to register, exiting")
-        return
+        return None
     logger.info("Miner registered successfully, starting main loop...")
 
     # Pool hub registration is best-effort: the miner still serves jobs if the
@@ -1193,70 +1195,112 @@ async def main():
 
     capabilities = build_gpu_capabilities()
     max_concurrent_jobs = int(capabilities.get("max_concurrent_jobs", 1))
+    return models, max_concurrent_jobs
 
-    def _on_job_done(job_id: str, task: asyncio.Task) -> None:
+
+async def _periodic_heartbeats(
+    current_time: float, last_heartbeat: float, last_pool_hub_heartbeat: float, last_offer_publish: float, models: list
+) -> tuple[float, float, float]:
+    """Fire whichever heartbeat/publish interval has elapsed; returns the
+    updated last-fired timestamps."""
+    if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
+        send_heartbeat()
+        last_heartbeat = current_time
+    if current_time - last_pool_hub_heartbeat >= HEARTBEAT_INTERVAL:
+        send_pool_hub_heartbeat()
+        last_pool_hub_heartbeat = current_time
+    if current_time - last_offer_publish >= OFFER_PUBLISH_INTERVAL:
+        await offer_publish_cycle(models)
+        last_offer_publish = current_time
+    return last_heartbeat, last_pool_hub_heartbeat, last_offer_publish
+
+
+async def _ipfs_sweep() -> None:
+    """Best-effort IPFS pin sweep; failures are logged, never fatal."""
+    try:
+        await asyncio.to_thread(ipfs_pinning_sweeper.sweep_once, MINER_WALLET_ADDRESS)
+    except Exception:
+        logger.exception("IPFS hosting sweep failed")
+
+
+async def _agent_executor_sweep() -> None:
+    """Best-effort agent-task sweep; failures are logged, never fatal."""
+    try:
+        offer_map = {o["service_type"]: o for o in DEFAULT_SOFTWARE_OFFERS}
+        stats = await asyncio.to_thread(agent_task_executor.sweep_once, MINER_WALLET_ADDRESS, offer_map)
+        if any(stats.values()):
+            logger.info("Agent executor sweep: %s", stats)
+    except Exception:
+        logger.exception("Agent executor sweep failed")
+
+
+def _on_job_done(job_id: str, task: asyncio.Task) -> None:
+    ACTIVE_JOB_IDS.discard(job_id)
+
+
+def _poll_and_dispatch(models: list, max_concurrent_jobs: int) -> None:
+    """One poll cycle: capacity-guarded job fetch, atomic slot claim, and
+    worker-thread dispatch so heartbeats keep running."""
+    # Only poll if we have capacity; the coordinator also checks
+    # inflight, but a local guard avoids thundering-herd polls and
+    # reflects the actual thread count.
+    if len(ACTIVE_JOB_IDS) >= max_concurrent_jobs:
+        logger.debug("At max capacity (%s/%s jobs); skipping poll", len(ACTIVE_JOB_IDS), max_concurrent_jobs)
+        return
+    job = poll_for_jobs()
+    if not job:
+        return
+    job_id = job.get("job_id")
+    if job_id and not _claim_job_slot(job_id):
+        logger.debug("Job %s already running locally; skipping duplicate dispatch", job_id)
+        return
+    if not job_id:
+        return
+    # Run the blocking, potentially slow model execution in a
+    # worker thread so heartbeats and the next poll continue.
+    # The claim is atomic (check-and-add with no await in
+    # between, on the single event-loop thread — #1485); if
+    # task creation itself fails, release the slot so the
+    # job is not locked out until restart.
+    try:
+        task = asyncio.create_task(asyncio.to_thread(execute_job, job, models))
+    except Exception:
         ACTIVE_JOB_IDS.discard(job_id)
+        raise
+    task.add_done_callback(partial(_on_job_done, job_id))
+
+
+async def main():
+    """Main miner loop"""
+    logger.info("Starting Real GPU Miner Client on Host...")
+    init = await _initialize()
+    if init is None:
+        return
+    models, max_concurrent_jobs = init
 
     last_heartbeat = 0.0
     last_pool_hub_heartbeat = 0.0
     last_poll = 0.0
     last_ipfs_sweep = 0.0
     last_agent_sweep = 0.0
+
     # Set the initial publish time so the first loop iteration does not
     # immediately re-publish all default offers (time.time() - 0 is >> 300s).
     last_offer_publish = time.time()
     try:
         while True:
             current_time = time.time()
-            if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
-                send_heartbeat()
-                last_heartbeat = current_time
-            if current_time - last_pool_hub_heartbeat >= HEARTBEAT_INTERVAL:
-                send_pool_hub_heartbeat()
-                last_pool_hub_heartbeat = current_time
-            if current_time - last_offer_publish >= OFFER_PUBLISH_INTERVAL:
-                await offer_publish_cycle(models)
-                last_offer_publish = current_time
+            last_heartbeat, last_pool_hub_heartbeat, last_offer_publish = await _periodic_heartbeats(
+                current_time, last_heartbeat, last_pool_hub_heartbeat, last_offer_publish, models
+            )
             if current_time - last_ipfs_sweep >= IPFS_PIN_SWEEP_INTERVAL:
-                try:
-                    await asyncio.to_thread(ipfs_pinning_sweeper.sweep_once, MINER_WALLET_ADDRESS)
-                except Exception:
-                    logger.exception("IPFS hosting sweep failed")
+                await _ipfs_sweep()
                 last_ipfs_sweep = current_time
             if AGENT_EXECUTOR_ENABLED and current_time - last_agent_sweep >= AGENT_EXECUTOR_SWEEP_INTERVAL:
-                try:
-                    offer_map = {o["service_type"]: o for o in DEFAULT_SOFTWARE_OFFERS}
-                    stats = await asyncio.to_thread(agent_task_executor.sweep_once, MINER_WALLET_ADDRESS, offer_map)
-                    if any(stats.values()):
-                        logger.info("Agent executor sweep: %s", stats)
-                except Exception:
-                    logger.exception("Agent executor sweep failed")
+                await _agent_executor_sweep()
                 last_agent_sweep = current_time
             if current_time - last_poll >= 3:
-                # Only poll if we have capacity; the coordinator also checks
-                # inflight, but a local guard avoids thundering-herd polls and
-                # reflects the actual thread count.
-                if len(ACTIVE_JOB_IDS) < max_concurrent_jobs:
-                    job = poll_for_jobs()
-                    if job:
-                        job_id = job.get("job_id")
-                        if job_id and not _claim_job_slot(job_id):
-                            logger.debug("Job %s already running locally; skipping duplicate dispatch", job_id)
-                        elif job_id:
-                            # Run the blocking, potentially slow model execution in a
-                            # worker thread so heartbeats and the next poll continue.
-                            # The claim is atomic (check-and-add with no await in
-                            # between, on the single event-loop thread — #1485); if
-                            # task creation itself fails, release the slot so the
-                            # job is not locked out until restart.
-                            try:
-                                task = asyncio.create_task(asyncio.to_thread(execute_job, job, models))
-                            except Exception:
-                                ACTIVE_JOB_IDS.discard(job_id)
-                                raise
-                            task.add_done_callback(partial(_on_job_done, job_id))
-                else:
-                    logger.debug("At max capacity (%s/%s jobs); skipping poll", len(ACTIVE_JOB_IDS), max_concurrent_jobs)
+                _poll_and_dispatch(models, max_concurrent_jobs)
                 last_poll = current_time
             await asyncio.sleep(1)
     except KeyboardInterrupt:
