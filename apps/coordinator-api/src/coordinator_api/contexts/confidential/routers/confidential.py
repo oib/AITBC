@@ -12,7 +12,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 
-from ....auth import AdminOrClientDep
+from ....auth import AdminOrClientDep, AuthDep
 from ....config import settings
 from ....schemas import (
     AccessLogQuery,
@@ -79,6 +79,7 @@ def get_access_controller() -> AccessController:
 def create_confidential_transaction(
     request_http: Request,
     request: ConfidentialTransactionCreate,
+    _user: AuthDep,
 ) -> ConfidentialTransactionView:
     """Create a new confidential transaction with optional encryption"""
     try:
@@ -136,6 +137,7 @@ def create_confidential_transaction(
 def get_confidential_transaction(
     request: Request,
     transaction_id: str,
+    _user: AuthDep,
 ) -> ConfidentialTransactionView:
     """Get confidential transaction metadata (without decrypting sensitive data)"""
     try:
@@ -155,11 +157,15 @@ def access_confidential_data(
     request: Request,
     request_data: ConfidentialAccessRequest,
     transaction_id: str,
+    user: AuthDep,
 ) -> ConfidentialAccessResponse:
     """Request access to decrypt confidential transaction data"""
     try:
         if request_data.transaction_id != transaction_id:
             raise HTTPException(status_code=400, detail="Transaction ID mismatch")
+        principal = str(user.get("sub") or user.get("user_id") or "")
+        if request_data.requester != principal and user.get("role") != "admin":
+            raise HTTPException(status_code=403, detail="requester must match the authenticated principal")
         transaction = ConfidentialTransaction(
             transaction_id=transaction_id,
             job_id="test-job",
@@ -216,6 +222,7 @@ def audit_access_confidential_data(
     request: Request,
     transaction_id: str,
     authorization: str,
+    _user: AuthDep,
     purpose: str = "audit",
 ) -> ConfidentialAccessResponse:
     """Audit access to confidential transaction data"""

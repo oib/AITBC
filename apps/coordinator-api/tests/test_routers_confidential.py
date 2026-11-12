@@ -153,3 +153,77 @@ def test_keys_rotate_authenticated_is_honest_501(client, client_token, monkeypat
     )
     resp = client.post("/v1/confidential/keys/rotate", headers=headers, params={"participant_id": "p-rotate"})
     assert resp.status_code == 501
+
+
+# --- #1877: requester identity bound to the JWT principal ---
+
+
+@pytest.fixture
+def admin_token() -> str:
+    return create_access_token("admin1", "admin")
+
+
+def _access_body(requester: str) -> dict:
+    return {
+        "transaction_id": "ctx-1",
+        "requester": requester,
+        "purpose": "audit",
+    }
+
+
+@pytest.mark.unit
+def test_access_requires_auth(client):
+    """POST /transactions/{id}/access rejects unauthenticated callers."""
+    resp = client.post("/v1/confidential/transactions/ctx-1/access", json=_access_body("client1"))
+    assert resp.status_code in (401, 403)
+
+
+@pytest.mark.unit
+def test_access_rejects_foreign_requester(client, client_token):
+    """#1877: a valid token cannot assert another participant as requester."""
+    resp = client.post(
+        "/v1/confidential/transactions/ctx-1/access",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json=_access_body("victim-999"),
+    )
+    assert resp.status_code == 403
+    assert "requester must match" in resp.text
+
+
+@pytest.mark.unit
+def test_access_allows_self_requester(client, client_token):
+    """requester == token sub passes the binding (downstream policy may still deny)."""
+    resp = client.post(
+        "/v1/confidential/transactions/ctx-1/access",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json=_access_body("client1"),
+    )
+    assert "requester must match" not in resp.text
+
+
+@pytest.mark.unit
+def test_access_admin_may_assert_requester(client, admin_token):
+    """Admin role keeps operator override for support/audit flows."""
+    resp = client.post(
+        "/v1/confidential/transactions/ctx-1/access",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json=_access_body("any-participant"),
+    )
+    assert "requester must match" not in resp.text
+
+
+@pytest.mark.unit
+def test_confidential_transactions_get_requires_auth(client):
+    """GET /transactions/{id} rejects unauthenticated callers."""
+    resp = client.get("/v1/confidential/transactions/ctx-1")
+    assert resp.status_code in (401, 403)
+
+
+@pytest.mark.unit
+def test_confidential_audit_requires_auth(client):
+    """POST /transactions/{id}/audit rejects unauthenticated callers."""
+    resp = client.post(
+        "/v1/confidential/transactions/ctx-1/audit",
+        params={"authorization": "audit-key", "purpose": "audit"},
+    )
+    assert resp.status_code in (401, 403)
