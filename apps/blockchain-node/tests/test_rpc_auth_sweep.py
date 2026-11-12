@@ -163,6 +163,43 @@ class TestSubscriptionAuth:
         assert client.get("/rpc/subscribers").status_code != 403
 
 
+class TestExportChainAuth:
+    """export-chain is a bulk/state-disclosure route: fleet keys only — the
+    node's own BLOCKCHAIN_RPC_API_KEY or a BLOCKCHAIN_RPC_API_KEY_PEERS
+    member. Issued /rpc/join keys are self-serve and must not unlock a full
+    chain export (#1871)."""
+
+    @pytest.fixture
+    def client(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(escrow_routes, "_RPC_API_PEER_KEYS", frozenset({"peer-key-a"}))
+        monkeypatch.setenv("PEER_KEYS_DB", str(tmp_path / "peer_keys.db"))
+        from aitbc_chain.rpc.routers.core import router
+
+        return _app(router)
+
+    def test_reject_missing_key(self, client):
+        assert client.get("/rpc/export-chain").status_code == 403
+
+    def test_reject_wrong_key(self, client):
+        assert client.get("/rpc/export-chain", headers={"X-API-Key": "nope"}).status_code == 403
+
+    def test_issued_join_key_rejected(self, client):
+        """A live issued join key — valid for subscribe/heartbeat/lease —
+        must still get 403 here."""
+        from aitbc_chain.rpc import peer_keys
+
+        issued = peer_keys.issue("joiner.example.net", "10.9.9.9")
+        assert client.get("/rpc/export-chain", headers={"X-API-Key": issued}).status_code == 403
+
+    def test_peer_key_reaches_handler(self, client):
+        resp = client.get("/rpc/export-chain", headers={"X-API-Key": "peer-key-a"})
+        assert resp.status_code != 403
+
+    def test_admin_key_reaches_handler(self, client):
+        resp = client.get("/rpc/export-chain", headers={"X-API-Key": KEY})
+        assert resp.status_code != 403
+
+
 class TestIslandsAuth:
     """islands/join returned node credentials publicly."""
 

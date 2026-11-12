@@ -308,6 +308,10 @@ Returns the sync optimization configuration (`sync_parallel_*`,
 GET /rpc/export-chain?chain_id=<chain>
 ```
 
+Requires `X-API-Key`: this node's `BLOCKCHAIN_RPC_API_KEY` or a key listed in
+its `BLOCKCHAIN_RPC_API_KEY_PEERS` (fleet peers calling `force-sync` use
+their own node key). Issued `/rpc/join` keys are rejected (#1871).
+
 Exports the full chain state (blocks, accounts, transactions) as JSON:
 
 ```json

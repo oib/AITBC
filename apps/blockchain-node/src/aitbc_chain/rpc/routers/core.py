@@ -31,7 +31,7 @@ from ..blocks import get_block, get_blocks_range, get_genesis_allocations, get_h
 from ..chains import ChainActionRequest, ChainActionResponse, list_chains, start_chain, stop_chain
 from ..gossip import GetLogsRequest, GetLogsResponse, get_logs
 from ..sync import export_chain, force_sync, get_sync_config, import_chain
-from ..escrow_routes import verify_rpc_api_key, verify_rpc_peer_key
+from ..escrow_routes import verify_rpc_api_key, verify_rpc_export_key
 from ..transactions import (
     TransactionRequest,
     query_transactions,
@@ -509,11 +509,12 @@ def reconcile_balance_route(request: Request, address: str, chain_id: str | None
     return reconcile_balance(request, address, chain_id)  # type: ignore[no-any-return]
 
 
-# Peer-key auth, not the local admin key: force_sync fetches a *peer's*
+# Fleet-key auth, not issued join keys: force_sync fetches a *peer's*
 # export-chain, and each fleet node holds its own BLOCKCHAIN_RPC_API_KEY —
-# the peer accepts this node's key via its BLOCKCHAIN_RPC_API_KEY_PEERS list
-# or an issued join key (RPC-EXPORT-1: the route used to be fully public).
-@router.get("/export-chain", summary="Export full chain state", dependencies=[Depends(verify_rpc_peer_key)])
+# the peer accepts this node's key via its BLOCKCHAIN_RPC_API_KEY_PEERS list.
+# Issued /rpc/join keys are self-serve and must not unlock a full chain
+# export (#1871; RPC-EXPORT-1 had already removed the fully-public route).
+@router.get("/export-chain", summary="Export full chain state", dependencies=[Depends(verify_rpc_export_key)])
 @rate_limit(rate=200, per=60)
 def export_chain_route(request: Request, chain_id: str | None = None) -> Any:
     """Export full chain state as JSON for manual synchronization"""
