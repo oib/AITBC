@@ -19,6 +19,7 @@ from ..services.agent_auth import (
     authorize_admin_scope,
     authorize_agent_scope,
     authorize_any_principal,
+    authorize_escrow_party,
     optional_agent,
 )
 from ..services.nonce_store import get_nonce_store
@@ -366,6 +367,7 @@ def get_escrow_status(
     entry = state.payment_escrow.get_escrow(escrow_id)
     if not entry:
         raise HTTPException(status_code=404, detail="Escrow not found")
+    authorize_escrow_party(principal, entry.requester, entry.agent, "tasks_escrow_status")
     return {
         "status": "success",
         "escrow": {
@@ -711,6 +713,7 @@ def get_task_escrow(
     entry = state.payment_escrow.get_escrow_for_task(task_id)
     if not entry:
         raise HTTPException(status_code=404, detail="No escrow found for task")
+    authorize_escrow_party(principal, entry.requester, entry.agent, "tasks_task_escrow")
     return {
         "status": "success",
         "escrow": {
