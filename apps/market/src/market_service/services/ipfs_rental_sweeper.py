@@ -26,6 +26,7 @@ from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta
 
+import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 from typing import Any
@@ -39,6 +40,20 @@ from ..domain.market import IpfsRentalToken
 from ..storage import get_session_context
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the escrow RPC probes below: HTTP/transport
+# errors from the blockchain RPC client (httpx), its ValueError guards, and
+# data-shape errors. RuntimeError covers abort-style raises; genuine
+# BaseExceptions (incl. asyncio.CancelledError) still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+)
 
 
 class IpfsRentalSweeper:
@@ -78,7 +93,7 @@ class IpfsRentalSweeper:
 
     async def stop(self) -> None:
         """Stop the background sweep loop."""
-        self._stop_event.set()
+        self._stop_event.set()  # noqa: unawaited-async
         if self._task is not None:
             self._task.cancel()
             try:
@@ -284,7 +299,7 @@ class IpfsRentalSweeper:
             if result and result.get("success"):
                 return str(result.get("tx_hash", ""))
             logger.warning("Escrow release for %s was not successful: %s", job_id, result)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to release escrow %s: %s", job_id, e)
         return None
 
@@ -295,7 +310,7 @@ class IpfsRentalSweeper:
             if result and result.get("success"):
                 return str(result.get("tx_hash", ""))
             logger.warning("Escrow refund for %s was not successful: %s", job_id, result)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to refund escrow %s: %s", job_id, e)
         return None
 

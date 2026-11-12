@@ -7,6 +7,7 @@ from typing import Any
 
 import httpx
 from sqlalchemy import update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import col, select
 
@@ -20,6 +21,22 @@ from ..domain.offer_status import spellings_of
 from .market_service import max_page_size, offer_reservation_ttl_seconds
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the task-submission fallback below: HTTP/RPC
+# I/O (httpx), response JSON decode (ValueError), sqlalchemy commit errors,
+# lazy-import and data-shape errors. RuntimeError covers abort-style raises;
+# genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    SQLAlchemyError,
+)
 
 
 class MatchingService:
@@ -242,7 +259,7 @@ class MatchingService:
                 escrow_id = task_data.get("escrow_id")
                 # v0.10.1: job_id is the preferred identifier for escrow verification
                 job_id = task_data.get("job_id") or escrow_id
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Failed to submit task to agent-coordinator: %s", e)
                 # Release the reservation so the offer does not stay stuck.
                 # The CAS wrote 'reserved'; the in-memory row still holds the

@@ -10,9 +10,24 @@ from __future__ import annotations
 import logging
 from typing import Any
 
+import httpx
+
 from aitbc.blockchain.rpc_client import BlockchainClient as BaseBlockchainClient
 
 logger = logging.getLogger(__name__)
+
+# Expected failure surface for the resilient wrappers below: HTTP/RPC I/O
+# (httpx), response decode and data-shape errors. RuntimeError covers
+# abort-style raises; genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+)
 
 
 class BlockchainClient(BaseBlockchainClient):
@@ -32,7 +47,7 @@ class BlockchainClient(BaseBlockchainClient):
         """
         try:
             return await super().get_block_height(chain_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to get block height: %s", e)
             return 0
 
@@ -43,6 +58,6 @@ class BlockchainClient(BaseBlockchainClient):
         """
         try:
             return await super().get_chain_health(chain_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to get chain health: %s", e)
             return {}

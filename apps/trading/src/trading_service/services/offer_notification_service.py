@@ -17,6 +17,19 @@ from aitbc.trading.subscription_types import OfferEvent, OfferNotification, Offe
 
 logger = logging.getLogger(__name__)
 
+# Expected failure surface for the subscriber-callback fallback below:
+# arbitrary callback code raising data/OS/abort-style errors.
+# RuntimeError covers abort-style raises; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class OfferNotificationService:
     r"""Manages saved query subscriptions and debounced batch notifications.
@@ -121,7 +134,7 @@ class OfferNotificationService:
                 result = callback(notification)
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Notification callback error for %s: %s", subscriber_id, e)
 
         logger.debug("Flushed %d events to subscriber %s", notification.batch_size, subscriber_id)

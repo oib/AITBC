@@ -17,9 +17,7 @@
       1 apps/agent-coordinator/src/agent_app/routing/agent_discovery.py
       1 apps/agent-coordinator/src/agent_app/routing/load_balancer.py
       1 apps/agent-coordinator/src/agent_app/websocket/agent_stream.py
-      1 apps/blockchain-explorer/routers/analytics.py
       1 apps/blockchain-explorer/routers/blocks.py
-      1 apps/blockchain-explorer/routers/search.py
       2 apps/blockchain-node/src/aitbc_chain/app.py
       1 apps/blockchain-node/src/aitbc_chain/aux_state.py
       1 apps/blockchain-node/src/aitbc_chain/chain_sync.py
@@ -30,7 +28,6 @@
       3 apps/blockchain-node/src/aitbc_chain/contracts/escrow.py
       1 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py
       4 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py
-      1 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py
       1 apps/blockchain-node/src/aitbc_chain/database.py
       2 apps/blockchain-node/src/aitbc_chain/gossip/backends/broadcast.py
       5 apps/blockchain-node/src/aitbc_chain/main.py
@@ -75,17 +72,14 @@
       1 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/explorer.py
       2 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/jobs.py
       1 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/receipts.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/market/routers/global_market_integration.py
       1 apps/coordinator-api/src/coordinator_api/contexts/market/routers/market_gpu.py
       1 apps/coordinator-api/src/coordinator_api/contexts/market/services/bond_slashing.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/market/services/global_market_integration.py
       1 apps/coordinator-api/src/coordinator_api/contexts/payments/services/escrow_relay.py
       1 apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py
       1 apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py
       1 apps/coordinator-api/src/coordinator_api/contexts/portfolio/routers/portfolio.py
       1 apps/coordinator-api/src/coordinator_api/contexts/rewards/routers/rewards.py
       1 apps/coordinator-api/src/coordinator_api/contexts/rewards/services/reward_service.py
-      1 apps/coordinator-api/src/coordinator_api/contexts/security/routers/security_router.py
       1 apps/coordinator-api/src/coordinator_api/contexts/tee/attestation.py
       1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/bid_strategy.py
       1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/dynamic_pricing.py
@@ -93,19 +87,9 @@
       1 apps/ffmpeg/main.py
       2 apps/governance/src/governance_service/services/governance_service.py
       1 apps/hermes_agent/main.py
-      1 apps/market/src/market_service/services/market_job_sweeper.py
-      5 apps/market/src/market_service/services/market_service.py
       1 apps/miner/production_miner.py
       1 apps/pool-hub/src/poolhub/services/validation.py
       3 apps/trading/examples/main.py
-      1 apps/trading/src/trading_service/routers/subscriptions.py
-      1 apps/trading/src/trading_service/services/gossip_client.py
-      1 apps/trading/src/trading_service/services/offer_subscription_service.py
-      1 apps/wallet/scripts/import_file_wallets.py
-      1 apps/wallet/src/wallet_app/api_jsonrpc.py
-      1 apps/wallet/src/wallet_app/api_rest.py
-      2 apps/wallet/src/wallet_app/bridge/bridge_monitor.py
-      1 apps/wallet/src/wallet_app/main.py
       3 cli/aitbc_cli/commands/agent.py
       2 cli/aitbc_cli/commands/agent_sdk.py
       1 cli/aitbc_cli/commands/analytics.py

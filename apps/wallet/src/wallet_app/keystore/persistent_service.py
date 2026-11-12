@@ -28,6 +28,22 @@ from aitbc.utils.validation import validate_address
 
 logger = get_logger(__name__)
 
+# Expected failure surface below: chain RPC HTTP I/O (httpx), sqlite
+# keystore-store errors, keystore crypto failures (EncryptionError),
+# key/address decode and data-shape errors. RuntimeError covers
+# abort-style raises; genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    sqlite3.Error,
+    EncryptionError,
+)
+
 _DEFAULT_DB = settings.ledger_db_path.parent / "keystore.db"
 
 # #1858: domain tag separating /sign digests from transaction digests. Must
@@ -232,7 +248,7 @@ class PersistentKeystoreService:
                 "message": result.get("message", ""),
                 "balance": result.get("balance", 0),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             # Log but don't fail - wallet is still created locally
             return {
                 "success": False,
@@ -575,7 +591,7 @@ class PersistentKeystoreService:
             finally:
                 wipe_buffer(secret_bytes)
 
-        except Exception as e:
+        except _OPS_ERRORS as e:
             self._log_access(wallet_id, "transaction_failed", False, ip_address)
             return {
                 "success": False,
@@ -641,7 +657,7 @@ class PersistentKeystoreService:
                 "ambiguous": not definite,
                 "error": f"HTTP {e.response.status_code}: {e.response.text}",
             }
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - #1859: any post-send failure is ambiguous, never a clean rejection
             # Timeout, connection reset, unreadable body — the request may
             # have been accepted before the failure. Ambiguous: the caller
             # must treat the outcome as unknown, never a clean rejection.
@@ -683,9 +699,9 @@ class PersistentKeystoreService:
                     (wallet_id, action, now, int(success), ip_address),
                 )
                 conn.commit()
-            except Exception:
+            except _OPS_ERRORS:
                 # Don't fail the main operation if logging fails
-                pass
+                logger.debug("Wallet access log write failed for %s (%s)", wallet_id, action, exc_info=True)
             finally:
                 conn.close()
 
@@ -757,7 +773,7 @@ class PersistentKeystoreService:
                 conn.close()
                 backup_conn.close()
             return True
-        except Exception:
+        except _OPS_ERRORS:
             return False
 
     def verify_integrity(self) -> dict[str, Any]:

@@ -17,6 +17,19 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.constants import DATA_DIR
 
 logger = get_logger(__name__)
+
+# Expected failure surface below: chains.json file I/O (OSError), JSON
+# decode (ValueError), config data-shape errors, and abort-style raises.
+# RuntimeError covers abort-style raises; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 _DATA_DIR = DATA_DIR / "data"
 
 
@@ -102,7 +115,7 @@ class ChainManager:
                 logger.info("Loaded %s chain configurations", len(self.chains))
             else:
                 self._create_default_chain()
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to load chain configurations: %s", e)
             self._create_default_chain()
 
@@ -139,7 +152,7 @@ class ChainManager:
             with os.fdopen(fd, "w") as f:
                 json.dump(data, f, indent=2)
             logger.info("Saved %s chain configurations", len(self.chains))
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to save chain configurations: %s", e)
 
     def add_chain(self, chain_config: ChainConfig) -> bool:
@@ -154,7 +167,7 @@ class ChainManager:
             self._save_chains()
             logger.info("Added chain: %s", chain_config.chain_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to add chain %s: %s", chain_config.chain_id, e)
             return False
 
@@ -171,7 +184,7 @@ class ChainManager:
             self._save_chains()
             logger.info("Removed chain: %s", chain_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to remove chain %s: %s", chain_id, e)
             return False
 
@@ -195,7 +208,7 @@ class ChainManager:
             self._save_chains()
             logger.info("Set default chain: %s", chain_id)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to set default chain %s: %s", chain_id, e)
             return False
 
@@ -218,7 +231,7 @@ class ChainManager:
             self._save_chains()
             logger.info("Updated chain %s status to %s", chain_id, status.value)
             return True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Failed to update chain status %s: %s", chain_id, e)
             return False
 

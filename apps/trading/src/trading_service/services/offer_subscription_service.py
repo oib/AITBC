@@ -29,6 +29,9 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
+
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.trading.offer_cache import OfferCache
 from aitbc.trading.offer_types import OfferEventType
@@ -39,6 +42,34 @@ from .gossip_client import GossipClient
 from .lease_tracker import OfferLeaseTracker
 
 logger = logging.getLogger(__name__)
+
+# redis is an optional dependency (lazy-imported inside the gossip/lease
+# services); fold its error base into the ops tuple only when importable.
+try:
+    from redis.exceptions import RedisError as _RedisError
+
+    _REDIS_ERRORS: tuple[type[BaseException], ...] = (_RedisError,)
+except ImportError:
+    _REDIS_ERRORS = ()
+
+# Expected failure surface below: Redis transport errors via the
+# lease/gossip services, HTTP/RPC I/O and sqlalchemy errors via the
+# polling-sync path, OfferEvent decode failures, queue-full drops, and
+# data-shape errors from arbitrary event callbacks. RuntimeError covers
+# abort-style raises; genuine BaseExceptions (incl. asyncio.CancelledError)
+# still propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    SQLAlchemyError,
+    *_REDIS_ERRORS,
+)
 
 
 class OfferSubscriptionService:
@@ -162,9 +193,9 @@ class OfferSubscriptionService:
         sub = self._gossip_subscriptions.pop(chain_id, None)
         if sub is not None:
             try:
-                sub.close()
-            except Exception:
-                pass
+                sub.close()  # noqa: unawaited-async
+            except _OPS_ERRORS:
+                logger.debug("Gossip subscription close failed for chain %s", chain_id, exc_info=True)
         self._chain_status[chain_id] = SubscriptionStatus.DISCONNECTED
         logger.info("Stopped offer subscription for chain %s", chain_id)
 
@@ -216,16 +247,38 @@ class OfferSubscriptionService:
         if not client.started:
             await client.start()
 
-        subscription: Any = None
-        queue: asyncio.Queue[Any]
+        subscription, queue = await self._open_gossip_subscription(chain_id, client, topic)
 
+        silent_threshold = settings.subscription_silent_threshold_multiplier * settings.offer_subscription_heartbeat_seconds
+
+        try:
+            while self._running:
+                await self._gossip_iteration(chain_id, queue, silent_threshold)
+        except asyncio.CancelledError:
+            pass
+        except _OPS_ERRORS as e:
+            logger.warning("Subscription loop error for chain %s: %s", chain_id, e)
+            self._chain_status[chain_id] = SubscriptionStatus.RECONNECTING
+        finally:
+            self._gossip_subscriptions.pop(chain_id, None)
+            if subscription is not None and hasattr(subscription, "close"):
+                try:
+                    subscription.close()  # noqa: unawaited-async
+                except _OPS_ERRORS:
+                    logger.debug("Gossip subscription close failed for chain %s", chain_id, exc_info=True)
+
+    async def _open_gossip_subscription(self, chain_id: str, client: Any, topic: str) -> tuple[Any, asyncio.Queue[Any]]:
+        """Subscribe to the gossip topic, falling back to a bare in-memory
+        queue when the subscribe fails; also arms the B20 reconnect task.
+        Returns ``(subscription_or_None, queue)``."""
+        subscription: Any = None
         try:
             subscription = await client.subscribe(topic, max_queue_size=100)
             queue = subscription.queue
             self._gossip_subscriptions[chain_id] = subscription
             self._chain_status[chain_id] = SubscriptionStatus.SUBSCRIBED
             logger.info("Gossip subscription active for topic %s (chain %s)", topic, chain_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Failed to subscribe to gossip topic %s: %s — using in-memory fallback", topic, e)
             # In-memory fallback: create a bare queue so publish_event still works
             queue = asyncio.Queue(maxsize=100)
@@ -235,42 +288,28 @@ class OfferSubscriptionService:
         if settings.offer_subscription_fallback_to_polling:
             reconnect_task = create_task_with_logging(self._reconnect_loop(chain_id), name=f"offer-reconnect-{chain_id}")
             self._reconnect_tasks[chain_id] = reconnect_task
+        return subscription, queue
 
-        silent_threshold = settings.subscription_silent_threshold_multiplier * settings.offer_subscription_heartbeat_seconds
-
+    async def _gossip_iteration(self, chain_id: str, queue: asyncio.Queue[Any], silent_threshold: float) -> None:
+        """One receive/decode/handle step of the subscription loop, including
+        the B20 silence check on timeout."""
         try:
-            while self._running:
-                try:
-                    raw = await asyncio.wait_for(queue.get(), timeout=settings.offer_subscription_heartbeat_seconds)
-                    # B18: Decode gossip message into OfferEvent
-                    event = self._decode_gossip_message(raw, chain_id)
-                    if event is not None:
-                        self._last_event_time[chain_id] = time.monotonic()
-                        # B20: If we were in polling fallback, switch back to subscribed
-                        if self._chain_status[chain_id] == SubscriptionStatus.POLLING_FALLBACK:
-                            self._chain_status[chain_id] = SubscriptionStatus.SUBSCRIBED
-                            logger.info(
-                                "Chain %s switched from polling_fallback to subscribed (gossip event received)", chain_id
-                            )
-                        await self._handle_event(event)
-                except asyncio.TimeoutError:
-                    # B20: Check for silence → switch to polling fallback
-                    if self._chain_status[chain_id] == SubscriptionStatus.SUBSCRIBED:
-                        silent_for = time.monotonic() - self._last_event_time.get(chain_id, time.monotonic())
-                        if silent_for >= silent_threshold:
-                            self._switch_to_polling(chain_id)
-        except asyncio.CancelledError:
-            pass
-        except Exception as e:
-            logger.warning("Subscription loop error for chain %s: %s", chain_id, e)
-            self._chain_status[chain_id] = SubscriptionStatus.RECONNECTING
-        finally:
-            self._gossip_subscriptions.pop(chain_id, None)
-            if subscription is not None and hasattr(subscription, "close"):
-                try:
-                    subscription.close()
-                except Exception:
-                    pass
+            raw = await asyncio.wait_for(queue.get(), timeout=settings.offer_subscription_heartbeat_seconds)
+            # B18: Decode gossip message into OfferEvent
+            event = self._decode_gossip_message(raw, chain_id)
+            if event is not None:
+                self._last_event_time[chain_id] = time.monotonic()
+                # B20: If we were in polling fallback, switch back to subscribed
+                if self._chain_status[chain_id] == SubscriptionStatus.POLLING_FALLBACK:
+                    self._chain_status[chain_id] = SubscriptionStatus.SUBSCRIBED
+                    logger.info("Chain %s switched from polling_fallback to subscribed (gossip event received)", chain_id)
+                await self._handle_event(event)
+        except asyncio.TimeoutError:
+            # B20: Check for silence → switch to polling fallback
+            if self._chain_status[chain_id] == SubscriptionStatus.SUBSCRIBED:
+                silent_for = time.monotonic() - self._last_event_time.get(chain_id, time.monotonic())
+                if silent_for >= silent_threshold:
+                    self._switch_to_polling(chain_id)
 
     def _decode_gossip_message(self, raw: Any, chain_id: str) -> OfferEvent | None:
         """Decode a raw gossip message into an :class:`OfferEvent`.
@@ -284,7 +323,7 @@ class OfferSubscriptionService:
         if isinstance(raw, dict):
             try:
                 return OfferEvent.from_dict(raw)
-            except Exception:
+            except _OPS_ERRORS:
                 logger.debug("Failed to decode gossip dict as OfferEvent for chain %s", chain_id, exc_info=True)
                 return None
         logger.debug("Unexpected gossip message type for chain %s: %s", chain_id, type(raw).__name__)
@@ -325,7 +364,7 @@ class OfferSubscriptionService:
                 await self._attempt_reconnect(chain_id)
         except asyncio.CancelledError:
             pass
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Reconnect loop error for chain %s: %s", chain_id, e)
 
     async def _poll_chain(self, chain_id: str) -> None:
@@ -339,7 +378,7 @@ class OfferSubscriptionService:
             sync_svc = result
             await sync_svc.sync_chain(chain_id)
             logger.info("Polling fallback sync completed for chain %s", chain_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("Polling fallback sync failed for chain %s: %s", chain_id, e)
 
     async def _attempt_reconnect(self, chain_id: str) -> None:
@@ -349,7 +388,7 @@ class OfferSubscriptionService:
         if not client.started:
             try:
                 await client.start()
-            except Exception:
+            except _OPS_ERRORS:
                 return
 
         # If we already have an active Redis subscription, nothing to do
@@ -365,9 +404,9 @@ class OfferSubscriptionService:
             old = self._gossip_subscriptions.pop(chain_id, None)
             if old is not None and hasattr(old, "close"):
                 try:
-                    old.close()
-                except Exception:
-                    pass
+                    old.close()  # noqa: unawaited-async
+                except _OPS_ERRORS:
+                    logger.debug("Gossip subscription close failed for chain %s", chain_id, exc_info=True)
             self._gossip_subscriptions[chain_id] = new_sub
             self._last_event_time[chain_id] = time.monotonic()
             if self._chain_status[chain_id] == SubscriptionStatus.POLLING_FALLBACK:
@@ -376,7 +415,7 @@ class OfferSubscriptionService:
             elif self._chain_status[chain_id] == SubscriptionStatus.RECONNECTING:
                 self._chain_status[chain_id] = SubscriptionStatus.SUBSCRIBED
                 logger.info("Chain %s gossip subscription re-established", chain_id)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.debug("Reconnect attempt failed for chain %s: %s", chain_id, e)
 
     _LAST_EVENT_MAX = 10000
@@ -423,7 +462,7 @@ class OfferSubscriptionService:
                 result = self._on_event(event)
                 if asyncio.iscoroutine(result):
                     await result
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Event callback error: %s", e)
 
     def publish_event(self, event: OfferEvent) -> None:
@@ -450,7 +489,7 @@ class OfferSubscriptionService:
                     asyncio.ensure_future(client.publish_local(f"offers.{event.chain_id}", event))
                 else:
                     loop.run_until_complete(client.publish_local(f"offers.{event.chain_id}", event))
-            except Exception:
+            except _OPS_ERRORS:
                 logger.debug("publish_event fallback failed for chain %s", event.chain_id, exc_info=True)
 
     async def inject_event(self, event: OfferEvent) -> None:

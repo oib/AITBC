@@ -43,6 +43,30 @@ from .storage import init_db
 configure_logging(level="INFO", service_name="trading", to_file=True)
 logger = get_logger(__name__)
 
+# redis is an optional dependency (lazy-imported inside the gossip/lease
+# services); fold its error base into the ops tuple only when importable.
+try:
+    from redis.exceptions import RedisError as _RedisError
+
+    _REDIS_ERRORS: tuple[type[BaseException], ...] = (_RedisError,)
+except ImportError:
+    _REDIS_ERRORS = ()
+
+# Expected failure surface for the startup fallbacks below: optional-dep
+# import failures, Redis transport errors, and data-shape errors.
+# RuntimeError covers abort-style raises; genuine BaseExceptions still
+# propagate (#1862).
+_OPS_ERRORS = (
+    ImportError,
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    *_REDIS_ERRORS,
+)
+
 
 # SECRET-RELOAD-1 (#1776): reload JWT/API-key secrets from env files on SIGHUP.
 try:
@@ -68,7 +92,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await gossip_client.start()
         set_gossip_client(gossip_client)
         logger.info("Gossip client initialized (backend=%s)", settings.gossip_backend)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Failed to initialize gossip client: %s — using fallback", e)
 
     # v0.10.1 §B19: Initialize lease tracker on startup
@@ -77,7 +101,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await lease_tracker.start()
         set_lease_tracker(lease_tracker)
         logger.info("Offer lease tracker initialized")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Failed to initialize lease tracker: %s — using fallback", e)
 
     yield

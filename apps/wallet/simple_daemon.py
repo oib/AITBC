@@ -31,6 +31,32 @@ _brand = get_active_brand()
 wallet_app = FastAPI(title="AITBC Wallet Daemon", debug=False)
 logger = get_logger(__name__)
 
+# aitbc_cli is lazy-imported inside the wallet-create path; fold its error
+# base into the ops tuple only when importable.
+try:
+    from aitbc_cli.utils.error_handling import CLIError as _CLIError
+
+    _CLI_ERRORS: tuple[type[BaseException], ...] = (_CLIError,)
+except ImportError:
+    _CLI_ERRORS = ()
+
+# Expected failure surface below: daemon/blockchain HTTP I/O (httpx),
+# keystore file I/O and JSON decode (OSError/ValueError), crypto and
+# CLI-command failures (incl. aitbc_cli CLIError), and data-shape errors.
+# RuntimeError covers click.Abort-style aborts and other abort-style
+# raises; genuine BaseExceptions still propagate (#1862).
+_OPS_ERRORS: tuple[type[BaseException], ...] = (
+    ImportError,
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    httpx.HTTPError,
+    *_CLI_ERRORS,
+)
+
 # Configuration
 KEYSTORE_PATH = KEYSTORE_DIR
 BLOCKCHAIN_RPC_URL = _DEFAULT_RPC_URL
@@ -43,7 +69,7 @@ def _encrypt_if_password(private_key: str) -> tuple[str, bool]:
     if WALLET_PASSWORD:
         try:
             return encrypt_private_key(private_key, WALLET_PASSWORD), True
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.warning("failed to encrypt private key: %s", e)
     return private_key, False
 
@@ -89,7 +115,7 @@ async def check_blockchain_health() -> bool:
         async with httpx.AsyncClient() as client:
             response = await client.get(f"{BLOCKCHAIN_RPC_URL}/health", timeout=2.0)
             return response.status_code == 200
-    except (httpx.RequestError, httpx.TimeoutException, Exception):
+    except _OPS_ERRORS:
         return False
 
 
@@ -110,7 +136,7 @@ def get_wallet_list() -> list[dict[str, Any]]:
                             "encrypted": wallet_data.get("encrypted", False),
                         }
                     )
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.error("Error reading wallet %s: %s", wallet_file, e)
     return wallets
 
@@ -124,8 +150,8 @@ async def get_blockchain_balance(address: str) -> int:
             if response.status_code == 200:
                 data = response.json()
                 return int(data.get("balance", 0))
-    except Exception:
-        pass
+    except _OPS_ERRORS:
+        logger.debug("Blockchain balance lookup failed for %s", address, exc_info=True)
     return 0
 
 
@@ -144,7 +170,7 @@ async def create_chain(request: dict[str, Any]):
     chain_id = request.get("chain_id")
     name = request.get("name")
     coordinator_url = request.get("coordinator_url")
-    request.get("coordinator_api_key")
+    request.get("coordinator_api_key")  # noqa: unawaited-async
     metadata = request.get("metadata", {})
 
     if not chain_id or not name:
@@ -442,7 +468,7 @@ async def create_wallet(request: dict[str, Any] | None = None):
                 "mode": "daemon",
             }
         )
-    except Exception:
+    except _OPS_ERRORS:
         # Fallback: create a simple wallet
         import secrets
 
