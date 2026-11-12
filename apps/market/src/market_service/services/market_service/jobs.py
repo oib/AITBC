@@ -160,8 +160,22 @@ class _JobsMixin(_CoreMixin):
         # price is stored in AIT; on-chain value is in compute-units (1 AIT = 36_000_000)
         required_value = ait_to_units(bid.price)
         tx_value = int(tx.get("value", 0) or 0)
-        if required_value > 0 and tx_value < required_value:
+        # #1914: fail closed on non-positive bid prices — _create_bid now
+        # rejects them, but a legacy/corrupt row must not skip the minimum.
+        if required_value <= 0:
+            raise ValueError(f"Bid {bid.id} has no positive price to verify against")
+        if tx_value < required_value:
             raise ValueError(f"Transaction value {tx_value} compute-units is less than required {required_value}")
+
+        # #1914: sender/recipient/value alone do not bind the tx to THIS bid —
+        # any confirmed buyer→provider payment of sufficient size used to
+        # complete it. The sealed tx must reference the bid or its offer in
+        # the payload, the same order-reference convention the chain's
+        # order_id index (_ORDER_ID_PAYLOAD_FIELDS) already resolves.
+        payload = tx.get("payload") or {}
+        refs = {str(payload.get(k)) for k in ("bid_id", "offer_id", "order_id") if payload.get(k) is not None}
+        if bid.id not in refs and offer.id not in refs:
+            raise ValueError(f"Transaction {tx_hash} is not bound to bid {bid.id} or offer {offer.id}")
 
     async def get_service_by_offer_id(self, offer_id: str) -> dict[str, Any] | None:
         """Get a software service by offer_id"""

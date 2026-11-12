@@ -43,7 +43,8 @@ class TestBookOfferIdempotency:
 
     def test_book_replays_after_success(self, client):
         offer_id = self._offer(client)
-        body = {"wallet": "0xbuyer", "duration_hours": 1}
+        # #1914: the offer carries no ask, so the buyer names a positive price.
+        body = {"wallet": "0xbuyer", "duration_hours": 1, "price": "5"}
         r1 = client.post(f"/v1/market/offers/{offer_id}/book", json=body, headers={"Idempotency-Key": "b1"})
         assert r1.status_code == 200
         # The offer is now booked — a replay must return the recorded result,

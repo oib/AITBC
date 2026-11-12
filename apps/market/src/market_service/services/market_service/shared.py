@@ -150,6 +150,26 @@ def _validate_booking_numbers(booking_data: dict[str, Any]) -> None:
             raise ValueError("duration_hours must be finite")
 
 
+def _resolve_bid_price(booking_data: dict[str, Any], offer_price: Any) -> Decimal:
+    """Effective bid price for an offer booking, bounded to the offer's ask.
+
+    #1914: ``complete_bid`` only enforces ``tx_value >= ait_to_units(bid.price)``
+    # when that value is positive, so a zero (or under-ask) price lets any
+    # confirmed buyer→provider tx — even a 0-value one — settle the bid and
+    # delist the offer as paid. The bid price must therefore be strictly
+    # positive and at least the offer's advertised price. Runs before the
+    # offer CAS claim (via ``book_offer``) so a rejected price cannot strand
+    # the offer ``booked`` with no bid.
+    """
+    price = _money_decimal(booking_data.get("price", offer_price or 0), "price")
+    if price <= 0:
+        raise ValueError("bid price must be positive")
+    ask = _money_decimal(offer_price, "offer price") if offer_price is not None else Decimal(0)
+    if price < ask:
+        raise ValueError(f"bid price {price} is below the offer price {ask}")
+    return price
+
+
 def max_page_size() -> int:
     """Server-side ceiling for list endpoints (MARKET_MAX_PAGE_SIZE, default 500).
 

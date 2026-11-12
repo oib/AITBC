@@ -35,6 +35,7 @@ from .shared import (
     _local_offer_dict,
     _money_decimal,
     _replay_after_integrity_conflict,
+    _resolve_bid_price,
     _validate_booking_numbers,
     bid_ttl_seconds,
     coerce_offer_expires_at,
@@ -209,6 +210,10 @@ class _OffersMixin(_CoreMixin):
             # Non-finite money fields (literal NaN/Infinity JSON) must die
             # here — before the CAS claim flips the offer to 'booked'.
             _validate_booking_numbers(booking_data)
+            # #1914: the effective bid price must be positive and at least the
+            # offer's ask — same reason, same window: a zero-price bid would
+            # settle on any dust tx in complete_bid.
+            _resolve_bid_price(booking_data, offer.price)
             # Booking is the one transition this service performed without asking the FSM:
             # it assigned "booked" directly, which is how a status the FSM cannot parse came
             # to be in the database in the first place. Validated before the bid is created,
@@ -1110,8 +1115,10 @@ class _OffersMixin(_CoreMixin):
             # negative price is worse here — complete_bid only enforces
             # tx_value >= ait_to_units(bid.price) when that value is positive,
             # so a negative/NaN price skips the on-chain minimum entirely and
-            # a "completed" bid settles for dust.
-            price = _money_decimal(booking_data.get("price", offer.price or 0), "price")
+            # a "completed" bid settles for dust. #1914 adds the positive /
+            # at-ask floor; book_offer already ran this before the CAS claim,
+            # this is the same check for any other _create_bid caller.
+            price = _resolve_bid_price(booking_data, offer.price)
             capacity = float(booking_data.get("duration_hours", 1.0))
             bid = Bid(
                 offer_id=offer_id,
