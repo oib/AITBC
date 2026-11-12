@@ -7,7 +7,7 @@ import tempfile
 from collections.abc import Generator
 
 import pytest
-from sqlalchemy import StaticPool, create_engine
+from sqlalchemy import create_engine
 from sqlmodel import Session, SQLModel
 
 # Point the app at a throwaway DB and disable auth middleware before importing main.
@@ -53,12 +53,20 @@ def _rate_limiting_off(monkeypatch) -> None:
 
 
 @pytest.fixture
-def db_engine():
-    """Create a fresh in-memory SQLite engine with all tables."""
+def db_engine(tmp_path):
+    """Create a fresh SQLite engine with all tables.
+
+    File-backed per-test DB: the old ``sqlite:///:memory:`` + StaticPool
+    handed every Session the SAME DBAPI connection, so concurrent
+    ``run_in_threadpool`` workers raced on one sqlite connection
+    (sqlite3.InterfaceError, #1904). Shared-cache in-memory is no better —
+    its table locks raise ``database table is locked`` instead of waiting.
+    A real file gives each pooled connection its own handle and the default
+    busy timeout serializes writers so the CAS predicates actually hold.
+    """
     engine = create_engine(
-        "sqlite:///:memory:",
+        f"sqlite:///{tmp_path}/test.db",
         connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
     )
     SQLModel.metadata.create_all(engine)
     return engine
