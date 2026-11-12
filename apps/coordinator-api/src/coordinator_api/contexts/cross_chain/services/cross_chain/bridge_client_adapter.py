@@ -54,6 +54,7 @@ logger = get_logger(__name__)
 # RuntimeError preserves catch of abort-style raises; BaseExceptions
 # still propagate.
 _OPS_ERRORS: tuple[type[BaseException], ...] = (
+    ArithmeticError,
     OSError,
     ValueError,
     KeyError,

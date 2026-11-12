@@ -15,9 +15,11 @@ from pydantic import BaseModel, Field, field_validator, model_validator
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session, col, func, select, update
+from web3.exceptions import Web3Exception
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
+from aitbc.exceptions import AITBCError
 from aitbc.market.energy_oracle import EVMEnergyOracle, EnergyOracleError
 from aitbc.market.energy_pricing import (
     DEFAULT_FEE_BASIS_POINTS,
@@ -62,6 +64,8 @@ logger = get_logger(__name__)
 # domain errors, Decimal parsing, lazy imports, and data-shape/runtime errors.
 # HTTPException is not in the tuple, so it propagates to the client untouched (#1863).
 _OPS_ERRORS: tuple[type[BaseException], ...] = (
+    AITBCError,
+    ArithmeticError,
     AttributeError,
     EnergyPricingError,
     ImportError,
@@ -72,6 +76,7 @@ _OPS_ERRORS: tuple[type[BaseException], ...] = (
     SQLAlchemyError,
     TypeError,
     ValueError,
+    Web3Exception,
     httpx.HTTPError,
 )
 

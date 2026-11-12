@@ -41,6 +41,7 @@ logger = get_logger(__name__)
 # response construction, datetime/Decimal). RuntimeError covers abort-style
 # raises; genuine BaseExceptions still propagate (#1862).
 _OPS_ERRORS = (
+    ArithmeticError,
     OSError,
     ValueError,
     KeyError,
