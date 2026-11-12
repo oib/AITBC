@@ -1433,75 +1433,18 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
-    v25_threshold = getattr(settings, "state_transition_v25_height", None)
-    if v25_threshold and height >= v25_threshold:
-        return 25
-    v24_threshold = getattr(settings, "state_transition_v24_height", None)
-    if v24_threshold and height >= v24_threshold:
-        return 24
-    v23_threshold = getattr(settings, "state_transition_v23_height", None)
-    if v23_threshold and height >= v23_threshold:
-        return 23
-    v22_threshold = getattr(settings, "state_transition_v22_height", None)
-    if v22_threshold and height >= v22_threshold:
-        return 22
-    v21_threshold = getattr(settings, "state_transition_v21_height", None)
-    if v21_threshold and height >= v21_threshold:
-        return 21
-    v20_threshold = getattr(settings, "state_transition_v20_height", None)
-    if v20_threshold and height >= v20_threshold:
-        return 20
-    v19_threshold = getattr(settings, "state_transition_v19_height", None)
-    if v19_threshold and height >= v19_threshold:
-        return 19
-    v18_threshold = getattr(settings, "state_transition_v18_height", None)
-    if v18_threshold and height >= v18_threshold:
-        return 18
-    v17_threshold = getattr(settings, "state_transition_v17_height", None)
-    if v17_threshold and height >= v17_threshold:
-        return 17
-    v16_threshold = getattr(settings, "state_transition_v16_height", None)
-    if v16_threshold and height >= v16_threshold:
-        return 16
-    v15_threshold = getattr(settings, "state_transition_v15_height", None)
-    if v15_threshold and height >= v15_threshold:
-        return 15
-    v14_threshold = getattr(settings, "state_transition_v14_height", None)
-    if v14_threshold and height >= v14_threshold:
-        return 14
-    v13_threshold = getattr(settings, "state_transition_v13_height", None)
-    if v13_threshold and height >= v13_threshold:
-        return 13
-    v12_threshold = getattr(settings, "state_transition_v12_height", None)
-    if v12_threshold and height >= v12_threshold:
-        return 12
-    v11_threshold = getattr(settings, "state_transition_v11_height", None)
-    if v11_threshold and height >= v11_threshold:
-        return 11
-    v10_threshold = getattr(settings, "state_transition_v10_height", None)
-    if v10_threshold and height >= v10_threshold:
-        return 10
-    v9_threshold = getattr(settings, "state_transition_v9_height", None)
-    if v9_threshold and height >= v9_threshold:
-        return 9
-    v8_threshold = getattr(settings, "state_transition_v8_height", 0)
-    if v8_threshold > 0 and height >= v8_threshold:
-        return 8
-    v7_threshold = getattr(settings, "state_transition_v7_height", 0)
-    if v7_threshold > 0 and height >= v7_threshold:
-        return 7
-    v6_threshold = getattr(settings, "state_transition_v6_height", 0)
-    if v6_threshold > 0 and height >= v6_threshold:
-        return 6
-    v5_threshold = getattr(settings, "state_transition_v5_height", 0)
-    if v5_threshold > 0 and height >= v5_threshold:
-        return 5
-    v4_threshold = getattr(settings, "state_transition_v4_height", 0)
-    if v4_threshold > 0 and height >= v4_threshold:
-        return 4
-    v3_threshold = getattr(settings, "state_transition_v3_height", 0)
-    if v3_threshold > 0 and height >= v3_threshold:
-        return 3
+    # v9+ thresholds treat any configured value as active; v3-v8 additionally
+    # require a positive threshold (their getattr default is 0). v2 inverts:
+    # heights *below* its threshold run v1 rules.
+    for version in range(25, 2, -1):
+        threshold = getattr(settings, f"state_transition_v{version}_height", None)
+        if not threshold:
+            continue
+        if version >= 9:
+            if height >= threshold:
+                return version
+        elif threshold > 0 and height >= threshold:
+            return version
     v2_threshold = getattr(settings, "state_transition_v2_height", 0)
     if v2_threshold > 0 and height < v2_threshold:
         return 1
