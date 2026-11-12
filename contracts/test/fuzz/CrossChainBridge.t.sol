@@ -212,7 +212,7 @@ contract CrossChainBridgeFuzzTest is Test {
         uint256 requestId = _initiate(amount);
 
         assertEq(requestId, 1);
-        (uint256 srcChain, uint256 tgtChain, address srcToken, uint256 amt, address rcp, CrossChainBridge.BridgeStatus st,) =
+        (uint256 srcChain, uint256 tgtChain, address srcToken, uint256 amt, address rcp, CrossChainBridge.BridgeStatus st,,) =
             bridge.getBridgeRequest(requestId);
         assertEq(srcChain, block.chainid);
         assertEq(tgtChain, TARGET_CHAIN);
@@ -294,7 +294,7 @@ contract CrossChainBridgeFuzzTest is Test {
 
         uint256 requestId = _initiateAndConfirm(amount);
 
-        (, , , , , CrossChainBridge.BridgeStatus st, ) = bridge.getBridgeRequest(requestId);
+        (, , , , , CrossChainBridge.BridgeStatus st, , ) = bridge.getBridgeRequest(requestId);
         assertEq(uint256(st), uint256(CrossChainBridge.BridgeStatus.CONFIRMED));
     }
 
@@ -306,7 +306,7 @@ contract CrossChainBridgeFuzzTest is Test {
         vm.prank(validator1);
         bridge.confirmBridge(requestId, lockTxHash, _sign(V1_PK, requestId, lockTxHash));
 
-        (, , , , , CrossChainBridge.BridgeStatus st, ) = bridge.getBridgeRequest(requestId);
+        (, , , , , CrossChainBridge.BridgeStatus st, , ) = bridge.getBridgeRequest(requestId);
         assertEq(uint256(st), uint256(CrossChainBridge.BridgeStatus.PENDING));
     }
 
@@ -380,7 +380,7 @@ contract CrossChainBridgeFuzzTest is Test {
         bridge.completeBridge(requestId, keccak256("unlock-tx"), proof);
 
         assertEq(targetToken.balanceOf(recipient), amount);
-        (, , , , , CrossChainBridge.BridgeStatus st, ) = bridge.getBridgeRequest(requestId);
+        (, , , , , CrossChainBridge.BridgeStatus st, , ) = bridge.getBridgeRequest(requestId);
         assertEq(uint256(st), uint256(CrossChainBridge.BridgeStatus.COMPLETED));
     }
 
@@ -429,7 +429,7 @@ contract CrossChainBridgeFuzzTest is Test {
         bridge.cancelBridge(requestId, "timed out");
 
         assertEq(sourceToken.balanceOf(user), before + amount);
-        (, , , , , CrossChainBridge.BridgeStatus st, ) = bridge.getBridgeRequest(requestId);
+        (, , , , , CrossChainBridge.BridgeStatus st, , ) = bridge.getBridgeRequest(requestId);
         assertEq(uint256(st), uint256(CrossChainBridge.BridgeStatus.CANCELLED));
     }
 
@@ -479,7 +479,7 @@ contract CrossChainBridgeFuzzTest is Test {
         bridge.cancelBridge(requestId, "timed out");
 
         assertEq(sourceToken.balanceOf(user), before + amount);
-        (, , , , , CrossChainBridge.BridgeStatus st, ) = bridge.getBridgeRequest(requestId);
+        (, , , , , CrossChainBridge.BridgeStatus st, , ) = bridge.getBridgeRequest(requestId);
         assertEq(uint256(st), uint256(CrossChainBridge.BridgeStatus.CANCELLED));
     }
 
@@ -579,7 +579,7 @@ contract CrossChainBridgeFuzzTest is Test {
         vm.prank(user);
         bridge.cancelBridge(requestId, "expired");
 
-        (, , , uint256 amt, , CrossChainBridge.BridgeStatus st, ) = bridge.getBridgeRequest(requestId);
+        (, , , uint256 amt, , CrossChainBridge.BridgeStatus st, , ) = bridge.getBridgeRequest(requestId);
         assertTrue(st == CrossChainBridge.BridgeStatus.CANCELLED);
         assertEq(sourceToken.balanceOf(user), balBefore + amt);
     }

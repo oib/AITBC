@@ -20,8 +20,9 @@
  *      (chainid + verifyingContract bound, #1463; matches
  *      bridge.confirmationDigest(requestId, lockTxHash));
  *      onlyActiveValidator + signature-recover == msg.sender means no other
- *      account can submit on a validator's behalf. After 3 confirms the
- *      request is CONFIRMED (min falls back to MIN_CONFIRMATIONS=3).
+ *      account can submit on a validator's behalf. After quorumFor(3)=3
+ *      confirms the request is CONFIRMED (#795: quorum is derived from the
+ *      live validator set, floored at MIN_QUORUM=2).
  *   7  Safe exec: emergencyWithdraw(token, held)   — funds to the Safe
  *   8  Safe exec: token.transfer(signer1, held)    — funds home to deployer
  *   9  Safe exec: pause()                          — back to paused
@@ -90,7 +91,8 @@ const BRIDGE_ABI = [
   "function supportedTokens(address) view returns (address tokenAddress, bool isActive, uint256 bridgeLimit, uint256 feePercentage, bool requiresWhitelist)",
   "function validators(address) view returns (address validatorAddress, bool isActive, uint256 weight, uint256 lastValidation, uint256 totalValidations)",
   "function activeValidators(uint256) view returns (address)",
-  "function getBridgeRequest(uint256) view returns (uint256 sourceChainId, uint256 targetChainId, address sourceToken, uint256 amount, address recipient, uint8 status, uint256 createdAt)",
+  "function getBridgeRequest(uint256) view returns (uint256 sourceChainId, uint256 targetChainId, address sourceToken, uint256 amount, address recipient, uint8 status, uint256 createdAt, uint256 requiredAtCreation)",
+  "function finalizeConfirmed(uint256)",
   "function unpause()",
   "function pause()",
   "function addSupportedToken(address,uint256,uint256,bool)",

@@ -53,16 +53,18 @@ is a new deployment. Facts 1+2 of the #795 audit go live with this redeploy.
    `chainValidators(1)`; writes `deployments-bridge-sepolia.json` entry.
 3. **Safe configuration execs** (new nonce sequence — derive fresh, do NOT
    reuse the staged nonce-20 plan which targeted the old contract):
-   `addValidator` ×3 → `addSupportedToken` (AIT) →
-   **`setRequiredConfirmations(q)`** → `unpause()`.
-   Order matters: quorum must be set before unpause so the first request
-   cannot confirm under a stale default.
+   `addValidator` ×N → `addSupportedToken` (AIT) → `unpause()`.
+   Order matters: the validator set determines the quorum
+   (`quorumFor(n) = max(2, ⌊2n/3⌋+1)`, #795 — there is no
+   `setRequiredConfirmations` anymore), so all validators must be added
+   before unpause so the first request cannot confirm under a partial set.
 4. **Cutover**: update `BRIDGE_CONTRACT_ADDRESS` in
    `/etc/aitbc/aitbc-bridge-monitor.env` on hub → restart
    `aitbc-bridge-monitor` → verify config-status + ledger head.
 5. **Post-deploy verification** (read-only then one live smoke):
-   `owner()`/`paused()`/`validators()`/`supportedTokens()`/`requiredConfirmations()`
-   read-backs pinned to receipt blocks; source verified on Sepolia explorer;
+   `owner()`/`paused()`/`validators()`/`supportedTokens()`/`quorumFor(n)`/
+   `activeValidators()` read-backs pinned to receipt blocks; source verified
+   on Sepolia explorer;
    one deposit→confirm→complete round trip through the Safe path (the
    REDEPLOY-1 rehearsal already proved this flow end-to-end).
 6. **Retire old**: mark `0xFBAF…` `deprecated` in the deployments JSON with
@@ -74,9 +76,10 @@ is a new deployment. Facts 1+2 of the #795 audit go live with this redeploy.
 
 - **Pre-deploy**: full `forge test` + `npx hardhat test` on the deploy
   commit (expect ≥303 forge / ≥218 hardhat per recent runs).
-- **New-path coverage already pinned**: quorum clamp
-  (`setRequiredConfirmations` bounds + confirm-time re-clamp), CONFIRMED
-  expiry exit, lockTxHash agreement, MAX_BRIDGE_AMOUNT cap, fee-forfeit.
+- **New-path coverage already pinned**: quorum formula truth table +
+  snapshot/floor/cap/finalize pins (`CrossChainBridgeQuorum795.t.sol`),
+  CONFIRMED expiry exit, lockTxHash agreement, MAX_BRIDGE_AMOUNT cap,
+  fee-forfeit.
 - **Sepolia smoke**: the round trip above; additionally exercise
   `cancelBridge` on a PENDING request past `BRIDGE_TIMEOUT` if a cheap
   test deposit is acceptable — the CONFIRMED-expiry path needs a real
