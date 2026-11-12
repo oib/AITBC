@@ -382,10 +382,15 @@ def send_transaction(
             error_msg = result.get("error", "Transaction failed")
             logger.warning("Transaction submission failed", extra={"wallet_id": wallet_id, "error": error_msg})
             if idempotency_key and operation_attempt:
-                # Domain failure (bad password, insufficient funds, nonce
-                # conflict) is still ambiguous for a broadcast op — a retry
-                # would sign a fresh transaction. Terminal: operator resolves.
-                get_operations_ledger().fail(idempotency_key, operation_attempt, error_msg, terminal=True)
+                # #1859: only a *definite* rejection (node refused before
+                # mempool admission — bad nonce, insufficient funds, invalid
+                # sig) is safely retryable. Anything else — timeout,
+                # connection drop, 5xx, or an unclassified failure — may have
+                # broadcast, so it stays terminal/uncertain for operator
+                # resolution rather than risking a double-send.
+                get_operations_ledger().fail(
+                    idempotency_key, operation_attempt, error_msg, terminal=not bool(result.get("definite"))
+                )
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
         logger.info(
