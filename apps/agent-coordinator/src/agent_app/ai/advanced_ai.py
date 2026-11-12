@@ -22,6 +22,19 @@ except ImportError:
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the best-effort ML handlers below:
+# in-memory data-shape, numeric and numpy-op errors only — this module does
+# no I/O. Genuine BaseExceptions still propagate (#1865).
+_OPS_ERRORS = (
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    IndexError,
+    ArithmeticError,
+    RuntimeError,
+)
+
 
 @dataclass
 class MLModel:
@@ -89,7 +102,7 @@ class AdvancedAIIntegration:
                 "architecture": {"input_size": input_size, "hidden_sizes": hidden_sizes, "output_size": output_size},
                 "created_at": datetime.now(UTC).isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error creating neural network: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -154,7 +167,7 @@ class AdvancedAIIntegration:
                 "training_data_size": len(training_data),
                 "trained_at": datetime.now(UTC).isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error training neural network: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -183,7 +196,7 @@ class AdvancedAIIntegration:
                 "confidence": max(prediction[0][0], 1 - prediction[0][0]),
                 "predicted_at": datetime.now(UTC).isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error making prediction: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -213,7 +226,7 @@ class AdvancedAIIntegration:
                 "target": target,
                 "created_at": datetime.now(UTC).isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error creating ML model: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -240,7 +253,7 @@ class AdvancedAIIntegration:
                 "training_data_size": len(training_data),
                 "trained_at": model.last_trained.isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error training ML model: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -260,7 +273,7 @@ class AdvancedAIIntegration:
             ss_residual = np.sum((y - predictions) ** 2)
             r_squared = 1 - ss_residual / ss_total if ss_total != 0 else 0
             return max(0, r_squared)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error training linear regression: %s", e)
             return 0.0
 
@@ -282,7 +295,7 @@ class AdvancedAIIntegration:
             predictions = (predictions > 0.5).astype(int)
             accuracy = float(np.mean(predictions == y))
             return accuracy
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error training logistic regression: %s", e)
             return 0.0
 
@@ -317,7 +330,7 @@ class AdvancedAIIntegration:
                 "confidence": min(1.0, max(0.0, prediction)) if model.model_type == "logistic_regression" else None,
                 "predicted_at": datetime.now(UTC).isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error making ML prediction: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -348,7 +361,7 @@ class AdvancedAIIntegration:
                 "available_model_types": list({model.model_type for model in self.models.values()}),
                 "last_updated": datetime.now(UTC).isoformat(),
             }
-        except Exception as e:
+        except _OPS_ERRORS as e:
             logger.error("Error getting AI statistics: %s", e)
             return {"status": "error", "message": str(e)}
 
