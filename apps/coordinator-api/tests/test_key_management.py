@@ -81,3 +81,39 @@ async def test_audit_authorization_naive_expires_at(tmp_path: Path, monkeypatch)
     assert manager.verify_audit_authorization_sync(naive_token) is True
     # And the original aware token still verifies.
     assert manager.verify_audit_authorization_sync(token) is True
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+async def test_file_key_storage_rejects_traversal_participant(tmp_path: Path):
+    """#1932 F1: participant_id is interpolated into storage filenames —
+    traversal/separator payloads must be refused at the storage layer for
+    every caller, before any path is built."""
+    storage = FileKeyStorage(str(tmp_path / "keys"))
+    key_pair = KeyPair(
+        participant_id="../escaped",
+        private_key=b"private-key-bytes",
+        public_key=b"public-key-bytes",
+        created_at=datetime.now(UTC),
+    )
+    with pytest.raises(ValueError, match="Invalid participant_id"):
+        await storage.store_key_pair(key_pair)
+    with pytest.raises(ValueError, match="Invalid participant_id"):
+        await storage.get_key_pair("../escaped")
+    with pytest.raises(ValueError, match="Invalid participant_id"):
+        storage.get_key_pair_sync("../escaped")
+    with pytest.raises(ValueError, match="Invalid participant_id"):
+        await storage.revoke_keys("../escaped", "test")
+    # Nothing may have been written outside the storage dir.
+    assert not (tmp_path / "escaped.json").exists()
+    assert not (tmp_path / "escaped.priv").exists()
+    assert not (tmp_path / "keys" / ".." / "escaped.json").exists()
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad", ["a/b", "..", ".hidden", "has space", "x" * 64, "semi;colon", ""])
+async def test_file_key_storage_rejects_unsafe_participant_ids(tmp_path: Path, bad: str):
+    storage = FileKeyStorage(str(tmp_path / "keys"))
+    with pytest.raises(ValueError, match="Invalid participant_id"):
+        storage.get_key_pair_sync(bad)

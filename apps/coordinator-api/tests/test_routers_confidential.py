@@ -268,3 +268,68 @@ def test_confidential_status_allows_client(client, client_token):
         headers={"Authorization": f"Bearer {client_token}"},
     )
     assert resp.status_code == 200
+
+
+# --- #1932 F1: participant_id path traversal ---
+
+
+@pytest.mark.unit
+def test_keys_register_rejects_traversal_admin(client, admin_token, monkeypatch, tmp_path):
+    """Admin JWTs bypass the participant==sub check, so the charset gate in
+    _require_participant must reject traversal payloads for admins too."""
+    from coordinator_api.config import settings
+    from coordinator_api.contexts.confidential.routers import confidential as conf_module
+
+    monkeypatch.setattr(settings, "key_storage_dir", str(tmp_path))
+    conf_module.key_manager = None
+
+    resp = client.post(
+        "/v1/confidential/keys/register",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        json={"participant_id": "../escape", "public_key": "AAAA", "algorithm": "X25519"},
+    )
+    assert resp.status_code == 400
+    assert "Invalid participant_id" in resp.text
+    # Nothing written outside (or inside) the key storage dir.
+    assert not (tmp_path.parent / "escape.json").exists()
+    assert not (tmp_path.parent / "escape.priv").exists()
+    # No participant key material was written into the storage dir.
+    assert not list(tmp_path.glob("*.json"))
+    assert not list(tmp_path.glob("*.priv"))
+
+
+@pytest.mark.unit
+def test_keys_register_rejects_traversal_client(client, client_token, monkeypatch, tmp_path):
+    """Client callers get the same charset rejection before the sub-match."""
+    from coordinator_api.config import settings
+    from coordinator_api.contexts.confidential.routers import confidential as conf_module
+
+    monkeypatch.setattr(settings, "key_storage_dir", str(tmp_path))
+    conf_module.key_manager = None
+
+    resp = client.post(
+        "/v1/confidential/keys/register",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={"participant_id": "a/b", "public_key": "AAAA", "algorithm": "X25519"},
+    )
+    assert resp.status_code == 400
+    assert not list(tmp_path.glob("*.json"))
+    assert not list(tmp_path.glob("*.priv"))
+
+
+@pytest.mark.unit
+def test_keys_rotate_rejects_traversal_admin(client, admin_token, monkeypatch, tmp_path):
+    from coordinator_api.config import settings
+    from coordinator_api.contexts.confidential.routers import confidential as conf_module
+
+    monkeypatch.setattr(settings, "key_storage_dir", str(tmp_path))
+    conf_module.key_manager = None
+
+    resp = client.post(
+        "/v1/confidential/keys/rotate",
+        headers={"Authorization": f"Bearer {admin_token}"},
+        params={"participant_id": "../../etc/cron.d/x"},
+    )
+    assert resp.status_code == 400
+    assert not list(tmp_path.glob("*.json"))
+    assert not list(tmp_path.glob("*.priv"))

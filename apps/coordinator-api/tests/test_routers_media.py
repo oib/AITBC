@@ -161,3 +161,20 @@ def test_media_sweep_expires_old_blobs(client, client_token, tmp_path, monkeypat
     # The fresh upload survived.
     token = resp.json()["token"]
     assert (media_dir / token).exists()
+
+
+@pytest.mark.unit
+def test_media_download_rejects_non_token_names(client, tmp_path, monkeypatch):
+    """#1932 F3: tokens are uuid4().hex — sidecar names and other shapes 404
+    before touching the filesystem, even when a matching file exists."""
+    from coordinator_api.config import settings
+
+    media_dir = tmp_path / "media"
+    media_dir.mkdir(parents=True)
+    monkeypatch.setattr(settings, "media_storage_dir", str(media_dir))
+    # A file literally named like a sidecar must still not be served.
+    (media_dir / ("a" * 32 + ".json")).write_text("{}")
+
+    for bad in ("a" * 32 + ".json", "not-a-token", "a" * 31, "A" * 32, "g" * 32):
+        resp = client.get(f"/v1/media/download/{bad}")
+        assert resp.status_code == 404, bad

@@ -180,3 +180,18 @@ def test_submit_result_malformed_response(mock_http):
         production_miner.submit_result("job_123", {"result": {"status": "completed"}})
 
     assert client.instance.post.called
+
+
+@pytest.mark.unit
+@patch("production_miner.subprocess.run")
+def test_run_ffmpeg_bounds_output_with_fs(mock_run, tmp_path):
+    """#1932 F7: the re-encode argv carries -fs so a long input cannot write
+    an unbounded output file (mirrors the ffmpeg service's -fs cap)."""
+    mock_run.return_value = Mock(stdout="", stderr="")
+    out = tmp_path / "out.mp4"
+    result = production_miner._run_ffmpeg(str(tmp_path / "in.mp4"), str(out), "mp4")
+    argv = mock_run.call_args.args[0]
+    assert "-fs" in argv
+    assert argv[argv.index("-fs") + 1] == str(production_miner._ffmpeg_max_output_bytes())
+    assert argv[-1] == str(out)
+    assert result["output_format"] == "mp4"

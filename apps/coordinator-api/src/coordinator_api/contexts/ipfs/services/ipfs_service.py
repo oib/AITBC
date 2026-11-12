@@ -11,6 +11,7 @@ Provides:
 from __future__ import annotations
 
 import json
+import os
 import re
 from collections import OrderedDict
 from dataclasses import dataclass
@@ -46,6 +47,38 @@ def _validate_cid_arg(cid: str) -> str:
     if not isinstance(cid, str) or not _CID_ARG_RE.fullmatch(cid):
         raise ValueError(f"Invalid CID argument: {cid!r}")
     return cid
+
+
+# #1932 F2: ``cat`` responses were buffered whole — a buyer-chosen CID could
+# pin coordinator memory through /ipfs/retrieve. Reads are now streamed and
+# capped; the default sits well above the 4 MiB per-upload memory cap while
+# still bounding a hostile object. Override with AITBC_IPFS_MAX_CONTENT_BYTES.
+_MAX_CONTENT_BYTES_ENV = "AITBC_IPFS_MAX_CONTENT_BYTES"
+_DEFAULT_MAX_CONTENT_BYTES = 16 * 1024 * 1024
+
+
+def _max_content_bytes() -> int:
+    try:
+        return max(1, int(os.environ.get(_MAX_CONTENT_BYTES_ENV, _DEFAULT_MAX_CONTENT_BYTES)))
+    except ValueError:
+        return _DEFAULT_MAX_CONTENT_BYTES
+
+
+async def _bounded_body(response: httpx.Response, cap: int) -> bytes:
+    """Read a streaming response body, refusing once it exceeds *cap* bytes."""
+    length = response.headers.get("Content-Length")
+    try:
+        declared = int(length) if length is not None else None
+    except ValueError:
+        declared = None
+    if declared is not None and declared > cap:
+        raise ValueError(f"IPFS content length {declared} exceeds the {cap}-byte cap")
+    buf = bytearray()
+    async for chunk in response.aiter_bytes():
+        buf += chunk
+        if len(buf) > cap:
+            raise ValueError(f"IPFS content exceeds the {cap}-byte cap")
+    return bytes(buf)
 
 
 @dataclass
@@ -193,26 +226,37 @@ class IPFSClient:
             logger.warning("External pinning failed: %s", e)
             return False
 
-    async def get_content(self, cid: str) -> bytes | None:
+    async def get_content(self, cid: str, max_bytes: int | None = None) -> bytes | None:
         """Retrieve content from IPFS by CID via the local Kubo node.
 
         ``/api/v0/cat`` resolves CIDv0 and CIDv1 and never leaves the island
         swarm. The public gateway is only consulted when
         ``public_gateway_fallback`` was explicitly enabled — every fallback
-        fetch would otherwise hand the CID to ipfs.io.
+        fetch would otherwise hand the CID to ipfs.io. The body is streamed
+        and capped at ``max_bytes`` (default ``AITBC_IPFS_MAX_CONTENT_BYTES``)
+        so a large object cannot be buffered whole (#1932 F2).
         """
         cid = _validate_cid_arg(cid)
+        cap = _max_content_bytes() if max_bytes is None else max(1, int(max_bytes))
         try:
-            response = await self._client.post(f"{self.api_url}/api/v0/cat", params={"arg": cid}, timeout=30.0)
-            if response.status_code == 200:
-                return response.content
+            async with self._client.stream(
+                "POST", f"{self.api_url}/api/v0/cat", params={"arg": cid}, timeout=30.0
+            ) as response:
+                if response.status_code == 200:
+                    return await _bounded_body(response, cap)
+        except ValueError:
+            raise  # a size-cap refusal is a caller-visible error, not a miss
         except _OPS_ERRORS as e:
             logger.debug("Could not fetch CID %s from local IPFS node: %s", cid, e)
         if self.public_gateway_fallback:
             try:
-                response = await self._client.get(f"{self.gateway_url}/ipfs/{cid}", timeout=30.0, follow_redirects=True)
-                if response.status_code == 200:
-                    return response.content
+                async with self._client.stream(
+                    "GET", f"{self.gateway_url}/ipfs/{cid}", timeout=30.0, follow_redirects=True
+                ) as response:
+                    if response.status_code == 200:
+                        return await _bounded_body(response, cap)
+            except ValueError:
+                raise
             except _OPS_ERRORS as e:
                 logger.debug("Could not fetch from IPFS gateway: %s", e)
         return None

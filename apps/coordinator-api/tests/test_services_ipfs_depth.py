@@ -20,6 +20,20 @@ from coordinator_api.contexts.ipfs.services.ipfs_service import (
 )
 
 
+def _streamable(resp: object) -> object:
+    """Give a fake response the streaming surface get_content now uses."""
+    if not hasattr(resp, "headers"):
+        resp.headers = {}  # type: ignore[attr-defined]
+    if not hasattr(resp, "aiter_bytes"):
+        content = getattr(resp, "content", b"")
+
+        async def _aiter() -> object:
+            yield content
+
+        resp.aiter_bytes = _aiter  # type: ignore[attr-defined]
+    return resp
+
+
 class _StubClient:
     """Minimal stand-in for httpx.AsyncClient used by IPFSClient."""
 
@@ -34,6 +48,20 @@ class _StubClient:
     async def get(self, url: str, **kwargs: object):  # noqa: ANN202
         assert self._get is not None
         return await self._get(url, **kwargs)
+
+    def stream(self, method: str, url: str, **kwargs: object):  # noqa: ANN202
+        """httpx-style streaming context manager over the same fakes."""
+        fake = self._post if method == "POST" else self._get
+        assert fake is not None
+
+        class _CM:
+            async def __aenter__(self) -> object:
+                return _streamable(await fake(url, **kwargs))
+
+            async def __aexit__(self, *exc: object) -> bool:
+                return False
+
+        return _CM()
 
 
 def _service(**config: object) -> IPFSService:
@@ -149,6 +177,41 @@ class TestRetrieveViaLocalCat:
         assert got == b"{}"
         assert posted and posted[0].endswith("/api/v0/cat")
         assert "ipfs.io" not in posted[0]
+
+    async def test_get_content_refuses_declared_oversize(self) -> None:
+        """#1932 F2: a Content-Length over the cap is refused before reading."""
+        svc = _service()
+
+        class _Resp:
+            status_code = 200
+            headers = {"Content-Length": "2048"}
+            content = b"x" * 2048
+
+        async def fake_post(url: str, **kwargs: object) -> _Resp:
+            return _Resp()
+
+        svc.client._client = _StubClient(post=fake_post)  # type: ignore[assignment]
+        with pytest.raises(ValueError, match="cap"):
+            await svc.client.get_content("Qm" + "a" * 44, max_bytes=1024)
+
+    async def test_get_content_refuses_streamed_oversize(self) -> None:
+        """#1932 F2: chunked bodies without Content-Length are still capped."""
+        svc = _service()
+
+        class _Resp:
+            status_code = 200
+            headers: dict[str, str] = {}
+
+            async def aiter_bytes(self):
+                yield b"x" * 700
+                yield b"x" * 700
+
+        async def fake_post(url: str, **kwargs: object) -> _Resp:
+            return _Resp()
+
+        svc.client._client = _StubClient(post=fake_post)  # type: ignore[assignment]
+        with pytest.raises(ValueError, match="cap"):
+            await svc.client.get_content("Qm" + "a" * 44, max_bytes=1024)
 
     async def test_gateway_fallback_is_opt_in(self) -> None:
         svc = _service(ipfs_public_gateway_fallback=True)

@@ -7,6 +7,7 @@ import base64
 import hmac
 import json
 import os
+import re
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -53,6 +54,22 @@ _OPS_ERRORS = (
     RuntimeError,
     KeyManagementError,
 )
+
+# #1932 F1: participant_id is interpolated into key-storage filenames
+# ("{participant_id}.json" / ".priv" / revoked/). Restrict it to the same
+# safe-component charset used for systemd unit names
+# (_SAFE_UNIT_COMPONENT_RE in agent_coordination/services/integration.py):
+# a leading alphanumeric plus [A-Za-z0-9._-] means "..", "/" and other
+# separators can never traverse out of key_storage_dir. Enforced at the
+# storage layer so every caller — admin or client — is covered.
+_PARTICIPANT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$")
+
+
+def validate_participant_id(participant_id: str) -> str:
+    """Return participant_id when it is filename-safe, else raise ValueError."""
+    if not isinstance(participant_id, str) or not _PARTICIPANT_ID_RE.fullmatch(participant_id):
+        raise ValueError(f"Invalid participant_id: {participant_id!r}")
+    return participant_id
 
 
 class KeyManager:
@@ -342,6 +359,7 @@ class FileKeyStorage(KeyStorageBackend):
 
     async def store_key_pair(self, key_pair: KeyPair) -> bool:
         """Store key pair to file"""
+        validate_participant_id(key_pair.participant_id)
         try:
             file_path = os.path.join(self.storage_path, f"{key_pair.participant_id}.json")
             private_path = os.path.join(self.storage_path, f"{key_pair.participant_id}.priv")
@@ -369,6 +387,7 @@ class FileKeyStorage(KeyStorageBackend):
 
     async def get_key_pair(self, participant_id: str) -> KeyPair | None:
         """Get key pair from file"""
+        validate_participant_id(participant_id)
         try:
             file_path = os.path.join(self.storage_path, f"{participant_id}.json")
             private_path = os.path.join(self.storage_path, f"{participant_id}.priv")
@@ -392,6 +411,7 @@ class FileKeyStorage(KeyStorageBackend):
 
     def get_key_pair_sync(self, participant_id: str) -> KeyPair | None:
         """Synchronous get key pair"""
+        validate_participant_id(participant_id)
         try:
             file_path = os.path.join(self.storage_path, f"{participant_id}.json")
             private_path = os.path.join(self.storage_path, f"{participant_id}.priv")
@@ -453,6 +473,7 @@ class FileKeyStorage(KeyStorageBackend):
 
     async def revoke_keys(self, participant_id: str, reason: str) -> bool:
         """Revoke keys by deleting files"""
+        validate_participant_id(participant_id)
         # ponytail: os.rename blocks event loop - acceptable for key revocation (rare operation)
         try:
             file_path = os.path.join(self.storage_path, f"{participant_id}.json")

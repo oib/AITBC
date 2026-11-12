@@ -807,3 +807,55 @@ class TestSharedSessionLock:
         names = {c.deployment_name for c in rows}
         # _seed_config already wrote one "dep" row for this workflow.
         assert {"dep", "dep-a", "dep-b"} <= names
+
+
+class TestDeploymentFanOutBounds:
+    """#1932 F6: instance fan-out is clamped to the config ceiling and a hard cap."""
+
+    async def test_deploy_clamps_min_instances_to_config_max(
+        self, deployment_manager: AgentDeploymentManager, db_session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(deployment_manager, "_deploy_agent_systemd", AsyncMock())
+        wf = _seed_workflow(db_session)
+        cfg = _seed_config(db_session, wf.id, min_instances=500, max_instances=7)
+        result = await deployment_manager.deploy_agent_workflow(cfg.id)
+        assert len(result["instances"]) == 7
+
+    async def test_deploy_clamps_to_hard_ceiling(
+        self, deployment_manager: AgentDeploymentManager, db_session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        from coordinator_api.contexts.agent_coordination.services import integration as integ
+
+        monkeypatch.setattr(deployment_manager, "_deploy_agent_systemd", AsyncMock())
+        monkeypatch.setattr(integ, "_MAX_DEPLOYMENT_INSTANCES", 3)
+        wf = _seed_workflow(db_session)
+        cfg = _seed_config(db_session, wf.id, min_instances=500, max_instances=500)
+        result = await deployment_manager.deploy_agent_workflow(cfg.id)
+        assert len(result["instances"]) == 3
+
+    async def test_scale_clamps_target_to_config_max(
+        self, deployment_manager: AgentDeploymentManager, db_session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        monkeypatch.setattr(deployment_manager, "_deploy_agent_systemd", AsyncMock())
+        wf = _seed_workflow(db_session)
+        cfg = _seed_config(db_session, wf.id, min_instances=1, max_instances=4)
+        result = await deployment_manager.scale_deployment(cfg.id, 10_000)
+        assert result["target_instances"] == 4
+        assert result["scaling_action"] == "scale_up"
+        count = len(
+            db_session.scalars(select(AgentDeploymentInstance).where(AgentDeploymentInstance.deployment_id == cfg.id)).all()
+        )
+        assert count == 4
+
+    async def test_scale_negative_target_floors_at_zero(
+        self, deployment_manager: AgentDeploymentManager, db_session: Session, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        remove = AsyncMock()
+        monkeypatch.setattr(deployment_manager, "_remove_deployment_instance", remove)
+        wf = _seed_workflow(db_session)
+        cfg = _seed_config(db_session, wf.id, min_instances=1, max_instances=4)
+        _seed_instance(db_session, cfg.id)
+        result = await deployment_manager.scale_deployment(cfg.id, -5)
+        assert result["target_instances"] == 0
+        assert result["scaling_action"] == "scale_down"
+        assert remove.await_count == 1

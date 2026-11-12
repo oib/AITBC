@@ -708,6 +708,24 @@ _OLLAMA_MAX_PROMPT_CHARS = int(os.environ.get("AGENT_EXECUTOR_OLLAMA_MAX_PROMPT_
 _OLLAMA_MAX_NUM_PREDICT = int(os.environ.get("AGENT_EXECUTOR_OLLAMA_MAX_NUM_PREDICT", "512"))
 
 
+def _ollama_model_available(model: str) -> bool:
+    """True when *model* (or its ``:latest`` alias) is present in /api/tags.
+
+    #1932 F8: the buyer picks ``model`` and ``/api/generate`` auto-pulls
+    #unknown names — an arbitrary tag would pin disk/GPU on a model this
+    #miner never offered. Mirrors production_miner's ``available_models``
+    # check (#1788): only locally present models may run, and the check
+    # itself fails closed when the tags probe errors.
+    """
+    try:
+        resp = requests.get(f"{OLLAMA_URL}/api/tags", timeout=HTTP_TIMEOUT)
+        resp.raise_for_status()
+        names = {str(m.get("name") or "") for m in resp.json().get("models", []) if isinstance(m, dict)}
+    except _OPS_ERRORS as e:
+        raise ValueError(f"ollama model availability check failed: {e}") from e
+    return model in names or f"{model}:latest" in names
+
+
 def _exec_ollama(req: dict[str, Any], payload: bytes) -> bytes:
     try:
         spec = json.loads(payload.decode())
@@ -715,7 +733,7 @@ def _exec_ollama(req: dict[str, Any], payload: bytes) -> bytes:
         spec = {"prompt": payload.decode(errors="replace")}
     if not isinstance(spec, dict):
         spec = {"prompt": str(spec)}
-    model = req.get("model") or spec.get("model") or "llama3.2:3b"
+    model = str(req.get("model") or spec.get("model") or "llama3.2:3b")
     prompt = spec.get("prompt", "")
     if not isinstance(prompt, str):
         prompt = str(prompt)
@@ -726,6 +744,8 @@ def _exec_ollama(req: dict[str, Any], payload: bytes) -> bytes:
     except (TypeError, ValueError):
         requested = _OLLAMA_MAX_NUM_PREDICT
     num_predict = max(1, min(requested, _OLLAMA_MAX_NUM_PREDICT))
+    if not _ollama_model_available(model):
+        raise ValueError(f"ollama model '{model}' is not available on this miner")
     resp = requests.post(
         f"{OLLAMA_URL}/api/generate",
         json={"model": model, "prompt": prompt, "stream": False, "options": {"num_predict": num_predict}},

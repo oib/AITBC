@@ -613,6 +613,21 @@ def _media_max_bytes() -> int:
         return _MEDIA_DEFAULT_MAX_BYTES
 
 
+# ffmpeg output bound (#1932 F7): mirrors the ffmpeg service's ``-fs`` cap —
+# bitrate is bounded but duration is not, so without it a long input writes
+# an unbounded file. The service default is FFMPEG_MAX_OUTPUT_MB=4096; the
+# miner keeps the same default under its own env name.
+_FFMPEG_MAX_OUTPUT_MB_ENV = "MINER_FFMPEG_MAX_OUTPUT_MB"
+_FFMPEG_DEFAULT_MAX_OUTPUT_BYTES = 4096 * 1024 * 1024
+
+
+def _ffmpeg_max_output_bytes() -> int:
+    try:
+        return max(1, int(os.environ.get(_FFMPEG_MAX_OUTPUT_MB_ENV, "4096"))) * 1024 * 1024
+    except ValueError:
+        return _FFMPEG_DEFAULT_MAX_OUTPUT_BYTES
+
+
 def _check_media_url(url: str) -> urllib.parse.ParseResult:
     """Refuse http(s) URLs whose host resolves to any non-public address —
     loopback, private, link-local, metadata, multicast. Called per hop, so a
@@ -777,7 +792,21 @@ def _run_ffmpeg(input_path: str, output_path: str, output_format: str | None = N
     fmt = output_format or os.path.splitext(output_path)[1].lstrip(".") or "mp4"
     try:
         result = subprocess.run(
-            ["ffmpeg", "-y", *ffmpeg_input_guard(), "-i", input_path, "-f", fmt, output_path],
+            [
+                "ffmpeg",
+                "-y",
+                *ffmpeg_input_guard(),
+                "-i",
+                input_path,
+                "-f",
+                fmt,
+                # -fs bounds the output file itself (#1932 F7): bitrate is
+                # capped but duration is not — ffmpeg exits non-zero at the
+                # limit, which surfaces as a normal job failure.
+                "-fs",
+                str(_ffmpeg_max_output_bytes()),
+                output_path,
+            ],
             capture_output=True,
             text=True,
             timeout=300,
