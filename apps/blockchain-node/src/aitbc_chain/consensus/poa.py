@@ -252,6 +252,65 @@ def _seq_reject(ctx: _SeqTxContext, tx: Any, reason: str) -> None:
         ctx.rejected.append((tx, reason))
 
 
+def _parallel_build_graph(pending_txs: list[Any]):
+    """Build the tx dependency graph and the tx_hash -> tx index."""
+    graph = DependencyGraph()
+    tx_by_hash: dict[str, Any] = {}
+    for idx, tx in enumerate(pending_txs):
+        read_set, write_set = extract_read_write_sets(tx.content)
+        graph.add_transaction(tx.tx_hash, read_set, write_set, index=idx)
+        tx_by_hash[tx.tx_hash] = tx
+    return graph, tx_by_hash
+
+
+def _parallel_bridge_authority(
+    session: Session, chain_id: str, next_height: int, block_version: int, pending_txs
+) -> str | None:
+    """Resolve the bridge release authority once per block, only when a
+    v5+ block actually contains a bridge-signed tx."""
+    if block_version >= 5 and any(_determine_tx_type(tx.content) in BRIDGE_AUTHORITY_TX_TYPES for tx in pending_txs):
+        return _bridge_release_authority(session, chain_id, next_height)
+    return None
+
+
+def _parallel_tx_data_map(
+    pending_txs: list[Any], account_map: dict[str, Account], block_version: int
+) -> dict[str, dict[str, Any]]:
+    """Prepare tx_data for each tx (with nonce set from account_map)."""
+    tx_data_map: dict[str, dict[str, Any]] = {}
+    for tx in pending_txs:
+        tx_data = tx.content.copy()
+        sender = _to_ait_address(tx_data.get("from", ""))
+        sender_account = account_map.get(sender)
+        # Bridge credits sign their semantic fields at issuance (v5) —
+        # overwriting the nonce with the pseudo-sender account's would
+        # invalidate the authority signature.
+        if _determine_tx_type(tx_data) not in ("BRIDGE_RELEASE", "BRIDGE_REFUND") and use_account_nonce_override(
+            tx_data, block_version
+        ):
+            tx_data["nonce"] = sender_account.nonce if sender_account else 0
+        tx_data["value"] = tx_data.get("amount", 0)
+        tx_data_map[tx.tx_hash] = tx_data
+    return tx_data_map
+
+
+def _parallel_refresh_group_nonces(
+    group, tx_data_map: dict[str, dict[str, Any]], account_map: dict[str, Account], block_version: int
+) -> None:
+    """Update nonces from account_map before processing each group
+    (conflicting txs in later groups need updated nonces from earlier groups)."""
+    for tx_hash in group:
+        tx_data = tx_data_map[tx_hash]
+        sender = _to_ait_address(tx_data.get("from", ""))
+        sender_account = account_map.get(sender)
+        if (
+            sender_account
+            and _determine_tx_type(tx_data) not in ("BRIDGE_RELEASE", "BRIDGE_REFUND")
+            and use_account_nonce_override(tx_data, block_version)
+        ):
+            tx_data["nonce"] = sender_account.nonce
+
+
 class _ProposalReleaseLedger:
     """#1300 §3 release-map bookkeeping for one proposal attempt.
 
@@ -3524,12 +3583,7 @@ class PoAProposer:
         """
         chain_id = self._config.chain_id
         # Build dependency graph from tx read/write sets
-        graph = DependencyGraph()
-        tx_by_hash: dict[str, Any] = {}
-        for idx, tx in enumerate(pending_txs):
-            read_set, write_set = extract_read_write_sets(tx.content)
-            graph.add_transaction(tx.tx_hash, read_set, write_set, index=idx)
-            tx_by_hash[tx.tx_hash] = tx
+        graph, tx_by_hash = _parallel_build_graph(pending_txs)
 
         # Check conflict rate — fall back to sequential if too many conflicts
         conflict_rate = graph.conflict_rate()
@@ -3554,25 +3608,10 @@ class PoAProposer:
         # bridge release authority — resolve the on-chain parameter once so
         # the pure path applies the same gate as the sequential one. Only
         # queried when a v5+ block actually contains a bridge-signed tx.
-        bridge_authority: str | None = None
-        if block_version >= 5 and any(_determine_tx_type(tx.content) in BRIDGE_AUTHORITY_TX_TYPES for tx in pending_txs):
-            bridge_authority = _bridge_release_authority(session, chain_id, next_height)
+        bridge_authority = _parallel_bridge_authority(session, chain_id, next_height, block_version, pending_txs)
 
         # Prepare tx_data for each tx (with nonce set from account_map)
-        tx_data_map: dict[str, dict[str, Any]] = {}
-        for tx in pending_txs:
-            tx_data = tx.content.copy()
-            sender = _to_ait_address(tx_data.get("from", ""))
-            sender_account = account_map.get(sender)
-            # Bridge credits sign their semantic fields at issuance (v5) —
-            # overwriting the nonce with the pseudo-sender account's would
-            # invalidate the authority signature.
-            if _determine_tx_type(tx_data) not in ("BRIDGE_RELEASE", "BRIDGE_REFUND") and use_account_nonce_override(
-                tx_data, block_version
-            ):
-                tx_data["nonce"] = sender_account.nonce if sender_account else 0
-            tx_data["value"] = tx_data.get("amount", 0)
-            tx_data_map[tx.tx_hash] = tx_data
+        tx_data_map = _parallel_tx_data_map(pending_txs, account_map, block_version)
 
         # Track processed tx hashes for duplicate detection
         processed_tx_hashes: set[str] = set()
@@ -3585,16 +3624,7 @@ class PoAProposer:
             for group in groups:
                 # Update nonces from account_map before processing each group
                 # (conflicting txs in later groups need updated nonces from earlier groups)
-                for tx_hash in group:
-                    tx_data = tx_data_map[tx_hash]
-                    sender = _to_ait_address(tx_data.get("from", ""))
-                    sender_account = account_map.get(sender)
-                    if (
-                        sender_account
-                        and _determine_tx_type(tx_data) not in ("BRIDGE_RELEASE", "BRIDGE_REFUND")
-                        and use_account_nonce_override(tx_data, block_version)
-                    ):
-                        tx_data["nonce"] = sender_account.nonce
+                _parallel_refresh_group_nonces(group, tx_data_map, account_map, block_version)
 
                 # Build the list of (tx_hash, tx_data) for this group
                 group_items = [(tx_hash, tx_data_map[tx_hash]) for tx_hash in group]
@@ -3619,25 +3649,17 @@ class PoAProposer:
 
                 # Apply successful deltas to account_map immediately (within group,
                 # txs don't conflict, so order within group doesn't matter for state)
-                for i, (tx_hash, _) in enumerate(group_items):
-                    delta = group_deltas[i]
-                    tx = tx_by_hash[tx_hash]
-                    if delta.success:
-                        # Check for duplicate tx in DB
-                        if existing_tx_map.get(tx_hash) is not None:
-                            self._logger.warning(
-                                "[PROPOSE-PARALLEL] Skipping tx %s: already exists in database at block %s",
-                                tx_hash,
-                                existing_tx_map[tx_hash],
-                            )
-                            continue
-                        apply_delta_to_map(account_map, delta, chain_id, block_version)
-                        processed_tx_hashes.add(tx_hash)
-                        all_deltas.append((i, delta, tx))
-                    else:
-                        self._logger.warning("[PROPOSE-PARALLEL] Failed to validate tx %s: %s", tx_hash, delta.error)
-                        if rejected is not None:
-                            rejected.append((tx, delta.error or "parallel validation failed"))
+                self._parallel_collect_deltas(
+                    group_items,
+                    group_deltas,
+                    tx_by_hash,
+                    existing_tx_map,
+                    account_map,
+                    processed_tx_hashes,
+                    all_deltas,
+                    rejected,
+                    block_version,
+                )
         finally:
             executor.close()
 
@@ -3649,9 +3671,72 @@ class PoAProposer:
         # escape with flushed state or queued Transaction rows still pending in
         # the caller's session (same incident class as the sequential path's
         # savepoint leak).
+        write_result = self._parallel_write_deltas(
+            session, all_deltas, tx_data_map, chain_id, block_version, next_height, timestamp, existing_tx_map
+        )
+        if write_result is None:
+            return [], set(), False
+        processed_txs, changed_addresses = write_result
+
+        self._logger.info(
+            "[PROPOSE-PARALLEL] Processed %d/%d txs in parallel",
+            len(processed_txs),
+            len(pending_txs),
+        )
+        return processed_txs, changed_addresses, True
+
+    def _parallel_collect_deltas(
+        self,
+        group_items: list[tuple[str, dict[str, Any]]],
+        group_deltas: list[StateDelta],
+        tx_by_hash: dict[str, Any],
+        existing_tx_map: dict[str, int],
+        account_map: dict[str, Account],
+        processed_tx_hashes: set[str],
+        all_deltas: list[tuple[int, StateDelta, Any]],
+        rejected: list[tuple[Any, str]] | None,
+        block_version: int,
+    ) -> None:
+        """Fold one group's computed deltas into account_map + all_deltas.
+
+        Successful deltas apply immediately (within a group txs don't
+        conflict); failures are logged and recorded on ``rejected``."""
+        for i, (tx_hash, _) in enumerate(group_items):
+            delta = group_deltas[i]
+            tx = tx_by_hash[tx_hash]
+            if delta.success:
+                # Check for duplicate tx in DB
+                if existing_tx_map.get(tx_hash) is not None:
+                    self._logger.warning(
+                        "[PROPOSE-PARALLEL] Skipping tx %s: already exists in database at block %s",
+                        tx_hash,
+                        existing_tx_map[tx_hash],
+                    )
+                    continue
+                apply_delta_to_map(account_map, delta, self._config.chain_id, block_version)
+                processed_tx_hashes.add(tx_hash)
+                all_deltas.append((i, delta, tx))
+            else:
+                self._logger.warning("[PROPOSE-PARALLEL] Failed to validate tx %s: %s", tx_hash, delta.error)
+                if rejected is not None:
+                    rejected.append((tx, delta.error or "parallel validation failed"))
+
+    def _parallel_write_deltas(
+        self,
+        session: Session,
+        all_deltas: list[tuple[int, StateDelta, Any]],
+        tx_data_map: dict[str, dict[str, Any]],
+        chain_id: str,
+        block_version: int,
+        next_height: int,
+        timestamp: datetime,
+        existing_tx_map: dict[str, int],
+    ):
+        """Write all deltas to the session in one batch.
+
+        Returns ``(processed_txs, changed_addresses)``, or None after
+        rollback when the write phase fails (caller aborts the proposal)."""
         successful_deltas = [d for _, d, _ in all_deltas]
-        processed_txs: list[Any] = []
-        changed_addresses: set[str] = set()
         try:
             if successful_deltas:
                 apply_deltas_to_db(
@@ -3662,75 +3747,89 @@ class PoAProposer:
                     block_height=next_height,
                     block_time=timestamp,
                 )
-
-            # Pre-registered rows (bridge credits, MESSAGE) already exist with
-            # block_height NULL — stamp the stored row instead of inserting a
-            # duplicate (chain_id/tx_hash is unique). Mirrors the sequential
-            # path's stamp branch. Only queried when such a tx is present.
-            prereg_rows: dict[str, Transaction] = {}
-            if any(d.tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK"} for _, d, _ in all_deltas):
-                prereg_rows = {
-                    r.tx_hash: r
-                    for r in session.exec(
-                        select(Transaction).where(
-                            Transaction.chain_id == chain_id,
-                            Transaction.tx_hash.in_([tx.tx_hash for _, _, tx in all_deltas]),  # type: ignore[attr-defined]
-                            Transaction.block_height.is_(None),  # type: ignore[union-attr]
-                            Transaction.status == "confirmed",
-                        )
-                    ).all()
-                }
-            # Create Transaction records and track changed addresses
-            for _idx, delta, tx in all_deltas:
-                sender = delta.sender
-                recipient = delta.recipient
-                tx_type = delta.tx_type
-                tx_data = tx.content
-                existing_record = prereg_rows.get(tx.tx_hash)
-                if existing_record is not None and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK"}:
-                    existing_record.block_height = next_height
-                    existing_record.timestamp = timestamp.isoformat()
-                    if existing_record.envelope is None:
-                        existing_record.envelope = dict(tx_data)
-                    session.add(existing_record)
-                else:
-                    value = tx_data.get("amount", 0)
-                    fee = tx_data.get("fee", 0)
-                    original_payload = tx_data.get("payload", {})
-                    transaction = Transaction(
-                        chain_id=chain_id,
-                        tx_hash=tx.tx_hash,
-                        # Raw, not the canonicalised locals: these are signed (V23-65).
-                        sender=tx_data.get("from", sender),
-                        recipient=tx_data.get("to", recipient),
-                        payload=original_payload,
-                        envelope=dict(tx_data),
-                        value=value,
-                        fee=fee,
-                        nonce=tx_data_map[tx.tx_hash].get("nonce", 0),
-                        timestamp=timestamp.isoformat(),
-                        block_height=next_height,
-                        status="confirmed",
-                        type=tx_type,
-                    )
-                    session.add(transaction)
-                changed_addresses.add(sender)
-                if recipient:
-                    changed_addresses.add(recipient)
-                existing_tx_map[tx.tx_hash] = next_height
-                processed_txs.append(tx)
-                self._logger.info("[PROPOSE-PARALLEL] Successfully processed tx %s", tx.tx_hash)
+            prereg_rows = self._parallel_prereg_rows(session, all_deltas, chain_id)
+            return self._parallel_write_tx_records(
+                session, all_deltas, prereg_rows, tx_data_map, chain_id, next_height, timestamp, existing_tx_map
+            )
         except Exception:
             session.rollback()
             self._logger.error("[PROPOSE-PARALLEL] Write phase failed; session rolled back — aborting proposal")
-            return [], set(), False
+            return None
 
-        self._logger.info(
-            "[PROPOSE-PARALLEL] Processed %d/%d txs in parallel",
-            len(processed_txs),
-            len(pending_txs),
-        )
-        return processed_txs, changed_addresses, True
+    def _parallel_prereg_rows(self, session: Session, all_deltas: list[tuple[int, StateDelta, Any]], chain_id: str):
+        # Pre-registered rows (bridge credits, MESSAGE) already exist with
+        # block_height NULL — stamp the stored row instead of inserting a
+        # duplicate (chain_id/tx_hash is unique). Mirrors the sequential
+        # path's stamp branch. Only queried when such a tx is present.
+        prereg_rows: dict[str, Transaction] = {}
+        if any(d.tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK"} for _, d, _ in all_deltas):
+            prereg_rows = {
+                r.tx_hash: r
+                for r in session.exec(
+                    select(Transaction).where(
+                        Transaction.chain_id == chain_id,
+                        Transaction.tx_hash.in_([tx.tx_hash for _, _, tx in all_deltas]),  # type: ignore[attr-defined]
+                        Transaction.block_height.is_(None),  # type: ignore[union-attr]
+                        Transaction.status == "confirmed",
+                    )
+                ).all()
+            }
+        return prereg_rows
+
+    def _parallel_write_tx_records(
+        self,
+        session: Session,
+        all_deltas: list[tuple[int, StateDelta, Any]],
+        prereg_rows: dict[str, Transaction],
+        tx_data_map: dict[str, dict[str, Any]],
+        chain_id: str,
+        next_height: int,
+        timestamp: datetime,
+        existing_tx_map: dict[str, int],
+    ):
+        """Create/stamp Transaction records and collect changed addresses."""
+        processed_txs: list[Any] = []
+        changed_addresses: set[str] = set()
+        for _idx, delta, tx in all_deltas:
+            sender = delta.sender
+            recipient = delta.recipient
+            tx_type = delta.tx_type
+            tx_data = tx.content
+            existing_record = prereg_rows.get(tx.tx_hash)
+            if existing_record is not None and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK"}:
+                existing_record.block_height = next_height
+                existing_record.timestamp = timestamp.isoformat()
+                if existing_record.envelope is None:
+                    existing_record.envelope = dict(tx_data)
+                session.add(existing_record)
+            else:
+                value = tx_data.get("amount", 0)
+                fee = tx_data.get("fee", 0)
+                original_payload = tx_data.get("payload", {})
+                transaction = Transaction(
+                    chain_id=chain_id,
+                    tx_hash=tx.tx_hash,
+                    # Raw, not the canonicalised locals: these are signed (V23-65).
+                    sender=tx_data.get("from", sender),
+                    recipient=tx_data.get("to", recipient),
+                    payload=original_payload,
+                    envelope=dict(tx_data),
+                    value=value,
+                    fee=fee,
+                    nonce=tx_data_map[tx.tx_hash].get("nonce", 0),
+                    timestamp=timestamp.isoformat(),
+                    block_height=next_height,
+                    status="confirmed",
+                    type=tx_type,
+                )
+                session.add(transaction)
+            changed_addresses.add(sender)
+            if recipient:
+                changed_addresses.add(recipient)
+            existing_tx_map[tx.tx_hash] = next_height
+            processed_txs.append(tx)
+            self._logger.info("[PROPOSE-PARALLEL] Successfully processed tx %s", tx.tx_hash)
+        return processed_txs, changed_addresses
 
     def _compute_bridge_state_root(
         self, session: Session, processed_txs: list[Any], chain_id: str, height: int | None = None
