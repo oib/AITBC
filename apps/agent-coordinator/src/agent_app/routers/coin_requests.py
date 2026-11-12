@@ -77,10 +77,21 @@ def _require_api_key(x_api_key: str | None) -> None:
     credential on coordinator-api's miner, settlement and market routers. It is still
     accepted here so hub operators keep working, and it must stay off the public file.
 
-    `SECRET_KEY` is accepted for the same reason and carries the same warning.
+    `SECRET_KEY` and `COORDINATOR_API_KEY` were once accepted for the same
+    reason (#1855): both are cluster-shared credentials — `SECRET_KEY` is
+    loaded by every service — so one env leak yielded faucet authority plus
+    (via `shared_key_principal`) a hub admin principal. They are now accepted
+    only under the explicit `AITBC_ALLOW_LEGACY_SHARED_KEYS=1` migration
+    hatch; the dedicated `FOLLOWER_API_KEY` is the only key these routes
+    trust by default.
     """
+    from ..services.agent_auth import legacy_shared_keys_allowed
+
     offered = x_api_key or ""
-    accepted = [os.getenv(name) or "" for name in ("FOLLOWER_API_KEY", "COORDINATOR_API_KEY", "SECRET_KEY")]
+    names = ["FOLLOWER_API_KEY"]
+    if legacy_shared_keys_allowed():
+        names += ["COORDINATOR_API_KEY", "SECRET_KEY"]
+    accepted = [os.getenv(name) or "" for name in names]
     # Constant-time across every configured key; the number of keys is not secret and
     # comparing them one at a time with `==` leaks where the first mismatch is.
     if not offered or not any(hmac.compare_digest(offered, candidate) for candidate in accepted if candidate):

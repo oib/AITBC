@@ -80,9 +80,29 @@ class AgentPrincipal:
     permissions: tuple[str, ...] = ()
 
 
+def legacy_shared_keys_allowed() -> bool:
+    """Whether the cluster-wide shared keys may still authenticate (#1855).
+
+    ``SECRET_KEY`` is loaded by every service in the fleet; accepting it as
+    an operator/faucet credential means one env leak yields a hub admin
+    principal *and* coin-request authority. ``AITBC_ALLOW_LEGACY_SHARED_KEYS=1``
+    is the explicit migration escape hatch — set it only while a deployment
+    has not yet provisioned ``FOLLOWER_API_KEY``/``COORDINATOR_API_KEY``.
+    Default is closed.
+    """
+    return os.getenv("AITBC_ALLOW_LEGACY_SHARED_KEYS", "").lower() in ("1", "true", "yes")
+
+
 def _shared_key_value() -> str | None:
-    """The shared coordinator credential, if one is configured."""
-    return os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
+    """The shared coordinator credential, if one is configured.
+
+    #1855: ``SECRET_KEY`` is only consulted under the legacy escape hatch —
+    the cluster-wide secret must not double as an operator credential.
+    """
+    coordinator_key = os.getenv("COORDINATOR_API_KEY")
+    if legacy_shared_keys_allowed():
+        return coordinator_key or os.getenv("SECRET_KEY")
+    return coordinator_key
 
 
 def shared_key_principal(token: str | None) -> AgentPrincipal | None:
