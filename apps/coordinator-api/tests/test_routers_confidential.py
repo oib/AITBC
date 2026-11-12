@@ -227,3 +227,44 @@ def test_confidential_audit_requires_auth(client):
         params={"authorization": "audit-key", "purpose": "audit"},
     )
     assert resp.status_code in (401, 403)
+
+
+@pytest.mark.unit
+def test_access_logs_requires_admin(client):
+    """#1897: GET /access/logs is audit data — admin scope only."""
+    resp = client.get("/v1/confidential/access/logs")
+    assert resp.status_code in (401, 403)
+
+
+@pytest.mark.unit
+def test_access_logs_rejects_client(client, client_token):
+    resp = client.get(
+        "/v1/confidential/access/logs",
+        headers={"Authorization": f"Bearer {client_token}"},
+    )
+    assert resp.status_code == 403
+
+
+@pytest.mark.unit
+def test_access_logs_allows_admin(client, admin_token):
+    resp = client.get(
+        "/v1/confidential/access/logs",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+    assert resp.status_code == 200
+
+
+@pytest.mark.unit
+def test_confidential_status_requires_auth(client):
+    """#1897: GET /status sits under the auth matrix floor."""
+    resp = client.get("/v1/confidential/status")
+    assert resp.status_code in (401, 403)
+
+
+@pytest.mark.unit
+def test_confidential_status_allows_client(client, client_token):
+    resp = client.get(
+        "/v1/confidential/status",
+        headers={"Authorization": f"Bearer {client_token}"},
+    )
+    assert resp.status_code == 200
