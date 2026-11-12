@@ -4,6 +4,8 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Response, status
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -12,6 +14,10 @@ from poolhub.repositories.miner_repository import MinerRepository
 from ..deps import db_session_dep, redis_dep
 from ..prometheus import miners_online_gauge
 from ..schemas import HealthResponse
+
+# Health probes must degrade to ok=False, never raise: DB driver errors,
+# redis driver errors, and transport-level timeouts are the expected surface.
+_OPS_ERRORS = (SQLAlchemyError, RedisError, OSError, TimeoutError)
 
 # No prefix here (V23-96).  ``main.py`` includes this router with no prefix of its
 # own, and every other service in the repo answers /health at the root — a health
@@ -37,13 +43,13 @@ async def health_endpoint(
 
     try:
         await session.execute(text("SELECT 1"))
-    except Exception as exc:
+    except _OPS_ERRORS as exc:
         db_ok = False
         db_error = str(exc)
 
     try:
         await redis.ping()
-    except Exception as exc:
+    except _OPS_ERRORS as exc:
         redis_ok = False
         redis_error = str(exc)
 
@@ -55,7 +61,7 @@ async def health_endpoint(
     miners_error: str | None = None
     try:
         active_miners = await MinerRepository(session, redis).list_active_miners()
-    except Exception as exc:
+    except _OPS_ERRORS as exc:
         miners_error = str(exc)
     else:
         miners_online = len(active_miners)

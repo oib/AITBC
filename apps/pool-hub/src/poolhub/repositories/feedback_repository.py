@@ -5,6 +5,7 @@ import json
 from decimal import Decimal
 
 from redis.asyncio import Redis
+from redis.exceptions import RedisError
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,6 +15,10 @@ from ..models import Feedback
 from ..storage.redis_keys import RedisKeys
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the best-effort event publish: redis driver
+# errors and JSON-serialization data-shape errors.
+_OPS_ERRORS = (RedisError, TypeError, ValueError)
 
 
 class FeedbackRepository:
@@ -60,7 +65,7 @@ class FeedbackRepository:
         }
         try:
             await self._redis.publish(RedisKeys.feedback_channel(), json.dumps(payload))
-        except Exception as exc:  # pragma: no cover - defensive
+        except _OPS_ERRORS as exc:  # pragma: no cover - defensive
             logger.warning("Failed to publish feedback event for job %s: %s", job_id, exc)
         return feedback
 

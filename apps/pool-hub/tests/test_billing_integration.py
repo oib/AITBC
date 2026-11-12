@@ -15,6 +15,8 @@ import pytest
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from poolhub.models import Base, MatchRequest, MatchResult, Miner
+from aitbc.exceptions import NetworkError
+
 from poolhub.services.billing_integration import BillingIntegration
 
 
@@ -104,7 +106,7 @@ class TestSendUsageArithmetic:
 class TestRecordUsageContract:
     async def test_send_failure_is_reported_not_raised(self, billing, monkeypatch):
         async def boom(event):
-            raise RuntimeError("coordinator down")
+            raise NetworkError("coordinator down")
 
         monkeypatch.setattr(billing, "_send_billing_event", boom)
         result = await billing.record_usage(tenant_id="t-1", resource_type="gpu_hours", quantity=Decimal("1"))
@@ -215,7 +217,7 @@ class TestSyncAllMinersUsage:
             await self._seed_activity(s)
 
         async def boom(self, **kwargs):
-            raise RuntimeError("billing unreachable")
+            raise NetworkError("billing unreachable")
 
         monkeypatch.setattr(BillingIntegration, "send_usage", boom)
         async with db_session() as s:
