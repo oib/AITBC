@@ -536,7 +536,7 @@ async def subscribe_to_topic(request: Request, req: SubscribeRequest, principal:
         try:
             connection_manager = get_connection_manager()
             if req.agent_id in connection_manager.active_connections:
-                connection_manager.subscribe(req.agent_id, req.topic)
+                connection_manager.subscribe(req.agent_id, req.topic)  # noqa: unawaited-async — sync method
         except Exception as e:
             logger.warning("Could not activate online subscription for %s: %s", req.agent_id, e)
 
@@ -574,7 +574,7 @@ async def unsubscribe_from_topic(request: Request, req: SubscribeRequest, princi
         try:
             connection_manager = get_connection_manager()
             if req.agent_id in connection_manager.active_connections:
-                connection_manager.unsubscribe(req.agent_id, req.topic)
+                connection_manager.unsubscribe(req.agent_id, req.topic)  # noqa: unawaited-async — sync method
         except Exception as e:
             logger.warning("Could not deactivate online subscription for %s: %s", req.agent_id, e)
 
