@@ -35,7 +35,7 @@ class TestDeveloperProfile:
         resp = client.post(
             f"{BASE}/register",
             json={"wallet_address": WALLET, "github_handle": "devp", "skills": ["python"]},
-            headers=_headers(),
+            headers=_headers("admin"),
         )
         assert resp.status_code == 200
         body = resp.json()
@@ -44,15 +44,15 @@ class TestDeveloperProfile:
 
     def test_duplicate_register_rejected(self, client: TestClient) -> None:
         body = {"wallet_address": WALLET2}
-        assert client.post(f"{BASE}/register", json=body, headers=_headers()).status_code == 200
-        resp = client.post(f"{BASE}/register", json=body, headers=_headers())
+        assert client.post(f"{BASE}/register", json=body, headers=_headers("admin")).status_code == 200
+        resp = client.post(f"{BASE}/register", json=body, headers=_headers("admin"))
         assert resp.status_code == 400
 
     def test_profile_lookup(self, client: TestClient) -> None:
         client.post(
             f"{BASE}/register",
             json={"wallet_address": WALLET},
-            headers=_headers(),
+            headers=_headers("admin"),
         )
         resp = client.get(f"{BASE}/profile/{WALLET}", headers=_headers())
         assert resp.status_code == 200

@@ -17,7 +17,9 @@ from starlette.concurrency import run_in_threadpool
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ....auth import AdminOrClientDep
 from ....storage import get_session
+from ....utils.ownership import require_agent_access
 from ..domain.rewards import AgentRewardProfile, RewardTier, RewardType
 from ..services.reward_service import RewardEngine
 
@@ -130,9 +132,13 @@ def get_reward_profile_no_id(request: Request, session: Annotated[Session, Depen
 @router.get("/profile/{agent_id}", response_model=RewardProfileResponse)
 @rate_limit(rate=200, per=60)
 async def get_reward_profile(
-    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    agent_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
 ) -> RewardProfileResponse:
     """Get comprehensive reward profile for an agent"""
+    require_agent_access(session, user, agent_id)
     reward_engine = RewardEngine(session)
     try:
         profile_data = await run_in_threadpool(reward_engine.get_reward_summary, agent_id)
@@ -150,9 +156,13 @@ async def get_reward_profile(
 @router.post("/profile/{agent_id}")
 @rate_limit(rate=20, per=60)
 async def create_reward_profile(
-    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    agent_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
     """Create a new reward profile for an agent"""
+    require_agent_access(session, user, agent_id)
     reward_engine = RewardEngine(session)
     try:
         profile = await run_in_threadpool(reward_engine.create_reward_profile, agent_id)
@@ -188,9 +198,13 @@ def calculate_and_distribute_reward(
 @router.get("/tier-progress/{agent_id}", response_model=TierProgressResponse)
 @rate_limit(rate=200, per=60)
 def get_tier_progress(
-    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    agent_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
 ) -> TierProgressResponse:
     """Get tier progress information for an agent"""
+    require_agent_access(session, user, agent_id)
     try:
         profile = session.execute(select(AgentRewardProfile).where(AgentRewardProfile.agent_id == agent_id)).scalars().first()
         if not profile:
@@ -376,10 +390,12 @@ def get_agent_milestones(
     request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
     include_completed: bool | None = None,
     limit: int = Query(default=200, ge=1, le=500),
 ) -> list[MilestoneResponse]:
     """Get milestones for an agent"""
+    require_agent_access(session, user, agent_id)
     try:
         from ..domain.rewards import RewardMilestone
 
@@ -416,10 +432,12 @@ def get_reward_distributions(
     request: Request,
     agent_id: str,
     session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
     limit: int = Query(default=100, ge=1, le=500),
     status: str | None = None,
 ) -> list[dict[str, Any]]:
     """Get reward distribution history for an agent"""
+    require_agent_access(session, user, agent_id)
     try:
         from ..domain.rewards import RewardDistribution
 

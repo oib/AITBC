@@ -14,6 +14,7 @@ from aitbc.aitbc_logging import get_logger
 from ....config import settings
 from ....metrics import market_errors_total, market_requests_total
 from ....schemas import MarketOfferView, MarketStatsView
+from ....auth import MinerDep
 from ....storage import get_session
 from ....utils.cache import cached, get_cache_config
 from ..services import MarketService
@@ -124,8 +125,12 @@ def update_provider_capacity(
     provider_id: str,
     body: _CapacityUpdate,
     session: Annotated[Session, Depends(get_session)],
+    user: MinerDep,
 ) -> MarketOfferView:
     """Publish updated provider capacity after reinvestment."""
+    # provider_id is a Miner.id — the caller's miner sub must match it (#1882).
+    if str(user.get("sub") or "").lower() != str(provider_id).lower():
+        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="not the provider owner")
     market_requests_total.labels(endpoint="/market/providers/{provider_id}/capacity", method="POST").inc()
     service = _get_service(session)
     try:
