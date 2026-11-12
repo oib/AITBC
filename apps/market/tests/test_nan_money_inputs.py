@@ -120,10 +120,13 @@ class TestBookRouteRawNaNBody:
     def client(self):
         from fastapi.testclient import TestClient
 
-        from market_service.main import app, require_market_api_key
+        from market_service import main as market_main
+        from market_service.main import app
 
-        require_market_api_key.auth_enabled = True
-        require_market_api_key.expected_key = "test-market-key"
+        market_main._market_user_key_auth.auth_enabled = True
+        market_main._market_user_key_auth.expected_key = "test-market-key"
+        market_main._market_operator_key_auth.auth_enabled = True
+        market_main._market_operator_key_auth.expected_key = "test-operator-key"
         with TestClient(app, raise_server_exceptions=False) as c:
             yield c
 
@@ -135,7 +138,7 @@ class TestBookRouteRawNaNBody:
         resp = client.post(
             f"/v1/market/offers/{offer.id}/book",
             content=body,
-            headers={"Content-Type": "application/json", "X-API-Key": "test-market-key"},
+            headers={"Content-Type": "application/json", "X-API-Key": "test-operator-key"},
         )
         assert resp.status_code == 400, f"{resp.status_code}: {resp.text[:300]}"
 
