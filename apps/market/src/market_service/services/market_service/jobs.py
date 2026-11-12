@@ -880,14 +880,20 @@ class _JobsMixin(_CoreMixin):
 
     @staticmethod
     def _pin_payload(job: MarketJob, size: int | None, pin_tx_hash: str | None, provider_confirmed: bool) -> dict[str, Any]:
+        """#1922: ``pinned``/``provider_confirmed`` are delivery evidence —
+        only the signed provider attestation (``provider_confirmed=True``,
+        gated by the route's wallet-signature + cid/size binding check) may
+        set them. Unsigned pin-confirm reports stay informational: the
+        caller's ``size``/``pin_tx_hash`` are recorded but never prove
+        delivery."""
         payload = dict(job.payload or {})
-        payload["pinned"] = True
+        if provider_confirmed:
+            payload["pinned"] = True
+            payload["provider_confirmed"] = True
         if size is not None:
             payload["size"] = size
         if pin_tx_hash:
             payload["pin_tx_hash"] = pin_tx_hash
-        if provider_confirmed:
-            payload["provider_confirmed"] = True
         return payload
 
     async def _cas_payment_status(self, payment_id: str, from_statuses: frozenset[str] | str, values: dict[str, Any]) -> bool:
@@ -1027,7 +1033,16 @@ class _JobsMixin(_CoreMixin):
         pin_tx_hash: str | None = None,
         provider_confirmed: bool = False,
     ) -> dict[str, Any]:
-        """Confirm a job has been pinned and optionally transition to RUNNING."""
+        """Confirm a job has been pinned.
+
+        #1922: only ``provider_confirmed=True`` — which the route accepts
+        solely with the provider's wallet signature bound to the job's CID
+        and reported size — records delivery evidence (``pinned``,
+        ``provider_confirmed``) and CASes QUEUED -> RUNNING. Unsigned calls
+        are informational: they record ``size``/``pin_tx_hash`` and may flip
+        a pending payment to escrowed on verified on-chain proof, but they
+        never move the job to RUNNING, so they cannot authorize release.
+        """
         try:
             job = await self.session.get(MarketJob, job_id)
             if not job:
@@ -1053,26 +1068,36 @@ class _JobsMixin(_CoreMixin):
             now = datetime.now(UTC).replace(tzinfo=None)
 
             # #1790: pending->escrowed is a CAS — rowcount decides, and the
-            # proof above already ran so a lost race cannot skip it.
+            # proof above already ran so a lost race cannot skip it. This
+            # flip is settlement bookkeeping backed by the on-chain escrow
+            # proof, not delivery evidence: it runs for unsigned reports too
+            # so an expired job's escrowed payment can still refund (#1922).
             payment_flipped = False
             if payment is not None and payment.status == "pending":
                 payment_flipped = await self._cas_payment_status(
                     payment.id, "pending", {"status": "escrowed", "escrowed_at": now, "updated_at": now}
                 )
 
-            # #1790: CAS the QUEUED/RUNNING -> RUNNING transition. A
-            # concurrent cancel that committed first yields rowcount 0 —
+            # #1790: CAS the lifecycle write. Only the signed provider
+            # attestation (``provider_confirmed``, verified at the route)
+            # transitions QUEUED -> RUNNING — RUNNING is the release gate's
+            # delivery proof, so an unsigned size/pin_tx_hash report must
+            # never mint it (#1922). Unsigned calls still reassign payload
+            # (recording the reported size/hash) and keep the current state.
+            # A concurrent cancel that committed first yields rowcount 0 —
             # roll back (reverting the payment flip) and return the state
             # that actually won instead of overwriting it.
+            job_values: dict[str, Any] = {
+                "payload": payload,
+                "payment_status": "escrowed" if payment_flipped else job.payment_status,
+                "updated_at": now,
+            }
+            if provider_confirmed:
+                job_values["state"] = "RUNNING"
             claim = await self.session.execute(
                 update(MarketJob)
                 .where(col(MarketJob.id) == job_id, col(MarketJob.state).in_({"QUEUED", "RUNNING"}))
-                .values(
-                    state="RUNNING",
-                    payload=payload,
-                    payment_status="escrowed" if payment_flipped else job.payment_status,
-                    updated_at=now,
-                )
+                .values(**job_values)
                 .execution_options(synchronize_session=False)
             )
             if getattr(claim, "rowcount", 0) != 1:
@@ -1192,6 +1217,15 @@ class _JobsMixin(_CoreMixin):
             raise ValueError(
                 f"Cannot release escrow for job {job_id} in state {job.state}; only RUNNING/COMPLETED jobs release"
             )
+        # #1922: RUNNING is only minted by the signed provider pin-confirm,
+        # but rows that reached RUNNING before this gate existed may carry
+        # no attestation — unsigned pin-confirm used to CAS them there.
+        # Fail closed: a RUNNING job without ``provider_confirmed`` in its
+        # payload has no verified pin evidence and must not release (it
+        # expires into the refund path instead). COMPLETED is exempt: no
+        # pin-confirm path sets it, so it is outside this threat model.
+        if job.state == "RUNNING" and not (job.payload or {}).get("provider_confirmed"):
+            raise ValueError(f"Cannot release escrow for job {job_id}: RUNNING without a provider pin attestation (#1922)")
         return None
 
     def _guard_refund_settlement(self, job: MarketJob, payment: MarketJobPayment | None, job_id: str) -> dict[str, Any] | None:

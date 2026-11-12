@@ -48,16 +48,20 @@ def _signed_params(
     private_key: str = _TEST_PRIVATE_KEY,
     chain_id: str | None = None,
     issued_at: int | None = None,
+    binding: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     issued_at = int(time.time()) if issued_at is None else issued_at
     chain_id = chain_id or settings.default_chain_id or resolve_chain_id()
-    signature = sign_transaction_data(jobs_request_message(address, chain_id, issued_at, route), private_key)
-    return {
+    signature = sign_transaction_data(jobs_request_message(address, chain_id, issued_at, route, binding=binding), private_key)
+    params: dict[str, Any] = {
         "signer_address": address,
         "chain_id": chain_id,
         "issued_at": issued_at,
         "signature": signature,
     }
+    if binding is not None:
+        params["binding"] = binding
+    return params
 
 
 def _seed_job(**fields: Any) -> dict[str, Any]:
@@ -353,34 +357,87 @@ def test_wrong_admin_key_stays_public(client: TestClient, monkeypatch: pytest.Mo
 
 
 def test_pin_confirm_provider_confirmed_requires_signature(client: TestClient) -> None:
-    job = _seed_ipfs_job()
+    # Unique client_ref: create_market_job replays on client_ref, and the
+    # suite shares one DB — a reused ref would return a row an earlier
+    # pin-confirm test already mutated.
+    job = _seed_ipfs_job(client_ref=f"ref-pin-signed-{time.time_ns()}")
     route = f"/v1/market/jobs/{job['job_id']}/pin-confirm"
     unsigned = client.post(route, json={"size": 2048, "provider_confirmed": True})
     assert unsigned.status_code == 403
 
+    # #1922: the attestation must be signed over a {cid, size} binding that
+    # matches the job — an unbound signature is refused.
+    unbound = client.post(
+        route,
+        json={
+            "size": 2048,
+            "provider_confirmed": True,
+            **_signed_params(_address(_TEST_PRIVATE_KEY), route),
+        },
+    )
+    assert unbound.status_code == 403
+
+    binding = {"cid": "QmSec4", "size": 2048}
     body = {
         "size": 2048,
         "provider_confirmed": True,
-        **_signed_params(_address(_TEST_PRIVATE_KEY), route),
+        **_signed_params(_address(_TEST_PRIVATE_KEY), route, binding=binding),
     }
     signed = client.post(route, json=body)
     assert signed.status_code == 200
     assert signed.json()["payload"]["provider_confirmed"] is True
+    assert signed.json()["state"] == "RUNNING"
 
 
 def test_pin_confirm_size_only_stays_open(client: TestClient) -> None:
-    """The buyer's host flow reports size without provider credentials."""
-    job = _seed_ipfs_job()
+    """The buyer's host flow reports size without provider credentials.
+
+    #1922: unsigned reports are informational — they record the size but
+    must not mint delivery evidence or the RUNNING state."""
+    # Unique client_ref — see test_pin_confirm_provider_confirmed_requires_signature.
+    job = _seed_ipfs_job(client_ref=f"ref-pin-size-{time.time_ns()}")
     response = client.post(f"/v1/market/jobs/{job['job_id']}/pin-confirm", json={"size": 2048})
     assert response.status_code == 200
+    body = response.json()
+    assert body["state"] == "QUEUED"
+    assert body["payload"]["size"] == 2048
+    assert body["payload"].get("pinned") is not True
+    assert body["payload"].get("provider_confirmed") is not True
+
+
+def test_pin_confirm_binding_must_match_job(client: TestClient) -> None:
+    """#1922: a valid provider signature over the wrong cid, or a binding whose
+    size differs from the reported size, is refused — the attestation is
+    bound to this job's stored CID and the recorded size."""
+    job = _seed_ipfs_job(client_ref=f"ref-pin-bind-{time.time_ns()}")
+    route = f"/v1/market/jobs/{job['job_id']}/pin-confirm"
+    address = _address(_TEST_PRIVATE_KEY)
+
+    cases = [
+        # Signed binding names a different CID than the job stores.
+        ({"cid": "QmOther", "size": 2048}, 2048),
+        # Signed binding attests a different size than the body records —
+        # the recorded size must be the attested one.
+        ({"cid": "QmSec4", "size": 9999}, 2048),
+    ]
+    for binding, reported_size in cases:
+        body = {
+            "size": reported_size,
+            "provider_confirmed": True,
+            **_signed_params(address, route, binding=binding),
+        }
+        response = client.post(route, json=body)
+        assert response.status_code == 403, (binding, reported_size, response.text)
 
 
 def test_pin_confirm_wrong_provider_is_403(client: TestClient) -> None:
     job = _seed_ipfs_job()
     route = f"/v1/market/jobs/{job['job_id']}/pin-confirm"
+    binding = {"cid": "QmSec4", "size": 2048}
     body = {
+        "size": 2048,
         "provider_confirmed": True,
-        **_signed_params(_address(_OTHER_PRIVATE_KEY), route, private_key=_OTHER_PRIVATE_KEY),
+        **_signed_params(_address(_OTHER_PRIVATE_KEY), route, private_key=_OTHER_PRIVATE_KEY, binding=binding),
     }
     response = client.post(route, json=body)
     assert response.status_code == 403

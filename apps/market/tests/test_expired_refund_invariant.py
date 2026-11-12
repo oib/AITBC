@@ -66,12 +66,15 @@ async def _set_lifecycle(
     state: str,
     payment_status: str = "escrowed",
     updated_at: datetime | None = None,
+    payload_update: dict | None = None,
 ) -> None:
     async with get_session_context() as session:
         job = await session.get(MarketJob, job_id)
         assert job is not None
         job.state = state
         job.payment_status = payment_status
+        if payload_update:
+            job.payload = {**(job.payload or {}), **payload_update}
         if updated_at is not None:
             job.updated_at = updated_at
         payment = await session.get(MarketJobPayment, job.payment_id)
@@ -197,18 +200,24 @@ async def test_direct_release_rejects_unfinished_and_expired_states() -> None:
         queued = await _make_job(service, tag="relq", expires_at=past)
         expired = await _make_job(service, tag="rele", expires_at=past)
         running = await _make_job(service, tag="relr", expires_at=past)
+        running_legacy = await _make_job(service, tag="rell", expires_at=past)
         completed = await _make_job(service, tag="relc", expires_at=past)
         await _set_lifecycle(queued, state="QUEUED")
         # EXPIRED with payment still escrowed is the release-vs-refund race
         # case: the state guard must fire before the payment-status one.
         await _set_lifecycle(expired, state="EXPIRED")
-        await _set_lifecycle(running, state="RUNNING")
+        # #1922: RUNNING is delivery evidence — post-fix it is only minted by
+        # the signed provider pin-confirm, which records provider_confirmed
+        # in the payload. running_legacy models a pre-fix row that reached
+        # RUNNING via the unsigned path: it must NOT release.
+        await _set_lifecycle(running, state="RUNNING", payload_update={"provider_confirmed": True})
+        await _set_lifecycle(running_legacy, state="RUNNING")
         await _set_lifecycle(completed, state="COMPLETED")
 
         service._rpc_client = StubRPC()  # type: ignore[assignment]
 
-        for job_id in (queued, expired):
-            with pytest.raises(ValueError, match="only RUNNING/COMPLETED"):
+        for job_id in (queued, expired, running_legacy):
+            with pytest.raises(ValueError):
                 await service.release_market_job_payment(job_id)
         assert service._rpc_client.released == []
 

@@ -69,7 +69,7 @@ async def _seed_settle_job(state: str = "RUNNING") -> str:
                 service_type="ipfs",
                 state=state,
                 offer_id="offer_x",
-                payload={},
+                payload={"provider_confirmed": True},
                 payment_id=payment.id,
                 payment_status="escrowed",
             )

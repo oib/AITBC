@@ -49,7 +49,7 @@ def sweeper(monkeypatch):
     monkeypatch.setattr(
         ipfs_pinning_sweeper,
         "_signed_request_params",
-        lambda address, route: {
+        lambda address, route, binding=None: {
             "signer_address": address,
             "chain_id": "test-chain",
             "issued_at": 1,
@@ -180,7 +180,7 @@ def test_pin_confirm_sends_provider_signature(state_path, sweeper):
 def test_sweep_unsigned_fetch_is_unknown_not_empty(state_path, sweeper, monkeypatch):
     """No signing material -> fetch returns None (unknown): error counted,
     no pins, and crucially no unpin of tracked entries."""
-    monkeypatch.setattr(ipfs_pinning_sweeper, "_signed_request_params", lambda address, route: None)
+    monkeypatch.setattr(ipfs_pinning_sweeper, "_signed_request_params", lambda address, route, binding=None: None)
     ipfs_pinning_sweeper._save_state(state_path, {"job-1": {"cid": CID, "size": 1000, "pinned_at": "t"}})
     result = ipfs_pinning_sweeper.sweep_once(PROVIDER, state_path)
     assert result["errors"] == 1

@@ -34,19 +34,32 @@ from aitbc.crypto.signature_recovery import canonical_address
 JOBS_REQUEST_MAX_AGE_SECONDS = 300
 
 
-def jobs_request_message(signer_address: str, chain_id: str, issued_at: int, route: str) -> dict[str, Any]:
+def jobs_request_message(
+    signer_address: str,
+    chain_id: str,
+    issued_at: int,
+    route: str,
+    binding: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     """Canonical fields a buyer/provider signs to read their own job rows.
 
     ``route`` is the concrete request path (``/v1/market/jobs`` or
     ``/v1/market/jobs/<id>[/pin-confirm]``) so a proof minted for one endpoint
-    cannot be reused on another.
+    cannot be reused on another. ``binding`` is an optional attestation
+    payload (e.g. the CID/size a provider pin-confirm claims, #1922) folded
+    into the signed message so the verified fields cannot be swapped after
+    signing; routes that need it require it, readers leave it None and the
+    message is unchanged.
     """
-    return {
+    message: dict[str, Any] = {
         "signer_address": signer_address,
         "chain_id": chain_id,
         "issued_at": issued_at,
         "route": route,
     }
+    if binding is not None:
+        message["binding"] = binding
+    return message
 
 
 def verify_jobs_request_signature(
@@ -57,6 +70,7 @@ def verify_jobs_request_signature(
     signature: str | None,
     expected_chain_id: str,
     *,
+    binding: dict[str, Any] | None = None,
     now: float | None = None,
     max_age_seconds: int = JOBS_REQUEST_MAX_AGE_SECONDS,
 ) -> tuple[str | None, str | None]:
@@ -82,7 +96,7 @@ def verify_jobs_request_signature(
         return ("issued_at is outside the accepted clock window", None)
     if not signature:
         return ("signature is required", None)
-    message = jobs_request_message(signer_address, chain_id, int(issued_at), route)
+    message = jobs_request_message(signer_address, chain_id, int(issued_at), route, binding=binding)
     recovered = recover_signer(message, signature)
     if recovered is None:
         return ("invalid job request signature", None)

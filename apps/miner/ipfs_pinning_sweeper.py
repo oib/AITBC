@@ -118,12 +118,15 @@ def _provider_key(provider_address: str) -> str | None:
     return None
 
 
-def _signed_request_params(provider_address: str, route: str) -> dict[str, Any] | None:
+def _signed_request_params(provider_address: str, route: str, binding: dict[str, Any] | None = None) -> dict[str, Any] | None:
     """Build the signed query/body fields a market job route expects, or None.
 
     The signed message binds the provider address, chain id, a freshness
     timestamp and the exact route (``aitbc.market.job_request_signature``);
     the market returns full job rows only to the recovered signer.
+    ``binding`` is an optional attestation payload folded into the signed
+    message — pin-confirm requires it so the CID/size claim cannot be
+    swapped after signing (#1922).
     """
     key = _provider_key(provider_address)
     chain_id = _chain_id()
@@ -131,7 +134,7 @@ def _signed_request_params(provider_address: str, route: str) -> dict[str, Any] 
         logger.warning("Cannot sign market request for %s: provider wallet key or chain id unavailable", provider_address)
         return None
     issued_at = int(time.time())
-    message = jobs_request_message(provider_address, chain_id, issued_at, route)
+    message = jobs_request_message(provider_address, chain_id, issued_at, route, binding=binding)
     return {
         "signer_address": provider_address,
         "chain_id": chain_id,
@@ -334,15 +337,19 @@ def _pin_confirmed(job: dict[str, Any]) -> bool:
     return bool(payload.get("provider_confirmed"))
 
 
-def _confirm_pin(market_url: str, job_id: str, size: int | None, provider_address: str) -> bool:
+def _confirm_pin(market_url: str, job_id: str, size: int | None, provider_address: str, cid: str | None = None) -> bool:
     route = f"/v1/market/jobs/{job_id}/pin-confirm"
-    signed = _signed_request_params(provider_address, route)
+    # #1922: the market requires the provider attestation to be signed over
+    # a {cid, size} binding that matches the job — an unbound signature no
+    # longer marks the rental delivered.
+    binding = {"cid": cid, "size": size}
+    signed = _signed_request_params(provider_address, route, binding=binding)
     if signed is None:
         return False
     try:
         response = requests.post(
             f"{market_url}{route}",
-            json={"size": size, "provider_confirmed": True, **signed},
+            json={"size": size, "provider_confirmed": True, "binding": binding, **signed},
             timeout=20,
         )
         response.raise_for_status()
@@ -453,7 +460,7 @@ def _pin_active_job(
         return
     size = state[job_id].get("size")
     if not _pin_confirmed(job):
-        if _confirm_pin(market_url, job_id, size, provider_address):
+        if _confirm_pin(market_url, job_id, size, provider_address, cid=cid):
             result["confirmed"] += 1
 
 
