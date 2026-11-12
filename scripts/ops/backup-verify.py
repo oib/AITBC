@@ -58,14 +58,17 @@ def _sqlite(path: Path, sql: str) -> str:
     ).stdout.strip()
 
 
-def check_chain_dump(gz: Path, scratch: Path) -> list[str]:
+def check_chain_dump(gz: Path, scratch: Path, require_blocks: bool = True) -> list[str]:
     """Rebuild a .dump text export and integrity-check it.
 
     An aborted dump is a valid gzip of a truncated export: sqlite3 exits 0
     on it, the tail is "ROLLBACK; -- due to errors", and the rebuilt db is
     empty and integrity-clean — which used to report CLEAN on a broken
     snapshot (#910). Require the COMMIT trailer, reject the ROLLBACK one,
-    and prove the rebuilt database actually holds blocks.
+    and — for the real chain DB artifact — prove the rebuilt database
+    actually holds blocks. ``require_blocks=False`` is for the service DBs
+    that share the ``chain_*`` prefix (keystore, wallet_ledger, …): they
+    legitimately have no block table (#1934).
     """
     errors: list[str] = []
     dest = scratch / (gz.name.removesuffix(".gz"))
@@ -87,6 +90,8 @@ def check_chain_dump(gz: Path, scratch: Path) -> list[str]:
         return [f"{gz.name}: rebuild failed: {build.stderr.decode(errors='replace').strip()[:120]}"]
     if _sqlite(dest, "PRAGMA integrity_check;") != "ok":
         errors.append(f"{gz.name}: integrity_check not ok")
+    if not require_blocks:
+        return errors
     blocks = _sqlite(
         dest,
         "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name IN ('block','blocks');",
@@ -160,7 +165,11 @@ def verify_set(
     if max_age_hours is not None and age is not None and age > max_age_hours:
         errors.append(f"{set_dir.name}: backup set is {age:.0f}h old (max {max_age_hours}h)")
     for gz in sorted(set_dir.glob("chain_*.db.gz")):
-        errs = check_chain_dump(gz, scratch)
+        # The backup script prefixes EVERY sqlite db under the chain data
+        # dir as chain_* — only the real chain DB dump (…_chain.db.gz)
+        # must hold a block table; service DBs get rebuild +
+        # integrity_check + baseline rows but no block requirement (#1934).
+        errs = check_chain_dump(gz, scratch, require_blocks=gz.name.endswith("_chain.db.gz"))
         db = scratch / gz.name.removesuffix(".gz")
         entry = {"name": gz.name, "ok": not errs}
         if db.exists() and not errs:
