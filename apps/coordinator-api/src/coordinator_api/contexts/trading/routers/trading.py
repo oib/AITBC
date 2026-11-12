@@ -20,7 +20,9 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ..domain.trading import TradeAgreement, TradeMatch, TradeNegotiation, TradeRequest, TradeSettlement, TradeType
+from ....auth import AdminOrClientDep
 from ....storage import get_session
+from ....utils.ownership import require_agent_access
 from ..services.trading_market.trading import P2PTradingProtocol
 from ....validators import validate_agent_id
 
@@ -194,9 +196,13 @@ class TradingSummaryResponse(BaseModel):
 @router.post("/requests", response_model=TradeRequestResponse)
 @rate_limit(rate=20, per=60)
 async def create_trade_request(
-    request: Request, request_data: TradeRequestRequest, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    request_data: TradeRequestRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
 ) -> TradeRequestResponse:
     """Create a new trade request"""
+    require_agent_access(session, user, request_data.buyer_agent_id)
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
         trade_request = await run_in_threadpool(
@@ -275,8 +281,17 @@ def get_trade_request(
 
 @router.post("/requests/{request_id}/matches")
 @rate_limit(rate=50, per=60)
-async def find_matches(request: Request, request_id: str, session: Annotated[Session, Depends(get_session)]) -> list[str]:
+async def find_matches(
+    request: Request,
+    request_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
+) -> list[str]:
     """Find matching sellers for a trade request"""
+    trade_request = session.execute(select(TradeRequest).where(TradeRequest.request_id == request_id)).scalars().first()
+    if trade_request is None:
+        raise HTTPException(status_code=404, detail="Trade request not found")
+    require_agent_access(session, user, trade_request.buyer_agent_id)
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
         matches = await run_in_threadpool(trading_protocol.find_matches, request_id)
@@ -339,9 +354,17 @@ def get_trade_matches(
 @router.post("/negotiations", response_model=NegotiationResponse)
 @rate_limit(rate=20, per=60)
 async def initiate_negotiation(
-    request: Request, negotiation_data: NegotiationRequest, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    negotiation_data: NegotiationRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
 ) -> NegotiationResponse:
     """Initiate negotiation between buyer and seller"""
+    match = session.execute(select(TradeMatch).where(TradeMatch.match_id == negotiation_data.match_id)).scalars().first()
+    if match is None:
+        raise HTTPException(status_code=404, detail="Trade match not found")
+    initiator_agent = match.buyer_agent_id if negotiation_data.initiator == "buyer" else match.seller_agent_id
+    require_agent_access(session, user, initiator_agent)
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
         negotiation = await run_in_threadpool(
@@ -769,9 +792,13 @@ def get_trading_analytics(
 @router.post("/simulate-match")
 @rate_limit(rate=50, per=60)
 async def simulate_trade_matching(
-    request: Request, request_data: TradeRequestRequest, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    request_data: TradeRequestRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
     """Simulate trade matching without creating actual request"""
+    require_agent_access(session, user, request_data.buyer_agent_id)
     trading_protocol = P2PTradingProtocol(session)  # type: ignore[arg-type]
     try:
         temp_request = TradeRequest(

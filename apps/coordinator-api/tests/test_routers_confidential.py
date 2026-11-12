@@ -23,7 +23,7 @@ def test_confidential_payments_requires_auth(client):
         "/v1/confidential/payments",
         json={
             "payment_id": "pay-123",
-            "sender_id": "wallet-1",
+            "sender_id": "client1",
             "recipient_id": "recipient-1",
             "amount_commitment": "0xdeadbeef",
         },
@@ -42,7 +42,7 @@ def test_confidential_payments_disabled_for_authenticated_client(client, client_
         headers={"Authorization": f"Bearer {client_token}"},
         json={
             "payment_id": "pay-123",
-            "sender_id": "wallet-1",
+            "sender_id": "client1",
             "recipient_id": "recipient-1",
             "amount_commitment": "0xdeadbeef",
         },
@@ -62,7 +62,7 @@ def test_confidential_payments_authenticated_when_enabled(client, client_token, 
         headers={"Authorization": f"Bearer {client_token}"},
         json={
             "payment_id": "pay-123",
-            "sender_id": "wallet-1",
+            "sender_id": "client1",
             "recipient_id": "recipient-1",
             "amount_commitment": "0xdeadbeef",
         },
@@ -70,7 +70,7 @@ def test_confidential_payments_authenticated_when_enabled(client, client_token, 
     assert resp.status_code == 200
     data = resp.json()
     assert data["payment_id"] == "pay-123"
-    assert data["sender_id"] == "wallet-1"
+    assert data["sender_id"] == "client1"
     assert data["recipient_id"] == "recipient-1"
     assert data["amount_commitment"] == "0xdeadbeef"
     assert data["settled"] is True
@@ -124,7 +124,7 @@ def test_keys_register_existing_returns_stored_version(client, client_token, mon
     conf_module.key_manager = None
 
     headers = {"Authorization": f"Bearer {client_token}"}
-    body = {"participant_id": "p-existing", "public_key": "AAAA", "algorithm": "X25519"}
+    body = {"participant_id": "client1", "public_key": "AAAA", "algorithm": "X25519"}
     first = client.post("/v1/confidential/keys/register", headers=headers, json=body)
     assert first.status_code == 200, first.text
     second = client.post("/v1/confidential/keys/register", headers=headers, json=body)
@@ -149,9 +149,9 @@ def test_keys_rotate_authenticated_is_honest_501(client, client_token, monkeypat
     client.post(
         "/v1/confidential/keys/register",
         headers=headers,
-        json={"participant_id": "p-rotate", "public_key": "AAAA", "algorithm": "X25519"},
+        json={"participant_id": "client1", "public_key": "AAAA", "algorithm": "X25519"},
     )
-    resp = client.post("/v1/confidential/keys/rotate", headers=headers, params={"participant_id": "p-rotate"})
+    resp = client.post("/v1/confidential/keys/rotate", headers=headers, params={"participant_id": "client1"})
     assert resp.status_code == 501
 
 

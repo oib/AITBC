@@ -10,9 +10,27 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+import pytest
 from fastapi.testclient import TestClient
 
 from aitbc.auth import create_access_token
+
+from coordinator_api.contexts.infrastructure.domain.miner import Miner
+from coordinator_api.contexts.infrastructure.domain.user import User, Wallet
+
+PROVIDER_WALLET = "0x1111111111111111111111111111111111111111"
+
+
+@pytest.fixture(autouse=True)
+def _bound_providers(db_session):
+    """#1881: bond mutations now require provider ownership — seed miners
+    p1/p2/p3/ghost2 paying out to provider-1's wallet."""
+    db_session.add(User(id="provider-1", email="provider-1@aitbc.local", username="provider-1"))
+    db_session.add(Wallet(user_id="provider-1", address=PROVIDER_WALLET))
+    for pid in ("p1", "p2", "p3", "ghost2"):
+        db_session.add(Miner(id=pid, capabilities={"wallet_address": PROVIDER_WALLET}))
+    db_session.commit()
+
 
 BASE = "/v1/market"
 

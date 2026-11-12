@@ -70,7 +70,7 @@ class TestPaymentLifecycle:
         body = resp.json()
         assert body["payment_id"]
         assert body["status"] == "pending"
-        assert body["user_id"] == "user-1"
+        assert body["user_id"] == "u"  # bound to token sub, not the body field (#1881)
         assert Decimal(str(body["aitbc_amount"])) == Decimal("1000")
 
         status = client.get(f"{BASE}/payment-status/{body['payment_id']}", headers=_headers())

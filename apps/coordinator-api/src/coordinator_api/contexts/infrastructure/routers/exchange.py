@@ -16,6 +16,7 @@ from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import parse_rate_limit, rate_limit
 
+from ....auth import AdminOrClientDep
 from ....config import settings
 from ....schemas import (
     ExchangePaymentRequest,
@@ -54,7 +55,10 @@ ETH_CONFIG: dict[str, Any] = {
 @router.post("/exchange/create-payment", response_model=ExchangePaymentResponse)
 @rate_limit(*parse_rate_limit(settings.rate_limit_exchange_payment))
 async def create_payment(
-    request: Request, payment_request: ExchangePaymentRequest, background_tasks: BackgroundTasks
+    request: Request,
+    payment_request: ExchangePaymentRequest,
+    background_tasks: BackgroundTasks,
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
     """Create a new ETH payment request"""
 
@@ -69,8 +73,11 @@ async def create_payment(
     if abs(payment_request.eth_amount - expected_eth) > 0.00000001:
         raise HTTPException(status_code=400, detail="Amount mismatch")
 
-    # Bind payment to the authenticated user when auth is enabled
-    user_id = getattr(request.state, "user_id", None) or payment_request.user_id
+    # Bind payment to the authenticated principal — the body-supplied
+    # user_id is caller-asserted and must never stand in for auth (#1881).
+    user_id = str(user.get("sub") or user.get("user_id") or "")
+    if not user_id:
+        raise HTTPException(status_code=401, detail="Authentication required")
 
     # Create payment record
     payment_id = str(uuid.uuid4())
@@ -99,12 +106,18 @@ async def create_payment(
 @router.get("/exchange/payment-status/{payment_id}", response_model=PaymentStatusResponse)
 @rate_limit(rate=200, per=60)
 @cached(**get_cache_config("user_balance"))  # Cache payment status for 30 seconds
-async def get_payment_status(request: Request, payment_id: str) -> dict[str, Any]:
+async def get_payment_status(request: Request, payment_id: str, user: AdminOrClientDep) -> dict[str, Any]:
     """Get payment status"""
 
     payment = await _state.get_doc(_NAMESPACE, payment_id)
     if payment is None:
         raise HTTPException(status_code=404, detail="Payment not found")
+
+    # Payment records are per-user: only the owning principal (or admin)
+    # may read status — payment_id is not a capability (#1881).
+    caller = str(user.get("sub") or user.get("user_id") or "")
+    if user.get("role") != "admin" and str(payment.get("user_id")) != caller:
+        raise HTTPException(status_code=403, detail="not the payment owner")
 
     # Check if expired
     if payment["status"] == "pending" and time.time() > payment["expires_at"]:

@@ -14,8 +14,24 @@ from __future__ import annotations
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
+import pytest
+
 from aitbc.auth import create_access_token
+from coordinator_api.contexts.agent_identity.domain.agent_identity import AgentIdentity
+from coordinator_api.contexts.infrastructure.domain.user import Wallet
 from coordinator_api.contexts.trading.domain.trading import TradeMatch, TradeRequest, TradeStatus
+
+BUYER_WALLET = "0x2222222222222222222222222222222222222222"
+
+
+@pytest.fixture(autouse=True)
+def _bound_buyer_agent(db_session):
+    """#1881: trade mutations bind buyer_agent_id through AgentIdentity —
+    agent-buyer-1 is owned by client-1's wallet."""
+    db_session.add(Wallet(user_id="client-1", address=BUYER_WALLET))
+    db_session.add(AgentIdentity(agent_id=AGENT, owner_address=BUYER_WALLET))
+    db_session.commit()
+
 
 BASE = "/v1/trading"
 AGENT = "agent-buyer-1"
