@@ -3760,7 +3760,7 @@
           "market-bonds"
         ],
         "summary": "Create or update a provider bond",
-        "description": "Create or top-up a provider performance bond record.\n\nThe bond's ``required_amount`` is raised to the global floor if the caller\nsupplies a smaller value, and the bond is left ``PENDING`` until the posted\n``amount`` meets that floor.",
+        "description": "Create or top-up a provider performance bond record.\n\n#1915: the record is a projection of VERIFIED chain state, not a\nself-declaration. ``bond_id`` must name an ``active`` on-chain bond the\nchain attributes to the provider's registered wallet; ``amount`` and\n``status`` derive from that chain record (the body's ``amount`` is\nignored). ``required_amount`` is raised to the global floor if the\ncaller supplies a smaller value, and the bond is left ``PENDING`` until\nthe chain-verified amount meets that floor.",
         "operationId": "create_bond_v1_market_providers__provider_id__bonds_post",
         "parameters": [
           {
@@ -3820,8 +3820,28 @@
               }
             }
           },
+          "400": {
+            "description": "bond_id is required: bonds activate only from a verified on-chain BOND_LOCK record / provider has no registered wallet address; cannot bind an on-chain bond / bond {bond_id} is not an on-chain bond of this provider / on-chain bond {bond_id} is {entry.get('status')}, not active",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "403": {
             "description": "not the provider owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "could not verify bond {bond_id} against chain state",
             "content": {
               "application/json": {
                 "schema": {

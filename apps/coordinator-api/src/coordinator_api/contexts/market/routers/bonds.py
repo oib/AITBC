@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
@@ -10,10 +11,13 @@ from pydantic import BaseModel, Field
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import AITBCError
 from aitbc.rate_limiting import rate_limit
+from aitbc.utils.units import units_to_ait
 from ....auth import require_auth
 from ....storage import get_session
 from ....utils.ownership import caller_identities, is_admin
+from ...blockchain.services.blockchain import BlockchainService
 from ..domain.provider_bond import (
     ProviderBond,
     ProviderBondStatus,
@@ -121,25 +125,71 @@ def create_bond(
 ) -> BondResponse:
     """Create or top-up a provider performance bond record.
 
-    The bond's ``required_amount`` is raised to the global floor if the caller
-    supplies a smaller value, and the bond is left ``PENDING`` until the posted
-    ``amount`` meets that floor.
+    #1915: the record is a projection of VERIFIED chain state, not a
+    self-declaration. ``bond_id`` must name an ``active`` on-chain bond the
+    chain attributes to the provider's registered wallet; ``amount`` and
+    ``status`` derive from that chain record (the body's ``amount`` is
+    ignored). ``required_amount`` is raised to the global floor if the
+    caller supplies a smaller value, and the bond is left ``PENDING`` until
+    the chain-verified amount meets that floor.
     """
     _require_provider_access(session, user, provider_id)
-    amount = _to_decimal(body.amount)
+    bond_id = (body.bond_id or "").strip()
+    if not bond_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="bond_id is required: bonds activate only from a verified on-chain BOND_LOCK record",
+        )
+    miner = session.get(Miner, provider_id)
+    wallet = miner_wallet_address(miner) if miner is not None else None
+    if not wallet:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="provider has no registered wallet address; cannot bind an on-chain bond",
+        )
+    try:
+        chain = BlockchainService().list_provider_bonds(wallet)
+    except AITBCError as e:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"could not verify bond {bond_id} against chain state",
+        ) from e
+    entry = next((b for b in chain.get("bonds", []) if str(b.get("bond_id")) == bond_id), None)
+    if entry is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"bond {bond_id} is not an on-chain bond of this provider",
+        )
+    if entry.get("status") != "active":
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"on-chain bond {bond_id} is {entry.get('status')}, not active",
+        )
+    amount = units_to_ait(int(entry.get("amount") or 0))
     required_amount = _to_decimal(body.required_amount)
     floor = _default_bond_min_amount()
     if required_amount < floor:
         required_amount = floor
-    status = ProviderBondStatus.ACTIVE if amount >= required_amount else ProviderBondStatus.PENDING
+    bond_status = ProviderBondStatus.ACTIVE if amount >= required_amount else ProviderBondStatus.PENDING
     bond = set_provider_bond_status(
         session,
         provider_id,
-        status,
+        bond_status,
         amount=amount,
         required_amount=required_amount,
-        bond_id=body.bond_id or f"bond-{provider_id}",
+        bond_id=bond_id,
     )
+    bond.meta = {
+        **(bond.meta or {}),
+        "chain_bond_id": bond_id,
+        "chain_provider": wallet,
+        "chain_amount_units": int(entry.get("amount") or 0),
+        "chain_status": entry.get("status"),
+        "verified_at": datetime.now(UTC).isoformat(),
+    }
+    session.add(bond)
+    session.commit()
+    session.refresh(bond)
     return _bond_response(bond)
 
 
