@@ -671,7 +671,9 @@ def cancel(
     output_format = _resolve_output_format(ctx, output_format)
     # #1634: sign the cancel as a job party when the market wallet key is
     # resolvable — the market verifies the proof and rejects foreign
-    # signers. Without a key the API-key-only cancel still works.
+    # signers. #1893: without a key the cancel is rejected (403) — the
+    # user-tier API key alone is not a party credential; only the operator
+    # key bypasses signing, and the CLI does not hold it.
     payload: dict[str, Any] = {"reason": reason}
     try:
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=False)
@@ -687,7 +689,7 @@ def cancel(
                     "signature": sign_transaction_data(message, private_key),
                 }
             )
-    except Exception as e:  # noqa: BLE001 - unsigned cancel remains valid
+    except Exception as e:  # noqa: BLE001 - unsigned cancel is rejected server-side (#1893)
         warning(f"Could not sign market cancel request: {e}")
     try:
         result = _market_client().post(f"/v1/market/jobs/{job_id}/cancel", json=payload)
