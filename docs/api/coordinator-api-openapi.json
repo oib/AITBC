@@ -2252,7 +2252,7 @@
             }
           },
           "409": {
-            "description": "GPU {gpu_id} is currently booked. Use force=true to delete anyway.",
+            "description": "GPU {gpu_id} is currently booked. Use force=true to delete anyway. / GPU has an active booking with a live payment \u2014 resolve the payment (cancel or refund the bound job) before force-deleting",
             "content": {
               "application/json": {
                 "schema": {
