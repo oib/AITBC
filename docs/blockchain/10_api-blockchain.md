@@ -411,7 +411,9 @@ WS /rpc/gossip/ws?topic=<topic>
 ```
 
 Streams a gossip topic (e.g. `transactions`, `blocks.<chain_id>`). Public
-topics stream after the server accepts the socket; **restricted topics require
+topics stream after the server accepts the socket; publishing on them
+requires a `peer_auth` frame with a peer key (#1874 — see
+`docs/api/websocket.md`). **Restricted topics require
 a signed validator challenge** — the server sends an `auth_challenge` message
 and the client must answer with a valid validator signature before the stream
 starts. Per-IP connection and message-rate limits apply

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import ssl
 import time
 import uuid
@@ -51,6 +52,11 @@ _CONNECT_ERRNO_NAMES = {
 }
 
 
+# Server->client control frames that are handshake bookkeeping, never gossip
+# payloads — the reader must not deliver them into subscriber queues (#1874).
+_CONTROL_FRAME_TYPES = frozenset({"peer_auth_ok", "peer_auth_error"})
+
+
 def _connect_error_class(exc: BaseException) -> str:
     """Map a connect() failure to a bounded class label (#1801)."""
     import errno as _errno
@@ -83,6 +89,7 @@ class WebsocketGossipBackend(GossipBackend):
         suppress_echo_ttl: float = 5.0,
         ack_timeout: float = 10.0,
         peer_name: str | None = None,
+        api_key: str | None = None,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         # #1308: peer attribution for telemetry — mesh passes the configured
@@ -133,6 +140,12 @@ class WebsocketGossipBackend(GossipBackend):
         # attempt's ack (read once by the publish telemetry, then popped).
         self._ack_prior_timeout: dict[str, int] = {}
         self._connect_locks: dict[str, asyncio.Lock] = {}
+        # #1874: peer credential for public-topic publish. Defaults to this
+        # node's BLOCKCHAIN_RPC_API_KEY — on self-serve joins that env var IS
+        # the issued join key, so one source covers fleet and open-island
+        # peers. Sent in-band as a peer_auth frame, never in the URL (access
+        # logs record query strings).
+        self._api_key = api_key if api_key is not None else (os.getenv("BLOCKCHAIN_RPC_API_KEY") or None)
 
     async def start(self) -> None:
         self._running = True
@@ -327,6 +340,8 @@ class WebsocketGossipBackend(GossipBackend):
             )
             raise RuntimeError(f"Failed to connect to gossip websocket for {topic}: {e}") from e
 
+        await self._send_peer_auth(ws)
+
         try:
             await self._authenticate(topic, ws)
         except Exception as e:
@@ -352,6 +367,18 @@ class WebsocketGossipBackend(GossipBackend):
             topic=topic,
             latency_ms=round((time.monotonic() - connect_t0) * 1000.0, 1),
         )
+
+    async def _send_peer_auth(self, ws: Any) -> None:
+        """Send the #1874 peer_auth frame when a credential is configured.
+
+        Fire-and-forget: the server processes frames in order, so this
+        precedes every later publish on the socket. An invalid key surfaces
+        as a publish rejection, not a handshake failure — subscribe-only use
+        of the socket stays valid.
+        """
+        if not self._api_key:
+            return
+        await ws.send(json.dumps({"type": "peer_auth", "api_key": self._api_key}))
 
     async def _authenticate(self, topic: str, ws: Any) -> None:
         """Perform the validator challenge/response handshake if the server requires it."""
@@ -430,24 +457,30 @@ class WebsocketGossipBackend(GossipBackend):
 
         logger.debug("Authenticated gossip websocket for %s as %s", topic, proposer_id)
 
+    async def _handle_inbound(self, topic: str, raw: Any) -> None:
+        """Decode one wire frame and fan it out to this topic's subscribers."""
+        if not raw:
+            return
+        try:
+            message = json.loads(raw)
+        except Exception:
+            return
+        if isinstance(message, dict) and message.get("type") in _CONTROL_FRAME_TYPES:
+            return
+        if await self._is_echo(topic, message):
+            return
+        queues = self._queues.get(topic)
+        if isinstance(queues, list):
+            # Snapshot: unsubscribe mutates the list under _lock.
+            for queue in list(queues):
+                await queue.put(message)
+
     async def _reader(self, topic: str, ws: Any) -> None:
         import websockets
 
         try:
             async for raw in ws:
-                if not raw:
-                    continue
-                try:
-                    message = json.loads(raw)
-                except Exception:
-                    continue
-                if await self._is_echo(topic, message):
-                    continue
-                queues = self._queues.get(topic)
-                if isinstance(queues, list):
-                    # Snapshot: unsubscribe mutates the list under _lock.
-                    for queue in list(queues):
-                        await queue.put(message)
+                await self._handle_inbound(topic, raw)
         except websockets.exceptions.ConnectionClosed as exc:
             # #1308: peer-attributed close record — the churn bursts were
             # unattributable because only the topic was logged.
