@@ -26,7 +26,9 @@ next release and could not be checked -- this reads the handler and reports what
 
 **Only literals are collected, and only from the handler's own source, its route
 dependencies, and the same-module private helpers they call.** A private helper is a
-module-level function in the handler's own module whose name starts with `_`; the scan
+module-level function in the handler's own module -- or in a split-sibling module named
+`<module>_<suffix>` (the `escrow_routes_*`/`state_transition_*` extraction pattern), whose
+helpers are reached through the facade's re-exports -- whose name starts with `_`; the scan
 descends one level into it and no further, so a handler can split out a validation or
 rate-limit block without its error responses vanishing from the spec. A code computed at
 runtime, or raised inside a service method the handler calls, is not found. That makes the
@@ -221,12 +223,18 @@ def _same_module_helper(fn: Any, name: str) -> Any | None:
     `fn.__globals__` is the module namespace `fn` was defined in, so a hit there is
     already module-level; the `__module__` check is what keeps an imported helper
     (`from other import _x`) from being followed -- the name binds here, but the
-    function's source lives in another module.
+    function's source lives in another module. Split-sibling modules (`<module>_*`,
+    re-exported through the facade) count as the same module: their helpers are the
+    handler's own code that merely moved to a sibling file.
     """
     helper = getattr(fn, "__globals__", {}).get(name)
     if not inspect.isfunction(helper):
         return None
-    if getattr(helper, "__module__", None) != getattr(fn, "__module__", None):
+    fn_module = getattr(fn, "__module__", None)
+    helper_module = getattr(helper, "__module__", None)
+    if helper_module != fn_module and not (
+        isinstance(helper_module, str) and isinstance(fn_module, str) and helper_module.startswith(fn_module + "_")
+    ):
         return None
     return helper
 
