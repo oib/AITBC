@@ -1494,6 +1494,55 @@ async def resolve_market_job_dispute(
         raise
 
 
+async def _pin_confirm_attestation_gate(
+    svc: MarketService,
+    job_id: str,
+    confirm_data: dict[str, Any],
+    pin_size: int | None,
+) -> JSONResponse | None:
+    """#1922: verify the provider's pin-confirm delivery attestation.
+
+    Returns a ready error response, or None when the request may proceed —
+    either ``provider_confirmed`` was not claimed (unsigned reports are
+    informational and need no gate) or the provider wallet signature over
+    the route-bound ``{"cid", "size"}`` binding verified against this job.
+    """
+    if not confirm_data.get("provider_confirmed"):
+        return None
+    job = await svc.get_market_job(job_id)
+    if not job:
+        return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
+    binding = confirm_data.get("binding")
+    if not isinstance(binding, dict):
+        return JSONResponse(
+            status_code=403,
+            content={"error": 'provider_confirmed requires a signed binding {"cid", "size"}'},
+        )
+    error, signer = verify_jobs_request_signature(
+        signer_address=confirm_data.get("signer_address"),
+        chain_id=confirm_data.get("chain_id"),
+        issued_at=confirm_data.get("issued_at"),
+        route=f"/v1/market/jobs/{job_id}/pin-confirm",
+        signature=confirm_data.get("signature"),
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+        binding=binding,
+    )
+    if error or not signer:
+        return JSONResponse(status_code=403, content={"error": error or "provider signature required"})
+    if canonical_address(signer) != canonical_address(str(job.get("provider_address") or "")):
+        return JSONResponse(status_code=403, content={"error": "signer is not this job's provider"})
+    # The signature covers ``binding`` verbatim; these checks bind the
+    # attested content to THIS job — the stored CID is authoritative
+    # (set at creation, immutable afterwards) and the attested size
+    # must be the size this call records.
+    job_payload = job.get("payload") or {}
+    if str(binding.get("cid") or "") != str(job_payload.get("cid") or ""):
+        return JSONResponse(status_code=403, content={"error": "pin attestation cid does not match this job"})
+    if binding.get("size") != pin_size:
+        return JSONResponse(status_code=403, content={"error": "pin attestation size does not match the reported size"})
+    return None
+
+
 @app.post("/v1/market/jobs/{job_id}/pin-confirm", dependencies=[Depends(require_market_api_key)])
 async def confirm_market_job_pin(
     job_id: str,
@@ -1502,11 +1551,19 @@ async def confirm_market_job_pin(
 ) -> Any:
     """Confirm that a job's content has been pinned.
 
-    ``provider_confirmed`` is the provider's own claim, so it requires the
-    job provider's wallet signature (the same canonical jobs-request proof
-    the read routes accept, bound to this route). Unsigned ``size`` /
-    ``pin_tx_hash`` updates stay open — the buyer's ``aitbc market host``
-    flow reports the pinned size that way.
+    #1922: unsigned ``size`` / ``pin_tx_hash`` updates are informational
+    only — the buyer's ``aitbc market host`` flow reports the pinned size
+    that way, but they never mark the job delivered: the state stays
+    QUEUED/RUNNING-as-was and release still demands verified pin evidence.
+    ``provider_confirmed`` is the provider's own delivery attestation, so
+    it requires the job provider's wallet signature (the same canonical
+    jobs-request proof the read routes accept, bound to this route) plus a
+    ``binding`` object ``{"cid": ..., "size": ...}`` folded into the signed
+    message and checked against the job's stored CID and the reported size
+    — the attestation cannot be replayed for different content or a
+    different size. ``pin_tx_hash`` remains an unverified caller claim in
+    both modes; no on-chain pin-proof convention exists to check it
+    against.
     """
     try:
         confirm_data = confirm_data or {}
@@ -1517,22 +1574,9 @@ async def confirm_market_job_pin(
         pin_size = confirm_data.get("size")
         if pin_size is not None and (isinstance(pin_size, bool) or not isinstance(pin_size, int) or pin_size < 0):
             return JSONResponse(status_code=400, content={"error": "size must be a non-negative integer"})
-        if confirm_data.get("provider_confirmed"):
-            job = await svc.get_market_job(job_id)
-            if not job:
-                return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
-            error, signer = verify_jobs_request_signature(
-                signer_address=confirm_data.get("signer_address"),
-                chain_id=confirm_data.get("chain_id"),
-                issued_at=confirm_data.get("issued_at"),
-                route=f"/v1/market/jobs/{job_id}/pin-confirm",
-                signature=confirm_data.get("signature"),
-                expected_chain_id=settings.default_chain_id or resolve_chain_id(),
-            )
-            if error or not signer:
-                return JSONResponse(status_code=403, content={"error": error or "provider signature required"})
-            if canonical_address(signer) != canonical_address(str(job.get("provider_address") or "")):
-                return JSONResponse(status_code=403, content={"error": "signer is not this job's provider"})
+        gate = await _pin_confirm_attestation_gate(svc, job_id, confirm_data, pin_size)
+        if gate is not None:
+            return gate
         result = await svc.confirm_market_job_pin(
             job_id,
             size=confirm_data.get("size"),

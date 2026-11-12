@@ -63,7 +63,7 @@ async def _seed(
                 provider_address="0x" + "22" * 20,
                 service_type="ipfs",
                 state=state,
-                payload={},
+                payload={"provider_confirmed": True},
                 payment_id=payment_id,
                 payment_status=payment_status if with_payment else None,
                 disputed_at=now if disputed else None,

@@ -2241,7 +2241,7 @@
     "/v1/market/jobs/{job_id}/pin-confirm": {
       "post": {
         "summary": "Confirm Market Job Pin",
-        "description": "Confirm that a job's content has been pinned.\n\n``provider_confirmed`` is the provider's own claim, so it requires the\njob provider's wallet signature (the same canonical jobs-request proof\nthe read routes accept, bound to this route). Unsigned ``size`` /\n``pin_tx_hash`` updates stay open \u2014 the buyer's ``aitbc market host``\nflow reports the pinned size that way.",
+        "description": "Confirm that a job's content has been pinned.\n\n#1922: unsigned ``size`` / ``pin_tx_hash`` updates are informational\nonly \u2014 the buyer's ``aitbc market host`` flow reports the pinned size\nthat way, but they never mark the job delivered: the state stays\nQUEUED/RUNNING-as-was and release still demands verified pin evidence.\n``provider_confirmed`` is the provider's own delivery attestation, so\nit requires the job provider's wallet signature (the same canonical\njobs-request proof the read routes accept, bound to this route) plus a\n``binding`` object ``{\"cid\": ..., \"size\": ...}`` folded into the signed\nmessage and checked against the job's stored CID and the reported size\n\u2014 the attestation cannot be replayed for different content or a\ndifferent size. ``pin_tx_hash`` remains an unverified caller claim in\nboth modes; no on-chain pin-proof convention exists to check it\nagainst.",
         "operationId": "confirm_market_job_pin_v1_market_jobs__job_id__pin_confirm_post",
         "parameters": [
           {
@@ -2309,7 +2309,7 @@
             }
           },
           "403": {
-            "description": "signer is not this job's provider",
+            "description": "provider_confirmed requires a signed binding {\"cid\", \"size\"} / signer is not this job's provider / pin attestation cid does not match this job / pin attestation size does not match the reported size",
             "content": {
               "application/json": {
                 "schema": {

@@ -128,12 +128,15 @@ async def test_confirm_and_release_payment(service: MarketService) -> None:
     )
     await _mark_escrowed(service, created["job_id"], "escrow-123")
 
-    await service.confirm_market_job_pin(created["job_id"], size=100)
+    # #1922: RUNNING is delivery evidence — only the signed provider
+    # attestation (provider_confirmed at the route) may mint it.
+    await service.confirm_market_job_pin(created["job_id"], size=100, provider_confirmed=True)
     fetched = await service.get_market_job(created["job_id"])
     assert fetched["state"] == "RUNNING"
     # payload is a plain JSON column: pin-confirm must reassign it, or the
     # mutation is silently dropped at commit.
     assert fetched["payload"]["pinned"] is True
+    assert fetched["payload"]["provider_confirmed"] is True
     assert fetched["payload"]["size"] == 100
 
     released = await service.release_market_job_payment(created["job_id"])
@@ -314,11 +317,17 @@ async def test_pin_confirm_marks_escrowed_with_valid_proof(service: MarketServic
     created = await service.create_market_job(_job_fields())
     result = await service.confirm_market_job_pin(created["job_id"], size=42)
 
-    assert result["state"] == "RUNNING"
+    # #1922: the pending->escrowed flip is verified on-chain bookkeeping and
+    # still runs for an unsigned report, but the job must NOT reach RUNNING —
+    # that transition is reserved for the signed provider attestation.
+    assert result["state"] == "QUEUED"
     assert result["payment_status"] == "escrowed"
     fetched = await service.get_market_job(created["job_id"])
     assert fetched["payment"]["status"] == "escrowed"
     assert fetched["payment"]["escrowed_at"] is not None
+    assert fetched["payload"]["size"] == 42
+    assert fetched["payload"].get("pinned") is not True
+    assert fetched["payload"].get("provider_confirmed") is not True
 
 
 @pytest.mark.asyncio
@@ -330,7 +339,7 @@ async def test_pin_confirm_skips_proof_when_already_escrowed(service: MarketServ
     created = await service.create_market_job(_job_fields())
     await _mark_escrowed(service, created["job_id"], "escrow-1")
 
-    result = await service.confirm_market_job_pin(created["job_id"])
+    result = await service.confirm_market_job_pin(created["job_id"], provider_confirmed=True)
     assert result["state"] == "RUNNING"
     assert stub.calls == 0
 
