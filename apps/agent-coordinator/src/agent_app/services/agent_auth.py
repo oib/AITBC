@@ -39,6 +39,7 @@ from fastapi import HTTPException, Request, status
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.agent_envelope import request_claim, verify_request_claim
+from aitbc.crypto.signature_recovery import canonical_address
 
 from .. import state
 from ..config import settings
@@ -409,6 +410,48 @@ def authorize_admin_scope(principal: AgentPrincipal | None, action: str) -> None
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin_required")
     logger.warning(
         "scope_mismatch action=%s principal=%s auth_type=%s mode=%s — enforce would 403",
+        action,
+        principal.agent_id,
+        principal.auth_type,
+        mode,
+    )
+
+
+def authorize_escrow_party(principal: AgentPrincipal | None, requester: str, agent: str, action: str) -> None:
+    """Party-or-admin scoping for escrow metadata reads (#1884).
+
+    Escrow rows expose requester/agent/amount/tx hashes — financial
+    metadata that must not be enumerable by any authenticated principal.
+    A principal may read the row when its registry-bound wallet matches
+    either party address; admins always may.
+
+    * ``disabled`` — no-op (explicit migration escape hatch).
+    * ``advisory`` — a missing principal is rejected (401): authentication is
+      mode-independent per #1846; a party mismatch logs and passes.
+    * ``enforce`` — no principal → 401; non-admin whose bound wallet matches
+      neither ``requester`` nor ``agent`` → 403.
+    """
+    mode = settings.agent_msg_signature_mode
+    if mode == "disabled":
+        return
+    if principal is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="agent authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if principal.is_admin:
+        return
+    wallet = principal.wallet
+    if wallet:
+        bound = canonical_address(wallet)
+        parties = {canonical_address(p) for p in (requester, agent) if p}
+        if bound in parties:
+            return
+    if mode == "enforce":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="escrow_party_mismatch")
+    logger.warning(
+        "escrow_party_mismatch action=%s principal=%s auth_type=%s mode=%s — enforce would 403",
         action,
         principal.agent_id,
         principal.auth_type,
