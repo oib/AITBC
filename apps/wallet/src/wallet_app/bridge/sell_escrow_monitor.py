@@ -970,26 +970,29 @@ async def _release_eth_for_lock(cfg: SellConfig, row: dict[str, Any], amount_eth
         raise RuntimeError(error)
     account = EthAccount.from_key(key)
     async with wdm.ETH_RELEASE_NONCE_LOCK:
-        nonce = await wdm._eth_nonce(wdm.ETH_WALLET_ADDRESS)
-        raw, eth_tx_hash = wdm._sign_release_tx(account, eth_address, amount_eth, nonce, gas_price, gas_limit)
+        # #1921: cross-process flock — an admin release-retry signs from the
+        # same ETH_WALLET_ADDRESS nonce space; wait for it, never collide.
+        async with wdm._eth_release_file_lock():
+            nonce = await wdm._eth_nonce(wdm.ETH_WALLET_ADDRESS)
+            raw, eth_tx_hash = wdm._sign_release_tx(account, eth_address, amount_eth, nonce, gas_price, gas_limit)
 
-        persisted = await _update_lock_status_with_retry(
-            row["ait_tx_hash"],
-            "releasing",
-            eth_tx_hash=eth_tx_hash,
-            release_nonce=nonce,
-            expected_statuses={prior_status},
-        )
-        if not persisted:
-            # CAS lost (#1918): the row moved on since the snapshot — the
-            # signed release must not broadcast for a state nobody owns.
-            logger.warning(
-                "Sell lock %s: 'releasing' intent lost CAS (was %s) — row moved on; not broadcasting",
+            persisted = await _update_lock_status_with_retry(
                 row["ait_tx_hash"],
-                prior_status,
+                "releasing",
+                eth_tx_hash=eth_tx_hash,
+                release_nonce=nonce,
+                expected_statuses={prior_status},
             )
-            return
-        sent = await wdm._broadcast_release_tx(raw)
+            if not persisted:
+                # CAS lost (#1918): the row moved on since the snapshot — the
+                # signed release must not broadcast for a state nobody owns.
+                logger.warning(
+                    "Sell lock %s: 'releasing' intent lost CAS (was %s) — row moved on; not broadcasting",
+                    row["ait_tx_hash"],
+                    prior_status,
+                )
+                return
+            sent = await wdm._broadcast_release_tx(raw)
     if sent.lower() != eth_tx_hash.lower():
         logger.warning("Broadcast reported %s; keeping signed hash %s", sent, eth_tx_hash)
     # ETH-14: 'released' is written only on a verified receipt — the

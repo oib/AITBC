@@ -88,6 +88,85 @@ def _connect_db(path: str | None = None) -> sqlite3.Connection:
     return conn
 
 
+# ---------------------------------------------------------------------------
+# Cross-process ETH-release flock (WITHDRAW-RETRY-LOCK-1 / #1921)
+# ---------------------------------------------------------------------------
+#
+# Every ETH-release lane — the withdraw monitor's _release_eth_for_withdrawal,
+# the sell-escrow and exchange-settlement release sections, and the
+# withdraw_admin release-retry CLI — signs from ETH_WALLET_ADDRESS: ONE nonce
+# space shared by every process that can release. ETH_RELEASE_NONCE_LOCK is
+# asyncio-only and cannot serialize the CLI against the wallet service, so
+# the nonce→sign→record→broadcast section is additionally guarded by this
+# flock. The path derives from DB_PATH at call time so BRIDGE_DEPOSITS_DB /
+# DATA_DIR overrides (and test monkeypatching) relocate it with the ledger —
+# the same convention as the bridge-monitor admin flock on <db>.admin.lock.
+#
+# _RELEASE_LOCK_STATE is this process's hold registry: lock path ->
+# [fd, depth]. It makes the lock re-entrant: withdraw_admin holds it around
+# the whole retry command while _release_eth_for_withdrawal takes it again
+# inside — without the registry the second flock on a fresh fd would
+# self-deadlock.
+
+_RELEASE_LOCK_STATE: dict[str, list[int]] = {}
+
+
+def _eth_release_lock_path() -> str:
+    return f"{DB_PATH}.eth_release.lock"
+
+
+def _eth_release_lock_reacquire() -> int | None:
+    """Depth-counted re-acquire when this process already holds the flock."""
+    state = _RELEASE_LOCK_STATE.get(_eth_release_lock_path())
+    if state is None:
+        return None
+    state[1] += 1
+    return state[0]
+
+
+def try_eth_release_lock() -> int | None:
+    """Take the ETH-release flock without blocking.
+
+    Returns the lock fd (release via :func:`release_eth_release_lock`) or
+    None when another process holds it — monitor lanes poll this inside an
+    asyncio sleep loop, one-shot admin commands refuse outright (the
+    bridge-monitor ``try_admin_lock`` convention). Re-entrant within this
+    process via the hold registry.
+    """
+    held = _eth_release_lock_reacquire()
+    if held is not None:
+        return held
+    import fcntl
+
+    path = _eth_release_lock_path()
+    fd = os.open(path, os.O_RDWR | os.O_CREAT, 0o600)
+    try:
+        fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+    except OSError:
+        os.close(fd)
+        return None
+    _RELEASE_LOCK_STATE[path] = [fd, 1]
+    return fd
+
+
+def release_eth_release_lock(fd: int) -> None:
+    """Drop one hold on the ETH-release flock; unlocks and closes at depth 0."""
+    import fcntl
+
+    for path, state in list(_RELEASE_LOCK_STATE.items()):
+        if state[0] != fd:
+            continue
+        state[1] -= 1
+        if state[1] > 0:
+            return
+        try:
+            fcntl.flock(fd, fcntl.LOCK_UN)
+        finally:
+            os.close(fd)
+            del _RELEASE_LOCK_STATE[path]
+        return
+
+
 def _add_column_if_not_exists(conn, table, column, col_type):
     """Add a column to a table if it does not already exist."""
     cursor = conn.cursor()
