@@ -109,12 +109,17 @@ class LegacyPathRewriteMiddleware:
             await self.app(scope, receive, send)
             return
 
+        # ``scope["path"]`` is percent-decoded, so %0d%0a arrives as literal
+        # CR/LF; reflecting it into a header would make h11 reject the whole
+        # response. Strip control characters before it reaches the wire.
+        header_path = "".join(ch if " " <= ch < "\x7f" else "?" for ch in original)
+
         async def send_with_deprecation(message: Message) -> None:
             if message["type"] == "http.response.start":
                 message = dict(message)
                 message["headers"] = [
                     *message.get("headers", []),
-                    (DEPRECATION_HEADER.lower().encode("ascii"), original.encode("latin-1")),
+                    (DEPRECATION_HEADER.lower().encode("ascii"), header_path.encode("latin-1")),
                 ]
             await send(message)
 
