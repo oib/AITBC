@@ -13,6 +13,8 @@ PROJECT_DIR="/opt/aitbc"
 
 echo "🚀 Deploying AITBC services to container: $CONTAINER_NAME"
 echo "Container IP: $CONTAINER_IP"
+echo "WARNING (#1942): legacy script — pip installs below are unpinned and bypass"
+echo "poetry.lock/requirements pins. Prefer scripts/deployment/setup.sh or update.sh."
 echo ""
 
 # Colors for output

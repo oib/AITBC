@@ -48,6 +48,16 @@ def _build_ws_url(base_url: str, sender: str, token: str | None = None) -> str:
     return url
 
 
+def _display_ws_url(url: str) -> str:
+    """WS URL safe to print: the ``token`` query param carries a bearer JWT —
+    never echo it to stdout/scrollback/CI logs (#1942)."""
+    if "token=" not in url:
+        return url
+    base, _, query = url.partition("?")
+    parts = [p for p in query.split("&") if not p.startswith("token=")]
+    return f"{base}?{'&'.join(parts)}" if parts else base
+
+
 async def _consume_connection_frame(ctx, ws, timeout: int, ws_endpoint: str) -> bool:
     """Consume the connection_established frame sent on WebSocket connect.
 
@@ -487,12 +497,13 @@ def ping(
         password_stdin=password_stdin,
     )
     ws_endpoint = _build_ws_url(base_url, sender, token=token)
+    display_endpoint = _display_ws_url(ws_endpoint)
 
     async def _ping() -> None:
-        success(f"Connecting to {ws_endpoint}")
+        success(f"Connecting to {display_endpoint}")
         try:
             async with websockets.connect(ws_endpoint, open_timeout=timeout) as ws:
-                if not await _consume_connection_frame(ctx, ws, timeout, ws_endpoint):
+                if not await _consume_connection_frame(ctx, ws, timeout, display_endpoint):
                     return
 
                 # Send PING frame
@@ -521,7 +532,7 @@ def ping(
         except WebSocketException as e:
             abort(None, f"WebSocket error: {e}")
         except OSError as e:
-            abort(None, f"Connection failed to {ws_endpoint}: {e}")
+            abort(None, f"Connection failed to {display_endpoint}: {e}")
             return
 
     _asyncio.run(_ping())
@@ -592,12 +603,13 @@ def request_coins(
         password_stdin=password_stdin,
     )
     ws_endpoint = _build_ws_url(base_url, sender, token=token)
+    display_endpoint = _display_ws_url(ws_endpoint)
 
     async def _request() -> None:
-        success(f"Connecting to {ws_endpoint}")
+        success(f"Connecting to {display_endpoint}")
         try:
             async with websockets.connect(ws_endpoint, open_timeout=timeout) as ws:
-                if not await _consume_connection_frame(ctx, ws, timeout, ws_endpoint):
+                if not await _consume_connection_frame(ctx, ws, timeout, display_endpoint):
                     return
 
                 # Send REQUEST_COINS frame
@@ -670,7 +682,7 @@ def request_coins(
         except WebSocketException as e:
             abort(None, f"WebSocket error: {e}")
         except OSError as e:
-            abort(None, f"Connection failed to {ws_endpoint}: {e}")
+            abort(None, f"Connection failed to {display_endpoint}: {e}")
             return
 
     _asyncio.run(_request())

@@ -35,6 +35,11 @@ def deploy_to_container():
     container_ip = os.getenv("AITBC_CONTAINER_IP", "127.0.0.1")
 
     print("🚀 Deploying AITBC services to container...")
+    print(
+        "WARNING (#1942): this legacy script pip-installs unpinned packages, "
+        "bypassing poetry.lock/requirements pins. Prefer scripts/deployment/setup.sh "
+        "or update.sh for pinned installs."
+    )
 
     # #893: a deploy INTO a container must not stop the host's own units —
     # the old stop pair left the host's rpc/market/wallet down permanently.

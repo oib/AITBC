@@ -283,6 +283,27 @@ async def test_access_routes_accept_secret_header():
         assert r.status_code == 404
 
 
+async def test_access_secret_query_param_warns_migration(caplog):
+    """#1942: query-param secret transport still works but logs a migration warning."""
+    import logging
+
+    from fastapi.testclient import TestClient
+
+    from market_service.main import app
+
+    with caplog.at_level(logging.WARNING, logger="market_service.main"):
+        with TestClient(app) as client:
+            r = client.get("/v1/market/access/somekey", params={"access_secret": "s3cret"})
+            assert r.status_code == 404
+            r = client.get("/v1/market/ipfs/rental/somekey", params={"access_secret": "s3cret"})
+            assert r.status_code == 404
+            # Header path is not flagged.
+            r = client.get("/v1/market/access/somekey", headers={"X-Access-Secret": "s3cret"})
+            assert r.status_code == 404
+    warnings = [rec for rec in caplog.records if "query parameter" in rec.getMessage()]
+    assert len(warnings) == 2  # one per query-param call; header call silent
+
+
 # ---------------------------------------------------------------------------
 # #1449 — pin-confirm size validation + public job view robustness
 # ---------------------------------------------------------------------------

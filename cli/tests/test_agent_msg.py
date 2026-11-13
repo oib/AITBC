@@ -189,3 +189,28 @@ def test_peers_success(runner, mock_client):
     assert result.exit_code == 0
     assert "Agent Coordinator Peers:" in result.output
     mock_client.get.assert_called_once_with("/api/v1/agent/messages/discover")
+
+
+def test_display_ws_url_strips_token():
+    """#1942: the bearer JWT in the WS URL must never reach stdout."""
+    from aitbc_cli.commands.agent import _display_ws_url
+
+    url = "wss://hub.example.net/agent/api/v1/agent/messages/stream?agent_id=follower&token=eyJhbGciOi.secret"
+    display = _display_ws_url(url)
+    assert "token=" not in display
+    assert "eyJhbGciOi" not in display
+    assert display == "wss://hub.example.net/agent/api/v1/agent/messages/stream?agent_id=follower"
+
+
+def test_display_ws_url_no_token_passthrough():
+    from aitbc_cli.commands.agent import _display_ws_url
+
+    url = "ws://localhost:8107/api/v1/agent/messages/stream?agent_id=follower"
+    assert _display_ws_url(url) == url
+
+
+def test_display_ws_url_token_only_query():
+    from aitbc_cli.commands.agent import _display_ws_url
+
+    url = "wss://h.example/stream?token=abc"
+    assert _display_ws_url(url) == "wss://h.example/stream"
