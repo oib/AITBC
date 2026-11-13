@@ -205,6 +205,23 @@ async def test_gossip_auth_disabled_restores_open_publish(harness: list, monkeyp
 
 
 @pytest.mark.asyncio
+async def test_restricted_topic_defers_broker_subscribe_until_auth(harness: list, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#1947 F5: an anonymous peer on blocks/pbft/consensus gets the auth
+    challenge but must NOT hold a broker subscription — the relay /ws
+    transport already requires validator auth for the same channels."""
+    subs: list[str] = []
+
+    async def _rec_subscribe(topic: str, max_queue_size: int = 100) -> _Sub:
+        subs.append(topic)
+        return _Sub()
+
+    monkeypatch.setattr(websocket_module.gossip_broker, "subscribe", _rec_subscribe)
+    sent, _code = await _run_conn("blocks", [])
+    assert subs == []
+    assert any(m.get("type") == "auth_challenge" for m in sent if isinstance(m, dict))
+
+
+@pytest.mark.asyncio
 async def test_peer_key_does_not_unlock_restricted_topics(harness: list) -> None:
     """blocks/pbft/consensus stay validator-challenge-only — a valid peer key
     must not substitute for the VALIDATOR_SET signature."""

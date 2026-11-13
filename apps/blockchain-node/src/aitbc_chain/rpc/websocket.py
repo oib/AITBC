@@ -533,11 +533,30 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                 websocket, {"type": "auth_challenge", "challenge": challenge, "timestamp": challenge_ts}
             )
 
-        subscription = await broker.subscribe(topic, max_queue_size=100)
+        # Restricted topics gate the broker subscription itself on validator
+        # auth, not just publish — the relay /ws transport already requires
+        # auth for the same channels, and an anonymous peer reading the
+        # blocks/pbft/consensus feed is a transport disagreement (#1947 F5).
+        # The subscribe is deferred until auth_ok for those topics.
+        subscription = None
+        subscription_ready = asyncio.Event()
+
+        async def _ensure_subscription() -> None:
+            nonlocal subscription
+            if subscription is None:
+                subscription = await broker.subscribe(topic, max_queue_size=100)
+                subscription_ready.set()  # noqa: unawaited-async — asyncio.Event.set is synchronous
+
+        if not (settings.gossip_auth_enabled and is_restricted_topic(topic)):
+            await _ensure_subscription()
 
         async def _forward_broker_to_client() -> None:
+            await subscription_ready.wait()
+            sub = subscription
+            if sub is None:
+                return
             try:
-                async for message in subscription:
+                async for message in sub:
                     # #1308: receiver/server-side record keyed by the same
                     # deterministic event id the publisher computed — this is
                     # the echo the client's ack wait resolves on, so its
@@ -558,7 +577,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                         )
                         break
                     gossip_ws_echo_forward_total.labels(topic_class=bounded_topic_label(topic)).inc()
-                    queue_depth = _subscription_queue_depth(subscription)
+                    queue_depth = _subscription_queue_depth(sub)
                     if queue_depth is not None:
                         gossip_ws_subscriber_queue_depth.labels(topic_class=bounded_topic_label(topic)).set(  # noqa: unawaited-async — prometheus Gauge.set is synchronous
                             float(queue_depth)
@@ -683,6 +702,9 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                         authorized_address = claimed
                         gossip_auth_accepted_total.labels(address=claimed).inc()
                         await _gossip_ws_send_json(websocket, {"type": "auth_ok", "address": claimed})
+                        # Deferred subscribe for restricted topics — the
+                        # broker feed only flows after validator auth.
+                        await _ensure_subscription()
                         continue
                     else:
                         _auth_rejected("invalid_signature", chain_id, topic)
@@ -810,7 +832,8 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                 if not task.done():
                     task.cancel()
             await asyncio.gather(broker_task, client_task, return_exceptions=True)
-            subscription.close()
+            if subscription is not None:
+                subscription.close()
             await _gossip_ws_close(websocket)
     finally:
         _release_ip_connection(conn_key)
