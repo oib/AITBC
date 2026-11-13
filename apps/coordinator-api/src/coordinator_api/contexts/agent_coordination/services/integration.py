@@ -114,9 +114,10 @@ def _instance_ceiling(config: "AgentDeploymentConfig") -> int:
 
 
 _SESSION_LOCK_KEY = "_aitbc_agent_coordination_session_lock"
+_NONE_SESSION_LOCK = asyncio.Lock()
 
 
-def _session_lock(session: Session) -> asyncio.Lock:
+def _session_lock(session: Session | None) -> asyncio.Lock:
     """Return the asyncio.Lock shared by every manager bound to ``session``.
 
     The managers in this module are composed onto ONE Session —
@@ -126,7 +127,12 @@ def _session_lock(session: Session) -> asyncio.Lock:
     #1904 ``AgentStateManager`` pattern) would not serialize across them.
     ``session.info`` hands every manager built on the same Session the
     same lock object.
+
+    A ``None`` session (CE-003 unit-file pins that only exercise private
+    helpers) shares a module-level lock instead of ``session.info``.
     """
+    if session is None:
+        return _NONE_SESSION_LOCK
     lock = session.info.get(_SESSION_LOCK_KEY)
     if not isinstance(lock, asyncio.Lock):
         lock = asyncio.Lock()
