@@ -2,6 +2,12 @@
 
 This document outlines the test coverage requirements for the AITBC microservices architecture.
 
+> **Status note (#1943 / R11-07):** these targets are **aspirational, not
+> currently enforced**. `fail_under = 60` exists in `pyproject.toml`, but no CI
+> workflow, Makefile target, or pre-commit hook runs coverage — the numbers
+> below describe the intended policy, not a gate that fails a build. Wiring a
+> real coverage gate is tracked under #1943.
+
 ## Overview
 
 Each microservice should maintain adequate test coverage to ensure reliability and facilitate future development. Test coverage should be measured and tracked as part of the CI/CD pipeline.

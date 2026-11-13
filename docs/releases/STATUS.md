@@ -319,10 +319,10 @@ Honest assessment: the cryptographic enforcement was successfully activated and 
 
 ## Continuous integration
 
-- **Gitea Actions runner active:** the CI runner is active and pulls `.gitea/workflows/ci.yml` on push to `main`.
-- **Workflow uses `make`:** `ci.yml` now invokes `make lint`, `make no-float-money`, `make typecheck`, `make test`, `make test-apps`, `make test-cli`, `make live-dry-run` and `make openapi-check`, so the gates match the `Makefile` and are reproducible both locally and on the runner.
-- **Ruff is present but not yet gating:** `make lint` runs `ruff check . --exit-zero` to report the existing backlog without failing the build; the remaining findings must be fixed before ruff can be made a hard gate.
-- **README badge fixed:** the old GitHub Actions badge (which pointed to a non-existent workflow) was replaced with a Gitea Actions badge.
+- **Gitea Actions runner active:** the CI runner is active and pulls `.gitea/workflows/ci.yml` on push to `main`; `.github/workflows/ci.yml` mirrors it for the public repo.
+- **Workflow uses `make`:** `ci.yml` invokes `make version-check`, `make lint-strict`, `make c901-ratchet`, `make except-ratchet`, `make no-float-money`, `make bandit`, `make typecheck`, `make test-required`, `make test-suite-parity`, `make openapi-check` and the docs/CLI-docs checks — all hard gates.
+- **Ruff is a hard gate:** `make lint-strict` fails on findings; the old `--exit-zero` backlog mode is gone.
+- **Test tiers:** `make test-required` runs every `fast`-classified suite (the required PR gate); `make test-nightly` covers the broader offline sweep but runs only via `.gitea/workflows/nightly.yml`, whose Actions unit is disabled by policy — the always-on path is the `aitbc-security-nightly.timer` on node2 for the security tier. General nightly coverage is an open assurance gap tracked in #1943.
 
 ## Economic loop verification
 

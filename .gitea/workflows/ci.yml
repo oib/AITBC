@@ -61,6 +61,11 @@ jobs:
       - name: No float money
         run: make no-float-money
 
+      # #1943: bandit ran only in the pre-push hook — pushes that bypass it
+      # (or land via the GitHub mirror) skipped the security scan entirely.
+      - name: Bandit
+        run: make bandit
+
       - name: Typecheck
         run: make typecheck
 
