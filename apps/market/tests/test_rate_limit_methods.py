@@ -57,3 +57,15 @@ def test_shared_middleware_ignores_non_mutating_methods() -> None:
     assert client.post("/x").status_code == 200
     assert client.post("/x").status_code == 200
     assert client.post("/x").status_code == 429
+
+
+def test_market_limiter_keys_on_client_ip() -> None:
+    """#1946: market binds loopback behind nginx — without
+    key_func=client_ip_for_rate_limit every proxied caller shares the
+    127.0.0.1 bucket and one client can 429 the whole service."""
+    from aitbc.rate_limiting import client_ip_for_rate_limit
+    from market_service.main import app
+
+    limiters = [m for m in app.user_middleware if m.cls.__name__ == "RateLimitMiddleware"]
+    assert limiters, "market app lost its RateLimitMiddleware"
+    assert limiters[0].kwargs.get("key_func") is client_ip_for_rate_limit
