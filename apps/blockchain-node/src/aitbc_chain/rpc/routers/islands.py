@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from aitbc.rate_limiting import rate_limit
 
 from ...logger import get_logger
-from ..escrow_routes import verify_rpc_api_key
+from ..escrow_routes import verify_rpc_api_key, verify_rpc_peer_key
 
 _logger = get_logger(__name__)
 
@@ -65,7 +65,7 @@ def leave_island_route(body: LeaveIslandRequest, request: Request) -> LeaveIslan
     return leave_island(body, request)
 
 
-@router.get("", summary="List all islands")
+@router.get("", summary="List all islands", dependencies=[Depends(verify_rpc_peer_key)])
 @rate_limit(rate=100, per=60)
 async def list_islands_route(request: Request) -> dict[str, Any]:
     """List all islands that the node is a member of"""
@@ -74,7 +74,7 @@ async def list_islands_route(request: Request) -> dict[str, Any]:
     return await list_islands()  # type: ignore[no-any-return]
 
 
-@router.get("/{island_id}", summary="Get island details")
+@router.get("/{island_id}", summary="Get island details", dependencies=[Depends(verify_rpc_peer_key)])
 @rate_limit(rate=100, per=60)
 async def get_island_route(request: Request, island_id: str) -> dict[str, Any]:
     """Get details of a specific island"""

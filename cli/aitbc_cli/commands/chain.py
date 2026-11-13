@@ -110,7 +110,12 @@ def list(ctx, chain_type, show_private, sort, island, node_url):
 
     # Bare --island: list attached islands from the node
     if island == "__LIST__":
-        client = AITBCHTTPClient(base_url=node_url)
+        from aitbc_cli.config import get_config as _get_cli_config
+
+        client = AITBCHTTPClient(
+            base_url=node_url,
+            api_key=(ctx.obj or {}).get("api_key") or getattr(_get_cli_config(), "blockchain_rpc_api_key", None),
+        )
         try:
             result = client.get("/rpc/islands")
         except NetworkError as e:
@@ -938,7 +943,12 @@ def stop_cmd(ctx, chain_id, node_url):
 @click.pass_context
 def instances_cmd(ctx, node_url, island):
     """List all chain instances on the local node."""
-    client = AITBCHTTPClient(base_url=node_url)
+    from aitbc_cli.config import get_config as _get_cli_config
+
+    client = AITBCHTTPClient(
+        base_url=node_url,
+        api_key=(ctx.obj or {}).get("api_key") or getattr(_get_cli_config(), "blockchain_rpc_api_key", None),
+    )
     try:
         result = client.get("/rpc/chains")
     except NetworkError as e:

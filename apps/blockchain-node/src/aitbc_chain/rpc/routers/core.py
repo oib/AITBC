@@ -16,6 +16,7 @@ from ...config import settings
 from ...database import session_scope
 from ...logger import get_logger
 from ...models import Account, Transaction
+from ..escrow_routes import verify_rpc_peer_key
 from ..accounts import (
     create_account,
     get_account,
@@ -46,7 +47,9 @@ _logger = get_logger(__name__)
 router = APIRouter(tags=["core"])
 
 
-@router.get("/genesis_allocations", summary="Get genesis allocations from blockchain")
+@router.get(
+    "/genesis_allocations", summary="Get genesis allocations from blockchain", dependencies=[Depends(verify_rpc_peer_key)]
+)
 @rate_limit(rate=200, per=60)
 def get_genesis_allocations_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get genesis allocations from genesis block metadata for RPC bootstrap"""
@@ -522,7 +525,9 @@ async def force_sync_route(request: Request, peer_data: dict) -> dict[str, Any]:
     return await force_sync(request, peer_data)  # type: ignore[no-any-return]
 
 
-@router.get("/sync/config", summary="Get sync optimization configuration (v0.6.2)")
+@router.get(
+    "/sync/config", summary="Get sync optimization configuration (v0.6.2)", dependencies=[Depends(verify_rpc_peer_key)]
+)
 @rate_limit(rate=200, per=60)
 def get_sync_config_route(request: Request) -> dict[str, Any]:
     """Get sync optimization configuration"""
@@ -548,7 +553,7 @@ async def stop_chain_route(request: ChainActionRequest) -> ChainActionResponse:
     return await stop_chain(request)
 
 
-@router.get("/chains", summary="List all chain instances (v0.6.4)")
+@router.get("/chains", summary="List all chain instances (v0.6.4)", dependencies=[Depends(verify_rpc_peer_key)])
 @rate_limit(rate=100, per=60)
 def list_chains_route(request: Request) -> dict[str, Any]:  # noqa: ARG001
     """List all chain instances managed by the MultiChainManager"""
