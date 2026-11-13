@@ -162,7 +162,11 @@ def query_gpu(ctx, gpu_id: str, format: str):
 
         # Query GPU from blockchain RPC; omit chain_id when unresolved so
         # the node applies its own chain default.
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        http_client = AITBCHTTPClient(
+            base_url=rpc_url,
+            timeout=30,
+            api_key=(ctx.obj or {}).get("api_key") or getattr(config, "blockchain_rpc_api_key", None),
+        )
         params = {"chain_id": chain_id} if chain_id else {}
         result = http_client.get(f"/rpc/gpu/info/{gpu_id}", params=params)
 
@@ -356,7 +360,11 @@ def get_allocations(ctx, gpu_id: str, format: str):
 
         # Query GPU allocations; omit chain_id when unresolved so the node
         # applies its own chain default.
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        http_client = AITBCHTTPClient(
+            base_url=rpc_url,
+            timeout=30,
+            api_key=(ctx.obj or {}).get("api_key") or getattr(config, "blockchain_rpc_api_key", None),
+        )
         params = {"chain_id": chain_id} if chain_id else {}
         result = http_client.get(f"/rpc/gpu/allocations/{gpu_id}", params=params)
 
@@ -396,7 +404,11 @@ def list_gpus(ctx, status: str | None, format: str):
         chain_id = resolve_chain_id(ctx, rpc_url, required=False)
 
         # Query GPU list from blockchain RPC
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        http_client = AITBCHTTPClient(
+            base_url=rpc_url,
+            timeout=30,
+            api_key=(ctx.obj or {}).get("api_key") or getattr(config, "blockchain_rpc_api_key", None),
+        )
 
         params = {"chain_id": chain_id} if chain_id else {}
         if status:
