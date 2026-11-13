@@ -15,7 +15,7 @@ from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.middleware import register_request_validation_error_handler  # noqa: E402
 from aitbc.utils.chain_id import resolve_chain_id  # noqa: E402
 from aitbc.async_tasks import create_task_with_logging
-from aitbc.rate_limiting import RateLimitMiddleware
+from aitbc.rate_limiting import RateLimitMiddleware, client_ip_for_rate_limit
 
 from .api_jsonrpc import router as jsonrpc_router
 from .api_rest import router as receipts_router
@@ -323,7 +323,9 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
 def create_app() -> FastAPI:
     app = FastAPI(title=settings.app_name, debug=settings.debug, lifespan=lifespan)
-    app.add_middleware(RateLimitMiddleware, rate=100, per=60)
+    # #1946: key by the trusted-proxy-aware client IP — the raw peer is always
+    # loopback behind nginx, which collapsed every caller into one bucket.
+    app.add_middleware(RateLimitMiddleware, rate=100, per=60, key_func=client_ip_for_rate_limit)
     # #1676: literal NaN/Infinity JSON bodies must answer a serializable 422,
     # not a 500 — the send endpoint's typed amount/fee fields hit this path.
     register_request_validation_error_handler(app)
