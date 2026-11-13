@@ -5226,6 +5226,16 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid JSON body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Edge API unavailable",
             "content": {
@@ -5260,6 +5270,16 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid JSON body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Edge API unavailable",
             "content": {
@@ -5290,6 +5310,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Request Bridge V1 Islands Bridge Post"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid JSON body",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

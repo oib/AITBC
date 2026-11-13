@@ -86,6 +86,16 @@ class TestLegacyPathRewrite:
         response = client.get("/v1/marketplace/gpu/rtx-4090")
         assert response.headers[DEPRECATION_HEADER] == "/v1/marketplace/gpu/rtx-4090"
 
+    def test_deprecation_header_strips_control_characters(self, client: TestClient) -> None:
+        # %0d%0a decodes into scope["path"]; reflecting it raw would make h11
+        # reject the response entirely.
+        response = client.get("/v1/marketplace/%0d%0aX-Evil:%20yes/offers")
+        # The rewritten tail matches no route (404 is fine) — the pin is that
+        # the deprecation header survives without raw CR/LF.
+        value = response.headers[DEPRECATION_HEADER]
+        assert "\r" not in value and "\n" not in value
+        assert "?" in value
+
     def test_websockets_are_rewritten(self, client: TestClient) -> None:
         """BaseHTTPMiddleware would not see this scope at all."""
         with client.websocket_connect("/v1/marketplace/stream") as websocket:
