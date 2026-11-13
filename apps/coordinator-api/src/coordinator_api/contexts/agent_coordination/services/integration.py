@@ -114,7 +114,6 @@ def _instance_ceiling(config: "AgentDeploymentConfig") -> int:
 
 
 _SESSION_LOCK_KEY = "_aitbc_agent_coordination_session_lock"
-_NONE_SESSION_LOCK = asyncio.Lock()
 
 
 def _session_lock(session: Session | None) -> asyncio.Lock:
@@ -128,11 +127,11 @@ def _session_lock(session: Session | None) -> asyncio.Lock:
     ``session.info`` hands every manager built on the same Session the
     same lock object.
 
-    A ``None`` session (CE-003 unit-file pins that only exercise private
-    helpers) shares a module-level lock instead of ``session.info``.
+    For ``session is None`` (test-only helper pins), each call returns a
+    fresh lock — callers store it on the manager instance in ``__init__``.
     """
     if session is None:
-        return _NONE_SESSION_LOCK
+        return asyncio.Lock()
     lock = session.info.get(_SESSION_LOCK_KEY)
     if not isinstance(lock, asyncio.Lock):
         lock = asyncio.Lock()
@@ -443,7 +442,8 @@ class AgentDeploymentManager:
 
     def __init__(self, session: Session) -> None:
         self.session = session
-        self._lock = _session_lock(session)
+        # session=None is test-only (CE-003 private helper pins); per-instance lock, not session.info.
+        self._lock = _session_lock(cast(Session | None, session))
         self.integration_manager = AgentIntegrationManager(session)
         self.auditor = AgentAuditor(session)
 
