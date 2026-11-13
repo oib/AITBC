@@ -248,3 +248,57 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201, ARG001
             "apps/governance/tests/conftest.py does (V23-73).",
             red=True,
         )
+
+
+# ---------------------------------------------------------------------------
+# requires_* auto-skip, repo-wide (#1943 / R11-07-F4).
+#
+# pyproject.toml advertises requires_redis / requires_postgres / requires_genesis
+# as "auto-skipped if the resource is absent", but the only
+# pytest_collection_modifyitems hook lived under apps/blockchain-node/tests —
+# the same marker anywhere else FAILED instead of skipping. This hook covers
+# redis/postgres suite-wide; requires_genesis stays in the blockchain-node
+# conftest because it is chain-path specific.
+# ---------------------------------------------------------------------------
+
+_PROBE_CACHE: dict[str, bool] = {}
+
+
+def _tcp_probe(url: str, default_port: int) -> bool:
+    if url not in _PROBE_CACHE:
+        try:
+            from aitbc.testing.endpoint_probe import url_reachable
+        except ImportError:
+            _PROBE_CACHE[url] = False
+        else:
+            _PROBE_CACHE[url] = url_reachable(url, default_port)
+    return _PROBE_CACHE[url]
+
+
+def pytest_collection_modifyitems(items):  # noqa: ANN001, ANN201, ARG001
+    """Auto-skip requires_redis / requires_postgres tests when unreachable."""
+    needs_redis = any("requires_redis" in item.keywords for item in items)
+    needs_pg = any("requires_postgres" in item.keywords for item in items)
+    if not (needs_redis or needs_pg):
+        return
+    import os
+
+    redis_ok = pg_ok = False
+    if needs_redis:
+        redis_url = os.environ.get("REDIS_URL", "redis://localhost:6379/0")
+        if redis_url.startswith("unix://"):
+            from urllib.parse import urlsplit
+
+            redis_ok = os.path.exists(urlsplit(redis_url).path)
+        else:
+            redis_ok = _tcp_probe(redis_url, 6379)
+    if needs_pg:
+        # Deliberately no localhost fallback (same rule as the blockchain-node
+        # conftest): requires_postgres tests create/drop tables.
+        pg_url = os.environ.get("MEMPOOL_DB_URL") or os.environ.get("DATABASE_URL")
+        pg_ok = bool(pg_url) and _tcp_probe(pg_url, 5432)
+    for item in items:
+        if "requires_redis" in item.keywords and not redis_ok:
+            item.add_marker(pytest.mark.skip(reason="Redis not available"))
+        if "requires_postgres" in item.keywords and not pg_ok:
+            item.add_marker(pytest.mark.skip(reason="PostgreSQL not available"))

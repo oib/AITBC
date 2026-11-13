@@ -41,6 +41,10 @@ jobs:
         run: make test-suite-parity
 
       - name: Full offline suite
+        # #1943: junit XML so nightly results are auditable artifacts — the
+        # run previously left evidence only in the Actions UI.
+        env:
+          PYTEST_ADDOPTS: --junitxml=nightly-junit.xml
         run: make test-nightly
 
       - name: Security suite nightly tier
@@ -53,4 +57,16 @@ jobs:
         # scripts/security/ is the always-on path.
         env:
           AITBC_LIVE_GATEWAY_KEY: ${{ secrets.AITBC_LIVE_GATEWAY_KEY }}
-        run: bash scripts/security/nightly-security.sh
+        # PIPESTATUS preserves the suite's exit code through tee (no pipefail
+        # in the default step shell — without it a failing suite would pass).
+        run: bash scripts/security/nightly-security.sh 2>&1 | tee nightly-security.log; exit "${PIPESTATUS[0]}"
+
+      - name: Upload nightly results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: nightly-results-${{ github.run_id }}
+          path: |
+            nightly-junit.xml
+            nightly-security.log
+          retention-days: 30

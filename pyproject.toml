@@ -279,9 +279,11 @@ ignore_missing_imports = true
 
 # Gradual type checking approach - no apps currently ignored
 
-# Coverage policy: one documented baseline with per-package overrides in CI.
-# The project minimum is 60%; higher thresholds are enforced per test run
-# (aitbc/ 46%, apps combined 50%, targeted gates 70/85 in Gitea workflows).
+# Coverage policy: one documented baseline. `fail_under` only bites when a
+# coverage run actually executes — nothing in CI or the Makefile invokes
+# coverage today (#1943/R11-07), so the 60% floor is a target, not an
+# enforced gate. Per-package aspirational targets live in
+# docs/testing/TEST_COVERAGE_REQUIREMENTS.md.
 [tool.coverage.report]
 fail_under = 60
 show_missing = true
