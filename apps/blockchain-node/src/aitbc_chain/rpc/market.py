@@ -208,11 +208,20 @@ def market_listings(request: Request, limit: int = 100) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+# #1946: bound the in-memory listing store — every create appends and
+# gossips, and the seller "auth" is a self-chosen keypair, so writes are
+# effectively anonymous.
+_MARKET_LISTINGS_MAX = 10_000
+
+
 @router.post("/market/create", summary="Create market listing", tags=["market"])
-async def market_create(request: MarketCreateRequest) -> dict[str, Any]:
+@rate_limit(rate=10, per=60)
+async def market_create(request: MarketCreateRequest, req: Request) -> dict[str, Any]:
     """Create a new market listing"""
     try:
         metrics_registry.increment("rpc_market_create_total")
+        if len(_market_listings) >= _MARKET_LISTINGS_MAX:
+            raise HTTPException(status_code=429, detail="market listing capacity reached")
 
         # The seller must prove it controls seller_address: sign every other
         # field of the payload. Unsigned writes used to publish under any
@@ -309,7 +318,8 @@ def market_get_listing(listing_id: str) -> dict[str, Any]:
 
 
 @router.delete("/market/listing/{listing_id}", summary="Delete market listing", tags=["market"])
-async def market_delete_listing(listing_id: str, body: MarketDeleteRequest | None = None) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+async def market_delete_listing(listing_id: str, req: Request, body: MarketDeleteRequest | None = None) -> dict[str, Any]:
     """Delete a market listing"""
     try:
         metrics_registry.increment("rpc_market_delete_total")

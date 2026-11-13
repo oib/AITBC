@@ -150,7 +150,8 @@ def _job_from_tx(tx: Transaction, cancelled_ids: set[str] | None = None) -> dict
 
 
 @router.post("/ai/submit", summary="Submit AI job", tags=["ai"])
-def ai_submit_job(request: AIJobRequest) -> dict[str, Any]:
+@rate_limit(rate=20, per=60)
+def ai_submit_job(request: AIJobRequest, req: Request) -> dict[str, Any]:
     """Submit a new AI job to the mempool.
 
     The job is an ordinary chain transaction paying ``AI_SERVICE_RECIPIENT``, so
