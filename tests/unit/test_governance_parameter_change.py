@@ -92,6 +92,9 @@ class FakeRPC:
     def post(self, base: str, path: str, body: dict) -> tuple[int, dict]:
         assert path == "/rpc/transaction"
         self.posted.append((path, body))
+        sender = body.get("from")
+        if sender in self.nonces:
+            self.nonces[sender] += 1
         return 200, {"success": True, "transaction_hash": "0xdeadbeef"}
 
 
@@ -356,6 +359,101 @@ def test_sign_submit_submits_signed_tx_and_reads_back(
     out = capsys.readouterr().out
     assert "sealed at block 4242" in out
     assert f"{OLD_VALUE} -> {TARGET}" in out
+
+
+def test_sign_submit_propose_first_posts_both_legs(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    """#1944: v13 chains refuse an EXECUTE with no sealed GOVERNANCE_PROPOSE —
+    --propose-first submits the propose leg, lets it seal, then executes with
+    the same proposal_id and a byte-identical execution_payload."""
+    key_path, account = _executor_key_file(tmp_path)
+    rpc = FakeRPC(
+        params=_params(governance_executors=account.address, unlock_proof_uc_max_age_seconds="600"),
+        nonces={account.address: 7},
+        seal_after=2,
+        landed={"unlock_proof_uc_max_age_seconds": "601"},
+    )
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+
+    _run(
+        monkeypatch,
+        _argv(
+            "sign-submit",
+            "--parameter",
+            "unlock_proof_uc_max_age_seconds",
+            "--value",
+            "601",
+            "--key-file",
+            key_path,
+            "--confirm",
+            "--propose-first",
+            "--timeout",
+            "30",
+        ),
+    )
+
+    assert len(rpc.posted) == 2
+    _, propose_body = rpc.posted[0]
+    _, execute_body = rpc.posted[1]
+    propose_tx = propose_body["signed_tx"]
+    execute_tx = execute_body["signed_tx"]
+
+    assert propose_tx["type"] == "GOVERNANCE_PROPOSE"
+    assert execute_tx["type"] == "GOVERNANCE_EXECUTE"
+    # The v13 binding keys on proposal_id + execution_payload — both must match.
+    assert propose_tx["payload"]["proposal_id"] == execute_tx["payload"]["proposal_id"]
+    assert (
+        propose_tx["payload"]["execution_payload"]
+        == execute_tx["payload"]["execution_payload"]
+        == {
+            "action": "parameter_change",
+            "parameter": "unlock_proof_uc_max_age_seconds",
+            "value": "601",
+        }
+    )
+    # Propose seals first at nonce n; execute re-fetches and uses n+1.
+    assert propose_tx["nonce"] == 7
+    assert execute_tx["nonce"] == 8
+    for tx in (propose_tx, execute_tx):
+        assert tx["from"] == account.address
+        assert tool.verify_transaction_signature(tx, tx["signature"], account.address)
+
+    out = capsys.readouterr().out
+    assert out.count("submitted GOVERNANCE_") == 2
+    assert "600 -> 601" in out
+
+
+def test_sign_submit_without_propose_first_posts_execute_only(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """Default behaviour is unchanged: a single EXECUTE leg (pre-v13 chains)."""
+    key_path, account = _executor_key_file(tmp_path)
+    rpc = FakeRPC(
+        params=_params(governance_executors=account.address),
+        nonces={account.address: 3},
+        landed={"escrow_fee_recipient": TARGET},
+    )
+    monkeypatch.setattr(tool, "_rpc_get", rpc.get)
+    monkeypatch.setattr(tool, "_rpc_post", rpc.post)
+
+    _run(
+        monkeypatch,
+        _argv(
+            "sign-submit",
+            "--parameter",
+            "escrow_fee_recipient",
+            "--value",
+            TARGET,
+            "--key-file",
+            key_path,
+            "--confirm",
+            "--timeout",
+            "30",
+        ),
+    )
+
+    assert len(rpc.posted) == 1
+    assert rpc.posted[0][1]["signed_tx"]["type"] == "GOVERNANCE_EXECUTE"
 
 
 def test_output_never_contains_key_material(

@@ -20,6 +20,10 @@ path:
                  printed), POST to the node's /rpc/transaction, wait for the
                  seal, and read the parameter back. Requires --confirm and
                  refuses when the current value already equals the target.
+                 Pass --propose-first on v13+ chains: the chain refuses an
+                 EXECUTE whose proposal_id has no sealed GOVERNANCE_PROPOSE,
+                 so the flag submits and seals the propose leg first (same
+                 proposal_id, identical execution_payload, one extra fee).
                  For governance_executors it also refuses unless every member
                  the new list adds is proven by a --proof-key-file (repeatable)
                  deriving to it, and a dropped signing key leaves at least one
@@ -232,6 +236,13 @@ def _validated_value(parameter: str, value: str) -> tuple[str, list[str]]:
     return value, elements
 
 
+def _execution_payload(parameter: str, value: str) -> dict:
+    """The payload fragment both tx types must carry identically — the chain's
+    v13 binding refuses an EXECUTE whose execution_payload differs from the
+    sealed PROPOSE's."""
+    return {"action": "parameter_change", "parameter": parameter, "value": value}
+
+
 def _build_tx(executor: str, chain_id: str, nonce: int, proposal_id: str, parameter: str, value: str) -> dict:
     """The sealed-envelope shape: flat payload carrying the tx fields plus the
     governance triple (proposal_id, executor, execution_payload)."""
@@ -248,9 +259,37 @@ def _build_tx(executor: str, chain_id: str, nonce: int, proposal_id: str, parame
             "chain_id": chain_id,
             "proposal_id": proposal_id,
             "executor": executor,
-            "execution_payload": {"action": "parameter_change", "parameter": parameter, "value": value},
+            "execution_payload": _execution_payload(parameter, value),
         },
         "type": "GOVERNANCE_EXECUTE",
+        "chain_id": chain_id,
+    }
+
+
+def _build_propose_tx(executor: str, chain_id: str, nonce: int, proposal_id: str, parameter: str, value: str) -> dict:
+    """The GOVERNANCE_PROPOSE leg the v13 binding requires before EXECUTE:
+    same proposal_id, byte-identical execution_payload, sealed in an earlier
+    block. Title/description/proposal_type mirror the #1808 driver shape."""
+    return {
+        "from": executor,
+        "to": executor,
+        "amount": 0,
+        "fee": DEFAULT_TX_FEE_UNITS,
+        "nonce": nonce,
+        "payload": {
+            "to": executor,
+            "amount": 0,
+            "type": "GOVERNANCE_PROPOSE",
+            "chain_id": chain_id,
+            "proposal_id": proposal_id,
+            "proposer": executor,
+            "executor": executor,
+            "execution_payload": _execution_payload(parameter, value),
+            "title": f"parameter_change {parameter}",
+            "description": f"operator parameter change {parameter} -> {value}",
+            "proposal_type": "parameter_change",
+        },
+        "type": "GOVERNANCE_PROPOSE",
         "chain_id": chain_id,
     }
 
@@ -519,7 +558,31 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
                 _check_fee_balance(f"new {args.parameter}", address, target_balance)
 
     proposal_id = args.proposal_id or _new_proposal_id(args.parameter, nonce)
+
+    # v13 chains refuse an EXECUTE whose proposal_id has no sealed
+    # GOVERNANCE_PROPOSE — --propose-first runs the two-leg sequence in one
+    # invocation (propose seals first, then execute reuses nonce+1). On
+    # pre-v13 chains the flag is unnecessary but harmless.
+    if args.propose_first:
+        propose_tx = _build_propose_tx(executor, chain_id, nonce, proposal_id, args.parameter, target_value)
+        _sign_and_post(args, propose_tx, private_key, executor, chain_id)
+        nonce, balance = _fetch_account(args.rpc_url, chain_id, executor)
+        _check_fee_balance("executor", executor, balance)
+
     tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, target_value)
+    row = _sign_and_post(args, tx, private_key, executor, chain_id)
+
+    after = _fetch_parameters(args.rpc_url, chain_id).get(args.parameter)
+    print(f"sealed at block {row.get('block_height')}")
+    print(f"{args.parameter}: {current if current is not None else '(unset)'} -> {after}")
+    if after is None or after.lower() != target_value.lower():
+        _fail(f"parameter did not land: chain now reports {after!r}")
+    return 0
+
+
+def _sign_and_post(args: argparse.Namespace, tx: dict, private_key: str, executor: str, chain_id: str) -> dict:
+    """Sign ``tx``, self-verify, POST to /rpc/transaction, and wait for the
+    seal. Returns the confirmed transaction row."""
     digest = _signing_digest(tx)
     tx["signature"] = sign_transaction_data(tx, private_key)
 
@@ -534,7 +597,7 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
     tx_hash = str(body.get("transaction_hash") or "")
     if not tx_hash:
         _fail(f"submission accepted but the response carries no transaction_hash — refusing to poll: {body}")
-    print(f"submitted {tx_hash} — digest was {digest}")
+    print(f"submitted {tx['type']} {tx_hash} — digest was {digest}")
     print(f"waiting for a block to seal it (timeout {args.timeout}s)…")
 
     try:
@@ -543,13 +606,7 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
         _fail(f"lost contact with {args.rpc_url} while waiting for {tx_hash}: {e}")
     if row is None:
         _fail(f"timed out after {args.timeout}s waiting for {tx_hash} to seal — check /rpc/mempool on {args.rpc_url}")
-
-    after = _fetch_parameters(args.rpc_url, chain_id).get(args.parameter)
-    print(f"sealed at block {row.get('block_height')}")
-    print(f"{args.parameter}: {current if current is not None else '(unset)'} -> {after}")
-    if after is None or after.lower() != target_value.lower():
-        _fail(f"parameter did not land: chain now reports {after!r}")
-    return 0
+    return row
 
 
 def main() -> int:
@@ -598,6 +655,15 @@ def main() -> int:
         help=(
             "Deliberately rotate escrow_settlement_authority/bond_slash_authority to an address that "
             "cannot yet pay its own tx fees — the capability stays disabled until the address is funded"
+        ),
+    )
+    submit.add_argument(
+        "--propose-first",
+        action="store_true",
+        help=(
+            "Submit a GOVERNANCE_PROPOSE for the same proposal_id and let it seal "
+            "before the GOVERNANCE_EXECUTE — required on v13+ chains, which refuse "
+            "an EXECUTE with no sealed proposal. Costs one extra tx fee."
         ),
     )
     submit.add_argument("--timeout", type=int, default=240, help="Seconds to wait for the seal (default 240)")
