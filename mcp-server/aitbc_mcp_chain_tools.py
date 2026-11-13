@@ -447,7 +447,7 @@ def list_ai_jobs_onchain(
         params["wallet_address"] = wallet_address
     if status is not None:
         params["status"] = status
-    return _http_read_tool(role, host, "blockchain-rpc", "ai/jobs", params)
+    return _http_read_tool(role, host, "blockchain-rpc", "ai/jobs", params, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -466,7 +466,7 @@ def get_ai_job_onchain(
     ] = None,
 ) -> str:
     """Get a single AI job from the blockchain by ID."""
-    return _http_read_tool(role, host, "blockchain-rpc", f"ai/job/{job_id}")
+    return _http_read_tool(role, host, "blockchain-rpc", f"ai/job/{job_id}", auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))

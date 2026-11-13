@@ -682,7 +682,7 @@ def get_gpu_allocations(
     ] = None,
 ) -> str:
     """Query GPU allocations."""
-    return _http_read_tool(role, host, "blockchain-rpc", f"gpu/allocations/{gpu_id}")
+    return _http_read_tool(role, host, "blockchain-rpc", f"gpu/allocations/{gpu_id}", auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -701,7 +701,7 @@ def get_edge_info(
     ] = None,
 ) -> str:
     """Query an edge node registration."""
-    return _http_read_tool(role, host, "blockchain-rpc", f"edge/info/{node_id}")
+    return _http_read_tool(role, host, "blockchain-rpc", f"edge/info/{node_id}", auth="rpc")
 
 
 # ---------------------------------------------------------------------------
@@ -721,7 +721,7 @@ def get_ai_service_stats(
     ] = None,
 ) -> str:
     """Get AI service statistics from the blockchain."""
-    return _http_read_tool(role, host, "blockchain-rpc", "ai/stats")
+    return _http_read_tool(role, host, "blockchain-rpc", "ai/stats", auth="rpc")
 
 
 def _sanitize_messaging_output(payload: str) -> str:
