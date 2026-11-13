@@ -48,11 +48,11 @@ class MutationSpot:
 SPOTS: tuple[MutationSpot, ...] = (
     MutationSpot(
         name="client_ip_leftmost_xff",
-        file="apps/coordinator-api/src/coordinator_api/utils/security.py",
-        old='last = forwarded.split(",")[-1].strip()',
-        new='last = forwarded.split(",")[0].strip()',
+        file="aitbc/rate_limiting.py",
+        old='for hop in reversed(headers.get("x-forwarded-for", "").split(",")):',
+        new='for hop in headers.get("x-forwarded-for", "").split(","):',
         pin="tests/security/unit/test_client_ip_trust.py",
-        why="#1177 — leftmost XFF is client-spoofable; reverts the trust fix",
+        why="#1177/#1244 — leftmost XFF is client-spoofable; reverts the trust fix (logic moved to aitbc.rate_limiting)",
     ),
     MutationSpot(
         name="gossip_unbounded_send",
