@@ -145,7 +145,12 @@ def _format_status_table(
 @click.pass_context
 def status(ctx, node_url, chain_id, hub_url, gap_threshold, alert):
     """Show synchronization status, block height, peer count, and hub divergence."""
-    client = AITBCHTTPClient(base_url=node_url)
+    from aitbc_cli.config import get_config as _sync_cfg
+
+    client = AITBCHTTPClient(
+        base_url=node_url,
+        api_key=(ctx.obj or {}).get("api_key") or getattr(_sync_cfg(), "blockchain_rpc_api_key", None),
+    )
     try:
         # Query current chain head
         head_params = {"chain_id": chain_id} if chain_id else None
