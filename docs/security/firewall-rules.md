@@ -15,7 +15,7 @@ Only these surfaces may be reachable from outside the node:
 | Surface | Port | Where |
 |---------|------|-------|
 | nginx (TLS) | 443 (80 only redirects to 443) | TLS terminator host — proxies `/api/`, `/rpc/`, `/c/`, `/explorer-api/` |
-| Blockchain P2P gossip | 7070 | Hub — followers on other hosts gossip over the internet |
+| Blockchain P2P gossip | — (via 443) | Hub — the gossip relay binds `127.0.0.1:7070` and is reached through nginx `/rpc/gossip/ws` + `/rpc/subscribe/ws` on 443; **never** open 7070 directly |
 | IPFS swarm | 4002 (private island swarm) / 4001 (public Kubo swarm) | Island / GPU nodes |
 | SSH | 22 | All nodes |
 
@@ -39,9 +39,6 @@ ufw allow 22/tcp
 ufw allow 443/tcp
 ufw allow 80/tcp
 
-# Hub only: blockchain P2P gossip between hosts
-ufw allow 7070/tcp
-
 # IPFS nodes only
 ufw allow 4002/tcp   # private island swarm
 ufw allow 4001/tcp   # public Kubo swarm (customer/shop GPU nodes)
@@ -60,8 +57,6 @@ iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
 iptables -A INPUT -p tcp --dport 22 -j ACCEPT
 iptables -A INPUT -p tcp --dport 443 -j ACCEPT
 iptables -A INPUT -p tcp --dport 80 -j ACCEPT
-# Hub only:
-iptables -A INPUT -p tcp --dport 7070 -j ACCEPT
 # IPFS nodes only:
 iptables -A INPUT -p tcp --dport 4002 -j ACCEPT
 iptables -A INPUT -p tcp --dport 4001 -j ACCEPT
