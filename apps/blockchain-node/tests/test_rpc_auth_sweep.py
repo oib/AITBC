@@ -301,8 +301,10 @@ class TestIslandsAuth:
         resp = client.post("/rpc/islands/join", json=join, headers={"X-API-Key": KEY})
         assert resp.status_code != 403
 
-    def test_reads_stay_public(self, client):
-        assert client.get("/rpc/islands").status_code != 403
+    def test_reads_require_peer_key(self, client):
+        """#1945: island membership topology is operational metadata — peer-keyed."""
+        assert client.get("/rpc/islands").status_code == 403
+        assert client.get("/rpc/islands/isl-1", headers={"X-API-Key": KEY}).status_code != 403
 
 
 class TestContractsAuth:

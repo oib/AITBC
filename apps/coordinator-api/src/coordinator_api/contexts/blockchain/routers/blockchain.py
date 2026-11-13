@@ -184,7 +184,7 @@ def get_supply() -> dict[str, Any]:
         from ....config import settings
 
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
-        client = AITBCHTTPClient(timeout=5.0)
+        client = AITBCHTTPClient(timeout=5.0, api_key=settings.blockchain_rpc_api_key)
         genesis = client.get(f"{rpc_url}/rpc/genesis_allocations")
         live = client.get(f"{rpc_url}/rpc/supply")
     except NetworkError as e:

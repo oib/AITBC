@@ -204,7 +204,7 @@ def get_genesis_allocations(
     params: dict[str, str] = {}
     if chain_id is not None:
         params["chain_id"] = chain_id
-    return _http_read_tool(role, host, "blockchain-rpc", "genesis_allocations", params)
+    return _http_read_tool(role, host, "blockchain-rpc", "genesis_allocations", params, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -219,7 +219,7 @@ def get_sync_config(
     ] = None,
 ) -> str:
     """Get sync optimization configuration."""
-    return _http_read_tool(role, host, "blockchain-rpc", "sync/config")
+    return _http_read_tool(role, host, "blockchain-rpc", "sync/config", auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))

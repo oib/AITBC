@@ -219,7 +219,13 @@ def list_islands_command(ctx, node_url="http://127.0.0.1:8202"):
     """List all known islands (queries the node's island manager via RPC)"""
     from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
-    client = AITBCHTTPClient(base_url=node_url)
+    from aitbc_cli.config import get_config as _isl_cfg
+
+    _cfg = _isl_cfg()
+    client = AITBCHTTPClient(
+        base_url=node_url,
+        api_key=(ctx.obj or {}).get("api_key") or getattr(_cfg, "blockchain_rpc_api_key", None),
+    )
     try:
         result = client.get("/rpc/islands")
     except NetworkError as e:
@@ -256,7 +262,13 @@ def island_info_command(ctx, island_id, node_url="http://127.0.0.1:8202"):
     """Get island information (queries the node's island manager via RPC)"""
     from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
-    client = AITBCHTTPClient(base_url=node_url)
+    from aitbc_cli.config import get_config as _isl_cfg
+
+    _cfg = _isl_cfg()
+    client = AITBCHTTPClient(
+        base_url=node_url,
+        api_key=(ctx.obj or {}).get("api_key") or getattr(_cfg, "blockchain_rpc_api_key", None),
+    )
     try:
         result = client.get(f"/rpc/islands/{island_id}")
     except NetworkError as e:
@@ -292,7 +304,13 @@ def health_command(ctx, node_url="http://127.0.0.1:8202", show_all=False):
     """
     from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 
-    client = AITBCHTTPClient(base_url=node_url)
+    from aitbc_cli.config import get_config as _isl_cfg
+
+    _cfg = _isl_cfg()
+    client = AITBCHTTPClient(
+        base_url=node_url,
+        api_key=(ctx.obj or {}).get("api_key") or getattr(_cfg, "blockchain_rpc_api_key", None),
+    )
     try:
         result = client.get("/rpc/islands")
     except NetworkError as e:
