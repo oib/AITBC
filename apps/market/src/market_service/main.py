@@ -46,7 +46,7 @@ from aitbc.middleware import (  # noqa: E402
     RequestValidationMiddleware,
     register_request_validation_error_handler,
 )
-from aitbc.rate_limiting import RateLimitMiddleware  # noqa: E402
+from aitbc.rate_limiting import RateLimitMiddleware, client_ip_for_rate_limit  # noqa: E402
 
 from .config import settings  # noqa: E402
 from .domain.offer_status import try_to_offer_status  # noqa: E402
@@ -142,6 +142,9 @@ app.add_middleware(
     RateLimitMiddleware,
     rate=settings.rate_limit_requests,
     per=settings.rate_limit_window_seconds,
+    # #1946: trusted-proxy-aware client IP — raw peer is always loopback
+    # behind nginx, which collapsed every caller into one shared bucket.
+    key_func=client_ip_for_rate_limit,
     methods=_MUTATING_METHODS,
     exclude_paths=["/health", "/ready", "/live", "/metrics"],
     error_message="Market rate limit exceeded",
