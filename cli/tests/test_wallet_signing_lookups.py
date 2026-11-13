@@ -957,3 +957,50 @@ def test_gpu_query_sends_chain_id_when_probe_succeeds(runner, monkeypatch):
         result = runner.invoke(gpu_mod.gpu, ["query", "--gpu-id", "gpu-1"], obj={})
     assert result.exit_code == 0, result.output
     assert calls[0][1] == {"chain_id": "ait-test"}
+
+
+class TestGpuOnchainRpcAuth:
+    """#1941 pins: post-#1936 gated reads need X-API-Key on the client."""
+
+    def _config_with_key(self):
+        from types import SimpleNamespace
+
+        return SimpleNamespace(
+            blockchain_rpc_url="http://127.0.0.1:1",
+            hub_discovery_url="",
+            blockchain_rpc_api_key="test-rpc-key",
+        )
+
+    def _invoke(self, runner, monkeypatch, args):
+        from aitbc_cli.commands import gpu_resources as gpu_mod
+
+        ctor_kwargs = {}
+
+        class _C:
+            def __init__(self, base_url="", **kw):
+                ctor_kwargs.update(kw)
+                self.base_url = base_url
+
+            def get(self, endpoint, params=None, **kw):
+                return {"ok": True}
+
+        with (
+            patch("aitbc_cli.commands.gpu_resources.get_config", return_value=self._config_with_key()),
+            patch.object(chain_id_mod, "get_chain_id", side_effect=_failing_chain_lookup),
+            patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient", _C),
+        ):
+            result = runner.invoke(gpu_mod.gpu, args, obj={})
+        assert result.exit_code == 0, result.output
+        return ctor_kwargs
+
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["query", "--gpu-id", "gpu-1"],
+            ["allocations", "--gpu-id", "gpu-1"],
+            ["list"],
+        ],
+    )
+    def test_read_commands_send_rpc_api_key(self, runner, monkeypatch, args):
+        ctor_kwargs = self._invoke(runner, monkeypatch, args)
+        assert ctor_kwargs.get("api_key") == "test-rpc-key"
