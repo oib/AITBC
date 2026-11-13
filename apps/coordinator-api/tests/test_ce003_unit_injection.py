@@ -45,6 +45,7 @@ def test_validate_unit_component_accepts(good: str) -> None:
 
 def test_deploy_agent_systemd_rejects_poisoned_instance_id() -> None:
     """A pre-existing poisoned row must fail before any file write."""
+    # session=None is test-only; not a supported production API.
     manager = AgentDeploymentManager(session=None)  # type: ignore[arg-type]
     instance = SimpleNamespace(instance_id="evil\nExecStart=/bin/touch /tmp/pwned", port=8000)
 
@@ -76,6 +77,7 @@ async def _fake_create_subprocess(*cmd: str, **_kwargs: object) -> _FakeProc:
 
 def test_deploy_agent_systemd_unit_runs_unprivileged() -> None:
     """The generated unit must not run the agent as root (CE-003)."""
+    # session=None is test-only; not a supported production API.
     manager = AgentDeploymentManager(session=None)  # type: ignore[arg-type]
     captured: dict[str, str] = {}
 
