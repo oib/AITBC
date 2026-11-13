@@ -1208,7 +1208,7 @@ async def register_ipfs_rental_token(
     try:
         logger.info("POST /v1/ipfs/rental-token called with data keys: %s", token_data.keys())
         result = await svc.register_ipfs_rental_token(token_data)
-        logger.info("POST /v1/ipfs/rental-token registered token: %s", result.get("access_key"))
+        logger.debug("POST /v1/ipfs/rental-token registered token: %s", result.get("access_key"))
         return result
     except ValueError as e:
         logger.info("Rejecting IPFS rental token registration: %s", e)
@@ -1216,6 +1216,16 @@ async def register_ipfs_rental_token(
     except Exception as e:
         logger.error("Error in POST /v1/ipfs/rental-token: %s: %s", type(e).__name__, str(e))
         raise
+
+
+def _warn_secret_query_transport(access_key: str, access_secret: str | None, x_access_secret: str | None) -> None:
+    """#1942: the ``access_secret`` query parameter leaks the credential into
+    proxy access logs — callers must move to ``X-Access-Secret``. Still
+    accepted for legacy callers; the warning gives ops a migration signal."""
+    if access_secret is not None and x_access_secret is None:
+        logger.warning(
+            "access_secret supplied as query parameter (access_key=%s) — migrate to X-Access-Secret header", access_key
+        )
 
 
 @app.get("/v1/market/ipfs/rental/{access_key}")
@@ -1233,6 +1243,7 @@ async def get_ipfs_rental_token(
     logs (#1448). Header wins when both are sent.
     """
     secret = x_access_secret if x_access_secret is not None else access_secret
+    _warn_secret_query_transport(access_key, access_secret, x_access_secret)
     if not secret:
         return JSONResponse(status_code=401, content={"error": "access_secret is required (X-Access-Secret header preferred)"})
     try:
@@ -1694,6 +1705,7 @@ async def get_market_access_token(
     sent so a stale query value cannot shadow the fresh credential.
     """
     secret = x_access_secret if x_access_secret is not None else access_secret
+    _warn_secret_query_transport(access_key, access_secret, x_access_secret)
     if not secret:
         return JSONResponse(status_code=401, content={"error": "access_secret is required (X-Access-Secret header preferred)"})
     try:

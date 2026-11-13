@@ -110,17 +110,11 @@ jobs:
           # forge-std / openzeppelin live in git submodules pinned in .gitmodules
           submodules: recursive
 
+      # SHA-pinned (== @v1 / v1.9.2): the contracts suite must not pipe a
+      # remote script to bash or float on a mutable tag (#1942).
       - name: Set up Foundry
-        run: |
-          if ! command -v forge >/dev/null 2>&1 && [ ! -x "$HOME/.foundry/bin/forge" ]; then
-            curl -L https://foundry.paradigm.xyz | bash
-            "$HOME/.foundry/bin/foundryup"
-          fi
-          export PATH="$HOME/.foundry/bin:$PATH"
-          forge --version
+        uses: foundry-rs/foundry-toolchain@dba66c27052e63476d886f22216e119ba7e615bf
 
       - name: Forge tests
         working-directory: contracts
-        run: |
-          export PATH="$HOME/.foundry/bin:$PATH"
-          forge test -vvv
+        run: forge test -vvv
