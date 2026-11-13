@@ -853,6 +853,33 @@ class TestExecutorResourceBounds:
         with pytest.raises(ValueError, match="payload_ref"):
             ate._exec_ipfs({}, b"")
 
+    @pytest.mark.parametrize(
+        "bad_cid",
+        ["QmA/../etc", "bafy/beig", "Qm A", "/ipfs/QmA", "QmA?x=1", ".."],
+    )
+    def test_exec_ipfs_rejects_non_cid_arg(self, monkeypatch, bad_cid):
+        """#1939: buyer-controlled payload_ref must not reach Kubo as a path arg."""
+        posts = []
+        monkeypatch.setattr(ate.requests, "post", lambda url, **k: posts.append(url) or _resp({}))
+        with pytest.raises(ValueError, match="malformed IPFS CID"):
+            ate._exec_ipfs({"payload_ref": bad_cid}, b"")
+        assert not posts  # rejected before any daemon call
+
+    @pytest.mark.parametrize("bad_cid", ["a/b", "..", "cid with space"])
+    def test_ipfs_cat_rejects_non_cid_arg(self, monkeypatch, bad_cid):
+        posts = []
+        monkeypatch.setattr(ate.requests, "post", lambda url, **k: posts.append(url) or _resp({}))
+        with pytest.raises(ValueError, match="malformed IPFS CID"):
+            ate._ipfs_cat(bad_cid)
+        assert not posts
+
+    def test_ipfs_unpin_skips_malformed_silently(self, monkeypatch):
+        """Best-effort reclaim never raises and never dials the daemon on bad args."""
+        posts = []
+        monkeypatch.setattr(ate.requests, "post", lambda url, **k: posts.append(url) or _resp({}))
+        ate._ipfs_unpin("not/a/cid")
+        assert not posts
+
     def test_ipfs_buyer_quota_reclaims_and_raises(self, monkeypatch):
         monkeypatch.setattr(ate, "_ipfs_buyer_quota_bytes", lambda: 100)
         unpinned = []
