@@ -7,6 +7,7 @@ mapping — pinned with a fake SharedHttpClient plus the real down-state.
 
 from __future__ import annotations
 
+
 import httpx
 import pytest
 from fastapi.testclient import TestClient
@@ -112,3 +113,17 @@ class TestIslandsProxyForwarding:
     def test_request_error_maps_503(self, client: TestClient, fake_edge: type[_FakeClient]) -> None:
         fake_edge.next_error = httpx.ConnectError("refused")
         assert client.post(f"{BASE}/bridge", json={}, headers=_headers()).status_code == 503
+
+    def test_malformed_json_is_400_not_500(self, client: TestClient, fake_edge: type[_FakeClient]) -> None:
+        resp = client.post(
+            f"{BASE}/join",
+            content=b"{not json",
+            headers={**_headers(), "Content-Type": "application/json"},
+        )
+        assert resp.status_code == 400
+        assert fake_edge.calls == []
+
+    def test_island_id_is_url_quoted_upstream(self, client: TestClient, fake_edge: type[_FakeClient]) -> None:
+        # %23 decodes to '#' — unquoted it would truncate the upstream URL.
+        client.get(f"{BASE}/a%23b", headers=_headers())
+        assert fake_edge.calls[0]["url"].endswith("/islands/a%23b")

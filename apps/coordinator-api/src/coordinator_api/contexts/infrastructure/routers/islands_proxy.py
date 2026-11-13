@@ -5,7 +5,9 @@ per-request TCP+TLS handshake overhead. The client is lazily created on
 first use and reused across all proxy endpoints (and other services).
 """
 
+import json
 from typing import Any
+from urllib.parse import quote
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request
@@ -50,7 +52,7 @@ async def get_island(island_id: str, request: Request) -> dict[str, Any]:
     """Get island details (proxied to edge-api)"""
     try:
         response = await SharedHttpClient.get(
-            f"{EDGE_API_BASE_URL}/islands/{island_id}", headers=_forward_auth(request), timeout=10.0
+            f"{EDGE_API_BASE_URL}/islands/{quote(island_id, safe='')}", headers=_forward_auth(request), timeout=10.0
         )
         response.raise_for_status()
         return response.json()  # type: ignore[no-any-return]
@@ -67,7 +69,10 @@ async def get_island(island_id: str, request: Request) -> dict[str, Any]:
 async def join_island(request: Request) -> dict[str, Any]:
     """Join an island (proxied to edge-api)"""
     try:
-        body = await request.json()
+        try:
+            body = await request.json()
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail="Invalid JSON body") from exc
         response = await SharedHttpClient.post(
             f"{EDGE_API_BASE_URL}/islands/join", json=body, headers=_forward_auth(request), timeout=10.0
         )
@@ -84,7 +89,10 @@ async def join_island(request: Request) -> dict[str, Any]:
 async def leave_island(request: Request) -> dict[str, Any]:
     """Leave an island (proxied to edge-api)"""
     try:
-        body = await request.json()
+        try:
+            body = await request.json()
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail="Invalid JSON body") from exc
         response = await SharedHttpClient.post(
             f"{EDGE_API_BASE_URL}/islands/leave", json=body, headers=_forward_auth(request), timeout=10.0
         )
@@ -101,7 +109,10 @@ async def leave_island(request: Request) -> dict[str, Any]:
 async def request_bridge(request: Request) -> dict[str, Any]:
     """Request bridge to another island (proxied to edge-api)"""
     try:
-        body = await request.json()
+        try:
+            body = await request.json()
+        except json.JSONDecodeError as exc:
+            raise HTTPException(status_code=400, detail="Invalid JSON body") from exc
         response = await SharedHttpClient.post(
             f"{EDGE_API_BASE_URL}/islands/bridge", json=body, headers=_forward_auth(request), timeout=10.0
         )

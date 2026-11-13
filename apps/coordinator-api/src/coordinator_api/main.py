@@ -16,7 +16,7 @@ from prometheus_client.exposition import CONTENT_TYPE_LATEST
 from redis.exceptions import RedisError
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
-from slowapi.util import get_remote_address
+from aitbc.rate_limiting import client_ip_for_rate_limit
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.auth.middleware import AuthMiddleware
@@ -1161,7 +1161,10 @@ def create_app() -> FastAPI:
 
     _assert_production_config()
 
-    limiter = Limiter(key_func=get_remote_address)
+    # Key on the real client IP, not the TCP peer: coordinator-api binds
+    # loopback behind nginx without --proxy-headers, so get_remote_address
+    # would collapse every internet caller into one shared bucket.
+    limiter = Limiter(key_func=client_ip_for_rate_limit)
 
     # Disable docs and redoc in production
     docs_url = "/docs" if settings.debug else None
