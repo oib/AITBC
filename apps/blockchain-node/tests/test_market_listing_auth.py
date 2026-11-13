@@ -13,7 +13,7 @@ import json
 import pytest
 from eth_keys import keys
 from eth_utils import keccak
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 
 from aitbc_chain.rpc import market as market_mod
 from aitbc_chain.rpc.market import (
@@ -22,6 +22,12 @@ from aitbc_chain.rpc.market import (
     market_create,
     market_delete_listing,
 )
+
+
+def _req() -> Request:
+    """Direct handler calls need the injected Request the rate-limit
+    decorator extracts (#1946)."""
+    return Request({"type": "http", "method": "POST", "path": "/", "headers": [], "client": ("203.0.113.9", 50000)})
 
 
 @pytest.fixture(autouse=True)
@@ -65,7 +71,7 @@ def _create_body(seller_key: keys.PrivateKey, **over) -> dict:
 async def test_unsigned_create_refused():
     body = MarketCreateRequest(**{k: v for k, v in _create_body(keys.PrivateKey(b"\x01" * 32)).items() if k != "signature"})
     with pytest.raises(HTTPException) as exc:
-        await market_create(body)
+        await market_create(body, _req())
     assert exc.value.status_code == 403
     assert market_mod._market_listings == []
 
@@ -78,7 +84,7 @@ async def test_wrong_seller_signature_refused():
     unsigned = dict(MarketCreateRequest(**{k2: v2 for k2, v2 in body.items() if k2 != "signature"}).model_dump().items())
     body["signature"] = _sign(forger, {"action": "market_create", **unsigned})
     with pytest.raises(HTTPException) as exc:
-        await market_create(MarketCreateRequest(**body))
+        await market_create(MarketCreateRequest(**body), _req())
     assert exc.value.status_code == 403
     assert market_mod._market_listings == []
 
@@ -86,7 +92,7 @@ async def test_wrong_seller_signature_refused():
 @pytest.mark.asyncio
 async def test_signed_create_stores_listing_under_verified_seller():
     seller = keys.PrivateKey(b"\x01" * 32)
-    result = await market_create(MarketCreateRequest(**_create_body(seller)))
+    result = await market_create(MarketCreateRequest(**_create_body(seller)), _req())
     assert result["status"] == "created"
     assert market_mod._market_listings[0]["seller_address"] == seller.public_key.to_checksum_address()
 
@@ -96,7 +102,7 @@ async def test_bad_price_is_400_not_500():
     seller = keys.PrivateKey(b"\x01" * 32)
     body = _create_body(seller, price=-5.0)
     with pytest.raises(HTTPException) as exc:
-        await market_create(MarketCreateRequest(**body))
+        await market_create(MarketCreateRequest(**body), _req())
     # the validation 400 used to be swallowed by the catch-all and answer 500
     assert exc.value.status_code == 400
 
@@ -106,11 +112,11 @@ async def test_listing_ids_do_not_reuse_after_delete():
     seller = keys.PrivateKey(b"\x01" * 32)
     ids = []
     for _ in range(2):
-        r = await market_create(MarketCreateRequest(**_create_body(seller)))
+        r = await market_create(MarketCreateRequest(**_create_body(seller)), _req())
         ids.append(r["listing_id"])
     sig = _sign(seller, {"action": "market_delete", "listing_id": ids[0]})
-    await market_delete_listing(ids[0], MarketDeleteRequest(signature=sig))
-    r = await market_create(MarketCreateRequest(**_create_body(seller)))
+    await market_delete_listing(ids[0], _req(), MarketDeleteRequest(signature=sig))
+    r = await market_create(MarketCreateRequest(**_create_body(seller)), _req())
     ids.append(r["listing_id"])
     assert len(set(ids)) == 3, f"id collision: {ids}"
 
@@ -118,17 +124,19 @@ async def test_listing_ids_do_not_reuse_after_delete():
 @pytest.mark.asyncio
 async def test_unsigned_delete_refused():
     seller = keys.PrivateKey(b"\x01" * 32)
-    r = await market_create(MarketCreateRequest(**_create_body(seller)))
+    r = await market_create(MarketCreateRequest(**_create_body(seller)), _req())
     lid = r["listing_id"]
 
     with pytest.raises(HTTPException) as exc:
-        await market_delete_listing(lid)
+        await market_delete_listing(lid, _req())
     assert exc.value.status_code == 403
 
     stranger = keys.PrivateKey(b"\x03" * 32)
     with pytest.raises(HTTPException) as exc:
         await market_delete_listing(
-            lid, MarketDeleteRequest(signature=_sign(stranger, {"action": "market_delete", "listing_id": lid}))
+            lid,
+            _req(),
+            MarketDeleteRequest(signature=_sign(stranger, {"action": "market_delete", "listing_id": lid})),
         )
     assert exc.value.status_code == 403
     assert len(market_mod._market_listings) == 1
@@ -137,9 +145,9 @@ async def test_unsigned_delete_refused():
 @pytest.mark.asyncio
 async def test_seller_signed_delete_removes_listing():
     seller = keys.PrivateKey(b"\x01" * 32)
-    r = await market_create(MarketCreateRequest(**_create_body(seller)))
+    r = await market_create(MarketCreateRequest(**_create_body(seller)), _req())
     lid = r["listing_id"]
     sig = _sign(seller, {"action": "market_delete", "listing_id": lid})
-    result = await market_delete_listing(lid, MarketDeleteRequest(signature=sig))
+    result = await market_delete_listing(lid, _req(), MarketDeleteRequest(signature=sig))
     assert result["status"] == "deleted"
     assert market_mod._market_listings == []
