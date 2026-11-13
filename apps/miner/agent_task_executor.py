@@ -44,6 +44,8 @@ from typing import Any
 
 import requests
 
+import ipfs_pinning_sweeper
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.units import ait_to_units
 
@@ -584,6 +586,18 @@ def _task_max_payload_bytes() -> int:
         return _TASK_DEFAULT_MAX_BYTES
 
 
+def _require_cid_arg(cid: str) -> None:
+    """Reject non-CID payload_ref values before they reach a Kubo arg (#1939).
+
+    Kubo resolves pin/cat/object args as IPFS *paths*, so a buyer-controlled
+    ``payload_ref`` containing '/', '..', whitespace or other path syntax could
+    steer the daemon at unintended DAGs. Only bare alphanumeric CID spellings
+    pass — the same check the pinning sweeper applies (#1582).
+    """
+    if not ipfs_pinning_sweeper._valid_cid_arg(cid):
+        raise ValueError(f"malformed IPFS CID arg: {cid!r}")
+
+
 def _bounded_content(resp: requests.Response, cap: int) -> bytes:
     """Read a response body with a running byte count — never holds > cap."""
     headers = getattr(resp, "headers", None) or {}
@@ -613,6 +627,7 @@ def _bounded_content(resp: requests.Response, cap: int) -> bytes:
 
 def _ipfs_object_size(cid: str) -> int | None:
     """Best-effort object size from the daemon; None when unknown."""
+    _require_cid_arg(cid)
     try:
         resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/object/stat", params={"arg": cid}, timeout=30)
         if resp.status_code == 200:
@@ -624,6 +639,7 @@ def _ipfs_object_size(cid: str) -> int | None:
 
 
 def _ipfs_cat(cid: str, timeout: int = 120, max_bytes: int | None = None) -> bytes:
+    _require_cid_arg(cid)
     cap = _task_max_payload_bytes() if max_bytes is None else max_bytes
     size = _ipfs_object_size(cid)
     if size is not None and size > cap:
@@ -758,6 +774,9 @@ def _exec_ollama(req: dict[str, Any], payload: bytes) -> bytes:
 
 def _ipfs_unpin(cid: str) -> None:
     """Best-effort pin/rm — used to reclaim a pin that breached a quota."""
+    if not ipfs_pinning_sweeper._valid_cid_arg(cid):
+        logger.warning("Refusing to unpin malformed CID arg %r", cid)
+        return
     try:
         requests.post(f"{ISLAND_IPFS_API}/api/v0/pin/rm", params={"arg": cid}, timeout=60)
     except requests.RequestException:
@@ -777,6 +796,7 @@ def _exec_ipfs(req: dict[str, Any], payload: bytes) -> bytes:
     cid = str(req.get("payload_ref") or "")
     if not cid:
         raise ValueError("ipfs task requires payload_ref (CID)")
+    _require_cid_arg(cid)
     resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/pin/add", params={"arg": cid}, timeout=120)
     resp.raise_for_status()
     size = _ipfs_object_size(cid)
