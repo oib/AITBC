@@ -25,7 +25,6 @@ from pydantic import ValidationError
 
 from aitbc.auth import create_access_token
 
-from coordinator_api.config import settings
 from coordinator_api.contexts.infrastructure.domain import Miner
 from coordinator_api.contexts.infrastructure.routers import inference as inf_mod
 from coordinator_api.contexts.infrastructure.services import jobs as jobs_module
@@ -60,24 +59,29 @@ def _online_miner(miner_id: str = "miner-1948") -> Miner:
 
 
 def test_jobcreate_ttl_schema_bounds():
+    # No upper bound at the schema: internal callers (market_gpu
+    # duration-proportional TTLs up to ~8760h, services.py renders) legitimately
+    # exceed any public-path ceiling — the cap is applied via ttl_cap instead.
     assert JobCreate(payload={}, ttl_seconds=86400).ttl_seconds == 86400
-    with pytest.raises(ValidationError):
-        JobCreate(payload={}, ttl_seconds=86401)
+    assert JobCreate(payload={}, ttl_seconds=31_536_000).ttl_seconds == 31_536_000
     with pytest.raises(ValidationError):
         JobCreate(payload={}, ttl_seconds=0)
 
 
-def test_create_job_ttl_clamped_to_settings(db_session, job_service, monkeypatch):
-    monkeypatch.setattr(settings, "job_ttl_seconds", 60)
-    job = job_service.create_job(client_id="client1", req=_job_req(ttl_seconds=900))
-    assert job.ttl_seconds == 60
-    assert (job.expires_at - job.requested_at).total_seconds() == pytest.approx(60)
+def test_create_job_ttl_clamped_only_with_cap(db_session, job_service):
+    """The public submit path passes ttl_cap=settings.job_ttl_seconds;
+    internal callers (paid GPU bookings, long renders) pass none and keep
+    their server-computed TTL — the Validator FAIL on the first respin."""
+    capped = job_service.create_job(client_id="client1", req=_job_req(ttl_seconds=900), ttl_cap=60)
+    assert capped.ttl_seconds == 60
+    assert (capped.expires_at - capped.requested_at).total_seconds() == pytest.approx(60)
+    internal = job_service.create_job(client_id="client1", req=_job_req(ttl_seconds=900))
+    assert internal.ttl_seconds == 900
 
 
-def test_create_job_ttl_never_below_one(db_session, job_service, monkeypatch):
-    """A degenerate settings value cannot mint an already-expired job."""
-    monkeypatch.setattr(settings, "job_ttl_seconds", 0)
-    job = job_service.create_job(client_id="client1", req=_job_req(ttl_seconds=900))
+def test_create_job_ttl_cap_never_below_one(db_session, job_service):
+    """A degenerate cap cannot mint an already-expired job."""
+    job = job_service.create_job(client_id="client1", req=_job_req(ttl_seconds=900), ttl_cap=0)
     assert job.ttl_seconds == 1
 
 

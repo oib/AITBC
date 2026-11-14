@@ -193,7 +193,7 @@ async def _submit_job_impl(
         )
 
     service = JobService(session)
-    job = await run_in_threadpool(service.create_job, user["sub"], req)
+    job = await run_in_threadpool(service.create_job, user["sub"], req, ttl_cap=settings.job_ttl_seconds)
     if req.payment_amount and req.payment_amount > 0:
         if req.buyer_lock_signature:
             # One-step submission: the client has already signed the ESCROW_LOCK tx.
