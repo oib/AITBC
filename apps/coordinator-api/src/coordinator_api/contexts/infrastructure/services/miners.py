@@ -4,6 +4,10 @@ import os
 from datetime import UTC, datetime, timedelta
 
 _MINER_HEARTBEAT_CUTOFF_SECONDS = int(os.getenv("COORDINATOR_MINER_HEARTBEAT_CUTOFF_SECONDS", "300"))
+
+# R12-07: MinerRegister.concurrency is client-supplied; clamp server-side too
+# so a direct service caller cannot register an unbounded slot count.
+_MAX_MINER_CONCURRENCY = 64
 from typing import Any
 from uuid import uuid4
 
@@ -29,18 +33,19 @@ class MinerService:
         capabilities = dict(payload.capabilities or {})
         if payload.wallet_address:
             capabilities[WALLET_CAPABILITY_KEY] = payload.wallet_address
+        concurrency = max(1, min(payload.concurrency, _MAX_MINER_CONCURRENCY))
         if miner is None:
             miner = Miner(
                 id=miner_id,
                 capabilities=capabilities,
-                concurrency=payload.concurrency,
+                concurrency=concurrency,
                 region=payload.region,
                 session_token=session_token,
             )
             self.session.add(miner)
         else:
             miner.capabilities = capabilities
-            miner.concurrency = payload.concurrency
+            miner.concurrency = concurrency
             miner.region = payload.region
             miner.session_token = session_token
         miner.inflight = 0
