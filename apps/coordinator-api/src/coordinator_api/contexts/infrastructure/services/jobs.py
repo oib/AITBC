@@ -14,7 +14,6 @@ from fastapi import HTTPException, status
 from aitbc.aitbc_logging import get_logger
 from aitbc_shared import JobPayment
 
-from ....config import settings
 from ....schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
 from ...payments.acceptance import deadline_from
 from ...payments.provider_binding import miner_wallet_address, same_address
@@ -246,8 +245,14 @@ class JobService:
         self.session = session
         self.payment_service = PaymentService(session)
 
-    def create_job(self, client_id: str, req: JobCreate) -> Job:
-        ttl = min(max(req.ttl_seconds, 1), max(settings.job_ttl_seconds, 1))
+    def create_job(self, client_id: str, req: JobCreate, *, ttl_cap: int | None = None) -> Job:
+        # ``ttl_cap`` bounds client-supplied TTLs on the public submit path.
+        # Internal callers (market_gpu bookings, services.py renders) pass
+        # server-computed TTLs and leave it None — capping them broke paid
+        # GPU bookings and long renders (Validator FAIL on #1948).
+        ttl = max(req.ttl_seconds, 1)
+        if ttl_cap is not None:
+            ttl = min(ttl, max(ttl_cap, 1))
         now = datetime.now(UTC)
         try:
             resolved_client_id, client_ref = resolve_client(self.session, client_id, auto_create=True)
