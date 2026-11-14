@@ -5,6 +5,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
+from sqlalchemy import func
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, col, select, update
 
@@ -13,6 +14,7 @@ from fastapi import HTTPException, status
 from aitbc.aitbc_logging import get_logger
 from aitbc_shared import JobPayment
 
+from ....config import settings
 from ....schemas import AssignedJob, Constraints, JobCreate, JobResult, JobView
 from ...payments.acceptance import deadline_from
 from ...payments.provider_binding import miner_wallet_address, same_address
@@ -60,6 +62,11 @@ _BOND_REQUIRE = os.getenv("COORDINATOR_BOND_REQUIRE", "false").lower() == "true"
 # currently active miners. The heartbeat interval is typically 15s; allow a
 # generous 5-minute window before treating a miner as stale for dispatch decisions.
 _MINER_ONLINE_HEARTBEAT_CUTOFF_SECONDS = int(os.getenv("COORDINATOR_MINER_HEARTBEAT_CUTOFF_SECONDS", "300"))
+
+# R12-07-RESOURCE-EXHAUSTION-1: unpriced jobs dispatch without payment, so a
+# single submitter could otherwise fill the queue with free GPU work. Bound
+# the non-terminal jobs one client may hold at once.
+_MAX_INFLIGHT_JOBS_PER_CLIENT = int(os.getenv("COORDINATOR_MAX_INFLIGHT_JOBS_PER_CLIENT", "50"))
 
 
 def _bond_required_for(job: Job, payment: JobPayment | None = None) -> bool:
@@ -240,7 +247,7 @@ class JobService:
         self.payment_service = PaymentService(session)
 
     def create_job(self, client_id: str, req: JobCreate) -> Job:
-        ttl = max(req.ttl_seconds, 1)
+        ttl = min(max(req.ttl_seconds, 1), max(settings.job_ttl_seconds, 1))
         now = datetime.now(UTC)
         try:
             resolved_client_id, client_ref = resolve_client(self.session, client_id, auto_create=True)
@@ -248,6 +255,16 @@ class JobService:
             # Unresolvable caller identity is a caller error, not a server
             # fault — arbitrary JWT subs must not 500 job submission (#1340).
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+        inflight = self.session.execute(
+            select(func.count())
+            .select_from(Job)
+            .where(col(Job.client_id) == resolved_client_id, col(Job.state).in_(("QUEUED", "RUNNING")))
+        ).scalar_one()
+        if inflight >= _MAX_INFLIGHT_JOBS_PER_CLIENT:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail=(f"client already holds {inflight} queued or running jobs (limit {_MAX_INFLIGHT_JOBS_PER_CLIENT})"),
+            )
         # G3: drop any server-only keys the client may have tried to smuggle in.
         raw_constraints = (
             req.constraints.model_dump(mode="json") if hasattr(req.constraints, "model_dump") else dict(req.constraints)
@@ -460,9 +477,10 @@ class JobService:
             expires_at=deadline.timestamp() if deadline else None,
         )
 
-    # Cap the queued-job scan per dispatch call. FIFO order means the oldest
-    # jobs are always considered first; the cap only bounds how far a single
-    # poll looks ahead when the queue is long.
+    # Cap the queued-job scan per dispatch call. Paid work (a linked payment
+    # row or a recorded price) is tried before unpriced FIFO work; requested_at
+    # remains the tiebreak. The cap only bounds how far a single poll looks
+    # ahead when the queue is long.
     _QUEUE_SCAN_LIMIT = 500
 
     def _reputation_map(self, miners: list[Miner]) -> dict[str, float]:
@@ -520,7 +538,16 @@ class JobService:
             statement = (
                 select(Job)
                 .where(Job.state == "QUEUED")
-                .order_by(Job.requested_at.asc())  # type: ignore[attr-defined]
+                .order_by(
+                    # NULL-safe: ``payment_amount > 0`` alone is NULL (not
+                    # FALSE) for unpriced rows, and NULL ordering differs
+                    # between SQLite and Postgres.
+                    (
+                        col(Job.payment_id).is_not(None)
+                        | (col(Job.payment_amount).is_not(None) & (col(Job.payment_amount) > 0))
+                    ).desc(),
+                    Job.requested_at.asc(),  # type: ignore[attr-defined]
+                )
                 .limit(self._QUEUE_SCAN_LIMIT)
             )
             jobs = list(self.session.scalars(statement).all())

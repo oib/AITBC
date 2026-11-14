@@ -12,13 +12,14 @@ from __future__ import annotations
 
 import logging
 import json
+import time
 from collections.abc import AsyncGenerator
-from typing import Any
+from typing import Annotated, Any
 
 import httpx
 from fastapi import APIRouter, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 from aitbc.network import SharedHttpClient
 from aitbc.rate_limiting import rate_limit
@@ -44,12 +45,19 @@ _OPS_ERRORS = (
 OLLAMA_BASE_URL = "http://localhost:11434"
 
 
+# R12-07: prompts were unbounded (~5MB each) and /batch ran them sequentially
+# at timeout=300 — ten prompts could pin a request for ~50 minutes.
+_MAX_PROMPT_CHARS = 100_000
+_BATCH_DEADLINE_SECONDS = 600.0
+_BATCH_CALL_TIMEOUT_SECONDS = 300.0
+
+
 class InferenceRequest(BaseModel):
     """Request for model inference"""
 
     model: str = Field(default="llama2", description="Model name to use")
-    prompt: str = Field(..., min_length=1, description="Input prompt")
-    system: str | None = Field(default=None, description="System message")
+    prompt: str = Field(..., min_length=1, max_length=_MAX_PROMPT_CHARS, description="Input prompt")
+    system: str | None = Field(default=None, max_length=_MAX_PROMPT_CHARS, description="System message")
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=2048, ge=1, le=8192)
     stream: bool = Field(default=False, description="Stream response")
@@ -60,7 +68,7 @@ class BatchInferenceRequest(BaseModel):
     """Request for batch inference"""
 
     model: str = Field(default="llama2")
-    prompts: list[str] = Field(..., min_length=1, max_length=10)
+    prompts: list[Annotated[str, StringConstraints(max_length=_MAX_PROMPT_CHARS)]] = Field(..., min_length=1, max_length=10)
     temperature: float = Field(default=0.7, ge=0.0, le=2.0)
     max_tokens: int = Field(default=2048, ge=1, le=8192)
 
@@ -170,9 +178,20 @@ async def batch_generate(request: Request, req: BatchInferenceRequest) -> dict[s
     """
     results = []
     errors = []
+    deadline = time.monotonic() + _BATCH_DEADLINE_SECONDS
 
     try:
         for i, prompt in enumerate(req.prompts):
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                errors.append(
+                    {
+                        "index": i,
+                        "error": f"batch deadline of {_BATCH_DEADLINE_SECONDS}s exceeded; "
+                        f"{len(req.prompts) - i} prompt(s) skipped",
+                    }
+                )
+                break
             try:
                 payload = {
                     "model": req.model,
@@ -181,7 +200,11 @@ async def batch_generate(request: Request, req: BatchInferenceRequest) -> dict[s
                     "options": {"temperature": req.temperature, "num_predict": req.max_tokens},
                 }
 
-                response = await SharedHttpClient.post(f"{OLLAMA_BASE_URL}/api/generate", json=payload, timeout=300.0)
+                response = await SharedHttpClient.post(
+                    f"{OLLAMA_BASE_URL}/api/generate",
+                    json=payload,
+                    timeout=min(_BATCH_CALL_TIMEOUT_SECONDS, remaining),
+                )
 
                 if response.status_code == 200:
                     result = response.json()

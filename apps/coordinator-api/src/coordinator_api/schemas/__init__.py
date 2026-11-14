@@ -325,7 +325,7 @@ class MarketStatsResponse(BaseModel):
 class JobCreate(BaseModel):
     payload: dict[str, Any]
     constraints: Constraints = Field(default_factory=Constraints)
-    ttl_seconds: int = 900
+    ttl_seconds: int = Field(default=900, ge=1, le=86400)
     payment_amount: Decimal | None = None  # Amount to pay for the job
     payment_currency: str = brand_symbol  # Jobs paid with network tokens
     buyer_address: str | None = None  # Customer wallet address for escrow
@@ -419,7 +419,7 @@ class JobResult(BaseModel):
 
 class MinerRegister(BaseModel):
     capabilities: dict[str, Any]
-    concurrency: int = 1
+    concurrency: int = Field(default=1, ge=1, le=64)
     region: str | None = None
     # G2: the address escrow releases pay out to. A miner that declares none cannot
     # be matched against an escrow's provider and so will not be given escrowed work.
