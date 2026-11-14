@@ -71,7 +71,13 @@ def get_blockchain_analytics(analytics_type: str, limit: int = 10, rpc_url: str 
         elif analytics_type == "supply":
             # Total minted supply: sum of the genesis allocation balances,
             # fetched from the node and converted from base units to AIT.
-            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            from aitbc_cli.config import get_config as _bc_cfg
+
+            http_client = AITBCHTTPClient(
+                base_url=rpc_url,
+                timeout=30,
+                api_key=getattr(_bc_cfg(), "blockchain_rpc_api_key", None),
+            )
             response = http_client.get("/rpc/genesis_allocations")
             allocations = response.get("allocations", [])
             total_units = sum(alloc.get("balance", 0) for alloc in allocations)

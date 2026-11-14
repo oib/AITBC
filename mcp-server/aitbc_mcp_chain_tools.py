@@ -234,7 +234,7 @@ def list_chains(
     ] = None,
 ) -> str:
     """List all chain instances running on the node."""
-    return _http_read_tool(role, host, "blockchain-rpc", "chains")
+    return _http_read_tool(role, host, "blockchain-rpc", "chains", auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -500,7 +500,7 @@ def list_islands(
     ] = None,
 ) -> str:
     """List all islands."""
-    return _http_read_tool(role, host, "blockchain-rpc", "islands")
+    return _http_read_tool(role, host, "blockchain-rpc", "islands", auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
@@ -519,7 +519,7 @@ def get_island(
     ] = None,
 ) -> str:
     """Get details for a specific island."""
-    return _http_read_tool(role, host, "blockchain-rpc", f"islands/{island_id}")
+    return _http_read_tool(role, host, "blockchain-rpc", f"islands/{island_id}", auth="rpc")
 
 
 # ---------------------------------------------------------------------------
