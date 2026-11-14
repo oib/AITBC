@@ -37161,7 +37161,8 @@
           },
           "prompts": {
             "items": {
-              "type": "string"
+              "type": "string",
+              "maxLength": 100000
             },
             "type": "array",
             "maxItems": 10,
@@ -44446,6 +44447,8 @@
           },
           "concurrency": {
             "type": "integer",
+            "maximum": 64.0,
+            "minimum": 1.0,
             "title": "Concurrency",
             "default": 1
           },
@@ -48492,6 +48495,7 @@
           },
           "prompt": {
             "type": "string",
+            "maxLength": 100000,
             "minLength": 1,
             "title": "Prompt",
             "description": "Input prompt"
@@ -48499,7 +48503,8 @@
           "system": {
             "anyOf": [
               {
-                "type": "string"
+                "type": "string",
+                "maxLength": 100000
               },
               {
                 "type": "null"
@@ -48631,6 +48636,8 @@
           },
           "ttl_seconds": {
             "type": "integer",
+            "maximum": 86400.0,
+            "minimum": 1.0,
             "title": "Ttl Seconds",
             "default": 900
           },

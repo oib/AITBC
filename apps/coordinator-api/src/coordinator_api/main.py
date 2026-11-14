@@ -638,6 +638,36 @@ class SecurityGateMiddleware:
         await self.app(scope, receive, send)
 
 
+class ExemptPrefixBodyGuardMiddleware:
+    """Reject chunked bodies on the body-cap-exempt prefixes (#1948).
+
+    ``RequestValidationMiddleware`` passes exempt prefixes through untouched,
+    and ``SecurityGateMiddleware``'s Content-Length check cannot see a chunked
+    body — together they leave ``/v1/media/`` uploads with no envelope bound:
+    Starlette spools the whole multipart to a temp file before the route's
+    per-file cap ever runs. Clients that send a body always declare
+    Content-Length, so a Transfer-Encoding header on these prefixes fails
+    closed with 411.
+    """
+
+    def __init__(self, app: ASGIApp, exempt_prefixes: tuple[str, ...]) -> None:
+        self.app = app
+        self.exempt_prefixes = exempt_prefixes
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not scope.get("path", "").startswith(self.exempt_prefixes):
+            await self.app(scope, receive, send)
+            return
+        headers = {k.lower(): v for k, v in scope.get("headers", [])}
+        if b"transfer-encoding" in headers:
+            await JSONResponse(
+                status_code=411,
+                content={"detail": "Content-Length is required on this endpoint"},
+            )(scope, receive, send)
+            return
+        await self.app(scope, receive, send)
+
+
 class APIMetricsMiddleware:
     """API request/error counters and response-time collection."""
 
@@ -678,6 +708,7 @@ def _add_middleware(app: FastAPI) -> None:
         max_request_size=settings.max_request_body_bytes,
         exempt_prefixes=exempt,
     )
+    app.add_middleware(ExemptPrefixBodyGuardMiddleware, exempt_prefixes=exempt)
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(PerformanceLoggingMiddleware)
     app.add_middleware(PrometheusMetricsMiddleware)
