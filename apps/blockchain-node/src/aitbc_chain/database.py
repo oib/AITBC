@@ -540,7 +540,14 @@ def verify_chain_db_integrity(
             key, identity, False, str(exc), raise_on_failure=raise_on_failure, engine=target_engine, session=session
         )
     if rows is None:
-        return (True, "ok")
+        # No engine and no usable session — the check never ran. Returning ok
+        # here would be a silent pass on an unverified store (#1954): fail
+        # closed instead, without recording a corruption verdict.
+        from .metrics import metrics_registry
+
+        metrics_registry.increment("chain_db_integrity_check_unrunnable_total")
+        logger.error("chain.db integrity check could not run for %s: no engine or session resolved", key)
+        return (False, "integrity check could not run: no engine or session for chain store")
     verdicts = [str(r[0]).strip() for r in rows if r]
     if verdicts == ["ok"]:
         return _record_integrity_verdict(key, identity, True, "ok", raise_on_failure=False)
