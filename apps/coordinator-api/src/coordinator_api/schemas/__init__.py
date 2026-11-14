@@ -325,7 +325,11 @@ class MarketStatsResponse(BaseModel):
 class JobCreate(BaseModel):
     payload: dict[str, Any]
     constraints: Constraints = Field(default_factory=Constraints)
-    ttl_seconds: int = Field(default=900, ge=1, le=86400)
+    # Upper bound is applied on the public submit path (client.py passes
+    # settings.job_ttl_seconds as create_job's ttl_cap) — internal callers
+    # (market_gpu duration-proportional TTLs, services.py renders) legitimately
+    # exceed it, so the schema itself only enforces positivity.
+    ttl_seconds: int = Field(default=900, ge=1)
     payment_amount: Decimal | None = None  # Amount to pay for the job
     payment_currency: str = brand_symbol  # Jobs paid with network tokens
     buyer_address: str | None = None  # Customer wallet address for escrow

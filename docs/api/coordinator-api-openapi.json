@@ -48636,7 +48636,6 @@
           },
           "ttl_seconds": {
             "type": "integer",
-            "maximum": 86400.0,
             "minimum": 1.0,
             "title": "Ttl Seconds",
             "default": 900
