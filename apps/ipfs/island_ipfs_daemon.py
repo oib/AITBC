@@ -126,6 +126,19 @@ def _set_island_config(
     # dial. Set ISLAND_IPFS_ANNOUNCE to the address peers actually reach.
     config["Addresses"]["Announce"] = list(announce or [])
     config["AutoConf"] = {"Enabled": False}
+    # #1951: with AutoConf off, Kubo's 'auto' placeholders in DNS/Routing/Ipns
+    # are invalid and log ERROR on every start; pin concrete private-swarm
+    # values instead. AutoTLS and delegated routing are public-network
+    # features — both are incompatible with swarm.key pnet anyway.
+    config["AutoTLS"] = {"Enabled": False}
+    config["DNS"] = {"Resolvers": {}}
+    routing = config.get("Routing") or {}
+    routing["Type"] = "dht"
+    routing["DelegatedRouters"] = []
+    config["Routing"] = routing
+    ipns = config.get("Ipns") or {}
+    ipns["DelegatedPublishers"] = []
+    config["Ipns"] = ipns
     config["Gateway"] = config.get("Gateway", {})
     config["Gateway"]["PublicGateways"] = {}
     # IPFS-DAEMON-1 (#1670): write-then-rename — a crash mid-write used to
@@ -228,6 +241,9 @@ def main(argv: list[str] | None = None) -> int:
     env = subprocess_env(include_prefixes=("IPFS_",))
     env["IPFS_PATH"] = str(repo)
     env["IPFS_FORCE_PNET"] = "1"
+    # #1951: ShareTCPListener is unsupported under pnet; TCP mux off removes
+    # the libp2p ERROR line (small private swarm — extra sockets are fine).
+    env["LIBP2P_TCP_MUX"] = "false"
 
     proc = subprocess.Popen(
         cmd,

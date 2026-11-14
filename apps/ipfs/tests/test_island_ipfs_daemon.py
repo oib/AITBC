@@ -71,6 +71,12 @@ def test_set_island_config_writes_atomically(tmp_path):
     assert config["Existing"]["Key"] == 1
     assert config["Addresses"]["API"] == "/ip4/127.0.0.1/tcp/5002"
     assert config["AutoConf"] == {"Enabled": False}
+    # #1951: no 'auto' placeholders may survive — they ERROR under pnet.
+    assert config["AutoTLS"] == {"Enabled": False}
+    assert config["DNS"] == {"Resolvers": {}}
+    assert config["Routing"]["Type"] == "dht"
+    assert config["Routing"]["DelegatedRouters"] == []
+    assert config["Ipns"]["DelegatedPublishers"] == []
     assert not (repo / "config.tmp").exists()
 
 
