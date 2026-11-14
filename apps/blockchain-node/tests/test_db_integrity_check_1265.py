@@ -293,3 +293,15 @@ def test_propose_head_refuses_on_quarantined_db(tmp_path):
     finally:
         engine.dispose()
         clear_chain_db_quarantine("propose-corrupt")
+
+
+def test_unresolvable_store_fails_closed_not_silent_ok():
+    """#1954: a chain_id with no registered engine and no session must NOT
+    report ``(True, "ok")`` — the check never ran, so 'ok' would be a silent
+    pass on an unverified store. It fails closed WITHOUT recording a
+    corruption verdict (no quarantine — nothing was proven corrupt)."""
+    chain = _unique_chain()
+    ok, detail = verify_chain_db_integrity(chain)
+    assert ok is False
+    assert "could not run" in detail
+    assert not is_chain_db_quarantined(chain)
