@@ -208,7 +208,7 @@ def http_error_detail(exc: BaseException) -> str | None:
         if response is not None:
             try:
                 body = response.json()
-            except (ValueError, TypeError):
+            except (RecursionError, ValueError, TypeError):
                 return None
             if isinstance(body, dict):
                 return _detail_from_body(body)

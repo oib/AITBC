@@ -145,7 +145,7 @@ def test(ctx, peer, rpc_url):
         resp.raise_for_status()
         try:
             body: dict[str, Any] = resp.json()
-        except (ValueError, TypeError):
+        except (RecursionError, ValueError, TypeError):
             body = {"status": resp.text.strip()}
         body["peer"] = peer
         body["endpoint"] = url
