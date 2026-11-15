@@ -195,14 +195,23 @@ def verify_set(
     # An empty newest set must not read CLEAN: no chain dump means the backup
     # run itself never produced one — that is a failure, not "nothing found"
     # (#911).
-    if not report["chain"]:
-        errors.append(f"{set_dir.name}: no chain_*.db.gz artifacts in the newest set")
-    elif not any(e["name"].endswith("_chain.db.gz") for e in report["chain"]):
-        # #1934 relaxed the block-table requirement to *_chain.db.gz only, so a
-        # set holding just service DBs (keystore, wallet ledger) must not read
-        # CLEAN: the real chain dump is the file that has to exist (#1970).
-        errors.append(f"{set_dir.name}: no chain_<id>_chain.db.gz (real chain DB dump) in the newest set")
+    errors.extend(_missing_chain_dump_errors(set_dir.name, report["chain"]))
     return errors, report
+
+
+def _missing_chain_dump_errors(set_name: str, chain: list[dict]) -> list[str]:
+    """Errors when the newest set holds no real chain DB dump.
+
+    An empty set must not read CLEAN (#911). #1934 relaxed the block-table
+    requirement to ``*_chain.db.gz`` only, so a set holding just service DBs
+    (keystore, wallet ledger) must not read CLEAN either: the real chain dump
+    is the file that has to exist (#1970).
+    """
+    if not chain:
+        return [f"{set_name}: no chain_*.db.gz artifacts in the newest set"]
+    if not any(e["name"].endswith("_chain.db.gz") for e in chain):
+        return [f"{set_name}: no chain_<id>_chain.db.gz (real chain DB dump) in the newest set"]
+    return []
 
 
 def _write_textfile(path: Path, ok: int, report: dict) -> None:
