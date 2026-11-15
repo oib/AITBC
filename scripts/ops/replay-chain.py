@@ -606,21 +606,21 @@ def _compare_state(compare_path: str, target_db: Path, chain_id: str, end: int) 
         dst.close()
 
 
-async def _run(args: argparse.Namespace) -> int:
-    chain_id = args.chain_id
-    workdir = Path(args.workdir) if args.workdir else Path(tempfile.mkdtemp(prefix="aitbc-replay-"))
-    workdir.mkdir(parents=True, exist_ok=True)
+def _setup_environment(args: argparse.Namespace, chain_id: str, workdir: Path) -> None:
+    """Source the env file and pin the scratch-target env vars.
 
-    # Node env file first (it may carry the version-height ladder, feature
-    # flags, etc.); ambient env still wins over the file via _load_env_file's
-    # no-clobber rule — invert that here: the file describes the node whose
-    # chain is being replayed, so its values are the reference.
+    Node env file first (it may carry the version-height ladder, feature
+    flags, etc.); ambient env still wins over the file via _load_env_file's
+    no-clobber rule — invert that here: the file describes the node whose
+    chain is being replayed, so its values are the reference.
+
+    Bind the scratch target BEFORE aitbc_chain imports — settings capture
+    AITBC_DATA_DIR/CHAIN_ID at module import time. These must win over any
+    env-file values.
+    """
     if args.env_file:
         _load_env_file(args.env_file)
 
-    # Bind the scratch target BEFORE aitbc_chain imports — settings capture
-    # AITBC_DATA_DIR/CHAIN_ID at module import time. These must win over any
-    # env-file values.
     os.environ["AITBC_DATA_DIR"] = str(workdir)
     os.environ["CHAIN_ID"] = chain_id
     # Replay must exercise the code paths a rebuild actually hits: state-root
@@ -642,29 +642,38 @@ async def _run(args: argparse.Namespace) -> int:
     os.environ["TRUSTED_PROPOSERS"] = ""
     os.environ["MULTI_VALIDATOR_MIN_ATTESTATIONS"] = "0"
 
-    from aitbc_chain.config import settings
-    from aitbc_chain.database import init_db, session_scope
-    from aitbc_chain.sync import ChainSync
 
-    if not settings.sync_state_root_validation_enabled:
-        print("FATAL: sync_state_root_validation_enabled is off — replay would not check state roots", file=sys.stderr)
-        return 1
-
-    snapshot = _SnapshotSource(args.snapshot, chain_id, cap_height=args.to_height)
-    tip = snapshot.tip_height()
-    end = min(args.to_height, tip) if args.to_height is not None else tip
-
+def _resolve_checkpoint_and_range(
+    args: argparse.Namespace,
+    chain_id: str,
+    snapshot: _SnapshotSource,
+    end: int,
+    tip: int,
+) -> tuple[_Checkpoint | None, int] | None:
+    """Validate --checkpoint and compute the replay start; None on fatal error."""
     # Checkpoint mode: prove the state-bearing checkpoint, seed the target
     # with its whole DB, then replay from its tip + 1 instead of genesis.
     ckpt = None
     if args.checkpoint:
         ckpt = _validate_checkpoint(args.checkpoint, chain_id, snapshot, end)
         if ckpt is None:
-            return 1
+            return None
     start = ckpt.height + 1 if ckpt is not None else 1
     if start > end:
         print(f"nothing to replay: range {start}..{end} is empty (snapshot tip {tip})", file=sys.stderr)
-        return 1
+        return None
+    return ckpt, start
+
+
+def _seed_target_db(
+    args: argparse.Namespace,
+    chain_id: str,
+    workdir: Path,
+    snapshot: _SnapshotSource,
+    ckpt: _Checkpoint | None,
+) -> int | None:
+    """Seed the target DB from the checkpoint or genesis; exit code on failure."""
+    from aitbc_chain.database import init_db, session_scope
 
     if ckpt is not None:
         _copy_checkpoint(args.checkpoint, workdir, chain_id)
@@ -686,8 +695,20 @@ async def _run(args: argparse.Namespace) -> int:
                 return 1
         else:
             _seed_genesis(session, chain_id, args.genesis, snapshot)
-    origin = f"checkpoint height {ckpt.height}" if ckpt is not None else "genesis"
-    print(f"seeded from {origin}; replaying blocks {start}..{end} of snapshot tip {tip}")
+    return None
+
+
+async def _import_blocks(
+    args: argparse.Namespace,
+    chain_id: str,
+    workdir: Path,
+    snapshot: _SnapshotSource,
+    start: int,
+    end: int,
+) -> tuple[int, bool]:
+    """Serve the snapshot over loopback, bulk-import, then verify block hashes/roots."""
+    from aitbc_chain.database import session_scope
+    from aitbc_chain.sync import ChainSync
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), _make_handler(snapshot))
     port = server.server_address[1]
@@ -711,13 +732,12 @@ async def _run(args: argparse.Namespace) -> int:
 
     # bulk_import_from returns the count of accepted blocks; it stops at the
     # first rejection, which is exactly the first divergence we want to report.
-    expected = end - start + 1
     ok = _verify(args.snapshot, chain_id, workdir, start, end)
-    print(f"imported={imported} expected={expected}")
-    if imported != expected or not ok:
-        print("REPLAY FAILED — see divergence above", file=sys.stderr)
-        return 1
-    print(f"REPLAY OK: blocks {start}..{end} hash/state-root identical ({expected} blocks)")
+    return imported, ok
+
+
+def _finish_replay(args: argparse.Namespace, chain_id: str, workdir: Path, end: int) -> int:
+    """Post-replay sweep/compare and scratch-dir cleanup."""
     if args.sweep_retired_gpu:
         _sweep_retired_gpu(workdir / "data" / chain_id / "chain.db", chain_id)
     if args.compare_state_with:
@@ -732,6 +752,44 @@ async def _run(args: argparse.Namespace) -> int:
     else:
         print(f"rebuilt DB kept at {workdir}/data/{chain_id}/chain.db")
     return 0
+
+
+async def _run(args: argparse.Namespace) -> int:
+    chain_id = args.chain_id
+    workdir = Path(args.workdir) if args.workdir else Path(tempfile.mkdtemp(prefix="aitbc-replay-"))
+    workdir.mkdir(parents=True, exist_ok=True)
+
+    _setup_environment(args, chain_id, workdir)
+
+    from aitbc_chain.config import settings
+
+    if not settings.sync_state_root_validation_enabled:
+        print("FATAL: sync_state_root_validation_enabled is off — replay would not check state roots", file=sys.stderr)
+        return 1
+
+    snapshot = _SnapshotSource(args.snapshot, chain_id, cap_height=args.to_height)
+    tip = snapshot.tip_height()
+    end = min(args.to_height, tip) if args.to_height is not None else tip
+
+    resolved = _resolve_checkpoint_and_range(args, chain_id, snapshot, end, tip)
+    if resolved is None:
+        return 1
+    ckpt, start = resolved
+
+    seed_rc = _seed_target_db(args, chain_id, workdir, snapshot, ckpt)
+    if seed_rc is not None:
+        return seed_rc
+    origin = f"checkpoint height {ckpt.height}" if ckpt is not None else "genesis"
+    print(f"seeded from {origin}; replaying blocks {start}..{end} of snapshot tip {tip}")
+
+    imported, ok = await _import_blocks(args, chain_id, workdir, snapshot, start, end)
+    expected = end - start + 1
+    print(f"imported={imported} expected={expected}")
+    if imported != expected or not ok:
+        print("REPLAY FAILED — see divergence above", file=sys.stderr)
+        return 1
+    print(f"REPLAY OK: blocks {start}..{end} hash/state-root identical ({expected} blocks)")
+    return _finish_replay(args, chain_id, workdir, end)
 
 
 def _verify(snapshot_path: str, chain_id: str, workdir: Path, start: int, end: int) -> bool:
@@ -811,18 +869,25 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--workdir", help="Scratch dir for the rebuilt DB (default: a temp dir)")
     parser.add_argument("--keep", action="store_true", help="Keep the rebuilt DB after the run")
     args = parser.parse_args(argv)
+    return _validate_args(parser, args)
 
+
+def _resolve_existing(parser: argparse.ArgumentParser, raw: str, label: str) -> str:
+    """Resolve a path argument, erroring when it does not exist."""
+    path = Path(raw)
+    if not path.exists():
+        parser.error(f"{label} not found: {path}")
+    return str(path.resolve())
+
+
+def _validate_args(parser: argparse.ArgumentParser, args: argparse.Namespace) -> argparse.Namespace:
+    """Post-parse validation: required ids, existing files, mode consistency."""
     if not args.chain_id:
         parser.error("--chain-id or CHAIN_ID required")
     snapshot = Path(args.snapshot)
-    if not snapshot.exists():
-        parser.error(f"snapshot not found: {snapshot}")
-    args.snapshot = str(snapshot.resolve())
+    args.snapshot = _resolve_existing(parser, args.snapshot, "snapshot")
     if args.checkpoint:
-        checkpoint = Path(args.checkpoint)
-        if not checkpoint.exists():
-            parser.error(f"checkpoint not found: {checkpoint}")
-        args.checkpoint = str(checkpoint.resolve())
+        args.checkpoint = _resolve_existing(parser, args.checkpoint, "checkpoint")
         if args.checkpoint == args.snapshot:
             parser.error("--checkpoint and --snapshot are the same file (a tip checkpoint replays nothing)")
         if args.genesis:
@@ -833,10 +898,7 @@ def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "--sweep-retired-gpu needs --compare-state-with, or --keep / --workdir to leave the swept database behind"
         )
     if args.compare_state_with:
-        compare = Path(args.compare_state_with)
-        if not compare.exists():
-            parser.error(f"--compare-state-with DB not found: {compare}")
-        args.compare_state_with = str(compare.resolve())
+        args.compare_state_with = _resolve_existing(parser, args.compare_state_with, "--compare-state-with DB")
     if not args.checkpoint and not args.genesis:
         candidate = snapshot.parent / "genesis.json"
         if candidate.exists():
