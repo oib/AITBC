@@ -220,7 +220,7 @@ class ChaosTestDatabase:
 
             return result.returncode == 0 and "OK" in result.stdout
 
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             return False
 
     async def test_api_health(self) -> bool:
@@ -245,7 +245,7 @@ class ChaosTestDatabase:
 
             return response.returncode == 0 and "ok" in response.stdout
 
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             return False
 
     async def generate_load(self, duration: int, concurrent: int = 10):

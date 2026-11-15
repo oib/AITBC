@@ -213,7 +213,7 @@ def _check_http_health(host: str, port: int, path: str, method: str, timeout: in
         return True, f"{status}"
     except NetworkError as e:
         return False, f"not reachable: {e}"
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - health probe reports any failure as unreachable
         return False, f"not reachable: {e}"
 
 
@@ -261,7 +261,8 @@ def _check_wallet_balance(config) -> dict[str, Any] | None:
             "reachable": None,
             "notes": f"wallet daemon running but balance check failed: {e}",
         }
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - balance probe failure means the daemon row is skipped
+        logger.debug("wallet balance check failed: %s", type(e).__name__)
         return None
 
 

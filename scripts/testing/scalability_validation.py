@@ -131,7 +131,7 @@ class ScalabilityValidator:
                         total = user + nice + system + idle
                         if total > 0:
                             cpu_usage = round((user + nice + system) / total * 100, 1)
-            except Exception:
+            except (OSError, ValueError, TypeError, IndexError):
                 pass
 
             # Memory usage (parse /proc/meminfo)
@@ -146,7 +146,7 @@ class ScalabilityValidator:
                 available = meminfo.get("MemAvailable", meminfo.get("MemFree", 0))
                 if total > 0:
                     memory_usage = round((total - available) / total * 100, 1)
-            except Exception:
+            except (OSError, ValueError, TypeError, IndexError):
                 pass
 
             # Disk usage (shutil.disk_usage)
@@ -157,7 +157,7 @@ class ScalabilityValidator:
                 usage = shutil.disk_usage("/")
                 if usage.total > 0:
                     disk_usage = round((usage.total - usage.free) / usage.total * 100, 1)
-            except Exception:
+            except OSError:
                 pass
 
             return {

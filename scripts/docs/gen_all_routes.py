@@ -17,6 +17,7 @@ silently dropped.
 """
 
 import argparse
+import http.client
 import json
 import os
 import sys
@@ -40,7 +41,7 @@ def fetch_openapi(port: int, timeout: float = 5.0) -> dict | None:
         # parse_services(). No caller can reach a file:/ or custom scheme.
         with urllib.request.urlopen(f"http://127.0.0.1:{port}/openapi.json", timeout=timeout) as resp:  # nosec B310
             return json.load(resp)
-    except Exception:
+    except (OSError, ValueError, http.client.HTTPException):
         return None
 
 

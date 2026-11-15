@@ -66,6 +66,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import shlex
 import sqlite3
@@ -75,6 +76,8 @@ import urllib.parse
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 # Terminal job states — coordinator ``job.state`` and ``marketplace_jobs.state``
 # share this vocabulary (services/jobs.py: COMPLETED, FAILED, CANCELED, EXPIRED;
@@ -176,7 +179,8 @@ class Source:
         """Column names of ``table``; None when the db/table is unreadable."""
         try:
             rows = self.query(f'PRAGMA table_info("{table}")')
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - db may be local sqlite or remote ssh; unreadable means None
+            logger.debug("table_cols probe failed for %s: %s", table, type(e).__name__)
             return None
         return {r["name"] for r in rows}
 

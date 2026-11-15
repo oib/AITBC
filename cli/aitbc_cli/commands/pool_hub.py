@@ -1,5 +1,6 @@
 """Pool hub commands for AITBC CLI"""
 
+import logging
 import os
 
 import click
@@ -7,6 +8,8 @@ import click
 from ..utils import output
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
+
+logger = logging.getLogger(__name__)
 
 # aitbc-pool-hub.service binds 8210 on the hub. Shop/follower nodes do not run
 # it (V23-92), so localhost is only valid when NODE_ROLE=hub.
@@ -35,8 +38,8 @@ def _default_pool_hub_url() -> str:
         host = hub_discovery_host()
         if host:
             return f"{normalize_hub_base(host)}/pool-hub"
-    except Exception:
-        pass
+    except Exception as e:  # noqa: BLE001 - discovery is best-effort; falls back to default URL
+        logger.debug("hub discovery failed, using default pool-hub URL: %s", type(e).__name__)
 
     return DEFAULT_POOL_HUB_URL
 
@@ -47,7 +50,7 @@ def _is_hub_node() -> bool:
             for line in f:
                 if line.startswith("NODE_ROLE=") and line.strip().split("=", 1)[1].lower() == "hub":
                     return True
-    except Exception:
+    except (OSError, ValueError):
         pass
     return False
 

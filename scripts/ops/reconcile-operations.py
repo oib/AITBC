@@ -66,7 +66,7 @@ def _derive_service(db: str, path_map: dict[str, str]) -> str | None:
             conn.close()
             if len(rows) == 1:
                 svc = rows.pop()
-        except Exception:
+        except sqlite3.Error:
             pass
     return svc
 
@@ -108,7 +108,6 @@ def main() -> int:
     parser.add_argument("--purge-seconds", type=float, metavar="N", help="Delete completed/failed rows older than N seconds")
     parser.add_argument("--json", action="store_true", help="Emit the report as JSON")
     args = parser.parse_args()
-
 
     targets, err = _resolve_targets(args)
     if err:

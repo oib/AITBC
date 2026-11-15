@@ -58,7 +58,7 @@ def _derive_eth(private_key: str) -> str | None:
         from aitbc.crypto.crypto import derive_ethereum_address
 
         return derive_ethereum_address(pk).lower()
-    except Exception:
+    except (ImportError, ValueError):
         return None
 
 

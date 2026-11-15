@@ -51,12 +51,12 @@ async def _pipe(src, dst) -> None:
     try:
         async for frame in src:
             await dst.send(frame)
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - proxy teardown: either side closing ends the pipe
         pass
     finally:
         try:
             await dst.close()
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - best-effort close during teardown
             pass
 
 
@@ -92,7 +92,7 @@ async def _watch_trigger(trigger: Path, state: dict, live: dict) -> None:
                 if topic in state["deny"]:
                     try:
                         await conn.close(code=1008)
-                    except Exception:
+                    except Exception:  # noqa: BLE001,S110 - connection may already be closed
                         pass
             return
         await asyncio.sleep(0.25)
@@ -129,10 +129,7 @@ async def _serve(spec_path: str) -> None:
         async def handler(client, upstream=upstream, state=state, live=live):
             try:
                 await _handle(client, upstream, state, live)
-            except Exception:
-                # Upstream unreachable mid-stream or refused: drop the
-                # client side too — an unreachable upstream is the fault
-                # being simulated, not a filter bug.
+            except Exception:  # noqa: BLE001,S110 - upstream unreachable mid-stream or refused: drop the client side too — an unreachable upstream is the fault being simulated, not a filter bug.
                 pass
 
         if trigger is None:

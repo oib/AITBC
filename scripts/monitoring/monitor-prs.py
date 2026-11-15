@@ -147,7 +147,7 @@ def validate_pr_branch(pr, changed_files=None):
                 if res.returncode != 0:
                     return False, f"Syntax error in `{rel}`: {res.stderr.strip()}"
         return True, "Automated validation passed."
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - validation boundary reports the failure to the caller
         return False, f"Validation error: {str(e)}"
     finally:
         shutil.rmtree(tmpdir, ignore_errors=True)

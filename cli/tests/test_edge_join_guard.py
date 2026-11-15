@@ -16,7 +16,7 @@ def test_join_without_confirm_writes_nothing(monkeypatch):
     monkeypatch.setattr("click.confirm", lambda *a, **k: False)
     try:
         edge.join.callback if hasattr(edge.join, "callback") else edge.join
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - test scaffolding probe; real check is the CliRunner invoke below
         pass
     from click.testing import CliRunner
 

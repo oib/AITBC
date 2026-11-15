@@ -130,7 +130,7 @@ def deposit(
             network = os.getenv("ETH_NETWORK", "sepolia")
             try:
                 chain_id = int(network)
-            except Exception:
+            except (TypeError, ValueError):
                 chain_id = {"mainnet": 1, "sepolia": 11155111, "goerli": 5, "holesky": 17000}.get(network.lower(), 11155111)
 
             async with httpx.AsyncClient(timeout=15.0) as client:

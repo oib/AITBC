@@ -101,12 +101,12 @@
       1 apps/blockchain-node/src/aitbc_chain/sync_validator.py
       1 apps/blockchain-node/tests/test_bridge_header_batch_idempotent.py
       1 apps/blockchain-node/tests/test_gossip_broadcast.py
-      5 cli/aitbc_cli/auth/__init__.py
+      4 cli/aitbc_cli/auth/__init__.py
       2 cli/aitbc_cli/commands/account.py
       7 cli/aitbc_cli/commands/agent_comm.py
-      7 cli/aitbc_cli/commands/agent.py
+      6 cli/aitbc_cli/commands/agent.py
       1 cli/aitbc_cli/commands/agent_staking.py
-      9 cli/aitbc_cli/commands/agent_task.py
+      5 cli/aitbc_cli/commands/agent_task.py
       3 cli/aitbc_cli/commands/agent_wallet.py
       7 cli/aitbc_cli/commands/analytics.py
       2 cli/aitbc_cli/commands/auth.py
@@ -114,13 +114,13 @@
       1 cli/aitbc_cli/commands/bounty.py
      15 cli/aitbc_cli/commands/chain.py
       3 cli/aitbc_cli/commands/cluster.py
-      5 cli/aitbc_cli/commands/coin_requests.py
+      4 cli/aitbc_cli/commands/coin_requests.py
       3 cli/aitbc_cli/commands/compliance.py
       2 cli/aitbc_cli/commands/confidential.py
       1 cli/aitbc_cli/commands/config.py
       4 cli/aitbc_cli/commands/contract.py
       9 cli/aitbc_cli/commands/cross_chain.py
-      6 cli/aitbc_cli/commands/dashboard.py
+      5 cli/aitbc_cli/commands/dashboard.py
       2 cli/aitbc_cli/commands/developer.py
      14 cli/aitbc_cli/commands/dispute.py
       6 cli/aitbc_cli/commands/economics.py
@@ -131,64 +131,56 @@
       2 cli/aitbc_cli/commands/exchange/wallet.py
      14 cli/aitbc_cli/commands/explorer.py
       5 cli/aitbc_cli/commands/genesis.py
-     13 cli/aitbc_cli/commands/governance.py
+     11 cli/aitbc_cli/commands/governance.py
       5 cli/aitbc_cli/commands/gpu_market.py
       4 cli/aitbc_cli/commands/grant.py
-      3 cli/aitbc_cli/commands/http.py
-      7 cli/aitbc_cli/commands/ipfs.py
+      4 cli/aitbc_cli/commands/ipfs.py
       1 cli/aitbc_cli/commands/liquidity.py
-      9 cli/aitbc_cli/commands/market/escrow.py
+      6 cli/aitbc_cli/commands/market/escrow.py
       1 cli/aitbc_cli/commands/market/exchange.py
       2 cli/aitbc_cli/commands/market/host.py
       4 cli/aitbc_cli/commands/market/__init__.py
-      7 cli/aitbc_cli/commands/market/jobs.py
-     10 cli/aitbc_cli/commands/market/offers.py
+      4 cli/aitbc_cli/commands/market/jobs.py
+      9 cli/aitbc_cli/commands/market/offers.py
       4 cli/aitbc_cli/commands/mining.py
       6 cli/aitbc_cli/commands/monitor.py
-     13 cli/aitbc_cli/commands/network.py
+     12 cli/aitbc_cli/commands/network.py
       1 cli/aitbc_cli/commands/node/main.py
       1 cli/aitbc_cli/commands/node/monitor.py
      16 cli/aitbc_cli/commands/operations.py
       1 cli/aitbc_cli/commands/performance.py
-      6 cli/aitbc_cli/commands/pool_hub.py
-      1 cli/aitbc_cli/commands/prometheus.py
+      2 cli/aitbc_cli/commands/pool_hub.py
       2 cli/aitbc_cli/commands/reinvest.py
       6 cli/aitbc_cli/commands/reputation.py
       4 cli/aitbc_cli/commands/resource.py
       2 cli/aitbc_cli/commands/script.py
       3 cli/aitbc_cli/commands/security.py
       1 cli/aitbc_cli/commands/sync.py
-      4 cli/aitbc_cli/commands/system.py
+      2 cli/aitbc_cli/commands/system.py
       6 cli/aitbc_cli/commands/tee.py
       7 cli/aitbc_cli/commands/transactions.py
-      7 cli/aitbc_cli/commands/wallet/basic.py
-      1 cli/aitbc_cli/commands/wallet/bridge.py
+      6 cli/aitbc_cli/commands/wallet/basic.py
       1 cli/aitbc_cli/commands/wallet/__init__.py
-      3 cli/aitbc_cli/commands/wallet/misc.py
-      7 cli/aitbc_cli/commands/wallet/staking.py
+      2 cli/aitbc_cli/commands/wallet/misc.py
+      3 cli/aitbc_cli/commands/wallet/staking.py
       3 cli/aitbc_cli/commands/workflow.py
       3 cli/aitbc_cli/commands/zk.py
      11 cli/aitbc_cli/core/agent_communication.py
-      4 cli/aitbc_cli/core/analytics.py
+      3 cli/aitbc_cli/core/analytics.py
       7 cli/aitbc_cli/core/chain_manager.py
       1 cli/aitbc_cli/core/genesis_generator.py
-      4 cli/aitbc_cli/core/main.py
+      2 cli/aitbc_cli/core/main.py
      18 cli/aitbc_cli/core/market.py
       2 cli/aitbc_cli/core/node_client.py
       1 cli/aitbc_cli/core/plugins.py
-      1 cli/aitbc_cli/utils/address.py
       1 cli/aitbc_cli/utils/agent_identity_resolve.py
-      7 cli/aitbc_cli/utils/agent_signing.py
       3 cli/aitbc_cli/utils/blockchain.py
       2 cli/aitbc_cli/utils/chain_id.py
       2 cli/aitbc_cli/utils/crypto_utils.py
      17 cli/aitbc_cli/utils/dual_mode_wallet_adapter.py
-      3 cli/aitbc_cli/utils/error_handling.py
+      2 cli/aitbc_cli/utils/error_handling.py
       1 cli/aitbc_cli/utils/escrow.py
-     11 cli/aitbc_cli/utils/genesis_reset.py
-      1 cli/aitbc_cli/utils/http_client.py
-      2 cli/aitbc_cli/utils/output.py
-      1 cli/aitbc_cli/utils/secure_audit.py
+      1 cli/aitbc_cli/utils/genesis_reset.py
       2 cli/aitbc_cli/utils/signed_rpc.py
       1 cli/aitbc_cli/utils/subprocess.py
      13 cli/aitbc_cli/utils/wallet_daemon_client.py
@@ -197,11 +189,8 @@
       7 cli/examples/client_enhanced.py
       5 cli/examples/client.py
       4 cli/examples/miner.py
-      9 cli/miner_management.py
       2 cli/security/translation_policy.py
       4 cli/tests/run_cli_tests.py
-      2 cli/tests/test_edge_join_guard.py
-      1 cli/tests/test_governance_cli_signing.py
       3 docs/agent-sdk/examples/computing_agent.py
       7 docs/agent-sdk/examples/oracle_agent.py
       1 mcp-server/aitbc_mcp_server.py
@@ -211,44 +200,26 @@
       7 packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_provider.py
      15 packages/py/aitbc-agent-sdk/src/aitbc_agent/swarm_coordinator.py
       1 packages/py/aitbc-sdk/src/aitbc_sdk/receipts.py
-      4 scripts/check-production-readiness.py
-      1 scripts/ci/check_phase4_gates.py
-      1 scripts/deployment/init_proposer.py
-      1 scripts/dev/gen_option_coverage.py
-      1 scripts/docs/gen_all_routes.py
+      3 scripts/check-production-readiness.py
       1 scripts/extract_openapi_specs.py
       1 scripts/migration/create_advanced_market_tables.py
       1 scripts/migration/create_agent_tables.py
       1 scripts/migration/migrate_plugin_to_market.py
-      1 scripts/monitoring/monitor-prs.py
-      1 scripts/ops/bridge-leaf-audit.py
-      1 scripts/ops/check-alloc-file.py
-      3 scripts/ops/escrow-stuck-sweep.py
-      3 scripts/ops/key-audit.py
-      1 scripts/ops/ops_http.py
-      1 scripts/ops/option-coverage.py
-      1 scripts/ops/post_activation_audit.py
-      8 scripts/ops/post-cut-verify.py
-      2 scripts/ops/reconcile-operations.py
-      5 scripts/ops/unpause-precheck.py
-      8 scripts/reset-harness/gossip_filter.py
-      7 scripts/reset-harness/rehearsal.py
-     15 scripts/security/security_audit.py
-     10 scripts/services/gpu/gpu_miner_host.py
+      2 scripts/ops/escrow-stuck-sweep.py
+      2 scripts/ops/key-audit.py
+      5 scripts/security/security_audit.py
+      8 scripts/services/gpu/gpu_miner_host.py
       1 scripts/testing/chaos_orchestrator.py
-      3 scripts/testing/chaos_test_coordinator.py
-      3 scripts/testing/chaos_test_database.py
-      3 scripts/testing/chaos_test_network.py
+      2 scripts/testing/chaos_test_coordinator.py
+      1 scripts/testing/chaos_test_database.py
+      2 scripts/testing/chaos_test_network.py
       1 scripts/testing/qa-cycle.py
-      9 scripts/testing/scalability_validation.py
+      3 scripts/testing/scalability_validation.py
       1 scripts/testing/soak_test_consensus.py
       1 scripts/utils/claim-task.py
       1 scripts/utils/create_structured_issue.py
       5 scripts/utils/end_to_end_workflow.py
-      2 scripts/utils/migrate_addresses_to_0x.py
-      2 scripts/utils/reset_chain_0x.py
-      1 scripts/utils/rotate_service_accounts.py
-      1 scripts/utils/verify-db-schema.py
+      1 scripts/utils/migrate_addresses_to_0x.py
       1 tests/contract_tests/test_blockchain_rpc_contract.py
       4 tests/e2e/conftest.py
       1 tests/fixtures/cli_mocks.py

@@ -213,7 +213,7 @@ def _load_firing_state(path: str) -> dict[str, dict[str, Any]]:
     """
     try:
         data = json.loads(Path(path).read_text())
-    except Exception:
+    except (OSError, ValueError):
         return {}
     if data.get("version") != 1:
         return {}

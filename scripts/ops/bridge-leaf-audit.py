@@ -40,11 +40,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import logging
 import os
 import sqlite3
 import sys
 import urllib.parse
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 UNKNOWN_LEAF_TEMPLATE = "lock:{tx_hash}:0:unknown"
 
@@ -79,7 +82,8 @@ def _resolve_v2_height(cli_value: int | None = None) -> int | None:
             from aitbc_chain.config import settings  # noqa: PLC0415
 
             raw = getattr(settings, "bridge_lock_leaf_v2_height", None)
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - optional settings probe; env-file scan is the fallback
+            logger.debug("settings probe for bridge_lock_leaf_v2_height failed: %s", type(e).__name__)
             raw = None
     if raw is None:
         raw = _scan_env_key("/etc/aitbc/blockchain.env", "BRIDGE_LOCK_LEAF_V2_HEIGHT")

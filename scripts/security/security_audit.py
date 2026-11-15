@@ -224,7 +224,7 @@ class SecurityAudit:
                             }
                         )
                         penalty += 2
-            except Exception:
+            except (OSError, ValueError):  # per-file scan probe: unreadable/undecodable files are skipped
                 continue
         return penalty, issues
 
@@ -280,7 +280,7 @@ class SecurityAudit:
                     except UnicodeDecodeError:
                         # File is binary/encrypted, which is good
                         pass
-            except Exception:
+            except (OSError, ValueError):  # per-file scan probe: unreadable/undecodable files are skipped
                 continue
         return penalty, issues
 
@@ -331,7 +331,7 @@ class SecurityAudit:
                             }
                         )
                         penalty += 0.5
-            except Exception:
+            except (OSError, ValueError):  # per-file scan probe: unreadable/undecodable files are skipped
                 continue
         return penalty, issues
 
@@ -362,7 +362,7 @@ class SecurityAudit:
                             }
                         )
                         penalty += 1
-            except Exception:
+            except (OSError, ValueError):  # per-file scan probe: unreadable/undecodable files are skipped
                 continue
         return penalty, issues
 
@@ -462,7 +462,7 @@ class SecurityAudit:
                 for pattern in url_patterns:
                     matches = re.findall(pattern, content)
                     hardcoded_urls.extend(matches)
-            except Exception:
+            except (OSError, ValueError):  # per-file scan probe: unreadable/undecodable files are skipped
                 continue
 
         if hardcoded_urls:
@@ -492,7 +492,7 @@ class SecurityAudit:
                         if "ssl" in content.lower() or "tls" in content.lower():
                             ssl_enabled = True
                             break
-                except Exception:
+                except (OSError, ValueError):  # per-file scan probe: unreadable/undecodable files are skipped
                     continue
 
         if not ssl_enabled:
@@ -526,7 +526,7 @@ class SecurityAudit:
                     if any(pattern in content.lower() for pattern in rbac_patterns):
                         rbac_found = True
                         break
-            except Exception:
+            except (OSError, ValueError):  # per-file scan probe: unreadable/undecodable files are skipped
                 continue
 
         if not rbac_found:
@@ -552,7 +552,7 @@ class SecurityAudit:
                     if any(pattern in content.lower() for pattern in encryption_patterns):
                         encryption_found = True
                         break
-            except Exception:
+            except (OSError, ValueError):  # per-file scan probe: unreadable/undecodable files are skipped
                 continue
 
         if not encryption_found:
@@ -570,7 +570,7 @@ class SecurityAudit:
                     if any(pattern in content.lower() for pattern in validation_patterns):
                         validation_found = True
                         break
-            except Exception:
+            except (OSError, ValueError):  # per-file scan probe: unreadable/undecodable files are skipped
                 continue
 
         if not validation_found:
@@ -608,7 +608,7 @@ class SecurityAudit:
                         )
                         score -= 1
 
-                except Exception:
+                except (OSError, ValueError):  # per-file scan probe: unreadable/undecodable files are skipped
                     continue
 
         # Check for Docker usage (should be none per policy)

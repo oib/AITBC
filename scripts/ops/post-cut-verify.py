@@ -68,6 +68,7 @@ import importlib.util
 from pathlib import Path
 
 import argparse
+import http.client
 import json
 import shlex
 import subprocess
@@ -158,9 +159,9 @@ def real_http_get(url: str, timeout: int = 5) -> tuple[int, dict]:
     except urllib.error.HTTPError as e:
         try:
             return e.code, json.loads(e.read())
-        except Exception:
+        except (OSError, ValueError, http.client.HTTPException):
             return e.code, {}
-    except Exception as e:
+    except (OSError, ValueError, http.client.HTTPException) as e:
         return -1, {"error": str(e)}
 
 
@@ -177,9 +178,9 @@ def real_http_post(url: str, body: dict, timeout: int = 5) -> tuple[int, dict]:
     except urllib.error.HTTPError as e:
         try:
             return e.code, json.loads(e.read())
-        except Exception:
+        except (OSError, ValueError, http.client.HTTPException):
             return e.code, {}
-    except Exception as e:
+    except (OSError, ValueError, http.client.HTTPException) as e:
         return -1, {"error": str(e)}
 
 
@@ -188,7 +189,7 @@ def real_host_sh(ssh_target: str | None, cmd: str, timeout: int = 15) -> str | N
     try:
         out = subprocess.run(argv, capture_output=True, text=True, timeout=timeout)
         return out.stdout if out.returncode == 0 else None
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         return None
 
 
@@ -301,7 +302,7 @@ def check_quorum(ctx: Ctx) -> list[Result]:
         meta = body.get("block_metadata") or "{}"
         try:
             atts = json.loads(meta).get("attestations") or []
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             atts = []
         if len(atts) < 2:
             bad_heights.append(f"{hgt}:atts={len(atts)}")
@@ -452,7 +453,7 @@ def _snapshot_accounts(body: dict) -> dict[str, int]:
     for a in body.get("accounts") or []:
         try:
             out[a["address"]] = int(a.get("balance", 0))
-        except Exception:
+        except (KeyError, TypeError, ValueError, AttributeError):
             continue
     return out
 
@@ -480,7 +481,7 @@ def check_supply_alloc(ctx: Ctx) -> list[Result]:
     if alloc_file:
         try:
             allocs = {a["address"]: int(a["balance"]) for a in json.loads(open(alloc_file).read())}
-        except Exception as e:
+        except (OSError, ValueError, KeyError, TypeError) as e:
             allocs = None
             rows.append(Result("alloc-classes", "fleet", "STOP", False, "allocations file parses", str(e)))
         if allocs is not None:

@@ -60,7 +60,7 @@ def _cuda_version():
             for part in result.stdout.replace("|", " ").split():
                 if part.replace(".", "").isdigit() and "." in part:
                     return part
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         pass
     return "unknown"
 

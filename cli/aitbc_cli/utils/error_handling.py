@@ -335,7 +335,7 @@ def validate_address(address: str) -> bool:
         from eth_utils import is_address
 
         return bool(is_address(address))
-    except Exception:
+    except (ImportError, TypeError, ValueError, AttributeError):
         import re
 
         return bool(re.match(r"^0x[0-9a-fA-F]{40}$", address))

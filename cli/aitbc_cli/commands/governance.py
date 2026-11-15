@@ -16,6 +16,7 @@ is enabled in its config.
 
 import builtins
 import json
+import logging
 import time
 import uuid
 from typing import Any
@@ -27,6 +28,8 @@ from ..utils import output, resolve_output_format
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.wallet_secret import wallet_password_options
+
+logger = logging.getLogger(__name__)
 
 GOVERNANCE_SERVICE_URL = "http://localhost:8105"
 
@@ -43,7 +46,8 @@ def _get_governance_account(http_client: AITBCHTTPClient, address: str, chain_id
     """Fetch the on-chain account (nonce + balance) for the signing address."""
     try:
         return http_client.get(f"/rpc/account/{address}?chain_id={chain_id}")
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - account lookup failure degrades to empty record
+        logger.debug("governance account lookup failed for %s: %s", address, type(e).__name__)
         return {}
 
 
@@ -219,7 +223,8 @@ def _prepare_signed_proposal(
     proposal_data["chain_id"] = chain_id
     try:
         height = int(http_client.get(f"/rpc/height?chain_id={chain_id}").get("height", 0))
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - height probe failure falls back to 0
+        logger.debug("governance height probe failed: %s", type(e).__name__)
         height = 0
     # The sealed window is the service's own voting_period_blocks (#770) —
     # the service re-derives and stores the same value, so the payload can

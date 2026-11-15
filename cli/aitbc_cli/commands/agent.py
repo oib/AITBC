@@ -89,7 +89,7 @@ def _ws_session_token() -> str | None:
         from ..auth import AuthManager
 
         return AuthManager().get_admin_token()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - auth lookup failure is reported to the user, not silent
         info(f"Stored session credential unusable ({e}) — WS auth needs an agent or admin JWT")
         return None
 

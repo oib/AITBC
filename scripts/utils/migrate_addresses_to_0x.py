@@ -35,7 +35,7 @@ def _to_evm(address: str) -> str | None:
         from eth_utils import to_checksum_address
 
         return to_checksum_address(f"0x{body}")
-    except Exception:
+    except (ImportError, ValueError):
         return f"0x{body}"
 
 

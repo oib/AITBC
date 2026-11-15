@@ -194,7 +194,8 @@ def _live_wallet_balance(
         # /v1/chains/{chain}/wallets/... tree is commented out in api_rest.py.
         balance_data = wallet_client.get(f"/v1/wallets/{wallet_id}/balance") or {}
         balance = balance_data.get("balance", "N/A")
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - wallet-daemon probe falls back to the blockchain RPC
+        logger.debug("wallet balance probe failed for %s: %s", wallet_id, type(e).__name__)
         fallback = True
     if balance in (None, "N/A", ""):
         fallback = True

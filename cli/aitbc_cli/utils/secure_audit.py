@@ -188,7 +188,7 @@ class SecureAuditLogger:
 
             return len(issues) == 0, issues
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError) as e:
             return False, [f"Verification failed: {str(e)}"]
 
     def get_logs(self, limit: int = 50, action_filter: str | None = None, verify: bool = True) -> list[dict[str, Any]]:

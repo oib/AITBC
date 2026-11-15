@@ -1,6 +1,7 @@
 """Staking wallet commands"""
 
 import json
+import logging
 import os
 import time
 from datetime import UTC, datetime
@@ -29,6 +30,7 @@ from ...utils.wallet_paths import (
 )
 from . import _emit_wallet_path_note, _load_wallet, _resave_wallet, wallet
 
+logger = logging.getLogger(__name__)
 
 LIQUIDITY_FEE_DEFAULT_AIT = DEFAULT_TX_FEE_AIT
 
@@ -87,7 +89,8 @@ def _brand_token_symbol() -> str:
         from aitbc_agent_core import get_active_brand
 
         return get_active_brand().token_symbol
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - brand package optional; default symbol fallback
+        logger.debug("brand lookup failed, using default symbol: %s", type(e).__name__)
         return "AITBC"
 
 
@@ -223,7 +226,8 @@ def _stake_release_preflight(
     """
     try:
         info = http_client.get(f"/rpc/staking/{address}?chain_id={chain_id}")
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - lookup failure leaves the write path authoritative
+        logger.debug("staking info lookup failed: %s", type(e).__name__)
         return None, None
     active: dict[int, dict[str, Any]] = {}
     for s in info.get("active_stakes") or []:
@@ -616,8 +620,8 @@ def liquidity_stake(
         account = AITBCHTTPClient(base_url=_get_rpc_url(ctx), timeout=10).get(f"/rpc/account/{hex_address}")
         if account.get("balance") is not None:
             balance = units_to_ait(int(account["balance"]))
-    except Exception:
-        pass
+    except Exception as e:  # noqa: BLE001 - balance probe failure falls back to the wallet cache
+        logger.debug("chain balance probe failed: %s", type(e).__name__)
     if balance is None:
         balance = _wallet_amount(wallet_data.get("balance", 0))
     if balance < amount + fee:

@@ -176,7 +176,7 @@ class ChaosTestNetwork:
                 result = subprocess.run(cmd, capture_output=True, text=True)
                 results[pod] = result.returncode == 0 and "ok" in result.stdout
 
-            except Exception:
+            except (OSError, subprocess.SubprocessError):
                 results[pod] = False
 
         return results

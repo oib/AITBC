@@ -31,7 +31,7 @@ def _to_decimal(value: Any) -> Decimal | None:
         return None
     try:
         return Decimal(str(value))
-    except Exception:
+    except (ArithmeticError, TypeError, ValueError):
         return None
 
 

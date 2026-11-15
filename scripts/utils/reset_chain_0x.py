@@ -97,7 +97,7 @@ def _wallet_addresses(wallet_dir: Path) -> set[str]:
             addr = data.get("address")
             if addr:
                 addrs.add(str(addr))
-        except Exception:
+        except (OSError, ValueError, TypeError, AttributeError):
             pass
     return addrs
 

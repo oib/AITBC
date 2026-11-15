@@ -249,7 +249,8 @@ def list_offers(
         if mine:
             try:
                 my_address, _, _ = get_market_wallet(ctx, require_private_key=False)
-            except Exception:
+            except Exception as e:  # noqa: BLE001 - wallet lookup may abort(); --mine degrades to unfiltered
+                logger.debug("market wallet lookup failed: %s", type(e).__name__)
                 my_address = None
             my_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
 

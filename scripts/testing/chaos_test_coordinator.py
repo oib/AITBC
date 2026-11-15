@@ -164,7 +164,7 @@ class ChaosTestCoordinator:
             response = subprocess.run(["curl", "-s", "--max-time", "5", service_url], capture_output=True, text=True)
 
             return response.returncode == 0 and "ok" in response.stdout
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             return False
 
     async def generate_load(self, duration: int, concurrent: int = 10):

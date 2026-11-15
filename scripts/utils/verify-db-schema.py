@@ -208,7 +208,8 @@ def _render_default_clause(col, dialect) -> str:
     try:
         value = default.arg(None) if default.is_callable else default.arg
         rendered = literal(value, col.type).compile(dialect=dialect, compile_kwargs={"literal_binds": True})
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - unrenderable server default renders as no clause
+        logger.debug("default clause render failed: %s", type(e).__name__)
         return ""
     return f" DEFAULT {rendered}"
 

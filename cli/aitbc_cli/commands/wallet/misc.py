@@ -1,6 +1,7 @@
 """Misc wallet commands for AITBC CLI"""
 
 import json
+import logging
 from datetime import datetime, UTC
 from decimal import InvalidOperation
 from pathlib import Path
@@ -17,6 +18,8 @@ from ...utils.wallet_paths import (
     wallet_write_restricted_message,
 )
 from . import _load_wallet, wallet
+
+logger = logging.getLogger(__name__)
 
 
 # Public wallet-file fields inspect may print. Deny-by-default: anything not
@@ -178,7 +181,8 @@ def rewards(ctx):
                     pending_liquidity += _as_number(s.get("rewards_pending_ait", 0))
                 if s.get("status") == "withdrawn":
                     liq_rewards += _as_number(s.get("rewards", 0))
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - node/endpoint/config failures all fall back to the local cache
+        logger.debug("on-chain liquidity lookup failed, using local cache: %s", type(e).__name__)
         # Fall back to the local wallet cache if the node or endpoint is unavailable
         for r in liquidity:
             if r.get("status") == "active":

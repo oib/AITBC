@@ -15,7 +15,7 @@ def to_canonical(address: str) -> str:
     """
     try:
         return canonical_address(address)
-    except Exception:
+    except (AttributeError, TypeError, ValueError, ImportError):
         return str(address).strip().lower()
 
 

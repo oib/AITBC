@@ -41,7 +41,7 @@ def _ssh_curl(ctx, alias: str, argv_tail: list[str]) -> tuple[int, dict]:
         return -1, {"error": f"ssh {alias} curl: bad status line {out[-80:]!r}"}
     try:
         return code, json.loads("\n".join(lines[:-1]))
-    except Exception:
+    except ValueError:
         return code, {}
 
 

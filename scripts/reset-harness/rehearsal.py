@@ -73,6 +73,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import json
 import os
 import re
@@ -417,7 +418,7 @@ def _derive_key_address(private_key: str) -> str | None:
 
     try:
         return Account.from_key(private_key).address.lower()
-    except Exception:
+    except (TypeError, ValueError):
         return None
 
 
@@ -889,7 +890,7 @@ def _head(inst: Instance) -> int | None:
         with urllib.request.urlopen(f"http://127.0.0.1:{inst.rpc_port}/rpc/head", timeout=3) as r:  # nosec B310
             data = json.loads(r.read())
             return int(data.get("height", data.get("block", {}).get("height", -1)))
-    except Exception:
+    except (OSError, ValueError, TypeError, AttributeError, http.client.HTTPException):
         return None
 
 
@@ -899,7 +900,7 @@ def _block(inst: Instance, height: int) -> dict | None:
             f"http://127.0.0.1:{inst.rpc_port}/rpc/blocks/{height}", timeout=3
         ) as r:
             return json.loads(r.read())
-    except Exception:
+    except (OSError, ValueError, http.client.HTTPException):
         return None
 
 
@@ -914,9 +915,9 @@ def _post_json(url: str, body: dict) -> tuple[int, dict]:
     except urllib.error.HTTPError as e:
         try:
             return e.code, json.loads(e.read())
-        except Exception:
+        except (OSError, ValueError, http.client.HTTPException):
             return e.code, {}
-    except Exception:
+    except (OSError, ValueError, http.client.HTTPException):
         return 0, {}
 
 
@@ -1557,7 +1558,7 @@ def _acl_restore() -> None:
     try:
         _redis("ACL", "SETUSER", VICTIM_REDIS_USER, "resetchannels", "&*")
         _redis("CLIENT", "KILL", "USER", VICTIM_REDIS_USER)
-    except Exception:
+    except (OSError, subprocess.SubprocessError):
         pass
 
 

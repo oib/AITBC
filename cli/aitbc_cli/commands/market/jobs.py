@@ -168,7 +168,8 @@ def _resolve_offer_from_market(http_client: AITBCHTTPClient, offer_id_or_plugin_
     try:
         result = http_client.get("/v1/market/offer")
         offers = result.get("offers", []) if result else []
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - market probe failure means the offer is unresolved
+        logger.debug("market offer lookup failed: %s", type(e).__name__)
         return None
 
     # First pass: exact offer_id match.
@@ -195,7 +196,8 @@ def _resolve_offer_from_blockchain(http_client: AITBCHTTPClient, offer_id_or_plu
     """Resolve an offer from on-chain GPU_MARKET transactions."""
     try:
         result = http_client.get_json("/rpc/transactions", params={"limit": 1000})
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - chain probe failure means the offer is unresolved
+        logger.debug("blockchain offer lookup failed: %s", type(e).__name__)
         return None
 
     if isinstance(result, dict):
@@ -259,7 +261,8 @@ def _track_coordinator_job(
     if not token:
         try:
             token = AuthManager().get_credential("client")
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - credential store backends vary; tracking is optional
+            logger.debug("client credential lookup failed: %s", type(e).__name__)
             token = None
     if not token:
         warning("Job tracking skipped: no client token. Run `aitbc auth login --wallet <name>` first.")
