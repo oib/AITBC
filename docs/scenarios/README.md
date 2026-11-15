@@ -20,6 +20,8 @@ breadcrumb: Home > Scenarios > Overview
 
 The closed economic loop these plays sit on (tokens → job → GPU → escrow → reputation) is documented in [DESIGN_CYCLE.md](../DESIGN_CYCLE.md). Features that are CLI shells or roadmap items are **not** given scenarios until they join that loop.
 
+> **Running a play on the hub host itself.** On `hub` the host's own FQDN resolves to loopback (`127.0.1.1 hub.aitbc.bubuit.net hub`, the Debian default) and its nginx serves plain `:80` only — TLS terminates at the ns2 edge. So any `--exchange-url https://hub.aitbc.bubuit.net` (the CLI default) is refused from hub (`connection refused :443`), while the same URL works from `node2`/`hub1`, which resolve the name to the edge. On hub pass the loopback URL instead, e.g. `aitbc exchange node list --exchange-url http://127.0.0.1`, and run the public-edge variant from `node2`. Do not "fix" it by editing hub's `/etc/hosts`: anything on hub that dials the FQDN would silently move from loopback to the public edge (FIND-SCENARIO-79-HUB-EXCHANGE-URL, #2116).
+
 > These scenarios replace the retired hermes-era docs. They target the real `aitbc` binary (`aitbc_cli.core.main:main`) and the real `aitbc_agent` SDK (`packages/py/aitbc-agent-sdk/`).
 
 ### Beginner Scenarios (Single-Feature Focus)
