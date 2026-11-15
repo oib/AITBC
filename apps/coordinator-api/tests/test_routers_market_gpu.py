@@ -1221,15 +1221,20 @@ def test_book_gpu_stale_pending_payment_hold_expires(client, client_token, avail
 
 @pytest.mark.unit
 def test_book_gpu_stale_aged_pending_payment_hold_expires(
-    client, client_token, available_gpu, pricing_engine_override, db_session
+    client, client_token, available_gpu, pricing_engine_override, db_session, monkeypatch
 ):
-    """#1974: pending never shields, at any age — kept as the aged-payment
-    variant of the fresh-pending pin above."""
+    """#1974 respin: the mined+bound pending shield is age-bounded — even a
+    receipt that verifies, a payment older than _PENDING_SHIELD_TTL must not
+    pin the hold."""
     from datetime import timedelta
+
+    import importlib
 
     from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
     from sqlmodel import select
 
+    market_gpu = importlib.import_module("coordinator_api.contexts.market.routers.market_gpu")
+    monkeypatch.setattr(market_gpu, "_pending_payment_mined", lambda payment: True)
     job = Job(id="job_pending_old", client_id="client1", payload={"type": "gpu_compute"}, constraints={})
     db_session.add(job)
     db_session.commit()
@@ -1247,6 +1252,132 @@ def test_book_gpu_stale_aged_pending_payment_hold_expires(
     assert resp2.status_code == 201, resp2.text
     db_session.refresh(booking)
     assert booking.status == "expired"
+
+
+@pytest.mark.unit
+def test_book_gpu_stale_pending_mined_bound_hold_survives(
+    client, client_token, available_gpu, pricing_engine_override, db_session, monkeypatch
+):
+    """#1974 respin: a fresh pending payment whose EVM receipt mined AND
+    re-binds to the payment's contract/chain/agreement shields the hold —
+    real money in flight must not lose its GPU to the TTL."""
+    from datetime import timedelta
+
+    import importlib
+
+    from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
+    from sqlmodel import select
+
+    market_gpu = importlib.import_module("coordinator_api.contexts.market.routers.market_gpu")
+    monkeypatch.setattr(market_gpu, "_pending_payment_mined", lambda payment: True)
+    job = Job(id="job_pending_mined", client_id="client1", payload={"type": "gpu_compute"}, constraints={})
+    db_session.add(job)
+    db_session.commit()
+    resp = _book_with_job(client, client_token, available_gpu, job_id=job.id)
+    assert resp.status_code == 201, resp.text
+    booking = db_session.exec(select(GPUBooking).where(GPUBooking.gpu_id == available_gpu)).one()
+    booking.created_at = datetime.now(UTC) - timedelta(hours=1)
+    booking.payment_id = "pay_" + booking.id
+    db_session.add(booking)
+    db_session.add(JobPayment(id="pay_" + booking.id, job_id=job.id, amount=Decimal("1.0"), status="pending"))
+    db_session.commit()
+    resp2 = _book_with_job(client, client_token, available_gpu)
+    assert resp2.status_code == 409
+    db_session.refresh(booking)
+    assert booking.status == "active"
+
+
+@pytest.mark.unit
+def test_pending_payment_mined_requires_bound_receipt(monkeypatch):
+    """#1974 respin: `_pending_payment_mined` fails closed on every missing
+    or mismatched binding — a bare successful tx hash is not proof."""
+    import importlib
+
+    from coordinator_api.config import settings
+
+    market_gpu = importlib.import_module("coordinator_api.contexts.market.routers.market_gpu")
+    contract = "0xAbC0000000000000000000000000000000000D"
+    other = "0x1111111111111111111111111111111111111111"
+    meta = {
+        "evm_tx_hash": "0x" + "ab" * 32,
+        "evm_contract": contract,
+        "evm_chain_id": 1,
+        "evm_agreement_id": 42,
+    }
+
+    def _payment(payment_meta=None):
+        return JobPayment(
+            job_id="j1",
+            amount=Decimal("1.0"),
+            status="pending",
+            meta_data=dict(meta) if payment_meta is None else payment_meta,
+        )
+
+    def _receipt(**over):
+        from aitbc.market.evm_rental_receipt import AGREEMENT_STARTED_TOPIC0
+
+        topic1 = "0x" + (42).to_bytes(32, "big").hex()
+        r = {
+            "to": contract,
+            "chainId": 1,
+            "status": 1,
+            "log_entries": [{"address": contract, "topics": [AGREEMENT_STARTED_TOPIC0, topic1], "data": "0x"}],
+        }
+        r.update(over)
+        return r
+
+    class _FakeRPC:
+        receipt = _receipt()
+
+        def __init__(self, *a, **kw):
+            pass
+
+        def get_transaction_receipt(self, tx_hash):
+            return type(self).receipt
+
+    monkeypatch.setattr(settings, "eth_rpc_url", "http://rpc.test")
+    monkeypatch.setattr(market_gpu, "EthereumRPCClient", _FakeRPC)
+
+    # Happy path: successful receipt bound to contract/chain/agreement.
+    assert market_gpu._pending_payment_mined(_payment()) is True
+    # No RPC configured.
+    monkeypatch.setattr(settings, "eth_rpc_url", None)
+    assert market_gpu._pending_payment_mined(_payment()) is False
+    monkeypatch.setattr(settings, "eth_rpc_url", "http://rpc.test")
+    # Missing binding fields each fail closed.
+    for field in ("evm_tx_hash", "evm_contract", "evm_chain_id", "evm_agreement_id"):
+        m = dict(meta)
+        m.pop(field)
+        assert market_gpu._pending_payment_mined(_payment(m)) is False, field
+    # Unmined / failed / foreign receipts fail closed.
+    _FakeRPC.receipt = None
+    assert market_gpu._pending_payment_mined(_payment()) is False
+    _FakeRPC.receipt = _receipt(status=0)
+    assert market_gpu._pending_payment_mined(_payment()) is False
+    _FakeRPC.receipt = _receipt(to=other)
+    assert market_gpu._pending_payment_mined(_payment()) is False
+    _FakeRPC.receipt = _receipt(chainId=2)
+    assert market_gpu._pending_payment_mined(_payment()) is False
+    # Right contract+chain but a different agreement id does not bind.
+    from aitbc.market.evm_rental_receipt import AGREEMENT_STARTED_TOPIC0
+
+    bad_topic = "0x" + (43).to_bytes(32, "big").hex()
+    _FakeRPC.receipt = _receipt(
+        log_entries=[{"address": contract, "topics": [AGREEMENT_STARTED_TOPIC0, bad_topic], "data": "0x"}]
+    )
+    assert market_gpu._pending_payment_mined(_payment()) is False
+    _FakeRPC.receipt = _receipt(log_entries=[])
+    assert market_gpu._pending_payment_mined(_payment()) is False
+
+
+@pytest.mark.unit
+def test_release_gpu_admin_allowed_with_pending_payment(client, miner_token, admin_token, db_session):
+    """#1974 respin: card 4A says owner/ADMIN may release pending holds —
+    release_gpu previously 403'd pure admins before the payment check."""
+    gpu_id = _booked_gpu(client, miner_token, db_session, payment_status="pending")
+    resp = client.post(f"/v1/market/gpu/{gpu_id}/release", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    assert db_session.get(GPURegistry, gpu_id).status == "available"
 
 
 @pytest.mark.unit
