@@ -19,6 +19,7 @@ from ...payments.acceptance import deadline_from
 from ...payments.provider_binding import miner_wallet_address, same_address
 from ...payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
+from ..domain.user import User
 from ...reputation.domain.reputation import AgentReputation
 from ....contexts.market.domain.provider_bond import (
     _default_bond_min_amount,
@@ -66,6 +67,26 @@ _MINER_ONLINE_HEARTBEAT_CUTOFF_SECONDS = int(os.getenv("COORDINATOR_MINER_HEARTB
 # single submitter could otherwise fill the queue with free GPU work. Bound
 # the non-terminal jobs one client may hold at once.
 _MAX_INFLIGHT_JOBS_PER_CLIENT = int(os.getenv("COORDINATOR_MAX_INFLIGHT_JOBS_PER_CLIENT", "50"))
+
+
+def _begin_inflight_cap_scope(session: Session) -> None:
+    """Dialect-specific writer serialization for count-then-insert cap checks (#2001).
+
+    PostgreSQL serializes on ``SELECT … FOR UPDATE`` of the client user row;
+    SQLite drops ``FOR UPDATE``, so we take the file write lock up front with
+    ``BEGIN IMMEDIATE`` (same pattern as agent coin-request registration).
+    """
+    if session.get_bind().dialect.name == "sqlite":
+        session.connection().exec_driver_sql("BEGIN IMMEDIATE")
+
+
+def _lock_client_for_inflight_cap(session: Session, client_id: str) -> None:
+    row = session.exec(select(User).where(User.id == client_id).with_for_update()).first()
+    if row is None:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Client not found: {client_id}",
+        )
 
 
 def _bond_required_for(job: Job, payment: JobPayment | None = None) -> bool:
@@ -260,6 +281,8 @@ class JobService:
         if ttl_cap is not None:
             ttl = min(ttl, max(ttl_cap, 1))
         now = datetime.now(UTC)
+        if enforce_inflight_cap:
+            _begin_inflight_cap_scope(self.session)
         try:
             resolved_client_id, client_ref = resolve_client(self.session, client_id, auto_create=True)
         except ValueError as e:
@@ -267,6 +290,9 @@ class JobService:
             # fault — arbitrary JWT subs must not 500 job submission (#1340).
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
         if enforce_inflight_cap:
+            # #2001: serialize cap checks per client — count-then-insert without a row
+            # lock allowed concurrent submits to overshoot the limit.
+            _lock_client_for_inflight_cap(self.session, resolved_client_id)
             inflight = self.session.execute(
                 select(func.count())
                 .select_from(Job)
