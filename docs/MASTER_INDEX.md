@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-11
+**Last Updated**: 2026-11-15
 
 ---
 
@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1521
+- **Markdown files under docs/**: 1522
 
 | Directory | Files | Description |
 |---|---|---|
@@ -87,7 +87,7 @@ docs/
 | [market](market/) | 16 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
-| [ops](ops/) | 50 | Operational runbooks and key handling |
+| [ops](ops/) | 51 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 16 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
@@ -1137,7 +1137,7 @@ Inbound markdown links per document (top referrers).
 | [ops/bridge-outbound-ledger-migration-runbook.md](ops/bridge-outbound-ledger-migration-runbook.md) | [ops/node-sepolia-wallets.md](ops/node-sepolia-wallets.md) |
 | [ops/bridge-release-exercise.md](ops/bridge-release-exercise.md) | [README.md](README.md), [decisions/README.md](decisions/README.md), [decisions/v1-v9-live-exercise-waivers.md](decisions/v1-v9-live-exercise-waivers.md), +4 more |
 | [ops/chain-reset-runbook.md](ops/chain-reset-runbook.md) | [README.md](README.md), [deployment/reset2-runbook.md](deployment/reset2-runbook.md), [design/v14-aux-root-nondeterminism.md](design/v14-aux-root-nondeterminism.md) |
-| [ops/companion-island-deploy.md](ops/companion-island-deploy.md) | [README.md](README.md), [decisions/README.md](decisions/README.md), [deployment/environment-configuration.md](deployment/environment-configuration.md), +1 more |
+| [ops/companion-island-deploy.md](ops/companion-island-deploy.md) | [README.md](README.md), [decisions/README.md](decisions/README.md), [deployment/environment-configuration.md](deployment/environment-configuration.md), +2 more |
 | [ops/consensus-domain-separation-activation-runbook.md](ops/consensus-domain-separation-activation-runbook.md) | [ops/version-gated-activation-runbook.md](ops/version-gated-activation-runbook.md) |
 | [ops/counter-to-journal-recipe.md](ops/counter-to-journal-recipe.md) | [README.md](README.md) |
 | [ops/dead-table-inventory-1603.md](ops/dead-table-inventory-1603.md) | — |
@@ -1150,6 +1150,7 @@ Inbound markdown links per document (top referrers).
 | [ops/failover-runbook.md](ops/failover-runbook.md) | [README.md](README.md), [ops/proposer-failover-runbook.md](ops/proposer-failover-runbook.md) |
 | [ops/faucet-runbook.md](ops/faucet-runbook.md) | [README.md](README.md) |
 | [ops/first-sweep-observation.md](ops/first-sweep-observation.md) | [README.md](README.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), [scenarios/README.md](scenarios/README.md) |
+| [ops/fleet-is-hub-semantics.md](ops/fleet-is-hub-semantics.md) | [README.md](README.md), [deployment/bc3-env-map.md](deployment/bc3-env-map.md), [ops/companion-island-deploy.md](ops/companion-island-deploy.md) |
 | [ops/fleet-wave-runbook.md](ops/fleet-wave-runbook.md) | [README.md](README.md) |
 | [ops/follower-api-key.md](ops/follower-api-key.md) | [README.md](README.md) |
 | [ops/governance-leg-executor-runbook.md](ops/governance-leg-executor-runbook.md) | — |
