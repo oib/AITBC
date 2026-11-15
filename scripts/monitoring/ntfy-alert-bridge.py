@@ -103,7 +103,10 @@ def main() -> int:
                     if event.get("event") == "message":
                         _republish(event)
         except Exception as exc:  # noqa: BLE001 - subscriber must survive any stream failure
-            print(f"stream error: {exc}; retry in {backoff}s", file=sys.stderr)
+            detail = ""
+            if isinstance(exc, urllib.error.HTTPError):
+                detail = exc.read().decode("utf-8", "replace")[:200]
+            print(f"stream error: {exc} {detail}; retry in {backoff}s", file=sys.stderr)
             time.sleep(backoff)
             backoff = min(backoff * 2, 300)
 
