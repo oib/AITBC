@@ -87,6 +87,12 @@ class UcApplyContext:
     Built by the state transition from on-chain parameters and the sealed
     block time, never from this node's clock or env, so replay is deterministic.
     Absent (``None``) means the ``uc`` kind is not registered: legacy verdicts.
+
+    #1940 ruling A (``unlock_proof_uc_evidence_time_enabled``): when the
+    per-event freshness parameter is armed, the state layer builds one
+    context per evidence block height — ``now`` is that block's canonical
+    ``Block.timestamp`` and ``evidence_height`` names it. ``None`` keeps the
+    pre-#1940 semantics: a single apply-time context for every event.
     """
 
     chain_id: str
@@ -94,6 +100,25 @@ class UcApplyContext:
     validator_set: frozenset[str]
     max_age: float
     min_responses: int
+    evidence_height: int | None = None
+
+
+def _records_match_evidence_height(records: list[dict[str, Any]], ctx: UcApplyContext) -> bool:
+    """#1940 ruling A guard for per-event evidence time.
+
+    When ``ctx.evidence_height`` is set, BOTH signed records must carry a
+    strictly ``int`` (never ``bool``) ``height`` equal to it and a
+    ``chain_id`` equal to ``ctx.chain_id`` — otherwise a payload could
+    relabel the event height and borrow a fresher block's clock for the
+    cert freshness check.
+    """
+    for record in records:
+        height = record.get("height")
+        if isinstance(height, bool) or not isinstance(height, int) or height != ctx.evidence_height:
+            return False
+        if str(record.get("chain_id", "")) != ctx.chain_id:
+            return False
+    return True
 
 
 def _uc_justified(payload: dict[str, Any], justification: dict[str, Any], ctx: UcApplyContext) -> bool:
@@ -101,6 +126,8 @@ def _uc_justified(payload: dict[str, Any], justification: dict[str, Any], ctx: U
     if classify_attestation_pair(payload) is not PairClass.ROUND_BOUND_CROSS_ROUND:
         return False
     records = [a for a in payload.get("attestations", []) if isinstance(a, dict)][:2]
+    if ctx.evidence_height is not None and not _records_match_evidence_height(records, ctx):
+        return False
     first_round, second_round = records[0].get("request_round"), records[1].get("request_round")
     if not (isinstance(first_round, int) and isinstance(second_round, int)):
         return False

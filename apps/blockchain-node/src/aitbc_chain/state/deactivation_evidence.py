@@ -18,21 +18,38 @@ Gate semantics (spec v1, approved):
   ``vote_equivocation`` / legacy free-text double-sign) must verify —
   unverifiable claims fail the whole marker;
 - non-equivocation conditions are hash-bound informational records only.
+
+#1940 ruling A — per-event UC freshness: when the on-chain boolean
+``unlock_proof_uc_evidence_time_enabled`` is armed at the apply height, the
+``uc`` unlock proof's freshness clock is each DOUBLE_SIGN attestation event's
+own evidence block time — the canonical ``Block.timestamp`` at
+``(chain_id, event.block_height)`` — never the apply block's time and never
+this node's wall clock. ``evidence_height == apply_height`` reuses the sealed
+caller ``block_time`` because the block being applied may not be inserted
+yet; negative, future (> apply height), missing or timeless evidence stays
+unexcused. Parameter unset or false keeps the single apply-time context
+exactly as before #1940, and the flag-off path performs no block queries.
+Events already expired under ``validator_deactivation_evidence_ttl_blocks``
+(#1959) are skipped before any evidence-block lookup, and the canonical
+read selects only ``Block.timestamp`` — never the full ORM row.
 """
 
 from __future__ import annotations
 
 import hashlib
 import json
+import math
+from dataclasses import replace
 from decimal import Decimal
 from datetime import UTC, datetime
 from typing import Any
 
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from aitbc.crypto.consensus_signing import verify_consensus_message, verify_consensus_message_domain
 from aitbc.crypto.signature_recovery import SignatureMalformed, canonical_address
 
+from ..base_models import Block
 from ..config import legacy_attestation_dual_accept_open, settings
 from ..consensus.equivocation_policy import UcApplyContext, pair_stands_as_evidence
 from ..consensus.slashing import SlashingCondition, SlashingEvent, SlashingManager
@@ -93,6 +110,123 @@ def _uc_context(
         max_age=max_age,
         min_responses=min_responses,
     )
+
+
+def _uc_evidence_time_enabled(session: Session, chain_id: str, block_height: int | None) -> bool:
+    """Whether per-event UC evidence time is armed at ``block_height`` (#1940 ruling A).
+
+    On-chain boolean ``unlock_proof_uc_evidence_time_enabled`` resolved through
+    ``_chain_parameter_value`` at the APPLY height — the same height-scoped
+    rule every gate parameter uses, so replay and reorg agree and a value
+    armed later never rewrites earlier applies. Missing or false keeps the
+    pre-#1940 single apply-time context exactly.
+    """
+    from .state_transition import _chain_parameter_value
+
+    value = _chain_parameter_value(session, chain_id, "unlock_proof_uc_evidence_time_enabled", block_height)
+    return bool(value and value.strip().lower() in ("true", "1", "yes"))
+
+
+def _canonical_block_time(session: Session, chain_id: str, height: int) -> datetime | None:
+    """Timestamp of the canonical ``Block`` at ``(chain_id, height)``, or None.
+
+    Both keys are constrained — a block on another chain at the same height
+    can never supply the time — and ``(chain_id, height)`` is unique, so the
+    row IS the canonical block: no rival-hash lookup, no fallback clock.
+    Only the ``timestamp`` column is selected — a full ``Block`` ORM load
+    would drag its transaction/receipt relationships through selectin
+    loading inside block apply.
+    """
+    ts = session.exec(select(Block.timestamp).where(Block.chain_id == chain_id, Block.height == height)).first()
+    return ts if isinstance(ts, datetime) else None
+
+
+def _epoch_seconds(value: datetime | None) -> float | None:
+    """Finite epoch seconds for a block timestamp; naive reads as UTC.
+
+    Same naive-as-UTC rule as ``_uc_context``. ``None`` on missing,
+    non-datetime or non-finite input — the event then stays unexcused.
+    """
+    if not isinstance(value, datetime):
+        return None
+    when = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+    try:
+        epoch = when.timestamp()
+    except (OverflowError, OSError, ValueError):
+        return None
+    return epoch if math.isfinite(epoch) else None
+
+
+def _uc_event_context(
+    session: Session,
+    chain_id: str,
+    apply_height: int,
+    apply_time: datetime,
+    base: UcApplyContext,
+    evidence_height: int,
+) -> UcApplyContext | None:
+    """UC context for ONE evidence height (#1940 ruling A).
+
+    ``now`` is the canonical timestamp of the block at ``evidence_height``
+    on this chain — never the apply block's time and never the wall clock.
+    ``evidence_height == apply_height`` reuses the caller-sealed
+    ``apply_time`` because the block being applied may not be inserted yet.
+    Negative, future (> apply height), missing-row or timeless evidence
+    resolves to ``None``: that event simply cannot be excused.
+    """
+    if evidence_height < 0 or evidence_height > apply_height:
+        return None
+    evidence_time: datetime | None
+    if evidence_height == apply_height:
+        evidence_time = apply_time
+    else:
+        evidence_time = _canonical_block_time(session, chain_id, evidence_height)
+    epoch = _epoch_seconds(evidence_time)
+    if epoch is None:
+        return None
+    return replace(base, now=epoch, evidence_height=evidence_height)
+
+
+def _uc_event_contexts(
+    session: Session,
+    chain_id: str,
+    block_height: int | None,
+    block_time: datetime | None,
+    events: list[SlashingEvent],
+    base: UcApplyContext | None,
+    ttl_blocks: int | None = None,
+) -> dict[int, UcApplyContext | None] | None:
+    """Per-event UC contexts keyed by evidence ``block_height`` (#1940 ruling A).
+
+    ``None`` — the legacy single-context path — unless the on-chain
+    ``unlock_proof_uc_evidence_time_enabled`` parameter is armed at the apply
+    height AND the apply height/time are known AND the UC proof itself is
+    armed (``base`` not None). Armed-but-unresolvable evidence heights map
+    to ``None`` so those events stay unexcused; the flag-off path performs
+    no block queries at all.
+
+    ``ttl_blocks`` (#1959) mirrors the expiry predicate in
+    ``_verify_equivocations``: a DOUBLE_SIGN event already expired at the
+    apply height is skipped here as well — before ``_evidence_json`` and
+    before any canonical block lookup — so a stale claim does no historical
+    DB work. Both predicates consume the same ``ttl`` value, so the skipped
+    sets agree exactly.
+    """
+    if block_height is None or block_time is None or base is None:
+        return None
+    if not _uc_evidence_time_enabled(session, chain_id, block_height):
+        return None
+    contexts: dict[int, UcApplyContext | None] = {}
+    for event in events:
+        if event.condition is not SlashingCondition.DOUBLE_SIGN or event.block_height in contexts:
+            continue
+        if ttl_blocks is not None and block_height - event.block_height > ttl_blocks:
+            continue
+        ep = _evidence_json(event)
+        if ep is None or ep.get("kind") != "attestation_equivocation":
+            continue
+        contexts[event.block_height] = _uc_event_context(session, chain_id, block_height, block_time, base, event.block_height)
+    return contexts
 
 
 def _evidence_ttl(session: Session, chain_id: str, block_height: int | None) -> int | None:
@@ -295,6 +429,7 @@ def _verify_equivocations(
     *,
     ttl_blocks: int | None = None,
     apply_height: int | None = None,
+    uc_contexts: dict[int, UcApplyContext | None] | None = None,
 ) -> str | None:
     """Verify every equivocation claim; ≥1 verified equivocation required.
 
@@ -306,6 +441,11 @@ def _verify_equivocations(
     a bundle whose every equivocation is expired still fails closed via
     ``verified == 0``. Non-equivocation records are informational and are
     never expired.
+
+    #1940 ruling A: ``uc_contexts`` (when not None) replaces ``uc_ctx`` per
+    event — ``map.get(event.block_height)`` — so each DOUBLE_SIGN
+    attestation event is judged against its own evidence block's time.
+    ``None`` keeps the single shared apply-time context.
     """
     verified = 0
     for event in events:
@@ -321,7 +461,8 @@ def _verify_equivocations(
         if ep is not None and kind == "attestation_equivocation":
             if not _verify_attestation_equivocation(ep, event, validator_addr):
                 return "attestation equivocation evidence failed signature verification"
-            if not pair_stands_as_evidence(ep, uc_ctx):
+            event_uc_ctx = uc_contexts.get(event.block_height) if uc_contexts is not None else uc_ctx
+            if not pair_stands_as_evidence(ep, event_uc_ctx):
                 # signatures verified, but the cross-round unlock carries an independently
                 # verifiable protocol proof (#1274): excused, not counted, bundle not failed
                 continue
@@ -381,4 +522,11 @@ def verify_deactivation_evidence(
 
     ttl = _evidence_ttl(session, chain_id, block_height) if session is not None else None
     uc_ctx = _uc_context(session, chain_id, block_height, block_time) if session is not None else None
-    return _verify_equivocations(events, validator_addr, uc_ctx, ttl_blocks=ttl, apply_height=block_height)
+    uc_contexts = (
+        _uc_event_contexts(session, chain_id, block_height, block_time, events, uc_ctx, ttl_blocks=ttl)
+        if session is not None
+        else None
+    )
+    return _verify_equivocations(
+        events, validator_addr, uc_ctx, uc_contexts=uc_contexts, ttl_blocks=ttl, apply_height=block_height
+    )
