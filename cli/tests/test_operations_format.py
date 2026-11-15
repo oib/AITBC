@@ -17,7 +17,8 @@ def _fake_client(payload):
 
 
 def test_voting_power_json(monkeypatch):
-    monkeypatch.setattr(ops, "AITBCHTTPClient", _fake_client({"voting_power": 1}))
+    # voting-power routes through governance._get_client since #1969
+    monkeypatch.setattr("aitbc_cli.commands.governance._get_client", lambda *a, **k: _fake_client({"voting_power": 1})())
     monkeypatch.setattr(ops, "get_config", lambda: type("C", (), {"governance_service_url": "http://x"})())
     r = CliRunner().invoke(ops.voting_power, ["--address", "0x0", "--format", "json"])
     assert r.exit_code == 0
@@ -26,7 +27,8 @@ def test_voting_power_json(monkeypatch):
 
 
 def test_voting_power_table_default(monkeypatch):
-    monkeypatch.setattr(ops, "AITBCHTTPClient", _fake_client({"voting_power": 1}))
+    # voting-power routes through governance._get_client since #1969
+    monkeypatch.setattr("aitbc_cli.commands.governance._get_client", lambda *a, **k: _fake_client({"voting_power": 1})())
     monkeypatch.setattr(ops, "get_config", lambda: type("C", (), {"governance_service_url": "http://x"})())
     r = CliRunner().invoke(ops.voting_power, ["--address", "0x0"])
     assert "+---" in r.output or "|" in r.output
@@ -147,7 +149,8 @@ def test_stake_json(monkeypatch):
         def post(self, path, json=None):
             return {"staked": 1}
 
-    monkeypatch.setattr(ops, "AITBCHTTPClient", C)
+    # stake routes through governance._get_client since #1969
+    monkeypatch.setattr("aitbc_cli.commands.governance._get_client", lambda *a, **k: C())
     monkeypatch.setattr(ops, "get_config", _cfg)
     r = CliRunner().invoke(ops.stake, ["--address", "0x0", "--amount", "1", "--lock-days", "30", "--format", "json"])
     assert r.exit_code == 0 and calls == ["json"]
@@ -164,7 +167,8 @@ def test_delegate_json(monkeypatch):
         def post(self, path, json=None):
             return {"delegated": 1}
 
-    monkeypatch.setattr(ops, "AITBCHTTPClient", C)
+    # delegate routes through governance._get_client since #1969
+    monkeypatch.setattr("aitbc_cli.commands.governance._get_client", lambda *a, **k: C())
     monkeypatch.setattr(ops, "get_config", _cfg)
     r = CliRunner().invoke(ops.delegate, ["--delegator", "0x0", "--delegate", "0x1", "--amount", "1", "--format", "json"])
     assert r.exit_code == 0 and calls == ["json"]
