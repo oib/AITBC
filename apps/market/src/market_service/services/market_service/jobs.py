@@ -890,6 +890,10 @@ class _JobsMixin(_CoreMixin):
         if provider_confirmed:
             payload["pinned"] = True
             payload["provider_confirmed"] = True
+            # #1976: start of the buyer-acceptance window — a provider-signed
+            # release is refused until it has elapsed. Kept across re-confirms
+            # so the provider cannot restart (or backdate) the clock.
+            payload.setdefault("provider_confirmed_at", datetime.now(UTC).replace(tzinfo=None).isoformat())
         if size is not None:
             payload["size"] = size
         if pin_tx_hash:

@@ -2412,16 +2412,31 @@
             }
           },
           "403": {
-            "description": "{action} requires a job-party signature or the operator credential / signer is not a party to this job",
+            "description": "{action} requires a job-party signature or the operator credential / signer is not a party to this job / provider release has no acceptance-window start / provider cannot release before the buyer-acceptance window ends; the buyer may release or dispute",
             "content": {
               "application/json": {
                 "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "title": "Error"
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "title": "Error"
+                        }
+                      }
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "error": {
+                          "title": "Error"
+                        },
+                        "release_opens_at": {
+                          "title": "Release Opens At"
+                        }
+                      }
                     }
-                  }
+                  ]
                 }
               }
             }
