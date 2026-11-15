@@ -12,7 +12,7 @@ from uuid import uuid4
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import AITBCError
 from aitbc.utils.units import units_to_ait
-from sqlalchemy import JSON, Column, text, update
+from sqlalchemy import JSON, Column, Index, text, update
 from sqlmodel import Field, Session, SQLModel, col, select
 
 logger = get_logger(__name__)
@@ -33,7 +33,18 @@ class ProviderBond(SQLModel, table=True):
     """Bond record that maps a provider to its current bond status."""
 
     __tablename__ = "provider_bond"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        # #1967: a chain bond_id may back exactly one provider. Partial —
+        # bondless lock/release rows keep bond_id="" and must not collide.
+        Index(
+            "uq_provider_bond_bond_id",
+            "bond_id",
+            unique=True,
+            sqlite_where=text("bond_id <> ''"),
+            postgresql_where=text("bond_id <> ''"),
+        ),
+        {"extend_existing": True},
+    )
 
     id: str = Field(
         default_factory=lambda: f"pb_{uuid4().hex[:10]}",

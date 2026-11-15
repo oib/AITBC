@@ -12,6 +12,9 @@ from ..utils import output, resolve_output_format
 from ..auth import AuthManager, ExpiredAdminToken
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
+
+from .auth import _resolve_private_key
 
 
 def _looks_like_jwt(token: str) -> bool:
@@ -60,6 +63,58 @@ def _api_client(ctx, coordinator_url: str | None = None, timeout: int | None = N
     return AITBCHTTPClient(**client_kwargs)
 
 
+def _bond_proof_fields(
+    ctx,
+    client: AITBCHTTPClient,
+    provider_id: str,
+    wallet_name: str | None,
+    private_key: str | None,
+    private_key_file: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+) -> dict[str, str]:
+    """Fetch a bond-wallet challenge and sign it (#1967).
+
+    Returns ``{}`` when no key source was given — the request then goes out
+    unsigned and the coordinator decides (admin JWTs pass; provider callers
+    get 403 with instructions). When a key source *is* given, the challenge
+    nonce + EIP-191 signature are attached to the create/top-up body.
+    """
+    if not (wallet_name or private_key or private_key_file):
+        return {}
+    if wallet_name and not private_key and not private_key_file:
+        password = resolve_wallet_password(
+            wallet_name,
+            password=password,
+            password_file=password_file,
+            password_stdin=password_stdin,
+            legacy_env_names=("WALLET_PASSWORD",),
+            interactive_ok=False,
+            allow_unencrypted=True,
+            ctx=ctx,
+        )
+    try:
+        raw_key = _resolve_private_key(wallet_name, private_key, private_key_file, password)
+    except ValueError as e:
+        abort(ctx, str(e), from_exception=e)
+    try:
+        from eth_account import Account
+        from eth_account.messages import encode_defunct
+
+        account = Account.from_key(raw_key)
+    except Exception as e:  # noqa: BLE001 — eth-account raises several key-error types
+        abort(ctx, f"Invalid private key: {e}", from_exception=e)
+
+    challenge = client.post(f"/v1/market/providers/{provider_id}/bonds/challenge")
+    nonce = challenge.get("nonce")
+    message = challenge.get("message")
+    if not nonce or not message:
+        abort(ctx, f"Coordinator did not return a bond challenge: {challenge}")
+    signed = account.sign_message(encode_defunct(text=message))
+    return {"challenge_nonce": nonce, "wallet_signature": "0x" + signed.signature.hex()}
+
+
 @click.group(
     epilog="""Examples:
 
@@ -83,11 +138,38 @@ def bond():
 @click.option("--amount", default="0.0", help="Amount to lock as a performance bond")
 @click.option("--required-amount", default="0.0", help="Required bond amount for this provider")
 @click.option("--bond-id", default=None, help="Optional on-chain/external bond identifier")
+@click.option(
+    "--wallet", "wallet_name", default=None, help="Wallet that owns the provider bond (signs the #1967 ownership challenge)"
+)
+@wallet_password_options
+@click.option("--private-key", help="Raw hex private key for the bond wallet (CI/scripts)")
+@click.option("--private-key-file", type=click.Path(), help="File containing the bond wallet's raw hex private key")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
-def create(ctx, provider_id, amount, required_amount, bond_id, coordinator_url, format):
-    """Create or top-up a provider's performance bond."""
+def create(
+    ctx,
+    provider_id,
+    amount,
+    required_amount,
+    bond_id,
+    wallet_name,
+    password,
+    password_file,
+    password_stdin,
+    private_key,
+    private_key_file,
+    coordinator_url,
+    format,
+):
+    """Create or top-up a provider's performance bond.
+
+    Non-admin callers must prove control of the provider's registered
+    wallet: pass --wallet/--private-key/--private-key-file and the CLI
+    fetches a challenge and signs it automatically (#1967). Without a key
+    source the request goes unsigned — admin JWTs still pass, provider
+    callers get 403.
+    """
     try:
         client = _api_client(ctx, coordinator_url)
         payload: dict[str, Any] = {
@@ -96,12 +178,52 @@ def create(ctx, provider_id, amount, required_amount, bond_id, coordinator_url, 
         }
         if bond_id:
             payload["bond_id"] = bond_id
+        payload.update(
+            _bond_proof_fields(
+                ctx,
+                client,
+                provider_id,
+                wallet_name,
+                private_key,
+                private_key_file,
+                password,
+                password_file,
+                password_stdin,
+            )
+        )
         result = client.post(f"/v1/market/providers/{provider_id}/bonds", json=payload)
         output(result, resolve_output_format(ctx, format), title="Bond Created")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error creating bond for {provider_id}: {e}", from_exception=e)
+
+
+@bond.command(
+    epilog="""Examples:
+
+  aitbc bond challenge --provider-id provider-1"""
+)
+@click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
+@click.option("--coordinator-url", help="Coordinator URL")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+@click.pass_context
+def challenge(ctx, provider_id, coordinator_url, format):
+    """Fetch the wallet-ownership challenge for a provider bond (#1967).
+
+    Prints the nonce and canonical message to sign with the provider's
+    registered wallet; pass the resulting signature via --wallet on
+    ``bond create``/``bond top-up`` (or sign manually and post
+    challenge_nonce/wallet_signature to the API).
+    """
+    try:
+        client = _api_client(ctx, coordinator_url)
+        result = client.post(f"/v1/market/providers/{provider_id}/bonds/challenge")
+        output(result, resolve_output_format(ctx, format), title="Bond Wallet Challenge")
+    except NetworkError as e:
+        abort(ctx, f"Coordinator API error: {e}", from_exception=e)
+    except Exception as e:  # noqa: BLE001 — mirrors sibling bond commands
+        abort(ctx, f"Error fetching bond challenge for {provider_id}: {e}", from_exception=e)
 
 
 @bond.command(
@@ -137,16 +259,52 @@ def status(ctx, provider_id, coordinator_url, format):
 @click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
 @click.option("--amount", default="0.0", help="Amount to add to the bond")
 @click.option("--bond-id", default=None, help="Optional on-chain/external bond identifier")
+@click.option(
+    "--wallet", "wallet_name", default=None, help="Wallet that owns the provider bond (signs the #1967 ownership challenge)"
+)
+@wallet_password_options
+@click.option("--private-key", help="Raw hex private key for the bond wallet (CI/scripts)")
+@click.option("--private-key-file", type=click.Path(), help="File containing the bond wallet's raw hex private key")
 @click.option("--coordinator-url", help="Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
-def top_up(ctx, provider_id, amount, bond_id, coordinator_url, format):
-    """Top up a provider's performance bond."""
+def top_up(
+    ctx,
+    provider_id,
+    amount,
+    bond_id,
+    wallet_name,
+    password,
+    password_file,
+    password_stdin,
+    private_key,
+    private_key_file,
+    coordinator_url,
+    format,
+):
+    """Top up a provider's performance bond.
+
+    Same wallet-ownership proof as ``create`` (#1967): pass a key source to
+    sign the challenge automatically, or rely on an admin JWT.
+    """
     try:
         client = _api_client(ctx, coordinator_url)
         payload: dict[str, Any] = {"amount": amount}
         if bond_id:
             payload["bond_id"] = bond_id
+        payload.update(
+            _bond_proof_fields(
+                ctx,
+                client,
+                provider_id,
+                wallet_name,
+                private_key,
+                private_key_file,
+                password,
+                password_file,
+                password_stdin,
+            )
+        )
         result = client.post(f"/v1/market/providers/{provider_id}/bonds", json=payload)
         output(result, resolve_output_format(ctx, format), title="Bond Top-Up")
     except NetworkError as e:

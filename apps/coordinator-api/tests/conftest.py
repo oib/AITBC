@@ -30,6 +30,10 @@ os.environ.setdefault("COORDINATOR_HEALTH_URL", "http://127.0.0.1:8203/health")
 # The suite runs as a configured service: chain-id resolution fails loudly
 # without one since #307, so tests pin an explicit test id up front.
 os.environ.setdefault("CHAIN_ID", "ait-testchain")
+# File-backed challenge/nonce stores (bond wallet proofs #1967, swarm keys
+# #1771) resolve under AITBC_DATA_DIR — keep them inside the temp dir so a
+# test run never writes to /var/lib/aitbc.
+os.environ.setdefault("AITBC_DATA_DIR", tempfile.mkdtemp(prefix="aitbc-coordinator-data-"))
 
 from coordinator_api.main import app  # noqa: E402
 from coordinator_api.storage import get_session  # noqa: E402

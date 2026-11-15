@@ -88,6 +88,7 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/market/miner-offers": AuthLevel.NONE,
     # Provider-bond lifecycle
     "/v1/market/providers/*/bonds": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/market/providers/*/bonds/challenge": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/market/providers/*/eligibility": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/market/providers/*/bonds/lock": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/market/providers/*/bonds/release": AuthLevel.ADMIN_OR_CLIENT,
