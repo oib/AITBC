@@ -1546,6 +1546,15 @@ class ChainSettings(BaseSettings):
     # attestation; it is never a consensus verdict and never extends the
     # request's own deadline semantics.
     attestation_post_state_timeout_seconds: float = Field(default=10.0, gt=0, allow_inf_nan=False)
+    # #2003 (ATTEST-POSTSTATE-PROBE-ARMING-1) F2: pre-flight bound on the
+    # source chain.db size (main file plus -wal) the probe copies into an
+    # in-memory snapshot. A database larger than this refuses
+    # "post_state_db_too_large" before the backup runs — on multi-GB files
+    # the copy alone can exceed the probe timeout, turning every probe into
+    # post_state_timeout and silently stalling attestations. 0 disables the
+    # guard; the default 1 GiB is sized so the snapshot fits comfortably
+    # inside attestation_post_state_timeout_seconds on fleet hardware.
+    attestation_post_state_max_db_bytes: int = Field(default=1073741824, ge=0)
     # #1306: unlock_justification waits inside the serial attest-request
     # listener are timed; waits at or above this many seconds increment
     # attest_listener_unlock_stall_total (instrumentation only, no behavior).

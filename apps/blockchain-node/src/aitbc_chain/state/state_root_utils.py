@@ -5,6 +5,8 @@ Used by both consensus/poa.py (block proposal) and sync.py (block verification).
 
 from __future__ import annotations
 
+import time
+
 from sqlalchemy import text
 from sqlmodel import Session
 
@@ -15,7 +17,7 @@ from .merkle_patricia_trie import StateManager
 logger = get_logger(__name__)
 
 
-def compute_state_root_full(session: Session, chain_id: str) -> str | None:
+def compute_state_root_full(session: Session, chain_id: str, deadline: float | None = None) -> str | None:
     """Compute state root from current account state (full recompute).
 
     Loads ALL accounts from the DB and builds a new trie.
@@ -25,6 +27,11 @@ def compute_state_root_full(session: Session, chain_id: str) -> str | None:
     updated with ``session.execute(text(...))`` inside the same transaction are
     reflected in the trie, even when Account instances in the session's
     identity map still hold stale in-memory balance/nonce values.
+
+    ``deadline`` (#2003) is an optional absolute ``time.monotonic()`` budget
+    threaded into the pure-Python row-build and trie loops; an expired budget
+    raises ``TimeoutError`` (re-raised, not swallowed) so callers such as the
+    attestation post-state probe can map it to their timeout refusal.
     """
     try:
         state_manager = StateManager()
@@ -33,11 +40,15 @@ def compute_state_root_full(session: Session, chain_id: str) -> str | None:
             {"chain_id": chain_id},
         ).all()
         account_dict = {}
-        for address, balance, nonce in rows:
+        for idx, (address, balance, nonce) in enumerate(rows):
+            if deadline is not None and (idx & 8191) == 0 and time.monotonic() > deadline:
+                raise TimeoutError("state root row-build deadline")
             account = Account(chain_id=chain_id, address=address, balance=balance, nonce=nonce)
             account_dict[account.address] = account
-        root = state_manager.compute_state_root(account_dict)
+        root = state_manager.compute_state_root(account_dict, deadline=deadline)
         return "0x" + root.hex()
+    except TimeoutError:
+        raise
     except Exception as e:
         logger.warning("Failed to compute state root (full): %s", e)
         return None
