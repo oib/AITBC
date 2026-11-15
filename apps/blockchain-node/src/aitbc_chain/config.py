@@ -1496,6 +1496,12 @@ class ChainSettings(BaseSettings):
     # justification an evidence_hash commits to. Defaults to max_reorg_depth's
     # value — evidence deeper than the deepest possible reorg is safe to cite.
     consensus_slashing_evidence_finality_depth: int = 10
+    # #2118: max recorded slashing events per (validator, condition, height).
+    # A flood of distinct forged hash pairs at one height grew hub's persisted
+    # history to 67 MB (30,245 events at one height) and stalled the RPC
+    # worker. 0 = unbounded (legacy, dormant until armed); the cap applies on
+    # record and when a persisted history is loaded.
+    slashing_max_events_per_height: int = 0
     # U2 failure-evidence window for cross-round signing: after observing a
     # later-round attest_request at the same height, the locked round's
     # gates window must fully elapse before a rival hash may be signed.

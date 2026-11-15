@@ -5,7 +5,7 @@ Consensus router.
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, HTTPException, Query, Request
 
 from aitbc.rate_limiting import rate_limit
 
@@ -129,7 +129,11 @@ def consensus_validators_route(request: Request, chain_id: str | None = None) ->
 
 @router.get("/slashing-history", summary="Get slashing history")
 @rate_limit(rate=100, per=60)
-def consensus_slashing_history_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
+def consensus_slashing_history_route(
+    request: Request,  # noqa: ARG001
+    chain_id: str | None = None,
+    limit: int = Query(default=1000, ge=1, le=10000),
+) -> dict[str, Any]:
     """Get slashing events (validator, condition, amount, block height)."""
     chain_id = chain_id or settings.chain_id
     if not settings.multi_validator_consensus_enabled or not settings.validator_set:
@@ -141,7 +145,8 @@ def consensus_slashing_history_route(request: Request, chain_id: str | None = No
         consensus.load_state()
         if not consensus.validators:
             return {"slashing_events": [], "chain_id": chain_id, "multi_validator_enabled": False}
-        events = consensus.get_slashing_history()
+        all_events = consensus.get_slashing_history()
+        events = all_events[-limit:]  # #2118: newest `limit`, oldest first
         slashing_events = [
             {
                 "validator_address": e.validator_address,
@@ -160,7 +165,13 @@ def consensus_slashing_history_route(request: Request, chain_id: str | None = No
             }
             for e in events
         ]
-        return {"slashing_events": slashing_events, "chain_id": chain_id, "multi_validator_enabled": True}
+        return {
+            "slashing_events": slashing_events,
+            "total": len(all_events),
+            "truncated": len(all_events) > len(events),
+            "chain_id": chain_id,
+            "multi_validator_enabled": True,
+        }
     except RuntimeError:
         return {"slashing_events": [], "chain_id": chain_id, "multi_validator_enabled": False}
     except Exception as e:

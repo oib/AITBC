@@ -28,6 +28,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 
+from ..metrics import metrics_registry
 from .multi_validator_poa import Validator, ValidatorRole
 
 # #1940 F3-A: evidence kind for a validator that COMMIT two different
@@ -203,6 +204,56 @@ def slashing_event_record(event: SlashingEvent) -> dict:
     }
 
 
+def _max_events_per_height() -> int:
+    """``slashing_max_events_per_height`` (0 = unbounded, the legacy behaviour)."""
+    from ..config import settings
+
+    return int(getattr(settings, "slashing_max_events_per_height", 0) or 0)
+
+
+def _height_key(event: SlashingEvent) -> tuple[str, str, int]:
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    return (canonical_address(event.validator_address), event.condition.value, event.block_height)
+
+
+def cap_history_per_height(events: list[SlashingEvent], cap: int) -> list[SlashingEvent]:
+    """Oldest-first keep of at most ``cap`` events per (validator, condition, height) (#2118).
+
+    ``cap <= 0`` returns the list unchanged. Used when loading a persisted
+    history that was written before the cap existed.
+    """
+    if cap <= 0:
+        return events
+    seen: dict[tuple[str, str, int], int] = {}
+    kept: list[SlashingEvent] = []
+    for event in events:
+        key = _height_key(event)
+        if seen.get(key, 0) >= cap:
+            continue
+        seen[key] = seen.get(key, 0) + 1
+        kept.append(event)
+    return kept
+
+
+class _HistoryIndex:
+    """O(1) dedup + per-height counts over ``SlashingManager.slashing_events`` (#2118)."""
+
+    def __init__(self, events: list[SlashingEvent]) -> None:
+        self.by_key: dict[str, SlashingEvent] = {}
+        self.per_height: dict[tuple[str, str, int], int] = {}
+        self._sig = (id(events), len(events), id(events[-1]) if events else 0)
+        for event in events:
+            self.by_key.setdefault(_equivocation_dedup_key(event), event)
+            hk = _height_key(event)
+            self.per_height[hk] = self.per_height.get(hk, 0) + 1
+
+    def add(self, key: str, event: SlashingEvent) -> None:
+        self.by_key[key] = event
+        hk = _height_key(event)
+        self.per_height[hk] = self.per_height.get(hk, 0) + 1
+
+
 class SlashingManager:
     """Manages validator slashing conditions and penalties"""
 
@@ -220,6 +271,16 @@ class SlashingManager:
             SlashingCondition.INVALID_BLOCK: 1,  # Immediate slash
             SlashingCondition.SLOW_RESPONSE: 5,  # After 5 offenses
         }
+
+    def _history_index(self) -> _HistoryIndex:
+        """The dedup index, rebuilt when the list was replaced or edited outside ``apply_slashing``."""
+        events = self.slashing_events
+        sig = (id(events), len(events), id(events[-1]) if events else 0)
+        index = getattr(self, "_index", None)
+        if index is None or index._sig != sig:
+            index = _HistoryIndex(events)
+            self._index = index
+        return index
 
     def detect_double_sign(self, validator: str, block_hash1: str, block_hash2: str, height: int) -> SlashingEvent | None:
         """Detect double signing (validator signed two different blocks at same height)"""
@@ -292,11 +353,21 @@ class SlashingManager:
         # #1263 still upgrades the recorded evidence in place when this
         # observation carries signatures the old record lacked.
         new_key = _equivocation_dedup_key(event)
-        for existing in self.slashing_events:
-            if _equivocation_dedup_key(existing) == new_key:
-                if event_signature_evidence(event) is not None and event_signature_evidence(existing) is None:
-                    existing.evidence = event.evidence
-                return False
+        index = self._history_index()
+        existing = index.by_key.get(new_key)
+        if existing is not None:
+            if event_signature_evidence(event) is not None and event_signature_evidence(existing) is None:
+                existing.evidence = event.evidence
+            return False
+        # #2118: bound the per-(validator, condition, height) record count. One
+        # recorded offence at a height already carries the deactivation
+        # evidence; a flood of distinct forged hash pairs at the same height
+        # grew the persisted blob to 67 MB on hub (30,245 events at one
+        # height). Over the cap: no record, no further penalty. 0 = unbounded.
+        cap = _max_events_per_height()
+        if cap > 0 and index.per_height.get(_height_key(event), 0) >= cap:
+            metrics_registry.increment("slashing_events_cap_refused_total")
+            return False
 
         stake_before = validator.stake
         slashed_amount = stake_before * Decimal(str(event.slash_rate))
@@ -311,6 +382,8 @@ class SlashingManager:
 
         # Record slashing event
         self.slashing_events.append(event)
+        index.add(new_key, event)
+        index._sig = (id(self.slashing_events), len(self.slashing_events), id(event))
 
         return True
 
