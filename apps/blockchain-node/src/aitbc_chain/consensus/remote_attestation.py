@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import threading
 import time
 from datetime import datetime
 from typing import Any
@@ -63,6 +64,11 @@ class _RaBaseMixin:
         # requests stay attestable while v9 is inactive (shadow mode only)
         # and are refused once it is.
         self._session_factory = session_factory
+        # #1940 F4: at most one post-state probe worker at a time per
+        # service. Non-blocking acquire -> "post_state_busy" refusal; the
+        # worker that wins the permit releases it when it actually finishes
+        # (an async timeout cannot free it early or stack workers).
+        self._attest_probe_lock = threading.Lock()
         self._request_topic = f"consensus.attest_request.{chain_id}"
         self._response_topic = f"consensus.attest_response.{chain_id}"
         self._listener_task: asyncio.Task[None] | None = None

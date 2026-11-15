@@ -565,16 +565,26 @@ class _ListenerMixin(_RaBaseMixin):
         txs = request.get("transactions")
         from ..state.state_transition import get_block_version_for_height
 
+        from .attestation_state_probe import post_state_probe_active
+
+        # #1940 F4: an armed post-state gate refuses regardless of the legacy
+        # v9 activation height — shadow-mode v9 (<9) must not soften it.
+        probe_gate = post_state_probe_active(height_int)
         refusal: str | None
         if not isinstance(txs, list):
             refusal = "transactions_absent"
         elif len(json.dumps(request).encode()) > int(getattr(settings, "gossip_max_message_size", 1_048_576)):
             refusal = "request_too_large"
         else:
-            refusal = await self._run_v9_check(header, txs)
+            if probe_gate:
+                # The verified request-envelope signature feeds the probe's
+                # proposer-schedule check — never an embedded field.
+                refusal = await self._run_v9_check(header, txs, proposer_signature=proposer_signature)
+            else:
+                refusal = await self._run_v9_check(header, txs)
         if refusal is not None:
             count_v9_would_reject(f"attest_{refusal}")
-            if get_block_version_for_height(height_int) >= 9:
+            if probe_gate or get_block_version_for_height(height_int) >= 9:
                 logger.warning(
                     "v9: refusing attestation for block %s at height %s — %s",
                     header_hash[:18],

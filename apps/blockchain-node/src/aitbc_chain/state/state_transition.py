@@ -1871,9 +1871,14 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
     balances.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, *, cache_side_effects: bool = True) -> None:
         self._processed_nonces: dict[str, int] = {}
         self._processed_tx_hashes: set[str] = set()
+        # #1940 F4: speculative applies (the attestation post-state probe)
+        # construct with cache_side_effects=False so no Redis invalidation
+        # fires for state that is never committed. The production singleton
+        # keeps the default — behavior there is unchanged.
+        self._cache_side_effects = cache_side_effects
 
     def reset_processed_cache(self) -> None:
         """Clear in-memory per-process tx/nonce caches.

@@ -81,6 +81,20 @@ class _ApplyMixin:
             self, session: Session, chain_id: str, gpu_data: dict[str, Any], block_version: int = 1
         ) -> tuple[bool, str]: ...
 
+    def _apply_cache(self) -> Any:
+        """Redis cache handle for apply-time invalidation, or None.
+
+        #1940 F4: ``StateTransition(cache_side_effects=False)`` — used only by
+        the attestation post-state probe's speculative scratch apply — gets
+        None so speculative state never invalidates production cache keys.
+        Otherwise this returns the module-level ``_cache`` binding exactly as
+        before: reads the ``state_transition_apply._cache`` name at call time
+        (test monkeypatching keeps working) and never rebinds the global.
+        """
+        if not getattr(self, "_cache_side_effects", True):
+            return None
+        return _cache
+
     def _apply_special_transfer(
         self,
         session: Session,
@@ -105,7 +119,13 @@ class _ApplyMixin:
         }.get(tx_type)
         if liquidity_fn is not None:
             ok, msg = liquidity_fn(
-                session, chain_id, tx_data, tx_hash, _cache, block_version=block_version, block_time=block_time
+                session,
+                chain_id,
+                tx_data,
+                tx_hash,
+                self._apply_cache(),
+                block_version=block_version,
+                block_time=block_time,
             )
             if ok:
                 self._processed_tx_hashes.add(tx_hash)
@@ -140,9 +160,10 @@ class _ApplyMixin:
             {"value": value, "chain_id": chain_id, "recipient_addr": recipient_addr},
         )
         self._processed_tx_hashes.add(tx_hash)
-        if _cache and _cache.is_available():
-            _cache.delete(f"account_balance:{chain_id}:{recipient_addr.lower()}")
-            _cache.delete(f"account_details:{chain_id}:{recipient_addr.lower()}")
+        cache = self._apply_cache()
+        if cache and cache.is_available():
+            cache.delete(f"account_balance:{chain_id}:{recipient_addr.lower()}")
+            cache.delete(f"account_details:{chain_id}:{recipient_addr.lower()}")
         logger.info(
             "Applied %s transaction %s: %s -> %s, value=%s, fee=%s",
             tx_type,
@@ -184,9 +205,10 @@ class _ApplyMixin:
             {"total_cost": total_cost, "chain_id": chain_id, "sender_addr": sender_addr},
         )
         self._processed_tx_hashes.add(tx_hash)
-        if _cache and _cache.is_available():
-            _cache.delete(f"account_balance:{chain_id}:{sender_addr.lower()}")
-            _cache.delete(f"account_details:{chain_id}:{sender_addr.lower()}")
+        cache = self._apply_cache()
+        if cache and cache.is_available():
+            cache.delete(f"account_balance:{chain_id}:{sender_addr.lower()}")
+            cache.delete(f"account_details:{chain_id}:{sender_addr.lower()}")
         if tx_type == "BRIDGE_WITHDRAW":
             logger.info(
                 "Applied %s transaction %s: %s, value=%s, fee=%s, eth_address=%s",
@@ -633,11 +655,12 @@ class _ApplyMixin:
         self._processed_tx_hashes.add(tx_hash)
         if sender_addr is not None:
             self._processed_nonces[sender_addr] = sender_account.nonce  # type: ignore[union-attr]
-        if _cache and _cache.is_available():
+        cache = self._apply_cache()
+        if cache and cache.is_available():
             for addr in [sender_addr, recipient_addr]:
                 if addr:
-                    _cache.delete(f"account_balance:{chain_id}:{addr.lower()}")
-                    _cache.delete(f"account_details:{chain_id}:{addr.lower()}")
+                    cache.delete(f"account_balance:{chain_id}:{addr.lower()}")
+                    cache.delete(f"account_details:{chain_id}:{addr.lower()}")
         logger.info(
             "Applied transaction %s: %s -> %s, value=%s, fee=%s, type=%s",
             tx_hash,
