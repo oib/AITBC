@@ -635,16 +635,32 @@ def result(
     if not _daemon_available(ipfs_api):
         error(f"No local island IPFS daemon reachable at {ipfs_api}")
         raise click.Abort()
+    import re as _re
+
     import requests as _requests
 
+    # result_ref is provider-controlled: Kubo resolves cat args as IPFS *paths*,
+    # so only a bare alphanumeric CID may reach the daemon (same gate as the
+    # miner's payload_ref check, #1939) and the read is size-capped (#1971).
+    if not isinstance(result_ref, str) or not _re.fullmatch(r"[A-Za-z0-9]{1,256}", result_ref):
+        error(f"Refusing malformed result_ref from provider: {result_ref!r}")
+        raise click.Abort()
+    max_bytes = 64 * 1024 * 1024
     try:
-        resp = _requests.post(f"{ipfs_api}/api/v0/cat", params={"arg": result_ref}, timeout=120)
-        resp.raise_for_status()
+        with _requests.post(f"{ipfs_api}/api/v0/cat", params={"arg": result_ref}, timeout=120, stream=True) as resp:
+            resp.raise_for_status()
+            chunks: list[bytes] = []
+            total = 0
+            for chunk in resp.iter_content(chunk_size=65536):
+                total += len(chunk)
+                if total > max_bytes:
+                    raise ValueError(f"result exceeds {max_bytes} bytes")
+                chunks.append(chunk)
     except Exception as e:
         error(f"Could not fetch result {result_ref}: {e}")
         raise click.Abort() from e
 
-    data = resp.content
+    data = b"".join(chunks)
     expected = task_result.get("result_hash")
     actual = hashlib.sha256(data).hexdigest()
     if expected and expected != actual:
