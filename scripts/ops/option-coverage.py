@@ -107,7 +107,7 @@ def toks_of(cmd):
     rest = re.sub(r"\s*&$", "", rest)
     try:
         return shlex.split(rest, comments=False)
-    except Exception:
+    except ValueError:
         return rest.split()
 
 

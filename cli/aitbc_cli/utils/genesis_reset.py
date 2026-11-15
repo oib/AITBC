@@ -72,7 +72,7 @@ def _chown_aitbc(path: Path) -> None:
         try:
             shutil.chown(path, user, group)
             return
-        except Exception:
+        except (OSError, KeyError):
             continue
 
 
@@ -155,7 +155,7 @@ def _stop_services(scratch_only: bool) -> None:
     for unit in SERVICE_UNITS:
         try:
             _run_subprocess(["systemctl", "stop", unit], check=False)
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             pass
 
 
@@ -165,7 +165,7 @@ def _start_services(scratch_only: bool) -> None:
     for unit in SERVICE_UNITS:
         try:
             _run_subprocess(["systemctl", "start", unit], check=False)
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             pass
 
 
@@ -177,7 +177,7 @@ def _service_status(scratch_only: bool) -> dict[str, str]:
         try:
             r = _run_subprocess(["systemctl", "is-active", unit], check=False)
             status[unit] = r.stdout.strip() if r.stdout else "unknown"
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             status[unit] = "unknown"
     return status
 
@@ -252,7 +252,7 @@ def _clear_wallet_dbs(data_dir: Path) -> None:
             if db.exists():
                 db.unlink()
                 success(f"Cleared old wallet daemon DB: {db}")
-        except Exception:
+        except OSError:
             pass
 
 
@@ -326,7 +326,7 @@ def _chown_chain_data(chain_data_dir: Path) -> None:
         for item in chain_data_dir.rglob("*"):
             _chown_aitbc(item)
         _chown_aitbc(chain_data_dir)
-    except Exception:
+    except (OSError, KeyError):
         pass
 
 

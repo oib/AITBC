@@ -205,14 +205,15 @@ def _settlement_wallet(client: AITBCHTTPClient, config, ctx, rpc_url: str) -> st
         esc_conf = client.get("/v1/tasks/escrow-config")
         if isinstance(esc_conf, dict) and esc_conf.get("settlement_wallet"):
             settlement_wallet = str(esc_conf["settlement_wallet"])
-    except Exception:
-        pass
+    except Exception as e:  # noqa: BLE001 - coordinator probe is best-effort; local fallbacks follow
+        logger.debug("escrow-config probe failed: %s", type(e).__name__)
     if not settlement_wallet:
         from ..utils.escrow import get_node_wallet
 
         try:
             settlement_wallet = get_node_wallet(ctx, rpc_url)
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - get_node_wallet may abort(); fail-open to proposer fallback
+            logger.debug("node wallet lookup failed, using fallback: %s", type(e).__name__)
             settlement_wallet = None
     if not settlement_wallet:
         settlement_wallet = getattr(config, "hub_proposer_id", None) or None
@@ -357,7 +358,7 @@ def _wait_for_task_result(
             quote = found["task_quote"]
             try:
                 quoted = Decimal(str(quote.get("price", "0")))
-            except Exception:
+            except (ArithmeticError, TypeError, ValueError):
                 quoted = max_price_ait
             if quoted <= max_price_ait:
                 info(f"Quote received: {quoted} AIT — accepting")

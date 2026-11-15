@@ -89,7 +89,7 @@ def _find_matching_keystore(proposer_id: str) -> Path | None:
                     continue
                 if canonical_address(address) == target:
                     return kf
-            except Exception:
+            except (OSError, ValueError, TypeError, AttributeError, ImportError):
                 continue
     return None
 

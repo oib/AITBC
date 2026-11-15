@@ -22,10 +22,13 @@ from ..utils.http_client import (
     AITBCHTTPClient,
     NetworkError,
     auth_client_kwargs,
+    get_logger,
     http_error_detail,
     http_response_status,
 )
 from ..utils.output import resolve_output_format
+
+logger = get_logger(__name__)
 
 
 # Logical service name -> local base URL. These are the documented local
@@ -86,7 +89,7 @@ def _resolve_miner_api_key(env_path: str = "/etc/aitbc/aitbc-coordinator-api.env
                 if value:
                     return value.split(",")[0].strip()
                 return None
-    except Exception:
+    except (OSError, ValueError):
         pass
     return None
 
@@ -127,7 +130,8 @@ def _resolve_auth_key(api_key: str | None, auth_kind: str) -> str | None:
         if auth_kind == "trading":
             trading_key = config.trading_api_key
             return trading_key.get_secret_value() if trading_key else None
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - config load failure falls back per auth kind
+        logger.debug("auth key config resolution failed for %s: %s", auth_kind, type(e).__name__)
         if auth_kind == "miner":
             return _resolve_miner_api_key()
     return None

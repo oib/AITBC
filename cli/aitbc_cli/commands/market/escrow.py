@@ -359,7 +359,7 @@ def _release_via_relay(
             result = client.post("/v1/escrow/release", json=body)
             last_exc = None
             break
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - relay retry loop classifies every failure by status
             last_exc = exc
             status = http_response_status(exc)
             if status == 425:
@@ -486,8 +486,8 @@ def _escrow_create(
 
         try:
             node_wallet = get_node_wallet(ctx, _get_blockchain_rpc_url(config))
-        except Exception:
-            pass
+        except Exception as e:  # noqa: BLE001 - get_node_wallet may abort(); fail-open to proposer fallback
+            logger.debug("node wallet lookup failed, using fallback: %s", type(e).__name__)
     if not node_wallet:
         node_wallet = getattr(config, "hub_proposer_id", None) or None
         if node_wallet:

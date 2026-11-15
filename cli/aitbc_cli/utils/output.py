@@ -13,6 +13,8 @@ from typing import Any, cast
 import click
 from click import echo, secho
 
+logger = logging.getLogger(__name__)
+
 
 def _is_scalar(value: Any) -> bool:
     return value is None or isinstance(value, str | int | float | bool)
@@ -118,8 +120,8 @@ def _status_stderr() -> bool:
             if isinstance(params, dict) and (params.get("format") == "json" or params.get("output_format") == "json"):
                 return True
             ctx = ctx.parent
-    except Exception:
-        pass
+    except Exception as e:  # noqa: BLE001 - output routing must never break the command
+        logger.debug("output format detection failed: %s", type(e).__name__)
     return False
 
 

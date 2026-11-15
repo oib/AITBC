@@ -109,7 +109,7 @@ def check_secrets() -> bool:
                 if value.strip().strip('"').strip("'").lower() in placeholder_values:
                     print(f"❌ Placeholder secret in {env_file}:{lineno}")
                     all_ok = False
-        except Exception:
+        except (OSError, ValueError):
             continue
 
     if all_ok:
