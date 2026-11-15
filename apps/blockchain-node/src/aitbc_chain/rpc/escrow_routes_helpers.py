@@ -173,6 +173,25 @@ def rpc_fleet_key_accepted(api_key: str | None) -> bool:
     return any(_er.hmac.compare_digest(api_key.encode(), k.encode()) for k in _er._RPC_API_PEER_KEYS)
 
 
+def verify_rpc_fleet_read_key(api_key: str | None = _er.Security(_er._api_key_header)) -> str:
+    """Require a fleet RPC key for cross-user operational reads.
+
+    AI job lists/stats, GPU/edge registrations, genesis allocations, sync
+    config and the chain/island registries describe the whole network, not the
+    caller's own node. ``verify_rpc_peer_key`` also accepts issued join keys,
+    and ``POST /rpc/join`` is anonymous, so using it here let any internet
+    caller mint a key that unlocked the #1936 gate (#1966). Only this node's
+    key or a configured ``BLOCKCHAIN_RPC_API_KEY_PEERS`` key passes.
+    """
+    if _er.rpc_fleet_key_accepted(api_key):
+        return api_key or ""
+    _er._logger.warning("Rejected operational RPC read: missing, invalid, or join-scoped X-API-Key")
+    raise _er.HTTPException(
+        status_code=_er.status.HTTP_403_FORBIDDEN,
+        detail="Forbidden: missing or invalid API key",
+    )
+
+
 def verify_rpc_export_key(api_key: str | None = _er.Security(_er._api_key_header)) -> str:
     """Require a fleet RPC key (this node's admin key or a configured peer
     key) — issued join keys are rejected.

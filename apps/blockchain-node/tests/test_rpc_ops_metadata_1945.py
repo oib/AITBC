@@ -4,7 +4,7 @@ Hybrid posture extended: chain-data, join-bootstrap, and public chain-stat
 reads stay public (`/rpc/proposer`, `/rpc/network-info` — setup.sh/update.sh
 curl them before a node holds any credential; `/rpc/info`, `/rpc/status` —
 payload is public chain stats consumed keyless by fleet-config-check and the
-stress suite). Internal ops-state reads are gated by ``verify_rpc_peer_key``
+stress suite). Internal ops-state reads are gated by ``verify_rpc_fleet_read_key``
 on the shared router so `/v1` is covered too.
 """
 
