@@ -12,7 +12,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from ..config import settings
 from ..metrics import metrics_registry
 from . import abandon, evidence_replication
-from .vote_journal import get_vote_journal, vote_journal_enabled
+from .vote_journal import KIND_ATTEST, get_vote_journal, vote_journal_enabled
 from .remote_attestation_crypto import (
     _active_signature_domain,
 )
@@ -114,7 +114,15 @@ class _EvidenceMixin(_V9Mixin):
         height, block_hash, proposer = stmt["height"], stmt["hash"], stmt["proposer"]
         if self._tip_height_hint is not None and height <= self._tip_height_hint:
             return 0  # decided locally; the journal prunes it anyway
+        self._ensure_abandoned_loaded()
         journal = get_vote_journal(self._chain_id)
+        canon = canonical_address(proposer)
+        # #1963: a round=None statement (the only shape the producer emits
+        # until #1962 lands) still identifies the round through the local
+        # records being released — the journal vote, the round-lock keys,
+        # and the attestation-lock journal's derived_round. Collect them
+        # BEFORE the releases delete the evidence.
+        derived_rounds = self._abandon_release_rounds(height, block_hash, canon, journal)
         released = 0
         for addr in self._own_addresses():
             if journal.release_abandoned(height, addr, block_hash, proposer):
@@ -125,8 +133,10 @@ class _EvidenceMixin(_V9Mixin):
         locks = self._release_abandoned_locks(height, block_hash, proposer)
         if released or locks:
             self._note_abandoned_height(height, block_hash)
-        if (released or locks) and stmt.get("round") is not None:
-            self._note_abandoned_round(height, int(stmt["round"]), block_hash)
+            rounds = derived_rounds | ({int(stmt["round"])} if stmt.get("round") is not None else set())
+            for round_ in sorted(rounds):
+                self._note_abandoned_round(height, round_, block_hash)
+            self._persist_abandoned_releases()
         if released or locks:
             metrics_registry.increment("vote_journal_abandon_released_total", released)
             logger.warning(
@@ -156,6 +166,127 @@ class _EvidenceMixin(_V9Mixin):
         for h in [k for k in self._abandoned_heights if k < height - 64]:
             del self._abandoned_heights[h]
 
+    def _ensure_abandoned_loaded(self) -> None:
+        """Reseed the abandoned-hash indexes once (#1963).
+
+        Flag-gated like ``handle_abandon``: with abandon OFF the file is
+        never read, so the OFF path stays byte-identical — an index left
+        over from an armed period cannot refuse signatures after disarm.
+        """
+        if getattr(self, "_abandoned_loaded", False):
+            return
+        self._abandoned_loaded = True
+        path = getattr(self, "_abandoned_path", None)
+        if path is None or not abandon.abandon_enabled():
+            return
+        self._load_abandoned_releases(path)
+
+    def _load_abandoned_releases(self, path: Any = None) -> None:
+        """Restore persisted abandon-release records (#1963).
+
+        Same contract as ``_load_round_locks``: wrong-chain files are
+        ignored, malformed records are skipped, and a read failure leaves
+        the in-memory indexes empty (the guards degrade to their pre-#1963
+        memory-only behavior, never to a wrong refusal).
+        """
+        path = path or getattr(self, "_abandoned_path", None)
+        if path is None:
+            return
+        try:
+            if not path.exists():
+                return
+            data = json.loads(path.read_text())
+            if data.get("chain_id") != getattr(self, "_chain_id", None):
+                return
+            max_h = 0
+            for rec in data.get("records", []):
+                try:
+                    h = int(rec["h"])
+                    block_hash = str(rec["hash"])
+                    rounds = rec.get("rounds") or []
+                    self._abandoned_heights.setdefault(h, set()).add(block_hash)
+                    for r in rounds:
+                        self._abandoned_rounds.setdefault((h, int(r)), set()).add(block_hash)
+                    max_h = max(max_h, h)
+                except (KeyError, TypeError, ValueError, AttributeError):
+                    continue
+            for h in [k for k in self._abandoned_heights if k < max_h - 64]:
+                del self._abandoned_heights[h]
+            for key in [k for k in self._abandoned_rounds if k[0] < max_h - 64]:
+                del self._abandoned_rounds[key]
+        except Exception as e:  # noqa: BLE001 - a read failure degrades to the pre-#1963 memory-only behavior
+            logger.warning("Failed to load abandoned-release records for %s: %s", self._chain_id, e)
+
+    def _persist_abandoned_releases(self) -> None:
+        """Atomically persist the abandoned-hash indexes (#1963).
+
+        Temp-file + fsync + rename, same durability contract as
+        ``_persist_round_locks``. Records are the union of both indexes:
+        every (height, hash) carries the set of rounds it was abandoned
+        under (empty when only the height level is known). Best-effort —
+        the release already happened and cannot be un-done; a failed write
+        only reopens the pre-#1963 restart window, so it logs loudly
+        rather than raising into the gossip handler.
+        """
+        import os
+
+        path = getattr(self, "_abandoned_path", None)
+        if path is None:
+            return
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            by_height: dict[int, dict[str, set[int]]] = {}
+            for h, hashes in self._abandoned_heights.items():
+                for block_hash in hashes:
+                    by_height.setdefault(h, {}).setdefault(block_hash, set())
+            for (h, r), hashes in self._abandoned_rounds.items():
+                for block_hash in hashes:
+                    by_height.setdefault(h, {}).setdefault(block_hash, set()).add(r)
+            records = [
+                {"h": h, "hash": block_hash, "rounds": sorted(rounds)}
+                for h, hashes in sorted(by_height.items())
+                for block_hash, rounds in sorted(hashes.items())
+            ]
+            payload = json.dumps({"version": 1, "chain_id": self._chain_id, "records": records})
+            tmp = path.with_name(path.name + ".tmp")
+            with open(tmp, "w") as f:
+                f.write(payload)
+                f.flush()
+                os.fsync(f.fileno())
+            tmp.replace(path)
+        except Exception as e:  # noqa: BLE001 - best-effort index; the release stands either way
+            metrics_registry.increment("vote_journal_abandon_persist_failed_total")
+            logger.warning("Abandoned-release index not persisted for %s: %s", self._chain_id, e)
+
+    def _abandon_release_rounds(self, height: int, block_hash: str, canon_proposer: str, journal: Any) -> set[int]:
+        """Rounds the released (height, hash, proposer) vote/lock was cast in (#1963).
+
+        Sources, all local evidence collected before the release deletes
+        it: the journal ``VoteRecord.round``, the ``_round_locks`` keys,
+        and the attestation-lock journal's ``derived_round``. Used when the
+        abandon statement itself carries no round.
+        """
+        rounds: set[int] = set()
+        for addr in self._own_addresses():
+            for rec in journal.votes_at(height, addr):
+                if (
+                    rec.block_hash == block_hash
+                    and rec.kind == KIND_ATTEST
+                    and canonical_address(rec.proposer) == canon_proposer
+                    and rec.round is not None
+                ):
+                    rounds.add(rec.round)
+        self._ensure_round_locks_loaded()
+        for (h, r, _domain), entry in self._round_locks.items():
+            if h == height and entry.block_hash == block_hash and canonical_address(entry.proposer) == canon_proposer:
+                rounds.add(r)
+        for (h, locked_hash, _domain), rec in self._attested_lock_records.items():
+            if h == height and locked_hash == block_hash and canonical_address(str(rec.get("proposer", ""))) == canon_proposer:
+                derived = rec.get("derived_round")
+                if isinstance(derived, int) and not isinstance(derived, bool):
+                    rounds.add(derived)
+        return rounds
+
     def _abandoned_height_rival(self, height: int, block_hash: str) -> str | None:
         """An abandoned hash at ``height`` when the request round is underivable.
 
@@ -163,6 +294,7 @@ class _EvidenceMixin(_V9Mixin):
         cross-round — fail closed on any different hash. Re-signing the
         abandoned hash itself stays allowed.
         """
+        self._ensure_abandoned_loaded()
         hashes = self._abandoned_heights.get(height)
         if hashes and block_hash not in hashes:
             return next(iter(sorted(hashes)))
@@ -207,6 +339,7 @@ class _EvidenceMixin(_V9Mixin):
         rival forms a ROUND_BOUND_SAME_ROUND pair, which is slashable and carries no justification.
         Re-signing the abandoned hash itself is not equivocation and stays allowed.
         """
+        self._ensure_abandoned_loaded()
         hashes = self._abandoned_rounds.get((height, round_))
         if hashes and block_hash not in hashes:
             return next(iter(sorted(hashes)))
