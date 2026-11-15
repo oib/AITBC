@@ -7,6 +7,7 @@ import asyncio
 import hmac
 import json
 import os
+from datetime import UTC, datetime, timedelta
 import sqlite3
 from aitbc.constants import BLOCKCHAIN_RPC_URL as _DEFAULT_RPC_URL
 from aitbc.constants import DATA_DIR
@@ -571,6 +572,81 @@ async def _job_party_signature_gate(
         return JSONResponse(status_code=403, content={"error": error or f"invalid {action} signature"})
     if canonical_address(signer) not in _job_party_addresses(job):
         return JSONResponse(status_code=403, content={"error": "signer is not a party to this job"})
+    return None
+
+
+def _buyer_acceptance_window() -> timedelta:
+    """How long the buyer has to dispute after the provider's pin attestation (#1976)."""
+    raw = os.getenv("MARKET_BUYER_ACCEPTANCE_SECONDS", "86400")
+    try:
+        seconds = int(raw)
+    except ValueError:
+        seconds = 86400
+    return timedelta(seconds=max(seconds, 0))
+
+
+def _parse_naive_utc(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        return None
+    return parsed.astimezone(UTC).replace(tzinfo=None) if parsed.tzinfo else parsed
+
+
+async def _provider_release_window_gate(
+    svc: MarketService,
+    job_id: str,
+    release_data: dict[str, Any],
+    request: Request,
+) -> JSONResponse | None:
+    """#1976: the provider alone may not release its own escrow right after pin-confirm.
+
+    The pin attestation is the provider's own signature (#1922 design limit),
+    so provider-attested delivery plus a provider-signed release paid out with
+    no buyer input. A release signed ONLY by the provider is therefore held
+    until the buyer-acceptance window since ``provider_confirmed_at`` has
+    elapsed (the buyer can dispute inside it, which freezes settlement). The
+    buyer's own signature or the operator credential release immediately.
+    Runs after ``_job_party_signature_gate``, so a presented signature is
+    already verified to recover to a job party.
+    """
+    if _is_operator(request) or not release_data.get("signature"):
+        return None
+    job = await svc.get_market_job(job_id)
+    if not job:
+        return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
+    _, signer = verify_jobs_request_signature(
+        signer_address=release_data.get("signer_address"),
+        chain_id=release_data.get("chain_id"),
+        issued_at=release_data.get("issued_at"),
+        route=f"/v1/market/jobs/{job_id}/release",
+        signature=release_data.get("signature"),
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+    )
+    if not signer:
+        return None
+    signer_addr = canonical_address(signer)
+    buyer_raw = str(job.get("buyer_address") or "")
+    try:
+        if buyer_raw and canonical_address(buyer_raw) == signer_addr:
+            return None
+    except (TypeError, ValueError):
+        pass
+    payload = job.get("payload") or {}
+    started = _parse_naive_utc(payload.get("provider_confirmed_at")) or _parse_naive_utc(job.get("updated_at"))
+    if started is None:
+        return JSONResponse(status_code=403, content={"error": "provider release has no acceptance-window start"})
+    opens_at = started + _buyer_acceptance_window()
+    if datetime.now(UTC).replace(tzinfo=None) < opens_at:
+        return JSONResponse(
+            status_code=403,
+            content={
+                "error": "provider cannot release before the buyer-acceptance window ends; the buyer may release or dispute",
+                "release_opens_at": opens_at.isoformat(),
+            },
+        )
     return None
 
 
@@ -1623,6 +1699,9 @@ async def release_market_job_payment(
         gate = await _job_party_signature_gate(
             svc, job_id, release_data, f"/v1/market/jobs/{job_id}/release", request, action="release"
         )
+        if gate is not None:
+            return gate
+        gate = await _provider_release_window_gate(svc, job_id, release_data, request)
         if gate is not None:
             return gate
         result = await svc.release_market_job_payment(job_id, release_data=release_data)
