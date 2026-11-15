@@ -156,11 +156,13 @@ async def revoke_subscription(node_id: str) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-async def get_subscribers(chain_id: str | None = None) -> dict[str, Any]:
+async def get_subscribers(chain_id: str | None = None, node_id: str | None = None) -> dict[str, Any]:
     """Get all subscribers with valid leases.
 
     Query params:
         chain_id: str (optional) - Filter by chain ID
+        node_id: str (optional) - Restrict to one node's leases (#1966/#1981:
+            issued join keys are scoped to their own node_id by the router)
 
     Returns:
         subscribers: list - List of subscriber info
@@ -168,6 +170,8 @@ async def get_subscribers(chain_id: str | None = None) -> dict[str, Any]:
     """
     try:
         subscribers = await lease_tracker.get_valid_subscribers(chain_id)
+        if node_id is not None:
+            subscribers = [s for s in subscribers if s.node_id == node_id]
         return {
             "subscribers": [
                 {
