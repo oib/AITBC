@@ -499,8 +499,10 @@ class _FakeBlockBroker:
 
 def _accept_fleet_peer_key(monkeypatch: pytest.MonkeyPatch) -> None:
     """#1702: /subscribe/ws now requires a peer key — accept the test key as a
-    fleet (unbound) key so the lease/broker paths under test still run."""
+    fleet (unbound) key so the lease/broker paths under test still run.
+    #1994: the binding check classifies via rpc_fleet_key_accepted first."""
     monkeypatch.setattr(websocket_module, "rpc_peer_key_accepted", lambda key: key == "test-peer-key")
+    monkeypatch.setattr(websocket_module, "rpc_fleet_key_accepted", lambda key: key == "test-peer-key")
     monkeypatch.setattr(websocket_module.peer_keys, "is_issued_key", lambda key: False)
 
 
