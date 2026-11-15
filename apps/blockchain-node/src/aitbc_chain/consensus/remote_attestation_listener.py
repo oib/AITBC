@@ -22,9 +22,11 @@ from . import abandon, evidence_replication, unavail
 from .vote_journal import vote_journal_enabled
 from .remote_attestation_crypto import (
     _attestation_domain_active,
+    _attestation_message,
     _attestation_signature_domain,
     _same_address,
     _sign_attestation,
+    _verify_attestation,
     attestation_lock_window_seconds,
 )
 from . import remote_attestation as _ra
@@ -205,31 +207,70 @@ class _ListenerMixin(_RaBaseMixin):
             async for response in sub:
                 if self._stop_event.is_set():
                     break
-                if not isinstance(response, dict):
+                parsed = self._parse_index_response(response, vset)
+                if parsed is None:
                     continue
-                if response.get("chain_id") != self._chain_id:
-                    continue
-                try:
-                    height = int(response.get("height", 0))
-                except (TypeError, ValueError):
-                    continue
-                block_hash = str(response.get("hash", ""))
-                validator = str(response.get("validator", ""))
-                if not block_hash or not validator:
-                    continue
-                try:
-                    canon = canonical_address(validator)
-                except (AttributeError, TypeError, ValueError):
-                    continue
-                # Only count in-set validators — the topic is validator-
-                # restricted at the transport, but the index must not trust
-                # an unchecked claim either.
-                if vset and canon not in vset:
-                    continue
+                height, block_hash, validator, canon = parsed
                 index = await unavail.get_observation_index(self._chain_id)
-                index.note_response(height, block_hash, canon, ignore=self._own_addresses())
+                if not self._index_response_authentic(index, response, height, block_hash, validator):
+                    continue
+                index.note_response(height, block_hash, canon, ignore=self._own_addresses(), tip_hint=self._tip_height_hint)
         finally:
             sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
+
+    def _parse_index_response(self, response: Any, vset: set[str]) -> tuple[int, str, str, str] | None:
+        """Shape/chain/vset filter for the index feed: ``(height, hash, validator, canon)``
+        or None. Membership is checked here, authenticity in
+        ``_index_response_authentic`` — a claimed in-set address proves nothing."""
+        if not isinstance(response, dict) or response.get("chain_id") != self._chain_id:
+            return None
+        try:
+            height = int(response.get("height", 0))
+        except (TypeError, ValueError):
+            return None
+        block_hash = str(response.get("hash", ""))
+        validator = str(response.get("validator", ""))
+        if not block_hash or not validator:
+            return None
+        try:
+            canon = canonical_address(validator)
+        except (AttributeError, TypeError, ValueError):
+            return None
+        if vset and canon not in vset:
+            return None
+        return height, block_hash, validator, canon
+
+    def _index_response_authentic(
+        self, index: Any, response: dict[str, Any], height: int, block_hash: str, validator: str
+    ) -> bool:
+        """#1964: an ``attest_response`` feeds the observation index only when
+        its signature verifies, for ``validator``, against the attestation
+        payload of the *verified request* the index holds for this key.
+
+        A response with no matching verified request, no signature, a bad
+        signature, or a round that contradicts the request's is dropped and
+        counted — transport auth proves some validator published, not which
+        one, so the claimed ``validator`` is never trusted on its own.
+        """
+        message = index.attestation_message(height, block_hash)
+        if message is None:
+            metrics_registry.increment("unavail_obs_response_unverified_total")
+            return False
+        signature = response.get("signature")
+        if not isinstance(signature, str) or not signature:
+            metrics_registry.increment("unavail_obs_response_unverified_total")
+            return False
+        declared = response.get("round")
+        if declared is not None and "round" in message and declared != message["round"]:
+            metrics_registry.increment("unavail_obs_response_unverified_total")
+            return False
+        try:
+            ok = _verify_attestation(message, signature, validator, height)
+        except Exception:  # noqa: BLE001 - a malformed signature is a rejection, never a crash of the observer
+            ok = False
+        if not ok:
+            metrics_registry.increment("unavail_obs_response_unverified_total")
+        return bool(ok)
 
     def _possesses_block(self, height: int, block_hash: str) -> bool | None:
         """True when our DB serves ``block_hash`` at ``height``; None when
@@ -621,7 +662,14 @@ class _ListenerMixin(_RaBaseMixin):
         # requests for the voted hash and hold the unlock shut forever.)
         if unavail.justification_enabled():
             index = await unavail.get_observation_index(self._chain_id)
-            index.note_request(height_int, header_hash, proposer, ignore=self._own_addresses())
+            index.note_request(
+                height_int,
+                header_hash,
+                proposer,
+                ignore=self._own_addresses(),
+                att_message=_attestation_message(header, self._chain_id, request_round),
+                tip_hint=self._tip_height_hint,
+            )
         request_cert = request.get("unlock_justification")
 
         for address, private_key in self._validator_keys.items():

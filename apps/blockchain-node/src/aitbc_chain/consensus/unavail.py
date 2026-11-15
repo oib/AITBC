@@ -94,6 +94,20 @@ def evidence_seconds() -> float:
     return _float("unavail_evidence_seconds", 90.0)
 
 
+# #1964: height plausibility window for the observation index, relative to the
+# node's local tip hint. The justification only ever concerns the next
+# height(s), so evidence far outside [tip - BEHIND, tip + AHEAD] is noise (or a
+# flood vector) and is not recorded. Unknown tip (None) records, as before.
+OBS_HEIGHT_BEHIND = 8
+OBS_HEIGHT_AHEAD = 64
+
+
+def obs_height_plausible(height: int, tip_hint: int | None) -> bool:
+    if tip_hint is None:
+        return True
+    return tip_hint - OBS_HEIGHT_BEHIND <= int(height) <= tip_hint + OBS_HEIGHT_AHEAD
+
+
 def visibility_seconds() -> float:
     """Mesh-liveness window — deliberately much longer than T_evidence.
 
@@ -478,45 +492,123 @@ class GossipObservationIndex:
     def _mono() -> float:
         return time.monotonic()
 
-    def _entry(self, height: int, block_hash: str) -> dict[str, Any]:
+    @staticmethod
+    def _entry_last(ent: dict[str, Any]) -> float:
+        stamps = list(ent["req_actors"].values()) + list(ent["attestations"].values())
+        return max(stamps) if stamps else 0.0
+
+    def _evict_for(self, height: int) -> bool:
+        """Make room for one new key at ``height``; False when nothing may go.
+
+        #1964: never ``.clear()`` — a flood must not wipe unrelated quiet-window
+        evidence. Victim order: (1) the entry whose last activity is oldest AND
+        already outside ``evidence_seconds()`` (it can no longer block a quiet
+        verdict); (2) the lowest-height entry strictly below the newcomer's
+        height (older heights matter least); otherwise the newcomer is refused
+        and the table keeps every in-window entry.
+        """
+        now = self._mono()
+        win = evidence_seconds()
+        stale = [(self._entry_last(e), k) for k, e in self._entries.items() if now - self._entry_last(e) >= win]
+        if stale:
+            del self._entries[min(stale)[1]]
+            return True
+        lower = [k for k in self._entries if k[0] < int(height)]
+        if lower:
+            del self._entries[min(lower)]
+            return True
+        return False
+
+    def _entry(self, height: int, block_hash: str) -> dict[str, Any] | None:
         key = (int(height), block_hash)
         ent = self._entries.get(key)
         if ent is None:
-            if len(self._entries) >= self._max_entries:
-                self._entries.clear()
+            if len(self._entries) >= self._max_entries and not self._evict_for(height):
+                metrics_registry.increment("unavail_obs_entry_refused_total")
+                return None
             ent = {
                 "requests": 0,
                 "req_actors": {},  # actor -> last_request_mono
                 "attestations": {},  # signer -> last_attest_mono
+                # The signed attestation payload of the verified request that
+                # created this entry (#1964): responses are authenticated
+                # against it, so they can never create an entry themselves.
+                "att_message": None,
             }
             self._entries[key] = ent
         return ent
 
-    def note_request(self, height: int, block_hash: str, actor: str, *, ignore: set[str] | None = None) -> None:
-        """An ``attest_request`` for ``block_hash`` was observed."""
+    def attestation_message(self, height: int, block_hash: str) -> dict[str, Any] | None:
+        """The verified request's attestation payload for ``(height, hash)``, if seen."""
+        ent = self._entries.get((int(height), block_hash))
+        msg = ent.get("att_message") if ent else None
+        return msg if isinstance(msg, dict) else None
+
+    def note_request(
+        self,
+        height: int,
+        block_hash: str,
+        actor: str,
+        *,
+        ignore: set[str] | None = None,
+        att_message: dict[str, Any] | None = None,
+        tip_hint: int | None = None,
+    ) -> None:
+        """An ``attest_request`` for ``block_hash`` was observed.
+
+        Caller contract: the request already passed every authenticity check.
+        ``att_message`` is its signed attestation payload; the first one for a
+        key is kept so ``note_response`` feeds can be signature-checked (#1964).
+        """
         try:
             canon = canonical_address(actor) if actor else ""
         except (AttributeError, TypeError, ValueError):
             canon = ""
         if canon and ignore and canon in ignore:
             return
+        if not obs_height_plausible(height, tip_hint):
+            metrics_registry.increment("unavail_obs_height_rejected_total")
+            return
         now = self._mono()
         ent = self._entry(height, block_hash)
+        if ent is None:
+            return
         ent["requests"] += 1
+        if att_message is not None and ent.get("att_message") is None:
+            ent["att_message"] = att_message
         if canon:
             ent["req_actors"][canon] = now
         self._note_actor(height, canon or actor, now)
 
-    def note_response(self, height: int, block_hash: str, validator: str, *, ignore: set[str] | None = None) -> None:
-        """An ``attest_response`` for ``block_hash`` was observed."""
+    def note_response(
+        self,
+        height: int,
+        block_hash: str,
+        validator: str,
+        *,
+        ignore: set[str] | None = None,
+        tip_hint: int | None = None,
+    ) -> None:
+        """An ``attest_response`` for ``block_hash`` was observed.
+
+        Caller contract (#1964): the response signature was verified against
+        ``attestation_message`` — the production feed does this and only calls
+        here for keys a verified request created, so responses cannot grow
+        the table; this method records, it does not authenticate.
+        """
         try:
             canon = canonical_address(validator)
         except (AttributeError, TypeError, ValueError):
             return
         if ignore and canon in ignore:
             return
+        if not obs_height_plausible(height, tip_hint):
+            metrics_registry.increment("unavail_obs_height_rejected_total")
+            return
         now = self._mono()
         ent = self._entry(height, block_hash)
+        if ent is None:
+            return
         ent["attestations"][canon] = now
         self._note_actor(height, canon, now)
 
