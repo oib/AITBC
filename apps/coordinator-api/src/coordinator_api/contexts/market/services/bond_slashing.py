@@ -131,6 +131,23 @@ def _miner_wallet(miner: Miner) -> str | None:
     return miner_wallet_address(miner)
 
 
+def _bond_payout_wallet(bond: ProviderBond, miner: Miner | None) -> str:
+    """Wallet a slash binds/pays out under.
+
+    The creation-verified wallet recorded on the bond (``meta.chain_provider``,
+    written at bond create/top-up since #1915) is authoritative — the miner's
+    live ``capabilities["wallet_address"]`` is mutable via
+    ``PUT /miners/{id}/capabilities`` and may have changed since the proof, so
+    it is only the fallback for bonds predating meta recording (#1995).
+    """
+    proven = (bond.meta or {}).get("chain_provider")
+    if isinstance(proven, str) and proven:
+        return proven
+    if miner is None:
+        return ""
+    return _miner_wallet(miner) or ""
+
+
 class BondSlashingService:
     """Submit BOND_SLASH transactions when a provider violates its bond terms."""
 
@@ -183,9 +200,9 @@ class BondSlashingService:
         miner = self.session.get(Miner, job.assigned_miner_id)
         if not miner:
             return None
-        wallet = _miner_wallet(miner)
-        if not wallet:
-            return None
+        # No wallet gate here: the payout wallet resolves from the bond's
+        # proven meta at slash time (#1995), so a capabilities-wallet change
+        # or removal must not hide an existing bond from this lookup.
 
         base_stmt = select(ProviderBond).where(
             ProviderBond.bond_id != "",
@@ -314,7 +331,7 @@ class BondSlashingService:
             return {"slashed": False, "reason": "computed slash amount is zero"}
 
         miner = await run_in_threadpool(self.session.get, Miner, job.assigned_miner_id)
-        provider = _miner_wallet(miner) if miner else ""
+        provider = _bond_payout_wallet(bond, miner)
         if not provider:
             return {"slashed": False, "reason": "miner has no wallet"}
 
