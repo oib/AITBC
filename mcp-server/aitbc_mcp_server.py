@@ -71,6 +71,49 @@ _HOSTS_CONFIG_PATHS = [
 ]
 
 
+def _parse_hosts_file(path: Path) -> dict[str, Any] | None:
+    """Load one MCP hosts config file, or None if missing/unreadable."""
+    if not path or not path.name or not path.is_file():
+        return None
+    try:
+        with path.open("r", encoding="utf-8") as f:
+            if path.suffix in (".yaml", ".yml"):
+                try:
+                    import yaml
+                except ImportError:
+                    return None
+                data = yaml.safe_load(f)
+            else:
+                data = json.load(f)
+        return data if data else None
+    except Exception as e:
+        sys.stderr.write(f"warning: could not load MCP hosts config from {path}: {e}\n")
+        return None
+
+
+def _hosts_config_from_env_or_paths() -> dict[str, Any]:
+    """Resolve MCP host config from ``AITBC_MCP_HOSTS`` or filesystem paths."""
+    env_hosts = os.getenv("AITBC_MCP_HOSTS", "").strip()
+    if env_hosts:
+        try:
+            loaded = json.loads(env_hosts)
+        except json.JSONDecodeError as e:
+            raise ValueError(f"AITBC_MCP_HOSTS is not valid JSON: {e}") from e
+        return loaded if isinstance(loaded, dict) else {}
+    for path in _HOSTS_CONFIG_PATHS:
+        data = _parse_hosts_file(path)
+        if data:
+            return data
+    return {}
+
+
+def _finalize_hosts_config(config: dict[str, Any]) -> dict[str, Any]:
+    config.setdefault("roles", {})
+    config.setdefault("default_host", os.getenv("AITBC_MCP_DEFAULT_HOST", ""))
+    config.setdefault("ssh_user", os.getenv("AITBC_MCP_SSH_USER", ""))
+    return config
+
+
 def _load_hosts_config() -> dict[str, Any]:
     """Load role/host mapping from an external config file or env var.
 
@@ -98,41 +141,8 @@ def _load_hosts_config() -> dict[str, Any]:
     if _HOSTS_CONFIG is not None:
         return _HOSTS_CONFIG
 
-    config: dict[str, Any] = {}
-    env_hosts = os.getenv("AITBC_MCP_HOSTS", "").strip()
-    if env_hosts:
-        try:
-            config = json.loads(env_hosts)
-        except json.JSONDecodeError as e:
-            raise ValueError(f"AITBC_MCP_HOSTS is not valid JSON: {e}") from e
-    else:
-        for path in _HOSTS_CONFIG_PATHS:
-            if not path or not path.name:
-                continue
-            try:
-                if not path.is_file():
-                    continue
-                with path.open("r", encoding="utf-8") as f:
-                    if path.suffix in (".yaml", ".yml"):
-                        try:
-                            import yaml
-                        except ImportError:
-                            continue
-                        data = yaml.safe_load(f)
-                    else:
-                        data = json.load(f)
-                if data:
-                    config = data
-                    break
-            except Exception as e:
-                sys.stderr.write(f"warning: could not load MCP hosts config from {path}: {e}\n")
-
-    config.setdefault("roles", {})
-    config.setdefault("default_host", os.getenv("AITBC_MCP_DEFAULT_HOST", ""))
-    config.setdefault("ssh_user", os.getenv("AITBC_MCP_SSH_USER", ""))
-
-    _HOSTS_CONFIG = config
-    return config
+    _HOSTS_CONFIG = _finalize_hosts_config(_hosts_config_from_env_or_paths())
+    return _HOSTS_CONFIG
 
 
 def _role_hosts() -> dict[str, str]:
@@ -955,6 +965,23 @@ def _safe_option_key(key: str) -> bool:
     return bool(re.match(r"^[A-Za-z0-9_-]+$", key))
 
 
+def _append_cli_option_tokens(tokens: list[str], options: dict[str, Any]) -> None:
+    """Append ``--key`` / ``--key=value`` tokens for a Click option mapping."""
+    for key, value in options.items():
+        if not _safe_option_key(key):
+            raise ValueError(f"invalid option key: {key}")
+        if isinstance(value, list):
+            for v in value:
+                if v is None or v == "":
+                    tokens.append(f"--{key}")
+                else:
+                    tokens.append(f"--{key}={shlex.quote(str(v))}")
+        elif value is None or value == "":
+            tokens.append(f"--{key}")
+        else:
+            tokens.append(f"--{key}={shlex.quote(str(value))}")
+
+
 def _collect_options(
     scope: dict[str, Any],
     flags: dict[str, str],
@@ -1021,19 +1048,7 @@ def _build_aitbc_cli_command(
     tokens.append(shlex.quote(group))
 
     # Group-level options must appear before any subcommand.
-    for key, value in (group_options or {}).items():
-        if not _safe_option_key(key):
-            raise ValueError(f"invalid option key: {key}")
-        if isinstance(value, list):
-            for v in value:
-                if v is None or v == "":
-                    tokens.append(f"--{key}")
-                else:
-                    tokens.append(f"--{key}={shlex.quote(str(v))}")
-        elif value is None or value == "":
-            tokens.append(f"--{key}")
-        else:
-            tokens.append(f"--{key}={shlex.quote(str(value))}")
+    _append_cli_option_tokens(tokens, group_options or {})
 
     for token in _subcommand_tokens(subcommand):
         tokens.append(shlex.quote(str(token)))
@@ -1042,19 +1057,7 @@ def _build_aitbc_cli_command(
         tokens.append(shlex.quote(str(arg)))
 
     # Subcommand-level options appear after positional arguments.
-    for key, value in (subcommand_options or options or {}).items():
-        if not _safe_option_key(key):
-            raise ValueError(f"invalid option key: {key}")
-        if isinstance(value, list):
-            for v in value:
-                if v is None or v == "":
-                    tokens.append(f"--{key}")
-                else:
-                    tokens.append(f"--{key}={shlex.quote(str(v))}")
-        elif value is None or value == "":
-            tokens.append(f"--{key}")
-        else:
-            tokens.append(f"--{key}={shlex.quote(str(value))}")
+    _append_cli_option_tokens(tokens, subcommand_options or options or {})
 
     command = _build_env_prefix(env) + " ".join(tokens)
     if cwd:

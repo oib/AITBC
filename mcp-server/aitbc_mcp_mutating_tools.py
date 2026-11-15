@@ -25,6 +25,93 @@ from aitbc_mcp_server import (
 # ---------------------------------------------------------------------------
 
 
+def _merge_cli_string_options(options: dict[str, str | None], fields: dict[str, str | None]) -> None:
+    for cli_key, value in fields.items():
+        if value is not None:
+            options[cli_key] = value
+
+
+def _merge_cli_numeric_options(options: dict[str, str | None], fields: dict[str, float | int | Decimal | None]) -> None:
+    for cli_key, value in fields.items():
+        if value is not None:
+            options[cli_key] = str(value)
+
+
+def _merge_cli_flag_options(options: dict[str, str | None], flags: dict[str, bool]) -> None:
+    for cli_key, enabled in flags.items():
+        if enabled:
+            options[cli_key] = None
+
+
+def _submit_ai_job_cli_options(
+    *,
+    prompt: str,
+    currency: str,
+    wallet: str | None,
+    job_type: str | None,
+    model: str | None,
+    payment: str | None,
+    offer_id: str | None,
+    min_reputation: float | None,
+    buyer_address: str | None,
+    provider_address: str | None,
+    buyer_agent_id: str | None,
+    provider_agent_id: str | None,
+    offer_quantity: str | None,
+    acceptance_window: int | None,
+    zk_proof_required: bool,
+    tee_attestation_required: bool,
+    tee_enclave_id: str | None,
+    confidential: bool,
+    enclave_measurement: str | None,
+    auto_reinvest_pct: float | None,
+    bond_required: bool,
+    min_bond_amount: Decimal | None,
+    wait: bool,
+    timeout: int | None,
+) -> dict[str, str | None]:
+    """Map ``submit_ai_job`` parameters to ``aitbc ai submit`` CLI options."""
+    options: dict[str, str | None] = {"prompt": prompt, "currency": currency}
+    _merge_cli_string_options(
+        options,
+        {
+            "wallet": wallet,
+            "type": job_type,
+            "model": model,
+            "payment": payment,
+            "offer-id": offer_id,
+            "buyer-address": buyer_address,
+            "provider-address": provider_address,
+            "buyer-agent-id": buyer_agent_id,
+            "provider-agent-id": provider_agent_id,
+            "offer-quantity": offer_quantity,
+            "tee-enclave-id": tee_enclave_id,
+            "enclave-measurement": enclave_measurement,
+        },
+    )
+    _merge_cli_numeric_options(
+        options,
+        {
+            "min-reputation": min_reputation,
+            "acceptance-window": acceptance_window,
+            "auto-reinvest-pct": auto_reinvest_pct,
+            "min-bond-amount": min_bond_amount,
+            "timeout": timeout,
+        },
+    )
+    _merge_cli_flag_options(
+        options,
+        {
+            "zk-proof-required": zk_proof_required,
+            "tee-attestation-required": tee_attestation_required,
+            "confidential": confidential,
+            "bond-required": bond_required,
+            "wait": wait,
+        },
+    )
+    return options
+
+
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def submit_ai_job(
     prompt: Annotated[
@@ -149,51 +236,32 @@ def submit_ai_job(
     ] = None,
 ) -> str:
     """Submit an AI job via the aitbc CLI."""
-    options: dict[str, str | None] = {"prompt": prompt, "currency": currency}
-    if wallet is not None:
-        options["wallet"] = wallet
-    if job_type is not None:
-        options["type"] = job_type
-    if model is not None:
-        options["model"] = model
-    if payment is not None:
-        options["payment"] = payment
-    if offer_id is not None:
-        options["offer-id"] = offer_id
-    if min_reputation is not None:
-        options["min-reputation"] = str(min_reputation)
-    if buyer_address is not None:
-        options["buyer-address"] = buyer_address
-    if provider_address is not None:
-        options["provider-address"] = provider_address
-    if buyer_agent_id is not None:
-        options["buyer-agent-id"] = buyer_agent_id
-    if provider_agent_id is not None:
-        options["provider-agent-id"] = provider_agent_id
-    if offer_quantity is not None:
-        options["offer-quantity"] = offer_quantity
-    if acceptance_window is not None:
-        options["acceptance-window"] = str(acceptance_window)
-    if zk_proof_required:
-        options["zk-proof-required"] = None
-    if tee_attestation_required:
-        options["tee-attestation-required"] = None
-    if tee_enclave_id is not None:
-        options["tee-enclave-id"] = tee_enclave_id
-    if confidential:
-        options["confidential"] = None
-    if enclave_measurement is not None:
-        options["enclave-measurement"] = enclave_measurement
-    if auto_reinvest_pct is not None:
-        options["auto-reinvest-pct"] = str(auto_reinvest_pct)
-    if bond_required:
-        options["bond-required"] = None
-    if min_bond_amount is not None:
-        options["min-bond-amount"] = str(min_bond_amount)
-    if wait:
-        options["wait"] = None
-    if timeout is not None:
-        options["timeout"] = str(timeout)
+    options = _submit_ai_job_cli_options(
+        prompt=prompt,
+        currency=currency,
+        wallet=wallet,
+        job_type=job_type,
+        model=model,
+        payment=payment,
+        offer_id=offer_id,
+        min_reputation=min_reputation,
+        buyer_address=buyer_address,
+        provider_address=provider_address,
+        buyer_agent_id=buyer_agent_id,
+        provider_agent_id=provider_agent_id,
+        offer_quantity=offer_quantity,
+        acceptance_window=acceptance_window,
+        zk_proof_required=zk_proof_required,
+        tee_attestation_required=tee_attestation_required,
+        tee_enclave_id=tee_enclave_id,
+        confidential=confidential,
+        enclave_measurement=enclave_measurement,
+        auto_reinvest_pct=auto_reinvest_pct,
+        bond_required=bond_required,
+        min_bond_amount=min_bond_amount,
+        wait=wait,
+        timeout=timeout,
+    )
 
     target = _host_for_role(role, host)
     command = _build_aitbc_cli_command("ai", "submit", None, options, "json")
