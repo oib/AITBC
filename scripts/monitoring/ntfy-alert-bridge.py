@@ -74,7 +74,11 @@ def main() -> int:
     backoff = 5
     while True:
         try:
-            url = f"{_base()}/{TOPIC}/json?poll=1"
+            # Bound the cache replay: ntfy counts each replayed message
+            # against the visitor request bucket, so an unbounded poll=1
+            # replay of the 24h cache (~9k alerts) drains it for hours.
+            since = os.environ.get("NTFY_SINCE", "15m")
+            url = f"{_base()}/{TOPIC}/json?poll=1&since={since}"
             headers = {"Accept": "application/x-ndjson"}
             token = _token()
             if token:
