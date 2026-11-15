@@ -52,7 +52,7 @@ from ..metrics import (
     metrics_registry,
 )
 from . import peer_keys
-from .escrow_routes import rpc_peer_key_accepted
+from .escrow_routes import rpc_fleet_key_accepted, rpc_peer_key_accepted
 
 router = APIRouter(prefix="", tags=["ws"])
 logger = get_logger(__name__)
@@ -913,10 +913,16 @@ async def subscription_websocket(websocket: WebSocket) -> None:
             await _gossip_ws_send_json(websocket, {"error": "Valid peer key required (api_key)"})
             await _gossip_ws_close(websocket, code=1008)
             return
-        if peer_keys.is_issued_key(api_key) and peer_keys.peer_key_node_scope(api_key) != node_id:
-            await _gossip_ws_send_json(websocket, {"error": "Peer key is bound to a different node_id"})
-            await _gossip_ws_close(websocket, code=1008)
-            return
+        # Same classification as the REST lease routes (#1994): fleet keys
+        # are unbound; any other authenticated key must resolve to an active
+        # issued scope — a revoked-or-unresolvable scope fails closed rather
+        # than silently skipping the node_id binding.
+        if not rpc_fleet_key_accepted(api_key):
+            scope = peer_keys.peer_key_node_scope(api_key)
+            if scope is None or scope != node_id:
+                await _gossip_ws_send_json(websocket, {"error": "Peer key is bound to a different node_id"})
+                await _gossip_ws_close(websocket, code=1008)
+                return
         try:
             expiry = await lease_tracker.get_lease_expiry(node_id, chain_id)
 

@@ -2845,7 +2845,7 @@
             }
           },
           "403": {
-            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
+            "description": "Peer key has no active node scope / Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -2907,7 +2907,7 @@
             }
           },
           "403": {
-            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
+            "description": "Peer key has no active node scope / Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -2973,7 +2973,7 @@
             }
           },
           "403": {
-            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
+            "description": "Peer key has no active node scope / Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -3032,7 +3032,7 @@
             }
           },
           "403": {
-            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
+            "description": "Peer key has no active node scope / Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -15128,7 +15128,7 @@
             }
           },
           "403": {
-            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
+            "description": "Peer key has no active node scope / Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -15190,7 +15190,7 @@
             }
           },
           "403": {
-            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
+            "description": "Peer key has no active node scope / Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -15256,7 +15256,7 @@
             }
           },
           "403": {
-            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
+            "description": "Peer key has no active node scope / Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -15315,7 +15315,7 @@
             }
           },
           "403": {
-            "description": "Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
+            "description": "Peer key has no active node scope / Issued peer key is bound to a different node_id / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
