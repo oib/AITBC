@@ -695,7 +695,10 @@ def stake(
         governance_url = getattr(config, "governance_service_url", "http://localhost:8105")
 
         # Submit staking request
-        http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
+        from .governance import _get_client as _governance_client
+
+        # Mutating governance routes need the service key since #1873 (#1969).
+        http_client = _governance_client(ctx, url=governance_url)
         import time
 
         from .governance import _sign_body, _wallet_signer
@@ -760,7 +763,10 @@ def delegate(
         governance_url = getattr(config, "governance_service_url", "http://localhost:8105")
 
         # Submit delegation request
-        http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
+        from .governance import _get_client as _governance_client
+
+        # Mutating governance routes need the service key since #1873 (#1969).
+        http_client = _governance_client(ctx, url=governance_url)
         import time
 
         from .governance import _sign_body, _wallet_signer
@@ -843,7 +849,10 @@ def voting_power(ctx, address: str, format: str):
         governance_url = getattr(config, "governance_service_url", "http://localhost:8105")
 
         # Query voting power
-        http_client = AITBCHTTPClient(base_url=governance_url, timeout=30)
+        from .governance import _get_client as _governance_client
+
+        # Mutating governance routes need the service key since #1873 (#1969).
+        http_client = _governance_client(ctx, url=governance_url)
         result = http_client.get(f"/v1/governance/voting-power/{address}")
 
         output(result, resolve_output_format(ctx, format))
