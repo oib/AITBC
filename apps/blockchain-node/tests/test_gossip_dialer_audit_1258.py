@@ -21,12 +21,23 @@ from aitbc_chain.app import create_app
 from aitbc_chain.config import settings
 from aitbc_chain.consensus.proposal_freshness import peer_base_url
 from aitbc_chain.gossip.backends.websocket import WebsocketGossipBackend
+from aitbc_chain.rpc import escrow_routes
 from aitbc_chain.rpc import transactions as txmod
 from aitbc_chain.rpc import websocket as websocket_module
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 DEFAULT = "bc-default"
+_RPC_KEY = "gossip-dialer-audit-key"
+
+
+@pytest.fixture(autouse=True)
+def _rpc_peer_key(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(escrow_routes, "_RPC_API_KEY", _RPC_KEY)
+
+
+def _rpc_headers() -> dict[str, str]:
+    return {"X-API-Key": _RPC_KEY}
 
 
 @pytest.fixture(autouse=True)
@@ -140,7 +151,7 @@ def test_multi_chain_server_accepts_bound_dial_and_refuses_unbound() -> None:
 
 def test_network_info_lists_a_dialable_url_per_connectable_chain() -> None:
     with TestClient(create_app()) as client:
-        info = client.get("/rpc/network-info").json()
+        info = client.get("/rpc/network-info", headers=_rpc_headers()).json()
         urls = info["gossip_websocket_urls"]
         assert set(urls) == {DEFAULT, "chain-a", "chain-b"}
         # The pre-existing field is unchanged (no ?chain=), for old consumers.
@@ -158,7 +169,7 @@ def test_network_info_single_chain_host(monkeypatch: pytest.MonkeyPatch) -> None
     monkeypatch.setattr(settings, "supported_chains", DEFAULT)
     monkeypatch.setattr(settings, "gossip_backends", "")
     with TestClient(create_app()) as client:
-        info = client.get("/rpc/network-info").json()
+        info = client.get("/rpc/network-info", headers=_rpc_headers()).json()
     assert list(info["gossip_websocket_urls"]) == [DEFAULT]
     assert info["gossip_websocket_url"].endswith("/rpc/gossip/ws")
 
@@ -168,7 +179,7 @@ def test_network_info_omits_declared_but_unbacked_chains(monkeypatch: pytest.Mon
     the server would refuse it."""
     monkeypatch.setattr(settings, "gossip_backends", "chain-a:memory")
     with TestClient(create_app()) as client:
-        info = client.get("/rpc/network-info").json()
+        info = client.get("/rpc/network-info", headers=_rpc_headers()).json()
     assert set(info["gossip_websocket_urls"]) == {DEFAULT, "chain-a"}
 
 
