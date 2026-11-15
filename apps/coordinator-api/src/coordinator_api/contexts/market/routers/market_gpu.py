@@ -12,7 +12,6 @@ import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
 from pydantic import BaseModel, Field, field_validator, model_validator
-from sqlalchemy import and_, or_
 from sqlalchemy.exc import OperationalError, SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session, col, func, select, update
@@ -312,17 +311,18 @@ BOOKING_HOLD_TTL = timedelta(minutes=30)
 # escrow set (escrowed/pending_acceptance/disputed/settlement_failed); released
 # and confirmed are kept from the original tuple as post-settlement states.
 _PAID_PAYMENT_STATUSES = tuple(sorted(REFUNDABLE_STATES | {"released", "confirmed"}))
-# #1930: "pending" payments can still land money — an EVM receipt awaiting
-# verification may confirm after the booking TTL, which would strand paid
-# funds on a freed GPU. But pending is terminal-ambiguous (no reaper moves
-# it), so the shield is age-bounded: a pending payment protects the hold
-# only while it is younger than _PENDING_SHIELD_TTL — far beyond any real
-# receipt-confirmation window, and it caps the squat at that bound.
+# #1930/#1974: "pending" payments are unverified — an EVM receipt that never
+# mined (or no RPC to check it) leaves the row pending forever with no
+# reaper, so shielding on it let a made-up evm_tx_hash squat a GPU for the
+# full shield window at zero cost. Only states where money is committed or
+# has moved protect the hold; pending holds release normally (see
+# _RELEASE_SAFE_PAYMENT_STATUSES) and expire by TTL like unpaid ones.
 # "skipped" is terminal no-money (escrow unavailable) and does not protect.
-_PENDING_SHIELD_TTL = timedelta(hours=24)
-# JobPayment states where no live money remains — a paid GPU booking in one
-# of these may be released without stranding an escrow (#1913).
-_RELEASE_SAFE_PAYMENT_STATUSES = frozenset({"released", "refunded", "failed"})
+# JobPayment states where no live *verified* money remains — pending is
+# included because it is unverified, not committed: a pending EVM receipt
+# that later confirms is an operator-visible payment anomaly, not a reason
+# to hold the GPU hostage (#1974, owner/admin may release pending holds).
+_RELEASE_SAFE_PAYMENT_STATUSES = frozenset({"released", "refunded", "failed", "pending"})
 
 
 def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
@@ -365,13 +365,7 @@ def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
             .where(
                 col(JobPayment.id) == booking.payment_id,
                 col(Job.client_id) == booking.client_id,
-                or_(
-                    col(JobPayment.status).in_(_PAID_PAYMENT_STATUSES),
-                    and_(
-                        col(JobPayment.status) == "pending",
-                        col(JobPayment.created_at) > datetime.now(UTC) - _PENDING_SHIELD_TTL,
-                    ),
-                ),
+                col(JobPayment.status).in_(_PAID_PAYMENT_STATUSES),
             )
             .limit(1)
         ).first()
