@@ -30,7 +30,8 @@ from ..state.bridge_credit import (
     verify_bridge_credit_signature,
     verify_bridge_lock_signature,
 )
-from ..state.pure_state_transition import StateDelta
+from ..cross_chain.bridge_tx_root import tx_only_root_active
+from ..state.pure_state_transition import StateDelta, _determine_tx_type
 from ..state.state_transition import (
     _bridge_release_authority,
     _refund_lock_record,
@@ -42,7 +43,30 @@ from datetime import datetime
 from sqlmodel import Session, select
 
 
+def _refresh_row_semantics(record: Any, tx_data: dict[str, Any], tx_type: str, value: Any, fee: Any, nonce: Any) -> None:
+    """#1940 F5: upgrade an existing Transaction row to the exact accepted body.
+
+    Sender/recipient/value/fee/nonce/type/payload/envelope all come from the
+    delivered signed content — raw ``from``/``to`` (signed fields), never the
+    canonicalised locals — so the sealed row replays identically for the
+    proof builder and any later consumer.
+    """
+    record.sender = tx_data.get("from", "")
+    record.recipient = tx_data.get("to", "")
+    record.value = value
+    record.fee = fee
+    record.nonce = nonce
+    record.type = tx_type
+    payload = tx_data.get("payload")
+    record.payload = dict(payload) if isinstance(payload, dict) else {}
+    record.envelope = dict(tx_data)
+
+
 class _TxPipelineMixin(_PoaBaseMixin):
+    def _tx_root_era(self, session: Session, next_height: int) -> bool:
+        """#1940 F5: whether the tx-derived bridge-root era governs this block."""
+        return tx_only_root_active(session, self._config.chain_id, next_height)
+
     def _process_txs_sequential(
         self,
         session: Session,
@@ -103,6 +127,10 @@ class _TxPipelineMixin(_PoaBaseMixin):
         value = tx_data.get("amount", 0)
         fee = tx_data.get("fee", 0)
         tx_type = (tx_data.get("type") or "TRANSFER").upper()
+        if self._tx_root_era(ctx.session, ctx.next_height) and _determine_tx_type(tx_data) == "BRIDGE_LOCK":
+            # #1940 F5: a payload-typed lock (top-level TRANSFER/absent) must
+            # dispatch exactly like _determine_tx_type resolves it.
+            tx_type = "BRIDGE_LOCK"
         self._logger.info(
             "[PROPOSE] Processing tx %s: from=%s, to=%s, amount=%s, fee=%s",
             tx.tx_hash,
@@ -182,6 +210,19 @@ class _TxPipelineMixin(_PoaBaseMixin):
             return True
         existing_tx_record.block_height = ctx.next_height
         existing_tx_record.timestamp = ctx.timestamp.isoformat()
+        if self._tx_root_era(ctx.session, ctx.next_height) and tx_type == "BRIDGE_LOCK":
+            # #1940 F5 review: safe to reseal the delivered body — at v9+
+            # the bridge_signature binds bound_tx_hash and the semantic
+            # fields; below v9 this is shadow-only, but era activation is a
+            # governance act on a chain where v9 is already live.
+            _refresh_row_semantics(
+                existing_tx_record,
+                tx.content,
+                tx_type,
+                tx.content.get("value", tx.content.get("amount", 0)),
+                tx.content.get("fee", 0),
+                tx.content.get("nonce", 0),
+            )
         ctx.session.add(existing_tx_record)
         if ctx.block_version >= 24:
             # #1314 R2 path (a): no apply/savepoint on this path —
@@ -355,6 +396,9 @@ class _TxPipelineMixin(_PoaBaseMixin):
             tx_type = tx_type.upper()
         else:
             tx_type = "TRANSFER"
+        if self._tx_root_era(ctx.session, ctx.next_height) and _determine_tx_type(tx.content) == "BRIDGE_LOCK":
+            # #1940 F5: payload-typed locks store their real type.
+            tx_type = "BRIDGE_LOCK"
         if tx_type.startswith("GOVERNANCE_"):
             gov_errors = _validate_governance_payload(tx_type, tx.content.get("payload", {}))
             if gov_errors:
@@ -433,7 +477,13 @@ class _TxPipelineMixin(_PoaBaseMixin):
             existing_tx_record.status = "confirmed"
             existing_tx_record.timestamp = ctx.timestamp.isoformat()
             existing_tx_record.nonce = nonce
-            if existing_tx_record.envelope is None:
+            if self._tx_root_era(ctx.session, ctx.next_height) and tx_type == "BRIDGE_LOCK":
+                # #1940 F5 review: safe to reseal the delivered body — at v9+
+                # the bridge_signature binds bound_tx_hash and the semantic
+                # fields; below v9 this is shadow-only, but era activation is
+                # a governance act on a chain where v9 is already live.
+                _refresh_row_semantics(existing_tx_record, tx.content, tx_type, value, fee, nonce)
+            elif existing_tx_record.envelope is None:
                 existing_tx_record.envelope = dict(tx.content)
             ctx.pending_records.append(existing_tx_record)
             if ctx.block_version >= 24:
@@ -701,7 +751,23 @@ class _TxPipelineMixin(_PoaBaseMixin):
             if existing_record is not None and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK"}:
                 existing_record.block_height = next_height
                 existing_record.timestamp = timestamp.isoformat()
-                if existing_record.envelope is None:
+                if tx_only_root_active(session, chain_id, next_height) and tx_type == "BRIDGE_LOCK":
+                    # #1940 F5: upgrade the sealed row to the exact accepted
+                    # body — semantic columns and envelope — so the proof
+                    # builder never replays a stale pre-seal envelope. Safe
+                    # to reseal: at v9+ the bridge_signature binds
+                    # bound_tx_hash + semantic fields; below v9 it is
+                    # shadow-only, but era activation is a governance act on
+                    # a chain where v9 is already live.
+                    _refresh_row_semantics(
+                        existing_record,
+                        tx_data,
+                        tx_type,
+                        tx_data.get("value", tx_data.get("amount", 0)),
+                        tx_data.get("fee", 0),
+                        tx_data_map[tx.tx_hash].get("nonce", 0),
+                    )
+                elif existing_record.envelope is None:
                     existing_record.envelope = dict(tx_data)
                 session.add(existing_record)
             else:

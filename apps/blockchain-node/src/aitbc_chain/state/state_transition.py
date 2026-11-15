@@ -1819,6 +1819,7 @@ class _TxValidationCtx:
         "lock_version",
         "payload",
         "escrow_balance",
+        "tx_only_root",
     )
 
     def __init__(
@@ -1855,6 +1856,9 @@ class _TxValidationCtx:
         self.lock_version: Any = 0
         self.payload: Any = {}
         self.escrow_balance: Any = 0
+        # #1940 F5: resolved once per tx in _vt_prepare — the history-gated
+        # tx-derived bridge-root era for this block's height.
+        self.tx_only_root: bool = False
 
 
 from .state_transition_apply import _ApplyMixin

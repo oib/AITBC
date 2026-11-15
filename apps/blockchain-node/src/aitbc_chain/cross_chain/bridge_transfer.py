@@ -27,6 +27,12 @@ from ..state.bridge_credit import (
 )
 from .bridge_base import BridgeBase
 from .bridge_leaf import lock_leaf_v2_active, lock_leaf_value, unknown_lock_leaf
+from .bridge_tx_root import (
+    build_tx_bridge_trie,
+    canonical_lock_fields,
+    stored_lock_body,
+    tx_only_root_active,
+)
 from .bridge_types import BRIDGE_LOCKS_PAUSED_DETAIL, BridgeLocksPausedError, BridgeStatus, BridgeTransfer
 
 logger = get_logger(__name__)
@@ -828,6 +834,18 @@ class BridgeTransferMixin(BridgeBase):
         """
         source_chain = source_chain or str(getattr(settings, "chain_id", "") or "")
         with self._session_for(source_chain) as session:
+            # #1940 F5: resolve the source through the shared locator
+            # precedence — explicit block_hash, caller block_height, the
+            # transfer_id-as-tx_hash row, then the CCT source_tx_hash block
+            # hint. A resolved NEW-ERA source is proven from sealed tx rows
+            # and the shared contract; anything else falls through to the
+            # legacy path, whose own block resolution is funnel-checked
+            # below before any CCT-derived trie is built.
+            resolved_block, resolved_tx = self._resolve_proof_lock_source(
+                session, source_chain, transfer_id, block_height, block_hash
+            )
+            if resolved_block is not None:
+                return self._build_proof_tx_only(session, resolved_block, resolved_tx, source_chain)
             record = session.get(CrossChainTransfer, transfer_id)
             if not record:
                 raise ValueError(f"Transfer not found: {transfer_id}")
@@ -855,6 +873,14 @@ class BridgeTransferMixin(BridgeBase):
             ).first()
             if block is None:
                 raise ValueError(f"Source block not found: {source_chain} height {block_height}")
+
+            # #1940 F5 final funnel: the block THIS path actually resolved
+            # decides the era — a new-era source must never be served
+            # through the legacy CCT-derived trie, and a strong explicit
+            # block_hash may not be silently overridden.
+            funnel = self._proof_new_era_funnel(session, block, source_chain, transfer_id, block_hash)
+            if funnel is not None:
+                return funnel
 
             from ..state.merkle_patricia_trie import MerklePatriciaTrie
 
@@ -890,25 +916,7 @@ class BridgeTransferMixin(BridgeBase):
             lock_value = self._build_lock_event_value(record, block.height).encode()
             proof_bytes = trie.get_proof(lock_tx_hash.encode())
 
-            validator_signatures: list[str] = []
-            if block.block_metadata:
-                try:
-                    metadata = json.loads(block.block_metadata)
-                    validator_signatures = [
-                        a.get("signature", "") for a in metadata.get("attestations", []) if a.get("signature")
-                    ]
-                except (RecursionError, TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
-                    validator_signatures = []
-
-            # Issue #670: the sealed metadata may carry fewer attestations than
-            # the proof-side multisig threshold needs — the attestation gate
-            # seals blocks with attestations=[] whenever the PBFT commit
-            # certificate covers effective_min, and such proofs stall on
-            # "Threshold not met 1/2" forever. Top the signature list up to the
-            # configured threshold with fresh signatures over THIS sealed
-            # block's canonical header message; verification is unchanged
-            # (same message shape, same membership check).
-            validator_signatures = self._augment_proof_validator_signatures(block, source_chain, validator_signatures)
+            validator_signatures = self._proof_validator_signatures(block, source_chain)
 
             return {
                 "source_chain": record.source_chain,
@@ -930,6 +938,256 @@ class BridgeTransferMixin(BridgeBase):
                 "proposer_signature": block.signature,
                 "validator_signatures": validator_signatures,
             }
+
+    @staticmethod
+    def _row_matches_transfer_id(row: Any, source_chain: str, height: int, transfer_id: str) -> bool:
+        """True when the sealed row's canonical signed descriptor names ``transfer_id``."""
+        try:
+            fields = canonical_lock_fields(stored_lock_body(row), str(row.tx_hash), source_chain, height)
+        except (TypeError, ValueError):
+            return False
+        return fields.transfer_id == transfer_id
+
+    def _canonical_lock_matches_in_block(self, session: Any, block: Block, source_chain: str, transfer_id: str) -> list[Any]:
+        """Sealed rows in ``block`` whose canonical signed id is ``transfer_id``.
+
+        Multiple matches are ambiguous and refuse — a proof must never pick
+        one of two locks that claim the same signed id.
+        """
+        matches: list[Any] = []
+        for tx in session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == source_chain,
+                Transaction.block_height == block.height,
+                # #1940 F5 review F2: only confirmed sealed rows may be
+                # selected — _build_proof_tx_only admits exactly this
+                # status into the trie, so matching anything else could
+                # serve a proof with an empty merkle path.
+                Transaction.status == "confirmed",
+            )
+        ).all():
+            if self._row_matches_transfer_id(tx, source_chain, int(block.height), transfer_id):
+                matches.append(tx)
+        if len(matches) > 1:
+            raise ValueError(f"ambiguous lock matches for transfer_id {transfer_id} in block {block.height}")
+        return matches
+
+    def _strict_source_from_block(
+        self, session: Any, block: Block, source_chain: str, transfer_id: str, *, authoritative: bool
+    ) -> tuple[Block | None, Any | None]:
+        """Canonical-id match inside one new-era candidate block."""
+        matches = self._canonical_lock_matches_in_block(session, block, source_chain, transfer_id)
+        if not matches:
+            if authoritative:
+                raise ValueError(f"Lock not found for transfer_id {transfer_id} in explicitly located block {block.height}")
+            return (None, None)
+        return (block, matches[0])
+
+    def _resolve_proof_lock_source(
+        self,
+        session: Any,
+        source_chain: str,
+        transfer_id: str,
+        block_height: int,
+        block_hash: str,
+    ) -> tuple[Block | None, Any | None]:
+        """#1940 F5: shared source resolver — returns (Block, lock row) for a
+        NEW-ERA source, (None, None) when the source is absent or historical.
+
+        Locator precedence: caller ``block_hash`` (authoritative — a missing
+        block or absent lock refuses rather than silently selecting another),
+        caller positive strict-int ``block_height`` when it contains the
+        requested canonical id (the legacy default of 1 never blocks other
+        locators), ``transfer_id``-as-``tx_hash`` sealed row only when its
+        canonical signed id matches, then ``CrossChainTransfer.
+        source_tx_hash`` as a BLOCK LOCATOR whose block is scanned for the
+        requested id. No whole-chain scan; CCT fields other than the locator
+        are never consulted.
+        """
+        if block_hash:
+            return self._proof_source_by_block_hash(session, source_chain, transfer_id, block_hash)
+        for stage in (
+            self._proof_source_by_height,
+            self._proof_source_by_tx_row,
+            self._proof_source_by_cct_hint,
+        ):
+            resolved = stage(session, source_chain, transfer_id, block_height)
+            if resolved[0] is not None:
+                return resolved
+        return (None, None)
+
+    def _proof_source_by_block_hash(
+        self, session: Any, source_chain: str, transfer_id: str, block_hash: str
+    ) -> tuple[Block | None, Any | None]:
+        block = session.exec(select(Block).where(Block.chain_id == source_chain, Block.hash == block_hash)).first()
+        if block is not None and tx_only_root_active(session, source_chain, int(block.height)):
+            return self._strict_source_from_block(session, block, source_chain, transfer_id, authoritative=True)
+        return (None, None)
+
+    def _proof_source_by_height(
+        self, session: Any, source_chain: str, transfer_id: str, block_height: int
+    ) -> tuple[Block | None, Any | None]:
+        if not (isinstance(block_height, int) and not isinstance(block_height, bool) and block_height > 0):
+            return (None, None)
+        block = session.exec(select(Block).where(Block.chain_id == source_chain, Block.height == block_height)).first()
+        if block is None or not tx_only_root_active(session, source_chain, int(block.height)):
+            return (None, None)
+        return self._strict_source_from_block(session, block, source_chain, transfer_id, authoritative=False)
+
+    def _proof_source_by_tx_row(
+        self, session: Any, source_chain: str, transfer_id: str, block_height: int
+    ) -> tuple[Block | None, Any | None]:
+        lock_tx = session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == source_chain,
+                Transaction.tx_hash == transfer_id,
+            )
+        ).first()
+        if lock_tx is None or not getattr(lock_tx, "block_height", None):
+            return (None, None)
+        if not self._row_matches_transfer_id(lock_tx, source_chain, int(lock_tx.block_height), transfer_id):
+            return (None, None)
+        block = session.exec(
+            select(Block).where(
+                Block.chain_id == source_chain,
+                Block.height == lock_tx.block_height,
+            )
+        ).first()
+        if block is not None and tx_only_root_active(session, source_chain, int(block.height)):
+            # #1940 F5 review F1: resolve through the same strict block scan
+            # as every other locator — the tx_hash==transfer_id shortcut must
+            # not bypass the multi-match ambiguity refusal or the confirmed
+            # status predicate. The scan is deterministic, so a unique match
+            # returns this same lock_tx.
+            return self._strict_source_from_block(session, block, source_chain, transfer_id, authoritative=False)
+        return (None, None)
+
+    def _proof_source_by_cct_hint(
+        self, session: Any, source_chain: str, transfer_id: str, block_height: int
+    ) -> tuple[Block | None, Any | None]:
+        record = session.get(CrossChainTransfer, transfer_id)
+        if record is None or not record.source_tx_hash:
+            return (None, None)
+        hint_tx = session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == source_chain,
+                Transaction.tx_hash == record.source_tx_hash,
+            )
+        ).first()
+        if hint_tx is None or not getattr(hint_tx, "block_height", None):
+            return (None, None)
+        block = session.exec(
+            select(Block).where(
+                Block.chain_id == source_chain,
+                Block.height == hint_tx.block_height,
+            )
+        ).first()
+        if block is not None and tx_only_root_active(session, source_chain, int(block.height)):
+            return self._strict_source_from_block(session, block, source_chain, transfer_id, authoritative=False)
+        return (None, None)
+
+    def _proof_new_era_funnel(
+        self,
+        session: Any,
+        block: Block,
+        source_chain: str,
+        transfer_id: str,
+        block_hash: str,
+    ) -> dict[str, Any] | None:
+        """#1940 F5 final funnel on the legacy path's ACTUAL resolved block.
+
+        Returns the tx-only proof for a new-era source, None for a
+        historical one (legacy CCT-derived behavior preserved)."""
+        if not tx_only_root_active(session, source_chain, int(block.height)):
+            return None
+        if block_hash and str(block.hash) != str(block_hash):
+            raise ValueError("explicit block_hash conflicts with the resolved source block")
+        matches = self._canonical_lock_matches_in_block(session, block, source_chain, transfer_id)
+        if not matches:
+            raise ValueError(f"Lock not found for transfer_id {transfer_id} in new-era source block")
+        return self._build_proof_tx_only(session, block, matches[0], source_chain)
+
+    def _build_proof_tx_only(
+        self,
+        session: Any,
+        block: Block,
+        lock_tx: Any,
+        source_chain: str,
+    ) -> dict[str, Any]:
+        """#1940 F5: Merkle proof from sealed tx rows — no CrossChainTransfer.
+
+        All block leaves come from confirmed sealed row bodies via the
+        shared contract and must reproduce the block's sealed
+        ``bridge_state_root``; payout fields come from the selected
+        ``CanonicalLock``. The requested id was already verified against
+        the canonical descriptor by the resolver.
+        """
+        bodies: list[dict[str, Any]] = []
+        for tx in session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == source_chain,
+                Transaction.block_height == block.height,
+            )
+        ).all():
+            if getattr(tx, "status", "") != "confirmed":
+                continue
+            body = stored_lock_body(tx)
+            try:
+                canonical_lock_fields(body, str(tx.tx_hash), source_chain, int(block.height))
+            except (TypeError, ValueError):
+                continue
+            bodies.append(body)
+        trie = build_tx_bridge_trie(bodies, source_chain, int(block.height))
+        computed_root = "0x" + trie.get_root().hex()
+        if computed_root != (block.bridge_state_root or ""):
+            raise ValueError("Computed bridge state root does not match block")
+
+        fields = canonical_lock_fields(stored_lock_body(lock_tx), str(lock_tx.tx_hash), source_chain, int(block.height))
+        proof_bytes = trie.get_proof(str(lock_tx.tx_hash).encode())
+        lock_value = lock_leaf_value(
+            fields.transfer_id, fields.amount, fields.target_chain, fields.target_recipient, int(block.height)
+        ).encode()
+        validator_signatures = self._proof_validator_signatures(block, source_chain)
+        return {
+            "source_chain": source_chain,
+            "target_chain": fields.target_chain,
+            "lock_tx_hash": str(lock_tx.tx_hash),
+            "amount": fields.amount,
+            "sender": fields.sender,
+            "recipient": fields.target_recipient,
+            "asset": fields.asset,
+            "chain_id": source_chain,
+            "block_height": block.height,
+            "block_hash": block.hash,
+            "proposer": block.proposer,
+            "parent_hash": block.parent_hash,
+            "state_root": block.state_root or "",
+            "bridge_state_root": block.bridge_state_root or "",
+            "merkle_proof": [p.hex() for p in proof_bytes],
+            "lock_event": lock_value.decode(),
+            "proposer_signature": block.signature,
+            "validator_signatures": validator_signatures,
+        }
+
+    def _proof_validator_signatures(self, block: Block, source_chain: str) -> list[str]:
+        """Sealed + threshold-top-up validator signatures for a proof."""
+        validator_signatures: list[str] = []
+        if block.block_metadata:
+            try:
+                metadata = json.loads(block.block_metadata)
+                validator_signatures = [a.get("signature", "") for a in metadata.get("attestations", []) if a.get("signature")]
+            except (RecursionError, TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
+                validator_signatures = []
+
+        # Issue #670: the sealed metadata may carry fewer attestations than
+        # the proof-side multisig threshold needs — the attestation gate
+        # seals blocks with attestations=[] whenever the PBFT commit
+        # certificate covers effective_min, and such proofs stall on
+        # "Threshold not met 1/2" forever. Top the signature list up to the
+        # configured threshold with fresh signatures over THIS sealed
+        # block's canonical header message; verification is unchanged
+        # (same message shape, same membership check).
+        return self._augment_proof_validator_signatures(block, source_chain, validator_signatures)
 
     @staticmethod
     def _proof_header_message(block: Block) -> dict[str, Any]:

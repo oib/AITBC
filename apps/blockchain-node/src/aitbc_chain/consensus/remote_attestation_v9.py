@@ -184,6 +184,66 @@ class _V9Mixin(_ListenerMixin):
         finally:
             lock.release()
 
+    def _v9_tx_root_structural_check(
+        self,
+        session: Any,
+        header: dict[str, Any],
+        txs: list[Any],
+        height: int,
+    ) -> str | None:
+        """#1940 F5: new-era structural/type/derived-root check for a request.
+
+        Every delivered tx must resolve unambiguously against its stored row
+        type; every effective BRIDGE_LOCK must satisfy the canonical signed
+        contract with signed amount == effective outer debit; and the shared
+        tx-derived trie over the delivered bodies must equal the claimed
+        ``bridge_state_root``. Returns a refusal reason or None.
+        """
+        from ..base_models import Transaction
+        from ..cross_chain.bridge_tx_root import (
+            assert_lock_debit,
+            build_tx_bridge_trie,
+            canonical_lock_fields,
+            effective_lock_debit,
+            resolve_lock_type,
+        )
+
+        hashes = [str(tx.get("tx_hash") or "") for tx in txs if isinstance(tx, dict)]
+        stored_types: dict[str, str] = {}
+        if hashes:
+            for tx_hash, tx_type in session.exec(
+                select(Transaction.tx_hash, Transaction.type).where(
+                    Transaction.chain_id == self._chain_id,
+                    Transaction.tx_hash.in_(hashes),  # type: ignore[attr-defined]
+                )
+            ).all():
+                stored_types[tx_hash] = tx_type
+        bodies: list[dict[str, Any]] = []
+        for tx in txs:
+            if not isinstance(tx, dict):
+                return "malformed_tx"
+            tx_hash = str(tx.get("tx_hash") or "")
+            try:
+                if resolve_lock_type(tx, stored_types.get(tx_hash)) == "BRIDGE_LOCK":
+                    fields = canonical_lock_fields({**tx, "tx_hash": tx_hash}, tx_hash, self._chain_id, height)
+                    assert_lock_debit(fields, effective_lock_debit(tx))
+            except (TypeError, ValueError) as e:
+                return f"bridge_lock_contract: {e}"
+            body = dict(tx)
+            body["tx_hash"] = tx_hash
+            bodies.append(body)
+        try:
+            trie = build_tx_bridge_trie(bodies, self._chain_id, height)
+        except (TypeError, ValueError) as e:
+            return f"bridge_root_contract: {e}"
+        computed = "0x" + trie.get_root().hex()
+        claimed = str(header.get("bridge_state_root") or "")
+        if not claimed:
+            return "missing_bridge_state_root"
+        if claimed != computed:
+            return "bridge_state_root_mismatch"
+        return None
+
     def _v9_check_transactions(
         self,
         header: dict[str, Any],
@@ -296,6 +356,21 @@ class _V9Mixin(_ListenerMixin):
                             )
                         return None
                     return "not_at_parent"
+
+                # #1940 F5: tx-derived bridge-root era — structural lock
+                # contract plus derived-root equality, gated by the
+                # parent-history rule at this block's height (NOT the F4
+                # post-state gate). Shallow by design: canonical signed
+                # fields, debit equality, duplicate/malformed rejection and
+                # the shared trie root vs the claimed bridge_state_root.
+                # Full apply verification remains the post-state probe's
+                # job; failed-state roots are not claimed here.
+                from ..cross_chain.bridge_tx_root import tx_only_root_active
+
+                if tx_only_root_active(session, self._chain_id, height):
+                    refusal = self._v9_tx_root_structural_check(session, header, txs, height)
+                    if refusal:
+                        return refusal
 
                 from ..base_models import _to_ait_address
                 from ..models import Account
