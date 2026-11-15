@@ -10,11 +10,13 @@ gates a block — and every entry point is inert without
 ``equivocation_replication_enabled`` (default OFF).
 
 Ingest order (design-v2 FINAL, c23274 + addendum c23455 + E's c24111):
-size -> schema -> chain id -> reporter rate cap -> read-only duplicate
-pre-filter -> validator membership -> signature verification (the admission
-gate; ``deactivation_evidence._verify_attestation_equivocation``, domain-aware)
--> pair predicate -> atomic insert-or-ignore. Any failure drops the record with
-a metric; nothing partial is stored.
+size -> schema -> chain id -> read-only duplicate pre-filter -> validator
+membership -> signature verification (the admission gate;
+``deactivation_evidence._verify_attestation_equivocation``, domain-aware)
+-> reporter rate cap (#1965: charged only for verified records, so junk
+cannot burn a validator's evidence budget) -> pair predicate -> atomic
+insert-or-ignore. Any failure drops the record with a metric; nothing
+partial is stored.
 
 Pair predicate: a record is *slashable context* only when BOTH signatures bind
 the SAME round in their preimage (``PairClass.ROUND_BOUND_SAME_ROUND``). A
@@ -269,18 +271,15 @@ def ingest(
     if isinstance(parsed, Outcome):
         return parsed
     height, round_, validator, hash_a, hash_b, attestations = parsed
-    # 4. reporter rate cap (keyed by the reported validator; broker gives no peer id)
-    if not store.window.allow(validator, _cfg("equivocation_replication_rate_per_minute", 20), now):
-        return _drop("rate")
-    # 5. read-only duplicate pre-filter — a pure read, never the admission gate
+    # 4. read-only duplicate pre-filter — a pure read, never the admission gate
     key = pair_key(chain_id, validator, height, round_, hash_a, hash_b)
     if store.has(key):
         metrics_registry.increment("equivocation_ingest_duplicate_total")
         return Outcome("duplicate")
-    # 6. only a configured validator can be reported (blocks address-spray eviction)
+    # 5. only a configured validator can be reported (blocks address-spray eviction)
     if validator not in {canonical_address(v) for v in validator_set}:
         return _drop("not_validator")
-    # 6b. #1298: a pair is evidence only when both signatures were minted under
+    # 6. #1298: a pair is evidence only when both signatures were minted under
     # the SAME domain preimage — a proposal signature and an attestation
     # signature over the same header are different roles, never an equivocation.
     if len({a.get("signature_domain") for a in attestations}) != 1:
@@ -288,9 +287,16 @@ def ingest(
     # 7. signature verification — the admission gate
     if not _verify(payload, validator, height):
         return _drop("verify")
-    # 8. pair predicate
+    # 8. reporter rate cap — charged only for VERIFIED records (#1965):
+    #    pre-verify charging let junk records naming a validator burn its
+    #    20/min budget and suppress the genuine pair behind them. Verify
+    #    cost stays bounded by the gossip queue/size caps upstream.
+    #    (keyed by the reported validator; broker gives no peer id)
+    if not store.window.allow(validator, _cfg("equivocation_replication_rate_per_minute", 20), now):
+        return _drop("rate")
+    # 9. pair predicate
     slashable = _is_slashable(payload, attestations, round_)
-    # 9. per-slot distinct-hash cap, then atomic insert-or-ignore
+    # 10. per-slot distinct-hash cap, then atomic insert-or-ignore
     if store.slot_would_exceed(key[:4], (hash_a, hash_b)):
         return _drop("slot_cap")
     stored = {k: v for k, v in payload.items() if k != "justification"}  # sender cannot pre-excuse a pair
