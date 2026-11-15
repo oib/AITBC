@@ -22,8 +22,10 @@ from aitbc.async_tasks import create_task_with_logging
 from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
+from ..metrics import metrics_registry
 from .multi_validator_poa import MultiValidatorPoA
 from .pbft_certificate import strict_certificate_active, validate_commit_certificate
+from .pbft_cross_view import cross_view_commit_lock_active
 from .pbft_quorum import pbft_required_messages
 
 logger = get_logger(__name__)
@@ -116,6 +118,17 @@ class PBFTConsensus:
         # block per round, and rounds only ever move forward. See prepare_phase
         # for why the round has to be part of it.
         self._prepared_heights: dict[int, tuple[int, str]] = {}
+        # #1940 F3-B: this node's cross-view commit locks (sequence ->
+        # committed block_hash), hydrated from the persisted ConsensusState
+        # row. Consulted only while ``cross_view_commit_lock_active`` is
+        # true; the authoritative copy lives on ``consensus`` and is
+        # re-read on every vote so a lock armed post-init or restored by
+        # ``load_state`` is always seen. ``_commit_locks`` mirrors it for
+        # observability and duck-typed consensus doubles.
+        self._commit_locks: dict[int, str] = {}
+        _locks_loader = getattr(consensus, "pbft_commit_locks", None)
+        if callable(_locks_loader):
+            self._commit_locks = dict(_locks_loader())
         self.state = PBFTState(
             current_view=0, current_sequence=0, prepared_messages={}, committed_messages={}, pre_prepare_messages={}
         )
@@ -389,6 +402,13 @@ class PBFTConsensus:
         if validator == self._local_validator:
             if key in self._local_committed:
                 return len(self.state.committed_messages.get(key, [])) >= self.required_messages
+            # #1940 F3-B: once the cross-view commit lock is armed for this
+            # sequence, this node may not emit a commit for a different
+            # block_hash in a later view — the first committed value is
+            # final. Refusal happens BEFORE the message exists, so nothing
+            # is stored or broadcast; prepare rotation is untouched.
+            if not self._commit_lock_allows(prepare_msg.sequence_number, prepare_msg.block_hash):
+                return False
             self._local_committed.add(key)
 
         # Create commit message
@@ -421,10 +441,112 @@ class PBFTConsensus:
 
         return False
 
+    def _locked_commit_hash(self, sequence: int) -> str | None:
+        """The persisted cross-view commit lock for ``sequence``, if any.
+
+        Reads through to ``consensus`` so a lock armed by another
+        PBFTConsensus sharing the same MultiValidatorPoA — or restored by
+        ``load_state`` after a restart — is always seen; the in-memory
+        ``_commit_locks`` mirror is the fallback for duck-typed doubles.
+        """
+        getter = getattr(self.consensus, "pbft_commit_lock_get", None)
+        if callable(getter):
+            locked = getter(sequence)
+            if isinstance(locked, str):
+                self._commit_locks[sequence] = locked
+                return locked
+            return None
+        return self._commit_locks.get(sequence)
+
+    def _commit_lock_allows(self, sequence: int, block_hash: str) -> bool:
+        """Whether this node may emit a local COMMIT for ``block_hash``.
+
+        Dormant while ``cross_view_commit_lock_active(sequence)`` is False —
+        the pre-#1940-F3-B rotation behavior then applies byte-for-byte.
+        Armed: the first committed ``block_hash`` per sequence is locked;
+        same-hash commits in later views stay legal (they cannot fork the
+        value), a different hash is refused BEFORE broadcast (log + metric).
+        Arming persists ``(sequence, hash)`` through ``consensus`` first and
+        fails closed — a persistence failure means no broadcast, matching
+        the #1268 vote-journal precedent.
+        """
+        if not cross_view_commit_lock_active(sequence):
+            return True
+        locked = self._locked_commit_hash(sequence)
+        if locked is None:
+            if self.consensus.pbft_commit_lock_arm(sequence, block_hash):
+                self._commit_locks[sequence] = block_hash
+                metrics_registry.increment("pbft_cross_view_commit_lock_armed_total")
+                return True
+            metrics_registry.increment("pbft_cross_view_commit_lock_persist_failed_total")
+            logger.error(
+                "PBFT cross-view commit lock for seq %s could not be persisted; refusing to broadcast commit for %s",
+                sequence,
+                block_hash,
+            )
+            return False
+        if locked == block_hash:
+            return True
+        metrics_registry.increment("pbft_cross_view_commit_refused_total")
+        logger.warning(
+            "PBFT refusing cross-view commit at seq %s: locked to %s, offered %s",
+            sequence,
+            locked,
+            block_hash,
+        )
+        return False
+
+    def _quorum_block_hash(self, key: str) -> str | None:
+        """The ``block_hash`` whose commits reached quorum for bucket ``key``.
+
+        The quorum digest is the local pre-prepare's, and the digest binds
+        ``(block_hash, sequence, view)``, so the pre-prepare's hash IS the
+        quorum's hash. ``None`` when there is no local pre-prepare or the
+        digest has not reached ``required_messages``.
+        """
+        pp = self.state.pre_prepare_messages.get(key)
+        if pp is None:
+            return None
+        commits = self.state.committed_messages.get(key, [])
+        if self._digest_count(commits, pp.digest) < self.required_messages:
+            return None
+        return pp.block_hash
+
+    def _execute_allowed_by_commit_lock(self, sequence: int, key: str) -> bool:
+        """Whether a commit quorum for ``key`` may trigger local execution.
+
+        Dormant while the gate is inactive or this node holds no lock for
+        ``sequence``. Armed with a lock: a quorum for a DIFFERENT hash means
+        more than f validators double-committed — the lock makes that
+        impossible for honest voters, so if it still arrives (Byzantine
+        quorum) the node stalls safely instead of forking the height.
+        """
+        if not cross_view_commit_lock_active(sequence):
+            return True
+        locked = self._locked_commit_hash(sequence)
+        if locked is None:
+            return True
+        winner = self._quorum_block_hash(key)
+        if winner is None or winner == locked:
+            return True
+        metrics_registry.increment("pbft_cross_view_execute_refused_total")
+        logger.warning(
+            "PBFT refusing execution at seq %s: commit lock is %s but quorum is for %s",
+            sequence,
+            locked,
+            winner,
+        )
+        return False
+
     async def execute_phase(self, key: str) -> bool:
         """Phase 4: Execute"""
         # Extract sequence and view from key
         sequence, view = map(int, key.split(":"))
+
+        # #1940 F3-B: a commit quorum for a hash this node did not lock at
+        # this sequence must not trigger local execution.
+        if not self._execute_allowed_by_commit_lock(sequence, key):
+            return False
 
         # Update state
         self.state.current_sequence = sequence

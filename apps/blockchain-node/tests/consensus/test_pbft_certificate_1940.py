@@ -510,6 +510,30 @@ class TestPoaCertificateGate:
         assert ok is True
         assert attest_calls
 
+    async def test_strict_era_rejects_missing_round_number(self):
+        """#1940 F3-B: ``round_number=None`` must NOT degrade to the
+        highest-view certificate — the strict era pins THIS round's view,
+        and a proposal with no derivable round cannot produce a valid one."""
+        proposer = _poa_proposer()
+        pbft = _make_pbft()
+        # A complete quorum exists — at view 7, NOT the round this node ran.
+        # Before the fix the unpinned call returned it happily.
+        _seed_commits(pbft, {(HEIGHT, 7): [ADDR1, ADDR2, ADDR3]})
+        _wire_proposer(proposer, pbft)
+        ok, _metadata, attest_calls = await self._run(proposer, round_number=None)
+        assert ok is False
+        assert attest_calls == []
+
+    async def test_prethreshold_tolerates_missing_round_number(self, monkeypatch):
+        """Legacy era keeps tolerating ``round_number=None`` — the view
+        argument is only meaningful under the strict contract."""
+        monkeypatch.setattr(settings, "pbft_certificate_strict_height", None)
+        proposer = _poa_proposer()
+        _wire_proposer(proposer, _RecordingPbft([]))
+        ok, _metadata, attest_calls = await self._run(proposer, round_number=None)
+        assert ok is True
+        assert attest_calls
+
 
 # ---------------------------------------------------------------------------
 # Importer — ProposerSignatureValidator under the strict gate
@@ -839,3 +863,88 @@ class TestImporterStrictPbftGateBypass:
         )
         assert not ok
         assert "validator set" in reason
+
+
+# ---------------------------------------------------------------------------
+# Importer — #1940 F3-B certificate view binding
+# ---------------------------------------------------------------------------
+
+
+def _parent_ts_for_round(round_number: int):
+    """A parent timestamp that derives ``round_number`` for the fixed
+    ``_import_block`` timestamp under the default 60s proposer window."""
+    from datetime import UTC, datetime, timedelta
+
+    block_ts = datetime(2026, 11, 15, 12, 0, 0, tzinfo=UTC)
+    return block_ts - timedelta(seconds=(round_number * 60) + 30)
+
+
+class TestImporterCertificateViewBinding:
+    """``pbft_certificate_view_binding_height`` armed + strict era + PBFT on:
+    the certificate's coherent view must equal the block's timestamp-derived
+    proposer round — the same round the producer pins commits under."""
+
+    def _validator(self, monkeypatch, *, round_number=VIEW, binding_height=HEIGHT, pbft_enabled=True):
+        from aitbc_chain.sync_validator import ProposerSignatureValidator
+
+        _arm_importer(
+            monkeypatch,
+            min_attestations=2,
+            strict_height=HEIGHT,
+            pbft_enabled=pbft_enabled,
+        )
+        monkeypatch.setattr(settings, "pbft_certificate_view_binding_height", binding_height)
+        # Pin the round window so the derivation is deterministic.
+        monkeypatch.setattr(settings, "consensus_proposer_round_seconds", 60)
+        parent_ts = _parent_ts_for_round(round_number)
+        return ProposerSignatureValidator(parent_timestamp_resolver=lambda parent_hash: parent_ts)
+
+    def test_bound_view_matching_accepted(self, monkeypatch):
+        """Positive: certificate view == derived proposer round -> accept."""
+        validator = self._validator(monkeypatch)
+        ok, reason = validator.validate_block_signature(_import_block(_quorum(view=VIEW, block_hash=_import_block_hash())))
+        assert ok, reason
+
+    def test_bound_view_mismatch_rejected(self, monkeypatch):
+        """Negative: a coherent quorum at a DIFFERENT view is not this
+        block's round — reject even though the certificate is otherwise valid."""
+        validator = self._validator(monkeypatch)
+        ok, reason = validator.validate_block_signature(_import_block(_quorum(view=7, block_hash=_import_block_hash())))
+        assert not ok
+        assert "expected view" in reason
+
+    def test_underivable_round_rejects_pbft_block(self, monkeypatch):
+        """PBFT on + binding armed + strict era: a block whose proposer round
+        cannot be derived fails closed — the certificate cannot be bound."""
+        from aitbc_chain.sync_validator import ProposerSignatureValidator
+
+        _arm_importer(monkeypatch, min_attestations=2, strict_height=HEIGHT, pbft_enabled=True)
+        monkeypatch.setattr(settings, "pbft_certificate_view_binding_height", HEIGHT)
+        # No parent_timestamp_resolver -> _derive_attestation_round -> None.
+        ok, reason = ProposerSignatureValidator().validate_block_signature(
+            _import_block(_quorum(view=VIEW, block_hash=_import_block_hash()))
+        )
+        assert not ok
+        assert "underivable" in reason
+
+    def test_binding_gate_unset_keeps_unpinned_view(self, monkeypatch):
+        """Pre-gate: with the binding height unset a coherent wrong-view
+        certificate still passes the strict contract — byte-equivalent."""
+        validator = self._validator(monkeypatch, binding_height=None)
+        ok, reason = validator.validate_block_signature(_import_block(_quorum(view=7, block_hash=_import_block_hash())))
+        assert ok, reason
+
+    def test_binding_below_threshold_keeps_unpinned_view(self, monkeypatch):
+        """Binding armed at a LATER height: this block is pre-binding and
+        keeps the unpinned strict check."""
+        validator = self._validator(monkeypatch, binding_height=HEIGHT + 1)
+        ok, reason = validator.validate_block_signature(_import_block(_quorum(view=7, block_hash=_import_block_hash())))
+        assert ok, reason
+
+    def test_binding_armed_but_pbft_off_stays_unpinned(self, monkeypatch):
+        """PBFT off + carried certificate: the binding gate was armed for
+        the PBFT producer/importer pair, not for carried-certificate blocks —
+        the unpinned strict check still applies."""
+        validator = self._validator(monkeypatch, pbft_enabled=False)
+        ok, reason = validator.validate_block_signature(_import_block(_quorum(view=7, block_hash=_import_block_hash())))
+        assert ok, reason

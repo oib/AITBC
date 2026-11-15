@@ -415,7 +415,7 @@ class ProposerSignatureValidator:
           strictly verified); everything else returns ``None`` and keeps
           the normal attestation behaviour.
         """
-        from .consensus.pbft_certificate import strict_certificate_active, validate_commit_certificate
+        from .consensus.pbft_certificate import strict_certificate_active
 
         height = block_data.get("height")
         if not strict_certificate_active(height):
@@ -437,11 +437,62 @@ class ProposerSignatureValidator:
         certificate = metadata["pbft_certificate"]
         if not isinstance(certificate, list):
             return False, "strict-era pbft_certificate is not a list"
+        return self._strict_certificate_verdict(block_data, certificate)
+
+    def _bound_certificate_view(self, block_data: dict[str, Any], height: Any) -> tuple[int | None, str | None]:
+        """The PBFT view a strict certificate must carry, when binding is armed (#1940 F3-B).
+
+        Returns ``(expected_view, None)`` — ``expected_view`` is ``None``
+        when the view stays unpinned — or ``(None, reason)`` when the gate
+        requires a view but the proposer's timestamp-derived round cannot be
+        derived for this block: fail closed, because an underivable round on
+        a PBFT-enabled strict block means the certificate cannot be bound to
+        the round the producer signed under.
+
+        Binding applies only when ALL of these hold: the
+        ``pbft_certificate_view_binding_height`` gate is active at ``height``,
+        the strict certificate contract is active, and
+        ``pbft_consensus_enabled`` is set. PBFT-off blocks that merely carry
+        a certificate keep the unpinned check — the gate was armed for the
+        PBFT producer/importer pair, not for carried-certificate blocks.
+        """
+        from .consensus.pbft_certificate import certificate_view_binding_active, strict_certificate_active
+
+        if not certificate_view_binding_active(height) or not strict_certificate_active(height):
+            return None, None
+        if not getattr(settings, "pbft_consensus_enabled", False):
+            return None, None
+        expected = self._derive_attestation_round(block_data)
+        if not isinstance(expected, int) or isinstance(expected, bool) or expected < 0:
+            return None, "strict-era PBFT certificate view underivable: proposer round could not be derived"
+        return expected, None
+
+    def _strict_certificate_verdict(
+        self,
+        block_data: dict[str, Any],
+        certificate: list[dict[str, Any]],
+    ) -> tuple[bool, str]:
+        """The ONE strict-era certificate verdict shared by importer paths (#1940 F3 / F3-B).
+
+        Both ``_strict_pbft_verdict`` (the mandatory-certificate gate) and
+        ``_validate_pbft_certificate`` (the carried-certificate path)
+        delegate here so producer-side and importer-side checks can never
+        drift: same validator set, same height, same optional view pin —
+        the pin supplied by ``_bound_certificate_view`` when the dormant
+        ``pbft_certificate_view_binding_height`` gate is armed.
+        """
+        from .consensus.pbft_certificate import validate_commit_certificate
+
+        height = block_data.get("height")
+        expected_view, view_error = self._bound_certificate_view(block_data, height)
+        if view_error is not None:
+            return False, view_error
         return validate_commit_certificate(
             certificate,
             str(block_data.get("hash", "")),
             self._load_validator_set() or self._trusted,
             height=cast(int, height),
+            view=expected_view,
         )
 
     def _validate_pbft_certificate(
@@ -450,21 +501,16 @@ class ProposerSignatureValidator:
         certificate: list[dict[str, Any]],
     ) -> tuple[bool, str]:
         """Validate a PBFT commit certificate stored in block_metadata."""
-        from .consensus.pbft_certificate import strict_certificate_active, validate_commit_certificate
+        from .consensus.pbft_certificate import strict_certificate_active
 
         height = block_data.get("height")
         if strict_certificate_active(height):
-            # #1940 F3: strict era — one coherent (seq, view) commit quorum at
-            # the real BFT threshold, never the legacy attestation-minimum
-            # union count. ``view`` is unpinned: the certificate's own
-            # coherence supplies it. The gate guarantees ``height`` is a
-            # strict int here.
-            return validate_commit_certificate(
-                certificate,
-                str(block_data.get("hash", "")),
-                self._load_validator_set() or self._trusted,
-                height=cast(int, height),
-            )
+            # #1940 F3 / F3-B: strict era delegates to the shared verdict —
+            # one coherent (seq, view) commit quorum at the real BFT
+            # threshold, never the legacy attestation-minimum union count.
+            # ``view`` is unpinned unless the dormant view-binding gate is
+            # armed; the gate guarantees ``height`` is a strict int here.
+            return self._strict_certificate_verdict(block_data, certificate)
         return self._validate_pbft_certificate_legacy(block_data, certificate)
 
     def _validate_pbft_certificate_legacy(

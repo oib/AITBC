@@ -169,6 +169,13 @@ class MultiValidatorPoA:
         self._pbft_view: int = 0
         self._pbft_sequence: int = 0
 
+        # #1940 F3-B: this node's cross-view PBFT commit locks —
+        # sequence_number -> committed block_hash, persisted on
+        # ConsensusState.pbft_commit_locks_json so a restart cannot forget a
+        # vote. Only armed while ``cross_view_commit_lock_active`` is true;
+        # empty/dormant otherwise and pruned below the newest armed height.
+        self._pbft_commit_locks: dict[int, str] = {}
+
         # #1940 F4: optional session factory for chain-state reads
         # (_current_head_height / _chain_deactivated_addresses). The
         # attestation post-state probe injects one bound to its scratch
@@ -1186,6 +1193,9 @@ class MultiValidatorPoA:
         from .slashing import slashing_event_record
 
         slashing_events = [slashing_event_record(e) for e in self._slashing_manager.get_slashing_history()]
+        # #1940 F3-B: str(seq) -> block_hash, keys in ascending int order so
+        # the persisted bytes are deterministic regardless of insertion order.
+        commit_locks_json = json.dumps({str(seq): self._pbft_commit_locks[seq] for seq in sorted(self._pbft_commit_locks)})
         try:
             with session_scope(self.chain_id) as session:
                 existing = session.query(ConsensusState).filter_by(chain_id=self.chain_id).first()
@@ -1195,6 +1205,7 @@ class MultiValidatorPoA:
                     existing.current_epoch = self._current_epoch
                     existing.validator_set_json = json.dumps(validator_set)
                     existing.slashing_events_json = json.dumps(slashing_events)
+                    existing.pbft_commit_locks_json = commit_locks_json
                     existing.updated_at = datetime.now(UTC)
                 else:
                     session.add(
@@ -1205,6 +1216,7 @@ class MultiValidatorPoA:
                             current_epoch=self._current_epoch,
                             validator_set_json=json.dumps(validator_set),
                             slashing_events_json=json.dumps(slashing_events),
+                            pbft_commit_locks_json=commit_locks_json,
                         )
                     )
                 # session_scope closes without committing — without this the
@@ -1403,12 +1415,80 @@ class MultiValidatorPoA:
                 self._slashing_manager.slashing_events = self._parse_slashing_events(
                     json.loads(row.slashing_events_json) if row.slashing_events_json else []
                 )
+                # #1940 F3-B: restore this node's cross-view commit locks.
+                # Entries below the persisted current sequence can never be
+                # voted on again, so they are pruned on load as well as on arm.
+                self._pbft_commit_locks = {
+                    seq: block_hash
+                    for seq, block_hash in self._parse_commit_locks(getattr(row, "pbft_commit_locks_json", "") or "").items()
+                    if seq >= self._pbft_sequence
+                }
             if self._chain_slashing_armed():
                 self._report_slashing_divergence()
             return True
         except Exception as e:
             logger.error("Failed to load consensus state for %s: %s", self.chain_id, e)
             return self._load_validator_set_from_settings()
+
+    @staticmethod
+    def _parse_commit_locks(raw: Any) -> dict[int, str]:
+        """Rebuild ``{sequence: block_hash}`` commit locks from persisted JSON.
+
+        Tolerant like ``_parse_slashing_events``: a malformed row yields ``{}``
+        rather than failing the whole load. Keys must parse to non-negative
+        ints and values must be non-empty strings; anything else is dropped.
+        """
+        import json
+
+        try:
+            data = json.loads(raw) if isinstance(raw, str) and raw else {}
+        except (TypeError, ValueError):
+            return {}
+        if not isinstance(data, dict):
+            return {}
+        locks: dict[int, str] = {}
+        for key, value in data.items():
+            try:
+                seq = int(key)
+            except (TypeError, ValueError):
+                continue
+            if seq < 0 or not isinstance(value, str) or not value:
+                continue
+            locks[seq] = value
+        return locks
+
+    # ─── #1940 F3-B: cross-view commit locks ─────────────────────
+
+    def pbft_commit_locks(self) -> dict[int, str]:
+        """Snapshot of this node's persisted cross-view commit locks."""
+        return dict(self._pbft_commit_locks)
+
+    def pbft_commit_lock_get(self, sequence: int) -> str | None:
+        """The committed ``block_hash`` locked at ``sequence``, if any."""
+        return self._pbft_commit_locks.get(sequence)
+
+    def pbft_commit_lock_arm(self, sequence: int, block_hash: str) -> bool:
+        """Persist ``sequence -> block_hash`` as this node's commit lock.
+
+        Called BEFORE the commit is broadcast (#1940 F3-B): a restart must
+        not forget the vote. Locks for lower sequences are pruned — they can
+        never be voted on again once a higher height arms. Fails closed like
+        the #1268 vote journal: a ``save_state`` failure restores the
+        previous in-memory state and returns False so the caller must not
+        emit the commit.
+        """
+        pruned = {seq: self._pbft_commit_locks.pop(seq) for seq in [s for s in self._pbft_commit_locks if s < sequence]}
+        previous = self._pbft_commit_locks.get(sequence)
+        had_previous = sequence in self._pbft_commit_locks
+        self._pbft_commit_locks[sequence] = block_hash
+        if self.save_state():
+            return True
+        self._pbft_commit_locks.update(pruned)
+        if had_previous:
+            self._pbft_commit_locks[sequence] = previous  # type: ignore[assignment]
+        else:
+            self._pbft_commit_locks.pop(sequence, None)
+        return False
 
     # ─── B12: Consensus Metrics ───────────────────────────────────
 
