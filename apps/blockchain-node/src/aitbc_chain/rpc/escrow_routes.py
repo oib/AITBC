@@ -113,6 +113,7 @@ from .escrow_routes_helpers import (
     rpc_peer_key_accepted as rpc_peer_key_accepted,
     verify_rpc_api_key as verify_rpc_api_key,
     verify_rpc_export_key as verify_rpc_export_key,
+    verify_rpc_fleet_read_key as verify_rpc_fleet_read_key,
     verify_rpc_peer_key as verify_rpc_peer_key,
     verify_rpc_settlement_key as verify_rpc_settlement_key,
 )
