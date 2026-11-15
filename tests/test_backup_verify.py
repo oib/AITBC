@@ -188,12 +188,17 @@ def test_no_maintenance_script_pulls_into_live_checkout():
         if "/deployment/" not in str(p) and "workflow-agent/" not in str(p)
     ]
     for sh in globs:
-        for line in sh.read_text(errors="replace").splitlines():
+        lines = sh.read_text(errors="replace").splitlines()
+        for idx, line in enumerate(lines):
             ls = line.strip()
             if ls.startswith(("#", "echo", "printf")) or '"' in ls.split("git")[0]:
                 continue
             if re.search(r"git\s+pull", ls) and "/opt/aitbc" in ls:
                 bad.append(f"{sh}: {ls[:60]}")
             if "pip install -r requirements.txt" in ls:
+                # #955: a pinned install guarded by `-f requirements.txt` in
+                # the preceding lines is the sanctioned form, not a missing-file install.
+                if any('-f "requirements.txt"' in prev for prev in lines[max(0, idx - 3) : idx]):
+                    continue
                 bad.append(f"{sh}: installs missing requirements.txt")
     assert bad == []
