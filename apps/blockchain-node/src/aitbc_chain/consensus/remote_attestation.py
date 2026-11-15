@@ -99,12 +99,18 @@ class _RaBaseMixin:
         self._round_locks: dict[tuple[int, int, str | None], _RoundLockEntry] = {}
         # #1736: (height, round) -> hashes this validator voted for that the proposer abandoned in that
         # round. A different hash in the same round is refused (it would sign a slashable same-round
-        # pair); memory-only, like the abandon release itself being re-derivable from the statement.
+        # pair). Reseeded from ``attestation_abandoned.json`` on load (#1963).
         self._abandoned_rounds: dict[tuple[int, int], set[str]] = {}
         # #1940 F2: height-level abandoned index for the round-underivable
-        # case (round-lock off / pre-domain-separation) — memory-only like
-        # _abandoned_rounds; a restart forgets it (#1736 persist residual).
+        # case (round-lock off / pre-domain-separation) — same persistence
+        # contract as ``_abandoned_rounds``.
         self._abandoned_heights: dict[int, set[str]] = {}
+        # #1963: both indexes are reseeded from this durable file on load —
+        # release_abandoned→retract leaves no trace in the vote journal, so
+        # without it a restart inside the abandon→retry gap reopens the
+        # same-round equivocation window the guards exist to close.
+        self._abandoned_loaded = False
+        self._abandoned_path = DATA_DIR / "data" / chain_id / "attestation_abandoned.json"
         self._requests_seen: dict[int, dict[int, float]] = {}
         self._round_locks_loaded = False
         self._round_locks_path = DATA_DIR / "data" / chain_id / "attestation_round_locks.json"
