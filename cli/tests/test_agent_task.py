@@ -116,7 +116,8 @@ def test_result_fetches_cid(runner, mock_client, tmp_path):
     mock_client.get.side_effect = fake_get
 
     fake_resp = MagicMock()
-    fake_resp.content = payload
+    fake_resp.__enter__.return_value = fake_resp
+    fake_resp.iter_content.return_value = [payload]
     fake_resp.raise_for_status = MagicMock()
 
     out_file = tmp_path / "out.json"
