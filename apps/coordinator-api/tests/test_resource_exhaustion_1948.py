@@ -25,6 +25,8 @@ from pydantic import ValidationError
 
 from aitbc.auth import create_access_token
 
+from aitbc_shared import JobPayment
+
 from coordinator_api.contexts.infrastructure.domain import Miner
 from coordinator_api.contexts.infrastructure.routers import inference as inf_mod
 from coordinator_api.contexts.infrastructure.services import jobs as jobs_module
@@ -50,7 +52,7 @@ def _online_miner(miner_id: str = "miner-1948") -> Miner:
         inflight=0,
         status="ONLINE",
         extra_metadata={},
-        capabilities={},
+        capabilities={"wallet_address": _PROVIDER},
         last_heartbeat=datetime.now(UTC),
     )
 
@@ -90,26 +92,57 @@ def test_create_job_ttl_cap_never_below_one(db_session, job_service):
 
 def test_inflight_cap_refuses_new_submits(db_session, job_service, monkeypatch):
     monkeypatch.setattr(jobs_module, "_MAX_INFLIGHT_JOBS_PER_CLIENT", 2)
-    job_service.create_job(client_id="client1", req=_job_req())
-    job_service.create_job(client_id="client1", req=_job_req())
+    job_service.create_job(client_id="client1", req=_job_req(), enforce_inflight_cap=True)
+    job_service.create_job(client_id="client1", req=_job_req(), enforce_inflight_cap=True)
     with pytest.raises(HTTPException) as exc_info:
-        job_service.create_job(client_id="client1", req=_job_req())
+        job_service.create_job(client_id="client1", req=_job_req(), enforce_inflight_cap=True)
     assert exc_info.value.status_code == 429
+
+
+def test_inflight_cap_not_applied_to_internal_callers(db_session, job_service, monkeypatch):
+    """#1972: services.py renders and market_gpu bookings call create_job without
+    the public-path flag and must not 429 on the per-client cap."""
+    monkeypatch.setattr(jobs_module, "_MAX_INFLIGHT_JOBS_PER_CLIENT", 1)
+    job_service.create_job(client_id="client1", req=_job_req())
+    job_service.create_job(client_id="client1", req=_job_req())
 
 
 def test_inflight_cap_is_per_client_and_terminal_jobs_free_slots(db_session, job_service, monkeypatch):
     monkeypatch.setattr(jobs_module, "_MAX_INFLIGHT_JOBS_PER_CLIENT", 1)
-    first = job_service.create_job(client_id="client1", req=_job_req())
+    first = job_service.create_job(client_id="client1", req=_job_req(), enforce_inflight_cap=True)
     # A different client is unaffected.
-    job_service.create_job(client_id="client-1", req=_job_req())
+    job_service.create_job(client_id="client-1", req=_job_req(), enforce_inflight_cap=True)
     # Completing the job frees the slot.
     first.state = "COMPLETED"
     db_session.add(first)
     db_session.commit()
-    job_service.create_job(client_id="client1", req=_job_req())
+    job_service.create_job(client_id="client1", req=_job_req(), enforce_inflight_cap=True)
 
 
 # --- F1: paid-first dispatch ordering ------------------------------------
+
+
+_PROVIDER = "0x" + "a" * 40
+
+
+def _secure_payment(db_session, job) -> JobPayment:
+    """Give ``job`` a real escrowed JobPayment row (what verified payment means)."""
+    payment = JobPayment(
+        job_id=job.id,
+        amount=Decimal("5"),
+        currency="AITBC",
+        payment_method="aitbc_token",
+        status="escrowed",
+        meta_data={"provider_address": _PROVIDER},
+    )
+    db_session.add(payment)
+    db_session.commit()
+    db_session.refresh(payment)
+    job.payment_id = payment.id
+    job.payment_status = "escrowed"
+    db_session.add(job)
+    db_session.commit()
+    return payment
 
 
 def test_paid_job_dispatched_before_older_unpriced(db_session, job_service):
@@ -122,9 +155,7 @@ def test_paid_job_dispatched_before_older_unpriced(db_session, job_service):
         client_id="client1",
         req=_job_req(payment_amount=Decimal("5"), payment_currency="AITBC"),
     )
-    priced.payment_status = "escrowed"
-    db_session.add(priced)
-    db_session.commit()
+    _secure_payment(db_session, priced)
 
     acquired = job_service.acquire_next_job(miner)
     assert acquired is not None
@@ -133,6 +164,23 @@ def test_paid_job_dispatched_before_older_unpriced(db_session, job_service):
     acquired = job_service.acquire_next_job(miner)
     assert acquired is not None
     assert acquired.id == unpriced.id
+
+
+def test_unfunded_priced_jobs_neither_outrank_nor_crowd_the_window(db_session, job_service, monkeypatch):
+    """#1972: client-asserted payment_amount/payment_status=pending must not rank
+    ahead of legitimate work, nor occupy the scan window, even when they are the
+    only rows older than the legitimate job."""
+    miner = _online_miner()
+    db_session.add(miner)
+    db_session.commit()
+    monkeypatch.setattr(jobs_module.JobService, "_QUEUE_SCAN_LIMIT", 3)
+    monkeypatch.setattr(jobs_module, "_PAYMENT_REQUIRE", True)
+    for _ in range(5):
+        job_service.create_job(client_id="client-1", req=_job_req(payment_amount=Decimal("9"), payment_currency="AITBC"))
+    legit = job_service.create_job(client_id="client1", req=_job_req())
+    acquired = job_service.acquire_next_job(miner)
+    assert acquired is not None
+    assert acquired.id == legit.id
 
 
 def test_unpriced_still_dispatches_when_no_paid_work(db_session, job_service):
