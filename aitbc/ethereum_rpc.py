@@ -108,7 +108,8 @@ class EthereumRPCClient:
         """Check if connected to Ethereum node."""
         try:
             return bool(self._get_web3().is_connected())
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - connectivity probe reports False on any failure
+            logger.debug("ethereum is_connected probe failed: %s", type(e).__name__)
             return False
 
     @property
@@ -167,7 +168,8 @@ class EthereumRPCClient:
                 "gas": tx.gas,
                 "gas_price": tx.gasPrice,
             }
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - absent/failed lookup reports None
+            logger.debug("get_transaction(%s) failed: %s", tx_hash, type(e).__name__)
             return None
 
     @staticmethod
@@ -210,7 +212,8 @@ class EthereumRPCClient:
                 "log_entries": log_entries,
                 "logs": len(receipt.logs),
             }
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - absent/failed lookup reports None
+            logger.debug("get_transaction_receipt(%s) failed: %s", tx_hash, type(e).__name__)
             return None
 
     def get_gas_price(self) -> dict[str, Any]:
@@ -328,10 +331,11 @@ class EthereumRPCClient:
                 "latest_block": block,
                 "gas_price_gwei": gas["gwei"],
             }
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - health endpoint reports disconnected on any failure
             # Provider errors can re-embed the request URL — the key — in
             # their text, so the message goes through the same redaction the
             # connect loop uses.
+            logger.debug("ethereum health check failed: %s", redact_text(str(e)))
             return {
                 "status": "disconnected",
                 "network": self.config.network,

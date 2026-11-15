@@ -234,7 +234,7 @@ def verify_commitment(commitment: bytes, amount: str | Decimal | int, blinding: 
     """
     try:
         return _encode(_commit(amount, blinding)) == commitment
-    except Exception:
+    except (TypeError, ValueError):
         return False
 
 

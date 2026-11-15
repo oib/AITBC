@@ -6,12 +6,15 @@ Provides Ethereum-specific cryptographic operations and security functions
 import base64
 import hashlib
 import json
+import logging
 import os
 from typing import Any
 
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+logger = logging.getLogger(__name__)
 
 #: Order of the secp256k1 group. A valid private key is a scalar in [1, n-1]; eth-account
 #: does not enforce this and will happily sign with 0.
@@ -167,7 +170,8 @@ def recover_signer(message_data: dict[str, Any], signature: str) -> str | None:
             return recover_address(keccak(message), signature)
         except SignatureMalformed:
             return None
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - recovery boundary: any failure means no signer
+        logger.debug("signature recovery failed: %s", type(e).__name__)
         return None
 
 

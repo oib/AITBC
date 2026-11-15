@@ -12,6 +12,7 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, padding, rsa
 
@@ -89,7 +90,7 @@ class AgentIdentity:
                 hashes.SHA256(),
             )
             return True
-        except Exception:
+        except (InvalidSignature, TypeError, ValueError):
             return False
 
 

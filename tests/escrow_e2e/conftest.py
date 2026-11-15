@@ -8,6 +8,7 @@ request. That is the deny-by-default regression this suite exists to see.
 
 from __future__ import annotations
 
+import contextlib
 import os
 import sys
 import tempfile
@@ -301,12 +302,10 @@ def _e2e_settings_guard() -> Generator[None]:
     _apply_e2e_settings()
     yield
     _restore_settings()
-    try:
+    with contextlib.suppress(Exception):  # best-effort teardown of the JWT singleton
         import aitbc.auth.jwt as _jwt
 
         _jwt._jwt_handler = None
-    except Exception:
-        pass
 
 
 @pytest.fixture(autouse=True, scope="module")

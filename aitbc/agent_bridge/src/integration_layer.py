@@ -236,7 +236,8 @@ class AgentServiceBridge:
                 }
 
                 return {"status": "success", "result": analysis_result}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - task boundary reports failure to caller
+            logger.warning("market analysis task failed: %s", e)
             return {"status": "error", "message": str(e)}
 
     async def _execute_trading_task(self, task_data: dict[str, Any]) -> dict[str, Any]:
@@ -259,7 +260,8 @@ class AgentServiceBridge:
                 tx_result = await integration.submit_transaction(transaction)
 
                 return {"status": "success", "transaction": tx_result}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - task boundary reports failure to caller
+            logger.warning("trading task failed: %s", e)
             return {"status": "error", "message": str(e)}
 
     async def _execute_compliance_check(self, task_data: dict[str, Any]) -> dict[str, Any]:

@@ -1,5 +1,6 @@
 """Shared fixtures and setup for agent coordinator integration tests."""
 
+import contextlib
 import os
 import tempfile
 from collections.abc import Generator
@@ -53,13 +54,11 @@ def _reset_coordinator_modules() -> None:
     ``aitbc_chain`` now keeps its tables on its own metadata, so the two model sets no longer
     meet and none of that is needed (V23-74).
     """
-    try:
+    with contextlib.suppress(Exception):  # best-effort registry cleanup between suites
         from prometheus_client import REGISTRY
 
         for collector in list(REGISTRY._collector_to_names.keys()):
             REGISTRY.unregister(collector)
-    except Exception:
-        pass
 
 
 _reset_coordinator_modules()
@@ -67,12 +66,10 @@ _reset_coordinator_modules()
 
 def _reset_coordinator_state() -> None:
     """Clear in-memory Redis fallback state between tests."""
-    try:
+    with contextlib.suppress(Exception):  # best-effort state reset between tests
         from coordinator_api.contexts.infrastructure.services.redis_state import RedisStateManager
 
         RedisStateManager.get_instance_sync()._memory.clear()
-    except Exception:
-        pass
 
 
 @pytest.fixture(scope="session")

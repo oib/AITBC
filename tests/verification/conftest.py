@@ -70,12 +70,12 @@ import requests
 
 try:
     from aitbc.crypto.consensus_signing import sign_block_hash
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     sign_block_hash = None  # type: ignore[assignment]
 
 try:
     from eth_keys import keys
-except Exception:  # pragma: no cover
+except ImportError:  # pragma: no cover
     keys = None  # type: ignore[assignment]
 
 #: Hosts that are somebody's live deployment. Matched against module source, not resolved.

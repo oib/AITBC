@@ -9,8 +9,8 @@ import os
 # Import base user classes from existing load test files
 try:
     from locust import HttpUser, between, task
-except Exception:
-    # Skip this module if locust is not installed or fails (e.g., during pytest collection)
+except ImportError:
+    # Skip this module if locust is not installed (e.g., during pytest collection)
     HttpUser = object  # type: ignore[misc,assignment]
     between = lambda a, b: None  # type: ignore[assignment]  # noqa: E731
     task = lambda weight: lambda f: f  # type: ignore[assignment]  # noqa: E731

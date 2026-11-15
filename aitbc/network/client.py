@@ -20,6 +20,8 @@ from .retry_policy import RetryPolicy
 
 _DETAIL_CAP = 300
 
+logger = get_logger(__name__)
+
 
 def _detail_suffix(exc: BaseException) -> str:
     """Return ``": <server detail>"`` for a wrapped HTTP error, else ``""``.
@@ -34,8 +36,8 @@ def _detail_suffix(exc: BaseException) -> str:
     """
     try:
         return _detail_suffix_inner(exc)
-    except Exception:
-        # best-effort enrichment — never mask the wrapped NetworkError
+    except Exception as e:  # noqa: BLE001 - best-effort enrichment, never mask the wrapped error
+        logger.debug("error-detail extraction failed: %s", type(e).__name__)
         return ""
 
 
@@ -46,7 +48,7 @@ def _detail_suffix_inner(exc: BaseException) -> str:
         if response is not None:
             try:
                 body = response.json()
-            except Exception:
+            except ValueError:
                 return ""
             detail: Any = None
             if isinstance(body, dict):

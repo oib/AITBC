@@ -215,7 +215,7 @@ async def _cdp_steps(ws_url: str, url: str, stub_js: str, steps: list, width: in
         finally:
             try:
                 await send("Target.closeTarget", {"targetId": target_id})
-            except Exception:  # noqa: BLE001
+            except Exception:  # noqa: BLE001,S110 - best-effort target cleanup
                 pass
     last["_steps"] = results
     last["_events"] = events

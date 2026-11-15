@@ -2,6 +2,7 @@
 Secret management with encryption, rotation, and expiration
 """
 
+import logging
 import os
 import secrets
 import threading
@@ -9,6 +10,8 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from cryptography.fernet import Fernet
+
+logger = logging.getLogger(__name__)
 
 
 def generate_secure_random_string(length: int = 32) -> str:
@@ -88,7 +91,8 @@ class SecretManager:
             encrypted = secret_data["encrypted_value"]
             decrypted = self.fernet.decrypt(encrypted.encode("utf-8"))
             return decrypted.decode("utf-8")
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - undecryptable/expired secret reads as absent
+            logger.debug("secret %r decrypt failed: %s", key, type(e).__name__)
             return None
 
     def rotate_secret(self, key: str, new_value: str, ttl_hours: int | None = None) -> bool:
@@ -215,7 +219,8 @@ class SecretManager:
                 self.fernet = new_fernet
                 self.secrets = reencrypted_secrets
             return True
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - rotation boundary: report failure, keep old key
+            logger.warning("encryption key rotation failed: %s", type(e).__name__)
             return False
 
     def get_encryption_key(self) -> str:

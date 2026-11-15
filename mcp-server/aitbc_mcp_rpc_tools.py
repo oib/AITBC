@@ -489,8 +489,8 @@ def get_eth_bridge_status_redacted(
     if raw is None and isinstance(result.get("stdout"), str):
         try:
             raw = json.loads(result["stdout"])
-        except Exception:
-            pass
+        except json.JSONDecodeError:
+            raw = None  # falls through to the invalid-response error below
 
     if not isinstance(raw, dict):
         return _json(
