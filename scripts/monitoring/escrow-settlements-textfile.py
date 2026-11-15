@@ -132,6 +132,45 @@ def parse_settled_at(raw: object) -> datetime | None:
     return parsed.astimezone(UTC)
 
 
+def _stored(tx_hash: object) -> bool:
+    return isinstance(tx_hash, str) and bool(tx_hash.strip())
+
+
+def _sealed(conn: sqlite3.Connection, tx_hash: object) -> bool:
+    if not isinstance(tx_hash, str) or not tx_hash:
+        return False
+    # Per-hash probe: the sealed table is far larger than the settled-row
+    # set, so probing each claim beats loading every tx_hash into memory.
+    return conn.execute("SELECT 1 FROM 'transaction' WHERE tx_hash = ? LIMIT 1", (tx_hash,)).fetchone() is not None
+
+
+def _claimed_legs(
+    status: object, release_hash: object, refund_hash: object, released_at: object, refunded_at: object
+) -> list[tuple[str, object, object]]:
+    """The (kind, tx_hash, settled_raw) legs this escrow row claims."""
+    legs = []
+    if status == "released" or released_at is not None or _stored(release_hash):
+        legs.append(("release", release_hash, released_at))
+    if status == "refunded" or refunded_at is not None or _stored(refund_hash):
+        legs.append(("refund", refund_hash, refunded_at))
+    return legs
+
+
+def _leg_age(settled_raw: object, created_at: object, now: float) -> float:
+    """Age in seconds of a claimed leg; inf when no legible timestamp exists.
+
+    A leg timestamp that is missing falls back to the row's created_at: a
+    claim cannot outlive its row, so that is a true upper bound -- it may
+    over-report the age but can never hide a stale claim behind a fresh
+    sibling timestamp. A row with no legible timestamp anywhere keeps an
+    unbounded age and still flags; render() must emit it as a finite value.
+    """
+    settled_at = parse_settled_at(settled_raw)
+    if settled_at is None:
+        settled_at = parse_settled_at(created_at)
+    return float("inf") if settled_at is None else now - settled_at.timestamp()
+
+
 def _unlanded_rows(conn: sqlite3.Connection, now: float, max_age_seconds: float) -> list[Violation]:
     """Escrow legs whose stored settlement hash is not sealed.
 
@@ -147,35 +186,11 @@ def _unlanded_rows(conn: sqlite3.Connection, now: float, max_age_seconds: float)
         "OR release_tx_hash IS NOT NULL OR refund_tx_hash IS NOT NULL"
     ).fetchall()
 
-    def stored(tx_hash: object) -> bool:
-        return isinstance(tx_hash, str) and bool(tx_hash.strip())
-
-    def sealed(tx_hash: object) -> bool:
-        if not isinstance(tx_hash, str) or not tx_hash:
-            return False
-        # Per-hash probe: the sealed table is far larger than the settled-row
-        # set, so probing each claim beats loading every tx_hash into memory.
-        return conn.execute("SELECT 1 FROM 'transaction' WHERE tx_hash = ? LIMIT 1", (tx_hash,)).fetchone() is not None
-
     for job_id, status, release_hash, refund_hash, released_at, refunded_at, created_at in rows:
-        legs = []
-        if status == "released" or released_at is not None or stored(release_hash):
-            legs.append(("release", release_hash, released_at))
-        if status == "refunded" or refunded_at is not None or stored(refund_hash):
-            legs.append(("refund", refund_hash, refunded_at))
-        for kind, tx_hash, settled_raw in legs:
-            if sealed(tx_hash):
+        for kind, tx_hash, settled_raw in _claimed_legs(status, release_hash, refund_hash, released_at, refunded_at):
+            if _sealed(conn, tx_hash):
                 continue
-            # A leg timestamp that is missing falls back to the row's
-            # created_at: a claim cannot outlive its row, so that is a true
-            # upper bound -- it may over-report the age but can never hide a
-            # stale claim behind a fresh sibling timestamp. A row with no
-            # legible timestamp anywhere keeps an unbounded age and still
-            # flags; render() must emit it as a finite value.
-            settled_at = parse_settled_at(settled_raw)
-            if settled_at is None:
-                settled_at = parse_settled_at(created_at)
-            age = float("inf") if settled_at is None else now - settled_at.timestamp()
+            age = _leg_age(settled_raw, created_at, now)
             if age > max_age_seconds:
                 violations.append(Violation(job_id=job_id, kind=kind, age_seconds=age))
     return violations
@@ -329,6 +344,50 @@ def resolve_dbs() -> list[str]:
     return find_chain_dbs(os.environ.get("AITBC_DATA_DIR", "/var/lib/aitbc"))
 
 
+def _collect_results(
+    dbs: list[str], now: float, max_age: float, known: set[str] | None, registry_path: str
+) -> tuple[dict[str, list[Violation] | None], set[str], list[str]]:
+    """Read every chain.db; returns (results, open_locks, failed_sources)."""
+    results: dict[str, list[Violation] | None] = {}
+    open_locks: set[str] = set()
+    for db in dbs:
+        violations = read_db(db, now, max_age)
+        if violations is None:
+            results[db] = None
+            continue
+        if known is not None:
+            opened = read_open_locks(db, known)
+            if opened is None:
+                results[db] = None
+                continue
+            open_locks |= opened
+        results[db] = violations
+    # When the registry is unreadable the open-lock scan is skipped entirely:
+    # without suppression every known artifact would false-alert, so the scan
+    # emits nothing and the registry's own scrape_success carries the failure.
+    failed_sources = [] if known is not None else [registry_path]
+    return results, open_locks, failed_sources
+
+
+def _write_failure(directory: str, now: float, exc: BaseException) -> None:
+    """Leave a failing series behind after an exporter crash."""
+    try:
+        write_atomic(directory, _failure_render(now))
+    except OSError:
+        pass
+    print(f"escrow-settlements: exporter error: {exc!r}", file=sys.stderr)
+
+
+def _failure_exit(results: dict[str, list[Violation] | None], known: set[str] | None, registry_path: str) -> int:
+    failed = [db for db, result in results.items() if result is None]
+    if known is None:
+        failed.append(registry_path)
+    if failed:
+        print(f"escrow-settlements: could not check {', '.join(failed)}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def main() -> int:
     try:
         max_age = float(os.environ.get("AITBC_ESCROW_SETTLEMENT_MAX_AGE_SECONDS", str(DEFAULT_MAX_AGE_SECONDS)))
@@ -350,43 +409,16 @@ def main() -> int:
         return 2
     try:
         known = read_known_artifacts(registry_path)
-        results: dict[str, list[Violation] | None] = {}
-        open_locks: set[str] = set()
-        for db in dbs:
-            violations = read_db(db, now, max_age)
-            if violations is None:
-                results[db] = None
-                continue
-            if known is not None:
-                opened = read_open_locks(db, known)
-                if opened is None:
-                    results[db] = None
-                    continue
-                open_locks |= opened
-            results[db] = violations
-        # When the registry is unreadable the open-lock scan is skipped entirely:
-        # without suppression every known artifact would false-alert, so the scan
-        # emits nothing and the registry's own scrape_success carries the failure.
-        failed_sources = [] if known is not None else [registry_path]
+        results, open_locks, failed_sources = _collect_results(dbs, now, max_age, known, registry_path)
         write_atomic(directory, render(results, now, open_locks=open_locks, failed_sources=failed_sources))
     except Exception as exc:  # noqa: BLE001 - exporter containment — a raised export still leaves a failing series
         # The exporter itself raised (like the int(inf) OverflowError that
         # killed the run on the unsealed-release row): still leave a failing
         # series behind -- exiting without a textfile is indistinguishable
         # from a dead timer and only the stale-check alert would notice.
-        try:
-            write_atomic(directory, _failure_render(now))
-        except OSError:
-            pass
-        print(f"escrow-settlements: exporter error: {exc!r}", file=sys.stderr)
+        _write_failure(directory, now, exc)
         return 1
-    failed = [db for db, result in results.items() if result is None]
-    if known is None:
-        failed.append(registry_path)
-    if failed:
-        print(f"escrow-settlements: could not check {', '.join(failed)}", file=sys.stderr)
-        return 1
-    return 0
+    return _failure_exit(results, known, registry_path)
 
 
 if __name__ == "__main__":
