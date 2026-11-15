@@ -173,6 +173,35 @@ class TestFailClosed:
         response = client.get("/rpc/subscribers", headers={"X-API-Key": key})
         assert response.status_code == 403
 
+    def test_revocation_during_subscriber_await_never_leaks_full_list(
+        self, client: TestClient, fleet_rows, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """#1983 regression: scope is resolved BEFORE the lease_tracker await.
+        If the key is revoked while get_valid_subscribers is in flight, the
+        response must still be own-only (or 403) — never the full list. The
+        dropped post-filter variant failed open here: is_issued_key re-checked
+        after the await returned False and served every row."""
+        from aitbc_chain.rpc import peer_keys
+
+        key = _join(client, "node-own")
+
+        async def revoke_then_return(chain_id: str | None = None):
+            peer_keys.revoke("node-own")
+            return list(fleet_rows)
+
+        monkeypatch.setattr(
+            "aitbc_chain.rpc.subscription.lease_tracker.get_valid_subscribers",
+            revoke_then_return,
+        )
+
+        response = client.get("/rpc/subscribers", headers={"X-API-Key": key})
+        assert response.status_code in (200, 403)
+        if response.status_code == 200:
+            data = response.json()
+            assert all(s["node_id"] == "node-own" for s in data["subscribers"])
+            assert data["count"] == len(data["subscribers"])
+            assert "node-other" not in {s["node_id"] for s in data["subscribers"]}
+
     def test_scope_lookup_error_is_403(self, client: TestClient, fleet_rows, monkeypatch: pytest.MonkeyPatch) -> None:
         key = _join(client, "node-own")
 

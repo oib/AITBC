@@ -84,27 +84,24 @@ def test_operational_reads_reject_issued_join_key(client, monkeypatch, path):
 
 
 def test_subscribers_issued_key_sees_only_own_node(client, monkeypatch):
+    """#1983: fake at the lease-tracker seam — real get_subscribers performs
+    the node_id filter; no filtering logic duplicated in the fake."""
+    from aitbc_chain.lease_tracker import SubscriberInfo
     from aitbc_chain.rpc import peer_keys
-    from aitbc_chain.rpc.routers import subscription
+    from aitbc_chain.rpc import subscription as sub_mod
 
-    seen: dict = {}
-
-    async def fake_subscribers(chain_id=None, node_id=None):
-        seen["node_id"] = node_id
-        rows = [
-            {"node_id": n, "transport": "ws", "chain_id": "c", "expiry": 1.0, "client_ip": "1.2.3.4"}
+    async def fake_valid_subscribers(chain_id=None):
+        return [
+            SubscriberInfo(node_id=n, transport="ws", expiry=9_999_999_999.0, chain_id="c", client_ip="1.2.3.4")
             for n in ("mine-1", "other-2")
-            if node_id is None or n == node_id
         ]
-        return {"subscribers": rows, "count": len(rows)}
 
-    monkeypatch.setattr(subscription, "get_subscribers", fake_subscribers)
+    monkeypatch.setattr(sub_mod.lease_tracker, "get_valid_subscribers", fake_valid_subscribers)
     monkeypatch.setattr(peer_keys, "is_issued_key", lambda key: key == ISSUED)
     monkeypatch.setattr(peer_keys, "peer_key_node_scope", lambda key: "mine-1" if key == ISSUED else None)
 
     own = client.get("/rpc/subscribers", headers={"X-API-Key": ISSUED}).json()
     assert [s["node_id"] for s in own["subscribers"]] == ["mine-1"] and own["count"] == 1
-    assert seen["node_id"] == "mine-1"
     fleet = client.get("/rpc/subscribers", headers={"X-API-Key": KEY}).json()
     assert fleet["count"] == 2
-    assert seen["node_id"] is None
+    assert {s["node_id"] for s in fleet["subscribers"]} == {"mine-1", "other-2"}
