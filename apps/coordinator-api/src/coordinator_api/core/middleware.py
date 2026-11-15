@@ -4,10 +4,10 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
-from slowapi.util import get_remote_address
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.rate_limiting import client_ip_for_rate_limit
 from aitbc.security_headers import SecurityHeaders, SecurityHeadersMiddleware, create_production_security_headers
 
 logger = get_logger(__name__)
@@ -63,7 +63,7 @@ def setup_middleware(app: FastAPI) -> None:
 
     # Rate limiting
     limiter = Limiter(
-        key_func=get_remote_address,
+        key_func=client_ip_for_rate_limit,
         default_limits=[f"{settings.rate_limit_market_list}/minute"],
     )
     app.state.limiter = limiter
