@@ -30,6 +30,16 @@ from enum import Enum
 
 from .multi_validator_poa import Validator, ValidatorRole
 
+# #1940 F3-A: evidence kind for a validator that COMMIT two different
+# ``block_hash`` values at the same ``sequence_number`` (chain height) in
+# different PBFT ``view_number``s. The commit vote is the quorum/finality
+# vote certificates count, so the pair is slashable equivocation; prepare
+# votes legitimately rotate across views and stay non-slashable. Armed by
+# ``pbft_cross_view_commit_lock_height`` / the on-chain
+# ``validator_deactivation_pbft_cross_view_evidence_height`` parameter —
+# dormant (None) by default.
+PBFT_CROSS_VIEW_VOTE_EQUIVOCATION = "pbft_cross_view_vote_equivocation"
+
 
 class SlashingCondition(Enum):
     DOUBLE_SIGN = "double_sign"
@@ -71,6 +81,22 @@ class SlashingEvent:
 MIN_ACTIVE_STAKE = Decimal("100")
 
 
+def _cross_view_message_order(message: dict) -> tuple[int, str, str]:
+    """Deterministic order for cross-view evidence messages (#1940 F3-A).
+
+    ``(view_number, block_hash.lower(), signature)`` — observation order must
+    not change the canonical evidence. Non-int views sort first; the
+    signature tiebreak keeps the order total even for duplicate
+    ``(view, hash)`` records.
+    """
+    view = message.get("view_number")
+    return (
+        view if isinstance(view, int) and not isinstance(view, bool) else -1,
+        str(message.get("block_hash", "")).lower(),
+        str(message.get("signature", "")),
+    )
+
+
 def _sorted_hash_pair(hash_a: str, hash_b: str) -> tuple[str, str]:
     """Canonical order for an equivocation pair — observation order must not
     change the evidence (#1206)."""
@@ -101,6 +127,16 @@ def _equivocation_dedup_key(event: SlashingEvent) -> str:
     }
     if not (event.hash_a or event.hash_b):
         payload["evidence"] = event.evidence
+    else:
+        # #1940 F3-A: a cross-view commit equivocation keys on the view pair
+        # too — two different view pairs can carry the same block-hash pair,
+        # and collapsing them would silently drop a distinct offense. Every
+        # other kind keeps the byte-identical pre-F3-A key.
+        ep = _evidence_payload(event)
+        if ep is not None and ep.get("kind") == PBFT_CROSS_VIEW_VOTE_EQUIVOCATION:
+            payload["cross_view_sequence"] = ep.get("sequence")
+            payload["cross_view_phase"] = ep.get("phase")
+            payload["cross_view_views"] = ep.get("views")
     canonical = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return hashlib.sha256(canonical.encode()).hexdigest()
 
@@ -137,7 +173,11 @@ def event_is_equivocation_claim(event: SlashingEvent) -> bool:
     """Whether the event claims an equivocation offense (verifiable or not)."""
     payload = _evidence_payload(event)
     if payload is not None:
-        return payload.get("kind") in ("attestation_equivocation", "vote_equivocation")
+        return payload.get("kind") in (
+            "attestation_equivocation",
+            "vote_equivocation",
+            PBFT_CROSS_VIEW_VOTE_EQUIVOCATION,
+        )
     return event.evidence.startswith("Double sign detected")
 
 
@@ -452,6 +492,57 @@ class SlashingManager:
             condition=SlashingCondition.DOUBLE_SIGN,
             evidence=json.dumps(evidence, sort_keys=True),
             block_height=view,
+            timestamp=time.time(),
+            slash_rate=self.slash_rates[SlashingCondition.DOUBLE_SIGN],
+            hash_a=hash_a,
+            hash_b=hash_b,
+        )
+
+    def cross_view_vote_equivocation_event(
+        self,
+        validator_address: str,
+        sequence: int,
+        phase: str,
+        message_a: dict,
+        message_b: dict,
+    ) -> SlashingEvent:
+        """Build a cross-view PBFT COMMIT equivocation event (#1940 F3-A).
+
+        ``message_a``/``message_b`` are the signed-field subsets of the two
+        conflicting COMMIT messages (same shape as ``vote_equivocation_event``)
+        recorded at the same ``sequence_number`` but different
+        ``view_number``s with different ``block_hash`` values. Unlike
+        ``vote_equivocation_event`` the event is height-scoped:
+        ``block_height`` carries the chain height (``sequence``) — NOT the
+        view — so TTL/finality/draft height filters stay correct, and
+        ``round_number`` stays None. The evidence payload records
+        ``kind``, ``sequence``, ``phase``, the sorted ``views`` pair and the
+        two message subsets ordered deterministically by
+        ``(view_number, block_hash.lower(), signature)``. Like the other
+        builders this only *builds* the event — the caller levies it via
+        ``apply_slashing``.
+        """
+        hash_a, hash_b = _sorted_hash_pair(str(message_a.get("block_hash", "")), str(message_b.get("block_hash", "")))
+        ordered = sorted((message_a, message_b), key=_cross_view_message_order)
+        view_numbers = sorted(
+            {
+                v
+                for v in (message_a.get("view_number"), message_b.get("view_number"))
+                if isinstance(v, int) and not isinstance(v, bool)
+            }
+        )
+        evidence = {
+            "kind": PBFT_CROSS_VIEW_VOTE_EQUIVOCATION,
+            "sequence": sequence,
+            "phase": phase,
+            "views": view_numbers,
+            "messages": ordered,
+        }
+        return SlashingEvent(
+            validator_address=validator_address,
+            condition=SlashingCondition.DOUBLE_SIGN,
+            evidence=json.dumps(evidence, sort_keys=True),
+            block_height=sequence,
             timestamp=time.time(),
             slash_rate=self.slash_rates[SlashingCondition.DOUBLE_SIGN],
             hash_a=hash_a,
