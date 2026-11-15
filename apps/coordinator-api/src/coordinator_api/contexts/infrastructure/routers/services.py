@@ -57,7 +57,7 @@ def whisper_transcribe(
     job_create = JobCreate(payload=job_payload, constraints=whisper_request.get_constraints(), ttl_seconds=900)
 
     service = JobService(session)
-    job = service.create_job(user["sub"], job_create)
+    job = service.create_job(user["sub"], job_create, enforce_inflight_cap=True)
 
     return ServiceResponse(
         job_id=job.id,
@@ -92,7 +92,7 @@ def whisper_translate(
     job_create = JobCreate(payload=job_payload, constraints=whisper_request.get_constraints(), ttl_seconds=900)
 
     service = JobService(session)
-    job = service.create_job(user["sub"], job_create)
+    job = service.create_job(user["sub"], job_create, enforce_inflight_cap=True)
 
     return ServiceResponse(
         job_id=job.id,
@@ -130,7 +130,7 @@ def stable_diffusion_generate(
     )
 
     service = JobService(session)
-    job = service.create_job(user["sub"], job_create)
+    job = service.create_job(user["sub"], job_create, enforce_inflight_cap=True)
 
     return ServiceResponse(
         job_id=job.id,
@@ -166,7 +166,7 @@ def stable_diffusion_img2img(
     job_create = JobCreate(payload=job_payload, constraints=sd_request.get_constraints(), ttl_seconds=600)
 
     service = JobService(session)
-    job = service.create_job(user["sub"], job_create)
+    job = service.create_job(user["sub"], job_create, enforce_inflight_cap=True)
 
     return ServiceResponse(
         job_id=job.id,
@@ -201,7 +201,7 @@ def llm_inference(
     )
 
     service = JobService(session)
-    job = service.create_job(user["sub"], job_create)
+    job = service.create_job(user["sub"], job_create, enforce_inflight_cap=True)
 
     return ServiceResponse(
         job_id=job.id,
@@ -231,7 +231,7 @@ def llm_stream(
     job_create = JobCreate(payload=job_payload, constraints=llm_request.get_constraints(), ttl_seconds=300)
 
     service = JobService(session)
-    job = service.create_job(user["sub"], job_create)
+    job = service.create_job(user["sub"], job_create, enforce_inflight_cap=True)
 
     # Return streaming response
     # This would implement WebSocket or Server-Sent Events
@@ -272,7 +272,7 @@ def ffmpeg_transcode(
     )
 
     service = JobService(session)
-    job = service.create_job(user["sub"], job_create)
+    job = service.create_job(user["sub"], job_create, enforce_inflight_cap=True)
 
     return ServiceResponse(
         job_id=job.id,
@@ -311,7 +311,7 @@ def blender_render(
     job_create = JobCreate(payload=job_payload, constraints=blender_request.get_constraints(), ttl_seconds=ttl_seconds)
 
     service = JobService(session)
-    job = service.create_job(user["sub"], job_create)
+    job = service.create_job(user["sub"], job_create, enforce_inflight_cap=True)
 
     return ServiceResponse(
         job_id=job.id,

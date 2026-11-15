@@ -100,11 +100,19 @@ def test_inflight_cap_refuses_new_submits(db_session, job_service, monkeypatch):
 
 
 def test_inflight_cap_not_applied_to_internal_callers(db_session, job_service, monkeypatch):
-    """#1972: services.py renders and market_gpu bookings call create_job without
-    the public-path flag and must not 429 on the per-client cap."""
+    """#1972/#1993: market_gpu paid purchase (no job_id) still omits the flag."""
     monkeypatch.setattr(jobs_module, "_MAX_INFLIGHT_JOBS_PER_CLIENT", 1)
     job_service.create_job(client_id="client1", req=_job_req())
     job_service.create_job(client_id="client1", req=_job_req())
+
+
+def test_inflight_cap_applied_to_public_service_callers(db_session, job_service, monkeypatch):
+    """#1993: services.py and /market/gpu/quote pass enforce_inflight_cap=True."""
+    monkeypatch.setattr(jobs_module, "_MAX_INFLIGHT_JOBS_PER_CLIENT", 1)
+    job_service.create_job(client_id="client1", req=_job_req(), enforce_inflight_cap=True)
+    with pytest.raises(HTTPException) as exc_info:
+        job_service.create_job(client_id="client1", req=_job_req(), enforce_inflight_cap=True)
+    assert exc_info.value.status_code == 429
 
 
 def test_inflight_cap_is_per_client_and_terminal_jobs_free_slots(db_session, job_service, monkeypatch):
