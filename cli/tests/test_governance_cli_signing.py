@@ -399,7 +399,7 @@ def test_ops_stake_posts_signed_body() -> None:
     captured: dict = {}
     signer = (ADDR, PK.to_hex())
     with (
-        patch("aitbc_cli.commands.operations.AITBCHTTPClient", return_value=_fake_http(captured)),
+        patch("aitbc_cli.commands.governance._get_client", return_value=_fake_http(captured)),
         patch("aitbc_cli.commands.governance._wallet_signer", return_value=signer),
         patch("aitbc_cli.commands.operations._wallet_signer", create=True, return_value=signer),
         patch("aitbc_cli.commands.operations.success"),
@@ -422,7 +422,7 @@ def test_ops_delegate_signer_must_match_delegator() -> None:
     other = keys.PrivateKey(b"\x0e" * 32).public_key.to_checksum_address()
     signer = (ADDR, PK.to_hex())
     with (
-        patch("aitbc_cli.commands.operations.AITBCHTTPClient", return_value=_fake_http({})),
+        patch("aitbc_cli.commands.governance._get_client", return_value=_fake_http({})),
         patch("aitbc_cli.commands.governance._wallet_signer", return_value=signer),
         patch("aitbc_cli.commands.operations._wallet_signer", create=True, return_value=signer),
     ):
