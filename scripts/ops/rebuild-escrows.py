@@ -358,51 +358,17 @@ def _compare(derived: dict[str, Any], stored: dict[str, Any] | None) -> dict[str
     return result
 
 
-def reconcile(conn: sqlite3.Connection, job_filter: str | None = None) -> tuple[dict[str, Any], list[str]]:
-    """Run the full reconciliation. Returns (report, invariant_failures)."""
-    failures: list[str] = []
-    tables = {name: _table_exists(conn, name) for name in ("block", "transaction", "escrow", "account")}
-    report: dict[str, Any] = {"tables": tables, "chains": {}, "checks": {}, "scoped_to_job": job_filter}
-    if not (tables["block"] and tables["transaction"]):
-        report["checks"]["fatal"] = "block/transaction tables absent — cannot derive anything"
-        return report, ["fatal: block/transaction tables absent"]
-
-    blocks = _load_blocks(conn)
-    canonical = _canonical_heights(blocks)
-    legs = _load_legs(conn)
-    # Sealed = block_height set AND the block row exists (design §2).
-    sealed = [t for t in legs if (t["chain_id"], t["block_height"]) in blocks]
-    unsealed_dangling = [t for t in legs if (t["chain_id"], t["block_height"]) not in blocks]
-    stored_rows = _load_escrow_rows(conn) if tables["escrow"] else {}
-    accounts = _load_accounts(conn) if tables["account"] else {}
-
-    by_job: dict[tuple[str, str], list[dict[str, Any]]] = {}
-    for tx in sealed:
-        if tx["job_id"]:
-            by_job.setdefault((tx["chain_id"], tx["job_id"]), []).append(tx)
-    if job_filter:
-        by_job = {k: v for k, v in by_job.items() if k[1] == job_filter}
-        stored_rows = {k: v for k, v in stored_rows.items() if k[1] == job_filter}
-
-    lock_jobs = {k for k, ts in by_job.items() if any(t["type"] == "ESCROW_LOCK" for t in ts)}
-    # R1: settlement legs with no sealed lock for their job_id.
-    orphan_legs = [
+def _orphan_legs(by_job: dict[tuple[str, str], list[dict[str, Any]]], lock_jobs: set) -> list[dict[str, Any]]:
+    """R1 payload: settlement legs with no sealed lock for their job_id."""
+    return [
         {"job_id": k[1], "chain_id": k[0], "txs": [_short(t["tx_hash"]) for t in ts if t["type"] != "ESCROW_LOCK"]}
         for k, ts in by_job.items()
         if k not in lock_jobs
     ]
-    if orphan_legs:
-        failures.append(f"R1: {len(orphan_legs)} job(s) have settlement legs but no sealed lock")
 
-    derived: dict[tuple[str, str], dict[str, Any]] = {}
-    compares: dict[tuple[str, str], dict[str, Any]] = {}
-    for key in sorted(lock_jobs):
-        cid, jid = key
-        d = _derive_job(cid, jid, by_job[key], blocks, canonical)
-        derived[key] = d
-        compares[key] = _compare(d, stored_rows.get(key))
 
-    # R2/R3/R4 per job.
+def _invariant_r234(derived: dict[tuple[str, str], dict[str, Any]]) -> tuple[list, list, list]:
+    """R2/R3/R4 violating job keys."""
     r2_bad = [k for k, d in derived.items() if (d["released_amount"] or 0) + (d["refunded_amount"] or 0) > d["amount"]]
     r3_bad = [
         k
@@ -411,24 +377,16 @@ def reconcile(conn: sqlite3.Connection, job_filter: str | None = None) -> tuple[
         or (d["release_legs"] and d["refunded_at"] is not None)
     ]
     r4_bad = [k for k, d in derived.items() if d["off_canonical_txs"]]
-    if r2_bad:
-        failures.append(f"R2: {len(r2_bad)} job(s) settled more than locked")
-    if r3_bad:
-        failures.append(f"R3: {len(r3_bad)} job(s) violate the status mapping")
-    if r4_bad:
-        failures.append(f"R4: {len(r4_bad)} job(s) reference non-canonical blocks")
+    return r2_bad, r3_bad, r4_bad
 
-    # R5: stored-vs-derived exact-field conflicts (abort-class per design §5).
-    r5_conflicts = {k: c["conflicts"] for k, c in compares.items() if c["conflicts"]}
-    if r5_conflicts:
-        failures.append(f"R5: {len(r5_conflicts)} stored row(s) contradict chain-derived fields")
 
-    missing_rows = [k for k in lock_jobs if k not in stored_rows]
-    orphan_rows = [k for k in stored_rows if k not in lock_jobs]
-    if job_filter:
-        orphan_rows = [k for k in orphan_rows if k[1] == job_filter]
+def _r5_conflicts(compares: dict[tuple[str, str], dict[str, Any]]) -> dict:
+    """R5: stored-vs-derived exact-field conflicts (abort-class per design §5)."""
+    return {k: c["conflicts"] for k, c in compares.items() if c["conflicts"]}
 
-    # G1: Σ locked = Σ released + Σ refunded + Σ swept + Σ residual.
+
+def _g1_identity(derived: dict[tuple[str, str], dict[str, Any]]) -> tuple[dict[str, int], str | None]:
+    """G1: Σ locked = Σ released + Σ refunded + Σ swept + Σ residual."""
     g1 = {
         "locked": sum(d["amount"] for d in derived.values()),
         "released": sum(d["released_amount"] or 0 for d in derived.values()),
@@ -436,63 +394,78 @@ def reconcile(conn: sqlite3.Connection, job_filter: str | None = None) -> tuple[
         "swept": sum(d["swept"] for d in derived.values()),
     }
     g1["residual"] = g1["locked"] - g1["released"] - g1["refunded"] - g1["swept"]
-    if g1["residual"] < 0 or min(g1.values()) < 0:
-        failures.append("G1: negative component in the locked=released+refunded+swept+residual identity")
+    failure = (
+        "G1: negative component in the locked=released+refunded+swept+residual identity"
+        if g1["residual"] < 0 or min(g1.values()) < 0
+        else None
+    )
+    return g1, failure
 
-    # G2: stored row count == distinct sealed-lock job count.
-    if tables["escrow"]:
-        # Count equality alone is not enough: a missing row cancelled by an
-        # orphan row would pass a bare count while the sets clearly differ.
-        if len(stored_rows) != len(lock_jobs) or missing_rows or orphan_rows:
-            failures.append(
-                f"G2: {len(stored_rows)} stored rows vs {len(lock_jobs)} sealed-lock jobs "
-                f"({len(missing_rows)} missing, {len(orphan_rows)} orphan)"
-            )
-    else:
-        failures.append("G2: escrow table absent")
 
-    # G3: custody balance == Σ v3-locked − released − refunded − swept.
+def _g2_failure(
+    tables: dict[str, bool],
+    stored_rows: dict,
+    lock_jobs: set,
+    missing_rows: list,
+    orphan_rows: list,
+) -> str | None:
+    """G2: stored row count == distinct sealed-lock job count."""
+    if not tables["escrow"]:
+        return "G2: escrow table absent"
+    # Count equality alone is not enough: a missing row cancelled by an
+    # orphan row would pass a bare count while the sets clearly differ.
+    if len(stored_rows) != len(lock_jobs) or missing_rows or orphan_rows:
+        return (
+            f"G2: {len(stored_rows)} stored rows vs {len(lock_jobs)} sealed-lock jobs "
+            f"({len(missing_rows)} missing, {len(orphan_rows)} orphan)"
+        )
+    return None
+
+
+def _g3_custody(
+    tables: dict[str, bool], derived: dict[tuple[str, str], dict[str, Any]], accounts: dict
+) -> tuple[int, int, list[dict[str, Any]], str | None]:
+    """G3: custody balance == Σ v3-locked − released − refunded − swept."""
     g3_checked = g3_skipped = 0
     g3_bad: list[dict[str, Any]] = []
-    if tables["account"]:
-        for k, d in derived.items():
-            if (d["lock_version"] or 0) < 3:
-                g3_skipped += 1
-                continue
-            g3_checked += 1
-            expected = d["v3_locked"] - (d["released_amount"] or 0) - (d["refunded_amount"] or 0) - d["swept"]
-            actual = accounts.get((k[0], d["escrow_addr"]))
-            if actual != expected:
-                g3_bad.append({"job_id": k[1], "expected": expected, "actual": actual})
-        if g3_bad:
-            failures.append(f"G3: {len(g3_bad)} custody balance(s) disagree with derived settlement")
-    else:
-        g3_skipped = len(derived)
+    if not tables["account"]:
+        return 0, len(derived), g3_bad, None
+    for k, d in derived.items():
+        if (d["lock_version"] or 0) < 3:
+            g3_skipped += 1
+            continue
+        g3_checked += 1
+        expected = d["v3_locked"] - (d["released_amount"] or 0) - (d["refunded_amount"] or 0) - d["swept"]
+        actual = accounts.get((k[0], d["escrow_addr"]))
+        if actual != expected:
+            g3_bad.append({"job_id": k[1], "expected": expected, "actual": actual})
+    failure = f"G3: {len(g3_bad)} custody balance(s) disagree with derived settlement" if g3_bad else None
+    return g3_checked, g3_skipped, g3_bad, failure
 
-    # G4: buyer/provider accounts exist.
+
+def _g4_missing(
+    tables: dict[str, bool], derived: dict[tuple[str, str], dict[str, Any]], accounts: dict
+) -> list[dict[str, Any]]:
+    """G4: buyer/provider accounts exist."""
     g4_missing = []
-    if tables["account"]:
-        for k, d in derived.items():
-            for field in ("buyer", "provider"):
-                if (k[0], d[field]) not in accounts:
-                    g4_missing.append({"job_id": k[1], "party": field, "address": _short(d[field])})
-        if g4_missing:
-            failures.append(f"G4: {len(g4_missing)} party account(s) missing")
+    if not tables["account"]:
+        return g4_missing
+    for k, d in derived.items():
+        for field in ("buyer", "provider"):
+            if (k[0], d[field]) not in accounts:
+                g4_missing.append({"job_id": k[1], "party": field, "address": _short(d[field])})
+    return g4_missing
 
-    report["legs_dangling_block"] = len(unsealed_dangling)
-    report["counts"] = {
-        "sealed_legs": len(sealed),
-        "sealed_locks": sum(1 for t in sealed if t["type"] == "ESCROW_LOCK"),
-        "releases": sum(1 for t in sealed if t["type"] == "ESCROW_RELEASE"),
-        "refunds": sum(1 for t in sealed if t["type"] == "ESCROW_REFUND"),
-        "sweeps": sum(1 for t in sealed if t["type"] == "ESCROW_FEE_SWEEP"),
-        "distinct_jobs": len(lock_jobs),
-        "stored_rows": len(stored_rows),
-        "missing_rows": len(missing_rows),
-        "orphan_rows": len(orphan_rows),
-        "conflicting_rows": len(r5_conflicts),
-    }
-    report["checks"] = {
+
+def _r_checks(
+    orphan_legs: list[dict[str, Any]],
+    r2_bad: list,
+    r3_bad: list,
+    r4_bad: list,
+    r5_conflicts: dict,
+) -> dict[str, Any]:
+    """The per-job invariant section of report['checks'] (R1-R5)."""
+    return {
         "R1": {"status": "FAIL" if orphan_legs else "PASS", "orphan_leg_jobs": orphan_legs},
         "R2": {"status": "FAIL" if r2_bad else "PASS", "violations": [_short(k[1]) for k in r2_bad]},
         "R3": {"status": "FAIL" if r3_bad else "PASS", "violations": [_short(k[1]) for k in r3_bad]},
@@ -501,6 +474,23 @@ def reconcile(conn: sqlite3.Connection, job_filter: str | None = None) -> tuple[
             "status": "FAIL" if r5_conflicts else "PASS",
             "conflicts": {k[1]: c for k, c in r5_conflicts.items()},
         },
+    }
+
+
+def _g_checks(
+    tables: dict[str, bool],
+    stored_rows: dict,
+    lock_jobs: set,
+    missing_rows: list,
+    orphan_rows: list,
+    g1: dict[str, int],
+    g3_checked: int,
+    g3_skipped: int,
+    g3_bad: list[dict[str, Any]],
+    g4_missing: list[dict[str, Any]],
+) -> dict[str, Any]:
+    """The global invariant section of report['checks'] (G1-G4)."""
+    return {
         "G1": {"status": "PASS" if g1["residual"] >= 0 else "FAIL", **g1},
         "G2": {
             "status": (
@@ -519,7 +509,117 @@ def reconcile(conn: sqlite3.Connection, job_filter: str | None = None) -> tuple[
         },
         "G4": {"status": "FAIL" if g4_missing else "PASS", "missing": g4_missing},
     }
-    report["jobs"] = {
+
+
+def _load_inputs(
+    conn: sqlite3.Connection, tables: dict[str, bool]
+) -> tuple[dict, set, list[dict[str, Any]], list[dict[str, Any]], dict, dict]:
+    """Load blocks/legs and derive sealed vs dangling legs plus stored rows/accounts."""
+    blocks = _load_blocks(conn)
+    canonical = _canonical_heights(blocks)
+    legs = _load_legs(conn)
+    # Sealed = block_height set AND the block row exists (design §2).
+    sealed = [t for t in legs if (t["chain_id"], t["block_height"]) in blocks]
+    unsealed_dangling = [t for t in legs if (t["chain_id"], t["block_height"]) not in blocks]
+    stored_rows = _load_escrow_rows(conn) if tables["escrow"] else {}
+    accounts = _load_accounts(conn) if tables["account"] else {}
+    return blocks, canonical, sealed, unsealed_dangling, stored_rows, accounts
+
+
+def _group_jobs(
+    sealed: list[dict[str, Any]], job_filter: str | None, stored_rows: dict
+) -> tuple[dict[tuple[str, str], list[dict[str, Any]]], dict]:
+    """Group sealed legs by (chain_id, job_id), applying the optional job filter."""
+    by_job: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for tx in sealed:
+        if tx["job_id"]:
+            by_job.setdefault((tx["chain_id"], tx["job_id"]), []).append(tx)
+    if job_filter:
+        by_job = {k: v for k, v in by_job.items() if k[1] == job_filter}
+        stored_rows = {k: v for k, v in stored_rows.items() if k[1] == job_filter}
+    return by_job, stored_rows
+
+
+def _derive_all(
+    lock_jobs: set,
+    by_job: dict[tuple[str, str], list[dict[str, Any]]],
+    blocks: dict,
+    canonical: set,
+    stored_rows: dict,
+) -> tuple[dict[tuple[str, str], dict[str, Any]], dict[tuple[str, str], dict[str, Any]]]:
+    """Derive every locked job's expected row and compare it to the stored row."""
+    derived: dict[tuple[str, str], dict[str, Any]] = {}
+    compares: dict[tuple[str, str], dict[str, Any]] = {}
+    for key in sorted(lock_jobs):
+        cid, jid = key
+        d = _derive_job(cid, jid, by_job[key], blocks, canonical)
+        derived[key] = d
+        compares[key] = _compare(d, stored_rows.get(key))
+    return derived, compares
+
+
+def _orphan_rows(stored_rows: dict, lock_jobs: set, job_filter: str | None) -> list:
+    """Stored rows with no sealed lock for their job_id (optionally job-scoped)."""
+    orphan_rows = [k for k in stored_rows if k not in lock_jobs]
+    if job_filter:
+        orphan_rows = [k for k in orphan_rows if k[1] == job_filter]
+    return orphan_rows
+
+
+def _invariant_failures(
+    orphan_legs: list[dict[str, Any]],
+    r2_bad: list,
+    r3_bad: list,
+    r4_bad: list,
+    r5_conflicts: dict,
+    g1_failure: str | None,
+    g2_failure: str | None,
+    g3_failure: str | None,
+    g4_missing: list[dict[str, Any]],
+) -> list[str]:
+    """Collect invariant failure messages in R1..G4 order."""
+    messages = [
+        (bool(orphan_legs), f"R1: {len(orphan_legs)} job(s) have settlement legs but no sealed lock"),
+        (bool(r2_bad), f"R2: {len(r2_bad)} job(s) settled more than locked"),
+        (bool(r3_bad), f"R3: {len(r3_bad)} job(s) violate the status mapping"),
+        (bool(r4_bad), f"R4: {len(r4_bad)} job(s) reference non-canonical blocks"),
+        (bool(r5_conflicts), f"R5: {len(r5_conflicts)} stored row(s) contradict chain-derived fields"),
+        (g1_failure is not None, g1_failure),
+        (g2_failure is not None, g2_failure),
+        (g3_failure is not None, g3_failure),
+        (bool(g4_missing), f"G4: {len(g4_missing)} party account(s) missing"),
+    ]
+    return [msg for ok, msg in messages if ok]
+
+
+def _counts(
+    sealed: list[dict[str, Any]],
+    lock_jobs: set,
+    stored_rows: dict,
+    missing_rows: list,
+    orphan_rows: list,
+    r5_conflicts: dict,
+) -> dict[str, int]:
+    return {
+        "sealed_legs": len(sealed),
+        "sealed_locks": sum(1 for t in sealed if t["type"] == "ESCROW_LOCK"),
+        "releases": sum(1 for t in sealed if t["type"] == "ESCROW_RELEASE"),
+        "refunds": sum(1 for t in sealed if t["type"] == "ESCROW_REFUND"),
+        "sweeps": sum(1 for t in sealed if t["type"] == "ESCROW_FEE_SWEEP"),
+        "distinct_jobs": len(lock_jobs),
+        "stored_rows": len(stored_rows),
+        "missing_rows": len(missing_rows),
+        "orphan_rows": len(orphan_rows),
+        "conflicting_rows": len(r5_conflicts),
+    }
+
+
+def _jobs_report(
+    derived: dict[tuple[str, str], dict[str, Any]],
+    compares: dict[tuple[str, str], dict[str, Any]],
+    stored_rows: dict,
+) -> dict[str, Any]:
+    return {
         k[1]: {
             "chain_id": k[0],
             "status": d["status"],
@@ -538,6 +638,58 @@ def reconcile(conn: sqlite3.Connection, job_filter: str | None = None) -> tuple[
         }
         for k, d in derived.items()
     }
+
+
+def reconcile(conn: sqlite3.Connection, job_filter: str | None = None) -> tuple[dict[str, Any], list[str]]:
+    """Run the full reconciliation. Returns (report, invariant_failures)."""
+    tables = {name: _table_exists(conn, name) for name in ("block", "transaction", "escrow", "account")}
+    report: dict[str, Any] = {"tables": tables, "chains": {}, "checks": {}, "scoped_to_job": job_filter}
+    if not (tables["block"] and tables["transaction"]):
+        report["checks"]["fatal"] = "block/transaction tables absent — cannot derive anything"
+        return report, ["fatal: block/transaction tables absent"]
+
+    blocks, canonical, sealed, unsealed_dangling, stored_rows, accounts = _load_inputs(conn, tables)
+    by_job, stored_rows = _group_jobs(sealed, job_filter, stored_rows)
+    lock_jobs = {k for k, ts in by_job.items() if any(t["type"] == "ESCROW_LOCK" for t in ts)}
+    orphan_legs = _orphan_legs(by_job, lock_jobs)
+    derived, compares = _derive_all(lock_jobs, by_job, blocks, canonical, stored_rows)
+
+    r2_bad, r3_bad, r4_bad = _invariant_r234(derived)
+    r5_conflicts = _r5_conflicts(compares)
+    missing_rows = [k for k in lock_jobs if k not in stored_rows]
+    orphan_rows = _orphan_rows(stored_rows, lock_jobs, job_filter)
+
+    g1, g1_failure = _g1_identity(derived)
+    g2_failure = _g2_failure(tables, stored_rows, lock_jobs, missing_rows, orphan_rows)
+    g3_checked, g3_skipped, g3_bad, g3_failure = _g3_custody(tables, derived, accounts)
+    g4_missing = _g4_missing(tables, derived, accounts)
+    failures = _invariant_failures(
+        orphan_legs,
+        r2_bad,
+        r3_bad,
+        r4_bad,
+        r5_conflicts,
+        g1_failure,
+        g2_failure,
+        g3_failure,
+        g4_missing,
+    )
+
+    report["legs_dangling_block"] = len(unsealed_dangling)
+    report["counts"] = _counts(sealed, lock_jobs, stored_rows, missing_rows, orphan_rows, r5_conflicts)
+    report["checks"] = _r_checks(orphan_legs, r2_bad, r3_bad, r4_bad, r5_conflicts) | _g_checks(
+        tables,
+        stored_rows,
+        lock_jobs,
+        missing_rows,
+        orphan_rows,
+        g1,
+        g3_checked,
+        g3_skipped,
+        g3_bad,
+        g4_missing,
+    )
+    report["jobs"] = _jobs_report(derived, compares, stored_rows)
     # Full ids in the JSON report — several production job ids share the same
     # first/last characters, so shortened keys would silently collapse rows.
     report["missing_rows"] = sorted(k[1] for k in missing_rows)
@@ -715,6 +867,55 @@ def _print_write_plan(plan: dict[str, Any]) -> None:
     print("  rollback is restoring the snapshot. Host order per design: node2 -> node0 -> node1 -> hub1 -> hub.")
 
 
+def _check_detail(name: str, check: dict[str, Any]) -> str:
+    if name == "G1":
+        return (
+            f" locked={check['locked']} released={check['released']} refunded={check['refunded']}"
+            f" swept={check['swept']} residual={check['residual']}"
+        )
+    if name == "G2":
+        return f" stored={check['stored']} expected={check['expected']}"
+    if name == "G3":
+        return f" checked={check['checked']} skipped={check['skipped']}"
+    return ""
+
+
+def _print_check_lines(report: dict[str, Any]) -> None:
+    for name in ("R1", "R2", "R3", "R4", "R5", "G1", "G2", "G3", "G4"):
+        check = report["checks"][name]
+        print(f"  {name}: {check['status']}{_check_detail(name, check)}")
+
+
+def _print_row_findings(report: dict[str, Any]) -> None:
+    for jid in report["missing_rows"]:
+        print(f"  MISSING-ROW job={_short(jid)}")
+    for item in report["orphan_rows"]:
+        print(f"  ORPHAN-ROW job={_short(item['job_id'])} chain={item['chain_id']}")
+    for job, check_conflicts in report["checks"]["R5"]["conflicts"].items():
+        for c in check_conflicts:
+            print(f"  CONFLICT job={_short(job)} field={c['field']} stored={c['stored']} derived={c['derived']}")
+    for item in report["checks"]["G3"]["mismatches"]:
+        print(f"  G3-MISMATCH job={_short(item['job_id'])} expected={item['expected']} actual={item['actual']}")
+    for item in report["checks"]["G4"]["missing"]:
+        print(f"  G4-MISSING job={_short(item['job_id'])} {item['party']}={item['address']}")
+
+
+def _print_job_infos(report: dict[str, Any]) -> None:
+    extra = [
+        (j, info)
+        for j, info in report["jobs"].items()
+        if info["extra_data"] or info["deltas"] or info["action_anomalies"] or info["locks"] > 1
+    ]
+    for j, info in extra:
+        shown = _short(j)
+        if info["extra_data"]:
+            print(f"  INFO job={shown} non-derivable stored fields: {','.join(info['extra_data'])}")
+        if info["locks"] > 1:
+            print(f"  INFO job={shown} re-locked {info['locks']}x (latest lock wins)")
+        for anomaly in info["action_anomalies"]:
+            print(f"  INFO job={shown} action anomaly: {anomaly}")
+
+
 def _print_report(db_path: str, report: dict[str, Any], failures: list[str]) -> None:
     counts = report.get("counts", {})
     print(f"SD-1 escrow reconciliation — {db_path}")
@@ -731,44 +932,9 @@ def _print_report(db_path: str, report: dict[str, Any], failures: list[str]) -> 
     )
     if report["legs_dangling_block"]:
         print(f"note: {report['legs_dangling_block']} tx(s) name a block_height with no block row")
-    for name in ("R1", "R2", "R3", "R4", "R5", "G1", "G2", "G3", "G4"):
-        check = report["checks"][name]
-        status = check["status"]
-        detail = ""
-        if name == "G1":
-            detail = (
-                f" locked={check['locked']} released={check['released']} refunded={check['refunded']}"
-                f" swept={check['swept']} residual={check['residual']}"
-            )
-        elif name == "G2":
-            detail = f" stored={check['stored']} expected={check['expected']}"
-        elif name == "G3":
-            detail = f" checked={check['checked']} skipped={check['skipped']}"
-        print(f"  {name}: {status}{detail}")
-    for jid in report["missing_rows"]:
-        print(f"  MISSING-ROW job={_short(jid)}")
-    for item in report["orphan_rows"]:
-        print(f"  ORPHAN-ROW job={_short(item['job_id'])} chain={item['chain_id']}")
-    for job, check_conflicts in report["checks"]["R5"]["conflicts"].items():
-        for c in check_conflicts:
-            print(f"  CONFLICT job={_short(job)} field={c['field']} stored={c['stored']} derived={c['derived']}")
-    for item in report["checks"]["G3"]["mismatches"]:
-        print(f"  G3-MISMATCH job={_short(item['job_id'])} expected={item['expected']} actual={item['actual']}")
-    for item in report["checks"]["G4"]["missing"]:
-        print(f"  G4-MISSING job={_short(item['job_id'])} {item['party']}={item['address']}")
-    extra = [
-        (j, info)
-        for j, info in report["jobs"].items()
-        if info["extra_data"] or info["deltas"] or info["action_anomalies"] or info["locks"] > 1
-    ]
-    for j, info in extra:
-        shown = _short(j)
-        if info["extra_data"]:
-            print(f"  INFO job={shown} non-derivable stored fields: {','.join(info['extra_data'])}")
-        if info["locks"] > 1:
-            print(f"  INFO job={shown} re-locked {info['locks']}x (latest lock wins)")
-        for anomaly in info["action_anomalies"]:
-            print(f"  INFO job={shown} action anomaly: {anomaly}")
+    _print_check_lines(report)
+    _print_row_findings(report)
+    _print_job_infos(report)
     verdict = "CLEAN" if not failures else "RED"
     print(f"proof: {verdict} ({len(failures)} invariant failure(s))")
 
