@@ -15,26 +15,8 @@ import shlex
 from pathlib import Path
 
 
-def migrate_service_file(service_file: Path) -> dict[str, any]:
-    """Migrate a single service file to use EnvironmentFile."""
-    content = service_file.read_text()
-    lines = content.split("\n")
-    lines_before = list(lines)
-
-    result = {
-        "file": str(service_file),
-        "service_name": service_file.stem,
-        "has_hardcoded_env": False,
-        "env_vars": [],
-        "uses_env_file": False,
-        "user": None,
-        "changes": [],
-    }
-
-    # Extract service name for env file
-    service_name = service_file.stem.replace(".service", "")
-
-    # Find User= line
+def _migrate_user_line(lines: list[str], result: dict) -> None:
+    """Switch User=root to aitbc-internal, recording the change."""
     for i, line in enumerate(lines):
         if line.startswith("User="):
             result["user"] = line.split("=")[1].strip()
@@ -42,11 +24,15 @@ def migrate_service_file(service_file: Path) -> dict[str, any]:
                 result["changes"].append(f"User=aitbc-internal (was {result['user']})")
                 lines[i] = "User=aitbc-internal"
 
-    # Find Environment= lines (not EnvironmentFile). systemd allows several
-    # VAR=value pairs on one line (space-separated, optionally quoted); the
-    # old single-pair regex silently dropped every pair after the first.
+
+def _scan_env_lines(lines: list[str], result: dict) -> list[tuple[int, str]]:
+    """Collect hardcoded Environment= payloads; returns (index, line) pairs.
+
+    systemd allows several VAR=value pairs on one line (space-separated,
+    optionally quoted); the old single-pair regex silently dropped every
+    pair after the first.
+    """
     env_lines = []
-    env_file_lines = []
     for i, line in enumerate(lines):
         if line.startswith("Environment=") and "EnvironmentFile" not in line:
             result["has_hardcoded_env"] = True
@@ -66,55 +52,87 @@ def migrate_service_file(service_file: Path) -> dict[str, any]:
             env_lines.append((i, line))
         elif line.startswith("EnvironmentFile"):
             result["uses_env_file"] = True
-            env_file_lines.append(line)
+    return env_lines
 
-    # If there are hardcoded env vars, add EnvironmentFile
-    if env_lines:
-        # Remove hardcoded Environment= lines
-        for i, _ in env_lines:
-            lines[i] = f"# Environment= values moved to /etc/aitbc/{service_name}.env (values not repeated here)"
 
-        # Add EnvironmentFile after EnvironmentFile lines or after User
-        insert_pos = len(lines)
-        for i, line in enumerate(lines):
-            if line.startswith("EnvironmentFile"):
-                insert_pos = i + 1
-                break
-            elif line.startswith("User="):
-                insert_pos = i + 1
-                break
+def _apply_env_file(lines: list[str], env_lines: list[tuple[int, str]], service_name: str, result: dict) -> None:
+    """Comment out hardcoded Environment= lines and insert the EnvironmentFile."""
+    # Remove hardcoded Environment= lines
+    for i, _ in env_lines:
+        lines[i] = f"# Environment= values moved to /etc/aitbc/{service_name}.env (values not repeated here)"
 
-        # Add EnvironmentFile line
-        env_file_line = f"EnvironmentFile=/etc/aitbc/{service_name}.env"
-        lines.insert(insert_pos, env_file_line)
-        result["changes"].append(f"Added {env_file_line}")
+    # Add EnvironmentFile after EnvironmentFile lines or after User
+    insert_pos = len(lines)
+    for i, line in enumerate(lines):
+        if line.startswith("EnvironmentFile"):
+            insert_pos = i + 1
+            break
+        elif line.startswith("User="):
+            insert_pos = i + 1
+            break
 
+    # Add EnvironmentFile line
+    env_file_line = f"EnvironmentFile=/etc/aitbc/{service_name}.env"
+    lines.insert(insert_pos, env_file_line)
+    result["changes"].append(f"Added {env_file_line}")
+
+
+def _write_backup(service_file: Path, lines_before: list[str], env_lines: list[tuple[int, str]], result: dict) -> None:
+    """Write a 0600 .bak of the original unit before the in-place rewrite."""
     # Write back, keeping a copy first. This rewrote systemd units in place with no
     # backup: if the parsing regex above mis-handled a line, the original was
     # unrecoverable outside git -- and these files are frequently not in git.
     backup_path = service_file.with_suffix(service_file.suffix + ".bak")
-    if not backup_path.exists():
-        if env_lines:
-            # Redact migrated Environment= lines in the backup too — a
-            # plaintext copy of every stripped secret defeats the migration.
-            redacted = [
-                "# Environment= values redacted from backup"
-                if ln.startswith("Environment=") and "EnvironmentFile" not in ln
-                else ln
-                for ln in lines_before
-            ]
-            # 0o600 at creation — the backup can hold plaintext secrets when
-            # there were no env_lines to redact, so no umask window.
-            fd = os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            os.fchmod(fd, 0o600)
-            with os.fdopen(fd, "w") as f:
-                f.write("\n".join(redacted))
-        else:
-            fd = os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-            os.fchmod(fd, 0o600)
-            with os.fdopen(fd, "w") as f:
-                f.write(service_file.read_text())
-        result["changes"].append(f"Backed up original to {backup_path} (mode 0600)")
+    if backup_path.exists():
+        return
+    if env_lines:
+        # Redact migrated Environment= lines in the backup too — a
+        # plaintext copy of every stripped secret defeats the migration.
+        redacted = [
+            "# Environment= values redacted from backup"
+            if ln.startswith("Environment=") and "EnvironmentFile" not in ln
+            else ln
+            for ln in lines_before
+        ]
+        content = "\n".join(redacted)
+    else:
+        content = service_file.read_text()
+    # 0o600 at creation — the backup can hold plaintext secrets when
+    # there were no env_lines to redact, so no umask window.
+    fd = os.open(backup_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(content)
+    result["changes"].append(f"Backed up original to {backup_path} (mode 0600)")
+
+
+def migrate_service_file(service_file: Path) -> dict[str, any]:
+    """Migrate a single service file to use EnvironmentFile."""
+    content = service_file.read_text()
+    lines = content.split("\n")
+    lines_before = list(lines)
+
+    result = {
+        "file": str(service_file),
+        "service_name": service_file.stem,
+        "has_hardcoded_env": False,
+        "env_vars": [],
+        "uses_env_file": False,
+        "user": None,
+        "changes": [],
+    }
+
+    # Extract service name for env file
+    service_name = service_file.stem.replace(".service", "")
+
+    _migrate_user_line(lines, result)
+    env_lines = _scan_env_lines(lines, result)
+
+    # If there are hardcoded env vars, add EnvironmentFile
+    if env_lines:
+        _apply_env_file(lines, env_lines, service_name, result)
+
+    _write_backup(service_file, lines_before, env_lines, result)
 
     new_content = "\n".join(lines)
     service_file.write_text(new_content)
