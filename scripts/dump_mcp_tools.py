@@ -196,8 +196,8 @@ def _tool_source(fn: Any, seen: set[int] | None = None) -> str:
     return src + extra
 
 
-def _extract_tags(src: str) -> list[str]:
-    """Parse source and return CLI group / service / path-domain tags."""
+def _cli_call_tags(src: str) -> list[str]:
+    """Tags from aitbc-CLI helper calls in the source."""
     tags: list[str] = []
 
     # _aitbc_cli_read_tool(role, host, "group", "subcommand"?)
@@ -232,6 +232,13 @@ def _extract_tags(src: str) -> list[str]:
     ):
         tags.append(m.group(1))
 
+    return tags
+
+
+def _http_call_tags(src: str) -> list[str]:
+    """Tags from HTTP helper calls in the source (service + path domain)."""
+    tags: list[str] = []
+
     # _http_read_tool / _http_write_tool(role, host, "service", "path", ...)
     for m in re.finditer(
         r"_http_(?:read|write)_tool\s*\(\s*role\s*,\s*host\s*,\s*['\"]([^'\"]+)['\"]\s*,\s*['\"]([^'\"]+)['\"]",
@@ -259,6 +266,13 @@ def _extract_tags(src: str) -> list[str]:
     ):
         tags.append(m.group(1))
 
+    return tags
+
+
+def _path_call_tags(src: str) -> list[str]:
+    """Tags from liquidity/zk path helpers in the source."""
+    tags: list[str] = []
+
     # _call_liquidity(role, host, "path")
     for m in re.finditer(
         r"_call_liquidity\s*\(\s*role\s*,\s*host\s*,\s*['\"]([^'\"]+)['\"]",
@@ -277,12 +291,26 @@ def _extract_tags(src: str) -> list[str]:
         if pt:
             tags.append(pt)
 
-    # Fixed curl commands with localhost:PORT -> map to service.
+    return tags
+
+
+def _port_tags(src: str) -> list[str]:
+    """Service tags from fixed curl commands with localhost:PORT."""
+    tags: list[str] = []
     for m in re.finditer(r"curl\s+[^'\"\n]*http://localhost:(\d+)", src):
         service = _PORT_MAP.get(m.group(1))
         if service:
             tags.append(service)
+    return tags
 
+
+def _extract_tags(src: str) -> list[str]:
+    """Parse source and return CLI group / service / path-domain tags."""
+    tags: list[str] = []
+    tags += _cli_call_tags(src)
+    tags += _http_call_tags(src)
+    tags += _path_call_tags(src)
+    tags += _port_tags(src)
     return list(dict.fromkeys(tags))
 
 
