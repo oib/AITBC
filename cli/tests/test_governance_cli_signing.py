@@ -77,7 +77,11 @@ def test_close_posts_signed_body() -> None:
     assert result.exit_code == 0, result.output
     body = captured["json"]
     assert body["caller_address"] == ADDR
-    assert _verify(ADDR, str(body["signature"]), {"action": "close", "proposal_id": "prop_1"})
+    assert _verify(
+        ADDR,
+        str(body["signature"]),
+        {"action": "close", "proposal_id": "prop_1", "timestamp": body["timestamp"]},
+    )
 
 
 def _fake_rpc_client(sealed: dict):
@@ -105,7 +109,11 @@ def test_execute_posts_signed_body() -> None:
     assert result.exit_code == 0, result.output
     body = captured["json"]
     assert body["caller_address"] == ADDR
-    assert _verify(ADDR, str(body["signature"]), {"action": "execute", "proposal_id": "prop_2"})
+    assert _verify(
+        ADDR,
+        str(body["signature"]),
+        {"action": "execute", "proposal_id": "prop_2", "timestamp": body["timestamp"]},
+    )
 
 
 def test_execute_signs_sealed_execution_payload() -> None:
