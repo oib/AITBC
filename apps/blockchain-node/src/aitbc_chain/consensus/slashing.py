@@ -296,12 +296,19 @@ class SlashingManager:
             return [event for event in self.slashing_events if event.validator_address == validator_address]
         return self.slashing_events.copy()
 
-    def events_for(self, validator_address: str, *, max_block_height: int | None = None) -> list[SlashingEvent]:
+    def events_for(
+        self,
+        validator_address: str,
+        *,
+        max_block_height: int | None = None,
+        min_block_height: int | None = None,
+    ) -> list[SlashingEvent]:
         """This validator's events, optionally bounded by sealed height (#1263).
 
         Same matching and height rule as ``evidence_bundle`` — the draft path
         needs the events themselves (not just the hash) to assemble the v2
-        ``evidence`` payload.
+        ``evidence`` payload. ``min_block_height`` (#1959) excludes events the
+        armed ``validator_deactivation_evidence_ttl_blocks`` gate would expire.
         """
         from aitbc.crypto.signature_recovery import canonical_address
 
@@ -311,6 +318,7 @@ class SlashingManager:
             for e in self.slashing_events
             if (canonical_address(e.validator_address) == target or e.validator_address == validator_address)
             and (max_block_height is None or e.block_height <= max_block_height)
+            and (min_block_height is None or e.block_height >= min_block_height)
         ]
 
     def calculate_total_slashed(self, validator_address: str) -> Decimal:
@@ -445,7 +453,9 @@ class SlashingManager:
             hash_b=hash_b,
         )
 
-    def evidence_bundle(self, validator_address: str, *, max_block_height: int | None = None) -> dict:
+    def evidence_bundle(
+        self, validator_address: str, *, max_block_height: int | None = None, min_block_height: int | None = None
+    ) -> dict:
         """Canonical evidence bundle for ``validator_address`` (#1198 / #1206).
 
         The ``evidence_hash`` a ``VALIDATOR_DEACTIVATE`` payload commits to is
@@ -465,6 +475,8 @@ class SlashingManager:
                 continue
             if max_block_height is not None and e.block_height > max_block_height:
                 continue
+            if min_block_height is not None and e.block_height < min_block_height:
+                continue
             events.append(
                 {
                     "condition": e.condition.value,
@@ -482,10 +494,16 @@ class SlashingManager:
         # same validator differ across nodes, and the hash must not.
         return {"validator_address": canonical_address(validator_address), "events": events}
 
-    def evidence_hash(self, validator_address: str, *, max_block_height: int | None = None) -> str:
+    def evidence_hash(
+        self,
+        validator_address: str,
+        *,
+        max_block_height: int | None = None,
+        min_block_height: int | None = None,
+    ) -> str:
         """sha256 over the canonical evidence bundle — the payload value."""
         canonical = json.dumps(
-            self.evidence_bundle(validator_address, max_block_height=max_block_height),
+            self.evidence_bundle(validator_address, max_block_height=max_block_height, min_block_height=min_block_height),
             sort_keys=True,
             separators=(",", ":"),
         )

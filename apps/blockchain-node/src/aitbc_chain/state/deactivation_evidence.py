@@ -95,6 +95,26 @@ def _uc_context(
     )
 
 
+def _evidence_ttl(session: Session, chain_id: str, block_height: int | None) -> int | None:
+    """Evidence TTL in blocks (chain parameter), or None = no expiry (#1959).
+
+    ``validator_deactivation_evidence_ttl_blocks`` bounds how old an
+    equivocation event may be and still count toward deactivation. Unset or
+    malformed resolves to None — the pre-#1959 behavior exactly. Like the UC
+    context, the parameter is read at the apply height so replay and reorg
+    agree; a value armed later in the chain never retroactively expires
+    evidence for earlier blocks.
+    """
+    from .state_transition import _chain_parameter_value
+
+    value = _chain_parameter_value(session, chain_id, "validator_deactivation_evidence_ttl_blocks", block_height)
+    try:
+        ttl = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return ttl if ttl > 0 else None
+
+
 def _record_to_event(record: dict[str, Any]) -> SlashingEvent | None:
     """Rebuild a SlashingEvent from a payload evidence record."""
     try:
@@ -269,11 +289,33 @@ def _records_to_events(records: list[Any], validator_addr: str) -> tuple[list[Sl
 
 
 def _verify_equivocations(
-    events: list[SlashingEvent], validator_addr: str, uc_ctx: UcApplyContext | None = None
+    events: list[SlashingEvent],
+    validator_addr: str,
+    uc_ctx: UcApplyContext | None = None,
+    *,
+    ttl_blocks: int | None = None,
+    apply_height: int | None = None,
 ) -> str | None:
-    """Verify every equivocation claim; ≥1 verified equivocation required."""
+    """Verify every equivocation claim; ≥1 verified equivocation required.
+
+    #1959: when ``validator_deactivation_evidence_ttl_blocks`` is armed and
+    the apply height is known, DOUBLE_SIGN events older than the TTL are
+    expired — skipped entirely: they neither count toward ``verified`` nor
+    fail the bundle. Expiry is checked before signature verification so a
+    stale claim can never wedge a marker that also cites fresh evidence;
+    a bundle whose every equivocation is expired still fails closed via
+    ``verified == 0``. Non-equivocation records are informational and are
+    never expired.
+    """
     verified = 0
     for event in events:
+        if (
+            ttl_blocks is not None
+            and apply_height is not None
+            and event.condition is SlashingCondition.DOUBLE_SIGN
+            and apply_height - event.block_height > ttl_blocks
+        ):
+            continue
         ep = _evidence_json(event)
         kind = ep.get("kind") if ep is not None else None
         if ep is not None and kind == "attestation_equivocation":
@@ -337,5 +379,6 @@ def verify_deactivation_evidence(
     if manager.evidence_hash(validator_addr) != evidence_hash:
         return "evidence_hash does not match the submitted evidence bundle"
 
+    ttl = _evidence_ttl(session, chain_id, block_height) if session is not None else None
     uc_ctx = _uc_context(session, chain_id, block_height, block_time) if session is not None else None
-    return _verify_equivocations(events, validator_addr, uc_ctx)
+    return _verify_equivocations(events, validator_addr, uc_ctx, ttl_blocks=ttl, apply_height=block_height)

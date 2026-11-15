@@ -407,10 +407,32 @@ class MultiValidatorPoA:
         head = self._current_head_height()
         depth = int(getattr(settings, "consensus_slashing_evidence_finality_depth", 10))
         evidence_cutoff = head - depth if head is not None else None
+        # #1959: when ``validator_deactivation_evidence_ttl_blocks`` is armed,
+        # don't draft evidence the apply gate will expire — read the same
+        # parameter at the same head so draft and gate agree. Lookup failure
+        # falls back to no floor (the gate itself still decides at apply).
+        evidence_min_height = None
+        if head is not None:
+            try:
+                from sqlalchemy.exc import SQLAlchemyError
+
+                from ..state.state_transition import _chain_parameter_value
+
+                with session_scope(self.chain_id) as session:
+                    ttl_raw = _chain_parameter_value(
+                        session, self.chain_id, "validator_deactivation_evidence_ttl_blocks", head
+                    )
+                ttl = int(str(ttl_raw).strip())
+                if ttl > 0:
+                    evidence_min_height = head - ttl
+            except (SQLAlchemyError, ValueError, TypeError) as e:
+                logger.warning("Evidence TTL lookup failed drafting deactivations for %s: %s", self.chain_id, e)
         drafts: list[dict[str, Any]] = []
         skipped: list[dict[str, Any]] = []
         for addr, v in self.validators.items():
-            events = self._slashing_manager.events_for(addr, max_block_height=evidence_cutoff)
+            events = self._slashing_manager.events_for(
+                addr, max_block_height=evidence_cutoff, min_block_height=evidence_min_height
+            )
             has_evidence = bool(events)
             if v.is_active and not has_evidence:
                 continue
@@ -427,7 +449,9 @@ class MultiValidatorPoA:
                     **entry,
                     "type": "VALIDATOR_DEACTIVATE",
                     "value": 0,
-                    "payload": self._deactivation_payload(addr, canon, bond.bond_id, events, evidence_cutoff),
+                    "payload": self._deactivation_payload(
+                        addr, canon, bond.bond_id, events, evidence_cutoff, evidence_min_height
+                    ),
                 }
             )
         return {"drafts": drafts, "skipped": skipped}
@@ -439,6 +463,7 @@ class MultiValidatorPoA:
         bond_id: str,
         events: list[Any],
         evidence_cutoff: int | None,
+        evidence_min_height: int | None = None,
     ) -> dict[str, Any]:
         """Build the VALIDATOR_DEACTIVATE payload (#1263).
 
@@ -455,7 +480,9 @@ class MultiValidatorPoA:
         if not signed_equiv:
             return {
                 "validator_address": canon,
-                "evidence_hash": self._slashing_manager.evidence_hash(addr, max_block_height=evidence_cutoff),
+                "evidence_hash": self._slashing_manager.evidence_hash(
+                    addr, max_block_height=evidence_cutoff, min_block_height=evidence_min_height
+                ),
                 "bond_id": bond_id,
             }
         keep = [e for e in events if not (event_is_equivocation_claim(e) and event_signature_evidence(e) is None)]

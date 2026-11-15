@@ -725,3 +725,89 @@ class TestPersistenceRoundTrip:
         mgr2 = SlashingManager()
         mgr2.slashing_events = parsed
         assert mgr2.evidence_hash(ADDR) == mgr.evidence_hash(ADDR)
+
+
+class TestEvidenceTTL:
+    """#1959: ``validator_deactivation_evidence_ttl_blocks`` expires old DOUBLE_SIGN evidence."""
+
+    @staticmethod
+    def _ttl_session(tmp_path, ttl: str = "50", chain_id: str = "test-chain") -> Session:
+        session = Session(_engine(tmp_path))
+        session.add(
+            ChainParameter(
+                chain_id=chain_id,
+                parameter="validator_deactivation_evidence_ttl_blocks",
+                value=ttl,
+                applied_height=0,
+            )
+        )
+        session.commit()
+        return session
+
+    def _verify(self, payload, session=None, block_height=None):
+        return verify_deactivation_evidence(
+            payload,
+            chain_id="test-chain",
+            validator_addr=payload["validator_address"],
+            evidence_hash=payload["evidence_hash"],
+            session=session,
+            block_height=block_height,
+        )
+
+    def test_expired_only_evidence_rejected(self, tmp_path):
+        mgr = SlashingManager()
+        _signed_equivocation_event(mgr, ADDR, ADDR_KEY, round_in_payload=False, request_round=None, height=11)
+        payload = _v2_payload(mgr, ADDR)
+        with self._ttl_session(tmp_path) as session:
+            # apply 100 - event 11 = 89 > ttl 50 → expired → nothing verifies
+            reason = self._verify(payload, session=session, block_height=100)
+        assert reason is not None
+
+    def test_fresh_evidence_still_verifies(self, tmp_path):
+        mgr = SlashingManager()
+        _signed_equivocation_event(mgr, ADDR, ADDR_KEY, round_in_payload=False, request_round=None, height=90)
+        payload = _v2_payload(mgr, ADDR)
+        with self._ttl_session(tmp_path) as session:
+            # apply 100 - event 90 = 10 <= ttl 50 → fresh
+            assert self._verify(payload, session=session, block_height=100) is None
+
+    def test_mixed_bundle_ignores_expired(self, tmp_path):
+        mgr = SlashingManager()
+        _signed_equivocation_event(mgr, ADDR, ADDR_KEY, round_in_payload=False, request_round=None, height=11)
+        _signed_equivocation_event(mgr, ADDR, ADDR_KEY, round_in_payload=False, request_round=None, height=90)
+        payload = _v2_payload(mgr, ADDR)
+        with self._ttl_session(tmp_path) as session:
+            assert self._verify(payload, session=session, block_height=100) is None
+
+    def test_expired_unverifiable_claim_does_not_fail_bundle(self, tmp_path):
+        """Expiry is checked before signature verification: a stale claim that
+        could never verify must not wedge a marker citing fresh evidence."""
+        mgr = SlashingManager()
+        mgr.record_attestation_equivocation(ADDR, 11, None, HA, HB, V2)  # hash-only, height 11
+        _signed_equivocation_event(mgr, ADDR, ADDR_KEY, round_in_payload=False, request_round=None, height=90)
+        payload = _v2_payload(mgr, ADDR)
+        with self._ttl_session(tmp_path) as session:
+            assert self._verify(payload, session=session, block_height=100) is None
+
+    def test_ttl_unset_preserves_legacy_behavior(self, tmp_path):
+        mgr = SlashingManager()
+        _signed_equivocation_event(mgr, ADDR, ADDR_KEY, round_in_payload=False, request_round=None, height=11)
+        payload = _v2_payload(mgr, ADDR)
+        with Session(_engine(tmp_path, name="ttl-unset.db")) as session:
+            # ancient event, no TTL param → still verifies (pre-#1959 behavior)
+            assert self._verify(payload, session=session, block_height=100000) is None
+
+    def test_no_apply_height_disables_expiry(self, tmp_path):
+        mgr = SlashingManager()
+        _signed_equivocation_event(mgr, ADDR, ADDR_KEY, round_in_payload=False, request_round=None, height=11)
+        payload = _v2_payload(mgr, ADDR)
+        with self._ttl_session(tmp_path) as session:
+            # TTL armed but caller gave no height → dormant, same as uc_ctx
+            assert self._verify(payload, session=session, block_height=None) is None
+
+    def test_malformed_ttl_is_no_expiry(self, tmp_path):
+        mgr = SlashingManager()
+        _signed_equivocation_event(mgr, ADDR, ADDR_KEY, round_in_payload=False, request_round=None, height=11)
+        payload = _v2_payload(mgr, ADDR)
+        with self._ttl_session(tmp_path, ttl="not-a-number") as session:
+            assert self._verify(payload, session=session, block_height=100000) is None
