@@ -46,6 +46,12 @@ def _capture_auth():
         (rpc_tools.get_ai_service_stats, {"host": "hub"}, "ai/stats"),
         (chain_tools.list_ai_jobs_onchain, {"host": "hub"}, "ai/jobs"),
         (chain_tools.get_ai_job_onchain, {"job_id": "job-1", "host": "hub"}, "ai/job/job-1"),
+        # #1955: #1945-gated ops-state reads — same auth="rpc" contract.
+        (chain_tools.get_genesis_allocations, {"host": "hub"}, "genesis_allocations"),
+        (chain_tools.get_sync_config, {"host": "hub"}, "sync/config"),
+        (chain_tools.list_chains, {"host": "hub"}, "chains"),
+        (chain_tools.list_islands, {"host": "hub"}, "islands"),
+        (chain_tools.get_island, {"island_id": "isl-1", "host": "hub"}, "islands/isl-1"),
     ],
     ids=[
         "get_gpu_allocations",
@@ -53,6 +59,11 @@ def _capture_auth():
         "get_ai_service_stats",
         "list_ai_jobs_onchain",
         "get_ai_job_onchain",
+        "get_genesis_allocations",
+        "get_sync_config",
+        "list_chains",
+        "list_islands",
+        "get_island",
     ],
 )
 def test_mcp_gated_read_passes_auth_rpc_to_run_http(
