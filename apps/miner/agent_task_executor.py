@@ -750,6 +750,11 @@ def _exec_ollama(req: dict[str, Any], payload: bytes) -> bytes:
     if not isinstance(spec, dict):
         spec = {"prompt": str(spec)}
     model = str(req.get("model") or spec.get("model") or "llama3.2:3b")
+    offer_model = req.get("_offer_model")
+    if offer_model and model != offer_model:
+        # The quote is for the offered model; a payload-supplied model must not
+        # swap in a larger installed one at the cheap price (#1971).
+        raise ValueError(f"model {model} does not match offered model {offer_model}")
     prompt = spec.get("prompt", "")
     if not isinstance(prompt, str):
         prompt = str(prompt)
@@ -955,6 +960,7 @@ def _handle_task_request(
             "buyer": buyer,
             "price": str(offer["price"]),
             "offer_id": quote["offer_id"],
+            "offer_model": offer.get("model") or "",
             "request": req,
             "quoted_at": time.time(),
         }
@@ -1053,7 +1059,8 @@ def _handle_task_accept(
 
     try:
         payload = b"" if service_type == "ipfs" else _ipfs_cat(req["payload_ref"])
-        result_bytes = handler(req, payload) if handler else b"{}"
+        handler_req = {**req, "_offer_model": quote.get("offer_model") or ""}
+        result_bytes = handler(handler_req, payload) if handler else b"{}"
         result_hash = hashlib.sha256(result_bytes).hexdigest()
         result_ref = _ipfs_add(result_bytes, filename=f"{task_id}.json")
         if service_type == "ipfs":
