@@ -89,7 +89,7 @@ def _resolve_miner_api_key(env_path: str = "/etc/aitbc/aitbc-coordinator-api.env
                 if value:
                     return value.split(",")[0].strip()
                 return None
-    except (OSError, ValueError):
+    except (OSError, RecursionError, ValueError):
         pass
     return None
 

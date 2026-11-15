@@ -81,9 +81,7 @@ def _resolve_keyring():
 
     try:
         backend = keyring.get_keyring()
-    except (
-        Exception
-    ):  # pragma: no cover - backend discovery is platform-specific  # noqa: BLE001,S110 - optional keyring backend
+    except Exception:  # noqa: BLE001,S110 - optional keyring backend; pragma: no cover - platform-specific
         return None
 
     if isinstance(backend, fail_backend.Keyring):

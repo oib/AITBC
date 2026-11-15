@@ -172,7 +172,7 @@ def _ipfs_is_pinned(ipfs_api: str, cid: str) -> bool:
         response.raise_for_status()
         keys = (response.json() or {}).get("Keys") or {}
         return cid in keys or any(k.endswith(cid) or cid in k for k in keys)
-    except (requests.RequestException, ValueError, TypeError, AttributeError):
+    except (requests.RequestException, RecursionError, OverflowError, ValueError, TypeError, AttributeError):
         # Unknown pin state: treat as pinned so cleanup stays conservative.
         return True
 
@@ -205,7 +205,7 @@ def _ipfs_object_size(ipfs_api: str, cid: str) -> int | None:
         cumulative = data.get("CumulativeSize")
         if cumulative is not None:
             return int(cumulative)
-    except (requests.RequestException, ValueError, TypeError, AttributeError):
+    except (requests.RequestException, RecursionError, OverflowError, ValueError, TypeError, AttributeError):
         pass
     return None
 
