@@ -1,6 +1,6 @@
 try:
     from locust import HttpUser, between, task
-except Exception:
+except ImportError:
     HttpUser = object  # type: ignore[misc,assignment]
     between = lambda a, b: None  # type: ignore[assignment]  # noqa: E731
     task = lambda weight: lambda f: f  # type: ignore[assignment]  # noqa: E731
@@ -49,6 +49,6 @@ class AITBCUser(HttpUser):  # type: ignore[misc,valid-type]
                     "chain_id": "ait-mainnet",
                 },
             )
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - documented probe: endpoint availability is the assertion
             # Expected to fail due to invalid signature, but tests endpoint availability
             pass

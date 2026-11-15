@@ -84,7 +84,7 @@ def _mock_payment_wallet(monkeypatch):
         _account = Account.create()
         _address = _account.address
         _private_key = _account.key.hex()
-    except Exception:
+    except ImportError:
         _address = "0x" + "ab" * 20
         _private_key = "ab" * 32
 
