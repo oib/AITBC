@@ -151,6 +151,14 @@ _corrupted_chains: dict[str, str] = {}
 _corrupted_identities: dict[str, str] = {}
 _last_integrity_check: dict[str, float] = {}
 _last_checked_identity: dict[str, str] = {}
+# Chains already noted as having no local store for integrity sampling.
+# ``supported_chains`` may list islands produced elsewhere (#1960).
+_absent_integrity_skip_noted: set[str] = set()
+
+
+def _local_chain_db_file_exists(chain_id: str = "") -> bool:
+    """True when this host has a materialized ``chain.db`` for ``chain_id``."""
+    return Path(str(settings.get_db_path(_safe_chain_key(chain_id)))).is_file()
 
 
 def _safe_chain_key(chain_id: str = "") -> str:
@@ -584,6 +592,30 @@ def ensure_chain_db_healthy(
 
     key = _safe_chain_key(chain_id)
     target_engine = engine if engine is not None else (_engines.get(key) if session is None else None)
+    if target_engine is None and session is None:
+        if not _local_chain_db_file_exists(key):
+            # Served-but-not-followed: rpc may route island chains with no
+            # local store. Periodic sweeps must not ERROR every interval (#1960);
+            # verify_chain_db_integrity still fails closed when called directly (#1954).
+            if key not in _absent_integrity_skip_noted:
+                _absent_integrity_skip_noted.add(key)
+                logger.debug(
+                    "chain.db integrity check skipped for %s: no local store on this host",
+                    key,
+                )
+            return (True, "no_local_store")
+        # Store exists but no cached engine — resolve it (#1960 regression path).
+        try:
+            target_engine = get_engine(key)
+        except (ChainDbMissingError, ForeignChainDbError) as exc:
+            metrics_registry.increment("chain_db_integrity_check_unrunnable_total")
+            logger.error(
+                "chain.db integrity check could not run for %s: local store not openable (%s)",
+                key,
+                exc,
+            )
+            return (False, f"integrity check could not run: {exc}")
+    _absent_integrity_skip_noted.discard(key)
     identity = _db_identity(key, engine=target_engine, session=session)
     if key in _corrupted_chains and _corrupted_identities.get(key) == identity and not force:
         metrics_registry.increment("chain_db_quarantined_rejections_total")
