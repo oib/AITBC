@@ -101,15 +101,43 @@ def strip_code_fences(text: str) -> str:
     return "\n".join(out)
 
 
-def main() -> int:
-    repo = Path(__file__).resolve().parents[2]
+def _iter_scan_files(repo: Path) -> list[Path]:
     docs_dir = repo / "docs"
-
     scan_files = [
         p for p in docs_dir.rglob("*.md") if not any(str(p.relative_to(repo)).startswith(d) for d in EXCLUDED_DOC_DIRS)
     ]
     if (repo / "README.md").exists():
         scan_files.append(repo / "README.md")
+    return scan_files
+
+
+def _resolve_target(src: Path, target: str, repo: Path) -> Path | None:
+    """Resolve a link target to a path, or None when the link is out of scope."""
+    base = unquote(target.strip()).split("#", 1)[0]
+    if not base:
+        return None
+    if base.startswith(("http://", "https://", "mailto://", "vscode-remote://")):
+        return None
+    if not base.endswith(".md"):
+        # Root-relative source links are not checked. docs/architecture/7_wallet.md
+        # and docs/agent-sdk/ use "/Exchange/", "/explorer/" and
+        # "/rpc/messaging/topics/support" as *site* routes served by nginx, not as
+        # paths in the tree; resolving those against the repo root would report a
+        # dozen links that work exactly as intended.
+        if base.startswith("/"):
+            return None
+        if Path(base).suffix.lower() not in SOURCE_SUFFIXES:
+            return None
+
+    if base.startswith("/"):
+        return repo / base.lstrip("/")
+    return (src.parent / base).resolve()
+
+
+def main() -> int:
+    repo = Path(__file__).resolve().parents[2]
+
+    scan_files = _iter_scan_files(repo)
 
     broken: list[tuple[str, str]] = []
     checked = 0
@@ -118,26 +146,9 @@ def main() -> int:
         text = INLINE_CODE_RE.sub("", strip_code_fences(src.read_text(errors="ignore")))
         for target in iter_link_targets(text):
             target = target.strip()
-            base = unquote(target).split("#", 1)[0]
-            if not base:
+            resolved = _resolve_target(src, target, repo)
+            if resolved is None:
                 continue
-            if base.startswith(("http://", "https://", "mailto://", "vscode-remote://")):
-                continue
-            if not base.endswith(".md"):
-                # Root-relative source links are not checked. docs/architecture/7_wallet.md
-                # and docs/agent-sdk/ use "/Exchange/", "/explorer/" and
-                # "/rpc/messaging/topics/support" as *site* routes served by nginx, not as
-                # paths in the tree; resolving those against the repo root would report a
-                # dozen links that work exactly as intended.
-                if base.startswith("/"):
-                    continue
-                if Path(base).suffix.lower() not in SOURCE_SUFFIXES:
-                    continue
-
-            if base.startswith("/"):
-                resolved = repo / base.lstrip("/")
-            else:
-                resolved = (src.parent / base).resolve()
 
             checked += 1
             if not resolved.exists():

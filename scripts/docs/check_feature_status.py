@@ -74,19 +74,26 @@ def code_haystack() -> str:
     return "\n".join(out)
 
 
-def main() -> int:
+def _collect_rows() -> list[tuple[str, int, str]]:
     rows: list[tuple[str, int, str]] = []  # (file, lineno, row)
     for g in DOC_GLOBS:
         for f in sorted(ROOT.glob(g)):
             for i, line in enumerate(f.read_text(errors="replace").splitlines(), 1):
                 if ROW.match(line):
                     rows.append((f.relative_to(ROOT).as_posix(), i, line))
+    return rows
 
+
+def _resolve_tokens(rows: list[tuple[str, int, str]]) -> tuple[dict, set[str]]:
+    """Map each row to its evidence tokens and resolve which tokens appear in code."""
     tokens_of = {r: TOKEN.findall(r[2]) for r in rows}
     unique = sorted({t for toks in tokens_of.values() for t in toks})
     haystack = code_haystack()
     resolved = {t for t in unique if identifier_in(t, haystack)}
+    return tokens_of, resolved
 
+
+def _row_failures(rows, tokens_of, resolved) -> list[str]:
     failures: list[str] = []
     for (rel, _ln, row), toks in zip(rows, tokens_of.values(), strict=False):
         key = f"{rel}:{row.split('|')[1].strip()}"
@@ -94,15 +101,17 @@ def main() -> int:
             failures.append(f"{key}  # no evidence token in row")
         elif not any(t in resolved for t in toks):
             failures.append(f"{key}  # dead token(s): {', '.join(toks)}")
+    return failures
 
-    if "--write-baseline" in sys.argv:
-        BASELINE.write_text("\n".join(failures) + ("\n" if failures else ""))
-        print(f"wrote {len(failures)} unverifiable rows to {BASELINE}")
-        return 0
 
-    baseline = set()
-    if BASELINE.exists():
-        baseline = {ln.strip() for ln in BASELINE.read_text().splitlines() if ln.strip() and not ln.strip().startswith("#")}
+def _load_baseline() -> set[str]:
+    if not BASELINE.exists():
+        return set()
+    return {ln.strip() for ln in BASELINE.read_text().splitlines() if ln.strip() and not ln.strip().startswith("#")}
+
+
+def _report(failures: list[str], n_rows: int) -> int:
+    baseline = _load_baseline()
 
     new = [f for f in failures if f not in baseline]
     fixed = sorted(baseline - set(failures))
@@ -113,12 +122,25 @@ def main() -> int:
     for f in fixed:
         print(f"baseline row now verifiable (remove it): {f}")
     if not new:
-        print(f"feature-status check clean — {len(baseline)} known unverifiable rows, {len(rows)} ✅ rows scanned")
+        print(f"feature-status check clean — {len(baseline)} known unverifiable rows, {n_rows} ✅ rows scanned")
         print(f"baseline threshold: {len(baseline)} — it may only fall")
     else:
         print("add a backticked code identifier (tx type / env var / command) to the row,")
         print("drop the ✅, or list it in the baseline with --write-baseline")
     return rc
+
+
+def main() -> int:
+    rows = _collect_rows()
+    tokens_of, resolved = _resolve_tokens(rows)
+    failures = _row_failures(rows, tokens_of, resolved)
+
+    if "--write-baseline" in sys.argv:
+        BASELINE.write_text("\n".join(failures) + ("\n" if failures else ""))
+        print(f"wrote {len(failures)} unverifiable rows to {BASELINE}")
+        return 0
+
+    return _report(failures, len(rows))
 
 
 if __name__ == "__main__":
