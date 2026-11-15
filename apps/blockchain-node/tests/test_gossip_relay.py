@@ -80,7 +80,7 @@ def test_websocket_delivers_published_message(client: TestClient) -> None:
         def _recv() -> None:
             try:
                 received.append(ws.receive_text())
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - daemon recv thread ends on any socket error
                 pass
 
         t = threading.Thread(target=_recv, daemon=True)

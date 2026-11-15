@@ -165,16 +165,11 @@ class BroadcastGossipBackend(GossipBackend):
                 logger.error("[BROKER SUB ERROR] Redis subscription error for topic %s: %s", topic, e)
             finally:
                 ready_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
-                try:
+                with suppress(Exception):  # best-effort teardown of pubsub/redis handles
                     if pubsub is not None:
                         await pubsub.aclose()
-                except Exception:
-                    pass
-                try:
                     if sub_redis is not None:
                         await sub_redis.aclose()
-                except Exception:
-                    pass
             logger.info("[BROKER SUB] Redis subscription ended for topic: %s", topic)
 
         task = create_task_with_logging(_run_subscription(), name=f"broadcast-sub:{topic}")

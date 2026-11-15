@@ -334,7 +334,8 @@ class _RaBaseMixin:
             window = int(float(getattr(settings, "consensus_proposer_round_seconds", 60)))
             rnd = proposer_round(parent_ts, block_ts, window)
             return get_consensus(self._chain_id).select_proposer(height, rnd)
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - optional consensus helper, None means unavailable
+            logger.debug("consensus helper failed: %s", type(e).__name__)
             return None
 
     def _parent_timestamp(self, parent_hash: str) -> datetime | None:
@@ -363,7 +364,8 @@ class _RaBaseMixin:
                     tip_hash = tip[1] if not isinstance(tip, datetime) else None
                     if tip_hash == parent_hash:
                         return tip_ts
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - optional consensus helper, None means unavailable
+            logger.debug("consensus helper failed: %s", type(e).__name__)
             return None
         return None
 
@@ -374,7 +376,7 @@ class _RaBaseMixin:
         try:
             data = json.loads(validator_set_str)
             return {v.get("address", "") for v in data if v.get("address")}
-        except Exception:
+        except (TypeError, ValueError):
             return set()
 
     def _local_head(self) -> tuple[int, str] | None:
@@ -392,7 +394,8 @@ class _RaBaseMixin:
                 if row is None:
                     return None
                 return int(row[0]), str(row[1])
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - optional consensus helper, None means unavailable
+            logger.debug("consensus helper failed: %s", type(e).__name__)
             return None
 
     def _canonical_hash_at(self, height: int) -> str | None:
@@ -405,7 +408,8 @@ class _RaBaseMixin:
                     select(Block.hash).where(Block.chain_id == self._chain_id).where(Block.height == height)
                 ).first()
                 return str(row[0]) if row is not None else None
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - optional consensus helper, None means unavailable
+            logger.debug("consensus helper failed: %s", type(e).__name__)
             return None
 
     def _tip_authorizes(self, header: dict, height_int: int, header_hash: str) -> str | None:

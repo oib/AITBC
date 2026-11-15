@@ -215,8 +215,8 @@ class MultiChainManager:
                 # Clean up partial state before retry
                 try:
                     shutdown_db(chain_id)
-                except Exception:
-                    pass
+                except Exception as e:  # noqa: BLE001 - cleanup failure must not mask the start error
+                    logger.debug("shutdown_db during chain retry cleanup failed: %s", type(e).__name__)
 
         chain.status = ChainStatus.ERROR
         chain.error_message = last_error

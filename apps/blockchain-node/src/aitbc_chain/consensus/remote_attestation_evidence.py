@@ -322,8 +322,8 @@ class _EvidenceMixin(_V9Mixin):
                 from .multi_validator_poa import get_consensus
 
                 return get_consensus(self._chain_id)
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - multi-validator consensus optional
+                logger.debug("multi-validator consensus unavailable: %s", type(e).__name__)
         return slashing_manager
 
     def _prior_signed_hashes(self, height: int, block_hash: str, signer: str) -> set[str]:

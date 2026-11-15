@@ -253,7 +253,7 @@ class BridgeValidatorMixin(BridgeBase):
 
         try:
             vset = self.get_validator_set(source_chain)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - lookup failure is reported in the verdict tuple
             return False, f"validator set lookup failed for {source_chain}: {e}"
 
         if vset is None:

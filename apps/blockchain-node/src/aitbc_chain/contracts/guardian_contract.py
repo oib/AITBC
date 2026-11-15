@@ -325,7 +325,7 @@ class GuardianContract:
         # Validate address
         try:
             to_address = to_checksum_address(to_address)
-        except Exception:
+        except Exception:  # noqa: BLE001 - any decode failure means invalid address
             return {"status": "rejected", "reason": "Invalid recipient address", "operation_id": None}
 
         # Check spending limits
@@ -398,7 +398,7 @@ class GuardianContract:
             # In production, verify the signature matches the agent address
             # For now, we'll assume signature is valid
             pass
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - signature boundary reports failure to caller
             return {"status": "error", "reason": f"Invalid signature: {str(e)}"}
 
         # Record the transaction

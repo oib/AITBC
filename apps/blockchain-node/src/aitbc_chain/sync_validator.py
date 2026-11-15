@@ -352,7 +352,8 @@ class ProposerSignatureValidator:
             if window <= 0:
                 return None
             return proposer_round(parent_ts, block_ts, window)
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - round derivation failure reports unknown round
+            logger.debug("proposer round derivation failed: %s", type(e).__name__)
             return None
 
     def _validate_pbft_certificate(

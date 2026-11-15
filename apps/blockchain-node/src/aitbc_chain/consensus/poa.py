@@ -98,7 +98,7 @@ def _escrow_addresses_from_txs(tx_datas: list[dict[str, Any]]) -> set[str]:
             if isinstance(payload, str):
                 try:
                     payload = json.loads(payload)
-                except Exception:
+                except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                     payload = {}
             job_id = payload.get("job_id", "")
             if job_id:
@@ -129,7 +129,7 @@ def _validate_governance_payload(tx_type: str, payload: dict[str, Any]) -> list[
 
         gov_type = GovernanceTxType(tx_type)
         errors = list(sdk_validate(gov_type, payload))
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - SDK optional; inline validation is the fallback
         pass  # SDK not available — use inline validation
 
     if errors is None:
@@ -642,7 +642,7 @@ class _PoaBaseMixin:
         if raw.strip():
             try:
                 env = json.loads(raw)
-            except Exception:
+            except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                 env = None
             if isinstance(env, list):
                 return any(

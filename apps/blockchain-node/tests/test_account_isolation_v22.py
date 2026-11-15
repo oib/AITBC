@@ -557,7 +557,7 @@ def test_v22_dispatch_exception_leaves_no_committed_state(fixture_db, monkeypatc
     block = _block([tx], "0x" + "00" * 32, "0x" + "00" * 32, 22)
     try:
         sync.import_block(block, transactions=[tx])
-    except Exception:
+    except Exception:  # noqa: BLE001,S110 - rejection may raise or return; either way state must be clean
         pass
     assert _account(engine, ghost) is None, "dispatch exception left a committed sender row"
     assert _account(engine, ADDR_A).balance == 10**9, "partial mutation survived the abort"

@@ -143,8 +143,8 @@ class SyncManager:
                 proposer_is_hub=(block_data.get("proposer") or "").lower() == self._hub_id_lower
             )
             self._island_monitor.tick(int(block_data.get("height") or 0))
-        except Exception:
-            pass
+        except Exception as e:  # noqa: BLE001 - island monitor must not break sync
+            logger.debug("island monitor gossip-block hook failed: %s", type(e).__name__)
 
     @staticmethod
     def _resolve_chains() -> list[str]:
@@ -761,8 +761,8 @@ class SyncManager:
         if self._island_monitor is not None:
             try:
                 self._island_monitor.on_hub_observation()
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - island monitor must not break sync
+                logger.debug("island monitor observation hook failed: %s", type(e).__name__)
         return imported
 
 

@@ -122,8 +122,8 @@ async def _gossip_ws_close(websocket: WebSocket, code: int | None = None) -> Non
             await asyncio.wait_for(websocket.close(), timeout=_GOSSIP_WS_OP_TIMEOUT)
         else:
             await asyncio.wait_for(websocket.close(code=code), timeout=_GOSSIP_WS_OP_TIMEOUT)
-    except Exception:  # nosec
-        pass
+    except Exception as e:  # noqa: BLE001,S110 - close is best-effort during teardown  # nosec
+        logger.debug("gossip websocket close failed: %s", type(e).__name__)
 
 
 async def _gossip_ws_send_json(websocket: WebSocket, payload: object) -> None:
@@ -175,7 +175,8 @@ def _subscription_queue_depth(subscription: object) -> int | None:
         return None
     try:
         return int(qsize())
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - queue probe failure reports unknown depth
+        logger.debug("subscription queue size probe failed: %s", type(e).__name__)
         return None
 
 
@@ -600,7 +601,8 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                 except asyncio.TimeoutError:
                     try:
                         await _gossip_ws_send_json(websocket, {"type": "ping", "timestamp": time.time()})
-                    except Exception:
+                    except Exception as e:  # noqa: BLE001 - dead socket ends the receive loop
+                        logger.debug("gossip ping send failed: %s", type(e).__name__)
                         break
                     continue
                 except WebSocketDisconnect:
@@ -981,8 +983,8 @@ async def subscription_websocket(websocket: WebSocket) -> None:
             except WebSocketDisconnect:  # expected disconnect
                 pass
             # intentional silent cleanup
-            except Exception:  # nosec B110
-                pass
+            except Exception as e:  # noqa: BLE001,S110 - receive-loop teardown  # nosec B110
+                logger.debug("gossip receive loop cleanup failed: %s", type(e).__name__)
 
         from asyncio import create_task, wait
 
@@ -1005,6 +1007,6 @@ async def subscription_websocket(websocket: WebSocket) -> None:
             del _active_subscribers[node_id, chain_id]
         try:
             await _gossip_ws_close(websocket)
-        except Exception:  # nosec
-            pass
+        except Exception as e:  # noqa: BLE001,S110 - subscriber cleanup close is best-effort  # nosec
+            logger.debug("gossip websocket cleanup close failed: %s", type(e).__name__)
         logger.info("WebSocket subscriber cleanup complete: %s", node_id)

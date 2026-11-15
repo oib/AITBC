@@ -201,7 +201,8 @@ def _resolve_chain_account(address: str) -> str | None:
     try:
         return _er._to_canonical(address)
     # intentional silent failure
-    except Exception:  # nosec B110
+    except Exception as e:  # noqa: BLE001,S110 - uncanonicalizable address pays no one  # nosec B110
+        _er._logger.debug("escrow address canonicalization failed: %s", type(e).__name__)
         pass
     return None
 
@@ -212,7 +213,8 @@ async def _get_account_nonce(address: str) -> int:
         r = await _er.SharedHttpClient.get(f"{_er._HUB_RPC_URL}/accounts/{address}")
         if r.status_code == 200:
             return int(r.json().get("nonce", 0))
-    except Exception:
+    except Exception as e:  # noqa: BLE001,S110 - nonce probe failure reports 0  # nosec B110
+        _er._logger.debug("escrow account nonce probe failed: %s", type(e).__name__)
         pass
     return 0
 
@@ -595,7 +597,8 @@ async def _get_account_nonce_strict(address: str) -> int | None:
         r = await _er.SharedHttpClient.get(f"{_er._HUB_RPC_URL}/accounts/{address}")
         if r.status_code == 200:
             return int(r.json().get("nonce", 0))
-    except Exception:
+    except Exception as e:  # noqa: BLE001,S110 - nonce probe failure reports unknown  # nosec B110
+        _er._logger.debug("escrow settlement nonce probe failed: %s", type(e).__name__)
         pass
     return None
 
