@@ -535,7 +535,7 @@ class EscrowManager:
             self.escrow_contracts[contract_id] = contract
             log_info(f"Escrow contract created: {contract_id} for job {job_id}")
             return (True, "Contract created successfully", contract_id)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - contract boundary reports failure to caller
             return (False, f"Contract creation failed: {str(e)}", None)
 
     def _validate_contract_inputs(self, job_id: str, client_address: str, agent_address: str, amount: Decimal) -> bool:

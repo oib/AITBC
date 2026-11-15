@@ -1195,7 +1195,8 @@ class DatabaseMempool:
                 ),
                 {"chain_id": chain_id, "now": now},
             ).all()
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - pre-migration DB has no reservation table
+            logger.debug("mempool reservation probe failed: %s", type(e).__name__)
             # Pre-migration database without the reservation table — nothing
             # is reserved, so every deleter keeps baseline behavior.
             return set()

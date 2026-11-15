@@ -180,7 +180,8 @@ async def _subscriber_peer_count() -> int:
 
         subscribers = await lease_tracker.get_valid_subscribers()
         return len(subscribers)
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - count probe failure reports 0 subscribers
+        _logger.debug("subscriber count probe failed: %s", type(e).__name__)
         return 0
 
 

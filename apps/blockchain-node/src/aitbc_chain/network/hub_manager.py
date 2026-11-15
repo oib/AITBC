@@ -20,7 +20,7 @@ def _sanitize_redis_url(url: str) -> str:
             if parsed.port:
                 netloc += f":{parsed.port}"
             return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
-    except Exception:
+    except (TypeError, ValueError):
         pass
     return url
 

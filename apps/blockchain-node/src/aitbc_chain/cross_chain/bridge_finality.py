@@ -71,7 +71,8 @@ class BridgeFinalityMixin(BridgeBase):
             db_path = settings.get_db_path(chain_id)
             lock_path = Path(f"{db_path}.bridge-writer.lock")
             fd = os.open(lock_path, os.O_RDWR | os.O_CREAT, 0o644)
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - fail-open by design: mirror is a derived cache
+            logger.debug("bridge writer lock unavailable, running unlocked: %s", type(e).__name__)
             # Unresolvable path or unwritable dir: the mirror is a derived
             # cache — run unlocked rather than skip syncing entirely.
             yield True

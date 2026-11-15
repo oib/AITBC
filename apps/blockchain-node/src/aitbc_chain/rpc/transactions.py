@@ -432,8 +432,8 @@ async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -
         finally:
             try:
                 await backend.shutdown()
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - shutdown failure during fan-out teardown
+                _logger.debug("tx fan-out backend shutdown failed: %s", type(e).__name__)
 
 
 # The app's main event loop, captured by the FastAPI lifespan. Sync ``def``

@@ -82,7 +82,7 @@ def update_consensus_metrics(metrics: dict[str, Any]) -> None:
                 metric.set(value)
             elif hasattr(metric, "inc"):  # Counter
                 metric.inc(value - 0 if value else 0)
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - metric writes are best-effort
             pass
 
 
@@ -93,7 +93,7 @@ def observe_round_duration(seconds: float) -> None:
     if hist is not None:
         try:
             hist.observe(seconds)
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - metric writes are best-effort
             pass
 
 

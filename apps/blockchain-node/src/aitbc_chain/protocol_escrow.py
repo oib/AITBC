@@ -75,7 +75,7 @@ def is_protocol_escrow(address: str) -> bool:
     """Return True if ``address`` is one of the keyless protocol escrows."""
     try:
         canonical = canonical_address(address)
-    except Exception:
+    except (TypeError, ValueError):
         return False
     return canonical in {_STAKE_ESCROW_ADDRESS, _BOUNTY_ESCROW_ADDRESS, _HTLC_ESCROW_ADDRESS}
 

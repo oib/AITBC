@@ -170,8 +170,8 @@ class ChainSyncService:
         finally:
             try:
                 await pubsub.aclose()
-            except Exception:
-                pass
+            except Exception as e:  # noqa: BLE001 - close failure during teardown is harmless
+                logger.debug("pubsub close failed: %s", type(e).__name__)
 
     async def _get_block_by_height(self, height: int) -> dict[str, Any] | None:
         """Get block data by height from local RPC"""

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 import warnings
 from collections import OrderedDict
@@ -32,6 +33,8 @@ from .backends.broadcast import BroadcastGossipBackend, _InProcessBroadcast  # n
 from .backends.in_memory import InMemoryGossipBackend
 from .backends.mesh import MeshGossipBackend
 from .backends.websocket import WebsocketGossipBackend
+
+logger = logging.getLogger(__name__)
 
 warnings.filterwarnings("ignore", message="coroutine.* was never awaited", category=RuntimeWarning)
 
@@ -124,8 +127,8 @@ class GossipBroker:
                         await self._backend.publish(msg.topic, msg.message)
                 except asyncio.CancelledError:
                     break
-                except Exception:
-                    # Avoid crashing the drain loop on transient backend errors
+                except Exception as e:  # noqa: BLE001 - transient backend errors must not kill the drain loop
+                    logger.debug("gossip drain iteration failed: %s", type(e).__name__)
                     await asyncio.sleep(0.001)
 
         self._priority_task = create_task_with_logging(_drain(), name="gossip-priority-drain")

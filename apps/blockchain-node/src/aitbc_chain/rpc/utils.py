@@ -350,7 +350,7 @@ def normalize_transaction_data(tx_data: dict[str, Any], chain_id: str) -> dict[s
             import json
 
             payload = json.loads(payload)
-        except Exception:
+        except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
             payload = {}
 
     if not isinstance(payload, dict):
@@ -432,10 +432,11 @@ def import_advisory_acquire(chain_id: str):
     try:
         ctx = session_scope(chain_id)
         sess = ctx.__enter__()
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - best-effort lock; see comment below
         # Best-effort lock: a missing/unreadable chain db falls back to
         # the same unguarded path sqlite uses — the import itself will
         # surface the real error downstream.
+        _logger.debug("chain-db lock probe failed: %s", type(e).__name__)
         return None
     if sess.get_bind().dialect.name != "postgresql":
         ctx.__exit__(None, None, None)

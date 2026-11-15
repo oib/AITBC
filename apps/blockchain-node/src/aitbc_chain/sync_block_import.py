@@ -124,7 +124,7 @@ class BlockImportMixin(SyncBase):
         # signature and attestation checks in ProposerSignatureValidator.
         try:
             proposer_canonical = canonical_address(block.proposer)
-        except Exception:
+        except (TypeError, ValueError):
             return
         if not any(canonical_address(v) == proposer_canonical for v in mv.validators):
             return
@@ -718,7 +718,7 @@ class BlockImportMixin(SyncBase):
                             if isinstance(payload, str):
                                 try:
                                     payload = json.loads(payload)
-                                except Exception:
+                                except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                                     payload = {}
                             job_id = payload.get("job_id", "")
                             if job_id:

@@ -40,7 +40,7 @@ def _payload_size_cap() -> int:
             getattr(settings, "gossip_max_message_size", 1_048_576),
             getattr(settings, "mempool_max_tx_size_bytes", 131_072),
         )
-    except Exception:
+    except (AttributeError, TypeError, ValueError):
         return 4 * 1024 * 1024
 
 
@@ -50,7 +50,7 @@ def is_compression_enabled() -> bool:
         from ..config import settings
 
         return getattr(settings, "network_compression_enabled", True)
-    except Exception:
+    except ImportError:
         return True
 
 
@@ -88,7 +88,7 @@ def decode_payload(message: Any) -> Any:
                 # Over-cap expansion: refuse outright, no fallback parse —
                 # the caller must drop the connection or message.
                 raise
-            except Exception:
+            except Exception:  # noqa: BLE001,S110 - documented fallback to plain JSON parse
                 # Decompression failed — fall through to JSON parse as fallback
                 pass
         try:
