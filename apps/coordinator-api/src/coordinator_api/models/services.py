@@ -5,7 +5,9 @@ Service schemas for common GPU workloads
 from enum import StrEnum
 from typing import Any
 
-from pydantic import BaseModel, Field, ValidationInfo, field_validator
+from pydantic import BaseModel, Field, ValidationInfo, field_validator, model_validator
+
+from coordinator_api.config import settings
 
 
 class ServiceType(StrEnum):
@@ -312,6 +314,15 @@ class BlenderRequest(BaseModel):
         if info and info.data and "frame_start" in info.data and v < info.data["frame_start"]:
             raise ValueError("frame_end must be >= frame_start")
         return v
+
+    @model_validator(mode="after")
+    def validate_public_frame_span(self) -> "BlenderRequest":
+        """#2002: bound client-driven frame spans to the public TTL ceiling."""
+        frame_count = self.frame_end - self.frame_start + 1
+        max_frames = max(1, settings.job_ttl_seconds // 30)
+        if frame_count > max_frames:
+            raise ValueError(f"frame range spans {frame_count} frames (max {max_frames})")
+        return self
 
     def get_constraints(self) -> dict[str, Any]:
         """Get hardware constraints for this request"""
