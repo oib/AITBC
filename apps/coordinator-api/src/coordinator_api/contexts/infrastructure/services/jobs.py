@@ -252,9 +252,10 @@ class JobService:
         # Internal callers (market_gpu bookings, services.py renders) pass
         # server-computed TTLs and leave it None — capping them broke paid
         # GPU bookings and long renders (Validator FAIL on #1948).
-        # ``enforce_inflight_cap`` is likewise public-path-only (#1972): the
-        # per-client in-flight cap protects the public submit surface; internal
-        # callers (services.py renders, market_gpu bookings) must not 429 on it.
+        # ``enforce_inflight_cap`` guards public ClientDep surfaces (#1972, #1993):
+        # ``/jobs`` submit, services.py renders, and ``/market/gpu/quote``. Paid
+        # purchase bookings that open a fresh job still omit it so a capped quote
+        # job does not block the funded purchase path.
         ttl = max(req.ttl_seconds, 1)
         if ttl_cap is not None:
             ttl = min(ttl, max(ttl_cap, 1))

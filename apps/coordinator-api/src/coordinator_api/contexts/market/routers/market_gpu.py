@@ -661,7 +661,7 @@ def quote_gpu(
         ),
         ttl_seconds=duration_seconds + settings.energy_quote_lifetime_seconds + 60,
     )
-    job = job_service.create_job(client_id=request.buyer_id, req=job_create)
+    job = job_service.create_job(client_id=request.buyer_id, req=job_create, enforce_inflight_cap=True)
     job.protected = True
     job.resource_id = gpu.resource_id
     job.model_id = gpu.model_id or gpu.model
