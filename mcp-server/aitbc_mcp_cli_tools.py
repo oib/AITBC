@@ -707,6 +707,54 @@ def get_wallet_address(
 # ---------------------------------------------------------------------------
 
 
+def _merge_market_run_string_options(options: dict[str, str | None], fields: dict[str, str | None]) -> None:
+    for cli_key, value in fields.items():
+        if value is not None:
+            options[cli_key] = value
+
+
+def _run_market_offer_cli_options(
+    *,
+    offer_id_or_plugin_id: str,
+    prompt: str,
+    max_tokens: int | None,
+    stream: bool,
+    language: str | None,
+    task: str | None,
+    transcript_format: str | None,
+    media_format: str | None,
+    codec: str | None,
+    resolution: str | None,
+    bitrate: str | None,
+    days: int | None,
+    pin: bool,
+    track: bool,
+) -> dict[str, str | None]:
+    """Map ``run_market_offer`` parameters to ``aitbc market run`` CLI options."""
+    from aitbc_mcp_mutating_tools import _merge_cli_flag_options, _merge_cli_numeric_options
+
+    subcommand_options: dict[str, str | None] = {}
+    _merge_cli_numeric_options(subcommand_options, {"max-tokens": max_tokens, "days": days})
+    _merge_market_run_string_options(
+        subcommand_options,
+        {
+            "language": language,
+            "task": task,
+            "transcript-format": transcript_format,
+            "media-format": media_format,
+            "codec": codec,
+            "resolution": resolution,
+            "bitrate": bitrate,
+            "offer-id-or-plugin-id": offer_id_or_plugin_id,
+            "prompt": prompt,
+        },
+    )
+    _merge_cli_flag_options(subcommand_options, {"stream": stream, "track": track})
+    if not pin:
+        subcommand_options["no-pin"] = None
+    return subcommand_options
+
+
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def run_market_offer(
     offer_id_or_plugin_id: Annotated[
@@ -745,33 +793,22 @@ def run_market_offer(
     ] = None,
 ) -> str:
     """Run a software offer (Ollama/Whisper/FFmpeg/IPFS) and pay metered escrow."""
-    subcommand_options: dict[str, str | None] = {}
-    if max_tokens is not None:
-        subcommand_options["max-tokens"] = str(max_tokens)
-    if stream:
-        subcommand_options["stream"] = None
-    if language is not None:
-        subcommand_options["language"] = language
-    if task is not None:
-        subcommand_options["task"] = task
-    if transcript_format is not None:
-        subcommand_options["transcript-format"] = transcript_format
-    if media_format is not None:
-        subcommand_options["media-format"] = media_format
-    if codec is not None:
-        subcommand_options["codec"] = codec
-    if resolution is not None:
-        subcommand_options["resolution"] = resolution
-    if bitrate is not None:
-        subcommand_options["bitrate"] = bitrate
-    if days is not None:
-        subcommand_options["days"] = str(days)
-    if not pin:
-        subcommand_options["no-pin"] = None
-    if track:
-        subcommand_options["track"] = None
-    subcommand_options["offer-id-or-plugin-id"] = offer_id_or_plugin_id
-    subcommand_options["prompt"] = prompt
+    subcommand_options = _run_market_offer_cli_options(
+        offer_id_or_plugin_id=offer_id_or_plugin_id,
+        prompt=prompt,
+        max_tokens=max_tokens,
+        stream=stream,
+        language=language,
+        task=task,
+        transcript_format=transcript_format,
+        media_format=media_format,
+        codec=codec,
+        resolution=resolution,
+        bitrate=bitrate,
+        days=days,
+        pin=pin,
+        track=track,
+    )
     return _run_aitbc_cli_write(
         role,
         host,

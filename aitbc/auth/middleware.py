@@ -93,6 +93,111 @@ class AuthMiddleware:
     async def _respond(self, response: Response, scope: Scope, receive: Receive, send: Send) -> None:
         await response(scope, receive, send)
 
+    def _json_auth_response(
+        self,
+        status_code: int,
+        detail: str,
+        *,
+        www_authenticate: str | None = None,
+    ) -> Response:
+        headers = {"WWW-Authenticate": www_authenticate} if www_authenticate else None
+        return Response(
+            status_code=status_code,
+            content=f'{{"detail": "{detail}"}}',
+            media_type="application/json",
+            headers=headers,
+        )
+
+    def _attach_user_to_scope(self, scope: Scope, user: dict[str, Any], user_id: Any, user_role: Any) -> None:
+        state = scope.setdefault("state", {})
+        state["user"] = user
+        state["user_id"] = user_id
+        state["user_role"] = user_role
+
+    async def _deny_auth(
+        self,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+        status_code: int,
+        detail: str,
+        *,
+        www_authenticate: str | None = None,
+    ) -> None:
+        await self._respond(
+            self._json_auth_response(status_code, detail, www_authenticate=www_authenticate), scope, receive, send
+        )
+
+    async def _try_bearer_auth(
+        self,
+        request: Request,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+        auth_level: AuthLevel,
+    ) -> bool:
+        """Authenticate via Bearer JWT. Returns True when the request was fully handled."""
+        authorization = request.headers.get("Authorization")
+        if not authorization or not authorization.startswith("Bearer "):
+            return False
+        token = authorization[7:]
+        try:
+            from .jwt import verify_access_token
+
+            payload = verify_access_token(token)
+            user_role = payload.get("role")
+            if not check_role_match(auth_level, user_role):
+                await self._deny_auth(scope, receive, send, status.HTTP_403_FORBIDDEN, "Forbidden")
+                return True
+            self._attach_user_to_scope(scope, payload, payload.get("sub") or payload.get("user_id"), user_role)
+            await self.app(scope, receive, send)
+            return True
+        except HTTPException as exc:
+            if exc.status_code == status.HTTP_403_FORBIDDEN:
+                await self._deny_auth(scope, receive, send, status.HTTP_403_FORBIDDEN, "Forbidden")
+            else:
+                await self._deny_auth(
+                    scope, receive, send, status.HTTP_401_UNAUTHORIZED, "Invalid token", www_authenticate="Bearer"
+                )
+            return True
+        except (ValueError, TypeError) as e:
+            logger.error("AuthMiddleware error: %s", e)
+            await self._deny_auth(
+                scope, receive, send, status.HTTP_401_UNAUTHORIZED, "Invalid token", www_authenticate="Bearer"
+            )
+            return True
+
+    async def _try_miner_api_key_auth(
+        self,
+        request: Request,
+        scope: Scope,
+        receive: Receive,
+        send: Send,
+        auth_level: AuthLevel,
+    ) -> bool:
+        """Authenticate via X-Api-Key miner credential. Returns True when fully handled."""
+        if not request.headers.get("X-Api-Key"):
+            return False
+        try:
+            from .dependencies import require_miner_api_key
+
+            user = require_miner_api_key(request)
+            user_role = user.get("role")
+            if not check_role_match(auth_level, user_role):
+                await self._deny_auth(scope, receive, send, status.HTTP_403_FORBIDDEN, "Forbidden")
+                return True
+            self._attach_user_to_scope(scope, user, user.get("sub"), user_role)
+            await self.app(scope, receive, send)
+            return True
+        except HTTPException as exc:
+            logger.warning("X-Api-Key rejected on %s: %s", request.url.path, exc.detail)
+            await self._deny_auth(scope, receive, send, status.HTTP_401_UNAUTHORIZED, "Invalid API key")
+            return True
+        except (ValueError, TypeError) as e:
+            logger.error("AuthMiddleware API key error: %s", e)
+            await self._deny_auth(scope, receive, send, status.HTTP_401_UNAUTHORIZED, "Invalid API key")
+            return True
+
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
             await self.app(scope, receive, send)
@@ -107,149 +212,18 @@ class AuthMiddleware:
             await self.app(scope, receive, send)
             return
 
-        authorization = request.headers.get("Authorization")
-        if authorization and authorization.startswith("Bearer "):
-            token = authorization[7:]
-            try:
-                from .jwt import verify_access_token
+        if await self._try_bearer_auth(request, scope, receive, send, auth_level):
+            return
+        if await self._try_miner_api_key_auth(request, scope, receive, send, auth_level):
+            return
 
-                payload = verify_access_token(token)
-
-                user_role = payload.get("role")
-                if not check_role_match(auth_level, user_role):
-                    await self._respond(
-                        Response(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            content='{"detail": "Forbidden"}',
-                            media_type="application/json",
-                        ),
-                        scope,
-                        receive,
-                        send,
-                    )
-                    return
-
-                # Add user info to request state using the canonical `sub` claim,
-                # falling back to the legacy `user_id` claim for compatibility.
-                state = scope.setdefault("state", {})
-                state["user"] = payload
-                state["user_id"] = payload.get("sub") or payload.get("user_id")
-                state["user_role"] = user_role
-                await self.app(scope, receive, send)
-                return
-
-            except HTTPException as exc:
-                if exc.status_code == status.HTTP_403_FORBIDDEN:
-                    await self._respond(
-                        Response(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            content='{"detail": "Forbidden"}',
-                            media_type="application/json",
-                        ),
-                        scope,
-                        receive,
-                        send,
-                    )
-                    return
-                await self._respond(
-                    Response(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        content='{"detail": "Invalid token"}',
-                        media_type="application/json",
-                        headers={"WWW-Authenticate": "Bearer"},
-                    ),
-                    scope,
-                    receive,
-                    send,
-                )
-                return
-            except (ValueError, TypeError) as e:
-                logger.error("AuthMiddleware error: %s", e)
-                await self._respond(
-                    Response(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        content='{"detail": "Invalid token"}',
-                        media_type="application/json",
-                        headers={"WWW-Authenticate": "Bearer"},
-                    ),
-                    scope,
-                    receive,
-                    send,
-                )
-                return
-
-        # Fallback to miner API key authentication via X-Api-Key header. This
-        # lets production miners authenticate on routes like /v1/miners/*
-        # without a pre-existing JWT.
-        if request.headers.get("X-Api-Key"):
-            try:
-                from .dependencies import require_miner_api_key
-
-                user = require_miner_api_key(request)
-                user_role = user.get("role")
-                if not check_role_match(auth_level, user_role):
-                    await self._respond(
-                        Response(
-                            status_code=status.HTTP_403_FORBIDDEN,
-                            content='{"detail": "Forbidden"}',
-                            media_type="application/json",
-                        ),
-                        scope,
-                        receive,
-                        send,
-                    )
-                    return
-
-                state = scope.setdefault("state", {})
-                state["user"] = user
-                state["user_id"] = user.get("sub")
-                state["user_role"] = user_role
-                await self.app(scope, receive, send)
-                return
-            except HTTPException as exc:
-                # `exc.detail` says which of the two it was, and they need different actions:
-                # "No miner API keys configured" is a deployment fault, "Invalid or missing API
-                # key" is a bad credential. Collapsing both into "Invalid API key" sent every
-                # operator looking at the key when MINER_API_KEYS was simply unset (V23-68c).
-                #
-                # The reason is logged, not returned: an unauthenticated caller learns nothing
-                # about the server's configuration, and the operator reads the journal anyway.
-                logger.warning("X-Api-Key rejected on %s: %s", request.url.path, exc.detail)
-                await self._respond(
-                    Response(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        content='{"detail": "Invalid API key"}',
-                        media_type="application/json",
-                    ),
-                    scope,
-                    receive,
-                    send,
-                )
-                return
-            except (ValueError, TypeError) as e:
-                logger.error("AuthMiddleware API key error: %s", e)
-                await self._respond(
-                    Response(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        content='{"detail": "Invalid API key"}',
-                        media_type="application/json",
-                    ),
-                    scope,
-                    receive,
-                    send,
-                )
-                return
-
-        await self._respond(
-            Response(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                content='{"detail": "Authentication required"}',
-                media_type="application/json",
-                headers={"WWW-Authenticate": "Bearer"},
-            ),
+        await self._deny_auth(
             scope,
             receive,
             send,
+            status.HTTP_401_UNAUTHORIZED,
+            "Authentication required",
+            www_authenticate="Bearer",
         )
 
 
@@ -354,70 +328,79 @@ rate_limiter = RateLimiter()
 # ---------------------------------------------------------------------------
 
 
+async def _rate_limit_or_raise(user_id: str, role: str) -> None:
+    import time
+
+    rate_check = await rate_limiter.is_allowed(user_id, role)
+    if rate_check["allowed"]:
+        return
+    retry_after = max(0, int(rate_check["reset_time"] - time.time()))
+    raise HTTPException(
+        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+        detail="Rate limit exceeded",
+        headers={"Retry-After": str(retry_after)},
+    )
+
+
+async def _user_from_bearer_credentials(credentials: HTTPAuthorizationCredentials) -> dict[str, Any] | None:
+    if credentials.scheme != "Bearer":
+        return None
+    validation = get_jwt_handler().validate_token(credentials.credentials)
+    if not validation["valid"]:
+        return None
+    payload = validation["payload"]
+    user_id = payload.get("user_id") or payload.get("sub")
+    if user_id is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid token",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    await _rate_limit_or_raise(user_id, payload.get("role", "default"))
+    return {
+        "sub": payload.get("sub") or user_id,
+        "user_id": user_id,
+        "username": payload.get("username"),
+        "role": str(payload.get("role", "default")),
+        "permissions": payload.get("permissions", []),
+        "auth_type": "jwt",
+    }
+
+
+async def _user_from_apikey_credentials(credentials: HTTPAuthorizationCredentials) -> dict[str, Any] | None:
+    if credentials.scheme.lower() != "apikey":
+        return None
+    from .api_key import api_key_manager
+
+    validation = api_key_manager.validate_api_key(credentials.credentials)
+    if not validation["valid"]:
+        return None
+    user_id = validation["user_id"]
+    await _rate_limit_or_raise(user_id, "api_key")
+    return {
+        "sub": user_id,
+        "user_id": user_id,
+        "username": f"api_user_{user_id}",
+        "role": "api",
+        "permissions": validation["permissions"],
+        "auth_type": "api_key",
+    }
+
+
 async def get_current_user(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)]) -> dict[str, Any]:
     """Get current user from JWT token or API key.
 
     This is the agent-coordinator compatible version that uses the dict-style
     JWTHandler and APIKeyManager.
     """
-    import time
-
-    from .api_key import api_key_manager
-
     try:
-        if credentials and credentials.scheme == "Bearer":
-            token = credentials.credentials
-            validation = get_jwt_handler().validate_token(token)
-            if validation["valid"]:
-                payload = validation["payload"]
-                user_id = payload.get("user_id") or payload.get("sub")
-                if user_id is None:
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Invalid token",
-                        headers={"WWW-Authenticate": "Bearer"},
-                    )
-                rate_check = await rate_limiter.is_allowed(user_id, payload.get("role", "default"))
-                if not rate_check["allowed"]:
-                    retry_after = max(0, int(rate_check["reset_time"] - time.time()))
-                    raise HTTPException(
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail="Rate limit exceeded",
-                        headers={"Retry-After": str(retry_after)},
-                    )
-                return {
-                    "sub": payload.get("sub") or user_id,
-                    "user_id": user_id,
-                    "username": payload.get("username"),
-                    "role": str(payload.get("role", "default")),
-                    "permissions": payload.get("permissions", []),
-                    "auth_type": "jwt",
-                }
-        api_key = None
-        # #1754: the parser accepts the scheme case-insensitively; normalize
-        # before comparing so ``apikey``/``APIKEY`` spellings also resolve.
-        if credentials and credentials.scheme.lower() == "apikey":
-            api_key = credentials.credentials
-        if api_key:
-            validation = api_key_manager.validate_api_key(api_key)
-            if validation["valid"]:
-                user_id = validation["user_id"]
-                rate_check = await rate_limiter.is_allowed(user_id, "api_key")
-                if not rate_check["allowed"]:
-                    retry_after = max(0, int(rate_check["reset_time"] - time.time()))
-                    raise HTTPException(
-                        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail="Rate limit exceeded",
-                        headers={"Retry-After": str(retry_after)},
-                    )
-                return {
-                    "sub": user_id,
-                    "user_id": user_id,
-                    "username": f"api_user_{user_id}",
-                    "role": "api",
-                    "permissions": validation["permissions"],
-                    "auth_type": "api_key",
-                }
+        if credentials:
+            bearer_user = await _user_from_bearer_credentials(credentials)
+            if bearer_user is not None:
+                return bearer_user
+            api_user = await _user_from_apikey_credentials(credentials)
+            if api_user is not None:
+                return api_user
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Authentication required", headers={"WWW-Authenticate": "Bearer"}
         )
