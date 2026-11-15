@@ -98,7 +98,7 @@ def _escrow_addresses_from_txs(tx_datas: list[dict[str, Any]]) -> set[str]:
             if isinstance(payload, str):
                 try:
                     payload = json.loads(payload)
-                except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
+                except (RecursionError, TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                     payload = {}
             job_id = payload.get("job_id", "")
             if job_id:
@@ -642,7 +642,7 @@ class _PoaBaseMixin:
         if raw.strip():
             try:
                 env = json.loads(raw)
-            except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
+            except (RecursionError, TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                 env = None
             if isinstance(env, list):
                 return any(

@@ -718,7 +718,11 @@ class BlockImportMixin(SyncBase):
                             if isinstance(payload, str):
                                 try:
                                     payload = json.loads(payload)
-                                except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
+                                except (
+                                    RecursionError,
+                                    TypeError,
+                                    ValueError,
+                                ):  # malformed payload JSON decodes to the empty/default branch
                                     payload = {}
                             job_id = payload.get("job_id", "")
                             if job_id:
@@ -1210,7 +1214,7 @@ class BlockImportMixin(SyncBase):
             return []
         try:
             metadata = json.loads(raw) if isinstance(raw, str) else raw
-        except (TypeError, ValueError):
+        except (RecursionError, TypeError, ValueError):
             return []
         entries = metadata.get("rejected_txs") if isinstance(metadata, dict) else None
         if not isinstance(entries, list):

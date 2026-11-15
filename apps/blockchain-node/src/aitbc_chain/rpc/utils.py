@@ -350,7 +350,7 @@ def normalize_transaction_data(tx_data: dict[str, Any], chain_id: str) -> dict[s
             import json
 
             payload = json.loads(payload)
-        except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
+        except (RecursionError, TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
             payload = {}
 
     if not isinstance(payload, dict):
