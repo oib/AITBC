@@ -83,28 +83,6 @@
       1 cli/tests/run_cli_tests.py
       1 packages/py/aitbc-agent-sdk/src/aitbc_agent/cli_contract_client.py
       1 packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_provider.py
-      1 scripts/docs/check_feature_status.py
-      1 scripts/docs/check_links.py
-      1 scripts/docs/check_orphan_docs.py
-      1 scripts/dump_mcp_tools.py
-      2 scripts/lint/no_float_money.py
-      1 scripts/monitoring/bridge-payout-audit.py
-      2 scripts/monitoring/escrow-settlements-textfile.py
-      1 scripts/monitoring/monitor-prs.py
-      1 scripts/monitoring/state-digest-remote.py
-      2 scripts/openapi_error_responses.py
-      1 scripts/ops/first-sweep-check.py
-      2 scripts/ops/governance_parameter_change.py
-      2 scripts/ops/key_residue_census.py
-      2 scripts/ops/rebuild-escrows.py
-      1 scripts/ops/register_bridge_validators.py
-      2 scripts/ops/replay-chain.py
-      1 scripts/security/migrate_secrets_to_env_files.py
-      2 scripts/security/security_audit.py
-      1 scripts/services/gpu/gpu_miner_host.py
-      1 scripts/testing/chaos_orchestrator.py
-      1 scripts/utils/claim-task.py
-      3 scripts/utils/verify-db-schema.py
       1 tests/cli/test_market_command_names.py
       1 tests/cli/test_wallet.py
       1 tests/fixtures/cli_mocks.py
