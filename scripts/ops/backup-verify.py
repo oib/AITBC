@@ -197,6 +197,11 @@ def verify_set(
     # (#911).
     if not report["chain"]:
         errors.append(f"{set_dir.name}: no chain_*.db.gz artifacts in the newest set")
+    elif not any(e["name"].endswith("_chain.db.gz") for e in report["chain"]):
+        # #1934 relaxed the block-table requirement to *_chain.db.gz only, so a
+        # set holding just service DBs (keystore, wallet ledger) must not read
+        # CLEAN: the real chain dump is the file that has to exist (#1970).
+        errors.append(f"{set_dir.name}: no chain_<id>_chain.db.gz (real chain DB dump) in the newest set")
     return errors, report
 
 
