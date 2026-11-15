@@ -919,6 +919,10 @@ UC_DIGEST = "e7de4166b2bf60c30f04dbcee17246817682a2817f63b5de1a1c8e10c188af09"
         ("validator_deactivation_evidence_required", "true", "true"),
         ("validator_deactivation_evidence_required", "TRUE", "true"),
         ("unlock_proof_uc_enabled", "1", "1"),
+        ("unlock_proof_uc_evidence_time_enabled", "true", "true"),
+        ("unlock_proof_uc_evidence_time_enabled", "FALSE", "false"),
+        ("unlock_proof_uc_evidence_time_enabled", "1", "1"),
+        ("unlock_proof_uc_evidence_time_enabled", "0", "0"),
         ("unlock_proof_uc_min_responses", "2", "2"),
         ("unlock_proof_uc_min_responses", "02", "2"),
         ("unlock_proof_uc_max_age_seconds", "600", "600"),
@@ -936,6 +940,8 @@ def test_validate_uc_value_normalizes(parameter: str, value: str, expected: str)
     [
         ("validator_deactivation_evidence_required", "maybe"),
         ("unlock_proof_uc_enabled", "2"),
+        ("unlock_proof_uc_evidence_time_enabled", "2"),
+        ("unlock_proof_uc_evidence_time_enabled", "not-a-bool"),
         ("unlock_proof_uc_min_responses", "0"),
         ("unlock_proof_uc_min_responses", "1.5"),
         ("unlock_proof_uc_min_responses", "-2"),
@@ -951,15 +957,23 @@ def test_validate_uc_value_rejects_malformed(parameter: str, bad: str) -> None:
         tool._validate_uc_value(parameter, bad)
 
 
-def test_plan_accepts_uc_parameter(fake: FakeRPC, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]) -> None:
+@pytest.mark.parametrize("parameter", ["unlock_proof_uc_enabled", "unlock_proof_uc_evidence_time_enabled"])
+def test_plan_accepts_uc_parameter(
+    parameter: str, fake: FakeRPC, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
     _run(
         monkeypatch,
-        _argv("plan", "--parameter", "unlock_proof_uc_enabled", "--value", "true"),
+        _argv("plan", "--parameter", parameter, "--value", "TRUE"),
     )
     out = capsys.readouterr().out
-    assert "unlock_proof_uc_enabled" in out
-    assert '"value": "true"' in out
-    assert "GOVERNANCE_EXECUTE" in out
+    unsigned = json.loads(out.split("unsigned transaction:\n", 1)[1].split("signing digest", 1)[0])
+    assert unsigned["payload"]["execution_payload"] == {
+        "action": "parameter_change",
+        "parameter": parameter,
+        "value": "true",
+    }
+    assert unsigned["payload"]["type"] == "GOVERNANCE_EXECUTE"
+    assert fake.posted == []
 
 
 def test_plan_rejects_malformed_uc_value(fake: FakeRPC, monkeypatch: pytest.MonkeyPatch) -> None:

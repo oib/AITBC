@@ -93,6 +93,7 @@ FEE_PAYING_TARGET_PARAMETERS = (
 UC_VALUE_PARAMETERS = (
     "validator_deactivation_evidence_required",
     "unlock_proof_uc_enabled",
+    "unlock_proof_uc_evidence_time_enabled",
     "unlock_proof_uc_min_responses",
     "unlock_proof_uc_max_age_seconds",
     "unlock_proof_uc_validator_set_digest",
@@ -204,7 +205,11 @@ def _validate_uc_value(parameter: str, value: str) -> str:
     a parameter that silently keeps the feature dormant.
     """
     v = value.strip()
-    if parameter in ("validator_deactivation_evidence_required", "unlock_proof_uc_enabled"):
+    if parameter in (
+        "validator_deactivation_evidence_required",
+        "unlock_proof_uc_enabled",
+        "unlock_proof_uc_evidence_time_enabled",
+    ):
         if not _BOOL_RE.match(v):
             _fail(f"{parameter} expects a boolean-ish value (true/false/1/0/yes/no), got {value!r}")
         return v.lower()
