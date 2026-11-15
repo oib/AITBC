@@ -424,10 +424,8 @@ def poll_for_jobs():
         return None
 
 
-def main():
-    """Main miner loop"""
-    logger.info("Starting Real GPU Miner Client on Host...")
-
+def _startup() -> tuple[list[str], str]:
+    """Credential/GPU/backend/coordinator/registration gate. Returns (models, backend)."""
     # #1027: refuse placeholder credentials before anything else
     if not credentials_ok():
         sys.exit(1)
@@ -461,8 +459,11 @@ def main():
         sys.exit(1)
 
     logger.info("Miner registered successfully, starting main loop...")
+    return models, backend
 
-    # Main loop
+
+def _run_loop(models: list[str], backend: str) -> None:
+    """Heartbeat + poll + execute loop until interrupted."""
     last_heartbeat = 0
     last_poll = 0
 
@@ -490,6 +491,13 @@ def main():
     except Exception as e:
         logger.error("Error in main loop: %s", e)
         sys.exit(1)
+
+
+def main():
+    """Main miner loop"""
+    logger.info("Starting Real GPU Miner Client on Host...")
+    models, backend = _startup()
+    _run_loop(models, backend)
 
 
 if __name__ == "__main__":
