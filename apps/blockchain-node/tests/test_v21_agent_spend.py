@@ -12,7 +12,7 @@ from sqlmodel import Session, create_engine
 from aitbc_chain.base_models import Account, AgentSpendLedger, AgentSpendSession
 from aitbc_chain.config import settings
 from aitbc_chain.metadata import chain_metadata
-from aitbc_chain.state.agent_spend import SPEND_DAY_BLOCKS
+from aitbc_chain.state.agent_spend import SPEND_DAY_BLOCKS, agent_spend_verdict
 from aitbc_chain.state.state_transition import StateTransition, get_block_version_for_height
 
 from .test_apply_parity import (
@@ -579,6 +579,60 @@ def test_two_spends_one_block_respect_cap(tmp_path):
         ok, err = _spend(session, st, nonce=1, value=400, tag="b2")
         assert ok is False and "daily cap" in err
         assert _ledger(session).spent == 700
+
+
+def _admission(session, value):
+    return agent_spend_verdict(session, CHAIN, AGENT, "TRANSFER", {"session_id": "sess-1"}, value, V21_HEIGHT)
+
+
+def test_admission_cannot_see_pending_sibling_apply_enforces(tmp_path):
+    """#1980: two spends that together exceed the cap, both admitted before
+    either applies. Admission (agent_spend_verdict) is read-only on committed
+    state, so it cannot see the pending sibling and passes both. APPLY, not
+    admission, is the enforcement point: the first lands, the second is refused."""
+    st = StateTransition()
+    with Session(_engine(tmp_path)) as session:
+        _seed(session)
+        assert _grant(session, st, cap=1000)[0] is True
+        assert _admission(session, 700) is None
+        assert _admission(session, 400) is None
+        assert _spend(session, st, nonce=0, value=700, tag="c1")[0] is True
+        ok, err = _spend(session, st, nonce=1, value=400, tag="c2")
+        assert ok is False and "daily cap" in err
+        assert _ledger(session).spent == 700
+
+
+def test_admission_then_apply_reverse_order_order_decides(tmp_path):
+    """#1980: same pair, 400 first then 700. Both admitted; the 400 lands and
+    the 700 is refused at apply. Order, not size, decides."""
+    st = StateTransition()
+    with Session(_engine(tmp_path)) as session:
+        _seed(session)
+        assert _grant(session, st, cap=1000)[0] is True
+        assert _admission(session, 400) is None
+        assert _admission(session, 700) is None
+        assert _spend(session, st, nonce=0, value=400, tag="r1")[0] is True
+        ok, err = _spend(session, st, nonce=1, value=700, tag="r2")
+        assert ok is False and "daily cap" in err
+        assert _ledger(session).spent == 400
+
+
+def test_day_boundary_spends_draw_from_different_ledger_days(tmp_path):
+    """#1980: a spend at DAY*SPEND_DAY_BLOCKS-1 and one at the next bucket's
+    first height charge different ledger days, so the second is not refused
+    by the first day's cap."""
+    st = StateTransition()
+    last_of_day = (DAY + 1) * SPEND_DAY_BLOCKS - 1
+    first_of_next = (DAY + 1) * SPEND_DAY_BLOCKS
+    with Session(_engine(tmp_path)) as session:
+        _seed(session)
+        assert _grant(session, st, cap=1000)[0] is True
+        ok, err = _spend(session, st, nonce=0, value=1000, height=last_of_day, tag="d1")
+        assert ok is True, err
+        ok, err = _spend(session, st, nonce=1, value=1000, height=first_of_next, tag="d2")
+        assert ok is True, err
+        assert _ledger(session, day=DAY).spent == 1000
+        assert _ledger(session, day=DAY + 1).spent == 1000
 
 
 # ---- height resolution ------------------------------------------------------
