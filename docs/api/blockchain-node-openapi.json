@@ -3051,7 +3051,7 @@
           "subscription"
         ],
         "summary": "Get all valid subscribers",
-        "description": "Get all subscribers with valid leases.\n\nPeer-key gated (#1936): the subscriber list is node-local lease\nstate (which fleet nodes hold live leases), not chain data \u2014 it\nstays off the public read surface like the rest of the lease API.",
+        "description": "Get all subscribers with valid leases.\n\nPeer-key gated (#1936): the subscriber list is node-local lease\nstate (which fleet nodes hold live leases), not chain data \u2014 it\nstays off the public read surface like the rest of the lease API.\n\nIssued join keys are scoped to their own node_id (#1966/#1981): they\nsee only their own valid subscriber rows. Fleet/admin keys keep the\nfull list. A missing or revoked scope fails closed with 403 \u2014 never\nan unfiltered fallback.",
         "operationId": "subscribers_route_rpc_subscribers_get",
         "security": [
           {
@@ -3100,7 +3100,7 @@
             }
           },
           "403": {
-            "description": "Forbidden: missing or invalid API key",
+            "description": "Peer key has no active node scope / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
@@ -15334,7 +15334,7 @@
           "subscription"
         ],
         "summary": "Get all valid subscribers",
-        "description": "Get all subscribers with valid leases.\n\nPeer-key gated (#1936): the subscriber list is node-local lease\nstate (which fleet nodes hold live leases), not chain data \u2014 it\nstays off the public read surface like the rest of the lease API.",
+        "description": "Get all subscribers with valid leases.\n\nPeer-key gated (#1936): the subscriber list is node-local lease\nstate (which fleet nodes hold live leases), not chain data \u2014 it\nstays off the public read surface like the rest of the lease API.\n\nIssued join keys are scoped to their own node_id (#1966/#1981): they\nsee only their own valid subscriber rows. Fleet/admin keys keep the\nfull list. A missing or revoked scope fails closed with 403 \u2014 never\nan unfiltered fallback.",
         "operationId": "subscribers_route_v1_subscribers_get",
         "security": [
           {
@@ -15383,7 +15383,7 @@
             }
           },
           "403": {
-            "description": "Forbidden: missing or invalid API key",
+            "description": "Peer key has no active node scope / Forbidden: missing or invalid API key",
             "content": {
               "application/json": {
                 "schema": {
