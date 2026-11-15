@@ -45,6 +45,7 @@ from .state.pure_state_transition import (
     extract_read_write_sets,
 )
 from .state.state_transition import (
+    StateTransition,
     _bridge_release_authority,
     build_bridge_lock_context,
     build_escrow_context,
@@ -146,6 +147,7 @@ class BlockImportMixin(SyncBase):
         session: Session,
         block_data: dict[str, Any],
         transactions: list[dict[str, Any]] | None,
+        _probe: bool = False,
     ) -> str:
         """Return the bridge event trie root for an imported block.
 
@@ -155,7 +157,10 @@ class BlockImportMixin(SyncBase):
         """
         existing = block_data.get("bridge_state_root")
         if existing:
-            bridge_root_shadow.run_shadow_check(block_data, transactions, chain_id=self._chain_id, log=logger)
+            if not _probe:
+                # #1940 F4: the shadow root is observational — a speculative
+                # probe apply must not run it.
+                bridge_root_shadow.run_shadow_check(block_data, transactions, chain_id=self._chain_id, log=logger)
             return str(existing)
         from .base_models import CrossChainTransfer
         from .state.merkle_patricia_trie import MerklePatriciaTrie
@@ -172,7 +177,8 @@ class BlockImportMixin(SyncBase):
         # V-4 dry-run missing-data guard (flag-gated, logs/counts only —
         # the derived root below is computed exactly as before).
         block_height = int(block_data.get("height") or 0)
-        bridge_lock_guard.run_guard_dryrun_dicts(lock_txs, height=block_height, chain_id=self._chain_id, log=logger)
+        if not _probe:
+            bridge_lock_guard.run_guard_dryrun_dicts(lock_txs, height=block_height, chain_id=self._chain_id, log=logger)
         transfer_ids = [tx.get("tx_hash", "") for tx in lock_txs]
         records = session.exec(
             select(CrossChainTransfer).where(
@@ -491,12 +497,17 @@ class BlockImportMixin(SyncBase):
         transactions: list[dict[str, Any]] | None = None,
         skip_state_root_validation: bool = False,
         _probe: bool = False,
+        _state_transition: StateTransition | None = None,
     ) -> ImportResult:
         """Append a block to the chain tip.
 
-        ``_probe`` (#1322) is reachable only from ``_probe_peer_segment``: the
-        apply runs but the transaction is flushed, never committed, and no
-        post-commit side effect (mempool eviction, shadow roots, counters) runs.
+        ``_probe`` (#1322) is reachable only from ``_probe_peer_segment`` and
+        the #1940 F4 attestation post-state probe: the apply runs but the
+        transaction is flushed, never committed, and no post-commit side
+        effect (mempool eviction, shadow roots, counters, journal persist,
+        rejection metrics) runs. ``_state_transition`` lets a probe supply a
+        fresh, cache-isolated ``StateTransition``; every other caller keeps
+        the process singleton.
 
         Args:
             session: Database session
@@ -507,6 +518,9 @@ class BlockImportMixin(SyncBase):
         from datetime import UTC, datetime
 
         apply_start = time.perf_counter()
+        # #1940 F4: probe refusals are logged under their own prefix so a
+        # speculative check never masquerades as a real import rejection.
+        reject_tag = "[ATTEST-PROBE]" if _probe else "[SYNC]"
         block_hash = block_data["hash"]
         # Validation-only call sites (tests) may pass session=None — no journal
         # then; nothing reaches the DB anyway.
@@ -619,9 +633,11 @@ class BlockImportMixin(SyncBase):
                 str(block_data.get("aux_state_root") or ""),
             )
             if recomputed != str(block_data["hash"]):
-                metrics_registry.increment("sync_blocks_rejected_total")
+                if not _probe:
+                    metrics_registry.increment("sync_blocks_rejected_total")
                 logger.warning(
-                    "Block rejected at v20+: delivered tx list does not hash to the signed block hash at height %s",
+                    ("[ATTEST-PROBE] " if _probe else "")
+                    + "Block rejected at v20+: delivered tx list does not hash to the signed block hash at height %s",
                     block_data["height"],
                 )
                 return self._make_import_result(
@@ -861,7 +877,7 @@ class BlockImportMixin(SyncBase):
                     # Log failed transactions.
                     for delta in all_deltas:
                         if not delta.success:
-                            logger.warning("[SYNC] Failed to apply transaction %s: %s", delta.tx_hash, delta.error)
+                            logger.warning(reject_tag + " Failed to apply transaction %s: %s", delta.tx_hash, delta.error)
                     parallel_applied = True
             if not parallel_applied:
                 # Sequential path (fallback when parallel_tx_validation is off
@@ -917,7 +933,7 @@ class BlockImportMixin(SyncBase):
                             tx_data["value"] = tx_data["amount"]
                     elif "value" not in tx_data and "amount" in tx_data:
                         tx_data["value"] = tx_data["amount"]
-                    state_transition = get_state_transition()
+                    state_transition = _state_transition if _state_transition is not None else get_state_transition()
                     success, error_msg = state_transition.apply_transaction_guarded(
                         session,
                         self._chain_id,
@@ -931,7 +947,7 @@ class BlockImportMixin(SyncBase):
                         block_time=timestamp,
                     )
                     if not success:
-                        logger.warning("[SYNC] Failed to apply transaction %s: %s", tx_hash, error_msg)
+                        logger.warning(reject_tag + " Failed to apply transaction %s: %s", tx_hash, error_msg)
                     tx_type = tx_data.get("type", "TRANSFER")
                     if tx_type:
                         tx_type = tx_type.upper()
@@ -979,7 +995,7 @@ class BlockImportMixin(SyncBase):
         # been applied, then persist the block.  This keeps the schedule check
         # above from touching any state.
         block.state_root = block_data.get("state_root")
-        block.bridge_state_root = self._derive_bridge_state_root(session, block_data, transactions)
+        block.bridge_state_root = self._derive_bridge_state_root(session, block_data, transactions, _probe=_probe)
         # v14 (V-3): the header's committed side-table root. Stored only at
         # v14+ — below the activation the field does not exist and any value a
         # peer supplies is ignored, so replayed pre-v14 blocks keep NULL.
@@ -998,11 +1014,12 @@ class BlockImportMixin(SyncBase):
         ):
             # #1325 (e): vote-only attestation leans on this comparison, so a
             # block that omits its root cannot be allowed to skip it.
-            metrics_registry.increment("sync_state_root_missing_rejected_total")
+            if not _probe:
+                metrics_registry.increment("sync_state_root_missing_rejected_total")
             session.rollback()
             self._track_rejection(self._chain_id)
             logger.error(
-                "[SYNC] Missing state root at height %s (required from %s) - BLOCK REJECTED",
+                reject_tag + " Missing state root at height %s (required from %s) - BLOCK REJECTED",
                 block_data["height"],
                 require_root_height,
             )
@@ -1028,11 +1045,12 @@ class BlockImportMixin(SyncBase):
             except ValueError:
                 expected_root = None
             if expected_root is None or len(expected_root) != 32:
-                metrics_registry.increment("sync_state_root_rejected_total")
+                if not _probe:
+                    metrics_registry.increment("sync_state_root_rejected_total")
                 session.rollback()
                 self._track_rejection(self._chain_id)
                 logger.error(
-                    "[SYNC] Invalid state root at height %s: %s - BLOCK REJECTED",
+                    reject_tag + " Invalid state root at height %s: %s - BLOCK REJECTED",
                     block_data["height"],
                     block_data.get("state_root"),
                 )
@@ -1044,7 +1062,8 @@ class BlockImportMixin(SyncBase):
                     reason=f"Invalid state root: {block_data.get('state_root')}",
                 )
             elif computed_root != expected_root:
-                metrics_registry.increment("sync_state_root_rejected_total")
+                if not _probe:
+                    metrics_registry.increment("sync_state_root_rejected_total")
                 session.rollback()
                 self._track_rejection(self._chain_id)
                 # Two very different faults produced this same message before, and only
@@ -1056,9 +1075,10 @@ class BlockImportMixin(SyncBase):
                 # local account row one transaction ahead of its own head.
                 divergence = self._describe_local_state_divergence(session, block_data["height"] - 1)
                 if divergence:
-                    metrics_registry.increment("sync_local_state_divergence_total")
+                    if not _probe:
+                        metrics_registry.increment("sync_local_state_divergence_total")
                     logger.error(
-                        "[SYNC] Local state diverged from our own head %s: %s. "
+                        reject_tag + " Local state diverged from our own head %s: %s. "
                         "Block %s cannot be imported until local state is repaired; "
                         "retrying will not help - BLOCK REJECTED",
                         block_data["height"] - 1,
@@ -1073,7 +1093,7 @@ class BlockImportMixin(SyncBase):
                         diverged=True,
                     )
                 logger.error(
-                    "[SYNC] State root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
+                    reject_tag + " State root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
                     block_data["height"],
                     expected_root.hex(),
                     computed_root.hex(),  # type: ignore[union-attr]
@@ -1105,9 +1125,10 @@ class BlockImportMixin(SyncBase):
                     # real divergence from legitimate local rows, so the check
                     # runs compare-only for these eras rather than stalling
                     # replay of history no node can re-verify.
-                    metrics_registry.increment("sync_aux_root_unverifiable_total")
+                    if not _probe:
+                        metrics_registry.increment("sync_aux_root_unverifiable_total")
                     logger.warning(
-                        "[SYNC] Aux state root mismatch at height %s on an "
+                        reject_tag + " Aux state root mismatch at height %s on an "
                         "unverifiable era (v%s): expected %s, computed %s - "
                         "compare-only, block not rejected",
                         block_data["height"],
@@ -1116,11 +1137,12 @@ class BlockImportMixin(SyncBase):
                         computed_aux,
                     )
                 else:
-                    metrics_registry.increment("sync_aux_root_rejected_total")
+                    if not _probe:
+                        metrics_registry.increment("sync_aux_root_rejected_total")
                     session.rollback()
                     self._track_rejection(self._chain_id)
                     logger.error(
-                        "[SYNC] Aux state root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
+                        reject_tag + " Aux state root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
                         block_data["height"],
                         recorded_aux,
                         computed_aux,
@@ -1132,9 +1154,12 @@ class BlockImportMixin(SyncBase):
                         reason=f"Aux state root mismatch: expected {recorded_aux}, computed {computed_aux}",
                     )
         self._persist_import_rejections(session, block_data)
-        if journal is not None:
+        if journal is not None and not _probe:
+            # #1940 F4: persist also advances the process-global prune
+            # watermark — a speculative apply must not move it.
             journal.persist(session)
-        sync_import_phase_seconds.labels(phase="tx_apply").observe(time.perf_counter() - apply_start)
+        if not _probe:
+            sync_import_phase_seconds.labels(phase="tx_apply").observe(time.perf_counter() - apply_start)
         phase_start = time.perf_counter()
         if _probe:
             session.flush()

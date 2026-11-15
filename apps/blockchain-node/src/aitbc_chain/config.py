@@ -1532,6 +1532,20 @@ class ChainSettings(BaseSettings):
     attest_lag_wait_enabled: bool = False
     attest_lag_wait_seconds: float = 10.0
     attest_lag_wait_max_blocks: int = 2
+    # #1940 F4: dormant post-state attestation gate. At/above the configured
+    # height every attest request's transactions are re-executed on a
+    # consistent SQLite snapshot of local parent state inside the v9 check;
+    # the claimed state/aux roots must reproduce under the real importer
+    # rules and the carried bridge root is bound to the authenticated
+    # header/stored row (the legacy importer trusts it — deterministic
+    # bridge-root enforcement is F5 scope) or the attestation is refused.
+    # None disables the probe entirely — no activation value is chosen
+    # here; rollout requires a uniform configured height.
+    attestation_post_state_height: int | None = Field(default=None, ge=0)
+    # Node-local budget for one probe (snapshot + apply). Expiry refuses the
+    # attestation; it is never a consensus verdict and never extends the
+    # request's own deadline semantics.
+    attestation_post_state_timeout_seconds: float = Field(default=10.0, gt=0, allow_inf_nan=False)
     # #1306: unlock_justification waits inside the serial attest-request
     # listener are timed; waits at or above this many seconds increment
     # attest_listener_unlock_stall_total (instrumentation only, no behavior).

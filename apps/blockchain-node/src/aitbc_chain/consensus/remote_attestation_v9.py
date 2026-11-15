@@ -31,6 +31,20 @@ else:
 from .remote_attestation import _ListenerMixin
 
 
+def _int_header_height(header: dict[str, Any]) -> int:
+    """Int-convertible header height for gate decisions (#1940 F4).
+
+    Malformed numeric representations resolve -1 (gate inactive); the v9
+    check itself still reports ``bad_header`` for them, and once the gate is
+    armed the probe enforces the strict-int contract so a string height
+    cannot bypass verification.
+    """
+    try:
+        return int(header.get("height", 0))
+    except (TypeError, ValueError, OverflowError):
+        return -1
+
+
 class _V9Mixin(_ListenerMixin):
     def _parent_lag_gap(self, header: dict[str, Any]) -> int | None:
         """#1295: how many blocks the local tip is behind the request's parent.
@@ -64,7 +78,13 @@ class _V9Mixin(_ListenerMixin):
             return None
         return (height - 1) - int(tip_row)
 
-    async def _run_v9_check(self, header: dict[str, Any], txs: list[Any]) -> str | None:
+    async def _run_v9_check(
+        self,
+        header: dict[str, Any],
+        txs: list[Any],
+        *,
+        proposer_signature: str | None = None,
+    ) -> str | None:
         """#1310: run the v9 tx check, timed; optionally off the event loop.
 
         With ``attest_v9_check_offload_enabled`` — or
@@ -85,11 +105,18 @@ class _V9Mixin(_ListenerMixin):
         """
         start = _ra.time.monotonic()
         lag_wait = bool(getattr(settings, "attest_lag_wait_enabled", False))
-        offload = bool(getattr(settings, "attest_v9_check_offload_enabled", False)) or lag_wait
+        from .attestation_state_probe import post_state_probe_active
+
+        # #1940 F4: an armed post-state gate always offloads — the probe must
+        # never run on the event loop.
+        probe_gate = post_state_probe_active(_int_header_height(header))
+        offload = bool(getattr(settings, "attest_v9_check_offload_enabled", False)) or lag_wait or probe_gate
         deadline: float | None = None
         try:
             while True:
-                if offload:
+                if probe_gate:
+                    verdict = await self._run_post_state_probe(header, txs, proposer_signature)
+                elif offload:
                     verdict = await asyncio.to_thread(self._v9_check_transactions, header, txs)
                 else:
                     verdict = self._v9_check_transactions(header, txs)
@@ -109,11 +136,62 @@ class _V9Mixin(_ListenerMixin):
         finally:
             metrics_registry.observe("attest_v9_check_seconds", _ra.time.monotonic() - start)
 
+    async def _run_post_state_probe(
+        self,
+        header: dict[str, Any],
+        txs: list[Any],
+        proposer_signature: str | None,
+    ) -> str | None:
+        """#1940 F4: one bounded post-state probe per service at a time.
+
+        The worker owns the permit until it actually finishes — an async
+        timeout stops awaiting but cannot release the permit early or let
+        workers pile up; the worker's absolute monotonic deadline aborts the
+        snapshot copy and scratch SQL, while bounded pure-Python trie work
+        simply completes. Expiry refuses; it is never a consensus verdict.
+        """
+        timeout = float(getattr(settings, "attestation_post_state_timeout_seconds", 10.0))
+        deadline = _ra.time.monotonic() + timeout
+        try:
+            return await asyncio.wait_for(
+                asyncio.to_thread(self._v9_post_state_worker, header, txs, proposer_signature, deadline),
+                timeout=timeout,
+            )
+        except TimeoutError:
+            return "post_state_timeout"
+        except Exception as e:  # noqa: BLE001 - worker failure refuses; cancellation still propagates
+            logger.warning("ATTEST-PROBE worker errored: %s", type(e).__name__)
+            return "post_state_error"
+
+    def _v9_post_state_worker(
+        self,
+        header: dict[str, Any],
+        txs: list[Any],
+        proposer_signature: str | None,
+        deadline: float,
+    ) -> str | None:
+        """Worker-thread body: at most one post-state probe per service."""
+        lock = self._attest_probe_lock
+        if not lock.acquire(blocking=False):
+            return "post_state_busy"
+        try:
+            return self._v9_check_transactions(
+                header,
+                txs,
+                proposer_signature=proposer_signature,
+                _probe_deadline=deadline,
+            )
+        finally:
+            lock.release()
+
     def _v9_check_transactions(
         self,
         header: dict[str, Any],
         txs: list[Any],
         _attempt: int = 1,
+        *,
+        proposer_signature: str | None = None,
+        _probe_deadline: float | None = None,
     ) -> str | None:
         """Verify attestation-request transactions against local parent state.
 
@@ -137,6 +215,12 @@ class _V9Mixin(_ListenerMixin):
             height = int(header.get("height", 0))
         except (TypeError, ValueError):
             return "bad_header"
+        from .attestation_state_probe import post_state_probe_active, probe_post_state
+
+        # #1940 F4: the gate decided on the int-convertible height above so a
+        # malformed numeric representation cannot skip the check; the probe
+        # itself then enforces the strict-int contract.
+        probe_active = post_state_probe_active(height)
         parent_hash = str(header.get("parent_hash", ""))
         proposer = str(header.get("proposer", ""))
         tx_hashes = header.get("tx_hashes")
@@ -201,6 +285,15 @@ class _V9Mixin(_ListenerMixin):
                     # matches but tip.hash != header hash falls through to
                     # not_at_parent, which is the fork protection working.
                     if tip_height == height and tip_hash == header_hash:
+                        if probe_active:
+                            return probe_post_state(
+                                session,
+                                self._chain_id,
+                                header,
+                                txs,
+                                deadline=_probe_deadline,
+                                proposer_signature=proposer_signature,
+                            )
                         return None
                     return "not_at_parent"
 
@@ -300,6 +393,15 @@ class _V9Mixin(_ListenerMixin):
                             if tx_nonce != expected_nonce[sender]:
                                 return "nonce_order"
                         expected_nonce[sender] += 1
+                if probe_active:
+                    return probe_post_state(
+                        session,
+                        self._chain_id,
+                        header,
+                        txs,
+                        deadline=_probe_deadline,
+                        proposer_signature=proposer_signature,
+                    )
         except Exception as e:  # noqa: BLE001 - any check failure verdicts check_error: refuse, never attest unverified
             if _attempt < V9_CHECK_ATTEMPTS and _is_transient_db_lock(e):
                 logger.info(
@@ -310,7 +412,13 @@ class _V9Mixin(_ListenerMixin):
                     e,
                 )
                 time.sleep(V9_CHECK_RETRY_DELAY_S)
-                return self._v9_check_transactions(header, txs, _attempt + 1)
+                return self._v9_check_transactions(
+                    header,
+                    txs,
+                    _attempt + 1,
+                    proposer_signature=proposer_signature,
+                    _probe_deadline=_probe_deadline,
+                )
             logger.warning("v9 attestation tx check failed to run for height %s: %s", height, e)
             return "check_error"
         return None

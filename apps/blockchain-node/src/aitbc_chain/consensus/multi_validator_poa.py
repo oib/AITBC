@@ -17,12 +17,16 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
+from collections.abc import Callable
+from contextlib import AbstractContextManager
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
+from sqlmodel import Session
+
 from ..models import Block
 
 logger = get_logger(__name__)
@@ -92,7 +96,13 @@ class Validator:
 class MultiValidatorPoA:
     """Multi-Validator Proof of Authority consensus mechanism"""
 
-    def __init__(self, chain_id: str, load_state: bool = True):
+    def __init__(
+        self,
+        chain_id: str,
+        load_state: bool = True,
+        *,
+        chain_state_session_factory: Callable[[], AbstractContextManager[Session]] | None = None,
+    ):
         if not settings.multi_validator_consensus_enabled:
             raise RuntimeError(
                 "MultiValidatorPoA is not yet activated. "
@@ -134,13 +144,25 @@ class MultiValidatorPoA:
         self._pbft_view: int = 0
         self._pbft_sequence: int = 0
 
+        # #1940 F4: optional session factory for chain-state reads
+        # (_current_head_height / _chain_deactivated_addresses). The
+        # attestation post-state probe injects one bound to its scratch
+        # session so speculative schedule/deactivation checks can never open
+        # a production session_scope. None keeps the production default.
+        self._chain_state_session_factory = chain_state_session_factory
+
         if load_state:
             self.load_state()
 
     @classmethod
-    def from_settings(cls, chain_id: str) -> "MultiValidatorPoA":
+    def from_settings(
+        cls,
+        chain_id: str,
+        *,
+        chain_state_session_factory: Callable[[], AbstractContextManager[Session]] | None = None,
+    ) -> "MultiValidatorPoA":
         """Build a consensus instance directly from settings without touching the DB."""
-        instance = cls(chain_id, load_state=False)
+        instance = cls(chain_id, load_state=False, chain_state_session_factory=chain_state_session_factory)
         instance._load_validator_set_from_settings()
         return instance
 
@@ -277,17 +299,33 @@ class MultiValidatorPoA:
         """Whether slash-driven deactivation reads chain state (default off)."""
         return bool(getattr(settings, "consensus_chain_slashing_enabled", False))
 
+    def _chain_state_session(self) -> AbstractContextManager[Session]:
+        """Session scope for chain-state reads (#1940 F4).
+
+        An injected factory (the attestation probe's scratch session) wins;
+        otherwise the production ``session_scope`` — query text and defaults
+        are identical either way.
+        """
+        if self._chain_state_session_factory is not None:
+            return self._chain_state_session_factory()
+        from ..database import session_scope
+
+        return session_scope(self.chain_id)
+
     def _current_head_height(self) -> int | None:
         """Local chain tip height, or None when unreadable (treated as "no
         markers yet" — the same view pre-#1198 nodes always had)."""
         from sqlmodel import func, select
 
-        from ..database import session_scope
-
         try:
-            with session_scope(self.chain_id) as session:
+            with self._chain_state_session() as session:
                 return session.exec(select(func.max(Block.height)).where(Block.chain_id == self.chain_id)).one()
         except Exception as e:
+            # #1940 F4: injected scratch-session reads verify snapshot state —
+            # a failure must refuse, not degrade to "no markers". The
+            # production session_scope path keeps the legacy fallback.
+            if self._chain_state_session_factory is not None:
+                raise
             logger.warning("Failed to read chain head for %s: %s", self.chain_id, e)
             return None
 
@@ -305,10 +343,9 @@ class MultiValidatorPoA:
         from sqlmodel import select
 
         from ..base_models import ValidatorDeactivation
-        from ..database import session_scope
 
         try:
-            with session_scope(self.chain_id) as session:
+            with self._chain_state_session() as session:
                 rows = session.exec(
                     select(ValidatorDeactivation.validator_address, ValidatorDeactivation.block_height).where(
                         ValidatorDeactivation.chain_id == self.chain_id
@@ -322,6 +359,11 @@ class MultiValidatorPoA:
                 if upto_height is None or height is None or height <= upto_height
             )
         except Exception as e:
+            # #1940 F4: injected scratch-session reads verify snapshot state —
+            # a failure must refuse, not degrade to "no markers". The
+            # production session_scope path keeps the legacy fallback.
+            if self._chain_state_session_factory is not None:
+                raise
             logger.error("Failed to read validator_deactivation for %s: %s", self.chain_id, e)
             return frozenset()
 
