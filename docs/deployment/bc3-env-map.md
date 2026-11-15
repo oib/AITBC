@@ -128,7 +128,9 @@ Gaps grouped by file class — full names in the appendix:
 - `INFURA_API_KEY` — `node.env`
 - `ISLAND_HUB_PROPOSER_ID` — `aitbc-blockchain-node.env`
 - `ISLAND_ID` — `aitbc-island-ipfs.env`, `aitbc-island-subscription-check.env`, `bootstrap.env` …
-- `IS_HUB` — `blockchain-island.env`, `blockchain.env`, `node.env`
+- `IS_HUB` — `blockchain-island.env`, `blockchain.env`, `node.env` (island
+  P2P/discovery flag — **not** main-chain proposer role; per-host matrix:
+  [fleet-is-hub-semantics.md](../ops/fleet-is-hub-semantics.md))
 - `LOG_LEVEL` — `blockchain.env`
 - `MARKET_BOND_MIN_AMOUNT` — `blockchain.env`
 - `MARKET_ROLE` — `blockchain.env`, `bootstrap.env`, `node.env`
