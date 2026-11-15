@@ -141,6 +141,60 @@ def create_work_branch(issue_number, title):
     return branch_name
 
 
+def _release_stale_claim(state, now):
+    """Release a claim older than CLAIM_TTL. Returns (state, current_claim)."""
+    current_claim = state.get("current_claim")
+    claimed_at_str = state.get("claimed_at")
+    if not claimed_at_str:
+        return state, current_claim
+    try:
+        # Convert 'Z' suffix to offset for fromisoformat
+        if claimed_at_str.endswith("Z"):
+            claimed_at_str = claimed_at_str[:-1] + "+00:00"
+        claimed_at = datetime.fromisoformat(claimed_at_str)
+        age = now - claimed_at
+        if age <= CLAIM_TTL:
+            return state, current_claim
+        print(f"Claim for issue #{current_claim} is stale (age {age}). Releasing.")
+        # Try to delete remote claim branch
+        claim_branch = state.get("claim_branch", f"claim/{current_claim}")
+        subprocess.run(["git", "push", "origin", "--delete", claim_branch], capture_output=True, cwd=REPO_DIR)
+        # Clear state
+        state = {"current_claim": None, "claimed_at": None, "work_branch": None}
+        save_state(state)
+        return state, None
+    except Exception as e:
+        print(f"Error checking claim age: {e}. Will attempt to proceed.")
+        return state, current_claim
+
+
+def _try_claim_issue(issue, state):
+    """Attempt to claim one issue. Returns True when the claim succeeded."""
+    num = issue["number"]
+    title = issue["title"]
+    labels = [lbl["name"] for lbl in issue.get("labels", [])]
+    print(f"Attempting to claim issue #{num}: {title} (labels={labels})")
+    if not claim_issue(num):
+        print(f"Claim failed for #{num} (branch exists). Trying next...")
+        return False
+    assign_issue(num, MY_AGENT)
+    work_branch = create_work_branch(num, title)
+    state.update(
+        {
+            "current_claim": num,
+            "claim_branch": f"claim/{num}",
+            "work_branch": work_branch,
+            "claimed_at": datetime.now(UTC).isoformat() + "Z",
+            "issue_title": title,
+            "labels": labels,
+        }
+    )
+    save_state(state)
+    print(f"✅ Claimed issue #{num}. Work branch: {work_branch}")
+    add_comment(num, f"Agent `{MY_AGENT}` claiming this task. (automated)")
+    return True
+
+
 def main():
     if not GITEA_TOKEN:
         print("[ERROR] GITEA_TOKEN not set; aborting.")
@@ -150,28 +204,7 @@ def main():
     print(f"[{now.isoformat()}Z] Claim task cycle starting...")
 
     state = load_state()
-    current_claim = state.get("current_claim")
-
-    if current_claim:
-        claimed_at_str = state.get("claimed_at")
-        if claimed_at_str:
-            try:
-                # Convert 'Z' suffix to offset for fromisoformat
-                if claimed_at_str.endswith("Z"):
-                    claimed_at_str = claimed_at_str[:-1] + "+00:00"
-                claimed_at = datetime.fromisoformat(claimed_at_str)
-                age = now - claimed_at
-                if age > CLAIM_TTL:
-                    print(f"Claim for issue #{current_claim} is stale (age {age}). Releasing.")
-                    # Try to delete remote claim branch
-                    claim_branch = state.get("claim_branch", f"claim/{current_claim}")
-                    subprocess.run(["git", "push", "origin", "--delete", claim_branch], capture_output=True, cwd=REPO_DIR)
-                    # Clear state
-                    state = {"current_claim": None, "claimed_at": None, "work_branch": None}
-                    save_state(state)
-                    current_claim = None
-            except Exception as e:
-                print(f"Error checking claim age: {e}. Will attempt to proceed.")
+    state, current_claim = _release_stale_claim(state, now)
 
     if current_claim:
         print(f"Already working on issue #{current_claim} (branch {state.get('work_branch')})")
@@ -183,29 +216,8 @@ def main():
         return
 
     for issue in issues:
-        num = issue["number"]
-        title = issue["title"]
-        labels = [lbl["name"] for lbl in issue.get("labels", [])]
-        print(f"Attempting to claim issue #{num}: {title} (labels={labels})")
-        if claim_issue(num):
-            assign_issue(num, MY_AGENT)
-            work_branch = create_work_branch(num, title)
-            state.update(
-                {
-                    "current_claim": num,
-                    "claim_branch": f"claim/{num}",
-                    "work_branch": work_branch,
-                    "claimed_at": datetime.now(UTC).isoformat() + "Z",
-                    "issue_title": title,
-                    "labels": labels,
-                }
-            )
-            save_state(state)
-            print(f"✅ Claimed issue #{num}. Work branch: {work_branch}")
-            add_comment(num, f"Agent `{MY_AGENT}` claiming this task. (automated)")
+        if _try_claim_issue(issue, state):
             return
-        else:
-            print(f"Claim failed for #{num} (branch exists). Trying next...")
 
     print("Could not claim any issue; all taken or unavailable.")
 
