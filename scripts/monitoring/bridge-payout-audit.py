@@ -120,21 +120,10 @@ def remote_python(target: str, program: str, arg: str | None = None) -> str | No
     return proc.stdout
 
 
-def main() -> int:
-    args = sys.argv[1:]
-    chain_pref = None
-    if args[:1] == ["--chain-host"]:
-        chain_pref, args = args[1], args[2:]
-    hosts = []  # (name, ssh_target)
-    for spec in args:
-        name, _, target = spec.partition("=")
-        hosts.append((name, target or name))
-    if not hosts:
-        print("FAIL: no hosts given", flush=True)
-        return 1
-
-    bad = 0
+def _collect_ledgers(hosts: list[tuple[str, str]]) -> tuple[list[dict], int]:
+    """Dump every host's deposit ledger. Returns (rows, bad)."""
     ledgers: list[dict] = []
+    bad = 0
     for name, target in hosts:
         raw = remote_python(target, LEDGER_REMOTE)
         if raw is None:
@@ -160,8 +149,12 @@ def main() -> int:
             n += 1
             ledgers.append(row)
         print(f"  {name:<14} {n} ledger deposit row(s)", flush=True)
+    return ledgers, bad
 
-    # invariant 2: one deposit hash -> at most one distinct payout hash
+
+def _audit_double_payouts(ledgers: list[dict]) -> int:
+    """Invariant 2: one deposit hash -> at most one distinct payout hash."""
+    bad = 0
     payouts_by_deposit: dict[str, set[str]] = {}
     for row in ledgers:
         ait = row.get("ait_tx_hash")
@@ -175,14 +168,20 @@ def main() -> int:
                 flush=True,
             )
             bad = 1
+    return bad
 
-    # written-off rows are deliberately unsettled (each carries a written
+
+def _valid_recip(addr: object) -> bool:
+    return isinstance(addr, str) and addr.startswith("0x") and len(addr) == 42
+
+
+def _report_written_off(ledgers: list[dict]) -> int:
+    """List written-off rows; FAIL when one lacks a recorded reason."""
+    bad = 0
+    # Written-off rows are deliberately unsettled (each carries a written
     # reason) — listed for visibility, not a violation. Rows WITH a
     # recorded recipient are owed money and listed separately so an
     # operator can't quietly write off a debt.
-    def _valid_recip(addr: object) -> bool:
-        return isinstance(addr, str) and addr.startswith("0x") and len(addr) == 42
-
     for row in ledgers:
         if row.get("status") != "written_off":
             continue
@@ -202,8 +201,11 @@ def main() -> int:
         if not row.get("error_message"):
             print("  FAIL: written-off row without a recorded reason", flush=True)
             bad = 1
+    return bad
 
-    # funding rows: operator float top-ups — recorded, not owed a payout.
+
+def _report_funding(ledgers: list[dict]) -> None:
+    # Funding rows: operator float top-ups — recorded, not owed a payout.
     # Listed so every ETH inflow is visible in the audit.
     for row in ledgers:
         if row.get("status") == "funding":
@@ -213,54 +215,98 @@ def main() -> int:
                 flush=True,
             )
 
-    # collect every payout hash that must exist sealed on chain
+
+def _completed_need(ledgers: list[dict]) -> tuple[set[str], int]:
+    """Payout hashes that must exist sealed, plus FAILs for hash-less COMPLETED rows."""
     need = {row["ait_tx_hash"] for row in ledgers if row.get("status") == "completed" and row.get("ait_tx_hash")}
     missing_hash_rows = [row for row in ledgers if row.get("status") == "completed" and not row.get("ait_tx_hash")]
+    bad = 0
     for row in missing_hash_rows:
         print(
             f"  FAIL: {row['host']} {row['db']}: COMPLETED row {row['tx_hash'][:18]}… has no ait_tx_hash",
             flush=True,
         )
         bad = 1
+    return need, bad
+
+
+def _query_chain(hosts: list[tuple[str, str]], chain_pref: str | None, need: set[str]):
+    """First host (chain_pref first) that answers the sealed-hash query.
+
+    Returns (sealed, pending, chain_desc); sealed is None when no host answered.
+    """
+    sealed: dict[str, object] | None = None
+    pending: set[str] = set()
+    chain_desc = None
+    ordered = sorted(hosts, key=lambda h: 0 if h[0] == chain_pref else 1)
+    for name, target in ordered:
+        raw = remote_python(target, CHAIN_REMOTE, json.dumps(sorted(need)))
+        if raw is None:
+            continue
+        try:
+            out = json.loads(raw)
+        except json.JSONDecodeError:
+            continue
+        if "error" in out:
+            continue
+        sealed = out["sealed"]
+        pending = set(out.get("pending", {}))
+        chain_desc = f"{name}:{out['db']}"
+        for skipped_db in out.get("skipped", []):
+            print(f"  {name:<14} note: {skipped_db}: skipped (zero-byte or non-sqlite)", flush=True)
+        break
+    return sealed, pending, chain_desc
+
+
+def _audit_sealed(ledgers: list[dict], sealed: dict, pending: set[str]) -> int:
+    """Every COMPLETED row's payout hash must be sealed on the canonical chain."""
+    bad = 0
+    for row in ledgers:
+        if row.get("status") != "completed" or not row.get("ait_tx_hash"):
+            continue
+        h = row["ait_tx_hash"]
+        height = sealed.get(h)
+        if height is None:
+            where = "in mempool, not sealed" if h in pending else "absent from chain"
+            print(
+                f"  FAIL: {row['host']}: COMPLETED deposit {row['tx_hash'][:18]}… payout {h[:18]}… {where}",
+                flush=True,
+            )
+            bad = 1
+    return bad
+
+
+def main() -> int:
+    args = sys.argv[1:]
+    chain_pref = None
+    if args[:1] == ["--chain-host"]:
+        chain_pref, args = args[1], args[2:]
+    hosts = []  # (name, ssh_target)
+    for spec in args:
+        name, _, target = spec.partition("=")
+        hosts.append((name, target or name))
+    if not hosts:
+        print("FAIL: no hosts given", flush=True)
+        return 1
+
+    bad = 0
+    ledgers, bad = _collect_ledgers(hosts)
+
+    bad |= _audit_double_payouts(ledgers)
+    bad |= _report_written_off(ledgers)
+    _report_funding(ledgers)
+
+    need, need_bad = _completed_need(ledgers)
+    bad |= need_bad
 
     if need:
-        sealed: dict[str, object] | None = None
-        pending: set[str] = set()
-        chain_desc = None
-        ordered = sorted(hosts, key=lambda h: 0 if h[0] == chain_pref else 1)
-        for name, target in ordered:
-            raw = remote_python(target, CHAIN_REMOTE, json.dumps(sorted(need)))
-            if raw is None:
-                continue
-            try:
-                out = json.loads(raw)
-            except json.JSONDecodeError:
-                continue
-            if "error" in out:
-                continue
-            sealed = out["sealed"]
-            pending = set(out.get("pending", {}))
-            chain_desc = f"{name}:{out['db']}"
-            for skipped_db in out.get("skipped", []):
-                print(f"  {name:<14} note: {skipped_db}: skipped (zero-byte or non-sqlite)", flush=True)
-            break
+        sealed, pending, chain_desc = _query_chain(hosts, chain_pref, need)
         if sealed is None:
             print("  FAIL: no host could answer the chain query", flush=True)
             bad = 1
         else:
             print(f"  chain view: {chain_desc}", flush=True)
-            for row in ledgers:
-                if row.get("status") != "completed" or not row.get("ait_tx_hash"):
-                    continue
-                h = row["ait_tx_hash"]
-                height = sealed.get(h)
-                if height is None:
-                    where = "in mempool, not sealed" if h in pending else "absent from chain"
-                    print(
-                        f"  FAIL: {row['host']}: COMPLETED deposit {row['tx_hash'][:18]}… payout {h[:18]}… {where}",
-                        flush=True,
-                    )
-                    bad = 1
+            bad |= _audit_sealed(ledgers, sealed, pending)
 
     if bad == 0:
         print(f"  ok: {len(ledgers)} ledger rows, {len(need)} sealed payout(s) verified", flush=True)
