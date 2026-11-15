@@ -123,6 +123,8 @@ class _EvidenceMixin(_V9Mixin):
         # of the journal (d9: voters released the journal yet kept refusing).
         # Release only entries for this exact hash from this exact proposer.
         locks = self._release_abandoned_locks(height, block_hash, proposer)
+        if released or locks:
+            self._note_abandoned_height(height, block_hash)
         if (released or locks) and stmt.get("round") is not None:
             self._note_abandoned_round(height, int(stmt["round"]), block_hash)
         if released or locks:
@@ -140,6 +142,63 @@ class _EvidenceMixin(_V9Mixin):
         self._abandoned_rounds.setdefault((height, round_), set()).add(block_hash)
         for key in [k for k in self._abandoned_rounds if k[0] < height - 64]:
             del self._abandoned_rounds[key]
+
+    def _note_abandoned_height(self, height: int, block_hash: str) -> None:
+        """#1940 F2: height-level abandoned index for the round-underivable case.
+
+        ``_abandoned_rounds`` needs a round; below the domain-separation
+        height (or whenever the request carries none) the round is
+        underivable, so a rival at the same height cannot be proven
+        same-round vs cross-round. Recording the abandoned hash per height
+        lets the listener fail closed instead.
+        """
+        self._abandoned_heights.setdefault(height, set()).add(block_hash)
+        for h in [k for k in self._abandoned_heights if k < height - 64]:
+            del self._abandoned_heights[h]
+
+    def _abandoned_height_rival(self, height: int, block_hash: str) -> str | None:
+        """An abandoned hash at ``height`` when the request round is underivable.
+
+        Cannot distinguish same-round (slashable, unexcusable) from
+        cross-round — fail closed on any different hash. Re-signing the
+        abandoned hash itself stays allowed.
+        """
+        hashes = self._abandoned_heights.get(height)
+        if hashes and block_hash not in hashes:
+            return next(iter(sorted(hashes)))
+        return None
+
+    def _uc_unlock_justification(
+        self,
+        bundle: dict[str, Any] | None,
+        prior: dict[str, Any] | None,
+        current: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        """Consumer-shaped UC excuse for one equivocation pair, or None (#1940 F1).
+
+        ``equivocation_policy._uc_justified`` wants
+        ``{"kind": "uc", "cert": <cert>}`` bound to the EARLIER-round
+        record's ``(height, hash)``; the producer bundle carries one cert
+        per already-voted hash. Select on ``cert["hash"]`` — never on
+        ``hashes[]`` index alignment. Any ambiguity (missing bundle, legacy
+        or equal rounds, no matching cert) fails closed to None.
+        """
+        if not bundle or prior is None or current is None:
+            return None
+        r_prior = prior.get("request_round")
+        r_current = current.get("request_round")
+        if not (isinstance(r_prior, int) and isinstance(r_current, int)):
+            return None
+        if isinstance(r_prior, bool) or isinstance(r_current, bool) or r_prior == r_current:
+            return None
+        locked = prior if r_prior < r_current else current
+        locked_hash = str(locked.get("hash", ""))
+        if not locked_hash:
+            return None
+        for cert in bundle.get("certs") or []:
+            if isinstance(cert, dict) and str(cert.get("hash", "")) == locked_hash:
+                return {"kind": "uc", "cert": cert}
+        return None
 
     def _abandoned_round_rival(self, height: int, round_: int, block_hash: str) -> str | None:
         """The abandoned hash this request would pair against in the same round, or None (#1736).
@@ -379,10 +438,21 @@ class _EvidenceMixin(_V9Mixin):
         # module-global SlashingManager never does, so there is nothing to defer.
         defer_save = not persist and callable(getattr(recorder, "save_state", None))
         extra: dict[str, Any] = {"persist": False} if defer_save else {}
+        # #1940 F1: the UC bundle that released THIS vote (keyed by the new
+        # hash). Only meaningful for attestation-domain records — the excuse
+        # binds signed attestation rounds, never proposal signatures.
+        from aitbc.crypto.consensus_signing import DOMAIN_BLOCK_ATTESTATION
+
+        uc_bundle = (
+            self._vote_justifications.get((height, block_hash))
+            if signature_domain in (None, DOMAIN_BLOCK_ATTESTATION)
+            else None
+        )
         recorded = False
         for prior_hash in sorted(prior_hashes):
             prior = self._signed_attestations.get(self._signed_attestation_key(height, prior_hash, signer, signature_domain))
             attestations = [prior, current] if prior is not None else None
+            unlock_just = self._uc_unlock_justification(uc_bundle, prior, current)
             try:
                 recorder.record_attestation_equivocation(
                     validator_address=canon,
@@ -393,6 +463,7 @@ class _EvidenceMixin(_V9Mixin):
                     proposer=proposer,
                     attestations=attestations,
                     justification=justification,
+                    unlock_justification=unlock_just,
                     **extra,
                 )
                 recorded = True

@@ -82,6 +82,22 @@ def uc_combo_findings(s: Any) -> tuple[list[str], list[str]]:
     for name in _JOURNAL_DEPENDENT_FLAGS:
         if getattr(s, name) and not journal:
             warnings.append(f"{name} is set but vote_journal_enabled is off, so it has no effect")
+    if (
+        journal
+        and s.vote_journal_justification_enabled
+        and not s.attestation_round_lock_enabled
+        and s.consensus_domain_separation_height is None
+    ):
+        # #1940: UC excuses only apply to ROUND_BOUND_CROSS_ROUND pairs.
+        # With neither round-lock nor domain separation, every attestation
+        # is legacy-format → every equivocation pair classifies LEGACY →
+        # justified_unlock can never fire and UC-released votes mint
+        # unexcusable slashable evidence. Fail closed at startup.
+        errors.append(
+            "vote_journal_justification_enabled requires attestation_round_lock_enabled "
+            "or consensus_domain_separation_height: without round-bound attestations "
+            "UC-excused equivocations classify LEGACY and stay slashable"
+        )
     if journal and s.vote_journal_justification_enabled:
         window = float(s.unavail_evidence_seconds) + float(s.unavail_collect_seconds) + UC_TIMING_MARGIN_SECONDS
         header_max = float(s.attestation_header_max_age_seconds)

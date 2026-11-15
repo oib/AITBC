@@ -10,7 +10,14 @@ import logging
 import pytest
 from aitbc_chain.config import ChainSettings, uc_combo_findings
 
-ARMED = {"vote_journal_enabled": True, "vote_journal_justification_enabled": True}
+# #1940: justification is only safe armed alongside round-bound attestations;
+# ARMED includes round-lock so these tests exercise the timing bounds, not
+# the round-binding guard (covered in tests/consensus/test_uc_wiring_1940.py).
+ARMED = {
+    "vote_journal_enabled": True,
+    "vote_journal_justification_enabled": True,
+    "attestation_round_lock_enabled": True,
+}
 
 
 def _cfg(**kw):

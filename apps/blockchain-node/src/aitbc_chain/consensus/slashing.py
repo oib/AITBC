@@ -361,6 +361,7 @@ class SlashingManager:
         proposer: str = "",
         attestations: list[dict] | None = None,
         justification: str | None = None,
+        unlock_justification: dict | None = None,
     ) -> SlashingEvent:
         """Record attestation-layer equivocation evidence (#1198 / #1242 / #1263).
 
@@ -398,6 +399,10 @@ class SlashingManager:
         }
         if justification is not None:
             evidence["justification"] = justification
+        if unlock_justification is not None:
+            # #1940 F1: the consumer-shaped UC proof ({"kind": "uc", "cert": ...})
+            # equivocation_policy.justified_unlock verifies at apply time.
+            evidence["unlock_justification"] = unlock_justification
         if attestations:
             evidence["attestations"] = sorted(attestations, key=lambda a: str(a.get("hash", "")).lower())
         event = SlashingEvent(

@@ -713,6 +713,38 @@ class _PoaBaseMixin:
 
         return attestations
 
+    def _attestable_addresses(self) -> set[str] | None:
+        """Canonical addresses allowed to attest, or None when unset (#1940 F6).
+
+        ``VALIDATOR_SET`` env is the membership source of truth (same
+        precedence as ``_remote_validators_configured``); the persisted
+        multi-validator set is the fallback. ``None`` means no set is
+        configured — callers keep legacy sign-every-key behavior.
+        """
+        raw = getattr(settings, "validator_set", "") or ""
+        if raw.strip():
+            try:
+                env = json.loads(raw)
+            except (RecursionError, TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
+                env = None
+            if isinstance(env, list):
+                return {canonical_address(v["address"]) for v in env if isinstance(v, dict) and v.get("address")}
+        if self._multi_validator is not None and self._multi_validator.validators:
+            return {canonical_address(addr) for addr in self._multi_validator.validators}
+        return None
+
+    def _attestation_signers(self) -> dict[str, str]:
+        """``_validator_keys`` filtered to validator-set members (#1940 F6).
+
+        Filtering lives here (not in ``_local_attestations``) to keep that
+        function under the C901 threshold; ``None`` allowed-set means no
+        validator set is configured → every key signs, legacy behavior.
+        """
+        allowed = self._attestable_addresses()
+        if allowed is None:
+            return self._validator_keys
+        return {a: k for a, k in self._validator_keys.items() if canonical_address(a) in allowed}
+
     def _local_attestations(self, block: Block, round_number: int | None) -> list[dict[str, str]]:
         """Sign this node's validator keys over the block header.
 
@@ -746,7 +778,10 @@ class _PoaBaseMixin:
         message = self._block_header_message(block)
         if att_round is not None:
             message["round"] = att_round
-        for address, private_key in self._validator_keys.items():
+        # #1940 F6: _attestation_signers scopes keys to the validator set —
+        # the remote listener filters the same way; a non-member key on a
+        # config error would produce attestations every importer rejects.
+        for address, private_key in self._attestation_signers().items():
             if canonical_address(address) == canonical_address(block.proposer):
                 continue
             try:

@@ -247,6 +247,11 @@ class UnavailabilityCertificate:
     def from_dict(cls, raw: Any) -> UnavailabilityCertificate | None:
         if not isinstance(raw, dict) or raw.get("kind") != "unavailability_cert":
             return None
+        # #1940 F6: version is enforced, not ignored — a foreign/newer cert
+        # shape must fail closed rather than parse as v1. Absent version is
+        # accepted as legacy v1 (hand-built/early certs carry none).
+        if raw.get("version", UC_VERSION) != UC_VERSION:
+            return None
         try:
             responses = tuple(
                 {"validator": str(r.get("validator", "")), "signature": str(r.get("signature", ""))}
