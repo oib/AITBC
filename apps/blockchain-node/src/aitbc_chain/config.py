@@ -1456,6 +1456,14 @@ class ChainSettings(BaseSettings):
     # which votes a validator may EMIT, this gates which certificate view a
     # block may CARRY. None/unset/malformed keeps the unpinned strict check.
     pbft_certificate_view_binding_height: int | None = Field(default=None, ge=0)
+    # #2005 F3-C: first sequence/height at which the signed
+    # VIEW_CHANGE/NEW_VIEW protocol is live — VC intake/quorum, floor rule,
+    # forced value selection, proposal-body persistence in pre-prepares, and
+    # the importer certificate-view pin to the derived round. Everything is
+    # dormant while None/unset/malformed: messages are ignored, votes are
+    # unchanged and historical replay is byte-identical. Arming is deferred
+    # fleet-wide (ruling 4C) — PBFT itself stays OFF regardless.
+    pbft_view_change_height: int | None = Field(default=None, ge=0)
     consensus_view_change_timeout_seconds: int = 30  # H6 — timeout before view change
     consensus_round_timeout_seconds: int = 10  # per-round timeout
     # v0.25.6: deterministic proposer rotation. When the scheduled proposer for

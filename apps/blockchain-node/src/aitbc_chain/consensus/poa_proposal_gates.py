@@ -1021,12 +1021,39 @@ class _ProposalGatesMixin(_PoaBaseMixin):
             session.rollback()
             return False
         if self._pbft_consensus:
+            # #2005 F3-C ruling 2A (Option R): while the view-change gate is
+            # armed the pre-prepare must carry the full signed block so a
+            # commit quorum's decided value stays recoverable. The payload
+            # mirrors ``_broadcast_block``'s gossip shape; ``block_metadata``
+            # is stamped after the gates, so a re-seal reconstructs it from
+            # the commit certificate it already holds. Gate unset -> None,
+            # and the PBFT wire format stays byte-identical.
+            block_payload = None
+            from .pbft_view_change import view_change_active
+
+            if view_change_active(next_height):
+                block_payload = {
+                    "chain_id": self._config.chain_id,
+                    "height": block.height,
+                    "hash": block_hash,
+                    "parent_hash": block.parent_hash,
+                    "proposer": block.proposer,
+                    "timestamp": block.timestamp.isoformat() if block.timestamp else None,
+                    "tx_count": block.tx_count,
+                    "state_root": block.state_root,
+                    "bridge_state_root": block.bridge_state_root,
+                    "aux_state_root": block.aux_state_root,
+                    "signature": block.signature,
+                    "block_metadata": block.block_metadata,
+                    "transactions": transactions or [],
+                }
             pbft_ok = await self._pbft_consensus.propose_and_wait(
                 proposer,
                 block_hash,
                 timeout=getattr(settings, "pbft_view_change_timeout", 30),
                 sequence=next_height,
                 view=round_number,
+                block_payload=block_payload,
             )
             if not pbft_ok:
                 self._logger.warning(

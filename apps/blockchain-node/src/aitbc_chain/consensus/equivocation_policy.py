@@ -179,3 +179,127 @@ def justified_unlock(payload: dict[str, Any], uc_ctx: UcApplyContext | None = No
 def pair_stands_as_evidence(payload: dict[str, Any], uc_ctx: UcApplyContext | None = None) -> bool:
     """A signature-bearing pair is slashable evidence unless its unlock is justified."""
     return not justified_unlock(payload, uc_ctx)
+
+
+# ---------------------------------------------------------------------------
+# #2005 F3-C: ``view_change`` unlock kind — registered only when the state
+# layer builds a :class:`VcApplyContext` (chain parameter
+# ``validator_deactivation_pbft_view_change_evidence_height`` armed at the
+# apply height). Until then the kind is unregistered and every
+# ``pbft_cross_view_vote_equivocation`` pair stands exactly as before.
+# ---------------------------------------------------------------------------
+
+
+@dataclass(frozen=True)
+class VcApplyContext:
+    """Chain-state-only inputs for the ``view_change`` unlock proof (#2005).
+
+    Built by the state layer per evidence sequence — never from this node's
+    clock or env. ``validator_set`` is the canonical active member set at
+    ``sequence - 1`` (the parent state a proposal at ``sequence`` builds
+    on), so ``pbft_required_messages(len(set))`` is the VC quorum q and the
+    scheduled proposer of ``(sequence, view)`` is the deterministic
+    round-robin pick over the sorted set — the same schedule
+    ``MultiValidatorPoA.select_proposer`` computes.
+    """
+
+    chain_id: str
+    sequence: int
+    validator_set: frozenset[str]
+
+
+def _pbft_proposer_for(ctx: VcApplyContext, view: int) -> str | None:
+    """``select_proposer(sequence, view)`` over the context's member set.
+
+    Mirrors ``MultiValidatorPoA.select_proposer``: sorted active validators,
+    index ``(block_height + view) % n``. Returns None on an empty set.
+    """
+    members = sorted(ctx.validator_set)
+    if not members:
+        return None
+    return members[(ctx.sequence + max(0, view)) % len(members)]
+
+
+def view_change_justified(
+    payload: dict[str, Any],
+    justification: Any,
+    ctx: VcApplyContext | None,
+) -> bool:
+    """Whether a ``view_change`` unlock proof excuses a cross-view COMMIT pair.
+
+    ``payload`` is the ``pbft_cross_view_vote_equivocation`` evidence object
+    (two signed COMMITs at one sequence, different views/hashes) and
+    ``justification`` the ``unlock_justification`` field. The proof is a
+    NEW_VIEW ``(h, v')`` — ``v'`` the HIGHER of the two voted views — that:
+
+    1. is signed by ``select_proposer(h, v')`` over ``ctx.validator_set``;
+    2. carries >= q valid VIEW_CHANGEs from distinct members (signatures,
+       chain-bound digests and lock-commit proofs all verified by
+       ``pbft_view_change.verify_new_view``);
+    3. recomputes to a selection that permits the higher-view vote's hash —
+       free selection permits any hash, a locked selection only the forced
+       hash;
+    4. binds the same ``chain_id`` and ``sequence`` as the evidence.
+
+    Fails closed on anything malformed, missing or unverifiable.
+    """
+    if ctx is None or not isinstance(justification, dict):
+        return False
+    if justification.get("kind") != "view_change":
+        return False
+    nv = justification.get("new_view")
+    if not isinstance(nv, dict):
+        return False
+    later = _cross_view_later_vote(payload, ctx.sequence)
+    if later is None:
+        return False
+    later_view, later_hash = later
+    if nv.get("view_number") != later_view:
+        return False
+    from .pbft_quorum import pbft_required_messages
+    from .pbft_view_change import verify_new_view
+
+    ok, _reason, kind, selected = verify_new_view(
+        nv,
+        ctx.validator_set,
+        chain_id=ctx.chain_id,
+        sequence=ctx.sequence,
+        view=later_view,
+        expected_sender=_pbft_proposer_for(ctx, later_view),
+        required=pbft_required_messages(len(ctx.validator_set)),
+    )
+    if not ok:
+        return False
+    if kind == "free":
+        return True
+    return kind == "locked" and selected == later_hash
+
+
+def _cross_view_later_vote(payload: dict[str, Any], sequence: int) -> tuple[int, str] | None:
+    """``(higher_view, its block_hash)`` of a cross-view evidence payload.
+
+    ``None`` on anything malformed — the payload's ``sequence`` must equal
+    the context sequence and carry at least two distinct-view signed
+    commits. Same-view pairs are not cross-view evidence and never parse.
+    """
+    seq = payload.get("sequence")
+    messages = payload.get("messages")
+    if not isinstance(seq, int) or isinstance(seq, bool) or seq != sequence:
+        return None
+    if not isinstance(messages, list) or len(messages) < 2:
+        return None
+    voted: dict[int, str] = {}
+    for msg in messages[:2]:
+        if not isinstance(msg, dict):
+            return None
+        view = msg.get("view_number")
+        block_hash = msg.get("block_hash")
+        if not isinstance(view, int) or isinstance(view, bool) or view < 0:
+            return None
+        if not isinstance(block_hash, str) or not block_hash:
+            return None
+        voted[view] = block_hash
+    if len(voted) < 2:
+        return None
+    later_view = max(voted)
+    return later_view, voted[later_view]

@@ -49,9 +49,9 @@ from sqlmodel import Session, select
 from aitbc.crypto.consensus_signing import verify_consensus_message, verify_consensus_message_domain
 from aitbc.crypto.signature_recovery import SignatureMalformed, canonical_address
 
-from ..base_models import Block
+from ..base_models import Block, ValidatorDeactivation
 from ..config import legacy_attestation_dual_accept_open, settings
-from ..consensus.equivocation_policy import UcApplyContext, pair_stands_as_evidence
+from ..consensus.equivocation_policy import UcApplyContext, VcApplyContext, pair_stands_as_evidence, view_change_justified
 from ..consensus.slashing import PBFT_CROSS_VIEW_VOTE_EQUIVOCATION, SlashingCondition, SlashingEvent, SlashingManager
 
 EVIDENCE_VERSION = 2
@@ -255,6 +255,111 @@ def _uc_event_contexts(
         if ep is None or ep.get("kind") != "attestation_equivocation":
             continue
         contexts[event.block_height] = _uc_event_context(session, chain_id, block_height, block_time, base, event.block_height)
+    return contexts
+
+
+def _vc_evidence_height(session: Session, chain_id: str, block_height: int | None) -> int | None:
+    """Activation height for the ``view_change`` unlock kind (#2005 F3-C).
+
+    Reads the chain parameter
+    ``validator_deactivation_pbft_view_change_evidence_height`` through
+    ``_chain_parameter_value`` at the apply ``block_height`` — the same
+    height-scoped rule every gate parameter uses. Only a strict
+    non-negative int activates; unset/malformed resolves to ``None``, which
+    leaves the ``view_change`` kind unregistered and every cross-view pair
+    standing exactly as before (fail closed, replay-safe).
+    """
+    from .state_transition import _chain_parameter_value
+
+    value = _chain_parameter_value(session, chain_id, "validator_deactivation_pbft_view_change_evidence_height", block_height)
+    if value is None:
+        return None
+    try:
+        height = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return height if height >= 0 else None
+
+
+def _vc_validator_set(session: Session, chain_id: str, sequence: int) -> frozenset[str] | None:
+    """Active canonical validator set a proposal at ``sequence`` builds on.
+
+    The env ``VALIDATOR_SET`` parse (``validator_addresses`` — the same
+    source the ``uc`` proof binds) minus every on-chain
+    ``ValidatorDeactivation`` marker at or below ``sequence - 1`` — the
+    parent state, matching ``MultiValidatorPoA._chain_deactivated_addresses``.
+    The result must additionally match the on-chain digest parameter
+    ``validator_deactivation_pbft_view_change_validator_set_digest``
+    (sha256 of the sorted canonical addresses joined by newlines — the
+    ``uc`` rule), so a rotation stops the proof excusing until the digest
+    is updated. ``None`` on any mismatch or empty set — fail closed.
+    """
+    from ..consensus.unavail import validator_addresses
+    from .state_transition import _chain_parameter_value
+
+    vset = validator_addresses()
+    if not vset:
+        return None
+    try:
+        rows = session.exec(
+            select(ValidatorDeactivation.validator_address, ValidatorDeactivation.block_height).where(
+                ValidatorDeactivation.chain_id == chain_id
+            )
+        ).all()
+    except Exception:  # noqa: BLE001 - an unreadable marker set must not excuse anything
+        return None
+    deactivated = {canonical_address(addr) for addr, height in rows if height is None or height <= sequence - 1}
+    active = frozenset(vset - deactivated)
+    if not active:
+        return None
+    digest = (
+        (
+            _chain_parameter_value(session, chain_id, "validator_deactivation_pbft_view_change_validator_set_digest", sequence)
+            or ""
+        )
+        .strip()
+        .lower()
+    )
+    local_digest = hashlib.sha256("\n".join(sorted(active)).encode()).hexdigest()
+    if not digest or digest != local_digest:
+        return None
+    return active
+
+
+def _vc_event_contexts(
+    session: Session,
+    chain_id: str,
+    apply_height: int | None,
+    events: list[SlashingEvent],
+) -> dict[int, VcApplyContext | None] | None:
+    """Per-sequence ``view_change`` unlock contexts (#2005 F3-C).
+
+    ``None`` — the legacy path, kind unregistered — unless the on-chain
+    ``validator_deactivation_pbft_view_change_evidence_height`` parameter
+    is armed at the apply height. Armed: one context per distinct sequence
+    carried by a ``pbft_cross_view_vote_equivocation`` event; sequences
+    below the armed height or above the apply height map to ``None`` so
+    those events can never be excused. Built only from chain state (chain
+    parameter + deactivation markers + the digest-bound validator set).
+    """
+    if apply_height is None:
+        return None
+    armed = _vc_evidence_height(session, chain_id, apply_height)
+    if armed is None:
+        return None
+    contexts: dict[int, VcApplyContext | None] = {}
+    for event in events:
+        ep = _evidence_json(event)
+        if ep is None or ep.get("kind") != PBFT_CROSS_VIEW_VOTE_EQUIVOCATION:
+            continue
+        seq = event.block_height
+        if seq in contexts:
+            continue
+        if seq < armed or seq > apply_height:
+            contexts[seq] = None
+            continue
+        vset = _vc_validator_set(session, chain_id, seq)
+        contexts[seq] = VcApplyContext(chain_id=chain_id, sequence=seq, validator_set=vset) if vset is not None else None
     return contexts
 
 
@@ -600,6 +705,7 @@ def _verify_equivocation_claim(
     cross_view_height: int | None,
     apply_height: int | None,
     chain_id: str | None = None,
+    vc_contexts: dict[int, VcApplyContext | None] | None = None,
 ) -> tuple[bool, str | None]:
     """Verify one equivocation claim; ``(counts_as_verified, fail_reason)``.
 
@@ -627,6 +733,15 @@ def _verify_equivocation_claim(
     reason = _verify_pbft_cross_view_vote_equivocation(ep, event, validator_addr, cross_view_height, apply_height, chain_id)
     if reason is not None:
         return False, reason
+    # #2005 F3-C: a verified signature pair still stands as evidence UNLESS
+    # it carries a registered, verifying ``view_change`` unlock proof — a
+    # NEW_VIEW that the deterministic selection permits the later vote
+    # under. ``vc_contexts`` is None (kind unregistered) whenever the
+    # ``validator_deactivation_pbft_view_change_evidence_height`` parameter
+    # is unset at the apply height, so pre-#2005 verdicts replay unchanged.
+    vc_ctx = vc_contexts.get(event.block_height) if vc_contexts is not None else None
+    if view_change_justified(ep, ep.get("unlock_justification"), vc_ctx):
+        return False, None
     return True, None
 
 
@@ -640,6 +755,7 @@ def _verify_equivocations(
     uc_contexts: dict[int, UcApplyContext | None] | None = None,
     cross_view_height: int | None = None,
     chain_id: str | None = None,
+    vc_contexts: dict[int, VcApplyContext | None] | None = None,
 ) -> str | None:
     """Verify every equivocation claim; ≥1 verified equivocation required.
 
@@ -669,7 +785,7 @@ def _verify_equivocations(
             PBFT_CROSS_VIEW_VOTE_EQUIVOCATION,
         ):
             counts, reason = _verify_equivocation_claim(
-                ep, event, validator_addr, uc_ctx, uc_contexts, cross_view_height, apply_height, chain_id
+                ep, event, validator_addr, uc_ctx, uc_contexts, cross_view_height, apply_height, chain_id=chain_id, vc_contexts=vc_contexts
             )
             if reason is not None:
                 return reason
@@ -732,6 +848,7 @@ def verify_deactivation_evidence(
         else None
     )
     cross_view_height = _cross_view_evidence_height(session, chain_id, block_height) if session is not None else None
+    vc_contexts = _vc_event_contexts(session, chain_id, block_height, events) if session is not None else None
     return _verify_equivocations(
         events,
         validator_addr,
@@ -741,4 +858,5 @@ def verify_deactivation_evidence(
         apply_height=block_height,
         cross_view_height=cross_view_height,
         chain_id=chain_id,
+        vc_contexts=vc_contexts,
     )
