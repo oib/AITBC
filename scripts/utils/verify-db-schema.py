@@ -643,34 +643,99 @@ def _auto_discover(checked: set[Path], unselected_known: set[Path] | None = None
     active_chain_ids = set(_active_chain_ids())
 
     for db_path in data_dir.rglob("*.db"):
-        resolved = db_path.resolve()
-        if resolved in checked:
-            continue
-        if not db_path.exists():
-            continue
-
         rel = db_path.relative_to(data_dir)
-        parts = rel.parts
-        if any(
-            part.lower().startswith("pre-migrate") or "backup" in part.lower() or part.lower().startswith("test_")
-            for part in parts
-        ):
+        if _auto_discover_skip(db_path, rel, active_chain_ids, checked, unselected_known):
             continue
-
-        # Skip non-active island chain databases and the legacy root chain.db
-        # unless _collect_chain_dbs already added it to the checked set.
-        if db_path.name == "chain.db":
-            if rel.parent == Path("."):
-                continue  # legacy root chain.db; checked if it is the active fallback
-            if rel.parent.name not in active_chain_ids:
-                continue  # old / test island chain db
-
-        if unselected_known and resolved in unselected_known:
-            continue
-
         if _actual_tables(db_path):
             warnings.append(f"Unverified database (not in schema registry): {db_path}")
     return warnings
+
+
+def _auto_discover_skip(
+    db_path: Path,
+    rel: Path,
+    active_chain_ids: set[str],
+    checked: set[Path],
+    unselected_known: set[Path] | None,
+) -> bool:
+    """True when an auto-discovered .db file should be skipped (see _auto_discover)."""
+    resolved = db_path.resolve()
+    if resolved in checked:
+        return True
+    if not db_path.exists():
+        return True
+
+    parts = rel.parts
+    if any(
+        part.lower().startswith("pre-migrate") or "backup" in part.lower() or part.lower().startswith("test_")
+        for part in parts
+    ):
+        return True
+
+    # Skip non-active island chain databases and the legacy root chain.db
+    # unless _collect_chain_dbs already added it to the checked set.
+    if db_path.name == "chain.db":
+        if rel.parent == Path("."):
+            return True  # legacy root chain.db; checked if it is the active fallback
+        if rel.parent.name not in active_chain_ids:
+            return True  # old / test island chain db
+
+    if unselected_known and resolved in unselected_known:
+        return True
+    return False
+
+
+def _select_dbs(dbs: list[str] | None, allowed_services: set[str] | None) -> list[str]:
+    """Resolve the list of DB names to check for a role."""
+    if dbs:
+        return list(dbs)
+    selected: list[str] = []
+    for name in KNOWN_DBS:
+        if name == "blockchain":
+            continue
+        svc = DB_SERVICE_MAP.get(name)
+        if allowed_services is None or (svc and svc in allowed_services):
+            selected.append(name)
+    if allowed_services is None or "aitbc-blockchain-node" in allowed_services:
+        selected.append("blockchain")
+    return selected
+
+
+def _check_db_cfg(cfg: dict[str, Any], db_path: Path, repair: bool) -> tuple[list[str], list[str]]:
+    """Check (or repair) one known DB. Returns (errors, actions)."""
+    if cfg["type"] == "sqlmodel":
+        metadata_list = _load_metadata(cfg["modules"], cfg["metadata"])
+        if repair:
+            repairs, errs = _repair_sqlmodel_db(db_path, metadata_list, cfg.get("required_tables"))
+            return errs, repairs
+        return _check_sqlmodel_db(db_path, metadata_list, cfg.get("required_tables")), []
+    if cfg["type"] == "static":
+        return _check_static_db(db_path, cfg["tables"], cfg.get("required_tables")), []
+    return [], []
+
+
+def _check_blockchain_dbs(repair: bool, checked_paths: set[Path]) -> tuple[list[str], list[str], list[str]]:
+    """Check (or repair) every active chain database. Returns (errors, warnings, actions)."""
+    errors: list[str] = []
+    warnings: list[str] = []
+    actions: list[str] = []
+    chain_dbs = _collect_chain_dbs()
+    if not chain_dbs:
+        warnings.append("No active chain database found")
+        return errors, warnings, actions
+    metadata_list = _load_metadata(
+        ["aitbc_chain.database"],
+        ["aitbc_chain.database.chain_metadata"],
+    )
+    for db_path in chain_dbs:
+        checked_paths.add(db_path.resolve())
+        if repair:
+            rep, err = _repair_sqlmodel_db(db_path, metadata_list, ["account", "block", "transaction"])
+            actions.extend(rep)
+            errors.extend(err)
+        else:
+            errors.extend(_check_sqlmodel_db(db_path, metadata_list, ["account", "block", "transaction"]))
+    return errors, warnings, actions
 
 
 def check_all(
@@ -682,19 +747,7 @@ def check_all(
     actions: list[str] = []
 
     allowed_services = _role_filter(role)
-    selected: list[str]
-    if dbs:
-        selected = list(dbs)
-    else:
-        selected = []
-        for name in KNOWN_DBS:
-            if name == "blockchain":
-                continue
-            svc = DB_SERVICE_MAP.get(name)
-            if allowed_services is None or (svc and svc in allowed_services):
-                selected.append(name)
-        if allowed_services is None or "aitbc-blockchain-node" in allowed_services:
-            selected.append("blockchain")
+    selected = _select_dbs(dbs, allowed_services)
 
     all_known_paths = _known_db_paths()
     checked_paths: set[Path] = _known_db_paths(set(selected) - {"blockchain"})
@@ -711,35 +764,15 @@ def check_all(
         db_path = Path(cfg["path"])
         checked_paths.add(db_path.resolve())
 
-        if cfg["type"] == "sqlmodel":
-            modules = cfg["modules"]
-            metadata_list = _load_metadata(modules, cfg["metadata"])
-            if repair:
-                rep, err = _repair_sqlmodel_db(db_path, metadata_list, cfg.get("required_tables"))
-                actions.extend(rep)
-                errors.extend(err)
-            else:
-                errors.extend(_check_sqlmodel_db(db_path, metadata_list, cfg.get("required_tables")))
-        elif cfg["type"] == "static":
-            errors.extend(_check_static_db(db_path, cfg["tables"], cfg.get("required_tables")))
+        errs, acts = _check_db_cfg(cfg, db_path, repair)
+        errors.extend(errs)
+        actions.extend(acts)
 
     if "blockchain" in selected:
-        chain_dbs = _collect_chain_dbs()
-        if not chain_dbs:
-            warnings.append("No active chain database found")
-        else:
-            metadata_list = _load_metadata(
-                ["aitbc_chain.database"],
-                ["aitbc_chain.database.chain_metadata"],
-            )
-            for db_path in chain_dbs:
-                checked_paths.add(db_path.resolve())
-                if repair:
-                    rep, err = _repair_sqlmodel_db(db_path, metadata_list, ["account", "block", "transaction"])
-                    actions.extend(rep)
-                    errors.extend(err)
-                else:
-                    errors.extend(_check_sqlmodel_db(db_path, metadata_list, ["account", "block", "transaction"]))
+        b_errors, b_warnings, b_actions = _check_blockchain_dbs(repair, checked_paths)
+        errors.extend(b_errors)
+        warnings.extend(b_warnings)
+        actions.extend(b_actions)
 
     if dbs is None:
         warnings.extend(_auto_discover(checked_paths, unselected_known_paths))
@@ -747,7 +780,7 @@ def check_all(
     return errors, warnings, actions
 
 
-def main() -> int:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Verify AITBC DB schemas")
     parser.add_argument("--all", action="store_true", help="Check all known databases for this node role")
     parser.add_argument("--db", action="append", help="Check specific DB by name (may be repeated)")
@@ -762,6 +795,33 @@ def main() -> int:
     )
     parser.add_argument("--aitbc-root", default=None, help="Override AITBC_ROOT")
     parser.add_argument("--data-dir", default=None, help="Override AITBC data directory")
+    return parser
+
+
+def _resolve_role(role: str | None) -> str | None:
+    if role:
+        return role
+    if any(Path(f).exists() for f in ("/etc/aitbc/blockchain.env", "/etc/aitbc/node.env")):
+        return _get_node_role()
+    return None
+
+
+def _emit_report(args: argparse.Namespace, errors: list[str], warnings: list[str], actions: list[str]) -> None:
+    if args.json:
+        print(json.dumps({"errors": errors, "warnings": warnings, "actions": actions}))
+        return
+    for a in actions:
+        logger.warning(a)
+    for w in warnings:
+        logger.warning(w)
+    for e in errors:
+        logger.error(e)
+    if not errors and not (warnings or actions):
+        logger.info("All checked databases match their expected schema")
+
+
+def main() -> int:
+    parser = _build_parser()
     args = parser.parse_args()
 
     if args.aitbc_root:
@@ -772,26 +832,9 @@ def main() -> int:
     if not args.all and not args.db:
         parser.error("use --all or --db <name>")
 
-    role = args.role
-    if not role:
-        if any(Path(f).exists() for f in ("/etc/aitbc/blockchain.env", "/etc/aitbc/node.env")):
-            role = _get_node_role()
-        else:
-            role = None
+    errors, warnings, actions = check_all(args.db, role=_resolve_role(args.role), repair=args.repair)
 
-    errors, warnings, actions = check_all(args.db, role=role, repair=args.repair)
-
-    if args.json:
-        print(json.dumps({"errors": errors, "warnings": warnings, "actions": actions}))
-    else:
-        for a in actions:
-            logger.warning(a)
-        for w in warnings:
-            logger.warning(w)
-        for e in errors:
-            logger.error(e)
-        if not errors and not (warnings or actions):
-            logger.info("All checked databases match their expected schema")
+    _emit_report(args, errors, warnings, actions)
 
     return 1 if errors else 0
 
