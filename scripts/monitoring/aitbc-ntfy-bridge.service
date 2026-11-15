@@ -1,0 +1,40 @@
+[Unit]
+Description=AITBC ntfy alert subscriber + bridge (ALERT-DELIVERY-1, #2122)
+Documentation=https://github.com/oib/AITBC
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc
+# Subscribes to aitbc-alerts (read grant) and republishes fresh alerts to
+# aitbc-alerts-bridge (write grant) via the dedicated aitbc-bridge ntfy user.
+# NTFY_BRIDGE_TOKEN lives only in /etc/aitbc/ntfy-bridge.env (root:aitbc 0640).
+EnvironmentFile=-/etc/aitbc/prometheus-watch.env
+EnvironmentFile=-/etc/aitbc/ntfy-bridge.env
+ExecStart=/usr/bin/python3 /opt/aitbc/scripts/monitoring/ntfy-alert-bridge.py
+Restart=always
+RestartSec=10
+SyslogIdentifier=aitbc-ntfy-bridge
+
+# Hardening (matches aitbc-prometheus-watch)
+ReadWritePaths=/tmp /var/log/aitbc
+PrivateTmp=yes
+NoNewPrivileges=yes
+ProtectHome=read-only
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+RestrictSUIDSGID=yes
+RestrictRealtime=yes
+RestrictNamespaces=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=no
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ProtectSystem=full
+
+[Install]
+WantedBy=multi-user.target
