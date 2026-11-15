@@ -158,7 +158,8 @@ def _safe_chain_key(chain_id: str = "") -> str:
         return chain_id.strip()
     try:
         return resolve_chain_id(chain_id)
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - fall back to configured default chain
+        logger.debug("chain id resolution failed: %s", type(e).__name__)
         return settings.chain_id.strip() or "default"
 
 
@@ -214,7 +215,8 @@ def _remove_all_quarantine_markers() -> None:
 def _quarantine_marker_exists(key: str) -> bool:
     try:
         return _quarantine_marker_path(key).is_file()
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - unreadable marker path means not quarantined
+        logger.debug("quarantine marker probe failed: %s", type(e).__name__)
         return False
 
 
@@ -225,7 +227,8 @@ def _engine_is_memory(engine: Engine | None) -> bool:
         return False
     try:
         return engine.url.database == ":memory:"
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - unresolvable engine url means not memory
+        logger.debug("engine url probe failed: %s", type(e).__name__)
         return False
 
 
@@ -235,7 +238,8 @@ def _db_identity(key: str, engine: Engine | None = None, session: Session | None
         try:
             bind = session.get_bind()
             return f"{getattr(bind, 'url', '')}:{id(bind)}"
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - fall through to registry lookup
+            logger.debug("session bind probe failed: %s", type(e).__name__)
             target = None
     if target is None:
         target = _engines.get(key)
@@ -405,7 +409,8 @@ def _probe_engine_for(key: str, engine: Engine | None, session: Session | None) 
     if isinstance(session, Session):
         try:
             bind = session.get_bind()
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - unbound session has no engine to probe
+            logger.debug("session bind probe failed: %s", type(e).__name__)
             bind = None
         candidate = bind if isinstance(bind, Engine) else getattr(bind, "engine", None)
         if isinstance(candidate, Engine):
@@ -535,7 +540,7 @@ def verify_chain_db_integrity(
     identity = _db_identity(key, engine=target_engine, session=session)
     try:
         rows = _run_quick_check_rows(target_engine, session)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - probe failure is recorded as a failed verdict
         return _record_integrity_verdict(
             key, identity, False, str(exc), raise_on_failure=raise_on_failure, engine=target_engine, session=session
         )
@@ -870,7 +875,8 @@ def _written_table_names(statement: Any) -> set[str]:
         return {name} if name else set()
     try:
         text_form = str(statement)
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - unstringifiable statement writes nothing we can match
+        logger.debug("statement stringify failed: %s", type(e).__name__)
         return set()
     match = _DML_WRITE_RE.match(text_form)
     return {match.group(1)} if match else set()

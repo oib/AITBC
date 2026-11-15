@@ -128,7 +128,7 @@ class AgentWalletSecurity:
                 "registered_at": profile.created_at.isoformat() if profile.created_at else None,
             }
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - contract boundary reports failure to caller
             return {"status": "error", "reason": f"Registration failed: {str(e)}"}
 
     def protect_transaction(self, agent_address: str, to_address: str, amount: int, data: str = "") -> dict[str, Any]:
@@ -177,7 +177,7 @@ class AgentWalletSecurity:
 
             return result
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - contract boundary reports failure to caller
             return {"status": "error", "reason": f"Transaction protection failed: {str(e)}"}
 
     def execute_protected_transaction(self, agent_address: str, operation_id: str, signature: str) -> dict[str, Any]:
@@ -212,7 +212,7 @@ class AgentWalletSecurity:
 
             return result
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - contract boundary reports failure to caller
             return {"status": "error", "reason": f"Transaction execution failed: {str(e)}"}
 
     def emergency_pause_agent(self, agent_address: str, guardian_address: str) -> dict[str, Any]:
@@ -244,7 +244,7 @@ class AgentWalletSecurity:
 
             return result
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - contract boundary reports failure to caller
             return {"status": "error", "reason": f"Emergency pause failed: {str(e)}"}
 
     def update_agent_security(self, agent_address: str, new_limits: dict[str, Any], guardian_address: str) -> dict[str, Any]:
@@ -289,7 +289,7 @@ class AgentWalletSecurity:
 
             return result
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - contract boundary reports failure to caller
             return {"status": "error", "reason": f"Security update failed: {str(e)}"}
 
     def get_agent_security_status(self, agent_address: str) -> dict[str, Any]:
@@ -323,7 +323,7 @@ class AgentWalletSecurity:
                 "recent_activity": guardian_contract.get_operation_history(10),
             }
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - contract boundary reports failure to caller
             return {"status": "error", "reason": f"Status check failed: {str(e)}"}
 
     def list_protected_agents(self) -> list[dict[str, Any]]:
@@ -409,7 +409,7 @@ class AgentWalletSecurity:
                 "guardian": guardian_address,
             }
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - contract boundary reports failure to caller
             return {"status": "error", "reason": f"Disable protection failed: {str(e)}"}
 
 

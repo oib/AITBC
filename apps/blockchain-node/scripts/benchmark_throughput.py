@@ -68,7 +68,7 @@ class BlockchainBenchmark:
                     return {"success": True, "latency": latency, "tx_id": result.get("tx_id")}
                 else:
                     return {"success": False, "error": f"HTTP {response.status}"}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - benchmark reports per-request failure
             return {"success": False, "error": str(e)}
 
     async def get_block_height(self) -> int:
@@ -78,7 +78,8 @@ class BlockchainBenchmark:
                 if response.status == 200:
                     data = await response.json()
                     return data.get("height", 0)
-        except Exception:
+        except Exception as e:  # noqa: BLE001,S110 - height probe failure reports 0
+            logger.debug("block height probe failed: %s", type(e).__name__)
             pass
         return 0
 

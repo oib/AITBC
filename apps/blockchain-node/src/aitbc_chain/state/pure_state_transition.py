@@ -79,7 +79,7 @@ def _decode_payload(payload: Any) -> dict[str, Any]:
             import json
 
             return cast(dict[str, Any], json.loads(payload))
-        except Exception:
+        except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
             return {}
     if not payload:
         return {}
@@ -647,7 +647,7 @@ def compute_state_delta(
                 import json
 
                 payload = json.loads(payload)
-            except Exception:
+            except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                 payload = {}
         provider_addr = _to_ait_address(payload.get("provider", ""))
         extra_accounts = [a for a in [provider_addr] if a]
@@ -997,7 +997,7 @@ def compute_state_delta(
                 import json
 
                 payload = json.loads(payload)
-            except Exception:
+            except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                 return StateDelta(
                     sender=sender,
                     recipient=recipient,
@@ -1165,7 +1165,7 @@ def compute_state_delta(
                 import json
 
                 payload = json.loads(payload)
-            except Exception:
+            except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                 payload = {}
         delta.ipfs_subscription = {
             "island_id": payload.get("island_id"),

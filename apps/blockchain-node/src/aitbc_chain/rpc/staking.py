@@ -503,7 +503,7 @@ def create_governance_proposal(request: Request, proposal_data: dict[str, Any]) 
         try:
             voting_starts_dt = datetime.fromisoformat(voting_starts) if voting_starts else datetime.now(UTC)
             voting_ends_dt = datetime.fromisoformat(voting_ends) if voting_ends else voting_starts_dt + timedelta(days=7)
-        except Exception:
+        except (TypeError, ValueError):
             voting_starts_dt = datetime.now(UTC)
             voting_ends_dt = voting_starts_dt + timedelta(days=7)
         proposal = GovernanceProposal(

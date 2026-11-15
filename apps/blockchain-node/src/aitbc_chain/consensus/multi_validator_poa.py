@@ -888,7 +888,8 @@ class MultiValidatorPoA:
             self.network_partitioned = state.get("network_partitioned", False)
             self.consensus_attempts = state.get("consensus_attempts", 0)
             return True
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - restore failure means start from defaults
+            logger.debug("consensus state restore failed: %s", type(e).__name__)
             return False
 
     def update_validator_reputation(self, address: str, delta: float) -> bool:

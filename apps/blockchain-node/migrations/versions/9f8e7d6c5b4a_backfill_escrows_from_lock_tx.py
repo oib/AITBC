@@ -127,7 +127,7 @@ def upgrade() -> None:
 
             buyer = canonical_address(buyer_raw)
             provider = canonical_address(provider_raw)
-        except Exception:
+        except (ImportError, TypeError, ValueError):
             # Cannot reliably reconstruct this one; skip it.
             continue
 

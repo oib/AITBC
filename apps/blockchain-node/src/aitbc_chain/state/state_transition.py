@@ -51,7 +51,7 @@ try:
 
     _REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
     _cache: RedisCache | None = RedisCache(redis_url=_REDIS_URL, default_ttl=30)
-except Exception:
+except Exception:  # noqa: BLE001 - cache is optional; any init failure means no cache
     _cache = None
 logger = get_logger(__name__)
 
@@ -447,7 +447,7 @@ def _is_valid_0x_address(address: str) -> bool:
     """Return True if ``address`` is a canonical 42-character 0x address."""
     try:
         normalized = canonical_address(address)
-    except Exception:
+    except (TypeError, ValueError):
         return False
     return normalized.startswith("0x") and len(normalized) == 42
 
@@ -1083,7 +1083,7 @@ def _escrow_tx_job_id(tx_data: dict[str, Any]) -> str:
     if isinstance(payload, str):
         try:
             payload = json.loads(payload)
-        except Exception:
+        except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
             payload = {}
     return payload.get("job_id") or tx_data.get("job_id") or ""
 

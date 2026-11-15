@@ -199,7 +199,7 @@ class ContractUpgradeManager:
             log_info(f"Upgrade proposal created: {proposal_id} - {contract_type} {current_version} -> {new_version}")
             return True, "Upgrade proposal created successfully", proposal_id
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - proposal boundary reports failure to caller
             return False, f"Failed to create proposal: {str(e)}", None
 
     def _validate_version_format(self, version: str) -> bool:

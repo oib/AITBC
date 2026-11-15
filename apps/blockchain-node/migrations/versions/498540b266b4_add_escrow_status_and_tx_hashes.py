@@ -13,6 +13,8 @@ Create Date: 2026-08-24 00:00:00.000000
 from __future__ import annotations
 
 
+import contextlib
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -31,10 +33,9 @@ def upgrade() -> None:
         ("refunded_at", sa.DateTime()),
         ("refund_tx_hash", sa.String()),
     ]:
-        try:
+        with contextlib.suppress(Exception):  # column may already exist — migration is idempotent
             op.add_column("escrow", sa.Column(col, type_, nullable=True))
-        except Exception:
-            pass
+
     # Back-fill status based on timestamps.
     bind.execute(
         sa.text(
@@ -55,7 +56,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     for col in ("refund_tx_hash", "refunded_at", "lock_tx_hash", "status"):
-        try:
+        with contextlib.suppress(Exception):  # column may already be gone — downgrade is idempotent
             op.drop_column("escrow", col)
-        except Exception:
-            pass

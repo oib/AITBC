@@ -124,7 +124,7 @@ class ChainSync(BulkSyncMixin, StateSyncMixin, BlockImportMixin, DivergenceMixin
             return (True, "Valid")
         except json.JSONDecodeError as e:
             return (False, f"Invalid JSON in block_metadata: {e}")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - validation boundary reports failure tuple
             return (False, f"Genesis metadata validation error: {e}")
 
     def _track_rejection(self, chain_id: str) -> None:
@@ -191,5 +191,6 @@ class ChainSync(BulkSyncMixin, StateSyncMixin, BlockImportMixin, DivergenceMixin
                 return session.exec(
                     select(Block.timestamp).where(Block.chain_id == self._chain_id, Block.hash == parent_hash)
                 ).first()
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - parent timestamp probe failure reports unknown
+            logger.debug("parent timestamp lookup failed: %s", type(e).__name__)
             return None

@@ -684,7 +684,7 @@ class _HandlerMixin:
                 raw_price = gpu_data.get("price_per_hour", existing.price_per_hour)
                 try:
                     new_price = Decimal(str(raw_price))
-                except Exception:
+                except (ArithmeticError, TypeError, ValueError):
                     return (False, f"Invalid price_per_hour for GPU {gpu_id}")
                 if block_version >= 25 and not _gpu_price_per_hour_in_range(new_price):
                     return (False, f"price_per_hour out of range for GPU {gpu_id}")
@@ -697,13 +697,13 @@ class _HandlerMixin:
                 )  # not-money: apply-time, consensus-frozen — the float default is part of the replayed payload semantics; converting to Decimal("0") would change what missing price_per_hour yields on replay. Needs a version-height gate + own megaplan (#1033).
                 try:
                     price = Decimal(str(price))
-                except Exception:
+                except (ArithmeticError, TypeError, ValueError):
                     return (False, f"Invalid price_per_hour for GPU {gpu_id}")
                 if block_version >= 25 and not _gpu_price_per_hour_in_range(price):
                     return (False, f"price_per_hour out of range for GPU {gpu_id}")
                 try:
                     memory_gb = int(gpu_data.get("memory_gb", 0))
-                except Exception:
+                except (TypeError, ValueError):
                     return (False, f"Invalid memory_gb for GPU {gpu_id}")
                 registration = GPURegistration(
                     chain_id=chain_id,
@@ -780,7 +780,7 @@ class _HandlerMixin:
                 total_cost = Decimal(
                     str(allocation_data.get("total_cost", 0.0))
                 )  # not-money: apply-time, consensus-frozen — Decimal(str(0.0)) yields "0.0" while Decimal("0") yields "0"; changing the default can diverge the stored state hash on replay. Version-height gate required (#1033).
-            except Exception:
+            except (ArithmeticError, TypeError, ValueError):
                 return (False, f"Invalid duration_hours or total_cost for GPU {gpu_id}")
             allocation = GPUAllocation(
                 chain_id=chain_id,

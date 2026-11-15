@@ -897,7 +897,7 @@ class BridgeTransferMixin(BridgeBase):
                     validator_signatures = [
                         a.get("signature", "") for a in metadata.get("attestations", []) if a.get("signature")
                     ]
-                except Exception:
+                except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                     validator_signatures = []
 
             # Issue #670: the sealed metadata may carry fewer attestations than
@@ -1138,7 +1138,7 @@ class BridgeTransferMixin(BridgeBase):
                 break
             try:
                 canon = canonical_address(address).lower()
-            except Exception:
+            except (TypeError, ValueError):
                 canon = address.lower()
             if canon == (block.proposer or "").lower() or canon in covered or canon not in member_addrs:
                 continue
@@ -1178,7 +1178,8 @@ class BridgeTransferMixin(BridgeBase):
                 continue
             try:
                 recovered = recover_all_signers(message, [signature], attester_domains)
-            except Exception:
+            except Exception as e:  # noqa: BLE001 - unrecoverable signer set just yields no signatures
+                logger.debug("attestation signer recovery failed: %s", type(e).__name__)
                 recovered = []
             if not recovered:
                 continue
@@ -1619,7 +1620,8 @@ class BridgeTransferMixin(BridgeBase):
                     head = session.exec(
                         select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)  # type: ignore[attr-defined]
                     ).first()
-                except Exception:
+                except Exception as e:  # noqa: BLE001 - head probe failure reports height 0
+                    logger.debug("bridge head probe failed for %s: %s", chain_id, type(e).__name__)
                     return 0
                 if head is None:
                     return 0

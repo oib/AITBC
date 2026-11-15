@@ -467,7 +467,7 @@ class WebsocketGossipBackend(GossipBackend):
             return
         try:
             message = json.loads(raw)
-        except Exception:
+        except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
             return
         if isinstance(message, dict) and message.get("type") in _CONTROL_FRAME_TYPES:
             return

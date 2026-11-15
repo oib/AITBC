@@ -81,7 +81,7 @@ def _mempool_extra_bind() -> sa.engine.Engine | None:
     """Engine for a dedicated MEMPOOL_DB_URL database, if one is configured."""
     try:
         from aitbc_chain.config import settings
-    except Exception:
+    except ImportError:
         return None
     url = getattr(settings, "mempool_db_url", "") or ""
     if not url:

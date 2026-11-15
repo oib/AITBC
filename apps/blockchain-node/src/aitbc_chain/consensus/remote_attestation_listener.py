@@ -480,7 +480,8 @@ class _ListenerMixin(_RaBaseMixin):
                     )
                 else:
                     sig_ok = verify_block_signature(header, proposer_signature, proposer)
-            except Exception:
+            except Exception as e:  # noqa: BLE001 - any verify failure means unsigned
+                logger.debug("proposer signature verify raised: %s", type(e).__name__)
                 sig_ok = False
             if not sig_ok:
                 logger.info(

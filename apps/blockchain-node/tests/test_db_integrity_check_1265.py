@@ -122,7 +122,7 @@ def test_init_db_fails_fast_on_corrupt_store(monkeypatch):
         clear_chain_db_quarantine(chain)
         try:
             shutdown_db(chain)
-        except Exception:
+        except Exception:  # noqa: BLE001,S110 - teardown best-effort
             pass
 
 

@@ -455,7 +455,7 @@ class _ValidationMixin:
         if isinstance(gov_payload, str):
             try:
                 gov_payload = json.loads(gov_payload)
-            except Exception:
+            except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                 gov_payload = {}
         gov_action = (gov_payload.get("execution_payload") or {}).get("action")
         if gov_action == "set_governance_address":
@@ -767,7 +767,7 @@ class _ValidationMixin:
         if isinstance(ctx.payload, str):
             try:
                 ctx.payload = json.loads(ctx.payload)
-            except Exception:
+            except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                 return (False, "IPFS_SUBSCRIPTION payload is not valid JSON")
         if not ctx.payload.get("island_id"):
             return (False, "IPFS_SUBSCRIPTION payload must include island_id")
@@ -800,7 +800,7 @@ class _ValidationMixin:
             return (False, "GPU_REGISTER payload must include integer memory_gb")
         try:
             gpu_price = Decimal(str(ctx.payload.get("price_per_hour", 0)))
-        except Exception:
+        except (ArithmeticError, TypeError, ValueError):
             return (False, "GPU_REGISTER payload must include a valid price_per_hour")
         if ctx.block_version >= 25 and not _gpu_price_per_hour_in_range(gpu_price):
             # v25 (#1566): negative/NaN/Infinity/oversized prices were
@@ -872,7 +872,7 @@ class _ValidationMixin:
         try:
             float(ctx.payload.get("duration_hours", 0))
             Decimal(str(ctx.payload.get("total_cost", 0)))
-        except Exception:
+        except (ArithmeticError, TypeError, ValueError):
             return (False, "GPU_ALLOCATE payload must include valid duration_hours and total_cost")
         if ctx.value != 0:
             return (False, "GPU_ALLOCATE must have value=0")

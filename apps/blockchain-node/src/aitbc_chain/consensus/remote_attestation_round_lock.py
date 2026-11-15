@@ -179,7 +179,8 @@ class _RoundLockMixin(_EvidenceMixin):
             from .multi_validator_poa import proposer_round
 
             return proposer_round(parent_ts, block_ts, self._round_seconds())
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - optional consensus helper, None means unavailable
+            logger.debug("consensus helper failed: %s", type(e).__name__)
             return None
 
     def _collect_round_for_block(self, block: Any) -> int | None:
@@ -201,7 +202,8 @@ class _RoundLockMixin(_EvidenceMixin):
             from .multi_validator_poa import proposer_round
 
             return proposer_round(parent_ts, ts, self._round_seconds())
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - optional consensus helper, None means unavailable
+            logger.debug("consensus helper failed: %s", type(e).__name__)
             return None
 
     def _unlock_window(self) -> float:

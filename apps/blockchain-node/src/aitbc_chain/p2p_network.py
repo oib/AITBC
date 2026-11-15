@@ -164,8 +164,8 @@ class P2PNetworkService:
             try:
                 await writer.wait_closed()
             # intentional silent cleanup
-            except Exception:  # nosec B110
-                pass
+            except Exception as e:  # noqa: BLE001,S110 - connection teardown  # nosec B110
+                logger.debug("p2p writer close failed: %s", type(e).__name__)
         self.active_connections.clear()
         self.connected_endpoints.clear()
         if self._server:
@@ -327,7 +327,8 @@ class P2PNetworkService:
             for writer in self.active_connections.values():
                 try:
                     peer = writer.get_extra_info("peername")
-                except Exception:
+                except Exception as e:  # noqa: BLE001 - peername probe failure treats peer as unknown
+                    logger.debug("peername probe failed: %s", type(e).__name__)
                     peer = None
                 if peer and peer[0] == ip:
                     established += 1
@@ -714,8 +715,8 @@ class P2PNetworkService:
             try:
                 await writer.wait_closed()
             # intentional silent cleanup
-            except Exception:  # nosec B110
-                pass
+            except Exception as e:  # noqa: BLE001,S110 - connection teardown  # nosec B110
+                logger.debug("p2p writer close failed: %s", type(e).__name__)
 
     def _get_gpu_count(self) -> int:
         """Get the number of available GPUs on this node"""
@@ -763,7 +764,8 @@ class P2PNetworkService:
                 stmt = select(Block).order_by(Block.height.desc()).limit(1)  # type: ignore[attr-defined]
                 block = session.exec(stmt).first()  # type: ignore[call-overload]
                 return block.height if block else 0
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - height probe failure reports 0
+            logger.debug("p2p block height probe failed: %s", type(e).__name__)
             return 0
 
     def is_legacy_peer(self, peer_id: str) -> bool:

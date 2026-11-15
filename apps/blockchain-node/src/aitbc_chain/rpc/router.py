@@ -254,7 +254,7 @@ async def get_mining_status_route(
             if resp.status_code == 200:
                 data = resp.json()
                 coordinator_miners = data.get("miners", []) if isinstance(data, dict) else data
-    except Exception:
+    except (httpx.HTTPError, ValueError):
         pass  # Fall back to local miners
 
     if coordinator_miners:
@@ -305,7 +305,7 @@ async def list_miners_route(
                 data = resp.json()
                 miners = data.get("miners", []) if isinstance(data, dict) else data
                 return {"miners": miners, "count": len(miners), "source": "coordinator-api"}
-    except Exception:
+    except (httpx.HTTPError, ValueError):
         pass  # Fall back to local miners
 
     # Fallback: local in-memory miners

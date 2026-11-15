@@ -12,6 +12,8 @@ Create Date: 2026-09-02 00:00:00.000000
 from __future__ import annotations
 
 
+import contextlib
+
 import sqlalchemy as sa
 from alembic import op
 
@@ -25,10 +27,9 @@ depends_on: str | None = None
 def upgrade() -> None:
     bind = op.get_bind()
     for col in ("released_amount", "refunded_amount"):
-        try:
+        with contextlib.suppress(Exception):  # column may already exist — migration is idempotent
             op.add_column("escrow", sa.Column(col, sa.Integer(), nullable=True))
-        except Exception:
-            pass
+
     # Every settlement made before this migration moved the whole locked amount.
     bind.execute(
         sa.text("UPDATE escrow SET released_amount = amount WHERE released_at IS NOT NULL AND released_amount IS NULL")
@@ -40,7 +41,5 @@ def upgrade() -> None:
 
 def downgrade() -> None:
     for col in ("refunded_amount", "released_amount"):
-        try:
+        with contextlib.suppress(Exception):  # column may already be gone — downgrade is idempotent
             op.drop_column("escrow", col)
-        except Exception:
-            pass

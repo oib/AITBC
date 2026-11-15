@@ -215,7 +215,8 @@ def _lock_block_height(bridge: Any, source_chain: str, source_tx_hash: str | Non
                 )
             ).first()
         return int(tx) if tx is not None else None
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - lookup probe failure reports unknown height
+        _logger.debug("source tx height lookup failed: %s", type(e).__name__)
         return None
 
 
