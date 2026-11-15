@@ -239,6 +239,78 @@ def _same_module_helper(fn: Any, name: str) -> Any | None:
     return helper
 
 
+def _ordered_calls(tree: ast.AST) -> list[ast.Call]:
+    """Response-constructor and private-helper calls in source order.
+
+    `ast.walk` is breadth-first, so the last branch of a handler would be described
+    first -- stable, but arbitrary, and the truncated message list would keep
+    whichever four the tree shape happened to surface. Sorting by position puts a
+    helper's messages where the call site is.
+    """
+    calls = [
+        n
+        for n in ast.walk(tree)
+        if isinstance(n, ast.Call) and (_call_name(n) in _RESPONSE_CALLS or _private_call_name(n) is not None)
+    ]
+    calls.sort(key=lambda n: (getattr(n, "lineno", 0), getattr(n, "col_offset", 0)))
+    return calls
+
+
+def _content_dict_shape(node: ast.Dict, message: str | None) -> tuple[tuple[str, ...], str | None]:
+    """(shape, message) from a `content={...}` dict literal.
+
+    `{**base, "error": ...}` -- a `**` spread parses as a None key. The keys
+    that survive are a subset, and a subset published as the body is a
+    schema the client can fail to match. Document the code, not a half body.
+    """
+    shape: tuple[str, ...] = ()
+    keys = node.keys
+    if all(isinstance(key, ast.Constant) and isinstance(key.value, str) for key in keys):
+        shape = tuple(sorted(key.value for key in keys))  # type: ignore[union-attr]
+    for key, value in zip(node.keys, node.values, strict=True):
+        if isinstance(key, ast.Constant) and key.value in {"error", "detail", "message"}:
+            message = _message(value) or message
+    return shape, message
+
+
+def _decode_response_call(node: ast.Call, name: str) -> tuple[int | None, tuple[str, ...], str | None]:
+    """(code, shape, message) decoded from one response-constructor call.
+
+    `HTTPException(404, "...")` and `JSONResponse({...}, 404)` both pass positionally
+    in this repository, and the position means something different in each.
+    """
+    code: int | None = None
+    shape: tuple[str, ...] = ()
+    message: str | None = None
+
+    if node.args:
+        if name == "HTTPException":
+            code = _status_code(node.args[0])
+            if len(node.args) > 1:
+                message = _message(node.args[1])
+        elif len(node.args) > 1:
+            code = _status_code(node.args[1])
+
+    for keyword in node.keywords:
+        if keyword.arg in {"status_code", "status"}:
+            code = _status_code(keyword.value) or code
+        elif keyword.arg == "detail":
+            message = _message(keyword.value)
+        elif keyword.arg == "content" and isinstance(keyword.value, ast.Dict):
+            shape, message = _content_dict_shape(keyword.value, message)
+
+    return code, shape, message
+
+
+def _maybe_scan_helper(node: ast.Call, fn: Any, found: dict[int, ErrorResponse], bound: frozenset[str], depth: int) -> None:
+    """Descend one level into a same-module private helper call (depth 0 only)."""
+    helper_name = _private_call_name(node)
+    if depth == 0 and helper_name not in bound:
+        helper = _same_module_helper(fn, helper_name or "")
+        if helper is not None:
+            _scan(helper, found, _depth=1)
+
+
 def _scan(fn: Any, found: dict[int, ErrorResponse], _depth: int = 0) -> None:
     """Add every literal >=400 response constructed in `fn`'s own source to `found`.
 
@@ -257,56 +329,13 @@ def _scan(fn: Any, found: dict[int, ErrorResponse], _depth: int = 0) -> None:
 
     bound = _bound_names(tree) if _depth == 0 else frozenset()
 
-    # Source order, not `ast.walk` order. `walk` is breadth-first, so the last branch of a
-    # handler would be described first -- stable, but arbitrary, and the truncated message
-    # list would keep whichever four the tree shape happened to surface. Helper calls sit
-    # in the same ordering, so a helper's messages land where the call site is.
-    calls = [
-        n
-        for n in ast.walk(tree)
-        if isinstance(n, ast.Call) and (_call_name(n) in _RESPONSE_CALLS or _private_call_name(n) is not None)
-    ]
-    calls.sort(key=lambda n: (getattr(n, "lineno", 0), getattr(n, "col_offset", 0)))
-
-    for node in calls:
+    for node in _ordered_calls(tree):
         name = _call_name(node)
         if name not in _RESPONSE_CALLS:
-            helper_name = _private_call_name(node)
-            if _depth == 0 and helper_name not in bound:
-                helper = _same_module_helper(fn, helper_name or "")
-                if helper is not None:
-                    _scan(helper, found, _depth=1)
+            _maybe_scan_helper(node, fn, found, bound, _depth)
             continue
-        code: int | None = None
-        shape: tuple[str, ...] = ()
-        message: str | None = None
 
-        # `HTTPException(404, "...")` and `JSONResponse({...}, 404)` both pass positionally
-        # in this repository, and the position means something different in each.
-        if node.args:
-            if name == "HTTPException":
-                code = _status_code(node.args[0])
-                if len(node.args) > 1:
-                    message = _message(node.args[1])
-            elif len(node.args) > 1:
-                code = _status_code(node.args[1])
-
-        for keyword in node.keywords:
-            if keyword.arg in {"status_code", "status"}:
-                code = _status_code(keyword.value) or code
-            elif keyword.arg == "detail":
-                message = _message(keyword.value)
-            elif keyword.arg == "content" and isinstance(keyword.value, ast.Dict):
-                keys = keyword.value.keys
-                # `{**base, "error": ...}` -- a `**` spread parses as a None key. The keys
-                # that survive are a subset, and a subset published as the body is a
-                # schema the client can fail to match. Document the code, not a half body.
-                if all(isinstance(key, ast.Constant) and isinstance(key.value, str) for key in keys):
-                    shape = tuple(sorted(key.value for key in keys))  # type: ignore[union-attr]
-                for key, value in zip(keyword.value.keys, keyword.value.values, strict=True):
-                    if isinstance(key, ast.Constant) and key.value in {"error", "detail", "message"}:
-                        message = _message(value) or message
-
+        code, shape, message = _decode_response_call(node, name)
         if code is None or code < 400:
             continue
 
@@ -340,13 +369,8 @@ def _dependency_callables(route: Any) -> tuple[Any, ...]:
     return tuple(d.call for d in dependant.dependencies if d.call is not None)
 
 
-def enrich(spec: dict[str, Any], app: Any) -> dict[str, Any]:
-    """Add each operation's derived error responses to an already-generated spec.
-
-    Written as a pass over the finished document rather than as a FastAPI override so that
-    it stays a property of what gets published, and so a service's own `/openapi.json` is
-    not made to depend on an AST scan at request time.
-    """
+def _route_index(app: Any) -> dict[tuple[str, str], Any]:
+    """(path, method) -> APIRoute for every route in the app."""
     from fastapi.routing import APIRoute
 
     # `openapi_prefix`/`root_path` aside, `route.path` is the key used in `paths`.
@@ -356,6 +380,39 @@ def enrich(spec: dict[str, Any], app: Any) -> dict[str, Any]:
             continue
         for method in route.methods:
             by_path[(route.path, method.lower())] = route
+    return by_path
+
+
+def _enrich_operation(operation: dict[str, Any], route: Any) -> bool:
+    """Add derived error responses to one operation's `responses`.
+
+    Returns True when the shared detail schema was referenced. An explicit
+    `responses={...}` on the route is the author saying what this operation
+    returns. It wins.
+    """
+    responses = operation.setdefault("responses", {})
+    used_detail_schema = False
+    for code, error in sorted(collect(route.endpoint, _dependency_callables(route)).items()):
+        key = str(code)
+        if key in responses:
+            continue
+        response: dict[str, Any] = {"description": error.description()}
+        schema = error.schema()
+        if schema is not None:
+            response["content"] = {"application/json": {"schema": schema}}
+            used_detail_schema |= DETAIL_SHAPE in error.shapes
+        responses[key] = response
+    return used_detail_schema
+
+
+def enrich(spec: dict[str, Any], app: Any) -> dict[str, Any]:
+    """Add each operation's derived error responses to an already-generated spec.
+
+    Written as a pass over the finished document rather than as a FastAPI override so that
+    it stays a property of what gets published, and so a service's own `/openapi.json` is
+    not made to depend on an AST scan at request time.
+    """
+    by_path = _route_index(app)
 
     used_detail_schema = False
     for path, item in spec.get("paths", {}).items():
@@ -363,19 +420,7 @@ def enrich(spec: dict[str, Any], app: Any) -> dict[str, Any]:
             route = by_path.get((path, method.lower()))
             if route is None or not isinstance(operation, dict):
                 continue
-            responses = operation.setdefault("responses", {})
-            for code, error in sorted(collect(route.endpoint, _dependency_callables(route)).items()):
-                key = str(code)
-                # An explicit `responses={...}` on the route is the author saying what this
-                # operation returns. It wins.
-                if key in responses:
-                    continue
-                response: dict[str, Any] = {"description": error.description()}
-                schema = error.schema()
-                if schema is not None:
-                    response["content"] = {"application/json": {"schema": schema}}
-                    used_detail_schema |= DETAIL_SHAPE in error.shapes
-                responses[key] = response
+            used_detail_schema |= _enrich_operation(operation, route)
 
     if used_detail_schema:
         schemas = spec.setdefault("components", {}).setdefault("schemas", {})
