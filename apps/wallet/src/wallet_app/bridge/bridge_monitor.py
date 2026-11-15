@@ -467,6 +467,23 @@ async def _maybe_auto_mint(deposit_id: str, recipient: str, amount_ait: Decimal)
         logger.info("Auto-mint skipped: GENESIS_WALLET_ADDRESS/PRIVATE_KEY not configured")
 
 
+async def _submit_transfer(tx_payload: dict[str, Any]) -> str:
+    """POST the signed TRANSFER and return the chain's tx hash.
+
+    Every failure here is post-attempt ambiguity except the pre-connect
+    httpx errors (ConnectError/ConnectTimeout/PoolTimeout — the request
+    never left the pool), which callers may safely treat as retryable.
+    """
+    async with httpx.AsyncClient(timeout=30) as client:
+        response = await client.post(f"{BLOCKCHAIN_RPC_URL}/rpc/transaction", json=tx_payload)
+        response.raise_for_status()
+        result = response.json()
+    tx_hash = result.get("transaction_hash") or result.get("tx_hash") or ""
+    if not tx_hash:
+        raise ValueError(f"No tx hash returned: {result}")
+    return tx_hash
+
+
 async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) -> None:
     """Verify, sign, submit AIT transfer, and mark deposit completed."""
     genesis_address = _canonical_address(GENESIS_WALLET_ADDRESS)
@@ -523,15 +540,32 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
         signature = private_key.sign_msg_hash(keccak(message))
         tx_payload["signature"] = signature.to_bytes().hex()
 
-        # 4. Submit
-        async with httpx.AsyncClient(timeout=30) as client:
-            response = await client.post(f"{BLOCKCHAIN_RPC_URL}/rpc/transaction", json=tx_payload)
-            response.raise_for_status()
-            result = response.json()
-            tx_hash = result.get("transaction_hash") or result.get("tx_hash") or ""
-
-        if not tx_hash:
-            raise ValueError(f"No tx hash returned: {result}")
+        # 4. Submit — once the POST is attempted the outcome is ambiguous:
+        # ReadTimeout/5xx/"no tx hash" can all fire AFTER the chain accepted
+        # the TRANSFER. Reverting to 'pending' would let get_pending_deposits
+        # re-pick the row and mint a second time (#1975). Only pre-connect
+        # failures (nothing was sent) may re-pend; everything else parks the
+        # row at 'failed' for operator reconcile.
+        try:
+            tx_hash = await _submit_transfer(tx_payload)
+        except _OPS_ERRORS as e:
+            if isinstance(e, (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)):
+                raise
+            logger.error(
+                "Auto-mint submit for deposit %s is AMBIGUOUS (%s: %s) — the TRANSFER "
+                "may have been accepted; row parked at 'failed' for manual reconcile, "
+                "NOT re-queued",
+                deposit_id,
+                type(e).__name__,
+                e,
+            )
+            if not update_deposit_status(deposit_id, "failed", expected_statuses={"pending", "verified"}):
+                logger.error(
+                    "Auto-mint ambiguous-submit 'failed' write lost CAS for deposit %s — "
+                    "row moved on; manual reconcile needed",
+                    deposit_id,
+                )
+            return
 
         # 5. Complete — CAS returns checked (#1839): a lost completed-write
         # means the tx already hit the chain but the row moved on (admin
