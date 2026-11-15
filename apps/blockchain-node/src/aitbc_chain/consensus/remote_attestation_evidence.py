@@ -538,6 +538,23 @@ class _EvidenceMixin(_V9Mixin):
         prior_hashes.discard(block_hash)
         return prior_hashes
 
+    @staticmethod
+    def _pairing_priors(prior_hashes: set[str]) -> list[str]:
+        """Prior hashes a newly signed hash is paired with (#2119).
+
+        n signed hashes at one height recorded n(n-1)/2 pairs (hub, h27301: 602
+        hashes, 30,245 events, 67 MB). One signed pair already proves the
+        equivocation, so when armed each new hash pairs with at most N priors
+        (the lowest-sorted, deterministic): growth is linear. 0 = every prior
+        (legacy, dormant).
+        """
+        priors = sorted(prior_hashes)
+        pair_cap = int(getattr(settings, "equivocation_max_pairs_per_signature", 0) or 0)
+        if pair_cap > 0 and len(priors) > pair_cap:
+            metrics_registry.increment("equivocation_pairs_trimmed_total", len(priors) - pair_cap)
+            priors = priors[:pair_cap]
+        return priors
+
     def _record_attestation_equivocation_evidence(
         self,
         height: int,
@@ -588,7 +605,8 @@ class _EvidenceMixin(_V9Mixin):
             else None
         )
         recorded = False
-        for prior_hash in sorted(prior_hashes):
+        priors = self._pairing_priors(prior_hashes)
+        for prior_hash in priors:
             prior = self._signed_attestations.get(self._signed_attestation_key(height, prior_hash, signer, signature_domain))
             attestations = [prior, current] if prior is not None else None
             unlock_just = self._uc_unlock_justification(uc_bundle, prior, current)

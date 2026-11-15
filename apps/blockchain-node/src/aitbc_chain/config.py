@@ -1619,6 +1619,10 @@ class ChainSettings(BaseSettings):
     # nothing is published, subscribed or stored. Advisory only — ingest never
     # slashes; it records into the same advisory event list local detection uses.
     equivocation_replication_enabled: bool = False
+    # #2119: max prior hashes a newly signed hash is paired with when recording
+    # attestation equivocation (the pairing was all-priors: n hashes -> n(n-1)/2
+    # events). 0 = every prior (legacy, dormant until armed).
+    equivocation_max_pairs_per_signature: int = 0
     equivocation_replication_ring_cap: int = 10000  # records per chain, FIFO eviction
     equivocation_replication_max_record_bytes: int = 4096
     equivocation_replication_max_hashes_per_slot: int = 4  # distinct hashes per (validator, height, round)
