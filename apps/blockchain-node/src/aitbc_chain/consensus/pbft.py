@@ -27,6 +27,22 @@ from .multi_validator_poa import MultiValidatorPoA
 from .pbft_certificate import strict_certificate_active, validate_commit_certificate
 from .pbft_cross_view import cross_view_commit_lock_active
 from .pbft_quorum import pbft_required_messages
+from .pbft_view_change import (
+    MAX_VC_BUCKETS,
+    MAX_NV_BUCKETS,
+    MAX_VC_SET_ENTRIES,
+    NV_MESSAGE_TYPE,
+    VC_MESSAGE_TYPE,
+    new_view_digest,
+    select_forced_hash,
+    vc_signed_message,
+    nv_signed_message,
+    view_change_active,
+    view_change_digest,
+    verify_new_view,
+    verify_view_change,
+    verify_vc_lock_commits,
+)
 
 logger = get_logger(__name__)
 
@@ -43,6 +59,7 @@ class PBFTMessageType(Enum):
     PREPARE = "prepare"
     COMMIT = "commit"
     VIEW_CHANGE = "view_change"
+    NEW_VIEW = "new_view"
 
 
 @dataclass
@@ -55,9 +72,19 @@ class PBFTMessage:
     signature: str
     timestamp: float
     block_hash: str = ""
+    # #2005 F3-C: pre-prepare extensions, populated only while
+    # ``view_change_active(sequence)`` — ``block`` is the full signed
+    # proposal payload (ruling 2A, Option R) and ``new_view`` the NEW_VIEW
+    # proof for this view. Both stay None on every other message type, so
+    # commit-certificate ``to_dict`` output is byte-identical.
+    block: dict[str, Any] | None = None
+    new_view: dict[str, Any] | None = None
+    # Transient intake flag: the proposal body was persisted before any
+    # PREPARE may be broadcast (design §5/§7 fail-closed rule). Not gossiped.
+    _proposal_persisted: bool = False
 
     def to_dict(self) -> dict[str, Any]:
-        return {
+        out: dict[str, Any] = {
             "message_type": self.message_type.value,
             "sender": self.sender,
             "view_number": self.view_number,
@@ -67,6 +94,11 @@ class PBFTMessage:
             "timestamp": self.timestamp,
             "block_hash": self.block_hash,
         }
+        if self.block is not None:
+            out["block"] = self.block
+        if self.new_view is not None:
+            out["new_view"] = self.new_view
+        return out
 
 
 @dataclass
@@ -118,6 +150,14 @@ class PBFTConsensus:
         # block per round, and rounds only ever move forward. See prepare_phase
         # for why the round has to be part of it.
         self._prepared_heights: dict[int, tuple[int, str]] = {}
+        # #2005 F3-C: VIEW_CHANGE protocol state — (sequence, view) ->
+        # {canonical sender: verified VIEW_CHANGE dict} and (sequence,
+        # view) -> {"payload","kind","selected"} for verified NEW_VIEWs.
+        # Bounded by MAX_VC_BUCKETS / MAX_NV_BUCKETS; re-gossipable so NOT
+        # persisted (the durable floor/lock/prepared/proposal state lives on
+        # ``consensus`` — see multi_validator_poa._pbft_view_change).
+        self._vc_messages: dict[tuple[int, int], dict[str, dict[str, Any]]] = {}
+        self._new_views: dict[tuple[int, int], dict[str, Any]] = {}
         # #1940 F3-B: this node's cross-view commit locks (sequence ->
         # committed block_hash), hydrated from the persisted ConsensusState
         # row. Consulted only while ``cross_view_commit_lock_active`` is
@@ -141,7 +181,13 @@ class PBFTConsensus:
         return hashlib.sha256(content.encode()).hexdigest()
 
     async def pre_prepare_phase(
-        self, proposer: str, block_hash: str, sequence: int | None = None, view: int | None = None
+        self,
+        proposer: str,
+        block_hash: str,
+        sequence: int | None = None,
+        view: int | None = None,
+        block_payload: dict[str, Any] | None = None,
+        new_view_payload: dict[str, Any] | None = None,
     ) -> bool:
         """Phase 1: Pre-prepare.
 
@@ -163,6 +209,21 @@ class PBFTConsensus:
         # result, no other node was told, and the proposer that had actually
         # gone dark was never running a timer in the first place.
         self._adopt_round_as_view(view)
+        # #2005 F3-C: while the VIEW_CHANGE gate is armed the pre-prepare
+        # MUST carry the full signed block (ruling 2A / Option R) and, once
+        # the protocol has engaged for this height, the NEW_VIEW proof.
+        # VC floor/NEW_VIEW assembly and the fail-closed proposal-body
+        # persist all happen here, BEFORE anything is broadcast.
+        if view_change_active(sequence):
+            prepared = await self._prepare_view_change_proposal(sequence, view, block_hash, block_payload)
+            if prepared is None:
+                return False
+            block_payload, new_view_payload = prepared
+        elif block_payload is not None or new_view_payload is not None:
+            # Gate inactive: never emit the extensions — flag-off stays
+            # byte-identical to the pre-#2005 wire format.
+            block_payload = None
+            new_view_payload = None
         digest = self.get_message_digest(block_hash, sequence, view)
 
         message = PBFTMessage(
@@ -174,6 +235,8 @@ class PBFTConsensus:
             signature="",
             timestamp=time.time(),
             block_hash=block_hash,
+            block=block_payload,
+            new_view=new_view_payload,
         )
         # B6: sign the pre-prepare message with the sender's private key
         self._sign_message(message)
@@ -218,6 +281,7 @@ class PBFTConsensus:
         timeout: float | None = None,
         sequence: int | None = None,
         view: int | None = None,
+        block_payload: dict[str, Any] | None = None,
     ) -> bool:
         """Run the full PBFT proposal pipeline for the local proposer.
 
@@ -235,7 +299,13 @@ class PBFTConsensus:
         pre_prepare_sequence = self.state.current_sequence + 1 if sequence is None else sequence
         pre_prepare_view = self.state.current_view if view is None else view
         key = f"{pre_prepare_sequence}:{pre_prepare_view}"
-        await self.pre_prepare_phase(proposer, block_hash, pre_prepare_sequence, pre_prepare_view)
+        await self.pre_prepare_phase(
+            proposer,
+            block_hash,
+            pre_prepare_sequence,
+            pre_prepare_view,
+            block_payload=block_payload,
+        )
         pre_prepare_msg = self.state.pre_prepare_messages.get(key)
         if not pre_prepare_msg:
             logger.warning("PBFT propose_and_wait aborted: missing pre-prepare for seq %s", pre_prepare_sequence)
@@ -356,6 +426,16 @@ class PBFTConsensus:
                     return False
             if key in self._local_prepared:
                 return len(self.state.prepared_messages.get(key, [])) >= self.required_messages
+            # #2005 F3-C: while the VIEW_CHANGE gate is armed this node may
+            # only prepare a block the verified NEW_VIEW for (height, view)
+            # permits — and only after its proposal body is persisted
+            # (Option R). Both checks are dormant while the gate is unset.
+            if not await self._view_change_prepare_allows(height, view, pre_prepare_msg):
+                return False
+            # The durable prepared record persists BEFORE the prepare is
+            # broadcast — a restart must not forget this vote (design §7).
+            if view_change_active(height) and not self._vc_prepared_arm(height, view, pre_prepare_msg.block_hash):
+                return False
             self._local_prepared.add(key)
             self._prepared_heights[height] = (view, pre_prepare_msg.block_hash)
 
@@ -409,6 +489,13 @@ class PBFTConsensus:
             # is stored or broadcast; prepare rotation is untouched.
             if not self._commit_lock_allows(prepare_msg.sequence_number, prepare_msg.block_hash):
                 return False
+            # #2005 F3-C: the floor rule + NEW_VIEW permit gate the commit
+            # exactly like the prepare — a node that raised its floor may
+            # only commit the value the verified NEW_VIEW selected.
+            if not self._view_change_commit_allows(
+                prepare_msg.sequence_number, prepare_msg.view_number, prepare_msg.block_hash
+            ):
+                return False
             self._local_committed.add(key)
 
         # Create commit message
@@ -429,6 +516,23 @@ class PBFTConsensus:
         if key not in self.state.committed_messages:
             self.state.committed_messages[key] = []
         self.state.committed_messages[key].append(commit_msg)
+
+        # #2005 F3-C: persist this node's commit-lock — view, hash and the
+        # OWN signed COMMIT a later VIEW_CHANGE must carry as proof —
+        # BEFORE the commit is broadcast (design §3/§7, fail closed).
+        if (
+            validator == self._local_validator
+            and view_change_active(commit_msg.sequence_number)
+            and not self._vc_commit_lock_arm(
+                commit_msg.sequence_number,
+                commit_msg.view_number,
+                commit_msg.block_hash,
+                commit_msg.to_dict(),
+            )
+        ):
+            self.state.committed_messages[key].remove(commit_msg)
+            self._local_committed.discard(key)
+            return False
 
         # Broadcast commit message
         await self._broadcast_message(commit_msg)
@@ -563,7 +667,73 @@ class PBFTConsensus:
             except Exception:
                 logger.exception("PBFT on_execute callback failed for key %s", key)
 
+        # #2005 F3-C Option R: a commit quorum's decided value must stay
+        # recoverable — every committer persisted the pre-prepare's full
+        # signed block, so any honest holder can re-publish the ORIGINAL
+        # block as-is plus the commit certificate when the proposer's own
+        # seal path is the only publisher and it dies after quorum
+        # (dead-after-quorum re-seal, design §5/§7 test 6). Dormant unless
+        # the view-change gate is armed at this sequence.
+        await self._maybe_reseal_committed_block(key, sequence, view)
+
         return True
+
+    async def _maybe_reseal_committed_block(self, key: str, sequence: int, view: int) -> None:
+        """Publish ``block + commit certificate`` for a decided height (#2005).
+
+        The re-seal carries the ORIGINAL header, proposer signature and
+        derived round unchanged — a locked block cannot be re-proposed under
+        a new header (design §5), so this is a re-publish of the persisted
+        pre-prepare body, never a new proposal. ``block_metadata`` is
+        reconstructed from the commit certificate this node already holds,
+        which is exactly what strict-era importers verify. The proposer
+        itself skips this: it seals through the normal broadcast path.
+        """
+        if not view_change_active(sequence):
+            return
+        pp = self.state.pre_prepare_messages.get(key)
+        if pp is None or not pp.block_hash:
+            return
+        if canonical_address(str(pp.sender)) == canonical_address(str(self._local_validator)):
+            return
+        body_get = self._vc_proposal_get(sequence, pp.block_hash)
+        if not isinstance(body_get, dict):
+            metrics_registry.increment("pbft_view_change_reseal_missing_body_total")
+            return
+        certificate = self.get_certificate(pp.block_hash, view=view)
+        if not certificate:
+            return
+        prior_metadata = body_get.get("block_metadata")
+        block_metadata = dict(prior_metadata) if isinstance(prior_metadata, dict) else {}
+        block_metadata["pbft_certificate"] = certificate
+        payload = {
+            "chain_id": self._chain_id,
+            "height": sequence,
+            "hash": pp.block_hash,
+            "parent_hash": body_get.get("parent_hash"),
+            "proposer": body_get.get("proposer"),
+            "timestamp": body_get.get("timestamp"),
+            "tx_count": body_get.get("tx_count"),
+            "state_root": body_get.get("state_root"),
+            "bridge_state_root": body_get.get("bridge_state_root"),
+            "aux_state_root": body_get.get("aux_state_root"),
+            "signature": body_get.get("signature"),
+            "block_metadata": block_metadata,
+            "transactions": body_get.get("transactions") or [],
+        }
+        if self._gossip_backend is None:
+            return
+        try:
+            await self._gossip_backend.publish(f"blocks.{self._chain_id}", payload)
+            metrics_registry.increment("pbft_view_change_reseal_published_total")
+            logger.info(
+                "PBFT view-change re-seal published for %s height %s (original proposer %s)",
+                pp.block_hash[:18],
+                sequence,
+                pp.sender,
+            )
+        except Exception:
+            logger.exception("PBFT view-change re-seal publish failed for %s:%s", sequence, view)
 
     def get_certificate(self, block_hash: str, view: int | None = None) -> list[dict[str, Any]]:
         """Return the commit certificate for a completed PBFT round.
@@ -688,7 +858,7 @@ class PBFTConsensus:
         if self._gossip_backend is None:
             return  # no-op when no gossip backend is set (for testing)
         topic = f"pbft.{message.message_type.value}.{self._chain_id}"
-        msg_data = {
+        msg_data: dict[str, Any] = {
             "message_type": message.message_type.value,
             "sender": message.sender,
             "view_number": message.view_number,
@@ -698,6 +868,12 @@ class PBFTConsensus:
             "timestamp": message.timestamp,
             "block_hash": message.block_hash,
         }
+        # #2005 F3-C: pre-prepare extensions ride only when present — every
+        # other message type keeps the pre-#2005 wire shape byte-identical.
+        if message.block is not None:
+            msg_data["block"] = message.block
+        if message.new_view is not None:
+            msg_data["new_view"] = message.new_view
         await self._gossip_backend.publish(topic, msg_data)
 
     def _cleanup_messages(self, sequence: int) -> None:
@@ -711,6 +887,14 @@ class PBFTConsensus:
 
         for height in [h for h in self._prepared_heights if h < sequence]:
             self._prepared_heights.pop(height, None)
+
+        # #2005 F3-C: VC/NEW_VIEW buckets are re-gossipable state — prune
+        # them with the message buckets so a long-running node does not
+        # accumulate per-height protocol state forever.
+        for vc_key in [k for k in self._vc_messages if _int_key_seq(f"{k[0]}:{k[1]}") < sequence]:
+            self._vc_messages.pop(vc_key, None)
+        for nv_key in [k for k in self._new_views if _int_key_seq(f"{k[0]}:{k[1]}") < sequence]:
+            self._new_views.pop(nv_key, None)
 
     def _adopt_round_as_view(self, view: int) -> None:
         """Move to the round the network is in, keeping the messages for it.
@@ -823,6 +1007,18 @@ class PBFTConsensus:
         collected, it triggers the next PBFT phase for the local validator.
         """
         self._recalculate_fault_tolerance()
+        # #2005 F3-C: VIEW_CHANGE and NEW_VIEW are dict payloads with their
+        # own schemas (lock / vc_set / chosen_hash) — they are NOT
+        # PBFTMessage votes and never enter the phase buckets. Routed before
+        # reconstruction; dormant while the gate is unset.
+        if isinstance(message_data, dict):
+            mtype = message_data.get("message_type")
+            if mtype == VC_MESSAGE_TYPE:
+                await self._handle_view_change_payload(message_data)
+                return
+            if mtype == NV_MESSAGE_TYPE:
+                await self._handle_new_view_payload(message_data)
+                return
         try:
             message = PBFTMessage(
                 message_type=PBFTMessageType(message_data["message_type"]),
@@ -833,6 +1029,8 @@ class PBFTConsensus:
                 signature=message_data.get("signature", ""),
                 timestamp=message_data.get("timestamp", time.time()),
                 block_hash=message_data.get("block_hash", ""),
+                block=message_data.get("block"),
+                new_view=message_data.get("new_view"),
             )
         except (KeyError, ValueError):
             return  # malformed message — drop
@@ -899,6 +1097,19 @@ class PBFTConsensus:
             # derives the same round from the same on-chain timestamps, so a
             # pre-prepare carrying a higher one is the view change arriving.
             self._adopt_round_as_view(message.view_number)
+            # #2005 F3-C: while the gate is armed, an extended pre-prepare
+            # carries the NEW_VIEW proof and the full proposal body. The NV
+            # is verified and stored FIRST so the vote gate below can see
+            # it; the body is persisted BEFORE any PREPARE may be broadcast
+            # (Option R, fail closed); then the floor rises to this view.
+            if view_change_active(message.sequence_number):
+                if isinstance(message.new_view, dict):
+                    await self._handle_new_view_payload(message.new_view)
+                if isinstance(message.block, dict):
+                    message._proposal_persisted = self._vc_proposal_store(
+                        message.sequence_number, message.block_hash, message.block
+                    )
+                await self._ensure_view_change_sent(message.sequence_number, message.view_number)
             self.state.pre_prepare_messages[key] = message
             self._message_event.set()
             # As a validator, respond with a prepare for this pre-prepare
@@ -936,6 +1147,373 @@ class PBFTConsensus:
                 and self._digest_count(self.state.committed_messages[key], pp_digest) >= self.required_messages
             ):
                 await self.execute_phase(key)
+
+    # ------------------------------------------------------------------
+    # #2005 F3-C: VIEW_CHANGE / NEW_VIEW protocol (dormant)
+    #
+    # Everything below is gated by ``view_change_active(sequence)`` — while
+    # ``pbft_view_change_height`` is unset the methods are never reached and
+    # the engine is byte-identical to the pre-#2005 rotation behavior.
+    # ------------------------------------------------------------------
+
+    # -- persistence wrappers (duck-typed consensus doubles stay safe) --
+
+    def _vc_floor(self, sequence: int) -> int | None:
+        fn = getattr(self.consensus, "pbft_vc_floor", None)
+        return fn(sequence) if callable(fn) else None
+
+    def _vc_floor_raise(self, sequence: int, view: int) -> bool:
+        fn = getattr(self.consensus, "pbft_vc_floor_raise", None)
+        return bool(fn(sequence, view)) if callable(fn) else False
+
+    def _vc_commit_lock(self, sequence: int) -> dict[str, Any] | None:
+        fn = getattr(self.consensus, "pbft_vc_commit_lock", None)
+        return fn(sequence) if callable(fn) else None
+
+    def _vc_commit_lock_arm(self, sequence: int, view: int, block_hash: str, commit: dict[str, Any]) -> bool:
+        fn = getattr(self.consensus, "pbft_vc_commit_lock_arm", None)
+        return bool(fn(sequence, view, block_hash, commit)) if callable(fn) else False
+
+    def _vc_prepared_arm(self, sequence: int, view: int, block_hash: str) -> bool:
+        fn = getattr(self.consensus, "pbft_vc_prepared_arm", None)
+        return bool(fn(sequence, view, block_hash)) if callable(fn) else False
+
+    def _vc_proposal_store(self, sequence: int, block_hash: str, payload: dict[str, Any]) -> bool:
+        fn = getattr(self.consensus, "pbft_vc_proposal_store", None)
+        return bool(fn(sequence, block_hash, payload)) if callable(fn) else False
+
+    def _vc_proposal_get(self, sequence: int, block_hash: str) -> dict[str, Any] | None:
+        fn = getattr(self.consensus, "pbft_vc_proposal_get", None)
+        if not callable(fn):
+            return None
+        result = fn(sequence, block_hash)
+        return result if isinstance(result, dict) else None
+
+    def _vc_participants(self) -> list[str]:
+        return list(self.consensus.get_consensus_participants())
+
+    # -- sending VIEW_CHANGE --
+
+    def _commit_certificate_known(self, sequence: int) -> bool:
+        """Whether a commit quorum for ``sequence`` is already visible locally.
+
+        Design §3(a): a voter sends VC(h, v') only when no commit certificate
+        for h is known — a decided height never view-changes.
+        """
+        for key, commits in self.state.committed_messages.items():
+            if _int_key_seq(key) != sequence:
+                continue
+            pp = self.state.pre_prepare_messages.get(key)
+            if pp is None:
+                continue
+            if self._digest_count(commits, pp.digest) >= self.required_messages:
+                return True
+        return False
+
+    async def _send_view_change(self, sequence: int, view: int) -> bool:
+        """Persist the floor, then broadcast VIEW_CHANGE(h, view).
+
+        Order is load-bearing (design §7): the floor record is written
+        BEFORE the message may leave — a persistence failure means no VC.
+        The VC's ``lock`` carries this node's persisted commit-lock plus its
+        own signed COMMIT as proof.
+        """
+        if not self._local_validator or not self._private_key:
+            return False
+        if not self._vc_floor_raise(sequence, view):
+            metrics_registry.increment("pbft_view_change_persist_failed_total")
+            logger.error("PBFT view-change floor for seq %s view %s could not be persisted; no VC sent", sequence, view)
+            return False
+        lock = None
+        lock_view, lock_hash = -1, ""
+        lock_rec = self._vc_commit_lock(sequence)
+        if isinstance(lock_rec, dict):
+            lv = lock_rec.get("view")
+            lh = lock_rec.get("block_hash")
+            commit = lock_rec.get("commit")
+            if isinstance(lv, int) and not isinstance(lv, bool) and lv >= 0 and isinstance(lh, str) and lh:
+                lock_view, lock_hash = lv, lh
+                lock = {"view": lv, "block_hash": lh, "commit_msgs": [commit] if isinstance(commit, dict) else []}
+        vc = {
+            "message_type": VC_MESSAGE_TYPE,
+            "sender": self._local_validator,
+            "sequence_number": sequence,
+            "view_number": view,
+            "timestamp": time.time(),
+            "lock": lock,
+        }
+        vc["digest"] = view_change_digest(self._chain_id, sequence, view, lock_view, lock_hash)
+        from aitbc.crypto.consensus_signing import sign_consensus_message
+
+        vc["signature"] = sign_consensus_message(vc_signed_message(vc), self._private_key)
+        # Record our own VC so a locally-assembled NEW_VIEW can count it.
+        bucket = self._vc_messages.setdefault((sequence, view), {})
+        bucket.setdefault(canonical_address(self._local_validator), vc)
+        if self._gossip_backend is not None:
+            await self._gossip_backend.publish(f"pbft.{VC_MESSAGE_TYPE}.{self._chain_id}", vc)
+        return True
+
+    async def _ensure_view_change_sent(self, sequence: int, view: int) -> bool:
+        """Raise the floor to ``view`` when the round has reached it.
+
+        True when the floor already covers ``view``, a commit certificate
+        for the height is known (no view change needed), or the VC was
+        persisted+broadcast. False on persistence/signing failure — callers
+        must then refuse the vote (fail closed).
+        """
+        floor = self._vc_floor(sequence)
+        if floor is not None and view <= floor:
+            return True
+        if self._commit_certificate_known(sequence):
+            return True
+        return await self._send_view_change(sequence, view)
+
+    # -- receiving VIEW_CHANGE --
+
+    async def _handle_view_change_payload(self, data: dict[str, Any]) -> None:
+        """Intake one gossip VIEW_CHANGE: verify, bound, store."""
+        seq = data.get("sequence_number")
+        view = data.get("view_number")
+        if (
+            not isinstance(seq, int)
+            or isinstance(seq, bool)
+            or not isinstance(view, int)
+            or isinstance(view, bool)
+            or seq < 0
+            or view < 0
+            or not view_change_active(seq)
+        ):
+            return
+        ok, reason = verify_view_change(data, self._chain_id)
+        if not ok:
+            logger.debug("Dropping invalid VIEW_CHANGE for %s:%s: %s", seq, view, reason)
+            return
+        ok, reason = verify_vc_lock_commits(data)
+        if not ok:
+            logger.debug("Dropping VIEW_CHANGE with bad lock for %s:%s: %s", seq, view, reason)
+            return
+        participants = {canonical_address(a) for a in self._vc_participants()}
+        sender = canonical_address(str(data.get("sender", "")))
+        # Membership gate BEFORE storing: with an empty participant view the
+        # deployment is permissive (same policy as prepare/commit votes).
+        if participants and sender not in participants:
+            logger.warning(
+                "Dropping VIEW_CHANGE for height %s view %s from %s: not a consensus participant",
+                seq,
+                view,
+                data.get("sender"),
+            )
+            return
+        key = (seq, view)
+        bucket = self._vc_messages.get(key)
+        if bucket is None:
+            if len(self._vc_messages) >= MAX_VC_BUCKETS:
+                metrics_registry.increment("pbft_view_change_flood_dropped_total")
+                return
+            bucket = self._vc_messages[key] = {}
+        if sender in bucket:
+            return  # one VC per (sender, height, view) — first wins
+        if len(bucket) >= MAX_VC_SET_ENTRIES:
+            metrics_registry.increment("pbft_view_change_flood_dropped_total")
+            return
+        bucket[sender] = data
+        self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
+
+    # -- NEW_VIEW: build, receive, verify --
+
+    async def _build_new_view(self, sequence: int, view: int) -> dict[str, Any] | None:
+        """Assemble and broadcast NEW_VIEW(h, view) as the scheduled proposer.
+
+        Requires a local VC quorum (>= ``required_messages`` distinct
+        verified senders) and ownership of the ``(h, view)`` proposer slot.
+        Selection is recomputed from the VC locks — never asserted.
+        """
+        if not self._local_validator or not self._private_key:
+            return None
+        existing = self._new_views.get((sequence, view))
+        if existing is not None:
+            payload = existing.get("payload")
+            return payload if isinstance(payload, dict) else None
+        try:
+            expected = self.consensus.select_proposer(sequence, view)
+        except TypeError:
+            expected = self.consensus.select_proposer(sequence)
+        if expected != self._local_validator:
+            return None
+        bucket = self._vc_messages.get((sequence, view), {})
+        # Dedup by canonical sender — the same rule analyze_vc_set applies.
+        by_sender = {canonical_address(str(vc.get("sender", ""))): vc for vc in bucket.values()}
+        if len(by_sender) < self.required_messages:
+            return None
+        vc_set = list(by_sender.values())[:MAX_VC_SET_ENTRIES]
+        kind, selected = select_forced_hash({canonical_address(str(vc.get("sender", ""))): vc for vc in vc_set})
+        if kind == "conflict":
+            logger.error("PBFT NEW_VIEW for %s:%s has conflicting lock reports; refusing to build", sequence, view)
+            return None
+        chosen = selected if kind == "locked" else None
+        nv = {
+            "message_type": NV_MESSAGE_TYPE,
+            "sender": self._local_validator,
+            "sequence_number": sequence,
+            "view_number": view,
+            "timestamp": time.time(),
+            "vc_set": vc_set,
+            "chosen_hash": chosen,
+        }
+        nv["digest"] = new_view_digest(self._chain_id, sequence, view, chosen, [str(vc.get("digest", "")) for vc in vc_set])
+        from aitbc.crypto.consensus_signing import sign_consensus_message
+
+        nv["signature"] = sign_consensus_message(nv_signed_message(nv), self._private_key)
+        if self._gossip_backend is not None:
+            await self._gossip_backend.publish(f"pbft.{NV_MESSAGE_TYPE}.{self._chain_id}", nv)
+        self._new_views[(sequence, view)] = {"payload": nv, "kind": kind, "selected": selected}
+        return nv
+
+    async def _handle_new_view_payload(self, data: dict[str, Any]) -> None:
+        """Intake one gossip NEW_VIEW: full verification, then store."""
+        seq = data.get("sequence_number")
+        view = data.get("view_number")
+        if (
+            not isinstance(seq, int)
+            or isinstance(seq, bool)
+            or not isinstance(view, int)
+            or isinstance(view, bool)
+            or seq < 0
+            or view < 0
+            or not view_change_active(seq)
+        ):
+            return
+        try:
+            expected = self.consensus.select_proposer(seq, view)
+        except Exception:  # noqa: BLE001 - unknown schedule stays permissive
+            expected = None
+        ok, reason, kind, selected = verify_new_view(
+            data,
+            self._vc_participants(),
+            chain_id=self._chain_id,
+            sequence=seq,
+            view=view,
+            expected_sender=expected,
+        )
+        if not ok:
+            logger.debug("Dropping invalid NEW_VIEW for %s:%s: %s", seq, view, reason)
+            return
+        key = (seq, view)
+        if key in self._new_views:
+            return  # first valid NEW_VIEW wins — a second is proposer equivocation
+        if len(self._new_views) >= MAX_NV_BUCKETS:
+            metrics_registry.increment("pbft_view_change_flood_dropped_total")
+            return
+        self._new_views[key] = {"payload": data, "kind": kind, "selected": selected}
+        await self._retry_view_change_votes(seq, view)
+
+    async def _retry_view_change_votes(self, sequence: int, view: int) -> None:
+        """Re-drive prepare/commit for (sequence, view) once its NEW_VIEW verifies."""
+        if not self._local_validator:
+            return
+        key = f"{sequence}:{view}"
+        pp = self.state.pre_prepare_messages.get(key)
+        if pp is not None and key not in self._local_prepared:
+            await self.prepare_phase(self._local_validator, pp)
+        await self._maybe_send_commit(key)
+
+    # -- vote gates --
+
+    async def _prepare_view_change_proposal(
+        self, sequence: int, view: int, block_hash: str, block_payload: dict[str, Any] | None
+    ) -> tuple[dict[str, Any] | None, dict[str, Any] | None] | None:
+        """Proposer-side gate run inside ``pre_prepare_phase``.
+
+        Returns ``(block_payload, new_view_payload)`` to attach, or None
+        when the proposal must not be broadcast (payload missing/oversized
+        or persistence failed — fail closed, design §5/§7). While the gate
+        is armed a pre-prepare without a block body can never be recovered,
+        so it is refused outright.
+        """
+        if not isinstance(block_payload, dict):
+            logger.error(
+                "PBFT view-change gate armed at seq %s but no proposal payload supplied; refusing pre-prepare",
+                sequence,
+            )
+            return None
+        if not await self._ensure_view_change_sent(sequence, view):
+            return None
+        entry = self._new_views.get((sequence, view))
+        new_view_payload = entry["payload"] if entry is not None else None
+        if new_view_payload is None:
+            new_view_payload = await self._build_new_view(sequence, view)
+        if not self._vc_proposal_store(sequence, block_hash, block_payload):
+            metrics_registry.increment("pbft_view_change_persist_failed_total")
+            logger.error("PBFT proposal body for seq %s could not be persisted; refusing pre-prepare", sequence)
+            return None
+        return block_payload, new_view_payload
+
+    async def _view_change_prepare_allows(self, sequence: int, view: int, pp_msg: PBFTMessage) -> bool:
+        """Whether this node may broadcast a PREPARE for ``pp_msg``.
+
+        Dormant while the gate is unset. Armed: raises the floor to the
+        vote's view (sending VIEW_CHANGE first), requires the proposal body
+        to be persisted (Option R), then applies the floor + NEW_VIEW
+        permit rule.
+        """
+        if not view_change_active(sequence):
+            return True
+        if not await self._ensure_view_change_sent(sequence, view):
+            return False
+        if isinstance(pp_msg.block, dict):
+            if not pp_msg._proposal_persisted:
+                pp_msg._proposal_persisted = self._vc_proposal_store(sequence, pp_msg.block_hash, pp_msg.block)
+        if not pp_msg._proposal_persisted:
+            metrics_registry.increment("pbft_view_change_proposal_missing_total")
+            logger.warning(
+                "PBFT refusing prepare at seq %s view %s: proposal body not persisted",
+                sequence,
+                view,
+            )
+            return False
+        return self._view_change_permit(sequence, view, pp_msg.block_hash)
+
+    def _view_change_permit(self, sequence: int, view: int, block_hash: str) -> bool:
+        """The floor + NEW_VIEW permit rule (design §3).
+
+        ``floor`` is the highest view this node sent a VIEW_CHANGE for.
+        Never raised -> pre-protocol free vote. Otherwise the vote's view
+        must be >= floor AND a verified NEW_VIEW for exactly that view must
+        permit the hash (free selection permits any; locked selection only
+        the forced hash).
+        """
+        floor = self._vc_floor(sequence)
+        if floor is None:
+            return True
+        if view < floor:
+            metrics_registry.increment("pbft_view_change_floor_refused_total")
+            logger.warning("PBFT refusing vote at seq %s view %s: floor is %s", sequence, view, floor)
+            return False
+        entry = self._new_views.get((sequence, view))
+        if entry is None:
+            return False
+        if entry.get("kind") == "free":
+            return True
+        if entry.get("kind") == "locked":
+            return entry.get("selected") == block_hash
+        return False
+
+    def _view_change_commit_allows(self, sequence: int, view: int, block_hash: str) -> bool:
+        """Commit-side permit: same floor/NV rule plus the held body (Option R)."""
+        if not view_change_active(sequence):
+            return True
+        if not self._view_change_permit(sequence, view, block_hash):
+            return False
+        if self._vc_proposal_get(sequence, block_hash) is None:
+            metrics_registry.increment("pbft_view_change_proposal_missing_total")
+            logger.warning(
+                "PBFT refusing commit at seq %s view %s: proposal body for %s not held",
+                sequence,
+                view,
+                block_hash,
+            )
+            return False
+        return True
 
     # ------------------------------------------------------------------
     # B10: View change fixes (H4 + H6)

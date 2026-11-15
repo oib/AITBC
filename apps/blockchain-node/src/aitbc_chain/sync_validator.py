@@ -457,8 +457,15 @@ class ProposerSignatureValidator:
         PBFT producer/importer pair, not for carried-certificate blocks.
         """
         from .consensus.pbft_certificate import certificate_view_binding_active, strict_certificate_active
+        from .consensus.pbft_view_change import view_change_active
 
-        if not certificate_view_binding_active(height) or not strict_certificate_active(height):
+        # #2005 F3-C ruling 3A: ``pbft_view_change_height`` pins the same
+        # derived-round view — the certificate's view must equal the block's
+        # timestamp-derived proposer round once the view-change protocol is
+        # armed, closing the residual view-substitution gap.
+        if not (certificate_view_binding_active(height) or view_change_active(height)) or not strict_certificate_active(
+            height
+        ):
             return None, None
         if not getattr(settings, "pbft_consensus_enabled", False):
             return None, None

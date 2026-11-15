@@ -780,6 +780,12 @@ class ConsensusState(ChainBase, table=True):
     # #1940 F3-B: JSON object mapping str(sequence) -> committed block_hash —
     # this node's cross-view PBFT commit locks. "{}" on rows that predate it.
     pbft_commit_locks_json: str = Field(default="{}")
+    # #2005 F3-C: JSON object mapping str(sequence) -> VIEW_CHANGE protocol
+    # record {"floor","prepared","commit_lock","proposals"} — the durable
+    # per-height state the floor rule, commit-lock reports and proposal-body
+    # availability (Option R) depend on across restarts. "{}" on rows that
+    # predate it; auto-added by _migrate_existing_columns like the locks.
+    pbft_view_change_json: str = Field(default="{}")
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
