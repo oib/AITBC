@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from aitbc.rate_limiting import rate_limit
 
 from .. import peer_keys
-from ..escrow_routes import verify_rpc_peer_key
+from ..escrow_routes import rpc_fleet_key_accepted, verify_rpc_peer_key
 from ..subscription import (
     get_lease_status,
     get_subscribers,
@@ -166,5 +166,18 @@ async def subscribers_route(
     Peer-key gated (#1936): the subscriber list is node-local lease
     state (which fleet nodes hold live leases), not chain data — it
     stays off the public read surface like the rest of the lease API.
+
+    Issued join keys are scoped to their own node_id (#1966/#1981): they
+    see only their own valid subscriber rows. Fleet/admin keys keep the
+    full list. A missing or revoked scope fails closed with 403 — never
+    an unfiltered fallback.
     """
-    return await get_subscribers(chain_id)
+    if rpc_fleet_key_accepted(api_key):
+        return await get_subscribers(chain_id)
+    scope = peer_keys.peer_key_node_scope(api_key)
+    if scope is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Peer key has no active node scope",
+        )
+    return await get_subscribers(chain_id, node_id=scope)
