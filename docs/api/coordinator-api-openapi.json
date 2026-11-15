@@ -3770,7 +3770,7 @@
           "market-bonds"
         ],
         "summary": "Create or update a provider bond",
-        "description": "Create or top-up a provider performance bond record.\n\n#1915: the record is a projection of VERIFIED chain state, not a\nself-declaration. ``bond_id`` must name an ``active`` on-chain bond the\nchain attributes to the provider's registered wallet; ``amount`` and\n``status`` derive from that chain record (the body's ``amount`` is\nignored). ``required_amount`` is raised to the global floor if the\ncaller supplies a smaller value, and the bond is left ``PENDING`` until\nthe chain-verified amount meets that floor.",
+        "description": "Create or top-up a provider performance bond record.\n\n#1915: the record is a projection of VERIFIED chain state, not a\nself-declaration. ``bond_id`` must name an ``active`` on-chain bond the\nchain attributes to the provider's registered wallet; ``amount`` and\n``status`` derive from that chain record (the body's ``amount`` is\nignored). ``required_amount`` is raised to the global floor if the\ncaller supplies a smaller value, and the bond is left ``PENDING`` until\nthe chain-verified amount meets that floor.\n\n#1967: non-admin callers must also prove control of the provider's\nregistered wallet \u2014 ``challenge_nonce`` + ``wallet_signature`` from\n``POST .../bonds/challenge`` \u2014 and a ``bond_id`` may back only one\nprovider (409 on a cross-provider claim).",
         "operationId": "create_bond_v1_market_providers__provider_id__bonds_post",
         "parameters": [
           {
@@ -3841,7 +3841,17 @@
             }
           },
           "403": {
-            "description": "not the provider owner",
+            "description": "not the provider owner / invalid or expired bond wallet proof: request a challenge and sign it with the provider wallet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "bond {bond_id} is already bound to provider {claimed.provider_id} / bond {bond_id} is already bound to another provider",
             "content": {
               "application/json": {
                 "schema": {
@@ -3852,6 +3862,95 @@
           },
           "502": {
             "description": "could not verify bond {bond_id} against chain state",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/providers/{provider_id}/bonds/challenge": {
+      "post": {
+        "tags": [
+          "market-bonds"
+        ],
+        "summary": "Issue a bond wallet-ownership challenge",
+        "description": "Issue a single-use nonce the provider wallet must sign (#1967).\n\nReturns the canonical message to sign; post the nonce and resulting\nEIP-191 signature as ``challenge_nonce``/``wallet_signature`` on\n``POST .../bonds``. The nonce is bound to this provider and its\nregistered wallet, expires after 300s, and burns on first use.",
+        "operationId": "create_bond_challenge_v1_market_providers__provider_id__bonds_challenge_post",
+        "parameters": [
+          {
+            "name": "provider_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Provider Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BondChallengeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "provider has no registered wallet address; cannot bind an on-chain bond",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "not the provider owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
             "content": {
               "application/json": {
                 "schema": {
@@ -37521,6 +37620,34 @@
         "type": "object",
         "title": "BondAction"
       },
+      "BondChallengeResponse": {
+        "properties": {
+          "nonce": {
+            "type": "string",
+            "title": "Nonce"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "wallet_address": {
+            "type": "string",
+            "title": "Wallet Address"
+          },
+          "expires_in": {
+            "type": "integer",
+            "title": "Expires In"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nonce",
+          "message",
+          "wallet_address",
+          "expires_in"
+        ],
+        "title": "BondChallengeResponse"
+      },
       "BondCreate": {
         "properties": {
           "bond_id": {
@@ -37564,6 +37691,16 @@
             ],
             "title": "Required Amount",
             "default": "0.0"
+          },
+          "challenge_nonce": {
+            "type": "string",
+            "title": "Challenge Nonce",
+            "default": ""
+          },
+          "wallet_signature": {
+            "type": "string",
+            "title": "Wallet Signature",
+            "default": ""
           }
         },
         "type": "object",

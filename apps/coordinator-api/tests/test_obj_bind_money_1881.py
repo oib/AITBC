@@ -10,6 +10,8 @@ to a body user_id and payment-status was readable by anyone holding the id.
 from __future__ import annotations
 
 import pytest
+from eth_account import Account
+from eth_account.messages import encode_defunct
 from fastapi.testclient import TestClient
 
 from aitbc.auth import create_access_token
@@ -19,7 +21,11 @@ from coordinator_api.contexts.infrastructure.domain.miner import Miner
 from coordinator_api.contexts.infrastructure.domain.user import User, Wallet
 from coordinator_api.contexts.trading.domain.trading import TradeMatch, TradeRequest, TradeStatus
 
-OWNER_WALLET = "0x3333333333333333333333333333333333333333"
+# #1967: miner-1's wallet must be a real key — bond creation requires an
+# EIP-191 signature over the server-issued challenge. OTHER_WALLET stays a
+# bare address (the intruder never signs).
+OWNER_KEY = "0x" + "7b" * 32
+OWNER_WALLET = Account.from_key(OWNER_KEY).address
 OTHER_WALLET = "0x4444444444444444444444444444444444444444"
 AGENT = "agent-buyer-1"
 
@@ -53,6 +59,23 @@ def _chain_bonds(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def _headers(user_id: str, role: str = "client") -> dict[str, str]:
     return {"Authorization": f"Bearer {create_access_token(user_id, role)}"}
+
+
+def _bond_proof(client: TestClient, provider_id: str, headers: dict[str, str]) -> dict:
+    """#1967: run the bond-wallet challenge and return the proof fields."""
+    challenge = client.post(f"/v1/market/providers/{provider_id}/bonds/challenge", headers=headers).json()
+    account = Account.from_key(OWNER_KEY)
+    signed = account.sign_message(encode_defunct(text=challenge["message"]))
+    return {"challenge_nonce": challenge["nonce"], "wallet_signature": "0x" + signed.signature.hex()}
+
+
+def _create_bond(client: TestClient, provider_id: str, payload: dict, headers: dict[str, str]):
+    """POST create-bond with a fresh #1967 wallet proof attached."""
+    return client.post(
+        f"/v1/market/providers/{provider_id}/bonds",
+        json={**payload, **_bond_proof(client, provider_id, headers)},
+        headers=headers,
+    )
 
 
 @pytest.fixture
@@ -99,21 +122,17 @@ class TestBondObjectBinding:
         assert resp.status_code == 403
 
     def test_owner_via_miner_wallet_can_create(self, client: TestClient, seeded) -> None:
-        resp = client.post(
-            "/v1/market/providers/miner-1/bonds",
-            json={"bond_id": "cb-1881"},
-            headers=_headers("owner1"),
-        )
+        resp = _create_bond(client, "miner-1", {"bond_id": "cb-1881"}, _headers("owner1"))
         assert resp.status_code == 200
 
     def test_miner_sub_can_lock_own_bond(self, client: TestClient, seeded) -> None:
-        client.post("/v1/market/providers/miner-1/bonds", json={"bond_id": "cb-1881"}, headers=_headers("owner1"))
+        _create_bond(client, "miner-1", {"bond_id": "cb-1881"}, _headers("owner1"))
         resp = client.post("/v1/market/providers/miner-1/bonds/lock", headers=_headers("miner-1", "miner"))
         assert resp.status_code == 200
         assert resp.json()["status"] == "locked"
 
     def test_admin_can_slash_any_provider(self, client: TestClient, seeded) -> None:
-        client.post("/v1/market/providers/miner-1/bonds", json={"bond_id": "cb-1881"}, headers=_headers("owner1"))
+        _create_bond(client, "miner-1", {"bond_id": "cb-1881"}, _headers("owner1"))
         resp = client.post(
             "/v1/market/providers/miner-1/bonds/slash",
             json={"reason": "fraud"},

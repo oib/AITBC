@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**812 tools** across 90 modules.
+**813 tools** across 90 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 132 |
-| generated | 558 |
+| generated | 559 |
 | other | 7 |
 | rpc | 115 |
 
@@ -27,7 +27,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_analytics.py | 4 |
 | mcp-server/aitbc_mcp_cli_tools_generated_auth.py | 3 |
 | mcp-server/aitbc_mcp_cli_tools_generated_blockchain.py | 18 |
-| mcp-server/aitbc_mcp_cli_tools_generated_bond.py | 7 |
+| mcp-server/aitbc_mcp_cli_tools_generated_bond.py | 8 |
 | mcp-server/aitbc_mcp_cli_tools_generated_bootstrap.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_bounty.py | 6 |
 | mcp-server/aitbc_mcp_cli_tools_generated_brand.py | 2 |
@@ -328,6 +328,7 @@
 | `aitbc_blockchain_status` | mcp-server/aitbc_mcp_cli_tools_generated_blockchain.py | generated | `aitbc blockchain status` |
 | `aitbc_blockchain_stop` | mcp-server/aitbc_mcp_cli_tools_generated_blockchain.py | generated | `aitbc blockchain stop` |
 | `aitbc_bond_appeal` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond appeal` |
+| `aitbc_bond_challenge` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond challenge` |
 | `aitbc_bond_create` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond create` |
 | `aitbc_bond_lock` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond lock` |
 | `aitbc_bond_release` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond release` |

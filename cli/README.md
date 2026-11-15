@@ -23,7 +23,7 @@ aitbc --help
 | `ai` | AI job submission and inspection | `accept`, `cancel`, `distribution-stats`, `jobs`, `pay`, `refund`, `refund-sweep`, `results`, `service`, `stats`, `status`, `submit` |
 | `analytics` | Chain analytics and monitoring commands | `alerts`, `dashboard`, `monitor`, `optimize`, `predict`, `summary` |
 | `blockchain` | Multi-chain management commands | `add`, `backup`, `block`, `consensus`, `create`, `delete`, `height`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status` |
-| `bond` | Provider performance bond lifecycle commands. | `appeal`, `create`, `lock`, `release`, `slash`, `status`, `top-up` |
+| `bond` | Provider performance bond lifecycle commands. | `appeal`, `challenge`, `create`, `lock`, `release`, `slash`, `status`, `top-up` |
 | `bootstrap` | Bootstrap local development and configuration files. | `bootstrap-env` |
 | `brand` | Show and manage white-label brand settings. | `list`, `show` |
 | `bridge` | Cross-chain bridge management | `attest`, `balance`, `confirm`, `deposits`, `health`, `ingest-header`, `lock`, `oracle-status`, `pending`, `proof`, `register-validator`, `security-status`, `sign-proof`, `start`, `status`, `stop`, `store-header`, `unlock` |

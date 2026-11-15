@@ -13,6 +13,8 @@ from __future__ import annotations
 from decimal import Decimal
 
 import pytest
+from eth_account import Account
+from eth_account.messages import encode_defunct
 from fastapi.testclient import TestClient
 
 from aitbc.auth import create_access_token
@@ -22,7 +24,11 @@ from coordinator_api.contexts.blockchain.services.blockchain import BlockchainSe
 from coordinator_api.contexts.infrastructure.domain.miner import Miner
 from coordinator_api.contexts.infrastructure.domain.user import User, Wallet
 
-PROVIDER_WALLET = "0x1111111111111111111111111111111111111111"
+# #1967: the miner wallet must be a real key — bond creation now requires an
+# EIP-191 signature over the server-issued challenge. Deterministic key so
+# the tests can sign; OTHER_WALLET stays a bare address (never signs).
+BOND_KEY = "0x" + "5a" * 32
+PROVIDER_WALLET = Account.from_key(BOND_KEY).address
 OTHER_WALLET = "0x2222222222222222222222222222222222222222"
 UNITS_PER_AIT = 36_000_000
 
@@ -71,6 +77,29 @@ def _headers(sub: str = "provider-1", role: str = "client") -> dict[str, str]:
     return {"Authorization": f"Bearer {create_access_token(sub, role)}"}
 
 
+def _proof(client: TestClient, provider_id: str, headers: dict[str, str] | None = None) -> dict:
+    """#1967: run the bond-wallet challenge and return the proof fields."""
+    challenge = client.post(f"{BASE}/providers/{provider_id}/bonds/challenge", headers=headers or _headers()).json()
+    account = Account.from_key(BOND_KEY)
+    signed = account.sign_message(encode_defunct(text=challenge["message"]))
+    return {"challenge_nonce": challenge["nonce"], "wallet_signature": "0x" + signed.signature.hex()}
+
+
+def _create_bond(
+    client: TestClient,
+    provider_id: str,
+    payload: dict,
+    headers: dict[str, str] | None = None,
+):
+    """POST create-bond with a fresh #1967 wallet proof attached."""
+    hdrs = headers or _headers()
+    return client.post(
+        f"{BASE}/providers/{provider_id}/bonds",
+        json={**payload, **_proof(client, provider_id, hdrs)},
+        headers=hdrs,
+    )
+
+
 class TestBondAuth:
     def test_requires_auth(self, client: TestClient) -> None:
         assert client.post(f"{BASE}/providers/p1/bonds", json={}).status_code == 401
@@ -87,11 +116,7 @@ class TestBondAuth:
 class TestBondLifecycle:
     def test_create_below_floor_pending(self, client: TestClient, _chain_bonds) -> None:
         _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-1", "0.5")
-        resp = client.post(
-            f"{BASE}/providers/p1/bonds",
-            json={"bond_id": "cb-1", "required_amount": "0.1"},
-            headers=_headers(),
-        )
+        resp = _create_bond(client, "p1", {"bond_id": "cb-1", "required_amount": "0.1"})
         assert resp.status_code == 200
         body = resp.json()
         # required_amount raised to the global floor (default 1)
@@ -105,11 +130,7 @@ class TestBondLifecycle:
 
     def test_create_meeting_floor_active(self, client: TestClient, _chain_bonds) -> None:
         _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-2", "5")
-        resp = client.post(
-            f"{BASE}/providers/p1/bonds",
-            json={"bond_id": "cb-2", "required_amount": "2"},
-            headers=_headers(),
-        )
+        resp = _create_bond(client, "p1", {"bond_id": "cb-2", "required_amount": "2"})
         body = resp.json()
         assert body["status"] == "active"
         # amount comes from the CHAIN record, not the request body
@@ -118,18 +139,14 @@ class TestBondLifecycle:
     def test_caller_amount_is_ignored(self, client: TestClient, _chain_bonds) -> None:
         """#1915 core: a self-declared amount must not inflate the bond."""
         _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-3", "5")
-        resp = client.post(
-            f"{BASE}/providers/p1/bonds",
-            json={"bond_id": "cb-3", "amount": "999"},
-            headers=_headers(),
-        )
+        resp = _create_bond(client, "p1", {"bond_id": "cb-3", "amount": "999"})
         assert Decimal(resp.json()["amount"]) == Decimal("5")
 
     def test_create_is_upsert(self, client: TestClient, _chain_bonds) -> None:
         _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-a", "5")
         _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-b", "9")
-        client.post(f"{BASE}/providers/p1/bonds", json={"bond_id": "cb-a"}, headers=_headers())
-        resp = client.post(f"{BASE}/providers/p1/bonds", json={"bond_id": "cb-b"}, headers=_headers())
+        _create_bond(client, "p1", {"bond_id": "cb-a"})
+        resp = _create_bond(client, "p1", {"bond_id": "cb-b"})
         assert Decimal(resp.json()["amount"]) == Decimal("9")
         # still one record
         elig = client.get(f"{BASE}/providers/p1/eligibility", headers=_headers()).json()
@@ -140,19 +157,19 @@ class TestBondLifecycle:
         assert resp.status_code == 400
 
     def test_unknown_onchain_bond_rejected(self, client: TestClient, _chain_bonds) -> None:
-        resp = client.post(f"{BASE}/providers/p1/bonds", json={"bond_id": "cb-nope"}, headers=_headers())
+        resp = _create_bond(client, "p1", {"bond_id": "cb-nope"})
         assert resp.status_code == 400
         assert "not an on-chain bond" in resp.json()["detail"]
 
     def test_other_providers_bond_rejected(self, client: TestClient, _chain_bonds) -> None:
         """A bond the chain attributes to a different wallet cannot be claimed."""
         _seed_chain_bond(_chain_bonds, OTHER_WALLET, "cb-other", "50")
-        resp = client.post(f"{BASE}/providers/p1/bonds", json={"bond_id": "cb-other"}, headers=_headers())
+        resp = _create_bond(client, "p1", {"bond_id": "cb-other"})
         assert resp.status_code == 400
 
     def test_non_active_onchain_bond_rejected(self, client: TestClient, _chain_bonds) -> None:
         _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-rel", "5", status="released")
-        resp = client.post(f"{BASE}/providers/p1/bonds", json={"bond_id": "cb-rel"}, headers=_headers())
+        resp = _create_bond(client, "p1", {"bond_id": "cb-rel"})
         assert resp.status_code == 400
         assert "not active" in resp.json()["detail"]
 
@@ -167,7 +184,7 @@ class TestBondLifecycle:
             raise NetworkError("chain down")
 
         monkeypatch.setattr(BlockchainService, "list_provider_bonds", boom)
-        resp = client.post(f"{BASE}/providers/p1/bonds", json={"bond_id": "cb-x"}, headers=_headers())
+        resp = _create_bond(client, "p1", {"bond_id": "cb-x"})
         assert resp.status_code == 502
 
     def test_eligibility_no_bond(self, client: TestClient) -> None:
@@ -181,14 +198,14 @@ class TestBondLifecycle:
 
     def test_get_bond_by_id_roundtrip(self, client: TestClient, _chain_bonds) -> None:
         _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-5", "3")
-        created = client.post(f"{BASE}/providers/p2/bonds", json={"bond_id": "cb-5"}, headers=_headers()).json()
+        created = _create_bond(client, "p2", {"bond_id": "cb-5"}).json()
         resp = client.get(f"{BASE}/bonds/{created['id']}", headers=_headers())
         assert resp.status_code == 200
         assert resp.json()["provider_id"] == "p2"
 
     def test_lock_release_slash(self, client: TestClient, _chain_bonds) -> None:
         _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-6", "5")
-        client.post(f"{BASE}/providers/p3/bonds", json={"bond_id": "cb-6"}, headers=_headers())
+        _create_bond(client, "p3", {"bond_id": "cb-6"})
         locked = client.post(f"{BASE}/providers/p3/bonds/lock", headers=_headers()).json()
         assert locked["status"] == "locked"
         # amount preserved through transitions
@@ -213,7 +230,7 @@ class TestEligibilityChainReverify:
 
     def _active_bond(self, client: TestClient, _chain_bonds, bond_id: str = "cb-r1") -> dict:
         _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, bond_id, "5")
-        resp = client.post(f"{BASE}/providers/p1/bonds", json={"bond_id": bond_id}, headers=_headers())
+        resp = _create_bond(client, "p1", {"bond_id": bond_id})
         assert resp.status_code == 200, resp.text
         return resp.json()
 

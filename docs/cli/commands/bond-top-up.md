@@ -2,7 +2,7 @@
 
 # `aitbc bond top-up`
 
-Top up a provider's performance bond.
+Top up a provider's performance bond. Same wallet-ownership proof as ``create`` (#1967): pass a key source to sign the challenge automatically, or rely on an admin JWT.
 
 ## Usage
 
@@ -17,6 +17,12 @@ aitbc bond top-up [OPTIONS]
 | `--provider-id` | text | — | yes | Provider ID. |
 | `--amount` | text | `0.0` | no | Amount to add to the bond |
 | `--bond-id` | text | — | no | Optional on-chain/external bond identifier |
+| `--wallet` | text | — | no | Wallet that owns the provider bond (signs the #1967 ownership challenge) |
+| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
+| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
+| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
+| `--private-key` | text | — | no | Raw hex private key for the bond wallet (CI/scripts) |
+| `--private-key-file` | path | — | no | File containing the bond wallet's raw hex private key |
 | `--coordinator-url` | text | — | no | Coordinator URL |
 | `--format` | choice | — | no | Output format |
 

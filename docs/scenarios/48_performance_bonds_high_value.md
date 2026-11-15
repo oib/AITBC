@@ -161,6 +161,13 @@ aitbc bond top-up --provider-id 0xProvider --amount 36000000
 
 - `aitbc bond create` `POST`s to `/v1/market/providers/{provider_id}/bonds`
   and creates a `ProviderBond` record with `status: active`.
+- Since #1967, non-admin callers must prove control of the provider's
+  registered wallet: pass `--wallet`/`--private-key`/`--private-key-file`
+  and the CLI fetches a single-use challenge from
+  `POST .../bonds/challenge`, signs the returned message (EIP-191), and
+  posts `challenge_nonce` + `wallet_signature` with the create. A chain
+  `bond_id` may back exactly one provider — a second provider binding the
+  same `bond_id` gets 409.
 - `aitbc bond create` `POST`s to `/v1/market/providers/{provider_id}/bonds`
   and creates a `ProviderBond` record. If the posted `amount` is below the
   global floor (`COORDINATOR_BOND_MIN_AMOUNT`, default 1 AIT) or the supplied

@@ -339,6 +339,7 @@ GENERATED_DESTRUCTIVE_AITBC_PATHS = frozenset(
         "blockchain start",
         "blockchain stop",
         "bond appeal",
+        "bond challenge",
         "bond create",
         "bond lock",
         "bond release",

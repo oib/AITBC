@@ -8,6 +8,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, Field
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
@@ -28,6 +29,7 @@ from ..domain.provider_bond import (
 )
 from ...infrastructure.domain.miner import Miner
 from ...payments.provider_binding import miner_wallet_address
+from ..services.bond_wallet_proof import issue_bond_challenge, verify_bond_wallet_proof
 from aitbc.crypto.signature_recovery import canonical_address
 
 logger = get_logger(__name__)
@@ -38,6 +40,17 @@ class BondCreate(BaseModel):
     bond_id: str = Field(default_factory=lambda: "")
     amount: str | int | Decimal = Field(default="0.0")
     required_amount: str | int | Decimal = Field(default="0.0")
+    # #1967: proof that the caller controls the provider's registered wallet.
+    # Issued by POST .../bonds/challenge; single-use, 300s TTL.
+    challenge_nonce: str = Field(default="")
+    wallet_signature: str = Field(default="")
+
+
+class BondChallengeResponse(BaseModel):
+    nonce: str
+    message: str
+    wallet_address: str
+    expires_in: int
 
 
 class BondResponse(BaseModel):
@@ -133,6 +146,11 @@ def create_bond(
     ignored). ``required_amount`` is raised to the global floor if the
     caller supplies a smaller value, and the bond is left ``PENDING`` until
     the chain-verified amount meets that floor.
+
+    #1967: non-admin callers must also prove control of the provider's
+    registered wallet — ``challenge_nonce`` + ``wallet_signature`` from
+    ``POST .../bonds/challenge`` — and a ``bond_id`` may back only one
+    provider (409 on a cross-provider claim).
     """
     _require_provider_access(session, user, provider_id)
     bond_id = (body.bond_id or "").strip()
@@ -147,6 +165,29 @@ def create_bond(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="provider has no registered wallet address; cannot bind an on-chain bond",
+        )
+    # #1967: the registered wallet is self-declared at miner registration —
+    # prove key control before letting it claim an on-chain bond. Admin
+    # bypasses, matching _require_provider_access; everyone else must post a
+    # fresh single-use challenge signature.
+    if not is_admin(user) and not verify_bond_wallet_proof(provider_id, wallet, body.challenge_nonce, body.wallet_signature):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="invalid or expired bond wallet proof: request a challenge and sign it with the provider wallet",
+        )
+    # #1967: a chain bond_id may back exactly one provider — otherwise two
+    # miners could share one on-chain bond. "" stays allowed: bondless
+    # lock/release rows use it.
+    claimed = session.exec(
+        select(ProviderBond).where(
+            ProviderBond.bond_id == bond_id,
+            ProviderBond.provider_id != provider_id,
+        )
+    ).first()
+    if claimed is not None:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"bond {bond_id} is already bound to provider {claimed.provider_id}",
         )
     try:
         chain = BlockchainService().list_provider_bonds(wallet)
@@ -172,14 +213,24 @@ def create_bond(
     if required_amount < floor:
         required_amount = floor
     bond_status = ProviderBondStatus.ACTIVE if amount >= required_amount else ProviderBondStatus.PENDING
-    bond = set_provider_bond_status(
-        session,
-        provider_id,
-        bond_status,
-        amount=amount,
-        required_amount=required_amount,
-        bond_id=bond_id,
-    )
+    try:
+        bond = set_provider_bond_status(
+            session,
+            provider_id,
+            bond_status,
+            amount=amount,
+            required_amount=required_amount,
+            bond_id=bond_id,
+        )
+    except IntegrityError as e:
+        # #1967: the partial unique index on bond_id is the race-safe backstop
+        # for the pre-check above — two concurrent creates for different
+        # providers must not both land.
+        session.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"bond {bond_id} is already bound to another provider",
+        ) from e
     bond.meta = {
         **(bond.meta or {}),
         "chain_bond_id": bond_id,
@@ -192,6 +243,36 @@ def create_bond(
     session.commit()
     session.refresh(bond)
     return _bond_response(bond)
+
+
+@router.post("/providers/{provider_id}/bonds/challenge", summary="Issue a bond wallet-ownership challenge")
+@rate_limit(rate=20, per=60)
+def create_bond_challenge(
+    request: Request,
+    provider_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: Annotated[dict[str, Any], Depends(require_auth)],
+) -> BondChallengeResponse:
+    """Issue a single-use nonce the provider wallet must sign (#1967).
+
+    Returns the canonical message to sign; post the nonce and resulting
+    EIP-191 signature as ``challenge_nonce``/``wallet_signature`` on
+    ``POST .../bonds``. The nonce is bound to this provider and its
+    registered wallet, expires after 300s, and burns on first use.
+    """
+    _require_provider_access(session, user, provider_id)
+    miner = session.get(Miner, provider_id)
+    wallet = miner_wallet_address(miner) if miner is not None else None
+    if not wallet:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="provider has no registered wallet address; cannot bind an on-chain bond",
+        )
+    try:
+        challenge = issue_bond_challenge(provider_id, wallet)
+    except PermissionError as e:
+        raise HTTPException(status_code=status.HTTP_429_TOO_MANY_REQUESTS, detail=str(e)) from e
+    return BondChallengeResponse(**challenge)
 
 
 @router.get("/providers/{provider_id}/eligibility", summary="Check provider bond eligibility")

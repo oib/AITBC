@@ -706,6 +706,7 @@
 | `GET` | `/v1/market/plugins` | List market plugins |
 | `GET` | `/v1/market/pricing/{model}` | Get Pricing |
 | `POST` | `/v1/market/providers/{provider_id}/bonds` | Create or update a provider bond |
+| `POST` | `/v1/market/providers/{provider_id}/bonds/challenge` | Issue a bond wallet-ownership challenge |
 | `POST` | `/v1/market/providers/{provider_id}/bonds/lock` | Lock a provider bond |
 | `POST` | `/v1/market/providers/{provider_id}/bonds/release` | Release a locked provider bond |
 | `POST` | `/v1/market/providers/{provider_id}/bonds/slash` | Slash a provider bond |
