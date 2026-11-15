@@ -428,7 +428,7 @@ class _PoaBaseMixin:
         self._remote_attestation: RemoteAttestationService | None = None
         self._republish_tasks: set[asyncio.Task[None]] = set()  # #1268 seal re-announcers
         # #1985: abandons this proposer owes the mesh (liveness flag) and the once-per-start orphan-scan latch
-        self._abandon_ledger = abandon.AbandonLedger()
+        self._abandon_ledger = abandon.AbandonLedger(path=abandon.ledger_path(config.chain_id))
         self._abandon_orphans_done = False
         # #1281: unlock justification produced by the armed evidence valve,
         # keyed by proposal height — consumed by _record_proposal_vote,
@@ -897,6 +897,7 @@ class _PoaBaseMixin:
             if self._stop_event.is_set():
                 break
             try:
+                await self._abandon_tick_from_loop()
                 proposed = await self._propose_block_with_watchdog()
                 if proposed:
                     await self._wait_until_next_slot()
@@ -1136,7 +1137,6 @@ class _PoaBaseMixin:
             if resolved is None:
                 return False
             head, next_height, parent_hash, interval_seconds = resolved
-            await self._abandon_liveness_tick(next_height - 1)
             retry_cand = self._peek_same_hash_retry(next_height, parent_hash)
             timestamp = retry_cand[2] if retry_cand is not None else datetime.now(UTC)
             if session is not None:
@@ -1390,6 +1390,10 @@ class _PoaBaseMixin:
         if not abandon.abandon_enabled():
             return
         proposer = str(block.proposer)
+        if abandon.liveness_enabled():
+            # #1985: owe the abandon BEFORE the first publish, durably: a failed or lost first
+            # send, or a restart before the height is decided, must not forget it.
+            self._abandon_ledger.record(block.height, block_hash, round_number, proposer, 0.0)
         sent = await _send_abandon(
             self._config.chain_id,
             self._validator_keys,
@@ -1400,8 +1404,7 @@ class _PoaBaseMixin:
             round_number,
         )
         if sent and abandon.liveness_enabled():
-            # #1985: remember the dropped proposal so its abandon can be re-announced
-            self._abandon_ledger.record(block.height, block_hash, None, proposer, time.time())
+            self._abandon_ledger.mark_sent(block.height, block_hash, time.time())
 
     async def _abandon_liveness_tick(self, tip_height: int) -> None:
         """#1985: once-per-start orphan recovery, then paced re-announce. Inert unless the liveness flag is armed."""
@@ -1415,7 +1418,26 @@ class _PoaBaseMixin:
             if await _send_abandon(
                 self._config.chain_id, self._validator_keys, self._logger, height, block_hash, proposer, owed_round
             ):
+                self._abandon_ledger.mark_sent(height, block_hash, time.time())
                 metrics_registry.increment("vote_journal_abandon_reannounced_total")
+
+    async def _abandon_tick_from_loop(self) -> None:
+        """#1985: run the tick every loop iteration, not only in this validator's own proposal slots.
+
+        Reads the tip in its own short session (no gossip inside an open proposal session). Never
+        raises: the re-announce is best-effort and must not disturb the proposer loop.
+        """
+        if not abandon.liveness_enabled():
+            return
+        try:
+            with self._session_factory() as session:
+                head = session.exec(
+                    select(Block).where(Block.chain_id == self._config.chain_id).order_by(text("height DESC")).limit(1)
+                ).first()
+                tip = head.height if head is not None else -1
+            await self._abandon_liveness_tick(tip)
+        except Exception as exc:  # noqa: BLE001 - best effort; the valve remains the backstop
+            self._logger.warning("Abandon re-announce tick failed: %s", exc)
 
     def _recover_orphaned_proposals(self, tip_height: int) -> None:
         """#1985: proposals this validator journaled above the tip that died with a previous process.

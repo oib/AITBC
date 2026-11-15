@@ -1604,7 +1604,10 @@ class ChainSettings(BaseSettings):
     # durable: a voter that restarted or lost the one abandon publish stays
     # pinned to a hash nobody will seal (bc-2 h28508). Armed: (1) a proposer
     # re-signs and re-publishes its abandons while the height is undecided,
-    # at most once per ``vote_journal_abandon_reannounce_seconds`` per hash;
+    # at most once per ``vote_journal_abandon_reannounce_seconds`` per hash, owed from
+    # the moment of the drop (even if the first send fails), persisted in
+    # ``abandon_ledger.json`` next to the journal so a proposer restart keeps it, and
+    # checked on every proposer-loop iteration, not only in its own slots;
     # (2) on start it abandons and retracts its own journal proposals above
     # the tip (the block died with the process); (3) the attestation lock is
     # minted only after the journal accepts the vote, so a refused rival no

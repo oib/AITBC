@@ -50,7 +50,12 @@ def _isolate_persisted_vote_state():
             # #1298: attestation_round_locks.json is now written on every
             # non-round-lock attestation (always-on lock journal), so it
             # needs the same per-test isolation as the other durable records.
-            for pattern in ("*/attestation_signed.json*", "*/vote_journal.json*", "*/attestation_round_locks.json*"):
+            for pattern in (
+                "*/attestation_signed.json*",
+                "*/vote_journal.json*",
+                "*/attestation_round_locks.json*",
+                "*/abandon_ledger.json*",
+            ):
                 for stale in data_dir.glob(pattern):
                     stale.unlink(missing_ok=True)
         vote_journal.reset_vote_journals()
