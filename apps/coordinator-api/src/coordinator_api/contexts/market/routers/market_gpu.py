@@ -21,6 +21,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
 from aitbc.exceptions import AITBCError
 from aitbc.market.energy_oracle import EVMEnergyOracle, EnergyOracleError
+from aitbc.market.evm_rental_receipt import agreement_id_from_receipt_logs
 from aitbc.market.energy_pricing import (
     DEFAULT_FEE_BASIS_POINTS,
     EnergyPricingError,
@@ -313,16 +314,88 @@ BOOKING_HOLD_TTL = timedelta(minutes=30)
 _PAID_PAYMENT_STATUSES = tuple(sorted(REFUNDABLE_STATES | {"released", "confirmed"}))
 # #1930/#1974: "pending" payments are unverified — an EVM receipt that never
 # mined (or no RPC to check it) leaves the row pending forever with no
-# reaper, so shielding on it let a made-up evm_tx_hash squat a GPU for the
-# full shield window at zero cost. Only states where money is committed or
-# has moved protect the hold; pending holds release normally (see
-# _RELEASE_SAFE_PAYMENT_STATUSES) and expire by TTL like unpaid ones.
+# reaper, so shielding on the status alone let a made-up evm_tx_hash squat a
+# GPU at zero cost. A pending payment shields the hold only while ALL of
+# these hold: the recorded tx has a successful on-chain receipt AND that
+# receipt binds to this payment's contract/chain/agreement (a bare successful
+# hash is not enough — any cheap unrelated tx would otherwise pin the GPU),
+# and the payment is younger than _PENDING_SHIELD_TTL so the shield stays
+# bounded. Everything else expires by TTL like unpaid work.
+_PENDING_SHIELD_TTL = timedelta(hours=24)
 # "skipped" is terminal no-money (escrow unavailable) and does not protect.
 # JobPayment states where no live *verified* money remains — pending is
 # included because it is unverified, not committed: a pending EVM receipt
 # that later confirms is an operator-visible payment anomaly, not a reason
 # to hold the GPU hostage (#1974, owner/admin may release pending holds).
 _RELEASE_SAFE_PAYMENT_STATUSES = frozenset({"released", "refunded", "failed", "pending"})
+
+
+def _pending_payment_mined(payment: JobPayment) -> bool:
+    """True only when a pending payment's recorded EVM tx has a successful
+    receipt bound to THIS payment's contract/chain/agreement (#1974).
+
+    Mirrors the creation-time binding in ``payments._verify_evm_receipt``:
+    receipt ``to`` must equal the recorded ``evm_contract``, ``chainId`` the
+    recorded ``evm_chain_id``, and the receipt's AgreementStarted log must
+    carry the recorded ``evm_agreement_id``. Any missing piece fails closed —
+    a bare successful tx hash proves nothing about this payment. Runs a
+    synchronous Web3 call, so async callers must invoke it via
+    ``run_in_threadpool``.
+    """
+    meta = payment.meta_data or {}
+    tx_hash = meta.get("evm_tx_hash")
+    contract = str(meta.get("evm_contract") or "").lower()
+    chain_id = meta.get("evm_chain_id")
+    agreement_id = meta.get("evm_agreement_id")
+    rpc_url = settings.eth_rpc_url
+    if not rpc_url or not tx_hash or not contract or chain_id is None or agreement_id is None:
+        return False
+    try:
+        rpc = EthereumRPCClient(EthereumConfig(rpc_url=rpc_url, network=str(settings.energy_pricing_chain_id)))
+        receipt = rpc.get_transaction_receipt(str(tx_hash))
+        if receipt is None or int(receipt.get("status", 0)) != 1:
+            return False
+        if str(receipt.get("to") or "").lower() != contract:
+            return False
+        if int(receipt.get("chainId", 0)) != int(chain_id):
+            return False
+        observed = agreement_id_from_receipt_logs(receipt.get("log_entries") or [], contract)
+        return observed is not None and int(observed) == int(agreement_id)
+    except _OPS_ERRORS:
+        return False
+
+
+def _payment_shields_hold(session: Session, booking: GPUBooking) -> bool:
+    """True when the booking's bound payment still protects the hold.
+
+    Paid/committed states always shield. A pending payment shields only
+    inside ``_PENDING_SHIELD_TTL`` and only when ``_pending_payment_mined``
+    re-proves the receipt binds to this payment — real money in flight must
+    not lose its GPU, but an unverified or foreign hash never pins one.
+    """
+    payment = (
+        session.execute(
+            select(JobPayment)
+            .join(Job, col(Job.id) == JobPayment.job_id)
+            .where(
+                col(JobPayment.id) == booking.payment_id,
+                col(Job.client_id) == booking.client_id,
+            )
+            .limit(1)
+        )
+        .scalars()
+        .first()
+    )
+    if payment is None:
+        return False
+    if payment.status in _PAID_PAYMENT_STATUSES:
+        return True
+    if payment.status != "pending" or payment.created_at is None:
+        return False
+    paid_at = payment.created_at
+    if paid_at.tzinfo is None:
+        paid_at = paid_at.replace(tzinfo=UTC)
+    return datetime.now(UTC) - paid_at < _PENDING_SHIELD_TTL and _pending_payment_mined(payment)
 
 
 def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
@@ -358,19 +431,8 @@ def _expire_stale_booking(session: Session, gpu: GPURegistry) -> None:
     # purchase path at booking creation — and no flow attaches a payment to
     # an existing hold afterwards, so no legitimate paid flow depends on
     # job linkage; book_gpu holds are paymentless by design.
-    if booking.payment_id:
-        paid = session.execute(
-            select(JobPayment.id)
-            .join(Job, col(Job.id) == JobPayment.job_id)
-            .where(
-                col(JobPayment.id) == booking.payment_id,
-                col(Job.client_id) == booking.client_id,
-                col(JobPayment.status).in_(_PAID_PAYMENT_STATUSES),
-            )
-            .limit(1)
-        ).first()
-        if paid is not None:
-            return
+    if booking.payment_id and _payment_shields_hold(session, booking):
+        return
     booking.status = "expired"
     gpu.status = "available"
     session.add(booking)
@@ -737,7 +799,7 @@ async def _lock_gpu_for_purchase(session: Session, gpu_id: str) -> GPURegistry:
     # reaper commits, which would otherwise drop the FOR UPDATE lock early.
     gpu_preview = session.get(GPURegistry, gpu_id)
     if gpu_preview is not None:
-        _expire_stale_booking(session, gpu_preview)
+        await run_in_threadpool(_expire_stale_booking, session, gpu_preview)
     # Lock the GPU row while booking: two concurrent purchases could both see
     # "available" and double-book the same GPU.
     gpu = await run_in_threadpool(
@@ -1217,7 +1279,7 @@ async def book_gpu(
     # reaper commits, which would otherwise drop the FOR UPDATE lock early.
     gpu_preview = session.get(GPURegistry, gpu_id)
     if gpu_preview is not None:
-        _expire_stale_booking(session, gpu_preview)
+        await run_in_threadpool(_expire_stale_booking, session, gpu_preview)
     # Lock the GPU row while booking: two concurrent bookings could both see
     # "available" and double-book the same GPU (#1802, buy_gpu precedent).
     gpu = await run_in_threadpool(
@@ -1310,10 +1372,11 @@ def release_gpu(
         .first()
     )
     caller = user.get("sub")
-    if caller != gpu.miner_id and (booking is None or booking.client_id != caller):
+    is_admin = user.get("role") == "admin"
+    if not is_admin and caller != gpu.miner_id and (booking is None or booking.client_id != caller):
         raise HTTPException(
             status_code=http_status.HTTP_403_FORBIDDEN,
-            detail="only the GPU owner or the booking client may release it",
+            detail="only the GPU owner, the booking client, or an admin may release it",
         )
     # #1913: a paid booking's money lives in Job/JobPayment/escrow — freeing
     # the GPU here would leave the bound job live to settle afterward (the

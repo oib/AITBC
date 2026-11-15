@@ -2760,7 +2760,7 @@
             }
           },
           "403": {
-            "description": "only the GPU owner or the booking client may release it",
+            "description": "only the GPU owner, the booking client, or an admin may release it",
             "content": {
               "application/json": {
                 "schema": {
