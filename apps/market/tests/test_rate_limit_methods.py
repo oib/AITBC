@@ -11,6 +11,7 @@ method scoping — driving 121 real requests through the app just to see a
 trading suite already pins the 429 itself).
 """
 
+import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -25,9 +26,14 @@ def test_market_rate_limiter_scoped_to_mutating_methods() -> None:
     assert methods == frozenset({"POST", "PUT", "PATCH", "DELETE"})
 
 
-def test_shared_middleware_ignores_non_mutating_methods() -> None:
+def test_shared_middleware_ignores_non_mutating_methods(monkeypatch: pytest.MonkeyPatch) -> None:
     """RateLimitMiddleware(methods=...) counts only those methods — the
-    contract market/trading/pool-hub all rely on."""
+    contract market/trading/pool-hub all rely on.
+
+    The suite conftest disables rate limiting globally (#1976); this pin
+    needs the limiter live, so it opts back in.
+    """
+    monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "true")
     from aitbc.rate_limiting import RateLimitMiddleware
 
     app = FastAPI()

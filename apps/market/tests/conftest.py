@@ -41,6 +41,22 @@ def _test_database():
 
 
 @pytest.fixture(autouse=True)
+def _rate_limiting_off(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Disable the shared rate-limit middleware for this suite — and only for it.
+
+    Every TestClient request shares one client IP, so the whole suite draws on a
+    single 120/min mutating-method bucket; module request volume tips whichever
+    test happens to cross the line next (#1976: the provider-release-window
+    module pushed test_v6mkt_job_input into a 429). Same pattern as the
+    agent-coordinator, blockchain-node and blockchain-explorer conftests —
+    ``monkeypatch`` restores the previous value after each test, so nothing
+    leaks into sibling suites in the same pytest process. Tests that need the
+    limiter ON (test_rate_limit_methods) set the flag back themselves.
+    """
+    monkeypatch.setenv("AITBC_ENABLE_RATE_LIMITING", "false")
+
+
+@pytest.fixture(autouse=True)
 def _auth_disabled_for_tests(request):
     """Route tests exercise handler behaviour, not the key gate.
 
