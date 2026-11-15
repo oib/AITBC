@@ -335,6 +335,39 @@ def _submit_task(
     return cast(str, escrow_id)
 
 
+_RESULT_MAX_BYTES = 64 * 1024 * 1024
+
+
+def _fetch_result_capped(ipfs_api: str, result_ref: object) -> bytes:
+    """Fetch a provider-named result from the local Kubo daemon (#1971).
+
+    result_ref is provider-controlled and Kubo resolves cat args as IPFS
+    *paths*, so only a bare alphanumeric CID may reach the daemon (same gate as
+    the miner's payload_ref check, #1939); the read is streamed and size-capped.
+    """
+    import re as _re
+
+    import requests as _requests
+
+    if not isinstance(result_ref, str) or not _re.fullmatch(r"[A-Za-z0-9]{1,256}", result_ref):
+        error(f"Refusing malformed result_ref from provider: {result_ref!r}")
+        raise click.Abort()
+    try:
+        with _requests.post(f"{ipfs_api}/api/v0/cat", params={"arg": result_ref}, timeout=120, stream=True) as resp:
+            resp.raise_for_status()
+            chunks: list[bytes] = []
+            total = 0
+            for chunk in resp.iter_content(chunk_size=65536):
+                total += len(chunk)
+                if total > _RESULT_MAX_BYTES:
+                    raise ValueError(f"result exceeds {_RESULT_MAX_BYTES} bytes")
+                chunks.append(chunk)
+    except Exception as e:
+        error(f"Could not fetch result {result_ref}: {e}")
+        raise click.Abort() from e
+    return b"".join(chunks)
+
+
 def _wait_for_task_result(
     ctx,
     client: AITBCHTTPClient,
@@ -635,32 +668,7 @@ def result(
     if not _daemon_available(ipfs_api):
         error(f"No local island IPFS daemon reachable at {ipfs_api}")
         raise click.Abort()
-    import re as _re
-
-    import requests as _requests
-
-    # result_ref is provider-controlled: Kubo resolves cat args as IPFS *paths*,
-    # so only a bare alphanumeric CID may reach the daemon (same gate as the
-    # miner's payload_ref check, #1939) and the read is size-capped (#1971).
-    if not isinstance(result_ref, str) or not _re.fullmatch(r"[A-Za-z0-9]{1,256}", result_ref):
-        error(f"Refusing malformed result_ref from provider: {result_ref!r}")
-        raise click.Abort()
-    max_bytes = 64 * 1024 * 1024
-    try:
-        with _requests.post(f"{ipfs_api}/api/v0/cat", params={"arg": result_ref}, timeout=120, stream=True) as resp:
-            resp.raise_for_status()
-            chunks: list[bytes] = []
-            total = 0
-            for chunk in resp.iter_content(chunk_size=65536):
-                total += len(chunk)
-                if total > max_bytes:
-                    raise ValueError(f"result exceeds {max_bytes} bytes")
-                chunks.append(chunk)
-    except Exception as e:
-        error(f"Could not fetch result {result_ref}: {e}")
-        raise click.Abort() from e
-
-    data = b"".join(chunks)
+    data = _fetch_result_capped(ipfs_api, result_ref)
     expected = task_result.get("result_hash")
     actual = hashlib.sha256(data).hexdigest()
     if expected and expected != actual:
