@@ -9,6 +9,12 @@ Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/api-gateway
 Environment="PATH=/opt/aitbc/venv/bin"
 Environment="PYTHONPATH=/opt/aitbc/packages/py/aitbc-core/src:/opt/aitbc/apps/api-gateway/src:/opt/aitbc"
+# Service-specific secrets (API_GATEWAY_KEY, GATEWAY_REQUIRED_SERVICES) live in
+# /etc/aitbc/aitbc-api-gateway.env — the same %N pattern every other aitbc-* unit
+# uses (#1990). Live fleets may still carry a legacy 10-env.conf drop-in that
+# duplicates this line; it is safe to remove after daemon-reload picks up the unit.
+EnvironmentFile=/etc/aitbc/%N.env
+EnvironmentFile=-/etc/aitbc/%N-override.env
 # Bind is loopback by default: nginx proxies localhost:8201 on every host.
 # A deployment whose TLS terminator lives on a DIFFERENT host must override
 # with the private interface address (see docs/deployment/NETWORK_POLICY.md).

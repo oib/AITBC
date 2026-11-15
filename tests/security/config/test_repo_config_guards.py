@@ -136,6 +136,16 @@ def test_gateway_unit_pins_loopback_bind_host(gateway_unit: str) -> None:
     )
 
 
+def test_gateway_unit_loads_host_env_file(gateway_unit: str) -> None:
+    """``API_GATEWAY_KEY`` must be declared via ``EnvironmentFile``, not only
+    via an undocumented host drop-in (#1990). Without this line a fresh
+    deploy would start the gateway with an empty key and fail closed on every
+    authenticated route."""
+    assert re.search(r"^EnvironmentFile=-?/etc/aitbc/%N\.env", gateway_unit, re.MULTILINE), (
+        "aitbc-api-gateway.service does not declare EnvironmentFile=/etc/aitbc/%N.env"
+    )
+
+
 # ── systemd units: bind-host envs stay loopback (#1762) ────────────────
 
 _LOOPBACK = {"127.0.0.1", "localhost", "::1"}
