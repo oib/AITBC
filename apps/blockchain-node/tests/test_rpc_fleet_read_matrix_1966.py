@@ -110,6 +110,34 @@ class TestFleetPeerOnlyAccepted:
         assert resp.status_code == 200, resp.text
 
 
+class TestMissingWrongAndAdminKeys:
+    """Ported from D's verify-1966-matrix-d: the gate must reject absent and
+    bogus credentials outright, and the node admin key must pass every gated
+    route on both mounts (not just the fleet-peer-only slot)."""
+
+    @pytest.mark.parametrize("path", GATED_PATHS)
+    @pytest.mark.parametrize("prefix", MOUNTS)
+    def test_missing_key_is_403(self, client, path, prefix):
+        assert client.get(f"{prefix}{path}").status_code == 403, f"{prefix}{path}"
+
+    @pytest.mark.parametrize("path", GATED_PATHS)
+    @pytest.mark.parametrize("prefix", MOUNTS)
+    def test_wrong_key_is_403(self, client, path, prefix):
+        resp = client.get(f"{prefix}{path}", headers={"X-API-Key": "matrix-wrong-key"})
+        assert resp.status_code == 403, f"{prefix}{path}"
+
+    @pytest.mark.parametrize("path", GATED_PATHS)
+    @pytest.mark.parametrize("prefix", MOUNTS)
+    def test_admin_key_passes_fleet_gate(self, client, path, prefix):
+        resp = client.get(f"{prefix}{path}", headers={"X-API-Key": KEY})
+        assert resp.status_code != 403, f"{prefix}{path}"
+
+    @pytest.mark.parametrize("prefix", MOUNTS)
+    def test_admin_key_sync_config_200(self, client, prefix):
+        resp = client.get(f"{prefix}/sync/config", headers={"X-API-Key": KEY})
+        assert resp.status_code == 200, resp.text
+
+
 class TestLiveJoinCredential:
     """Anonymous /rpc/join issues a credential that must work for its own
     lease yet never unlock cross-user operational reads."""
