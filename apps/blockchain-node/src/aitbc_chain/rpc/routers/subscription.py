@@ -45,9 +45,23 @@ def _join_public_base_url() -> str:
 def _enforce_key_node_binding(api_key: str, node_id: str) -> None:
     """Issued join keys may only manage their own node_id's lease.
 
-    Keys from ``BLOCKCHAIN_RPC_API_KEY_PEERS`` are fleet-internal and unbound.
+    Keys from ``BLOCKCHAIN_RPC_API_KEY_PEERS`` are fleet-internal and
+    unbound. Any other authenticated key must resolve to an ACTIVE issued
+    scope — classify once via ``peer_key_node_scope`` and fail closed on
+    ``None``. Re-checking ``is_issued_key`` here was a TOCTOU (#1994): a
+    key revoked between ``verify_rpc_peer_key`` and this check read as
+    "not issued" and skipped the binding entirely, acting as an unbound
+    fleet key.
     """
-    if peer_keys.is_issued_key(api_key) and peer_keys.peer_key_node_scope(api_key) != node_id:
+    if rpc_fleet_key_accepted(api_key):
+        return
+    scope = peer_keys.peer_key_node_scope(api_key)
+    if scope is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Peer key has no active node scope",
+        )
+    if scope != node_id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Issued peer key is bound to a different node_id",
