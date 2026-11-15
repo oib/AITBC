@@ -43,6 +43,7 @@ class _ListenerMixin(_RaBaseMixin):
     if TYPE_CHECKING:
 
         def _abandoned_round_rival(self, *args: Any, **kwargs: Any) -> Any: ...
+        def _abandoned_height_rival(self, *args: Any, **kwargs: Any) -> Any: ...
         def _derive_request_round(self, *args: Any, **kwargs: Any) -> Any: ...
         def _round_lock_enabled(self, *args: Any, **kwargs: Any) -> Any: ...
         def _ensure_round_locks_loaded(self, *args: Any, **kwargs: Any) -> Any: ...
@@ -529,6 +530,29 @@ class _ListenerMixin(_RaBaseMixin):
                     abandoned[:18],
                 )
                 self._count_refusal("abandon_same_round_refusal")
+                return
+        elif abandon.abandon_enabled():
+            # #1940 F2: round-lock off (or round underivable) — the
+            # (height, round) index cannot prove same-round vs cross-round,
+            # so any abandoned hash at this height fails closed. Re-signing
+            # the abandoned hash itself stays allowed. Flag-gated: with
+            # abandon OFF this branch is inert and behavior is unchanged.
+            if request_round is not None:
+                abandoned = self._abandoned_round_rival(height_int, request_round, header_hash)
+                kind = "same-round"
+            else:
+                abandoned = self._abandoned_height_rival(height_int, header_hash)
+                kind = "unbounded"
+            if abandoned is not None:
+                metrics_registry.increment("vote_journal_abandon_same_round_refused_total")
+                logger.info(
+                    "Abandon %s refusal: %s at height %s (abandoned %s)",
+                    kind,
+                    header_hash[:18],
+                    height_int,
+                    abandoned[:18],
+                )
+                self._count_refusal(f"abandon_{kind}_refusal")
                 return
 
         # v9: before signing, verify every transaction in the request —
