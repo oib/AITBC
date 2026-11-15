@@ -128,40 +128,45 @@ class ChaosOrchestrator:
             self.results["summary"]["total_scenarios"] - self.results["summary"]["successful_scenarios"]
         )
 
+    def _recommendations(self) -> list[str]:
+        """Build report recommendations from summary and per-scenario results."""
+        recs = []
+        summary = self.results["summary"]
+
+        if summary["average_mttr"] > 120:
+            recs.append("Average MTTR exceeds 2 minutes. Consider improving recovery automation.")
+
+        if summary["max_mttr"] > 300:
+            recs.append("Maximum MTTR exceeds 5 minutes. Review slowest recovery scenario.")
+
+        if summary["failed_scenarios"] > 0:
+            recs.append(f"{summary['failed_scenarios']} scenario(s) failed. Review test configuration.")
+
+        # Check for specific scenario issues
+        for scenario in self.results["scenarios"]:
+            recs.extend(self._scenario_recommendations(scenario))
+
+        return recs
+
+    @staticmethod
+    def _scenario_recommendations(scenario: dict) -> list[str]:
+        name = scenario.get("scenario_name")
+        if name == "coordinator_outage" and scenario.get("mttr", 0) > 180:
+            return ["Coordinator recovery is slow. Consider reducing pod startup time."]
+        if name == "network_partition" and scenario.get("error_count", 0) > scenario.get("success_count", 0):
+            return ["High error rate during network partition. Improve error handling."]
+        if name == "database_failure" and scenario.get("failure_type") == "connection":
+            return ["Consider implementing database connection pooling and retry logic."]
+        return []
+
     def generate_report(self, output_file: str | None = None):
         """Generate a comprehensive chaos test report"""
         report = {
             "report_generated": datetime.now(UTC).isoformat(),
             "namespace": self.namespace,
             "orchestration": self.results,
-            "recommendations": [],
+            "recommendations": self._recommendations(),
         }
-
-        # Add recommendations based on results
-        if self.results["summary"]["average_mttr"] > 120:
-            report["recommendations"].append("Average MTTR exceeds 2 minutes. Consider improving recovery automation.")
-
-        if self.results["summary"]["max_mttr"] > 300:
-            report["recommendations"].append("Maximum MTTR exceeds 5 minutes. Review slowest recovery scenario.")
-
-        if self.results["summary"]["failed_scenarios"] > 0:
-            report["recommendations"].append(
-                f"{self.results['summary']['failed_scenarios']} scenario(s) failed. Review test configuration."
-            )
-
-        # Check for specific scenario issues
-        for scenario in self.results["scenarios"]:
-            if scenario.get("scenario_name") == "coordinator_outage":
-                if scenario.get("mttr", 0) > 180:
-                    report["recommendations"].append("Coordinator recovery is slow. Consider reducing pod startup time.")
-
-            elif scenario.get("scenario_name") == "network_partition":
-                if scenario.get("error_count", 0) > scenario.get("success_count", 0):
-                    report["recommendations"].append("High error rate during network partition. Improve error handling.")
-
-            elif scenario.get("scenario_name") == "database_failure":
-                if scenario.get("failure_type") == "connection":
-                    report["recommendations"].append("Consider implementing database connection pooling and retry logic.")
 
         # Save report
         if output_file:
