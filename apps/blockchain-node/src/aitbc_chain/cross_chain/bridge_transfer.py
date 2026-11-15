@@ -897,7 +897,7 @@ class BridgeTransferMixin(BridgeBase):
                     validator_signatures = [
                         a.get("signature", "") for a in metadata.get("attestations", []) if a.get("signature")
                     ]
-                except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
+                except (RecursionError, TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                     validator_signatures = []
 
             # Issue #670: the sealed metadata may carry fewer attestations than

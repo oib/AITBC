@@ -455,7 +455,7 @@ class _ValidationMixin:
         if isinstance(gov_payload, str):
             try:
                 gov_payload = json.loads(gov_payload)
-            except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
+            except (RecursionError, TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                 gov_payload = {}
         gov_action = (gov_payload.get("execution_payload") or {}).get("action")
         if gov_action == "set_governance_address":
@@ -767,7 +767,7 @@ class _ValidationMixin:
         if isinstance(ctx.payload, str):
             try:
                 ctx.payload = json.loads(ctx.payload)
-            except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
+            except (RecursionError, TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
                 return (False, "IPFS_SUBSCRIPTION payload is not valid JSON")
         if not ctx.payload.get("island_id"):
             return (False, "IPFS_SUBSCRIPTION payload must include island_id")
