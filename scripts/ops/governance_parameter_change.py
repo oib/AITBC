@@ -408,17 +408,8 @@ def _new_proposal_id(parameter: str, nonce: int) -> str:
     return f"manual-{parameter}-{datetime.now(UTC).date().isoformat()}-n{nonce}"
 
 
-def cmd_plan(args: argparse.Namespace) -> int:
-    if args.parameter not in ALL_PARAMETERS:
-        _fail(f"unknown parameter {args.parameter!r} — expected one of {', '.join(ALL_PARAMETERS)}")
-    target_value, target_elements = _validated_value(args.parameter, args.value)
-
-    chain_id = args.chain_id or _fetch_chain_id(args.rpc_url)
-    parameters = _fetch_parameters(args.rpc_url, chain_id)
-    executor = args.executor or _default_executor(parameters)
-    current = parameters.get(args.parameter)
-
-    if args.parameter == "governance_executors" and executor.lower() not in {e.lower() for e in target_elements}:
+def _warn_executor_not_listed(parameter: str, executor: str, target_elements: list[str]) -> None:
+    if parameter == "governance_executors" and executor.lower() not in {e.lower() for e in target_elements}:
         print(
             f"WARNING: executor {executor} is NOT in the new list — signing this change with that "
             "key permanently locks out every executor (no key left able to sign). "
@@ -426,50 +417,69 @@ def cmd_plan(args: argparse.Namespace) -> int:
             file=sys.stderr,
         )
 
+
+def _plan_proofs(parameter: str, target_elements: list[str], proof_files: list[str]) -> set[str]:
+    """Lowercased addresses the --proof-key-file keys prove (empty for non-executor params)."""
     proven: set[str] = set()
-    if args.parameter == "governance_executors":
-        proven_list, invalid_proofs = _proof_addresses(args.proof_key_file, target_elements, strict=False)
+    if parameter == "governance_executors":
+        proven_list, invalid_proofs = _proof_addresses(proof_files, target_elements, strict=False)
         proven = {a.lower() for a in proven_list}
         for message in invalid_proofs:
             print(f"warning: {message} — it proves nothing this change keeps", file=sys.stderr)
+    return proven
 
-    nonce, balance = _fetch_account(args.rpc_url, chain_id, executor)
-    proposal_id = args.proposal_id or _new_proposal_id(args.parameter, nonce)
-    tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, target_value)
 
-    print(f"chain_id:   {chain_id}")
-    print(f"parameter:  {args.parameter}")
-    print(f"current:    {current if current is not None else '(unset)'}")
-    print(f"target:     {target_value}")
-    if args.parameter == "governance_executors":
-        current_set = {e.strip().lower() for e in (current or "").split(",") if e.strip()}
-        unproven: list[str] = []
-        for element in target_elements:
-            if element.lower() in current_set:
-                mark = "kept"
-            elif element.lower() in proven:
-                mark = "added — proof provided"
-            else:
-                mark = "added — proof REQUIRED"
-                unproven.append(element)
-            print(f"  member:   {element}  {mark}")
-        if unproven:
+def _report_executors(current: str | None, target_elements: list[str], proven: set[str]) -> None:
+    """Per-member kept/added/proof status for a governance_executors change."""
+    current_set = {e.strip().lower() for e in (current or "").split(",") if e.strip()}
+    unproven: list[str] = []
+    for element in target_elements:
+        if element.lower() in current_set:
+            mark = "kept"
+        elif element.lower() in proven:
+            mark = "added — proof provided"
+        else:
+            mark = "added — proof REQUIRED"
+            unproven.append(element)
+        print(f"  member:   {element}  {mark}")
+    if unproven:
+        print(
+            f"warning: added member(s) without a key custody proof: {', '.join(unproven)} — "
+            "sign-submit refuses until every added member has a --proof-key-file",
+            file=sys.stderr,
+        )
+
+
+def _report_fee_targets(rpc_url: str, chain_id: str, parameter: str, target_elements: list[str]) -> None:
+    """Balance report + funding warning for fee-paying target parameters."""
+    for address in target_elements:
+        _, target_balance = _fetch_account(rpc_url, chain_id, address)
+        print(f"  target:   {address}  balance {target_balance} units")
+        if target_balance < REQUIRED_BALANCE_UNITS:
             print(
-                f"warning: added member(s) without a key custody proof: {', '.join(unproven)} — "
-                "sign-submit refuses until every added member has a --proof-key-file",
+                f"warning: new {parameter} {address} cannot cover its own tx fees "
+                f"(balance {target_balance} < required {REQUIRED_BALANCE_UNITS}) — "
+                "sign-submit refuses unless funded or --allow-unfunded-target",
                 file=sys.stderr,
             )
-    if args.parameter in FEE_PAYING_TARGET_PARAMETERS:
-        for address in target_elements:
-            _, target_balance = _fetch_account(args.rpc_url, chain_id, address)
-            print(f"  target:   {address}  balance {target_balance} units")
-            if target_balance < REQUIRED_BALANCE_UNITS:
-                print(
-                    f"warning: new {args.parameter} {address} cannot cover its own tx fees "
-                    f"(balance {target_balance} < required {REQUIRED_BALANCE_UNITS}) — "
-                    "sign-submit refuses unless funded or --allow-unfunded-target",
-                    file=sys.stderr,
-                )
+
+
+def _print_plan_head(chain_id: str, parameter: str, current: str | None, target_value: str) -> None:
+    print(f"chain_id:   {chain_id}")
+    print(f"parameter:  {parameter}")
+    print(f"current:    {current if current is not None else '(unset)'}")
+    print(f"target:     {target_value}")
+
+
+def _print_plan_tail(
+    current: str | None,
+    target_value: str,
+    executor: str,
+    nonce: int,
+    balance: int,
+    proposal_id: str,
+    tx: dict,
+) -> None:
     print(f"executor:   {executor}  (nonce {nonce}, balance {balance} units at read time — re-fetched on sign-submit)")
     if balance < REQUIRED_BALANCE_UNITS:
         print(
@@ -483,7 +493,114 @@ def cmd_plan(args: argparse.Namespace) -> int:
     print(f"signing digest (keccak256 of canonical unsigned fields): {_signing_digest(tx)}")
     if current is not None and current.lower() == target_value.lower():
         print("note: current value already equals the target — sign-submit would refuse this change")
+
+
+def cmd_plan(args: argparse.Namespace) -> int:
+    if args.parameter not in ALL_PARAMETERS:
+        _fail(f"unknown parameter {args.parameter!r} — expected one of {', '.join(ALL_PARAMETERS)}")
+    target_value, target_elements = _validated_value(args.parameter, args.value)
+
+    chain_id = args.chain_id or _fetch_chain_id(args.rpc_url)
+    parameters = _fetch_parameters(args.rpc_url, chain_id)
+    executor = args.executor or _default_executor(parameters)
+    current = parameters.get(args.parameter)
+
+    _warn_executor_not_listed(args.parameter, executor, target_elements)
+    proven = _plan_proofs(args.parameter, target_elements, args.proof_key_file)
+
+    nonce, balance = _fetch_account(args.rpc_url, chain_id, executor)
+    proposal_id = args.proposal_id or _new_proposal_id(args.parameter, nonce)
+    tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, target_value)
+
+    _print_plan_head(chain_id, args.parameter, current, target_value)
+    if args.parameter == "governance_executors":
+        _report_executors(current, target_elements, proven)
+    if args.parameter in FEE_PAYING_TARGET_PARAMETERS:
+        _report_fee_targets(args.rpc_url, chain_id, args.parameter, target_elements)
+    _print_plan_tail(current, target_value, executor, nonce, balance, proposal_id, tx)
     return 0
+
+
+def _executors_guard(
+    args: argparse.Namespace,
+    parameter: str,
+    target_elements: list[str],
+    executor: str,
+    executors: set[str],
+    chain_id: str,
+) -> None:
+    """Custody guard for governance_executors; no-op for other parameters.
+
+    Every member the new list adds must come with a --proof-key-file deriving
+    to it — the chain only gates on a listed address, so an unproven entry
+    could be a key nobody holds. And a dropped signer must leave a proven
+    survivor behind, or no held key is left to ever sign a GOVERNANCE_EXECUTE
+    again.
+    """
+    if parameter != "governance_executors":
+        return
+    new_set = {e.lower() for e in target_elements}
+    proven, _ = _proof_addresses(args.proof_key_file, target_elements)
+    proven_set = {a.lower() for a in proven}
+    added = [e for e in target_elements if e.lower() not in executors]
+    unproven = [e for e in added if e.lower() not in proven_set]
+    if unproven:
+        _fail(
+            f"new governance_executors member(s) without a key custody proof: {', '.join(unproven)} — "
+            "pass --proof-key-file for every added address"
+        )
+    reason = _executor_lockout_reason(executor, target_elements, proven)
+    if reason is not None:
+        _fail(reason)
+    for address in proven:
+        _check_fee_balance("executor member", address, _fetch_account(args.rpc_url, chain_id, address)[1])
+    if executor.lower() not in new_set:
+        print(
+            f"executor rotation: signing key {executor} leaves the set; "
+            f"custody of surviving executor {', '.join(proven)} proven by --proof-key-file"
+        )
+    if added:
+        print(f"new executor members with custody proven by --proof-key-file: {', '.join(added)}")
+
+
+def _fee_target_guard(args: argparse.Namespace, parameter: str, target_elements: list[str], chain_id: str) -> None:
+    """Funded-authority gate (FEE_PAYING_TARGET_PARAMETERS); no-op otherwise.
+
+    The target pays its own tx fees after the rotation, so an unfunded target
+    silently disables the capability. --allow-unfunded-target is the
+    deliberate escape hatch for intentionally parking a capability unfunded.
+    """
+    if parameter not in FEE_PAYING_TARGET_PARAMETERS:
+        return
+    for address in target_elements:
+        _, target_balance = _fetch_account(args.rpc_url, chain_id, address)
+        if args.allow_unfunded_target:
+            if target_balance < REQUIRED_BALANCE_UNITS:
+                print(
+                    f"warning: --allow-unfunded-target — new {parameter} {address} "
+                    f"balance {target_balance} < required {REQUIRED_BALANCE_UNITS} units",
+                    file=sys.stderr,
+                )
+        else:
+            _check_fee_balance(f"new {parameter}", address, target_balance)
+
+
+def _propose_first(
+    args: argparse.Namespace,
+    executor: str,
+    chain_id: str,
+    nonce: int,
+    proposal_id: str,
+    parameter: str,
+    target_value: str,
+    private_key: str,
+) -> int:
+    """Submit + seal the GOVERNANCE_PROPOSE leg; returns the post-seal nonce."""
+    propose_tx = _build_propose_tx(executor, chain_id, nonce, proposal_id, parameter, target_value)
+    _sign_and_post(args, propose_tx, private_key, executor, chain_id)
+    nonce, balance = _fetch_account(args.rpc_url, chain_id, executor)
+    _check_fee_balance("executor", executor, balance)
+    return nonce
 
 
 def cmd_sign_submit(args: argparse.Namespace) -> int:
@@ -511,51 +628,8 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
     nonce, balance = _fetch_account(args.rpc_url, chain_id, executor)
     _check_fee_balance("executor", executor, balance)
 
-    # Custody guard for governance_executors: every member the new list adds
-    # must come with a --proof-key-file deriving to it — the chain only gates
-    # on a listed address, so an unproven entry could be a key nobody holds.
-    # And a dropped signer must leave a proven survivor behind, or no held key
-    # is left to ever sign a GOVERNANCE_EXECUTE again.
-    if args.parameter == "governance_executors":
-        new_set = {e.lower() for e in target_elements}
-        proven, _ = _proof_addresses(args.proof_key_file, target_elements)
-        proven_set = {a.lower() for a in proven}
-        added = [e for e in target_elements if e.lower() not in executors]
-        unproven = [e for e in added if e.lower() not in proven_set]
-        if unproven:
-            _fail(
-                f"new governance_executors member(s) without a key custody proof: {', '.join(unproven)} — "
-                "pass --proof-key-file for every added address"
-            )
-        reason = _executor_lockout_reason(executor, target_elements, proven)
-        if reason is not None:
-            _fail(reason)
-        for address in proven:
-            _check_fee_balance("executor member", address, _fetch_account(args.rpc_url, chain_id, address)[1])
-        if executor.lower() not in new_set:
-            print(
-                f"executor rotation: signing key {executor} leaves the set; "
-                f"custody of surviving executor {', '.join(proven)} proven by --proof-key-file"
-            )
-        if added:
-            print(f"new executor members with custody proven by --proof-key-file: {', '.join(added)}")
-
-    # Funded-authority gate (FEE_PAYING_TARGET_PARAMETERS): the target pays
-    # its own tx fees after the rotation, so an unfunded target silently
-    # disables the capability. --allow-unfunded-target is the deliberate
-    # escape hatch for intentionally parking a capability unfunded.
-    if args.parameter in FEE_PAYING_TARGET_PARAMETERS:
-        for address in target_elements:
-            _, target_balance = _fetch_account(args.rpc_url, chain_id, address)
-            if args.allow_unfunded_target:
-                if target_balance < REQUIRED_BALANCE_UNITS:
-                    print(
-                        f"warning: --allow-unfunded-target — new {args.parameter} {address} "
-                        f"balance {target_balance} < required {REQUIRED_BALANCE_UNITS} units",
-                        file=sys.stderr,
-                    )
-            else:
-                _check_fee_balance(f"new {args.parameter}", address, target_balance)
+    _executors_guard(args, args.parameter, target_elements, executor, executors, chain_id)
+    _fee_target_guard(args, args.parameter, target_elements, chain_id)
 
     proposal_id = args.proposal_id or _new_proposal_id(args.parameter, nonce)
 
@@ -564,10 +638,7 @@ def cmd_sign_submit(args: argparse.Namespace) -> int:
     # invocation (propose seals first, then execute reuses nonce+1). On
     # pre-v13 chains the flag is unnecessary but harmless.
     if args.propose_first:
-        propose_tx = _build_propose_tx(executor, chain_id, nonce, proposal_id, args.parameter, target_value)
-        _sign_and_post(args, propose_tx, private_key, executor, chain_id)
-        nonce, balance = _fetch_account(args.rpc_url, chain_id, executor)
-        _check_fee_balance("executor", executor, balance)
+        nonce = _propose_first(args, executor, chain_id, nonce, proposal_id, args.parameter, target_value, private_key)
 
     tx = _build_tx(executor, chain_id, nonce, proposal_id, args.parameter, target_value)
     row = _sign_and_post(args, tx, private_key, executor, chain_id)

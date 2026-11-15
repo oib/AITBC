@@ -328,6 +328,137 @@ def _replay_balance(db: sqlite3.Connection, chain_id: str, address: str) -> int 
     return total
 
 
+def _check_signer(rep: HostReport, db: sqlite3.Connection, chain_id: str, sweep: SweepRow) -> None:
+    """Signer must be the settlement authority in force at the sweep height."""
+    authority = _param_at(db, chain_id, "escrow_settlement_authority", sweep.block_height)
+    if authority is None:
+        rep.checks.append(Check("sweep.signer", "FAIL", "no escrow_settlement_authority resolvable at sweep height"))
+    else:
+        same = sweep.sender.lower() == authority.lower()
+        rep.checks.append(
+            Check(
+                "sweep.signer",
+                "PASS" if same else "FAIL",
+                f"signer {sweep.sender[:14]}… vs authority {authority[:14]}…" + ("" if same else " — NOT the authority"),
+            )
+        )
+
+
+def _check_recipient(rep: HostReport, db: sqlite3.Connection, chain_id: str, sweep: SweepRow) -> None:
+    """Recipient must be the governed fee recipient at the sweep height."""
+    fee_recipient = _param_at(db, chain_id, "escrow_fee_recipient", sweep.block_height)
+    if fee_recipient is None:
+        rep.checks.append(Check("sweep.recipient", "FAIL", "no escrow_fee_recipient resolvable at sweep height"))
+    else:
+        same = sweep.recipient.lower() == fee_recipient.lower()
+        rep.checks.append(
+            Check(
+                "sweep.recipient",
+                "PASS" if same else "FAIL",
+                f"pays {sweep.recipient[:14]}… vs governed {fee_recipient[:14]}…"
+                + ("" if same else " — NOT the governed recipient"),
+            )
+        )
+
+
+def _check_value(rep: HostReport, db: sqlite3.Connection, chain_id: str, sweep: SweepRow) -> None:
+    """Value must equal the custody remainder the settlement legs left."""
+    lock = _lock_value(db, chain_id, sweep.job_id, sweep.block_height)
+    released, refunded = _legs(db, chain_id, sweep.job_id, sweep.block_height)
+    if lock is None:
+        rep.checks.append(Check("sweep.value", "SKIP", f"no sealed ESCROW_LOCK for {sweep.job_id} — remainder not provable"))
+        return
+    expected = lock - released - refunded
+    rep.checks.append(
+        Check(
+            "sweep.value",
+            "PASS" if sweep.value == expected else "FAIL",
+            f"value={sweep.value} vs lock({lock}) − released({released}) − refunded({refunded}) = {expected}",
+        )
+    )
+
+
+def _check_custody(
+    rep: HostReport, db: sqlite3.Connection, chain_id: str, sweep: SweepRow, custody_override: str | None
+) -> None:
+    """Custody account: derived address reads 0 now (the detector read)."""
+    custody = custody_override or escrow_address(sweep.job_id)
+    acct = _account(db, chain_id, custody)
+    if acct is None:
+        rep.checks.append(Check("custody.zero", "FAIL", f"custody {custody[:14]}… has no account row"))
+    else:
+        rep.checks.append(
+            Check(
+                "custody.zero",
+                "PASS" if acct[0] == 0 else "FAIL",
+                f"custody {custody[:14]}… balance={acct[0]} (detector reads {acct[0]})",
+            )
+        )
+
+
+def _check_recipient_delta(rep: HostReport, db: sqlite3.Connection, chain_id: str, sweep: SweepRow) -> None:
+    """Recipient rose by exactly the swept value — provable when the
+    account's balance equals its full ledger replay (the sweep is then
+    necessarily the only unexplained credit of that size)."""
+    replay = _replay_balance(db, chain_id, sweep.recipient)
+    acct = _account(db, chain_id, sweep.recipient)
+    if acct is None:
+        rep.checks.append(Check("recipient.delta", "FAIL", f"recipient {sweep.recipient[:14]}… has no account row"))
+    elif replay is not None and replay == acct[0]:
+        rep.checks.append(
+            Check(
+                "recipient.delta",
+                "PASS",
+                f"recipient balance {acct[0]} equals full ledger replay — sweep credited exactly {sweep.value}",
+            )
+        )
+    else:
+        rep.checks.append(
+            Check(
+                "recipient.delta",
+                "SKIP",
+                f"recipient balance {acct[0]} vs ledger replay {replay} — non-ledger flows present; cannot isolate the sweep credit",
+            )
+        )
+
+
+def _check_authority(rep: HostReport, db: sqlite3.Connection, chain_id: str, sweep: SweepRow) -> None:
+    """Authority fell by exactly the fee — same replay discipline, and the
+    sweep's sender nonce must equal its sealed send count (nonce rule)."""
+    sreplay = _replay_balance(db, chain_id, sweep.sender)
+    sacct = _account(db, chain_id, sweep.sender)
+    if sacct is None:
+        rep.checks.append(Check("authority.delta", "FAIL", f"authority {sweep.sender[:14]}… has no account row"))
+    elif sreplay is not None and sreplay == sacct[0]:
+        rep.checks.append(
+            Check(
+                "authority.delta",
+                "PASS",
+                f"authority balance {sacct[0]} equals custody-aware replay — sweep debited only fee={sweep.fee}",
+            )
+        )
+    else:
+        rep.checks.append(
+            Check(
+                "authority.delta",
+                "SKIP",
+                f"authority balance {sacct[0]} vs ledger replay {sreplay} — non-ledger flows present; fee debit not isolated",
+            )
+        )
+    sent = db.execute(
+        'SELECT COUNT(*) FROM "transaction" WHERE chain_id = ? AND block_height IS NOT NULL AND sender = ?',
+        (chain_id, sweep.sender),
+    ).fetchone()[0]
+    nonce_ok = sacct is not None and sacct[1] == sent
+    rep.checks.append(
+        Check(
+            "authority.nonce",
+            "PASS" if nonce_ok else "FAIL",
+            f"authority nonce {sacct[1] if sacct else 'absent'} vs {sent} sealed sends",
+        )
+    )
+
+
 def check_host(path: str, label: str, chain_id: str, job_id: str | None, custody_override: str | None) -> HostReport:
     rep = HostReport(label=label)
     try:
@@ -362,125 +493,12 @@ def check_host(path: str, label: str, chain_id: str, job_id: str | None, custody
                 )
             )
 
-        # Signer must be the settlement authority in force at the sweep height.
-        authority = _param_at(db, chain_id, "escrow_settlement_authority", sweep.block_height)
-        if authority is None:
-            rep.checks.append(Check("sweep.signer", "FAIL", "no escrow_settlement_authority resolvable at sweep height"))
-        else:
-            same = sweep.sender.lower() == authority.lower()
-            rep.checks.append(
-                Check(
-                    "sweep.signer",
-                    "PASS" if same else "FAIL",
-                    f"signer {sweep.sender[:14]}… vs authority {authority[:14]}…" + ("" if same else " — NOT the authority"),
-                )
-            )
-
-        # Recipient must be the governed fee recipient at the sweep height.
-        fee_recipient = _param_at(db, chain_id, "escrow_fee_recipient", sweep.block_height)
-        if fee_recipient is None:
-            rep.checks.append(Check("sweep.recipient", "FAIL", "no escrow_fee_recipient resolvable at sweep height"))
-        else:
-            same = sweep.recipient.lower() == fee_recipient.lower()
-            rep.checks.append(
-                Check(
-                    "sweep.recipient",
-                    "PASS" if same else "FAIL",
-                    f"pays {sweep.recipient[:14]}… vs governed {fee_recipient[:14]}…"
-                    + ("" if same else " — NOT the governed recipient"),
-                )
-            )
-
-        # Value must equal the custody remainder the settlement legs left.
-        lock = _lock_value(db, chain_id, sweep.job_id, sweep.block_height)
-        released, refunded = _legs(db, chain_id, sweep.job_id, sweep.block_height)
-        if lock is None:
-            rep.checks.append(
-                Check("sweep.value", "SKIP", f"no sealed ESCROW_LOCK for {sweep.job_id} — remainder not provable")
-            )
-            expected: int | None = None
-        else:
-            expected = lock - released - refunded
-            rep.checks.append(
-                Check(
-                    "sweep.value",
-                    "PASS" if sweep.value == expected else "FAIL",
-                    f"value={sweep.value} vs lock({lock}) − released({released}) − refunded({refunded}) = {expected}",
-                )
-            )
-
-        # Custody account: derived address reads 0 now (the detector read).
-        custody = custody_override or escrow_address(sweep.job_id)
-        acct = _account(db, chain_id, custody)
-        if acct is None:
-            rep.checks.append(Check("custody.zero", "FAIL", f"custody {custody[:14]}… has no account row"))
-        else:
-            rep.checks.append(
-                Check(
-                    "custody.zero",
-                    "PASS" if acct[0] == 0 else "FAIL",
-                    f"custody {custody[:14]}… balance={acct[0]} (detector reads {acct[0]})",
-                )
-            )
-
-        # Recipient rose by exactly the swept value — provable when the
-        # account's balance equals its full ledger replay (the sweep is then
-        # necessarily the only unexplained credit of that size).
-        replay = _replay_balance(db, chain_id, sweep.recipient)
-        acct = _account(db, chain_id, sweep.recipient)
-        if acct is None:
-            rep.checks.append(Check("recipient.delta", "FAIL", f"recipient {sweep.recipient[:14]}… has no account row"))
-        elif replay is not None and replay == acct[0]:
-            rep.checks.append(
-                Check(
-                    "recipient.delta",
-                    "PASS",
-                    f"recipient balance {acct[0]} equals full ledger replay — sweep credited exactly {sweep.value}",
-                )
-            )
-        else:
-            rep.checks.append(
-                Check(
-                    "recipient.delta",
-                    "SKIP",
-                    f"recipient balance {acct[0]} vs ledger replay {replay} — non-ledger flows present; cannot isolate the sweep credit",
-                )
-            )
-
-        # Authority fell by exactly the fee — same replay discipline, and the
-        # sweep's sender nonce must equal its sealed send count (nonce rule).
-        sreplay = _replay_balance(db, chain_id, sweep.sender)
-        sacct = _account(db, chain_id, sweep.sender)
-        if sacct is None:
-            rep.checks.append(Check("authority.delta", "FAIL", f"authority {sweep.sender[:14]}… has no account row"))
-        elif sreplay is not None and sreplay == sacct[0]:
-            rep.checks.append(
-                Check(
-                    "authority.delta",
-                    "PASS",
-                    f"authority balance {sacct[0]} equals custody-aware replay — sweep debited only fee={sweep.fee}",
-                )
-            )
-        else:
-            rep.checks.append(
-                Check(
-                    "authority.delta",
-                    "SKIP",
-                    f"authority balance {sacct[0]} vs ledger replay {sreplay} — non-ledger flows present; fee debit not isolated",
-                )
-            )
-        sent = db.execute(
-            'SELECT COUNT(*) FROM "transaction" WHERE chain_id = ? AND block_height IS NOT NULL AND sender = ?',
-            (chain_id, sweep.sender),
-        ).fetchone()[0]
-        nonce_ok = sacct is not None and sacct[1] == sent
-        rep.checks.append(
-            Check(
-                "authority.nonce",
-                "PASS" if nonce_ok else "FAIL",
-                f"authority nonce {sacct[1] if sacct else 'absent'} vs {sent} sealed sends",
-            )
-        )
+        _check_signer(rep, db, chain_id, sweep)
+        _check_recipient(rep, db, chain_id, sweep)
+        _check_value(rep, db, chain_id, sweep)
+        _check_custody(rep, db, chain_id, sweep, custody_override)
+        _check_recipient_delta(rep, db, chain_id, sweep)
+        _check_authority(rep, db, chain_id, sweep)
     finally:
         db.close()
     return rep
