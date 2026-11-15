@@ -483,6 +483,17 @@ class _OpsMixin(_PoaBaseMixin):
         pbft_certificate: list[dict[str, Any]] = []
         if self._pbft_consensus:
             strict_era = strict_certificate_active(block.height)
+            if strict_era and (not isinstance(round_number, int) or isinstance(round_number, bool) or round_number < 0):
+                # #1940 F3-B: in the strict era the certificate MUST be pinned
+                # to this proposal's derived round. ``round_number=None`` used
+                # to degrade to the unpinned call, which returns the highest
+                # complete view group — a certificate for a round this node
+                # never ran. Refuse before any certificate is selected.
+                self._logger.warning(
+                    "PBFT strict-era proposal at height %s has no derivable proposer round; refusing",
+                    block.height,
+                )
+                return False
             # #1940 F3: in the strict era ask for THIS round's view — the
             # unpinned call returns the highest complete view group, which
             # would fail the round pin below even when the requested view

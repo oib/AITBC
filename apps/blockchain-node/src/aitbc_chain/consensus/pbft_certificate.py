@@ -63,6 +63,24 @@ def strict_certificate_active(height: int | None) -> bool:
     return _strict_int(height) and height >= threshold
 
 
+def certificate_view_binding_active(height: int | None) -> bool:
+    """Whether the certificate view-binding gate applies at ``height`` (#1940 F3-B).
+
+    Armed by ``pbft_certificate_view_binding_height``: active iff a valid
+    non-negative int threshold is configured AND ``height`` is a valid
+    non-negative int at or above it — the same dormant shape as
+    ``strict_certificate_active``. Consumers additionally require the strict
+    contract AND ``pbft_consensus_enabled`` before pinning the view, so an
+    armed-but-PBFT-off deployment keeps the unpinned check byte-for-byte.
+    """
+    threshold = getattr(settings, "pbft_certificate_view_binding_height", None)
+    if not _strict_int(threshold):
+        return False
+    if threshold < 0:
+        return False
+    return _strict_int(height) and height >= threshold
+
+
 def _commit_digest(block_hash: str, sequence_number: int, view_number: int) -> str:
     """The digest every commit signs: ``sha256(block_hash:seq:view)`` — the
     same preimage ``PBFTConsensus.get_message_digest`` and the legacy

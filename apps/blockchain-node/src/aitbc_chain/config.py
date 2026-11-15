@@ -1423,6 +1423,13 @@ class ChainSettings(BaseSettings):
     # gated separately and unarmed). None/unset/malformed keeps detection
     # dormant and behavior byte-identical.
     pbft_cross_view_commit_lock_height: int | None = Field(default=None, ge=0)
+    # #1940 F3-B: first height at which importers pin a strict-era PBFT
+    # commit certificate's view to the timestamp-derived proposer round —
+    # the same round the producer signs commits under — instead of accepting
+    # any coherent view. Independent of the commit-lock gate: the lock gates
+    # which votes a validator may EMIT, this gates which certificate view a
+    # block may CARRY. None/unset/malformed keeps the unpinned strict check.
+    pbft_certificate_view_binding_height: int | None = Field(default=None, ge=0)
     consensus_view_change_timeout_seconds: int = 30  # H6 — timeout before view change
     consensus_round_timeout_seconds: int = 10  # per-round timeout
     # v0.25.6: deterministic proposer rotation. When the scheduled proposer for
