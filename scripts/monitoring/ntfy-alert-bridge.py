@@ -18,9 +18,12 @@ Env:
     NTFY_ALERTS_TOPIC       (default aitbc-alerts)
     NTFY_BRIDGE_TOPIC       (default aitbc-alerts-bridge)
     NTFY_BRIDGE_LOG         (default /var/log/aitbc/ntfy-alerts.jsonl)
-    NTFY_SINCE              cache replay window on connect (default 30s;
-                           ntfy counts each replayed message against the
-                           visitor request bucket, so keep this small)
+    NTFY_SINCE              cache replay window on connect (default 90s —
+                           must exceed NTFY_POLL_INTERVAL so the gap
+                           between polls never misses a message)
+    NTFY_POLL_INTERVAL      seconds between polls after a clean stream
+                           end (default 30; poll=1 closes after the cache
+                           replay, so without this the loop hot-spins)
 """
 
 from __future__ import annotations
@@ -72,15 +75,33 @@ def _republish(event: dict) -> None:
         print(f"bridge republish failed: {exc}", file=sys.stderr)
 
 
+def _handle_event(event: dict, fh, seen: set) -> None:
+    if event.get("event") not in ("message", "keepalive"):
+        return
+    mid = event.get("id")
+    if mid:
+        if mid in seen:
+            return
+        seen.add(mid)
+        if len(seen) > 20000:
+            seen.clear()
+    fh.write(json.dumps({"rx": time.time(), "event": event}) + "\n")
+    if event.get("event") == "message":
+        _republish(event)
+
+
 def main() -> int:
     os.makedirs(os.path.dirname(LOG), exist_ok=True)
     backoff = 5
+    # Polls overlap (since window > poll interval) so no message is missed;
+    # seen-ids dedupe the overlap. Bounded: ntfy message ids are unique.
+    seen: set[str] = set()
     while True:
         try:
             # Bound the cache replay: ntfy counts each replayed message
             # against the visitor request bucket, so an unbounded poll=1
             # replay of the 24h cache (~9k alerts) drains it for hours.
-            since = os.environ.get("NTFY_SINCE", "30s")
+            since = os.environ.get("NTFY_SINCE", "90s")
             url = f"{_base()}/{TOPIC}/json?poll=1&since={since}"
             headers = {"Accept": "application/x-ndjson"}
             token = _token()
@@ -97,11 +118,7 @@ def main() -> int:
                         event = json.loads(line)
                     except json.JSONDecodeError:
                         continue
-                    if event.get("event") not in ("message", "keepalive"):
-                        continue
-                    fh.write(json.dumps({"rx": time.time(), "event": event}) + "\n")
-                    if event.get("event") == "message":
-                        _republish(event)
+                    _handle_event(event, fh, seen)
         except Exception as exc:  # noqa: BLE001 - subscriber must survive any stream failure
             detail = ""
             if isinstance(exc, urllib.error.HTTPError):
@@ -109,6 +126,11 @@ def main() -> int:
             print(f"stream error: {exc} {detail}; retry in {backoff}s", file=sys.stderr)
             time.sleep(backoff)
             backoff = min(backoff * 2, 300)
+        else:
+            # poll=1 returns the cache replay then closes; without a pause
+            # the while-loop reconnects immediately and hot-spins requests
+            # (and replayed messages) against the visitor rate bucket.
+            time.sleep(int(os.environ.get("NTFY_POLL_INTERVAL", "30")))
 
 
 if __name__ == "__main__":
