@@ -218,22 +218,24 @@ def _height_key(event: SlashingEvent) -> tuple[str, str, int]:
 
 
 def cap_history_per_height(events: list[SlashingEvent], cap: int) -> list[SlashingEvent]:
-    """Oldest-first keep of at most ``cap`` events per (validator, condition, height) (#2118).
+    """Keep at most ``cap`` events per (validator, condition, height) (#2118).
 
-    ``cap <= 0`` returns the list unchanged. Used when loading a persisted
-    history that was written before the cap existed.
+    Signature-bearing events are kept first (verifiable deactivation evidence must
+    survive a flood of advisory records), then the oldest unsigned ones; the
+    original order is preserved. ``cap <= 0`` returns the list unchanged. Used when
+    loading a persisted history that was written before the cap existed.
     """
     if cap <= 0:
         return events
-    seen: dict[tuple[str, str, int], int] = {}
-    kept: list[SlashingEvent] = []
+    buckets: dict[tuple[str, str, int], list[SlashingEvent]] = {}
     for event in events:
-        key = _height_key(event)
-        if seen.get(key, 0) >= cap:
-            continue
-        seen[key] = seen.get(key, 0) + 1
-        kept.append(event)
-    return kept
+        buckets.setdefault(_height_key(event), []).append(event)
+    keep: set[int] = set()
+    for bucket in buckets.values():
+        signed = [e for e in bucket if event_signature_evidence(e) is not None]
+        unsigned = [e for e in bucket if event_signature_evidence(e) is None]
+        keep.update(id(e) for e in (signed + unsigned)[:cap])
+    return [e for e in events if id(e) in keep]
 
 
 class _HistoryIndex:
@@ -241,17 +243,39 @@ class _HistoryIndex:
 
     def __init__(self, events: list[SlashingEvent]) -> None:
         self.by_key: dict[str, SlashingEvent] = {}
-        self.per_height: dict[tuple[str, str, int], int] = {}
+        self.by_height: dict[tuple[str, str, int], list[SlashingEvent]] = {}
+        self._keys: dict[int, str] = {}  # id(event) -> dedup key
         self._sig = (id(events), len(events), id(events[-1]) if events else 0)
         for event in events:
-            self.by_key.setdefault(_equivocation_dedup_key(event), event)
-            hk = _height_key(event)
-            self.per_height[hk] = self.per_height.get(hk, 0) + 1
+            key = _equivocation_dedup_key(event)
+            self.by_key.setdefault(key, event)
+            self._keys[id(event)] = key
+            self.by_height.setdefault(_height_key(event), []).append(event)
+
+    def count_at(self, event: SlashingEvent) -> int:
+        return len(self.by_height.get(_height_key(event), ()))
 
     def add(self, key: str, event: SlashingEvent) -> None:
         self.by_key[key] = event
-        hk = _height_key(event)
-        self.per_height[hk] = self.per_height.get(hk, 0) + 1
+        self._keys[id(event)] = key
+        self.by_height.setdefault(_height_key(event), []).append(event)
+
+    def remove(self, event: SlashingEvent) -> None:
+        key = self._keys.pop(id(event), None)
+        if key is not None and self.by_key.get(key) is event:
+            del self.by_key[key]
+        bucket = self.by_height.get(_height_key(event), [])
+        for i in range(len(bucket) - 1, -1, -1):
+            if bucket[i] is event:
+                del bucket[i]
+                break
+
+    def newest_unsigned_at(self, event: SlashingEvent) -> SlashingEvent | None:
+        """The most recently recorded advisory (unsigned) event in ``event``'s bucket."""
+        for candidate in reversed(self.by_height.get(_height_key(event), ())):
+            if event_signature_evidence(candidate) is None:
+                return candidate
+        return None
 
 
 class SlashingManager:
@@ -365,7 +389,7 @@ class SlashingManager:
         # grew the persisted blob to 67 MB on hub (30,245 events at one
         # height). Over the cap: no record, no further penalty. 0 = unbounded.
         cap = _max_events_per_height()
-        if cap > 0 and index.per_height.get(_height_key(event), 0) >= cap:
+        if cap > 0 and index.count_at(event) >= cap:
             metrics_registry.increment("slashing_events_cap_refused_total")
             return False
 
@@ -455,13 +479,29 @@ class SlashingManager:
         appending a duplicate or keeping the unverifiable record forever.
         """
         new_key = _equivocation_dedup_key(event)
-        for existing in self.slashing_events:
-            if _equivocation_dedup_key(existing) != new_key:
-                continue
+        index = self._history_index()
+        existing = index.by_key.get(new_key)
+        if existing is not None:
             if event_signature_evidence(event) is not None and event_signature_evidence(existing) is None:
                 existing.evidence = event.evidence
             return existing
+        # #2118 (respin): the advisory path filled hub's blob (30,417 events with
+        # stake_before None never passed apply_slashing), so the same per-height cap
+        # applies here. Signature-bearing evidence is verifiable deactivation material
+        # and takes priority: at the cap it displaces the newest unsigned record at that
+        # height; with only signed records left it is refused, as is an unsigned one.
+        cap = _max_events_per_height()
+        if cap > 0 and index.count_at(event) >= cap:
+            victim = index.newest_unsigned_at(event) if event_signature_evidence(event) is not None else None
+            if victim is None:
+                metrics_registry.increment("slashing_events_cap_refused_total")
+                return event  # not recorded; callers only use it as a handle
+            self.slashing_events.remove(victim)
+            index.remove(victim)
+            metrics_registry.increment("slashing_events_cap_evicted_total")
         self.slashing_events.append(event)
+        index.add(new_key, event)
+        index._sig = (id(self.slashing_events), len(self.slashing_events), id(event))
         return event
 
     def record_attestation_equivocation(
