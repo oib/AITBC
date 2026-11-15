@@ -153,6 +153,87 @@ def validate_pr_branch(pr, changed_files=None):
         shutil.rmtree(tmpdir, ignore_errors=True)
 
 
+def _handle_claim_state():
+    """Release the current claim when it expired or its PR closed."""
+    state = load_claim_state()
+    if not state.get("current_claim"):
+        return
+    issue_num = state["current_claim"]
+    work_branch = state.get("work_branch")
+    claim_branch = state.get("claim_branch")
+    # Check expiration
+    if is_claim_expired(state):
+        print(f"Claim for issue #{issue_num} has expired. Releasing.")
+        release_claim(issue_num, claim_branch)
+        return
+    # Check if PR merged/closed
+    all_prs = get_all_prs(state="all")
+    matched_pr = None
+    for pr in all_prs:
+        if pr["head"]["ref"] == work_branch:
+            matched_pr = pr
+            break
+    if matched_pr and matched_pr["state"] == "closed":
+        release_claim(issue_num, claim_branch)
+
+
+def _auto_review_pr(pr, notifications):
+    """Review a sibling-authored PR once; approve Ring >=2 after validation."""
+    number = pr["number"]
+    author = pr["user"]["login"]
+    reviews = get_pr_reviews(number)
+    my_reviews = [r for r in reviews if r["user"]["login"] == MY_AGENT]
+    if my_reviews:
+        return
+    files = get_pr_files(number)
+    rings = [detect_ring(f["filename"]) for f in files if f.get("status") != "removed"]
+    # The most critical file wins: a PR touching a Ring 0 or Ring 1
+    # path is never auto-approved, no matter how many harmless
+    # files ride along (max() let a Ring 2 file mask a Ring 0
+    # change, #1008).
+    min_ring = min(rings) if rings else 2
+    if min_ring <= 1:
+        body = f"Automated analysis: This PR modifies core (Ring {min_ring}) components. Manual review and a design specification are required before merge. No auto-approval."
+        post_review(number, "COMMENT", body=body)
+        notifications.append(f"PR #{number} (Ring {min_ring}) flagged for manual review")
+        return
+    changed_py = [f["filename"] for f in files if f["filename"].endswith(".py") and f.get("status") != "removed"]
+    passed, msg = validate_pr_branch(pr, changed_py)
+    if passed:
+        post_review(
+            number,
+            "APPROVED",
+            body=f"Automated peer review: branch validated.\n\n✅ Syntax checks passed.\nRing {min_ring} change — auto-approved. CI must still pass.",
+        )
+        notifications.append(f"Auto-approved PR #{number} from @{author} (Ring {min_ring})")
+    else:
+        post_review(
+            number,
+            "CHANGES_REQUESTED",
+            body=f"Automated peer review detected issues:\n\n{msg}\n\nPlease fix and push.",
+        )
+        notifications.append(f"Requested changes on PR #{number} from @{author}: {msg[:100]}")
+
+
+def _ensure_sibling_reviewer(number, notifications):
+    """Request the sibling as reviewer on my own PR when not already requested."""
+    pr_full = query_api(f"repos/{REPO}/pulls/{number}")
+    requested = pr_full.get("requested_reviewers", []) if pr_full else []
+    if not any(r.get("login") == SIBLING_AGENT for r in requested):
+        request_reviewer(number, SIBLING_AGENT)
+        notifications.append(f"Requested review from @{SIBLING_AGENT} for my PR #{number}")
+
+
+def _check_ci_statuses(number, notifications):
+    """Append a notification for each failing commit status on the PR."""
+    statuses = get_commit_statuses(number)
+    failing = [s for s in statuses if s.get("status") not in ("success", "pending")]
+    for s in failing:
+        notifications.append(
+            f"PR #{number} status check failure: {s.get('context', 'unknown')} - {s.get('status', 'unknown')}"
+        )
+
+
 def main():
     if not GITEA_TOKEN:
         print("[ERROR] GITEA_TOKEN not set; aborting.")
@@ -164,25 +245,7 @@ def main():
     print(f"[{now_iso}] Monitoring PRs and claim locks...")
 
     # 0. Check claim state: if we have a current claim, see if it expired or PR merged
-    state = load_claim_state()
-    if state.get("current_claim"):
-        issue_num = state["current_claim"]
-        work_branch = state.get("work_branch")
-        claim_branch = state.get("claim_branch")
-        # Check expiration
-        if is_claim_expired(state):
-            print(f"Claim for issue #{issue_num} has expired. Releasing.")
-            release_claim(issue_num, claim_branch)
-        else:
-            # Check if PR merged/closed
-            all_prs = get_all_prs(state="all")
-            matched_pr = None
-            for pr in all_prs:
-                if pr["head"]["ref"] == work_branch:
-                    matched_pr = pr
-                    break
-            if matched_pr and matched_pr["state"] == "closed":
-                release_claim(issue_num, claim_branch)
+    _handle_claim_state()
 
     # 1. Process open PRs
     open_prs = get_open_prs()
@@ -196,56 +259,14 @@ def main():
 
         # A. If PR from sibling, consider for review
         if author == SIBLING_AGENT:
-            reviews = get_pr_reviews(number)
-            my_reviews = [r for r in reviews if r["user"]["login"] == MY_AGENT]
-            if not my_reviews:
-                files = get_pr_files(number)
-                rings = [detect_ring(f["filename"]) for f in files if f.get("status") != "removed"]
-                # The most critical file wins: a PR touching a Ring 0 or Ring 1
-                # path is never auto-approved, no matter how many harmless
-                # files ride along (max() let a Ring 2 file mask a Ring 0
-                # change, #1008).
-                min_ring = min(rings) if rings else 2
-                if min_ring <= 1:
-                    body = f"Automated analysis: This PR modifies core (Ring {min_ring}) components. Manual review and a design specification are required before merge. No auto-approval."
-                    post_review(number, "COMMENT", body=body)
-                    notifications.append(f"PR #{number} (Ring {min_ring}) flagged for manual review")
-                else:
-                    changed_py = [
-                        f["filename"] for f in files if f["filename"].endswith(".py") and f.get("status") != "removed"
-                    ]
-                    passed, msg = validate_pr_branch(pr, changed_py)
-                    if passed:
-                        post_review(
-                            number,
-                            "APPROVED",
-                            body=f"Automated peer review: branch validated.\n\n✅ Syntax checks passed.\nRing {min_ring} change — auto-approved. CI must still pass.",
-                        )
-                        notifications.append(f"Auto-approved PR #{number} from @{author} (Ring {min_ring})")
-                    else:
-                        post_review(
-                            number,
-                            "CHANGES_REQUESTED",
-                            body=f"Automated peer review detected issues:\n\n{msg}\n\nPlease fix and push.",
-                        )
-                        notifications.append(f"Requested changes on PR #{number} from @{author}: {msg[:100]}")
+            _auto_review_pr(pr, notifications)
 
         # B. If PR from me, ensure sibling is requested as reviewer
         if author == MY_AGENT:
-            pr_full = query_api(f"repos/{REPO}/pulls/{number}")
-            requested = pr_full.get("requested_reviewers", []) if pr_full else []
-            if not any(r.get("login") == SIBLING_AGENT for r in requested):
-                request_reviewer(number, SIBLING_AGENT)
-                notifications.append(f"Requested review from @{SIBLING_AGENT} for my PR #{number}")
+            _ensure_sibling_reviewer(number, notifications)
 
         # C. Check CI statuses for any PR
-        statuses = get_commit_statuses(number)
-        failing = [s for s in statuses if s.get("status") not in ("success", "pending")]
-        if failing:
-            for s in failing:
-                notifications.append(
-                    f"PR #{number} status check failure: {s.get('context', 'unknown')} - {s.get('status', 'unknown')}"
-                )
+        _check_ci_statuses(number, notifications)
 
     # 2. Global cleanup of stale claim branches (orphaned, older than TTL)
     cleanup_global_expired_claims(now_ts)

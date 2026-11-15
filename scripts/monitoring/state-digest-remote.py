@@ -49,115 +49,122 @@ import sys
 _HEIGHT_COLUMNS = ("height", "block_height", "applied_height")
 
 
-def main() -> int:
-    db_path, chain_id, spec = sys.argv[1], sys.argv[2], json.loads(sys.argv[3])
-    max_height = int(sys.argv[4]) if len(sys.argv) > 4 else -1
-    volatile = frozenset(spec["volatile"])
-    addr_cols = frozenset(spec["addr_cols"])
-    jdrop = spec.get("json_drop", {})
-    jfalsy = spec.get("json_drop_falsy", {})
-
-    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
-    cur = con.cursor()
-    # Parseable datetimes normalize to one canonical text form; anything
-    # else (unparseable text, ints, NULL) passes through verbatim.
-    dtnorm = 'COALESCE(strftime(\'%Y-%m-%dT%H:%M:%f\',"{}"),"{}")'
-
-    # The node's own sealed height, reported so the driver can compute the
-    # fleet-common bound for pass two.
-    max_block_height = 0
+def _max_block_height(cur: sqlite3.Cursor, chain_id: str) -> int:
+    """The node's own sealed height; 0 when the block table is unreadable."""
     try:
         row = cur.execute('SELECT MAX(height) FROM "block" WHERE chain_id=?', (chain_id,)).fetchone()
-        max_block_height = int(row[0] or 0)
+        return int(row[0] or 0)
     except sqlite3.Error:
-        pass
-    bound = max_height if max_height >= 0 else max_block_height
+        return 0
 
-    result = {}
-    for table in sorted(spec["tables"]):
-        meta = spec["tables"][table]
-        cls = meta["class"]
-        try:
-            info = cur.execute(f'PRAGMA table_info("{table}")').fetchall()
-        except sqlite3.Error as e:  # pragma: no cover - defensive
-            result[table] = {"class": cls, "error": str(e)}
-            continue
-        if not info:
-            result[table] = {"class": cls, "missing": 1}
-            continue
-        names = [c[1] for c in info]
-        allow = meta.get("allow")
-        keep = [n for n in names if n not in volatile and (allow is None or n in allow)]
-        if not keep:
-            result[table] = {"class": cls, "empty_cols": 1}
-            continue
-        # Datetime normalization only for TEXT columns: a REAL/INTEGER run
-        # through strftime collapses distinct floats to one canonical text
-        # (0.5 vs 0.5000000001 digested identically — #927).
-        declared = {c[1]: (c[2] or "").upper() for c in info}
-        sel = ", ".join(
-            f'lower("{n}")'
-            if n in addr_cols
-            else f'"{n}"'
-            if n in jdrop or n in jfalsy
-            else dtnorm.format(n, n)
-            if "TEXT" in declared.get(n, "TEXT")
-            else f'"{n}"'
-            for n in keep
-        )
-        where, args = "", ()
-        if "chain_id" in names:
-            where, args = "WHERE chain_id=?", (chain_id,)
-        elif "source_chain" in names:
-            where, args = "WHERE source_chain=?", (chain_id,)
-        # Height-scope the row to the fleet-common prefix when the table has
-        # a height column (block.height, transaction.block_height,
-        # chain_parameter_history.applied_height, ...). Tables without one
-        # are current-state rows — the block.state_root column inside the
-        # bounded block digest already proves their equivalence at the bound.
-        hcol = next((c for c in _HEIGHT_COLUMNS if c in names), None)
-        if hcol is not None:
-            where += " AND " if where else "WHERE "
-            if hcol == "applied_height":
-                # NULL applied_height means "in force at every height" —
-                # it is part of the prefix state, not a future row.
-                where += '("applied_height" IS NULL OR "applied_height" <= ?)'
-            else:
-                where += f'"{hcol}" <= ?'
-            args += (bound,)
-        # identifiers only, values bound
-        q = f'SELECT {sel} FROM "{table}" {where}'  # nosec
 
-        def _norm(row: tuple, keep: list = keep, jdrop: dict = jdrop, jfalsy: dict = jfalsy) -> tuple:
-            r = list(row)
-            for i, n in enumerate(keep):
-                if (n in jdrop or n in jfalsy) and isinstance(r[i], str) and r[i][:1] == "{":
-                    try:
-                        obj = json.loads(r[i])
-                    except ValueError:
-                        continue
-                    if isinstance(obj, dict):
-                        for k in jdrop.get(n, ()):
-                            obj.pop(k, None)
-                        for k in jfalsy.get(n, ()):
-                            if not obj.get(k):
-                                obj.pop(k, None)
-                        r[i] = json.dumps(obj, sort_keys=True, separators=(",", ":"))
-            return tuple(r)
+def _select_expr(keep, declared, addr_cols, jdrop, jfalsy, dtnorm) -> str:
+    """SELECT list for the kept columns: address lowercasing, JSON passthrough,
+    datetime normalization for TEXT columns, verbatim for the rest."""
+    return ", ".join(
+        f'lower("{n}")'
+        if n in addr_cols
+        else f'"{n}"'
+        if n in jdrop or n in jfalsy
+        else dtnorm.format(n, n)
+        if "TEXT" in declared.get(n, "TEXT")
+        else f'"{n}"'
+        for n in keep
+    )
 
-        try:
-            rows = cur.execute(q, args).fetchall()
-        except sqlite3.Error as e:
-            result[table] = {"class": cls, "error": str(e)}
-            continue
-        h = hashlib.sha256()
-        n = 0
-        for rh in sorted(hashlib.sha256(repr(_norm(r)).encode()).hexdigest() for r in rows):
-            h.update(rh.encode())
-            h.update(b"\x00")
-            n += 1
-        result[table] = {"class": cls, "digest": h.hexdigest()[:16], "rows": n}
 
+def _where_clause(names: list[str], chain_id: str, bound: int) -> tuple[str, tuple]:
+    """WHERE fragment + args scoping the table to the chain and height bound."""
+    where, args = "", ()
+    if "chain_id" in names:
+        where, args = "WHERE chain_id=?", (chain_id,)
+    elif "source_chain" in names:
+        where, args = "WHERE source_chain=?", (chain_id,)
+    # Height-scope the row to the fleet-common prefix when the table has
+    # a height column (block.height, transaction.block_height,
+    # chain_parameter_history.applied_height, ...). Tables without one
+    # are current-state rows — the block.state_root column inside the
+    # bounded block digest already proves their equivalence at the bound.
+    hcol = next((c for c in _HEIGHT_COLUMNS if c in names), None)
+    if hcol is not None:
+        where += " AND " if where else "WHERE "
+        if hcol == "applied_height":
+            # NULL applied_height means "in force at every height" —
+            # it is part of the prefix state, not a future row.
+            where += '("applied_height" IS NULL OR "applied_height" <= ?)'
+        else:
+            where += f'"{hcol}" <= ?'
+        args += (bound,)
+    return where, args
+
+
+def _norm_row(row: tuple, keep: list, jdrop: dict, jfalsy: dict) -> tuple:
+    r = list(row)
+    for i, n in enumerate(keep):
+        if (n in jdrop or n in jfalsy) and isinstance(r[i], str) and r[i][:1] == "{":
+            try:
+                obj = json.loads(r[i])
+            except ValueError:
+                continue
+            if isinstance(obj, dict):
+                for k in jdrop.get(n, ()):
+                    obj.pop(k, None)
+                for k in jfalsy.get(n, ()):
+                    if not obj.get(k):
+                        obj.pop(k, None)
+                r[i] = json.dumps(obj, sort_keys=True, separators=(",", ":"))
+    return tuple(r)
+
+
+def _digest_table(
+    cur: sqlite3.Cursor,
+    table: str,
+    meta: dict,
+    volatile: frozenset,
+    addr_cols: frozenset,
+    jdrop: dict,
+    jfalsy: dict,
+    chain_id: str,
+    bound: int,
+    dtnorm: str,
+) -> dict:
+    """Digest (or error/missing marker) for one classified table."""
+    cls = meta["class"]
+    try:
+        info = cur.execute(f'PRAGMA table_info("{table}")').fetchall()
+    except sqlite3.Error as e:  # pragma: no cover - defensive
+        return {"class": cls, "error": str(e)}
+    if not info:
+        return {"class": cls, "missing": 1}
+    names = [c[1] for c in info]
+    allow = meta.get("allow")
+    keep = [n for n in names if n not in volatile and (allow is None or n in allow)]
+    if not keep:
+        return {"class": cls, "empty_cols": 1}
+    # Datetime normalization only for TEXT columns: a REAL/INTEGER run
+    # through strftime collapses distinct floats to one canonical text
+    # (0.5 vs 0.5000000001 digested identically — #927).
+    declared = {c[1]: (c[2] or "").upper() for c in info}
+    sel = _select_expr(keep, declared, addr_cols, jdrop, jfalsy, dtnorm)
+    where, args = _where_clause(names, chain_id, bound)
+    # identifiers only, values bound
+    q = f'SELECT {sel} FROM "{table}" {where}'  # nosec
+
+    try:
+        rows = cur.execute(q, args).fetchall()
+    except sqlite3.Error as e:
+        return {"class": cls, "error": str(e)}
+    h = hashlib.sha256()
+    n = 0
+    for rh in sorted(hashlib.sha256(repr(_norm_row(r, keep, jdrop, jfalsy)).encode()).hexdigest() for r in rows):
+        h.update(rh.encode())
+        h.update(b"\x00")
+        n += 1
+    return {"class": cls, "digest": h.hexdigest()[:16], "rows": n}
+
+
+def _dupes(cur: sqlite3.Cursor, spec: dict, chain_id: str) -> dict:
+    """Natural-key groups holding more than one row (checksum/case twins)."""
     dupes = {}
     for table, dk in spec.get("dupkeys", {}).items():
         try:
@@ -182,6 +189,35 @@ def main() -> int:
             continue
         if hits:
             dupes[table] = hits
+    return dupes
+
+
+def main() -> int:
+    db_path, chain_id, spec = sys.argv[1], sys.argv[2], json.loads(sys.argv[3])
+    max_height = int(sys.argv[4]) if len(sys.argv) > 4 else -1
+    volatile = frozenset(spec["volatile"])
+    addr_cols = frozenset(spec["addr_cols"])
+    jdrop = spec.get("json_drop", {})
+    jfalsy = spec.get("json_drop_falsy", {})
+
+    con = sqlite3.connect(f"file:{db_path}?mode=ro", uri=True)
+    cur = con.cursor()
+    # Parseable datetimes normalize to one canonical text form; anything
+    # else (unparseable text, ints, NULL) passes through verbatim.
+    dtnorm = 'COALESCE(strftime(\'%Y-%m-%dT%H:%M:%f\',"{}"),"{}")'
+
+    # The node's own sealed height, reported so the driver can compute the
+    # fleet-common bound for pass two.
+    max_block_height = _max_block_height(cur, chain_id)
+    bound = max_height if max_height >= 0 else max_block_height
+
+    result = {}
+    for table in sorted(spec["tables"]):
+        result[table] = _digest_table(
+            cur, table, spec["tables"][table], volatile, addr_cols, jdrop, jfalsy, chain_id, bound, dtnorm
+        )
+
+    dupes = _dupes(cur, spec, chain_id)
 
     print(json.dumps({"max_height": max_block_height, "bound": bound, "tables": result, "dupes": dupes}))
     return 0
