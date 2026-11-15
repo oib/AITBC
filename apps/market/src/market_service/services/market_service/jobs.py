@@ -23,6 +23,14 @@ from ...domain.offer_status import to_offer_status
 
 logger = get_logger(__name__)
 
+# #1996: payload keys the server owns — delivery evidence and the
+# buyer-acceptance window start written only by ``_pin_payload`` on a
+# provider-signed confirm. A caller seeding them at creation lets
+# ``setdefault`` keep a backdated ``provider_confirmed_at`` and pass the
+# #1976 release-window gate immediately. ``size`` stays caller-writable:
+# it is the declared content size, overwritten by pin-confirm.
+_PAYLOAD_SERVER_KEYS = frozenset({"provider_confirmed", "provider_confirmed_at", "pinned", "pin_tx_hash"})
+
 from .shared import (
     MAX_PAYMENT_AMOUNT,
     _ACCESS_TOKEN_ACTIVE_STATES,
@@ -575,6 +583,7 @@ class _JobsMixin(_CoreMixin):
             secret = payload.get("access_secret")
             if secret and not is_hashed_secret(secret):
                 payload["access_secret"] = hash_access_secret(secret)
+            data["payload"] = {k: v for k, v in payload.items() if k not in _PAYLOAD_SERVER_KEYS}
 
         # Column allowlist: lifecycle/settlement columns (state, escrow ids,
         # tx hashes, payment denormalization, service timestamps) are
