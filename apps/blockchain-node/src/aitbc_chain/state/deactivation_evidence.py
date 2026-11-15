@@ -42,7 +42,7 @@ import math
 from dataclasses import replace
 from decimal import Decimal
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, TypeGuard
 
 from sqlmodel import Session, select
 
@@ -52,10 +52,39 @@ from aitbc.crypto.signature_recovery import SignatureMalformed, canonical_addres
 from ..base_models import Block
 from ..config import legacy_attestation_dual_accept_open, settings
 from ..consensus.equivocation_policy import UcApplyContext, pair_stands_as_evidence
-from ..consensus.slashing import SlashingCondition, SlashingEvent, SlashingManager
+from ..consensus.slashing import PBFT_CROSS_VIEW_VOTE_EQUIVOCATION, SlashingCondition, SlashingEvent, SlashingManager
 
 EVIDENCE_VERSION = 2
 MAX_EVIDENCE_EVENTS = 32
+
+
+def _strict_int(value: Any) -> TypeGuard[int]:
+    """Strictly ``int`` and not ``bool`` — JSON ``true`` must never pass as 1."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _cross_view_evidence_height(session: Session, chain_id: str, block_height: int | None) -> int | None:
+    """Activation height for cross-view commit equivocation evidence (#1940 F3-A).
+
+    Reads the chain parameter
+    ``validator_deactivation_pbft_cross_view_evidence_height`` through
+    ``_chain_parameter_value`` at the apply ``block_height`` — the same
+    height-scoped rule every gate parameter uses, so replay and reorg agree
+    and a value armed later never rewrites earlier applies. Only a strict
+    non-negative int activates; unset, malformed, negative or bool-ish values
+    resolve to ``None``, which the verifier treats as "every cross-view claim
+    is unverifiable" (fail closed).
+    """
+    from .state_transition import _chain_parameter_value
+
+    value = _chain_parameter_value(session, chain_id, "validator_deactivation_pbft_cross_view_evidence_height", block_height)
+    if value is None:
+        return None
+    try:
+        height = int(str(value).strip())
+    except (TypeError, ValueError):
+        return None
+    return height if height >= 0 else None
 
 
 def _evidence_required(session: Session, chain_id: str, block_height: int | None) -> bool:
@@ -407,6 +436,136 @@ def _verify_vote_equivocation(payload: dict[str, Any], validator: str) -> bool:
     return len(hashes) == 2 and len(views) == 1 and len(sequences) == 1 and len(phases) == 1
 
 
+def _cross_view_header(
+    payload: dict[str, Any],
+    event: SlashingEvent,
+    activation_height: int | None,
+    apply_height: int | None,
+) -> tuple[int | None, str | None]:
+    """Phase/sequence/window header checks for cross-view evidence (#1940 F3-A).
+
+    Returns ``(sequence, None)`` when the header is well-formed and the
+    evidenced sequence sits inside the armed window, else ``(None, reason)``.
+    """
+    if payload.get("phase") != "commit":
+        return None, "cross-view equivocation evidence is not commit-phase"
+    sequence = payload.get("sequence")
+    if not _strict_int(sequence):
+        return None, "cross-view equivocation evidence has no strict-int sequence"
+    if sequence != event.block_height:
+        return None, "cross-view equivocation sequence does not match event block_height"
+    if activation_height is None:
+        return None, "cross-view equivocation evidence is not armed on-chain"
+    if apply_height is None or sequence < activation_height or sequence > apply_height:
+        return None, "cross-view equivocation sequence is outside the armed evidence window"
+    return sequence, None
+
+
+def _cross_view_message_fields(msg: Any, sequence: int | None) -> dict[str, Any] | str:
+    """Validated counted fields of one cross-view commit record, or a reason.
+
+    Single return keeps the caller branch-free: a ``str`` result IS the
+    reject reason; a ``dict`` is the verified field carrier (the signed
+    subset plus ``block_hash``/``signature`` for the crypto step).
+    """
+    if not isinstance(msg, dict):
+        return "cross-view equivocation message record is not an object"
+    block_hash = str(msg.get("block_hash", ""))
+    msg_sequence = msg.get("sequence_number")
+    view = msg.get("view_number")
+    message_type = msg.get("message_type")
+    digest = str(msg.get("digest", ""))
+    if message_type != "commit":
+        return "cross-view equivocation message is not a commit"
+    if not _strict_int(msg_sequence) or not _strict_int(view):
+        return "cross-view equivocation message has non-strict-int sequence or view"
+    if msg_sequence != sequence or not block_hash or not digest:
+        return "cross-view equivocation message fields do not match the evidence sequence"
+    return {
+        "message_type": message_type,
+        "sender": msg.get("sender", ""),
+        "view_number": view,
+        "sequence_number": msg_sequence,
+        "digest": digest,
+        "block_hash": block_hash,
+        "signature": msg.get("signature", ""),
+    }
+
+
+def _cross_view_message_crypto_ok(fields: dict[str, Any], validator_addr: str) -> str | None:
+    """Digest recompute + sender + signature check for one validated record."""
+    # The digest commits to block_hash:sequence:view — recompute it.
+    expected_digest = hashlib.sha256(
+        f"{fields['block_hash']}:{fields['sequence_number']}:{fields['view_number']}".encode()
+    ).hexdigest()
+    if fields["digest"] != expected_digest:
+        return "cross-view equivocation digest does not match block_hash:sequence:view"
+    if canonical_address(str(fields["sender"])) != validator_addr:
+        return "cross-view equivocation sender does not match the deactivated validator"
+    signed = {
+        "message_type": fields["message_type"],
+        "sender": fields["sender"],
+        "view_number": fields["view_number"],
+        "sequence_number": fields["sequence_number"],
+        "digest": fields["digest"],
+    }
+    try:
+        if not verify_consensus_message(signed, str(fields["signature"]), validator_addr):
+            return "cross-view equivocation signature verification failed"
+    except SignatureMalformed:
+        return "cross-view equivocation signature is malformed"
+    return None
+
+
+def _verify_pbft_cross_view_vote_equivocation(
+    payload: dict[str, Any],
+    event: SlashingEvent,
+    validator_addr: str,
+    activation_height: int | None,
+    apply_height: int | None,
+) -> str | None:
+    """Verify a ``pbft_cross_view_vote_equivocation`` event (#1940 F3-A).
+
+    Returns None when the evidence verifies, else a skip reason. Fail-closed
+    throughout: the claim only counts when the on-chain
+    ``validator_deactivation_pbft_cross_view_evidence_height`` parameter is
+    armed (``activation_height`` not None) and the evidenced ``sequence`` —
+    which must equal ``event.block_height`` — sits inside
+    ``[activation_height, apply_height]``. Both message records must be
+    COMMITs from the same canonical sender at the same sequence but
+    different strict-int views signing different block hashes, each digest
+    recomputed as ``sha256(block_hash:sequence:view)`` and each signature
+    verified with ``verify_consensus_message`` over the signed subset.
+    Prepare-phase, same-view and same-hash pairs are NOT this kind — they
+    remain ``vote_equivocation`` territory or stay legal.
+    """
+    sequence, reason = _cross_view_header(payload, event, activation_height, apply_height)
+    if reason is not None:
+        return reason
+    messages = payload.get("messages")
+    if not isinstance(messages, list) or len(messages) < 2:
+        return "cross-view equivocation evidence lacks two signed commit messages"
+    views: set[int] = set()
+    sequences: set[int] = set()
+    hashes: set[str] = set()
+    for msg in messages[:2]:
+        fields = _cross_view_message_fields(msg, sequence)
+        if isinstance(fields, str):
+            return fields
+        reason = _cross_view_message_crypto_ok(fields, validator_addr)
+        if reason is not None:
+            return reason
+        views.add(fields["view_number"])
+        sequences.add(fields["sequence_number"])
+        hashes.add(str(fields["block_hash"]).lower())
+    # Two hashes, two views, one sequence — anything else is not the offense.
+    if sorted((len(hashes), len(views), len(sequences))) != [1, 2, 2]:
+        return "cross-view equivocation evidence is not a cross-view commit pair"
+    if payload.get("views") != sorted(views):
+        return "cross-view equivocation views do not match the message records"
+    return None
+
+
 def _records_to_events(records: list[Any], validator_addr: str) -> tuple[list[SlashingEvent], str | None]:
     """Parse payload evidence records into events, or return a skip reason."""
     events: list[SlashingEvent] = []
@@ -422,6 +581,54 @@ def _records_to_events(records: list[Any], validator_addr: str) -> tuple[list[Sl
     return events, None
 
 
+def _evidence_expired(event: SlashingEvent, ttl_blocks: int | None, apply_height: int | None) -> bool:
+    """#1959 TTL predicate — the same expiry rule the loop applied inline."""
+    return (
+        ttl_blocks is not None
+        and apply_height is not None
+        and event.condition is SlashingCondition.DOUBLE_SIGN
+        and apply_height - event.block_height > ttl_blocks
+    )
+
+
+def _verify_equivocation_claim(
+    ep: dict[str, Any],
+    event: SlashingEvent,
+    validator_addr: str,
+    uc_ctx: UcApplyContext | None,
+    uc_contexts: dict[int, UcApplyContext | None] | None,
+    cross_view_height: int | None,
+    apply_height: int | None,
+) -> tuple[bool, str | None]:
+    """Verify one equivocation claim; ``(counts_as_verified, fail_reason)``.
+
+    A verified claim is ``(True, None)``; an unlock-excused attestation pair
+    is ``(False, None)`` — signatures verified but the cross-round unlock
+    carries an independently verifiable protocol proof (#1274): excused,
+    not counted, bundle not failed. Any failure is ``(False, reason)``.
+    ``ep["kind"]`` is one of the three equivocation kinds — the caller
+    dispatches only those.
+    """
+    kind = ep.get("kind")
+    if kind == "attestation_equivocation":
+        if not _verify_attestation_equivocation(ep, event, validator_addr):
+            return False, "attestation equivocation evidence failed signature verification"
+        event_uc_ctx = uc_contexts.get(event.block_height) if uc_contexts is not None else uc_ctx
+        if not pair_stands_as_evidence(ep, event_uc_ctx):
+            return False, None
+        return True, None
+    if kind == "vote_equivocation":
+        if not _verify_vote_equivocation(ep, validator_addr):
+            return False, "vote equivocation evidence failed signature verification"
+        return True, None
+    # PBFT_CROSS_VIEW_VOTE_EQUIVOCATION — fail closed unless the on-chain
+    # cross-view evidence height is armed and the sequence sits in-window.
+    reason = _verify_pbft_cross_view_vote_equivocation(ep, event, validator_addr, cross_view_height, apply_height)
+    if reason is not None:
+        return False, reason
+    return True, None
+
+
 def _verify_equivocations(
     events: list[SlashingEvent],
     validator_addr: str,
@@ -430,6 +637,7 @@ def _verify_equivocations(
     ttl_blocks: int | None = None,
     apply_height: int | None = None,
     uc_contexts: dict[int, UcApplyContext | None] | None = None,
+    cross_view_height: int | None = None,
 ) -> str | None:
     """Verify every equivocation claim; ≥1 verified equivocation required.
 
@@ -449,28 +657,22 @@ def _verify_equivocations(
     """
     verified = 0
     for event in events:
-        if (
-            ttl_blocks is not None
-            and apply_height is not None
-            and event.condition is SlashingCondition.DOUBLE_SIGN
-            and apply_height - event.block_height > ttl_blocks
-        ):
+        if _evidence_expired(event, ttl_blocks, apply_height):
             continue
         ep = _evidence_json(event)
         kind = ep.get("kind") if ep is not None else None
-        if ep is not None and kind == "attestation_equivocation":
-            if not _verify_attestation_equivocation(ep, event, validator_addr):
-                return "attestation equivocation evidence failed signature verification"
-            event_uc_ctx = uc_contexts.get(event.block_height) if uc_contexts is not None else uc_ctx
-            if not pair_stands_as_evidence(ep, event_uc_ctx):
-                # signatures verified, but the cross-round unlock carries an independently
-                # verifiable protocol proof (#1274): excused, not counted, bundle not failed
-                continue
-            verified += 1
-        elif ep is not None and kind == "vote_equivocation":
-            if not _verify_vote_equivocation(ep, validator_addr):
-                return "vote equivocation evidence failed signature verification"
-            verified += 1
+        if ep is not None and kind in (
+            "attestation_equivocation",
+            "vote_equivocation",
+            PBFT_CROSS_VIEW_VOTE_EQUIVOCATION,
+        ):
+            counts, reason = _verify_equivocation_claim(
+                ep, event, validator_addr, uc_ctx, uc_contexts, cross_view_height, apply_height
+            )
+            if reason is not None:
+                return reason
+            if counts:
+                verified += 1
         elif kind is None and event.evidence.startswith("Double sign detected"):
             # Legacy free-text double-sign: an equivocation claim with no
             # signature material — unverifiable, so it fails the gate.
@@ -527,6 +729,13 @@ def verify_deactivation_evidence(
         if session is not None
         else None
     )
+    cross_view_height = _cross_view_evidence_height(session, chain_id, block_height) if session is not None else None
     return _verify_equivocations(
-        events, validator_addr, uc_ctx, uc_contexts=uc_contexts, ttl_blocks=ttl, apply_height=block_height
+        events,
+        validator_addr,
+        uc_ctx,
+        uc_contexts=uc_contexts,
+        ttl_blocks=ttl,
+        apply_height=block_height,
+        cross_view_height=cross_view_height,
     )

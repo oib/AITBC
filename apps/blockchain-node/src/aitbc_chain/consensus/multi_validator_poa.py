@@ -93,6 +93,31 @@ class Validator:
     hybrid_score: float = 0.0
 
 
+def _is_strict_int(value: Any) -> bool:
+    """Strictly ``int`` — ``bool`` is an ``int`` subclass and must not pass."""
+    return isinstance(value, int) and not isinstance(value, bool)
+
+
+def _non_empty_str(value: Any) -> bool:
+    """``str`` with non-zero length (rejects None, "", and non-str)."""
+    return isinstance(value, str) and bool(value)
+
+
+def _cross_view_message_shape(msg: dict[str, Any]) -> bool:
+    """Shape gate for cross-view commit evidence (#1940 F3-A): COMMIT type,
+    strict-int ``sequence_number``/``view_number``, non-empty str
+    ``block_hash``/``digest``/``signature`` — anything less could never
+    satisfy the on-chain evidence gate, so it produces no event at all."""
+    return (
+        msg.get("message_type") == "commit"
+        and _is_strict_int(msg.get("sequence_number"))
+        and _is_strict_int(msg.get("view_number"))
+        and _non_empty_str(msg.get("block_hash"))
+        and _non_empty_str(msg.get("digest"))
+        and _non_empty_str(msg.get("signature"))
+    )
+
+
 class MultiValidatorPoA:
     """Multi-Validator Proof of Authority consensus mechanism"""
 
@@ -414,6 +439,24 @@ class MultiValidatorPoA:
                 "an" if entry["on_chain_marker"] else "NO",
             )
 
+    def _cross_view_draft_min_height(self, head: int | None) -> int | None:
+        """Local ``validator_deactivation_pbft_cross_view_evidence_height``
+        chain parameter resolved at ``head`` (#1940 F3-A) — the draft-side
+        floor for cross-view evidence claims. ``None`` when headless,
+        unarmed, malformed or unreadable: fail closed, cite nothing (the
+        apply gate decides the real verdict either way)."""
+        if head is None:
+            return None
+        try:
+            from ..database import session_scope
+            from ..state.deactivation_evidence import _cross_view_evidence_height
+
+            with session_scope(self.chain_id) as session:
+                return _cross_view_evidence_height(session, self.chain_id, head)
+        except Exception as e:  # noqa: BLE001 - draft-side lookup is advisory; the gate re-verifies
+            logger.warning("Cross-view evidence height lookup failed drafting deactivations for %s: %s", self.chain_id, e)
+            return None
+
     def draft_deactivation_txs(self) -> dict[str, list[dict[str, Any]]]:
         """Draft ``VALIDATOR_DEACTIVATE`` txs for divergent validators (#1198).
 
@@ -469,6 +512,14 @@ class MultiValidatorPoA:
                     evidence_min_height = head - ttl
             except (SQLAlchemyError, ValueError, TypeError) as e:
                 logger.warning("Evidence TTL lookup failed drafting deactivations for %s: %s", self.chain_id, e)
+        # #1940 F3-A: cross-view commit equivocation claims verify on-chain
+        # only at/above the ``validator_deactivation_pbft_cross_view_evidence_height``
+        # chain parameter resolved at the apply height — the gate fails closed
+        # on anything else, so a v2 draft must not cite a claim that can
+        # never verify. Same head-scoped lookup rule as the TTL floor; an
+        # unset/malformed/failed lookup resolves to "cite nothing" (the
+        # apply gate decides the real verdict either way).
+        cross_view_min_height = self._cross_view_draft_min_height(head)
         drafts: list[dict[str, Any]] = []
         skipped: list[dict[str, Any]] = []
         for addr, v in self.validators.items():
@@ -492,7 +543,7 @@ class MultiValidatorPoA:
                     "type": "VALIDATOR_DEACTIVATE",
                     "value": 0,
                     "payload": self._deactivation_payload(
-                        addr, canon, bond.bond_id, events, evidence_cutoff, evidence_min_height
+                        addr, canon, bond.bond_id, events, evidence_cutoff, evidence_min_height, cross_view_min_height
                     ),
                 }
             )
@@ -506,6 +557,7 @@ class MultiValidatorPoA:
         events: list[Any],
         evidence_cutoff: int | None,
         evidence_min_height: int | None = None,
+        cross_view_min_height: int | None = None,
     ) -> dict[str, Any]:
         """Build the VALIDATOR_DEACTIVATE payload (#1263).
 
@@ -518,7 +570,31 @@ class MultiValidatorPoA:
         """
         from .slashing import SlashingManager, event_is_equivocation_claim, event_signature_evidence, slashing_event_record
 
-        signed_equiv = [e for e in events if event_signature_evidence(e) is not None]
+        # #1940 F3-A: cross-view commit equivocation claims are citable in a
+        # v2 bundle only at/above the armed on-chain activation height — the
+        # apply gate fails closed on anything else, and an unverifiable
+        # equivocation claim fails the WHOLE marker, so such events are
+        # excluded here entirely (they remain in the v1 audit hash and in
+        # local slashing history; they are just never submitted as v2
+        # evidence). ``cross_view_min_height=None`` therefore excludes every
+        # cross-view claim — matching the gate, which also fails closed when
+        # the parameter is unset or malformed.
+        from .slashing import PBFT_CROSS_VIEW_VOTE_EQUIVOCATION, _evidence_payload
+
+        def _cross_view_citable(e: Any) -> bool:
+            ep = _evidence_payload(e)
+            if ep is None or ep.get("kind") != PBFT_CROSS_VIEW_VOTE_EQUIVOCATION:
+                return True
+            sequence = ep.get("sequence")
+            return (
+                isinstance(sequence, int)
+                and not isinstance(sequence, bool)
+                and cross_view_min_height is not None
+                and sequence >= cross_view_min_height
+            )
+
+        citable = [e for e in events if _cross_view_citable(e)]
+        signed_equiv = [e for e in citable if event_signature_evidence(e) is not None]
         if not signed_equiv:
             return {
                 "validator_address": canon,
@@ -527,7 +603,7 @@ class MultiValidatorPoA:
                 ),
                 "bond_id": bond_id,
             }
-        keep = [e for e in events if not (event_is_equivocation_claim(e) and event_signature_evidence(e) is None)]
+        keep = [e for e in citable if not (event_is_equivocation_claim(e) and event_signature_evidence(e) is None)]
         keep.sort(
             key=lambda e: (
                 e.block_height,
@@ -706,6 +782,19 @@ class MultiValidatorPoA:
 
         store[validator].append(record)
 
+        # #1940 F3-A: a commit vote on an armed sequence can complete a
+        # cross-view equivocation pair — run detection. The cross-view scan
+        # inside ``detect_byzantine_behavior`` is gated per-record by
+        # ``cross_view_commit_lock_active`` and commit-store only, so this is
+        # a no-op while the gate is unset; ``apply_slashing`` dedup keeps
+        # re-observation free. Prepare votes never trigger it — cross-view
+        # prepare rotation is the current liveness mechanism.
+        if store is self.commit_messages:
+            from .pbft_cross_view import cross_view_commit_lock_active
+
+            if cross_view_commit_lock_active(record.get("sequence_number")):
+                self.detect_byzantine_behavior(validator)
+
         return True
 
     def record_prepare(self, validator: str, block_hash: str, round: int, *, message: Any = None) -> bool:
@@ -757,31 +846,147 @@ class MultiValidatorPoA:
                 event = self._vote_equivocation_event(validator, store, messages, round_num, block_hashes)
                 if event is None or validator not in self.validators:
                     continue
-                self._slashing_manager.apply_slashing(self.validators[validator], event)
-                # Deactivate validator once byzantine threshold is reached.
-                # #1198: with chain slashing armed this write is
-                # advisory-only — selection reads on-chain
-                # validator_deactivation markers instead, so a
-                # node-local flip here would reintroduce exactly the
-                # divergence the row exists to remove.
-                if (
-                    self._slashing_manager.get_validator_slash_count(validator, event.condition)
-                    >= settings.consensus_byzantine_threshold
-                ):
-                    if self._chain_slashing_armed():
-                        logger.warning(
-                            "Byzantine threshold reached for %s — advisory only "
-                            "(CONSENSUS_CHAIN_SLASHING_ENABLED): submit a "
-                            "VALIDATOR_DEACTIVATE tx to deactivate on-chain",
-                            validator,
-                        )
-                    else:
-                        self.validators[validator].is_active = False
-                        # Persist the deactivation — a restart must not clear
-                        # a byzantine verdict and reset the slash history.
-                        self.save_state()
+                self._apply_equivocation_slash(validator, event)
+
+        # #1940 F3-A: dormant cross-view COMMIT equivocation scan — runs after
+        # the same-round scan above, commit store only, gated per record by
+        # ``cross_view_commit_lock_active(sequence_number)``. Unset gate =
+        # byte-identical pre-F3-A behavior.
+        if self._detect_cross_view_commit_equivocations(validator):
+            detected = True
 
         return detected
+
+    def _detect_cross_view_commit_equivocations(self, validator: str) -> bool:
+        """Slash a validator that COMMIT two different block hashes at the
+        same sequence across different PBFT views (#1940 F3-A).
+
+        Only fully signed commit records qualify (``message=`` capture —
+        ``message_type == "commit"``, strict-int ``sequence_number`` /
+        ``view_number``, non-empty ``block_hash``/``digest``/``signature``,
+        and ``sender`` canonical-matching the store key): anything less could
+        never satisfy the on-chain evidence gate, so it produces no event at
+        all. Within one armed ``sequence_number`` a conflict needs BOTH a
+        different ``view_number`` AND a different ``block_hash`` — the same
+        hash re-committed in a later view is legal rotation, and same-view
+        hash conflicts remain the existing ``vote_equivocation`` path.
+        One canonical pair per ``(validator, sequence)`` is evidenced (the
+        lexicographically smallest conflicting record pair under
+        ``(view_number, block_hash.lower(), signature)``, so observation
+        order cannot change the evidence); the ``apply_slashing`` dedup key —
+        extended for this kind to cover sequence + view pair — keeps
+        re-observation from double-charging.
+        """
+        messages = self.commit_messages.get(validator)
+        if not messages or len(messages) < 2 or validator not in self.validators:
+            return False
+
+        by_sequence: dict[int, list[dict[str, Any]]] = {}
+        for msg in messages:
+            if self._cross_view_record_eligible(msg, validator):
+                # eligibility guarantees a strict-int sequence_number
+                by_sequence.setdefault(msg["sequence_number"], []).append(msg)
+
+        detected = False
+        for sequence in sorted(by_sequence):
+            seq_msgs = by_sequence[sequence]
+            views = {m["view_number"] for m in seq_msgs}
+            hashes = {str(m["block_hash"]).lower() for m in seq_msgs}
+            if len(views) < 2 or len(hashes) < 2:
+                continue  # single view or single hash across views — not equivocation
+
+            # Canonical conflicting pair: the smallest key over all
+            # unordered record pairs with different view AND different hash
+            # — observation order cannot change the evidence.
+            best_pair = min(
+                self._cross_view_conflicting_pairs(seq_msgs),
+                key=self._cross_view_pair_key,
+                default=None,
+            )
+            if best_pair is None:
+                continue
+            event = self._slashing_manager.cross_view_vote_equivocation_event(
+                validator,
+                sequence,
+                "commit",
+                {k: best_pair[0].get(k) for k in self._VOTE_EVIDENCE_FIELDS},
+                {k: best_pair[1].get(k) for k in self._VOTE_EVIDENCE_FIELDS},
+            )
+            self._apply_equivocation_slash(validator, event)
+            detected = True
+        return detected
+
+    def _cross_view_record_eligible(self, msg: dict[str, Any], validator: str) -> bool:
+        """Fully-signed COMMIT record bound to ``validator`` on an armed
+        sequence — the store-key sender must canonical-match and the
+        sequence must be at/above the dormant cross-view commit-lock gate."""
+        from .pbft_cross_view import cross_view_commit_lock_active
+
+        return (
+            _cross_view_message_shape(msg)
+            and canonical_address(str(msg.get("sender", ""))) == canonical_address(validator)
+            and cross_view_commit_lock_active(msg.get("sequence_number"))
+        )
+
+    @staticmethod
+    def _cross_view_conflicting_pairs(seq_msgs: list[dict[str, Any]]):
+        """Yield canonically-ordered ``(lo, hi)`` record pairs that conflict:
+        different ``view_number`` AND different ``block_hash``."""
+        from .slashing import _cross_view_message_order
+
+        for i in range(len(seq_msgs)):
+            for j in range(i + 1, len(seq_msgs)):
+                ra, rb = seq_msgs[i], seq_msgs[j]
+                if ra["view_number"] != rb["view_number"] and str(ra["block_hash"]).lower() != str(rb["block_hash"]).lower():
+                    yield tuple(sorted((ra, rb), key=_cross_view_message_order))
+
+    @staticmethod
+    def _cross_view_pair_key(pair: tuple[dict[str, Any], dict[str, Any]]) -> tuple:
+        """Deterministic ordering key for a conflicting record pair."""
+        lo, hi = pair
+        return (
+            lo["view_number"],
+            str(lo["block_hash"]).lower(),
+            hi["view_number"],
+            str(hi["block_hash"]).lower(),
+            str(lo.get("signature", "")),
+            str(hi.get("signature", "")),
+        )
+
+    def _apply_equivocation_slash(self, validator: str, event: Any) -> None:
+        """Levy an equivocation event and run the shared byzantine-threshold
+        deactivation/advisory block (#1940 F3-A review).
+
+        Every slashable equivocation — same-round ``vote_equivocation`` and
+        armed cross-view COMMIT evidence alike — feeds the same counter and
+        the same threshold gate, so a cross-view double-sign cannot bypass
+        deactivation by arriving through the newer path. The caller-side
+        dormant gating is unchanged: this only runs when an event was
+        actually produced.
+        """
+        self._slashing_manager.apply_slashing(self.validators[validator], event)
+        # Deactivate validator once byzantine threshold is reached.
+        # #1198: with chain slashing armed this write is
+        # advisory-only — selection reads on-chain
+        # validator_deactivation markers instead, so a
+        # node-local flip here would reintroduce exactly the
+        # divergence the row exists to remove.
+        if (
+            self._slashing_manager.get_validator_slash_count(validator, event.condition)
+            >= settings.consensus_byzantine_threshold
+        ):
+            if self._chain_slashing_armed():
+                logger.warning(
+                    "Byzantine threshold reached for %s — advisory only "
+                    "(CONSENSUS_CHAIN_SLASHING_ENABLED): submit a "
+                    "VALIDATOR_DEACTIVATE tx to deactivate on-chain",
+                    validator,
+                )
+            else:
+                self.validators[validator].is_active = False
+                # Persist the deactivation — a restart must not clear
+                # a byzantine verdict and reset the slash history.
+                self.save_state()
 
     _VOTE_EVIDENCE_FIELDS = ("message_type", "sender", "view_number", "sequence_number", "digest", "block_hash", "signature")
 
@@ -1070,10 +1275,15 @@ class MultiValidatorPoA:
             payload = json.loads(evidence) if isinstance(evidence, str) else None
         except (TypeError, ValueError):
             payload = None
-        if isinstance(payload, dict) and payload.get("kind") in ("attestation_equivocation", "vote_equivocation"):
-            from .slashing import _sorted_hash_pair
+        if isinstance(payload, dict) and payload.get("kind") in (
+            "attestation_equivocation",
+            "vote_equivocation",
+            "pbft_cross_view_vote_equivocation",
+        ):
+            from .slashing import PBFT_CROSS_VIEW_VOTE_EQUIVOCATION, _cross_view_message_order, _sorted_hash_pair
 
-            if payload.get("kind") == "vote_equivocation":
+            kind = payload.get("kind")
+            if kind in ("vote_equivocation", PBFT_CROSS_VIEW_VOTE_EQUIVOCATION):
                 # The hash pair lives inside messages[] for vote evidence.
                 vote_hashes = [str(m.get("block_hash", "")) for m in payload.get("messages", []) if isinstance(m, dict)]
                 a, b = _sorted_hash_pair(vote_hashes[0] if vote_hashes else "", vote_hashes[1] if len(vote_hashes) > 1 else "")
@@ -1082,12 +1292,25 @@ class MultiValidatorPoA:
                 payload["block_hash_a"], payload["block_hash_b"] = a, b
             # #1263: signature-bearing sub-records canonicalize by their hash
             # too, so observation order cannot change the persisted evidence.
+            # #1940 F3-A: cross-view commit evidence orders messages by
+            # (view_number, block_hash, signature) — the same key the event
+            # builder used — so the persisted record stays byte-identical.
             for key, sort_field in (("attestations", "hash"), ("messages", "block_hash")):
                 entries = payload.get(key)
                 if isinstance(entries, list):
-                    payload[key] = sorted(
-                        entries, key=lambda e: str(e.get(sort_field, "")).lower() if isinstance(e, dict) else ""
-                    )
+                    if key == "messages" and kind == PBFT_CROSS_VIEW_VOTE_EQUIVOCATION:
+                        # Non-dict entries sort last-ish with a neutral key and
+                        # are preserved — the same degrade-in-place treatment
+                        # the same-view path gives malformed sub-records (the
+                        # on-chain verifier rejects them; parsing must not).
+                        payload[key] = sorted(
+                            entries,
+                            key=lambda e: _cross_view_message_order(e) if isinstance(e, dict) else (-1, "", ""),
+                        )
+                    else:
+                        payload[key] = sorted(
+                            entries, key=lambda e: str(e.get(sort_field, "")).lower() if isinstance(e, dict) else ""
+                        )
             evidence = json.dumps(payload, sort_keys=True)
             hash_a, hash_b = a, b
             if round_number is None and payload.get("kind") == "attestation_equivocation":
