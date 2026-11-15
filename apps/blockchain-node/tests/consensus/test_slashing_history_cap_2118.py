@@ -136,3 +136,73 @@ def test_load_state_compacts_an_oversized_history(monkeypatch):
     loaded = MultiValidatorPoA._parse_slashing_events(records)
     assert len(loaded) == 40
     assert len(cap_history_per_height(loaded, slashing._max_events_per_height())) == 2
+
+
+# --- respin: the advisory path (record_attestation_equivocation) -------------
+# Hub's 30,417 flood events had stake_before None: they came through
+# record_attestation_equivocation -> _dedup_or_upgrade, never apply_slashing.
+
+_SIGNED = [{"hash": "0xa", "signature": "0x1"}, {"hash": "0xb", "signature": "0x2"}]
+
+
+def _advisory(mgr: SlashingManager, i: int, height: int = 100, signed: bool = False, addr: str = V1):
+    return mgr.record_attestation_equivocation(
+        addr, height, None, f"0x{i:064x}", f"0x{i + 10**6:064x}", attestations=_SIGNED if signed else None
+    )
+
+
+def test_advisory_flood_is_bounded_when_armed(monkeypatch):
+    monkeypatch.setattr(settings, "slashing_max_events_per_height", 5)
+    mgr = SlashingManager()
+    for i in range(500):
+        _advisory(mgr, i)
+    assert len(mgr.slashing_events) == 5
+    assert metrics_registry._counters["slashing_events_cap_refused_total"] == 495
+    assert all(e.stake_before is None for e in mgr.slashing_events)  # still advisory
+
+
+def test_advisory_dedup_is_indexed_and_unchanged():
+    mgr = SlashingManager()
+    first = _advisory(mgr, 1)
+    assert _advisory(mgr, 1) is first  # same offence: the recorded event comes back
+    assert len(mgr.slashing_events) == 1
+    signed = _advisory(mgr, 1, signed=True)  # signature-bearing upgrade in place
+    assert signed is first and slashing.event_signature_evidence(first) is not None
+
+
+def test_advisory_cap_zero_is_dormant():
+    mgr = SlashingManager()
+    for i in range(50):
+        _advisory(mgr, i)
+    assert len(mgr.slashing_events) == 50
+    assert "slashing_events_cap_refused_total" not in metrics_registry._counters
+
+
+def test_signed_evidence_displaces_the_newest_unsigned_record(monkeypatch):
+    monkeypatch.setattr(settings, "slashing_max_events_per_height", 3)
+    mgr = SlashingManager()
+    for i in range(3):
+        _advisory(mgr, i)  # bucket full of advisory records
+    newest_unsigned = mgr.slashing_events[-1]
+    signed = _advisory(mgr, 99, signed=True)
+    assert signed in mgr.slashing_events and newest_unsigned not in mgr.slashing_events
+    assert len(mgr.slashing_events) == 3
+    assert metrics_registry._counters["slashing_events_cap_evicted_total"] == 1
+
+
+def test_forged_unsigned_flood_cannot_evict_signed_evidence(monkeypatch):
+    monkeypatch.setattr(settings, "slashing_max_events_per_height", 2)
+    mgr = SlashingManager()
+    s1, s2 = _advisory(mgr, 1, signed=True), _advisory(mgr, 2, signed=True)
+    for i in range(10, 60):
+        _advisory(mgr, i)
+        _advisory(mgr, i + 1000, signed=True)  # a full bucket of signed: refused, never evicting
+    assert mgr.slashing_events == [s1, s2]
+
+
+def test_compaction_keeps_signed_events_first():
+    mgr = SlashingManager()
+    events = [_advisory(mgr, i) for i in range(6)] + [_advisory(mgr, 77, signed=True)]
+    kept = cap_history_per_height(list(events), 2)
+    assert events[-1] in kept and len(kept) == 2  # the one signed + the oldest unsigned
+    assert kept[0] is events[0]
