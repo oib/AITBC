@@ -423,38 +423,9 @@ def _main() -> int:
         urls = os.environ.get("BRIDGE_RPC_URLS", "http://127.0.0.1:8202/rpc").split(",")
         args.rpc_url = [u.strip() for u in urls if u.strip()]
 
-    if args.validator_blob:
-        # Consume pre-signed blobs: address/public_key/self_signature already
-        # produced on the key-owning host — no validator keys needed here.
-        identities = _load_validator_blobs(args.validator_blob, args.chain_id)
-    else:
-        identities = []
-        for name, validator_key in _collect_validator_private_keys():
-            address, public_key = _derive_address_and_public_key(validator_key)
-            identities.append(
-                {
-                    "name": name,
-                    "address": address,
-                    "public_key": public_key,
-                    "signature": _sign_dict(validator_key, _self_sign_data(args.chain_id, address, public_key)),
-                }
-            )
+    identities = _collect_identities(args)
 
-    if args.emit_blobs:
-        import json as _json
-
-        out_dir = Path(args.emit_blobs)
-        out_dir.mkdir(parents=True, exist_ok=True)
-        for ident in identities:
-            blob = {
-                "chain_id": args.chain_id,
-                "address": ident["address"],
-                "public_key": ident["public_key"],
-                "signature": ident["signature"],
-            }
-            target = out_dir / f"{ident['name']}.json"
-            target.write_text(_json.dumps(blob, indent=2) + "\n")
-            print(f"wrote {target}: address={ident['address']}")
+    if _emit_blobs(args, identities):
         return 0
 
     admin_key = _get_admin_private_key()
@@ -466,59 +437,123 @@ def _main() -> int:
     print(f"Registering {len(identities)} validator(s) against {len(args.rpc_url)} RPC endpoint(s)")
 
     for ident in identities:
-        name = ident["name"]
-        address = ident["address"]
-        public_key = ident["public_key"]
-        self_signature = ident["signature"]
-
-        if args.dry_run:
-            print(f"[DRY-RUN] {name}: address={address}")
-            continue
-
-        for rpc_url in args.rpc_url:
-            # target_chain_id binds the node SERVING the request — its own
-            # chain id, not the chain being registered (Refs #679). Probe the
-            # destination so registering a remote island's validators works.
-            node_chain, node_id = _probe_node_identity(rpc_url)
-            target_chain = node_chain or args.chain_id
-            if node_chain is None:
-                _warn(
-                    f"{rpc_url}: could not probe /network-info for the node's own chain id; "
-                    f"falling back to target_chain_id={args.chain_id!r} — this fails unless the "
-                    "node runs that chain itself"
-                )
-
-            # Build the full payload that the admin will co-sign. Fresh
-            # issued_at/nonce per destination: each POST is a separate signed
-            # request and nonces are single-use per node.
-            payload: dict[str, Any] = {
-                "chain_id": args.chain_id,
-                "address": address,
-                "public_key": public_key,
-                "signature": self_signature,
-                "epoch": args.epoch,
-                "admin_address": admin_address,
-                "issued_at": datetime.now(UTC).isoformat(),
-                "nonce": secrets.token_hex(16),
-                "target_chain_id": target_chain,
-            }
-            if node_id:
-                payload["target_node_id"] = node_id
-
-            # Admin signature covers the payload excluding admin_signature itself.
-            payload["admin_signature"] = _sign_dict(admin_key, payload)
-
-            result = _post_registration(rpc_url, payload)
-            status = result.get("success")
-            if status:
-                print(
-                    f"OK  {name} @ {rpc_url}: {result.get('message', 'registered')} (address={result.get('address', address)})"
-                )
-            else:
-                all_ok = False
-                print(f"ERR {name} @ {rpc_url}: {result.get('error', 'unknown error')} (address={address})", file=sys.stderr)
+        if not _register_validator(args, ident, admin_key, admin_address):
+            all_ok = False
 
     return 0 if all_ok else 1
+
+
+def _collect_identities(args: argparse.Namespace) -> list[dict[str, str]]:
+    """Resolve validator identities from pre-signed blobs or local private keys."""
+    if args.validator_blob:
+        # Consume pre-signed blobs: address/public_key/self_signature already
+        # produced on the key-owning host — no validator keys needed here.
+        return _load_validator_blobs(args.validator_blob, args.chain_id)
+    identities = []
+    for name, validator_key in _collect_validator_private_keys():
+        address, public_key = _derive_address_and_public_key(validator_key)
+        identities.append(
+            {
+                "name": name,
+                "address": address,
+                "public_key": public_key,
+                "signature": _sign_dict(validator_key, _self_sign_data(args.chain_id, address, public_key)),
+            }
+        )
+    return identities
+
+
+def _emit_blobs(args: argparse.Namespace, identities: list[dict[str, str]]) -> bool:
+    """Write each validator's public self-signature blob to --emit-blobs DIR.
+
+    Returns True when the emit-blobs mode handled the run (caller exits 0).
+    """
+    if not args.emit_blobs:
+        return False
+    import json as _json
+
+    out_dir = Path(args.emit_blobs)
+    out_dir.mkdir(parents=True, exist_ok=True)
+    for ident in identities:
+        blob = {
+            "chain_id": args.chain_id,
+            "address": ident["address"],
+            "public_key": ident["public_key"],
+            "signature": ident["signature"],
+        }
+        target = out_dir / f"{ident['name']}.json"
+        target.write_text(_json.dumps(blob, indent=2) + "\n")
+        print(f"wrote {target}: address={ident['address']}")
+    return True
+
+
+def _build_payload(
+    args: argparse.Namespace,
+    rpc_url: str,
+    ident: dict[str, str],
+    admin_key: str,
+    admin_address: str,
+) -> dict[str, Any]:
+    """Build and admin-sign the registration payload for one RPC endpoint."""
+    # target_chain_id binds the node SERVING the request — its own
+    # chain id, not the chain being registered (Refs #679). Probe the
+    # destination so registering a remote island's validators works.
+    node_chain, node_id = _probe_node_identity(rpc_url)
+    target_chain = node_chain or args.chain_id
+    if node_chain is None:
+        _warn(
+            f"{rpc_url}: could not probe /network-info for the node's own chain id; "
+            f"falling back to target_chain_id={args.chain_id!r} — this fails unless the "
+            "node runs that chain itself"
+        )
+
+    # Build the full payload that the admin will co-sign. Fresh
+    # issued_at/nonce per destination: each POST is a separate signed
+    # request and nonces are single-use per node.
+    payload: dict[str, Any] = {
+        "chain_id": args.chain_id,
+        "address": ident["address"],
+        "public_key": ident["public_key"],
+        "signature": ident["signature"],
+        "epoch": args.epoch,
+        "admin_address": admin_address,
+        "issued_at": datetime.now(UTC).isoformat(),
+        "nonce": secrets.token_hex(16),
+        "target_chain_id": target_chain,
+    }
+    if node_id:
+        payload["target_node_id"] = node_id
+
+    # Admin signature covers the payload excluding admin_signature itself.
+    payload["admin_signature"] = _sign_dict(admin_key, payload)
+    return payload
+
+
+def _register_validator(
+    args: argparse.Namespace,
+    ident: dict[str, str],
+    admin_key: str,
+    admin_address: str,
+) -> bool:
+    """Register one validator against every RPC endpoint; False on any error."""
+    name = ident["name"]
+    address = ident["address"]
+
+    if args.dry_run:
+        print(f"[DRY-RUN] {name}: address={address}")
+        return True
+
+    ok = True
+    for rpc_url in args.rpc_url:
+        payload = _build_payload(args, rpc_url, ident, admin_key, admin_address)
+        result = _post_registration(rpc_url, payload)
+        status = result.get("success")
+        if status:
+            print(f"OK  {name} @ {rpc_url}: {result.get('message', 'registered')} (address={result.get('address', address)})")
+        else:
+            ok = False
+            print(f"ERR {name} @ {rpc_url}: {result.get('error', 'unknown error')} (address={address})", file=sys.stderr)
+    return ok
 
 
 if __name__ == "__main__":
