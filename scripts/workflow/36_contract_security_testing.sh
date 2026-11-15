@@ -37,6 +37,14 @@ GENESIS_PORT="8202"
 FOLLOWER_PORT="8202"
 COORDINATOR_PORT="8203"
 
+# #1966: /rpc/ai/stats is fleet-read gated. Read the RPC key from the remote
+# node's env files inside the ssh command so the secret never crosses ssh argv.
+ai_stats_remote() {
+    local node="$1" url="$2"
+    ssh "$node" "for f in /etc/aitbc/blockchain.env /etc/aitbc/node.env /etc/aitbc/aitbc-blockchain-rpc.env /etc/aitbc/aitbc-blockchain-rpc-override.env /etc/aitbc/blockchain-secrets.env; do if [ -f \"\$f\" ]; then . \"\$f\"; fi; done; curl -sf -H \"X-API-Key: \${BLOCKCHAIN_RPC_API_KEY:-}\" \"$url\""
+}
+export -f ai_stats_remote
+
 # Security testing configuration
 SECURITY_REPORT_DIR="/opt/aitbc/security_reports"
 VULNERABILITY_DB="/opt/aitbc/vulnerability_database.txt"
@@ -267,7 +275,7 @@ run_test_verbose "Cross-service communication security" "
     fi
 
     # Test AI service security
-    AI_RESPONSE=\$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats')
+    AI_RESPONSE=\$(ai_stats_remote $FOLLOWER_NODE http://localhost:$FOLLOWER_PORT/rpc/ai/stats)
     if [ -n \"\$AI_RESPONSE\" ]; then
         echo '✅ AI service accessible'
 
@@ -439,7 +447,7 @@ SERVICE SECURITY STATUS
 Blockchain RPC: $([ -n "$(curl -s http://localhost:$GENESIS_PORT/rpc/info)" ] && echo "Secure" || echo "Vulnerable")
 Coordinator API: $([ -n "$(curl -s http://localhost:$COORDINATOR_PORT/health/live)" ] && echo "Secure" || echo "Vulnerable")
 Market Service: $([ -n "$(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings)" ] && echo "Secure" || echo "Vulnerable")
-AI Service: $([ -n "$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats')" ] && echo "Secure" || echo "Vulnerable")
+AI Service: $([ -n "$(ai_stats_remote $FOLLOWER_NODE http://localhost:$FOLLOWER_PORT/rpc/ai/stats 2>/dev/null)" ] && echo "Secure" || echo "Vulnerable")
 
 CONTRACT SECURITY STATUS
 ----------------------

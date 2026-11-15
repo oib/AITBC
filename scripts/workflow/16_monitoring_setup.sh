@@ -150,6 +150,11 @@ echo
 if [ -z "${BLOCKCHAIN_RPC:-}" ] && [ -f /etc/aitbc/blockchain.env ]; then
     set -a; . /etc/aitbc/blockchain.env; set +a
 fi
+# /rpc/ai/stats is fleet-read gated (#1966): load the node RPC key from the
+# remote env files at runtime — never bake it into this generated script.
+for f in /etc/aitbc/blockchain.env /etc/aitbc/node.env /etc/aitbc/aitbc-blockchain-rpc.env /etc/aitbc/aitbc-blockchain-rpc-override.env /etc/aitbc/blockchain-secrets.env; do
+    if [ -f "$f" ]; then . "$f"; fi
+done
 BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
 
 # Blockchain Status
@@ -168,7 +173,8 @@ echo
 
 # AI Services Status
 echo "🤖 AI Services Status:"
-AI_STATS=$(curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs 2>/dev/null)
+AI_STATS=$(curl -sf -H "X-API-Key: ${BLOCKCHAIN_RPC_API_KEY:-}" $BLOCKCHAIN_RPC/rpc/ai/stats 2>/dev/null | jq .total_jobs 2>/dev/null)
+AI_STATS="${AI_STATS:-N/A}"
 echo "   Total Jobs: $AI_STATS"
 echo
 

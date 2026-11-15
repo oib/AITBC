@@ -41,6 +41,14 @@ COORDINATOR_PORT="8203"
 API_KEY_FILE="/opt/aitbc/api_keys.txt"
 COORDINATOR_API_KEY=""
 
+# #1966: /rpc/ai/stats is fleet-read gated. Read the RPC key from the remote
+# node's env files inside the ssh command so the secret never crosses ssh argv.
+ai_stats_remote() {
+    local node="$1" url="$2"
+    ssh "$node" "for f in /etc/aitbc/blockchain.env /etc/aitbc/node.env /etc/aitbc/aitbc-blockchain-rpc.env /etc/aitbc/aitbc-blockchain-rpc-override.env /etc/aitbc/blockchain-secrets.env; do if [ -f \"\$f\" ]; then . \"\$f\"; fi; done; curl -sf -H \"X-API-Key: \${BLOCKCHAIN_RPC_API_KEY:-}\" \"$url\""
+}
+export -f ai_stats_remote
+
 # Test counters
 TESTS_PASSED=0
 TESTS_FAILED=0
@@ -180,7 +188,7 @@ run_test_verbose "Market listings" "
 # Test AI service
 run_test_verbose "AI service stats" "
     echo 'Testing AI service stats...'
-    ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats | jq .'
+    ai_stats_remote $FOLLOWER_NODE http://localhost:$FOLLOWER_PORT/rpc/ai/stats | jq .
 "
 
 # 4. SERVICE INTEGRATION TESTING
@@ -354,7 +362,7 @@ else
 fi
 
 # AI service health
-AI_HEALTH=$(ssh $FOLLOWER_NODE "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats")
+AI_HEALTH=$(ai_stats_remote $FOLLOWER_NODE "$BLOCKCHAIN_RPC/rpc/ai/stats" 2>/dev/null || true)
 if [ -n "$AI_HEALTH" ]; then
     echo -e "${GREEN}✅${NC} AI Service: Healthy"
     SERVICES_STATUS="$SERVICES_STATUS ai:healthy"

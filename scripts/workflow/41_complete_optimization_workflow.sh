@@ -36,6 +36,14 @@ FOLLOWER_NODE="aitbc"
 GENESIS_PORT="8202"
 COORDINATOR_PORT="8203"
 
+# #1966: /rpc/ai/stats is fleet-read gated. Read the RPC key from the remote
+# node's env files inside the ssh command so the secret never crosses ssh argv.
+ai_stats_remote() {
+    local node="$1" url="$2"
+    ssh "$node" "for f in /etc/aitbc/blockchain.env /etc/aitbc/node.env /etc/aitbc/aitbc-blockchain-rpc.env /etc/aitbc/aitbc-blockchain-rpc-override.env /etc/aitbc/blockchain-secrets.env; do if [ -f \"\$f\" ]; then . \"\$f\"; fi; done; curl -sf -H \"X-API-Key: \${BLOCKCHAIN_RPC_API_KEY:-}\" \"$url\""
+}
+export -f ai_stats_remote
+
 echo "🚀 COMPLETE SYSTEM OPTIMIZATION"
 echo "Comprehensive optimization and testing of all AITBC features"
 echo ""
@@ -154,7 +162,7 @@ echo "=========================="
 
 run_test_verbose "AI service optimization" "
     echo 'Optimizing AI service performance...'
-    ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs"
+    ai_stats_remote aitbc $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs
 "
 
 # 10. CROSS-NODE OPTIMIZATION
@@ -229,7 +237,7 @@ run_test_verbose "Comprehensive system test" "
     echo \"✅ Blockchain RPC: \$(curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null && echo 'Working' || echo 'Failed')\"
     echo \"✅ Coordinator API: \$(curl -fsS http://localhost:8203/health/live >/dev/null && echo 'Working' || echo 'Failed')\"
     echo \"✅ Market: \$(curl -s $BLOCKCHAIN_RPC/rpc/market/listings >/dev/null && echo 'Working' || echo 'Failed')\"
-    echo \"✅ AI Service: \$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats' >/dev/null && echo 'Working' || echo 'Failed")\"
+    echo \"✅ AI Service: \$(ai_stats_remote aitbc $BLOCKCHAIN_RPC/rpc/ai/stats >/dev/null 2>&1 && echo 'Working' || echo 'Failed')\"
     echo \"✅ Agent Communication: \$(curl -s $BLOCKCHAIN_RPC/rpc/messaging/topics >/dev/null && echo 'Working' || echo 'Failed')\"
 "
 

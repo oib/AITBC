@@ -37,6 +37,14 @@ GENESIS_PORT="8202"
 FOLLOWER_PORT="8202"
 COORDINATOR_PORT="8203"
 
+# #1966: /rpc/ai/stats is fleet-read gated. Read the RPC key from the remote
+# node's env files inside the ssh command so the secret never crosses ssh argv.
+ai_stats_remote() {
+    local node="$1" url="$2"
+    ssh "$node" "for f in /etc/aitbc/blockchain.env /etc/aitbc/node.env /etc/aitbc/aitbc-blockchain-rpc.env /etc/aitbc/aitbc-blockchain-rpc-override.env /etc/aitbc/blockchain-secrets.env; do if [ -f \"\$f\" ]; then . \"\$f\"; fi; done; curl -sf -H \"X-API-Key: \${BLOCKCHAIN_RPC_API_KEY:-}\" \"$url\""
+}
+export -f ai_stats_remote
+
 # Monitoring configuration
 ALERT_THRESHOLD_CPU=80
 ALERT_THRESHOLD_MEM=90
@@ -195,7 +203,7 @@ check_service_metrics() {
     echo "Checking service-specific metrics..."
 
     # AI Service metrics
-    local ai_stats=$(ssh $FOLLOWER_NODE "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats" 2>/dev/null)
+    local ai_stats=$(ai_stats_remote $FOLLOWER_NODE "$BLOCKCHAIN_RPC/rpc/ai/stats" 2>/dev/null || true)
     if [ -n "$ai_stats" ]; then
         local ai_jobs=$(echo "$ai_stats" | jq .total_jobs 2>/dev/null || echo "0")
         local ai_revenue=$(echo "$ai_stats" | jq .total_revenue 2>/dev/null || echo "0")
@@ -291,8 +299,8 @@ Cross-node Sync: $(( $(curl -s http://localhost:$GENESIS_PORT/rpc/head | jq .hei
 
 SERVICE METRICS
 ---------------
-AI Jobs: $(ssh $FOLLOWER_NODE "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs" 2>/dev/null || echo "N/A")
-AI Revenue: $(ssh $FOLLOWER_NODE "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_revenue" 2>/dev/null || echo "N/A") AIT
+AI Jobs: $(set -o pipefail; ai_stats_remote $FOLLOWER_NODE "$BLOCKCHAIN_RPC/rpc/ai/stats" 2>/dev/null | jq .total_jobs 2>/dev/null || echo "N/A")
+AI Revenue: $(set -o pipefail; ai_stats_remote $FOLLOWER_NODE "$BLOCKCHAIN_RPC/rpc/ai/stats" 2>/dev/null | jq .total_revenue 2>/dev/null || echo "N/A") AIT
 Market Listings: $(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings | jq '.listings | length' 2>/dev/null || echo "N/A")
 Contract Files: $(find /opt/aitbc/apps/blockchain-node/src/aitbc_chain/contracts/ -name "*.py" 2>/dev/null | wc -l)
 
@@ -350,7 +358,7 @@ run_continuous_monitoring() {
 
         # Service health checks
         check_service_health "Blockchain RPC" "curl -s http://localhost:$GENESIS_PORT/rpc/info"
-        check_service_health "AI Service" "ssh $FOLLOWER_NODE "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats""
+        check_service_health "AI Service" "ai_stats_remote $FOLLOWER_NODE $BLOCKCHAIN_RPC/rpc/ai/stats"
         check_service_health "Coordinator API" "curl -s http://localhost:$COORDINATOR_PORT/health/live"
         echo ""
 
@@ -377,7 +385,7 @@ run_quick_health_check() {
 
     # Service health
     check_service_health "Blockchain RPC" "curl -s http://localhost:$GENESIS_PORT/rpc/info"
-    check_service_health "AI Service" "ssh $FOLLOWER_NODE "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats""
+    check_service_health "AI Service" "ai_stats_remote $FOLLOWER_NODE $BLOCKCHAIN_RPC/rpc/ai/stats"
     check_service_health "Coordinator API" "curl -s http://localhost:$COORDINATOR_PORT/health/live"
     check_service_health "Market" "curl -s http://localhost:$GENESIS_PORT/rpc/market/listings"
     echo ""

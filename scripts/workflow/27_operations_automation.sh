@@ -36,6 +36,14 @@ ALERT_THRESHOLD_CPU=80
 ALERT_THRESHOLD_MEM=90
 ALERT_THRESHOLD_DISK=85
 
+# #1966: /rpc/ai/stats is fleet-read gated. Read the RPC key from the remote
+# node's env files inside the ssh command so the secret never crosses ssh argv.
+ai_stats_remote() {
+    local node="$1" url="$2"
+    ssh "$node" "for f in /etc/aitbc/blockchain.env /etc/aitbc/node.env /etc/aitbc/aitbc-blockchain-rpc.env /etc/aitbc/aitbc-blockchain-rpc-override.env /etc/aitbc/blockchain-secrets.env; do if [ -f \"\$f\" ]; then . \"\$f\"; fi; done; curl -sf -H \"X-API-Key: \${BLOCKCHAIN_RPC_API_KEY:-}\" \"$url\""
+}
+export -f ai_stats_remote
+
 # Function to log operations
 log_ops() {
     echo "[$(date)] $1" >> "$LOG_FILE"
@@ -167,7 +175,7 @@ check_market_activity() {
         echo "Active listings: $listings"
 
         # Check AI activity
-        local ai_stats=$(ssh aitbc "curl -s $BLOCKCHAIN_RPC/rpc/ai/stats 2>/dev/null || echo '{}'")
+        local ai_stats=$(ai_stats_remote aitbc "$BLOCKCHAIN_RPC/rpc/ai/stats" 2>/dev/null || true)
         echo "AI service status: Available"
 
         log_ops "Market: listings=$listings"

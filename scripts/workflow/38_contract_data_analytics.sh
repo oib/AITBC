@@ -37,6 +37,14 @@ GENESIS_PORT="8202"
 FOLLOWER_PORT="8202"
 COORDINATOR_PORT="8203"
 
+# #1966: /rpc/ai/stats is fleet-read gated. Read the RPC key from the remote
+# node's env files inside the ssh command so the secret never crosses ssh argv.
+ai_stats_remote() {
+    local node="$1" url="$2"
+    ssh "$node" "for f in /etc/aitbc/blockchain.env /etc/aitbc/node.env /etc/aitbc/aitbc-blockchain-rpc.env /etc/aitbc/aitbc-blockchain-rpc-override.env /etc/aitbc/blockchain-secrets.env; do if [ -f \"\$f\" ]; then . \"\$f\"; fi; done; curl -sf -H \"X-API-Key: \${BLOCKCHAIN_RPC_API_KEY:-}\" \"$url\""
+}
+export -f ai_stats_remote
+
 # Analytics configuration
 ANALYTICS_DIR="/var/log/aitbc/analytics"
 REPORTS_DIR="$ANALYTICS_DIR/reports"
@@ -105,8 +113,8 @@ collect_contract_metrics() {
 collect_service_metrics() {
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
     local market_listings=$(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings | jq '.listings | length' 2>/dev/null || echo "0")
-    local ai_jobs=$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats | jq .total_jobs' 2>/dev/null || echo "0")
-    local ai_revenue=$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats | jq .total_revenue' 2>/dev/null || echo "0")
+    local ai_jobs=$(set -o pipefail; ai_stats_remote $FOLLOWER_NODE http://localhost:$FOLLOWER_PORT/rpc/ai/stats 2>/dev/null | jq .total_jobs 2>/dev/null || echo "0")
+    local ai_revenue=$(set -o pipefail; ai_stats_remote $FOLLOWER_NODE http://localhost:$FOLLOWER_PORT/rpc/ai/stats 2>/dev/null | jq .total_revenue 2>/dev/null || echo "0")
 
     echo "$timestamp,$market_listings,$ai_jobs,$ai_revenue" >> "$DATA_DIR/service_metrics.csv"
 }
@@ -226,7 +234,7 @@ run_test_verbose "Service performance analysis" "
 
     # Analyze AI service performance
     AI_START_TIME=\$(date +%s%N)
-    AI_RESPONSE=\$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats' >/dev/null 2>&1)
+    AI_RESPONSE=\$(ai_stats_remote $FOLLOWER_NODE http://localhost:$FOLLOWER_PORT/rpc/ai/stats >/dev/null 2>&1)
     AI_END_TIME=\$(date +%s%N)
 
     AI_RESPONSE_TIME=\$(((AI_END_TIME - AI_START_TIME) / 1000000))
