@@ -357,6 +357,30 @@ def _sign_consensus(message: dict[str, Any], private_key: str, domain: str | Non
     return sign_consensus_message_domain(message, private_key, domain)
 
 
+async def _send_abandon(
+    chain_id: str,
+    validator_keys: dict[str, str],
+    logger: Any,
+    height: int,
+    block_hash: str,
+    proposer: str,
+    round_number: int | None = None,
+) -> bool:
+    """Sign and publish one abandon statement (#1301 L2); False when it could not go out."""
+    private_key = validator_keys.get(proposer) or getattr(settings, "proposer_key", None)
+    if not private_key:
+        return False
+    try:
+        stmt = abandon.build_abandon(chain_id, height, block_hash, round_number, proposer, private_key)
+        await gossip_broker.publish(abandon.abandon_topic(chain_id), stmt)
+        metrics_registry.increment("vote_journal_abandon_published_total")
+        logger.warning("[PROPOSE] Published abandon for %s at height %s", block_hash[:18], height)
+    except Exception as exc:  # noqa: BLE001 - best effort; the valve remains the backstop
+        logger.warning("Abandon publish failed at height %s: %s", height, exc)
+        return False
+    return True
+
+
 class _PoaBaseMixin:
     """Core lifecycle, attestation, journal, hashing, and PBFT plumbing for ``PoAProposer`` (#1867 pure-move split)."""
 
@@ -403,6 +427,9 @@ class _PoaBaseMixin:
         self._validator_keys: dict[str, str] = {}
         self._remote_attestation: RemoteAttestationService | None = None
         self._republish_tasks: set[asyncio.Task[None]] = set()  # #1268 seal re-announcers
+        # #1985: abandons this proposer owes the mesh (liveness flag) and the once-per-start orphan-scan latch
+        self._abandon_ledger = abandon.AbandonLedger()
+        self._abandon_orphans_done = False
         # #1281: unlock justification produced by the armed evidence valve,
         # keyed by proposal height — consumed by _record_proposal_vote,
         # the attest_request, and block_metadata.unlock_justification.
@@ -1109,6 +1136,7 @@ class _PoaBaseMixin:
             if resolved is None:
                 return False
             head, next_height, parent_hash, interval_seconds = resolved
+            await self._abandon_liveness_tick(next_height - 1)
             retry_cand = self._peek_same_hash_retry(next_height, parent_hash)
             timestamp = retry_cand[2] if retry_cand is not None else datetime.now(UTC)
             if session is not None:
@@ -1362,16 +1390,53 @@ class _PoaBaseMixin:
         if not abandon.abandon_enabled():
             return
         proposer = str(block.proposer)
-        private_key = self._validator_keys.get(proposer) or getattr(settings, "proposer_key", None)
-        if not private_key:
+        sent = await _send_abandon(
+            self._config.chain_id,
+            self._validator_keys,
+            self._logger,
+            block.height,
+            block_hash,
+            proposer,
+            round_number,
+        )
+        if sent and abandon.liveness_enabled():
+            # #1985: remember the dropped proposal so its abandon can be re-announced
+            self._abandon_ledger.record(block.height, block_hash, None, proposer, time.time())
+
+    async def _abandon_liveness_tick(self, tip_height: int) -> None:
+        """#1985: once-per-start orphan recovery, then paced re-announce. Inert unless the liveness flag is armed."""
+        if not abandon.liveness_enabled():
             return
-        try:
-            stmt = abandon.build_abandon(self._config.chain_id, block.height, block_hash, round_number, proposer, private_key)
-            await gossip_broker.publish(abandon.abandon_topic(self._config.chain_id), stmt)
-            metrics_registry.increment("vote_journal_abandon_published_total")
-            self._logger.warning("[PROPOSE] Published abandon for %s at height %s", block_hash[:18], block.height)
-        except Exception as exc:  # noqa: BLE001 - best effort; the valve remains the backstop
-            self._logger.warning("Abandon publish failed at height %s: %s", block.height, exc)
+        if not self._abandon_orphans_done:
+            self._abandon_orphans_done = True
+            self._recover_orphaned_proposals(tip_height)
+        every = float(getattr(settings, "vote_journal_abandon_reannounce_seconds", 30.0))
+        for height, block_hash, owed_round, proposer in self._abandon_ledger.due(tip_height, every, time.time()):
+            if await _send_abandon(
+                self._config.chain_id, self._validator_keys, self._logger, height, block_hash, proposer, owed_round
+            ):
+                metrics_registry.increment("vote_journal_abandon_reannounced_total")
+
+    def _recover_orphaned_proposals(self, tip_height: int) -> None:
+        """#1985: proposals this validator journaled above the tip that died with a previous process.
+
+        Nothing is in flight at the first tick after a start, so the block can
+        never be sealed: owe an abandon for it and void the own proposal vote
+        (the same retract a failed gate performs), or the restarted proposer
+        stays pinned to a hash it can no longer produce.
+        """
+        journal = get_vote_journal(self._config.chain_id)
+        for address in self._validator_keys:
+            for rec in journal.proposals_above(address, tip_height):
+                self._abandon_ledger.record(rec.height, rec.block_hash, rec.round, address, 0.0)
+                journal.retract(rec.height, address, rec.block_hash)
+                metrics_registry.increment("vote_journal_orphan_proposal_retracted_total")
+                self._logger.warning(
+                    "[PROPOSE] Orphaned journal proposal %s at height %s (above tip %s): abandoning and retracting",
+                    rec.block_hash[:18],
+                    rec.height,
+                    tip_height,
+                )
 
     def _reservation_owner_for(self, proposer: str) -> str:
         """Reservation owner id when the P2 flag is armed, else "" (drain path)."""

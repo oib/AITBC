@@ -453,6 +453,9 @@ class _ProposalGatesMixin(_PoaBaseMixin):
             if session is not None:
                 session.rollback()
             return False
+        if _poa.abandon.liveness_enabled():
+            # #1985: a same-hash retry proposes a hash previously abandoned; it must stop being announced as dead.
+            self._abandon_ledger.forget(next_height, block_hash)
         return True
 
     def _record_proposal_equivocation(self, block: Block, proposer: str, round_number: int | None) -> None:
