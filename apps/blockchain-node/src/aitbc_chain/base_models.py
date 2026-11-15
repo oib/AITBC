@@ -777,6 +777,9 @@ class ConsensusState(ChainBase, table=True):
     current_epoch: int = Field(default=0)
     validator_set_json: str = Field(default="")  # JSON-serialized validator set
     slashing_events_json: str = Field(default="[]")  # JSON-serialized slashing history
+    # #1940 F3-B: JSON object mapping str(sequence) -> committed block_hash —
+    # this node's cross-view PBFT commit locks. "{}" on rows that predate it.
+    pbft_commit_locks_json: str = Field(default="{}")
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
