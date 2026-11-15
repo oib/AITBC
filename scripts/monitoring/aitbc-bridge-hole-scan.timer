@@ -1,0 +1,14 @@
+[Unit]
+Description=Run AITBC bridge header hole scan daily
+Documentation=https://github.com/oib/AITBC
+
+[Timer]
+# Daily is enough: a persisted hole only appears after a loss event, and
+# the #1290 daily journal sweep already covers the leading indicator.
+OnCalendar=daily
+RandomizedDelaySec=1800
+Persistent=true
+Unit=aitbc-bridge-hole-scan.service
+
+[Install]
+WantedBy=timers.target
