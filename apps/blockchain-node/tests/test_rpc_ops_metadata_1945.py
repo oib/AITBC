@@ -1,7 +1,11 @@
-"""#1945 RPC-OPS-METADATA-1: internal ops-state GETs require peer credential.
+"""#1945 RPC-OPS-METADATA-1: node self-description GETs require peer credential.
 
-#1952 extended the same gate to node self-description reads (`/info`,
-`/status`, `/network-info`, `/proposer`). Chain-data reads stay public.
+Hybrid posture extended: chain-data, join-bootstrap, and public chain-stat
+reads stay public (`/rpc/proposer`, `/rpc/network-info` — setup.sh/update.sh
+curl them before a node holds any credential; `/rpc/info`, `/rpc/status` —
+payload is public chain stats consumed keyless by fleet-config-check and the
+stress suite). Internal ops-state reads are gated by ``verify_rpc_peer_key``
+on the shared router so `/v1` is covered too.
 """
 
 import pytest
@@ -23,6 +27,10 @@ GATED = [
 ]
 
 PUBLIC = [
+    "/proposer",
+    "/network-info",
+    "/info",
+    "/status",
     "/pending",
 ]
 

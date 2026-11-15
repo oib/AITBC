@@ -2,20 +2,8 @@ from __future__ import annotations
 
 from aitbc_chain.app import create_app
 from aitbc_chain.config import settings
-from aitbc_chain.rpc import escrow_routes
 from fastapi.testclient import TestClient
 import pytest
-
-_RPC_KEY = "network-info-test-key"
-
-
-@pytest.fixture(autouse=True)
-def _rpc_peer_key(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(escrow_routes, "_RPC_API_KEY", _RPC_KEY)
-
-
-def _rpc_headers(**extra: str) -> dict[str, str]:
-    return {"X-API-Key": _RPC_KEY, **extra}
 
 
 @pytest.fixture
@@ -33,7 +21,7 @@ def _fetch_network_info() -> dict:
     with TestClient(create_app()) as client:
         response = client.get(
             "/rpc/network-info",
-            headers={**_rpc_headers(), "Host": "hub.example.net", "X-Forwarded-Proto": "https"},
+            headers={"Host": "hub.example.net", "X-Forwarded-Proto": "https"},
         )
         assert response.status_code == 200
         return response.json()
@@ -72,8 +60,7 @@ def test_network_info_and_head_allow_head_requests(_network_info_settings) -> No
     """Uptime monitors probe with HEAD — FastAPI does not auto-add it."""
     with TestClient(create_app()) as client:
         for path, allowed in (("/rpc/network-info", {200}), ("/rpc/head", {200, 404})):
-            headers = _rpc_headers() if path == "/rpc/network-info" else None
-            response = client.head(path, headers=headers)
+            response = client.head(path)
             # /rpc/head raises 404 "no blocks yet" on an empty test chain DB —
             # a 404 still proves HEAD routed (unsupported HEAD would be 405).
             assert response.status_code in allowed, path
@@ -94,7 +81,6 @@ def test_network_info_ignores_spoofed_forwarding_headers(_network_info_settings)
         response = client.get(
             "/rpc/network-info",
             headers={
-                **_rpc_headers(),
                 "Host": "evil.example",
                 "X-Forwarded-Host": "evil.example",
                 "X-Forwarded-Proto": "http",
@@ -114,7 +100,7 @@ def test_network_info_without_config_never_reflects_host_header(
     with TestClient(create_app()) as client:
         response = client.get(
             "/rpc/network-info",
-            headers={**_rpc_headers(), "Host": "evil.example", "X-Forwarded-Host": "evil.example"},
+            headers={"Host": "evil.example", "X-Forwarded-Host": "evil.example"},
         )
         assert response.status_code == 200
         data = response.json()

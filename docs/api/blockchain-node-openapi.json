@@ -3360,23 +3360,8 @@
                 }
               }
             }
-          },
-          "403": {
-            "description": "Forbidden: missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
-        },
-        "security": [
-          {
-            "APIKeyHeader": []
-          }
-        ]
+        }
       }
     },
     "/rpc/blocks/{height}": {
@@ -3692,11 +3677,6 @@
         "summary": "Get blockchain information",
         "description": "Get comprehensive blockchain information including transactions, accounts, and genesis parameters",
         "operationId": "get_info_route_rpc_info_get",
-        "security": [
-          {
-            "APIKeyHeader": []
-          }
-        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -3737,16 +3717,6 @@
                 }
               }
             }
-          },
-          "403": {
-            "description": "Forbidden: missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -3760,11 +3730,6 @@
         "summary": "Get node status (alias for /info)",
         "description": "Get node status - alias for /info endpoint",
         "operationId": "get_status_route_rpc_status_get",
-        "security": [
-          {
-            "APIKeyHeader": []
-          }
-        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -3805,16 +3770,6 @@
                 }
               }
             }
-          },
-          "403": {
-            "description": "Forbidden: missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -3840,23 +3795,8 @@
                 }
               }
             }
-          },
-          "403": {
-            "description": "Forbidden: missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
-        },
-        "security": [
-          {
-            "APIKeyHeader": []
-          }
-        ]
+        }
       }
     },
     "/rpc/importBlock": {
@@ -15703,23 +15643,8 @@
                 }
               }
             }
-          },
-          "403": {
-            "description": "Forbidden: missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
-        },
-        "security": [
-          {
-            "APIKeyHeader": []
-          }
-        ]
+        }
       }
     },
     "/v1/blocks/{height}": {
@@ -16035,11 +15960,6 @@
         "summary": "Get blockchain information",
         "description": "Get comprehensive blockchain information including transactions, accounts, and genesis parameters",
         "operationId": "get_info_route_v1_info_get",
-        "security": [
-          {
-            "APIKeyHeader": []
-          }
-        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -16080,16 +16000,6 @@
                 }
               }
             }
-          },
-          "403": {
-            "description": "Forbidden: missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -16103,11 +16013,6 @@
         "summary": "Get node status (alias for /info)",
         "description": "Get node status - alias for /info endpoint",
         "operationId": "get_status_route_v1_status_get",
-        "security": [
-          {
-            "APIKeyHeader": []
-          }
-        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -16148,16 +16053,6 @@
                 }
               }
             }
-          },
-          "403": {
-            "description": "Forbidden: missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -16183,23 +16078,8 @@
                 }
               }
             }
-          },
-          "403": {
-            "description": "Forbidden: missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
-        },
-        "security": [
-          {
-            "APIKeyHeader": []
-          }
-        ]
+        }
       }
     },
     "/v1/importBlock": {
