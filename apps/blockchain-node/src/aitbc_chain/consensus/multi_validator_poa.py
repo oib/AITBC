@@ -1412,9 +1412,10 @@ class MultiValidatorPoA:
                 # penalty was forgotten on restart. That reset get_validator_slash_count to
                 # zero, which reset the thresholds: a validator two strikes into a three-strike
                 # unavailability rule started over each time the node came back.
-                self._slashing_manager.slashing_events = self._parse_slashing_events(
-                    json.loads(row.slashing_events_json) if row.slashing_events_json else []
-                )
+                from .slashing import _max_events_per_height, cap_history_per_height
+
+                loaded = self._parse_slashing_events(json.loads(row.slashing_events_json) if row.slashing_events_json else [])
+                self._slashing_manager.slashing_events = cap_history_per_height(loaded, _max_events_per_height())
                 # #1940 F3-B: restore this node's cross-view commit locks.
                 # Entries below the persisted current sequence can never be
                 # voted on again, so they are pruned on load as well as on arm.
