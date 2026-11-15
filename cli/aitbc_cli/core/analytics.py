@@ -141,7 +141,8 @@ class ChainAnalytics:
 
             config = get_config()
             rpc_url = getattr(config, "blockchain_rpc_url", "http://127.0.0.1:8202").rstrip("/")
-        except Exception:
+        except Exception as e:  # noqa: BLE001 - analytics is best-effort; default RPC fallback
+            logger.debug("config load failed, using default rpc url: %s", type(e).__name__)
             rpc_url = "http://127.0.0.1:8202"
 
         try:

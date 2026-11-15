@@ -534,7 +534,7 @@ def _chain_has_transaction(rpc_url: str, tx_hash: str, chain_id: str | None = No
     url = f"{rpc_url.rstrip('/')}/rpc/transaction/{tx_hash}"
     try:
         response = requests.get(url, params={"chain_id": chain_id} if chain_id else None, timeout=10)
-    except Exception as e:
+    except requests.RequestException as e:
         click.echo(f"  Could not reach {rpc_url}: {e}")
         return None
     if response.status_code == 200:

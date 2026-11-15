@@ -37,7 +37,7 @@ def _verify(addr: str, sig: str, payload: dict) -> bool:
     msg = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
     try:
         return verify_signature(keccak(msg), sig, addr)
-    except Exception:
+    except (ValueError, TypeError):
         return False
 
 

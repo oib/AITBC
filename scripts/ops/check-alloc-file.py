@@ -180,7 +180,7 @@ def _checksum(addr: Any) -> str | None:
     canonical_address, _ = _chain_modules()
     try:
         canonical = canonical_address(str(addr or "").strip(), strict=True)
-    except Exception:
+    except (ValueError, ImportError):
         return None
     return canonical if canonical == str(addr).strip() else None
 

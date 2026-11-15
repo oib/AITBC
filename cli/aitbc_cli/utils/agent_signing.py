@@ -33,6 +33,7 @@ every call site signs only when the operator configured a wallet
 
 from __future__ import annotations
 
+import logging
 import os
 import uuid
 from datetime import UTC, datetime
@@ -52,6 +53,8 @@ from aitbc.crypto.agent_envelope import (
 from aitbc.crypto.signature_recovery import canonical_address
 
 from .wallet_loader import load_wallet_for_payment
+
+logger = logging.getLogger(__name__)
 
 #: Domain prefix for signed read-request headers (X-Agent-*). Distinct from the
 #: message-envelope domain so an inbox poll signature cannot be replayed as a
@@ -201,7 +204,8 @@ def check_registry_binding(client, agent_id: str, address: str) -> str | None:
     """
     try:
         data = client.get(f"/v1/agents/{agent_id}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - lookup failure must not block advisory-mode traffic
+        logger.debug("agent registry lookup failed for %s: %s", agent_id, type(e).__name__)
         if "404" in str(e):
             return (
                 f"Agent '{agent_id}' is not registered with the coordinator — register it first with "
@@ -220,7 +224,7 @@ def check_registry_binding(client, agent_id: str, address: str) -> str | None:
         )
     try:
         mismatch = canonical_address(bound) != canonical_address(address)
-    except Exception:
+    except (AttributeError, TypeError, ValueError, ImportError):
         mismatch = True
     if mismatch:
         return (
@@ -234,12 +238,13 @@ def find_agent_by_identity(client, address: str) -> str | None:
     """Scan the registry for an agent bound to ``address``; returns agent_id."""
     try:
         data = client.post("/v1/agents/discover", json={"limit": 1000})
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - registry scan failure means no agent is found
+        logger.debug("agent discover failed: %s", type(e).__name__)
         return None
     agents = data.get("agents", []) if isinstance(data, dict) else []
     try:
         wanted = canonical_address(address)
-    except Exception:
+    except (AttributeError, TypeError, ValueError, ImportError):
         return None
     for agent in agents:
         bound = agent.get("identity_address") if isinstance(agent, dict) else None
@@ -247,7 +252,7 @@ def find_agent_by_identity(client, address: str) -> str | None:
             try:
                 if canonical_address(bound) == wanted:
                     return str(agent.get("agent_id"))
-            except Exception:
+            except (AttributeError, TypeError, ValueError, ImportError):
                 continue
     return None
 
@@ -275,7 +280,8 @@ def agent_login_token(
     """
     try:
         nonce_resp = client.post(f"/api/v1/agent/auth/nonce?agent_id={agent_id}")
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - login endpoint probe falls back to the API-key token
+        logger.debug("agent auth nonce request failed: %s", type(e).__name__)
         return None
     nonce = nonce_resp.get("nonce") if isinstance(nonce_resp, dict) else None
     if not nonce:
@@ -298,7 +304,8 @@ def agent_login_token(
                 "chain_id": effective_chain or None,
             },
         )
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - login failure falls back to the API-key token
+        logger.debug("agent auth login failed: %s", type(e).__name__)
         return None
     token = login_resp.get("access_token") if isinstance(login_resp, dict) else None
     return str(token) if token else None

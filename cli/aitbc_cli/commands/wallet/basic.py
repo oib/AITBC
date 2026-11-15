@@ -531,7 +531,7 @@ def info(ctx, name: str | None, password: str | None, password_file: str | None,
     stored_address = wallet_data.get("address", "")
     try:
         display_address = to_eip55(stored_address)
-    except Exception:
+    except (ValueError, TypeError, AttributeError, ImportError):
         # Keep the raw stored value visible — the integrity check below flags it.
         display_address = stored_address
 

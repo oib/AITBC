@@ -305,7 +305,7 @@ def _version_display() -> str:
             ).stdout.strip()
             if sha:
                 return f"{__version__}+{sha}"
-        except Exception:
+        except (OSError, subprocess.SubprocessError):
             pass
     return __version__
 

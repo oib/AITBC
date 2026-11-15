@@ -88,7 +88,7 @@ def register_miner(
         return {"action": "register", "status": f"❌ HTTP error: {str(e)}"}
     except json.JSONDecodeError as e:
         return {"action": "register", "status": f"❌ JSON decode error: {str(e)}"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level CLI boundary reports the error in the status dict
         return {"action": "register", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
@@ -136,7 +136,7 @@ def get_miner_status(
         return {"action": "status", "status": f"❌ HTTP error: {str(e)}"}
     except (KeyError, StopIteration) as e:
         return {"action": "status", "status": f"❌ Data processing error: {str(e)}"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level CLI boundary reports the error in the status dict
         return {"action": "status", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
@@ -176,7 +176,7 @@ def send_heartbeat(
         return {"action": "heartbeat", "status": f"❌ Timeout error: {str(e)}"}
     except requests.exceptions.HTTPError as e:
         return {"action": "heartbeat", "status": f"❌ HTTP error: {str(e)}"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level CLI boundary reports the error in the status dict
         return {"action": "heartbeat", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
@@ -225,7 +225,7 @@ def poll_jobs(
         return {"action": "poll", "status": f"❌ HTTP error: {str(e)}"}
     except json.JSONDecodeError as e:
         return {"action": "poll", "status": f"❌ JSON decode error: {str(e)}"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level CLI boundary reports the error in the status dict
         return {"action": "poll", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
@@ -277,7 +277,7 @@ def submit_job_result(
         return {"action": "result", "status": f"❌ HTTP error: {str(e)}"}
     except (OSError, FileNotFoundError, PermissionError) as e:
         return {"action": "result", "status": f"❌ File error: {type(e).__name__}: {str(e)}"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level CLI boundary reports the error in the status dict
         return {"action": "result", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
@@ -340,7 +340,7 @@ def update_capabilities(
         return {"action": "update", "status": f"❌ HTTP error: {str(e)}"}
     except json.JSONDecodeError as e:
         return {"action": "update", "status": f"❌ JSON decode error: {str(e)}"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level CLI boundary reports the error in the status dict
         return {"action": "update", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
@@ -409,7 +409,7 @@ def check_earnings(
             "currency": "AIT",
         }
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level CLI boundary reports the error in the status dict
         return {"action": "earnings", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
@@ -453,7 +453,7 @@ def list_market_offers(
         return {"action": "market_list", "status": f"❌ Timeout error: {str(e)}"}
     except requests.exceptions.HTTPError as e:
         return {"action": "market_list", "status": f"❌ HTTP error: {str(e)}"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level CLI boundary reports the error in the status dict
         return {"action": "market_list", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
@@ -491,7 +491,7 @@ def create_market_offer(
         return {"action": "market_create", "status": f"❌ Timeout error: {str(e)}"}
     except requests.exceptions.HTTPError as e:
         return {"action": "market_create", "status": f"❌ HTTP error: {str(e)}"}
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level CLI boundary reports the error in the status dict
         return {"action": "market_create", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 

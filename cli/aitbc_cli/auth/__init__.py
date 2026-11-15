@@ -81,7 +81,9 @@ def _resolve_keyring():
 
     try:
         backend = keyring.get_keyring()
-    except Exception:  # pragma: no cover - backend discovery is platform-specific
+    except (
+        Exception
+    ):  # pragma: no cover - backend discovery is platform-specific  # noqa: BLE001,S110 - optional keyring backend
         return None
 
     if isinstance(backend, fail_backend.Keyring):
@@ -229,7 +231,7 @@ class AuthManager:
                     present = (
                         self._keyring.get_password(self.SERVICE_NAME, key) if self._keyring is not None else file_data.get(key)
                     )
-                except Exception:  # pragma: no cover - backend-specific
+                except Exception:  # pragma: no cover - backend-specific  # noqa: BLE001,S110 - optional keyring backend
                     continue
                 if present:
                     credentials[f"{name}@{env}"] = "******"
