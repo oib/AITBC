@@ -65,7 +65,7 @@ def rpc_post(base: str, path: str, body: dict) -> tuple[int, dict | str]:
         raw = e.read().decode(errors="replace")
         try:
             return e.code, json.loads(raw)
-        except ValueError:
+        except (RecursionError, ValueError):
             return e.code, raw
 
 

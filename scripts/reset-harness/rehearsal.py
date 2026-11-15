@@ -890,7 +890,7 @@ def _head(inst: Instance) -> int | None:
         with urllib.request.urlopen(f"http://127.0.0.1:{inst.rpc_port}/rpc/head", timeout=3) as r:  # nosec B310
             data = json.loads(r.read())
             return int(data.get("height", data.get("block", {}).get("height", -1)))
-    except (OSError, ValueError, TypeError, AttributeError, http.client.HTTPException):
+    except (OSError, RecursionError, ValueError, TypeError, AttributeError, http.client.HTTPException):
         return None
 
 
@@ -900,7 +900,7 @@ def _block(inst: Instance, height: int) -> dict | None:
             f"http://127.0.0.1:{inst.rpc_port}/rpc/blocks/{height}", timeout=3
         ) as r:
             return json.loads(r.read())
-    except (OSError, ValueError, http.client.HTTPException):
+    except (OSError, RecursionError, ValueError, http.client.HTTPException):
         return None
 
 
@@ -915,9 +915,9 @@ def _post_json(url: str, body: dict) -> tuple[int, dict]:
     except urllib.error.HTTPError as e:
         try:
             return e.code, json.loads(e.read())
-        except (OSError, ValueError, http.client.HTTPException):
+        except (OSError, RecursionError, ValueError, http.client.HTTPException):
             return e.code, {}
-    except (OSError, ValueError, http.client.HTTPException):
+    except (OSError, RecursionError, ValueError, http.client.HTTPException):
         return 0, {}
 
 

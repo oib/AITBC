@@ -159,9 +159,9 @@ def real_http_get(url: str, timeout: int = 5) -> tuple[int, dict]:
     except urllib.error.HTTPError as e:
         try:
             return e.code, json.loads(e.read())
-        except (OSError, ValueError, http.client.HTTPException):
+        except (OSError, RecursionError, ValueError, http.client.HTTPException):
             return e.code, {}
-    except (OSError, ValueError, http.client.HTTPException) as e:
+    except (OSError, RecursionError, ValueError, http.client.HTTPException) as e:
         return -1, {"error": str(e)}
 
 
@@ -178,9 +178,9 @@ def real_http_post(url: str, body: dict, timeout: int = 5) -> tuple[int, dict]:
     except urllib.error.HTTPError as e:
         try:
             return e.code, json.loads(e.read())
-        except (OSError, ValueError, http.client.HTTPException):
+        except (OSError, RecursionError, ValueError, http.client.HTTPException):
             return e.code, {}
-    except (OSError, ValueError, http.client.HTTPException) as e:
+    except (OSError, RecursionError, ValueError, http.client.HTTPException) as e:
         return -1, {"error": str(e)}
 
 
@@ -302,7 +302,7 @@ def check_quorum(ctx: Ctx) -> list[Result]:
         meta = body.get("block_metadata") or "{}"
         try:
             atts = json.loads(meta).get("attestations") or []
-        except (ValueError, TypeError, AttributeError):
+        except (RecursionError, ValueError, TypeError, AttributeError):
             atts = []
         if len(atts) < 2:
             bad_heights.append(f"{hgt}:atts={len(atts)}")
@@ -453,7 +453,7 @@ def _snapshot_accounts(body: dict) -> dict[str, int]:
     for a in body.get("accounts") or []:
         try:
             out[a["address"]] = int(a.get("balance", 0))
-        except (KeyError, TypeError, ValueError, AttributeError):
+        except (KeyError, OverflowError, TypeError, ValueError, AttributeError):
             continue
     return out
 
@@ -481,7 +481,7 @@ def check_supply_alloc(ctx: Ctx) -> list[Result]:
     if alloc_file:
         try:
             allocs = {a["address"]: int(a["balance"]) for a in json.loads(open(alloc_file).read())}
-        except (OSError, ValueError, KeyError, TypeError) as e:
+        except (OSError, OverflowError, ValueError, KeyError, TypeError) as e:
             allocs = None
             rows.append(Result("alloc-classes", "fleet", "STOP", False, "allocations file parses", str(e)))
         if allocs is not None:

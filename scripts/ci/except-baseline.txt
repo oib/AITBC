@@ -101,7 +101,7 @@
       1 apps/blockchain-node/src/aitbc_chain/sync_validator.py
       1 apps/blockchain-node/tests/test_bridge_header_batch_idempotent.py
       1 apps/blockchain-node/tests/test_gossip_broadcast.py
-      4 cli/aitbc_cli/auth/__init__.py
+      3 cli/aitbc_cli/auth/__init__.py
       2 cli/aitbc_cli/commands/account.py
       7 cli/aitbc_cli/commands/agent_comm.py
       6 cli/aitbc_cli/commands/agent.py

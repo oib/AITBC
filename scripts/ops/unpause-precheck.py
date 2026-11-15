@@ -105,9 +105,9 @@ def real_http_get(url: str, timeout: int = 5) -> tuple[int, dict]:
     except urllib.error.HTTPError as e:
         try:
             return e.code, json.loads(e.read())
-        except (OSError, ValueError, http.client.HTTPException):
+        except (OSError, RecursionError, ValueError, http.client.HTTPException):
             return e.code, {}
-    except (OSError, ValueError, http.client.HTTPException) as e:
+    except (OSError, RecursionError, ValueError, http.client.HTTPException) as e:
         return -1, {"error": str(e)}
 
 
@@ -124,9 +124,9 @@ def real_http_post(url: str, body: dict, timeout: int = 8) -> tuple[int, dict]:
     except urllib.error.HTTPError as e:
         try:
             return e.code, json.loads(e.read())
-        except (OSError, ValueError, http.client.HTTPException):
+        except (OSError, RecursionError, ValueError, http.client.HTTPException):
             return e.code, {}
-    except (OSError, ValueError, http.client.HTTPException) as e:
+    except (OSError, RecursionError, ValueError, http.client.HTTPException) as e:
         return -1, {"error": str(e)}
 
 
