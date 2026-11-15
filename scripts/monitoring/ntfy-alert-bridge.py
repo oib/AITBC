@@ -18,7 +18,7 @@ Env:
     NTFY_ALERTS_TOPIC       (default aitbc-alerts)
     NTFY_BRIDGE_TOPIC       (default aitbc-alerts-bridge)
     NTFY_BRIDGE_LOG         (default /var/log/aitbc/ntfy-alerts.jsonl)
-    NTFY_SINCE              cache replay window on connect (default 2m;
+    NTFY_SINCE              cache replay window on connect (default 30s;
                            ntfy counts each replayed message against the
                            visitor request bucket, so keep this small)
 """
@@ -80,7 +80,7 @@ def main() -> int:
             # Bound the cache replay: ntfy counts each replayed message
             # against the visitor request bucket, so an unbounded poll=1
             # replay of the 24h cache (~9k alerts) drains it for hours.
-            since = os.environ.get("NTFY_SINCE", "2m")
+            since = os.environ.get("NTFY_SINCE", "30s")
             url = f"{_base()}/{TOPIC}/json?poll=1&since={since}"
             headers = {"Accept": "application/x-ndjson"}
             token = _token()
