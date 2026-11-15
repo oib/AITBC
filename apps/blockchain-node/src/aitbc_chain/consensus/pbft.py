@@ -23,6 +23,8 @@ from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
 from .multi_validator_poa import MultiValidatorPoA
+from .pbft_certificate import strict_certificate_active, validate_commit_certificate
+from .pbft_quorum import pbft_required_messages
 
 logger = get_logger(__name__)
 
@@ -72,20 +74,6 @@ class PBFTState:
     prepared_messages: dict[str, list[PBFTMessage]]
     committed_messages: dict[str, list[PBFTMessage]]
     pre_prepare_messages: dict[str, PBFTMessage]
-
-
-def pbft_required_messages(active_count: int) -> int:
-    """The prepare/commit quorum for ``active_count`` validators (#1061).
-
-    f = (n-1)//3 Byzantine tolerated, and the quorum is the smallest count
-    where two disjoint quorums would intersect in more than f nodes:
-    ceil((n+f+1)/2). Plain 2f+1 is only that value when n == 3f+1; at
-    n = 3f or 3f+2 it lets two disjoint quorums form with no Byzantine
-    node at all (n=6 -> 4, n=9 -> 6, not 3 and 5).
-    """
-    n = max(0, int(active_count))
-    f = max(0, (n - 1) // 3)
-    return max(1, (n + f + 1 + 1) // 2)
 
 
 def _int_key_seq(key: str) -> int:
@@ -456,7 +444,22 @@ class PBFTConsensus:
         return True
 
     def get_certificate(self, block_hash: str, view: int | None = None) -> list[dict[str, Any]]:
-        """Return the commit certificate for a completed PBFT round.\n\n        Searches across all views and sequences for commit messages matching\n        the requested block hash, so a certificate is still retrievable after\n        a view change during the proposal round.\n"""
+        """Return the commit certificate for a completed PBFT round.
+
+        Searches across all views and sequences for commit messages matching
+        the requested block hash, so a certificate is still retrievable after
+        a view change during the proposal round.
+
+        #1940 F3: once ``pbft_certificate_strict_height`` is armed at a
+        candidate group's sequence — the group sequence IS the block height
+        being committed — the certificate must be ONE complete coherent
+        ``(sequence, view)`` group that passes the shared strict verifier,
+        never a union across buckets. ``view`` then selects only that view's
+        group; an incomplete requested view yields ``[]``. With no
+        strict-era candidate the legacy union body runs unchanged.
+        """
+        if self._has_strict_certificate_candidate(block_hash):
+            return self._strict_commit_certificate(block_hash, view)
         certificate = []
         for messages in self.state.committed_messages.values():
             for m in messages:
@@ -472,6 +475,51 @@ class PBFTConsensus:
             seen.add(sender)
             deduped.append(msg)
         return deduped
+
+    def _committed_candidates(self, block_hash: str, view: int | None = None) -> list[PBFTMessage]:
+        """Commit messages for ``block_hash`` (optionally one view) across all buckets."""
+        return [
+            m
+            for messages in self.state.committed_messages.values()
+            for m in messages
+            if m.block_hash == block_hash and (view is None or m.view_number == view)
+        ]
+
+    def _has_strict_certificate_candidate(self, block_hash: str) -> bool:
+        """Whether any commit for ``block_hash`` sits at a strict-era sequence.
+
+        The gate is inferred per candidate group: a group's
+        ``sequence_number`` is the block height it commits (the producer
+        call passes ``sequence=next_height``), so
+        ``strict_certificate_active`` is evaluated on it directly.
+        """
+        return any(strict_certificate_active(m.sequence_number) for m in self._committed_candidates(block_hash))
+
+    def _strict_commit_certificate(self, block_hash: str, view: int | None) -> list[dict[str, Any]]:
+        """Best complete coherent commit group for ``block_hash`` (#1940 F3).
+
+        Candidates are grouped by their SIGNED ``(sequence_number,
+        view_number)``; each group is verified independently by the shared
+        strict contract and the highest valid view wins (sequence breaks the
+        tie deterministically). No valid complete group -> ``[]``.
+        """
+        groups: dict[tuple[int, int], list[PBFTMessage]] = {}
+        for m in self._committed_candidates(block_hash, view):
+            groups.setdefault((m.sequence_number, m.view_number), []).append(m)
+        validators = self.consensus.get_consensus_participants()
+        best_key: tuple[int, int] | None = None
+        best_certificate: list[dict[str, Any]] = []
+        for (sequence, view_number), messages in groups.items():
+            if not strict_certificate_active(sequence):
+                continue
+            certificate = [m.to_dict() for m in messages]
+            ok, _reason = validate_commit_certificate(certificate, block_hash, validators, height=sequence, view=view_number)
+            if not ok:
+                continue
+            if best_key is None or (view_number, sequence) > best_key:
+                best_key = (view_number, sequence)
+                best_certificate = certificate
+        return best_certificate
 
     def set_on_execute(self, callback: Any) -> None:
         """Set the callback executed when a commit quorum is reached.

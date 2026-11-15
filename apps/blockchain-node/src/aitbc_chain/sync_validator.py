@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from .logger import get_logger
 from .metrics import metrics_registry
@@ -117,6 +117,22 @@ class ProposerSignatureValidator:
             metrics_registry.increment("sync_signature_rejected_total")
             return (False, "Unsigned block and no trusted proposer set configured")
 
+        # #1940 F3: the multi-validator attestation gate below only runs when
+        # BOTH its flag and a non-empty configured set are present — with
+        # either missing, nothing else would enforce the strict PBFT
+        # certificate contract, so consult the shared verdict on that outer
+        # path (``_trusted`` members still feed the verifier). The gated path
+        # applies the same verdict inside ``_validate_attestations``, so no
+        # block is ever verified twice.
+        multivalidator_gate = getattr(settings, "multi_validator_consensus_enabled", False) and getattr(
+            settings, "validator_set", ""
+        )
+        if not multivalidator_gate:
+            strict_verdict = self._strict_pbft_verdict(block_data)
+            if strict_verdict is not None and not strict_verdict[0]:
+                metrics_registry.increment("sync_signature_rejected_total")
+                return (False, strict_verdict[1])
+
         # v0.7.5: if multi-validator consensus is enabled, verify block attestations
         # stored in block_metadata. At least multi_validator_min_attestations must
         # be valid signatures from the configured validator set.
@@ -173,6 +189,9 @@ class ProposerSignatureValidator:
 
     def _validate_attestations(self, block_data: dict[str, Any]) -> tuple[bool, str]:
         """Validate attestations in block_metadata for multi-validator consensus."""
+        strict_verdict = self._strict_pbft_verdict(block_data)
+        if strict_verdict is not None:
+            return strict_verdict
         min_attestations = self._effective_min_attestations()
         if min_attestations <= 0:
             return (True, "No attestations required")
@@ -356,12 +375,107 @@ class ProposerSignatureValidator:
             logger.debug("proposer round derivation failed: %s", type(e).__name__)
             return None
 
+    @staticmethod
+    def _strict_era_metadata(block_data: dict[str, Any]) -> tuple[bool, Any]:
+        """Safely parse ``block_metadata`` for the strict-era gate (#1940 F3).
+
+        Returns ``(True, parsed)`` — ``parsed`` may be any JSON value —
+        or ``(False, None)`` when metadata is absent, not a string, or
+        unparseable. ``RecursionError`` from pathologically deep JSON is
+        caught here so the gate itself can never raise.
+        """
+        import json
+
+        metadata_str = block_data.get("block_metadata", "")
+        if not isinstance(metadata_str, str) or not metadata_str:
+            return False, None
+        try:
+            return True, json.loads(metadata_str)
+        except (ValueError, RecursionError, TypeError):
+            return False, None
+
+    def _strict_pbft_verdict(self, block_data: dict[str, Any]) -> tuple[bool, str] | None:
+        """#1940 F3 strict-era certificate gate, consulted at the top of
+        ``_validate_attestations``.
+
+        Returns ``None`` when the strict contract does not apply — the
+        block height is pre-threshold, or (PBFT disabled) the metadata
+        carries no ``pbft_certificate`` key — so the legacy body runs
+        byte-equivalent. Otherwise returns the certificate verdict
+        directly:
+
+        - strict era AND ``pbft_consensus_enabled``: the block MUST carry
+          parseable metadata object with a ``pbft_certificate`` list that
+          passes the shared strict verifier — missing/malformed/non-object
+          metadata or a missing/non-list certificate rejects even at
+          ``min_attestations=0``, so a proposer cannot omit the certificate
+          and fall back to a gossip attestation quorum;
+        - strict era with PBFT off: only a metadata object CONTAINING
+          ``pbft_certificate`` is intercepted (non-list rejects, a list is
+          strictly verified); everything else returns ``None`` and keeps
+          the normal attestation behaviour.
+        """
+        from .consensus.pbft_certificate import strict_certificate_active, validate_commit_certificate
+
+        height = block_data.get("height")
+        if not strict_certificate_active(height):
+            return None
+        pbft_on = bool(getattr(settings, "pbft_consensus_enabled", False))
+        parsed, metadata = self._strict_era_metadata(block_data)
+        if not parsed:
+            if pbft_on:
+                return False, "strict-era PBFT block missing parseable block_metadata"
+            return None
+        if not isinstance(metadata, dict):
+            if pbft_on:
+                return False, "strict-era PBFT block_metadata is not a JSON object"
+            return None
+        if "pbft_certificate" not in metadata:
+            if pbft_on:
+                return False, "strict-era PBFT block missing pbft_certificate"
+            return None
+        certificate = metadata["pbft_certificate"]
+        if not isinstance(certificate, list):
+            return False, "strict-era pbft_certificate is not a list"
+        return validate_commit_certificate(
+            certificate,
+            str(block_data.get("hash", "")),
+            self._load_validator_set() or self._trusted,
+            height=cast(int, height),
+        )
+
     def _validate_pbft_certificate(
         self,
         block_data: dict[str, Any],
         certificate: list[dict[str, Any]],
     ) -> tuple[bool, str]:
         """Validate a PBFT commit certificate stored in block_metadata."""
+        from .consensus.pbft_certificate import strict_certificate_active, validate_commit_certificate
+
+        height = block_data.get("height")
+        if strict_certificate_active(height):
+            # #1940 F3: strict era — one coherent (seq, view) commit quorum at
+            # the real BFT threshold, never the legacy attestation-minimum
+            # union count. ``view`` is unpinned: the certificate's own
+            # coherence supplies it. The gate guarantees ``height`` is a
+            # strict int here.
+            return validate_commit_certificate(
+                certificate,
+                str(block_data.get("hash", "")),
+                self._load_validator_set() or self._trusted,
+                height=cast(int, height),
+            )
+        return self._validate_pbft_certificate_legacy(block_data, certificate)
+
+    def _validate_pbft_certificate_legacy(
+        self,
+        block_data: dict[str, Any],
+        certificate: list[dict[str, Any]],
+    ) -> tuple[bool, str]:
+        """Pre-#1940-F3 certificate check — the legacy body, byte-equivalent
+        while the strict gate is inactive: unions distinct senders across ALL
+        stored commit messages (mixed sequences/views included) and sizes the
+        quorum by the attestation minimum, not ``pbft_required_messages``."""
         import hashlib
 
         from aitbc.crypto.consensus_signing import verify_consensus_message
