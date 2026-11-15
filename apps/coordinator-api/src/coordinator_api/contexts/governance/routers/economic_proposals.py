@@ -7,11 +7,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi import status as http_status
 from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlmodel import Session
 from starlette.concurrency import run_in_threadpool
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.rate_limiting import client_ip_for_rate_limit
 
 from ....auth import AuthDep, require_auth
 from ....metrics import governance_errors_total, governance_requests_total
@@ -28,7 +28,7 @@ from ..services.economic_proposal_service import EconomicProposalService
 from ..services.governance_service import GovernanceService
 
 logger = get_logger(__name__)
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=client_ip_for_rate_limit)
 router = APIRouter(tags=["governance", "economics"], prefix="/economic-proposals", dependencies=[Depends(require_auth)])
 
 
