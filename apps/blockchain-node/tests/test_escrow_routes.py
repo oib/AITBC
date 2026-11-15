@@ -266,12 +266,13 @@ async def test_find_existing_release_filters_server_side(monkeypatch):
 
 JOBTX_BUYER = "0x1111111111111111111111111111111111111111"
 JOBTX_PROVIDER = "0x2222222222222222222222222222222222222222"
+JOBTX_HASH = "0x" + "ab" * 32
 
 
 def _jobtx_response(**overrides):
     """A valid sealed software_job GPU_MARKET row, field-overridable."""
     body = {
-        "tx_hash": "0xjobtx",
+        "tx_hash": JOBTX_HASH,
         "type": "GPU_MARKET",
         "status": "confirmed",
         "block_height": 1234,
@@ -299,16 +300,14 @@ async def test_verify_job_tx_proof_accepts_bound_sealed_record(monkeypatch):
     with patch.object(
         escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=_jobtx_response()
     ) as mock_get:
-        await escrow_routes._verify_job_tx_proof("0xjobtx", "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
-    assert "/transaction/0xjobtx" in mock_get.call_args.args[0]
+        await escrow_routes._verify_job_tx_proof(JOBTX_HASH, "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
+    assert f"/transaction/{JOBTX_HASH}?chain_id=" in mock_get.call_args.args[0]
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "mutate",
     [
-        pytest.param(lambda b: b.update(status="pending"), id="unconfirmed"),
-        pytest.param(lambda b: b.update(block_height=None), id="unsealed"),
         pytest.param(lambda b: b.update(type="ESCROW_LOCK"), id="wrong-type"),
         pytest.param(lambda b: b["payload"].update(action="software_offer"), id="wrong-action"),
         pytest.param(lambda b: b["payload"].update(status="running"), id="not-completed"),
@@ -328,8 +327,43 @@ async def test_verify_job_tx_proof_rejects_unbound_records(monkeypatch, mutate):
     resp.json.return_value = body
     with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=resp):
         with pytest.raises(HTTPException) as excinfo:
-            await escrow_routes._verify_job_tx_proof("0xjobtx", "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
+            await escrow_routes._verify_job_tx_proof(JOBTX_HASH, "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
     assert excinfo.value.status_code == 400
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        pytest.param(lambda b: b.update(status="pending"), id="unconfirmed"),
+        pytest.param(lambda b: b.update(block_height=None), id="unsealed"),
+    ],
+)
+async def test_verify_job_tx_proof_unsealed_record_is_retryable(monkeypatch, mutate):
+    """#1973: the CLI releases within a block of posting the record — 425, not a terminal 400."""
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    escrow_routes = _reload_routes()
+    body = _jobtx_response().json.return_value
+    mutate(body)
+    resp = _jobtx_response()
+    resp.json.return_value = body
+    with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=resp):
+        with pytest.raises(HTTPException) as excinfo:
+            await escrow_routes._verify_job_tx_proof(JOBTX_HASH, "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
+    assert excinfo.value.status_code == 425
+    assert excinfo.value.headers == {"Retry-After": "5"}
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_hash", ["0xjobtx", "0x" + "ab" * 32 + "?chain_id=other", "../x"])
+async def test_verify_job_tx_proof_rejects_malformed_hash(monkeypatch, bad_hash):
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    escrow_routes = _reload_routes()
+    with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock) as mock_get:
+        with pytest.raises(HTTPException) as excinfo:
+            await escrow_routes._verify_job_tx_proof(bad_hash, "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
+    assert excinfo.value.status_code == 400
+    mock_get.assert_not_called()
 
 
 @pytest.mark.asyncio
@@ -340,8 +374,8 @@ async def test_verify_job_tx_proof_rejects_unknown_hash(monkeypatch):
     resp.status_code = 404
     with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=resp):
         with pytest.raises(HTTPException) as excinfo:
-            await escrow_routes._verify_job_tx_proof("0xnope", "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
-    assert excinfo.value.status_code == 400
+            await escrow_routes._verify_job_tx_proof(JOBTX_HASH, "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
+    assert excinfo.value.status_code == 425
 
 
 @pytest.mark.asyncio
@@ -350,7 +384,7 @@ async def test_verify_job_tx_proof_fails_closed_on_rpc_error(monkeypatch):
     escrow_routes = _reload_routes()
     with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, side_effect=RuntimeError("hub down")):
         with pytest.raises(HTTPException) as excinfo:
-            await escrow_routes._verify_job_tx_proof("0xjobtx", "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
+            await escrow_routes._verify_job_tx_proof(JOBTX_HASH, "job-123", JOBTX_BUYER, JOBTX_PROVIDER)
     assert excinfo.value.status_code == 503
 
 
@@ -358,7 +392,7 @@ async def test_verify_job_tx_proof_fails_closed_on_rpc_error(monkeypatch):
 async def test_verify_job_tx_proof_requires_known_parties():
     escrow_routes = _reload_routes()
     with pytest.raises(HTTPException) as excinfo:
-        await escrow_routes._verify_job_tx_proof("0xjobtx", "job-123", "", JOBTX_PROVIDER)
+        await escrow_routes._verify_job_tx_proof(JOBTX_HASH, "job-123", "", JOBTX_PROVIDER)
     assert excinfo.value.status_code == 409
 
 

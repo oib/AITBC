@@ -468,13 +468,24 @@ async def _verify_job_tx_proof(job_tx_hash: str, job_id: str, buyer: str, provid
             status_code=409,
             detail="cannot verify job_tx_hash: escrow buyer/provider unknown",
         )
+    import re as _re
+
+    if not _re.fullmatch(r"0x[0-9a-fA-F]{64}", job_tx_hash or ""):
+        raise _er.HTTPException(status_code=400, detail="job_tx_hash must be a 0x-prefixed 32-byte hex hash")
     try:
-        r = await _er.SharedHttpClient.get(f"{_er._HUB_RPC_URL}/transaction/{job_tx_hash}")
+        r = await _er.SharedHttpClient.get(f"{_er._HUB_RPC_URL}/transaction/{job_tx_hash}?chain_id={_er._chain_id()}")
     except Exception as e:
         _er._logger.warning("job_tx_hash lookup failed for %s: %s", job_tx_hash, e)
         raise _er.HTTPException(status_code=503, detail="job_tx_hash could not be verified right now; retry") from e
     if r.status_code != 200:
-        raise _er.HTTPException(status_code=400, detail=f"job_tx_hash {job_tx_hash} does not resolve to a chain transaction")
+        # The CLI posts the software_job record and releases within one block:
+        # an unresolved hash is retryable (425, like the unsealed lock) so the
+        # existing wait-and-repost loop applies instead of a terminal 400 (#1973).
+        raise _er.HTTPException(
+            status_code=425,
+            detail=f"job_tx_hash {job_tx_hash} does not resolve to a chain transaction yet; retry",
+            headers={"Retry-After": "5"},
+        )
     tx = r.json() or {}
     payload = tx.get("payload") or {}
     if isinstance(payload, str):
@@ -485,9 +496,8 @@ async def _verify_job_tx_proof(job_tx_hash: str, job_id: str, buyer: str, provid
     if not isinstance(payload, dict):
         payload = {}
     sealed = tx.get("status") == "confirmed" and tx.get("block_height") is not None
-    bound = (
+    bound_unsealed = (
         tx.get("type") == "GPU_MARKET"
-        and sealed
         and payload.get("action") == "software_job"
         and payload.get("status") == "completed"
         and payload.get("job_id") == job_id
@@ -496,6 +506,13 @@ async def _verify_job_tx_proof(job_tx_hash: str, job_id: str, buyer: str, provid
         and _er._to_canonical(payload.get("buyer_address") or "") == _er._to_canonical(buyer)
         and _er._to_canonical(tx.get("sender") or "") == _er._to_canonical(buyer)
     )
+    bound = bound_unsealed and sealed
+    if bound_unsealed and not sealed and tx.get("status") != "rejected":
+        raise _er.HTTPException(
+            status_code=425,
+            detail="job_tx_hash record is not sealed yet; retry",
+            headers={"Retry-After": "5"},
+        )
     if not bound:
         _er._logger.warning(
             "job_tx_hash %s rejected for job_id=%s: type=%s status=%s sealed=%s payload_action=%s",
