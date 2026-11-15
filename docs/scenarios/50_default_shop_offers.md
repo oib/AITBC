@@ -1,21 +1,32 @@
 # Scenario 50: Default Whisper, FFmpeg, and Ollama shop offers
 
+> **Fleet note (#1549):** on the public island, `aitbc-whisper`, `aitbc-ffmpeg`,
+> and `aitbc-hermes` shop units are **not deployed** — their `/etc/aitbc` env
+> files are orphans. The **live default product path** is Ollama inference via
+> scenario **34** (`aitbc ai submit` / `aitbc market run` against shop Ollama
+> offers). Whisper and FFmpeg steps below are an **optional appendix** for nodes
+> where those units exist; do not treat them as the default customer journey on
+> pub island. Hermes is not a default shop offer — omit `aitbc market hermes`
+> unless an operator explicitly restores that unit.
+
 ## Goal
 
-The shop (`<node2>`) publishes default software offers for Whisper transcription,
-FFmpeg video processing, and Ollama inference automatically when the miner
-starts. A customer on the hub can discover them with `aitbc market list`, then
-run paid jobs with `aitbc market transcribe`, `aitbc market process`, and
-`aitbc market run`.
+The shop (`<node2>`) can publish default software offers for Ollama inference
+(and, when the optional units are installed, Whisper transcription and FFmpeg
+video processing) when the miner starts. A customer on the hub discovers active
+offers with `aitbc market list`, then runs paid jobs with `aitbc market run`
+(Ollama — live path) and, where deployed, `aitbc market transcribe` /
+`aitbc market process`.
 
-This closes the P2.5 gap: the Whisper and FFmpeg services already existed, but
-they were not in the miner's default shop loop.
+This closes the P2.5 documentation gap: Whisper and FFmpeg were written into
+the miner's default-offer loop before the fleet retired those units.
 
 ## Preconditions
 
-- `<node2>` has `aitbc-whisper` (port 8110), `aitbc-ffmpeg` (port 8230), and
-  `aitbc-miner` running.
-- `<node2>` has an Ollama model such as `llama3.2:3b`.
+- `<node2>` has `aitbc-miner` running and an Ollama model such as `llama3.2:3b`
+  (required on pub island).
+- Optional: `aitbc-whisper` (port 8110) and `aitbc-ffmpeg` (port 8230) only when
+  those units are installed on the shop node.
 - Nginx on `<node2>` exposes `/whisper/`, `/ffmpeg/`, and `/ollama/` to the
   public hostname.
 - The customer wallet on `<hub-node>` has a non-zero `AIT` balance.
@@ -54,7 +65,19 @@ Expected output includes active offers:
 - `ffmpeg-h264-transcode` — `0.00500000 per_processing_hour`
 - `ollama-llama3.2-3b` — `0.00100000 per_1k_tokens`
 
-### 3. Run a Whisper transcription job
+### 3. Run an Ollama inference job (live default)
+
+```bash
+aitbc market run --offer-id-or-plugin-id <ollama-offer-id> --prompt "What is AITBC?"
+```
+
+Expected result:
+
+- `Running inference...`
+- A generated response is printed.
+- `Payment released: ... AIT`
+
+### 4. (Optional appendix) Run a Whisper transcription job
 
 Create or copy a short audio file and run:
 
@@ -71,7 +94,7 @@ Expected result:
 - `Payment released: ... AIT`
 - `actual_cost_ait` is based on the audio duration and the price.
 
-### 4. Run a FFmpeg re-encode job
+### 5. (Optional appendix) Run a FFmpeg re-encode job
 
 Create or copy a short video and run:
 
@@ -89,18 +112,6 @@ Expected result:
 - `Escrow created`
 - `Sending video to FFmpeg service...`
 - `Output file: ...`
-- `Payment released: ... AIT`
-
-### 5. Run an Ollama inference job
-
-```bash
-aitbc market run --offer-id-or-plugin-id <ollama-offer-id> --prompt "What is AITBC?"
-```
-
-Expected result:
-
-- `Running inference...`
-- A generated response is printed.
 - `Payment released: ... AIT`
 
 <!-- COVERAGE-LEFT-1: market leaves that lost their home when scenario 08 was archived (issue #445) -->
@@ -137,7 +148,7 @@ Documented for coverage; each moves funds or mutates market/service state — no
 - `aitbc market exchange deposit-eth --amount <units>` — deposits ETH into the exchange.
 - `aitbc market exchange mint-ait --deposit-id <id>` — mints AIT against a deposit.
 - `aitbc market exchange withdraw-eth --amount <units> --address <addr>` — withdraws ETH from the exchange.
-- `aitbc market hermes --offer-id-or-plugin-id <id> --prompt <text>` — paid Hermes job.
+- `aitbc market hermes --offer-id-or-plugin-id <id> --prompt <text>` — paid Hermes job (unit not deployed on pub island; documented for coverage only).
 - `aitbc market offer-cancel --order-ids <ids>` — cancels published offers.
 - `aitbc market offer-disable --plugin-id <id>` — disables an offer plugin.
 - `aitbc market rate --service-id <id> --rating <n>` — writes a service rating.

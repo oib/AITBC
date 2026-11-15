@@ -1,10 +1,16 @@
 # Scenario 41: Whisper and FFmpeg default shop offers
 
+> **Fleet note (#1549):** `aitbc-whisper` and `aitbc-ffmpeg` units are **not
+> deployed** on the public island. This play is **not** the default live customer
+> path — use scenario **34** (Ollama / `aitbc ai submit`) for product validation.
+> Run the steps below only on a shop node where whisper/ffmpeg units exist, or
+> treat them as a design reference.
+
 ## Goal
 
-Run non-inference jobs on the GPU shop: audio transcription with OpenAI Whisper
-and media re-encoding with FFmpeg. The shop advertises these capabilities and
-market offers exist for them.
+Run non-inference jobs on a GPU shop **when** Whisper and FFmpeg services are
+installed: audio transcription and media re-encoding. The shop advertises these
+capabilities and market offers exist for them.
 
 ## Preconditions
 

@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 24 Fire-and-Forget Task Error Logging](./24_task_error_logging.md)
 **Estimated Time**: 15 minutes
-**Last Updated**: 2026-08-21
-**Version**: 1.3
+**Last Updated**: 2026-11-15
+**Version**: 1.4
 
 ## Navigation Path
 
@@ -95,6 +95,25 @@ aitbc --output json ai submit \
 
 ---
 
+## Coordinator inflight cap (429)
+
+When the coordinator enforces `COORDINATOR_MAX_INFLIGHT_JOBS_PER_CLIENT`
+(default **50** in `coordinator-api` job submission — resource-exhaustion policy #1948),
+`POST /v1/jobs` refuses additional submits once the caller already holds that
+many jobs in `QUEUED` or `RUNNING`. The API returns **HTTP 429** with detail
+`client already holds N queued or running jobs (limit …)` (#1948 resource
+exhaustion policy; serialized cap check #2001).
+
+**Read-only refusal play (customer node):** on `node0` or via the hub nginx
+gateway, authenticate with `aitbc auth login`, list active jobs with
+`aitbc ai jobs`, and submit unpaid probe jobs until the CLI surfaces 429 (or
+note the configured cap without filling the queue). Do **not** intentionally
+saturate production queues without operator approval.
+
+Full step-by-step coverage: forthcoming scenario **89** (coordinator inflight cap).
+
+---
+
 ## Expected Outcomes
 
 After completing this scenario, you should be able to:
@@ -121,5 +140,5 @@ journalctl -u aitbc-coordinator-api --since "5 min ago" --no-pager | grep -i "Pa
 
 ---
 
-*Last updated: 2026-08-21*
-*Version: 1.3*
+*Last updated: 2026-11-15*
+*Version: 1.4*
