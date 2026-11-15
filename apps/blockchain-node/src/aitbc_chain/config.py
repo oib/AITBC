@@ -1415,6 +1415,14 @@ class ChainSettings(BaseSettings):
     # coherent (sequence, view) quorum verified identically at producer and
     # importer. None/unset keeps the legacy union-count verifier.
     pbft_certificate_strict_height: int | None = Field(default=None, ge=0)
+    # #1940 F3-A: first sequence/height at which a validator's COMMIT votes
+    # for different block hashes at the same height but different PBFT views
+    # are recorded as cross-view equivocation evidence (slashing kind
+    # ``pbft_cross_view_vote_equivocation``). Detection/evidence only — it does
+    # NOT change which votes are legal (that is the F3-B commit lock, still
+    # gated separately and unarmed). None/unset/malformed keeps detection
+    # dormant and behavior byte-identical.
+    pbft_cross_view_commit_lock_height: int | None = Field(default=None, ge=0)
     consensus_view_change_timeout_seconds: int = 30  # H6 — timeout before view change
     consensus_round_timeout_seconds: int = 10  # per-round timeout
     # v0.25.6: deterministic proposer rotation. When the scheduled proposer for
