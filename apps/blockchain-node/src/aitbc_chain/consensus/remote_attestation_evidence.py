@@ -133,7 +133,13 @@ class _EvidenceMixin(_V9Mixin):
         locks = self._release_abandoned_locks(height, block_hash, proposer)
         if released or locks:
             self._note_abandoned_height(height, block_hash)
-            rounds = derived_rounds | ({int(stmt["round"])} if stmt.get("round") is not None else set())
+            stmt_round = int(stmt["round"]) if stmt.get("round") is not None else None
+            if stmt_round is not None and derived_rounds and stmt_round not in derived_rounds:
+                # #1962: the signed round disagrees with the rounds this voter
+                # actually voted in. Both stay noted (the refusing direction);
+                # the counter makes a mismatching producer visible.
+                metrics_registry.increment("vote_journal_abandon_round_mismatch_total")
+            rounds = derived_rounds | ({stmt_round} if stmt_round is not None else set())
             for round_ in sorted(rounds):
                 self._note_abandoned_round(height, round_, block_hash)
             self._persist_abandoned_releases()
