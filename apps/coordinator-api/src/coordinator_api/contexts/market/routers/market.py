@@ -6,10 +6,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel
 from fastapi import status as http_status
 from slowapi import Limiter
-from slowapi.util import get_remote_address
 from sqlalchemy.orm import Session
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.rate_limiting import client_ip_for_rate_limit
 
 from ....config import settings
 from ....metrics import market_errors_total, market_requests_total
@@ -20,7 +20,7 @@ from ....utils.cache import cached, get_cache_config
 from ..services import MarketService
 
 logger = get_logger(__name__)
-limiter = Limiter(key_func=get_remote_address)
+limiter = Limiter(key_func=client_ip_for_rate_limit)
 router = APIRouter(tags=["market"])
 
 
