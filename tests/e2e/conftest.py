@@ -79,7 +79,7 @@ def service_health_check(coordinator_url, blockchain_url, market_url):
                 response = httpx.get(f"{url}{health_path}", timeout=2.0)
                 if response.status_code == 200:
                     return True
-            except Exception:
+            except httpx.HTTPError:
                 if i < max_retries - 1:
                     time.sleep(1)
         # Don't skip, just return False to allow tests to continue

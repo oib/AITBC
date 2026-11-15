@@ -24,6 +24,7 @@ Fixtures provided
 
 from __future__ import annotations
 
+import contextlib
 import json
 import subprocess
 from types import SimpleNamespace
@@ -38,7 +39,7 @@ try:  # eth_account is an optional dependency in some environments
     from eth_account.messages import encode_defunct
 
     _ETH_ACCOUNT_AVAILABLE = True
-except Exception:  # pragma: no cover - exercised only when eth_account missing
+except ImportError:  # pragma: no cover - exercised only when eth_account missing
     _ETH_ACCOUNT_AVAILABLE = False
 
 
@@ -312,11 +313,9 @@ def mock_subprocess(monkeypatch):
     run_mock = Mock(side_effect=_mock_run)
     monkeypatch.setattr(subprocess, "run", run_mock)
     # Also patch the common import path used by CLI modules.
-    try:
+    with contextlib.suppress(Exception):  # defensive: patching an already-patched attr is a no-op
         if hasattr(subprocess, "run"):
             monkeypatch.setattr(subprocess, "run", run_mock)
-    except Exception:
-        pass
     return run_mock
 
 

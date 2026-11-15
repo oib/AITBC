@@ -1093,7 +1093,7 @@ http {{
                 with urllib.request.urlopen(f"http://127.0.0.1:{cls.port}/", timeout=1) as r:
                     if r.status == 200:
                         break
-            except Exception:
+            except OSError:
                 time.sleep(0.15)
         else:
             raise unittest.SkipTest("nginx test instance did not become ready")

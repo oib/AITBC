@@ -61,7 +61,7 @@ def _services_with_5xx() -> list[str]:
             try:
                 source = py_file.read_text(encoding="utf-8")
                 tree = ast.parse(source)
-            except Exception:  # pragma: no cover
+            except (OSError, SyntaxError, ValueError):  # pragma: no cover - skip unreadable/unparseable files
                 continue
             for raise_node in _collect_http_exception_raises(tree):
                 status = next(
@@ -115,7 +115,7 @@ def test_no_5xx_raw_exception_detail(service_name: str) -> None:
         try:
             source = py_file.read_text(encoding="utf-8")
             tree = ast.parse(source)
-        except Exception:  # pragma: no cover
+        except (OSError, SyntaxError, ValueError):  # pragma: no cover - skip unreadable/unparseable files
             continue
         for raise_node in _collect_http_exception_raises(tree):
             status = next(
@@ -146,7 +146,7 @@ def test_5xx_error_paths_log_and_return_generic_detail(service_name: str) -> Non
         try:
             source = py_file.read_text(encoding="utf-8")
             tree = ast.parse(source)
-        except Exception:  # pragma: no cover
+        except (OSError, SyntaxError, ValueError):  # pragma: no cover - skip unreadable/unparseable files
             continue
         parents = _parent_map(tree)
         for raise_node in _collect_http_exception_raises(tree):
@@ -254,7 +254,7 @@ def _services_with_5xx_response() -> list[str]:
         for py_file in service_dir.rglob("*.py"):
             try:
                 tree = ast.parse(py_file.read_text(encoding="utf-8"))
-            except Exception:  # pragma: no cover
+            except (OSError, SyntaxError, ValueError):  # pragma: no cover - skip unreadable/unparseable files
                 continue
             if _five_xx_constructs(tree):
                 services.add(service_dir.name)
@@ -285,7 +285,7 @@ def test_no_5xx_response_carries_the_caught_exception(service_name: str) -> None
     for py_file in _service_py_files(service_name):
         try:
             tree = ast.parse(py_file.read_text(encoding="utf-8"))
-        except Exception:  # pragma: no cover
+        except (OSError, SyntaxError, ValueError):  # pragma: no cover - skip unreadable/unparseable files
             continue
         parents = _parent_map(tree)
         for call in _five_xx_constructs(tree):

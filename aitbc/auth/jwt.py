@@ -637,7 +637,8 @@ class JWTHandler:
                     options={"verify_exp": False, "verify_aud": False},
                 )
                 return {"status": "success", "payload": payload}
-            except Exception:
+            except Exception as e:  # noqa: BLE001 - try next candidate secret on any decode failure
+                logger.debug("JWT decode with candidate secret failed: %s", type(e).__name__)
                 continue
         return {"status": "error", "message": "Error decoding token"}
 

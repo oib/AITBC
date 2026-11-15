@@ -11,8 +11,11 @@ publishing. defer_enabled reads ISLAND_DEFER_ENABLED (default OFF).
 from __future__ import annotations
 
 import json
+import logging
 import os
 import urllib.request
+
+logger = logging.getLogger(__name__)
 
 _DEFAULT_PORT = 8204
 _TIMEOUT = 1.5
@@ -36,7 +39,8 @@ def island_degraded(port: int = _DEFAULT_PORT, timeout: float = _TIMEOUT) -> boo
             if resp.status != 200:
                 return False
             payload: dict[str, object] = json.loads(resp.read())
-    except Exception:
+    except Exception as e:  # noqa: BLE001 - fail-open by design (#393)
+        logger.debug("island health probe failed: %s", type(e).__name__)
         return False
     return payload.get("degraded") == "island-degraded"
 

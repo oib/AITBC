@@ -377,7 +377,9 @@ class EnergyQuote:
             from aitbc.crypto.signature_recovery import recover_address
 
             recovered = recover_address(self.digest_sha256(), self.operator_signature)
-        except Exception:
+        except (ImportError, TypeError, ValueError):
+            # SignatureMalformed is a ValueError; malformed openings simply
+            # do not verify — documented contract is False, not raise.
             return False
         return recovered.lower() == expected_address.lower()
 

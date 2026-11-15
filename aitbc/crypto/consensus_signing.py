@@ -295,8 +295,8 @@ def verify_block_signature(
         try:
             if verify_consensus_message(_block_header_message(block), signature, expected_proposer):
                 return True
-        except Exception:
-            pass
+        except Exception as e:  # noqa: BLE001 - fall back to legacy signing below
+            logger.debug("canonical header verification failed, trying legacy path: %s", e)
 
     # Fall back to legacy raw block-hash signing.
     if isinstance(block, str):
