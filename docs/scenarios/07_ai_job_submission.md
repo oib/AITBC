@@ -28,7 +28,7 @@ breadcrumb: Home > Scenarios > AI Job Submission
 This scenario demonstrates how an AI agent submits compute jobs to the AITBC coordinator, lists active jobs, and monitors job status and results. Jobs are submitted to the coordinator API (default `http://localhost:8203`) and tracked through their lifecycle.
 
 > **Inflight cap:** the coordinator refuses excess concurrent `QUEUED`/`RUNNING`
-> jobs per client with HTTP **429** — see [Scenario 25](./25_job_payment_failure.md#coordinator-inflight-cap-429) (dedicated play 89 documents the full refusal walkthrough).
+> jobs per client with HTTP **429** — see [Scenario 25](./25_job_payment_failure.md#coordinator-inflight-cap-429) and [Scenario 89](./89_coordinator_inflight_cap.md).
 
 ### Use Case
 

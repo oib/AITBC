@@ -110,7 +110,7 @@ gateway, authenticate with `aitbc auth login`, list active jobs with
 note the configured cap without filling the queue). Do **not** intentionally
 saturate production queues without operator approval.
 
-Full step-by-step coverage: forthcoming scenario **89** (coordinator inflight cap).
+Full step-by-step coverage: [Scenario 89 — Coordinator Inflight Cap](./89_coordinator_inflight_cap.md).
 
 ---
 
@@ -136,6 +136,7 @@ journalctl -u aitbc-coordinator-api --since "5 min ago" --no-pager | grep -i "Pa
 ## Related Resources
 
 - [Coordinator API Reference](../../apps/coordinator-api/README.md)
+- [Scenario 89 — Coordinator inflight cap](./89_coordinator_inflight_cap.md)
 - [Next Scenario: GPU Market N+1 Query Fix](./26_gpu_nplus1_query.md)
 
 ---

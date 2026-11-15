@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > Overview
 
 ## What's in this directory
 
-79 live numbered plays plus this index and [_TEMPLATE.md](./_TEMPLATE.md) — **81 markdown files** in `docs/scenarios/`. Each documents **the AITBC software as it actually runs** on the public island (`<hub-node>` ↔ shop `<node2>`). Plays are driven by the real `aitbc` CLI. Python SDK examples are optional extras. Curl, `journalctl`, and `pytest` appear only as **validation** after a CLI step.
+81 live numbered plays plus this index and [_TEMPLATE.md](./_TEMPLATE.md) — **83 markdown files** in `docs/scenarios/`. Each documents **the AITBC software as it actually runs** on the public island (`<hub-node>` ↔ shop `<node2>`). Plays are driven by the real `aitbc` CLI. Python SDK examples are optional extras. Curl, `journalctl`, and `pytest` appear only as **validation** after a CLI step.
 
 The closed economic loop these plays sit on (tokens → job → GPU → escrow → reputation) is documented in [DESIGN_CYCLE.md](../DESIGN_CYCLE.md). Features that are CLI shells or roadmap items are **not** given scenarios until they join that loop.
 
@@ -200,6 +200,7 @@ Live validation of the product path (paid job + `ESCROW_RELEASE` + shop offer) i
 | 86 | [Bounty Lifecycle](./86_bounty_lifecycle.md) | deploy → submit → verify (`BOUNTY_PAYOUT`) + deploy → expire (`BOUNTY_REFUND`) — operator-signed via coordinator-api | coordinator-api REST, node RPC |
 | 87 | [Agent Staking Lifecycle](./87_agent_staking.md) | stake → add → unbond → complete — operator-signed via coordinator-api; `locked_until` release gate | coordinator-api REST, node RPC |
 | 88 | [Bridge Island Lock→Release](./88_bridge_island_lock_release.md) | bc-2 → bc-2-island-1 lock, finalizer/relayer proof, island-side BRIDGE_RELEASE | aitbc bridge, node RPC |
+| 89 | [Coordinator Inflight Cap](./89_coordinator_inflight_cap.md) | Per-client queued/running job limit; 429 refusal on customer path | `aitbc ai`, `aitbc auth` |
 
 ---
 
