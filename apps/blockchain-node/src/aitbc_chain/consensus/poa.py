@@ -1348,11 +1348,16 @@ class _PoaBaseMixin:
         )
         return True
 
-    async def _publish_abandon(self, block: Block, block_hash: str) -> None:
+    async def _publish_abandon(self, block: Block, block_hash: str, round_number: int | None = None) -> None:
         """#1301 L2: tell voters this proposer will never seal ``block_hash``.
 
         Best-effort and flag-gated; the proposer's own journal entry stays
         (self-lock), so it cannot reseal the abandoned hash itself.
+
+        #1962: ``round_number`` is the proposer round the dropped proposal
+        was collected in; it is signed into the statement so voters populate
+        the same-round rival guard directly instead of only from local
+        evidence. ``None`` keeps the legacy round-less shape.
         """
         if not abandon.abandon_enabled():
             return
@@ -1361,7 +1366,7 @@ class _PoaBaseMixin:
         if not private_key:
             return
         try:
-            stmt = abandon.build_abandon(self._config.chain_id, block.height, block_hash, None, proposer, private_key)
+            stmt = abandon.build_abandon(self._config.chain_id, block.height, block_hash, round_number, proposer, private_key)
             await gossip_broker.publish(abandon.abandon_topic(self._config.chain_id), stmt)
             metrics_registry.increment("vote_journal_abandon_published_total")
             self._logger.warning("[PROPOSE] Published abandon for %s at height %s", block_hash[:18], block.height)
