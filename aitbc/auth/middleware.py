@@ -328,20 +328,6 @@ rate_limiter = RateLimiter()
 # ---------------------------------------------------------------------------
 
 
-async def _rate_limit_or_raise(user_id: str, role: str) -> None:
-    import time
-
-    rate_check = await rate_limiter.is_allowed(user_id, role)
-    if rate_check["allowed"]:
-        return
-    retry_after = max(0, int(rate_check["reset_time"] - time.time()))
-    raise HTTPException(
-        status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-        detail="Rate limit exceeded",
-        headers={"Retry-After": str(retry_after)},
-    )
-
-
 async def _user_from_bearer_credentials(credentials: HTTPAuthorizationCredentials) -> dict[str, Any] | None:
     if credentials.scheme != "Bearer":
         return None
@@ -356,7 +342,16 @@ async def _user_from_bearer_credentials(credentials: HTTPAuthorizationCredential
             detail="Invalid token",
             headers={"WWW-Authenticate": "Bearer"},
         )
-    await _rate_limit_or_raise(user_id, payload.get("role", "default"))
+    import time
+
+    rate_check = await rate_limiter.is_allowed(user_id, payload.get("role", "default"))
+    if not rate_check["allowed"]:
+        retry_after = max(0, int(rate_check["reset_time"] - time.time()))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded",
+            headers={"Retry-After": str(retry_after)},
+        )
     return {
         "sub": payload.get("sub") or user_id,
         "user_id": user_id,
@@ -376,7 +371,16 @@ async def _user_from_apikey_credentials(credentials: HTTPAuthorizationCredential
     if not validation["valid"]:
         return None
     user_id = validation["user_id"]
-    await _rate_limit_or_raise(user_id, "api_key")
+    import time
+
+    rate_check = await rate_limiter.is_allowed(user_id, "api_key")
+    if not rate_check["allowed"]:
+        retry_after = max(0, int(rate_check["reset_time"] - time.time()))
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Rate limit exceeded",
+            headers={"Retry-After": str(retry_after)},
+        )
     return {
         "sub": user_id,
         "user_id": user_id,
