@@ -47,6 +47,7 @@ from aitbc_chain.state import block_deltas, side_root_shadow, state_transition_a
 from aitbc_chain.state.gpu_resources import GPURegistration
 from aitbc_chain.state.state_root_utils import compute_state_root_full
 from aitbc_chain.state.state_transition import StateTransition, get_block_version_for_height
+from sqlalchemy import text
 from sqlmodel import Session, create_engine, select
 
 CHAIN = "probe-1940"
@@ -1084,6 +1085,166 @@ class TestDeadlineSemantics:
         assert _int_header_height({"height": 10}) == 10
         assert _int_header_height({"height": float("inf")}) == -1
         assert _int_header_height({"height": float("nan")}) == -1
+
+
+# --------------------------------------------------------------------------
+# pooled source discard when busy_timeout restore fails (#1984 F4)
+# --------------------------------------------------------------------------
+
+_PROBE_BUSY_MS = 4000
+
+
+class _RestoreFailConnection(sqlite3.Connection):
+    """sqlite3.Connection that injects restore failure only after the lease."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self._leased = False
+
+    def execute(self, sql, parameters=()):  # type: ignore[override]
+        sql_s = str(sql)
+        if "busy_timeout=0" in sql_s:
+            self._leased = True
+            return super().execute(sql, parameters)
+        if self._leased and "busy_timeout=" in sql_s and "=0" not in sql_s:
+            raise sqlite3.OperationalError("injected busy_timeout restore failure")
+        return super().execute(sql, parameters)
+
+
+def _pooled_probe_engine(tmp_path: Path, *, restore_fail: bool = False):
+    """QueuePool scratch engine with a fixed 4000ms busy_timeout on checkouts."""
+    from sqlalchemy.pool import QueuePool
+
+    db_path = tmp_path / "probe-pool.db"
+    sqlite3.connect(db_path).close()
+    sentinel = {"restore_fail": restore_fail}
+
+    def _creator():
+        if sentinel["restore_fail"]:
+            raw = sqlite3.connect(
+                db_path,
+                timeout=_PROBE_BUSY_MS / 1000.0,
+                check_same_thread=False,
+                factory=_RestoreFailConnection,
+            )
+        else:
+            raw = sqlite3.connect(db_path, timeout=_PROBE_BUSY_MS / 1000.0, check_same_thread=False)
+        raw.execute(f"PRAGMA busy_timeout={_PROBE_BUSY_MS}")
+        return raw
+
+    engine = create_engine(
+        "sqlite://",
+        poolclass=QueuePool,
+        creator=_creator,
+        pool_size=1,
+        max_overflow=0,
+        pool_pre_ping=False,
+    )
+    with engine.begin() as conn:
+        conn.execute(text("CREATE TABLE sentinel (id INTEGER PRIMARY KEY, value TEXT NOT NULL)"))
+        conn.execute(text("INSERT INTO sentinel (id, value) VALUES (1, 'keep-me')"))
+    return engine, db_path
+
+
+def _sentinel_value(db_path: Path) -> str:
+    conn = sqlite3.connect(db_path)
+    try:
+        row = conn.execute("SELECT value FROM sentinel WHERE id=1").fetchone()
+        assert row is not None
+        return str(row[0])
+    finally:
+        conn.close()
+
+
+class TestConnectionDiscardOnRestoreFailure:
+    def test_healthy_pool_checkout_restores_busy_and_reuses_raw(self, tmp_path):
+        engine, db_path = _pooled_probe_engine(tmp_path)
+        try:
+            with Session(engine) as session:
+                raw = session.connection().connection.dbapi_connection
+                raw_id = id(raw)
+                before = _sentinel_value(db_path)
+                dest = probe_mod._snapshot_source(session, time.monotonic() + 10)
+                assert not isinstance(dest, str)
+                dest.close()
+                raw_after = session.connection().connection.dbapi_connection
+                assert id(raw_after) == raw_id
+                assert int(raw_after.execute("PRAGMA busy_timeout").fetchone()[0]) == _PROBE_BUSY_MS
+                assert _sentinel_value(db_path) == before == "keep-me"
+        finally:
+            engine.dispose()
+
+    def test_restore_failure_discards_raw_and_next_checkout_is_fresh(self, tmp_path):
+        engine, db_path = _pooled_probe_engine(tmp_path, restore_fail=True)
+        try:
+            with Session(engine) as session:
+                conn = session.connection()
+                raw = conn.connection.dbapi_connection
+                raw_id = id(raw)
+                before = _sentinel_value(db_path)
+                verdict = probe_mod._snapshot_source(session, time.monotonic() + 10)
+                assert verdict == "post_state_snapshot_failed"
+                assert _sentinel_value(db_path) == before == "keep-me"
+                with pytest.raises(sqlite3.ProgrammingError):
+                    raw.execute("SELECT 1")
+                session.close()
+                with Session(engine) as session2:
+                    raw2 = session2.connection().connection.dbapi_connection
+                    assert id(raw2) != raw_id
+                    assert int(raw2.execute("PRAGMA busy_timeout").fetchone()[0]) == _PROBE_BUSY_MS
+        finally:
+            engine.dispose()
+
+    def test_backup_timeout_plus_restore_failure_still_discards(self, tmp_path):
+        engine, db_path = _pooled_probe_engine(tmp_path, restore_fail=True)
+        before = _sentinel_value(db_path)
+        writer = sqlite3.connect(db_path, timeout=0)
+        writer.execute("BEGIN EXCLUSIVE")
+        try:
+            with Session(engine) as session:
+                conn = session.connection()
+                raw = conn.connection.dbapi_connection
+                raw_id = id(raw)
+                verdict = probe_mod._snapshot_source(session, time.monotonic() + 0.05)
+                assert verdict == "post_state_timeout"
+                with pytest.raises(sqlite3.ProgrammingError):
+                    raw.execute("SELECT 1")
+                session.close()
+                with Session(engine) as session2:
+                    raw2 = session2.connection().connection.dbapi_connection
+                    assert id(raw2) != raw_id
+                    assert int(raw2.execute("PRAGMA busy_timeout").fetchone()[0]) == _PROBE_BUSY_MS
+        finally:
+            writer.execute("ROLLBACK")
+            writer.close()
+            engine.dispose()
+        assert _sentinel_value(db_path) == before == "keep-me"
+
+    def test_invalidate_failure_uses_detach_close_fallback(self, tmp_path, monkeypatch):
+        engine, db_path = _pooled_probe_engine(tmp_path, restore_fail=True)
+        try:
+            with Session(engine) as session:
+                conn = session.connection()
+                raw = conn.connection.dbapi_connection
+                raw_id = id(raw)
+
+                def _boom_invalidate() -> None:
+                    raise RuntimeError("invalidate blew up")
+
+                monkeypatch.setattr(conn, "invalidate", _boom_invalidate)
+                before = _sentinel_value(db_path)
+                verdict = probe_mod._snapshot_source(session, time.monotonic() + 10)
+                assert verdict == "post_state_snapshot_failed"
+                assert _sentinel_value(db_path) == before == "keep-me"
+                with pytest.raises(sqlite3.ProgrammingError):
+                    raw.execute("SELECT 1")
+                session.close()
+                with Session(engine) as session2:
+                    raw2 = session2.connection().connection.dbapi_connection
+                    assert id(raw2) != raw_id
+                    assert int(raw2.execute("PRAGMA busy_timeout").fetchone()[0]) == _PROBE_BUSY_MS
+        finally:
+            engine.dispose()
 
 
 # --------------------------------------------------------------------------

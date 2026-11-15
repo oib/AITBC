@@ -36,6 +36,7 @@ import sqlite3
 import time
 from contextlib import nullcontext
 from datetime import datetime
+from collections.abc import Callable
 from typing import Any, TypeGuard, cast
 
 from sqlalchemy import create_engine, text
@@ -117,11 +118,27 @@ def _mirror_foreign_keys(dest: sqlite3.Connection, fk_enabled: int) -> bool:
         return False
 
 
+def _discard_pooled_source(conn: Any, source: sqlite3.Connection) -> None:
+    """Prevent a busy_timeout=0 source connection from re-entering a pool."""
+    try:
+        conn.invalidate()
+    except Exception:  # noqa: BLE001 - SQLAlchemy invalidate may fail on any driver edge
+        try:
+            conn.detach()
+        except Exception:  # noqa: BLE001 - detach failure must close the raw dbapi handle
+            source.close()
+            raise
+        else:
+            conn.close()
+
+
 def _backup_snapshot(
     source: sqlite3.Connection,
     dest: sqlite3.Connection,
     deadline: float | None,
     original_busy: int,
+    *,
+    discard_source: Callable[[], None],
 ) -> sqlite3.Connection | str:
     """Online-backup ``source`` into ``dest`` under the deadline.
 
@@ -159,6 +176,13 @@ def _backup_snapshot(
             restored = True
         except Exception:  # noqa: BLE001 - a failed restore must not attest
             logger.warning("ATTEST-PROBE failed to restore source busy_timeout")
+            try:
+                discard_source()
+            except Exception as exc:  # noqa: BLE001 - discard is best-effort at refuse boundary
+                logger.warning(
+                    "ATTEST-PROBE failed to discard poisoned source connection: %s",
+                    type(exc).__name__,
+                )
     if not restored:
         dest.close()
         return "post_state_snapshot_failed"
@@ -197,7 +221,17 @@ def _snapshot_source(session: Session, deadline: float | None) -> sqlite3.Connec
     if not _mirror_foreign_keys(dest, fk_enabled):
         dest.close()
         return "post_state_snapshot_failed"
-    return _backup_snapshot(source, dest, deadline, original_busy)
+
+    def _discard_source() -> None:
+        _discard_pooled_source(conn, source)
+
+    return _backup_snapshot(
+        source,
+        dest,
+        deadline,
+        original_busy,
+        discard_source=_discard_source,
+    )
 
 
 def _arm_sql_deadline(conn: sqlite3.Connection, deadline: float | None) -> None:
