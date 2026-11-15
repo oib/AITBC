@@ -85,6 +85,16 @@ class TestFleetCheckVarsDocCoverage:
         )
 
 
+class TestGovernanceTimelockFleetCheck:
+    """GOVERNANCE-TIMELOCK-DIVERGENCE-1 (#1988): drift gate must watch governance timelock."""
+
+    def test_fleet_config_check_queries_governance_timelock(self):
+        text = FLEET_CHECK.read_text()
+        assert "governance execution timelock" in text
+        assert "GOV_TIMELOCK_CANON=1290" in text
+        assert "/v1/governance/status" in text
+
+
 class TestFleetCheckHeightPinCoverage:
     """FLEET-CONFIG-V13-1 (#402): every STATE_TRANSITION_V*_HEIGHT pin
     defined in aitbc_chain.config must be drift-watched and env-shadow

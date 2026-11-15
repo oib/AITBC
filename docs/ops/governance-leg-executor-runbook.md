@@ -13,6 +13,23 @@ Executing them by hand means polling head height for hours. The executor
 script polls `/rpc/status`, derives the exact eligible height from the
 chain's own refusal message, and submits sequentially.
 
+### Fleet timelock alignment (#1988)
+
+Every host with `aitbc-governance` active must report the same
+`timelock_blocks` on `GET /v1/governance/status` (authoritative — not a
+static env-file grep, because unset vars fall back to the pydantic
+default). Canonical value: **1290** (repo default since #758).
+
+| host (2026-11-15) | `timelock_blocks` | action |
+|---|---|---|
+| hub, node0–node2 | 1290 | ok |
+| hub1 | 43200 (stale) | operator: set `GOVERNANCE_TIMELOCK_BLOCKS=1290` in `/etc/aitbc/aitbc-governance.env`, `systemctl restart aitbc-governance`, re-check status |
+
+`fleet-config-check.sh` flags divergence in the *governance execution
+timelock* section. Do not run unattended leg executors while any host
+still reports a non-1290 timelock — eligibility heights will disagree
+across services.
+
 ## Preconditions
 
 - Executor wallet funded for gas and registered (e.g.

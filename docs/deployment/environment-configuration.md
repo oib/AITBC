@@ -706,6 +706,14 @@ EnvironmentFile=-/etc/aitbc/validator-secrets.env
 
 - **aitbc CLI:** Loads `blockchain.env` and `node.env` via `get_config()`
 
+### Governance service
+
+- **aitbc-governance.service:** Loads `aitbc-governance.env` (optional keys below).
+
+| Variable | Purpose |
+|---|---|
+| `GOVERNANCE_TIMELOCK_BLOCKS` | Execution timelock after voting ends, in blocks. **Repo default 1290** (`apps/governance/src/governance_service/config.py`) — ~24h at the live bc-2 cadence (~67s/block, #758). The pre-#758 default was 43200 (sized for a hypothetical 2s cadence). Every fleet host that runs `aitbc-governance` must expose the same effective value: check `GET /v1/governance/status` → `timelock_blocks`, or `fleet-config-check.sh` (section *governance execution timelock*). Omitting the env var is equivalent to **1290** when the unit matches the current repo build. |
+
 ---
 
 ## Node Role Patterns

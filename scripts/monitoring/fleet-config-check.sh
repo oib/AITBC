@@ -175,6 +175,7 @@ mesh_bad=0
 val_bad=0
 dig_bad=0
 wallet_bad=0
+gov_timelock_bad=0
 tag_bad=0
 bridge_bad=0
 # Flag accumulators are initialized here — NOT inside the ssh_reach branch
@@ -814,6 +815,48 @@ for h in $HOSTS; do
         printf "  %-14s ok (loopback or unset)\n" "$h"
     fi
 done
+
+echo "=== governance execution timelock (GOVERNANCE_TIMELOCK_BLOCKS effective) ==="
+# Each fleet host runs a governance service; execution eligibility is measured
+# on that instance from voting_ends_block + timelock_blocks (#1988, #758).
+# Env-file reads miss pydantic defaults when the var is unset — query the
+# live /v1/governance/status endpoint instead (same source as execute gates).
+# Canonical value matches apps/governance config.py (1290 ≈ 24h at bc-2 cadence).
+GOV_TIMELOCK_CANON=1290
+gov_timelock_seen=""
+for h in $HOSTS; do
+    val=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
+        "active=\$(systemctl is-active aitbc-governance 2>/dev/null || true)
+         if [ \"\$active\" != active ]; then echo NOTRUNNING; exit 0; fi
+         curl -fsS --max-time 5 http://127.0.0.1:8105/v1/governance/status 2>/dev/null \
+           | python3 -c \"import sys,json; print(json.load(sys.stdin).get('timelock_blocks',''))\" 2>/dev/null \
+           || echo UNREADABLE" \
+        2>/dev/null || echo "UNREACHABLE")
+    if [ "$val" = "UNREACHABLE" ]; then
+        gov_timelock_bad=1
+        printf "  %-14s UNREACHABLE\n" "$h"
+        continue
+    fi
+    if [ "$val" = "NOTRUNNING" ] || [ "$val" = "UNREADABLE" ] || [ -z "$val" ]; then
+        gov_timelock_bad=1
+        printf "  %-14s FAIL: governance timelock unreadable (%s)\n" "$h" "$val"
+        continue
+    fi
+    printf "  %-14s %s\n" "$h" "$val"
+    if [ -z "$gov_timelock_seen" ]; then
+        gov_timelock_seen="$val"
+    elif [ "$gov_timelock_seen" != "$val" ]; then
+        gov_timelock_bad=1
+    fi
+    if [ "$val" != "$GOV_TIMELOCK_CANON" ]; then
+        gov_timelock_bad=1
+    fi
+done
+if [ "$gov_timelock_bad" -eq 0 ]; then
+    echo "  ok: timelock_blocks=$GOV_TIMELOCK_CANON on all active governance hosts"
+elif [ "$gov_timelock_seen" != "$GOV_TIMELOCK_CANON" ]; then
+    echo "  FIX: set GOVERNANCE_TIMELOCK_BLOCKS=$GOV_TIMELOCK_CANON in /etc/aitbc/aitbc-governance.env on divergent hosts, then restart aitbc-governance"
+fi
 
 echo "=== running commit vs latest tag (every fleet deploy gets a tag) ==="
 # Releases are tagged at the deploy commit. A host whose HEAD does not
@@ -1502,7 +1545,7 @@ elif [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ] && [ "$shadowed" -eq 0 ] \
      && [ "$eff_drift" -eq 0 ] && [ "$mesh_bad" -eq 0 ] && [ "$val_bad" -eq 0 ] \
      && [ "$dig_bad" -eq 0 ] && [ "$conv_bad" -eq 0 ] && [ "$height_bad" -eq 0 ] \
      && [ "$skip_flagged" -eq 0 ] && [ "$mock_flagged" -eq 0 ] && [ "$v9_bad" -eq 0 ] \
-     && [ "$v17env_bad" -eq 0 ] && [ "$v22v23_bad" -eq 0 ]; then
+     && [ "$v17env_bad" -eq 0 ] && [ "$v22v23_bad" -eq 0 ] && [ "${gov_timelock_bad:-0}" -eq 0 ]; then
     echo "v9-pin-gate: PASS"
 else
     echo "v9-pin-gate: FAIL — see flagged sections above (env drift, heights, kill-switch, mock flag, v9 window, validators, gossip, digests, convergence)"
@@ -1520,8 +1563,9 @@ if [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ] && [ "$conv_bad" -eq 0 ] \
    && [ "$mesh_bad" -eq 0 ] && [ "$val_bad" -eq 0 ] && [ "$dig_bad" -eq 0 ] \
    && [ "$wallet_bad" -eq 0 ] && [ "${tag_bad:-0}" -eq 0 ] && [ "$bridge_bad" -eq 0 ] \
    && [ "${height_bad:-0}" -eq 0 ] && [ "${mock_flagged:-0}" -eq 0 ] \
-   && [ "${skip_flagged:-0}" -eq 0 ] && [ "${escrow_bad:-0}" -eq 0 ] \
-   && [ "${v17env_bad:-0}" -eq 0 ] && [ "${v22v23_bad:-0}" -eq 0 ]; then
+   && [ "${skip_flagged:-0}" -eq 0 ]    && [ "${escrow_bad:-0}" -eq 0 ] \
+   && [ "${v17env_bad:-0}" -eq 0 ] && [ "${v22v23_bad:-0}" -eq 0 ] \
+   && [ "${gov_timelock_bad:-0}" -eq 0 ]; then
     echo "No drift across: $HOSTS"
     exit 0
 else
