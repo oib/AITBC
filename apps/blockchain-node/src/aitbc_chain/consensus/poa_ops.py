@@ -9,6 +9,7 @@ from __future__ import annotations
 from typing import Any
 
 from . import poa as _poa
+from .pbft_certificate import strict_certificate_active, validate_commit_certificate
 from .poa import _PoaBaseMixin
 
 from ..config import settings
@@ -481,7 +482,36 @@ class _OpsMixin(_PoaBaseMixin):
         """
         pbft_certificate: list[dict[str, Any]] = []
         if self._pbft_consensus:
-            pbft_certificate = self._pbft_consensus.get_certificate(block_hash)
+            strict_era = strict_certificate_active(block.height)
+            # #1940 F3: in the strict era ask for THIS round's view — the
+            # unpinned call returns the highest complete view group, which
+            # would fail the round pin below even when the requested view
+            # holds a full quorum. The legacy-era call is unchanged (its
+            # view argument is ignored there anyway).
+            pbft_certificate = (
+                self._pbft_consensus.get_certificate(block_hash, view=round_number)
+                if strict_era
+                else self._pbft_consensus.get_certificate(block_hash)
+            )
+            if strict_era:
+                # The certificate must be a complete coherent commit quorum
+                # for THIS block at THIS view — gossip attestations cannot
+                # substitute for it, so a missing or invalid certificate
+                # aborts the proposal before they are even collected.
+                cert_ok, cert_reason = validate_commit_certificate(
+                    pbft_certificate,
+                    block_hash,
+                    self._consensus_participants_anomaly_checked(),
+                    height=block.height,
+                    view=round_number,
+                )
+                if not cert_ok:
+                    self._logger.warning(
+                        "PBFT certificate for block %s rejected in strict era: %s",
+                        block.height,
+                        cert_reason,
+                    )
+                    return False
             if pbft_certificate:
                 metadata_dict["pbft_certificate"] = pbft_certificate
 

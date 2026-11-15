@@ -6,7 +6,7 @@ from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
-from pydantic import BaseModel, field_validator, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 # Re-exported from aitbc.constants rather than spelled out again. This module used to hold its
@@ -1410,6 +1410,11 @@ class ChainSettings(BaseSettings):
     pbft_consensus_enabled: bool = False
     # View-change timeout used by PBFT consensus (seconds).
     pbft_view_change_timeout: int = 30
+    # #1940 F3: first block height at which PBFT commit certificates must
+    # satisfy the strict contract in consensus/pbft_certificate.py — one
+    # coherent (sequence, view) quorum verified identically at producer and
+    # importer. None/unset keeps the legacy union-count verifier.
+    pbft_certificate_strict_height: int | None = Field(default=None, ge=0)
     consensus_view_change_timeout_seconds: int = 30  # H6 — timeout before view change
     consensus_round_timeout_seconds: int = 10  # per-round timeout
     # v0.25.6: deterministic proposer rotation. When the scheduled proposer for
