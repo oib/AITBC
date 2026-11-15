@@ -2,7 +2,8 @@
 
 Pure proxy to edge-api via SharedHttpClient. Contract under test:
 503 when edge is unreachable, auth-header passthrough, and status/error
-mapping — pinned with a fake SharedHttpClient plus the real down-state.
+mapping — pinned with a fake SharedHttpClient (dev nodes may have edge-api
+listening on :8111, so unreachable is simulated, not ambient).
 """
 
 from __future__ import annotations
@@ -70,11 +71,13 @@ def fake_edge(monkeypatch: pytest.MonkeyPatch) -> type[_FakeClient]:
 
 
 class TestIslandsProxyDown:
-    def test_list_503_when_edge_down(self, client: TestClient) -> None:
+    def test_list_503_when_edge_down(self, client: TestClient, fake_edge: type[_FakeClient]) -> None:
+        fake_edge.next_error = httpx.ConnectError("refused")
         resp = client.get(BASE + "/", headers=_headers())
         assert resp.status_code == 503
 
-    def test_get_island_503_when_edge_down(self, client: TestClient) -> None:
+    def test_get_island_503_when_edge_down(self, client: TestClient, fake_edge: type[_FakeClient]) -> None:
+        fake_edge.next_error = httpx.ConnectError("refused")
         assert client.get(f"{BASE}/isl-1", headers=_headers()).status_code == 503
 
 
