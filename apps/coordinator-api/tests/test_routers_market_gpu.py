@@ -575,11 +575,12 @@ def test_release_gpu_requires_owner_or_client(client, miner_token, miner_b_token
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("live_status", ["pending", "confirmed", "escrowed", "disputed"])
+@pytest.mark.parametrize("live_status", ["confirmed", "escrowed", "disputed"])
 def test_release_gpu_blocked_while_payment_live(client, miner_token, db_session, live_status):
     """#1913: a paid booking with live money must not be released — the bound
     job/escrow would still settle after the GPU was freed (or strand the
-    buyer with no refund path)."""
+    buyer with no refund path). #1974: "pending" is unverified, not live
+    money — it moved to the releasable set (pinned below)."""
     gpu_id = _booked_gpu(client, miner_token, db_session, payment_status=live_status)
     resp = client.post(f"/v1/market/gpu/{gpu_id}/release", headers={"Authorization": f"Bearer {miner_token}"})
     assert resp.status_code == 409
@@ -592,6 +593,17 @@ def test_release_gpu_blocked_while_payment_live(client, miner_token, db_session,
 def test_release_gpu_allowed_after_payment_settled(client, miner_token, db_session, settled_status):
     """#1913: once no live money remains, releasing the GPU is safe."""
     gpu_id = _booked_gpu(client, miner_token, db_session, payment_status=settled_status)
+    resp = client.post(f"/v1/market/gpu/{gpu_id}/release", headers={"Authorization": f"Bearer {miner_token}"})
+    assert resp.status_code == 200
+    assert db_session.get(GPURegistry, gpu_id).status == "available"
+
+
+@pytest.mark.unit
+def test_release_gpu_allowed_with_pending_payment(client, miner_token, db_session):
+    """#1974: a pending payment is unverified (EVM receipt never confirmed,
+    or no RPC to check it) — it must not pin the hold. Owner release of a
+    pending-payment booking is allowed."""
+    gpu_id = _booked_gpu(client, miner_token, db_session, payment_status="pending")
     resp = client.post(f"/v1/market/gpu/{gpu_id}/release", headers={"Authorization": f"Bearer {miner_token}"})
     assert resp.status_code == 200
     assert db_session.get(GPURegistry, gpu_id).status == "available"
@@ -1179,11 +1191,12 @@ def test_book_gpu_stale_post_escrowed_hold_survives(
 
 
 @pytest.mark.unit
-def test_book_gpu_stale_pending_payment_hold_survives(
-    client, client_token, available_gpu, pricing_engine_override, db_session
-):
-    """#1930: a bound payment still 'pending' (EVM receipt in flight) can
-    still land money — the hold must not be TTL-expired underneath it."""
+def test_book_gpu_stale_pending_payment_hold_expires(client, client_token, available_gpu, pricing_engine_override, db_session):
+    """#1974: a bound payment still 'pending' is UNVERIFIED — an EVM receipt
+    that never mined (or no RPC to check it) must not shield the hold. The
+    #1930 pending shield let a made-up evm_tx_hash squat a GPU for 24h at
+    zero cost; pending now expires by the normal booking TTL like unpaid
+    work, and owner/admin may still release it explicitly."""
     from datetime import timedelta
 
     from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
@@ -1201,22 +1214,20 @@ def test_book_gpu_stale_pending_payment_hold_survives(
     db_session.add(JobPayment(id="pay_" + booking.id, job_id=job.id, amount=Decimal("1.0"), status="pending"))
     db_session.commit()
     resp2 = _book_with_job(client, client_token, available_gpu)
-    assert resp2.status_code == 409
+    assert resp2.status_code == 201, resp2.text
     db_session.refresh(booking)
-    assert booking.status == "active"
+    assert booking.status == "expired"
 
 
 @pytest.mark.unit
 def test_book_gpu_stale_aged_pending_payment_hold_expires(
     client, client_token, available_gpu, pricing_engine_override, db_session
 ):
-    """#1930 respin: the pending shield is age-bounded — a pending payment
-    older than _PENDING_SHIELD_TTL is dead (no reaper exists), so it must
-    not pin the hold forever. Fresh pending still shields (test above)."""
+    """#1974: pending never shields, at any age — kept as the aged-payment
+    variant of the fresh-pending pin above."""
     from datetime import timedelta
 
     from coordinator_api.contexts.market.domain.gpu_market import GPUBooking
-    from coordinator_api.contexts.market.routers.market_gpu import _PENDING_SHIELD_TTL
     from sqlmodel import select
 
     job = Job(id="job_pending_old", client_id="client1", payload={"type": "gpu_compute"}, constraints={})
@@ -1229,7 +1240,7 @@ def test_book_gpu_stale_aged_pending_payment_hold_expires(
     booking.payment_id = "pay_" + booking.id
     db_session.add(booking)
     payment = JobPayment(id="pay_" + booking.id, job_id=job.id, amount=Decimal("1.0"), status="pending")
-    payment.created_at = datetime.now(UTC) - _PENDING_SHIELD_TTL - timedelta(hours=1)
+    payment.created_at = datetime.now(UTC) - timedelta(hours=25)
     db_session.add(payment)
     db_session.commit()
     resp2 = _book_with_job(client, client_token, available_gpu)
@@ -1296,6 +1307,16 @@ def test_delete_gpu_force_cancels_unpaid_booking(client, miner_token, admin_toke
 def test_delete_gpu_force_allowed_after_payment_settled(client, miner_token, admin_token, db_session, settled_status):
     """#1924: once no live money remains, admin force-delete proceeds."""
     gpu_id = _booked_gpu(client, miner_token, db_session, payment_status=settled_status)
+    resp = client.delete(f"/v1/market/gpu/{gpu_id}?force=true", headers={"Authorization": f"Bearer {admin_token}"})
+    assert resp.status_code == 200
+    assert db_session.get(GPURegistry, gpu_id) is None
+
+
+@pytest.mark.unit
+def test_delete_gpu_force_allowed_with_pending_payment(client, miner_token, admin_token, db_session):
+    """#1974: admin force-delete may clear a pending-payment hold — pending
+    is unverified, not committed money."""
+    gpu_id = _booked_gpu(client, miner_token, db_session, payment_status="pending")
     resp = client.delete(f"/v1/market/gpu/{gpu_id}?force=true", headers={"Authorization": f"Bearer {admin_token}"})
     assert resp.status_code == 200
     assert db_session.get(GPURegistry, gpu_id) is None
@@ -1390,7 +1411,7 @@ def test_purchase_sibling_bookings_do_not_share_payment(
 
     # Age both holds past the TTL. Sibling B's payment resolves to a terminal
     # no-money state ("refunded" — money returned, nothing live) so its hold
-    # is genuinely unpaid; "pending" would now shield it (#1930).
+    # is genuinely unpaid; "pending" would not shield it either (#1974).
     unpaid = db_session.get(JobPayment, "pay_sib_b")
     unpaid.status = "refunded"
     db_session.add(unpaid)
