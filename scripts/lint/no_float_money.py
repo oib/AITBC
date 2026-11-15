@@ -421,6 +421,81 @@ def _is_suppressed(node: ast.AST, skip: frozenset[int], comment_lines: frozenset
     return False
 
 
+def _annassign_keys(node: ast.AnnAssign, keys: list[str]) -> None:
+    if not (declared := _annotated_name(node.target)):
+        return
+    if "float" in ast.unparse(node.annotation) and _is_money_name(declared):
+        keys.append(f"annotation:{declared}")
+    if node.value is not None and _contains_float_call(node.value) and _is_money_name(declared):
+        keys.append(f"float-call:{declared}")
+    if node.value is not None and _contains_float_literal(node.value) and _is_money_name(declared):
+        keys.append(f"float-literal:{declared}")
+
+
+def _arg_keys(node: ast.arg, keys: list[str]) -> None:
+    # ``def pay(amount: float)``. Every parameter kind -- positional, keyword-only,
+    # ``*args``, ``**kwargs`` -- is an ``ast.arg``, so one branch covers them all.
+    if _is_narrowed_float(node.annotation) and _is_money_name(node.arg):
+        keys.append(f"param:{node.arg}")
+
+
+def _assign_keys(node: ast.Assign, keys: list[str]) -> None:
+    for target in node.targets:
+        for name in _target_names(target):
+            if not _is_money_name(name):
+                continue
+            if _contains_float_call(node.value):
+                keys.append(f"float-call:{name}")
+            elif _contains_float_literal(node.value):
+                keys.append(f"float-literal:{name}")
+
+
+def _augassign_keys(node: ast.AugAssign, keys: list[str]) -> None:
+    # ``balance += float(x)`` — the conversion hides inside an augmented
+    # assignment, which is not an ``ast.Assign`` at all (#1033).
+    if not _contains_float_call(node.value):
+        return
+    for name in _target_names(node.target):
+        if _is_money_name(name):
+            keys.append(f"float-call:{name}")
+
+
+def _call_keys(node: ast.Call, keys: list[str]) -> None:
+    for keyword in node.keywords:
+        if not keyword.arg or not _is_money_name(keyword.arg):
+            continue
+        if _contains_float_call(keyword.value):
+            keys.append(f"float-call:{keyword.arg}")
+        elif _contains_float_literal(keyword.value):
+            keys.append(f"float-literal:{keyword.arg}")
+
+
+def _dict_keys(node: ast.Dict, keys: list[str]) -> None:
+    # dict(...) literals and Pydantic-style payloads: {"amount": float(x)}
+    for key, value in zip(node.keys, node.values, strict=False):
+        if isinstance(key, ast.Constant) and isinstance(key.value, str) and _is_money_name(key.value):
+            if _contains_float_call(value):
+                keys.append(f"float-call:{key.value}")
+            elif _contains_float_literal(value):
+                keys.append(f"float-literal:{key.value}")
+
+
+def _node_keys(node: ast.AST, keys: list[str]) -> None:
+    """Dispatch one AST node to the rule for its kind (node kinds are disjoint)."""
+    if isinstance(node, ast.AnnAssign):
+        _annassign_keys(node, keys)
+    elif isinstance(node, ast.arg) and node.annotation is not None:
+        _arg_keys(node, keys)
+    elif isinstance(node, ast.Assign):
+        _assign_keys(node, keys)
+    elif isinstance(node, ast.AugAssign):
+        _augassign_keys(node, keys)
+    elif isinstance(node, ast.Call):
+        _call_keys(node, keys)
+    elif isinstance(node, ast.Dict):
+        _dict_keys(node, keys)
+
+
 def _violations_in(path: Path) -> list[str]:
     """Return violation keys for one file.
 
@@ -464,55 +539,7 @@ def _violations_in(path: Path) -> list[str]:
     for node in ast.walk(tree):
         if _is_suppressed(node, skip, comments):
             continue
-
-        if isinstance(node, ast.AnnAssign) and (declared := _annotated_name(node.target)):
-            if "float" in ast.unparse(node.annotation) and _is_money_name(declared):
-                keys.append(f"annotation:{declared}")
-            if node.value is not None and _contains_float_call(node.value) and _is_money_name(declared):
-                keys.append(f"float-call:{declared}")
-            if node.value is not None and _contains_float_literal(node.value) and _is_money_name(declared):
-                keys.append(f"float-literal:{declared}")
-
-        elif isinstance(node, ast.arg) and node.annotation is not None:
-            # ``def pay(amount: float)``. Every parameter kind -- positional, keyword-only,
-            # ``*args``, ``**kwargs`` -- is an ``ast.arg``, so one branch covers them all.
-            if _is_narrowed_float(node.annotation) and _is_money_name(node.arg):
-                keys.append(f"param:{node.arg}")
-
-        elif isinstance(node, ast.Assign):
-            for target in node.targets:
-                for name in _target_names(target):
-                    if not _is_money_name(name):
-                        continue
-                    if _contains_float_call(node.value):
-                        keys.append(f"float-call:{name}")
-                    elif _contains_float_literal(node.value):
-                        keys.append(f"float-literal:{name}")
-
-        elif isinstance(node, ast.AugAssign):
-            # ``balance += float(x)`` — the conversion hides inside an augmented
-            # assignment, which is not an ``ast.Assign`` at all (#1033).
-            if _contains_float_call(node.value):
-                for name in _target_names(node.target):
-                    if _is_money_name(name):
-                        keys.append(f"float-call:{name}")
-
-        elif isinstance(node, ast.Call):
-            for keyword in node.keywords:
-                if not keyword.arg or not _is_money_name(keyword.arg):
-                    continue
-                if _contains_float_call(keyword.value):
-                    keys.append(f"float-call:{keyword.arg}")
-                elif _contains_float_literal(keyword.value):
-                    keys.append(f"float-literal:{keyword.arg}")
-            # dict(...) literals and Pydantic-style payloads: {"amount": float(x)}
-        elif isinstance(node, ast.Dict):
-            for key, value in zip(node.keys, node.values, strict=False):
-                if isinstance(key, ast.Constant) and isinstance(key.value, str) and _is_money_name(key.value):
-                    if _contains_float_call(value):
-                        keys.append(f"float-call:{key.value}")
-                    elif _contains_float_literal(value):
-                        keys.append(f"float-literal:{key.value}")
+        _node_keys(node, keys)
 
     if strict:
         # Any float() at all, bound to a money name or not.
@@ -559,24 +586,8 @@ def _write_baseline(found: dict[str, list[str]]) -> None:
         handle.write("\n")
 
 
-def main() -> int:
-    parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument(
-        "--update-baseline",
-        action="store_true",
-        help="Rewrite the baseline to match the tree. Use after fixing violations.",
-    )
-    args = parser.parse_args()
-
-    found = _scan()
-
-    if args.update_baseline:
-        _write_baseline(found)
-        total = sum(len(v) for v in found.values())
-        print(f"baseline updated: {total} known violations across {len(found)} files")
-        return 0
-
-    baseline = _load_baseline()
+def _baseline_diff(found: dict[str, list[str]], baseline: dict[str, list[str]]) -> tuple[list[str], list[str]]:
+    """(new, fixed) violation lines: present now but not baselined, and vice versa."""
     new: list[str] = []
     fixed: list[str] = []
 
@@ -592,6 +603,10 @@ def main() -> int:
             if key not in current:
                 fixed.append(f"{path}: {key}")
 
+    return new, fixed
+
+
+def _report_result(found: dict[str, list[str]], new: list[str], fixed: list[str]) -> int:
     if new:
         print("float money introduced in code that must use Decimal:\n", file=sys.stderr)
         for item in new:
@@ -615,6 +630,28 @@ def main() -> int:
     total = sum(len(v) for v in found.values())
     print(f"no new float money. {total} known violation(s) remain, see {BASELINE_PATH.name}")
     return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--update-baseline",
+        action="store_true",
+        help="Rewrite the baseline to match the tree. Use after fixing violations.",
+    )
+    args = parser.parse_args()
+
+    found = _scan()
+
+    if args.update_baseline:
+        _write_baseline(found)
+        total = sum(len(v) for v in found.values())
+        print(f"baseline updated: {total} known violations across {len(found)} files")
+        return 0
+
+    baseline = _load_baseline()
+    new, fixed = _baseline_diff(found, baseline)
+    return _report_result(found, new, fixed)
 
 
 if __name__ == "__main__":
