@@ -14,6 +14,7 @@ tolerated — the node kept importing for minutes. Now:
 
 from __future__ import annotations
 
+import logging
 import uuid
 from pathlib import Path
 
@@ -305,3 +306,29 @@ def test_unresolvable_store_fails_closed_not_silent_ok():
     assert ok is False
     assert "could not run" in detail
     assert not is_chain_db_quarantined(chain)
+
+
+def test_ensure_skips_served_chain_without_local_store(caplog):
+    """#1960: periodic health on a served-but-not-followed chain must not ERROR."""
+    from aitbc_chain.database import _absent_integrity_skip_noted
+
+    chain = _unique_chain()
+    _absent_integrity_skip_noted.discard(chain)
+    with caplog.at_level(logging.ERROR, logger="aitbc_chain.database"):
+        ok, detail = ensure_chain_db_healthy(chain, force=True)
+    assert (ok, detail) == (True, "no_local_store")
+    assert not [r for r in caplog.records if r.levelno >= logging.ERROR]
+    assert not is_chain_db_quarantined(chain)
+
+
+def test_ensure_resolves_uncached_engine_for_existing_file():
+    """#1960: a local store with no cached engine still gets quick_check'd."""
+    chain = _unique_chain()
+    try:
+        init_db(chain)
+        shutdown_db(chain)
+        ok, detail = ensure_chain_db_healthy(chain, force=True)
+        assert ok is True
+        assert detail == "ok"
+    finally:
+        shutdown_db(chain)
