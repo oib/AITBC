@@ -176,6 +176,14 @@ class MultiValidatorPoA:
         # empty/dormant otherwise and pruned below the newest armed height.
         self._pbft_commit_locks: dict[int, str] = {}
 
+        # #2005 F3-C: per-height VIEW_CHANGE protocol state — floor (highest
+        # view this node sent a VC for), prepared (view, hash), commit_lock
+        # (view, hash, own signed COMMIT) and persisted proposal bodies.
+        # Persisted on ConsensusState.pbft_view_change_json; dormant while
+        # ``view_change_active`` is false and pruned below the current
+        # sequence exactly like the F3-B commit locks.
+        self._pbft_view_change: dict[int, dict[str, Any]] = {}
+
         # #1940 F4: optional session factory for chain-state reads
         # (_current_head_height / _chain_deactivated_addresses). The
         # attestation post-state probe injects one bound to its scratch
@@ -1278,6 +1286,12 @@ class MultiValidatorPoA:
         # #1940 F3-B: str(seq) -> block_hash, keys in ascending int order so
         # the persisted bytes are deterministic regardless of insertion order.
         commit_locks_json = json.dumps({str(seq): self._pbft_commit_locks[seq] for seq in sorted(self._pbft_commit_locks)})
+        # #2005 F3-C: str(seq) -> VC record, keys in ascending int order so
+        # the persisted bytes are deterministic regardless of insertion order.
+        view_change_json = json.dumps(
+            {str(seq): self._pbft_view_change[seq] for seq in sorted(self._pbft_view_change)},
+            sort_keys=True,
+        )
         try:
             with session_scope(self.chain_id) as session:
                 existing = session.query(ConsensusState).filter_by(chain_id=self.chain_id).first()
@@ -1288,6 +1302,7 @@ class MultiValidatorPoA:
                     existing.validator_set_json = json.dumps(validator_set)
                     existing.slashing_events_json = json.dumps(slashing_events)
                     existing.pbft_commit_locks_json = commit_locks_json
+                    existing.pbft_view_change_json = view_change_json
                     existing.updated_at = datetime.now(UTC)
                 else:
                     session.add(
@@ -1299,6 +1314,7 @@ class MultiValidatorPoA:
                             validator_set_json=json.dumps(validator_set),
                             slashing_events_json=json.dumps(slashing_events),
                             pbft_commit_locks_json=commit_locks_json,
+                            pbft_view_change_json=view_change_json,
                         )
                     )
                 # session_scope closes without committing — without this the
@@ -1521,6 +1537,15 @@ class MultiValidatorPoA:
                     for seq, block_hash in self._parse_commit_locks(getattr(row, "pbft_commit_locks_json", "") or "").items()
                     if seq >= self._pbft_sequence
                 }
+                # #2005 F3-C: restore per-height VIEW_CHANGE state (floor,
+                # prepared, commit-lock, proposal bodies). Same prune rule:
+                # heights below the persisted current sequence can never be
+                # voted on again.
+                self._pbft_view_change = {
+                    seq: rec
+                    for seq, rec in self._parse_view_change_records(getattr(row, "pbft_view_change_json", "") or "").items()
+                    if seq >= self._pbft_sequence
+                }
             if self._chain_slashing_armed():
                 self._report_slashing_divergence()
             return True
@@ -1587,6 +1612,203 @@ class MultiValidatorPoA:
         else:
             self._pbft_commit_locks.pop(sequence, None)
         return False
+
+    # ─── #2005 F3-C: VIEW_CHANGE protocol state ─────────────────
+    #
+    # One record per height: {"floor": int, "prepared": {"view","block_hash"}|None,
+    # "commit_lock": {"view","block_hash","commit"}|None, "proposals": {hash: payload}}.
+    # Every mutation persists BEFORE the corresponding network message may be
+    # sent (design §7: write record, then broadcast; a write failure means no
+    # message — the #1268 vote-journal precedent). All of it is dormant while
+    # ``view_change_active(sequence)`` is false.
+
+    def pbft_vc_records(self) -> dict[int, dict[str, Any]]:
+        """Snapshot of the persisted per-height VIEW_CHANGE records."""
+        return {seq: dict(rec) for seq, rec in self._pbft_view_change.items()}
+
+    def _pbft_vc_record(self, sequence: int) -> dict[str, Any]:
+        return self._pbft_view_change.setdefault(
+            sequence, {"floor": None, "prepared": None, "commit_lock": None, "proposals": {}}
+        )
+
+    def pbft_vc_floor(self, sequence: int) -> int | None:
+        """Highest view this node has sent a VIEW_CHANGE for at ``sequence``."""
+        rec = self._pbft_view_change.get(sequence)
+        if rec is None:
+            return None
+        floor = rec.get("floor")
+        return floor if _is_strict_int(floor) else None
+
+    def pbft_vc_commit_lock(self, sequence: int) -> dict[str, Any] | None:
+        """This node's persisted commit-lock record at ``sequence``, if any."""
+        rec = self._pbft_view_change.get(sequence)
+        if rec is None:
+            return None
+        lock = rec.get("commit_lock")
+        return dict(lock) if isinstance(lock, dict) else None
+
+    def pbft_vc_proposal_get(self, sequence: int, block_hash: str) -> dict[str, Any] | None:
+        """A persisted proposal body for ``(sequence, block_hash)``, if held."""
+        rec = self._pbft_view_change.get(sequence)
+        if rec is None:
+            return None
+        proposals = rec.get("proposals")
+        if not isinstance(proposals, dict):
+            return None
+        payload = proposals.get(block_hash)
+        return dict(payload) if isinstance(payload, dict) else None
+
+    def _pbft_vc_mutate(self, sequence: int, mutator: Any) -> bool:
+        """Apply ``mutator(record)`` to the height's VC record and persist.
+
+        Fail closed like ``pbft_commit_lock_arm``: the in-memory record is
+        restored on ``save_state`` failure and False is returned so the
+        caller must not emit the gated message. Heights below ``sequence``
+        are pruned — they can never be voted on again.
+        """
+        import copy
+
+        pruned = {seq: self._pbft_view_change.pop(seq) for seq in [s for s in self._pbft_view_change if s < sequence]}
+        had_previous = sequence in self._pbft_view_change
+        previous = copy.deepcopy(self._pbft_view_change.get(sequence))
+        rec = self._pbft_vc_record(sequence)
+        mutator(rec)
+        if self.save_state():
+            return True
+        self._pbft_view_change.update(pruned)
+        if had_previous and previous is not None:
+            self._pbft_view_change[sequence] = previous
+        else:
+            self._pbft_view_change.pop(sequence, None)
+        return False
+
+    def pbft_vc_floor_raise(self, sequence: int, view: int) -> bool:
+        """Persist ``floor(sequence) = max(floor, view)`` — before any VC send.
+
+        The floor rule (#2005 §3): once raised, this node must never send
+        PREPARE/COMMIT for the height at a lower view. Idempotent: a view at
+        or below the stored floor is a no-op success.
+        """
+        current = self.pbft_vc_floor(sequence)
+        if current is not None and view <= current:
+            return True
+
+        def _raise(rec: dict[str, Any]) -> None:
+            rec["floor"] = view
+
+        return self._pbft_vc_mutate(sequence, _raise)
+
+    def pbft_vc_prepared_arm(self, sequence: int, view: int, block_hash: str) -> bool:
+        """Persist this node's latest prepared ``(view, block_hash)``.
+
+        Mirrors ``_prepared_heights`` but durable: only a strictly higher
+        view replaces the record (same-view hash changes are refused by the
+        caller before this runs).
+        """
+        rec_existing = self._pbft_view_change.get(sequence)
+        existing = rec_existing.get("prepared") if rec_existing else None
+        if isinstance(existing, dict):
+            existing_view = existing.get("view")
+            if _is_strict_int(existing_view) and isinstance(existing_view, int) and view <= existing_view:
+                return True
+
+        def _arm(rec: dict[str, Any]) -> None:
+            rec["prepared"] = {"view": view, "block_hash": block_hash}
+
+        return self._pbft_vc_mutate(sequence, _arm)
+
+    def pbft_vc_commit_lock_arm(self, sequence: int, view: int, block_hash: str, commit: dict[str, Any]) -> bool:
+        """Persist this node's commit-lock ``{view, block_hash, commit}``.
+
+        ``commit`` is the node's OWN signed COMMIT dict — the proof carried
+        inside VIEW_CHANGE ``lock.commit_msgs`` that it really locked. First
+        lock wins: a different ``(view, block_hash)`` is refused (the floor
+        + NEW_VIEW rules are what make a later same-hash commit legal, and
+        the F3-B ``pbft_commit_lock_arm`` already guards emission).
+        """
+        existing = self.pbft_vc_commit_lock(sequence)
+        if existing is not None:
+            return existing.get("view") == view and str(existing.get("block_hash", "")).lower() == block_hash.lower()
+
+        def _arm(rec: dict[str, Any]) -> None:
+            rec["commit_lock"] = {"view": view, "block_hash": block_hash, "commit": dict(commit)}
+
+        return self._pbft_vc_mutate(sequence, _arm)
+
+    def pbft_vc_proposal_store(self, sequence: int, block_hash: str, payload: dict[str, Any]) -> bool:
+        """Persist a pre-prepare proposal body before any PREPARE is sent.
+
+        Option R (#2005 §5): a validator that cannot produce the decided
+        block's body makes a commit quorum unrecoverable, so the body is
+        stored fail-closed before the vote. Bounded: at most
+        ``MAX_PROPOSALS_PER_SEQUENCE`` bodies per height and
+        ``MAX_PROPOSAL_PAYLOAD_BYTES`` per body; both caps live in
+        ``pbft_view_change``. Entries below the current sequence are pruned
+        on seal like every other per-height record.
+        """
+        from .pbft_view_change import MAX_PROPOSAL_PAYLOAD_BYTES, MAX_PROPOSALS_PER_SEQUENCE
+
+        import json
+
+        try:
+            size = len(json.dumps(payload, separators=(",", ":")))
+        except (TypeError, ValueError):
+            return False
+        if size > MAX_PROPOSAL_PAYLOAD_BYTES:
+            return False
+        rec_existing = self._pbft_view_change.get(sequence)
+        proposals = rec_existing.get("proposals") if rec_existing else None
+        if isinstance(proposals, dict) and block_hash in proposals:
+            return True  # already held — idempotent
+        if isinstance(proposals, dict) and len(proposals) >= MAX_PROPOSALS_PER_SEQUENCE:
+            return False
+
+        def _store(rec: dict[str, Any]) -> None:
+            props = rec.get("proposals")
+            if not isinstance(props, dict):
+                props = {}
+                rec["proposals"] = props
+            props[block_hash] = dict(payload)
+
+        return self._pbft_vc_mutate(sequence, _store)
+
+    @staticmethod
+    def _parse_view_change_records(raw: Any) -> dict[int, dict[str, Any]]:
+        """Rebuild ``{sequence: record}`` VC state from persisted JSON.
+
+        Tolerant like ``_parse_commit_locks`` but LOUD on corrupt non-empty
+        input (review N2 lesson): a silently dropped record is a restart-
+        amnesia hole for the floor rule. Malformed entries are dropped
+        individually; an unparseable top-level value logs an error.
+        """
+        import json
+
+        if not raw:
+            return {}
+        try:
+            data = json.loads(raw) if isinstance(raw, str) else raw
+        except (TypeError, ValueError):
+            logger.error("pbft_view_change_json is not parseable JSON; VC state lost for this chain")
+            return {}
+        if not isinstance(data, dict):
+            logger.error("pbft_view_change_json is not a JSON object; VC state lost for this chain")
+            return {}
+        records: dict[int, dict[str, Any]] = {}
+        for key, value in data.items():
+            try:
+                seq = int(key)
+            except (TypeError, ValueError):
+                continue
+            if seq < 0 or not isinstance(value, dict):
+                continue
+            rec: dict[str, Any] = {
+                "floor": value.get("floor") if _is_strict_int(value.get("floor")) else None,
+                "prepared": value.get("prepared") if isinstance(value.get("prepared"), dict) else None,
+                "commit_lock": value.get("commit_lock") if isinstance(value.get("commit_lock"), dict) else None,
+                "proposals": value.get("proposals") if isinstance(value.get("proposals"), dict) else {},
+            }
+            records[seq] = rec
+        return records
 
     # ─── B12: Consensus Metrics ───────────────────────────────────
 
