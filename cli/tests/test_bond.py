@@ -68,6 +68,37 @@ def test_bond_create_posts_bonds(runner, mock_client):
     assert call.kwargs["json"]["required_amount"] == "10.0"
 
 
+def test_bond_create_with_key_signs_challenge(runner):
+    """#1967: --private-key fetches the challenge and posts nonce+signature."""
+    from aitbc_cli.commands.bond import bond
+
+    client = MagicMock()
+    client.post.side_effect = [
+        {"nonce": "n1", "message": "sign-me", "wallet_address": "0xabc", "expires_in": 300},
+        {"id": "pb_1", "provider_id": "p1", "status": "active"},
+    ]
+    config = MagicMock()
+    config.coordinator_api_url = "http://localhost:8203"
+    config.api_key = "test-key"
+    config.timeout = 10
+    with (
+        patch("aitbc_cli.commands.bond.AITBCHTTPClient", return_value=client),
+        patch("aitbc_cli.commands.bond.get_config", return_value=config),
+    ):
+        result = runner.invoke(
+            bond,
+            ["create", "--provider-id", "p1", "--bond-id", "cb1", "--private-key", "0x" + "42" * 32],
+            obj={"output_format": "table", "api_key": "test-key"},
+        )
+    assert result.exit_code == 0, result.output
+    calls = client.post.call_args_list
+    assert calls[0][0][0] == "/v1/market/providers/p1/bonds/challenge"
+    body = calls[1].kwargs["json"]
+    assert body["bond_id"] == "cb1"
+    assert body["challenge_nonce"] == "n1"
+    assert body["wallet_signature"].startswith("0x")
+
+
 def test_bond_status_gets_eligibility(runner, mock_client):
     from aitbc_cli.commands.bond import bond
 

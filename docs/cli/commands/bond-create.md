@@ -2,7 +2,7 @@
 
 # `aitbc bond create`
 
-Create or top-up a provider's performance bond.
+Create or top-up a provider's performance bond. Non-admin callers must prove control of the provider's registered wallet: pass --wallet/--private-key/--private-key-file and the CLI fetches a challenge and signs it automatically (#1967). Without a key source the request goes unsigned — admin JWTs still pass, provider callers get 403.
 
 ## Usage
 
@@ -18,6 +18,12 @@ aitbc bond create [OPTIONS]
 | `--amount` | text | `0.0` | no | Amount to lock as a performance bond |
 | `--required-amount` | text | `0.0` | no | Required bond amount for this provider |
 | `--bond-id` | text | — | no | Optional on-chain/external bond identifier |
+| `--wallet` | text | — | no | Wallet that owns the provider bond (signs the #1967 ownership challenge) |
+| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
+| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
+| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
+| `--private-key` | text | — | no | Raw hex private key for the bond wallet (CI/scripts) |
+| `--private-key-file` | path | — | no | File containing the bond wallet's raw hex private key |
 | `--coordinator-url` | text | — | no | Coordinator URL |
 | `--format` | choice | — | no | Output format |
 

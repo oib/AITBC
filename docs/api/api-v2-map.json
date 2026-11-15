@@ -5474,6 +5474,13 @@
           ]
         },
         {
+          "public": "/api/v2/coordinator/v1/market/providers/{provider_id}/bonds/challenge",
+          "upstream": "/v1/market/providers/{provider_id}/bonds/challenge",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
           "public": "/api/v2/coordinator/v1/market/providers/{provider_id}/bonds/lock",
           "upstream": "/v1/market/providers/{provider_id}/bonds/lock",
           "methods": [
