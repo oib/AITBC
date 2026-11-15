@@ -42,6 +42,51 @@ def abandon_enabled() -> bool:
     )
 
 
+def liveness_enabled() -> bool:
+    """#1985: abandon re-announce / crash recovery / lock ordering. Needs the abandon path armed."""
+    from ..config import settings
+
+    return abandon_enabled() and bool(getattr(settings, "vote_journal_liveness_enabled", False))
+
+
+class AbandonLedger:
+    """#1985: the abandons this proposer owes the mesh, kept until the height is decided.
+
+    ``record`` is called when a proposal is dropped (or found orphaned at start);
+    ``due`` yields entries not published within ``every`` seconds so a voter that
+    restarted, or lost the single gossip publish, still hears it. ``forget`` is
+    called when the same hash is proposed again (same-hash retry): a hash being
+    retried must not keep being announced as dead.
+    """
+
+    def __init__(self, max_entries: int = 256) -> None:
+        self._max = max_entries
+        # (height, hash) -> [round, proposer, last_publish_epoch]
+        self._entries: dict[tuple[int, str], list[Any]] = {}
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+    def record(self, height: int, block_hash: str, round_: int | None, proposer: str, now: float) -> None:
+        self._entries[(height, block_hash)] = [round_, proposer, now]
+        while len(self._entries) > self._max:
+            del self._entries[min(self._entries)]
+
+    def forget(self, height: int, block_hash: str) -> None:
+        self._entries.pop((height, block_hash), None)
+
+    def due(self, tip_height: int, every: float, now: float) -> list[tuple[int, str, int | None, str]]:
+        """Entries above ``tip_height`` last published at least ``every`` seconds ago; marks them published."""
+        for key in [k for k in self._entries if k[0] <= tip_height]:
+            del self._entries[key]
+        out: list[tuple[int, str, int | None, str]] = []
+        for (height, block_hash), entry in sorted(self._entries.items()):
+            if now - float(entry[2]) >= every:
+                entry[2] = now
+                out.append((height, block_hash, entry[0], entry[1]))
+        return out
+
+
 def _domain_active(height: int) -> bool:
     """#1298: at/above ``consensus_domain_separation_height`` the abandon
     statement is signed under its own domain (hard cutover, like attestations);

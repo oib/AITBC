@@ -16,6 +16,7 @@ from aitbc_chain.config import ChainSettings, uc_combo_findings
 ARMED = {
     "vote_journal_enabled": True,
     "vote_journal_justification_enabled": True,
+    "vote_journal_abandon_enabled": True,  # #1985: journal armed without abandon now warns
     "attestation_round_lock_enabled": True,
 }
 

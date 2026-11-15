@@ -646,8 +646,15 @@ class _ListenerMixin(_RaBaseMixin):
         # point can never forget that this height is bound to header_hash,
         # and a persistence failure refuses the signing — no signature goes
         # out unrecorded.
-        if not self._record_pre_sign_lock(height_int, request_round, header_hash, proposer, header, round_lock):
-            return
+        # #1985 (liveness flag): the lock is minted only once a signer has passed the
+        # journal gate below, so a rival this validator refuses to vote for leaves no
+        # lock for a hash it never signed (it used to pin the round for the proposer).
+        lock_after_gate = abandon.liveness_enabled()
+        lock_minted = False
+        if not lock_after_gate:
+            if not self._record_pre_sign_lock(height_int, request_round, header_hash, proposer, header, round_lock):
+                return
+            lock_minted = True
 
         # #1198/#1263 advisory: attestation equivocation is recorded inside the
         # signing loop below, AFTER a signature actually exists — evidence
@@ -686,6 +693,10 @@ class _ListenerMixin(_RaBaseMixin):
                 height_int, header_hash, address, proposer, request_round, request_cert=request_cert
             ):
                 continue
+            if not lock_minted:
+                if not self._record_pre_sign_lock(height_int, request_round, header_hash, proposer, header, round_lock):
+                    return
+                lock_minted = True
 
             message = {
                 "chain_id": header.get("chain_id", self._chain_id),

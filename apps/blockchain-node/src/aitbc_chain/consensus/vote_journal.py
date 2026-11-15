@@ -186,6 +186,19 @@ class VoteJournal:
         """Votes ``voter`` already cast at ``height`` for a hash other than ``block_hash``."""
         return [r for r in self.votes_at(height, voter) if r.block_hash != block_hash]
 
+    def proposals_above(self, voter: str, tip_height: int) -> list[VoteRecord]:
+        """``voter``'s own proposal votes at heights above ``tip_height`` (#1985 crash recovery)."""
+        canon = canonical_address(voter)
+        with self._lock:
+            self._ensure_loaded()
+            return [
+                r
+                for h in sorted(self._votes)
+                if h > tip_height
+                for r in self._votes[h].get(canon, ())
+                if r.kind == KIND_PROPOSE
+            ]
+
     def height_count(self) -> int:
         with self._lock:
             self._ensure_loaded()

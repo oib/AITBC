@@ -66,7 +66,27 @@ _JOURNAL_DEPENDENT_FLAGS = (
     "vote_journal_abandon_enabled",
     "vote_journal_sealed_rival_pull",
     "unavail_nonblocking_persist_enabled",
+    "vote_journal_liveness_enabled",
 )
+
+
+def _abandon_gap_findings(s: Any, journal: bool) -> list[str]:
+    """#1985 (bc-2 halt at h28508, 15 Nov): a journal without proposer abandon.
+
+    With no abandon, a proposal that misses quorum leaves every voter pinned to
+    its hash until the unlock valve (and UC) opens, staggered per validator --
+    measured as a 2 h stall. The liveness flag re-announces abandons, so it is
+    inert without them.
+    """
+    if not journal or s.vote_journal_abandon_enabled:
+        return []
+    out = [
+        "vote_journal_enabled without vote_journal_abandon_enabled: a proposal that misses quorum pins "
+        "every voter to its hash until the unlock valve opens (bc-2 h28508 stall, #1985)"
+    ]
+    if s.vote_journal_liveness_enabled:
+        out.append("vote_journal_liveness_enabled needs vote_journal_abandon_enabled; its abandon re-announce is inert")
+    return out
 
 
 def uc_combo_findings(s: Any) -> tuple[list[str], list[str]]:
@@ -82,6 +102,7 @@ def uc_combo_findings(s: Any) -> tuple[list[str], list[str]]:
     for name in _JOURNAL_DEPENDENT_FLAGS:
         if getattr(s, name) and not journal:
             warnings.append(f"{name} is set but vote_journal_enabled is off, so it has no effect")
+    warnings.extend(_abandon_gap_findings(s, journal))
     if (
         journal
         and s.vote_journal_justification_enabled
@@ -1578,6 +1599,18 @@ class ChainSettings(BaseSettings):
     # an abandon statement; voters whose journal holds an attest vote for that
     # exact hash from that proposer release the entry. Needs vote_journal_enabled.
     vote_journal_abandon_enabled: bool = False
+    # #1985 liveness hardening for the abandon path (dormant, default OFF;
+    # needs vote_journal_enabled + vote_journal_abandon_enabled). Gossip is not
+    # durable: a voter that restarted or lost the one abandon publish stays
+    # pinned to a hash nobody will seal (bc-2 h28508). Armed: (1) a proposer
+    # re-signs and re-publishes its abandons while the height is undecided,
+    # at most once per ``vote_journal_abandon_reannounce_seconds`` per hash;
+    # (2) on start it abandons and retracts its own journal proposals above
+    # the tip (the block died with the process); (3) the attestation lock is
+    # minted only after the journal accepts the vote, so a refused rival no
+    # longer leaves a lock for a hash this validator never signed.
+    vote_journal_liveness_enabled: bool = False
+    vote_journal_abandon_reannounce_seconds: float = 30.0
     # #1311: replicate signature-bearing attestation-equivocation evidence over
     # the restricted ``consensus.equivocation.<chain>`` topic. Default OFF:
     # nothing is published, subscribed or stored. Advisory only — ingest never
