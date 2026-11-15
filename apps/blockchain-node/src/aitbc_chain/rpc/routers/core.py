@@ -85,11 +85,7 @@ def get_height_route(request: Request, chain_id: str | None = None) -> dict[str,
     return {"height": head.get("height", 0)}
 
 
-@router.get(
-    "/proposer",
-    summary="Get the current block proposer address",
-    dependencies=[Depends(verify_rpc_peer_key)],
-)
+@router.get("/proposer", summary="Get the current block proposer address")
 @rate_limit(rate=60, per=60)
 def get_proposer_route(request: Request) -> dict[str, Any]:  # noqa: ARG001
     """Return the block proposer address for this hub.
@@ -171,7 +167,7 @@ def get_blocks_range_route(
     return get_blocks_range(request, start, end, include_tx, chain_id)  # type: ignore[no-any-return]
 
 
-@router.get("/info", summary="Get blockchain information", dependencies=[Depends(verify_rpc_peer_key)])
+@router.get("/info", summary="Get blockchain information")
 @rate_limit(rate=200, per=60)
 def get_info_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get comprehensive blockchain information including transactions, accounts, and genesis parameters"""
@@ -203,19 +199,15 @@ def get_info_route(request: Request, chain_id: str | None = None) -> dict[str, A
     }
 
 
-@router.get("/status", summary="Get node status (alias for /info)", dependencies=[Depends(verify_rpc_peer_key)])
+@router.get("/status", summary="Get node status (alias for /info)")
 @rate_limit(rate=200, per=60)
 def get_status_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Get node status - alias for /info endpoint"""
     return get_info_route(request, chain_id)  # type: ignore[no-any-return]
 
 
-@router.head("/network-info", include_in_schema=False, dependencies=[Depends(verify_rpc_peer_key)])
-@router.get(
-    "/network-info",
-    summary="Get network information for joining",
-    dependencies=[Depends(verify_rpc_peer_key)],
-)
+@router.head("/network-info", include_in_schema=False)
+@router.get("/network-info", summary="Get network information for joining")
 @rate_limit(rate=100, per=60)
 def get_network_info_route(request: Request) -> dict[str, Any]:
     """Get network configuration for open-island joining.
