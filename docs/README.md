@@ -73,6 +73,8 @@ Operator procedures for the live fleet:
 - [Env orphan cleanup](ops/env-orphan-cleanup-runbook.md) — quarantine
   procedure for `/etc/aitbc` env files whose services have no deployed
   unit (#1549), plus the deploy-vs-retire list for repo-shipped units.
+- [Fleet `IS_HUB` semantics](ops/fleet-is-hub-semantics.md) — main vs
+  island env surfaces, demoted hub1 `EXTRA_SERVICES` hygiene (#1987).
 - [Faucet runbook](ops/faucet-runbook.md) — the 3 AIT welcome grant:
   request flow, FAUCET_*/GENESIS_* split, budgets, pause/open, testing.
 - [Withdrawal release runbook](ops/withdraw-release-runbook.md) — the

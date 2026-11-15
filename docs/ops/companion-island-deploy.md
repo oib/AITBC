@@ -1,5 +1,10 @@
 # Companion island deploy — `bc-2-island-1` (RUNBOOK + DEPLOY RECORD)
 
+> **Identity:** `IS_HUB` on island env files is the island P2P/discovery
+> flag only. Main-chain followers must not inherit `IS_HUB=true` on
+> `blockchain.env` / `node.env`. See
+> [fleet-is-hub-semantics.md](fleet-is-hub-semantics.md).
+
 > **Status: DEPLOYED — this doc now carries the verified actuals from
 > Coder B's deploy; it remains the design record.** Every `<recorded at
 > deploy>` placeholder has been filled from the live run, and anything
