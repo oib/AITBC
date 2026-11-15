@@ -5,7 +5,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from sqlalchemy import func
+from sqlalchemy import and_, exists, func, or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, col, select, update
 
@@ -245,11 +245,16 @@ class JobService:
         self.session = session
         self.payment_service = PaymentService(session)
 
-    def create_job(self, client_id: str, req: JobCreate, *, ttl_cap: int | None = None) -> Job:
+    def create_job(
+        self, client_id: str, req: JobCreate, *, ttl_cap: int | None = None, enforce_inflight_cap: bool = False
+    ) -> Job:
         # ``ttl_cap`` bounds client-supplied TTLs on the public submit path.
         # Internal callers (market_gpu bookings, services.py renders) pass
         # server-computed TTLs and leave it None — capping them broke paid
         # GPU bookings and long renders (Validator FAIL on #1948).
+        # ``enforce_inflight_cap`` is likewise public-path-only (#1972): the
+        # per-client in-flight cap protects the public submit surface; internal
+        # callers (services.py renders, market_gpu bookings) must not 429 on it.
         ttl = max(req.ttl_seconds, 1)
         if ttl_cap is not None:
             ttl = min(ttl, max(ttl_cap, 1))
@@ -260,16 +265,17 @@ class JobService:
             # Unresolvable caller identity is a caller error, not a server
             # fault — arbitrary JWT subs must not 500 job submission (#1340).
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
-        inflight = self.session.execute(
-            select(func.count())
-            .select_from(Job)
-            .where(col(Job.client_id) == resolved_client_id, col(Job.state).in_(("QUEUED", "RUNNING")))
-        ).scalar_one()
-        if inflight >= _MAX_INFLIGHT_JOBS_PER_CLIENT:
-            raise HTTPException(
-                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail=(f"client already holds {inflight} queued or running jobs (limit {_MAX_INFLIGHT_JOBS_PER_CLIENT})"),
-            )
+        if enforce_inflight_cap:
+            inflight = self.session.execute(
+                select(func.count())
+                .select_from(Job)
+                .where(col(Job.client_id) == resolved_client_id, col(Job.state).in_(("QUEUED", "RUNNING")))
+            ).scalar_one()
+            if inflight >= _MAX_INFLIGHT_JOBS_PER_CLIENT:
+                raise HTTPException(
+                    status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                    detail=(f"client already holds {inflight} queued or running jobs (limit {_MAX_INFLIGHT_JOBS_PER_CLIENT})"),
+                )
         # G3: drop any server-only keys the client may have tried to smuggle in.
         raw_constraints = (
             req.constraints.model_dump(mode="json") if hasattr(req.constraints, "model_dump") else dict(req.constraints)
@@ -540,21 +546,28 @@ class JobService:
     def acquire_next_job(self, miner: Miner) -> Job | None:
         try:
             now = datetime.now(UTC)
-            statement = (
-                select(Job)
-                .where(Job.state == "QUEUED")
-                .order_by(
-                    # NULL-safe: ``payment_amount > 0`` alone is NULL (not
-                    # FALSE) for unpriced rows, and NULL ordering differs
-                    # between SQLite and Postgres.
-                    (
-                        col(Job.payment_id).is_not(None)
-                        | (col(Job.payment_amount).is_not(None) & (col(Job.payment_amount) > 0))
-                    ).desc(),
-                    Job.requested_at.asc(),  # type: ignore[attr-defined]
-                )
-                .limit(self._QUEUE_SCAN_LIMIT)
+            # #1972: rank on a *secured* payment row only. ``payment_amount`` and
+            # ``payment_status="pending"`` are set straight from the request, so
+            # ranking on them let unfunded jobs fill the scan window ahead of
+            # legitimate work.
+            funded = exists().where(
+                col(JobPayment.id) == col(Job.payment_id),
+                col(JobPayment.status).in_(tuple(_PAYMENT_DISPATCHABLE_STATES)),
             )
+            statement = select(Job).where(Job.state == "QUEUED")
+            if _PAYMENT_REQUIRE:
+                # Rows with no payment row that ``_payment_blocks_dispatch`` would
+                # skip anyway never reach the window: only an escrowed cache or an
+                # unpriced job passes. Mirrors the gate for payment_id IS NULL.
+                status_col = func.lower(func.trim(func.coalesce(Job.payment_status, "")))
+                unpriced = and_(status_col == "", func.coalesce(Job.payment_amount, 0) <= 0)
+                statement = statement.where(
+                    or_(col(Job.payment_id).is_not(None), status_col.in_(tuple(_PAYMENT_DISPATCHABLE_STATES)), unpriced)
+                )
+            statement = statement.order_by(
+                funded.desc(),
+                Job.requested_at.asc(),  # type: ignore[attr-defined]
+            ).limit(self._QUEUE_SCAN_LIMIT)
             jobs = list(self.session.scalars(statement).all())
             if len(jobs) >= self._QUEUE_SCAN_LIMIT:
                 logger.warning(
