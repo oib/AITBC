@@ -32,6 +32,7 @@ from __future__ import annotations
 
 import copy
 import json
+import os
 import sqlite3
 import time
 from contextlib import nullcontext
@@ -189,6 +190,29 @@ def _backup_snapshot(
     return dest
 
 
+def _source_db_file_bytes(session: Session) -> int | None:
+    """Bytes in the source SQLite file plus its ``-wal``, or None.
+
+    ``None`` means the bind is not a file-backed database (``:memory:``, a
+    non-file URL) or the size cannot be determined cheaply — the online
+    backup and its deadline remain the guard in that case. The WAL counts
+    because ``source.backup`` checkpoints it into the destination.
+    """
+    try:
+        bind = session.get_bind()
+        engine = getattr(bind, "engine", bind)
+        database = getattr(getattr(engine, "url", None), "database", None)
+        if not database or database == ":memory:":
+            return None
+        total = os.path.getsize(database)
+        wal = f"{database}-wal"
+        if os.path.exists(wal):
+            total += os.path.getsize(wal)
+        return total
+    except (OSError, TypeError, ValueError):
+        return None
+
+
 def _snapshot_source(session: Session, deadline: float | None) -> sqlite3.Connection | str:
     """Consistent SQLite snapshot of the source DB via online backup.
 
@@ -199,6 +223,12 @@ def _snapshot_source(session: Session, deadline: float | None) -> sqlite3.Connec
     ``busy_timeout`` is leased to 0 for the copy so a contended step cannot
     park inside the busy handler past the deadline — restored to its exact
     original value before returning.
+
+    #2003 F2: a source file larger than
+    ``attestation_post_state_max_db_bytes`` refuses
+    ``post_state_db_too_large`` up front — copying a multi-GB database into
+    ``:memory:`` cannot fit the probe budget and would degrade every probe
+    to ``post_state_timeout``, silently stalling attestations.
     """
     try:
         conn = session.connection()
@@ -212,6 +242,12 @@ def _snapshot_source(session: Session, deadline: float | None) -> sqlite3.Connec
         return "post_state_unsupported_backend"
     if deadline is not None and time.monotonic() > deadline:
         return "post_state_timeout"
+
+    max_db_bytes = int(getattr(settings, "attestation_post_state_max_db_bytes", 0) or 0)
+    if max_db_bytes > 0:
+        db_bytes = _source_db_file_bytes(session)
+        if db_bytes is not None and db_bytes > max_db_bytes:
+            return "post_state_db_too_large"
 
     pragmas = _read_source_pragmas(source)
     if pragmas is None:
@@ -349,7 +385,13 @@ class _AttestationProbeImporter:
         return self._impl._derive_bridge_state_root(*args, **kwargs)
 
 
-def _verify_imported(scratch: Session, chain_id: str, header: dict[str, Any], height: int) -> str | None:
+def _verify_imported(
+    scratch: Session,
+    chain_id: str,
+    header: dict[str, Any],
+    height: int,
+    deadline: float | None,
+) -> str | None:
     """Already-imported exact height/hash: bind stored fields to the request
     and recompute the account root over current state — never return early
     unverified."""
@@ -365,7 +407,7 @@ def _verify_imported(scratch: Session, chain_id: str, header: dict[str, Any], he
     req_bridge = str(header.get("bridge_state_root") or "")
     if not _root_eq(stored.bridge_state_root, req_bridge):
         return "post_state_bridge_mismatch"
-    actual_root = compute_state_root_full(scratch, chain_id)
+    actual_root = compute_state_root_full(scratch, chain_id, deadline=deadline)
     if actual_root is None or not _root_eq(actual_root, req_root):
         return "post_state_root_mismatch"
     # Aux is recomputed only for eras whose committed set is verifiable —
@@ -375,7 +417,9 @@ def _verify_imported(scratch: Session, chain_id: str, header: dict[str, Any], he
     if stored_version >= 14:
         from ..state import side_root_shadow
 
-        computed_aux = side_root_shadow.committed_fingerprint(scratch.connection().connection, stored_version)["fingerprint"]
+        computed_aux = side_root_shadow.committed_fingerprint(
+            scratch.connection().connection, stored_version, deadline=deadline
+        )["fingerprint"]
         if side_root_shadow.aux_check_verifiable(stored_version) and not _root_eq(computed_aux, req_aux):
             return "post_state_aux_mismatch"
     return None
@@ -388,6 +432,7 @@ def _apply_and_verify(
     transactions: list[dict[str, Any]],
     version: int,
     proposer_signature: str | None,
+    deadline: float | None,
 ) -> str | None:
     """Fresh apply on the scratch session through the real importer."""
     probe_block_data = dict(header)
@@ -405,6 +450,7 @@ def _apply_and_verify(
             copy.deepcopy(transactions),
             _probe=True,
             _state_transition=StateTransition(cache_side_effects=False),
+            _probe_deadline=deadline,
         )
     except ValueError as e:
         # Proposer-schedule rejection surfaces as ValueError — an
@@ -531,10 +577,10 @@ def _verify_on_snapshot(
     height = cast(int, header["height"])
     req_hash = str(header.get("hash") or "")
     if tip_height == height and _root_eq(tip_hash, req_hash):
-        return _verify_imported(scratch, chain_id, header, height)
+        return _verify_imported(scratch, chain_id, header, height, deadline)
     if tip_height != height - 1 or not _root_eq(tip_hash, header.get("parent_hash")):
         return "not_at_parent"
-    return _apply_and_verify(scratch, chain_id, header, transactions, version, proposer_signature)
+    return _apply_and_verify(scratch, chain_id, header, transactions, version, proposer_signature, deadline)
 
 
 def probe_post_state(

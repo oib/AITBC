@@ -498,6 +498,7 @@ class BlockImportMixin(SyncBase):
         skip_state_root_validation: bool = False,
         _probe: bool = False,
         _state_transition: StateTransition | None = None,
+        _probe_deadline: float | None = None,
     ) -> ImportResult:
         """Append a block to the chain tip.
 
@@ -507,7 +508,13 @@ class BlockImportMixin(SyncBase):
         effect (mempool eviction, shadow roots, counters, journal persist,
         rejection metrics) runs. ``_state_transition`` lets a probe supply a
         fresh, cache-isolated ``StateTransition``; every other caller keeps
-        the process singleton.
+        the process singleton. ``_probe_deadline`` (#2003) is an optional
+        absolute ``time.monotonic()`` budget threaded from the attestation
+        probe: every check below is gated on it being non-None, so
+        production import is byte-identical, while a probe apply raises
+        ``TimeoutError`` at coarse loop boundaries instead of holding the
+        single-flight probe lock past its budget on pure-Python work the
+        sqlite progress handler cannot preempt.
 
         Args:
             session: Database session
@@ -518,6 +525,14 @@ class BlockImportMixin(SyncBase):
         from datetime import UTC, datetime
 
         apply_start = time.perf_counter()
+
+        def _check_probe_deadline() -> None:
+            # #2003 F1: probe-only deadline checks at coarse apply-loop
+            # boundaries. ``None`` (every non-probe caller) makes this a
+            # no-op so production import is unchanged.
+            if _probe_deadline is not None and time.monotonic() > _probe_deadline:
+                raise TimeoutError("post-state apply deadline")
+
         # #1940 F4: probe refusals are logged under their own prefix so a
         # speculative check never masquerades as a real import rejection.
         reject_tag = "[ATTEST-PROBE]" if _probe else "[SYNC]"
@@ -532,6 +547,7 @@ class BlockImportMixin(SyncBase):
         if transactions:
             normalized = []
             for raw_tx in transactions:
+                _check_probe_deadline()
                 norm = dict(raw_tx)
                 # Hoist a nested envelope: a peer serving a row stored before
                 # the fix can send a column dump with an empty top-level
@@ -697,6 +713,7 @@ class BlockImportMixin(SyncBase):
                 tx_hash_to_data: dict[str, dict[str, Any]] = {}
                 tx_hash_to_index: dict[str, int] = {}
                 for idx, tx_data in enumerate(transactions):
+                    _check_probe_deadline()
                     tx_hash = tx_data.get("tx_hash", "")
                     tx_hash_to_data[tx_hash] = tx_data
                     tx_hash_to_index[tx_hash] = idx
@@ -720,6 +737,7 @@ class BlockImportMixin(SyncBase):
                     # those accounts.
                     unique_addresses: set[str] = set()
                     for tx_data in transactions:
+                        _check_probe_deadline()
                         raw_from = tx_data.get("from", "")
                         raw_to = tx_data.get("to", "")
                         sender_addr = _to_ait_address(raw_from)
@@ -798,6 +816,7 @@ class BlockImportMixin(SyncBase):
                             )
 
                         for group in groups:
+                            _check_probe_deadline()
                             # Update nonces from account_map before processing each group
                             # (conflicting txs in later groups need updated nonces)
                             for txh in group:
@@ -815,7 +834,7 @@ class BlockImportMixin(SyncBase):
                                         tx_data["nonce"] = sender_account.nonce
                                     tx_data["value"] = tx_data.get("amount", 0)
                             group_txs = [tx_hash_to_data[txh] for txh in group]
-                            group_results = executor.execute_groups([group_txs], _compute_delta)[0]
+                            group_results = executor.execute_groups([group_txs], _compute_delta, deadline=_probe_deadline)[0]
                             # Apply successful deltas to account_map in tx-index
                             # order within the group (deterministic). Group members
                             # are conflict-free so application order does not affect
@@ -883,6 +902,7 @@ class BlockImportMixin(SyncBase):
                 # Sequential path (fallback when parallel_tx_validation is off
                 # or the conflict rate exceeds the threshold).
                 for tx_data in transactions:
+                    _check_probe_deadline()
                     sender_addr = _to_ait_address(tx_data.get("from", ""))
                     recipient_addr = _to_ait_address(tx_data.get("to", ""))
                     int(tx_data.get("amount", 0) or 0)
@@ -1030,6 +1050,7 @@ class BlockImportMixin(SyncBase):
                 reason="Missing state root",
             )
 
+        _check_probe_deadline()
         if block_data.get("state_root") and (not skip_state_root_validation):
             session.flush()
             # Compute state root from the full account state. The previous
@@ -1038,7 +1059,7 @@ class BlockImportMixin(SyncBase):
             # empty trie (root=0x00..00) for blocks with no transactions and a
             # wrong root for blocks with transactions. Since the trie is not
             # persisted across blocks, a full recompute is the only correct option.
-            computed_hex = state_root_utils.compute_state_root_full(session, self._chain_id)
+            computed_hex = state_root_utils.compute_state_root_full(session, self._chain_id, deadline=_probe_deadline)
             computed_root = bytes.fromhex(computed_hex.replace("0x", "")) if computed_hex else None
             try:
                 expected_root = bytes.fromhex(str(block_data.get("state_root")).replace("0x", ""))
@@ -1112,9 +1133,9 @@ class BlockImportMixin(SyncBase):
         # so the block is rejected rather than sealing a divergence.
         if (not skip_state_root_validation) and block_version >= 14:
             session.flush()
-            computed_aux = side_root_shadow.committed_fingerprint(session.connection().connection, block_version)[
-                "fingerprint"
-            ]
+            computed_aux = side_root_shadow.committed_fingerprint(
+                session.connection().connection, block_version, deadline=_probe_deadline
+            )["fingerprint"]
             recorded_aux = block_data.get("aux_state_root")
             if not recorded_aux or computed_aux != str(recorded_aux):
                 if not side_root_shadow.aux_check_verifiable(block_version):

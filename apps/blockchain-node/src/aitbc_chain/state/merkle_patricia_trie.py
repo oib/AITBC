@@ -8,6 +8,7 @@ providing cryptographic verification of account state changes.
 from __future__ import annotations
 
 import hashlib
+import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
@@ -401,19 +402,24 @@ class StateManager:
             return self._decode_account(value)
         return None
 
-    def compute_state_root(self, accounts: dict[str, Account]) -> bytes:
+    def compute_state_root(self, accounts: dict[str, Account], deadline: float | None = None) -> bytes:
         """
         Compute the state root from a dictionary of accounts.
 
         Args:
             accounts: Dictionary mapping addresses to Account objects
+            deadline: Optional absolute ``time.monotonic()`` budget — pure
+                Python trie work cannot be preempted, so an expired deadline
+                raises ``TimeoutError`` instead of overrunning (#2003).
 
         Returns:
             The state root hash
         """
         new_trie = MerklePatriciaTrie()
 
-        for address, account in sorted(accounts.items()):
+        for idx, (address, account) in enumerate(sorted(accounts.items())):
+            if deadline is not None and (idx & 8191) == 0 and time.monotonic() > deadline:
+                raise TimeoutError("state root compute deadline")
             key = self._encode_address(address)
             value = self._encode_account(account.balance, account.nonce)
             new_trie.put(key, value)

@@ -7,6 +7,7 @@ dependency ordering. Results are returned in the same structure as the input,
 preserving determinism.
 """
 
+import time
 from collections.abc import Callable
 from concurrent.futures import Future, ThreadPoolExecutor, as_completed
 from typing import TypeVar
@@ -49,12 +50,19 @@ class ParallelExecutor:
         self,
         groups: list[list[T]],
         fn: Callable[[T], R],
+        deadline: float | None = None,
     ) -> list[list[R]]:
         """Execute groups of tasks in parallel.
 
         Within each group, tasks are executed in parallel (thread pool).
         Groups are executed sequentially (group 1, then group 2, etc.)
         to preserve dependency ordering.
+
+        ``deadline`` (#2003) is an optional absolute ``time.monotonic()``
+        budget checked between groups — pure-Python callers (e.g. the
+        attestation post-state probe) cannot rely on SQL progress handlers
+        to preempt in-flight work, so an expired budget raises
+        ``TimeoutError`` before the next group starts.
 
         Returns results in the same structure as input: list of lists,
         where results[i][j] = fn(groups[i][j]).
@@ -63,6 +71,8 @@ class ParallelExecutor:
         results: list[list[R]] = []
 
         for group in groups:
+            if deadline is not None and time.monotonic() > deadline:
+                raise TimeoutError("parallel executor deadline")
             if not group:
                 results.append([])
                 continue
