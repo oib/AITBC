@@ -706,3 +706,86 @@ async def test_nonce_refusal_twice_returns_unslashed(db_session, slash_env, monk
     assert result["slashed"] is False
     assert result["reason"] == "nonce refused twice"
     assert client.post.call_count == 2
+
+
+@pytest.mark.asyncio
+async def test_slash_binds_proven_bond_wallet_not_live_capabilities(db_session, slash_env):
+    """#1995: the slash tx provider must be the creation-verified wallet on the
+    bond (meta.chain_provider), not the miner's mutable capabilities wallet —
+    a post-proof capabilities change must not redirect the slash identity."""
+    proven = "0x" + "ab" * 20
+    drifted = "0x" + "cd" * 20
+    miner = _miner(db_session, wallet=drifted)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()
+    bond = _provider_bond(db_session, miner.id, amount="10")
+    bond.meta = {"chain_provider": proven}
+    db_session.add(bond)
+    db_session.commit()
+
+    posted: list[dict] = []
+
+    def _post(url, json=None, **_kw):
+        posted.append(json)
+        return {"transaction_hash": "0xproven"}
+
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.return_value = {"nonce": 5}
+        client.post.side_effect = _post
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
+
+    assert result["slashed"] is True
+    providers = [p["payload"]["provider"] for p in posted]
+    assert providers == [proven]
+    assert drifted not in providers
+
+
+@pytest.mark.asyncio
+async def test_slash_legacy_bond_falls_back_to_capabilities_wallet(db_session, slash_env):
+    """#1995: bonds predating meta.chain_provider still resolve the miner's
+    registered capabilities wallet."""
+    miner = _miner(db_session)  # capabilities wallet = PROVIDER_WALLET
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()
+    _provider_bond(db_session, miner.id, amount="10")  # no meta
+
+    posted: list[dict] = []
+
+    def _post(url, json=None, **_kw):
+        posted.append(json)
+        return {"transaction_hash": "0xlegacy"}
+
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        client = mock_client.return_value
+        client.get.return_value = {"nonce": 5}
+        client.post.side_effect = _post
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
+
+    assert result["slashed"] is True
+    assert [p["payload"]["provider"] for p in posted] == [PROVIDER_WALLET]
+
+
+@pytest.mark.asyncio
+async def test_bond_for_job_finds_bond_after_capabilities_wallet_removed(db_session, slash_env):
+    """#1995: _bond_for_job must not gate on the live capabilities wallet —
+    the proven wallet lives on the bond, so a miner that dropped its
+    capabilities wallet still has a slashable bond via provider_id."""
+    miner = _miner(db_session, wallet="")
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()
+    bond = _provider_bond(db_session, miner.id, amount="10")
+    bond.meta = {"chain_provider": "0x" + "ef" * 20}
+    db_session.add(bond)
+    db_session.commit()
+
+    service = BondSlashingService(db_session)
+    found = service._bond_for_job(job)
+    assert found is not None
+    assert found.id == bond.id
