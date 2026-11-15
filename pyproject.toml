@@ -379,6 +379,11 @@ exclude_dirs = [
     "/tests/",
     # Skeletons with placeholder bodies, already excluded from ruff and debug-statements.
     "/cli/templates/",
+    # Local tool caches (pre-commit's PRE_COMMIT_HOME=.cache clones of the hook repos
+    # themselves, pytest/mypy leftovers). Gitignored and untracked, but bandit walks the
+    # filesystem, so a stray `.cache/` fails the pre-push gate on bandit's own example
+    # files (#2123).
+    "/.cache/",
 ]
 # Skipped repo-wide rather than per-line, because in each case the finding is about a
 # deliberate project-wide convention and eight or thirty scattered `# nosec` comments would
