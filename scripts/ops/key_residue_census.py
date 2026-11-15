@@ -92,58 +92,141 @@ def _var_before(line: str, pos: int) -> str:
     return name
 
 
+def _emit_key(
+    path: str,
+    lineno: int,
+    var: str,
+    dedup: str,
+    key_hex: str,
+    seen_keys: set[tuple[int, str]],
+    retired: set[str],
+    can_derive: bool,
+    out,
+) -> bool:
+    """Dedup + derive + emit one key finding. Returns True on a retired hit."""
+    if (lineno, dedup) in seen_keys:
+        return False
+    seen_keys.add((lineno, dedup))
+    derived = _derive_address(key_hex) if can_derive else None
+    if derived is None:
+        out(f"KEY-UNREADABLE {path}:{lineno} var={var} (key derivation unavailable)")
+    elif derived == "":
+        out(f"KEY-UNREADABLE {path}:{lineno} var={var} (invalid key literal)")
+    else:
+        is_retired = derived in retired
+        out(f"HIT-KEY {path}:{lineno} var={var} derived={derived} retired={'yes' if is_retired else 'no'}")
+        return is_retired
+    return False
+
+
+def _scan_line(
+    line: str,
+    lineno: int,
+    retired: set[str],
+    path: str,
+    seen_keys: set[tuple[int, str]],
+    can_derive: bool,
+    out,
+) -> bool:
+    """Emit findings for one line. Returns True when a retired hit was found."""
+    found = False
+    # Retired addresses — report the address, never the line's value.
+    for m in ADDRESS.finditer(line):
+        addr = normalize_address(m.group(0))
+        if addr in retired:
+            found = True
+            out(f"HIT-ADDR {path}:{lineno} var={_var_before(line, m.start())} address={addr}")
+    # 0x-prefixed 64-hex literals — derive, report derived only.
+    for m in KEY_LITERAL.finditer(line):
+        if _emit_key(
+            path,
+            lineno,
+            _var_before(line, m.start()),
+            m.group(0).lower(),
+            m.group(0)[2:],
+            seen_keys,
+            retired,
+            can_derive,
+            out,
+        ):
+            found = True
+    # *_PRIVATE_KEY / *_KEY assignments with a bare 64-hex value (no 0x).
+    for m in VAR_ASSIGN.finditer(line):
+        if not KEY_VAR.search(m.group(1)):
+            continue
+        value = line[m.end() :].strip()
+        if not KEY_VALUE.fullmatch(value) or value.startswith("0x"):
+            continue
+        if _emit_key(
+            path,
+            lineno,
+            m.group(1),
+            "0x" + value.lower(),
+            value.removeprefix("0x"),
+            seen_keys,
+            retired,
+            can_derive,
+            out,
+        ):
+            found = True
+    return found
+
+
 def scan_text(lines: list[str], retired: set[str], path: str, out, *, can_derive: bool) -> bool:
     """Emit findings for one file's lines. Returns True when a retired hit was found."""
     found = False
     seen_keys: set[tuple[int, str]] = set()
     for lineno, line in enumerate(lines, 1):
-        # Retired addresses — report the address, never the line's value.
-        for m in ADDRESS.finditer(line):
-            addr = normalize_address(m.group(0))
-            if addr in retired:
-                found = True
-                out(f"HIT-ADDR {path}:{lineno} var={_var_before(line, m.start())} address={addr}")
-        # 0x-prefixed 64-hex literals — derive, report derived only.
-        for m in KEY_LITERAL.finditer(line):
-            key = (lineno, m.group(0).lower())
-            if key in seen_keys:
-                continue
-            seen_keys.add(key)
-            var = _var_before(line, m.start())
-            derived = _derive_address(m.group(0)[2:]) if can_derive else None
-            if derived is None:
-                out(f"KEY-UNREADABLE {path}:{lineno} var={var} (key derivation unavailable)")
-            elif derived == "":
-                out(f"KEY-UNREADABLE {path}:{lineno} var={var} (invalid key literal)")
-            else:
-                is_retired = derived in retired
-                found = found or is_retired
-                out(f"HIT-KEY {path}:{lineno} var={var} derived={derived} retired={'yes' if is_retired else 'no'}")
-        # *_PRIVATE_KEY / *_KEY assignments with a bare 64-hex value (no 0x).
-        for m in VAR_ASSIGN.finditer(line):
-            if not KEY_VAR.search(m.group(1)):
-                continue
-            value = line[m.end() :].strip()
-            if not KEY_VALUE.fullmatch(value) or value.startswith("0x"):
-                continue
-            key = (lineno, "0x" + value.lower())
-            if key in seen_keys:
-                continue
-            seen_keys.add(key)
-            derived = _derive_address(value.removeprefix("0x")) if can_derive else None
-            if derived is None:
-                out(f"KEY-UNREADABLE {path}:{lineno} var={m.group(1)} (key derivation unavailable)")
-            elif derived == "":
-                out(f"KEY-UNREADABLE {path}:{lineno} var={m.group(1)} (invalid key literal)")
-            else:
-                is_retired = derived in retired
-                found = found or is_retired
-                out(f"HIT-KEY {path}:{lineno} var={m.group(1)} derived={derived} retired={'yes' if is_retired else 'no'}")
+        if _scan_line(line, lineno, retired, path, seen_keys, can_derive, out):
+            found = True
     return found
 
 
 def _inside_roots(real: str, roots: list[str]) -> bool:
     return any(real == r or real.startswith(r + os.sep) for r in roots)
+
+
+def _walk_files(real_root: str, resolved_roots: list[str], out) -> list[str]:
+    """All files under a directory root; out-of-root symlinks refused + skipped."""
+    files: list[str] = []
+    for dirpath, dirnames, filenames in os.walk(real_root, followlinks=False):
+        for d in list(dirnames):
+            full = os.path.join(dirpath, d)
+            if os.path.islink(full):
+                real = os.path.realpath(full)
+                if not _inside_roots(real, resolved_roots):
+                    out(f"REFUSED-SYMLINK {full} -> {real} (outside roots)")
+                    dirnames.remove(d)
+        for f in filenames:
+            full = os.path.join(dirpath, f)
+            if os.path.islink(full):
+                real = os.path.realpath(full)
+                if not _inside_roots(real, resolved_roots):
+                    out(f"REFUSED-SYMLINK {full} -> {real} (outside roots)")
+                    continue
+                files.append(real)
+            else:
+                files.append(full)
+    return files
+
+
+def _root_files(root: str, resolved_roots: list[str], out) -> tuple[list[str], bool]:
+    """Files contributed by one root arg. Returns (files, unreadable)."""
+    if os.path.islink(root):
+        real = os.path.realpath(root)
+        # A link can never be inside itself: the boundary for a symlinked
+        # root arg is the *other* given roots.
+        boundary = [r for r in resolved_roots if r != real]
+        if not _inside_roots(real, boundary):
+            out(f"REFUSED-SYMLINK {root} -> {real} (outside roots)")
+            return [], False
+    real_root = os.path.realpath(root)
+    if os.path.isfile(real_root):
+        return [real_root], False
+    if not os.path.isdir(real_root):
+        out(f"ERROR {root}: not a file or directory")
+        return [], True
+    return _walk_files(real_root, resolved_roots, out), False
 
 
 def iter_candidates(raw_roots: list[str], resolved_roots: list[str], out) -> tuple[list[str], bool]:
@@ -156,40 +239,10 @@ def iter_candidates(raw_roots: list[str], resolved_roots: list[str], out) -> tup
     files: list[str] = []
     error: list[bool] = []  # non-empty means at least one root was unreadable
     for root in raw_roots:
-        if os.path.islink(root):
-            real = os.path.realpath(root)
-            # A link can never be inside itself: the boundary for a symlinked
-            # root arg is the *other* given roots.
-            boundary = [r for r in resolved_roots if r != real]
-            if not _inside_roots(real, boundary):
-                out(f"REFUSED-SYMLINK {root} -> {real} (outside roots)")
-                continue
-        real_root = os.path.realpath(root)
-        if os.path.isfile(real_root):
-            files.append(real_root)
-            continue
-        if not os.path.isdir(real_root):
-            out(f"ERROR {root}: not a file or directory")
+        root_files, root_error = _root_files(root, resolved_roots, out)
+        files.extend(root_files)
+        if root_error:
             error.append(True)
-            continue
-        for dirpath, dirnames, filenames in os.walk(real_root, followlinks=False):
-            for d in list(dirnames):
-                full = os.path.join(dirpath, d)
-                if os.path.islink(full):
-                    real = os.path.realpath(full)
-                    if not _inside_roots(real, resolved_roots):
-                        out(f"REFUSED-SYMLINK {full} -> {real} (outside roots)")
-                        dirnames.remove(d)
-            for f in filenames:
-                full = os.path.join(dirpath, f)
-                if os.path.islink(full):
-                    real = os.path.realpath(full)
-                    if not _inside_roots(real, resolved_roots):
-                        out(f"REFUSED-SYMLINK {full} -> {real} (outside roots)")
-                        continue
-                    files.append(real)
-                else:
-                    files.append(full)
     return files, bool(error)
 
 
