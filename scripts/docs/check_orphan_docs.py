@@ -89,36 +89,44 @@ def is_relative(target: str) -> bool:
     return True
 
 
-def main() -> int:
-    files = sorted(f for f in ROOT.rglob("*.md") if not _is_vendored(f.relative_to(ROOT)))
+def _resolve_link(f: Path, t: str) -> Path | None:
+    """Resolve one relative link target to a .md file, or None when not applicable."""
+    if not is_relative(t):
+        return None
+    t = t.split("#")[0].split("?")[0]
+    if not t:
+        return None
+    resolved = (f.parent / t).resolve()
+    if resolved.is_dir() and (resolved / "README.md").exists():
+        resolved = resolved / "README.md"
+    if resolved.suffix == ".md" and resolved.is_file():
+        return resolved
+    return None
+
+
+def _collect_inbound(files: list[Path]) -> set[Path]:
     inbound: set[Path] = set()
     for f in files:
         for t in links_in(f.read_text(errors="replace")):
-            if not is_relative(t):
-                continue
-            t = t.split("#")[0].split("?")[0]
-            if not t:
-                continue
-            resolved = (f.parent / t).resolve()
-            if resolved.is_dir() and (resolved / "README.md").exists():
-                resolved = resolved / "README.md"
-            if resolved.suffix == ".md" and resolved.is_file():
+            resolved = _resolve_link(f, t)
+            if resolved is not None:
                 inbound.add(resolved)
+    return inbound
 
-    orphans = sorted(
-        f.relative_to(ROOT).as_posix()
-        for f in files
-        if f.resolve() not in inbound and not f.relative_to(ROOT).as_posix().startswith(ALLOWED_PREFIXES)
-    )
 
+def _load_baseline() -> set[str]:
+    if not BASELINE.exists():
+        return set()
+    return {ln.strip() for ln in BASELINE.read_text().splitlines() if ln.strip() and not ln.strip().startswith("#")}
+
+
+def _report(orphans: list[str]) -> int:
     if "--write-baseline" in sys.argv:
         BASELINE.write_text("\n".join(orphans) + ("\n" if orphans else ""))
         print(f"wrote {len(orphans)} orphans to {BASELINE}")
         return 0
 
-    baseline = set()
-    if BASELINE.exists():
-        baseline = {ln.strip() for ln in BASELINE.read_text().splitlines() if ln.strip() and not ln.strip().startswith("#")}
+    baseline = _load_baseline()
 
     new = [o for o in orphans if o not in baseline]
     fixed = sorted(baseline - set(orphans))
@@ -134,6 +142,19 @@ def main() -> int:
     else:
         print("link the file from another .md, or list it in the baseline with --write-baseline")
     return rc
+
+
+def main() -> int:
+    files = sorted(f for f in ROOT.rglob("*.md") if not _is_vendored(f.relative_to(ROOT)))
+    inbound = _collect_inbound(files)
+
+    orphans = sorted(
+        f.relative_to(ROOT).as_posix()
+        for f in files
+        if f.resolve() not in inbound and not f.relative_to(ROOT).as_posix().startswith(ALLOWED_PREFIXES)
+    )
+
+    return _report(orphans)
 
 
 if __name__ == "__main__":
