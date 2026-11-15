@@ -38,6 +38,7 @@ import hashlib
 import json
 import logging
 import re
+import time
 from typing import TYPE_CHECKING, Any, Protocol
 
 if TYPE_CHECKING:
@@ -225,15 +226,22 @@ def table_digest(conn: _DbConn, table: str) -> dict[str, Any]:
     return {"rows": len(rows), "digest": h.hexdigest()[:DIGEST_LEN], "skipped_cols": skipped}
 
 
-def committed_fingerprint(conn: _DbConn, block_version: int | None = None) -> dict[str, Any]:
+def committed_fingerprint(conn: _DbConn, block_version: int | None = None, deadline: float | None = None) -> dict[str, Any]:
     """Committed digests plus the set fingerprint — the same sha256 over
     ``sorted(table=digest;)`` pairs the probe prints. The table set follows
     ``block_version``: the 13-table v14 set by default, the 12-table v15 set
     (without ``edge_node_registration``) from the v15 activation height, and
     the 11-table v18 set (additionally without ``stake``) from the v18
-    activation height."""
+    activation height.
+
+    ``deadline`` (#2003) is an optional absolute ``time.monotonic()`` budget;
+    the per-table digests are SQL (already bounded by the caller's sqlite
+    progress handler) but a cheap check between tables keeps a long table
+    list from drifting past the budget between handler invocations."""
     digests: dict[str, Any] = {}
     for table in committed_tables_for_version(block_version):
+        if deadline is not None and time.monotonic() > deadline:
+            raise TimeoutError("committed fingerprint deadline")
         digests[table] = table_digest(conn, table)
     h = hashlib.sha256()
     for table in sorted(digests):

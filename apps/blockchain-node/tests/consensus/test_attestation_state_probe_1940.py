@@ -16,6 +16,7 @@ import shutil
 import sqlite3
 import threading
 import time
+from types import SimpleNamespace
 from contextlib import contextmanager, nullcontext
 from datetime import UTC, datetime
 from pathlib import Path
@@ -1490,3 +1491,139 @@ class TestListenerProbeGate:
         assert get_block_version_for_height(HEIGHT) >= 9
         await svc._handle_request(request)
         assert broker.published == []
+
+
+# --------------------------------------------------------------------------
+# #2003 ATTEST-POSTSTATE-PROBE-ARMING-1 — Python-side deadline arming (F1)
+# and the DB-size pre-flight (F2)
+# --------------------------------------------------------------------------
+
+
+class TestProbeDeadlineArming:
+    def test_expired_deadline_during_apply_maps_to_timeout(self, session_factory, monkeypatch):
+        """F1: the sqlite progress handler cannot preempt pure-Python apply
+        work, so ``_append_block`` re-checks the deadline at coarse loop
+        boundaries. Expiring the budget the moment the apply starts must
+        surface as ``post_state_timeout`` — never ``post_state_error`` and
+        never a runaway holding the single-flight probe lock."""
+        import aitbc_chain.sync_block_import as sbi
+
+        txs = [_with_tx_hash(_tx())]
+        header, txs, sig = _request(session_factory, txs)
+        real_mono = time.monotonic
+        expired = [False]
+
+        def fake_mono() -> float:
+            return real_mono() + (1000.0 if expired[0] else 0.0)
+
+        fake_time = SimpleNamespace(monotonic=fake_mono, perf_counter=time.perf_counter)
+        # Patch only the two modules' ``time`` bindings — the global time
+        # module (and pytest's own clocks) stay real.
+        monkeypatch.setattr(sbi, "time", fake_time)
+        monkeypatch.setattr(probe_mod, "time", fake_time)
+
+        real_apply = probe_mod._apply_and_verify
+
+        def _expiring_apply(*a, **kw):
+            expired[0] = True
+            return real_apply(*a, **kw)
+
+        monkeypatch.setattr(probe_mod, "_apply_and_verify", _expiring_apply)
+        with session_factory() as session:
+            verdict = probe_post_state(
+                session,
+                CHAIN,
+                header,
+                txs,
+                deadline=real_mono() + 30,
+                proposer_signature=sig,
+            )
+        assert verdict == "post_state_timeout"
+
+    def test_state_root_compute_expired_deadline_raises(self):
+        """``StateManager.compute_state_root`` honours its deadline param —
+        an already-expired budget raises ``TimeoutError`` on the first
+        checkpoint instead of grinding through the trie."""
+        from aitbc_chain.state.merkle_patricia_trie import StateManager
+
+        accounts = {"0x" + "ab" * 20: Account(chain_id=CHAIN, address="0x" + "ab" * 20, balance=1, nonce=0)}
+        with pytest.raises(TimeoutError):
+            StateManager().compute_state_root(accounts, deadline=time.monotonic() - 1)
+
+    def test_state_root_compute_deadline_mid_iteration(self, monkeypatch):
+        """The check fires every 8192 sorted accounts: a clock that expires
+        only after the first checkpoint must raise mid-iteration, proving
+        the loop — not just the entry — is bounded."""
+        import aitbc_chain.state.merkle_patricia_trie as mpt
+
+        accounts = {}
+        for i in range(8300):
+            addr = "0x" + f"{i:040x}"
+            accounts[addr] = Account(chain_id=CHAIN, address=addr, balance=i, nonce=i)
+        ticks = iter([0.0] + [10_000.0] * 64)
+        fake_time = SimpleNamespace(monotonic=lambda: next(ticks))
+        monkeypatch.setattr(mpt, "time", fake_time)
+        from aitbc_chain.state.merkle_patricia_trie import StateManager
+
+        with pytest.raises(TimeoutError):
+            StateManager().compute_state_root(accounts, deadline=100.0)
+
+    def test_state_root_full_deadline_none_unchanged(self, session_factory):
+        """Non-regression: ``deadline=None`` keeps the legacy signature and
+        result — the probe's own clone-apply already relies on this."""
+        with session_factory() as session:
+            root = compute_state_root_full(session, CHAIN)
+            assert root is not None and root.startswith("0x")
+            root_dl = compute_state_root_full(session, CHAIN, deadline=time.monotonic() + 30)
+            assert root_dl == root
+
+    def test_committed_fingerprint_deadline_raises(self, session_factory):
+        with session_factory() as session:
+            conn = session.connection().connection
+            with pytest.raises(TimeoutError):
+                side_root_shadow.committed_fingerprint(conn, None, deadline=time.monotonic() - 1)
+            # deadline=None path unchanged.
+            fp = side_root_shadow.committed_fingerprint(conn)
+            assert "fingerprint" in fp
+
+    def test_execute_groups_deadline_raises(self):
+        from aitbc.parallel.executor import ParallelExecutor
+
+        executor = ParallelExecutor(max_workers=1)
+        try:
+            with pytest.raises(TimeoutError):
+                executor.execute_groups([["a"], ["b"]], lambda x: x, deadline=time.monotonic() - 1)
+            # deadline=None path unchanged.
+            assert executor.execute_groups([[1, 2], [3]], lambda x: x * 2) == [[2, 4], [6]]
+        finally:
+            executor.close()
+
+
+class TestProbeDbSizePreflight:
+    def test_oversized_db_refused(self, session_factory, monkeypatch):
+        """F2: a source DB larger than ``attestation_post_state_max_db_bytes``
+        refuses ``post_state_db_too_large`` before the :memory: backup —
+        the copy alone cannot fit the probe budget on multi-GB files."""
+        monkeypatch.setattr(settings, "attestation_post_state_max_db_bytes", 1)
+        txs = [_with_tx_hash(_tx())]
+        header, txs, sig = _request(session_factory, txs)
+        assert _probe(session_factory, header, txs, proposer_signature=sig) == "post_state_db_too_large"
+
+    def test_zero_bound_disables_size_guard(self, session_factory, monkeypatch):
+        monkeypatch.setattr(settings, "attestation_post_state_max_db_bytes", 0)
+        txs = [_with_tx_hash(_tx())]
+        header, txs, sig = _request(session_factory, txs)
+        assert _probe(session_factory, header, txs, proposer_signature=sig) is None
+
+    def test_memory_bind_skips_size_check(self, session_factory, monkeypatch):
+        """A non-file bind (:memory:) has no path to stat — the guard must
+        skip it rather than refuse or crash."""
+        monkeypatch.setattr(settings, "attestation_post_state_max_db_bytes", 1)
+        engine = create_engine("sqlite://")
+        chain_metadata.create_all(engine)
+        with Session(engine) as session:
+            assert probe_mod._source_db_file_bytes(session) is None
+            dest = probe_mod._snapshot_source(session, time.monotonic() + 10)
+            assert not isinstance(dest, str) or dest != "post_state_db_too_large"
+            if not isinstance(dest, str):
+                dest.close()
