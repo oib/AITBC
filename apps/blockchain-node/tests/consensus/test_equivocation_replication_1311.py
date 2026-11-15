@@ -239,6 +239,17 @@ class TestDedupAndBounds:
         assert results == ["stored", "stored", "rate"]
         assert _ingest(_record(hashes=(HA, HE)), now=100.0).status == "stored"  # window slid
 
+    def test_verify_failures_do_not_consume_rate_budget(self, monkeypatch):
+        """#1965: junk records naming a validator must not burn its evidence
+        budget — the cap is charged only after the signature gate."""
+        monkeypatch.setattr(settings, "equivocation_replication_rate_per_minute", 2)
+        junk = _record(hashes=(HA, HC))
+        junk["attestations"][0]["signature"] = "0x" + "00" * 65
+        for _ in range(5):
+            assert _ingest(junk, now=1.0).status == "verify"
+        results = [_ingest(_record(hashes=(HA, h)), now=2.0).status for h in (HB, HD, HE)]
+        assert results == ["stored", "stored", "rate"]
+
     def test_publish_budget_is_bounded(self):
         store = er.EvidenceStore()
         key = er.pair_key(CHAIN, VAL, H, 1, HA, HB)
