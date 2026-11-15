@@ -1445,6 +1445,22 @@ class _PoaBaseMixin:
         lock event string. The root hash becomes ``block.bridge_state_root``
         and is used by bridge proofs to prove inclusion of a lock.
         """
+        # #1940 F5: in the tx-derived bridge-root era the trie is built
+        # purely from the successfully processed transaction bodies — the
+        # authoritative tx.tx_hash is the key and no CrossChainTransfer
+        # record is consulted (absent or stale rows cannot diverge it).
+        from ..cross_chain.bridge_tx_root import build_tx_bridge_trie, tx_only_root_active
+
+        if height is not None and tx_only_root_active(session, chain_id, height):
+            bodies = []
+            for tx in processed_txs:
+                content = tx.content if isinstance(tx.content, dict) else {}
+                body = dict(content)
+                body["tx_hash"] = tx.tx_hash
+                bodies.append(body)
+            trie = build_tx_bridge_trie(bodies, chain_id, height)
+            return "0x" + trie.get_root().hex()
+
         from ..state.merkle_patricia_trie import MerklePatriciaTrie
 
         trie = MerklePatriciaTrie()

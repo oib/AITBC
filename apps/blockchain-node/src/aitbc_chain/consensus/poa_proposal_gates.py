@@ -21,6 +21,13 @@ from .poa import (
 from ..base_models import _to_ait_address
 from ..config import settings
 from ..cross_chain import bridge_lock_guard
+from ..cross_chain.bridge_tx_root import (
+    assert_lock_debit,
+    canonical_lock_fields,
+    effective_lock_debit,
+    resolve_lock_type,
+    tx_only_root_active,
+)
 from ..metrics import metrics_registry
 from ..models import Account, Block, Transaction
 from ..state import side_root_shadow
@@ -797,6 +804,13 @@ class _ProposalGatesMixin(_PoaBaseMixin):
         exceeded threshold).
         """
         block_version = get_block_version_for_height(next_height)
+        # #1940 F5: in the tx-derived bridge-root era, lock contracts are
+        # validated BEFORE either the sequential, parallel or pre-registered
+        # path — an invalid lock is rejected individually, never allowed to
+        # poison the whole proposal or slip through a path that would not
+        # have checked it.
+        if tx_only_root_active(session, self._config.chain_id, next_height):
+            pending_txs = self._prefilter_tx_root_locks(session, pending_txs, next_height, rejected)
         # S-4: v2/v3 blocks can use the parallel path once escrow lock metadata
         # is prefetched. If any release/refund references a job with no
         # resolvable lock, keep the block sequential so the sequential path's own
@@ -860,6 +874,47 @@ class _ProposalGatesMixin(_PoaBaseMixin):
         return self._process_txs_sequential(
             session, pending_txs, account_map, existing_tx_map, next_height, timestamp, rejected
         )
+
+    def _prefilter_tx_root_locks(
+        self,
+        session: Session,
+        pending_txs: list[Any],
+        next_height: int,
+        rejected: list[tuple[Any, str]] | None,
+    ) -> list[Any]:
+        """#1940 F5: reject new-era locks that violate the canonical contract.
+
+        Stored row types are batch-read once (lead-authored query shape); a
+        body-vs-record disagreement involving BRIDGE_LOCK rejects. Surviving
+        locks must carry canonical signed fields whose amount equals the
+        effective outer debit. Returns the kept txs.
+        """
+        pending_hashes = [tx.tx_hash for tx in pending_txs]
+        stored_types: dict[str, str] = {}
+        if pending_hashes:
+            for tx_hash, tx_type in session.exec(
+                select(Transaction.tx_hash, Transaction.type).where(
+                    Transaction.chain_id == self._config.chain_id,
+                    Transaction.tx_hash.in_(pending_hashes),  # type: ignore[attr-defined]
+                )
+            ).all():
+                stored_types[tx_hash] = tx_type
+        kept: list[Any] = []
+        for tx in pending_txs:
+            body = tx.content if isinstance(tx.content, dict) else {}
+            try:
+                effective_type = resolve_lock_type(body, stored_types.get(tx.tx_hash))
+                if effective_type == "BRIDGE_LOCK":
+                    fields = canonical_lock_fields(body, tx.tx_hash, self._config.chain_id, next_height)
+                    assert_lock_debit(fields, effective_lock_debit(body))
+            except (TypeError, ValueError) as e:
+                reason = f"bridge lock contract violation: {e}"
+                self._logger.warning("[PROPOSE] Rejecting tx %s: %s", tx.tx_hash, reason)
+                if rejected is not None:
+                    rejected.append((tx, reason))
+                continue
+            kept.append(tx)
+        return kept
 
     def _reject_if_all_invalid(self, session: Session, pending_txs: list[Any], processed_txs: list[Any]) -> bool:
         """Return True when every drained transaction was rejected and the

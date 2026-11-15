@@ -20,6 +20,12 @@ from ..chain_isolation_metrics import (
 )
 from ..config import settings
 from ..cross_chain.bridge_lock_guard import lock_derivation_source
+from ..cross_chain.bridge_tx_root import (
+    assert_lock_debit,
+    canonical_lock_fields,
+    resolve_lock_type,
+    tx_only_root_active,
+)
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_request_signature
 from .agent_spend import agent_spend_verdict
@@ -179,6 +185,23 @@ class _ValidationMixin:
             select(Transaction).where(Transaction.chain_id == ctx.chain_id, Transaction.tx_hash == ctx.tx_hash)
         ).first()
         ctx.tx_type = _tx_type(ctx.tx_data, ctx.tx_record)
+        # #1940 F5: in the tx-derived bridge-root era a stored row type that
+        # disagrees with the delivered body on BRIDGE_LOCK refuses here —
+        # before any later bridge check can early-return and let a hidden
+        # lock apply as something else. Resolved once per tx.
+        ctx.tx_only_root = (
+            tx_only_root_active(ctx.session, ctx.chain_id, ctx.block_height)
+            if isinstance(ctx.block_height, int) and not isinstance(ctx.block_height, bool)
+            else False
+        )
+        if ctx.tx_only_root:
+            try:
+                resolve_lock_type(
+                    ctx.tx_data,
+                    ctx.tx_record.type if ctx.tx_record is not None and ctx.tx_record.type else None,
+                )
+            except ValueError as e:
+                return (False, str(e))
         return None
 
     def _vt_liquidity(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
@@ -265,6 +288,16 @@ class _ValidationMixin:
     def _vt_bridge_lock_sig(self, ctx: _TxValidationCtx) -> tuple[bool, str] | None:
         if ctx.tx_type != "BRIDGE_LOCK":
             return None
+        if ctx.tx_only_root:
+            # #1940 F5: the signed projection must be canonical and the
+            # amount it certifies must equal the debit apply will perform
+            # (ctx.value — callers normalize value=amount upstream; a body
+            # that would debit zero while claiming an amount refuses here).
+            try:
+                fields = canonical_lock_fields(ctx.tx_data, ctx.tx_hash, ctx.chain_id, ctx.block_height or 0)
+                assert_lock_debit(fields, ctx.value)
+            except ValueError as e:
+                return (False, str(e))
         # Pre-registered bridge lock: the sender was already debited when the
         # lock was created. The block only anchors the record. Do not validate
         # the tx nonce or require a bridge_lock recipient account.

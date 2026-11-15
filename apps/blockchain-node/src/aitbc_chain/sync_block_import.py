@@ -25,6 +25,14 @@ from .metrics import (
 )
 from .cross_chain import bridge_lock_guard, bridge_root_shadow
 from .cross_chain.bridge_leaf import lock_leaf_value, unknown_lock_leaf
+from .cross_chain.bridge_tx_root import (
+    assert_lock_debit,
+    build_tx_bridge_trie,
+    canonical_lock_fields,
+    effective_lock_debit,
+    resolve_lock_type,
+    tx_only_root_active,
+)
 from .state import side_root_shadow, state_root_utils
 from .state.authoritative_reads import read_current_account
 from .state.block_deltas import (
@@ -148,13 +156,37 @@ class BlockImportMixin(SyncBase):
         block_data: dict[str, Any],
         transactions: list[dict[str, Any]] | None,
         _probe: bool = False,
+        *,
+        tx_only_era: bool = False,
+        successful_lock_hashes: set[str] | None = None,
+        tx_height: int = 0,
     ) -> str:
         """Return the bridge event trie root for an imported block.
 
         Prefer the value carried in the P2P/bulk payload. If it is missing,
         rebuild it from the BRIDGE_LOCK transactions and CrossChainTransfer
         records so P2P-synced blocks do not store a NULL bridge_state_root.
+
+        #1940 F5: in the tx-derived era the root is computed purely from the
+        delivered (normalized) lock bodies through the shared contract —
+        no CrossChainTransfer lookup, no synthesize-on-missing. Every lock
+        body must carry actual apply-success evidence supplied by the caller;
+        the carried root must be present and exactly equal or ValueError is
+        raised so the caller rejects and rolls back the whole block.
         """
+        if tx_only_era:
+            return self._derive_bridge_state_root_tx_only(block_data, transactions, successful_lock_hashes, tx_height)
+        return self._derive_bridge_state_root_legacy(session, block_data, transactions, _probe=_probe)
+
+    def _derive_bridge_state_root_legacy(
+        self,
+        session: Session,
+        block_data: dict[str, Any],
+        transactions: list[dict[str, Any]] | None,
+        *,
+        _probe: bool = False,
+    ) -> str:
+        """Legacy (pre-F5-era) bridge root: carried value or CCT-rebuild."""
         existing = block_data.get("bridge_state_root")
         if existing:
             if not _probe:
@@ -196,6 +228,39 @@ class BlockImportMixin(SyncBase):
                 value = lock_leaf_value(record.transfer_id, record.amount, record.target_chain, record.recipient, block_height)
             trie.put(tx_hash.encode(), value.encode())
         return "0x" + trie.get_root().hex()
+
+    def _derive_bridge_state_root_tx_only(
+        self,
+        block_data: dict[str, Any],
+        transactions: list[dict[str, Any]] | None,
+        successful_lock_hashes: set[str] | None,
+        tx_height: int,
+    ) -> str:
+        """#1940 F5 tx-derived era: root from delivered lock bodies only."""
+        bodies: list[dict[str, Any]] = []
+        for tx in transactions or []:
+            tx_any: Any = tx
+            if not isinstance(tx_any, dict):
+                continue
+            body = dict(tx_any)
+            body["tx_hash"] = str(tx.get("tx_hash") or "")
+            bodies.append(body)
+        lock_hashes = {str(b.get("tx_hash") or "") for b in bodies if _determine_tx_type(b) == "BRIDGE_LOCK"}
+        lock_hashes.discard("")
+        if lock_hashes:
+            if successful_lock_hashes is None:
+                raise ValueError("BRIDGE_LOCK present without actual-success evidence")
+            missing = lock_hashes - set(successful_lock_hashes)
+            if missing:
+                raise ValueError(f"BRIDGE_LOCK without actual apply success: {sorted(missing)}")
+        trie = build_tx_bridge_trie(bodies, self._chain_id, tx_height)
+        computed = "0x" + trie.get_root().hex()
+        carried = block_data.get("bridge_state_root")
+        if not carried:
+            raise ValueError("missing bridge_state_root in tx-derived era")
+        if str(carried) != computed:
+            raise ValueError(f"bridge_state_root mismatch: carried {carried} != computed {computed}")
+        return str(carried)
 
     def import_block(
         self,
@@ -631,6 +696,81 @@ class BlockImportMixin(SyncBase):
         # legacy blocks fall back to the configured v2 activation height.
         block_version = get_block_version(block_data, block_data["height"])
 
+        # #1940 F5: tx-derived bridge-root era — history-only gate resolved
+        # at block_height - 1. The gate decision uses an int-convertible
+        # header height; once active a non-strict-int/bool height refuses.
+        tx_only_root = False
+        declared_lock_hashes: set[str] = set()
+        successful_lock_hashes: set[str] = set()
+        _height_raw = block_data.get("height")
+        try:
+            _gate_height = int(_height_raw or 0)
+        except (TypeError, ValueError):
+            _gate_height = 0
+        tx_only_root = tx_only_root_active(session, self._chain_id, _gate_height)
+        if tx_only_root:
+            if not (isinstance(_height_raw, int) and not isinstance(_height_raw, bool)):
+                if not _probe:
+                    metrics_registry.increment("sync_blocks_rejected_total")
+                logger.warning(
+                    "[SYNC] Block rejected: non-integer height %r in tx-derived bridge-root era",
+                    _height_raw,
+                )
+                return self._make_import_result(
+                    accepted=False,
+                    height=block_data.get("height", 0),
+                    block_hash=block_data.get("hash", ""),
+                    reason="non_integer_height_tx_root_era",
+                )
+            if transactions:
+                # Normalization already ran above, but it only adds equal
+                # amount/value aliases and hoists the signed envelope — it
+                # can neither create nor hide an alias conflict, so the
+                # authoritative signed body still reaches these checks.
+                # Stored-row type disagreements involving BRIDGE_LOCK,
+                # canonical signed fields, and the outer amount/value debit
+                # alias all reject the whole sealed block here — it is
+                # never partially applied.
+                _tx_hashes = [str(tx.get("tx_hash") or "") for tx in transactions if isinstance(tx, dict)]
+                _stored_types: dict[str, str] = {}
+                if _tx_hashes:
+                    for _h, _t in session.exec(
+                        select(ChainTransaction.tx_hash, ChainTransaction.type).where(
+                            ChainTransaction.chain_id == self._chain_id,
+                            ChainTransaction.tx_hash.in_(_tx_hashes),  # type: ignore[attr-defined]
+                        )
+                    ).all():
+                        _stored_types[_h] = _t
+                for _tx_raw in transactions:
+                    _tx: Any = _tx_raw
+                    if not isinstance(_tx, dict):
+                        continue
+                    _tx_hash = str(_tx.get("tx_hash") or "")
+                    try:
+                        _eff = resolve_lock_type(_tx, _stored_types.get(_tx_hash))
+                        if _eff == "BRIDGE_LOCK":
+                            if _tx_hash in declared_lock_hashes:
+                                raise ValueError(f"duplicate BRIDGE_LOCK tx_hash {_tx_hash}")
+                            declared_lock_hashes.add(_tx_hash)
+                            _fields = canonical_lock_fields(
+                                {**_tx, "tx_hash": _tx_hash}, _tx_hash, self._chain_id, _gate_height
+                            )
+                            assert_lock_debit(_fields, effective_lock_debit(_tx))
+                    except (TypeError, ValueError) as _e:
+                        if not _probe:
+                            metrics_registry.increment("sync_blocks_rejected_total")
+                        logger.warning(
+                            "[SYNC] Block rejected: bridge lock contract violation at height %s: %s",
+                            block_data.get("height"),
+                            _e,
+                        )
+                        return self._make_import_result(
+                            accepted=False,
+                            height=block_data.get("height", 0),
+                            block_hash=block_data.get("hash", ""),
+                            reason=f"bridge_lock_contract_violation: {_e}",
+                        )
+
         if block_version >= 20 and block_data.get("hash"):
             # v20+: the signed block hash must reproduce over the delivered tx
             # list — a relayed list that does not hash to it is rejected (#1064).
@@ -890,6 +1030,18 @@ class BlockImportMixin(SyncBase):
                             # on the unique constraint (Refs #712 follow-up).
                             existing_tx.block_height = db_tx.block_height
                             existing_tx.status = db_tx.status
+                            if tx_only_root and db_tx.type == "BRIDGE_LOCK":
+                                # #1940 F5: same semantic refresh as the
+                                # sequential upgrade — stale envelopes must
+                                # not diverge the proof builder.
+                                existing_tx.sender = db_tx.sender
+                                existing_tx.recipient = db_tx.recipient
+                                existing_tx.value = db_tx.value
+                                existing_tx.fee = db_tx.fee
+                                existing_tx.nonce = db_tx.nonce
+                                existing_tx.type = db_tx.type
+                                existing_tx.payload = db_tx.payload
+                                existing_tx.envelope = db_tx.envelope
                             session.add(existing_tx)
                         else:
                             session.add(db_tx)
@@ -897,6 +1049,13 @@ class BlockImportMixin(SyncBase):
                     for delta in all_deltas:
                         if not delta.success:
                             logger.warning(reject_tag + " Failed to apply transaction %s: %s", delta.tx_hash, delta.error)
+                    if tx_only_root:
+                        # #1940 F5: actual apply success is the only evidence
+                        # a lock may contribute a trie leaf — persisted or
+                        # claimed status is never consulted.
+                        for delta in all_deltas:
+                            if delta.tx_hash in declared_lock_hashes and delta.success:
+                                successful_lock_hashes.add(delta.tx_hash)
                     parallel_applied = True
             if not parallel_applied:
                 # Sequential path (fallback when parallel_tx_validation is off
@@ -968,11 +1127,20 @@ class BlockImportMixin(SyncBase):
                     )
                     if not success:
                         logger.warning(reject_tag + " Failed to apply transaction %s: %s", tx_hash, error_msg)
+                    if tx_only_root and tx_hash in declared_lock_hashes and success:
+                        # #1940 F5: only an actually-applied lock may be
+                        # certified by the tx-derived root — below v20 the
+                        # persisted "confirmed" status proves nothing.
+                        successful_lock_hashes.add(tx_hash)
                     tx_type = tx_data.get("type", "TRANSFER")
                     if tx_type:
                         tx_type = tx_type.upper()
                     else:
                         tx_type = "TRANSFER"
+                    if tx_only_root and _determine_tx_type(tx_data) == "BRIDGE_LOCK":
+                        # #1940 F5: payload-typed locks store their real
+                        # resolved type, matching the producer.
+                        tx_type = "BRIDGE_LOCK"
                     db_tx = ChainTransaction(
                         chain_id=self._chain_id,
                         tx_hash=tx_hash,
@@ -999,6 +1167,19 @@ class BlockImportMixin(SyncBase):
                         # on the unique constraint (Refs #712 follow-up).
                         existing_tx.block_height = db_tx.block_height
                         existing_tx.status = db_tx.status
+                        if tx_only_root and db_tx.type == "BRIDGE_LOCK":
+                            # #1940 F5: the upgraded row must carry the exact
+                            # accepted body — semantic columns and envelope —
+                            # so proof reconstruction never replays a stale
+                            # pre-seal envelope.
+                            existing_tx.sender = db_tx.sender
+                            existing_tx.recipient = db_tx.recipient
+                            existing_tx.value = db_tx.value
+                            existing_tx.fee = db_tx.fee
+                            existing_tx.nonce = db_tx.nonce
+                            existing_tx.type = db_tx.type
+                            existing_tx.payload = db_tx.payload
+                            existing_tx.envelope = db_tx.envelope
                         session.add(existing_tx)
                     else:
                         session.add(db_tx)
@@ -1014,8 +1195,61 @@ class BlockImportMixin(SyncBase):
         # Fill in the state/bridge roots and metadata now that transactions have
         # been applied, then persist the block.  This keeps the schedule check
         # above from touching any state.
+        if tx_only_root and declared_lock_hashes != successful_lock_hashes:
+            # #1940 F5: every declared/effectively-typed lock must have
+            # actually applied — a failed, skipped or hidden lock rejects
+            # the whole block and rolls back every write above.
+            _failed = sorted(declared_lock_hashes - successful_lock_hashes)
+            if not _probe:
+                metrics_registry.increment("sync_blocks_rejected_total")
+            session.rollback()
+            if not _probe:
+                self._track_rejection(self._chain_id)
+            logger.warning(
+                "[SYNC] Block rejected: BRIDGE_LOCK without actual apply success at height %s: %s",
+                block_data.get("height"),
+                _failed,
+            )
+            return self._make_import_result(
+                accepted=False,
+                height=block_data.get("height", 0),
+                block_hash=block_hash,
+                reason=f"bridge_lock_apply_failed: {_failed}",
+            )
         block.state_root = block_data.get("state_root")
-        block.bridge_state_root = self._derive_bridge_state_root(session, block_data, transactions, _probe=_probe)
+        if tx_only_root:
+            try:
+                block.bridge_state_root = self._derive_bridge_state_root(
+                    session,
+                    block_data,
+                    transactions,
+                    tx_only_era=True,
+                    successful_lock_hashes=successful_lock_hashes,
+                    tx_height=_gate_height,
+                )
+            except ValueError as _bridge_err:
+                # #1940 F5: missing/mismatched carried root or missing
+                # success evidence — reject and roll back, never synthesize.
+                if not _probe:
+                    metrics_registry.increment("sync_blocks_rejected_total")
+                session.rollback()
+                if not _probe:
+                    self._track_rejection(self._chain_id)
+                logger.warning(
+                    "[SYNC] Block rejected: tx-derived bridge root violation at height %s: %s",
+                    block_data.get("height"),
+                    _bridge_err,
+                )
+                return self._make_import_result(
+                    accepted=False,
+                    height=block_data.get("height", 0),
+                    block_hash=block_hash,
+                    reason=f"bridge_root_violation: {_bridge_err}",
+                )
+        else:
+            # Gate-off: the original three-argument derive call, outside the
+            # new-era ValueError catch — legacy behavior byte-identical.
+            block.bridge_state_root = self._derive_bridge_state_root(session, block_data, transactions, _probe=_probe)
         # v14 (V-3): the header's committed side-table root. Stored only at
         # v14+ — below the activation the field does not exist and any value a
         # peer supplies is ignored, so replayed pre-v14 blocks keep NULL.

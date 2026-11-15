@@ -99,11 +99,18 @@ UC_VALUE_PARAMETERS = (
     "unlock_proof_uc_validator_set_digest",
 )
 
-ALL_PARAMETERS = AUTHORITY_PARAMETERS + UC_VALUE_PARAMETERS
+# #1940 F5: bridge tx-derived-root gate. Stricter than the UC bool group —
+# the history-only resolver accepts exactly "true"/"1" (case-insensitive),
+# so yes/no or arbitrary strings are refused here rather than sealing a
+# value the resolver would silently read as inactive.
+BRIDGE_VALUE_PARAMETERS = ("bridge_state_root_tx_only_enabled",)
+
+ALL_PARAMETERS = AUTHORITY_PARAMETERS + UC_VALUE_PARAMETERS + BRIDGE_VALUE_PARAMETERS
 
 _ADDRESS_RE = re.compile(r"^0x[0-9a-fA-F]{40}$")
 _ZERO_ADDRESS = "0x" + "0" * 40
 _BOOL_RE = re.compile(r"^(true|false|1|0|yes|no)$", re.IGNORECASE)
+_STRICT_BOOL_RE = re.compile(r"^(true|false|1|0)$", re.IGNORECASE)
 _POSITIVE_INT_RE = re.compile(r"^[0-9]+$")
 _POSITIVE_NUMBER_RE = re.compile(r"^[0-9]+(\.[0-9]+)?$")
 _DIGEST_RE = re.compile(r"^(0x)?[0-9a-fA-F]{64}$")
@@ -236,6 +243,13 @@ def _validated_value(parameter: str, value: str) -> tuple[str, list[str]]:
     """
     if parameter in UC_VALUE_PARAMETERS:
         normalized = _validate_uc_value(parameter, value)
+        return normalized, [normalized]
+    if parameter in BRIDGE_VALUE_PARAMETERS:
+        normalized = value.strip().lower()
+        if not _STRICT_BOOL_RE.match(normalized):
+            _fail(
+                f"{parameter} expects exactly true/false/1/0 (the history resolver accepts no other spelling), got {value!r}"
+            )
         return normalized, [normalized]
     elements = _validate_target(value)
     return value, elements
