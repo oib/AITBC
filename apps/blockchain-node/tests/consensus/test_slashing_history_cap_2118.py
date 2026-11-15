@@ -206,3 +206,18 @@ def test_compaction_keeps_signed_events_first():
     kept = cap_history_per_height(list(events), 2)
     assert events[-1] in kept and len(kept) == 2  # the one signed + the oldest unsigned
     assert kept[0] is events[0]
+
+
+def test_evicted_record_leaves_the_dedup_index(monkeypatch):
+    """After a signed record displaces an unsigned one, re-observing the evicted
+    pair is a fresh (and, the bucket being full, refused) record — not a hit on a
+    stale index entry for an event that is no longer in the history."""
+    monkeypatch.setattr(settings, "slashing_max_events_per_height", 3)
+    mgr = SlashingManager()
+    for i in range(3):
+        _advisory(mgr, i)
+    _advisory(mgr, 99, signed=True)  # evicts the pair of i=2
+    assert metrics_registry._counters["slashing_events_cap_evicted_total"] == 1
+    _advisory(mgr, 2)  # the evicted pair comes back
+    assert metrics_registry._counters["slashing_events_cap_refused_total"] == 1
+    assert len(mgr.slashing_events) == 3
