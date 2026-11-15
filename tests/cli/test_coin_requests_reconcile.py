@@ -19,6 +19,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+import requests
 from click.testing import CliRunner
 
 pytest.importorskip("click")
@@ -125,7 +126,7 @@ def test_annotate_records_the_discrepancy_but_still_does_not_clear_it(db, chain)
 
 
 def test_an_unreachable_chain_is_counted_apart_from_a_missing_transaction(db, chain) -> None:
-    chain["error"] = RuntimeError("connection refused")
+    chain["error"] = requests.exceptions.ConnectionError("connection refused")
 
     result = _run("reconcile", "--rpc-url", RPC)
 
@@ -184,7 +185,7 @@ def test_reopen_refuses_a_request_the_chain_still_has(db, chain) -> None:
 
 def test_reopen_refuses_when_the_chain_cannot_be_reached(db, chain) -> None:
     """An unreachable node must not read as a missing transaction."""
-    chain["error"] = RuntimeError("connection refused")
+    chain["error"] = requests.exceptions.ConnectionError("connection refused")
 
     with pytest.raises(CLIError, match="could not confirm"):
         _run("reopen", "--request-id", "req-lost", "--rpc-url", RPC)
