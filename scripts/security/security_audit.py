@@ -190,10 +190,10 @@ class SecurityAudit:
 
         return max(0, score), issues
 
-    def check_secret_management(self) -> tuple[float, list[dict]]:
-        """Check secret management and key storage"""
+    def _scan_hardcoded_secrets(self) -> tuple[int, list[dict]]:
+        """Scan code files for hardcoded secret literals; returns (penalty, issues)."""
         issues = []
-        score = 20.0
+        penalty = 0
 
         # Check for hardcoded secrets
         secret_patterns = [
@@ -223,11 +223,15 @@ class SecurityAudit:
                                 "severity": "critical",
                             }
                         )
-                        score -= 2
+                        penalty += 2
             except Exception:
                 continue
+        return penalty, issues
 
-        # Check for .env files in git
+    def _secrets_in_git(self) -> tuple[int, list[dict]]:
+        """Check for .env/key/pem files tracked by git; returns (penalty, issues)."""
+        issues = []
+        penalty = 0
         try:
             result = subprocess.run(
                 ["git", "ls-files"],
@@ -243,43 +247,64 @@ class SecurityAudit:
 
             if sensitive_files:
                 issues.append({"type": "secrets_in_git", "files": sensitive_files, "severity": "critical"})
-                score -= 5
+                penalty = 5
         except Exception:
             logger.warning("Could not check git for secrets")
+        return penalty, issues
 
-        # Check keystore encryption
+    def _unencrypted_keystore(self) -> tuple[int, list[dict]]:
+        """Check keystore files for plaintext private keys; returns (penalty, issues)."""
+        issues = []
+        penalty = 0
         keystore_dir = self.project_root / "keystore"
-        if keystore_dir.exists():
-            keystore_files = list(keystore_dir.glob("*"))
-            for keystore_file in keystore_files:
-                if keystore_file.is_file():
+        if not keystore_dir.exists():
+            return penalty, issues
+        for keystore_file in keystore_dir.glob("*"):
+            if not keystore_file.is_file():
+                continue
+            try:
+                with open(keystore_file, "rb") as f:
+                    content = f.read()
+                    # Check if file is encrypted (not plain text)
                     try:
-                        with open(keystore_file, "rb") as f:
-                            content = f.read()
-                            # Check if file is encrypted (not plain text)
-                            try:
-                                content.decode("utf-8")
-                                if "private_key" in content.decode("utf-8").lower():
-                                    issues.append(
-                                        {
-                                            "type": "unencrypted_keystore",
-                                            "file": str(keystore_file.relative_to(self.project_root)),
-                                            "severity": "critical",
-                                        }
-                                    )
-                                    score -= 3
-                            except UnicodeDecodeError:
-                                # File is binary/encrypted, which is good
-                                pass
-                    except Exception:
-                        continue
+                        content.decode("utf-8")
+                        if "private_key" in content.decode("utf-8").lower():
+                            issues.append(
+                                {
+                                    "type": "unencrypted_keystore",
+                                    "file": str(keystore_file.relative_to(self.project_root)),
+                                    "severity": "critical",
+                                }
+                            )
+                            penalty += 3
+                    except UnicodeDecodeError:
+                        # File is binary/encrypted, which is good
+                        pass
+            except Exception:
+                continue
+        return penalty, issues
+
+    def check_secret_management(self) -> tuple[float, list[dict]]:
+        """Check secret management and key storage"""
+        issues = []
+        score = 20.0
+
+        penalty, found = self._scan_hardcoded_secrets()
+        score -= penalty
+        issues.extend(found)
+        penalty, found = self._secrets_in_git()
+        score -= penalty
+        issues.extend(found)
+        penalty, found = self._unencrypted_keystore()
+        score -= penalty
+        issues.extend(found)
 
         return max(0, score), issues
 
-    def check_code_security(self) -> tuple[float, list[dict]]:
-        """Check code security vulnerabilities"""
+    def _scan_dangerous_imports(self, python_files: list) -> tuple[float, list[dict]]:
+        """Scan Python files for dangerous imports; returns (penalty, issues)."""
         issues = []
-        score = 15.0
+        penalty = 0.0
 
         # Check for dangerous imports
         dangerous_imports = [
@@ -289,8 +314,6 @@ class SecurityAudit:
             "subprocess.call",  # Command injection
             "os.system",  # Command injection
         ]
-
-        python_files = self._code_files((".py",))
 
         for file_path in python_files:
             try:
@@ -307,9 +330,15 @@ class SecurityAudit:
                                 "severity": "warning",
                             }
                         )
-                        score -= 0.5
+                        penalty += 0.5
             except Exception:
                 continue
+        return penalty, issues
+
+    def _scan_sql_injection(self, python_files: list) -> tuple[int, list[dict]]:
+        """Scan Python files for SQL-injection-prone string building; returns (penalty, issues)."""
+        issues = []
+        penalty = 0
 
         # Check for SQL injection patterns
         sql_patterns = [
@@ -332,9 +361,24 @@ class SecurityAudit:
                                 "severity": "warning",
                             }
                         )
-                        score -= 1
+                        penalty += 1
             except Exception:
                 continue
+        return penalty, issues
+
+    def check_code_security(self) -> tuple[float, list[dict]]:
+        """Check code security vulnerabilities"""
+        issues = []
+        score = 15.0
+
+        python_files = self._code_files((".py",))
+
+        penalty, found = self._scan_dangerous_imports(python_files)
+        score -= penalty
+        issues.extend(found)
+        penalty, found = self._scan_sql_injection(python_files)
+        score -= penalty
+        issues.extend(found)
 
         # Check for input validation
         input_validation_files = [
