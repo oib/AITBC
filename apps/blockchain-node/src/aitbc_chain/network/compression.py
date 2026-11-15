@@ -40,7 +40,7 @@ def _payload_size_cap() -> int:
             getattr(settings, "gossip_max_message_size", 1_048_576),
             getattr(settings, "mempool_max_tx_size_bytes", 131_072),
         )
-    except (AttributeError, TypeError, ValueError):
+    except (AttributeError, ImportError, TypeError, ValueError):
         return 4 * 1024 * 1024
 
 

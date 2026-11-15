@@ -1083,7 +1083,7 @@ def _escrow_tx_job_id(tx_data: dict[str, Any]) -> str:
     if isinstance(payload, str):
         try:
             payload = json.loads(payload)
-        except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
+        except (RecursionError, TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
             payload = {}
     return payload.get("job_id") or tx_data.get("job_id") or ""
 

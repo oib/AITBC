@@ -206,7 +206,7 @@ async def gossip_endpoint(request: Any) -> JSONResponse:
         return JSONResponse({"status": "error", "message": "Body too large"}, status_code=413)
     try:
         data = json.loads(body)
-    except (TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
+    except (RecursionError, TypeError, ValueError):  # malformed payload JSON decodes to the empty/default branch
         return JSONResponse({"status": "error", "message": "Invalid JSON"}, status_code=400)
     # A valid-JSON non-object body used to reach data.get() and 500 (#1591).
     if not isinstance(data, dict):
