@@ -549,7 +549,7 @@ class _OpsMixin(_PoaBaseMixin):
                         commit_count,
                         effective_min,
                     )
-                    await self._publish_abandon(block, block_hash)
+                    await self._publish_abandon(block, block_hash, round_number)
                     return False
                 self._logger.info(
                     "Block %s carries %d attestation(s), below the %d minimum, but its PBFT certificate "
