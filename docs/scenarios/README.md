@@ -3,8 +3,8 @@
 **Levels**: Beginner (scenarios 01–20), Intermediate (scenarios 21–36)
 **Prerequisites**: AITBC CLI (`aitbc`) installed and on `$PATH`
 **Estimated Time**: 10–30 minutes per scenario
-**Last Updated**: 2026-08-21
-**Version**: 1.5
+**Last Updated**: 2026-11-15
+**Version**: 1.6
 
 ## Navigation Path
 
@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > Overview
 
 ## What's in this directory
 
-66 operator plays of **the AITBC software as it actually runs** on the public island (`<hub-node>` ↔ shop `<node2>`). Each play is driven by the real `aitbc` CLI. Python SDK examples are optional extras. Curl, `journalctl`, and `pytest` appear only as **validation** after a CLI step.
+79 live numbered plays plus this index and [_TEMPLATE.md](./_TEMPLATE.md) — **81 markdown files** in `docs/scenarios/`. Each documents **the AITBC software as it actually runs** on the public island (`<hub-node>` ↔ shop `<node2>`). Plays are driven by the real `aitbc` CLI. Python SDK examples are optional extras. Curl, `journalctl`, and `pytest` appear only as **validation** after a CLI step.
 
 The closed economic loop these plays sit on (tokens → job → GPU → escrow → reputation) is documented in [DESIGN_CYCLE.md](../DESIGN_CYCLE.md). Features that are CLI shells or roadmap items are **not** given scenarios until they join that loop.
 
@@ -134,43 +134,43 @@ Scenario files that touch these groups include a note near the top. Live product
 
 ## Megaplan Status
 
-The current product path is the two-node hub/shop market loop:
+The current product path is scenarios **34 + 36** (hub/customer authenticated `aitbc ai submit` against shop Ollama offers; pool-hub SLA readback on the shop).
 
-- Shop publishes GPU software offers (`aitbc market offer`).
-- Hub/customer submits authenticated jobs (`aitbc auth login` followed by `aitbc ai submit`).
-- Shop miner executes on Ollama; escrow releases on-chain.
-- Pool hub SLA is readable from the shop (`aitbc pool-hub status`).
+Beyond that loop:
 
-Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is recorded in scenario 34. Remaining product gaps live in [DESIGN_CYCLE.md](../DESIGN_CYCLE.md), not as extra scenarios.
+- **Oct 2026 options batch (75–85):** read-only and wallet-gate refusal plays across `market`, `bridge`, `trade`, `exchange`, `wallet`, stake paths, and secret forms — no new on-chain types.
+- **v17 live exercises (86–88):** operator-signed coordinator-api lifecycles for bounty, agent-staking, and bridge-island lock→release once `STATE_TRANSITION_V17_HEIGHT` is armed.
+
+Live validation of the product path (paid job + `ESCROW_RELEASE` + shop offer) is recorded in scenario 34. Remaining product gaps live in [DESIGN_CYCLE.md](../DESIGN_CYCLE.md), not as extra scenarios.
 
 ---
 
-*Last updated: 2026-08-21 (P2.5 default shop offers completed)*
-*Version: 1.5*
+*Last updated: 2026-11-15 (scenario index hygiene)*
+*Version: 1.6*
 
 ### Advanced Scenarios (Product-Feature End-to-End)
 
 | # | Scenario | Focus | CLI group |
-|---|---|----------|-------|-----------|
-|| 40 | [Automatic Reinvestment from Released Escrow](../archive/scenarios/40_auto_reinvestment.md) *(retired — archived)* | Auto-stake provider earnings on escrow release | `aitbc ai` |
-|| 41 | [Whisper and FFmpeg Default Shop Offers](./41_whisper_ffmpeg_shop_offers.md) | Run transcription and media re-encode jobs via market offers | `aitbc market` |
-|| 43 | [Compliance, Plugins, and White-Label Expansion](./43_compliance_plugins_white_label.md) | Brand plugins, compliance hooks, and plugin discovery | `aitbc brand`, `aitbc plugin`, `aitbc ai` |
-|| 44 | [Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) | Recover escrowed payment after TEE attestation is rejected | `aitbc ai refund`, `aitbc market escrow refund` |
-|| 45 | [Agent-Message Workflow](./45_agent_msg_workflow.md) | Send, ping, and receive agent-to-agent messages with delivery status | `aitbc agent-msg` |
-|| 46 | [Confidential TEE Jobs](./46_tee_confidential_jobs.md) | Confidential jobs require and verify a TEE attestation via the new CLI surface | `aitbc ai`, `aitbc tee` (registered; simulated attestation path) |
-|| 47 | [ZK Proofs for High-Value Jobs](./47_zk_high_value_jobs.md) | High-value jobs require and verify a ZK receipt proof | `aitbc ai`, `aitbc zk` |
-|| 48 | [Performance Bonds for High-Value Jobs](./48_performance_bonds_high_value.md) | High-value jobs require an active provider performance bond | `aitbc ai`, `aitbc bond` |
-|| 49 | [Auto-Reinvest from Released Escrow](../archive/scenarios/49_auto_reinvest_escrow.md) *(retired — archived)* | Escrow release automatically stakes a provider-defined percentage of earnings | `aitbc ai` |
-|| 51 | [Multi-Validator PoA Soak](./51_multi_validator_poa_soak.md) | P1.4 multi-validator consensus soak before live enablement | `aitbc blockchain status`, `aitbc monitor metrics` |
-|| 52 | [Wallet Key Mismatch Recovery](./52_wallet_key_mismatch.md) | Recover or deprecate a wallet whose key does not match its expected address | `aitbc wallet info`, `aitbc wallet import-wallet` |
-|| 53 | [Customer and Shop Dashboards](./53_dashboards.md) | P1.2 live customer/shop dashboards via `aitbc dashboard` | `aitbc dashboard customer`, `aitbc dashboard shop` |
-|| 54 | [Paid Agent-to-Agent Delegation](./54_agent_paid_delegation.md) | Buyer agent hires a provider agent: `agent-msg` negotiation + on-chain escrow | `aitbc agent-task` |
+|---|----------|-------|-----------|
+| 40 | [Automatic Reinvestment from Released Escrow](../archive/scenarios/40_auto_reinvestment.md) *(retired — archived)* | Auto-stake provider earnings on escrow release | `aitbc ai` |
+| 41 | [Whisper and FFmpeg Default Shop Offers](./41_whisper_ffmpeg_shop_offers.md) | Run transcription and media re-encode jobs via market offers | `aitbc market` |
+| 43 | [Compliance, Plugins, and White-Label Expansion](./43_compliance_plugins_white_label.md) | Brand plugins, compliance hooks, and plugin discovery | `aitbc brand`, `aitbc plugin`, `aitbc ai` |
+| 44 | [Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) | Recover escrowed payment after TEE attestation is rejected | `aitbc ai refund`, `aitbc market escrow refund` |
+| 45 | [Agent-Message Workflow](./45_agent_msg_workflow.md) | Send, ping, and receive agent-to-agent messages with delivery status | `aitbc agent-msg` |
+| 46 | [Confidential TEE Jobs](./46_tee_confidential_jobs.md) | Confidential jobs require and verify a TEE attestation via the new CLI surface | `aitbc ai`, `aitbc tee` (registered; simulated attestation path) |
+| 47 | [ZK Proofs for High-Value Jobs](./47_zk_high_value_jobs.md) | High-value jobs require and verify a ZK receipt proof | `aitbc ai`, `aitbc zk` |
+| 48 | [Performance Bonds for High-Value Jobs](./48_performance_bonds_high_value.md) | High-value jobs require an active provider performance bond | `aitbc ai`, `aitbc bond` |
+| 49 | [Auto-Reinvest from Released Escrow](../archive/scenarios/49_auto_reinvest_escrow.md) *(retired — archived)* | Escrow release automatically stakes a provider-defined percentage of earnings | `aitbc ai` |
 | 50 | [Default Whisper, FFmpeg, and Ollama Shop Offers](./50_default_shop_offers.md) | Shop auto-publishes default software offers and customers run jobs with `aitbc market` | `aitbc market` |
-|| 55 | [Dispute Lifecycle](./55_dispute_lifecycle.md) | File a dispute on an agreement, attach evidence, arbitrate, resolve the escrow | `aitbc dispute` |
-|| 56 | [Energy Pricing & Provider Registry](./56_energy_pricing.md) | GPU energy profiles, on-chain energy floor, operator quote verification | `aitbc energy` (EVM_RPC_URL-gated) |
-|| 57 | [Coin Requests](./57_coin_requests.md) | New-node initial coin grant: request → operator approve/reject → execute → reconcile | `aitbc coin-requests` |
-|| 58 | [Economics & OpenClaw DAO](./58_economics_dao.md) | Economic-parameter proposals and votes via the coordinator | `aitbc economics` |
-|| 59 | [Sepolia Buy/Sell AIT via the ETH Bridge](./59_sepolia_buy_sell_ait.md) | ETH→AIT deposit on node0, AIT→ETH withdraw on node2; BRIDGE_WITHDRAW sealing finding | `aitbc wallet bridge` |
+| 51 | [Multi-Validator PoA Soak](./51_multi_validator_poa_soak.md) | P1.4 multi-validator consensus soak before live enablement | `aitbc blockchain status`, `aitbc monitor metrics` |
+| 52 | [Wallet Key Mismatch Recovery](./52_wallet_key_mismatch.md) | Recover or deprecate a wallet whose key does not match its expected address | `aitbc wallet info`, `aitbc wallet import-wallet` |
+| 53 | [Customer and Shop Dashboards](./53_dashboards.md) | P1.2 live customer/shop dashboards via `aitbc dashboard` | `aitbc dashboard customer`, `aitbc dashboard shop` |
+| 54 | [Paid Agent-to-Agent Delegation](./54_agent_paid_delegation.md) | Buyer agent hires a provider agent: `agent-msg` negotiation + on-chain escrow | `aitbc agent-task` |
+| 55 | [Dispute Lifecycle](./55_dispute_lifecycle.md) | File a dispute on an agreement, attach evidence, arbitrate, resolve the escrow | `aitbc dispute` |
+| 56 | [Energy Pricing & Provider Registry](./56_energy_pricing.md) | GPU energy profiles, on-chain energy floor, operator quote verification | `aitbc energy` (EVM_RPC_URL-gated) |
+| 57 | [Coin Requests](./57_coin_requests.md) | New-node initial coin grant: request → operator approve/reject → execute → reconcile | `aitbc coin-requests` |
+| 58 | [Economics & OpenClaw DAO](./58_economics_dao.md) | Economic-parameter proposals and votes via the coordinator | `aitbc economics` |
+| 59 | [Sepolia Buy/Sell AIT via the ETH Bridge](./59_sepolia_buy_sell_ait.md) | ETH→AIT deposit on node0, AIT→ETH withdraw on node2; BRIDGE_WITHDRAW sealing finding | `aitbc wallet bridge` |
 | 60 | [Edge Compute & Islands](./60_edge_compute_islands.md) | Edge wallet, GPU inventory/metrics, island membership, edge databases, serve requests | `aitbc edge` |
 | 61 | [Node Mesh Management](./61_node_mesh_management.md) | Node registry, probes, chain inventory, island health, bridge requests | `aitbc node` |
 | 62 | [Inter-Chain Trading](./62_interchain_trade.md) | Chain registry, offer discovery, trade lifecycle, escrowed settlement | `aitbc trade` |
@@ -189,18 +189,17 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 | 75 | [Market Escrow & Jobs Options](./75_market_escrow_jobs_options.md) | `market jobs` filters/formatting and `escrow create` optional flags (refusal play) | `aitbc market` |
 | 76 | [Bridge CLI Options](./76_bridge_options.md) | `aitbc bridge` read-only flags plus money-path options exercised as free refusals | `aitbc bridge` |
 | 77 | [Trade CLI Options](./77_trade_options.md) | `aitbc trade` options as reads/free refusals (401/404, array-shape drift) | `aitbc trade` |
-| 80 | [Required CLI Flags](./80_required_flags.md) | last required-flag gaps exercised as free refusals | `aitbc operations`, `aitbc economics` |
+| 78 | [Market CLI Options](./78_market_options.md) | `aitbc market` money-path and listing options as reads/free refusals (offer-resolution, wallet, quote-verification) | `aitbc market` |
+| 79 | [Exchange CLI Options](./79_exchange_options.md) | `aitbc exchange` + `exchange-island` options as reads/free refusals (wallet gate, cap, island credentials, verifier drift) | `aitbc exchange` |
+| 80 | [Required-Flag Coverage — operations & economics](./80_required_flags.md) | Last required CLI options exercised as free refusals (wallet gate, lock-days guard, invalid choice) | `aitbc operations`, `aitbc economics` |
+| 81 | [Wallet CLI Options](./81_wallet_options.md) | `aitbc wallet` options as reads/free refusals (wallet gate, dead endpoints, bridge status `--hub-url` drift) | `aitbc wallet` |
+| 82 | [Moneypath Options](./82_moneypath_options.md) | operations/transactions/eth options as reads/free refusals | `aitbc operations`, `aitbc transactions`, `aitbc eth` |
 | 83 | [Staking Options](./83_stake_options.md) | stake/unstake/liquidity-stake/reinvest options as wallet-gate refusals | `aitbc stake`, `aitbc unstake`, `aitbc liquidity-stake`, `aitbc reinvest` |
+| 84 | [Last Uncovered Options](./84_last_options.md) | economics/trade leftovers as auth-gate refusals; census 0 non-secret | `aitbc economics`, `aitbc trade` |
 | 85 | [Secret-Form Coverage](./85_secret_forms.md) | password-file/stdin refusal plays across all leaves | `aitbc` all groups |
 | 86 | [Bounty Lifecycle](./86_bounty_lifecycle.md) | deploy → submit → verify (`BOUNTY_PAYOUT`) + deploy → expire (`BOUNTY_REFUND`) — operator-signed via coordinator-api | coordinator-api REST, node RPC |
 | 87 | [Agent Staking Lifecycle](./87_agent_staking.md) | stake → add → unbond → complete — operator-signed via coordinator-api; `locked_until` release gate | coordinator-api REST, node RPC |
 | 88 | [Bridge Island Lock→Release](./88_bridge_island_lock_release.md) | bc-2 → bc-2-island-1 lock, finalizer/relayer proof, island-side BRIDGE_RELEASE | aitbc bridge, node RPC |
-| 84 | [Last Uncovered Options](./84_last_options.md) | economics/trade leftovers as auth-gate refusals; census 0 non-secret | `aitbc economics`, `aitbc trade` |
-| 78 | [Market CLI Options](./78_market_options.md) | `aitbc market` money-path and listing options as reads/free refusals (offer-resolution, wallet, quote-verification) | `aitbc market` |
-| 79 | [Exchange CLI Options](./79_exchange_options.md) | `aitbc exchange` + `exchange-island` options as reads/free refusals (wallet gate, cap, island credentials, verifier drift) | `aitbc exchange` |
-| 80 | [Required-Flag Coverage — operations & economics](./80_required_flags.md) | Last four required CLI options exercised as free refusals (wallet gate, lock-days guard, invalid choice) | `aitbc operations`, `aitbc economics` |
-| 81 | [Wallet CLI Options](./81_wallet_options.md) | `aitbc wallet` options as reads/free refusals (wallet gate, dead endpoints, bridge status `--hub-url` drift) | `aitbc wallet` |
-| 82 | [Moneypath Options](./82_moneypath_options.md) | operations/transactions/eth options as reads/free refusals | `aitbc operations`, `aitbc transactions`, `aitbc eth` |
 
 ---
 
