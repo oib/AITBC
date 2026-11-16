@@ -33,10 +33,10 @@
       2 apps/blockchain-node/scripts/unified_genesis.py
      14 apps/blockchain-node/src/aitbc_chain/app.py
       8 apps/blockchain-node/src/aitbc_chain/chain_sync.py
-      6 apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py
+      4 apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py
+      7 apps/blockchain-node/src/aitbc_chain/consensus/poa.py
       2 apps/blockchain-node/src/aitbc_chain/consensus/poa_ops.py
       4 apps/blockchain-node/src/aitbc_chain/consensus/poa_proposal_gates.py
-      7 apps/blockchain-node/src/aitbc_chain/consensus/poa.py
       2 apps/blockchain-node/src/aitbc_chain/consensus/poa_tx_pipeline.py
       3 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_collect.py
       3 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_evidence.py
@@ -48,8 +48,8 @@
       2 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_finality.py
       8 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py
       3 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py
-      4 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py
       1 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py
+      4 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py
       1 apps/blockchain-node/src/aitbc_chain/database.py
       2 apps/blockchain-node/src/aitbc_chain/gossip/backends/broadcast.py
       4 apps/blockchain-node/src/aitbc_chain/gossip/backends/mesh.py
@@ -75,9 +75,9 @@
      11 apps/blockchain-node/src/aitbc_chain/p2p_network.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/auth.py
      12 apps/blockchain-node/src/aitbc_chain/rpc/dispute_resolution_service.py
+      5 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
       5 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_helpers.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_lock.py
-      5 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
       2 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_refund.py
       3 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_release.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_submit.py
@@ -89,22 +89,22 @@
       8 apps/blockchain-node/src/aitbc_chain/rpc/websocket.py
       1 apps/blockchain-node/src/aitbc_chain/state/bridge_credit.py
       2 apps/blockchain-node/src/aitbc_chain/state/state_root_utils.py
-      3 apps/blockchain-node/src/aitbc_chain/state/state_transition_handlers.py
       1 apps/blockchain-node/src/aitbc_chain/state/state_transition.py
+      3 apps/blockchain-node/src/aitbc_chain/state/state_transition_handlers.py
      10 apps/blockchain-node/src/aitbc_chain/subscription_client.py
+      1 apps/blockchain-node/src/aitbc_chain/sync.py
       4 apps/blockchain-node/src/aitbc_chain/sync_block_import.py
       3 apps/blockchain-node/src/aitbc_chain/sync_bulk.py
       1 apps/blockchain-node/src/aitbc_chain/sync_divergence.py
       6 apps/blockchain-node/src/aitbc_chain/sync_manager.py
-      1 apps/blockchain-node/src/aitbc_chain/sync.py
       3 apps/blockchain-node/src/aitbc_chain/sync_state.py
       1 apps/blockchain-node/src/aitbc_chain/sync_validator.py
       1 apps/blockchain-node/tests/test_bridge_header_batch_idempotent.py
       1 apps/blockchain-node/tests/test_gossip_broadcast.py
       3 cli/aitbc_cli/auth/__init__.py
       2 cli/aitbc_cli/commands/account.py
-      7 cli/aitbc_cli/commands/agent_comm.py
       6 cli/aitbc_cli/commands/agent.py
+      7 cli/aitbc_cli/commands/agent_comm.py
       1 cli/aitbc_cli/commands/agent_staking.py
       5 cli/aitbc_cli/commands/agent_task.py
       3 cli/aitbc_cli/commands/agent_wallet.py
@@ -126,9 +126,9 @@
       6 cli/aitbc_cli/commands/economics.py
       2 cli/aitbc_cli/commands/energy.py
       3 cli/aitbc_cli/commands/exchange/bridge.py
-      7 cli/aitbc_cli/commands/exchange_island.py
       3 cli/aitbc_cli/commands/exchange/payments.py
       2 cli/aitbc_cli/commands/exchange/wallet.py
+      7 cli/aitbc_cli/commands/exchange_island.py
      14 cli/aitbc_cli/commands/explorer.py
       5 cli/aitbc_cli/commands/genesis.py
      11 cli/aitbc_cli/commands/governance.py
@@ -136,10 +136,10 @@
       4 cli/aitbc_cli/commands/grant.py
       4 cli/aitbc_cli/commands/ipfs.py
       1 cli/aitbc_cli/commands/liquidity.py
+      4 cli/aitbc_cli/commands/market/__init__.py
       6 cli/aitbc_cli/commands/market/escrow.py
       1 cli/aitbc_cli/commands/market/exchange.py
       2 cli/aitbc_cli/commands/market/host.py
-      4 cli/aitbc_cli/commands/market/__init__.py
       4 cli/aitbc_cli/commands/market/jobs.py
       9 cli/aitbc_cli/commands/market/offers.py
       4 cli/aitbc_cli/commands/mining.py
@@ -159,8 +159,8 @@
       2 cli/aitbc_cli/commands/system.py
       6 cli/aitbc_cli/commands/tee.py
       7 cli/aitbc_cli/commands/transactions.py
-      6 cli/aitbc_cli/commands/wallet/basic.py
       1 cli/aitbc_cli/commands/wallet/__init__.py
+      6 cli/aitbc_cli/commands/wallet/basic.py
       2 cli/aitbc_cli/commands/wallet/misc.py
       3 cli/aitbc_cli/commands/wallet/staking.py
       3 cli/aitbc_cli/commands/workflow.py
@@ -186,8 +186,8 @@
      13 cli/aitbc_cli/utils/wallet_daemon_client.py
       1 cli/aitbc_cli/utils/wallet_loader.py
       1 cli/config_data/__init__.py
-      7 cli/examples/client_enhanced.py
       5 cli/examples/client.py
+      7 cli/examples/client_enhanced.py
       4 cli/examples/miner.py
       2 cli/security/translation_policy.py
       4 cli/tests/run_cli_tests.py
