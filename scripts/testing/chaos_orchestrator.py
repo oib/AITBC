@@ -99,7 +99,7 @@ class ChaosOrchestrator:
             logger.info("Scenario %s completed successfully", scenario_name)
             return results
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             logger.error("Failed to run scenario %s: %s", scenario_name, e)
             return {
                 "scenario_name": scenario_name,

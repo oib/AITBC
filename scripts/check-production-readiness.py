@@ -29,13 +29,17 @@ def check_redis_connectivity() -> bool:
     """Check if Redis is accessible."""
     try:
         import redis
-
+        from redis.exceptions import RedisError
+    except ImportError as e:
+        print(f"❌ Redis connectivity: FAILED - {e}")
+        return False
+    try:
         redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/0")
         client = redis.from_url(redis_url)
         client.ping()
         print("✅ Redis connectivity: OK")
         return True
-    except Exception as e:
+    except (RedisError, OSError, ValueError, TypeError, RuntimeError) as e:
         print(f"❌ Redis connectivity: FAILED - {e}")
         return False
 
@@ -81,7 +85,7 @@ def check_systemd_services() -> bool:
             else:
                 print(f"❌ Service {service}: {result.stdout.strip()}")
                 all_ok = False
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             print(f"❌ Service {service}: ERROR - {e}")
             all_ok = False
 
@@ -282,7 +286,7 @@ def check_migrations() -> bool:
             else:
                 print(f"❌ Migrations [{app_name}]: behind head — {rev}{against}")
                 all_ok = False
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             print(f"❌ Migrations [{app_name}]: ERROR - {e}")
             all_ok = False
 

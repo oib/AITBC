@@ -108,7 +108,7 @@ class SwarmCoordinator(Agent):
             logger.info("Joined swarm: %s as %s", swarm_id, config.get("role", "participant"))
             return True
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Failed to join swarm %s: %s", swarm_type, e)
             return False
 
@@ -130,7 +130,7 @@ class SwarmCoordinator(Agent):
                 # Update activity timestamp
                 swarm_config["last_activity"] = datetime.now(UTC).isoformat()
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - background participation loop must survive any single-cycle failure
                 logger.error("Swarm participation error for %s: %s", swarm_id, e)
 
             # Wait before next participation cycle
@@ -164,7 +164,7 @@ class SwarmCoordinator(Agent):
             logger.info("Broadcasted to swarm %s: %s", message.swarm_id, message.message_type)
             return True
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Failed to broadcast to swarm: %s", e)
             return False
 
@@ -194,7 +194,7 @@ class SwarmCoordinator(Agent):
 
             await self.broadcast_to_swarm(message)
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Failed to contribute swarm data: %s", e)
 
     async def _get_load_balancing_data(self) -> dict[str, Any]:
@@ -207,7 +207,7 @@ class SwarmCoordinator(Agent):
                 else:
                     logger.warning("Failed to get load balancing metrics: %s", response.status_code)
                     return self._get_default_load_balancing_data()
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Error fetching load balancing data: %s", e)
             return self._get_default_load_balancing_data()
 
@@ -232,7 +232,7 @@ class SwarmCoordinator(Agent):
                 else:
                     logger.warning("Failed to get pricing data: %s", response.status_code)
                     return self._get_default_pricing_data()
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Error fetching pricing data: %s", e)
             return self._get_default_pricing_data()
 
@@ -256,7 +256,7 @@ class SwarmCoordinator(Agent):
                 else:
                     logger.warning("Failed to get security metrics: %s", response.status_code)
                     return self._get_default_security_data()
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Error fetching security data: %s", e)
             return self._get_default_security_data()
 
@@ -308,7 +308,7 @@ class SwarmCoordinator(Agent):
             logger.info("Task coordination initiated: %s with %s collaborators", task, collaborators)
             return coordination_result
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Failed to coordinate task: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -342,7 +342,7 @@ class SwarmCoordinator(Agent):
             else:
                 return {"error": "Not joined to pricing swarm"}
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Failed to get market intelligence: %s", e)
             return {"error": str(e)}
 
@@ -368,7 +368,7 @@ class SwarmCoordinator(Agent):
                 "joined_swarms": len(self.joined_swarms),
             }
 
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Failed to analyze swarm benefits: %s", e)
             return {"error": str(e)}
 
@@ -385,7 +385,7 @@ class SwarmCoordinator(Agent):
                     logger.info("Successfully registered with swarm: %s", swarm_id)
                 else:
                     logger.warning("Failed to register with swarm %s: %s", swarm_id, response.status_code)
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Error registering with swarm: %s", e)
 
     async def _broadcast_to_swarm_network(self, message: SwarmMessage) -> None:
@@ -399,7 +399,7 @@ class SwarmCoordinator(Agent):
                     logger.info("Message broadcast to swarm: %s", message.swarm_id)
                 else:
                     logger.warning("Failed to broadcast to swarm: %s", response.status_code)
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Error broadcasting to swarm: %s", e)
 
     async def _process_swarm_messages(self, swarm_id: str) -> None:
@@ -412,7 +412,7 @@ class SwarmCoordinator(Agent):
                     logger.info("Received %s messages from swarm", len(messages.get("messages", [])))
                 else:
                     logger.warning("Failed to get swarm messages: %s", response.status_code)
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Error processing swarm messages: %s", e)
 
     async def _participate_in_decisions(self, swarm_id: str) -> None:
@@ -428,7 +428,7 @@ class SwarmCoordinator(Agent):
                     logger.info("Participating in decisions for swarm: %s", swarm_id)
                 else:
                     logger.warning("Failed to participate in decisions: %s", response.status_code)
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Error participating in swarm decisions: %s", e)
 
     async def _submit_coordination_proposal(self, proposal: dict[str, Any]) -> dict[str, Any]:
@@ -450,6 +450,6 @@ class SwarmCoordinator(Agent):
                         "status": "failed",
                         "error": f"HTTP {response.status_code}",
                     }
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Error submitting coordination proposal: %s", e)
             return {"success": False, "proposal_id": proposal["task_id"], "status": "error", "error": str(e)}

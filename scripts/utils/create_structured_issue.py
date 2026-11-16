@@ -78,7 +78,7 @@ def create_issue(title, context, expected, files, implementation, difficulty, pr
     try:
         resp = json.loads(result.stdout)
         print(f"Created issue #{resp['number']}: {resp['html_url']}")
-    except Exception as e:
+    except (ValueError, TypeError, KeyError) as e:
         print("Failed to parse response:", e, result.stdout)
 
 

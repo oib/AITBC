@@ -276,7 +276,7 @@ class ChaosTestDatabase:
                         self.metrics["success_count"] += 1
                     else:
                         self.metrics["error_count"] += 1
-            except Exception:
+            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError):
                 self.metrics["error_count"] += 1
 
         while time.time() - start_time < duration:

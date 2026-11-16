@@ -239,7 +239,7 @@ def create_tables(reset=False):
 
         return True
 
-    except Exception as e:
+    except (sqlite3.Error, OSError, ValueError, TypeError) as e:
         print(f"✗ Error creating tables: {e}")
         return False
 

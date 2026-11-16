@@ -8,6 +8,7 @@ import asyncio
 import json
 
 from cryptography.hazmat.primitives import serialization
+from cryptography.exceptions import InvalidSignature
 from cryptography.hazmat.primitives.asymmetric import ed25519
 import pytest
 
@@ -33,7 +34,7 @@ def test_signature_generation_and_verification():
     try:
         public_key.verify(signature, message_bytes)
         print("✅ Signature verified successfully")
-    except Exception as e:
+    except (InvalidSignature, ValueError, TypeError) as e:
         print(f"❌ Signature verification failed: {e}")
         return False
 
@@ -63,7 +64,7 @@ def test_signature_verification_with_wrong_key():
         public_key2.verify(signature, message_bytes)
         print("❌ Signature verified with wrong key (should fail)")
         return False
-    except Exception:
+    except (InvalidSignature, ValueError, TypeError):
         print("✅ Signature verification correctly failed with wrong key")
 
     print("\n✅ Wrong key verification test passed!")
@@ -93,7 +94,7 @@ def test_signature_verification_with_tampered_message():
         public_key.verify(signature, tampered_bytes)
         print("❌ Signature verified with tampered message (should fail)")
         return False
-    except Exception:
+    except (InvalidSignature, ValueError, TypeError):
         print("✅ Signature verification correctly failed with tampered message")
 
     print("\n✅ Tampered message verification test passed!")
@@ -193,7 +194,7 @@ async def test_receive_message_with_signature():
 
         public_key.verify(signature_bytes, message_bytes)
         print("✅ Signature verified successfully")
-    except Exception as e:
+    except (InvalidSignature, ValueError, TypeError, KeyError, AttributeError) as e:
         print(f"❌ Signature verification failed: {e}")
         return False
 

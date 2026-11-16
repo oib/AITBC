@@ -17,7 +17,7 @@ from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519, padding, rsa
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AsyncAITBCHTTPClient
 from aitbc_agent import bounty, data_oracle, dispute, extended, ipfs, knowledge, zk
 from aitbc_agent.contract_integration import (
@@ -137,7 +137,7 @@ class Agent:
                 )
                 self.contract_integration.set_agent_address(identity.address)
                 logger.info("Contract integration initialized for agent")
-            except Exception as e:
+            except (AITBCError, ImportError, ValueError, TypeError, KeyError, AttributeError, OSError) as e:
                 logger.warning("Failed to initialize contract integration: %s", e)
 
     def _track_task(self, coro: Coroutine[Any, Any, Any]) -> asyncio.Task[Any]:
@@ -234,11 +234,11 @@ class Agent:
             except NetworkError as e:
                 logger.error("Network error during registration: %s", e)
                 return False
-            except Exception as e:
+            except (AITBCError, TypeError, ValueError, KeyError, AttributeError) as e:
                 logger.error("Registration error: %s", e)
                 return False
 
-        except Exception as e:
+        except (AITBCError, TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("Registration failed: %s", e)
             return False
 
@@ -265,7 +265,7 @@ class Agent:
                 "avg_response_time": 30.5,
                 "client_satisfaction": 4.7,
             }
-        except Exception as e:
+        except (AITBCError, TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("Error fetching reputation: %s", e)
             return {
                 "overall_score": self.reputation_score,
@@ -302,7 +302,7 @@ class Agent:
                 "period": period,
                 "currency": "AITBC",
             }
-        except Exception as e:
+        except (AITBCError, TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("Error fetching earnings: %s", e)
             return {
                 "total": self.earnings,
@@ -345,7 +345,7 @@ class Agent:
         except NetworkError as e:
             logger.error("Network error sending message: %s", e)
             return False
-        except Exception as e:
+        except (AITBCError, TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("Error sending message: %s", e)
             return False
 
@@ -368,7 +368,7 @@ class Agent:
         except NetworkError as e:
             logger.error("Failed to fetch public key for %s: %s", sender_id, e)
             return None
-        except Exception as e:
+        except (AITBCError, TypeError, ValueError, KeyError, AttributeError) as e:
             logger.error("Error fetching public key: %s", e)
             return None
 
@@ -403,7 +403,7 @@ class Agent:
 
             logger.info("Received message from %s: %s (signature verified)", sender_id, message.get("type"))
             return True
-        except Exception as e:
+        except (InvalidSignature, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Signature verification failed for %s: %s", sender_id, e)
             return False
 

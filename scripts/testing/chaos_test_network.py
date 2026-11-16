@@ -225,7 +225,15 @@ class ChaosTestNetwork:
                     except json.JSONDecodeError:
                         pass
 
-            except Exception as e:
+            except (
+                aiohttp.ClientError,
+                asyncio.TimeoutError,
+                ValueError,
+                TypeError,
+                KeyError,
+                AttributeError,
+                RuntimeError,
+            ) as e:
                 logger.debug("Consensus check failed: %s", e)
 
             await asyncio.sleep(5)
@@ -260,7 +268,7 @@ class ChaosTestNetwork:
                         self.metrics["success_count"] += 1
                     else:
                         self.metrics["error_count"] += 1
-            except Exception:
+            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError):
                 self.metrics["error_count"] += 1
 
         while time.time() - start_time < duration:

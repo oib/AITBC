@@ -650,7 +650,7 @@ class SettlementChaosHarness:
             try:
                 result = scenario_fn()
                 results.append(result)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - chaos scenarios are untyped; every failure must be recorded as a scenario result
                 results.append(
                     {
                         "scenario": scenario_fn.__name__,

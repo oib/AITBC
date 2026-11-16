@@ -21,9 +21,9 @@ for endpoint in endpoints:
             try:
                 data = response.json()
                 print(f"  Response: {json.dumps(data, indent=2)[:200]}...")
-            except Exception:
+            except (ValueError, TypeError):
                 print(f"  Response: {response.text[:100]}...")
-    except Exception as e:
+    except (httpx.HTTPError, OSError, ValueError, TypeError) as e:
         print(f"{endpoint}: Error - {e}")
 
 print("\n=== Checking OpenAPI Spec ===")
@@ -35,5 +35,5 @@ try:
         print(f"Available endpoints: {paths}")
     else:
         print(f"OpenAPI not available: {response.status_code}")
-except Exception as e:
+except (httpx.HTTPError, OSError, ValueError, TypeError) as e:
     print(f"Error getting OpenAPI: {e}")

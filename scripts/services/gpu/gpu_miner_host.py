@@ -91,7 +91,7 @@ def get_gpu_info():
         if result.returncode == 0:
             info = result.stdout.strip().split(", ")
             return {"name": info[0], "memory_total": int(info[1]), "memory_used": int(info[2]), "utilization": int(info[3])}
-    except Exception as e:
+    except (subprocess.SubprocessError, OSError, ValueError, TypeError, IndexError) as e:
         logger.error("Failed to get GPU info: %s", e)
     return None
 
@@ -108,7 +108,7 @@ def check_ollama():
         else:
             logger.error("Ollama not responding")
             return False, []
-    except Exception as e:
+    except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
         logger.error("Ollama check failed: %s", e)
         return False, []
 
@@ -124,7 +124,7 @@ def check_vllm():
     except ImportError:
         logger.warning("vLLM not installed")
         return False, []
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, TypeError, AttributeError) as e:
         logger.error("vLLM check failed: %s", e)
         return False, []
 
@@ -205,7 +205,7 @@ def register_miner(capabilities):
             logger.error("Registration failed: %s - %s", response.status_code, response.text)
             return None
 
-    except Exception as e:
+    except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.error("Registration error: %s", e)
         return None
 
@@ -244,7 +244,7 @@ def send_heartbeat():
         else:
             logger.error("Heartbeat failed: %s - %s", response.status_code, response.text)
 
-    except Exception as e:
+    except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.error("Heartbeat error: %s", e)
 
 
@@ -295,7 +295,7 @@ def execute_job_with_vllm(job_id, prompt, model):
             "tokens_processed": len(outputs[0].outputs[0].token_ids),
             "execution_time": execution_time,
         }
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - vLLM inference surface is untyped; any failure is re-raised as a vLLM error
         raise Exception(f"vLLM error: {e}") from e
 
 
@@ -364,7 +364,7 @@ def execute_job(job, available_models, backend):
             submit_result(job_id, {"result": {"status": "failed", "error": f"Unsupported job type: {payload.get('type')}"}})
             return False
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - inference helpers signal failure with plain Exception; every job failure must be reported via submit_result
         logger.error("Job execution error: %s", e)
         submit_result(job_id, {"result": {"status": "failed", "error": str(e)}})
         return False
@@ -419,7 +419,7 @@ def poll_for_jobs():
             logger.error("Poll failed: %s - %s", response.status_code, response.text)
             return None
 
-    except Exception as e:
+    except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError, RuntimeError, OSError) as e:
         logger.error("Error polling for jobs: %s", e)
         return None
 
@@ -488,7 +488,7 @@ def _run_loop(models: list[str], backend: str) -> None:
 
     except KeyboardInterrupt:
         logger.info("Shutting down miner...")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level miner loop boundary: log and exit non-zero on any fatal error
         logger.error("Error in main loop: %s", e)
         sys.exit(1)
 

@@ -163,7 +163,7 @@ def _release_stale_claim(state, now):
         state = {"current_claim": None, "claimed_at": None, "work_branch": None}
         save_state(state)
         return state, None
-    except Exception as e:
+    except (ValueError, TypeError, KeyError, AttributeError, OSError, subprocess.SubprocessError) as e:
         print(f"Error checking claim age: {e}. Will attempt to proceed.")
         return state, current_claim
 

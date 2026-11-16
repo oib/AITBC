@@ -1,32 +1,12 @@
-      1 aitbc/agent_bridge/src/integration_layer.py
-      5 aitbc/alerting.py
       4 aitbc/auth/jwt.py
       2 aitbc/auth/middleware.py
       2 aitbc/auth/password.py
      10 aitbc/auth/permissions.py
-      2 aitbc/blockchain/rpc_client.py
       3 aitbc/bridge/oracle.py
-      2 aitbc/caching/blockchain_cache.py
-      2 aitbc/caching/invalidator.py
-      5 aitbc/caching/redis_cache.py
-      1 aitbc/compute/tee_task.py
       5 aitbc/crypto/payment_escrow.py
       3 aitbc/crypto/transaction_service.py
-      1 aitbc/database/replica.py
-      1 aitbc/database/service.py
-      1 aitbc/ethereum_rpc.py
-      3 aitbc/health_checks.py
-      1 aitbc/middleware/validation.py
-      2 aitbc/network/subscription_manager.py
       2 aitbc/oracles/price_oracle.py
       1 aitbc/security/audit.py
-      4 aitbc/trading/subscription_client.py
-      7 aitbc/training_setup/blockchain.py
-      2 aitbc/training_setup/cli.py
-      3 aitbc/training_setup/environment.py
-      3 aitbc/training_setup/messaging.py
-      1 aitbc/training_setup/stage_runner.py
-      1 aitbc/utils/time_utils.py
       4 apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py
       2 apps/blockchain-node/src/aitbc_chain/consensus/poa_ops.py
       4 apps/blockchain-node/src/aitbc_chain/consensus/poa_proposal_gates.py
@@ -141,46 +121,7 @@
       4 cli/examples/miner.py
       2 cli/security/translation_policy.py
       4 cli/tests/run_cli_tests.py
-      3 docs/agent-sdk/examples/computing_agent.py
       7 docs/agent-sdk/examples/oracle_agent.py
-      1 mcp-server/aitbc_mcp_server.py
-      8 packages/py/aitbc-agent-sdk/src/aitbc_agent/agent.py
-      1 packages/py/aitbc-agent-sdk/src/aitbc_agent/command_executor.py
-      2 packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_consumer.py
-      7 packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_provider.py
-     15 packages/py/aitbc-agent-sdk/src/aitbc_agent/swarm_coordinator.py
-      1 packages/py/aitbc-sdk/src/aitbc_sdk/receipts.py
-      3 scripts/check-production-readiness.py
-      1 scripts/extract_openapi_specs.py
-      1 scripts/migration/create_advanced_market_tables.py
-      1 scripts/migration/create_agent_tables.py
-      1 scripts/migration/migrate_plugin_to_market.py
       2 scripts/ops/escrow-stuck-sweep.py
       2 scripts/ops/key-audit.py
       5 scripts/security/security_audit.py
-      8 scripts/services/gpu/gpu_miner_host.py
-      1 scripts/testing/chaos_orchestrator.py
-      2 scripts/testing/chaos_test_coordinator.py
-      1 scripts/testing/chaos_test_database.py
-      2 scripts/testing/chaos_test_network.py
-      1 scripts/testing/qa-cycle.py
-      3 scripts/testing/scalability_validation.py
-      1 scripts/testing/soak_test_consensus.py
-      1 scripts/utils/claim-task.py
-      1 scripts/utils/create_structured_issue.py
-      5 scripts/utils/end_to_end_workflow.py
-      1 scripts/utils/migrate_addresses_to_0x.py
-      1 tests/contract_tests/test_blockchain_rpc_contract.py
-      4 tests/e2e/conftest.py
-      1 tests/fixtures/cli_mocks.py
-      1 tests/harness/settlement_chaos.py
-      1 tests/integration/conftest.py
-      3 tests/test_exception_handling.py
-      1 tests/unit/test_peer_capability.py
-      2 tests/unit/test_priority_queue.py
-      4 tests/verification/test_agent_signature_verification.py
-      3 tests/verification/test_coordinator.py
-      1 tests/verification/test_cross_node_blockchain.py
-      2 tests/verification/test_model_validation.py
-      3 tests/verification/verify_explorer_live.py
-      2 tests/verification/verify_toggle_removed.py

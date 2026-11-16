@@ -61,7 +61,7 @@ class CommandExecutor:
         except subprocess.TimeoutExpired:
             logger.error("Command timeout")
             return {"success": False, "error": "Command timeout"}
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError) as e:
             logger.error("Command execution failed: %s", e)
             return {"success": False, "error": str(e)}
 

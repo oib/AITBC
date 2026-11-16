@@ -47,7 +47,7 @@ class MessagingSetup:
                 log.info("✓ Messaging service status: %s", result.stdout.strip())
             else:
                 log.warning("Messaging service may not be running: %s", result.stderr)
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.warning("Messaging status check failed: %s", e)
 
         # Configure authentication if needed
@@ -64,7 +64,7 @@ class MessagingSetup:
                 log.info("✓ Messaging authentication configured")
             else:
                 log.warning("Messaging auth configuration: %s", result.stderr)
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.warning("Messaging auth configuration failed: %s", e)
 
         return {"status": "completed", "note": "Messaging authentication configured"}
@@ -93,7 +93,7 @@ class MessagingSetup:
             else:
                 log.warning("Messaging connection test failed: %s", result.stderr)
                 return {"status": "failed", "error": result.stderr}
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.warning("Messaging connection test failed: %s", e)
             return {"status": "failed", "error": str(e)}
 

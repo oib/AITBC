@@ -92,7 +92,7 @@ class HealthChecker:
                     overall_status = HealthStatus.UNHEALTHY
                 elif status == HealthStatus.DEGRADED and overall_status == HealthStatus.HEALTHY:
                     overall_status = HealthStatus.DEGRADED
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - registered check callables are untyped; one failing check must not abort the sweep
                 logger.error("Health check %s failed: %s", name, e)
                 results.append((name, HealthStatus.UNHEALTHY, str(e)))
                 all_details[name] = {"status": HealthStatus.UNHEALTHY.value, "message": str(e), "details": None}
@@ -141,7 +141,7 @@ class HealthChecker:
                     overall_status = HealthStatus.UNHEALTHY
                 elif status == HealthStatus.DEGRADED and overall_status == HealthStatus.HEALTHY:
                     overall_status = HealthStatus.DEGRADED
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - registered check callables are untyped; one failing check must not abort the sweep
                 logger.error("Health check %s failed: %s", name, e)
                 results.append((name, HealthStatus.UNHEALTHY, str(e)))
                 all_details[name] = {"status": HealthStatus.UNHEALTHY.value, "message": str(e), "details": None}
@@ -161,7 +161,7 @@ class HealthChecker:
                     overall_status = HealthStatus.UNHEALTHY
                 elif status == HealthStatus.DEGRADED and overall_status == HealthStatus.HEALTHY:
                     overall_status = HealthStatus.DEGRADED
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - registered async check callables are untyped; one failing check must not abort the sweep
                 logger.error("Async health check %s failed: %s", name, e)
                 results.append((name, HealthStatus.UNHEALTHY, str(e)))
                 all_details[name] = {"status": HealthStatus.UNHEALTHY.value, "message": str(e), "details": None}
@@ -281,7 +281,7 @@ def run_readiness_checks(checks: Mapping[str, Callable[[], object]]) -> list[str
         try:
             if check() is False:
                 raise RuntimeError("check returned False")
-        except Exception:
+        except Exception:  # noqa: BLE001 - readiness check callables are untyped; every check must run so all failures are reported
             logger.exception("Readiness check failed: %s", name)
             failed.append(name)
     return failed

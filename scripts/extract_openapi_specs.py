@@ -241,7 +241,7 @@ def extract_openapi_spec(app_config: dict) -> dict | None:
         # return one. `enrich` reads the handlers and adds what they actually answer with
         # (V23-80).
         return enrich(spec, app)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - imports arbitrary service app modules; any import-time or spec-build failure must not stop the other apps
         print(f"Error extracting spec from {app_config['name']}: {e}")
         import traceback
 

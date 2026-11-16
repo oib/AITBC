@@ -46,7 +46,7 @@ class CacheInvalidator:
         if handler:
             try:
                 return handler(event_data)
-            except Exception as e:
+            except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as e:
                 logger.error("Error in cache invalidation handler for %s: %s", event_type, e)
                 return 0
         return 0
@@ -115,6 +115,6 @@ class CacheInvalidator:
                 if keys:
                     deleted = self.blockchain_cache.redis_cache._client.delete(*keys)
                     return deleted  # type: ignore[no-any-return]
-            except Exception as e:
+            except self.blockchain_cache.redis_cache._client_errors as e:
                 logger.error("Error invalidating all account balances: %s", e)
         return 0

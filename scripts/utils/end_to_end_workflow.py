@@ -41,7 +41,7 @@ class MarketWorkflow:
             available_gpus = [gpu for gpu in gpus if gpu["status"] == "available"]
             print(f"🔍 DEBUG: Available GPUs: {len(available_gpus)}")
             return available_gpus
-        except Exception as e:
+        except (requests.RequestException, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"🔍 DEBUG: Error in get_available_gpus: {str(e)}")
             self.log_step("Get Available GPUs", "error", str(e))
             return []
@@ -62,7 +62,7 @@ class MarketWorkflow:
             print(f"🔍 DEBUG: Booking successful: {booking}")
             self.log_step("Book GPU", "success", f"GPU {gpu_id} booked for {duration_hours} hours")
             return booking
-        except Exception as e:
+        except (requests.RequestException, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"🔍 DEBUG: Error in book_gpu: {str(e)}")
             self.log_step("Book GPU", "error", str(e))
             return {}
@@ -89,7 +89,7 @@ class MarketWorkflow:
             self.log_step("Submit Ollama Task", "simulated", f"Task {task_id} submitted to GPU {gpu_id}")
 
             return {"task_id": task_id, "gpu_id": gpu_id, "status": "submitted", "model": task_payload["model"]}
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError) as e:
             print(f"🔍 DEBUG: Error in submit_ollama_task: {str(e)}")
             self.log_step("Submit Ollama Task", "error", str(e))
             return {}
@@ -133,7 +133,7 @@ class MarketWorkflow:
                 "status": "confirmed",
                 "payment_data": payment_data,
             }
-        except Exception as e:
+        except (TypeError, ValueError, KeyError, AttributeError, ArithmeticError) as e:
             print(f"🔍 DEBUG: Error in process_blockchain_payment: {str(e)}")
             self.log_step("Process Blockchain Payment", "error", str(e))
             return {}
@@ -150,7 +150,7 @@ class MarketWorkflow:
             print(f"🔍 DEBUG: GPU release successful: {release_result}")
             self.log_step("Release GPU", "success", f"GPU {gpu_id} released")
             return release_result
-        except Exception as e:
+        except (requests.RequestException, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"🔍 DEBUG: Error in release_gpu: {str(e)}")
             self.log_step("Release GPU", "error", str(e))
             return {}

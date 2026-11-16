@@ -49,7 +49,7 @@ class ScalabilityValidator:
                     "content_length": len(content),
                     "success": response.status < 400,
                 }
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, OSError, ValueError, TypeError, RuntimeError) as e:
             end_time = time.time()
             return {
                 "endpoint": endpoint,
@@ -165,7 +165,7 @@ class ScalabilityValidator:
                 "memory_usage": float(memory_usage) if memory_usage else 0,
                 "disk_usage": float(disk_usage) if disk_usage else 0,
             }
-        except Exception as e:
+        except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             print(f"⚠️  Could not get system metrics: {e}")
             return {"cpu_usage": 0, "memory_usage": 0, "disk_usage": 0}
 
@@ -346,7 +346,7 @@ async def main():
             print("🔧 Performance optimization recommended")
             return 1
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level validation boundary: report any failure and exit non-zero
         print(f"❌ Scalability validation failed: {e}")
         return 1
 

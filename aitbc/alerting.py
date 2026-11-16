@@ -106,7 +106,7 @@ class LogAlertChannel(AlertChannel):
                 },
             )
             return True
-        except Exception as e:
+        except (AttributeError, KeyError, TypeError, ValueError) as e:
             logger.error("Failed to send log alert: %s", e)
             return False
 
@@ -129,12 +129,15 @@ class WebhookAlertChannel(AlertChannel):
         """Send alert via webhook"""
         try:
             import httpx
-
+        except ImportError as e:
+            logger.error("Failed to send webhook alert (httpx unavailable): %s", e)
+            return False
+        try:
             async with httpx.AsyncClient() as client:
                 response = await client.post(self.url, json=alert.to_dict(), headers=self.headers, timeout=10.0)
                 response.raise_for_status()
                 return True
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError) as e:
             logger.error("Failed to send webhook alert: %s", e)
             return False
 
@@ -269,7 +272,7 @@ class AlertManager:
                 if rule.should_fire():
                     alert = rule.fire()
                     await self.send_alert(alert)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - rule.condition is a user-supplied callable; one bad rule must not stop the others
                 logger.error("Error checking rule %s: %s", rule.name, e)
 
     async def send_alert(self, alert: Alert) -> None:
@@ -288,7 +291,7 @@ class AlertManager:
         for channel in channels:
             try:
                 await channel.send(alert)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - AlertChannel.send is a public extension point; one bad channel must not block the rest
                 logger.error("Failed to send alert through channel: %s", e)
 
     async def acknowledge_alert(self, alert_id: str, acknowledged_by: str) -> bool:
@@ -378,7 +381,7 @@ class AlertManager:
                 await asyncio.sleep(min_interval)
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as e:
                 logger.error("Error in alert check loop: %s", e)
                 await asyncio.sleep(60)
 

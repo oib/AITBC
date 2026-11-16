@@ -102,14 +102,14 @@ def test_thread_safety():
         try:
             for i in range(500):
                 q.put("topic", f"msg-{i}", priority=PriorityMessageQueue.PRIORITY_TRANSACTION)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - worker thread must record any failure; an uncaught thread error would silently pass
             errors.append(e)
 
     def consumer():
         try:
             for _ in range(500):
                 q.get(timeout=1.0)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - worker thread must record any failure; an uncaught thread error would silently pass
             errors.append(e)
 
     threads = [threading.Thread(target=producer) for _ in range(2)]

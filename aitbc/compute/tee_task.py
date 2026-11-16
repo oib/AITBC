@@ -129,7 +129,7 @@ class TEETaskRunner:
                 logs=list(task.logs),
                 completed_at=task.completed_at,
             )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - executor is caller-supplied payload code; any failure must mark the task FAILED
             task.status = TEEExecutionStatus.FAILED
             task.completed_at = datetime.now(UTC)
             task.log(f"enclave execution failed: {exc}")

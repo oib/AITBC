@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 from sqlalchemy import create_engine, event
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import QueuePool
 
@@ -69,7 +70,7 @@ class ReadReplicaManager:
                 self._setup_monitoring(replica_engine, f"replica_{len(self.replica_engines)}")
                 self.replica_engines.append(replica_engine)
                 logger.info("Connected to read replica: %s", replica_url)
-            except Exception as e:
+            except (SQLAlchemyError, ValueError, TypeError, OSError) as e:
                 logger.warning("Failed to connect to replica %s: %s", replica_url, e)
         if not self.replica_engines:
             logger.warning("No read replicas available, all traffic will go to primary")

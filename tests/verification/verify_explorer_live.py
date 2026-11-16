@@ -29,7 +29,7 @@ def main():
         else:
             print(f"❌ API failed: {response.status_code}")
             return
-    except Exception as e:
+    except (requests.RequestException, ValueError, TypeError, KeyError, AttributeError) as e:
         print(f"❌ API error: {e}")
         return
 
@@ -50,7 +50,7 @@ def main():
                 return
             else:
                 print("⚠️  Could not determine data mode")
-    except Exception as e:
+    except (requests.RequestException, ValueError, TypeError, KeyError, AttributeError) as e:
         print(f"❌ Error checking JS: {e}")
 
     # Check other endpoints
@@ -70,7 +70,7 @@ def main():
                 print(f"✅ {name}: {len(data['items'])} items")
             else:
                 print(f"❌ {name}: Failed ({response.status_code})")
-        except Exception as e:
+        except (requests.RequestException, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ {name}: Error - {e}")
 
     print("\n" + "=" * 60)

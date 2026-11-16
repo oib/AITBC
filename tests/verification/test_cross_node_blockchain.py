@@ -123,7 +123,16 @@ def run_cross_node_tests():
         try:
             test_func(local_node)
             results.append((test_name, True))
-        except (AssertionError, Exception) as e:
+        except (
+            AssertionError,
+            requests.RequestException,
+            OSError,
+            ValueError,
+            TypeError,
+            KeyError,
+            AttributeError,
+            RuntimeError,
+        ) as e:
             print(f"❌ {test_name} FAILED: {e}")
             results.append((test_name, False))
 

@@ -107,7 +107,7 @@ def _derive_wallet(private_key: str | None, name: str) -> dict[str, str]:
         pytest.skip(f"eth-account/aitbc crypto not available: {exc}")
     try:
         address = derive_ethereum_address(private_key)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - key-derivation backends raise untyped validation errors; any failure means skip
         pytest.skip(f"Could not derive address from {name}: {exc}")
     from aitbc.crypto.signature_recovery import canonical_address
 
@@ -173,7 +173,7 @@ def client_token(buyer_wallet: dict[str, str]) -> str:
     payload = {"sub": buyer_wallet["address"], "role": "client", "type": "access"}
     try:
         return JWTAuth(secret=jwt_secret).create_token(payload)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - JWT creation (PyJWT internals) is untyped; any failure means skip
         pytest.skip(f"Could not create client JWT: {exc}")
 
 
@@ -214,7 +214,7 @@ async def miner_client(coordinator_url: str) -> AsyncGenerator[httpx.AsyncClient
 
             token = JWTAuth(secret=jwt_secret).create_token({"sub": "e2e-test-miner", "role": "miner", "type": "access"})
             headers["Authorization"] = f"Bearer {token}"
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - JWT creation (PyJWT internals) is untyped; any failure means skip
             pytest.skip(f"Could not create miner JWT: {exc}")
     elif miner_api_key:
         headers["X-Api-Key"] = miner_api_key
@@ -284,7 +284,7 @@ async def require_healthy_services(coordinator_url, blockchain_url, market_url) 
         ]:
             try:
                 resp = await client.get(f"{url}/health")
-            except Exception as exc:
+            except (httpx.HTTPError, OSError, ValueError, TypeError) as exc:
                 pytest.skip(f"{name} service not reachable at {url}: {exc}")
             if resp.status_code != 200:
                 pytest.skip(f"{name} service not healthy at {url}: {resp.status_code}")

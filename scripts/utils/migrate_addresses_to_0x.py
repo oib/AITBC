@@ -125,7 +125,7 @@ def migrate_wallets(wallet_dir: Path) -> None:
 
             account = Account.from_key(str(private_key).removeprefix("0x"))
             evm_address = account.address
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - eth_account key-derivation errors vary by backend; a bad wallet file must be skipped, not abort the migration
             print(f"skip {path}: cannot derive address ({e})", file=sys.stderr)
             continue
         # Normalise the stored side the same way as the derived side: the

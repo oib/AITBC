@@ -40,7 +40,7 @@ class BlockchainSetup:
             else:
                 log.warning("Genesis password file not found at %s", self.genesis_password_path)
                 return ""
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.error("Failed to load genesis password: %s", e)
             return ""
 
@@ -63,7 +63,7 @@ class BlockchainSetup:
                 log.info("✓ Genesis wallet exists")
             else:
                 log.warning("Genesis wallet not found, may need manual setup")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.warning("Genesis wallet check failed: %s", e)
         try:
             # fixed command, safe input
@@ -78,7 +78,7 @@ class BlockchainSetup:
                 log.info("✓ Genesis wallet balance: %s", result.stdout.strip())
             else:
                 log.warning("Genesis balance check: %s", result.stderr)
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.warning("Genesis balance check failed: %s", e)
         log.info("Genesis block already exists, initialization skipped")
         return {"status": "completed", "note": "Genesis block already exists"}
@@ -108,7 +108,7 @@ class BlockchainSetup:
                 log.info("Genesis wallet will be used as funding source for training wallets")
             else:
                 log.warning("Genesis balance check: %s", result.stderr)
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.warning("Genesis balance check failed: %s", e)
         return {"status": "completed", "funding_source": "genesis", "note": "Genesis wallet used as funding source"}
 
@@ -146,7 +146,7 @@ class BlockchainSetup:
                     log.info("✓ Wallet %s created", wallet_name)
                 else:
                     log.warning("Wallet creation: %s", create_result.stderr)
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.warning("Wallet creation check failed: %s", e)
         try:
             # fixed command, safe input
@@ -162,7 +162,7 @@ class BlockchainSetup:
             else:
                 log.warning("Funding failed: %s", result.stderr)
                 return {"status": "failed", "error": result.stderr}
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.warning("Funding failed: %s", e)
             return {"status": "failed", "error": str(e)}
         return {"status": "completed", "wallet": wallet_name, "amount": amount}
@@ -195,7 +195,7 @@ class BlockchainSetup:
             else:
                 log.warning("Balance check failed: %s", result.stderr)
                 return {"status": "failed", "error": result.stderr}
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.warning("Balance check failed: %s", e)
             return {"status": "failed", "error": str(e)}
 

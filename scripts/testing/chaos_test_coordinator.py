@@ -135,7 +135,15 @@ class ChaosTestCoordinator:
                         logger.info("Service recovered in %.2f seconds", recovery_time)
                         return True
 
-            except Exception as e:
+            except (
+                subprocess.SubprocessError,
+                OSError,
+                aiohttp.ClientError,
+                asyncio.TimeoutError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+            ) as e:
                 logger.debug("Recovery check failed: %s", e)
 
             await asyncio.sleep(5)
@@ -195,7 +203,7 @@ class ChaosTestCoordinator:
                         self.metrics["success_count"] += 1
                     else:
                         self.metrics["error_count"] += 1
-            except Exception:
+            except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError):
                 self.metrics["error_count"] += 1
 
         while time.time() - start_time < duration:

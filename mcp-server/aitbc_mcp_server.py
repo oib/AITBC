@@ -82,11 +82,17 @@ def _parse_hosts_file(path: Path) -> dict[str, Any] | None:
                     import yaml
                 except ImportError:
                     return None
-                data = yaml.safe_load(f)
+                try:
+                    data = yaml.safe_load(f)
+                except yaml.YAMLError as e:
+                    # Normalize to ValueError so the outer handler below covers it
+                    # (yaml is only bound on this branch, so it cannot appear in
+                    # the outer except tuple).
+                    raise ValueError(f"invalid YAML in {path}: {e}") from e
             else:
                 data = json.load(f)
         return data if data else None
-    except Exception as e:
+    except (OSError, ValueError, TypeError) as e:
         sys.stderr.write(f"warning: could not load MCP hosts config from {path}: {e}\n")
         return None
 

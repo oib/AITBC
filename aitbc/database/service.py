@@ -78,7 +78,7 @@ class SQLiteDatabaseService(DatabaseService):
         try:
             yield conn
             conn.commit()
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - cleanup boundary: rollback must run on any failure, then re-raise
             conn.rollback()
             logger.error("Database error: %s", e)
             raise
@@ -134,7 +134,7 @@ class SQLiteDatabaseService(DatabaseService):
                 for query, params in queries:
                     cursor.execute(query, params)
                 return True
-            except Exception as e:
+            except (sqlite3.Error, TypeError, ValueError) as e:
                 logger.error("Transaction failed: %s", e)
                 raise
 
@@ -145,7 +145,7 @@ class SQLiteDatabaseService(DatabaseService):
         for conn in self._connections:
             try:
                 conn.close()
-            except Exception as e:
+            except sqlite3.Error as e:
                 logger.warning("Error closing connection: %s", e)
         self._connections.clear()
         self._closed = True
