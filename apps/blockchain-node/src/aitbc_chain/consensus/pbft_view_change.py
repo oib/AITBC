@@ -158,6 +158,44 @@ def proposal_body_bound(block: Any, block_hash: str, sequence: int) -> bool:
     return isinstance(block, dict) and block.get("hash") == block_hash and block.get("height") == sequence
 
 
+def proposal_body_signed(block: Any) -> bool:
+    """Whether the body carries a valid proposer signature over its header.
+
+    #2133 item 2: ``proposal_body_bound`` only checks self-declared
+    ``hash``/``height`` labels, and the pre-prepare signature covers just the
+    five vote fields, so a gossip-path body substitution would be persisted
+    and re-sealed verbatim. The producer's block signature covers the header
+    (hash, parent, proposer, roots); verifying it at intake — under the same
+    domain rule the importer applies — rejects a body the scheduled proposer
+    never signed. Fail closed: unsigned or malformed bodies are refused.
+    """
+    if not isinstance(block, dict):
+        return False
+    proposer = block.get("proposer")
+    signature = block.get("signature")
+    height = block.get("height")
+    if not (isinstance(proposer, str) and proposer and isinstance(signature, str) and signature):
+        return False
+    from aitbc.crypto.consensus_signing import (
+        DOMAIN_BLOCK_PROPOSAL,
+        block_header_message,
+        verify_block_signature,
+        verify_consensus_message_domain,
+    )
+
+    from ..config import settings
+
+    try:
+        activation = getattr(settings, "consensus_domain_separation_height", None)
+        if activation is not None and isinstance(height, int) and height >= activation:
+            return bool(
+                verify_consensus_message_domain(block_header_message(block), signature, proposer, DOMAIN_BLOCK_PROPOSAL)
+            )
+        return bool(verify_block_signature(block, signature, proposer))
+    except (AttributeError, KeyError, TypeError, ValueError):
+        return False
+
+
 def view_change_digest(chain_id: str, sequence: int, view: int, lock_view: int, lock_hash: str) -> str:
     """``sha256("vc|{chain_id}|{h}|{v'}|{lock_view}|{lock_hash}")``."""
     return hashlib.sha256(f"vc|{chain_id}|{sequence}|{view}|{lock_view}|{lock_hash}".encode()).hexdigest()

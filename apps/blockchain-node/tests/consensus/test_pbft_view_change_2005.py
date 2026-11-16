@@ -975,7 +975,7 @@ class _FakeGossip:
 
 def _proposal_body(proposer: str, block_hash: str = HA) -> dict[str, Any]:
     """The full signed-block payload a producer attaches to PRE_PREPARE (2A)."""
-    return {
+    body = {
         "chain_id": _CID,
         "height": SEQ,
         "hash": block_hash,
@@ -986,10 +986,14 @@ def _proposal_body(proposer: str, block_hash: str = HA) -> dict[str, Any]:
         "state_root": "0x" + "11" * 32,
         "bridge_state_root": None,
         "aux_state_root": None,
-        "signature": "0xsig",
+        "signature": "",
         "block_metadata": None,
         "transactions": [],
     }
+    from aitbc.crypto.consensus_signing import sign_block_hash
+
+    body["signature"] = sign_block_hash(body, KEYS[proposer]) if proposer in KEYS else "0xsig"
+    return body
 
 
 class TestDeadAfterQuorumReseal:
@@ -1047,7 +1051,7 @@ class TestDeadAfterQuorumReseal:
         assert payload["hash"] == HA
         assert payload["height"] == SEQ
         assert payload["proposer"] == proposer
-        assert payload["signature"] == "0xsig"  # original proposer signature, as-is
+        assert payload["signature"] == body["signature"]  # original proposer signature, as-is
         cert = payload["block_metadata"]["pbft_certificate"]
         assert len(cert) == Q
         assert {c["sender"] for c in cert} == set(MEMBERS[:Q])
@@ -1866,3 +1870,42 @@ class TestR4NearerFlood:
         await pbft._handle_view_change_payload(_vc(sender, SEQ, 0))  # nearer: displaces the farthest own
         assert (SEQ, 0) in pbft._vc_messages and (SEQ, MAX_VC_BUCKETS_PER_SENDER) not in pbft._vc_messages
         assert len(pbft._vc_messages) == MAX_VC_BUCKETS_PER_SENDER
+
+
+class TestItem2ProposalBodySignature:
+    """#2133 item 2: the stored proposal body must carry the scheduled
+    proposer's block signature — a substituted body (valid hash/height
+    labels, forged or foreign signature) is refused at intake."""
+
+    def _engine(self):
+        consensus = _make_consensus()
+        proposer = _proposer(SEQ, VIEW)
+        follower = next(s for s in MEMBERS if s != proposer)
+        return consensus, proposer, _pbft(consensus, follower, KEYS[follower])
+
+    def test_signed_body_is_stored(self, vc_armed):
+        consensus, proposer, pbft = self._engine()
+        assert pbft._vc_proposal_store(SEQ, HA, _proposal_body(proposer)) is True
+        assert consensus.pbft_vc_proposal_get(SEQ, HA)
+
+    def test_substituted_body_is_refused(self, vc_armed):
+        """Same hash/height labels, tampered header, original signature."""
+        consensus, proposer, pbft = self._engine()
+        body = _proposal_body(proposer)
+        body["state_root"] = "0x" + "22" * 32
+        assert pbft._vc_proposal_store(SEQ, HA, body) is False
+
+    def test_foreign_signature_is_refused(self, vc_armed):
+        consensus, proposer, pbft = self._engine()
+        body = _proposal_body(proposer)
+        other = next(a for a in MEMBERS if a != proposer)
+        from aitbc.crypto.consensus_signing import sign_block_hash
+
+        body["signature"] = sign_block_hash(body, KEYS[other])
+        assert pbft._vc_proposal_store(SEQ, HA, body) is False
+
+    def test_unsigned_body_is_refused(self, vc_armed):
+        consensus, proposer, pbft = self._engine()
+        body = _proposal_body(proposer)
+        body["signature"] = ""
+        assert pbft._vc_proposal_store(SEQ, HA, body) is False
