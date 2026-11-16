@@ -16,6 +16,7 @@ Chain of custody pinned here:
 from __future__ import annotations
 
 import json
+import logging
 from contextlib import contextmanager
 from typing import Any
 
@@ -182,6 +183,18 @@ def test_eviction_ignores_unrelated_entries(fresh_mempool):
     entries = [{"tx_hash": DEAD_HASH, "sender": SENDER, "nonce": 0}]
     _importer()._evict_rejected_from_mempool(_block_data(entries))
     assert len(fresh_mempool.list_transactions(CHAIN)) == 1
+
+
+def test_eviction_logs_hash_and_reason(fresh_mempool, caplog):
+    """#1999: the eviction log must name the tx and the proposer's verdict
+    reason, not just a count — probes could not tell which rejection fired."""
+    dead = _tx(nonce=0)
+    fresh_mempool.add(dead, chain_id=CHAIN, tx_hash=DEAD_HASH)
+    entries = [{"tx_hash": DEAD_HASH, "sender": SENDER, "nonce": 0, "reason": "Invalid nonce"}]
+    with caplog.at_level(logging.INFO):
+        _importer()._evict_rejected_from_mempool(_block_data(entries))
+    assert DEAD_HASH in caplog.text
+    assert "Invalid nonce" in caplog.text
 
 
 def test_eviction_failure_never_propagates(fresh_mempool, monkeypatch):
