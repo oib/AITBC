@@ -7,10 +7,10 @@ module-level helpers live in shared.py. All public names remain
 importable from ``market_service.services.market_service`` via __init__.
 """
 
-from .jobs import _JobsMixin
+from .job_settlement import _JobsSettlementMixin
 from .offers import _OffersMixin
 from .ratings import _RatingsMixin
 
 
-class MarketService(_OffersMixin, _RatingsMixin, _JobsMixin):
+class MarketService(_OffersMixin, _RatingsMixin, _JobsSettlementMixin):
     """Market service for managing market operations"""
