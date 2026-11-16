@@ -84,6 +84,11 @@ jobs:
       - name: Test suite parity
         run: make test-suite-parity
 
+      # Scoped coverage floor on the money/consensus paths (#1860): ~10-12 min,
+      # so it runs as its own step rather than inside the required gate.
+      - name: Coverage ratchet (critical paths)
+        run: make coverage-ratchet
+
       - name: OpenAPI drift check
         run: make openapi-check
 

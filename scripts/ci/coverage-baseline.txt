@@ -1,0 +1,98 @@
+# Coverage floors for the money/consensus ratchet (#1860).
+# Format: <floor_pct> <repo-relative path>. Floors are the measured
+# percent_covered rounded DOWN to the integer, so sub-percent noise cannot
+# trip the gate. Regenerate ONLY via scripts/ci/check-coverage-ratchet.sh --update.
+#
+100 apps/blockchain-node/src/aitbc_chain/consensus/__init__.py
+ 97 apps/blockchain-node/src/aitbc_chain/consensus/abandon.py
+100 apps/blockchain-node/src/aitbc_chain/consensus/attest_response_diag.py
+ 84 apps/blockchain-node/src/aitbc_chain/consensus/attestation_state_probe.py
+ 81 apps/blockchain-node/src/aitbc_chain/consensus/block_hash.py
+ 94 apps/blockchain-node/src/aitbc_chain/consensus/equivocation_policy.py
+ 91 apps/blockchain-node/src/aitbc_chain/consensus/evidence_replication.py
+ 88 apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py
+ 82 apps/blockchain-node/src/aitbc_chain/consensus/pbft.py
+ 92 apps/blockchain-node/src/aitbc_chain/consensus/pbft_certificate.py
+100 apps/blockchain-node/src/aitbc_chain/consensus/pbft_cross_view.py
+100 apps/blockchain-node/src/aitbc_chain/consensus/pbft_quorum.py
+ 87 apps/blockchain-node/src/aitbc_chain/consensus/pbft_view_change.py
+ 90 apps/blockchain-node/src/aitbc_chain/consensus/pbft_vote_signature.py
+ 70 apps/blockchain-node/src/aitbc_chain/consensus/poa.py
+ 41 apps/blockchain-node/src/aitbc_chain/consensus/poa_ops.py
+ 63 apps/blockchain-node/src/aitbc_chain/consensus/poa_proposal_gates.py
+ 67 apps/blockchain-node/src/aitbc_chain/consensus/poa_tx_pipeline.py
+ 90 apps/blockchain-node/src/aitbc_chain/consensus/proposal_freshness.py
+ 85 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py
+ 73 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_collect.py
+ 93 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_crypto.py
+ 89 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_evidence.py
+ 71 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_listener.py
+ 86 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_round_lock.py
+100 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_round_lock_types.py
+ 80 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_v9.py
+ 96 apps/blockchain-node/src/aitbc_chain/consensus/slashing.py
+ 88 apps/blockchain-node/src/aitbc_chain/consensus/unavail.py
+ 89 apps/blockchain-node/src/aitbc_chain/consensus/vote_fetch.py
+ 99 apps/blockchain-node/src/aitbc_chain/consensus/vote_journal.py
+ 92 apps/blockchain-node/src/aitbc_chain/contracts/escrow.py
+ 50 apps/blockchain-node/src/aitbc_chain/cross_chain/__init__.py
+ 63 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py
+100 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_base.py
+ 88 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_finality.py
+100 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_leaf.py
+ 41 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_ledger.py
+ 38 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_lock_guard.py
+ 89 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_root_shadow.py
+ 82 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py
+ 96 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_tx_root.py
+100 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_types.py
+ 73 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py
+ 30 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py
+  0 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py
+ 69 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
+100 apps/blockchain-node/src/aitbc_chain/state/__init__.py
+ 76 apps/blockchain-node/src/aitbc_chain/state/admission_authority.py
+ 66 apps/blockchain-node/src/aitbc_chain/state/agent_spend.py
+ 58 apps/blockchain-node/src/aitbc_chain/state/authoritative_reads.py
+ 57 apps/blockchain-node/src/aitbc_chain/state/block_deltas.py
+ 83 apps/blockchain-node/src/aitbc_chain/state/bridge_credit.py
+ 89 apps/blockchain-node/src/aitbc_chain/state/deactivation_evidence.py
+ 76 apps/blockchain-node/src/aitbc_chain/state/gpu_resources.py
+ 22 apps/blockchain-node/src/aitbc_chain/state/liquidity.py
+ 10 apps/blockchain-node/src/aitbc_chain/state/liquidity_transition.py
+ 71 apps/blockchain-node/src/aitbc_chain/state/merkle_patricia_trie.py
+ 71 apps/blockchain-node/src/aitbc_chain/state/pure_state_transition.py
+ 70 apps/blockchain-node/src/aitbc_chain/state/side_root_shadow.py
+ 50 apps/blockchain-node/src/aitbc_chain/state/state_root_utils.py
+ 67 apps/blockchain-node/src/aitbc_chain/state/state_transition.py
+ 72 apps/blockchain-node/src/aitbc_chain/state/state_transition_apply.py
+ 21 apps/blockchain-node/src/aitbc_chain/state/state_transition_handlers.py
+ 71 apps/blockchain-node/src/aitbc_chain/state/state_transition_validation.py
+100 apps/blockchain-node/src/aitbc_chain/state/v13_policy.py
+ 82 apps/blockchain-node/src/aitbc_chain/state/v9_policy.py
+100 apps/coordinator-api/src/coordinator_api/contexts/payments/__init__.py
+ 77 apps/coordinator-api/src/coordinator_api/contexts/payments/acceptance.py
+100 apps/coordinator-api/src/coordinator_api/contexts/payments/domain/__init__.py
+100 apps/coordinator-api/src/coordinator_api/contexts/payments/domain/escrow_refund_relay.py
+100 apps/coordinator-api/src/coordinator_api/contexts/payments/domain/escrow_relay.py
+100 apps/coordinator-api/src/coordinator_api/contexts/payments/domain/escrow_release_relay.py
+ 89 apps/coordinator-api/src/coordinator_api/contexts/payments/operations.py
+ 65 apps/coordinator-api/src/coordinator_api/contexts/payments/provider_binding.py
+100 apps/coordinator-api/src/coordinator_api/contexts/payments/routers/__init__.py
+ 97 apps/coordinator-api/src/coordinator_api/contexts/payments/routers/escrow_refund_relay.py
+ 94 apps/coordinator-api/src/coordinator_api/contexts/payments/routers/escrow_relay.py
+ 86 apps/coordinator-api/src/coordinator_api/contexts/payments/routers/escrow_release_relay.py
+ 66 apps/coordinator-api/src/coordinator_api/contexts/payments/routers/payments.py
+100 apps/coordinator-api/src/coordinator_api/contexts/payments/services/__init__.py
+ 31 apps/coordinator-api/src/coordinator_api/contexts/payments/services/acceptance_sweeper.py
+100 apps/coordinator-api/src/coordinator_api/contexts/payments/services/escrow_agent_binding.py
+ 91 apps/coordinator-api/src/coordinator_api/contexts/payments/services/escrow_refund_relay.py
+ 89 apps/coordinator-api/src/coordinator_api/contexts/payments/services/escrow_relay.py
+ 94 apps/coordinator-api/src/coordinator_api/contexts/payments/services/escrow_relay_metrics.py
+ 96 apps/coordinator-api/src/coordinator_api/contexts/payments/services/escrow_release_relay.py
+ 60 apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py
+ 67 apps/coordinator-api/src/coordinator_api/contexts/payments/services/settlement_reconciler.py
+ 85 apps/coordinator-api/src/coordinator_api/contexts/payments/services/stuck_escrow_sweeper.py
+ 56 apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py
+  0 apps/coordinator-api/src/coordinator_api/contexts/payments/storage/__init__.py
+  0 apps/coordinator-api/src/coordinator_api/contexts/payments/storage/schema.py
