@@ -152,7 +152,7 @@ class PaymentEscrow:
             try:
                 for persisted in store.load_all():
                     self._escrows[persisted.escrow_id] = persisted
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - fail-safe: any store.load_all failure degrades to empty view
                 # Degrade to an empty view rather than refuse to start; the
                 # error is loud in the logs and on-chain state is unaffected.
                 logger.error("Failed to load persisted escrows: %s", e)
@@ -291,7 +291,7 @@ class PaymentEscrow:
                         submitter = refund_submitter_for(entry) if refund_submitter_for else None
                         self.refund(entry.escrow_id, submitter=submitter)
                         expired.append(entry)
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - per-entry containment: any refund failure keeps entry LOCKED for the next sweep
                         # Keep the entry LOCKED so the next sweep retries the
                         # refund; a transient RPC failure must not strand funds.
                         logger.error("Failed to refund expired escrow %s: %s", entry.escrow_id, e)
@@ -311,7 +311,7 @@ class PaymentEscrow:
                 if load is not None:
                     try:
                         entry = load(escrow_id)
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - fail-safe: store point-lookup failure reads as absent
                         logger.error("Failed to load escrow %s from store: %s", escrow_id, e)
                         entry = None
                     if entry is not None:
@@ -339,7 +339,7 @@ class PaymentEscrow:
                     persisted: EscrowEntry | None
                     try:
                         persisted = load_by_task(task_id)
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - fail-safe: store point-lookup failure reads as absent
                         logger.error("Failed to load escrow for task %s from store: %s", task_id, e)
                         persisted = None
                     if persisted is not None:
@@ -374,7 +374,7 @@ class PaymentEscrow:
             return
         try:
             self._store.save(entry)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - fail-safe: store write-through failure is logged, never raised
             logger.error("Failed to persist escrow %s: %s", entry.escrow_id, e)
 
     def _get_entry(self, escrow_id: str) -> EscrowEntry:

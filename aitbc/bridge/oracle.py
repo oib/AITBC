@@ -300,7 +300,7 @@ class ExternalOracleClient(OracleClient):
                 resp = await client.post(url, json=payload)
                 resp.raise_for_status()
                 return cast(dict[str, Any], resp.json())
-        except Exception as e:
+        except (httpx.HTTPError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             logger.warning("Oracle POST %s failed: %s", url, e)
             self._mark_unhealthy(endpoint)
             return None
@@ -317,7 +317,7 @@ class ExternalOracleClient(OracleClient):
                     resp = client.get(f"{endpoint}/health")
                     if resp.is_success:
                         return True
-            except Exception as e:
+            except (httpx.HTTPError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                 logger.debug("Oracle health check %s failed: %s", endpoint, e)
                 self._mark_unhealthy(endpoint)
         return False
@@ -525,7 +525,7 @@ class OracleFallbackPolicy:
         while not stop_event.is_set():
             try:
                 self.check_oracle_health()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - health loop must survive any probe error and keep running
                 logger.error("Oracle health check loop error: %s", e)
             stop_event.wait(self._health_check_interval)
 

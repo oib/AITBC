@@ -7,6 +7,7 @@ from __future__ import annotations
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 import hmac as hmac
+import httpx as httpx
 import json as json
 import os
 from dataclasses import dataclass as dataclass
@@ -16,6 +17,7 @@ from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Security as Security, status as status
 from fastapi.security import APIKeyHeader
+from sqlalchemy.exc import SQLAlchemyError as SQLAlchemyError
 from starlette.concurrency import run_in_threadpool
 from sqlmodel import Session as Session
 
@@ -70,6 +72,31 @@ if not _RPC_SETTLEMENT_API_KEY:
 _settlement_key_header: APIKeyHeader = APIKeyHeader(name="X-Settlement-Key", auto_error=False)
 _RPC_API_PEER_KEYS = frozenset(k.strip() for k in os.getenv("BLOCKCHAIN_RPC_API_KEY_PEERS", "").split(",") if k.strip())
 _GENESIS_WALLET_PRIVATE_KEY = os.getenv("GENESIS_WALLET_PRIVATE_KEY", "")
+
+# Expected failure surfaces for the escrow RPC paths (#1860): SQLAlchemyError
+# covers session/driver failures in the session_scope probes; httpx covers the
+# SharedHttpClient chain/mempool lookups; the builtins cover JSON decode and
+# response/record shape edges. Anything outside propagates.
+_DB_PROBE_ERRORS: tuple[type[BaseException], ...] = (
+    SQLAlchemyError,
+    ArithmeticError,
+    AttributeError,
+    KeyError,
+    OSError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+)
+_HTTP_PROBE_ERRORS: tuple[type[BaseException], ...] = (
+    httpx.HTTPError,
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    AttributeError,
+    KeyError,
+)
+_HTTP_PROBE_ERRORS_WITH_IMPORTS: tuple[type[BaseException], ...] = _HTTP_PROBE_ERRORS + (ImportError,)
 _ESCROW_RELEASE_PRIVATE_KEY = os.getenv("ESCROW_RELEASE_PRIVATE_KEY", "")
 _ESCROW_RELEASE_ADDRESS = os.getenv("ESCROW_RELEASE_ADDRESS", "")
 _RELEASE_LOOKUP_LIMIT = int(os.getenv("ESCROW_RELEASE_LOOKUP_LIMIT", "10"))
@@ -191,7 +218,7 @@ def _parse_create_request(body: dict[str, Any]) -> tuple[str, str, str, Decimal,
         raise HTTPException(status_code=400, detail="job_id, buyer, provider, and amount are required")
     try:
         amount_dec = Decimal(str(amount))
-    except Exception:
+    except (InvalidOperation, ValueError, TypeError):
         raise HTTPException(status_code=400, detail=f"Invalid amount: {amount}") from None
     if not isinstance(job_id, str) or not isinstance(buyer, str) or not isinstance(provider, str):
         raise HTTPException(status_code=400, detail="Invalid types for job_id, buyer, or provider") from None
@@ -278,7 +305,7 @@ async def _drop_stale_create_state(mgr: Any, job_id: str) -> None:
                     session.commit()
 
         await run_in_threadpool(_drop_stale_row)
-    except Exception as e:
+    except _DB_PROBE_ERRORS as e:
         _logger.warning("Failed to drop stale escrow record for job_id=%s: %s", job_id, e)
 
 
@@ -325,13 +352,13 @@ def _resolve_create_lock_tx(
             )
         try:
             nonce = int(nonce)
-        except Exception:
+        except (TypeError, ValueError):
             raise HTTPException(status_code=400, detail="lock_nonce must be an integer") from None
         fee = body.get("lock_fee")
         if fee is not None:
             try:
                 fee = int(fee)
-            except Exception:
+            except (TypeError, ValueError):
                 raise HTTPException(status_code=400, detail="lock_fee must be an integer") from None
         try:
             tx_to_submit, _ = _build_lock_tx(
@@ -866,7 +893,7 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
                     backfill_settlement_legs(session, db_record)
 
         await run_in_threadpool(_read_escrow_row)
-    except Exception as e:
+    except _DB_PROBE_ERRORS as e:
         _logger.warning("Failed to query Escrow DB: %s", e)
     derived_state = ""
     if db_record:

@@ -106,13 +106,13 @@ class OracleAgentExample:
                     try:
                         data = await data_func()
                         await self.submit_oracle_data(data_type, data)
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - oracle resilience boundary: one bad source must not stop the others
                         logger.error("Error collecting %s data: %s", data_type, e)
 
                 # Sleep before next collection
                 await asyncio.sleep(60)
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - collection loop must survive any per-source failure and keep running
                 logger.error("Error in data collection loop: %s", e)
                 await asyncio.sleep(30)
 
@@ -132,7 +132,7 @@ class OracleAgentExample:
             tx_hash = await self.blockchain_client.submit_oracle_data(oracle_data)
             logger.info("Submitted %s data: %s", data_type, tx_hash)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - aitbc_agent_sdk is an external package; a failed submission must not kill the collector
             logger.error("Error submitting %s data: %s", data_type, e)
 
     async def get_price_data(self) -> dict[str, Any]:
@@ -155,14 +155,14 @@ class OracleAgentExample:
                     "BTC": {"price": crypto_data["bitcoin"]["usd"], "change_24h": crypto_data["bitcoin"]["usd_24h_change"]},
                     "ETH": {"price": crypto_data["ethereum"]["usd"], "change_24h": crypto_data["ethereum"]["usd_24h_change"]},
                 }
-        except Exception as e:
+        except (requests.RequestException, ValueError, KeyError, TypeError) as e:
             logger.error("Error getting crypto prices: %s", e)
 
         # Get stock prices (using Alpha Vantage API - would need API key)
         try:
             # This is a mock implementation
             prices["stocks"] = {"AAPL": {"price": 150.25, "change": "+2.50"}, "GOOGL": {"price": 2800.75, "change": "-15.25"}}
-        except Exception as e:
+        except (TypeError, ValueError) as e:
             logger.error("Error getting stock prices: %s", e)
 
         return prices
@@ -186,7 +186,7 @@ class OracleAgentExample:
                     "conditions": "Partly Cloudy",
                     "wind_speed": 10.5,  # km/h
                 }
-            except Exception as e:
+            except (TypeError, ValueError) as e:
                 logger.error("Error getting weather for %s: %s", city, e)
 
         return weather
@@ -278,7 +278,7 @@ async def main():
     except KeyboardInterrupt:
         logger.info("Shutting down oracle agent...")
         await agent.stop()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level example boundary: any agent failure must still run agent.stop()
         logger.error("Oracle agent error: %s", e)
         await agent.stop()
 

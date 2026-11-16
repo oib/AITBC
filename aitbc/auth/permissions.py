@@ -16,6 +16,17 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Expected failure surface for the dict-style PermissionManager APIs below:
+# the methods only touch in-memory dict/set stores, so the raisable set is
+# data-shape builtins (bad role/permission argument types, unhashable keys).
+# Anything outside propagates rather than silently reporting an RBAC error.
+_RBAC_ERRORS = (
+    AttributeError,
+    KeyError,
+    TypeError,
+    ValueError,
+)
+
 
 class Permission(Enum):
     """System permissions enumeration."""
@@ -198,7 +209,7 @@ class PermissionManager:
                 "role": role.value,
                 "permissions": [perm.value for perm in self.user_permissions[user_id]],
             }
-        except Exception as e:
+        except _RBAC_ERRORS as e:
             logger.error("Error assigning role: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -209,7 +220,7 @@ class PermissionManager:
             if not role:
                 return {"status": "error", "message": "User role not found"}
             return {"status": "success", "user_id": user_id, "role": role.value}
-        except Exception as e:
+        except _RBAC_ERRORS as e:
             logger.error("Error getting user role: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -227,7 +238,7 @@ class PermissionManager:
                 "custom_permissions": len(custom_perms),
                 "total_permissions": len(all_permissions),
             }
-        except Exception as e:
+        except _RBAC_ERRORS as e:
             logger.error("Error getting user permissions: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -237,7 +248,7 @@ class PermissionManager:
             user_perms = self.user_permissions.get(user_id, set())
             custom_perms = self.custom_permissions.get(user_id, set())
             return permission in user_perms or permission in custom_perms
-        except Exception as e:
+        except _RBAC_ERRORS as e:
             logger.error("Error checking permission: %s", e)
             return False
 
@@ -254,7 +265,7 @@ class PermissionManager:
                 "all_permissions_granted": all_granted,
                 "permission_results": results,
             }
-        except Exception as e:
+        except _RBAC_ERRORS as e:
             logger.error("Error checking permissions: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -270,7 +281,7 @@ class PermissionManager:
                 "permission": permission.value,
                 "total_custom_permissions": len(self.custom_permissions[user_id]),
             }
-        except Exception as e:
+        except _RBAC_ERRORS as e:
             logger.error("Error granting custom permission: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -287,7 +298,7 @@ class PermissionManager:
                 }
             else:
                 return {"status": "error", "message": "No custom permissions found for user"}
-        except Exception as e:
+        except _RBAC_ERRORS as e:
             logger.error("Error revoking custom permission: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -301,7 +312,7 @@ class PermissionManager:
                 "permissions": [perm.value for perm in permissions],
                 "total_permissions": len(permissions),
             }
-        except Exception as e:
+        except _RBAC_ERRORS as e:
             logger.error("Error getting role permissions: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -316,7 +327,7 @@ class PermissionManager:
                     "total_permissions": len(permissions),
                 }
             return {"status": "success", "total_roles": len(roles_data), "roles": roles_data}
-        except Exception as e:
+        except _RBAC_ERRORS as e:
             logger.error("Error listing roles: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -346,7 +357,7 @@ class PermissionManager:
                 role_name = role.value
                 stats["users_by_role"][role_name] = stats["users_by_role"].get(role_name, 0) + 1
             return {"status": "success", "stats": stats}
-        except Exception as e:
+        except _RBAC_ERRORS as e:
             logger.error("Error getting permission stats: %s", e)
             return {"status": "error", "message": str(e)}
 

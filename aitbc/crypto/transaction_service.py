@@ -17,6 +17,7 @@ import os
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.exceptions import AITBCError
 from aitbc.utils.chain_id import default_chain_id
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
@@ -25,6 +26,29 @@ from aitbc.utils.validation import validate_address
 # Transaction fields covered by the signature, in the exact shape the node
 # verifier reconstructs. Keep in sync with the node verifier (see module docstring).
 _SIGNED_FIELDS = ("from", "to", "amount", "fee", "nonce", "payload", "type", "chain_id")
+
+# Expected failure surface for the RPC lookups below: AITBCError covers the
+# HTTP client's NetworkError/RateLimitError/CircuitBreakerOpenError (all
+# AITBCError subclasses); the builtins cover JSON/shape/parse failures.
+_TX_ERRORS = (
+    AITBCError,
+    AttributeError,
+    ImportError,
+    KeyError,
+    TypeError,
+    ValueError,
+)
+
+# Signing additionally exercises eth_keys/eth_utils, which are optional deps
+# imported lazily inside generate_signed_transaction — their exception types
+# simply cannot be raised when the packages are absent.
+_SIGN_TX_ERRORS: tuple[type[BaseException], ...]
+try:
+    from eth_keys.exceptions import BadSignature, ValidationError as _EthKeyValidationError
+
+    _SIGN_TX_ERRORS = _TX_ERRORS + (BadSignature, _EthKeyValidationError)
+except ImportError:
+    _SIGN_TX_ERRORS = _TX_ERRORS
 
 
 def _canonical_signing_message(tx: dict[str, Any]) -> bytes:
@@ -65,7 +89,7 @@ class TransactionService:
             http_client = AITBCHTTPClient(base_url=self.rpc_url, timeout=5)
             account_data = http_client.get(f"/rpc/account/{address}")
             return int(account_data.get("nonce", 0))
-        except Exception as e:
+        except _TX_ERRORS as e:
             self.logger.error("Error getting nonce: %s", e)
         return 0
 
@@ -85,7 +109,7 @@ class TransactionService:
             http_client = AITBCHTTPClient(base_url=self.rpc_url, timeout=5)
             account_data = http_client.get(f"/rpc/account/{address}")
             return int(account_data.get("balance", 0))
-        except Exception as e:
+        except _TX_ERRORS as e:
             self.logger.error("Error getting balance: %s", e)
         return 0
 
@@ -170,6 +194,6 @@ class TransactionService:
 
             self.logger.info("Generated signed transaction for %s to %s", amount, to_address)
             return transaction
-        except Exception as e:
+        except _SIGN_TX_ERRORS as e:
             self.logger.error("Error generating signed transaction: %s", e)
             return None
