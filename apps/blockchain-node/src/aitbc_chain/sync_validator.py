@@ -493,6 +493,7 @@ class ProposerSignatureValidator:
             self._load_validator_set() or self._trusted,
             height=cast(int, height),
             view=expected_view,
+            chain_id=str(block_data.get("chain_id") or ""),
         )
 
     def _validate_pbft_certificate(
@@ -524,8 +525,13 @@ class ProposerSignatureValidator:
         quorum by the attestation minimum, not ``pbft_required_messages``."""
         import hashlib
 
-        from aitbc.crypto.consensus_signing import verify_consensus_message
         from aitbc.crypto.signature_recovery import canonical_address
+
+        from .consensus.pbft_vote_signature import verify_pbft_vote_signature
+
+        # #2102: commit signatures verify under the block's chain_id-bound
+        # preimage first, legacy preimage second.
+        chain_id = block_data.get("chain_id") or None
 
         min_attestations = self._effective_min_attestations()
         validator_set = self._load_validator_set() or self._trusted
@@ -559,14 +565,7 @@ class ProposerSignatureValidator:
             sender_canonical = canonical_address(sender)
             if sender_canonical in seen:
                 continue
-            msg_data = {
-                "message_type": commit.get("message_type"),
-                "sender": sender,
-                "view_number": view_number,
-                "sequence_number": sequence_number,
-                "digest": digest,
-            }
-            if verify_consensus_message(msg_data, signature, sender):
+            if verify_pbft_vote_signature(commit, signature, sender, chain_id):
                 valid_count += 1
                 seen.add(sender_canonical)
 
