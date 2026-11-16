@@ -7,10 +7,92 @@ import logging
 import os
 import sqlite3
 from decimal import Decimal
-from collections.abc import Collection
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-from wallet_app.utc_time import utc_now_iso
+if TYPE_CHECKING:
+    # Static-only re-exports: gives mypy/ruff the real signatures of every
+    # name the bridge_db_<domain> modules own, while runtime resolution stays
+    # lazy through __getattr__ below (the submodules import _connect_db and
+    # DB_PATH back from this module, so they cannot be imported eagerly —
+    # see the facade comment at the bottom of this file).
+    from .bridge_db_deposits import (
+        _ETH_DEPOSIT_STATUSES as _ETH_DEPOSIT_STATUSES,
+        get_all_deposits,
+        get_deposit_by_id,
+        get_deposit_by_tx_hash,
+        get_deposits_by_recipient,
+        get_pending_deposits,
+        insert_deposit,
+        insert_exchange_prepay_deposit,
+        update_deposit_status,
+        update_deposit_tx_hash,
+    )
+    from .bridge_db_prices import (
+        cleanup_old_prices,
+        get_all_time_average,
+        insert_price_history,
+    )
+    from .bridge_db_sell import (
+        _SELL_ETH_COMMITTED_STATUSES as _SELL_ETH_COMMITTED_STATUSES,
+        _SELL_LOCK_KEYS as _SELL_LOCK_KEYS,
+        _SELL_OPEN_STATUSES as _SELL_OPEN_STATUSES,
+        _SELL_QUOTE_KEYS as _SELL_QUOTE_KEYS,
+        _SELL_RESERVE_STATUSES as _SELL_RESERVE_STATUSES,
+        count_open_sell_quotes,
+        get_all_sell_locks,
+        get_all_sell_quotes,
+        get_latest_sell_quote_by_shop,
+        get_open_sell_locks,
+        get_sell_eth_committed_since,
+        get_sell_inflight_sweep,
+        get_sell_lock_by_ait_tx_hash,
+        get_sell_lock_by_id,
+        get_sell_lock_by_quote_id,
+        get_sell_locks_by_status,
+        get_sell_pending_eth_reserve,
+        get_sell_quote,
+        get_sell_quotes_by_status,
+        insert_sell_lock,
+        insert_sell_quote,
+        update_sell_lock_status,
+        update_sell_quote_status,
+    )
+    from .bridge_db_settlement import (
+        _EXCHANGE_ETH_COMMITTED_STATUSES as _EXCHANGE_ETH_COMMITTED_STATUSES,
+        _EXCHANGE_SETTLEMENT_INFLIGHT_SWEEP_STATUSES as _EXCHANGE_SETTLEMENT_INFLIGHT_SWEEP_STATUSES,
+        _EXCHANGE_SETTLEMENT_OPEN_STATUSES as _EXCHANGE_SETTLEMENT_OPEN_STATUSES,
+        _EXCHANGE_SETTLEMENT_RESERVE_STATUSES as _EXCHANGE_SETTLEMENT_RESERVE_STATUSES,
+        _EXCHANGE_SETTLEMENT_STATUSES as _EXCHANGE_SETTLEMENT_STATUSES,
+        _SETTLEMENT_SELECT_COLS as _SETTLEMENT_SELECT_COLS,
+        _row_to_settlement as _row_to_settlement,
+        get_exchange_eth_committed_since,
+        get_exchange_inflight_sweep,
+        get_exchange_pending_eth_reserve,
+        get_exchange_settlement,
+        get_open_exchange_settlements,
+        insert_exchange_settlement,
+        insert_monitor_mark,
+        list_exchange_settlements,
+        monitor_mark,
+        update_exchange_settlement,
+        update_monitor_mark,
+    )
+    from .bridge_db_withdrawals import (
+        _WITHDRAWAL_ETH_COMMITTED_STATUSES as _WITHDRAWAL_ETH_COMMITTED_STATUSES,
+        get_all_withdrawals,
+        get_awaiting_depth_withdrawals,
+        get_pending_withdrawals,
+        get_release_attempts,
+        get_resumable_withdrawals,
+        get_withdrawal_by_ait_tx_hash,
+        get_withdrawal_eth_committed_since,
+        insert_withdrawal,
+        record_release_attempt,
+        update_release_attempt,
+        update_withdrawal_block,
+        update_withdrawal_pricing,
+        update_withdrawal_status,
+    )
 
 DB_PATH = (os.getenv("BRIDGE_DEPOSITS_DB") or "").strip() or os.path.join(
     os.getenv("AITBC_DATA_DIR", os.getenv("DATA_DIR", "/var/lib/aitbc")),
@@ -493,1892 +575,172 @@ def _migrate_real_to_numeric(conn: sqlite3.Connection) -> None:
         cursor.execute(f"DROP TABLE {temp_name}")  # temp_name is a hardcoded literal (see above)
 
 
-def insert_deposit(
-    tx_hash: str,
-    from_address: str,
-    amount_eth: Decimal,
-    amount_ait: Decimal,
-    recipient: str | None = None,
-    deposit_address: str | None = None,
-) -> str:
-    """Insert a new deposit record. ``tx_hash`` is stored canonicalized —
-    see _canon_tx_hash (issue #668)."""
-    import uuid
-
-    tx_hash = _canon_tx_hash(tx_hash)
-
-    deposit_id = f"deposit_{uuid.uuid4().hex[:8]}"
-
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    try:
-        cursor.execute(
-            """
-            INSERT INTO eth_deposits (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at, deposit_address)
-            VALUES (?, ?, ?, ?, ?, ?, 'pending', ?, ?)
-            """,
-            (
-                deposit_id,
-                tx_hash,
-                from_address,
-                recipient,
-                amount_eth,
-                amount_ait,
-                utc_now_iso(),
-                deposit_address,
-            ),
-        )
-        conn.commit()
-        return deposit_id
-    except sqlite3.IntegrityError:
-        conn.close()
-        raise ValueError(f"Deposit with tx_hash {tx_hash} already exists") from None
-    finally:
-        conn.close()
-
-
-def insert_exchange_prepay_deposit(tx_hash: str, from_address: str, amount_eth: Decimal, tag: str) -> str:
-    """Record an exchange-prepay ETH deposit atomically as
-    'exchange_prepay' — outside the payout loop's 'pending' vocabulary, so
-    it can never be auto-minted. The raw tag the buyer typed stays in
-    ``recipient``; the settlement monitor canonicalizes and validates it.
-    ``amount_ait`` is 0: no AIT is owed, the credit lands exchange-side."""
-    import uuid
-
-    tx_hash = _canon_tx_hash(tx_hash)
-
-    deposit_id = f"deposit_{uuid.uuid4().hex[:8]}"
-    conn = _connect_db()
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            """
-            INSERT INTO eth_deposits (id, tx_hash, from_address, recipient, amount_eth, amount_ait, status, created_at)
-            VALUES (?, ?, ?, ?, ?, '0', 'exchange_prepay', ?)
-            """,
-            (
-                deposit_id,
-                tx_hash,
-                from_address,
-                f"EXCHANGE_DEPOSIT:{tag}",
-                amount_eth,
-                utc_now_iso(),
-            ),
-        )
-        conn.commit()
-        return deposit_id
-    except sqlite3.IntegrityError:
-        raise ValueError(f"Deposit with tx_hash {tx_hash} already exists") from None
-    finally:
-        conn.close()
-
-
-def get_pending_deposits(limit: int = 500, offset: int = 0) -> list[dict[str, Any]]:
-    """Get pending deposits (bounded — was an unbounded full-table scan, #1408)."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
-        FROM eth_deposits
-        WHERE status = 'pending'
-        ORDER BY created_at DESC
-        LIMIT ? OFFSET ?
-    """,
-        (limit, offset),
-    )
-
-    rows = cursor.fetchall()
-    conn.close()
-
-    return [
-        {
-            "id": row[0],
-            "tx_hash": row[1],
-            "from_address": row[2],
-            "amount_eth": row[3],
-            "amount_ait": row[4],
-            "status": row[5],
-            "created_at": row[6],
-            "verified_at": row[7],
-            "completed_at": row[8],
-            "recipient": row[9],
-            "ait_tx_hash": row[10],
-        }
-        for row in rows
-    ]
-
-
-# Canonical eth_deposits lifecycle vocabulary (#1795 / #1424 residual):
-# the mint path walks pending -> verified -> completed; 'exchange_prepay'
-# rows are written by insert_exchange_prepay_deposit and consumed by the
-# settlement monitor; 'rejected' is the documented operator-terminal state
-# (bridge_routes /deposits filter); 'failed' is the monitor's terminal
-# error state (timestamp-free write, see test_coder_c_sweep). Anything
-# else is a typo that would park the row outside every worklist — reject
-# it here, the only write path for this column.
+# ---------------------------------------------------------------------------
+# Compatibility facade — the per-table modules below
+# ---------------------------------------------------------------------------
 #
-# This table is SHARED with aitbc-bridge-monitor, whose
-# BridgeDepositStatus vocabulary adds processing/pending_retry/submitted/
-# written_off/funding — all rejected here at write time, and vice versa
-# the monitor rejects 'verified'/'rejected' (#1919). The overlap is only
-# pending/completed/failed/exchange_prepay. Consequence: a 'verified'
-# (or 'pending') row the monitor did not create is invisible to every
-# monitor worklist — the monitor's stranded-row detector
-# (BRIDGE_STRANDED_DEPOSIT_HOURS) is the alert net, and resolution is
-# deliberate (admin write-off / manual-payout / wallet-side completion),
-# never an automatic monitor payout — a 'verified' row's wallet-side
-# TRANSFER may already have landed.
-_ETH_DEPOSIT_STATUSES = frozenset({"pending", "verified", "completed", "exchange_prepay", "rejected", "failed"})
-
-
-def update_deposit_status(deposit_id: str, status: str, *, expected_statuses: Collection[str] | None = None) -> bool:
-    """Update deposit status.
-
-    ``expected_statuses`` is the CAS predicate (#1796): when given, the
-    UPDATE only lands while the row still sits in one of those statuses,
-    so a stale writer cannot overwrite a state that has already moved on
-    (e.g. re-verifying a completed deposit). rowcount 0 -> False.
-    """
-    if status not in _ETH_DEPOSIT_STATUSES:
-        raise ValueError(f"unknown deposit status: {status!r}")
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    # Only the status's own timestamp column is stamped: stamping
-    # completed_at on a 'pending' reset fabricated a completion time that
-    # _normalize_deposit then reported as processed_at (#1452). 'pending'
-    # additionally clears a stale completed_at — a re-pended row was never
-    # completed. timestamp_field values are hardcoded literals, never
-    # caller input; `status` itself is bound as a ? parameter.
-    now = utc_now_iso()
-    params: tuple[str, ...]
-    if status == "verified":
-        query = "UPDATE eth_deposits SET status = ?, verified_at = ? WHERE id = ?"  # nosec
-        params = (status, now, deposit_id)
-    elif status == "completed":
-        query = "UPDATE eth_deposits SET status = ?, completed_at = ? WHERE id = ?"  # nosec
-        params = (status, now, deposit_id)
-    elif status == "pending":
-        query = "UPDATE eth_deposits SET status = ?, completed_at = NULL WHERE id = ?"  # nosec
-        params = (status, deposit_id)
-    else:
-        query = "UPDATE eth_deposits SET status = ? WHERE id = ?"  # nosec
-        params = (status, deposit_id)
-    if expected_statuses:
-        expected = tuple(expected_statuses)
-        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
-        params = (*params, *expected)
-    cursor.execute(query, params)
-
-    conn.commit()
-    rows_affected = cursor.rowcount
-    conn.close()
-
-    return rows_affected > 0
-
-
-def update_deposit_tx_hash(deposit_id: str, ait_tx_hash: str, *, expected_statuses: Collection[str] | None = None) -> bool:
-    """Record the AIT transaction hash for a completed deposit.
-
-    Same CAS predicate as update_deposit_status (#1796): pass
-    ``{"completed"}`` so a delayed writer cannot stamp a hash onto a row
-    that has since moved to another state.
-    """
-    conn = _connect_db()
-    cursor = conn.cursor()
-    query = "UPDATE eth_deposits SET ait_tx_hash = ? WHERE id = ?"
-    params: tuple = (ait_tx_hash, deposit_id)
-    if expected_statuses:
-        expected = tuple(expected_statuses)
-        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
-        params = (*params, *expected)
-    cursor.execute(query, params)
-    conn.commit()
-    rows_affected = cursor.rowcount
-    conn.close()
-    return rows_affected > 0
-
-
-def get_deposit_by_tx_hash(tx_hash: str) -> dict[str, Any] | None:
-    """Get deposit by transaction hash."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
-        FROM eth_deposits
-        WHERE lower(tx_hash) IN (?, ?)
-    """,
-        _tx_hash_keys(tx_hash),
-    )
-
-    row = cursor.fetchone()
-    conn.close()
-
-    if not row:
-        return None
-
-    return {
-        "id": row[0],
-        "tx_hash": row[1],
-        "from_address": row[2],
-        "amount_eth": row[3],
-        "amount_ait": row[4],
-        "status": row[5],
-        "created_at": row[6],
-        "verified_at": row[7],
-        "completed_at": row[8],
-        "recipient": row[9],
-        "ait_tx_hash": row[10],
-    }
-
-
-def get_deposit_by_id(deposit_id: str) -> dict[str, Any] | None:
-    """Get deposit by its local deposit id."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
-        FROM eth_deposits
-        WHERE id = ?
-    """,
-        (deposit_id,),
-    )
-
-    row = cursor.fetchone()
-    conn.close()
-
-    if not row:
-        return None
-
-    return {
-        "id": row[0],
-        "tx_hash": row[1],
-        "from_address": row[2],
-        "amount_eth": row[3],
-        "amount_ait": row[4],
-        "status": row[5],
-        "created_at": row[6],
-        "verified_at": row[7],
-        "completed_at": row[8],
-        "recipient": row[9],
-        "ait_tx_hash": row[10],
-    }
-
-
-def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
-    """Get all deposits with pagination."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
-        FROM eth_deposits
-        ORDER BY created_at DESC
-        LIMIT ? OFFSET ?
-    """,
-        (limit, offset),
-    )
-
-    rows = cursor.fetchall()
-    conn.close()
-
-    return [
-        {
-            "id": row[0],
-            "tx_hash": row[1],
-            "from_address": row[2],
-            "amount_eth": row[3],
-            "amount_ait": row[4],
-            "status": row[5],
-            "created_at": row[6],
-            "verified_at": row[7],
-            "completed_at": row[8],
-            "recipient": row[9],
-            "ait_tx_hash": row[10],
-        }
-        for row in rows
-    ]
-
-
-def get_deposits_by_recipient(recipient: str, limit: int = 10) -> list[dict[str, Any]]:
-    """Get deposits for a single AIT recipient, newest first.
-
-    Non-enumerable counterpart to get_all_deposits: the caller must already
-    know the recipient address, so this can stay public where the full index
-    is operator-only. Matching is case-insensitive because recipients arrive
-    both checksummed and lowercase depending on how the depositor encoded
-    the transaction data field.
-    """
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
-        FROM eth_deposits
-        WHERE LOWER(recipient) = LOWER(?)
-        ORDER BY created_at DESC
-        LIMIT ?
-    """,
-        (recipient, limit),
-    )
-
-    rows = cursor.fetchall()
-    conn.close()
-
-    return [
-        {
-            "id": row[0],
-            "tx_hash": row[1],
-            "from_address": row[2],
-            "amount_eth": row[3],
-            "amount_ait": row[4],
-            "status": row[5],
-            "created_at": row[6],
-            "verified_at": row[7],
-            "completed_at": row[8],
-            "recipient": row[9],
-            "ait_tx_hash": row[10],
-        }
-        for row in rows
-    ]
-
-
-def insert_price_history(eth_usd: Decimal, eth_eur: Decimal, exchange_rate_usd: Decimal, exchange_rate_eur: Decimal) -> None:
-    """Insert a new price history record."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        INSERT INTO price_history (eth_usd_price, eth_eur_price, exchange_rate_usd, exchange_rate_eur)
-        VALUES (?, ?, ?, ?)
-        """,
-        (eth_usd, eth_eur, exchange_rate_usd, exchange_rate_eur),
-    )
-
-    conn.commit()
-    conn.close()
-
-
-def get_all_time_average() -> dict[str, Any] | None:
-    """Get all-time average prices from history."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        SELECT
-            AVG(eth_usd_price) as avg_usd,
-            AVG(eth_eur_price) as avg_eur,
-            AVG(exchange_rate_usd) as avg_rate_usd,
-            AVG(exchange_rate_eur) as avg_rate_eur,
-            COUNT(*) as count
-        FROM price_history
-    """)
-
-    result = cursor.fetchone()
-    conn.close()
-
-    if result and result[4] > 0:  # count > 0
-        return {
-            "eth_usd_avg": Decimal(str(result[0])) if result[0] is not None else None,
-            "eth_eur_avg": Decimal(str(result[1])) if result[1] is not None else None,
-            "exchange_rate_usd_avg": Decimal(str(result[2])) if result[2] is not None else None,
-            "exchange_rate_eur_avg": Decimal(str(result[3])) if result[3] is not None else None,
-            "count": result[4],
-        }
-
-    return None
-
-
-def cleanup_old_prices(days: int = 30) -> int:
-    """Clean up price history older than specified days."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    cursor.execute(
-        """
-        DELETE FROM price_history
-        WHERE timestamp < datetime('now', ?)
-        """,
-        (f"-{int(days)} days",),
-    )
-
-    deleted_count = cursor.rowcount
-    conn.commit()
-    conn.close()
-
-    return deleted_count
-
-
-def insert_withdrawal(
-    ait_tx_hash: str,
-    from_address: str,
-    eth_address: str,
-    amount_ait: Decimal,
-    fee_ait: Decimal,
-    net_ait: Decimal,
-    amount_eth: Decimal,
-    status: str = "pending",
-    error: str | None = None,
-    ait_block_height: int | None = None,
-    ait_block_hash: str | None = None,
-) -> str:
-    """Record a new ETH withdrawal request."""
-    import uuid
-
-    withdrawal_id = f"withdrawal_{uuid.uuid4().hex[:8]}"
-
-    conn = _connect_db()
-    cursor = conn.cursor()
-    try:
-        cursor.execute(
-            """
-            INSERT INTO eth_withdrawals (
-                id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
-                amount_eth, status, error, created_at, ait_block_height, ait_block_hash
-            )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """,
-            (
-                withdrawal_id,
-                ait_tx_hash,
-                from_address,
-                eth_address,
-                amount_ait,
-                fee_ait,
-                net_ait,
-                amount_eth,
-                status,
-                error,
-                utc_now_iso(),
-                ait_block_height,
-                ait_block_hash,
-            ),
-        )
-        conn.commit()
-        return withdrawal_id
-    except sqlite3.IntegrityError:
-        conn.close()
-        raise ValueError(f"Withdrawal with ait_tx_hash {ait_tx_hash} already exists") from None
-    finally:
-        conn.close()
-
-
-def get_withdrawal_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
-    """Get a withdrawal by its AIT transaction hash."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT
-            id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
-            amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
-            released_at, completed_at, refunded_at, release_nonce, retry_count,
-            ait_block_height, ait_block_hash
-        FROM eth_withdrawals
-        WHERE ait_tx_hash = ?
-        """,
-        (ait_tx_hash,),
-    )
-    row = cursor.fetchone()
-    conn.close()
-    if not row:
-        return None
-    keys = [
-        "id",
-        "ait_tx_hash",
-        "from_address",
-        "eth_address",
-        "amount_ait",
-        "fee_ait",
-        "net_ait",
-        "amount_eth",
-        "status",
-        "eth_tx_hash",
-        "refund_tx_hash",
-        "error",
-        "created_at",
-        "released_at",
-        "completed_at",
-        "refunded_at",
-        "release_nonce",
-        "retry_count",
-        "ait_block_height",
-        "ait_block_hash",
-    ]
-    return dict(zip(keys, row, strict=False))
-
-
-def get_pending_withdrawals() -> list[dict[str, Any]]:
-    """Get all withdrawals not yet completed or refunded."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT
-            id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
-            amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
-            released_at, completed_at, refunded_at, release_nonce,
-            ait_block_height, ait_block_hash
-        FROM eth_withdrawals
-        WHERE status IN ('pending', 'insufficient_reserve', 'failed', 'releasing', 'needs_review',
-                         'releasing_retry', 'needs_review_release')
-        ORDER BY created_at ASC
-        """,
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    keys = [
-        "id",
-        "ait_tx_hash",
-        "from_address",
-        "eth_address",
-        "amount_ait",
-        "fee_ait",
-        "net_ait",
-        "amount_eth",
-        "status",
-        "eth_tx_hash",
-        "refund_tx_hash",
-        "error",
-        "created_at",
-        "released_at",
-        "completed_at",
-        "refunded_at",
-        "release_nonce",
-        "ait_block_height",
-        "ait_block_hash",
-    ]
-    return [dict(zip(keys, row, strict=False)) for row in rows]
-
-
-def get_resumable_withdrawals() -> list[dict[str, Any]]:
-    """Withdrawals left mid-release ('releasing'/'releasing_retry') or
-    unverifiable ('needs_review').
-
-    A crash between the ETH broadcast and the status write leaves a
-    'releasing' row; the monitor re-verifies these against the chain
-    on every poll and after restart instead of retrying or refunding
-    blindly. 'releasing_retry' rows are operator-driven re-releases —
-    they are re-verified the same way, but a proven failure parks them
-    at 'needs_review_release' instead of auto-refunding. That parked
-    status is deliberately NOT resumable: only an operator moves it.
-    """
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT
-            id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
-            amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
-            released_at, completed_at, refunded_at, release_nonce,
-            ait_block_height, ait_block_hash
-        FROM eth_withdrawals
-        WHERE status IN ('releasing', 'needs_review', 'releasing_retry')
-        ORDER BY created_at ASC
-        """,
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    keys = [
-        "id",
-        "ait_tx_hash",
-        "from_address",
-        "eth_address",
-        "amount_ait",
-        "fee_ait",
-        "net_ait",
-        "amount_eth",
-        "status",
-        "eth_tx_hash",
-        "refund_tx_hash",
-        "error",
-        "created_at",
-        "released_at",
-        "completed_at",
-        "refunded_at",
-        "release_nonce",
-        "ait_block_height",
-        "ait_block_hash",
-    ]
-    return [dict(zip(keys, row, strict=False)) for row in rows]
-
-
-def get_awaiting_depth_withdrawals() -> list[dict[str, Any]]:
-    """Withdrawals recorded before they reached BRIDGE_WITHDRAW_SEAL_DEPTH.
-
-    The monitor re-checks these every poll: once the chain head clears
-    their recorded ait_block_height by the required depth — and a
-    canonical lookup still shows the tx sealed in that same block — they
-    move to 'pending' and enter the normal release path. A tx that
-    vanished from the canonical chain became 'orphaned' — the reorg
-    already un-burned the AIT, so no refund is needed.
-    """
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT
-            id, ait_tx_hash, from_address, eth_address, amount_ait, ait_block_height,
-            ait_block_hash, status, created_at
-        FROM eth_withdrawals
-        WHERE status = 'awaiting_depth'
-        ORDER BY created_at ASC
-        """,
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    keys = [
-        "id",
-        "ait_tx_hash",
-        "from_address",
-        "eth_address",
-        "amount_ait",
-        "ait_block_height",
-        "ait_block_hash",
-        "status",
-        "created_at",
-    ]
-    return [dict(zip(keys, row, strict=False)) for row in rows]
-
-
-def update_withdrawal_block(ait_tx_hash: str, ait_block_height: int, ait_block_hash: str | None) -> bool:
-    """Refresh the sealing block on an awaiting-depth row after a reorg."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE eth_withdrawals SET ait_block_height = ?, ait_block_hash = ? WHERE ait_tx_hash = ?",
-        (ait_block_height, ait_block_hash, ait_tx_hash),
-    )
-    conn.commit()
-    rows_affected = cursor.rowcount
-    conn.close()
-    return rows_affected > 0
-
-
-def update_withdrawal_pricing(ait_tx_hash: str, *, fee_ait: Decimal, net_ait: Decimal, amount_eth: Decimal) -> bool:
-    """Fill in the priced legs on a row inserted before pricing existed.
-
-    'awaiting_depth' rows carry amount_eth=0 until they are deep enough to
-    release; when the drain promotes one to 'pending' it stores the price
-    it is about to pay so the ledger (and the payout audit) shows it.
-    """
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE eth_withdrawals SET fee_ait = ?, net_ait = ?, amount_eth = ? WHERE ait_tx_hash = ?",
-        (fee_ait, net_ait, amount_eth, ait_tx_hash),
-    )
-    conn.commit()
-    rows_affected = cursor.rowcount
-    conn.close()
-    return rows_affected > 0
-
-
-def get_all_withdrawals(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
-    """Get all withdrawals with pagination."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT
-            id, ait_tx_hash, from_address, eth_address, amount_ait, fee_ait, net_ait,
-            amount_eth, status, eth_tx_hash, refund_tx_hash, error, created_at,
-            released_at, completed_at, refunded_at, release_nonce,
-            ait_block_height, ait_block_hash
-        FROM eth_withdrawals
-        ORDER BY created_at DESC
-        LIMIT ? OFFSET ?
-        """,
-        (limit, offset),
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    keys = [
-        "id",
-        "ait_tx_hash",
-        "from_address",
-        "eth_address",
-        "amount_ait",
-        "fee_ait",
-        "net_ait",
-        "amount_eth",
-        "status",
-        "eth_tx_hash",
-        "refund_tx_hash",
-        "error",
-        "created_at",
-        "released_at",
-        "completed_at",
-        "refunded_at",
-        "release_nonce",
-        "ait_block_height",
-        "ait_block_hash",
-    ]
-    return [dict(zip(keys, row, strict=False)) for row in rows]
-
-
-def update_withdrawal_status(
-    ait_tx_hash: str,
-    status: str,
-    eth_tx_hash: str | None = None,
-    refund_tx_hash: str | None = None,
-    error: str | None = None,
-    release_nonce: int | None = None,
-    expected_statuses: Collection[str] | None = None,
-) -> bool:
-    """Update withdrawal status and optional hashes.
-
-    ``expected_statuses`` is the CAS predicate (#1918), same shape as
-    update_deposit_status (#1796): when given, the UPDATE only lands while
-    the row still sits in one of those statuses, so a stale writer cannot
-    overwrite a state that has already moved on. rowcount 0 -> False.
-    """
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    timestamp_field = "released_at"
-    if status == "completed":
-        timestamp_field = "completed_at"
-    elif status == "refunded":
-        timestamp_field = "refunded_at"
-
-    # timestamp_field is a hardcoded literal above, never caller input
-    query = f"""
-        UPDATE eth_withdrawals
-        SET status = ?, {timestamp_field} = ?, eth_tx_hash = COALESCE(?, eth_tx_hash),
-            refund_tx_hash = COALESCE(?, refund_tx_hash), error = COALESCE(?, error),
-            release_nonce = COALESCE(?, release_nonce)
-        WHERE ait_tx_hash = ?
-    """  # nosec
-    params: tuple = (status, utc_now_iso(), eth_tx_hash, refund_tx_hash, error, release_nonce, ait_tx_hash)
-    if expected_statuses:
-        expected = tuple(expected_statuses)
-        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
-        params = (*params, *expected)
-    cursor.execute(query, params)
-    conn.commit()
-    rows_affected = cursor.rowcount
-    conn.close()
-    return rows_affected > 0
-
-
-# Withdrawal statuses where the ETH release happened or may have happened —
-# the committed-since semantics mirror _SELL_ETH_COMMITTED_STATUSES: the cap
-# measures ETH that left the wallet, so ambiguous rows count conservatively.
-# `pending`/`insufficient_reserve` sent nothing; `failed`/`refunded` proved
-# no completed send (only gas at worst) and are excluded.
-_WITHDRAWAL_ETH_COMMITTED_STATUSES = (
-    "releasing",
-    "releasing_retry",
-    "released",
-    "needs_review",
-    "needs_review_release",
-    "completed",
-)
-
-
-def get_withdrawal_eth_committed_since(since_iso: str) -> Decimal:
-    """Sum of ETH released (or possibly released) by withdrawals since a
-    timestamp — the withdrawal lane's contribution to the release windows
-    surfaced by GET /v1/bridge/float (CLI-5)."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    placeholders = ", ".join("?" for _ in _WITHDRAWAL_ETH_COMMITTED_STATUSES)
-    # placeholders are literal '?' generated from _WITHDRAWAL_ETH_COMMITTED_STATUSES; all values bound
-    cursor.execute(
-        f"""SELECT amount_eth FROM eth_withdrawals
-            WHERE status IN ({placeholders})
-              AND released_at >= ?""",  # nosec
-        (*_WITHDRAWAL_ETH_COMMITTED_STATUSES, since_iso),
-    )
-    total = Decimal(0)
-    for (amount,) in cursor.fetchall():
-        if amount is not None:
-            total += amount if isinstance(amount, Decimal) else Decimal(str(amount))
-    conn.close()
-    return total
-
-
-# ---------------------------------------------------------------------------
-# ETH-14 — operator release-retry attempts
-# ---------------------------------------------------------------------------
-
-
-def record_release_attempt(ait_tx_hash: str, resolved_by: str, operator_note: str | None) -> int:
-    """Register an operator release attempt BEFORE the send is signed.
-
-    Bumps ``retry_count`` on the withdrawal row and inserts the attempt
-    record carrying who asked and why. Returns the attempt id — the caller
-    fills in ``eth_tx_hash``/``release_nonce``/``outcome`` afterwards via
-    :func:`update_release_attempt`.
-    """
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "UPDATE eth_withdrawals SET retry_count = COALESCE(retry_count, 0) + 1 WHERE ait_tx_hash = ?",
-        (ait_tx_hash,),
-    )
-    cursor.execute(
-        """
-        INSERT INTO eth_withdrawal_release_attempts
-            (ait_tx_hash, resolved_by, resolved_at, operator_note)
-        VALUES (?, ?, ?, ?)
-        """,
-        (ait_tx_hash, resolved_by, utc_now_iso(), operator_note),
-    )
-    attempt_id = int(cursor.lastrowid or 0)
-    conn.commit()
-    conn.close()
-    return attempt_id
-
-
-def update_release_attempt(
-    attempt_id: int,
-    *,
-    eth_tx_hash: str | None = None,
-    release_nonce: int | None = None,
-    outcome: str | None = None,
-) -> bool:
-    """Fill in an attempt row with the produced hash/nonce and its outcome."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        UPDATE eth_withdrawal_release_attempts
-        SET eth_tx_hash = COALESCE(?, eth_tx_hash),
-            release_nonce = COALESCE(?, release_nonce),
-            outcome = COALESCE(?, outcome)
-        WHERE id = ?
-        """,
-        (eth_tx_hash, release_nonce, outcome, attempt_id),
-    )
-    conn.commit()
-    rows_affected = cursor.rowcount
-    conn.close()
-    return rows_affected > 0
-
-
-def get_release_attempts(ait_tx_hash: str) -> list[dict[str, Any]]:
-    """All recorded release attempts for a withdrawal, oldest first."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        SELECT id, ait_tx_hash, eth_tx_hash, release_nonce, resolved_by,
-               resolved_at, operator_note, outcome
-        FROM eth_withdrawal_release_attempts
-        WHERE ait_tx_hash = ?
-        ORDER BY id ASC
-        """,
-        (ait_tx_hash,),
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    keys = [
-        "id",
-        "ait_tx_hash",
-        "eth_tx_hash",
-        "release_nonce",
-        "resolved_by",
-        "resolved_at",
-        "operator_note",
-        "outcome",
-    ]
-    return [dict(zip(keys, row, strict=False)) for row in rows]
-
-
-# ---------------------------------------------------------------------------
-# ETH-10 escrowed sell flow — quote and lock tables
-# ---------------------------------------------------------------------------
-
-_SELL_QUOTE_KEYS = [
-    "id",
-    "shop_ait_address",
-    "shop_eth_address",
-    "ait_amount",
-    "rate_eth_usd",
-    "ait_usd",
-    "fee_ait",
-    "eth_amount",
-    "feed_age_seconds",
-    "status",
-    "expires_at",
-    "created_at",
-]
-
-_SELL_LOCK_KEYS = [
-    "id",
-    "quote_id",
-    "ait_tx_hash",
-    "shop_ait_address",
-    "shop_eth_address",
-    "amount_ait",
-    "eth_amount",
-    "requoted",
-    "status",
-    "eth_tx_hash",
-    "release_nonce",
-    "settle_tx_hash",
-    "refund_tx_hash",
-    "escrow_out_nonce",
-    "escrow_out_tx",
-    "locked_height",
-    "locked_at",
-    "error",
-    "created_at",
-    "released_at",
-    "settled_at",
-    "refunded_at",
-    "resolved_by",
-    "resolved_at",
-    "operator_note",
-]
-
-# Lock statuses whose ETH release is still possible — they reserve float.
-# `failed`, `refunded` and `settled` are terminal and never counted; `released`
-# already sent its ETH so it reserves nothing further. `orphaned` rows are
-# refund-bound and never send ETH. `needs_review_sweep` is excluded on the
-# same grounds: it is only reached after the ETH leg is already decided.
-_SELL_RESERVE_STATUSES = ("locked", "releasing", "needs_review", "queued_reserve", "stale_price")
-
-# Statuses that count ETH as already committed for the daily cap: the send
-# either happened or is in an ambiguous state where it may have happened.
-# `queued_fee_settle` released its ETH already and only owes the AIT settle;
-# `refund_pending`/`queued_fee_refund` proved no ETH left and reserve nothing.
-# `needs_review_sweep` is counted conservatively — the released_at filter
-# excludes sweep-parked refund rows automatically.
-_SELL_ETH_COMMITTED_STATUSES = (
-    "releasing",
-    "released",
-    "settling",
-    "settled",
-    "needs_review",
-    "needs_review_sweep",
-    "queued_fee_settle",
-)
-
-# Every non-terminal lock status — the poll loop's worklist.
-# `refund_pending` = release provably unsent, refund owed but not yet in
-# flight; `queued_fee_*` = sweep parked on escrow fee-float deficit.
-# `needs_review_sweep` stays on the worklist (still an open, unresolved lock)
-# but the router never auto-processes it — operator action only.
-_SELL_OPEN_STATUSES = (
-    "locked",
-    "releasing",
-    "released",
-    "settling",
-    "refunding",
-    "refund_pending",
-    "stale_price",
-    "queued_reserve",
-    "queued_fee_settle",
-    "queued_fee_refund",
-    "needs_review",
-    "needs_review_sweep",
-    "orphaned",
-)
-
-
-def insert_sell_quote(
-    shop_ait_address: str,
-    shop_eth_address: str,
-    ait_amount: Decimal,
-    rate_eth_usd: Decimal,
-    ait_usd: Decimal,
-    fee_ait: Decimal,
-    eth_amount: Decimal,
-    expires_at: str,
-    feed_age_seconds: Decimal | None = None,
-) -> str:
-    """Record a new sell quote and return its id."""
-    import uuid
-
-    quote_id = f"sellq_{uuid.uuid4().hex[:12]}"
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT INTO bridge_sell_quotes (
-            id, shop_ait_address, shop_eth_address, ait_amount, rate_eth_usd,
-            ait_usd, fee_ait, eth_amount, feed_age_seconds, status, expires_at, created_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'quoted', ?, ?)
-        """,
-        (
-            quote_id,
-            shop_ait_address,
-            shop_eth_address,
-            ait_amount,
-            str(rate_eth_usd),
-            str(ait_usd),
-            fee_ait,
-            _money_str(eth_amount),
-            feed_age_seconds,
-            expires_at,
-            utc_now_iso(),
-        ),
-    )
-    conn.commit()
-    conn.close()
-    return quote_id
-
-
-def get_sell_quote(quote_id: str) -> dict[str, Any] | None:
-    """Get a sell quote by id."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        # _SELL_QUOTE_KEYS is a module constant; every value is bound via ?
-        "SELECT " + ", ".join(_SELL_QUOTE_KEYS) + " FROM bridge_sell_quotes WHERE id = ?",  # nosec
-        (quote_id,),
-    )
-    row = cursor.fetchone()
-    conn.close()
-    if not row:
-        return None
-    return dict(zip(_SELL_QUOTE_KEYS, row, strict=False))
-
-
-def get_all_sell_quotes(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
-    """Get all sell quotes, newest first."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        # _SELL_QUOTE_KEYS is a module constant; every value is bound via ?
-        "SELECT " + ", ".join(_SELL_QUOTE_KEYS) + " FROM bridge_sell_quotes ORDER BY created_at DESC LIMIT ? OFFSET ?",  # nosec
-        (limit, offset),
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(zip(_SELL_QUOTE_KEYS, row, strict=False)) for row in rows]
-
-
-def count_open_sell_quotes(shop_ait_address: str) -> int:
-    """Live ('quoted'/'expired') quotes a shop holds — the per-shop cap input."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT COUNT(*) FROM bridge_sell_quotes WHERE LOWER(shop_ait_address) = LOWER(?) AND status IN ('quoted', 'expired')",
-        (shop_ait_address,),
-    )
-    count = int(cursor.fetchone()[0])
-    conn.close()
-    return count
-
-
-def get_latest_sell_quote_by_shop(shop_ait_address: str) -> dict[str, Any] | None:
-    """Newest quote a shop requested — the per-shop rate-limit input."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        # _SELL_QUOTE_KEYS is a module constant; every value is bound via ?
-        "SELECT "  # nosec
-        + ", ".join(_SELL_QUOTE_KEYS)
-        + " FROM bridge_sell_quotes WHERE LOWER(shop_ait_address) = LOWER(?) ORDER BY created_at DESC LIMIT 1",
-        (shop_ait_address,),
-    )
-    row = cursor.fetchone()
-    conn.close()
-    if not row:
-        return None
-    return dict(zip(_SELL_QUOTE_KEYS, row, strict=False))
-
-
-def update_sell_quote_status(quote_id: str, status: str) -> bool:
-    """Update a sell quote's status."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute("UPDATE bridge_sell_quotes SET status = ? WHERE id = ?", (status, quote_id))
-    conn.commit()
-    rows_affected = cursor.rowcount
-    conn.close()
-    return rows_affected > 0
-
-
-def insert_sell_lock(
-    ait_tx_hash: str,
-    shop_ait_address: str,
-    amount_ait: Decimal,
-    quote_id: str | None = None,
-    shop_eth_address: str | None = None,
-    eth_amount: Decimal | None = None,
-    status: str = "locked",
-    locked_height: int | None = None,
-    error: str | None = None,
-) -> str | None:
-    """Record a new escrow lock. Returns the lock id, or None when the
-    ait_tx_hash was already recorded (dedupe — INSERT OR IGNORE)."""
-    import uuid
-
-    lock_id = f"sell_{uuid.uuid4().hex[:8]}"
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT OR IGNORE INTO bridge_sell_locks (
-            id, quote_id, ait_tx_hash, shop_ait_address, shop_eth_address,
-            amount_ait, eth_amount, status, locked_height, locked_at, error, created_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """,
-        (
-            lock_id,
-            quote_id,
-            ait_tx_hash,
-            shop_ait_address,
-            shop_eth_address,
-            amount_ait,
-            None if eth_amount is None else _money_str(eth_amount),
-            status,
-            locked_height,
-            utc_now_iso(),
-            error,
-            utc_now_iso(),
-        ),
-    )
-    inserted = cursor.rowcount > 0
-    conn.commit()
-    conn.close()
-    return lock_id if inserted else None
-
-
-def get_sell_lock_by_ait_tx_hash(ait_tx_hash: str) -> dict[str, Any] | None:
-    """Get a sell lock by its lock transaction hash."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        # _SELL_LOCK_KEYS is a module constant; every value is bound via ?
-        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE ait_tx_hash = ?",  # nosec
-        (ait_tx_hash,),
-    )
-    row = cursor.fetchone()
-    conn.close()
-    if not row:
-        return None
-    return dict(zip(_SELL_LOCK_KEYS, row, strict=False))
-
-
-def get_sell_lock_by_id(lock_id: str) -> dict[str, Any] | None:
-    """Get a sell lock by its local id."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        # _SELL_LOCK_KEYS is a module constant; every value is bound via ?
-        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE id = ?",  # nosec
-        (lock_id,),
-    )
-    row = cursor.fetchone()
-    conn.close()
-    if not row:
-        return None
-    return dict(zip(_SELL_LOCK_KEYS, row, strict=False))
-
-
-def get_sell_lock_by_quote_id(
-    quote_id: str,
-    exclude_ait_tx_hash: str | None = None,
-    statuses: tuple[str, ...] | None = None,
-    before_created_at: str | None = None,
-) -> dict[str, Any] | None:
-    """The lock bound to a quote, if any — a quote admits exactly one lock.
-    ``statuses`` narrows which sibling rows count (terminal siblings do not
-    consume the quote); ``before_created_at`` restricts to siblings recorded
-    before a timestamp, so the earliest lock wins the quote."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    # _SELL_LOCK_KEYS is a module constant; every value is bound via ?
-    query = "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks WHERE quote_id = ?"  # nosec
-    params: list[Any] = [quote_id]
-    if exclude_ait_tx_hash:
-        query += " AND ait_tx_hash != ?"
-        params.append(exclude_ait_tx_hash)
-    if statuses:
-        query += f" AND status IN ({', '.join('?' for _ in statuses)})"
-        params.extend(statuses)
-    if before_created_at:
-        query += " AND created_at < ?"
-        params.append(before_created_at)
-    cursor.execute(query + " ORDER BY created_at ASC LIMIT 1", params)
-    row = cursor.fetchone()
-    conn.close()
-    if not row:
-        return None
-    return dict(zip(_SELL_LOCK_KEYS, row, strict=False))
-
-
-def get_sell_quotes_by_status(statuses: tuple[str, ...]) -> list[dict[str, Any]]:
-    """Get sell quotes in any of the given statuses, oldest first."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    placeholders = ", ".join("?" for _ in statuses)
-    cursor.execute(
-        "SELECT "
-        + ", ".join(_SELL_QUOTE_KEYS)
-        + f" FROM bridge_sell_quotes WHERE status IN ({placeholders}) ORDER BY created_at ASC",
-        statuses,
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(zip(_SELL_QUOTE_KEYS, row, strict=False)) for row in rows]
-
-
-def get_sell_locks_by_status(statuses: tuple[str, ...]) -> list[dict[str, Any]]:
-    """Get sell locks in any of the given statuses, oldest first."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    placeholders = ", ".join("?" for _ in statuses)
-    cursor.execute(
-        "SELECT "
-        + ", ".join(_SELL_LOCK_KEYS)
-        + f" FROM bridge_sell_locks WHERE status IN ({placeholders}) ORDER BY created_at ASC",
-        statuses,
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(zip(_SELL_LOCK_KEYS, row, strict=False)) for row in rows]
-
-
-def get_open_sell_locks() -> list[dict[str, Any]]:
-    """All non-terminal sell locks — the monitor's worklist."""
-    return get_sell_locks_by_status(_SELL_OPEN_STATUSES)
-
-
-def get_sell_inflight_sweep() -> dict[str, Any] | None:
-    """The in-flight escrow sweep, if any — 'settling'/'refunding' rows hold a
-    persisted intent (nonce + signed blob). Sweep serialization: a new sweep
-    must not start while one is in flight."""
-    rows = get_sell_locks_by_status(("settling", "refunding"))
-    return rows[0] if rows else None
-
-
-def get_all_sell_locks(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
-    """Get all sell locks, newest first."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        # _SELL_LOCK_KEYS is a module constant; every value is bound via ?
-        "SELECT " + ", ".join(_SELL_LOCK_KEYS) + " FROM bridge_sell_locks ORDER BY created_at DESC LIMIT ? OFFSET ?",  # nosec
-        (limit, offset),
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return [dict(zip(_SELL_LOCK_KEYS, row, strict=False)) for row in rows]
-
-
-def update_sell_lock_status(
-    ait_tx_hash: str,
-    status: str,
-    *,
-    quote_id: str | None = None,
-    shop_eth_address: str | None = None,
-    eth_amount: Decimal | None = None,
-    requoted: int | None = None,
-    eth_tx_hash: str | None = None,
-    release_nonce: int | None = None,
-    settle_tx_hash: str | None = None,
-    refund_tx_hash: str | None = None,
-    escrow_out_nonce: int | None = None,
-    escrow_out_tx: str | None = None,
-    resolved_by: str | None = None,
-    resolved_at: str | None = None,
-    operator_note: str | None = None,
-    error: str | None = None,
-    expected_statuses: Collection[str] | None = None,
-) -> bool:
-    """Update a sell lock's status and optional lifecycle fields.
-
-    ``expected_statuses`` is the CAS predicate (#1918), same shape as
-    update_deposit_status (#1796): when given, the UPDATE only lands while
-    the row still sits in one of those statuses, so a stale writer cannot
-    overwrite a state that has already moved on. rowcount 0 -> False.
-    """
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    timestamp_field = None
-    if status in ("releasing", "released"):
-        timestamp_field = "released_at"
-    elif status == "settled":
-        timestamp_field = "settled_at"
-    elif status == "refunded":
-        timestamp_field = "refunded_at"
-
-    if timestamp_field:
-        # timestamp_field is a hardcoded literal above, never caller input
-        query = f"""
-            UPDATE bridge_sell_locks
-            SET status = ?, {timestamp_field} = ?,
-                quote_id = COALESCE(?, quote_id),
-                shop_eth_address = COALESCE(?, shop_eth_address),
-                eth_amount = COALESCE(?, eth_amount),
-                requoted = COALESCE(?, requoted),
-                eth_tx_hash = COALESCE(?, eth_tx_hash),
-                release_nonce = COALESCE(?, release_nonce),
-                settle_tx_hash = COALESCE(?, settle_tx_hash),
-                refund_tx_hash = COALESCE(?, refund_tx_hash),
-                escrow_out_nonce = COALESCE(?, escrow_out_nonce),
-                escrow_out_tx = COALESCE(?, escrow_out_tx),
-                resolved_by = COALESCE(?, resolved_by),
-                resolved_at = COALESCE(?, resolved_at),
-                operator_note = COALESCE(?, operator_note),
-                error = COALESCE(?, error)
-            WHERE ait_tx_hash = ?
-        """  # nosec
-        params: tuple = (
-            status,
-            utc_now_iso(),
-            quote_id,
-            shop_eth_address,
-            None if eth_amount is None else _money_str(eth_amount),
-            requoted,
-            eth_tx_hash,
-            release_nonce,
-            settle_tx_hash,
-            refund_tx_hash,
-            escrow_out_nonce,
-            escrow_out_tx,
-            resolved_by,
-            resolved_at,
-            operator_note,
-            error,
-            ait_tx_hash,
-        )
-    else:
-        query = """
-            UPDATE bridge_sell_locks
-            SET status = ?,
-                quote_id = COALESCE(?, quote_id),
-                shop_eth_address = COALESCE(?, shop_eth_address),
-                eth_amount = COALESCE(?, eth_amount),
-                requoted = COALESCE(?, requoted),
-                eth_tx_hash = COALESCE(?, eth_tx_hash),
-                release_nonce = COALESCE(?, release_nonce),
-                settle_tx_hash = COALESCE(?, settle_tx_hash),
-                refund_tx_hash = COALESCE(?, refund_tx_hash),
-                escrow_out_nonce = COALESCE(?, escrow_out_nonce),
-                escrow_out_tx = COALESCE(?, escrow_out_tx),
-                resolved_by = COALESCE(?, resolved_by),
-                resolved_at = COALESCE(?, resolved_at),
-                operator_note = COALESCE(?, operator_note),
-                error = COALESCE(?, error)
-            WHERE ait_tx_hash = ?
-        """
-        params = (
-            status,
-            quote_id,
-            shop_eth_address,
-            None if eth_amount is None else _money_str(eth_amount),
-            requoted,
-            eth_tx_hash,
-            release_nonce,
-            settle_tx_hash,
-            refund_tx_hash,
-            escrow_out_nonce,
-            escrow_out_tx,
-            resolved_by,
-            resolved_at,
-            operator_note,
-            error,
-            ait_tx_hash,
-        )
-    if expected_statuses:
-        # Both query variants end `WHERE ait_tx_hash = ?`; the CAS clause
-        # appends after it. Placeholders are literal '?' per expected value.
-        expected = tuple(expected_statuses)
-        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
-        params = (*params, *expected)
-    cursor.execute(query, params)
-    conn.commit()
-    rows_affected = cursor.rowcount
-    conn.close()
-    return rows_affected > 0
-
-
-def get_sell_pending_eth_reserve() -> Decimal:
-    """ETH committed to sell locks that may still release — reserves float.
-
-    Excludes `failed` rows: a failed lock's refund moves AIT, not ETH, so
-    counting it would park float forever (the wart ETH-7 §4 flagged in
-    get_pending_withdrawals does not repeat here).
-    """
-    conn = _connect_db()
-    cursor = conn.cursor()
-    placeholders = ", ".join("?" for _ in _SELL_RESERVE_STATUSES)
-    cursor.execute(
-        # placeholders are literal '?' generated from _SELL_RESERVE_STATUSES; all values bound
-        f"SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks WHERE status IN ({placeholders})",  # nosec
-        _SELL_RESERVE_STATUSES,
-    )
-    total = cursor.fetchone()[0]
-    conn.close()
-    return Decimal(str(total)) if total is not None else Decimal("0")
-
-
-def get_sell_eth_committed_since(since_iso: str) -> Decimal:
-    """Sum of ETH released (or possibly released) by sell locks since a
-    timestamp — the persisted basis for the daily release cap.
-
-    `written_off` stays out of `_SELL_ETH_COMMITTED_STATUSES` itself, but
-    a written-off row that *recorded a release tx* still counts here:
-    the cap measures ETH that left the wallet and operator bookkeeping
-    does not undo a payment (ETH-13, decided 14 Oct). A row written off
-    before any release spent nothing — the `eth_tx_hash IS NOT NULL`
-    check is what tells the two apart. The pending-ETH reserve is the
-    opposite semantic (ETH not yet paid), so `written_off` remains fully
-    excluded from `_SELL_RESERVE_STATUSES`."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    placeholders = ", ".join("?" for _ in _SELL_ETH_COMMITTED_STATUSES)
-    # placeholders are literal '?' generated from _SELL_ETH_COMMITTED_STATUSES; all values bound
-    cursor.execute(
-        f"""SELECT COALESCE(SUM(eth_amount), 0) FROM bridge_sell_locks
-            WHERE (status IN ({placeholders})
-                   OR (status = 'written_off' AND eth_tx_hash IS NOT NULL))
-              AND released_at >= ?""",  # nosec
-        (*_SELL_ETH_COMMITTED_STATUSES, since_iso),
-    )
-    total = cursor.fetchone()[0]
-    conn.close()
-    return Decimal(str(total)) if total is not None else Decimal("0")
-
-
-# ---------------------------------------------------------------------------
-# ETH-8 phase 3 (dark): exchange trade settlement ledger
+# This module stays the single import target every caller (and every test)
+# already uses: ``DB_PATH``, ``_connect_db`` and the schema (``init_db``) live
+# here, and the domain modules import those helpers back from this module —
+# which is why they can only be pulled in lazily, after this module is fully
+# initialized (PEP 562 ``__getattr__``; same pattern as
+# coordinator_api.services). ``patch("...bridge_db.DB_PATH")`` keeps working
+# because ``_connect_db`` resolves ``DB_PATH`` in *this* module's globals.
 #
-# Mirror of the sell-lock discipline for exchange trades: every state change
-# goes through update_exchange_settlement (no raw UPDATEs elsewhere), sweep
-# intents (escrow_out_nonce + escrow_out_tx) persist before broadcast, and a
-# broadcast hash is never terminal proof — sealed chain state decides.
-# ---------------------------------------------------------------------------
+# tests/ops/test_bridge_deposits_db_env.py also execs this file standalone
+# via importlib — keep top-level imports light and never import the
+# submodules eagerly.
 
-# Full settlement vocabulary — kept identical to _SETTLEMENT_STATES in
-# apps/exchange/simple_exchange/db.py; a parity test in
-# apps/wallet/tests/test_exchange_settlement_db.py pins the two together.
-_EXCHANGE_SETTLEMENT_STATUSES = frozenset(
-    {
-        "locked",
-        "releasing",
-        "released",
-        "settling",
-        "refunding",
-        "refund_pending",
-        "queued_reserve",
-        "queued_fee_settle",
-        "queued_fee_refund",
-        "needs_review",
-        "needs_review_release",
-        "needs_review_sweep",
-        "settled",
-        "refunded",
-        "failed",
-    }
-)
+_NAME_TO_MODULE = {
+    # eth_deposits rows + status vocabulary
+    "insert_deposit": "bridge_db_deposits",
+    "insert_exchange_prepay_deposit": "bridge_db_deposits",
+    "get_pending_deposits": "bridge_db_deposits",
+    "_ETH_DEPOSIT_STATUSES": "bridge_db_deposits",
+    "update_deposit_status": "bridge_db_deposits",
+    "update_deposit_tx_hash": "bridge_db_deposits",
+    "get_deposit_by_tx_hash": "bridge_db_deposits",
+    "get_deposit_by_id": "bridge_db_deposits",
+    "get_all_deposits": "bridge_db_deposits",
+    "get_deposits_by_recipient": "bridge_db_deposits",
+    # price_history
+    "insert_price_history": "bridge_db_prices",
+    "get_all_time_average": "bridge_db_prices",
+    "cleanup_old_prices": "bridge_db_prices",
+    # eth_withdrawals + release-attempt audit
+    "insert_withdrawal": "bridge_db_withdrawals",
+    "get_withdrawal_by_ait_tx_hash": "bridge_db_withdrawals",
+    "get_pending_withdrawals": "bridge_db_withdrawals",
+    "get_resumable_withdrawals": "bridge_db_withdrawals",
+    "get_awaiting_depth_withdrawals": "bridge_db_withdrawals",
+    "update_withdrawal_block": "bridge_db_withdrawals",
+    "update_withdrawal_pricing": "bridge_db_withdrawals",
+    "get_all_withdrawals": "bridge_db_withdrawals",
+    "update_withdrawal_status": "bridge_db_withdrawals",
+    "_WITHDRAWAL_ETH_COMMITTED_STATUSES": "bridge_db_withdrawals",
+    "get_withdrawal_eth_committed_since": "bridge_db_withdrawals",
+    "record_release_attempt": "bridge_db_withdrawals",
+    "update_release_attempt": "bridge_db_withdrawals",
+    "get_release_attempts": "bridge_db_withdrawals",
+    # bridge_sell_quotes / bridge_sell_locks
+    "_SELL_QUOTE_KEYS": "bridge_db_sell",
+    "_SELL_LOCK_KEYS": "bridge_db_sell",
+    "_SELL_RESERVE_STATUSES": "bridge_db_sell",
+    "_SELL_ETH_COMMITTED_STATUSES": "bridge_db_sell",
+    "_SELL_OPEN_STATUSES": "bridge_db_sell",
+    "insert_sell_quote": "bridge_db_sell",
+    "get_sell_quote": "bridge_db_sell",
+    "get_all_sell_quotes": "bridge_db_sell",
+    "count_open_sell_quotes": "bridge_db_sell",
+    "get_latest_sell_quote_by_shop": "bridge_db_sell",
+    "update_sell_quote_status": "bridge_db_sell",
+    "insert_sell_lock": "bridge_db_sell",
+    "get_sell_lock_by_ait_tx_hash": "bridge_db_sell",
+    "get_sell_lock_by_id": "bridge_db_sell",
+    "get_sell_lock_by_quote_id": "bridge_db_sell",
+    "get_sell_quotes_by_status": "bridge_db_sell",
+    "get_sell_locks_by_status": "bridge_db_sell",
+    "get_open_sell_locks": "bridge_db_sell",
+    "get_sell_inflight_sweep": "bridge_db_sell",
+    "get_all_sell_locks": "bridge_db_sell",
+    "update_sell_lock_status": "bridge_db_sell",
+    "get_sell_pending_eth_reserve": "bridge_db_sell",
+    "get_sell_eth_committed_since": "bridge_db_sell",
+    # exchange_settlements + exchange_monitor_marks
+    "_EXCHANGE_SETTLEMENT_STATUSES": "bridge_db_settlement",
+    "_EXCHANGE_SETTLEMENT_OPEN_STATUSES": "bridge_db_settlement",
+    "_EXCHANGE_SETTLEMENT_INFLIGHT_SWEEP_STATUSES": "bridge_db_settlement",
+    "_EXCHANGE_SETTLEMENT_RESERVE_STATUSES": "bridge_db_settlement",
+    "insert_exchange_settlement": "bridge_db_settlement",
+    "_row_to_settlement": "bridge_db_settlement",
+    "_SETTLEMENT_SELECT_COLS": "bridge_db_settlement",
+    "get_exchange_settlement": "bridge_db_settlement",
+    "get_open_exchange_settlements": "bridge_db_settlement",
+    "get_exchange_inflight_sweep": "bridge_db_settlement",
+    "get_exchange_pending_eth_reserve": "bridge_db_settlement",
+    "_EXCHANGE_ETH_COMMITTED_STATUSES": "bridge_db_settlement",
+    "get_exchange_eth_committed_since": "bridge_db_settlement",
+    "list_exchange_settlements": "bridge_db_settlement",
+    "update_exchange_settlement": "bridge_db_settlement",
+    "insert_monitor_mark": "bridge_db_settlement",
+    "update_monitor_mark": "bridge_db_settlement",
+    "monitor_mark": "bridge_db_settlement",
+}
 
-# Statuses still in motion — the settlement monitor's worklist. Mirrors
-# _SELL_OPEN_STATUSES; needs_review_sweep stays listed (unresolved) but the
-# router never auto-processes it.
-_EXCHANGE_SETTLEMENT_OPEN_STATUSES = (
-    "locked",
-    "releasing",
-    "released",
-    "settling",
-    "refunding",
-    "refund_pending",
-    "queued_reserve",
-    "queued_fee_settle",
-    "queued_fee_refund",
-    "needs_review",
-    "needs_review_release",
-    "needs_review_sweep",
-)
-
-# At most one escrow sweep is in flight per escrow account, across sell
-# locks AND exchange settlements — they share one nonce space. Both sides
-# must union these statuses with the other table's before any broadcast.
-_EXCHANGE_SETTLEMENT_INFLIGHT_SWEEP_STATUSES = ("settling", "refunding")
-
-# Settlement statuses whose ETH release is still owed or undecidable — they
-# reserve bridge float so withdrawals/sells cannot spend it underneath.
-_EXCHANGE_SETTLEMENT_RESERVE_STATUSES = (
-    "locked",
-    "releasing",
-    "needs_review",
-    "needs_review_release",
-    "queued_reserve",
-)
-
-
-def insert_exchange_settlement(
-    kind: str,
-    ref_id: int,
-    *,
-    buy_order_id: int | None = None,
-    sell_order_id: int | None = None,
-    buyer_address: str | None = None,
-    seller_address: str | None = None,
-    seller_eth_address: str | None = None,
-    amount_ait: Decimal | None = None,
-    eth_amount: Decimal | None = None,
-    fee_ait: Decimal | None = None,
-) -> str | None:
-    """Record a settlement for a trade (or an order refund). Returns the new
-    row id, or None when (kind, ref_id) already exists — the UNIQUE pair
-    makes a second settlement row for one trade structurally impossible.
-    kind is validated in Python: INSERT OR IGNORE would otherwise swallow a
-    CHECK violation and make a caller bug look like a dedupe."""
-    if kind not in ("trade", "order_refund"):
-        raise ValueError(f"unknown settlement kind: {kind!r}")
-    import uuid
-
-    settlement_id = f"exs_{uuid.uuid4().hex[:8]}"
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        """
-        INSERT OR IGNORE INTO exchange_settlements (
-            id, kind, ref_id, buy_order_id, sell_order_id,
-            buyer_address, seller_address, seller_eth_address,
-            amount_ait, eth_amount, fee_ait, status, created_at
-        )
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'locked', ?)
-        """,
-        (
-            settlement_id,
-            kind,
-            ref_id,
-            buy_order_id,
-            sell_order_id,
-            buyer_address,
-            seller_address,
-            seller_eth_address,
-            amount_ait,
-            eth_amount,
-            fee_ait,
-            utc_now_iso(),
-        ),
-    )
-    conn.commit()
-    inserted = cursor.rowcount > 0
-    conn.close()
-    return settlement_id if inserted else None
-
-
-def _row_to_settlement(row: tuple | None, columns: list[str]) -> dict[str, Any] | None:
-    if row is None:
-        return None
-    return dict(zip(columns, row, strict=True))
-
-
-_SETTLEMENT_SELECT_COLS = [
-    "id",
-    "kind",
-    "ref_id",
-    "buy_order_id",
-    "sell_order_id",
-    "buyer_address",
-    "seller_address",
-    "seller_eth_address",
-    "amount_ait",
-    "eth_amount",
-    "fee_ait",
-    "status",
-    "eth_tx_hash",
-    "release_nonce",
-    "settle_ait_tx_hash",
-    "settle_fee_tx_hash",
-    "refund_tx_hash",
-    "escrow_out_nonce",
-    "escrow_out_tx",
-    "error",
-    "created_at",
-    "released_at",
-    "settled_at",
-    "refunded_at",
+# Public surface for ``from wallet_app.bridge.bridge_db import *`` — core
+# names plus every public name the submodules moved out (the names are
+# statically bound under TYPE_CHECKING above, so this literal is checkable).
+__all__ = [
+    "DB_PATH",
+    "init_db",
+    "try_eth_release_lock",
+    "release_eth_release_lock",
+    "insert_deposit",
+    "insert_exchange_prepay_deposit",
+    "get_pending_deposits",
+    "update_deposit_status",
+    "update_deposit_tx_hash",
+    "get_deposit_by_tx_hash",
+    "get_deposit_by_id",
+    "get_all_deposits",
+    "get_deposits_by_recipient",
+    "insert_price_history",
+    "get_all_time_average",
+    "cleanup_old_prices",
+    "insert_withdrawal",
+    "get_withdrawal_by_ait_tx_hash",
+    "get_pending_withdrawals",
+    "get_resumable_withdrawals",
+    "get_awaiting_depth_withdrawals",
+    "update_withdrawal_block",
+    "update_withdrawal_pricing",
+    "get_all_withdrawals",
+    "update_withdrawal_status",
+    "get_withdrawal_eth_committed_since",
+    "record_release_attempt",
+    "update_release_attempt",
+    "get_release_attempts",
+    "insert_sell_quote",
+    "get_sell_quote",
+    "get_all_sell_quotes",
+    "count_open_sell_quotes",
+    "get_latest_sell_quote_by_shop",
+    "update_sell_quote_status",
+    "insert_sell_lock",
+    "get_sell_lock_by_ait_tx_hash",
+    "get_sell_lock_by_id",
+    "get_sell_lock_by_quote_id",
+    "get_sell_quotes_by_status",
+    "get_sell_locks_by_status",
+    "get_open_sell_locks",
+    "get_sell_inflight_sweep",
+    "get_all_sell_locks",
+    "update_sell_lock_status",
+    "get_sell_pending_eth_reserve",
+    "get_sell_eth_committed_since",
+    "insert_exchange_settlement",
+    "get_exchange_settlement",
+    "get_open_exchange_settlements",
+    "get_exchange_inflight_sweep",
+    "get_exchange_pending_eth_reserve",
+    "get_exchange_eth_committed_since",
+    "list_exchange_settlements",
+    "update_exchange_settlement",
+    "insert_monitor_mark",
+    "update_monitor_mark",
+    "monitor_mark",
 ]
 
-
-def get_exchange_settlement(kind: str, ref_id: int) -> dict[str, Any] | None:
-    """One settlement row by its (kind, ref_id) key."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        # column list is a hardcoded constant
-        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements WHERE kind = ? AND ref_id = ?",  # nosec
-        (kind, ref_id),
-    )
-    row = cursor.fetchone()
-    conn.close()
-    return _row_to_settlement(row, _SETTLEMENT_SELECT_COLS)
+_PACKAGE = __name__.rpartition(".")[0] or "wallet_app.bridge"
 
 
-def get_open_exchange_settlements() -> list[dict[str, Any]]:
-    """All settlement rows the monitor still has to drive."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    placeholders = ", ".join("?" for _ in _EXCHANGE_SETTLEMENT_OPEN_STATUSES)
-    cursor.execute(
-        # placeholders are literal '?' generated from the constant; values bound
-        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements WHERE status IN ({placeholders}) ORDER BY created_at",  # nosec
-        _EXCHANGE_SETTLEMENT_OPEN_STATUSES,
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return [s for r in rows if (s := _row_to_settlement(r, _SETTLEMENT_SELECT_COLS)) is not None]
+def __getattr__(name: str) -> Any:
+    """Lazily re-export a name that lives in a ``bridge_db_<domain>`` module."""
+    from importlib import import_module
 
-
-def get_exchange_inflight_sweep() -> dict[str, Any] | None:
-    """The single in-flight exchange escrow sweep (settling/refunding), if any."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    placeholders = ", ".join("?" for _ in _EXCHANGE_SETTLEMENT_INFLIGHT_SWEEP_STATUSES)
-    cursor.execute(
-        # same literal-placeholder pattern
-        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements WHERE status IN ({placeholders}) LIMIT 1",  # nosec
-        _EXCHANGE_SETTLEMENT_INFLIGHT_SWEEP_STATUSES,
-    )
-    row = cursor.fetchone()
-    conn.close()
-    return _row_to_settlement(row, _SETTLEMENT_SELECT_COLS)
-
-
-def get_exchange_pending_eth_reserve() -> Decimal:
-    """ETH owed by open exchange settlements — counted against the shared
-    bridge float alongside withdrawals and sell locks. Rows are summed as
-    Decimal in Python: SQL SUM() would run the NUMERIC column through float
-    arithmetic before the Decimal converter ever saw it."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    placeholders = ", ".join("?" for _ in _EXCHANGE_SETTLEMENT_RESERVE_STATUSES)
-    cursor.execute(
-        # same literal-placeholder pattern
-        f"SELECT eth_amount FROM exchange_settlements WHERE status IN ({placeholders})",  # nosec
-        _EXCHANGE_SETTLEMENT_RESERVE_STATUSES,
-    )
-    total = Decimal(0)
-    for (amount,) in cursor.fetchall():
-        if amount is not None:
-            total += amount if isinstance(amount, Decimal) else Decimal(str(amount))
-    conn.close()
-    return total
-
-
-# Settlement statuses where the ETH release happened or may have happened —
-# mirrors _SELL_ETH_COMMITTED_STATUSES with the settlement-only
-# `needs_review_release` added. `refund_pending`/`queued_fee_refund` proved
-# no ETH left; `refunded`/`failed` are terminal-unpaid.
-_EXCHANGE_ETH_COMMITTED_STATUSES = (
-    "releasing",
-    "released",
-    "settling",
-    "settled",
-    "needs_review",
-    "needs_review_release",
-    "needs_review_sweep",
-    "queued_fee_settle",
-)
-
-
-def get_exchange_eth_committed_since(since_iso: str) -> Decimal:
-    """Sum of ETH released (or possibly released) by exchange settlements
-    since a timestamp — the settlement lane's contribution to the release
-    windows surfaced by GET /v1/bridge/float (CLI-5)."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    placeholders = ", ".join("?" for _ in _EXCHANGE_ETH_COMMITTED_STATUSES)
-    # same literal-placeholder pattern
-    cursor.execute(
-        f"""SELECT eth_amount FROM exchange_settlements
-            WHERE status IN ({placeholders})
-              AND released_at >= ?""",  # nosec
-        (*_EXCHANGE_ETH_COMMITTED_STATUSES, since_iso),
-    )
-    total = Decimal(0)
-    for (amount,) in cursor.fetchall():
-        if amount is not None:
-            total += amount if isinstance(amount, Decimal) else Decimal(str(amount))
-    conn.close()
-    return total
-
-
-def list_exchange_settlements(
-    status: str | None = None,
-    kind: str | None = None,
-    limit: int = 50,
-    offset: int = 0,
-) -> list[dict[str, Any]]:
-    """Exchange-settlement rows for the /v1/bridge/settlements read route
-    (CLI-1) — newest first, optionally filtered by kind and status."""
-    clauses = []
-    params: list[Any] = []
-    if kind is not None:
-        clauses.append("kind = ?")
-        params.append(kind)
-    if status is not None:
-        clauses.append("status = ?")
-        params.append(status)
-    where = f" WHERE {' AND '.join(clauses)}" if clauses else ""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        # column list/keywords are literals; every value is bound
-        f"SELECT {', '.join(_SETTLEMENT_SELECT_COLS)} FROM exchange_settlements{where}"  # nosec
-        " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?",
-        (*params, limit, offset),
-    )
-    rows = cursor.fetchall()
-    conn.close()
-    return [s for r in rows if (s := _row_to_settlement(r, _SETTLEMENT_SELECT_COLS)) is not None]
-
-
-def update_exchange_settlement(
-    settlement_id: str,
-    status: str,
-    *,
-    eth_tx_hash: str | None = None,
-    release_nonce: int | None = None,
-    settle_ait_tx_hash: str | None = None,
-    settle_fee_tx_hash: str | None = None,
-    refund_tx_hash: str | None = None,
-    escrow_out_nonce: int | None = None,
-    escrow_out_tx: str | None = None,
-    error: str | None = None,
-    expected_statuses: Collection[str] | None = None,
-) -> bool:
-    """Update a settlement row's status and optional lifecycle fields.
-
-    The only permitted write path for exchange_settlements — mirrors
-    update_sell_lock_status: the status drives the lifecycle timestamp and
-    every field writes via COALESCE so a NULL argument never blanks a
-    recorded hash or nonce. Forward-only/no-rewrite discipline is enforced
-    by the monitor and the mirror endpoint above this layer, like sell locks.
-    status is validated against the full vocabulary in Python: the table
-    carries no CHECK on this column, so a typo'd status would otherwise
-    silently park the row outside every worklist.
-
-    ``expected_statuses`` is the CAS predicate (#1918), same shape as
-    update_deposit_status (#1796): when given, the UPDATE only lands while
-    the row still sits in one of those statuses. rowcount 0 -> False.
-    """
-    if status not in _EXCHANGE_SETTLEMENT_STATUSES:
-        raise ValueError(f"unknown settlement status: {status!r}")
-    conn = _connect_db()
-    cursor = conn.cursor()
-
-    timestamp_field = None
-    if status in ("releasing", "released"):
-        timestamp_field = "released_at"
-    elif status == "settled":
-        timestamp_field = "settled_at"
-    elif status == "refunded":
-        timestamp_field = "refunded_at"
-
-    if timestamp_field:
-        # timestamp_field is a hardcoded literal above, never caller input
-        query = f"""
-            UPDATE exchange_settlements
-            SET status = ?, {timestamp_field} = ?,
-                eth_tx_hash = COALESCE(?, eth_tx_hash),
-                release_nonce = COALESCE(?, release_nonce),
-                settle_ait_tx_hash = COALESCE(?, settle_ait_tx_hash),
-                settle_fee_tx_hash = COALESCE(?, settle_fee_tx_hash),
-                refund_tx_hash = COALESCE(?, refund_tx_hash),
-                escrow_out_nonce = COALESCE(?, escrow_out_nonce),
-                escrow_out_tx = COALESCE(?, escrow_out_tx),
-                error = COALESCE(?, error)
-            WHERE id = ?
-        """  # nosec
-        params: tuple = (
-            status,
-            utc_now_iso(),
-            eth_tx_hash,
-            release_nonce,
-            settle_ait_tx_hash,
-            settle_fee_tx_hash,
-            refund_tx_hash,
-            escrow_out_nonce,
-            escrow_out_tx,
-            error,
-            settlement_id,
-        )
-    else:
-        query = """
-            UPDATE exchange_settlements
-            SET status = ?,
-                eth_tx_hash = COALESCE(?, eth_tx_hash),
-                release_nonce = COALESCE(?, release_nonce),
-                settle_ait_tx_hash = COALESCE(?, settle_ait_tx_hash),
-                settle_fee_tx_hash = COALESCE(?, settle_fee_tx_hash),
-                refund_tx_hash = COALESCE(?, refund_tx_hash),
-                escrow_out_nonce = COALESCE(?, escrow_out_nonce),
-                escrow_out_tx = COALESCE(?, escrow_out_tx),
-                error = COALESCE(?, error)
-            WHERE id = ?
-        """
-        params = (
-            status,
-            eth_tx_hash,
-            release_nonce,
-            settle_ait_tx_hash,
-            settle_fee_tx_hash,
-            refund_tx_hash,
-            escrow_out_nonce,
-            escrow_out_tx,
-            error,
-            settlement_id,
-        )
-    if expected_statuses:
-        # Both query variants end `WHERE id = ?`; the CAS clause appends
-        # after it. Placeholders are literal '?' per expected value.
-        expected = tuple(expected_statuses)
-        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
-        params = (*params, *expected)
-    cursor.execute(query, params)
-    conn.commit()
-    rows_affected = cursor.rowcount
-    conn.close()
-    return rows_affected > 0
-
-
-def insert_monitor_mark(mark: str, detail: str | None = None, outcome: str | None = None) -> bool:
-    """Record a processed chain artifact (``lock:<ait_tx_hash>`` /
-    ``credit:<eth_tx_hash>``). Returns False when the mark already exists —
-    the PK dedupe is the monitor's whole restart-safe "have I seen this"
-    test."""
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute(
-        "INSERT OR IGNORE INTO exchange_monitor_marks (mark, detail, outcome) VALUES (?, ?, ?)",
-        (mark, detail, outcome),
-    )
-    conn.commit()
-    inserted = cursor.rowcount > 0
-    conn.close()
-    return inserted
-
-
-def update_monitor_mark(mark: str, outcome: str) -> None:
-    conn = _connect_db()
-    conn.execute("UPDATE exchange_monitor_marks SET outcome = ? WHERE mark = ?", (outcome, mark))
-    conn.commit()
-    conn.close()
-
-
-def monitor_mark(mark: str) -> dict[str, Any] | None:
-    conn = _connect_db()
-    cursor = conn.cursor()
-    cursor.execute("SELECT mark, detail, outcome, created_at FROM exchange_monitor_marks WHERE mark = ?", (mark,))
-    row = cursor.fetchone()
-    conn.close()
-    if row is None:
-        return None
-    return {"mark": row[0], "detail": row[1], "outcome": row[2], "created_at": row[3]}
+    module = _NAME_TO_MODULE.get(name)
+    if module is None:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    value = getattr(import_module(f".{module}", _PACKAGE), name)
+    globals()[name] = value
+    return value
