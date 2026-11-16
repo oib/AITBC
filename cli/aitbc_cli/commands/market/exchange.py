@@ -432,6 +432,24 @@ def deposit_eth(ctx, amount: Decimal, ait_address: str | None, bridge_address: s
         eth_rpc = EthereumRPCClient()
         w3 = eth_rpc._get_web3()
 
+        # Validate every argument that needs no wallet BEFORE touching the wallet,
+        # so a bad --bridge-address is refused the same way on every host instead
+        # of dying on a missing default-wallet key first (#2115).
+        if not bridge_address:
+            bridge_address = os.environ.get("BRIDGE_ETH_ADDRESS")
+        if not bridge_address:
+            error("Bridge deposit address is required: set --bridge-address or BRIDGE_ETH_ADDRESS")
+            raise click.Abort()
+        if not Web3.is_address(bridge_address):
+            error(f"Invalid bridge deposit address: {bridge_address}")
+            raise click.Abort()
+        if ait_address and not Web3.is_address(ait_address):
+            error(f"Invalid AIT recipient address: {ait_address}")
+            raise click.Abort()
+        if amount <= 0:
+            error("Amount must be greater than 0")
+            raise click.Abort()
+
         wallet_name = ctx.obj.get("market_wallet")
         wallet_path = ctx.obj.get("market_wallet_path")
         password = ctx.obj.get("market_password")
@@ -447,20 +465,6 @@ def deposit_eth(ctx, amount: Decimal, ait_address: str | None, bridge_address: s
 
         if not ait_address:
             ait_address = address
-        if not bridge_address:
-            bridge_address = os.environ.get("BRIDGE_ETH_ADDRESS")
-        if not bridge_address:
-            error("Bridge deposit address is required: set --bridge-address or BRIDGE_ETH_ADDRESS")
-            raise click.Abort()
-        if not Web3.is_address(ait_address):
-            error(f"Invalid AIT recipient address: {ait_address}")
-            raise click.Abort()
-        if not Web3.is_address(bridge_address):
-            error(f"Invalid bridge deposit address: {bridge_address}")
-            raise click.Abort()
-        if amount <= 0:
-            error("Amount must be greater than 0")
-            raise click.Abort()
 
         value_wei = w3.to_wei(str(amount), "ether")
         gas_price = w3.eth.gas_price
