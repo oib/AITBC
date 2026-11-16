@@ -5,8 +5,10 @@ import sqlite3
 from pathlib import Path
 
 import click
+import httpx
 from click import echo
 
+from aitbc.exceptions import AITBCError
 from ..core.chain_manager import ChainManager, ChainNotFoundError
 from ..core.config import NodeConfig, load_multichain_config
 from ..models.chain import ChainType
@@ -14,6 +16,25 @@ from ..utils import OUTPUT_FORMAT_OPTION, output, resolve_output_format, success
 from ..utils.chain_id import resolve_chain_id
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 logger = get_logger(__name__)
 
@@ -188,7 +209,7 @@ def list(ctx, chain_type, show_private, sort, island, node_url):
 
         output(chains_data, ctx.obj.get("output_format", "table"), title="Available Chains")
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error listing chains: {str(e)}", from_exception=e)
 
 
@@ -286,7 +307,7 @@ def status(ctx, chain_id, detailed, node_urls, use_local):
         abort(ctx, f"Chain {chain_id} not found")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting chain status: {str(e)}", from_exception=e)
 
 
@@ -375,7 +396,7 @@ def info(ctx, chain_id, detailed, metrics, use_local, node_urls):
         abort(ctx, f"Chain {chain_id} not found")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting chain info: {str(e)}", from_exception=e)
 
 
@@ -439,7 +460,7 @@ def create(ctx, config_file, node, dry_run):
         if chain_config.privacy.visibility == "private":
             success("Private chain created! Use access codes to invite participants.")
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error creating chain: {str(e)}", from_exception=e)
 
 
@@ -496,7 +517,7 @@ def delete(ctx, chain_id, force, confirm):
         abort(ctx, f"Chain {chain_id} not found")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error deleting chain: {str(e)}", from_exception=e)
 
 
@@ -525,7 +546,7 @@ def add(ctx, chain_id, node_id):
 
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error adding chain to node: {str(e)}", from_exception=e)
 
 
@@ -557,7 +578,7 @@ def remove(ctx, chain_id, node_id, migrate):
 
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error removing chain from node: {str(e)}", from_exception=e)
 
 
@@ -614,7 +635,7 @@ def migrate(ctx, chain_id, from_node, to_node, dry_run, verify):
 
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error during migration: {str(e)}", from_exception=e)
 
 
@@ -653,7 +674,7 @@ def backup(ctx, chain_id, path, compress, verify):
 
         output(result, ctx.obj.get("output_format", "table"))
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error during backup: {str(e)}", from_exception=e)
 
 
@@ -688,7 +709,7 @@ def restore(ctx, backup_file, node, verify):
 
         output(result, ctx.obj.get("output_format", "table"))
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error during restoration: {str(e)}", from_exception=e)
 
 
@@ -748,7 +769,7 @@ def monitor(ctx, chain_id, realtime, export, interval):
                     layout["activity"].update("Recent activity would be displayed here")
 
                     return layout
-                except Exception as e:
+                except _OPS_ERRORS as e:
                     logger.warning("Error getting chain info: %s", e, exc_info=True)
                     return f"Error getting chain info: {e}"
 
@@ -787,7 +808,7 @@ def monitor(ctx, chain_id, realtime, export, interval):
         abort(ctx, f"Chain {chain_id} not found")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
 
 
@@ -1038,7 +1059,7 @@ def consensus_status(ctx, node_url: str, chain_id: str | None, format: str):
             "node_url": node_url,
         }
         output(consensus_info, resolve_output_format(ctx, format), title="Consensus Status")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting consensus status: {e}")
 
 
@@ -1086,7 +1107,7 @@ def consensus_validators(ctx, node_url: str, chain_id: str | None, format: str):
         output(rows, resolve_output_format(ctx, format), title=f"Validators for {chain_id}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error listing validators: {e}")
 
 
@@ -1158,7 +1179,7 @@ def consensus_slashing_history(ctx, node_url: str, chain_id: str | None, format:
         output(rows, resolve_output_format(ctx, format), title=f"Slashing History for {chain_id}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error getting slashing history: {e}")
 
 

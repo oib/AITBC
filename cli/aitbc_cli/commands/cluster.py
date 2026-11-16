@@ -1,9 +1,30 @@
 """Cluster commands for AITBC CLI"""
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..utils import output
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 @click.group(
@@ -31,7 +52,7 @@ def status(ctx):
     try:
         result = {"cluster_health": "healthy", "nodes": 3, "active_nodes": 3}
         output(result, ctx.obj.get("output_format", "table"), title="Cluster Status")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting cluster status: {e}", from_exception=e)
 
 
@@ -48,7 +69,7 @@ def sync(ctx):
     try:
         result = {"action": "cluster_sync", "status": "completed"}
         output(result, ctx.obj.get("output_format", "table"), title="Cluster Sync")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error in cluster sync: {e}", from_exception=e)
 
 
@@ -65,5 +86,5 @@ def balance(ctx):
     try:
         result = {"action": "cluster_balance", "status": "completed"}
         output(result, ctx.obj.get("output_format", "table"), title="Cluster Balance")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error in cluster balance: {e}", from_exception=e)

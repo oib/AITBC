@@ -3,9 +3,30 @@
 from __future__ import annotations
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..utils import output
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 @click.group(
@@ -44,7 +65,7 @@ def balance(ctx, agent_id: str):
             "status": "simulated",
         }
         output(result, ctx.obj.get("output_format", "table"), title="Agent Wallet Balance")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error fetching agent wallet balance: {e}", from_exception=e)
 
 
@@ -74,7 +95,7 @@ def stake(ctx, agent_id: str, amount: str, contract: str):
             "status": "simulated",
         }
         output(result, ctx.obj.get("output_format", "table"), title="Agent Stake (Simulated)")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error staking for agent {agent_id}: {e}", from_exception=e)
 
 
@@ -100,5 +121,5 @@ def rebalance(ctx, agent_id: str, earnings: str, reinvest_pct: str):
             "status": "simulated",
         }
         output(result, ctx.obj.get("output_format", "table"), title="Agent Rebalance")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error rebalancing agent {agent_id}: {e}", from_exception=e)

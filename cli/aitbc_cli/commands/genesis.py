@@ -14,6 +14,19 @@ import httpx
 from ..utils import error, genesis_reset, output, success
 from ..utils.wallet_secret import resolve_new_wallet_password, wallet_password_options
 
+# Expected failure surface for the genesis handlers below: filesystem/JSON,
+# sqlite and HTTP-client errors. BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    sqlite3.Error,
+    httpx.HTTPError,
+)
+
 
 @click.group(
     epilog="""Examples:
@@ -176,7 +189,7 @@ def _verify_genesis_config(ctx, chain_id: str) -> bool:
             },
             ctx.obj.get("output_format", "table"),
         )
-    except Exception as e:
+    except _OPS_ERRORS as e:
         error(f"Failed to read genesis config: {e}")
         ctx.exit(1)
     return True
@@ -225,7 +238,7 @@ def _verify_genesis_db(ctx, chain_id: str) -> bool:
             verified = False
 
         conn.close()
-    except Exception as e:
+    except _OPS_ERRORS as e:
         error(f"Failed to verify database: {e}")
         ctx.exit(1)
     return verified
@@ -249,7 +262,7 @@ def _verify_treasury_wallet(ctx) -> bool:
                 },
                 ctx.obj.get("output_format", "table"),
             )
-        except Exception as e:
+        except _OPS_ERRORS as e:
             error(f"Failed to read the treasury (genesis) wallet: {e}")
             verified = False
     else:
@@ -365,7 +378,7 @@ def info(ctx, chain_id: str, data_dir: str | None, rpc_url: str | None):
             result["note"] = note
         output(result, ctx.obj.get("output_format", "table"))
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         error(f"Failed to read genesis info: {e}")
         ctx.exit(1)
 
@@ -475,7 +488,7 @@ def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None,
     except httpx.RequestError as e:
         error(f"Failed to connect to hub: {e}")
         ctx.exit(1)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         error(f"Failed to sync genesis: {e}")
         ctx.exit(1)
 

@@ -1,10 +1,31 @@
 """Contract commands for AITBC CLI"""
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..utils import output
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 @click.group(
@@ -37,7 +58,7 @@ def deploy(ctx, contract_name, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Contract Deployed")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error deploying contract: {e}", from_exception=e)
 
 
@@ -66,7 +87,7 @@ def call(ctx, contract_address, method, args, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Contract Call")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error calling contract: {e}", from_exception=e)
 
 
@@ -78,7 +99,7 @@ def _get(ctx, path: str, rpc_url: str, title: str, params: dict | None = None):
         output(result, ctx.obj.get("output_format", "table"), title=title)
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error calling {path}: {e}", from_exception=e)
 
 
@@ -130,7 +151,7 @@ def verify(ctx, contract_address, proof, chain_id, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Contract Verify")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error verifying contract: {e}", from_exception=e)
 
 

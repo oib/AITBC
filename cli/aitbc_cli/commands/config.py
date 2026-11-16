@@ -373,7 +373,7 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
     except json.JSONDecodeError:
         error("Invalid JSON data")
         ctx.exit(1)
-    except Exception as e:
+    except (OSError, ValueError, yaml.YAMLError) as e:
         error(f"Failed to parse file: {e}")
         ctx.exit(1)
 

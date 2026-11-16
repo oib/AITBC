@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import cast
 
 import click
+import httpx
 import requests
 
 
@@ -49,8 +50,28 @@ from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
 from aitbc.utils import format_ait  # noqa: E402
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units  # noqa: E402
 
+from aitbc.exceptions import AITBCError  # noqa: E402
 from ..utils.error_handling import CLIError, abort  # noqa: E402
 from ..utils.output import info  # noqa: E402
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 def _agent_api_base() -> str:
@@ -119,7 +140,7 @@ def send_agent_notification(recipient: str, content: str):
             click.echo("  Agent messaging needs a hub credential; FOLLOWER_API_KEY does not open this route.")
         else:
             click.echo(f"Failed to send notification: {response.status_code} {response.text}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         # Naming the URL is the point: the failure used to blame a local port on nodes that
         # have no local agent-coordinator, which read as a broken service rather than config.
         click.echo(f"Error sending notification to {url}: {e}")
@@ -417,7 +438,7 @@ def _execute_via_hub(ctx, req) -> None:
         _record_hub_execution(req, tx_hash)
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error forwarding to hub: {e}", from_exception=e)
 
 
@@ -489,7 +510,7 @@ def _submit_signed_tx(ctx, tx_service, req, signed_tx) -> None:
 
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         # Revert to PENDING on failure
         req.status = CoinRequestStatus.PENDING
         audit_entry = f" | Execution failed: {str(e)} at {datetime.now(UTC).isoformat()}"
@@ -696,7 +717,7 @@ def _read_wallet_address(ctx: click.Context, wallet: str) -> str:
 
     try:
         wallet_data = json.loads(Path(wallet_path).read_text())
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error reading wallet file: {e}", from_exception=e)
         raise AssertionError("unreachable") from e
 
@@ -710,7 +731,7 @@ def _hub_post(ctx: click.Context, url: str, payload: dict, headers: dict, action
     """POST to the hub coin-requests API; aborts on transport errors."""
     try:
         return requests.post(url, json=payload, headers=headers, timeout=30)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error {action}: {e}", from_exception=e)
 
 

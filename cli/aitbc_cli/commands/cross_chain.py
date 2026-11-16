@@ -21,16 +21,37 @@ from decimal import Decimal
 from typing import Any, cast
 
 import click
+import httpx
 from tabulate import tabulate
 
 from aitbc.utils import ait_to_units, format_ait
 
+from aitbc.exceptions import AITBCError
 from ..utils import DECIMAL, info, output, resolve_output_format, success, warning
 from ..utils.wallet_secret import wallet_password_options
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet_loader import load_wallet_for_payment
 from .transactions import _resolve_transaction_rpc_url
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 logger = get_logger(__name__)
 
@@ -172,7 +193,7 @@ def rates(
                     click.echo(tabulate(rate_table, headers=["From Chain", "To Chain", "Rate"], tablefmt="grid"))
             else:
                 output({"rates": rate_rows}, fmt)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
 
 
@@ -299,7 +320,7 @@ def swap(
         success(f"Track swap with: aitbc crosschain status --swap-id {swap_id}")
         if wait and swap_id:
             _wait_for_terminal_status(http_client, f"/rpc/cross-chain/swap/{swap_id}", timeout, "Swap")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Swap failed: {e}", from_exception=e)
 
 
@@ -348,7 +369,7 @@ def status(ctx, swap_id: str, rpc_url: str | None, wait: bool, timeout: int):
         output(details, ctx.obj["output_format"])
         if swap_data.get("error"):
             abort(ctx, f"Error: {swap_data['error']}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
 
 
@@ -396,7 +417,7 @@ def swaps(ctx, user_address: str | None, status: str | None, limit: int, rpc_url
                 success(f"Showing {limit} of {len(swaps)} total swaps")
         else:
             success("No cross-chain swaps found")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
 
 
@@ -485,7 +506,7 @@ def bridge(
         success(f"Track bridge with: aitbc crosschain bridge-status --bridge-id {bridge_id}")
         if wait and bridge_id:
             _wait_for_terminal_status(http_client, f"/rpc/cross-chain/bridge/{bridge_id}", timeout, "Bridge")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Bridge failed: {e}", from_exception=e)
 
 
@@ -533,7 +554,7 @@ def bridge_status(ctx, bridge_id: str, rpc_url: str | None, wait: bool, timeout:
             "Target Tx Hash": bridge_data.get("target_tx_hash"),
         }
         output(details, ctx.obj["output_format"])
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
 
 
@@ -592,7 +613,7 @@ def confirm(
             },
             ctx.obj["output_format"],
         )
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Confirm failed: {e}", from_exception=e)
 
 
@@ -639,7 +660,7 @@ def pools(ctx, rpc_url: str | None):
                 )
         else:
             output({"pools": pools}, fmt)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
 
 
@@ -678,5 +699,5 @@ def stats(ctx, rpc_url: str | None):
             },
             ctx.obj["output_format"],
         )
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
