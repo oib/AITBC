@@ -11,6 +11,13 @@ import sys
 from datetime import UTC, datetime
 from pathlib import Path
 
+try:
+    from sqlalchemy.exc import SQLAlchemyError as _SQLAlchemyError
+
+    _DB_ERRORS: tuple[type[BaseException], ...] = (_SQLAlchemyError,)
+except ImportError:  # sqlalchemy is imported lazily on the migration path
+    _DB_ERRORS = ()
+
 # Add aitbc to path
 sys.path.insert(0, str(Path("/opt/aitbc")))
 sys.path.insert(0, str(Path("/opt/aitbc/aitbc")))
@@ -96,7 +103,7 @@ async def migrate_to_database(plugin_data):
                 print(f"  ✓ Migrated {plugin_id}")
                 migrated_count += 1
 
-            except Exception as e:
+            except (*_DB_ERRORS, OSError, ValueError, TypeError, AttributeError, KeyError, RuntimeError) as e:
                 errors.append((plugin_id, str(e)))
                 print(f"  ✗ Error migrating {plugin_id}: {e}")
                 await session.rollback()

@@ -121,7 +121,7 @@ class BlockchainClient:
             resp.raise_for_status()
             data = cast(dict[str, Any], resp.json())
             return int(data.get("balance", 0))
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, RuntimeError, OSError) as e:
             logger.warning("Failed to get balance for %s: %s", address, e)
             return 0
 
@@ -151,6 +151,6 @@ class BlockchainClient:
             resp.raise_for_status()
             data = cast(dict[str, Any], resp.json())
             return int(data.get("nonce", 0))
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, RuntimeError, OSError) as e:
             logger.warning("Failed to get nonce for %s: %s — defaulting to 0", address, e)
             return 0

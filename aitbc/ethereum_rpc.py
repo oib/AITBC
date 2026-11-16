@@ -92,7 +92,7 @@ class EthereumRPCClient:
                     self._connected_url = url
                     logger.info("Connected to Ethereum RPC: url=%s network=%s", redact_url(url), self.config.network)
                     return w3
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - provider error types vary across web3 HTTP backends (httpx/requests); every endpoint must be tried
                 # Provider errors (httpx/requests) can re-embed the request URL —
                 # the key — in their text, so redact inside the message too.
                 logger.debug("RPC endpoint failed: url=%s error=%s", redact_url(url), redact_text(str(e)))

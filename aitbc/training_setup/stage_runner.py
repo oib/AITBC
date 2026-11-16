@@ -135,7 +135,7 @@ class StageRunner:
         except subprocess.TimeoutExpired:
             log.error("Command timed out")
             return {"success": False, "error": "Command timed out"}
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.error("Command execution failed: %s", e)
             return {"success": False, "error": str(e)}
 

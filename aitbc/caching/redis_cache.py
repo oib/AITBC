@@ -51,15 +51,32 @@ class RedisCache:
         self._default_ttl = default_ttl
         self._fallback_max_entries = max(1, int(fallback_max_entries))
         self._client: Any = None
+        # Exception types the Redis client can raise; RedisError is added
+        # below once the optional ``redis`` package imports. get/set/delete
+        # only touch ``self._client`` when it is set, so this tuple always
+        # covers the failures those paths can hit.
+        self._client_errors: tuple[type[BaseException], ...] = (
+            OSError,
+            RuntimeError,
+            TypeError,
+            ValueError,
+        )
         # key -> (value, expires_at) where expires_at is a time.monotonic()
         # deadline or None for no expiry. OrderedDict gives LRU eviction.
         self._data: OrderedDict[str, tuple[Any, float | None]] = OrderedDict()
         try:
             import redis
+            from redis.exceptions import RedisError
 
+            self._client_errors += (RedisError,)
             self._client = redis.from_url(url)
             self._client.ping()
-        except Exception as e:
+        except ImportError as e:
+            if url not in _warned_urls:
+                _warned_urls.add(url)
+                logger.warning("Redis connection failed, falling back to in-memory cache: %s", e)
+            self._client = None
+        except self._client_errors as e:
             if url not in _warned_urls:
                 _warned_urls.add(url)
                 logger.warning("Redis connection failed, falling back to in-memory cache: %s", e)
@@ -69,14 +86,14 @@ class RedisCache:
         if self._client:
             try:
                 raw = self._client.get(key)
-            except Exception as e:
+            except self._client_errors as e:
                 logger.warning("Redis GET failed for key %s: %s", key, e)
                 return None
             if raw is None:
                 return None
             try:
                 return orjson.loads(raw)
-            except Exception as e:
+            except (TypeError, ValueError) as e:
                 logger.warning("Redis GET decode failed for key %s: %s", key, e)
                 return None
         entry = self._data.get(key)
@@ -107,7 +124,7 @@ class RedisCache:
             try:
                 self._client.setex(key, ttl or self._default_ttl, serialized)
                 return True
-            except Exception as e:
+            except self._client_errors as e:
                 logger.warning("Redis SET failed for key %s, falling back to in-memory: %s", key, e)
         if key not in self._data and len(self._data) >= self._fallback_max_entries:
             # Evict the least-recently-used entry to keep the fallback bounded.
@@ -120,7 +137,7 @@ class RedisCache:
         if self._client:
             try:
                 return bool(self._client.delete(key))
-            except Exception as e:
+            except self._client_errors as e:
                 logger.warning("Redis DELETE failed for key %s: %s", key, e)
         existed = key in self._data
         self._data.pop(key, None)

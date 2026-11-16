@@ -68,7 +68,7 @@ def setup(aitbc_dir, log_dir, fund_amount, genesis_allocation):
     except TrainingSetupError as e:
         click.echo(f"Setup failed: {e}", err=True)
         sys.exit(1)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level CLI boundary must report any unexpected setup failure and exit 1
         click.echo(f"Unexpected error: {e}", err=True)
         sys.exit(1)
 
@@ -112,7 +112,7 @@ def verify(aitbc_dir):
             click.echo(f"{key}: {value}")
 
         sys.exit(0)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level CLI boundary must report any unexpected verification failure and exit 1
         click.echo(f"Verification failed: {e}", err=True)
         sys.exit(1)
 

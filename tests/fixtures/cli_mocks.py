@@ -344,7 +344,7 @@ def mock_eth_utils():
             to_hex=_eu.to_hex,
             hexbytes_if_bigint=_eu.hexbytes_if_bigint if hasattr(_eu, "hexbytes_if_bigint") else lambda x: hex(x),
         )
-    except Exception:  # pragma: no cover - fallback when eth_utils missing
+    except (ImportError, AttributeError):  # pragma: no cover - fallback when eth_utils missing
         import re
 
         _ADDR_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")

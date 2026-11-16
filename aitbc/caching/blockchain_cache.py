@@ -182,7 +182,7 @@ class BlockchainCache:
                         deleted = self.redis_cache._client.delete(*keys)
                         self._notify_subscribers("chain_state", {"chain_id": chain_id, "all": True})
                         return deleted  # type: ignore[no-any-return]
-                except Exception as e:
+                except self.redis_cache._client_errors as e:
                     logger.error("Error invalidating chain state: %s", e)
             return 0
 
@@ -195,7 +195,7 @@ class BlockchainCache:
         for callback in self.invalidation_subscribers:
             try:
                 callback(cache_type, data)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - subscriber callbacks are user-supplied; one bad subscriber must not break invalidation fan-out
                 logger.error("Error in cache invalidation callback: %s", e)
 
     def get_cache_stats(self) -> dict[str, Any]:

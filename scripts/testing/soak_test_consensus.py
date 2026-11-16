@@ -270,7 +270,7 @@ class ConsensusSoakTest:
                 sequence=height,
                 view=0,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - soak must count every proposer failure; PBFT/gossip internals are untyped
             proposer_node.consensus_failures += 1
             self.report.total_consensus_failures += 1
             self._log_event(

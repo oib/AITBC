@@ -216,7 +216,7 @@ def to_timezone(dt: datetime, tz_name: str) -> datetime:
         return dt.astimezone(tz)
     except ImportError:
         raise ImportError("pytz is required for timezone conversion. Install with: pip install pytz") from None
-    except Exception as e:
+    except (AttributeError, KeyError, OverflowError, TypeError, ValueError) as e:
         raise ValueError(f"Failed to convert timezone: {e}") from e
 
 
@@ -309,7 +309,7 @@ def retry_until_deadline(func: Callable[[], bool], deadline: datetime, interval:
             result = func()
             if result:
                 return True
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - func is a caller-supplied callable; the retry loop must retry on any failure
             logger.warning("retry_until_deadline: function failed, retrying: %s", e)
         time.sleep(interval)
     return False

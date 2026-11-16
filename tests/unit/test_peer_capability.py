@@ -138,7 +138,7 @@ def test_thread_safety():
                     )
                 )
                 tracker.select_peers_for_range(1, 100)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - worker thread must record any failure; an uncaught thread error would silently pass
             errors.append(e)
 
     threads = [threading.Thread(target=worker) for _ in range(4)]

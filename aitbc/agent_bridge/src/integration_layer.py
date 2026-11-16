@@ -8,7 +8,7 @@ import asyncio
 import logging
 import os
 from datetime import UTC, datetime
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import aiohttp
@@ -62,7 +62,7 @@ class AITBCServiceIntegration:
                 raise RuntimeError("Session not initialized")
             async with self.session.get(f"{self.service_endpoints['blockchain_rpc']}/health") as response:
                 return dict(await response.json())
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError, RuntimeError) as e:
             logger.exception("Service call failed: blockchain_rpc")
             return {"error": str(e), "status": "unavailable"}
 
@@ -73,7 +73,7 @@ class AITBCServiceIntegration:
                 raise RuntimeError("Session not initialized")
             async with self.session.get(f"{self.service_endpoints['exchange_service']}/api/health") as response:
                 return dict(await response.json())
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError, RuntimeError) as e:
             logger.exception("Service call failed: exchange_service")
             return {"error": str(e), "status": "unavailable"}
 
@@ -84,7 +84,7 @@ class AITBCServiceIntegration:
                 raise RuntimeError("Session not initialized")
             async with self.session.get(f"{self.service_endpoints['coordinator_api']}/health") as response:
                 return dict(await response.json())
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError, RuntimeError) as e:
             logger.exception("Service call failed: coordinator_api")
             return {"error": str(e), "status": "unavailable"}
 
@@ -97,7 +97,7 @@ class AITBCServiceIntegration:
                 f"{self.service_endpoints['blockchain_rpc']}/rpc/submit", json=transaction_data
             ) as response:
                 return dict(await response.json())
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError, RuntimeError) as e:
             logger.exception("Service call failed: blockchain_rpc (submit_transaction)")
             return {"error": str(e), "status": "failed"}
 
@@ -108,7 +108,7 @@ class AITBCServiceIntegration:
                 raise RuntimeError("Session not initialized")
             async with self.session.get(f"{self.service_endpoints['exchange_service']}/api/market/{symbol}") as response:
                 return dict(await response.json())
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError, RuntimeError) as e:
             logger.exception("Service call failed: exchange_service (get_market_data)")
             return {"error": str(e), "status": "failed"}
 
@@ -121,7 +121,7 @@ class AITBCServiceIntegration:
                 f"{self.service_endpoints['agent_coordinator']}/agents/register", json=agent_data
             ) as response:
                 return dict(await response.json())
-        except Exception as e:
+        except (aiohttp.ClientError, asyncio.TimeoutError, ValueError, TypeError, RuntimeError) as e:
             logger.exception("Service call failed: agent_coordinator (register_agent)")
             return {"error": str(e), "status": "failed"}
 
@@ -172,7 +172,7 @@ class AgentServiceBridge:
             else:
                 logger.warning("Registration failed: %s", registration_result)
                 return False
-        except Exception as e:
+        except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as e:
             logger.error("Failed to start agent %s: %s", agent_id, e)
             return False
 
@@ -236,7 +236,7 @@ class AgentServiceBridge:
                 }
 
                 return {"status": "success", "result": analysis_result}
-        except Exception as e:  # noqa: BLE001 - task boundary reports failure to caller
+        except (AttributeError, KeyError, RuntimeError, TypeError, ValueError) as e:
             logger.warning("market analysis task failed: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -260,7 +260,7 @@ class AgentServiceBridge:
                 tx_result = await integration.submit_transaction(transaction)
 
                 return {"status": "success", "transaction": tx_result}
-        except Exception as e:  # noqa: BLE001 - task boundary reports failure to caller
+        except (AttributeError, KeyError, RuntimeError, TypeError, ValueError, InvalidOperation) as e:
             logger.warning("trading task failed: %s", e)
             return {"status": "error", "message": str(e)}
 

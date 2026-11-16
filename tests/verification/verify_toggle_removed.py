@@ -19,7 +19,7 @@ def main():
         else:
             print(f"❌ Failed to load page: {response.status_code}")
             return
-    except Exception as e:
+    except (requests.RequestException, OSError, ValueError, TypeError) as e:
         print(f"❌ Error: {e}")
         return
 
@@ -69,7 +69,7 @@ def main():
                 print("✅ Live data mode confirmed")
         else:
             print(f"❌ Failed to load JS: {js_response.status_code}")
-    except Exception as e:
+    except (requests.RequestException, ValueError, TypeError) as e:
         print(f"❌ Error checking JS: {e}")
 
     print("\n" + "=" * 60)

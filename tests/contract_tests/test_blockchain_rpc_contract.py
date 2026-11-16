@@ -283,7 +283,7 @@ class TestBlockchainRPCContracts:
                     # Contract: Should be parseable as JSON
                     try:
                         response.json()
-                    except Exception as e:
+                    except (ValueError, TypeError) as e:
                         pytest.fail(f"{endpoint} response should be valid JSON: {e}")
 
         except httpx.ConnectError:

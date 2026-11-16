@@ -85,7 +85,7 @@ class TrainingEnvironment:
                 log.warning("AITBC node may not be running")
         except subprocess.TimeoutExpired:
             log.warning("AITBC node check timed out")
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.warning("AITBC node check failed: %s", e)
         log.info("Prerequisites check completed")
         return True
@@ -117,7 +117,7 @@ class TrainingEnvironment:
                 for line in lines:
                     if line.strip():
                         wallets.append(line.strip())
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.warning("Wallet list check failed: %s", e)
 
         # Check blockchain
@@ -135,7 +135,7 @@ class TrainingEnvironment:
                 blockchain = result.stdout.strip().split()[0] if result.stdout.strip() else "running"
             else:
                 blockchain = "not running"
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError) as e:
             log.warning("Blockchain info check failed: %s", e)
             blockchain = "error"
 
