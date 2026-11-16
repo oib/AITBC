@@ -324,11 +324,13 @@ def _pair_shape_ok(event: SlashingEvent, payload: dict) -> bool:
     return {str(a.get("hash", "")).lower() for a in atts} == {hash_a, hash_b}
 
 
-def equivocation_evidence_verifies(event: SlashingEvent) -> bool:
+def equivocation_evidence_verifies(event: SlashingEvent, chain_id: str | None = None) -> bool:
     """Whether an equivocation claim carries evidence that verifies against its accused (#2130).
 
     Reuses the on-chain verifiers (state.deactivation_evidence) so the record gate
     and the apply-time check cannot disagree. Unsigned claims never verify.
+    ``chain_id`` is forwarded to the PBFT vote-evidence verifier (#2134): without
+    it chain-bound vote signatures (#2102) fail the record gate.
     """
     from aitbc.crypto.signature_recovery import canonical_address
 
@@ -346,7 +348,14 @@ def equivocation_evidence_verifies(event: SlashingEvent) -> bool:
         # fails closed (it used to be hard-coded 0, i.e. always armed).
         cross_view_height = getattr(settings, "pbft_cross_view_commit_lock_height", None)
         ok, _reason = _verify_equivocation_claim(
-            payload, event, canonical_address(event.validator_address), None, None, cross_view_height, event.block_height
+            payload,
+            event,
+            canonical_address(event.validator_address),
+            None,
+            None,
+            cross_view_height,
+            event.block_height,
+            chain_id=chain_id,
         )
     except (AttributeError, IndexError, KeyError, TypeError, ValueError):  # malformed evidence refuses, never raises
         return False
@@ -404,7 +413,8 @@ class _HistoryIndex:
 class SlashingManager:
     """Manages validator slashing conditions and penalties"""
 
-    def __init__(self) -> None:
+    def __init__(self, chain_id: str | None = None) -> None:
+        self._chain_id = chain_id
         self.slashing_events: list[SlashingEvent] = []
         self.pruned_summary: dict[str, dict] = {}  # #2131: validator -> {count, digest}
         self.slash_rates = {
@@ -461,8 +471,7 @@ class SlashingManager:
         metrics_registry.increment("slashing_events_cap_evicted_total")
         return True
 
-    @staticmethod
-    def _upgrade_evidence(existing: SlashingEvent, event: SlashingEvent) -> None:
+    def _upgrade_evidence(self, existing: SlashingEvent, event: SlashingEvent) -> None:
         """#1263 in-place evidence upgrade of an evidence-less record.
 
         #2130 follow-up: when the verify gate is armed the new evidence must verify
@@ -471,7 +480,11 @@ class SlashingManager:
         """
         if event_signature_evidence(event) is None or event_signature_evidence(existing) is not None:
             return
-        if _equivocation_gate_on() and event_is_equivocation_claim(event) and not equivocation_evidence_verifies(event):
+        if (
+            _equivocation_gate_on()
+            and event_is_equivocation_claim(event)
+            and not equivocation_evidence_verifies(event, self._chain_id)
+        ):
             metrics_registry.increment("slashing_equivocation_gate_refused_total")
             return
         existing.evidence = event.evidence
@@ -488,7 +501,7 @@ class SlashingManager:
         refused = (
             (stake is not None and stake <= 0)
             or index.has_signed_or_levied_at(event)
-            or not equivocation_evidence_verifies(event)
+            or not equivocation_evidence_verifies(event, self._chain_id)
         )
         if refused:
             metrics_registry.increment("slashing_equivocation_gate_refused_total")
