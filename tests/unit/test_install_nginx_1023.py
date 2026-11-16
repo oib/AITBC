@@ -28,7 +28,7 @@ def _scratch(tmp_path: Path, failing_nginx: bool, hub_url: str) -> dict:
     site.write_text("server_name custom.local; # local edit must survive\n")
 
     stub = tmp_path / "nginx"
-    stub.write_text("#!/usr/bin/env bash\nexit %d\n" % (1 if failing_nginx else 0))
+    stub.write_text(f"#!/usr/bin/env bash\nexit {1 if failing_nginx else 0}\n")
     stub.chmod(stub.stat().st_mode | stat.S_IEXEC)
 
     env = dict(os.environ)
@@ -60,7 +60,7 @@ def test_success_applies_substituted_config(tmp_path):
     rendered = sc["site"].read_text()
     assert "server_name _;" not in rendered
     # scheme/port stripped from the URL — server_name is a bare host line
-    server_line = next(l for l in rendered.splitlines() if "server_name" in l and ";" in l)
+    server_line = next(line for line in rendered.splitlines() if "server_name" in line and ";" in line)
     assert "http" not in server_line
     assert "8102" not in server_line
 
