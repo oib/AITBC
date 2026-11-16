@@ -299,13 +299,21 @@ def test_island_join_aborts_when_chain_probe_fails():
 def test_island_join_env_chain_id_wins(monkeypatch):
     monkeypatch.setenv("CHAIN_ID", "env-chain")
     coord = MagicMock()
-    coord.post.return_value = {"success": True, "members": [], "credentials": {}}
+    coord.post.return_value = {
+        "success": True,
+        "island_id": "isl-1",
+        "members": [],
+        "credentials": {"rpc_endpoint": "http://x"},
+    }
     exists, m_open, _chown, _chmod = _keystore_patches()
     with (
         exists,
         m_open,
         _chown,
         _chmod,
+        patch("os.open", return_value=99),
+        patch("os.fchmod"),
+        patch("os.fdopen", return_value=mock_open()()),
         patch("aitbc_cli.commands.node.island.AITBCHTTPClient", return_value=coord),
         _failing_probe() as prober_cls,
     ):
