@@ -114,3 +114,46 @@ def test_legacy_blob_without_summary_loads_empty():
 
     records, summary = MultiValidatorPoA._split_pruned_summary([{"validator_address": V1}])
     assert summary == {} and len(records) == 1
+
+
+def test_persist_state_writes_bounded_blob_and_restart_restores_summary(monkeypatch):
+    """#2136 pin-gap: the ``_persist_state`` -> ``load_state`` wiring must not be
+    silently inert. Removing ``bound_for_persist()`` or the ``_pruned_summary``
+    append leaves the blob unbounded/unmarked; removing the load-side split
+    leaves ``pruned_summary`` empty after restart — every mutation fails here."""
+    import uuid
+
+    from sqlmodel import select
+
+    from aitbc_chain.base_models import ConsensusState
+    from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA
+    from aitbc_chain.database import session_scope
+
+    from .test_validator_deactivation_1198 import _chain_db, _consensus
+
+    monkeypatch.setattr(settings, "slashing_history_persist_max_per_validator", 3)
+    chain_id = f"slash-persist-{uuid.uuid4().hex[:8]}"
+    _chain_db(chain_id)
+    c = _consensus(chain_id, V1)
+    _fill(c._slashing_manager, 8)
+
+    assert c.save_state() is True
+    # bound_for_persist trims the live history too — not just the blob.
+    assert len(c._slashing_manager.slashing_events) == 3
+    assert c._slashing_manager.pruned_summary[V1]["count"] == 5
+
+    with session_scope(chain_id) as session:
+        row = session.exec(select(ConsensusState).where(ConsensusState.chain_id == chain_id)).one()
+        records = json.loads(row.slashing_events_json)
+    event_records = [r for r in records if "_pruned_summary" not in r]
+    markers = [r["_pruned_summary"] for r in records if "_pruned_summary" in r]
+    assert len(event_records) == 3
+    assert len(markers) == 1
+    assert markers[0][V1]["count"] == 5
+    assert len(markers[0][V1]["digest"]) == 64
+
+    # Restart on the same chain.db: fresh instance restores bound + summary.
+    c2 = MultiValidatorPoA(chain_id)
+    assert len(c2._slashing_manager.slashing_events) == 3
+    assert c2._slashing_manager.pruned_summary[V1]["count"] == 5
+    assert len(c2._slashing_manager.pruned_summary[V1]["digest"]) == 64
