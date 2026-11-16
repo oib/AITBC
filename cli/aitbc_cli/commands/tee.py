@@ -24,14 +24,32 @@ from typing import Any
 
 from ..config import get_config
 from ..utils import output
-from ..utils.error_handling import LOGIN_HINT, abort, is_unauthorized
+from ..utils.error_handling import LOGIN_HINT, LOGIN_REJECTED_HINT, abort, is_unauthorized
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs
+
+
+def _login_hint(ctx) -> str:
+    """Pick the 401 hint: rejected-credential vs never-logged-in.
+
+    Same split as ``ai._login_hint`` (#2095): when the request actually
+    carried a credential (``--api-key``, stored ``client`` login, or
+    ``config.api_key`` — the same sources ``_api_client`` resolves), a 401
+    means the server refused it, so point at ``auth login`` as a refresh.
+    """
+    try:
+        config_key = get_config().api_key
+    except Exception:  # noqa: BLE001,S110 - hint fallback must not mask the 401
+        config_key = None
+    token = ctx.obj.get("api_key") if ctx and hasattr(ctx, "obj") else None
+    if auth_client_kwargs(explicit_key=token, config_key=config_key):
+        return LOGIN_REJECTED_HINT
+    return LOGIN_HINT
 
 
 def _abort_for_api_error(ctx, e: NetworkError) -> None:
     """Abort with the login hint on a 401, else the coordinator error."""
     if is_unauthorized(e):
-        abort(ctx, LOGIN_HINT)
+        abort(ctx, _login_hint(ctx))
     abort(ctx, f"Coordinator API error: {e}", from_exception=e)
 
 
