@@ -526,7 +526,7 @@ aitbc prometheus check
 Prints the current value of one metric.
 
 ```bash
-aitbc prometheus metric --name aitbc_block_height
+aitbc prometheus metric --name blockchain_block_height
 ```
 
 ### Step 35: Prometheus: ad-hoc query
@@ -534,7 +534,7 @@ aitbc prometheus metric --name aitbc_block_height
 Runs a PromQL expression.
 
 ```bash
-aitbc prometheus query --expr 'aitbc_block_height'
+aitbc prometheus query --expr 'blockchain_block_height'
 ```
 
 ### Step 36: Prometheus: rules

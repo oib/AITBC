@@ -52,8 +52,16 @@ def test_get_denied_key_refused_and_never_prints(runner, cfg):
 
 
 def test_get_missing_file_exits_nonzero(runner, tmp_path, monkeypatch):
+    """Missing file + no effective value still exits nonzero.
+
+    Since #2105 ``config get`` falls back to effective (env/default) values,
+    so a key like ``timeout`` resolves even without a YAML file; a key with
+    no effective value must still fail.
+    """
     monkeypatch.setenv("AITBC_CONFIG_FILE", str(tmp_path / "absent.yaml"))
-    result = runner.invoke(config, obj={"output_format": "table"}, args=["get", "timeout"])
+    effective = type("C", (), {"coordinator_api_url": ""})()
+    monkeypatch.setattr(config_mod, "get_config", lambda: effective)
+    result = runner.invoke(config, obj={"output_format": "table"}, args=["get", "coordinator_api_url"])
     assert result.exit_code != 0
 
 
@@ -72,3 +80,31 @@ def test_get_global_reads_global_file(runner, tmp_path, monkeypatch):
     result = runner.invoke(config, obj={"output_format": "table"}, args=["get", "timeout", "--global"])
     assert result.exit_code == 0, result.output
     assert "99" in result.output
+
+
+def test_get_falls_back_to_effective_config(runner, tmp_path, monkeypatch):
+    """#2105: env-only fleet nodes have no YAML — get resolves effective values."""
+    f = tmp_path / "aitbc.yaml"
+    f.write_text("timeout: 60\n")
+    monkeypatch.setenv("AITBC_CONFIG_FILE", str(f))
+
+    effective = type("C", (), {"coordinator_api_url": "http://hub:8201", "timeout": 30})()
+    monkeypatch.setattr(config_mod, "get_config", lambda: effective)
+
+    result = runner.invoke(config, obj={"output_format": "json"}, args=["get", "coordinator_api_url"])
+    assert result.exit_code == 0, result.output
+    assert "http://hub:8201" in result.output
+    assert '"source": "effective"' in result.output or '"source":"effective"' in result.output
+
+
+def test_get_effective_empty_is_not_set(runner, tmp_path, monkeypatch):
+    f = tmp_path / "aitbc.yaml"
+    f.write_text("timeout: 60\n")
+    monkeypatch.setenv("AITBC_CONFIG_FILE", str(f))
+
+    effective = type("C", (), {"coordinator_api_url": ""})()
+    monkeypatch.setattr(config_mod, "get_config", lambda: effective)
+
+    result = runner.invoke(config, obj={"output_format": "table"}, args=["get", "coordinator_api_url"])
+    assert result.exit_code != 0
+    assert "not set" in result.output
