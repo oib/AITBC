@@ -390,8 +390,13 @@ def _verify_attestation_equivocation(payload: dict[str, Any], event: SlashingEve
     return seen == expected
 
 
-def _verify_vote_equivocation(payload: dict[str, Any], validator: str) -> bool:
-    """Verify a ``vote_equivocation`` event's two signed PBFT messages."""
+def _verify_vote_equivocation(payload: dict[str, Any], validator: str, chain_id: str | None = None) -> bool:
+    """Verify a ``vote_equivocation`` event's two signed PBFT messages.
+
+    #2102: signatures verify under the apply chain's chain-bound preimage
+    first, legacy preimage second — a pair signed on another chain sharing
+    the validator key no longer verifies here.
+    """
     messages = payload.get("messages")
     if not isinstance(messages, list) or len(messages) < 2:
         return False
@@ -416,15 +421,10 @@ def _verify_vote_equivocation(payload: dict[str, Any], validator: str) -> bool:
             return False
         if canonical_address(str(msg.get("sender", ""))) != canonical_address(validator):
             return False
-        signed = {
-            "message_type": message_type,
-            "sender": msg.get("sender", ""),
-            "view_number": view,
-            "sequence_number": sequence,
-            "digest": digest,
-        }
+        from ..consensus.pbft_vote_signature import verify_pbft_vote_signature
+
         try:
-            if not verify_consensus_message(signed, str(msg.get("signature", "")), validator):
+            if not verify_pbft_vote_signature(msg, str(msg.get("signature", "")), validator, chain_id):
                 return False
         except SignatureMalformed:
             return False
@@ -492,8 +492,12 @@ def _cross_view_message_fields(msg: Any, sequence: int | None) -> dict[str, Any]
     }
 
 
-def _cross_view_message_crypto_ok(fields: dict[str, Any], validator_addr: str) -> str | None:
-    """Digest recompute + sender + signature check for one validated record."""
+def _cross_view_message_crypto_ok(fields: dict[str, Any], validator_addr: str, chain_id: str | None = None) -> str | None:
+    """Digest recompute + sender + signature check for one validated record.
+
+    #2102: the signature verifies under the apply chain's chain-bound
+    preimage first, legacy preimage second.
+    """
     # The digest commits to block_hash:sequence:view — recompute it.
     expected_digest = hashlib.sha256(
         f"{fields['block_hash']}:{fields['sequence_number']}:{fields['view_number']}".encode()
@@ -502,15 +506,10 @@ def _cross_view_message_crypto_ok(fields: dict[str, Any], validator_addr: str) -
         return "cross-view equivocation digest does not match block_hash:sequence:view"
     if canonical_address(str(fields["sender"])) != validator_addr:
         return "cross-view equivocation sender does not match the deactivated validator"
-    signed = {
-        "message_type": fields["message_type"],
-        "sender": fields["sender"],
-        "view_number": fields["view_number"],
-        "sequence_number": fields["sequence_number"],
-        "digest": fields["digest"],
-    }
+    from ..consensus.pbft_vote_signature import verify_pbft_vote_signature
+
     try:
-        if not verify_consensus_message(signed, str(fields["signature"]), validator_addr):
+        if not verify_pbft_vote_signature(fields, str(fields["signature"]), validator_addr, chain_id):
             return "cross-view equivocation signature verification failed"
     except SignatureMalformed:
         return "cross-view equivocation signature is malformed"
@@ -523,6 +522,7 @@ def _verify_pbft_cross_view_vote_equivocation(
     validator_addr: str,
     activation_height: int | None,
     apply_height: int | None,
+    chain_id: str | None = None,
 ) -> str | None:
     """Verify a ``pbft_cross_view_vote_equivocation`` event (#1940 F3-A).
 
@@ -552,7 +552,7 @@ def _verify_pbft_cross_view_vote_equivocation(
         fields = _cross_view_message_fields(msg, sequence)
         if isinstance(fields, str):
             return fields
-        reason = _cross_view_message_crypto_ok(fields, validator_addr)
+        reason = _cross_view_message_crypto_ok(fields, validator_addr, chain_id)
         if reason is not None:
             return reason
         views.add(fields["view_number"])
@@ -599,6 +599,7 @@ def _verify_equivocation_claim(
     uc_contexts: dict[int, UcApplyContext | None] | None,
     cross_view_height: int | None,
     apply_height: int | None,
+    chain_id: str | None = None,
 ) -> tuple[bool, str | None]:
     """Verify one equivocation claim; ``(counts_as_verified, fail_reason)``.
 
@@ -618,12 +619,12 @@ def _verify_equivocation_claim(
             return False, None
         return True, None
     if kind == "vote_equivocation":
-        if not _verify_vote_equivocation(ep, validator_addr):
+        if not _verify_vote_equivocation(ep, validator_addr, chain_id):
             return False, "vote equivocation evidence failed signature verification"
         return True, None
     # PBFT_CROSS_VIEW_VOTE_EQUIVOCATION — fail closed unless the on-chain
     # cross-view evidence height is armed and the sequence sits in-window.
-    reason = _verify_pbft_cross_view_vote_equivocation(ep, event, validator_addr, cross_view_height, apply_height)
+    reason = _verify_pbft_cross_view_vote_equivocation(ep, event, validator_addr, cross_view_height, apply_height, chain_id)
     if reason is not None:
         return False, reason
     return True, None
@@ -638,6 +639,7 @@ def _verify_equivocations(
     apply_height: int | None = None,
     uc_contexts: dict[int, UcApplyContext | None] | None = None,
     cross_view_height: int | None = None,
+    chain_id: str | None = None,
 ) -> str | None:
     """Verify every equivocation claim; ≥1 verified equivocation required.
 
@@ -667,7 +669,7 @@ def _verify_equivocations(
             PBFT_CROSS_VIEW_VOTE_EQUIVOCATION,
         ):
             counts, reason = _verify_equivocation_claim(
-                ep, event, validator_addr, uc_ctx, uc_contexts, cross_view_height, apply_height
+                ep, event, validator_addr, uc_ctx, uc_contexts, cross_view_height, apply_height, chain_id
             )
             if reason is not None:
                 return reason
@@ -738,4 +740,5 @@ def verify_deactivation_evidence(
         ttl_blocks=ttl,
         apply_height=block_height,
         cross_view_height=cross_view_height,
+        chain_id=chain_id,
     )

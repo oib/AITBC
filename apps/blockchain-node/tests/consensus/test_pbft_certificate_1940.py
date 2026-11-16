@@ -103,7 +103,7 @@ def _quorum(
 
 
 def _validate(cert: list[dict[str, Any]], *, height: int = HEIGHT, view: int | None = VIEW, members=MEMBERS):
-    return validate_commit_certificate(cert, BH, members, height=height, view=view)
+    return validate_commit_certificate(cert, BH, members, height=height, view=view, chain_id="test-chain")
 
 
 # ---------------------------------------------------------------------------
@@ -211,7 +211,7 @@ class TestValidateCommitCertificate:
         assert ok, reason
 
     def test_empty_validator_set_rejects(self):
-        ok, reason = validate_commit_certificate(_quorum(), BH, [], height=HEIGHT, view=VIEW)
+        ok, reason = validate_commit_certificate(_quorum(), BH, [], height=HEIGHT, view=VIEW, chain_id="test-chain")
         assert not ok
         assert "validator set" in reason
 

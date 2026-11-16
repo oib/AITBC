@@ -635,7 +635,9 @@ class PBFTConsensus:
             if not strict_certificate_active(sequence):
                 continue
             certificate = [m.to_dict() for m in messages]
-            ok, _reason = validate_commit_certificate(certificate, block_hash, validators, height=sequence, view=view_number)
+            ok, _reason = validate_commit_certificate(
+                certificate, block_hash, validators, height=sequence, view=view_number, chain_id=self._chain_id
+            )
             if not ok:
                 continue
             if best_key is None or (view_number, sequence) > best_key:
@@ -755,21 +757,26 @@ class PBFTConsensus:
         """Sign a PBFT message in place with the sender's private key.
 
         Only signs when ``self._private_key`` is non-empty. The signed
-        payload is the canonical message dict (message_type, sender,
-        view_number, sequence_number, digest) — matching the dict
-        verified by ``_verify_message_signature()``.
+        payload is the canonical message dict plus ``chain_id`` (#2102) —
+        matching the chain-bound preimage ``_verify_message_signature()``
+        tries first.
         """
         if not self._private_key:
             return
         from aitbc.crypto.consensus_signing import sign_consensus_message
 
-        msg_data = {
-            "message_type": message.message_type.value,
-            "sender": message.sender,
-            "view_number": message.view_number,
-            "sequence_number": message.sequence_number,
-            "digest": message.digest,
-        }
+        from .pbft_vote_signature import pbft_vote_preimage
+
+        msg_data = pbft_vote_preimage(
+            {
+                "message_type": message.message_type.value,
+                "sender": message.sender,
+                "view_number": message.view_number,
+                "sequence_number": message.sequence_number,
+                "digest": message.digest,
+            },
+            self._chain_id,
+        )
         message.signature = sign_consensus_message(msg_data, self._private_key)
 
     def _verify_message_signature(self, message: PBFTMessage) -> bool:
@@ -782,16 +789,22 @@ class PBFTConsensus:
         """
         if not message.signature:
             return not settings.pbft_require_signatures
-        from aitbc.crypto.consensus_signing import verify_consensus_message
+        from .pbft_vote_signature import verify_pbft_vote_signature
 
-        msg_data = {
-            "message_type": message.message_type.value,
-            "sender": message.sender,
-            "view_number": message.view_number,
-            "sequence_number": message.sequence_number,
-            "digest": message.digest,
-        }
-        return verify_consensus_message(msg_data, message.signature, message.sender)
+        # #2102: chain-bound preimage first, legacy preimage fallback —
+        # pre-change signatures stay valid, cross-chain replay does not.
+        return verify_pbft_vote_signature(
+            {
+                "message_type": message.message_type.value,
+                "sender": message.sender,
+                "view_number": message.view_number,
+                "sequence_number": message.sequence_number,
+                "digest": message.digest,
+            },
+            message.signature,
+            message.sender,
+            self._chain_id,
+        )
 
     # ------------------------------------------------------------------
     # B7: Gossip network transport (C5)
