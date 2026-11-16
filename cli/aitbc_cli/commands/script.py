@@ -44,7 +44,7 @@ def run(ctx, script_path, args):
             ctx.obj.get("output_format", "table"),
             title=f"Script: {script_path}",
         )
-    except Exception as e:
+    except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         abort(ctx, f"Error running script: {e}", from_exception=e)
 
 
@@ -69,5 +69,5 @@ def list(ctx, script_dir):
             scripts.append({"name": script_file.name, "path": str(script_file)})
 
         output(scripts, ctx.obj.get("output_format", "table"), title="Available Scripts")
-    except Exception as e:
+    except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         abort(ctx, f"Error listing scripts: {e}", from_exception=e)

@@ -7,12 +7,27 @@ import os
 from typing import Any
 
 import click
+import httpx
 import yaml
 
 from ..config import get_config
 from ..utils import resolve_output_format, success
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import auth_headers, service_root_url
+
+# Expected failure surface for the workflow fallbacks below (#1860): httpx
+# transport, yaml parse, filesystem and data-shape builtins.
+_WORKFLOW_ERRORS = (
+    httpx.HTTPError,
+    yaml.YAMLError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 
 def _coordinator_url(config_obj) -> str:
@@ -92,7 +107,7 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
         abort(None, f"Config file not found: {config}")
     except CLIError:
         raise
-    except Exception as e:
+    except _WORKFLOW_ERRORS as e:
         abort(None, f"Error running workflow: {e}")
 
 
@@ -184,7 +199,7 @@ def status(workflow_name: str):
 
     except CLIError:
         raise
-    except Exception as e:
+    except _WORKFLOW_ERRORS as e:
         abort(None, f"Error getting workflow status: {e}")
 
 
@@ -217,5 +232,5 @@ def stop(workflow_name: str):
 
     except CLIError:
         raise
-    except Exception as e:
+    except _WORKFLOW_ERRORS as e:
         abort(None, f"Error stopping workflow: {e}")

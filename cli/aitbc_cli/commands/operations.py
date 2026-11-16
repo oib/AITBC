@@ -15,6 +15,7 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import ed25519
 
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.exceptions import AITBCError
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 from aitbc.utils.validation import validate_address
 
@@ -34,6 +35,20 @@ from ..utils.wallet_secret import resolve_wallet_password, wallet_password_optio
 logger = get_logger(__name__)
 
 DEFAULT_RPC_URL = "http://localhost:8202"
+
+# Expected failure surface for the on-chain/governance fallbacks below (#1860):
+# aitbc error hierarchy plus filesystem, parse, crypto-shape and data-shape
+# builtins. CLIError/click.Abort keep their own re-raise handling.
+_OPERATIONS_ERRORS = (
+    AITBCError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 
 def _agent_coordinator_url() -> str:
@@ -65,7 +80,7 @@ def _load_wallet(
             )
         try:
             wallet_data["private_key"] = decode_value(wallet_data["private_key"], password)
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             abort(None, "Invalid password for wallet")
     return wallet_data
 
@@ -144,11 +159,11 @@ def submit_job(ctx, wallet_name: str, job_type: str, prompt: str, payment: Decim
             abort(None, f"Error submitting AI job: {e}", from_exception=e)
         except CLIError:
             raise
-        except Exception as e:
+        except _OPERATIONS_ERRORS as e:
             abort(None, f"Error: {e}", from_exception=e)
     except CLIError:
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error: {e}")
         return
 
@@ -186,7 +201,7 @@ def status(job_id: str | None, format: str):
         abort(None, f"Error getting AI job status: {e}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error: {e}")
         return
 
@@ -211,7 +226,7 @@ def cancel(job_id: str | None):
         abort(None, f"Error cancelling AI job: {e}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error: {e}")
         return
 
@@ -250,7 +265,7 @@ def register(agent_id: str, status: str):
         abort(None, f"Error registering agent: {e}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error: {e}")
         return
 
@@ -298,7 +313,7 @@ def list(ctx, status: str | None, format: str):
             abort(ctx, f"Error listing agents: {response.status_code}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error: {e}")
         return
 
@@ -319,7 +334,7 @@ def deregister(agent_id: str):
         abort(None, f"Error deregistering agent: {e}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error: {e}")
         return
 
@@ -425,7 +440,7 @@ def message(
         click.echo(f"TX Hash: {result.get('transaction_hash', 'unknown')}")
     except (CLIError, click.Abort):
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error sending message: {e}")
         return
 
@@ -516,7 +531,7 @@ def vote(
         abort(None, f"Network error: {e}")
     except (CLIError, click.Abort):
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error casting vote: {e}")
         return
 
@@ -619,7 +634,7 @@ def proposal(
         abort(None, f"Network error: {e}")
     except (CLIError, click.Abort):
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error creating proposal: {e}")
         return
 
@@ -651,7 +666,7 @@ def get_proposal(ctx, proposal_id: str, format: str):
         abort(None, f"Network error: {e}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error getting proposal: {e}")
         return
 
@@ -731,7 +746,7 @@ def stake(
         abort(None, f"Network error: {e}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error staking tokens: {e}")
         return
 
@@ -796,7 +811,7 @@ def delegate(
         abort(None, f"Network error: {e}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error delegating voting power: {e}")
         return
 
@@ -829,7 +844,7 @@ def execute(ctx, proposal_id: str, format: str):
         abort(None, f"Network error: {e}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error executing proposal: {e}")
         return
 
@@ -864,6 +879,6 @@ def voting_power(ctx, address: str, format: str):
         abort(None, f"Network error: {e}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPERATIONS_ERRORS as e:
         abort(None, f"Error getting voting power: {e}")
         return

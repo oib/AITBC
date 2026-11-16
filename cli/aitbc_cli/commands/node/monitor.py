@@ -72,7 +72,7 @@ def _monitor_layout_or_error(node_id, node_config):
     try:
         node_info = _fetch_node_info(node_config)
         return _build_monitor_layout(node_id, node_info)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - NodeClient raises plain Exception for HTTP failures; layout degrades to an error string
         logger.warning("Error getting node stats: %s", e, exc_info=True)
         return f"Error getting node stats: {e}"
 

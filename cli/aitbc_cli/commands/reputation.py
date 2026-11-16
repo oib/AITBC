@@ -7,6 +7,8 @@ from typing import Any, cast
 
 import click
 
+from aitbc.exceptions import AITBCError
+
 from ..config import get_config
 from ..utils import output, resolve_output_format, success
 from ..utils.error_handling import abort
@@ -21,6 +23,19 @@ from ..utils.http_client import (
 )
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the reputation fallbacks below (#1860):
+# aitbc error hierarchy plus filesystem, parse and data-shape builtins.
+_REPUTATION_ERRORS = (
+    AITBCError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 DEFAULT_COORDINATOR_URL = "http://localhost:8203"
 
@@ -223,7 +238,7 @@ def get_profile(ctx, agent_id: str, format: str):
     except NetworkError as e:
         # Safety net for unexpected network failures.
         abort(ctx, f"Network error: {http_error_detail(e) or e}")
-    except Exception as e:
+    except _REPUTATION_ERRORS as e:
         abort(ctx, f"Error getting reputation profile: {e}", from_exception=e)
 
 
@@ -272,7 +287,7 @@ def trust_score(ctx, agent_id: str, format: str):
         click.echo(f"Calculated At: {data.get('calculated_at', 'unknown')}")
     except NetworkError as e:
         abort(ctx, f"Network error: {http_error_detail(e) or e}")
-    except Exception as e:
+    except _REPUTATION_ERRORS as e:
         abort(ctx, f"Error getting trust score: {e}", from_exception=e)
 
 
@@ -335,7 +350,7 @@ def leaderboard(ctx, category: str, limit: int, region: str | None, format: str)
             )
     except NetworkError as e:
         abort(ctx, f"Network error: {http_error_detail(e) or e}")
-    except Exception as e:
+    except _REPUTATION_ERRORS as e:
         abort(ctx, f"Error getting leaderboard: {e}", from_exception=e)
 
 
@@ -386,7 +401,7 @@ def metrics(ctx, format: str):
         click.echo(f"  Active Agents: {recent.get('active_agents', 0)}")
     except NetworkError as e:
         abort(ctx, f"Network error: {http_error_detail(e) or e}")
-    except Exception as e:
+    except _REPUTATION_ERRORS as e:
         abort(ctx, f"Error getting metrics: {e}", from_exception=e)
 
 
@@ -412,7 +427,7 @@ def create_profile(ctx, agent_id: str):
         click.echo(f"Created At: {data.get('created_at', 'unknown')}")
     except NetworkError as e:
         abort(ctx, f"Network error: {http_error_detail(e) or e}")
-    except Exception as e:
+    except _REPUTATION_ERRORS as e:
         abort(ctx, f"Error creating profile: {e}", from_exception=e)
 
 
@@ -473,5 +488,5 @@ def add_feedback(
         click.echo(f"Moderation Status: {data.get('moderation_status', 'pending')}")
     except NetworkError as e:
         abort(ctx, f"Network error: {http_error_detail(e) or e}")
-    except Exception as e:
+    except _REPUTATION_ERRORS as e:
         abort(ctx, f"Error adding feedback: {e}", from_exception=e)

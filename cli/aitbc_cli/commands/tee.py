@@ -9,12 +9,14 @@ from typing import cast
 
 import click
 
+from aitbc.exceptions import AITBCError
 from aitbc.tee import (
     AttestationQuote,
     AttestationVerifier,
     Enclave,
     EnclaveConfig,
     QuoteGenerator,
+    TEEError,
     load_or_create_signing_key,
     public_key_for_signing_key,
 )
@@ -24,8 +26,23 @@ from typing import Any
 
 from ..config import get_config
 from ..utils import output
-from ..utils.error_handling import LOGIN_HINT, LOGIN_REJECTED_HINT, abort, is_unauthorized
+from ..utils.error_handling import CLIError, LOGIN_HINT, LOGIN_REJECTED_HINT, abort, is_unauthorized
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs
+
+# Expected failure surface for the TEE fallbacks below (#1860): aitbc/CLI/TEE
+# error hierarchies plus filesystem, crypto-shape and data-shape builtins.
+_TEE_ERRORS = (
+    AITBCError,
+    CLIError,
+    TEEError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 
 def _login_hint(ctx) -> str:
@@ -138,7 +155,7 @@ def attest(ctx, enclave_id: str, measurement: str, key_file: str):
         output(result, ctx.obj.get("output_format", "table"), title="TEE Attestation")
     except NetworkError as e:
         _abort_for_api_error(ctx, e)
-    except Exception as e:
+    except _TEE_ERRORS as e:
         abort(ctx, f"Error generating attestation for {enclave_id}: {e}", from_exception=e)
 
 
@@ -168,7 +185,7 @@ def keygen(ctx, key_file: str):
             "created": not existed,
         }
         output(result, ctx.obj.get("output_format", "table"), title="TEE Signing Key")
-    except Exception as e:
+    except _TEE_ERRORS as e:
         abort(ctx, f"Error generating key at {key_file}: {e}", from_exception=e)
 
 
@@ -196,7 +213,7 @@ def launch(ctx, enclave_id: str, image: str):
             "measurement": enclave.measurement,
         }
         output(result, ctx.obj.get("output_format", "table"), title="TEE Enclave Launch")
-    except Exception as e:
+    except _TEE_ERRORS as e:
         abort(ctx, f"Error launching enclave {enclave_id}: {e}", from_exception=e)
 
 
@@ -286,7 +303,7 @@ def verify(ctx, quote: str, attestation_id: str, job_id: str, measurement: str, 
             "source_job_id": job_id if job_id else None,
         }
         output(result, ctx.obj.get("output_format", "table"), title="TEE Quote Verification")
-    except Exception as e:
+    except _TEE_ERRORS as e:
         abort(ctx, f"Error verifying quote: {e}", from_exception=e)
 
 
@@ -331,7 +348,7 @@ def register(ctx, enclave_id: str, public_key: str, agent_id: str):
         output(result, ctx.obj.get("output_format", "table"), title="TEE Enclave Registration")
     except NetworkError as e:
         _abort_for_api_error(ctx, e)
-    except Exception as e:
+    except _TEE_ERRORS as e:
         abort(ctx, f"Error registering enclave {enclave_id}: {e}", from_exception=e)
 
 
@@ -355,5 +372,5 @@ def status(ctx, enclave_id: str):
         output(result, ctx.obj.get("output_format", "table"), title="TEE Enclave Status")
     except NetworkError as e:
         _abort_for_api_error(ctx, e)
-    except Exception as e:
+    except _TEE_ERRORS as e:
         abort(ctx, f"Error fetching enclave {enclave_id}: {e}", from_exception=e)

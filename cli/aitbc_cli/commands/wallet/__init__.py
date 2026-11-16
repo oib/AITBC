@@ -156,7 +156,7 @@ def _load_wallet(
                 )
             try:
                 wallet_data["private_key"] = decrypt_value(priv, password)
-            except Exception:
+            except (ValueError, KeyError, TypeError, AttributeError):
                 error("Invalid password for wallet")
                 raise click.Abort() from None
 
