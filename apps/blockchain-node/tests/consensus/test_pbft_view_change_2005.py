@@ -1570,3 +1570,43 @@ class TestRespinRemainder:
             # only the floor check refuses here (a missing NV would too).
             pbft._new_views[(SEQ, v)] = {"payload": {}, "kind": "free", "selected": None}
             assert pbft._view_change_permit(SEQ, v, HA) is False
+
+
+class TestQuorumIntersectionWithCertificates:
+    """Exhaustive n=4, f=1: with lock proofs now certificate-backed, every NEW_VIEW
+    quorum that overlaps a committing quorum forces exactly the committed hash,
+    and a lone Byzantine voter cannot inject a rival lock."""
+
+    def test_every_vc_quorum_forces_the_committed_hash(self):
+        import itertools
+
+        byz = MEMBERS[3]
+        commit_quorum = MEMBERS[:Q]  # honest members that prepared+committed HA at view 0
+        proposer = _proposer(SEQ, 1)
+        for vc_senders in itertools.combinations(MEMBERS, Q):
+            vcs = []
+            for s in vc_senders:
+                if s in commit_quorum:
+                    vcs.append(_locked(s, HA, 0, SEQ, 1))
+                elif s == byz:
+                    # Byzantine: lock on HB backed only by its own signature.
+                    vcs.append(
+                        _vc(
+                            s,
+                            SEQ,
+                            1,
+                            lock={"view": 0, "block_hash": HB, "kind": "prepare", "msgs": _proof(HB, SEQ, 0, [s] * Q)},
+                        )
+                    )
+                else:
+                    vcs.append(_vc(s, SEQ, 1))
+            nv = _nv(proposer, SEQ, 1, vcs, HA)
+            ok, reason, kind, selected = verify_new_view(
+                nv, MEMBERS, chain_id=CHAIN, sequence=SEQ, view=1, expected_sender=proposer
+            )
+            if byz in vc_senders:
+                # The fabricated lock is rejected outright — the NV cannot carry it.
+                assert not ok, vc_senders
+            else:
+                assert ok, (vc_senders, reason)
+                assert (kind, selected) == ("locked", HA)
