@@ -515,6 +515,7 @@ class _OpsMixin(_PoaBaseMixin):
                     self._consensus_participants_anomaly_checked(),
                     height=block.height,
                     view=round_number,
+                    chain_id=self._config.chain_id,
                 )
                 if not cert_ok:
                     self._logger.warning(

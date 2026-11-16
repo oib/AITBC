@@ -34,7 +34,6 @@ import hashlib
 from collections.abc import Iterable
 from typing import Any, TypeGuard
 
-from aitbc.crypto.consensus_signing import verify_consensus_message
 from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
@@ -131,17 +130,27 @@ def _commit_fields(record: Any, block_hash: str) -> tuple[str, str, int, int, st
     return sender, signature, seq, view_number, digest
 
 
-def _signature_valid(sender: str, signature: str, seq: int, view_number: int, digest: str) -> bool:
-    """``verify_consensus_message`` over the PBFT preimage — never raises."""
-    msg_data = {
-        "message_type": "commit",
-        "sender": sender,
-        "view_number": view_number,
-        "sequence_number": seq,
-        "digest": digest,
-    }
+def _signature_valid(sender: str, signature: str, seq: int, view_number: int, digest: str, chain_id: str | None) -> bool:
+    """``verify_pbft_vote_signature`` over the PBFT preimage — never raises.
+
+    #2102: chain-bound preimage first, legacy fallback — a commit signed on
+    another chain sharing the validator key no longer counts here.
+    """
+    from .pbft_vote_signature import verify_pbft_vote_signature
+
     try:
-        return verify_consensus_message(msg_data, signature, sender)
+        return verify_pbft_vote_signature(
+            {
+                "message_type": "commit",
+                "sender": sender,
+                "view_number": view_number,
+                "sequence_number": seq,
+                "digest": digest,
+            },
+            signature,
+            sender,
+            chain_id,
+        )
     except Exception:  # noqa: BLE001 - a malformed signature must never raise here
         return False
 
@@ -150,6 +159,7 @@ def _counted_commits(
     certificate: list[dict[str, Any]],
     block_hash: str,
     canonical: set[str],
+    chain_id: str | None,
 ) -> tuple[set[tuple[int, int]], set[str]]:
     """Signature-valid counted records → (signed ``(seq, view)`` tuples, senders).
 
@@ -168,7 +178,7 @@ def _counted_commits(
         sender_canonical = canonical_address(sender)
         if sender_canonical not in canonical:
             continue
-        if not _signature_valid(sender, signature, seq, view_number, digest):
+        if not _signature_valid(sender, signature, seq, view_number, digest, chain_id):
             continue
         tuples.add((seq, view_number))
         senders.add(sender_canonical)
@@ -205,13 +215,16 @@ def validate_commit_certificate(
     *,
     height: int,
     view: int | None = None,
+    chain_id: str,
 ) -> tuple[bool, str]:
     """Verify a PBFT commit certificate under the strict contract (#1940 F3).
 
     ``certificate`` is the ``block_metadata.pbft_certificate`` list (or the
     producer's candidate group); ``validators`` is the active consensus
     participant set; ``height`` is the block height the certificate must
-    commit to; ``view`` optionally pins the expected PBFT view.
+    commit to; ``view`` optionally pins the expected PBFT view; ``chain_id``
+    (#2102) is the chain the certificate must belong to — commit signatures
+    verify under the chain-bound preimage first, legacy preimage second.
 
     Rules, all deterministic:
 
@@ -219,9 +232,9 @@ def validate_commit_certificate(
       member of ``validators`` carrying an explicit ``block_hash`` equal to
       the block's, strictly-int non-negative ``view_number`` /
       ``sequence_number``, the matching ``sha256(block_hash:seq:view)``
-      digest, and a ``verify_consensus_message``-valid signature over the
-      PBFT preimage — malformed records and bad signatures never raise and
-      simply do not count;
+      digest, and a ``verify_pbft_vote_signature``-valid signature over the
+      PBFT preimage (chain-bound first, legacy fallback) — malformed records
+      and bad signatures never raise and simply do not count;
     - ALL signature-valid counted records must share ONE ``(seq, view)`` —
       mixed views (or sequences) are rejected rather than combined, so votes
       for different rounds can never be unioned into a quorum;
@@ -247,5 +260,5 @@ def validate_commit_certificate(
         return False, "empty validator set"
 
     required = pbft_required_messages(len(canonical))
-    tuples, senders = _counted_commits(certificate, block_hash, canonical)
+    tuples, senders = _counted_commits(certificate, block_hash, canonical, chain_id)
     return _certificate_verdict(tuples, senders, height=height, view=view, required=required)
