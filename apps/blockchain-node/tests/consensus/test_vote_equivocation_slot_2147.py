@@ -118,3 +118,18 @@ def test_drill_shape_sequential_heights_sharing_rounds_never_deactivate(monkeypa
             poa.detect_byzantine_behavior(who)
     assert all(poa.validators[a].is_active for a in (A, B, C, D))
     assert poa.get_slashing_history() == []
+
+
+def test_evidence_pair_skips_an_earlier_record_of_the_same_hash_at_another_sequence():
+    """The hash 0xbb was first recorded at seq 19 (same view); the conflict is at seq 20. The
+    event must pair the seq-20 records, not the earlier seq-19 copy."""
+    import json
+
+    poa = _poa()
+    _prepare(poa, A, "0xbb", 19, 3)
+    _prepare(poa, A, "0xbb", 20, 3)
+    _prepare(poa, A, "0xcc", 20, 3)  # conflict at (20, 3)
+    events = poa.get_slashing_history()
+    assert len(events) == 1
+    msgs = json.loads(events[0].evidence)["messages"]
+    assert {m["sequence_number"] for m in msgs} == {20}
