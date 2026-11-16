@@ -5,14 +5,17 @@ The dispute service is the in-memory arbitration core behind the
 tests pin its lifecycle contract directly: filing, evidence-phase
 membership rules, arbitrator registration, quorum resolution, outcome
 accounting, and deadline transitions — including the documented
-limitations (in-memory store, asserted-not-escrowed stake).
+limitations (asserted-not-escrowed stake; DB write-through persistence
+added in #2161, pure in-memory without a session factory).
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from sqlmodel import Session
 
 from coordinator_api.contexts.governance.services.dispute_resolution import (
     DisputeOutcome,
@@ -252,3 +255,100 @@ class TestRegistrationAndQueries:
         assert body["outcome"] is None
         assert body["evidence_count"] == 0
         assert body["vote_count"] == 0
+
+
+class TestPersistence:
+    """#2161: dispute state survives a service restart via the DB cache."""
+
+    @staticmethod
+    def _factory(db_engine) -> Callable[[], Session]:
+        return lambda: Session(db_engine)
+
+    def test_restart_recovers_full_state(self, db_engine) -> None:
+        factory = self._factory(db_engine)
+        svc1 = DisputeResolutionService(factory)
+
+        did = _file(svc1, amount=10_000, initial_evidence="first look")
+        _register(svc1, "0xarb1", "0xarb2", "0xarb3")
+        assert svc1.submit_evidence(did, PROVIDER, "log", "provider logs", ipfs_hash="Qmabc") is True
+        # Force the evidence phase to expire so votes are accepted.
+        d1 = svc1.get_dispute(did)
+        assert d1 is not None
+        d1.evidence_deadline = datetime.now(UTC) - timedelta(seconds=1)
+        for a in ("0xarb1", "0xarb2", "0xarb3"):
+            svc1.cast_vote(did, a, "client_wins", f"r-{a}", 5000)
+        d1 = svc1.get_dispute(did)
+        assert d1 is not None and d1.status == DisputeStatus.resolved
+
+        # A second service instance over the same DB = a coordinator restart.
+        svc2 = DisputeResolutionService(factory)
+
+        assert svc2.is_arbitrator("0xarb1") and svc2.is_arbitrator("0xarb3")
+        d2 = svc2.get_dispute(did)
+        assert d2 is not None
+        assert d2.job_id == "job-1"
+        assert d2.client == CLIENT and d2.provider == PROVIDER
+        assert d2.amount == 10_000 and d2.reason == "work not delivered"
+        assert d2.filed_by == CLIENT
+        assert d2.status == DisputeStatus.resolved
+        assert d2.outcome == DisputeOutcome.client_wins
+        assert d2.refund_amount == 10_000 and d2.payout_amount == 0
+        assert d2.resolved_at is not None
+        assert d2.evidence_deadline is not None and d2.evidence_deadline.tzinfo is not None
+        # Evidence: initial + provider submission, order preserved.
+        assert len(d2.evidence) == 2
+        assert d2.evidence[0].evidence_type == "initial"
+        assert d2.evidence[0].submitted_by == CLIENT
+        assert d2.evidence[1].submitted_by == PROVIDER
+        assert d2.evidence[1].ipfs_hash == "Qmabc"
+        # Votes: all three arbitrators, outcomes and stakes intact.
+        assert len(d2.votes) == 3
+        assert {v.arbitrator for v in d2.votes} == {"0xarb1", "0xarb2", "0xarb3"}
+        assert all(v.outcome == DisputeOutcome.client_wins for v in d2.votes)
+        assert all(v.stake_amount == 5000 for v in d2.votes)
+        # to_dict shape unchanged after hydration.
+        body = d2.to_dict()
+        assert body["status"] == "resolved"
+        assert body["outcome"] == "client_wins"
+        assert body["evidence_count"] == 2 and body["vote_count"] == 3
+        # List filters still work on hydrated state.
+        assert len(svc2.list_disputes(status="resolved")) == 1
+        assert len(svc2.list_disputes(party=CLIENT)) == 1
+
+    def test_restart_resumes_in_flight_dispute(self, db_engine) -> None:
+        factory = self._factory(db_engine)
+        svc1 = DisputeResolutionService(factory)
+        did = _file(svc1)
+        _register(svc1, "0xarb1", "0xarb2", "0xarb3")
+        svc1.cast_vote(did, "0xarb1", "provider_wins", "r", 5000)
+
+        svc2 = DisputeResolutionService(factory)
+        d2 = svc2.get_dispute(did)
+        assert d2 is not None
+        assert d2.status != DisputeStatus.resolved
+        assert len(d2.votes) == 1 and d2.votes[0].arbitrator == "0xarb1"
+        # Voting can continue on the hydrated instance and resolves normally.
+        d2.evidence_deadline = datetime.now(UTC) - timedelta(seconds=1)
+        svc2.cast_vote(did, "0xarb2", "provider_wins", "r", 5000)
+        svc2.cast_vote(did, "0xarb3", "provider_wins", "r", 5000)
+        d2 = svc2.get_dispute(did)
+        assert d2 is not None
+        assert d2.status == DisputeStatus.resolved
+        assert d2.outcome == DisputeOutcome.provider_wins
+        assert d2.payout_amount == 10_000 and d2.refund_amount == 0
+
+    def test_no_session_factory_stays_in_memory(self, db_engine) -> None:
+        # A factory-backed service shares the DB; the no-factory service must
+        # neither read nor write it — pure in-memory behavior (#2161).
+        svc_db = DisputeResolutionService(self._factory(db_engine))
+        did_db = _file(svc_db)
+
+        svc_mem = DisputeResolutionService()
+        assert svc_mem._session_factory is None
+        did_mem = _file(svc_mem)
+        assert svc_mem.get_dispute(did_db) is None
+        assert svc_db.get_dispute(did_mem) is None
+        assert svc_mem.is_arbitrator("0xarb9") is False
+        svc_mem.register_arbitrator("0xarb9")
+        assert svc_mem.is_arbitrator("0xarb9") is True
+        assert svc_db.is_arbitrator("0xarb9") is False
