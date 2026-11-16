@@ -10,8 +10,9 @@ from typing import Any, cast
 import click
 
 from ..auth import AuthManager
-from ..utils import error, info, output, success
+from ..utils import error, info, output, success, warning
 from ..utils.address import to_canonical
+from ..utils.error_handling import LOGIN_HINT, LOGIN_REJECTED_HINT, is_unauthorized
 from ..utils.http_client import AITBCHTTPClient, JSONResponse, NetworkError, get_logger
 from aitbc.config.hub import normalize_hub_base
 from aitbc.utils import format_ait
@@ -84,10 +85,24 @@ def _auth_headers(ctx: click.Context | dict[str, Any], role: str = "client") -> 
 
     token = obj.get("api_key")
     if not token:
-        token = AuthManager().get_credential("client")
+        # get_client_token raises ExpiredClientToken on a stale JWT so the
+        # command fails fast with a re-login hint instead of a bare 401 (#2138).
+        token = AuthManager().get_client_token()
     if token:
         return {"Authorization": f"Bearer {token}"}
     return None
+
+
+def _coord_headers(ctx: click.Context | dict[str, Any]) -> dict[str, str] | None:
+    """Coordinator auth for the shop dashboard: miner key, else stored client (#2138).
+
+    ``/v1/monitoring*`` and ``/v1/jobs*`` accept any authenticated role, so a
+    stored client JWT is enough for those sections when no miner key exists;
+    miner-only routes still refuse it, and ``_safe_get`` degrades them as
+    before. A client JWT is never sent *instead of* a miner key — miner auth
+    wins whenever it resolves.
+    """
+    return _auth_headers(ctx, role="miner") or _auth_headers(ctx)
 
 
 def _coordinator_base_url(ctx: click.Context) -> str:
@@ -111,12 +126,35 @@ def _client(ctx: click.Context, base_url: str | None = None, timeout: int = 10) 
     return AITBCHTTPClient(base_url=url, timeout=timeout, headers=headers)
 
 
+_AUTH_HINT_SHOWN = False
+
+
+def _warn_unauthorized_once(client: AITBCHTTPClient) -> None:
+    """Surface the auth-login hint once per dashboard run on a coordinator 401 (#2138).
+
+    ``_safe_get`` degrades failed sections to empty, which hid the fleet's
+    stale-JWT 401s behind silent gaps. The hint splits on whether the client
+    actually carried a credential: sent-and-rejected vs never-authenticated.
+    """
+    global _AUTH_HINT_SHOWN
+    if _AUTH_HINT_SHOWN:
+        return
+    _AUTH_HINT_SHOWN = True
+    headers = getattr(client, "headers", {}) or {}
+    if headers.get("Authorization") or headers.get("X-Api-Key"):
+        warning(LOGIN_REJECTED_HINT)
+    else:
+        warning(LOGIN_HINT)
+
+
 def _safe_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None = None) -> JSONResponse | None:
     # Several dashboard endpoints return a bare array, so this takes the honest union
     # and every caller decides the shape -- see aitbc/network/json_types.py.
     try:
         return client.get_json(path, params=params)
     except NetworkError as e:
+        if is_unauthorized(e):
+            _warn_unauthorized_once(client)
         logger.warning("Dashboard GET %s failed: %s", path, e)
         return None
     except Exception as e:
@@ -157,6 +195,8 @@ def _safe_post_or_get(client: AITBCHTTPClient, path: str, params: dict[str, Any]
     try:
         return client.post(_with_query(path, params))
     except NetworkError as e:
+        if is_unauthorized(e):
+            _warn_unauthorized_once(client)
         if _http_status(e) != 405:
             logger.warning("Dashboard POST %s failed: %s", path, e)
             return None
@@ -387,7 +427,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
             )
 
         # Miner-role headers for /v1/miners/* and /v1/monitoring* (ANY authenticated role).
-        miner_headers = _auth_headers(ctx, role="miner")
+        miner_headers = _coord_headers(ctx)
         if miner_headers is not None:
             # The path miner_id comes from --miner-id/NODE_ID/hostname while
             # _auth_headers only reads MINER_ID; the coordinator refuses a
