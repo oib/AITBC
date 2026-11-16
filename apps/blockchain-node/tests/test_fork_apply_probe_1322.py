@@ -130,14 +130,24 @@ async def test_probe_restores_the_global_replay_cache(session_factory, monkeypat
     monkeypatch.setattr(sync_settings, "sync_fork_apply_probe_enabled", True)
     sync, *_ = _fork(session_factory, monkeypatch)
     st = get_state_transition()
-    st._processed_nonces["0xabc"] = 7
-    st._processed_tx_hashes.add("0xdead")
-    _stub_append(sync, monkeypatch, accept=False)
-    await sync._resolve_fork_with_peer("https://peer", 5, 6)
-    assert st._processed_nonces == {"0xabc": 7}
-    assert st._processed_tx_hashes == {"0xdead"}
-    st._processed_nonces.clear()
-    st._processed_tx_hashes.clear()
+    # The replay cache lives on a process-global singleton and production
+    # scopes it per block (reset at each import/apply start), so earlier
+    # tests in the same pytest process may legitimately leave entries
+    # behind. Snapshot and restore instead of assuming an empty cache.
+    saved_nonces = dict(st._processed_nonces)
+    saved_hashes = set(st._processed_tx_hashes)
+    try:
+        st._processed_nonces["0xabc"] = 7
+        st._processed_tx_hashes.add("0xdead")
+        _stub_append(sync, monkeypatch, accept=False)
+        await sync._resolve_fork_with_peer("https://peer", 5, 6)
+        assert st._processed_nonces == {**saved_nonces, "0xabc": 7}
+        assert st._processed_tx_hashes == saved_hashes | {"0xdead"}
+    finally:
+        st._processed_nonces.clear()
+        st._processed_nonces.update(saved_nonces)
+        st._processed_tx_hashes.clear()
+        st._processed_tx_hashes.update(saved_hashes)
 
 
 def test_real_append_block_probe_mode_never_commits(session_factory):
