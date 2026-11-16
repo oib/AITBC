@@ -18,7 +18,7 @@ from ..config import settings
 from ..metrics import metrics_registry
 from ..models import Block
 from ..state.v9_policy import count_v9_would_reject
-from . import abandon, evidence_replication, unavail
+from . import abandon, attest_response_diag, evidence_replication, unavail
 from .vote_journal import vote_journal_enabled
 from .remote_attestation_crypto import (
     _attestation_domain_active,
@@ -211,6 +211,7 @@ class _ListenerMixin(_RaBaseMixin):
                 if parsed is None:
                     continue
                 height, block_hash, validator, canon = parsed
+                attest_response_diag.note_observer_response(height)  # #1998 H4 (observational)
                 index = await unavail.get_observation_index(self._chain_id)
                 if not self._index_response_authentic(index, response, height, block_hash, validator):
                     continue
