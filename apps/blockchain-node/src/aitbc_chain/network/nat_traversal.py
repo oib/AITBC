@@ -84,7 +84,7 @@ class STUNClient:
             stun_request = bytearray([0, 1, 0, 0, 33, 18, 164, 66, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0])
             sock.sendto(stun_request, (host, port))
             response, addr = sock.recvfrom(1024)
-            sock.close()
+            sock.close()  # noqa: unawaited-async — socket.socket.close() is synchronous
             return self._parse_stun_response(response, f"{host}:{port}")
         except TimeoutError:
             logger.warning("STUN request to %s:%s timed out", host, port)

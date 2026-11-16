@@ -822,9 +822,9 @@ class BulkSyncMixin(SyncBase):
                     .where(ChainTransaction.chain_id == self._chain_id)
                     .where(ChainTransaction.block_height == old_block.height)
                 ).all():
-                    session.delete(tx)
-                session.delete(old_block)
-        session.commit()
+                    session.delete(tx)  # noqa: unawaited-async — sync sqlmodel Session
+                session.delete(old_block)  # noqa: unawaited-async — sync sqlmodel Session
+        session.commit()  # noqa: unawaited-async — sync sqlmodel Session
         # The DB now holds pre-fork balances but Redis may still serve the
         # reverted values for the cache TTL — drop both key forms for every
         # account the journal touched. Provably-empty segments restore no

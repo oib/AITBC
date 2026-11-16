@@ -207,7 +207,7 @@ class P2PDiscovery:
             response_data = await reader.read(4096)
             response = json.loads(response_data.decode())
 
-            writer.close()
+            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
             await writer.wait_closed()
 
             # Process response
@@ -349,7 +349,7 @@ class P2PDiscovery:
             writer.write(response_data)
             await writer.drain()
 
-            writer.close()
+            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
             await writer.wait_closed()
 
         except Exception as e:
@@ -358,7 +358,7 @@ class P2PDiscovery:
     async def _process_discovery_message(self, message: dict[str, Any]) -> dict[str, Any]:
         """Process incoming discovery message"""
         message_type = message.get("message_type")
-        message.get("node_id")
+        message.get("node_id")  # noqa: unawaited-async — dict.get() is synchronous
 
         public_addr = self.public_endpoint[0] if self.public_endpoint else None
         public_port = self.public_endpoint[1] if self.public_endpoint else None

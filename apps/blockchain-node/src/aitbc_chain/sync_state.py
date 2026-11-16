@@ -357,12 +357,12 @@ class StateSyncMixin(SyncBase):
             # Verify against the LOCAL head's recorded root before committing —
             # a snapshot that applied cleanly but produces a different root must
             # never reach the account table.
-            session.flush()
+            session.flush()  # noqa: unawaited-async — sync sqlmodel Session
             computed_hex = state_root_utils.compute_state_root_full(session, self._chain_id)
             if computed_hex is None:
                 computed_hex = "0x" + "\x00" * 32
             if local_root and computed_hex != local_root:
-                session.rollback()
+                session.rollback()  # noqa: unawaited-async — sync sqlmodel Session
                 return self._refuse_sync(
                     "root_mismatch_local_head",
                     f"state sync rolled back: resulting root {computed_hex} != local head {local_height} "
@@ -370,7 +370,7 @@ class StateSyncMixin(SyncBase):
                     local_head=local_height,
                     remote_root=remote_root,
                 )
-            session.commit()
+            session.commit()  # noqa: unawaited-async — sync sqlmodel Session
         return created, updated, computed_hex
 
     async def delta_sync_from(self, source_url: str, from_height: int, to_height: int) -> dict[str, Any]:
@@ -590,7 +590,7 @@ class StateSyncMixin(SyncBase):
                         select(Account).where(Account.chain_id == self._chain_id, Account.address == addr)
                     ).first()
                     if db_acc:
-                        session.delete(db_acc)
+                        session.delete(db_acc)  # noqa: unawaited-async — sync sqlmodel Session
                 # Existing accounts were mutated in place (SQLModel tracks changes)
             _upsert_chain_parameters(
                 session,
@@ -612,12 +612,12 @@ class StateSyncMixin(SyncBase):
             # transaction, before commit — the diff's claimed root was already
             # checked above; this catches a diff whose contents do not
             # reproduce our head state.
-            session.flush()
+            session.flush()  # noqa: unawaited-async — sync sqlmodel Session
             computed_hex = state_root_utils.compute_state_root_full(session, self._chain_id)
             if computed_hex is None:
                 computed_hex = "0x" + "\x00" * 32
             if computed_hex != local_root:
-                session.rollback()
+                session.rollback()  # noqa: unawaited-async — sync sqlmodel Session
                 return (
                     changed,
                     computed_hex,
@@ -629,5 +629,5 @@ class StateSyncMixin(SyncBase):
                         to_height=to_height,
                     ),
                 )
-            session.commit()
+            session.commit()  # noqa: unawaited-async — sync sqlmodel Session
         return changed, computed_hex, None

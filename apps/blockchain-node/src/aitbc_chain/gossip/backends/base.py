@@ -27,7 +27,7 @@ class TopicSubscription:
             while True:
                 yield (await self.queue.get())
         finally:
-            self.close()
+            self.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
 
 
 class GossipBackend:

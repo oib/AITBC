@@ -160,7 +160,7 @@ class P2PNetworkService:
         for task in self._background_tasks:
             task.cancel()
         for writer in self.active_connections.values():
-            writer.close()
+            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
             try:
                 await writer.wait_closed()
             # intentional silent cleanup
@@ -169,7 +169,7 @@ class P2PNetworkService:
         self.active_connections.clear()
         self.connected_endpoints.clear()
         if self._server:
-            self._server.close()
+            self._server.close()  # noqa: unawaited-async — asyncio.Server.close() is synchronous
             await self._server.wait_closed()
 
     async def _send_message(self, writer: asyncio.StreamWriter, message: dict[str, Any]) -> None:
@@ -342,7 +342,7 @@ class P2PNetworkService:
         ip = addr[0] if addr else ""
         if not self._inbound_capacity_ok(ip):
             logger.warning("Refusing inbound P2P connection from %s: connection cap reached", addr)
-            writer.close()
+            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
             return
         self._pending_inbound_by_ip[ip] = self._pending_inbound_by_ip.get(ip, 0) + 1
         try:
@@ -361,12 +361,12 @@ class P2PNetworkService:
         try:
             data = await asyncio.wait_for(reader.readline(), timeout=5.0)
             if not data:
-                writer.close()
+                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
                 return
             raw_data = data.decode()
             if not raw_data.strip():
                 logger.warning("Received empty data from %s. Closing connection.", addr)
-                writer.close()
+                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
                 return
             try:
                 from .network.compression import decode_payload
@@ -374,22 +374,22 @@ class P2PNetworkService:
                 message = decode_payload(raw_data)
             except json.JSONDecodeError as e:
                 logger.warning("Received invalid JSON from %s: %s. Error: %s", addr, repr(raw_data[:100]), e)
-                writer.close()
+                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
                 return
             except ValueError as e:
                 logger.warning("Refused payload from %s: %s. Closing connection.", addr, e)
-                writer.close()
+                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
                 return
             if message.get("type") != "handshake":
                 logger.warning("Peer %s did not handshake first. Dropping.", addr)
-                writer.close()
+                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
                 return
             peer_node_id = message.get("node_id")
             peer_listen_port = message.get("listen_port", 7070)
             peer_island_id = message.get("island_id", "")
-            message.get("island_name", "")
+            message.get("island_name", "")  # noqa: unawaited-async — dict.get() is synchronous
             peer_is_hub = message.get("is_hub", False)
-            message.get("island_chain_id", "")
+            message.get("island_chain_id", "")  # noqa: unawaited-async — dict.get() is synchronous
             peer_chain_id = message.get("chain_id", "")
             peer_public_address = message.get("public_address")
             peer_public_port = message.get("public_port")
@@ -398,13 +398,13 @@ class P2PNetworkService:
             peer_block_range = message.get("block_range", [0, peer_block_height])
             if not peer_node_id or peer_node_id == self.node_id:
                 logger.warning("Peer %s provided invalid or self node_id: %s", addr, peer_node_id)
-                writer.close()
+                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
                 return
             if peer_chain_id and self.chain_id and (peer_chain_id != self.chain_id):
                 logger.warning(
                     "Peer %s chain_id mismatch: %s != %s. Rejecting connection.", addr, peer_chain_id, self.chain_id
                 )
-                writer.close()
+                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
                 return
             if (
                 peer_island_id
@@ -419,7 +419,7 @@ class P2PNetworkService:
                     peer_island_id,
                     self.island_id,
                 )
-                writer.close()
+                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
                 return
             logger.info("Peer %s from island %s (hub: %s)", peer_node_id, peer_island_id, peer_is_hub)
             if peer_public_address and peer_public_port:
@@ -438,7 +438,7 @@ class P2PNetworkService:
                 logger.debug("Peer %s block_height=%s", peer_node_id, peer_block_height)
             if peer_node_id in self.active_connections:
                 logger.info("Already connected to node %s. Dropping duplicate inbound.", peer_node_id)
-                writer.close()
+                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
                 return
             self.active_connections[peer_node_id] = writer
             remote_ip = addr[0]
@@ -492,10 +492,10 @@ class P2PNetworkService:
             await self._listen_to_stream(reader, writer, (remote_ip, peer_listen_port), outbound=False, peer_id=peer_node_id)
         except TimeoutError:
             logger.warning("Timeout waiting for handshake from %s", addr)
-            writer.close()
+            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
         except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Error handling inbound connection from %s: %s", addr, e)
-            writer.close()
+            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
 
     async def _listen_to_stream(
         self,
@@ -711,7 +711,7 @@ class P2PNetworkService:
             self._prune_peer_session_state(peer_id)
             if endpoint in self.connected_endpoints:
                 self.connected_endpoints.remove(endpoint)
-            writer.close()
+            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
             try:
                 await writer.wait_closed()
             # intentional silent cleanup
