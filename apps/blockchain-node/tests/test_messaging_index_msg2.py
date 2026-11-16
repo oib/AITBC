@@ -508,11 +508,11 @@ class TestAuthorityProperty:
     def test_unconverged_authority_reports_flag_not_500(self, session, monkeypatch):
         """If the pass cap trips, the topic flags authority_unresolved and the
         route still answers — a long grant chain must not break topic reads."""
-        import aitbc_chain.messaging_index as mi
+        import aitbc_chain.messaging_index_query as miq
 
         post = _tx(session, 10, 0x10, ALICE, _env("post", sender=ALICE, body="hi"))
         _tx(session, 11, 0x20, ALICE, _env("mod_grant", sender=ALICE, grantee=BOB))
-        monkeypatch.setattr(mi, "AUTHORITY_PASSES_CAP", 1)
+        monkeypatch.setattr(miq, "AUTHORITY_PASSES_CAP", 1)
         st = moderation_state(session, CHAIN, "dev")
         assert st.authority_unresolved is True
         # The read surfaces still answer.
@@ -695,16 +695,16 @@ class TestReadCache:
         return post
 
     def test_two_reads_one_height_derive_once(self, session, monkeypatch):
-        import aitbc_chain.messaging_index as mi
+        import aitbc_chain.messaging_index_query as miq
 
         self._seed_locked(session)
         calls = {"mod": 0, "desc": 0}
-        real_mod, real_desc = mi.moderation_state, mi._locked_descendants
+        real_mod, real_desc = miq.moderation_state, miq._locked_descendants
         monkeypatch.setattr(
-            mi, "moderation_state", lambda *a, **k: (calls.__setitem__("mod", calls["mod"] + 1), real_mod(*a, **k))[1]
+            miq, "moderation_state", lambda *a, **k: (calls.__setitem__("mod", calls["mod"] + 1), real_mod(*a, **k))[1]
         )
         monkeypatch.setattr(
-            mi, "_locked_descendants", lambda *a, **k: (calls.__setitem__("desc", calls["desc"] + 1), real_desc(*a, **k))[1]
+            miq, "_locked_descendants", lambda *a, **k: (calls.__setitem__("desc", calls["desc"] + 1), real_desc(*a, **k))[1]
         )
         assert topic_moderation(session, CHAIN, "dev") is not None
         list_messages(session, CHAIN, topic="dev", include_hidden=True)
@@ -712,13 +712,13 @@ class TestReadCache:
         assert calls == {"mod": 1, "desc": 1}
 
     def test_new_block_rederives(self, session, monkeypatch):
-        import aitbc_chain.messaging_index as mi
+        import aitbc_chain.messaging_index_query as miq
 
         self._seed_locked(session)
         calls = {"n": 0}
-        real_mod = mi.moderation_state
+        real_mod = miq.moderation_state
         monkeypatch.setattr(
-            mi, "moderation_state", lambda *a, **k: (calls.__setitem__("n", calls["n"] + 1), real_mod(*a, **k))[1]
+            miq, "moderation_state", lambda *a, **k: (calls.__setitem__("n", calls["n"] + 1), real_mod(*a, **k))[1]
         )
         topic_moderation(session, CHAIN, "dev")
         _block(session, 12)
@@ -726,13 +726,13 @@ class TestReadCache:
         assert calls["n"] == 2
 
     def test_same_height_different_head_hash_misses(self, session, monkeypatch):
-        import aitbc_chain.messaging_index as mi
+        import aitbc_chain.messaging_index_query as miq
 
         self._seed_locked(session)
         calls = {"n": 0}
-        real_mod = mi.moderation_state
+        real_mod = miq.moderation_state
         monkeypatch.setattr(
-            mi, "moderation_state", lambda *a, **k: (calls.__setitem__("n", calls["n"] + 1), real_mod(*a, **k))[1]
+            miq, "moderation_state", lambda *a, **k: (calls.__setitem__("n", calls["n"] + 1), real_mod(*a, **k))[1]
         )
         topic_moderation(session, CHAIN, "dev")
         # Simulate a replaced head block at the same height (fork heal).
@@ -1005,9 +1005,9 @@ class TestLockIntervals:
         assert flag[c] is True
 
     def test_walk_limit_is_per_root(self, session, monkeypatch):
-        import aitbc_chain.messaging_index as mi
+        import aitbc_chain.messaging_index_query as miq
 
-        monkeypatch.setattr(mi, "LOCK_WALK_LIMIT", 1)
+        monkeypatch.setattr(miq, "LOCK_WALK_LIMIT", 1)
         a = _tx0x(session, 1, 0x10, ALICE, _env("post", sender=ALICE, body="A"))
         b = _tx0x(session, 2, 0x11, BOB, _env("reply", sender=BOB, body="B", parent=_bare(a)))
         _tx0x(session, 3, 0x20, ALICE, _env("lock", sender=ALICE, target=_bare(a)))
