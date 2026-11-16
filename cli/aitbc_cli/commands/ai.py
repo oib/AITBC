@@ -25,7 +25,7 @@ from ..utils import output, resolve_output_format, success, warning
 from ..utils.chain_id import resolve_chain_id
 from ..utils.agent_identity_resolve import resolve_escrow_parties
 from ..utils.escrow import create_signed_escrow_lock, get_buyer_nonce, get_node_wallet
-from ..utils.error_handling import CLIError, LOGIN_HINT, abort, is_unauthorized
+from ..utils.error_handling import CLIError, LOGIN_HINT, LOGIN_REJECTED_HINT, abort, is_unauthorized
 from ..utils.http_client import (
     AITBCHTTPClient,
     NetworkError,
@@ -33,6 +33,7 @@ from ..utils.http_client import (
     get_logger,
     http_error_detail,
     http_response_status,
+    looks_like_jwt,
     origin_base_url,
     service_root_url,
 )
@@ -110,15 +111,22 @@ def _new_idempotency_key(prefix: str) -> str:
 
 
 def _auth_headers(ctx) -> dict[str, str] | None:
-    """Return Authorization header from --api-key or the stored credential."""
+    """Return auth headers from --api-key or the stored credential.
+
+    A JWT-shaped token goes in ``Authorization: Bearer``; anything else is
+    an API key and goes in ``X-API-Key`` (same split as confidential.py and
+    the coordinator's ApiKeyAuth scheme).
+    """
     token = ctx.obj.get("api_key")
     if not token:
         from ..auth import AuthManager
 
         token = AuthManager().get_credential("client", quiet=True)
-    if token:
+    if not token:
+        return None
+    if looks_like_jwt(token):
         return {"Authorization": f"Bearer {token}"}
-    return None
+    return {"X-API-Key": token}
 
 
 def _require_auth_headers(ctx) -> dict[str, str]:
@@ -130,10 +138,32 @@ def _require_auth_headers(ctx) -> dict[str, str]:
     return headers
 
 
+def _login_hint(ctx) -> str:
+    """Pick the 401 hint: rejected-credential vs never-logged-in.
+
+    ``LOGIN_HINT`` ("No login for this environment") is wrong when a
+    credential exists but the server rejected it — the fleet's stale-JWT
+    401s (#2090/#2094/#2095) sent operators chasing a login they already
+    had. A stored client credential or ``--api-key`` means the token was
+    refused, so point at ``auth login`` as a refresh instead.
+    """
+    obj = getattr(ctx, "obj", None) or {}
+    if obj.get("api_key"):
+        return LOGIN_REJECTED_HINT
+    try:
+        from ..auth import AuthManager
+
+        if AuthManager().get_credential("client", quiet=True):
+            return LOGIN_REJECTED_HINT
+    except Exception:  # noqa: BLE001,S110 - credential probe must never mask the 401 hint
+        pass
+    return LOGIN_HINT
+
+
 def _abort_for_network(ctx, e: NetworkError) -> None:
     """Abort with the login hint on a 401, else the usual network error."""
     if is_unauthorized(e):
-        abort(ctx, LOGIN_HINT)
+        abort(ctx, _login_hint(ctx))
     abort(ctx, f"Network error: {e}", from_exception=e)
 
 

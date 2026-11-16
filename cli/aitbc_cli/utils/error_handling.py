@@ -111,6 +111,10 @@ def _categorize(message: str, from_exception: Exception | None) -> type[CLIError
 # credential and the store has none for this environment (CLI-AUTHHINT-1).
 LOGIN_HINT = "No login for this environment. Run: aitbc auth login --wallet <name>"
 
+# Printed on a 401 when a credential IS configured — the server rejected
+# it, so the fix is a refresh, not a first login (#2095).
+LOGIN_REJECTED_HINT = "Stored credential rejected by the server (401). Run: aitbc auth login --wallet <name> to refresh it"
+
 
 def is_unauthorized(exc: BaseException | None) -> bool:
     """True when the exception's underlying HTTP response was a 401.
