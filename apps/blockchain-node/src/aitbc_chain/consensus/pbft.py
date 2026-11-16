@@ -30,6 +30,7 @@ from .pbft_quorum import pbft_required_messages
 from .pbft_view_change import (
     MAX_VC_BUCKETS,
     MAX_NV_BUCKETS,
+    MAX_VC_BUCKETS_PER_SENDER,
     MAX_VC_SET_ENTRIES,
     NV_MESSAGE_TYPE,
     VC_MESSAGE_TYPE,
@@ -1437,6 +1438,50 @@ class PBFTConsensus:
             return True
         return False
 
+    def _vc_sender_slot(self, sender: str, key: tuple[int, int]) -> bool:
+        """Per-sender bucket budget for VIEW_CHANGEs (#2133 / reviewer B's R1).
+
+        A sender holding ``MAX_VC_BUCKETS_PER_SENDER`` buckets may add another only
+        by displacing its OWN farthest one, and only for a nearer key — so no single
+        Byzantine validator can fill the shared table (from either side of the live
+        pair) and starve honest VCs. Stale seqs are pruned first.
+        """
+        for stale in [k for k in self._vc_messages if k[0] < self.state.current_sequence]:
+            self._vc_messages.pop(stale, None)
+        own = [k for k, b in self._vc_messages.items() if sender in b]
+        if len(own) < MAX_VC_BUCKETS_PER_SENDER:
+            return True
+        farthest = max(own)
+        if key >= farthest:
+            return False
+        bucket = self._vc_messages[farthest]
+        bucket.pop(sender, None)
+        if not bucket:
+            del self._vc_messages[farthest]
+        return True
+
+    def _vc_store(self, sender: str, data: dict[str, Any], key: tuple[int, int]) -> bool:
+        """Bound + store one verified VC; False when dropped."""
+        bucket = self._vc_messages.get(key)
+        if bucket is not None and sender in bucket:
+            return False  # one VC per (sender, height, view) — first wins
+        if not self._vc_sender_slot(sender, key):
+            metrics_registry.increment("pbft_view_change_flood_dropped_total")
+            return False
+        bucket = self._vc_messages.get(key)
+        if bucket is None:
+            if not self._vc_make_room(self._vc_messages, key, MAX_VC_BUCKETS):
+                metrics_registry.increment("pbft_view_change_flood_dropped_total")
+                return False
+            bucket = self._vc_messages[key] = {}
+        if sender in bucket:
+            return False  # one VC per (sender, height, view) — first wins
+        if len(bucket) >= MAX_VC_SET_ENTRIES:
+            metrics_registry.increment("pbft_view_change_flood_dropped_total")
+            return False
+        bucket[sender] = data
+        return True
+
     async def _handle_view_change_payload(self, data: dict[str, Any]) -> None:
         """Intake one gossip VIEW_CHANGE: verify, bound, store."""
         seq = data.get("sequence_number")
@@ -1472,19 +1517,8 @@ class PBFTConsensus:
                 data.get("sender"),
             )
             return
-        key = (seq, view)
-        bucket = self._vc_messages.get(key)
-        if bucket is None:
-            if not self._vc_make_room(self._vc_messages, key, MAX_VC_BUCKETS):
-                metrics_registry.increment("pbft_view_change_flood_dropped_total")
-                return
-            bucket = self._vc_messages[key] = {}
-        if sender in bucket:
-            return  # one VC per (sender, height, view) — first wins
-        if len(bucket) >= MAX_VC_SET_ENTRIES:
-            metrics_registry.increment("pbft_view_change_flood_dropped_total")
+        if not self._vc_store(sender, data, (seq, view)):
             return
-        bucket[sender] = data
         self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
         await self._maybe_build_new_view(seq, view)
 
