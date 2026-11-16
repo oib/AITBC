@@ -76,6 +76,10 @@ MAX_VC_SET_ENTRIES = 512  # vc_set records accepted inside one NEW_VIEW
 MAX_LOCK_PROOF_MSGS = 64  # vote records a VC lock proof may carry
 MAX_VC_BUCKETS = 256  # distinct (sequence, view) VC sets tracked per engine
 MAX_NV_BUCKETS = 256  # distinct (sequence, view) NEW_VIEWs tracked per engine
+# One sender may hold at most this many (sequence, view) VC buckets. Without it a
+# single Byzantine validator fills the whole table with signed VCs nearer than the
+# stalled pair and the honest VCs for it are refused (#2133, reviewer B's R1).
+MAX_VC_BUCKETS_PER_SENDER = 32
 MAX_PROPOSAL_PAYLOAD_BYTES = 1_000_000  # persisted pre-prepare block body
 MAX_PROPOSALS_PER_SEQUENCE = 8  # proposal bodies retained per height
 
