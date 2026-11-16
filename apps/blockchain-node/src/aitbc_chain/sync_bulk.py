@@ -160,66 +160,88 @@ class BulkSyncMixin(SyncBase):
             )
             return []
 
-    async def bulk_import_from(self, source_url: str, _reorg_attempted: bool = False) -> int:
-        """Import blocks from a remote source via RPC."""
-        self._logger.info("Starting bulk import from source: %s", source_url)
-        if source_url and (not source_url.startswith("http://")) and (not source_url.startswith("https://")):
+    def _normalize_bulk_source_url(self, source_url: str) -> str | None:
+        """Normalize the source URL and reject empty values.
+
+        Returns the normalized URL, or None when the source is unusable
+        (the error is already logged in that case).
+        """
+        if source_url and not source_url.startswith(("http://", "https://")):
             source_url = f"http://{source_url}"
             self._logger.info("Added http:// prefix to source URL: %s", source_url)
         if not source_url:
             self._logger.error("Source URL is empty or None")
-            return 0
+            return None
+        return source_url
+
+    def _local_head_height(self) -> int:
+        """Return the local chain head height (-1 on an empty chain)."""
         with self._session_factory() as session:
             local_head = session.exec(
                 select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
             ).first()
             local_height = local_head.height if local_head else -1
-            logger.info(
-                "Bulk sync local head: chain_id=%s, height=%s, hash=%s",
-                self._chain_id,
-                local_height,
-                local_head.hash if local_head else None,
-            )
+        logger.info(
+            "Bulk sync local head: chain_id=%s, height=%s, hash=%s",
+            self._chain_id,
+            local_height,
+            local_head.hash if local_head else None,
+        )
+        return local_height
+
+    async def _fetch_remote_head(self, source_url: str) -> tuple[int, str] | None:
+        """Fetch the remote head (height, hash); None on failure."""
         try:
             resp = await self._client.get(f"{source_url}/rpc/head", params={"chain_id": self._chain_id})
             resp.raise_for_status()
             remote_head = resp.json()
             remote_height = remote_head.get("height", -1)
+            remote_hash = remote_head.get("hash", "")
         except Exception as e:
             logger.error("Failed to fetch remote head", extra={"source_url": source_url, "error": str(e)})
+            return None
+        return remote_height, remote_hash
+
+    async def _handle_not_ahead(
+        self,
+        source_url: str,
+        local_height: int,
+        remote_height: int,
+        remote_hash: str,
+        _reorg_attempted: bool,
+    ) -> int | None:
+        """Handle the peer-not-ahead case (divergence or already up to date).
+
+        Returns the number of blocks imported (0 when stopping), or None
+        when the peer is ahead and the bulk import should proceed.
+        """
+        if remote_height > local_height:
+            return None
+        # Not necessarily up to date: a follower whose peer was reset to genesis is *ahead* of
+        # that peer on a chain the peer no longer has. Heights alone cannot tell the two apart,
+        # so compare the hash we hold at the peer's head height (V23-90).
+        divergence = self.detect_divergence(source_url, remote_height, remote_hash)
+        if divergence is not None:
+            # Equal-height conflict: run the resolver so a full
+            # proposer/length tie defers explicitly (and a peer branch
+            # heavier by proposer count reorgs now) instead of only
+            # reporting. remote < local keeps the old report-only path —
+            # a behind peer never justifies touching our chain.
+            if remote_height == local_height and not _reorg_attempted:
+                if await self._resolve_fork_with_peer(source_url, local_height, remote_height):
+                    self._last_bulk_sync_time = 0
+                    try:
+                        return await self.bulk_import_from(source_url, _reorg_attempted=True)
+                    finally:
+                        self._reconcile_pending_orphans()
+            report_divergence(self._chain_id, divergence)
             return 0
-        # Register/update peer capability for parallel sync
-        peer_id = source_url  # In v0.6.2, peer_id IS the URL
-        self.register_sync_peer(peer_id, source_url, (0, remote_height), has_state=True)
-        if remote_height <= local_height:
-            # Not necessarily up to date: a follower whose peer was reset to genesis is *ahead* of
-            # that peer on a chain the peer no longer has. Heights alone cannot tell the two apart,
-            # so compare the hash we hold at the peer's head height (V23-90).
-            divergence = self.detect_divergence(source_url, remote_height, remote_head.get("hash", ""))
-            if divergence is not None:
-                # Equal-height conflict: run the resolver so a full
-                # proposer/length tie defers explicitly (and a peer branch
-                # heavier by proposer count reorgs now) instead of only
-                # reporting. remote < local keeps the old report-only path —
-                # a behind peer never justifies touching our chain.
-                if remote_height == local_height and not _reorg_attempted:
-                    if await self._resolve_fork_with_peer(source_url, local_height, remote_height):
-                        self._last_bulk_sync_time = 0
-                        try:
-                            return await self.bulk_import_from(source_url, _reorg_attempted=True)
-                        finally:
-                            self._reconcile_pending_orphans()
-                report_divergence(self._chain_id, divergence)
-                return 0
-            clear_divergence(self._chain_id)
-            logger.info("Already up to date", extra={"local_height": local_height, "remote_height": remote_height})
-            return 0
-        gap_size = remote_height - local_height
-        sync_mode = self._get_sync_mode(gap_size)
-        dynamic_batch_size = self._calculate_dynamic_batch_size(gap_size)
-        adaptive_bulk_interval = self._get_adaptive_bulk_sync_interval(gap_size)
-        adaptive_poll_interval = self._get_adaptive_poll_interval(gap_size)
-        current_time = time.time()
+        clear_divergence(self._chain_id)
+        logger.info("Already up to date", extra={"local_height": local_height, "remote_height": remote_height})
+        return 0
+
+    def _bulk_sync_rate_limited(self, adaptive_bulk_interval: int, sync_mode: str, current_time: float) -> bool:
+        """Return True (and log) when the last bulk sync is too recent."""
         time_since_last_sync = current_time - self._last_bulk_sync_time
         if time_since_last_sync < adaptive_bulk_interval:
             logger.warning(
@@ -230,6 +252,83 @@ class BulkSyncMixin(SyncBase):
                     "sync_mode": sync_mode,
                 },
             )
+            return True
+        return False
+
+    async def _import_first_bulk_block(
+        self,
+        source_url: str,
+        start_height: int,
+        local_height: int,
+        remote_height: int,
+        _reorg_attempted: bool,
+    ) -> int | None:
+        """Import and validate the first block of the gap.
+
+        Returns None when the block was accepted and the bulk pull may
+        continue, or the value the caller should return (the recursive
+        reorg retry result, or 0 on rejection/empty response).
+        """
+        # Validate the first block before committing to a bulk pull. A peer whose
+        # next block does not build on our head is divergent; importing it in a
+        # batch would extend the wrong chain (V23-90).
+        first_batch = await self.fetch_blocks_range(start_height, start_height, source_url)
+        if not first_batch:
+            logger.warning(
+                "Source returned no first block for bulk sync", extra={"height": start_height, "source_url": source_url}
+            )
+            return 0
+        first_block = first_batch[0]
+        result = self.import_block(
+            first_block,
+            transactions=first_block.get("transactions"),
+            skip_state_root_validation=False,
+        )
+        if result.accepted:
+            return None
+        metrics_registry.increment("sync_bulk_source_rejected_total")
+        if result.diverged:
+            # Deterministic fork choice: walk back to the common ancestor,
+            # compare both sides' children by (round, hash), and — when the
+            # peer's branch wins and our losing segment is provably empty —
+            # remove it so this pull can continue from the fork point.
+            # Previously this only reported and stalled forever (V23-90).
+            if not _reorg_attempted and await self._resolve_fork_with_peer(source_url, local_height, remote_height):
+                self._last_bulk_sync_time = 0  # a reorg is not rate-limited catch-up
+                try:
+                    return await self.bulk_import_from(source_url, _reorg_attempted=True)
+                finally:
+                    self._reconcile_pending_orphans()
+            div = self.detect_divergence(source_url, local_height, first_block.get("parent_hash", ""))
+            if div:
+                report_divergence(self._chain_id, div)
+        return 0
+
+    async def bulk_import_from(self, source_url: str, _reorg_attempted: bool = False) -> int:
+        """Import blocks from a remote source via RPC."""
+        self._logger.info("Starting bulk import from source: %s", source_url)
+        normalized_url = self._normalize_bulk_source_url(source_url)
+        if normalized_url is None:
+            return 0
+        source_url = normalized_url
+        local_height = self._local_head_height()
+        remote = await self._fetch_remote_head(source_url)
+        if remote is None:
+            return 0
+        remote_height, remote_hash = remote
+        # Register/update peer capability for parallel sync
+        peer_id = source_url  # In v0.6.2, peer_id IS the URL
+        self.register_sync_peer(peer_id, source_url, (0, remote_height), has_state=True)
+        handled = await self._handle_not_ahead(source_url, local_height, remote_height, remote_hash, _reorg_attempted)
+        if handled is not None:
+            return handled
+        gap_size = remote_height - local_height
+        sync_mode = self._get_sync_mode(gap_size)
+        dynamic_batch_size = self._calculate_dynamic_batch_size(gap_size)
+        adaptive_bulk_interval = self._get_adaptive_bulk_sync_interval(gap_size)
+        adaptive_poll_interval = self._get_adaptive_poll_interval(gap_size)
+        current_time = time.time()
+        if self._bulk_sync_rate_limited(adaptive_bulk_interval, sync_mode, current_time):
             return 0
         logger.info(
             "Starting bulk import",
@@ -255,39 +354,11 @@ class BulkSyncMixin(SyncBase):
         use_parallel = getattr(settings, "sync_parallel_enabled", False) and len(self._peer_tracker.get_all_peers()) > 1
         start_height = local_height + 1
 
-        # Validate the first block before committing to a bulk pull. A peer whose
-        # next block does not build on our head is divergent; importing it in a
-        # batch would extend the wrong chain (V23-90).
-        first_batch = await self.fetch_blocks_range(start_height, start_height, source_url)
-        if not first_batch:
-            logger.warning(
-                "Source returned no first block for bulk sync", extra={"height": start_height, "source_url": source_url}
-            )
-            return 0
-        first_block = first_batch[0]
-        result = self.import_block(
-            first_block,
-            transactions=first_block.get("transactions"),
-            skip_state_root_validation=False,
+        first_block_result = await self._import_first_bulk_block(
+            source_url, start_height, local_height, remote_height, _reorg_attempted
         )
-        if not result.accepted:
-            metrics_registry.increment("sync_bulk_source_rejected_total")
-            if result.diverged:
-                # Deterministic fork choice: walk back to the common ancestor,
-                # compare both sides' children by (round, hash), and — when the
-                # peer's branch wins and our losing segment is provably empty —
-                # remove it so this pull can continue from the fork point.
-                # Previously this only reported and stalled forever (V23-90).
-                if not _reorg_attempted and await self._resolve_fork_with_peer(source_url, local_height, remote_height):
-                    self._last_bulk_sync_time = 0  # a reorg is not rate-limited catch-up
-                    try:
-                        return await self.bulk_import_from(source_url, _reorg_attempted=True)
-                    finally:
-                        self._reconcile_pending_orphans()
-                div = self.detect_divergence(source_url, local_height, first_block.get("parent_hash", ""))
-                if div:
-                    report_divergence(self._chain_id, div)
-            return 0
+        if first_block_result is not None:
+            return first_block_result
 
         imported = 1
         if start_height < remote_height:
