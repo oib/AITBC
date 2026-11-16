@@ -244,7 +244,8 @@ async def _post_eth_rpc(payload: Any, timeout: float) -> httpx.Response:
             last_exc = e
             if attempt < len(delays):
                 await asyncio.sleep(delays[attempt])
-    assert last_exc is not None
+    if last_exc is None:
+        raise RuntimeError("HTTP retry loop exhausted without an error")
     raise last_exc
 
 

@@ -194,7 +194,7 @@ def load_wallet_for_payment(
         info_doc = adapter.get_wallet_info(name)
         if not info_doc:
             abort(ctx, wallet_not_found_message(report))
-        assert info_doc is not None
+        info_doc = cast(dict, info_doc)
         address = to_canonical(info_doc.get("address", ""))
         if not address:
             abort(ctx, f"Wallet '{name}' has no address")
@@ -221,7 +221,7 @@ def load_wallet_for_payment(
         # _load_wallet already raises/abort in that case, but be defensive.
         if not password:
             abort(ctx, f"Wallet '{name}' is encrypted; provide --password-file, --password-stdin, or --password")
-        assert password is not None
+        password = cast(str, password)
         from ..commands.wallet import decrypt_value
 
         try:

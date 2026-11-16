@@ -509,7 +509,8 @@ async def _accept_job_impl(
             detail=f"job has no payment awaiting acceptance (payment_status={payment.status if payment else job.payment_status})",
         )
     payment = await run_in_threadpool(session.get, JobPayment, job.payment_id)
-    assert payment is not None
+    if payment is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="payment not found")
     receipt = await run_in_threadpool(PaymentService(session)._get_receipt_of_record, job)
     if not _computation_is_correct(receipt, job):
         raise HTTPException(

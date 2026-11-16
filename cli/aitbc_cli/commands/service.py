@@ -205,7 +205,8 @@ def _harden_targets(service_name: str | None, all_services: bool) -> list[str]:
     if all_services:
         discovered = _discover_aitbc_services()
         return [s for s in discovered if os.path.splitext(s)[0] not in EXCLUDED_FROM_ALL]
-    assert service_name is not None
+    if service_name is None:
+        raise click.UsageError("--service is required unless --all is given")
     name = service_name
     return [name if name.endswith(".service") else f"{name}.service"]
 

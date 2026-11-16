@@ -2,7 +2,7 @@
 
 import os
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -104,7 +104,7 @@ def pay(
         )
         if not private_key:
             _ai.abort(ctx, f"Wallet {wallet} has no usable private key")
-        assert private_key is not None
+        private_key = cast(str, private_key)
 
         headers = _ai._require_auth_headers(ctx)
         http_client = _ai.AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)

@@ -321,7 +321,7 @@ def send(
     canonical_topic = normalize_topic(topic)
     if canonical_topic is None:
         abort(ctx, f"Topic '{topic}' cannot become a slug (1–64 chars of a-z 0-9 . _ -)")
-    assert canonical_topic is not None  # abort() raises; narrow for mypy
+    canonical_topic = cast(str, canonical_topic)
     if canonical_topic != topic:
         click.echo(f"topic normalized to '{canonical_topic}'", err=True)
 
@@ -753,7 +753,7 @@ def _target_action(ctx, kind: str, tx_hash: str, topic: str | None, kw: dict) ->
     canonical_topic = normalize_topic(resolved_topic)
     if canonical_topic is None:
         abort(ctx, f"Topic '{resolved_topic}' is not a valid slug")
-    assert canonical_topic is not None  # abort() raises; narrow for mypy
+    canonical_topic = cast(str, canonical_topic)
     _submit_action(ctx, kind=kind, topic=canonical_topic, target=tx_hash, **kw)
 
 
@@ -880,11 +880,11 @@ def _lock_impl(
         rpc = _resolve_transaction_rpc_url(rpc_url)
         canonical_topic = _target_topic(ctx, _rpc_client(rpc), target)
     else:
-        assert topic is not None  # the exactly-one check above guarantees it
+        topic = cast(str, topic)
         canonical_topic = normalize_topic(topic)
         if canonical_topic is None:
             abort(ctx, f"Topic '{topic}' is not a valid slug")
-    assert canonical_topic is not None  # abort() raises; narrow for mypy
+    canonical_topic = cast(str, canonical_topic)
     _submit_action(
         ctx,
         wallet_name=wallet_name,
@@ -1013,7 +1013,7 @@ def _mod_grant_command(kind: str, help_text: str):
         canonical_topic = normalize_topic(topic)
         if canonical_topic is None:
             abort(ctx, f"Topic '{topic}' is not a valid slug")
-        assert canonical_topic is not None  # abort() raises; narrow for mypy
+        canonical_topic = cast(str, canonical_topic)
         _submit_action(
             ctx,
             wallet_name=wallet_name,

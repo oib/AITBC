@@ -1,7 +1,7 @@
 """``aitbc ai refund`` / ``refund-sweep`` — escrow refund commands."""
 
 import builtins
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -114,7 +114,7 @@ def refund_sweep(ctx, limit, reason, dry_run, coordinator_url, format):
         jobs = result.get("items") if isinstance(result, dict) else result
         if not isinstance(jobs, builtins.list):
             _ai.abort(ctx, "Unexpected response listing jobs")
-        assert jobs is not None
+        jobs = cast(builtins.list, jobs)
 
         counts = {"candidates": 0, "refunded": 0, "failed": 0}
         for job in jobs:
