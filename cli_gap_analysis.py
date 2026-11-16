@@ -143,29 +143,29 @@ def main():
         else:
             expected[g] = None
 
-    print("=" * 60)
-    print("Top-level CLI commands not documented as groups:")
+    click.echo("=" * 60)
+    click.echo("Top-level CLI commands not documented as groups:")
     doc_top = set(expected)
     for cmd in sorted(top_level - doc_top):
-        print(f"  aitbc {cmd}")
+        click.echo(f"  aitbc {cmd}")
 
-    print()
-    print("Top-level commands documented but missing from CLI:")
+    click.echo()
+    click.echo("Top-level commands documented but missing from CLI:")
     for cmd in sorted(doc_top - top_level):
-        print(f"  aitbc {cmd}")
+        click.echo(f"  aitbc {cmd}")
 
-    print()
-    print("Subcommand gaps for groups with explicit key subcommand lists:")
+    click.echo()
+    click.echo("Subcommand gaps for groups with explicit key subcommand lists:")
     for group in sorted(expected):
         subs = expected[group]
         if subs is None:
             continue
         if group not in cli.commands:
-            print(f"  {group}: group does not exist in CLI")
+            click.echo(f"  {group}: group does not exist in CLI")
             continue
         cmd = cli.commands[group]
         if not isinstance(cmd, click.Group):
-            print(f"  {group}: documented as group but is a leaf command in CLI")
+            click.echo(f"  {group}: documented as group but is a leaf command in CLI")
             continue
         actual = set(cmd.commands.keys())
         documented = set()
@@ -174,19 +174,19 @@ def main():
         missing = documented - actual
         extra = actual - documented
         if missing or extra:
-            print(f"  {group}:")
+            click.echo(f"  {group}:")
             if missing:
-                print(f"    documented but missing: {', '.join(sorted(missing))}")
+                click.echo(f"    documented but missing: {', '.join(sorted(missing))}")
             if extra:
-                print(f"    implemented but not documented: {', '.join(sorted(extra))}")
+                click.echo(f"    implemented but not documented: {', '.join(sorted(extra))}")
 
-    print()
-    print("=" * 60)
-    print("Summary:")
-    print(f"  Top-level CLI commands: {len(top_level)}")
-    print(f"  Top-level groups in docs: {len(doc_top)}")
-    print(f"  Undocumented top-level commands: {len(top_level - doc_top)}")
-    print(f"  Documented but missing top-level commands: {len(doc_top - top_level)}")
+    click.echo()
+    click.echo("=" * 60)
+    click.echo("Summary:")
+    click.echo(f"  Top-level CLI commands: {len(top_level)}")
+    click.echo(f"  Top-level groups in docs: {len(doc_top)}")
+    click.echo(f"  Undocumented top-level commands: {len(top_level - doc_top)}")
+    click.echo(f"  Documented but missing top-level commands: {len(doc_top - top_level)}")
 
 
 if __name__ == "__main__":

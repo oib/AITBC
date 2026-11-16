@@ -65,6 +65,7 @@ from typing import Any, NamedTuple
 import httpx
 
 from .url_redact import redact_text, redact_url
+import click
 
 # The aitbc-wallet unit's EnvironmentFile set, in unit order.
 _DEFAULT_ENV_FILES = [
@@ -102,7 +103,7 @@ def _emit(message: str) -> None:
     site keeps the assert/print ratchet count flat as the command surface
     grows (#1921).
     """
-    print(message)
+    click.echo(message)
 
 
 def _load_env_files(paths: list[str]) -> None:
@@ -125,7 +126,7 @@ def _load_env_files(paths: list[str]) -> None:
                     key, _, val = line.partition("=")
                     values[key.strip()] = val.strip().strip('"').strip("'")
         except OSError as e:
-            print(f"warning: cannot read env file {path}: {e}", file=sys.stderr)
+            click.echo(f"warning: cannot read env file {path}: {e}", err=True)
     for key, val in values.items():
         os.environ.setdefault(key, val)
 
@@ -285,15 +286,15 @@ def _print_row(row: dict[str, Any]) -> None:
         "refunded_at",
         "retry_count",
     ):
-        print(f"  {key}: {row.get(key)}")
+        click.echo(f"  {key}: {row.get(key)}")
 
 
 def _print_verdicts(verdicts: list[dict[str, Any]]) -> None:
     for v in verdicts:
         extras = {k: val for k, val in v.items() if k not in ("rpc", "verdict", "detail")}
-        print(f"  {v['rpc']}: {v['verdict']}  {extras}")
+        click.echo(f"  {v['rpc']}: {v['verdict']}  {extras}")
         if v.get("detail"):
-            print(f"    detail: {v['detail']}")
+            click.echo(f"    detail: {v['detail']}")
 
 
 async def _gather_proofs(
@@ -309,8 +310,8 @@ async def _gather_proofs(
     """
     urls = [u for u in (wdm.ETH_RPC_URL, verify_rpc) if u]
     if require_pair and len(set(urls)) < 2:
-        print("refusing: two independent Ethereum RPC endpoints are required")
-        print("  set --verify-rpc or ETH_VERIFY_RPC_URL to a second public endpoint")
+        click.echo("refusing: two independent Ethereum RPC endpoints are required")
+        click.echo("  set --verify-rpc or ETH_VERIFY_RPC_URL to a second public endpoint")
         return None
     verdicts = []
     for url in dict.fromkeys(urls):
@@ -344,14 +345,14 @@ def _release_environment_ok(wdm: Any) -> bool:
     not disabled, and a release key present. Anywhere else --confirm
     refuses (a dry-run still works everywhere for inspection)."""
     if not wdm.BRIDGE_ENABLED:
-        print("refusing: BRIDGE_ENABLED is not set in this environment — this is not the releasing host")
+        click.echo("refusing: BRIDGE_ENABLED is not set in this environment — this is not the releasing host")
         return False
     if not wdm.WITHDRAW_ENABLED:
-        print("refusing: BRIDGE_WITHDRAW_ENABLED=false — releases are disabled on this host")
+        click.echo("refusing: BRIDGE_WITHDRAW_ENABLED=false — releases are disabled on this host")
         return False
     key, error = wdm._validate_release_key()
     if not key:
-        print(f"refusing: {error} — a live retry can only sign where the release key is configured")
+        click.echo(f"refusing: {error} — a live retry can only sign where the release key is configured")
         return False
     return True
 
@@ -359,21 +360,21 @@ def _release_environment_ok(wdm: Any) -> bool:
 async def _cmd_status(wdm: Any, db: Any, ait_tx_hash: str, verify_rpc: str | None) -> int:
     row = db.get_withdrawal_by_ait_tx_hash(ait_tx_hash)
     if not row:
-        print(f"no withdrawal row {ait_tx_hash}")
+        click.echo(f"no withdrawal row {ait_tx_hash}")
         return 1
     _print_row(row)
     attempts = db.get_release_attempts(ait_tx_hash)
     if attempts:
-        print("release attempts:")
+        click.echo("release attempts:")
         for a in attempts:
-            print(
+            click.echo(
                 f"  #{a['id']} {a['resolved_at']} by={a['resolved_by']} "
                 f"outcome={a['outcome']} nonce={a['release_nonce']} eth_tx={a['eth_tx_hash']}"
             )
             if a.get("operator_note"):
-                print(f"      note: {a['operator_note']}")
-    print("live outcome:")
-    print(f"  monitor view: {await wdm._verify_release_outcome(ait_tx_hash)}")
+                click.echo(f"      note: {a['operator_note']}")
+    click.echo("live outcome:")
+    click.echo(f"  monitor view: {await wdm._verify_release_outcome(ait_tx_hash)}")
     verdicts = await _gather_proofs(wdm, row, verify_rpc, require_pair=False)
     if verdicts:
         _print_verdicts(verdicts)
@@ -401,20 +402,20 @@ async def _release_retry_preflight(wdm: Any, row: dict[str, Any], verify_rpc: st
     verdicts = await _gather_proofs(wdm, row, verify_rpc)
     if verdicts is None:
         return None
-    print("release-fate proofs:")
+    click.echo("release-fate proofs:")
     _print_verdicts(verdicts)
     if not _proofs_allow_retry(verdicts):
-        print("refusing: recorded release is not proven failed on all endpoints")
+        click.echo("refusing: recorded release is not proven failed on all endpoints")
         return None
     nonce = _proofs_share_nonce(verdicts)
     if nonce is None:
-        print("refusing: endpoints disagree on the current account nonce")
+        click.echo("refusing: endpoints disagree on the current account nonce")
         return None
 
     ok, detail = await _ait_leg_confirmed(wdm, str(row["ait_tx_hash"]))
-    print(f"AIT leg: {detail}")
+    click.echo(f"AIT leg: {detail}")
     if not ok:
-        print("refusing: the AIT withdraw tx is not sealed on the hub chain")
+        click.echo("refusing: the AIT withdraw tx is not sealed on the hub chain")
         return None
 
     to_address = str(row["eth_address"])
@@ -423,14 +424,14 @@ async def _release_retry_preflight(wdm: Any, row: dict[str, Any], verify_rpc: st
         gas_limit = await wdm._release_gas_limit(to_address, amount_eth)
         gas_price = await wdm._eth_gas_price()
     except Exception as e:  # noqa: BLE001 - fail closed — unbounded gas refuses the release
-        print(f"refusing: cannot bound release gas safely: {redact_text(str(e))}")
+        click.echo(f"refusing: cannot bound release gas safely: {redact_text(str(e))}")
         return None
-    print("planned retry:")
-    print(f"  to: {to_address}")
-    print(f"  amount_eth: {amount_eth}  (recorded value, never re-quoted)")
-    print(f"  nonce: {nonce}  (current account nonce; reuses the free slot when a prior send never sealed)")
-    print(f"  gas_limit: {gas_limit}")
-    print(f"  gas_price: {gas_price} wei  (~{Decimal(gas_limit * gas_price) / Decimal(10**18)} ETH worst case)")
+    click.echo("planned retry:")
+    click.echo(f"  to: {to_address}")
+    click.echo(f"  amount_eth: {amount_eth}  (recorded value, never re-quoted)")
+    click.echo(f"  nonce: {nonce}  (current account nonce; reuses the free slot when a prior send never sealed)")
+    click.echo(f"  gas_limit: {gas_limit}")
+    click.echo(f"  gas_price: {gas_price} wei  (~{Decimal(gas_limit * gas_price) / Decimal(10**18)} ETH worst case)")
     return nonce, gas_limit, gas_price
 
 
@@ -591,7 +592,7 @@ async def _await_retry_outcome(wdm: Any, db: Any, row: dict[str, Any], tx_hash: 
                 ait_tx_hash, "completed", eth_tx_hash=tx_hash, expected_statuses={"releasing_retry"}
             )
             db.update_release_attempt(attempt_id, outcome="sent")
-            print(f"withdrawal {row['id']} completed — receipt verified at depth")
+            click.echo(f"withdrawal {row['id']} completed — receipt verified at depth")
             return 0
         if outcome == "not_sent":
             db.update_withdrawal_status(
@@ -601,14 +602,14 @@ async def _await_retry_outcome(wdm: Any, db: Any, row: dict[str, Any], tx_hash: 
                 expected_statuses={"releasing_retry"},
             )
             db.update_release_attempt(attempt_id, outcome="not_sent")
-            print("retry proven unsent — row parked at needs_review_release")
-            print("fallback: mark-review for the AIT refund path, or retry again once provable")
+            click.echo("retry proven unsent — row parked at needs_review_release")
+            click.echo("fallback: mark-review for the AIT refund path, or retry again once provable")
             return 1
         if waited >= _RETRY_OUTCOME_WAIT_SECONDS:
             break
         await asyncio.sleep(_RETRY_OUTCOME_POLL_SECONDS)
         waited += _RETRY_OUTCOME_POLL_SECONDS
-    print("still unverifiable — row stays 'releasing_retry'; the monitor's resume pass owns it")
+    click.echo("still unverifiable — row stays 'releasing_retry'; the monitor's resume pass owns it")
     db.update_release_attempt(attempt_id, outcome="broadcast (unconfirmed at wait end)")
     return 0
 
@@ -666,18 +667,18 @@ async def _cmd_mark_review(wdm: Any, db: Any, args: argparse.Namespace) -> int:
     ait_tx_hash = args.ait_tx_hash
     row = db.get_withdrawal_by_ait_tx_hash(ait_tx_hash)
     if not row:
-        print(f"no withdrawal row {ait_tx_hash}")
+        click.echo(f"no withdrawal row {ait_tx_hash}")
         return 1
     _print_row(row)
 
     if row.get("refund_tx_hash"):
-        print("refusing: refund already recorded")
+        click.echo("refusing: refund already recorded")
         return 1
     if row["status"] not in _MARK_REVIEW_ELIGIBLE:
-        print(f"refusing: status={row['status']} not eligible (allowed: {sorted(_MARK_REVIEW_ELIGIBLE)})")
+        click.echo(f"refusing: status={row['status']} not eligible (allowed: {sorted(_MARK_REVIEW_ELIGIBLE)})")
         return 1
     if not args.note or not args.note.strip():
-        print("refusing: --note is required (the reason lands in the row's error field)")
+        click.echo("refusing: --note is required (the reason lands in the row's error field)")
         return 2
 
     # The flip is still gated on the recorded release being proven unsent —
@@ -687,16 +688,16 @@ async def _cmd_mark_review(wdm: Any, db: Any, args: argparse.Namespace) -> int:
         return 1
     _print_verdicts(verdicts)
     if not _proofs_allow_retry(verdicts):
-        print("refusing: recorded release is not proven failed on all endpoints")
+        click.echo("refusing: recorded release is not proven failed on all endpoints")
         return 1
 
     if not args.confirm:
-        print("dry-run: would set 'needs_review' — the monitor then proves not_sent and refunds")
+        click.echo("dry-run: would set 'needs_review' — the monitor then proves not_sent and refunds")
         return 0
     # CAS on the status this command read and gated on (#1918) — an admin
     # write must not clobber a status the monitor moved since.
     db.update_withdrawal_status(ait_tx_hash, "needs_review", error=args.note.strip(), expected_statuses={row["status"]})
-    print("row → needs_review; next monitor poll proves the release unsent and refunds the AIT")
+    click.echo("row → needs_review; next monitor poll proves the release unsent and refunds the AIT")
     return 0
 
 
@@ -746,7 +747,7 @@ def main(argv: list[str] | None = None) -> int:
     _sync_wdm_env(wdm)
     if args.db:
         if not os.path.exists(args.db):
-            print(f"no such db: {args.db}")
+            click.echo(f"no such db: {args.db}")
             return 2
         db.DB_PATH = args.db
     db.init_db()

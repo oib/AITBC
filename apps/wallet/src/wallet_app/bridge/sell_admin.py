@@ -76,6 +76,7 @@ from typing import Any
 
 from .url_redact import redact_text
 from .withdraw_admin import _DEFAULT_ENV_FILES, _load_env_files, _sync_wdm_env
+import click
 
 # The only status an operator action may move. Plain 'needs_review' (the
 # ETH-release path) stays machine-owned — it still auto-resumes.
@@ -150,14 +151,14 @@ def _print_lock(row: dict[str, Any]) -> None:
     for key, val in row.items():
         if key == "escrow_out_tx":
             continue
-        print(f"  {key}: {val}")
+        click.echo(f"  {key}: {val}")
     blob = row.get("escrow_out_tx")
-    print(f"  escrow_out_tx: {'<signed blob withheld>' if blob else None}")
+    click.echo(f"  escrow_out_tx: {'<signed blob withheld>' if blob else None}")
     meta = _intent_metadata(row)
     if meta:
-        print("  sweep intent (parsed):")
+        click.echo("  sweep intent (parsed):")
         for key, val in meta.items():
-            print(f"    {key}: {val}")
+            click.echo(f"    {key}: {val}")
 
 
 def _host_gates() -> int:
@@ -167,10 +168,10 @@ def _host_gates() -> int:
     check reads BLOCKCHAIN_MODE from the loaded env set, so no hostname is
     baked in."""
     if os.geteuid() != 0:
-        print("refusing: sell_admin must run as root — the ledger and env files are root-owned")
+        click.echo("refusing: sell_admin must run as root — the ledger and env files are root-owned")
         return 2
     if os.environ.get("BLOCKCHAIN_MODE") != "hub":
-        print("refusing: sell_admin runs on the hub only (BLOCKCHAIN_MODE=hub in the loaded env set)")
+        click.echo("refusing: sell_admin runs on the hub only (BLOCKCHAIN_MODE=hub in the loaded env set)")
         return 2
     return 0
 
@@ -186,7 +187,7 @@ def _audit_fields(args: argparse.Namespace) -> dict[str, Any]:
 def _require_note(args: argparse.Namespace) -> str | None:
     note = (args.note or "").strip()
     if not note:
-        print("refusing: --confirm requires --note (a written justification is mandatory)")
+        click.echo("refusing: --confirm requires --note (a written justification is mandatory)")
         return None
     return note
 
@@ -195,7 +196,7 @@ def _inflight_refusal(db: Any) -> dict[str, Any] | None:
     """The in-flight sweep blocking a manual action, or None."""
     other: dict[str, Any] | None = db.get_sell_inflight_sweep()
     if other:
-        print(
+        click.echo(
             f"refusing: sweep already in flight ({other['ait_tx_hash']} status={other['status']}) "
             "— sweep serialization holds across manual actions"
         )
@@ -207,7 +208,7 @@ def _load_sell_config(sellmon: Any) -> Any | None:
     try:
         return sellmon._sell_config()
     except ValueError as e:
-        print(f"refusing: sell escrow config unusable: {e}")
+        click.echo(f"refusing: sell escrow config unusable: {e}")
         return None
 
 
@@ -216,11 +217,11 @@ def _review_row_or_refuse(db: Any, ait_tx_hash: str) -> dict[str, Any] | None:
     the one operator-gated status. Prints the refusal and returns None."""
     row: dict[str, Any] | None = db.get_sell_lock_by_ait_tx_hash(ait_tx_hash)
     if not row:
-        print(f"no sell lock {ait_tx_hash}")
+        click.echo(f"no sell lock {ait_tx_hash}")
         return None
     _print_lock(row)
     if row["status"] != _OPERATOR_GATED_STATUS:
-        print(f"refusing: status={row['status']} is not operator-gated (only {_OPERATOR_GATED_STATUS} resolves here)")
+        click.echo(f"refusing: status={row['status']} is not operator-gated (only {_OPERATOR_GATED_STATUS} resolves here)")
         return None
     return row
 
@@ -243,39 +244,39 @@ async def _cmd_list(db: Any, args: argparse.Namespace) -> int:
     statuses = tuple(args.status) if args.status else tuple(db._SELL_OPEN_STATUSES)
     rows = db.get_sell_locks_by_status(statuses)
     if not rows:
-        print("no sell locks match")
+        click.echo("no sell locks match")
         return 0
     for r in rows:
-        print(f"{r['id']}  {r['status']}  {r['amount_ait']} AIT  shop={r['shop_ait_address']}  lock={r['ait_tx_hash']}")
+        click.echo(f"{r['id']}  {r['status']}  {r['amount_ait']} AIT  shop={r['shop_ait_address']}  lock={r['ait_tx_hash']}")
         if r.get("error"):
-            print(f"    error: {r['error']}")
-    print(f"{len(rows)} row(s)")
+            click.echo(f"    error: {r['error']}")
+    click.echo(f"{len(rows)} row(s)")
     return 0
 
 
 async def _cmd_inspect(db: Any, sellmon: Any, ait_tx_hash: str) -> int:
     row = db.get_sell_lock_by_ait_tx_hash(ait_tx_hash)
     if not row:
-        print(f"no sell lock {ait_tx_hash}")
+        click.echo(f"no sell lock {ait_tx_hash}")
         return 1
     _print_lock(row)
     if row.get("quote_id"):
         quote = db.get_sell_quote(str(row["quote_id"]))
         if quote:
-            print("quote:")
+            click.echo("quote:")
             for key, val in quote.items():
-                print(f"  {key}: {val}")
+                click.echo(f"  {key}: {val}")
     cfg = _load_sell_config(sellmon)
     if cfg is None:
         return 0
     lane = _sweep_lane(row, cfg.treasury_address)
     if lane:
-        print(f"  sweep lane: {lane}")
+        click.echo(f"  sweep lane: {lane}")
     try:
         nonce, balance = await sellmon._account_view(cfg.escrow_address)
-        print(f"escrow chain view: address={cfg.escrow_address} nonce={nonce} balance={balance} AIT")
+        click.echo(f"escrow chain view: address={cfg.escrow_address} nonce={nonce} balance={balance} AIT")
     except Exception as e:  # noqa: BLE001 - admin display probe — unavailable prints, never raises
-        print(f"escrow chain view unavailable: {redact_text(str(e))}")
+        click.echo(f"escrow chain view unavailable: {redact_text(str(e))}")
     return 0
 
 
@@ -286,7 +287,7 @@ async def _cmd_confirm_swept(db: Any, sellmon: Any, args: argparse.Namespace) ->
         return 1
     nonce = row.get("escrow_out_nonce")
     if nonce is None:
-        print("refusing: no recorded sweep nonce — the match rule cannot run; use write-off")
+        click.echo("refusing: no recorded sweep nonce — the match rule cannot run; use write-off")
         return 1
     cfg = _load_sell_config(sellmon)
     if cfg is None:
@@ -294,7 +295,7 @@ async def _cmd_confirm_swept(db: Any, sellmon: Any, args: argparse.Namespace) ->
 
     matched = await _match_sealed_outflow(sellmon, cfg, row, nonce)
     if matched is None:
-        print(
+        click.echo(
             f"refusing: no sealed escrow outflow at nonce {nonce} matches this row's intent "
             "(recipient + amount + payload.sell_ref all required)"
         )
@@ -302,15 +303,17 @@ async def _cmd_confirm_swept(db: Any, sellmon: Any, args: argparse.Namespace) ->
     lane, outflow = matched
     sealed_hash = str(outflow.get("tx_hash") or outflow.get("hash") or "")
     if sealed_hash.lower() != str(args.tx).lower():
-        print(f"refusing: supplied hash {args.tx} does not equal the sealed outflow {sealed_hash} found by the match rule")
+        click.echo(
+            f"refusing: supplied hash {args.tx} does not equal the sealed outflow {sealed_hash} found by the match rule"
+        )
         return 1
 
     final_status = _LANE_FINAL_STATUS[lane]
     hash_field = _LANE_HASH_FIELD[lane]
-    print(f"verification: sealed {lane} outflow {sealed_hash} at escrow nonce {nonce} — matches intent")
-    print(f"planned write: status={final_status} {hash_field}={sealed_hash}")
+    click.echo(f"verification: sealed {lane} outflow {sealed_hash} at escrow nonce {nonce} — matches intent")
+    click.echo(f"planned write: status={final_status} {hash_field}={sealed_hash}")
     if not args.confirm:
-        print("dry-run: no write. Re-run with --confirm --note '…' to resolve.")
+        click.echo("dry-run: no write. Re-run with --confirm --note '…' to resolve.")
         return 0
     note = _require_note(args)
     if note is None:
@@ -324,9 +327,9 @@ async def _cmd_confirm_swept(db: Any, sellmon: Any, args: argparse.Namespace) ->
         **_audit_fields(args),
     )
     if not ok:
-        print("refusing: ledger write touched no row")
+        click.echo("refusing: ledger write touched no row")
         return 1
-    print(f"row → {final_status} ({hash_field}={sealed_hash})")
+    click.echo(f"row → {final_status} ({hash_field}={sealed_hash})")
     return 0
 
 
@@ -342,7 +345,7 @@ async def _cmd_requeue(db: Any, sellmon: Any, args: argparse.Namespace) -> int:
         treasury = cfg.treasury_address
     lane = _sweep_lane(row, treasury)
     if lane is None:
-        print(
+        click.echo(
             "refusing: sweep intent blob missing/unreadable — cannot tell which lane the row was in "
             "(settle→released, refund→refund_pending). Use write-off, or restore the intent and retry."
         )
@@ -351,9 +354,9 @@ async def _cmd_requeue(db: Any, sellmon: Any, args: argparse.Namespace) -> int:
         return 1
 
     target = _LANE_REQUEUE_TARGET[lane]
-    print(f"planned write: status={target} ({lane} lane) — the monitor's next poll re-runs the sweep path")
+    click.echo(f"planned write: status={target} ({lane} lane) — the monitor's next poll re-runs the sweep path")
     if not args.confirm:
-        print("dry-run: no write. Re-run with --confirm --note '…' to requeue.")
+        click.echo("dry-run: no write. Re-run with --confirm --note '…' to requeue.")
         return 0
     note = _require_note(args)
     if note is None:
@@ -366,9 +369,9 @@ async def _cmd_requeue(db: Any, sellmon: Any, args: argparse.Namespace) -> int:
         **_audit_fields(args),
     )
     if not ok:
-        print("refusing: ledger write touched no row")
+        click.echo("refusing: ledger write touched no row")
         return 1
-    print(f"row → {target}; the monitor re-sweeps at a fresh nonce on its next poll")
+    click.echo(f"row → {target}; the monitor re-sweeps at a fresh nonce on its next poll")
     return 0
 
 
@@ -376,24 +379,24 @@ async def _cmd_write_off(db: Any, args: argparse.Namespace) -> int:
     ait_tx_hash = args.ait_tx_hash
     row = db.get_sell_lock_by_ait_tx_hash(ait_tx_hash)
     if not row:
-        print(f"no sell lock {ait_tx_hash}")
+        click.echo(f"no sell lock {ait_tx_hash}")
         return 1
     _print_lock(row)
     if row["status"] not in db._SELL_OPEN_STATUSES:
-        print(f"refusing: status={row['status']} is already terminal")
+        click.echo(f"refusing: status={row['status']} is already terminal")
         return 1
     if row["status"] in _IN_FLIGHT_STATUSES:
-        print(
+        click.echo(
             f"refusing: status={row['status']} has a live send in flight — "
             "resolve it first (confirm-swept / requeue / let the monitor decide)"
         )
         return 1
 
-    print(f"planned write: status=written_off reason={args.reason}")
+    click.echo(f"planned write: status=written_off reason={args.reason}")
     if row.get("eth_tx_hash") or row.get("released_at"):
-        print("note: the ETH leg already left — the write-off records the AIT leg as abandoned")
+        click.echo("note: the ETH leg already left — the write-off records the AIT leg as abandoned")
     if not args.confirm:
-        print("dry-run: no write. Re-run with --confirm --note '…' to write off.")
+        click.echo("dry-run: no write. Re-run with --confirm --note '…' to write off.")
         return 0
     note = _require_note(args)
     if note is None:
@@ -406,9 +409,9 @@ async def _cmd_write_off(db: Any, args: argparse.Namespace) -> int:
         **_audit_fields(args),
     )
     if not ok:
-        print("refusing: ledger write touched no row")
+        click.echo("refusing: ledger write touched no row")
         return 1
-    print("row → written_off (terminal; the monitor will never touch it again)")
+    click.echo("row → written_off (terminal; the monitor will never touch it again)")
     return 0
 
 
@@ -427,11 +430,11 @@ async def _cmd_sweep_now(db: Any, sellmon: Any, args: argparse.Namespace) -> int
     ait_tx_hash = args.ait_tx_hash
     row = db.get_sell_lock_by_ait_tx_hash(ait_tx_hash)
     if not row:
-        print(f"no sell lock {ait_tx_hash}")
+        click.echo(f"no sell lock {ait_tx_hash}")
         return 1
     _print_lock(row)
     if row["status"] not in _FEE_QUEUED_STATUSES:
-        print(f"refusing: status={row['status']} — sweep-now only accelerates {list(_FEE_QUEUED_STATUSES)}")
+        click.echo(f"refusing: status={row['status']} — sweep-now only accelerates {list(_FEE_QUEUED_STATUSES)}")
         return 1
     if _inflight_refusal(db) is not None:
         return 1
@@ -440,18 +443,18 @@ async def _cmd_sweep_now(db: Any, sellmon: Any, args: argparse.Namespace) -> int
         return 1
     key_error = sellmon._validate_escrow_key(cfg)
     if key_error:
-        print(f"refusing: {key_error} — a manual sweep can only sign where the escrow key is configured")
+        click.echo(f"refusing: {key_error} — a manual sweep can only sign where the escrow key is configured")
         return 1
 
     to_address, reason, intent_status, fee_park_status, required = _sweep_plan(sellmon, cfg, row)
-    print(f"planned sweep: {row['amount_ait']} AIT -> {to_address} (reason={reason}), float needed {required} AIT")
+    click.echo(f"planned sweep: {row['amount_ait']} AIT -> {to_address} (reason={reason}), float needed {required} AIT")
     try:
         _nonce, balance = await sellmon._account_view(cfg.escrow_address)
-        print(f"escrow balance: {balance} AIT ({'sufficient' if balance >= required else 'SHORT — would re-park'})")
+        click.echo(f"escrow balance: {balance} AIT ({'sufficient' if balance >= required else 'SHORT — would re-park'})")
     except Exception as e:  # noqa: BLE001 - admin display probe — unreadable balance prints, never raises
-        print(f"escrow balance unreadable: {redact_text(str(e))}")
+        click.echo(f"escrow balance unreadable: {redact_text(str(e))}")
     if not args.confirm:
-        print("dry-run: no write, no send. Re-run with --confirm --note '…' to sweep now.")
+        click.echo("dry-run: no write, no send. Re-run with --confirm --note '…' to sweep now.")
         return 0
     note = _require_note(args)
     if note is None:
@@ -469,15 +472,15 @@ async def _cmd_sweep_now(db: Any, sellmon: Any, args: argparse.Namespace) -> int
 
 def _sweep_outcome_rc(outcome: str, intent_status: str, fee_park_status: str) -> int:
     if outcome == "sent":
-        print(f"sweep broadcast — row is '{intent_status}' until the outflow seals")
+        click.echo(f"sweep broadcast — row is '{intent_status}' until the outflow seals")
         return 0
     if outcome == "fee_parked":
-        print(f"sweep re-parked — escrow float still short (see {fee_park_status} row error)")
+        click.echo(f"sweep re-parked — escrow float still short (see {fee_park_status} row error)")
         return 1
     if outcome == "deferred":
-        print("sweep deferred — another sweep entered flight between checks; nothing sent")
+        click.echo("sweep deferred — another sweep entered flight between checks; nothing sent")
         return 1
-    print(f"unexpected sweep outcome {outcome!r}")
+    click.echo(f"unexpected sweep outcome {outcome!r}")
     return 1
 
 
@@ -547,12 +550,12 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "status":
         # Env-only: the sell lane's config is readable even where no ledger
         # exists yet — exactly the state this verb exists to show.
-        print(json.dumps(sellmon.sell_status_document(), indent=2, default=str))
+        click.echo(json.dumps(sellmon.sell_status_document(), indent=2, default=str))
         return 0
 
     db_target = args.db or db.DB_PATH
     if not os.path.exists(db_target):
-        print(f"refusing: no bridge ledger at {db_target} — the command runs where the ledger exists")
+        click.echo(f"refusing: no bridge ledger at {db_target} — the command runs where the ledger exists")
         return 2
     if args.db:
         db.DB_PATH = args.db
