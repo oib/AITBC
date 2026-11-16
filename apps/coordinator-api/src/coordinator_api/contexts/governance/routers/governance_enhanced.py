@@ -207,22 +207,22 @@ async def vote_on_regional_proposal(
 # Treasury Management Endpoints
 @router.get("/treasury/balance", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
-async def get_treasury_balance(
+def get_treasury_balance(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
     region: str | None = None,
 ) -> dict[str, Any]:
-    """Get treasury balance for global or specific region"""
+    """Get treasury balance for global or specific region.
 
-    try:
-        balance = await run_in_threadpool(governance_service.get_treasury_balance, region)
-        return balance
-
-    except Exception as e:
-        logging.getLogger(__name__).exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    Disabled until real on-chain treasury reads are implemented — the
+    previous implementation returned hardcoded zeros as if they were a
+    live balance (#2170).
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Treasury balance reads are not implemented: no on-chain treasury integration exists",
+    )
 
 
 @router.post("/treasury/allocate", response_model=dict[str, Any])
@@ -249,7 +249,7 @@ def allocate_treasury_funds(
 
 @router.get("/treasury/transactions", response_model=list[dict[str, Any]])
 @rate_limit(rate=200, per=60)
-async def get_treasury_transactions(
+def get_treasury_transactions(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
@@ -257,16 +257,16 @@ async def get_treasury_transactions(
     offset: int = Query(default=0, ge=0),
     region: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Get treasury transaction history"""
+    """Get treasury transaction history.
 
-    try:
-        transactions = await run_in_threadpool(governance_service.get_treasury_transactions, limit or 100, offset or 0, region)
-        return transactions
-
-    except Exception as e:
-        logging.getLogger(__name__).exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    Disabled until real on-chain treasury reads are implemented — the
+    previous implementation always returned an empty list regardless of
+    actual treasury activity (#2170).
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Treasury transaction reads are not implemented: no on-chain treasury integration exists",
+    )
 
 
 # Staking & Rewards Endpoints
@@ -293,27 +293,27 @@ def create_staking_pool(
 
 @router.get("/staking/pools", response_model=list[dict[str, Any]])
 @rate_limit(rate=200, per=60)
-async def get_developer_staking_pools(
+def get_developer_staking_pools(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
     developer_address: str | None = None,
 ) -> list[dict[str, Any]]:
-    """Get staking pools for a specific developer or all pools"""
+    """Get staking pools for a specific developer or all pools.
 
-    try:
-        pools = await run_in_threadpool(governance_service.get_developer_staking_pools, developer_address)
-        return pools
-
-    except Exception as e:
-        logging.getLogger(__name__).exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    Disabled until real on-chain staking reads are implemented — the
+    previous implementation always returned an empty list regardless of
+    actual staking activity (#2170).
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Staking pool reads are not implemented: no on-chain staking integration exists",
+    )
 
 
 @router.get("/staking/calculate-rewards", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
-async def calculate_staking_rewards(
+def calculate_staking_rewards(
     request: Request,
     pool_id: str,
     staker_address: str,
@@ -322,18 +322,15 @@ async def calculate_staking_rewards(
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
-    """Calculate staking rewards for a specific position"""
+    """Calculate staking rewards for a specific position.
 
-    try:
-        rewards = await run_in_threadpool(
-            governance_service.calculate_staking_rewards, pool_id, staker_address, amount, duration_days
-        )
-        return rewards
-
-    except Exception as e:
-        logging.getLogger(__name__).exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    Disabled until real on-chain staking reads are implemented — the
+    previous implementation fabricated a flat 5% APY estimate (#2170).
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Staking reward calculation is not implemented: no on-chain staking integration exists",
+    )
 
 
 @router.post("/staking/distribute-rewards/{pool_id}", response_model=dict[str, Any])
@@ -377,22 +374,21 @@ async def get_governance_analytics(
 
 @router.get("/analytics/regional-health/{region}", response_model=dict[str, Any])
 @rate_limit(rate=200, per=60)
-async def get_regional_governance_health(
+def get_regional_governance_health(
     request: Request,
     region: str,
     session: Annotated[Session, Depends(get_session)],
     governance_service: Annotated[GovernanceService, Depends(get_governance_service)],
 ) -> dict[str, Any]:
-    """Get health metrics for a specific region's governance"""
+    """Get health metrics for a specific region's governance.
 
-    try:
-        health = await run_in_threadpool(governance_service.get_regional_governance_health, region)
-        return health
-
-    except Exception as e:
-        logging.getLogger(__name__).exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    Disabled until real per-region governance metrics exist — the previous
+    implementation returned a hardcoded health_score of 100 (#2170).
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Regional governance health metrics are not implemented",
+    )
 
 
 # Enhanced Profile Management
@@ -506,55 +502,60 @@ async def get_governance_profile(
 
 
 # Multi-Jurisdictional Compliance
+# Static reference config (supported jurisdictions and their requirement
+# flags), not live compliance data — the live check endpoint
+# (/compliance/check/{user_address}) is an honest 501 because no KYC/AML
+# provider is integrated.
+_SUPPORTED_JURISDICTIONS: list[dict[str, Any]] = [
+    {
+        "code": "US",
+        "name": "United States",
+        "region": "global",
+        "requirements": {
+            "kyc_required": True,
+            "aml_required": True,
+            "tax_reporting": True,
+            "minimum_stake": 1000.0,
+            "voting_threshold": 100.0,
+        },
+        "supported_councils": ["us-east", "us-west", "us-central"],
+    },
+    {
+        "code": "EU",
+        "name": "European Union",
+        "region": "global",
+        "requirements": {
+            "kyc_required": True,
+            "aml_required": True,
+            "gdpr_compliance": True,
+            "minimum_stake": 800.0,
+            "voting_threshold": 80.0,
+        },
+        "supported_councils": ["eu-west", "eu-central", "eu-north"],
+    },
+    {
+        "code": "SG",
+        "name": "Singapore",
+        "region": "asia-pacific",
+        "requirements": {
+            "kyc_required": True,
+            "aml_required": True,
+            "tax_reporting": True,
+            "minimum_stake": 500.0,
+            "voting_threshold": 50.0,
+        },
+        "supported_councils": ["asia-pacific", "sea"],
+    },
+]
+
+
 @router.get("/jurisdictions", response_model=list[dict[str, Any]])
 @rate_limit(rate=500, per=60)
 def get_supported_jurisdictions(request: Request) -> list[dict[str, Any]]:
     """Get list of supported jurisdictions and their requirements"""
 
     try:
-        jurisdictions = [
-            {
-                "code": "US",
-                "name": "United States",
-                "region": "global",
-                "requirements": {
-                    "kyc_required": True,
-                    "aml_required": True,
-                    "tax_reporting": True,
-                    "minimum_stake": 1000.0,
-                    "voting_threshold": 100.0,
-                },
-                "supported_councils": ["us-east", "us-west", "us-central"],
-            },
-            {
-                "code": "EU",
-                "name": "European Union",
-                "region": "global",
-                "requirements": {
-                    "kyc_required": True,
-                    "aml_required": True,
-                    "gdpr_compliance": True,
-                    "minimum_stake": 800.0,
-                    "voting_threshold": 80.0,
-                },
-                "supported_councils": ["eu-west", "eu-central", "eu-north"],
-            },
-            {
-                "code": "SG",
-                "name": "Singapore",
-                "region": "asia-pacific",
-                "requirements": {
-                    "kyc_required": True,
-                    "aml_required": True,
-                    "tax_reporting": True,
-                    "minimum_stake": 500.0,
-                    "voting_threshold": 50.0,
-                },
-                "supported_councils": ["asia-pacific", "sea"],
-            },
-        ]
-
-        return jurisdictions
+        return [dict(j) for j in _SUPPORTED_JURISDICTIONS]
 
     except Exception as e:
         logging.getLogger(__name__).exception("Unhandled exception")
@@ -602,16 +603,21 @@ async def get_governance_system_health(
             database_status = "unhealthy"
             profile_count = 0
 
-        # Mock service health checks
+        # Only the database check has a real probe. Treasury contracts,
+        # staking contracts, regional-council health, and compliance have no
+        # backing implementation — the previous code hardcoded "healthy" for
+        # all of them (#2170). Report them as unimplemented instead.
         services_status = {
             "database": database_status,
-            "treasury_contracts": "healthy",
-            "staking_contracts": "healthy",
-            "regional_councils": "healthy",
-            "compliance_systems": "healthy",
         }
+        unimplemented_services = [
+            "treasury_contracts",
+            "staking_contracts",
+            "regional_councils",
+            "compliance_systems",
+        ]
 
-        overall_status = "healthy" if all(status == "healthy" for status in services_status.values()) else "degraded"
+        overall_status = "healthy" if database_status == "healthy" else "degraded"
 
         # Get basic metrics
         # Last 7 days
@@ -620,12 +626,11 @@ async def get_governance_system_health(
         health_data = {
             "status": overall_status,
             "services": services_status,
+            "unimplemented_services": unimplemented_services,
             "metrics": {
                 "total_profiles": profile_count,
                 "active_proposals": analytics["proposals"]["still_active"],
                 "regional_councils": analytics["regional_councils"]["total_councils"],
-                "treasury_balance": analytics["treasury"]["total_allocations"],
-                "staking_pools": analytics["staking"]["active_pools"],
             },
             "last_updated": datetime.now(UTC).isoformat(),
         }
@@ -654,9 +659,6 @@ async def get_governance_platform_status(
         # Get regional councils
         councils = await run_in_threadpool(governance_service.get_regional_councils)
 
-        # Get treasury balance
-        treasury = await run_in_threadpool(governance_service.get_treasury_balance)
-
         status_data = {
             "platform": "AITBC Enhanced Governance",
             "version": "2.0.0",
@@ -664,22 +666,20 @@ async def get_governance_platform_status(
             "features": {
                 "multi_jurisdictional_support": True,
                 "regional_councils": len(councils),
-                "treasury_management": True,
-                "staking_rewards": True,
+                # Treasury/staking reads are honest 501 stubs (#2170) — do
+                # not claim the features are live.
+                "treasury_management": False,
+                "staking_rewards": False,
                 "compliance_integration": False,
             },
             "statistics": analytics,
-            "treasury": treasury,
             "regional_coverage": {
                 "total_regions": len({c["region"] for c in councils}),
                 "active_councils": len(councils),
-                "supported_jurisdictions": 3,
+                "supported_jurisdictions": len(_SUPPORTED_JURISDICTIONS),
             },
             "performance": {
-                "average_proposal_time": "2.5 days",
                 "voting_participation": f"{analytics['proposals'].get('participation_rate', 0.0)}%",
-                "treasury_utilization": "0.0%",
-                "staking_apy": "0.0%",
             },
             "last_updated": datetime.now(UTC).isoformat(),
         }

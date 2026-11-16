@@ -30,13 +30,28 @@ def _post(client: TestClient, path: str, body: dict, headers: dict | None = None
 
 
 class TestGovernanceReads:
-    def test_health(self, client: TestClient) -> None:
+    def test_health_marks_unimplemented_services(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/health")
         assert resp.status_code == 200
+        data = resp.json()
+        # Only the database probe is real; treasury/staking/council/compliance
+        # have no backing implementation and must not report "healthy" (#2170).
+        assert data["services"] == {"database": "healthy"}
+        assert set(data["unimplemented_services"]) == {
+            "treasury_contracts",
+            "staking_contracts",
+            "regional_councils",
+            "compliance_systems",
+        }
 
-    def test_status_shape(self, client: TestClient) -> None:
+    def test_status_does_not_claim_unimplemented_features(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/status")
         assert resp.status_code == 200
+        data = resp.json()
+        assert data["features"]["treasury_management"] is False
+        assert data["features"]["staking_rewards"] is False
+        assert "treasury" not in data
+        assert data["regional_coverage"]["supported_jurisdictions"] == 3
 
     def test_jurisdictions_list(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/jurisdictions")
@@ -48,14 +63,30 @@ class TestGovernanceReads:
         assert resp.status_code == 200
         assert resp.json() == []
 
-    def test_treasury_balance_shape(self, client: TestClient) -> None:
+    def test_treasury_balance_unimplemented(self, client: TestClient) -> None:
+        # #2170: no on-chain treasury backing — honest 501, never fake zeros.
         resp = client.get(f"{BASE}/treasury/balance")
-        assert resp.status_code in (200, 503)
+        assert resp.status_code == 501
 
-    def test_staking_pools_empty(self, client: TestClient) -> None:
+    def test_treasury_transactions_unimplemented(self, client: TestClient) -> None:
+        resp = client.get(f"{BASE}/treasury/transactions")
+        assert resp.status_code == 501
+
+    def test_staking_pools_unimplemented(self, client: TestClient) -> None:
+        # #2170: no on-chain staking backing — honest 501, never a fake []/APY.
         resp = client.get(f"{BASE}/staking/pools")
-        assert resp.status_code == 200
-        assert isinstance(resp.json(), list)
+        assert resp.status_code == 501
+
+    def test_staking_calculate_rewards_unimplemented(self, client: TestClient) -> None:
+        resp = client.get(
+            f"{BASE}/staking/calculate-rewards",
+            params={"pool_id": "p1", "staker_address": "0x" + "11" * 20, "amount": "1", "duration_days": 30},
+        )
+        assert resp.status_code == 501
+
+    def test_regional_health_unimplemented(self, client: TestClient) -> None:
+        resp = client.get(f"{BASE}/analytics/regional-health/eu-west")
+        assert resp.status_code == 501
 
     def test_analytics_governance_shape(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/analytics/governance")

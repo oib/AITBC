@@ -61,24 +61,31 @@ def _rpc_get(path: str, *, timeout: float = 5.0) -> dict[str, Any]:
 
 @router.get("/status")
 def blockchain_status() -> dict[str, Any]:
-    """Get blockchain status."""
+    """Get blockchain status.
+
+    A dead RPC node is an honest 503 — the previous fallback returned
+    ``{"status": "synced", ...}`` mock data with HTTP 200, so a down chain
+    looked healthy (#2170).
+    """
     try:
         from ....config import settings
 
         rpc_url = settings.blockchain_rpc_url.rstrip("/")
         client = AITBCHTTPClient(timeout=5.0)
         response = client.get(f"{rpc_url}/rpc/head")
-        return {
-            "status": "connected",
-            "height": response.get("height", 0),
-            "hash": response.get("hash", ""),
-            "timestamp": response.get("timestamp", ""),
-            "tx_count": response.get("tx_count", 0),
-        }
-    except NetworkError:
-        return {"status": "synced", "block": 0, "proposer": "genesis", "note": "RPC unavailable - returning mock data"}
-    except _OPS_ERRORS:
-        return {"status": "error", "error": "Failed to get blockchain status"}
+    except NetworkError as e:
+        logger.error("RPC connection failed: %s", e)
+        raise HTTPException(status_code=503, detail="Blockchain RPC unavailable") from e
+    except _OPS_ERRORS as e:
+        logger.error("Failed to get blockchain status: %s", e)
+        raise HTTPException(status_code=500, detail="Failed to get blockchain status") from e
+    return {
+        "status": "connected",
+        "height": response.get("height", 0),
+        "hash": response.get("hash", ""),
+        "timestamp": response.get("timestamp", ""),
+        "tx_count": response.get("tx_count", 0),
+    }
 
 
 @router.get("/sync-status")
