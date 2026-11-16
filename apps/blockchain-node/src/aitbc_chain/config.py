@@ -1507,6 +1507,12 @@ class ChainSettings(BaseSettings):
     # worker. 0 = unbounded (legacy, dormant until armed); the cap applies on
     # record and when a persisted history is loaded.
     slashing_max_events_per_height: int = 0
+    # #2130: verify equivocation evidence before it is recorded or levied. When
+    # armed, an equivocation claim is admitted only if its two signatures verify
+    # against the accused (same height/round, differing hashes, signer == accused),
+    # the accused still has stake, and no signed or levied record already stands at
+    # that (validator, condition, height). Dormant (False) = legacy behaviour.
+    equivocation_verify_before_record: bool = False
     # U2 failure-evidence window for cross-round signing: after observing a
     # later-round attest_request at the same height, the locked round's
     # gates window must fully elapse before a rival hash may be signed.

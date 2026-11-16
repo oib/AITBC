@@ -255,6 +255,54 @@ def _remove_by_identity(events: list[SlashingEvent], victim: SlashingEvent) -> b
     return False
 
 
+def _equivocation_gate_on() -> bool:
+    """``equivocation_verify_before_record`` (#2130; False = legacy, record unverified)."""
+    from ..config import settings
+
+    return bool(getattr(settings, "equivocation_verify_before_record", False))
+
+
+def _pair_shape_ok(event: SlashingEvent, payload: dict) -> bool:
+    """Structural half of the #2130 gate: differing hashes, one height, one round."""
+    hash_a, hash_b = (event.hash_a or "").lower(), (event.hash_b or "").lower()
+    if not hash_a or not hash_b or hash_a == hash_b:
+        return False
+    if payload.get("kind") != "attestation_equivocation":
+        return True  # vote kinds: the verifier checks height/round/hash shape itself
+    atts = [a for a in payload.get("attestations", [])[:2] if isinstance(a, dict)]
+    if len(atts) != 2:
+        return False
+    if any(a.get("height", event.block_height) != event.block_height for a in atts):
+        return False
+    if atts[0].get("request_round") != atts[1].get("request_round"):
+        return False
+    return {str(a.get("hash", "")).lower() for a in atts} == {hash_a, hash_b}
+
+
+def equivocation_evidence_verifies(event: SlashingEvent) -> bool:
+    """Whether an equivocation claim carries evidence that verifies against its accused (#2130).
+
+    Reuses the on-chain verifiers (state.deactivation_evidence) so the record gate
+    and the apply-time check cannot disagree. Unsigned claims never verify.
+    """
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    from ..state.deactivation_evidence import _verify_equivocation_claim
+
+    payload = event_signature_evidence(event)
+    if payload is None or not _pair_shape_ok(event, payload):
+        return False
+    try:
+        # Cross-view evidence is window-checked on chain at apply time; here the
+        # window is the event's own height, so only the cryptography is gated.
+        ok, _reason = _verify_equivocation_claim(
+            payload, event, canonical_address(event.validator_address), None, None, 0, event.block_height
+        )
+    except (AttributeError, IndexError, KeyError, TypeError, ValueError):  # malformed evidence refuses, never raises
+        return False
+    return ok
+
+
 class _HistoryIndex:
     """O(1) dedup + per-height counts over ``SlashingManager.slashing_events`` (#2118)."""
 
@@ -286,6 +334,10 @@ class _HistoryIndex:
             if bucket[i] is event:
                 del bucket[i]
                 break
+
+    def has_signed_or_levied_at(self, event: SlashingEvent) -> bool:
+        """A signed or already-levied record stands in ``event``'s bucket (#2130)."""
+        return any(event_signature_evidence(c) is not None or c.is_applied for c in self.by_height.get(_height_key(event), ()))
 
     def newest_unsigned_at(self, event: SlashingEvent) -> SlashingEvent | None:
         """The most recently recorded evictable event in ``event``'s bucket.
@@ -347,6 +399,24 @@ class SlashingManager:
         index.remove(victim)
         metrics_registry.increment("slashing_events_cap_evicted_total")
         return True
+
+    def _gate_refuses(self, index: _HistoryIndex, event: SlashingEvent, stake: Decimal | None) -> bool:
+        """#2130: True when the armed gate refuses to record/levy this equivocation claim.
+
+        Refuses a zero-stake accused (nothing to slash, nothing to prove), a height
+        where a signed or levied record already stands, and evidence that does not
+        verify against the accused. Non-equivocation events and a disarmed gate pass.
+        """
+        if not _equivocation_gate_on() or not event_is_equivocation_claim(event):
+            return False
+        refused = (
+            (stake is not None and stake <= 0)
+            or index.has_signed_or_levied_at(event)
+            or not equivocation_evidence_verifies(event)
+        )
+        if refused:
+            metrics_registry.increment("slashing_equivocation_gate_refused_total")
+        return refused
 
     def detect_double_sign(self, validator: str, block_hash1: str, block_hash2: str, height: int) -> SlashingEvent | None:
         """Detect double signing (validator signed two different blocks at same height)"""
@@ -424,6 +494,8 @@ class SlashingManager:
         if existing is not None:
             if event_signature_evidence(event) is not None and event_signature_evidence(existing) is None:
                 existing.evidence = event.evidence
+            return False
+        if self._gate_refuses(index, event, validator.stake):  # #2130
             return False
         # #2118: bound the per-(validator, condition, height) record count. One
         # recorded offence at a height already carries the deactivation
@@ -511,7 +583,7 @@ class SlashingManager:
         events = self.get_slashing_history(validator_address)
         return sum((e.slashed_amount for e in events if e.slashed_amount is not None), Decimal("0"))
 
-    def _dedup_or_upgrade(self, event: SlashingEvent) -> SlashingEvent:
+    def _dedup_or_upgrade(self, event: SlashingEvent, accused_stake: Decimal | None = None) -> SlashingEvent:
         """Return the on-record equivalent of ``event``, upgrading it in place.
 
         #1263: when the new observation carries signature material and the
@@ -527,6 +599,8 @@ class SlashingManager:
             if event_signature_evidence(event) is not None and event_signature_evidence(existing) is None:
                 existing.evidence = event.evidence
             return existing
+        if self._gate_refuses(index, event, accused_stake):  # #2130
+            return event  # not recorded; callers only use it as a handle
         # #2118 (respin): the advisory path filled hub's blob (30,417 events with
         # stake_before None never passed apply_slashing), so the same per-height cap
         # applies here, through the same admission rule as apply_slashing.
@@ -548,6 +622,7 @@ class SlashingManager:
         attestations: list[dict] | None = None,
         justification: str | None = None,
         unlock_justification: dict | None = None,
+        accused_stake: Decimal | None = None,
     ) -> SlashingEvent:
         """Record attestation-layer equivocation evidence (#1198 / #1242 / #1263).
 
@@ -602,7 +677,7 @@ class SlashingManager:
             hash_a=hash_a,
             hash_b=hash_b,
         )
-        return self._dedup_or_upgrade(event)
+        return self._dedup_or_upgrade(event, accused_stake)
 
     def vote_equivocation_event(
         self,
