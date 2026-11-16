@@ -197,7 +197,7 @@ def verify_transaction_signature(tx_data: dict[str, Any], signature: str, sender
             # V23-04: distinguishable from a recovered-wrong-address False below.
             _logger.warning("Malformed transaction signature (encoding fault): %s", e)
             return False
-    except Exception as e:
+    except (ImportError, ValueError, TypeError, AttributeError) as e:
         _logger.warning("Signature verification failed: %s", e)
         return False
 
@@ -244,7 +244,7 @@ def verify_request_signature(sender: str, signature: str, message_data: dict[str
         except SignatureMalformed as e:
             _logger.warning("Malformed request signature (encoding fault): %s", e)
             return False
-    except Exception as e:
+    except (ImportError, ValueError, TypeError, AttributeError) as e:
         _logger.warning("Request signature verification failed: %s", e)
         return False
 

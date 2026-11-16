@@ -76,7 +76,7 @@ class PeerHealthMonitor:
             try:
                 await self._check_all_peers(peers)
                 await asyncio.sleep(self.check_interval)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError, ArithmeticError) as e:
                 log_error(f"Health monitoring error: {e}")
                 await asyncio.sleep(10)
 
@@ -121,7 +121,7 @@ class PeerHealthMonitor:
             if peer.node_id in self.health_status:
                 self.health_status[peer.node_id].consecutive_failures = 0
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError, ArithmeticError) as e:
             log_error(f"Health check failed for peer {peer.node_id}: {e}")
 
             # Handle failure
@@ -161,7 +161,7 @@ class PeerHealthMonitor:
             else:
                 return float("inf")
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError, ArithmeticError) as e:
             log_debug(f"Latency measurement failed for {address}:{port}: {e}")
             return float("inf")
 
@@ -190,7 +190,7 @@ class PeerHealthMonitor:
             else:
                 return 100.0  # First successful connection
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError, ArithmeticError) as e:
             log_debug(f"Availability check failed for {peer.node_id}: {e}")
             return 0.0
 
@@ -222,7 +222,7 @@ class PeerHealthMonitor:
 
             return throughput_mbps
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError, ArithmeticError) as e:
             log_debug(f"Throughput measurement failed for {peer.node_id}: {e}")
             return 0.0
 

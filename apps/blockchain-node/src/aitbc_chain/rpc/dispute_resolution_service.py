@@ -48,7 +48,7 @@ class DisputeResolutionService:
                 evidence_hash=evidence_hash,
                 sender_address=sender_address,
             )
-        except Exception as e:
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error filing dispute: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -74,7 +74,7 @@ class DisputeResolutionService:
                 evidence_data=evidence_data,
                 submitter_address=submitter_address,
             )
-        except Exception as e:
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error submitting evidence: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -102,7 +102,7 @@ class DisputeResolutionService:
                 verification_score=verification_score,
                 arbitrator_address=arbitrator_address,
             )
-        except Exception as e:
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error verifying evidence: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -130,7 +130,7 @@ class DisputeResolutionService:
                 reasoning=reasoning,
                 arbitrator_address=arbitrator_address,
             )
-        except Exception as e:
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error submitting arbitration vote: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -156,7 +156,7 @@ class DisputeResolutionService:
                 owner_address=owner_address,
                 owner_signature=owner_signature,
             )
-        except Exception as e:
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error authorizing arbitrator: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -172,7 +172,7 @@ class DisputeResolutionService:
         """
         try:
             return dispute_resolution_contract.get_dispute(dispute_id)
-        except Exception as e:
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error getting dispute: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -188,7 +188,7 @@ class DisputeResolutionService:
         """
         try:
             return dispute_resolution_contract.get_dispute_evidence(dispute_id)
-        except Exception as e:
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error getting dispute evidence: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -204,7 +204,7 @@ class DisputeResolutionService:
         """
         try:
             return dispute_resolution_contract.get_arbitration_votes(dispute_id)
-        except Exception as e:
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error getting arbitration votes: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -220,7 +220,7 @@ class DisputeResolutionService:
         """
         try:
             return dispute_resolution_contract.get_user_disputes(user_address)
-        except Exception as e:
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error getting user disputes: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -236,7 +236,7 @@ class DisputeResolutionService:
         """
         try:
             return dispute_resolution_contract.get_arbitrator_disputes(arbitrator_address)
-        except Exception as e:
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error getting arbitrator disputes: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -249,7 +249,7 @@ class DisputeResolutionService:
         """
         try:
             return dispute_resolution_contract.get_authorized_arbitrators()
-        except Exception as e:
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error getting authorized arbitrators: %s", e)
             return {"success": False, "error": str(e)}
 
@@ -262,7 +262,7 @@ class DisputeResolutionService:
         """
         try:
             return dispute_resolution_contract.get_active_disputes()
-        except Exception as e:
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error getting active disputes: %s", e)
             return {"success": False, "error": str(e)}
 

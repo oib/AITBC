@@ -79,7 +79,7 @@ class NetworkPartitionManager:
                 await self._detect_partitions()
                 await self._handle_partitions()
                 await asyncio.sleep(self.detection_interval)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 log_error(f"Partition monitoring error: {e}")
                 await asyncio.sleep(10)
 
@@ -186,7 +186,7 @@ class NetworkPartitionManager:
 
         try:
             await asyncio.gather(*recovery_tasks, return_exceptions=True)
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Partition recovery error: {e}")
 
     async def _attempt_reconnection(self) -> None:
@@ -216,7 +216,7 @@ class NetworkPartitionManager:
                 if success:
                     log_info(f"Bootstrap successful to {address}:{port}")
                     break
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 log_debug(f"Bootstrap failed to {address}:{port}: {e}")
 
     async def _coordinate_with_other_partitions(self) -> None:

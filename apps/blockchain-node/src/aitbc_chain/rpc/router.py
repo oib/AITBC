@@ -7,6 +7,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
+from sqlalchemy.exc import SQLAlchemyError
 
 from aitbc.rate_limiting import rate_limit
 
@@ -322,6 +323,6 @@ def get_pending_transactions_route(request: Request, chain_id: str | None = None
         mempool = get_mempool_instance()
         pending_txs = mempool.get_pending_transactions(chain_id=chain_id, limit=limit)
         return {"transactions": pending_txs, "count": len(pending_txs)}
-    except Exception as e:
+    except (SQLAlchemyError, OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
         _logger.error("Error getting pending transactions: %s", e)
         return {"transactions": [], "count": 0, "error": str(e)}

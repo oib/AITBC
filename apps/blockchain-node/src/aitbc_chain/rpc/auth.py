@@ -36,7 +36,7 @@ def get_authenticated_address(request: Request, credentials: HTTPAuthorizationCr
     if wallet_address:
         try:
             wallet_address = canonical_address(wallet_address)
-        except Exception:
+        except (ValueError, TypeError, AttributeError):
             _logger.warning("Invalid wallet address format in X-Wallet-Address header: %s", wallet_address)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
