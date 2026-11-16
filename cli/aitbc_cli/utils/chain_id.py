@@ -4,6 +4,8 @@ This module provides functions for auto-detecting and validating chain IDs
 from blockchain nodes, supporting multichain operations.
 """
 
+from aitbc.exceptions import AITBCError
+
 from .http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
@@ -52,7 +54,7 @@ def _probe_endpoint(http_client: AITBCHTTPClient, endpoint: str, errors: list[st
         errors.append(f"{endpoint}: {e}")
         logger.debug("Network error detecting chain ID from %s", endpoint, exc_info=True)
         return None
-    except Exception as e:
+    except (AITBCError, RuntimeError, ValueError, TypeError, AttributeError) as e:
         errors.append(f"{endpoint}: {e}")
         logger.debug("Chain ID detection from %s failed", endpoint, exc_info=True)
         return None
@@ -108,7 +110,7 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5, *, strict: bool = F
     except NetworkError as e:
         errors.append(str(e))
         logger.debug("Network error creating chain ID client for %s", rpc_url, exc_info=True)
-    except Exception as e:
+    except (AITBCError, RuntimeError, ValueError, TypeError) as e:
         errors.append(str(e))
         logger.debug("Chain ID client creation for %s failed", rpc_url, exc_info=True)
     else:
@@ -183,7 +185,7 @@ def resolve_chain_id(ctx, rpc_url: str, *, required: bool = True) -> str:
         return get_chain_id(rpc_url, override=None, timeout=5)
     try:
         return get_chain_id(rpc_url, override=None, timeout=5, strict=True)
-    except Exception as e:
+    except ChainIdLookupError as e:
         abort(
             ctx,
             f"Chain ID lookup via {rpc_url} failed: {e}. Set CHAIN_ID or point at a serving node",

@@ -28,7 +28,7 @@ def run_subprocess(
         if check:
             sys.exit(e.returncode)
         return getattr(e, "stdout", None) if capture_output else None
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError) as e:
         error(f"Failed to execute command: {e}")
         if check:
             sys.exit(1)

@@ -226,7 +226,7 @@ def load_wallet_for_payment(
 
         try:
             private_key = decrypt_value(private_key, password)
-        except Exception as e:
+        except ValueError as e:
             abort(ctx, f"Failed to decrypt wallet '{name}': {e}")
     if require_private_key and (not isinstance(private_key, str) or not private_key):
         abort(ctx, f"Wallet '{name}' has no usable private key for signing")

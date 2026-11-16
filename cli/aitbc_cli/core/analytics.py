@@ -20,6 +20,18 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+# Failure surface for the NodeClient/httpx collection paths plus the in-memory
+# stats arithmetic (TypeError/ValueError/ArithmeticError on bad metrics).
+_COLLECT_ERRORS = (
+    httpx.HTTPError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+)
+
 
 @dataclass
 class ChainMetrics:
@@ -130,7 +142,7 @@ class ChainAnalytics:
 
                 return metrics
 
-        except Exception as e:
+        except _COLLECT_ERRORS as e:
             logger.error("Error collecting metrics for chain %s: %s", chain_id, e)
             raise
 
@@ -150,7 +162,7 @@ class ChainAnalytics:
                 resp = await client.get(f"{rpc_url}/rpc/info")
                 resp.raise_for_status()
                 info = resp.json()
-        except Exception as e:
+        except _COLLECT_ERRORS as e:
             logger.warning("Failed to collect metrics from blockchain RPC: %s", e)
             return []
 
@@ -220,10 +232,10 @@ class ChainAnalytics:
                             try:
                                 metrics = await self.collect_metrics(chain.id, nid)
                                 node_metrics.append(metrics)
-                            except Exception as e:
+                            except _COLLECT_ERRORS as e:
                                 logger.error("Error getting metrics for chain %s: %s", chain.id, e)
                         return node_metrics
-                except Exception as e:
+                except _COLLECT_ERRORS as e:
                     logger.error("Error getting chains from node %s: %s", nid, e)
                     return []
 

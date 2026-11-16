@@ -16,6 +16,11 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+# Failure surface for the in-memory market bookkeeping: type/shape errors on
+# the dataclass payloads and decimal arithmetic (InvalidOperation and friends
+# are ArithmeticError subclasses).
+_MARKET_ERRORS = (TypeError, ValueError, KeyError, AttributeError, ArithmeticError)
+
 
 class ChainType(Enum):
     """Chain types in market"""
@@ -210,7 +215,7 @@ class GlobalChainMarket:
 
             return listing_id
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error creating listing: %s", e)
             return None
 
@@ -265,7 +270,7 @@ class GlobalChainMarket:
 
             return transaction_id
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error purchasing chain: %s", e)
             return None
 
@@ -296,7 +301,7 @@ class GlobalChainMarket:
 
             return True
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error completing transaction: %s", e)
             return False
 
@@ -324,7 +329,7 @@ class GlobalChainMarket:
 
             return self.chain_economies[chain_id]
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error getting chain economy: %s", e)
             return None
 
@@ -364,7 +369,7 @@ class GlobalChainMarket:
 
             return results
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error searching listings: %s", e)
             return []
 
@@ -390,7 +395,7 @@ class GlobalChainMarket:
 
             return results
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error getting user transactions: %s", e)
             return []
 
@@ -419,7 +424,7 @@ class GlobalChainMarket:
 
             return overview
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error getting market overview: %s", e)
             return {}
 
@@ -440,7 +445,7 @@ class GlobalChainMarket:
 
             self.escrow_contracts[transaction.escrow_address] = escrow_contract
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error creating escrow contract: %s", e)
 
     async def _release_escrow(self, transaction: MarketTransaction):
@@ -463,7 +468,7 @@ class GlobalChainMarket:
                     "seller_amount": seller_amount,
                 }
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error releasing escrow: %s", e)
 
     async def _update_chain_economy(self, chain_id: str, transaction_price: Decimal | None = None):
@@ -509,7 +514,7 @@ class GlobalChainMarket:
 
             economy.last_updated = datetime.now(UTC)
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error updating chain economy: %s", e)
 
     async def _update_market_metrics(self):
@@ -570,7 +575,7 @@ class GlobalChainMarket:
                 last_updated=datetime.now(UTC),
             )
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error updating market metrics: %s", e)
 
     def _update_user_reputation(self, user_id: str, delta: float):
@@ -579,7 +584,7 @@ class GlobalChainMarket:
             current_rep = self.user_reputations.get(user_id, 0.5)
             new_rep = max(0.0, min(1.0, current_rep + delta))
             self.user_reputations[user_id] = new_rep
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error updating user reputation: %s", e)
 
     async def _calculate_24h_volume(self) -> Decimal:
@@ -594,7 +599,7 @@ class GlobalChainMarket:
 
             volume = sum(t.price for t in recent_transactions) if recent_transactions else Decimal("0")
             return volume if isinstance(volume, Decimal) else Decimal(str(volume))
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error calculating 24h volume: %s", e)
             return Decimal("0")
 
@@ -618,7 +623,7 @@ class GlobalChainMarket:
             top_chains.sort(key=lambda x: float(x["volume"]), reverse=True)  # type: ignore[arg-type]
             return top_chains[:limit]
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error getting top performing chains: %s", e)
             return []
 
@@ -637,7 +642,7 @@ class GlobalChainMarket:
 
             return trends
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error calculating price trends: %s", e)
             return {}
 
@@ -651,7 +656,7 @@ class GlobalChainMarket:
 
             return dict(distribution)
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error getting chain types distribution: %s", e)
             return {}
 
@@ -675,7 +680,7 @@ class GlobalChainMarket:
                 else 0,
             }
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error getting user activity metrics: %s", e)
             return {}
 
@@ -696,6 +701,6 @@ class GlobalChainMarket:
                 "escrow_fee_collected": str(total_escrow_value * Decimal(str(self.thresholds["escrow_fee_percentage"]))),
             }
 
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.error("Error getting escrow summary: %s", e)
             return {}
