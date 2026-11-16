@@ -66,6 +66,9 @@ Errors out if the directory does not exist.
 ### 2. Run a read-only script
 
 ```bash
+# fleet-config-check.sh requires the fleet domain up front (deliberate — the
+# domain is not hardcoded in the repo): export it for the play first.
+export AITBC_FLEET_DOMAIN=<your-fleet-domain>
 aitbc script run --script-path /opt/aitbc/scripts/monitoring/fleet-config-check.sh
 aitbc script run --script-path /path/to/script.sh --args '--verbose'
 ```

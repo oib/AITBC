@@ -53,7 +53,11 @@ After an upgrade, restart the shop role and prove the inner loop services answer
 
 ### Setup Required
 
-- A shop node (`<node2>`) with miner, edge, blockchain RPC, and coordinator deployed
+- A shop node (`<node2>`) with edge, blockchain RPC, and blockchain node deployed.
+  Per the current fleet topology (#1549) `aitbc-miner`, `aitbc-gpu`, and
+  `aitbc-coordinator-api` are **not deployed on node2** — miner/GPU/coordinator
+  steps below are hub-scope or marked not-played; do not treat their absence
+  on the shop node as an outage.
 
 ---
 
@@ -254,10 +258,14 @@ After completing this scenario, you should be able to:
 
 ```bash
 # systemd (validation only)
-systemctl is-active aitbc-miner aitbc-edge aitbc-blockchain-rpc aitbc-coordinator-api aitbc-blockchain-node
+# shop-node scope: edge + rpc + node are deployed on node2; miner/coordinator
+# are hub-scope per #1549 — expect "inactive"/"not-found" there, not a failure.
+systemctl is-active aitbc-edge aitbc-blockchain-rpc aitbc-blockchain-node
 
-# miner heartbeats (validation only)
-journalctl -u aitbc-miner -n 10 --no-pager | grep -i heartbeat || true
+# hub-scope only (run on the hub, not the shop node):
+# systemctl is-active aitbc-miner aitbc-coordinator-api
+# miner heartbeats (validation only, hub)
+# journalctl -u aitbc-miner -n 10 --no-pager | grep -i heartbeat || true
 
 # edge registration logged, not swallowed (B9)
 journalctl -u aitbc-edge -n 30 --no-pager | grep -iE "register|blockchain" || true

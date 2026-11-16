@@ -103,6 +103,25 @@ def show(ctx):
     output(config_dict, resolve_output_format(ctx))
 
 
+def _effective_config_value(key: str):
+    """Resolve a key against the effective CLIConfig (env vars + defaults).
+
+    Returns the scalar value, or None when the key has no effective value.
+    SecretStr fields and empty strings are treated as unset — ``config get``
+    must never become a secret-read path.
+    """
+    config = get_config()
+    attr = "coordinator_api_url" if key == "coordinator_url" else key
+    value = getattr(config, attr, None)
+    if value is None or hasattr(value, "get_secret_value"):
+        return None
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, (str, int, float)):
+        return value if value != "" else None
+    return None
+
+
 @config.command(
     name="get",
     epilog="""Examples:
@@ -135,6 +154,13 @@ def get(ctx, key: str | None, global_config: bool):
         with open(config_file) as f:
             config_data = yaml.safe_load(f) or {}
     if key not in config_data:
+        # Fall back to the effective config (env vars + file merge + defaults),
+        # the same resolution `config show` uses — fleet nodes often run
+        # env-only with no YAML at AITBC_CONFIG_FILE (#2105).
+        effective = _effective_config_value(key)
+        if effective is not None:
+            output({"key": key, "value": effective, "source": "effective"}, resolve_output_format(ctx))
+            return
         error(f"Config key not set: {key} ({config_file})")
         ctx.exit(1)
         return
