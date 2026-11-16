@@ -1291,8 +1291,18 @@ class PBFTConsensus:
             return None
         return {"kind": "view_change", "new_view": dict(payload)}
 
-    def _vc_participants(self) -> list[str]:
+    def _vc_participants(self, sequence: int | None = None) -> list[str]:
+        """VC member set; with ``sequence`` the shared chain-state derivation
+        (#2133 item 1), else the legacy participant view."""
+        fn = getattr(self.consensus, "pbft_vc_validator_set", None)
+        if sequence is not None and callable(fn):
+            return sorted(fn(sequence))
         return list(self.consensus.get_consensus_participants())
+
+    def _vc_quorum(self, sequence: int) -> int:
+        """VC/NEW_VIEW quorum for ``sequence`` over the shared member set."""
+        members = self._vc_participants(sequence)
+        return pbft_required_messages(len(members)) if members else self.required_messages
 
     # -- sending VIEW_CHANGE --
 
@@ -1506,8 +1516,8 @@ class PBFTConsensus:
         if not ok:
             logger.debug("Dropping invalid VIEW_CHANGE for %s:%s: %s", seq, view, reason)
             return
-        participants = {canonical_address(a) for a in self._vc_participants()}
-        ok, reason = verify_vc_lock_proof(data, participants, self.required_messages)
+        participants = {canonical_address(a) for a in self._vc_participants(seq)}
+        ok, reason = verify_vc_lock_proof(data, participants, self._vc_quorum(seq))
         if not ok:
             logger.debug("Dropping VIEW_CHANGE with bad lock for %s:%s: %s", seq, view, reason)
             return
@@ -1537,7 +1547,7 @@ class PBFTConsensus:
         """
         if (sequence, view) in self._new_views:
             return
-        if len(self._vc_messages.get((sequence, view), {})) < self.required_messages:
+        if len(self._vc_messages.get((sequence, view), {})) < self._vc_quorum(sequence):
             return
         await self._build_new_view(sequence, view)
 
@@ -1565,7 +1575,7 @@ class PBFTConsensus:
         bucket = self._vc_messages.get((sequence, view), {})
         # Dedup by canonical sender — the same rule analyze_vc_set applies.
         by_sender = {canonical_address(str(vc.get("sender", ""))): vc for vc in bucket.values()}
-        if len(by_sender) < self.required_messages:
+        if len(by_sender) < self._vc_quorum(sequence):
             return None
         vc_set = list(by_sender.values())[:MAX_VC_SET_ENTRIES]
         kind, selected = select_forced_hash({canonical_address(str(vc.get("sender", ""))): vc for vc in vc_set})
@@ -1623,7 +1633,7 @@ class PBFTConsensus:
             return
         ok, reason, kind, selected = verify_new_view(
             data,
-            self._vc_participants(),
+            self._vc_participants(seq),
             chain_id=self._chain_id,
             sequence=seq,
             view=view,

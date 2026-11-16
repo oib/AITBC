@@ -147,6 +147,22 @@ def scheduled_proposer(members: Any, sequence: int, view: int) -> str | None:
     return chosen
 
 
+def vc_active_set(addresses: Any, markers: Any, sequence: int) -> frozenset[str]:
+    """The canonical VC member set for height ``sequence`` (#2133 item 1).
+
+    ``addresses`` minus every deactivation marker at or below
+    ``sequence - 1`` (the parent state a proposal at ``sequence`` builds on;
+    a marker with no height always applies). ONE derivation shared by the
+    engine's VC intake/build, the slashing detector's ``VcApplyContext`` and
+    the on-chain apply (``state.deactivation_evidence._vc_validator_set``),
+    so ``pbft_required_messages(len(set))`` and ``scheduled_proposer`` agree
+    everywhere — an honest validator is never slashed because the engine
+    accepted a NEW_VIEW the chain then refuses to excuse.
+    """
+    deactivated = {canonical_address(str(a)) for a, h in markers if h is None or h <= sequence - 1}
+    return frozenset(canonical_address(str(a)) for a in addresses) - deactivated
+
+
 def proposal_body_bound(block: Any, block_hash: str, sequence: int) -> bool:
     """Whether a proposal body is bound to the hash/height it is stored under.
 

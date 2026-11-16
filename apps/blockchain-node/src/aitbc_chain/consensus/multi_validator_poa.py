@@ -337,6 +337,19 @@ class MultiValidatorPoA:
             and canonical_address(v.address) not in deactivated
         ]
 
+    def pbft_vc_validator_set(self, sequence: int) -> frozenset[str]:
+        """Canonical VC member set at ``sequence`` (#2133 item 1).
+
+        Same derivation as the on-chain apply (``vc_active_set``): all
+        configured validators minus chain deactivation markers at or below
+        ``sequence - 1`` — NOT the local ``is_active``/role view, which is
+        off-chain state the apply path cannot see.
+        """
+        from .pbft_view_change import vc_active_set
+
+        marked = self._chain_deactivated_addresses(sequence - 1)
+        return vc_active_set(self.validators, [(a, None) for a in marked], sequence)
+
     # ─── #1198: consensus-visible slashing state ─────────────────
 
     def _chain_slashing_armed(self) -> bool:
@@ -965,7 +978,7 @@ class MultiValidatorPoA:
         ctx = VcApplyContext(
             chain_id=self.chain_id,
             sequence=sequence,
-            validator_set=frozenset(canonical_address(a) for a in self.validators),
+            validator_set=self.pbft_vc_validator_set(sequence),
         )
         return view_change_justified(payload, justification, ctx)
 
