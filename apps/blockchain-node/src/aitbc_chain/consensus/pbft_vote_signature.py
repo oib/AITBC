@@ -30,11 +30,14 @@ _VOTE_PREIMAGE_FIELDS = ("message_type", "sender", "view_number", "sequence_numb
 def pbft_vote_preimage(record: Mapping[str, Any], chain_id: str | None = None) -> dict[str, Any]:
     """The signed preimage for a PBFT prepare/commit/pre-prepare vote.
 
-    ``chain_id`` is included only when given — ``None`` reproduces the
-    legacy pre-#2102 preimage byte-for-byte.
+    ``chain_id`` is included only when non-empty — ``None`` and ``""`` both
+    reproduce the legacy pre-#2102 preimage byte-for-byte. ``settings.chain_id``
+    defaults to ``""``, so an empty chain must sign exactly what the
+    legacy-only verifier path checks, or the node cannot verify its own
+    votes (#2102 respin).
     """
     data = {field: record.get(field) for field in _VOTE_PREIMAGE_FIELDS}
-    if chain_id is not None:
+    if chain_id:
         data["chain_id"] = chain_id
     return data
 
