@@ -23,6 +23,7 @@ from __future__ import annotations
 import time
 from typing import Any, NamedTuple
 
+import httpx
 from sqlmodel import select
 
 from .base_models import Block
@@ -122,7 +123,7 @@ class DivergenceMixin(SyncBase):
             resp = await self._client.get(f"{source_url}/rpc/head", params={"chain_id": self._chain_id})
             resp.raise_for_status()
             head: dict[str, Any] = resp.json()
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             logger.warning(
                 "Divergence check skipped: could not fetch peer head from %s: %s",
                 source_url,

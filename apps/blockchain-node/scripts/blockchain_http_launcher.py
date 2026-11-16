@@ -33,7 +33,7 @@ def main():
         while True:
             logger.info("Blockchain HTTP service heartbeat (fallback mode)")
             time.sleep(30)
-    except Exception as e:
+    except (OSError, ValueError, subprocess.SubprocessError) as e:
         logger.error("Unexpected error launching blockchain HTTP: %s: %s", type(e).__name__, e)
         import time
 

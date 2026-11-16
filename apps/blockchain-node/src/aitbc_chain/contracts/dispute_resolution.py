@@ -252,7 +252,7 @@ class DisputeResolutionContract:
             except SignatureMalformed as e:
                 logger.warning("Malformed owner signature (encoding fault): %s", e)
                 return False
-        except Exception as e:
+        except (ImportError, TypeError, ValueError, KeyError, AttributeError) as e:
             logger.warning("Owner signature verification failed: %s", e)
             return False
 

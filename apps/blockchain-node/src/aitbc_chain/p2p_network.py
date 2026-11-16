@@ -139,7 +139,7 @@ class P2PNetworkService:
                     logger.info("Discovered public endpoint: %s:%s", self.public_endpoint[0], self.public_endpoint[1])
                 else:
                     logger.warning("STUN discovery failed, will use local address")
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - STUN discovery is non-fatal at startup
                 logger.error("STUN discovery error: %s", e)
         self._server = await asyncio.start_server(self._handle_inbound_connection, self.host, self.port)
         logger.info("P2P service listening on %s:%s", self.host, self.port)
@@ -186,7 +186,7 @@ class P2PNetworkService:
         for writer in writers:
             try:
                 await self._send_message(writer, message)
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
                 logger.debug("Failed to broadcast to peer: %s", e)
 
     async def _ping_peers_loop(self) -> None:
@@ -197,9 +197,9 @@ class P2PNetworkService:
                 for peer_id, writer in writers:
                     try:
                         await self._send_message(writer, {"type": "ping", "node_id": self.node_id})
-                    except Exception as e:
+                    except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
                         logger.debug("Failed to ping %s: %s", peer_id, e)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - ping loop must survive any per-tick failure
                 logger.error("Error in ping loop: %s", e)
             await asyncio.sleep(10)
 
@@ -238,7 +238,7 @@ class P2PNetworkService:
                     writers = list(self.active_connections.values())
                     for writer in writers:
                         await self._send_message(writer, msg)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - mempool backend is pluggable; loop must survive per-tick failures
                 logger.error("Error in mempool sync loop: %s", e)
             await asyncio.sleep(1)
 
@@ -301,7 +301,7 @@ class P2PNetworkService:
             await self._listen_to_stream(reader, writer, endpoint, outbound=True)
         except ConnectionRefusedError:
             logger.debug("Peer %s:%s refused connection (offline?)", host, port)
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.debug("Failed to dial peer %s:%s: %s", host, port, e)
 
     def _prune_peer_session_state(self, peer_id: str | None) -> None:
@@ -493,7 +493,7 @@ class P2PNetworkService:
         except TimeoutError:
             logger.warning("Timeout waiting for handshake from %s", addr)
             writer.close()
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Error handling inbound connection from %s: %s", addr, e)
             writer.close()
 
@@ -691,7 +691,7 @@ class P2PNetworkService:
                                             await self._send_message(w, forward_msg)
                             except ValueError as e:
                                 logger.debug("P2P tx rejected: %s", e)
-                            except Exception as e:
+                            except Exception as e:  # noqa: BLE001 - mempool.add backend is pluggable; isolate per-tx failures
                                 logger.error("P2P tx handling error: %s", e)
                     else:
                         logger.info("Received %s from %s: %s", msg_type, peer_id, message)
@@ -702,7 +702,7 @@ class P2PNetworkService:
                     break
         except asyncio.CancelledError:
             pass
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - stream boundary must isolate any per-connection failure
             logger.error("Stream error with %s: %s", addr, e)
         finally:
             logger.info("Connection closed to %s", peer_id or addr)
@@ -729,7 +729,7 @@ class P2PNetworkService:
                     config = json.load(f)
                     return config.get("gpu_count", 0)  # type: ignore[no-any-return]
             return 0
-        except Exception as e:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Error getting GPU count: %s", e)
             return 0
 
@@ -744,7 +744,7 @@ class P2PNetworkService:
                     config = json.load(f)
                     return config.get("specs", {})  # type: ignore[no-any-return]
             return {}
-        except Exception as e:
+        except (ImportError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Error getting GPU specs: %s", e)
             return {}
 

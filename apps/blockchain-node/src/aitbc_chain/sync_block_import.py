@@ -7,6 +7,7 @@ import time
 from typing import Any
 
 from sqlalchemy import func, text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from aitbc.parallel import DependencyGraph, ParallelExecutor
@@ -107,7 +108,7 @@ class BlockImportMixin(SyncBase):
         multi_validator: MultiValidatorPoA | None
         try:
             multi_validator = MultiValidatorPoA.from_settings(self._chain_id)
-        except Exception:
+        except (ValueError, TypeError, KeyError, AttributeError, ArithmeticError, ImportError, RuntimeError):
             logger.exception("Failed to build MultiValidatorPoA from settings for chain %s", self._chain_id)
             multi_validator = None
         self._multi_validator_cache = multi_validator
@@ -383,7 +384,7 @@ class BlockImportMixin(SyncBase):
                         metrics_registry.observe("sync_import_duration_seconds", duration)
                         block_processing_duration.observe(duration)
                         return result
-                    except Exception as append_exc:
+                    except Exception as append_exc:  # noqa: BLE001 - must-run rollback + quarantine classification boundary
                         session.rollback()
                         # #1740: SQLITE_FULL / IOERR / corrupt-store errors
                         # leave quick_check green while every write fails —
@@ -439,7 +440,7 @@ class BlockImportMixin(SyncBase):
                                     metrics_registry.observe("sync_import_duration_seconds", duration)
                                     block_processing_duration.observe(duration)
                                     return result
-                                except Exception as retry_exc:
+                                except Exception as retry_exc:  # noqa: BLE001 - must-run rollback boundary on append retry
                                     session.rollback()
                                     logger.warning(
                                         "Retry after phantom height marker failed for height %s: %s",
@@ -554,7 +555,7 @@ class BlockImportMixin(SyncBase):
                 st.reset_processed_cache()
                 try:
                     result = self._append_block(session, bd, bd.get("transactions"), _probe=True)
-                except Exception:
+                except Exception:  # noqa: BLE001 - fork probe must classify ANY append failure as inconclusive
                     logger.exception("Fork probe errored at height %s", bd.get("height"))
                     return "inconclusive"
                 if not result.accepted:
@@ -1497,7 +1498,7 @@ class BlockImportMixin(SyncBase):
                         )
             if evicted:
                 logger.info("Evicted %s included transaction(s) from mempool", evicted)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - mempool backend is pluggable; eviction is best-effort
             logger.warning("Mempool eviction after block import failed: %s", exc)
 
     @staticmethod
@@ -1564,7 +1565,7 @@ class BlockImportMixin(SyncBase):
                         tx_metadata=metadata_note,
                     )
                 )
-            except Exception as exc:
+            except (SQLAlchemyError, ValueError, TypeError, KeyError, AttributeError) as exc:
                 logger.warning("Failed to record import-side rejection for tx %s: %s", tx_hash, exc)
 
     def _evict_rejected_from_mempool(self, block_data: dict[str, Any]) -> None:
@@ -1598,7 +1599,7 @@ class BlockImportMixin(SyncBase):
                     evicted,
                     block_data.get("height"),
                 )
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - mempool backend is pluggable; eviction is best-effort
             logger.warning("Rejected-tx mempool eviction failed: %s", exc)
 
     def _describe_local_state_divergence(self, session: Session, parent_height: int) -> str | None:
@@ -1875,7 +1876,7 @@ class BlockImportMixin(SyncBase):
         session.flush()
         try:
             result = self._append_block(session, block_data, transactions)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - must-run rollback + rival-fork metrics boundary
             session.rollback()
             logger.exception("Rival fork block failed to append at height %s", fork_height)
             metrics_registry.increment("sync_fork_invalid_rival_total")

@@ -8,6 +8,8 @@ from contextlib import asynccontextmanager, suppress
 from pathlib import Path
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from aitbc.async_tasks import TaskRegistry
 from aitbc.network import IslandRegistry
 from aitbc.sync import SyncSourceResolver
@@ -136,7 +138,7 @@ def _keystore_file_key_bytes(kf: Path, password: str, target_address: str | None
                 from aitbc.crypto import decrypt_private_key
 
                 private_key_hex = decrypt_private_key(private_key_hex, password)
-            except Exception as e:
+            except (ImportError, ValueError, TypeError, KeyError, AttributeError) as e:
                 logger.warning("Failed to decrypt wallet key in %s: %s", kf.name, e)
                 return None
         if private_key_hex.startswith("0x"):
@@ -155,7 +157,7 @@ def _keystore_file_key_bytes(kf: Path, password: str, target_address: str | None
                 return None
 
         return bytes.fromhex(private_key_hex)
-    except Exception as e:
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, ImportError) as e:
         logger.warning("Failed to load keystore file %s: %s: %s", kf.name, type(e).__name__, str(e))
         return None
 
@@ -192,7 +194,7 @@ if not settings.proposer_key:
                 "Proposer private key not found in keystore; block signing disabled",
                 extra={"proposer_id": settings.proposer_id},
             )
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError, ImportError) as e:
         logger.warning("Failed to load proposer key from keystore", extra={"error": str(e)})
 
 
@@ -325,7 +327,7 @@ class BlockchainNode:
         """
         try:
             await self._ensure_genesis_for_chains()
-        except Exception as exc:
+        except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as exc:
             logger.error(
                 "Could not bootstrap genesis locally: %s. A follower without genesis.json falls back to "
                 "syncing the unsigned block 0 from the hub, which requires TRUSTED_PROPOSERS to include "
@@ -356,7 +358,7 @@ class BlockchainNode:
                         except TimeoutError:
                             continue
                         await self._gossip_tx_message(tx_sub, tx_data, mempool)
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - gossip tx handling spans pluggable mempool backends; loop must survive
                     logger.error("Error processing transaction from gossip: %s", exc)
 
         self._task_registry.create_task(process_txs, name="gossip_process_txs")
@@ -385,12 +387,12 @@ class BlockchainNode:
                     chain_sub = await gossip_broker.subscribe(chain_topic)
                     tx_subs.append(chain_sub)
                     logger.info("Subscribed to %s topic", chain_topic)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - gossip backend is pluggable; isolate per-chain subscribe failures
                     logger.warning("Failed to subscribe to %s: %s", chain_topic, e)
             if not tx_subs:
                 logger.error("Failed to subscribe to any transaction topic")
                 return None
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - gossip backend is pluggable; subscribe failure aborts setup cleanly
             logger.error("Failed to subscribe to transactions: %s", e)
             return None
         return tx_subs
@@ -420,14 +422,14 @@ class BlockchainNode:
 
                                         msg = json.loads(msg)
                                     await pbft.handle_incoming_message(msg)
-                                except Exception as exc:
+                                except Exception as exc:  # noqa: BLE001 - PBFT handler surface is broad; loop must survive
                                     logger.error("Error processing PBFT message from %s: %s", topic_param, exc)
 
                         self._task_registry.create_task(
                             functools.partial(process_pbft, pbft_topic, pbft_sub, proposer.pbft_consensus),
                             name=f"gossip_pbft_{phase}_{chain_id}",
                         )
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - gossip backend is pluggable; isolate per-topic subscribe failures
                         logger.error("Failed to subscribe to %s: %s", pbft_topic, e)
 
     async def _gossip_tx_message(self, tx_sub: Any, tx_data: Any, mempool) -> None:
@@ -643,7 +645,7 @@ class BlockchainNode:
                     "Island manager initialized (background tasks disabled)",
                     extra={"node_id": node_id, "default_island": default_island_id},
                 )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - island manager init is non-fatal at startup
             logger.error("Failed to initialize island manager: %s", e)
 
     def _wire_p2p_peer_capability(self) -> None:
@@ -671,7 +673,7 @@ class BlockchainNode:
                             )
                         )
                     logger.info("P2P peer capability callback wired to SyncManager")
-                except Exception as e:
+                except (TypeError, ValueError, AttributeError, KeyError, RuntimeError, OSError) as e:
                     logger.warning("Failed to wire P2P peer capability callback: %s", e)
             else:
                 logger.debug("P2P service not available in-process — peer capability callback not wired")
@@ -695,7 +697,7 @@ class BlockchainNode:
             # Start health check background task
             self._task_registry.create_task(self._multi_chain_manager.start, name="multi_chain_manager")
             logger.info("Multi-chain manager initialized and secondary chains started")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - multi-chain manager init is non-fatal at startup
             logger.error("Failed to initialize multi-chain manager: %s", e)
 
     async def _start_chain_role(self) -> None:
@@ -795,12 +797,12 @@ class BlockchainNode:
             for chain_id in chains:
                 try:
                     ensure_chain_db_healthy(chain_id, force=True)
-                except Exception as e:
+                except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
                     logger.warning("db integrity sweep failed for %s: %s", chain_id, e)
                 try:
                     # #1616: page/freelist gauges + bounded incremental_vacuum.
                     maintain_chain_db_storage(chain_id)
-                except Exception as e:
+                except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
                     logger.warning("db storage sweep failed for %s: %s", chain_id, e)
 
     async def _shutdown(self) -> None:
@@ -824,39 +826,39 @@ class BlockchainNode:
         for chain_id in self._supported_chains():
             try:
                 shutdown_db(chain_id)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - shutdown step must not abort remaining chains
                 logger.error("Error shutting down db for chain %s: %s", chain_id, e)
 
     async def _stop_sync_http(self) -> None:
         if self._sync_http_server is not None:
             try:
                 await self._sync_http_server.stop()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
                 logger.error("Error stopping sync manager HTTP server: %s", e)
         if self._sync_http_task is not None:
             try:
                 await self._sync_http_task
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
                 logger.error("Error waiting for sync manager HTTP task: %s", e)
 
     async def _stop_managers(self) -> None:
         if self._sync_manager is not None:
             try:
                 await self._sync_manager.stop()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
                 logger.error("Error stopping sync manager: %s", e)
         # Stop multi-chain manager (stops all secondary chains gracefully)
         if self._multi_chain_manager is not None:
             try:
                 await self._multi_chain_manager.stop()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
                 logger.error("Error stopping multi-chain manager: %s", e)
 
     async def _stop_settlement_monitors(self) -> None:
         for coordinator in self._settlement_coordinators:
             try:
                 await coordinator.stop_monitor()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - shutdown step must not abort remaining monitors
                 logger.error("Error stopping settlement monitor: %s", e)
         self._settlement_coordinators.clear()
 

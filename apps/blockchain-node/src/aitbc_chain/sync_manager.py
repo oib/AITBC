@@ -11,6 +11,9 @@ from dataclasses import dataclass, field
 from enum import StrEnum
 from typing import Any, TYPE_CHECKING
 
+import httpx
+from sqlalchemy.exc import SQLAlchemyError
+
 if TYPE_CHECKING:
     from aitbc_chain.island_monitor import IslandMonitor
 
@@ -214,7 +217,7 @@ class SyncManager:
         for client in self._subscription_clients:
             try:
                 await client.stop()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - shutdown step must not abort remaining clients
                 logger.warning("Error stopping subscription client: %s", e)
         for state in self._chain_states.values():
             if state.bulk_task and not state.bulk_task.done():
@@ -650,7 +653,7 @@ class SyncManager:
                 state.error_count = 0
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-chain sync loop must survive any tick failure
                 logger.error("Sync loop error for %s: %s", chain_id, e)
                 state.error_count += 1
                 state.mode = SyncMode.ERROR
@@ -675,7 +678,7 @@ class SyncManager:
                     await self._process_gossip_message(chain_id, block_data)
                 except asyncio.CancelledError:
                     raise
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - per-message isolation: one bad gossip block must be dropped, not kill the consumer
                     logger.warning("Dropping malformed gossip block message on %s: %s", chain_id, e)
         except asyncio.CancelledError:
             pass
@@ -720,7 +723,7 @@ class SyncManager:
             state.bulk_error_count = 0
             logger.info("Bulk pull completed", extra={"chain_id": chain_id, "imported": imported})
             state.error_count = 0
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - bulk task may fail with any sync/import error; backoff handles it
             logger.error("Bulk pull failed for %s: %s", chain_id, e)
             state.bulk_task = None
             state.bulk_error_count += 1
@@ -744,7 +747,7 @@ class SyncManager:
         try:
             head_divergence, remote_height = await chain_sync.peer_head_divergence(source_url)
             state.last_remote_height = remote_height
-        except Exception as e:
+        except (httpx.HTTPError, SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.warning("Failed to get remote head for %s: %s", chain_id, e)
             state.mode = SyncMode.DISCONNECTED
             state.last_remote_height = -1
@@ -802,7 +805,7 @@ class SyncManager:
                 delta_from = state.last_local_height
                 delta_to = state.last_remote_height
             await chain_sync.delta_sync_from(source_url, delta_from, delta_to)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - state sync spans deep consensus/DB surface; failure must not kill the chain loop
             logger.warning("State sync failed for %s: %s", chain_id, e)
         state.mode = SyncMode.SYNCED
 

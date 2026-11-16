@@ -39,7 +39,7 @@ def main():
                 logger.error("Failed to import blockchain main: %s", e2)
                 logger.info("Starting blockchain node with basic functionality")
                 basic_blockchain_node()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - service fallback must run no matter what the primary launch raised
         logger.error("Error starting blockchain service: %s", e)
         logger.info("Starting fallback blockchain node")
         basic_blockchain_node()

@@ -27,12 +27,6 @@
       3 aitbc/training_setup/messaging.py
       1 aitbc/training_setup/stage_runner.py
       1 aitbc/utils/time_utils.py
-      2 apps/blockchain-node/examples/main.py
-      1 apps/blockchain-node/scripts/blockchain_http_launcher.py
-      1 apps/blockchain-node/scripts/blockchain_simple.py
-      2 apps/blockchain-node/scripts/unified_genesis.py
-     14 apps/blockchain-node/src/aitbc_chain/app.py
-      8 apps/blockchain-node/src/aitbc_chain/chain_sync.py
       4 apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py
       7 apps/blockchain-node/src/aitbc_chain/consensus/poa.py
       2 apps/blockchain-node/src/aitbc_chain/consensus/poa_ops.py
@@ -42,22 +36,16 @@
       3 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_evidence.py
      10 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_listener.py
       2 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_round_lock.py
-      1 apps/blockchain-node/src/aitbc_chain/contracts/dispute_resolution.py
       9 apps/blockchain-node/src/aitbc_chain/contracts/escrow.py
-      6 apps/blockchain-node/src/aitbc_chain/contracts/upgrades.py
       2 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_finality.py
       8 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py
       3 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py
       1 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py
       4 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py
-      1 apps/blockchain-node/src/aitbc_chain/database.py
       2 apps/blockchain-node/src/aitbc_chain/gossip/backends/broadcast.py
       4 apps/blockchain-node/src/aitbc_chain/gossip/backends/mesh.py
       5 apps/blockchain-node/src/aitbc_chain/gossip/backends/websocket.py
       1 apps/blockchain-node/src/aitbc_chain/gossip/relay.py
-      1 apps/blockchain-node/src/aitbc_chain/lease_tracker.py
-     20 apps/blockchain-node/src/aitbc_chain/main.py
-      1 apps/blockchain-node/src/aitbc_chain/mempool.py
       3 apps/blockchain-node/src/aitbc_chain/network/bridge_manager.py
       8 apps/blockchain-node/src/aitbc_chain/network/discovery.py
       5 apps/blockchain-node/src/aitbc_chain/network/health.py
@@ -72,7 +60,6 @@
       3 apps/blockchain-node/src/aitbc_chain/network/topology.py
       1 apps/blockchain-node/src/aitbc_chain/observability/consensus_metrics.py
       4 apps/blockchain-node/src/aitbc_chain/observability/exporters.py
-     11 apps/blockchain-node/src/aitbc_chain/p2p_network.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/auth.py
      12 apps/blockchain-node/src/aitbc_chain/rpc/dispute_resolution_service.py
       5 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
@@ -92,14 +79,6 @@
       1 apps/blockchain-node/src/aitbc_chain/state/state_transition.py
       3 apps/blockchain-node/src/aitbc_chain/state/state_transition_handlers.py
      10 apps/blockchain-node/src/aitbc_chain/subscription_client.py
-      1 apps/blockchain-node/src/aitbc_chain/sync.py
-      4 apps/blockchain-node/src/aitbc_chain/sync_block_import.py
-      3 apps/blockchain-node/src/aitbc_chain/sync_bulk.py
-      1 apps/blockchain-node/src/aitbc_chain/sync_divergence.py
-      6 apps/blockchain-node/src/aitbc_chain/sync_manager.py
-      3 apps/blockchain-node/src/aitbc_chain/sync_state.py
-      1 apps/blockchain-node/src/aitbc_chain/sync_validator.py
-      1 apps/blockchain-node/tests/test_bridge_header_batch_idempotent.py
       1 apps/blockchain-node/tests/test_gossip_broadcast.py
       3 cli/aitbc_cli/auth/__init__.py
       2 cli/aitbc_cli/commands/account.py
