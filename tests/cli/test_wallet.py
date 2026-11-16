@@ -68,6 +68,109 @@ def mock_config():
     return config
 
 
+def _make_mock_get(state):
+    def mock_get(path):
+        if "/balance" in path:
+            return {"balance": state["balance"], "address": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d"}
+        if "/v1/wallets" in path and "transactions" not in path:
+            return {
+                "items": [
+                    {"wallet_id": "test_wallet", "metadata": {"address": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d"}}
+                ]
+            }
+        if "/transactions" in path:
+            return {
+                "transactions": [
+                    {
+                        "transaction_id": "tx1",
+                        "tx_hash": "0xabc",
+                        "sender": "0x5e2D7C7A4F8E9B1C3d5A2e8F4c6b8a0D2e4f6A8C",
+                        "recipient": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d",
+                        "value": 50.0,
+                        "fee": 1.0,
+                        "status": "confirmed",
+                        "created_at": "2024-01-01T00:00:00",
+                    }
+                ]
+            }
+        if "/staking-info" in path:
+            return {
+                "total_staked": sum(s["amount"] for s in state["stakes"]),
+                "active_stakes": len(state["stakes"]),
+                "stakes": state["stakes"],
+            }
+        if "/rewards" in path:
+            return {
+                "staking_active_amount": sum(s["amount"] for s in state["stakes"]),
+                "liquidity_active_amount": sum(s["amount"] for s in state["liquidity"]),
+                "total_staked": sum(s["amount"] for s in state["stakes"])
+                + sum(s["amount"] for s in state["liquidity"]),
+            }
+        if "/account/" in path:
+            # The chain returns compute-units; 100 AIT = 3_600_000_000 units.
+            return {"balance": ait_to_units(100.0), "nonce": 0}
+        if "/rpc/staking/" in path:
+            return {
+                "total_staked": sum(s["amount"] for s in state["stakes"]),
+                "active_stake_count": len(state["stakes"]),
+                "active_stakes": state["stakes"],
+            }
+        return {}
+
+    return mock_get
+
+
+def _make_mock_post(state):
+    def mock_post(path, json=None):
+        data = json or {}
+        if "/stake" in path and "/unstake" not in path:
+            amount = data.get("amount", 50.0)
+            balance_seconds = ait_to_units(state["balance"])
+            remaining = balance_seconds - amount
+            stake = {
+                "stake_id": 123,
+                "amount": amount,
+                "remaining_balance": remaining,
+                "locked_until": "2024-12-31",
+            }
+            state["balance"] = units_to_ait(remaining)
+            state["stakes"].append(stake)
+            return stake
+        if "/unstake" in path:
+            return {
+                "stake_id": data.get("stake_id", "stake_123"),
+                "principal": 50.0,
+                "rewards": 5.0,
+                "total_returned": 55.0,
+            }
+        if "/liquidity-stake" in path:
+            liq = {
+                "stake_id": "liq_123",
+                "new_balance": state["balance"] - data.get("amount", 40.0),
+                "amount": data.get("amount", 40.0),
+                "tier": data.get("tier", "bronze"),
+                "apy": 3.0,
+            }
+            state["balance"] = liq["new_balance"]
+            state["liquidity"].append(liq)
+            return liq
+        if "/liquidity-unstake" in path:
+            return {
+                "stake_id": data.get("stake_id", "liq_123"),
+                "principal": 50.0,
+                "rewards": 2.5,
+                "total_returned": 52.5,
+            }
+        if "/transaction" in path or "/send" in path or "/sendTx" in path:
+            amount = data.get("amount")
+            if amount is not None and Decimal(str(amount)) > ait_to_units(state["balance"]):
+                raise Exception("Insufficient balance")
+            return {"transaction_hash": "0xabc123", "hash": "0xabc123", "new_balance": 75.0, "tx_hash": "0xabc123"}
+        return {}
+
+    return mock_post
+
+
 class TestWalletCommands:
     """Test wallet command group"""
 
@@ -98,101 +201,8 @@ class TestWalletCommands:
 
             # Stateful mock to track stakes across commands
             state = {"stakes": [], "liquidity": [], "balance": 100.0}
-
-            def mock_get(path):
-                if "/balance" in path:
-                    return {"balance": state["balance"], "address": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d"}
-                if "/v1/wallets" in path and "transactions" not in path:
-                    return {
-                        "items": [
-                            {"wallet_id": "test_wallet", "metadata": {"address": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d"}}
-                        ]
-                    }
-                if "/transactions" in path:
-                    return {
-                        "transactions": [
-                            {
-                                "transaction_id": "tx1",
-                                "tx_hash": "0xabc",
-                                "sender": "0x5e2D7C7A4F8E9B1C3d5A2e8F4c6b8a0D2e4f6A8C",
-                                "recipient": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d",
-                                "value": 50.0,
-                                "fee": 1.0,
-                                "status": "confirmed",
-                                "created_at": "2024-01-01T00:00:00",
-                            }
-                        ]
-                    }
-                if "/staking-info" in path:
-                    return {
-                        "total_staked": sum(s["amount"] for s in state["stakes"]),
-                        "active_stakes": len(state["stakes"]),
-                        "stakes": state["stakes"],
-                    }
-                if "/rewards" in path:
-                    return {
-                        "staking_active_amount": sum(s["amount"] for s in state["stakes"]),
-                        "liquidity_active_amount": sum(s["amount"] for s in state["liquidity"]),
-                        "total_staked": sum(s["amount"] for s in state["stakes"])
-                        + sum(s["amount"] for s in state["liquidity"]),
-                    }
-                if "/account/" in path:
-                    # The chain returns compute-units; 100 AIT = 3_600_000_000 units.
-                    return {"balance": ait_to_units(100.0), "nonce": 0}
-                if "/rpc/staking/" in path:
-                    return {
-                        "total_staked": sum(s["amount"] for s in state["stakes"]),
-                        "active_stake_count": len(state["stakes"]),
-                        "active_stakes": state["stakes"],
-                    }
-                return {}
-
-            def mock_post(path, json=None):
-                data = json or {}
-                if "/stake" in path and "/unstake" not in path:
-                    amount = data.get("amount", 50.0)
-                    balance_seconds = ait_to_units(state["balance"])
-                    remaining = balance_seconds - amount
-                    stake = {
-                        "stake_id": 123,
-                        "amount": amount,
-                        "remaining_balance": remaining,
-                        "locked_until": "2024-12-31",
-                    }
-                    state["balance"] = units_to_ait(remaining)
-                    state["stakes"].append(stake)
-                    return stake
-                if "/unstake" in path:
-                    return {
-                        "stake_id": data.get("stake_id", "stake_123"),
-                        "principal": 50.0,
-                        "rewards": 5.0,
-                        "total_returned": 55.0,
-                    }
-                if "/liquidity-stake" in path:
-                    liq = {
-                        "stake_id": "liq_123",
-                        "new_balance": state["balance"] - data.get("amount", 40.0),
-                        "amount": data.get("amount", 40.0),
-                        "tier": data.get("tier", "bronze"),
-                        "apy": 3.0,
-                    }
-                    state["balance"] = liq["new_balance"]
-                    state["liquidity"].append(liq)
-                    return liq
-                if "/liquidity-unstake" in path:
-                    return {
-                        "stake_id": data.get("stake_id", "liq_123"),
-                        "principal": 50.0,
-                        "rewards": 2.5,
-                        "total_returned": 52.5,
-                    }
-                if "/transaction" in path or "/send" in path or "/sendTx" in path:
-                    amount = data.get("amount")
-                    if amount is not None and Decimal(str(amount)) > ait_to_units(state["balance"]):
-                        raise Exception("Insufficient balance")
-                    return {"transaction_hash": "0xabc123", "hash": "0xabc123", "new_balance": 75.0, "tx_hash": "0xabc123"}
-                return {}
+            mock_get = _make_mock_get(state)
+            mock_post = _make_mock_post(state)
 
             mock_client.get = mock_get
             mock_client.get_json = mock_get

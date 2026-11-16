@@ -6,10 +6,7 @@ Verify that the explorer is using live data instead of mock
 import requests
 
 
-def main():
-    print("🔍 Verifying the block explorer is using Live Data")
-    print("=" * 60)
-
+def _check_api() -> bool:
     # Check API endpoint
     print("\n1. Testing API endpoint...")
     try:
@@ -28,11 +25,14 @@ def main():
                 print(f"   Time: {latest['timestamp']}")
         else:
             print(f"❌ API failed: {response.status_code}")
-            return
+            return False
     except (requests.RequestException, ValueError, TypeError, KeyError, AttributeError) as e:
         print(f"❌ API error: {e}")
-        return
+        return False
+    return True
 
+
+def _check_js_config() -> bool:
     # Check explorer page
     print("\n2. Checking explorer configuration...")
 
@@ -47,12 +47,15 @@ def main():
                 print("✅ Explorer is configured for LIVE data")
             elif 'dataMode:"mock"' in js_content:
                 print("❌ Explorer is still using MOCK data")
-                return
+                return False
             else:
                 print("⚠️  Could not determine data mode")
     except (requests.RequestException, ValueError, TypeError, KeyError, AttributeError) as e:
         print(f"❌ Error checking JS: {e}")
+    return True
 
+
+def _check_endpoints() -> None:
     # Check other endpoints
     print("\n3. Testing other endpoints...")
 
@@ -72,6 +75,17 @@ def main():
                 print(f"❌ {name}: Failed ({response.status_code})")
         except (requests.RequestException, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ {name}: Error - {e}")
+
+
+def main():
+    print("🔍 Verifying the block explorer is using Live Data")
+    print("=" * 60)
+
+    if not _check_api():
+        return
+    if not _check_js_config():
+        return
+    _check_endpoints()
 
     print("\n" + "=" * 60)
     print("✅ Explorer is successfully using LIVE data!")

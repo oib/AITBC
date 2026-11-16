@@ -3,26 +3,11 @@
 
 import subprocess
 import sys
+from collections.abc import Callable
 from pathlib import Path
 
 
-def run_cli_test():
-    """Run basic CLI functionality tests."""
-    print("🧪 Running CLI Tests with Virtual Environment...")
-
-    # Set up environment
-    cli_dir = Path(__file__).resolve().parent.parent
-    cli_bin = "aitbc"  # Will be in PATH from virtual environment
-
-    def run_command(*args):
-        return subprocess.run(
-            [cli_bin, *args],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            cwd=str(cli_dir),
-        )
-
+def _test_help(run_command: Callable) -> bool:
     # Test 1: CLI help command
     print("\n1. Testing CLI help command...")
     try:
@@ -36,7 +21,10 @@ def run_cli_test():
     except (OSError, subprocess.SubprocessError, ValueError) as e:
         print(f"❌ CLI help command error: {e}")
         return False
+    return True
 
+
+def _test_list(run_command: Callable) -> bool:
     # Test 2: CLI list command (optional - skip if no blockchain node)
     print("\n2. Testing CLI list command...")
     try:
@@ -60,7 +48,10 @@ def run_cli_test():
     except (OSError, subprocess.SubprocessError, ValueError) as e:
         print(f"❌ CLI list command error: {e}")
         return False
+    return True
 
+
+def _test_blockchain(run_command: Callable) -> bool:
     # Test 3: CLI blockchain command (optional - skip if no blockchain node)
     print("\n3. Testing CLI blockchain command...")
     try:
@@ -93,7 +84,10 @@ def run_cli_test():
     except (OSError, subprocess.SubprocessError, ValueError) as e:
         print(f"❌ CLI blockchain command error: {e}")
         return False
+    return True
 
+
+def _test_invalid(run_command: Callable) -> bool:
     # Test 4: CLI invalid command handling
     print("\n4. Testing CLI invalid command handling...")
     try:
@@ -106,6 +100,34 @@ def run_cli_test():
             return False
     except (OSError, subprocess.SubprocessError, ValueError) as e:
         print(f"❌ CLI invalid command error: {e}")
+        return False
+    return True
+
+
+def run_cli_test():
+    """Run basic CLI functionality tests."""
+    print("🧪 Running CLI Tests with Virtual Environment...")
+
+    # Set up environment
+    cli_dir = Path(__file__).resolve().parent.parent
+    cli_bin = "aitbc"  # Will be in PATH from virtual environment
+
+    def run_command(*args):
+        return subprocess.run(
+            [cli_bin, *args],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            cwd=str(cli_dir),
+        )
+
+    if not _test_help(run_command):
+        return False
+    if not _test_list(run_command):
+        return False
+    if not _test_blockchain(run_command):
+        return False
+    if not _test_invalid(run_command):
         return False
 
     print("\n✅ All CLI tests passed!")

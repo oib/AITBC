@@ -13,13 +13,7 @@ from .conftest import (
 )
 
 
-def _block_import_complete_suite(base: str, chain_id: str, prefix: str = "test_block_import_complete") -> tuple[int, int]:
-    """Run the full block-import check suite and return (passed, failed)."""
-    print("=" * 60)
-    print("BLOCK IMPORT ENDPOINT TEST SUITE")
-    print("=" * 60)
-    results = []
-
+def _test1_invalid_hash_height0(base: str, chain_id: str) -> bool:
     # Test 1: Invalid block hash format is rejected regardless of height
     print("\n[TEST 1] Invalid block hash format at height 0...")
     response = requests.post(
@@ -37,13 +31,13 @@ def _block_import_complete_suite(base: str, chain_id: str, prefix: str = "test_b
     )
     if response.status_code == 400 and "Invalid block hash" in response.json().get("detail", ""):
         print("✅ PASS: Correctly rejected invalid hash format at height 0")
-        results.append(True)
-    else:
-        print(f"❌ FAIL: Expected 400 invalid hash, got {response.status_code}: {response.text}")
-        results.append(False)
+        return True
+    print(f"❌ FAIL: Expected 400 invalid hash, got {response.status_code}: {response.text}")
+    return False
 
+
+def _test2_invalid_hash_format(base: str, chain_id: str, head: dict) -> bool:
     # Test 2: Invalid hash format rejection
-    head = requests.get(f"{base}/head", timeout=10).json()
     print("\n[TEST 2] Invalid hash format rejection...")
     response = requests.post(
         f"{base}/importBlock",
@@ -60,11 +54,12 @@ def _block_import_complete_suite(base: str, chain_id: str, prefix: str = "test_b
     )
     if response.status_code == 400 and "Invalid block hash" in response.json().get("detail", ""):
         print("✅ PASS: Correctly rejected invalid hash format")
-        results.append(True)
-    else:
-        print(f"❌ FAIL: Expected 400, got {response.status_code}: {response.text}")
-        results.append(False)
+        return True
+    print(f"❌ FAIL: Expected 400, got {response.status_code}: {response.text}")
+    return False
 
+
+def _test3_existing_block(base: str, chain_id: str, head: dict) -> bool:
     # Test 3: Import existing block with correct hash
     print("\n[TEST 3] Import existing block with correct hash...")
     response = requests.post(
@@ -82,11 +77,12 @@ def _block_import_complete_suite(base: str, chain_id: str, prefix: str = "test_b
     )
     if response.status_code == 200 and response.json().get("success") is True:
         print("✅ PASS: Correctly handled existing block")
-        results.append(True)
-    else:
-        print(f"❌ FAIL: Expected 200 with success=True, got {response.status_code}: {response.text}")
-        results.append(False)
+        return True
+    print(f"❌ FAIL: Expected 200 with success=True, got {response.status_code}: {response.text}")
+    return False
 
+
+def _test4_invalid_hash(base: str, chain_id: str, head: dict) -> bool:
     # Test 4: Invalid block hash
     print("\n[TEST 4] Invalid block hash...")
     response = requests.post(
@@ -104,11 +100,12 @@ def _block_import_complete_suite(base: str, chain_id: str, prefix: str = "test_b
     )
     if response.status_code == 400 and "Invalid block hash" in response.json().get("detail", ""):
         print("✅ PASS: Correctly rejected invalid hash")
-        results.append(True)
-    else:
-        print(f"❌ FAIL: Expected 400, got {response.status_code}: {response.text}")
-        results.append(False)
+        return True
+    print(f"❌ FAIL: Expected 400, got {response.status_code}: {response.text}")
+    return False
 
+
+def _test5_parent_not_found(base: str, chain_id: str, head: dict) -> bool:
     # Test 5: Parent not found
     print("\n[TEST 5] Parent block not found...")
     response = requests.post(
@@ -123,11 +120,12 @@ def _block_import_complete_suite(base: str, chain_id: str, prefix: str = "test_b
     )
     if response.status_code == 400 and "Block rejected" in response.json().get("detail", ""):
         print("✅ PASS: Correctly rejected missing parent")
-        results.append(True)
-    else:
-        print(f"❌ FAIL: Expected 400, got {response.status_code}: {response.text}")
-        results.append(False)
+        return True
+    print(f"❌ FAIL: Expected 400, got {response.status_code}: {response.text}")
+    return False
 
+
+def _test6_import_no_tx(base: str, chain_id: str, head: dict) -> bool:
     # Test 6: Import block without transactions
     print("\n[TEST 6] Import block without transactions...")
     height = head["height"] + 1
@@ -144,11 +142,12 @@ def _block_import_complete_suite(base: str, chain_id: str, prefix: str = "test_b
     )
     if response.status_code == 200 and response.json().get("success") is True:
         print("✅ PASS: Successfully imported block without transactions")
-        results.append(True)
-    else:
-        print(f"❌ FAIL: Expected 200 with success=True, got {response.status_code}: {response.text}")
-        results.append(False)
+        return True
+    print(f"❌ FAIL: Expected 200 with success=True, got {response.status_code}: {response.text}")
+    return False
 
+
+def _test7_import_with_tx(base: str, chain_id: str, prefix: str) -> tuple[bool, dict]:
     # Test 7: Import block with a basic transaction
     print("\n[TEST 7] Import block with transactions...")
     # Re-read the head so the new block appends consecutively
@@ -180,7 +179,6 @@ def _block_import_complete_suite(base: str, chain_id: str, prefix: str = "test_b
     )
     if response.status_code == 200 and response.json().get("success") is True:
         print("✅ PASS: Successfully imported block with transaction")
-        results.append(True)
 
         # Verify the block and transaction are stored
         block_check = requests.get(f"{base}/blocks/{height}", timeout=10)
@@ -190,13 +188,14 @@ def _block_import_complete_suite(base: str, chain_id: str, prefix: str = "test_b
             assert tx_data["tx_hash"] == tx_hash, "Stored transaction hash should match"
             assert tx_data["block_height"] == height, "Stored transaction height should match"
             print("✅ Verified imported block and transaction are queryable")
-        else:
-            print(f"⚠️ Imported block/transaction not queryable: block={block_check.status_code}, tx={tx_check.status_code}")
-            results[-1] = False
-    else:
-        print(f"❌ FAIL: Expected 200 with success=True, got {response.status_code}: {response.text}")
-        results.append(False)
+            return True, tx
+        print(f"⚠️ Imported block/transaction not queryable: block={block_check.status_code}, tx={tx_check.status_code}")
+        return False, tx
+    print(f"❌ FAIL: Expected 200 with success=True, got {response.status_code}: {response.text}")
+    return False, tx
 
+
+def _test8_replay(base: str, chain_id: str, tx: dict) -> bool:
     # Test 8: Duplicate transaction hash is rejected as a replay
     print("\n[TEST 8] Replay detection for duplicate transaction hash...")
     head = requests.get(f"{base}/head", timeout=10).json()
@@ -215,11 +214,12 @@ def _block_import_complete_suite(base: str, chain_id: str, prefix: str = "test_b
     # cause a 4xx/5xx response or a block rejection message.
     if response.status_code in (400, 409, 500) or (response.status_code == 200 and response.json().get("success") is False):
         print("✅ PASS: Correctly detected duplicate/replayed transaction")
-        results.append(True)
-    else:
-        print(f"⚠️ Unexpected result for duplicate tx: {response.status_code}: {response.text}")
-        results.append(True)  # Best effort: some sync paths accept the block and skip the tx
+        return True
+    print(f"⚠️ Unexpected result for duplicate tx: {response.status_code}: {response.text}")
+    return True  # Best effort: some sync paths accept the block and skip the tx
 
+
+def _test9_divergent(base: str, chain_id: str) -> bool:
     # Test 9: Divergent block with the same height but a different parent is rejected
     print("\n[TEST 9] Divergent block rejected...")
     head = requests.get(f"{base}/head", timeout=10).json()
@@ -236,11 +236,32 @@ def _block_import_complete_suite(base: str, chain_id: str, prefix: str = "test_b
     response = requests.post(f"{base}/importBlock", json=divergent, timeout=10)
     if response.status_code in (400, 409, 500):
         print("✅ PASS: Correctly rejected divergent block at existing height")
-        results.append(True)
-    else:
-        print(f"⚠️ Unexpected result for divergent block: {response.status_code}: {response.text}")
-        # The endpoint may accept a reorged block if signatures are valid; allow best-effort pass.
-        results.append(True)
+        return True
+    print(f"⚠️ Unexpected result for divergent block: {response.status_code}: {response.text}")
+    # The endpoint may accept a reorged block if signatures are valid; allow best-effort pass.
+    return True
+
+
+def _block_import_complete_suite(base: str, chain_id: str, prefix: str = "test_block_import_complete") -> tuple[int, int]:
+    """Run the full block-import check suite and return (passed, failed)."""
+    print("=" * 60)
+    print("BLOCK IMPORT ENDPOINT TEST SUITE")
+    print("=" * 60)
+    results = []
+
+    results.append(_test1_invalid_hash_height0(base, chain_id))
+
+    head = requests.get(f"{base}/head", timeout=10).json()
+    results.append(_test2_invalid_hash_format(base, chain_id, head))
+    results.append(_test3_existing_block(base, chain_id, head))
+    results.append(_test4_invalid_hash(base, chain_id, head))
+    results.append(_test5_parent_not_found(base, chain_id, head))
+    results.append(_test6_import_no_tx(base, chain_id, head))
+
+    test7_passed, tx = _test7_import_with_tx(base, chain_id, prefix)
+    results.append(test7_passed)
+    results.append(_test8_replay(base, chain_id, tx))
+    results.append(_test9_divergent(base, chain_id))
 
     # Summary
     print("\n" + "=" * 60)

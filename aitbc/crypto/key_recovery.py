@@ -182,19 +182,7 @@ def escrow_key(
 
     digest = _secret_digest(key_bytes)
 
-    # One independent polynomial per secret byte: f(0) = the byte, with shares_required-1
-    # random coefficients. Coefficients come from secrets.token_bytes (CSPRNG) -- they are
-    # what stands between an attacker holding k-1 shares and the key.
-    evaluations: list[bytearray] = [bytearray() for _ in range(shares_total)]
-    for byte in key_bytes:
-        coefficients = [byte, *secrets.token_bytes(shares_required - 1)]
-        for idx in range(shares_total):
-            x = idx + 1
-            # Horner evaluation of the polynomial at x, over GF(2**8).
-            y = 0
-            for coefficient in reversed(coefficients):
-                y = _gf_mul(y, x) ^ coefficient
-            evaluations[idx].append(y)
+    evaluations = _evaluate_shares(key_bytes, shares_total, shares_required)
 
     shares = []
     for idx in range(shares_total):
@@ -219,6 +207,27 @@ def escrow_key(
     return escrow
 
 
+def _evaluate_shares(
+    key_bytes: bytes,
+    shares_total: int,
+    shares_required: int,
+) -> list[bytearray]:
+    # One independent polynomial per secret byte: f(0) = the byte, with shares_required-1
+    # random coefficients. Coefficients come from secrets.token_bytes (CSPRNG) -- they are
+    # what stands between an attacker holding k-1 shares and the key.
+    evaluations: list[bytearray] = [bytearray() for _ in range(shares_total)]
+    for byte in key_bytes:
+        coefficients = [byte, *secrets.token_bytes(shares_required - 1)]
+        for idx in range(shares_total):
+            x = idx + 1
+            # Horner evaluation of the polynomial at x, over GF(2**8).
+            y = 0
+            for coefficient in reversed(coefficients):
+                y = _gf_mul(y, x) ^ coefficient
+            evaluations[idx].append(y)
+    return evaluations
+
+
 def recover_key(shares: list[RecoveryShare], shares_required: int | None = None) -> bytes:
     """Reconstruct the original key from at least ``shares_required`` shares.
 
@@ -231,6 +240,32 @@ def recover_key(shares: list[RecoveryShare], shares_required: int | None = None)
     if not shares:
         raise CryptoError("at least one share is required for recovery")
 
+    embedded_threshold, expected_digest, shard_len = _validate_share_set(shares)
+
+    # The embedded threshold wins. Requesting fewer is the exact mistake that used to
+    # return a wrong key silently.
+    required = max(embedded_threshold, shares_required or 0)
+    if len(shares) < required:
+        raise CryptoError(f"not enough shares for recovery: have {len(shares)}, need {required}")
+
+    # Any `required` shares suffice; extras are ignored rather than over-determining.
+    selected = shares[:required]
+    body_len = shard_len - _SHARD_HEADER - _DIGEST_LEN
+    recovered = bytearray()
+    for position in range(body_len):
+        points = [(share.shard[0], share.shard[_SHARD_HEADER + _DIGEST_LEN + position]) for share in selected]
+        recovered.append(_interpolate_at_zero(points))
+
+    result = bytes(recovered)
+    if not secrets.compare_digest(_secret_digest(result), expected_digest):
+        raise CryptoError("recovered key failed integrity check; shares are corrupt or mismatched")
+    return result
+
+
+def _validate_share_set(
+    shares: list[RecoveryShare],
+) -> tuple[int, bytes, int]:
+    """Validate a share set and return (embedded threshold, digest, shard length)."""
     lengths = {len(share.shard) for share in shares}
     if len(lengths) != 1:
         raise CryptoError("all shares must have the same length")
@@ -255,25 +290,7 @@ def recover_key(shares: list[RecoveryShare], shares_required: int | None = None)
         raise CryptoError("share has an invalid x-coordinate of 0")
     if len(set(x_coordinates)) != len(x_coordinates):
         raise CryptoError("duplicate shares supplied; each share must be distinct")
-
-    # The embedded threshold wins. Requesting fewer is the exact mistake that used to
-    # return a wrong key silently.
-    required = max(embedded_threshold, shares_required or 0)
-    if len(shares) < required:
-        raise CryptoError(f"not enough shares for recovery: have {len(shares)}, need {required}")
-
-    # Any `required` shares suffice; extras are ignored rather than over-determining.
-    selected = shares[:required]
-    body_len = shard_len - _SHARD_HEADER - _DIGEST_LEN
-    recovered = bytearray()
-    for position in range(body_len):
-        points = [(share.shard[0], share.shard[_SHARD_HEADER + _DIGEST_LEN + position]) for share in selected]
-        recovered.append(_interpolate_at_zero(points))
-
-    result = bytes(recovered)
-    if not secrets.compare_digest(_secret_digest(result), expected_digest):
-        raise CryptoError("recovered key failed integrity check; shares are corrupt or mismatched")
-    return result
+    return embedded_threshold, expected_digest, shard_len
 
 
 def verify_escrow_integrity(escrow: KeyEscrow) -> bool:

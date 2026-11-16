@@ -36,19 +36,7 @@ def run_command(cmd, description):
     return result.returncode == 0
 
 
-def main():
-    parser = argparse.ArgumentParser(description="AITBC Test Suite Runner")
-    parser.add_argument(
-        "--suite", choices=["unit", "integration", "e2e", "security", "all"], default="all", help="Test suite to run"
-    )
-    parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
-    parser.add_argument("--parallel", action="store_true", help="Run tests in parallel")
-    parser.add_argument("--verbose", action="store_true", help="Verbose output")
-    parser.add_argument("--marker", help="Run tests with specific marker (e.g., unit, integration)")
-    parser.add_argument("--file", help="Run specific test file")
-
-    args = parser.parse_args()
-
+def _build_pytest_cmd(args) -> list[str]:
     # Base pytest command
     pytest_cmd = [
         sys.executable,
@@ -98,19 +86,10 @@ def main():
 
     # Add pytest configuration
     pytest_cmd.extend(["--tb=short", "--strict-markers", "--disable-warnings"])
+    return pytest_cmd
 
-    # Run the tests
-    success = run_command(pytest_cmd, f"{args.suite.title()} Test Suite")
 
-    if success:
-        print(f"\n✅ {args.suite.title()} tests passed!")
-
-        if args.coverage:
-            print("\n📊 Coverage report generated in tests/htmlcov/index.html")
-    else:
-        print(f"\n❌ {args.suite.title()} tests failed!")
-        sys.exit(1)
-
+def _run_suite_extras(args) -> None:
     # Additional checks
     if args.suite in ["all", "integration"]:
         print("\n🔍 Running integration test checks...")
@@ -129,6 +108,36 @@ def main():
         # Run dependency check
         deps_cmd = ["safety", "check"]
         run_command(deps_cmd, "Dependency Security Check")
+
+
+def main():
+    parser = argparse.ArgumentParser(description="AITBC Test Suite Runner")
+    parser.add_argument(
+        "--suite", choices=["unit", "integration", "e2e", "security", "all"], default="all", help="Test suite to run"
+    )
+    parser.add_argument("--coverage", action="store_true", help="Generate coverage report")
+    parser.add_argument("--parallel", action="store_true", help="Run tests in parallel")
+    parser.add_argument("--verbose", action="store_true", help="Verbose output")
+    parser.add_argument("--marker", help="Run tests with specific marker (e.g., unit, integration)")
+    parser.add_argument("--file", help="Run specific test file")
+
+    args = parser.parse_args()
+
+    pytest_cmd = _build_pytest_cmd(args)
+
+    # Run the tests
+    success = run_command(pytest_cmd, f"{args.suite.title()} Test Suite")
+
+    if success:
+        print(f"\n✅ {args.suite.title()} tests passed!")
+
+        if args.coverage:
+            print("\n📊 Coverage report generated in tests/htmlcov/index.html")
+    else:
+        print(f"\n❌ {args.suite.title()} tests failed!")
+        sys.exit(1)
+
+    _run_suite_extras(args)
 
 
 if __name__ == "__main__":

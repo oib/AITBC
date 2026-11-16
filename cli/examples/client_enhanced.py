@@ -169,7 +169,7 @@ class AITBCClient:
             return False
 
 
-def main():
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="AITBC Client CLI Tool")
     parser.add_argument("--url", default=DEFAULT_COORDINATOR, help="Coordinator URL")
     parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="API key")
@@ -209,6 +209,110 @@ def main():
     receipts_parser.add_argument("--limit", type=int, default=10, help="Number of receipts")
     receipts_parser.add_argument("--job-id", help="Filter by job ID")
 
+    return parser
+
+
+def _build_submit_task_data(args: argparse.Namespace) -> Any:
+    # Build job data
+    if args.file:
+        try:
+            return json.load(args.file)
+        except (OSError, ValueError) as e:
+            print(f"❌ Error reading job file: {e}")
+            sys.exit(1)
+    task_data: dict = {"type": args.type}
+    if args.prompt:
+        task_data["prompt"] = args.prompt
+    if args.model:
+        task_data["model"] = args.model
+    return task_data
+
+
+def _cmd_submit(args: argparse.Namespace, client: AITBCClient) -> None:
+    task_data = _build_submit_task_data(args)
+
+    # Submit job
+    job_id = client.submit_job(args.type, task_data, args.ttl)
+
+    if job_id:
+        submit_result = {
+            "status": "success",
+            "job_id": job_id,
+            "message": "Job submitted successfully",
+            "track_command": f"python3 cli/client_enhanced.py status {job_id}",
+        }
+        print(OutputFormatter.format(submit_result, args.output))
+        sys.exit(0)
+    else:
+        sys.exit(1)
+
+
+def _cmd_status(args: argparse.Namespace, client: AITBCClient) -> None:
+    status = client.get_job_status(args.job_id)
+
+    if status:
+        print(OutputFormatter.format(status, args.output))
+        sys.exit(0)
+    else:
+        sys.exit(1)
+
+
+def _cmd_blocks(args: argparse.Namespace, client: AITBCClient) -> None:
+    blocks = client.list_blocks(args.limit)
+
+    if blocks:
+        print(OutputFormatter.format(blocks, args.output))
+        sys.exit(0)
+    else:
+        sys.exit(1)
+
+
+def _cmd_browser(args: argparse.Namespace, client: AITBCClient) -> None:
+    blocks = client.list_blocks(args.block_limit) or []
+    transactions = client.list_transactions(args.tx_limit) or []
+    receipts = client.list_receipts(args.receipt_limit, job_id=args.job_id) or []
+
+    result: dict[str, Any] = {
+        "latest_block": blocks[0] if blocks else None,
+        "recent_transactions": transactions,
+        "recent_receipts": receipts,
+    }
+
+    print(OutputFormatter.format(result, args.output))
+    sys.exit(0)
+
+
+def _cmd_cancel(args: argparse.Namespace, client: AITBCClient) -> None:
+    if client.cancel_job(args.job_id):
+        result = {"status": "success", "job_id": args.job_id, "message": "Job cancelled successfully"}
+        print(OutputFormatter.format(result, args.output))
+        sys.exit(0)
+    else:
+        sys.exit(1)
+
+
+def _cmd_receipts(args: argparse.Namespace, client: AITBCClient) -> None:
+    receipts = client.list_receipts(args.limit, args.job_id) or []
+
+    if receipts:
+        print(OutputFormatter.format(receipts, args.output))
+        sys.exit(0)
+    else:
+        sys.exit(1)
+
+
+_COMMANDS: dict[str, Any] = {
+    "submit": _cmd_submit,
+    "status": _cmd_status,
+    "blocks": _cmd_blocks,
+    "browser": _cmd_browser,
+    "cancel": _cmd_cancel,
+    "receipts": _cmd_receipts,
+}
+
+
+def main():
+    parser = _build_parser()
     args = parser.parse_args()
 
     if not args.command:
@@ -219,84 +323,9 @@ def main():
     client = AITBCClient(args.url, args.api_key)
 
     # Execute command
-    if args.command == "submit":
-        # Build job data
-        if args.file:
-            try:
-                task_data = json.load(args.file)
-            except (OSError, ValueError) as e:
-                print(f"❌ Error reading job file: {e}")
-                sys.exit(1)
-        else:
-            task_data = {"type": args.type}
-            if args.prompt:
-                task_data["prompt"] = args.prompt
-            if args.model:
-                task_data["model"] = args.model
-
-        # Submit job
-        job_id = client.submit_job(args.type, task_data, args.ttl)
-
-        if job_id:
-            submit_result = {
-                "status": "success",
-                "job_id": job_id,
-                "message": "Job submitted successfully",
-                "track_command": f"python3 cli/client_enhanced.py status {job_id}",
-            }
-            print(OutputFormatter.format(submit_result, args.output))
-            sys.exit(0)
-        else:
-            sys.exit(1)
-
-    elif args.command == "status":
-        status = client.get_job_status(args.job_id)
-
-        if status:
-            print(OutputFormatter.format(status, args.output))
-            sys.exit(0)
-        else:
-            sys.exit(1)
-
-    elif args.command == "blocks":
-        blocks = client.list_blocks(args.limit)
-
-        if blocks:
-            print(OutputFormatter.format(blocks, args.output))
-            sys.exit(0)
-        else:
-            sys.exit(1)
-
-    elif args.command == "browser":
-        blocks = client.list_blocks(args.block_limit) or []
-        transactions = client.list_transactions(args.tx_limit) or []
-        receipts = client.list_receipts(args.receipt_limit, job_id=args.job_id) or []
-
-        result: dict[str, Any] = {
-            "latest_block": blocks[0] if blocks else None,
-            "recent_transactions": transactions,
-            "recent_receipts": receipts,
-        }
-
-        print(OutputFormatter.format(result, args.output))
-        sys.exit(0)
-
-    elif args.command == "cancel":
-        if client.cancel_job(args.job_id):
-            result = {"status": "success", "job_id": args.job_id, "message": "Job cancelled successfully"}
-            print(OutputFormatter.format(result, args.output))
-            sys.exit(0)
-        else:
-            sys.exit(1)
-
-    elif args.command == "receipts":
-        receipts = client.list_receipts(args.limit, args.job_id) or []
-
-        if receipts:
-            print(OutputFormatter.format(receipts, args.output))
-            sys.exit(0)
-        else:
-            sys.exit(1)
+    handler = _COMMANDS.get(args.command)
+    if handler is not None:
+        handler(args, client)
 
 
 if __name__ == "__main__":
