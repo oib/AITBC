@@ -148,6 +148,10 @@ class MultiValidatorPoA:
         self.prepare_messages: dict[str, list[dict[str, Any]]] = {}  # validator -> list of prepare messages
         self.commit_messages: dict[str, list[dict[str, Any]]] = {}  # validator -> list of commit messages (#1235)
         self.consensus_attempts: int = 0
+        # #2165: validators whose deactivation the floor already refused, mapped to the
+        # active count at that moment; a repeat verdict at the same active count is the
+        # same episode and must not re-fire the CRITICAL log / counter.
+        self._floor_refusals_seen: dict[str, int] = {}
 
         # B3: block signature verification toggle
         self._require_block_signatures: bool = getattr(settings, "bridge_block_signature_required", True)
@@ -1221,8 +1225,12 @@ class MultiValidatorPoA:
                 # four validators deactivated, permanent halt).
                 from ..metrics import metrics_registry
 
-                metrics_registry.increment("consensus_deactivation_floor_refused_total")
                 health = self.quorum_health()
+                episode_key = canonical_address(validator)
+                if self._floor_refusals_seen.get(episode_key) == health["active"]:
+                    return  # same episode (#2165): already counted and logged
+                self._floor_refusals_seen[episode_key] = health["active"]
+                metrics_registry.increment("consensus_deactivation_floor_refused_total")
                 logger.critical(
                     "Byzantine threshold reached for %s but deactivation REFUSED: it would leave %s active of %s "
                     "configured, below the quorum of %s. Operator review required (#2158)",
@@ -1263,6 +1271,27 @@ class MultiValidatorPoA:
         health = self.quorum_health()
         return bool(health["active"] - 1 < health["required"])
 
+    def reactivation_refusal(self) -> str | None:
+        """Why a confirmed reactivation would be refused right now, or None (#2165)."""
+        if self._chain_slashing_armed():
+            return "chain slashing is armed: deactivation is an on-chain marker, not local state"
+        return None
+
+    @staticmethod
+    def _in_configured_validator_set(address: str) -> bool:
+        import json
+
+        raw = getattr(settings, "validator_set", "")
+        if not raw:
+            return False
+        try:
+            members = json.loads(raw)
+        except ValueError:
+            return False
+        return any(
+            canonical_address(str(m.get("address", ""))) == canonical_address(address) for m in members if isinstance(m, dict)
+        )
+
     def reactivate_validator(self, address: str, reason: str) -> bool:
         """Operator re-activation of a locally deactivated validator (#2158).
 
@@ -1270,16 +1299,31 @@ class MultiValidatorPoA:
         canonical state is the on-chain marker and a local flip would diverge.
         Requires a non-empty reason, writes an audit log line and persists.
         Returns False when the validator is unknown or already active.
+
+        #2165: a validator removed through ``remove_validator`` or an env diff was also
+        demoted to STANDBY, which ``get_consensus_participants`` excludes, so flipping
+        ``is_active`` alone would leave it inert. When it is still in the configured
+        ``VALIDATOR_SET`` its VALIDATOR role is restored; otherwise the role is left
+        alone and the audit line says so.
         """
         if not isinstance(reason, str) or not reason.strip():
             raise ValueError("reactivation requires a non-empty reason")
-        if self._chain_slashing_armed():
-            raise ValueError("chain slashing is armed: deactivation is an on-chain marker, not local state")
+        refusal = self.reactivation_refusal()
+        if refusal:
+            raise ValueError(refusal)
         key = next((k for k in self.validators if canonical_address(k) == canonical_address(address)), None)
         if key is None or self.validators[key].is_active:
             return False
-        self.validators[key].is_active = True
-        logger.warning("AUDIT validator %s re-activated by operator (#2158); reason: %s", key, reason.strip())
+        validator = self.validators[key]
+        validator.is_active = True
+        role_note = ""
+        if validator.role not in (ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR):
+            if self._in_configured_validator_set(key):
+                validator.role = ValidatorRole.VALIDATOR
+                role_note = "; role restored to validator"
+            else:
+                role_note = "; role stays standby (not in the configured validator set)"
+        logger.warning("AUDIT validator %s re-activated by operator (#2158); reason: %s%s", key, reason.strip(), role_note)
         from ..metrics import metrics_registry
 
         metrics_registry.increment("consensus_validator_reactivated_total")
