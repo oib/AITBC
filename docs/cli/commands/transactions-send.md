@@ -25,6 +25,7 @@ aitbc transactions send [OPTIONS]
 | `--rpc-url` | text | — | no | Blockchain RPC URL |
 | `--type` | text | `TRANSFER` | no | Transaction type (default TRANSFER) |
 | `--payload` | text | — | no | JSON payload for non-standard transaction types |
+| `--nonce-offset` | integer | `0` | no | Extra nonce offset for queueing a second pending tx from the same wallet |
 | `--use-explorer` | flag | `false` | no | Use Explorer API for status checks |
 
 ## Examples
