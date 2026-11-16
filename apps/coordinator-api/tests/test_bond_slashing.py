@@ -592,7 +592,7 @@ async def test_two_workers_sign_distinct_nonces_via_mempool(db_session, slash_en
     job2 = _bonded_job(db_session)
     job2.assigned_miner_id = miner.id
     db_session.add(job2)
-    db_session.commit()  # noqa: unawaited-async — sqlmodel Session is sync
+    db_session.commit()  # sqlmodel Session is sync
     _provider_bond(db_session, miner.id, amount="10")
 
     submitted: list[int] = []
@@ -635,7 +635,7 @@ async def test_nonce_refusal_resubmits_once_then_succeeds(db_session, slash_env,
     job = _bonded_job(db_session)
     job.assigned_miner_id = miner.id
     db_session.add(job)
-    db_session.commit()  # noqa: unawaited-async — sqlmodel Session is sync
+    db_session.commit()  # sqlmodel Session is sync
     _provider_bond(db_session, miner.id, amount="10")
 
     occupier_in_mempool: list[bool] = []
@@ -681,7 +681,7 @@ async def test_nonce_refusal_twice_returns_unslashed(db_session, slash_env, monk
     job = _bonded_job(db_session)
     job.assigned_miner_id = miner.id
     db_session.add(job)
-    db_session.commit()  # noqa: unawaited-async — sqlmodel Session is sync
+    db_session.commit()  # sqlmodel Session is sync
     _provider_bond(db_session, miner.id, amount="10")
 
     def _get(url):
