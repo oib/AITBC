@@ -44,6 +44,47 @@ def _metric_value(name: str, chain_id: str) -> float | None:
     return None
 
 
+def _adder_worker(pool, chain: str, stop, errors: list[BaseException], sender: str, prefix: int, nonce_offset: int) -> None:
+    try:
+        for i in range(200):
+            if stop.is_set():
+                break
+            pool.add(
+                {"from": sender, "to": "0xb", "fee": i, "nonce": nonce_offset + i, "signature": "s"},
+                chain_id=chain,
+                tx_hash=f"0x{prefix:02x}{i:06x}",
+            )
+    except BaseException as e:  # noqa: BLE001 -- record, assert later
+        errors.append(e)
+
+
+def _remover_worker(pool, chain: str, stop, errors: list[BaseException]) -> None:
+    try:
+        while not stop.is_set():
+            for i in range(200):
+                if stop.is_set():
+                    break
+                pool.remove(f"0x00{i:06x}", chain_id=chain)
+    except BaseException as e:  # noqa: BLE001 -- record, assert later
+        errors.append(e)
+
+
+def _drainer_worker(pool, chain: str, stop, errors: list[BaseException]) -> None:
+    try:
+        while not stop.is_set():
+            pool.drain(5, 10**9, chain_id=chain)
+    except BaseException as e:  # noqa: BLE001 -- record, assert later
+        errors.append(e)
+
+
+def _evictor_worker(pool, stop, errors: list[BaseException]) -> None:
+    try:
+        while not stop.is_set():
+            pool.evict_expired(0.001)
+    except BaseException as e:  # noqa: BLE001 -- record, assert later
+        errors.append(e)
+
+
 class TestGaugeConsistencyUnderConcurrency:
     """Threads adding, removing, draining and evicting on both backends.
 
@@ -55,52 +96,15 @@ class TestGaugeConsistencyUnderConcurrency:
         stop = threading.Event()
         errors: list[BaseException] = []
 
-        def adder(sender: str, prefix: int, nonce_offset: int) -> None:
-            try:
-                for i in range(200):
-                    if stop.is_set():
-                        break
-                    pool.add(
-                        {"from": sender, "to": "0xb", "fee": i, "nonce": nonce_offset + i, "signature": "s"},
-                        chain_id=chain,
-                        tx_hash=f"0x{prefix:02x}{i:06x}",
-                    )
-            except BaseException as e:  # noqa: BLE001 -- record, assert later
-                errors.append(e)
-
-        def remover() -> None:
-            try:
-                while not stop.is_set():
-                    for i in range(200):
-                        if stop.is_set():
-                            break
-                        pool.remove(f"0x00{i:06x}", chain_id=chain)
-            except BaseException as e:  # noqa: BLE001 -- record, assert later
-                errors.append(e)
-
-        def drainer() -> None:
-            try:
-                while not stop.is_set():
-                    pool.drain(5, 10**9, chain_id=chain)
-            except BaseException as e:  # noqa: BLE001 -- record, assert later
-                errors.append(e)
-
-        def evictor() -> None:
-            try:
-                while not stop.is_set():
-                    pool.evict_expired(0.001)
-            except BaseException as e:  # noqa: BLE001 -- record, assert later
-                errors.append(e)
-
         # Distinct senders and disjoint nonce ranges keep the adds free of the
         # mempool's per-(sender, nonce) slot rule -- a collision there is
         # mempool policy noise, not a gauge-consistency signal.
         workers = [
-            threading.Thread(target=adder, args=("0xaaaa", 0x00, 0), daemon=True),
-            threading.Thread(target=adder, args=("0xbbbb", 0x10, 1000), daemon=True),
-            threading.Thread(target=remover, daemon=True),
-            threading.Thread(target=drainer, daemon=True),
-            threading.Thread(target=evictor, daemon=True),
+            threading.Thread(target=_adder_worker, args=(pool, chain, stop, errors, "0xaaaa", 0x00, 0), daemon=True),
+            threading.Thread(target=_adder_worker, args=(pool, chain, stop, errors, "0xbbbb", 0x10, 1000), daemon=True),
+            threading.Thread(target=_remover_worker, args=(pool, chain, stop, errors), daemon=True),
+            threading.Thread(target=_drainer_worker, args=(pool, chain, stop, errors), daemon=True),
+            threading.Thread(target=_evictor_worker, args=(pool, stop, errors), daemon=True),
         ]
         try:
             for w in workers:

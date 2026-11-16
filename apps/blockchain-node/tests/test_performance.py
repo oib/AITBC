@@ -297,41 +297,22 @@ class TestCacheHitRate:
                 "parent_hash": f"0x{h - 1:064x}" if h > 0 else "0x" + "0" * 64,
             }
 
-        # First pass: all misses (populate cache)
-        for h in range(100):
-            result = cache.get(h, "bench")
-            if result is None:
-                cm.miss(f"block:{h}")
-                cache.set(headers[h], "bench")
-            else:
-                cm.hit(f"block:{h}")
-
-        # Second pass: all hits
-        for h in range(100):
-            result = cache.get(h, "bench")
-            if result is None:
-                cm.miss(f"block:{h}")
-            else:
-                cm.hit(f"block:{h}")
-
-        # Third pass: all hits
-        for h in range(100):
-            result = cache.get(h, "bench")
-            if result is None:
-                cm.miss(f"block:{h}")
-            else:
-                cm.hit(f"block:{h}")
-
-        # 300 total: 100 misses + 200 hits = 66.7% hit rate
-        # With 10x repetition it would be 90%+, but 3 passes gives 66.7%
-        # Let's do more passes to hit >80%
-        for _ in range(7):
+        def query_pass(populate: bool) -> None:
             for h in range(100):
                 result = cache.get(h, "bench")
                 if result is None:
                     cm.miss(f"block:{h}")
+                    if populate:
+                        cache.set(headers[h], "bench")
                 else:
                     cm.hit(f"block:{h}")
+
+        # First pass: all misses (populate cache)
+        query_pass(populate=True)
+
+        # Remaining 9 passes: all hits once the cache is warm
+        for _ in range(9):
+            query_pass(populate=False)
 
         # 1000 total: 100 misses + 900 hits = 90% hit rate
         assert cm.ratio() > 0.8, f"Cache hit rate too low: {cm.ratio():.1%} (need >80%)"
