@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import time
+from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
 
@@ -16,6 +17,7 @@ from ..gossip import (
     GossipBroker,
     InMemoryGossipBackend,
     MeshGossipBackend,
+    TopicSubscription,
     WebsocketGossipBackend,
     gossip_broker,
 )
@@ -446,6 +448,421 @@ async def shutdown_chain_brokers(timeout: float = 5.0) -> None:
     await asyncio.gather(*(_one(c, b) for c, b in brokers))
 
 
+class _GossipConnState:
+    """Mutable per-connection state shared by the gossip ws forwarders.
+
+    Carries what the old nested forwarders closed over via ``nonlocal``:
+    the deferred broker subscription, the validator challenge pair, and
+    the auth outcomes the teardown ``finally`` reads. A plain class (not a
+    dataclass): tests re-execute this module under fresh worker-module
+    names, where dataclass field resolution cannot see ``sys.modules``.
+    """
+
+    def __init__(self, websocket: WebSocket, topic: str, chain_id: str, client_ip: str, broker: GossipBroker) -> None:
+        self.websocket = websocket
+        self.topic = topic
+        self.chain_id = chain_id
+        self.client_ip = client_ip
+        self.broker = broker
+        self.subscription: TopicSubscription | None = None
+        self.subscription_ready = asyncio.Event()
+        self.challenge: str | None = None
+        self.challenge_ts: float = 0.0
+        self.authorized = False
+        self.authorized_address: str | None = None
+        # #1874: peer-key credential for public-topic publish (peer_auth frame).
+        self.peer_authorized = False
+
+
+async def _gossip_admit(websocket: WebSocket, topic: str) -> tuple[str, GossipBroker] | None:
+    """Resolve chain/backend for ``topic``; close + return None when refused.
+
+    Every refusal path records its ``gossip_ws_rejected_total`` series and
+    closes with 1008 before returning, exactly as the inline pre-checks did.
+    """
+    chain_id = _resolve_chain_id(websocket)
+    if chain_id is None:
+        _note_rejection(None, topic, "unknown_chain")
+        await _gossip_ws_close(websocket, code=1008)
+        return None
+    if _topic_targets_other_chain(topic, chain_id):
+        logger.warning("Gossip websocket rejected cross-chain topic %s on chain %s", topic, chain_id)
+        _note_rejection(chain_id, topic, "cross_chain_topic")
+        await _gossip_ws_close(websocket, code=1008)
+        return None
+    if _membership_refused(chain_id, topic):
+        await _gossip_ws_close(websocket, code=1008)
+        return None
+    broker = _broker_for_chain(chain_id)
+    if broker is None:
+        logger.warning("Gossip websocket rejected: no gossip backend for chain %s", chain_id)
+        _note_rejection(chain_id, topic, "no_backend")
+        await _gossip_ws_close(websocket, code=1008)
+        return None
+    return chain_id, broker
+
+
+async def _gossip_acquire_slot(websocket: WebSocket, client_ip: str, chain_id: str, topic: str) -> tuple[str, str] | None:
+    """Take the per-(ip, chain) connection slot; None = refused (closed)."""
+    conn_key = (client_ip, chain_id)
+    # Connection-level source limit, per (ip, chain) plus the optional per-IP total.
+    refused = _acquire_ip_connection(conn_key)
+    if refused is not None:
+        logger.warning("Gossip websocket connection limit (%s) for %s on chain %s", refused, client_ip, chain_id)
+        _note_rejection(chain_id, topic, refused)
+        await _gossip_ws_close(websocket, code=1008)
+        return None
+    return conn_key
+
+
+async def _gossip_accept_and_challenge(state: _GossipConnState) -> bool:
+    """Accept the socket (bounded) and issue the validator challenge.
+
+    False means the socket was already closed and the handler must return.
+    """
+    try:
+        await asyncio.wait_for(state.websocket.accept(), timeout=_GOSSIP_WS_OP_TIMEOUT)
+    except TimeoutError:
+        logger.warning("Gossip websocket accept timed out for %s", state.client_ip)
+        await _gossip_ws_close(state.websocket, code=1011)
+        return False
+    logger.info(
+        "WebSocket gossip subscriber connected: topic=%s chain=%s client=%s",
+        state.topic,
+        state.chain_id,
+        state.client_ip,
+    )
+
+    # If this is a restricted topic, require authentication before any publish.
+    if settings.gossip_auth_enabled and is_restricted_topic(state.topic):
+        issued = create_challenge(state.client_ip)
+        if issued is None:
+            _auth_rejected("challenge_rate_limited", state.chain_id, state.topic)
+            await _gossip_ws_send_json(state.websocket, {"error": "Challenge rate limited"})
+            await _gossip_ws_close(state.websocket, code=1008)
+            return False
+        state.challenge, state.challenge_ts = issued
+        await _gossip_ws_send_json(
+            state.websocket,
+            {"type": "auth_challenge", "challenge": state.challenge, "timestamp": state.challenge_ts},
+        )
+    return True
+
+
+async def _gossip_ensure_subscription(state: _GossipConnState) -> None:
+    if state.subscription is None:
+        state.subscription = await state.broker.subscribe(state.topic, max_queue_size=100)
+        state.subscription_ready.set()  # noqa: unawaited-async — asyncio.Event.set is synchronous
+
+
+async def _gossip_forward_one_message(state: _GossipConnState, sub: TopicSubscription, message: Any) -> bool:
+    """Forward one broker message to the client; False = send failed, stop."""
+    # #1308: receiver/server-side record keyed by the same
+    # deterministic event id the publisher computed — this is
+    # the echo the client's ack wait resolves on, so its
+    # presence/absence is what separates "delivered but
+    # unacked" from "never reached the server".
+    event_id = _message_id(state.topic, message)
+    try:
+        await _gossip_ws_send_json(state.websocket, message)
+    except Exception as send_exc:
+        gossip_ws_echo_forward_failed_total.labels(topic_class=bounded_topic_label(state.topic)).inc()
+        gossip_event(
+            "echo_forward_failed",
+            peer=state.client_ip,
+            topic=state.topic,
+            event_id=event_id,
+            error=str(send_exc)[:120],
+            _level="warning",
+        )
+        return False
+    gossip_ws_echo_forward_total.labels(topic_class=bounded_topic_label(state.topic)).inc()
+    queue_depth = _subscription_queue_depth(sub)
+    if queue_depth is not None:
+        gossip_ws_subscriber_queue_depth.labels(topic_class=bounded_topic_label(state.topic)).set(  # noqa: unawaited-async — prometheus Gauge.set is synchronous
+            float(queue_depth)
+        )
+    gossip_event(
+        "echo_forward",
+        peer=state.client_ip,
+        topic=state.topic,
+        event_id=event_id,
+        queue_depth=queue_depth,
+    )
+    return True
+
+
+async def _gossip_forward_broker_to_client(state: _GossipConnState) -> None:
+    await state.subscription_ready.wait()
+    sub = state.subscription
+    if sub is None:
+        return
+    try:
+        async for message in sub:
+            if not await _gossip_forward_one_message(state, sub, message):
+                break
+    except Exception as e:
+        logger.warning("Error forwarding broker message for %s: %s", state.topic, e)
+
+
+async def _gossip_send_ping(state: _GossipConnState) -> bool:
+    """Idle-timeout ping; False when the socket is already dead."""
+    try:
+        await _gossip_ws_send_json(state.websocket, {"type": "ping", "timestamp": time.time()})
+    except Exception as e:  # noqa: BLE001 - dead socket ends the receive loop
+        logger.debug("gossip ping send failed: %s", type(e).__name__)
+        return False
+    return True
+
+
+async def _gossip_rate_limited(state: _GossipConnState, reason: str, reject_reason: str) -> None:
+    """Shared per-class + per-IP-total message-rate rejection path."""
+    gossip_rate_limited_total.labels(reason=reason).inc()
+    _note_rejection(state.chain_id, state.topic, reject_reason)
+    # #1308: rate-limited publishes never reach json.loads, so
+    # no event id is computable — still worth an INFO record:
+    # a missing ack with a rate_limited line is the answer.
+    gossip_event(
+        "rate_limited",
+        peer=state.client_ip,
+        topic=state.topic,
+        reason=reason,
+        _level="info",
+    )
+    await _gossip_ws_send_json(state.websocket, {"error": "Rate limit exceeded"})
+
+
+async def _gossip_handle_peer_auth(state: _GossipConnState, data: dict[str, Any]) -> None:
+    # Peer-key auth for public-topic publish (#1874). The key
+    # travels in-band, never in the URL — uvicorn access logs
+    # record the query string. Accepted set matches /subscribe/ws:
+    # own RPC key, configured peer key, or live issued join key.
+    if not settings.gossip_auth_enabled:
+        state.peer_authorized = True
+        await _gossip_ws_send_json(state.websocket, {"type": "peer_auth_ok", "note": "auth not required"})
+        return
+    peer_key = data.get("api_key")
+    if isinstance(peer_key, str) and rpc_peer_key_accepted(peer_key):
+        state.peer_authorized = True
+        await _gossip_ws_send_json(state.websocket, {"type": "peer_auth_ok"})
+    else:
+        _note_rejection(state.chain_id, state.topic, "peer_auth_invalid")
+        await _gossip_ws_send_json(state.websocket, {"type": "peer_auth_error", "error": "Invalid peer key"})
+
+
+async def _gossip_handle_auth_response(state: _GossipConnState, data: dict[str, Any]) -> bool:
+    """Validator challenge/response; False = socket closed, stop the loop."""
+    if not settings.gossip_auth_enabled:
+        await _gossip_ws_send_json(state.websocket, {"type": "auth_ok", "note": "auth not required"})
+        return True
+    claimed = data.get("address", "")
+    signature = data.get("signature", "")
+    client_challenge = data.get("challenge", "")
+    client_ts = data.get("timestamp", 0.0)
+    if not is_validator(claimed):
+        _auth_rejected("not_validator", state.chain_id, state.topic)
+        await _gossip_ws_send_json(state.websocket, {"error": "Not a validator"})
+        await _gossip_ws_close(state.websocket, code=1008)
+        return False
+    if client_challenge != state.challenge:
+        _auth_rejected("challenge_mismatch", state.chain_id, state.topic)
+        await _gossip_ws_send_json(state.websocket, {"error": "Challenge mismatch"})
+        await _gossip_ws_close(state.websocket, code=1008)
+        return False
+    if abs(time.time() - client_ts) > settings.gossip_auth_challenge_ttl:
+        _auth_rejected("challenge_expired", state.chain_id, state.topic)
+        await _gossip_ws_send_json(state.websocket, {"error": "Challenge expired"})
+        await _gossip_ws_close(state.websocket, code=1008)
+        return False
+    if verify_challenge(
+        client_challenge,
+        claimed,
+        client_ts,
+        signature,
+        channel_scope(state.topic, state.chain_id),
+        legacy_scope=channel_scope(state.topic),
+    ):
+        if not state.authorized:
+            gossip_authenticated_connections.labels(address=claimed).inc()
+        state.authorized = True
+        state.authorized_address = claimed
+        gossip_auth_accepted_total.labels(address=claimed).inc()
+        await _gossip_ws_send_json(state.websocket, {"type": "auth_ok", "address": claimed})
+        # Deferred subscribe for restricted topics — the
+        # broker feed only flows after validator auth.
+        await _gossip_ensure_subscription(state)
+        return True
+    _auth_rejected("invalid_signature", state.chain_id, state.topic)
+    await _gossip_ws_send_json(state.websocket, {"error": "Invalid signature"})
+    await _gossip_ws_close(state.websocket, code=1008)
+    return False
+
+
+async def _gossip_publish_denied(
+    state: _GossipConnState, data: dict[str, Any], reason: str, error: str, *, auth: bool
+) -> bool:
+    """Record + send + close a publish rejection; always returns False (stop)."""
+    if auth:
+        _auth_rejected(reason, state.chain_id, state.topic)
+    else:
+        _note_rejection(state.chain_id, state.topic, reason)
+    gossip_event(
+        "publish_rejected",
+        peer=state.client_ip,
+        topic=state.topic,
+        reason=reason,
+        event_id=_message_id(state.topic, data),
+        _level="info",
+    )
+    await _gossip_ws_send_json(state.websocket, {"error": error})
+    await _gossip_ws_close(state.websocket, code=1008)
+    return False
+
+
+async def _gossip_handle_publish(state: _GossipConnState, data: dict[str, Any]) -> bool:
+    """Publish authorization gates, then broker.publish; False = socket closed."""
+    topic = state.topic
+    # Publishing path.
+    if is_restricted_topic(topic) and not state.authorized:
+        return await _gossip_publish_denied(
+            state, data, "unauthorized_publish", "Validator authentication required", auth=True
+        )
+    if not is_public_topic(topic) and not state.authorized:
+        return await _gossip_publish_denied(state, data, "unauthorized_topic", "Topic not authorized", auth=True)
+
+    # #1874: public topics are subscribe-open but publish-gated —
+    # a peer credential (or validator auth) is required so an
+    # anonymous internet caller cannot inject forged tx/status/
+    # mempool gossip. GOSSIP_PUBLIC_PUBLISH_REQUIRE_KEY=false is
+    # the pre-#1874 escape hatch.
+    if (
+        is_public_topic(topic)
+        and settings.gossip_auth_enabled
+        and settings.gossip_public_publish_require_key
+        and not state.authorized
+        and not state.peer_authorized
+    ):
+        return await _gossip_publish_denied(
+            state, data, "peer_key_required", "Peer key required to publish on public topics", auth=False
+        )
+
+    # #1308: server-side receive record — same deterministic
+    # event id the publisher used, so a client-side ack timeout
+    # can be matched against rx/broker/echo stages.
+    event_id = _message_id(topic, data)
+    gossip_ws_rx_publish_total.labels(topic_class=bounded_topic_label(topic)).inc()
+    queue_depth = _subscription_queue_depth(state.subscription)
+    if queue_depth is not None:
+        gossip_ws_subscriber_queue_depth.labels(topic_class=bounded_topic_label(topic)).set(  # noqa: unawaited-async — prometheus Gauge.set is synchronous
+            float(queue_depth)
+        )
+    gossip_event(
+        "rx_publish",
+        peer=state.client_ip,
+        topic=topic,
+        event_id=event_id,
+        queue_depth=queue_depth,
+        **_rx_publish_extra_fields(data),
+    )
+    try:
+        await state.broker.publish(topic, data)
+        gossip_messages_published_total.labels(topic=bounded_topic_label(topic)).inc()
+    except Exception as e:  # noqa: BLE001 - one bad publish must not close the socket
+        # A broker-side failure (e.g. an ACL-denied topic) loses
+        # this message — but must not close the connection: the
+        # same socket carries other topics and the receive path,
+        # and tearing it down on one bad publish churns the whole
+        # attestation transport.
+        logger.warning("Broker publish failed for topic %s — message dropped: %s", topic, e)
+        metrics_registry.increment("gossip_broker_publish_failed_total")
+        gossip_event(
+            "broker_publish_failed",
+            peer=state.client_ip,
+            topic=topic,
+            event_id=event_id,
+            error=str(e)[:120],
+            _level="warning",
+        )
+    return True
+
+
+async def _gossip_process_message(state: _GossipConnState, raw: str) -> bool:
+    """Handle one inbound frame; False ends the receive loop (socket closed)."""
+    if len(raw) > settings.gossip_max_message_size:
+        gossip_oversized_message_total.inc()
+        await _gossip_ws_send_json(state.websocket, {"error": "Message too large"})
+        await _gossip_ws_close(state.websocket, code=1009)
+        return False
+    if not _gossip_msg_rate.is_allowed(_gossip_rate_key(state.client_ip, state.chain_id, state.topic)):
+        await _gossip_rate_limited(state, "message_rate", "rate")
+        return True
+    if not _message_total_allowed(state.client_ip):
+        await _gossip_rate_limited(state, "message_rate_total", "rate_total")
+        return True
+
+    try:
+        data = json.loads(raw)
+    except json.JSONDecodeError:
+        await _gossip_ws_send_json(state.websocket, {"error": "Invalid JSON"})
+        return True
+
+    if data.get("type") == "peer_auth":
+        await _gossip_handle_peer_auth(state, data)
+        return True
+    # Handle authentication handshake.
+    if data.get("type") == "auth_response":
+        return await _gossip_handle_auth_response(state, data)
+    return await _gossip_handle_publish(state, data)
+
+
+async def _gossip_forward_client_to_broker(state: _GossipConnState) -> None:
+    while True:
+        try:
+            raw = await asyncio.wait_for(state.websocket.receive_text(), timeout=60.0)
+        except asyncio.TimeoutError:
+            if not await _gossip_send_ping(state):
+                break
+            continue
+        except WebSocketDisconnect:
+            break
+        if not await _gossip_process_message(state, raw):
+            break
+
+
+async def _gossip_run_forwarders(state: _GossipConnState) -> None:
+    """Run the two forwarder tasks to first completion, then tear down."""
+    from asyncio import create_task, wait
+
+    broker_task = create_task(_gossip_forward_broker_to_client(state))
+    client_task = create_task(_gossip_forward_client_to_broker(state))
+    try:
+        done, pending = await wait([broker_task, client_task], return_when=asyncio.FIRST_COMPLETED)
+        for task in pending:
+            task.cancel()
+        await asyncio.gather(*pending, return_exceptions=True)
+        for task in done:
+            exc = None if task.cancelled() else task.exception()
+            if isinstance(exc, (WebSocketDisconnect, asyncio.TimeoutError)):
+                # TimeoutError = bounded send_json hit _GOSSIP_WS_OP_TIMEOUT
+                # on a peer that stopped reading — same teardown as a
+                # disconnect (#1165).
+                logger.info("WebSocket gossip subscriber disconnected: topic=%s", state.topic)
+            elif exc is not None:
+                logger.error("WebSocket gossip error for topic %s: %s", state.topic, exc)
+    except WebSocketDisconnect:
+        logger.info("WebSocket gossip subscriber disconnected: topic=%s", state.topic)
+    except Exception as e:
+        logger.error("WebSocket gossip error for topic %s: %s", state.topic, e)
+    finally:
+        for task in (broker_task, client_task):
+            if not task.done():
+                task.cancel()
+        await asyncio.gather(broker_task, client_task, return_exceptions=True)
+        if state.subscription is not None:
+            state.subscription.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous (pre-existing bare call preserved)
+        await _gossip_ws_close(state.websocket)
+
+
 @router.websocket("/gossip/ws")
 async def gossip_websocket(websocket: WebSocket) -> None:
     """Bidirectional WebSocket gossip with validator authentication.
@@ -472,377 +889,206 @@ async def gossip_websocket(websocket: WebSocket) -> None:
         await _gossip_ws_close(websocket, code=1008)
         return
 
-    chain_id = _resolve_chain_id(websocket)
-    if chain_id is None:
-        _note_rejection(None, topic, "unknown_chain")
-        await _gossip_ws_close(websocket, code=1008)
+    admitted = await _gossip_admit(websocket, topic)
+    if admitted is None:
         return
-    if _topic_targets_other_chain(topic, chain_id):
-        logger.warning("Gossip websocket rejected cross-chain topic %s on chain %s", topic, chain_id)
-        _note_rejection(chain_id, topic, "cross_chain_topic")
-        await _gossip_ws_close(websocket, code=1008)
-        return
-    if _membership_refused(chain_id, topic):
-        await _gossip_ws_close(websocket, code=1008)
-        return
-    broker = _broker_for_chain(chain_id)
-    if broker is None:
-        logger.warning("Gossip websocket rejected: no gossip backend for chain %s", chain_id)
-        _note_rejection(chain_id, topic, "no_backend")
-        await _gossip_ws_close(websocket, code=1008)
-        return
+    chain_id, broker = admitted
 
     client_ip = _gossip_client_ip(websocket)
-    conn_key = (client_ip, chain_id)
-
-    # Connection-level source limit, per (ip, chain) plus the optional per-IP total.
-    refused = _acquire_ip_connection(conn_key)
-    if refused is not None:
-        logger.warning("Gossip websocket connection limit (%s) for %s on chain %s", refused, client_ip, chain_id)
-        _note_rejection(chain_id, topic, refused)
-        await _gossip_ws_close(websocket, code=1008)
+    conn_key = await _gossip_acquire_slot(websocket, client_ip, chain_id, topic)
+    if conn_key is None:
         return
     gossip_open_connections.inc()
     gossip_ws_open_connections.labels(chain=_chain_label(chain_id)).inc()
 
-    challenge: str | None = None
-    challenge_ts: float = 0.0
-    authorized = False
-    authorized_address: str | None = None
-    # #1874: peer-key credential for public-topic publish (peer_auth frame).
-    peer_authorized = False
-
+    state = _GossipConnState(websocket, topic, chain_id, client_ip, broker)
     try:
-        try:
-            await asyncio.wait_for(websocket.accept(), timeout=_GOSSIP_WS_OP_TIMEOUT)
-        except TimeoutError:
-            logger.warning("Gossip websocket accept timed out for %s", client_ip)
-            await _gossip_ws_close(websocket, code=1011)
+        if not await _gossip_accept_and_challenge(state):
             return
-        logger.info("WebSocket gossip subscriber connected: topic=%s chain=%s client=%s", topic, chain_id, client_ip)
-
-        # If this is a restricted topic, require authentication before any publish.
-        if settings.gossip_auth_enabled and is_restricted_topic(topic):
-            issued = create_challenge(client_ip)
-            if issued is None:
-                _auth_rejected("challenge_rate_limited", chain_id, topic)
-                await _gossip_ws_send_json(websocket, {"error": "Challenge rate limited"})
-                await _gossip_ws_close(websocket, code=1008)
-                return
-            challenge, challenge_ts = issued
-            await _gossip_ws_send_json(
-                websocket, {"type": "auth_challenge", "challenge": challenge, "timestamp": challenge_ts}
-            )
 
         # Restricted topics gate the broker subscription itself on validator
         # auth, not just publish — the relay /ws transport already requires
         # auth for the same channels, and an anonymous peer reading the
         # blocks/pbft/consensus feed is a transport disagreement (#1947 F5).
         # The subscribe is deferred until auth_ok for those topics.
-        subscription = None
-        subscription_ready = asyncio.Event()
-
-        async def _ensure_subscription() -> None:
-            nonlocal subscription
-            if subscription is None:
-                subscription = await broker.subscribe(topic, max_queue_size=100)
-                subscription_ready.set()  # noqa: unawaited-async — asyncio.Event.set is synchronous
-
         if not (settings.gossip_auth_enabled and is_restricted_topic(topic)):
-            await _ensure_subscription()
+            await _gossip_ensure_subscription(state)
 
-        async def _forward_broker_to_client() -> None:
-            await subscription_ready.wait()
-            sub = subscription
-            if sub is None:
-                return
-            try:
-                async for message in sub:
-                    # #1308: receiver/server-side record keyed by the same
-                    # deterministic event id the publisher computed — this is
-                    # the echo the client's ack wait resolves on, so its
-                    # presence/absence is what separates "delivered but
-                    # unacked" from "never reached the server".
-                    event_id = _message_id(topic, message)
-                    try:
-                        await _gossip_ws_send_json(websocket, message)
-                    except Exception as send_exc:
-                        gossip_ws_echo_forward_failed_total.labels(topic_class=bounded_topic_label(topic)).inc()
-                        gossip_event(
-                            "echo_forward_failed",
-                            peer=client_ip,
-                            topic=topic,
-                            event_id=event_id,
-                            error=str(send_exc)[:120],
-                            _level="warning",
-                        )
-                        break
-                    gossip_ws_echo_forward_total.labels(topic_class=bounded_topic_label(topic)).inc()
-                    queue_depth = _subscription_queue_depth(sub)
-                    if queue_depth is not None:
-                        gossip_ws_subscriber_queue_depth.labels(topic_class=bounded_topic_label(topic)).set(  # noqa: unawaited-async — prometheus Gauge.set is synchronous
-                            float(queue_depth)
-                        )
-                    gossip_event(
-                        "echo_forward",
-                        peer=client_ip,
-                        topic=topic,
-                        event_id=event_id,
-                        queue_depth=queue_depth,
-                    )
-            except Exception as e:
-                logger.warning("Error forwarding broker message for %s: %s", topic, e)
-
-        async def _forward_client_to_broker() -> None:
-            nonlocal authorized, authorized_address, peer_authorized
-            while True:
-                try:
-                    raw = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
-                except asyncio.TimeoutError:
-                    try:
-                        await _gossip_ws_send_json(websocket, {"type": "ping", "timestamp": time.time()})
-                    except Exception as e:  # noqa: BLE001 - dead socket ends the receive loop
-                        logger.debug("gossip ping send failed: %s", type(e).__name__)
-                        break
-                    continue
-                except WebSocketDisconnect:
-                    break
-
-                if len(raw) > settings.gossip_max_message_size:
-                    gossip_oversized_message_total.inc()
-                    await _gossip_ws_send_json(websocket, {"error": "Message too large"})
-                    await _gossip_ws_close(websocket, code=1009)
-                    break
-
-                if not _gossip_msg_rate.is_allowed(_gossip_rate_key(client_ip, chain_id, topic)):
-                    gossip_rate_limited_total.labels(reason="message_rate").inc()
-                    _note_rejection(chain_id, topic, "rate")
-                    # #1308: rate-limited publishes never reach json.loads, so
-                    # no event id is computable — still worth an INFO record:
-                    # a missing ack with a rate_limited line is the answer.
-                    gossip_event(
-                        "rate_limited",
-                        peer=client_ip,
-                        topic=topic,
-                        reason="message_rate",
-                        _level="info",
-                    )
-                    await _gossip_ws_send_json(websocket, {"error": "Rate limit exceeded"})
-                    continue
-                if not _message_total_allowed(client_ip):
-                    gossip_rate_limited_total.labels(reason="message_rate_total").inc()
-                    _note_rejection(chain_id, topic, "rate_total")
-                    gossip_event(
-                        "rate_limited",
-                        peer=client_ip,
-                        topic=topic,
-                        reason="message_rate_total",
-                        _level="info",
-                    )
-                    await _gossip_ws_send_json(websocket, {"error": "Rate limit exceeded"})
-                    continue
-
-                try:
-                    data = json.loads(raw)
-                except json.JSONDecodeError:
-                    await _gossip_ws_send_json(websocket, {"error": "Invalid JSON"})
-                    continue
-
-                # Peer-key auth for public-topic publish (#1874). The key
-                # travels in-band, never in the URL — uvicorn access logs
-                # record the query string. Accepted set matches /subscribe/ws:
-                # own RPC key, configured peer key, or live issued join key.
-                if data.get("type") == "peer_auth":
-                    if not settings.gossip_auth_enabled:
-                        peer_authorized = True
-                        await _gossip_ws_send_json(websocket, {"type": "peer_auth_ok", "note": "auth not required"})
-                        continue
-                    peer_key = data.get("api_key")
-                    if isinstance(peer_key, str) and rpc_peer_key_accepted(peer_key):
-                        peer_authorized = True
-                        await _gossip_ws_send_json(websocket, {"type": "peer_auth_ok"})
-                    else:
-                        _note_rejection(chain_id, topic, "peer_auth_invalid")
-                        await _gossip_ws_send_json(websocket, {"type": "peer_auth_error", "error": "Invalid peer key"})
-                    continue
-
-                # Handle authentication handshake.
-                if data.get("type") == "auth_response":
-                    if not settings.gossip_auth_enabled:
-                        await _gossip_ws_send_json(websocket, {"type": "auth_ok", "note": "auth not required"})
-                        continue
-                    claimed = data.get("address", "")
-                    signature = data.get("signature", "")
-                    client_challenge = data.get("challenge", "")
-                    client_ts = data.get("timestamp", 0.0)
-                    if not is_validator(claimed):
-                        _auth_rejected("not_validator", chain_id, topic)
-                        await _gossip_ws_send_json(websocket, {"error": "Not a validator"})
-                        await _gossip_ws_close(websocket, code=1008)
-                        break
-                    if client_challenge != challenge:
-                        _auth_rejected("challenge_mismatch", chain_id, topic)
-                        await _gossip_ws_send_json(websocket, {"error": "Challenge mismatch"})
-                        await _gossip_ws_close(websocket, code=1008)
-                        break
-                    if abs(time.time() - client_ts) > settings.gossip_auth_challenge_ttl:
-                        _auth_rejected("challenge_expired", chain_id, topic)
-                        await _gossip_ws_send_json(websocket, {"error": "Challenge expired"})
-                        await _gossip_ws_close(websocket, code=1008)
-                        break
-                    if verify_challenge(
-                        client_challenge,
-                        claimed,
-                        client_ts,
-                        signature,
-                        channel_scope(topic, chain_id),
-                        legacy_scope=channel_scope(topic),
-                    ):
-                        if not authorized:
-                            gossip_authenticated_connections.labels(address=claimed).inc()
-                        authorized = True
-                        authorized_address = claimed
-                        gossip_auth_accepted_total.labels(address=claimed).inc()
-                        await _gossip_ws_send_json(websocket, {"type": "auth_ok", "address": claimed})
-                        # Deferred subscribe for restricted topics — the
-                        # broker feed only flows after validator auth.
-                        await _ensure_subscription()
-                        continue
-                    else:
-                        _auth_rejected("invalid_signature", chain_id, topic)
-                        await _gossip_ws_send_json(websocket, {"error": "Invalid signature"})
-                        await _gossip_ws_close(websocket, code=1008)
-                        break
-
-                # Publishing path.
-                if is_restricted_topic(topic) and not authorized:
-                    _auth_rejected("unauthorized_publish", chain_id, topic)
-                    gossip_event(
-                        "publish_rejected",
-                        peer=client_ip,
-                        topic=topic,
-                        reason="unauthorized_publish",
-                        event_id=_message_id(topic, data),
-                        _level="info",
-                    )
-                    await _gossip_ws_send_json(websocket, {"error": "Validator authentication required"})
-                    await _gossip_ws_close(websocket, code=1008)
-                    break
-
-                if not is_public_topic(topic) and not authorized:
-                    _auth_rejected("unauthorized_topic", chain_id, topic)
-                    gossip_event(
-                        "publish_rejected",
-                        peer=client_ip,
-                        topic=topic,
-                        reason="unauthorized_topic",
-                        event_id=_message_id(topic, data),
-                        _level="info",
-                    )
-                    await _gossip_ws_send_json(websocket, {"error": "Topic not authorized"})
-                    await _gossip_ws_close(websocket, code=1008)
-                    break
-
-                # #1874: public topics are subscribe-open but publish-gated —
-                # a peer credential (or validator auth) is required so an
-                # anonymous internet caller cannot inject forged tx/status/
-                # mempool gossip. GOSSIP_PUBLIC_PUBLISH_REQUIRE_KEY=false is
-                # the pre-#1874 escape hatch.
-                if (
-                    is_public_topic(topic)
-                    and settings.gossip_auth_enabled
-                    and settings.gossip_public_publish_require_key
-                    and not authorized
-                    and not peer_authorized
-                ):
-                    _note_rejection(chain_id, topic, "peer_key_required")
-                    gossip_event(
-                        "publish_rejected",
-                        peer=client_ip,
-                        topic=topic,
-                        reason="peer_key_required",
-                        event_id=_message_id(topic, data),
-                        _level="info",
-                    )
-                    await _gossip_ws_send_json(websocket, {"error": "Peer key required to publish on public topics"})
-                    await _gossip_ws_close(websocket, code=1008)
-                    break
-
-                # #1308: server-side receive record — same deterministic
-                # event id the publisher used, so a client-side ack timeout
-                # can be matched against rx/broker/echo stages.
-                event_id = _message_id(topic, data)
-                gossip_ws_rx_publish_total.labels(topic_class=bounded_topic_label(topic)).inc()
-                queue_depth = _subscription_queue_depth(subscription)
-                if queue_depth is not None:
-                    gossip_ws_subscriber_queue_depth.labels(topic_class=bounded_topic_label(topic)).set(  # noqa: unawaited-async — prometheus Gauge.set is synchronous
-                        float(queue_depth)
-                    )
-                gossip_event(
-                    "rx_publish",
-                    peer=client_ip,
-                    topic=topic,
-                    event_id=event_id,
-                    queue_depth=queue_depth,
-                    **_rx_publish_extra_fields(data),
-                )
-                try:
-                    await broker.publish(topic, data)
-                    gossip_messages_published_total.labels(topic=bounded_topic_label(topic)).inc()
-                except Exception as e:  # noqa: BLE001 - one bad publish must not close the socket
-                    # A broker-side failure (e.g. an ACL-denied topic) loses
-                    # this message — but must not close the connection: the
-                    # same socket carries other topics and the receive path,
-                    # and tearing it down on one bad publish churns the whole
-                    # attestation transport.
-                    logger.warning("Broker publish failed for topic %s — message dropped: %s", topic, e)
-                    metrics_registry.increment("gossip_broker_publish_failed_total")
-                    gossip_event(
-                        "broker_publish_failed",
-                        peer=client_ip,
-                        topic=topic,
-                        event_id=event_id,
-                        error=str(e)[:120],
-                        _level="warning",
-                    )
-                    continue
-
-        from asyncio import create_task, wait
-
-        broker_task = create_task(_forward_broker_to_client())
-        client_task = create_task(_forward_client_to_broker())
-        try:
-            done, pending = await wait([broker_task, client_task], return_when=asyncio.FIRST_COMPLETED)
-            for task in pending:
-                task.cancel()
-            await asyncio.gather(*pending, return_exceptions=True)
-            for task in done:
-                exc = None if task.cancelled() else task.exception()
-                if isinstance(exc, (WebSocketDisconnect, asyncio.TimeoutError)):
-                    # TimeoutError = bounded send_json hit _GOSSIP_WS_OP_TIMEOUT
-                    # on a peer that stopped reading — same teardown as a
-                    # disconnect (#1165).
-                    logger.info("WebSocket gossip subscriber disconnected: topic=%s", topic)
-                elif exc is not None:
-                    logger.error("WebSocket gossip error for topic %s: %s", topic, exc)
-        except WebSocketDisconnect:
-            logger.info("WebSocket gossip subscriber disconnected: topic=%s", topic)
-        except Exception as e:
-            logger.error("WebSocket gossip error for topic %s: %s", topic, e)
-        finally:
-            for task in (broker_task, client_task):
-                if not task.done():
-                    task.cancel()
-            await asyncio.gather(broker_task, client_task, return_exceptions=True)
-            if subscription is not None:
-                subscription.close()
-            await _gossip_ws_close(websocket)
+        await _gossip_run_forwarders(state)
     finally:
         _release_ip_connection(conn_key)
         gossip_open_connections.dec()
         gossip_ws_open_connections.labels(chain=_chain_label(chain_id)).dec()
-        if authorized_address:
-            gossip_authenticated_connections.labels(address=authorized_address).dec()
+        if state.authorized_address:
+            gossip_authenticated_connections.labels(address=state.authorized_address).dec()
+
+
+class _SubscribeHandshake:
+    """Outcome of the /subscribe/ws accept + frame + lease handshake.
+
+    ``node_id``/``chain_id``/``transport`` are bound as soon as the frame
+    parses — including on rejection paths — so the handler's ``finally``
+    block observes the same values the inline code left behind. A plain
+    class for the same fresh-worker-module reason as ``_GossipConnState``.
+    """
+
+    def __init__(self) -> None:
+        self.node_id: Any = None
+        self.chain_id: Any = ""
+        self.transport: Any = None
+        self.accepted = False
+
+
+async def _subscribe_authorize(websocket: WebSocket, node_id: Any, chain_id: Any, data: dict[str, Any]) -> bool:
+    """Peer-key + node_id binding + lease validation; False = rejected (closed)."""
+    # #1702: the lease check below proves a lease EXISTS for the claimed
+    # node_id — it says nothing about who is asking, and /rpc/subscribers
+    # is public, so any valid node_id could be claimed anonymously. Require
+    # the same peer-key credential the REST lease routes enforce, with the
+    # same issued-key node_id binding.
+    api_key = data.get("api_key")
+    if not isinstance(api_key, str) or not rpc_peer_key_accepted(api_key):
+        logger.warning("Subscribe websocket rejected: missing or invalid peer key (node_id=%s)", node_id)
+        await _gossip_ws_send_json(websocket, {"error": "Valid peer key required (api_key)"})
+        await _gossip_ws_close(websocket, code=1008)
+        return False
+    # Same classification as the REST lease routes (#1994): fleet keys
+    # are unbound; any other authenticated key must resolve to an active
+    # issued scope — a revoked-or-unresolvable scope fails closed rather
+    # than silently skipping the node_id binding.
+    if not rpc_fleet_key_accepted(api_key):
+        scope = peer_keys.peer_key_node_scope(api_key)
+        if scope is None or scope != node_id:
+            await _gossip_ws_send_json(websocket, {"error": "Peer key is bound to a different node_id"})
+            await _gossip_ws_close(websocket, code=1008)
+            return False
+    try:
+        expiry = await lease_tracker.get_lease_expiry(node_id, chain_id)
+
+        if expiry <= time.time():
+            await _gossip_ws_send_json(
+                websocket, {"error": "No valid lease found. Register subscription first via POST /rpc/subscribe"}
+            )
+            await _gossip_ws_close(websocket, code=1008)
+            return False
+    except Exception as e:
+        logger.error("Failed to validate lease for %s: %s", node_id, e)
+        await _gossip_ws_send_json(websocket, {"error": "Failed to validate lease"})
+        await _gossip_ws_close(websocket, code=1011)
+        return False
+    return True
+
+
+async def _subscribe_handshake(websocket: WebSocket) -> _SubscribeHandshake:
+    """Accept the socket and validate the subscription frame + lease.
+
+    Every rejection path closes the socket and returns the partially-filled
+    result with ``accepted=False`` — the caller returns and the ``finally``
+    block still sees the parsed ``node_id``/``chain_id``.
+    """
+    result = _SubscribeHandshake()
+    try:
+        await asyncio.wait_for(websocket.accept(), timeout=_GOSSIP_WS_OP_TIMEOUT)
+    except TimeoutError:
+        await _gossip_ws_close(websocket, code=1011)
+        return result
+    # The handshake frame is the only inbound message this endpoint reads,
+    # but it was unbounded: a client that never sends (or trickles one)
+    # held the connection — and its slot in _active_subscribers bookkeeping
+    # — forever, and an oversized frame was buffered whole. Same bounds as
+    # the gossip ws path: a receive timeout plus the gossip message cap.
+    try:
+        message = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
+    except (asyncio.TimeoutError, WebSocketDisconnect):
+        await _gossip_ws_close(websocket, code=1008)
+        return result
+    if len(message) > settings.gossip_max_message_size:
+        await _gossip_ws_close(websocket, code=1009)
+        return result
+    try:
+        data = json.loads(message)
+    except json.JSONDecodeError:
+        await _gossip_ws_send_json(websocket, {"error": "Invalid JSON"})
+        await _gossip_ws_close(websocket, code=1008)
+        return result
+    if not isinstance(data, dict):
+        await _gossip_ws_send_json(websocket, {"error": "Subscription message must be a JSON object"})
+        await _gossip_ws_close(websocket, code=1008)
+        return result
+    result.node_id = data.get("node_id")
+    result.chain_id = data.get("chain_id", settings.chain_id)
+    result.transport = data.get("transport", "websocket")
+    if not result.node_id:
+        await _gossip_ws_send_json(websocket, {"error": "node_id is required"})
+        await _gossip_ws_close(websocket, code=1008)
+        return result
+    if not await _subscribe_authorize(websocket, result.node_id, result.chain_id, data):
+        return result
+    result.accepted = True
+    return result
+
+
+async def _subscribe_send_blocks(websocket: WebSocket, node_id: str, block_subscription: TopicSubscription) -> None:
+    """Send blocks to subscriber."""
+    try:
+        async for block_data in block_subscription:
+            if isinstance(block_data, str):
+                block_data = json.loads(block_data)
+            # Bounded send (#1587): a peer that stops reading must
+            # not wedge this task — same _GOSSIP_WS_OP_TIMEOUT the
+            # gossip ws path got in #1165.
+            await _gossip_ws_send_json(websocket, block_data)
+            logger.debug("Sent block to %s", node_id)
+    except WebSocketDisconnect:
+        logger.info("WebSocket disconnected for %s", node_id)
+    except Exception as e:
+        logger.error("Error sending block to %s: %s", node_id, e)
+
+
+async def _subscribe_heartbeat(websocket: WebSocket, node_id: str, chain_id: str) -> None:
+    """Send periodic pings to keep connection alive."""
+    try:
+        while True:
+            await asyncio.sleep(20)
+            # #1587: the lease was only validated at handshake — a
+            # connection that outlives its lease kept receiving
+            # block pushes forever. Revalidate each heartbeat; a
+            # lapsed lease closes the stream. A lease_tracker error
+            # is transient and must not drop live subscribers.
+            try:
+                lease_expiry = await lease_tracker.get_lease_expiry(node_id, chain_id)
+            except Exception as e:
+                logger.warning("Lease revalidation failed for %s: %s", node_id, e)
+                lease_expiry = time.time() + 1
+            if lease_expiry <= time.time():
+                logger.info("Lease expired for %s; closing subscribe ws", node_id)
+                await _gossip_ws_close(websocket, code=1008)
+                return
+            await _gossip_ws_send_json(websocket, {"type": "ping", "timestamp": time.time()})
+    except WebSocketDisconnect:  # expected disconnect
+        pass
+    # intentional silent cleanup
+    except Exception as e:  # noqa: BLE001,S110 - receive-loop teardown  # nosec B110
+        logger.debug("gossip receive loop cleanup failed: %s", type(e).__name__)
+
+
+async def _subscribe_run_forwarders(
+    websocket: WebSocket,
+    node_id: str,
+    chain_id: str,
+    block_subscription: TopicSubscription,
+) -> None:
+    from asyncio import create_task, wait
+
+    block_task = create_task(_subscribe_send_blocks(websocket, node_id, block_subscription))
+    heartbeat_task = create_task(_subscribe_heartbeat(websocket, node_id, chain_id))
+    done, pending = await wait([block_task, heartbeat_task], return_when=asyncio.FIRST_COMPLETED)
+    for task in pending:
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
 
 @router.websocket("/subscribe/ws")
@@ -862,81 +1108,17 @@ async def subscription_websocket(websocket: WebSocket) -> None:
         logger.warning("Subscribe websocket connection limit for %s", client_ip)
         await _gossip_ws_close(websocket, code=1008)
         return
-    node_id: str | None = None
     # Bound before the handshake so the finally block can look up the entry
     # even when the client disconnects before sending its subscription message.
-    chain_id: str = ""
+    node_id: Any = None
+    chain_id: Any = ""
     try:
-        try:
-            await asyncio.wait_for(websocket.accept(), timeout=_GOSSIP_WS_OP_TIMEOUT)
-        except TimeoutError:
-            await _gossip_ws_close(websocket, code=1011)
+        handshake = await _subscribe_handshake(websocket)
+        node_id = handshake.node_id
+        chain_id = handshake.chain_id
+        if not handshake.accepted:
             return
-        # The handshake frame is the only inbound message this endpoint reads,
-        # but it was unbounded: a client that never sends (or trickles one)
-        # held the connection — and its slot in _active_subscribers bookkeeping
-        # — forever, and an oversized frame was buffered whole. Same bounds as
-        # the gossip ws path: a receive timeout plus the gossip message cap.
-        try:
-            message = await asyncio.wait_for(websocket.receive_text(), timeout=30.0)
-        except (asyncio.TimeoutError, WebSocketDisconnect):
-            await _gossip_ws_close(websocket, code=1008)
-            return
-        if len(message) > settings.gossip_max_message_size:
-            await _gossip_ws_close(websocket, code=1009)
-            return
-        try:
-            data = json.loads(message)
-        except json.JSONDecodeError:
-            await _gossip_ws_send_json(websocket, {"error": "Invalid JSON"})
-            await _gossip_ws_close(websocket, code=1008)
-            return
-        if not isinstance(data, dict):
-            await _gossip_ws_send_json(websocket, {"error": "Subscription message must be a JSON object"})
-            await _gossip_ws_close(websocket, code=1008)
-            return
-        node_id = data.get("node_id")
-        chain_id = data.get("chain_id", settings.chain_id)
-        transport = data.get("transport", "websocket")
-        if not node_id:
-            await _gossip_ws_send_json(websocket, {"error": "node_id is required"})
-            await _gossip_ws_close(websocket, code=1008)
-            return
-        # #1702: the lease check below proves a lease EXISTS for the claimed
-        # node_id — it says nothing about who is asking, and /rpc/subscribers
-        # is public, so any valid node_id could be claimed anonymously. Require
-        # the same peer-key credential the REST lease routes enforce, with the
-        # same issued-key node_id binding.
-        api_key = data.get("api_key")
-        if not isinstance(api_key, str) or not rpc_peer_key_accepted(api_key):
-            logger.warning("Subscribe websocket rejected: missing or invalid peer key (node_id=%s)", node_id)
-            await _gossip_ws_send_json(websocket, {"error": "Valid peer key required (api_key)"})
-            await _gossip_ws_close(websocket, code=1008)
-            return
-        # Same classification as the REST lease routes (#1994): fleet keys
-        # are unbound; any other authenticated key must resolve to an active
-        # issued scope — a revoked-or-unresolvable scope fails closed rather
-        # than silently skipping the node_id binding.
-        if not rpc_fleet_key_accepted(api_key):
-            scope = peer_keys.peer_key_node_scope(api_key)
-            if scope is None or scope != node_id:
-                await _gossip_ws_send_json(websocket, {"error": "Peer key is bound to a different node_id"})
-                await _gossip_ws_close(websocket, code=1008)
-                return
-        try:
-            expiry = await lease_tracker.get_lease_expiry(node_id, chain_id)
-
-            if expiry <= time.time():
-                await _gossip_ws_send_json(
-                    websocket, {"error": "No valid lease found. Register subscription first via POST /rpc/subscribe"}
-                )
-                await _gossip_ws_close(websocket, code=1008)
-                return
-        except Exception as e:
-            logger.error("Failed to validate lease for %s: %s", node_id, e)
-            await _gossip_ws_send_json(websocket, {"error": "Failed to validate lease"})
-            await _gossip_ws_close(websocket, code=1011)
-            return
+        transport = handshake.transport
         _active_subscribers[node_id, chain_id] = websocket
         logger.info("WebSocket subscriber connected: %s (chain=%s, transport=%s)", node_id, chain_id, transport)
         await _gossip_ws_send_json(
@@ -949,60 +1131,7 @@ async def subscription_websocket(websocket: WebSocket) -> None:
             await _gossip_ws_close(websocket, code=1008)
             return
         block_subscription = await broker.subscribe(topic, max_queue_size=100)
-
-        async def _send_blocks() -> None:
-            """Send blocks to subscriber."""
-            try:
-                async for block_data in block_subscription:
-                    if isinstance(block_data, str):
-                        block_data = json.loads(block_data)
-                    # Bounded send (#1587): a peer that stops reading must
-                    # not wedge this task — same _GOSSIP_WS_OP_TIMEOUT the
-                    # gossip ws path got in #1165.
-                    await _gossip_ws_send_json(websocket, block_data)
-                    logger.debug("Sent block to %s", node_id)
-            except WebSocketDisconnect:
-                logger.info("WebSocket disconnected for %s", node_id)
-            except Exception as e:
-                logger.error("Error sending block to %s: %s", node_id, e)
-
-        async def _heartbeat() -> None:
-            """Send periodic pings to keep connection alive."""
-            try:
-                while True:
-                    await asyncio.sleep(20)
-                    # #1587: the lease was only validated at handshake — a
-                    # connection that outlives its lease kept receiving
-                    # block pushes forever. Revalidate each heartbeat; a
-                    # lapsed lease closes the stream. A lease_tracker error
-                    # is transient and must not drop live subscribers.
-                    try:
-                        lease_expiry = await lease_tracker.get_lease_expiry(node_id, chain_id)
-                    except Exception as e:
-                        logger.warning("Lease revalidation failed for %s: %s", node_id, e)
-                        lease_expiry = time.time() + 1
-                    if lease_expiry <= time.time():
-                        logger.info("Lease expired for %s; closing subscribe ws", node_id)
-                        await _gossip_ws_close(websocket, code=1008)
-                        return
-                    await _gossip_ws_send_json(websocket, {"type": "ping", "timestamp": time.time()})
-            except WebSocketDisconnect:  # expected disconnect
-                pass
-            # intentional silent cleanup
-            except Exception as e:  # noqa: BLE001,S110 - receive-loop teardown  # nosec B110
-                logger.debug("gossip receive loop cleanup failed: %s", type(e).__name__)
-
-        from asyncio import create_task, wait
-
-        block_task = create_task(_send_blocks())
-        heartbeat_task = create_task(_heartbeat())
-        done, pending = await wait([block_task, heartbeat_task], return_when=asyncio.FIRST_COMPLETED)
-        for task in pending:
-            task.cancel()
-            try:
-                await task
-            except asyncio.CancelledError:
-                pass
+        await _subscribe_run_forwarders(websocket, node_id, chain_id, block_subscription)
     except WebSocketDisconnect:
         logger.info("WebSocket subscriber disconnected: %s", node_id)
     except Exception as e:
