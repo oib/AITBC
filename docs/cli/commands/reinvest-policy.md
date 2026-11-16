@@ -2,7 +2,7 @@
 
 # `aitbc reinvest policy`
 
-Show or record a reinvestment policy for an agent.
+Record a reinvestment policy for an agent (persisted locally).
 
 ## Usage
 
@@ -15,9 +15,9 @@ aitbc reinvest policy [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--agent-id` | text | — | yes | The Agent-id. |
-| `--staking-pct` | text | `50` | no | Percentage directed to staking |
-| `--reserve-pct` | text | `30` | no | Percentage kept in reserve |
-| `--min-reinvest` | text | `1` | no | Minimum amount to reinvest |
+| `--staking-pct` | text | `60` | no | Percentage of reinvested funds directed to staking |
+| `--reserve-pct` | text | `40` | no | Percentage of reinvested funds kept as capacity reserve |
+| `--min-reinvest` | text | `0.01` | no | Minimum amount to reinvest |
 
 ## Examples
 

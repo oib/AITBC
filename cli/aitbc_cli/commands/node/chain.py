@@ -37,13 +37,54 @@ def stop_chain_command(ctx, chain_id):
 
 
 def list_chains_command(ctx):
-    """List all active chain instances"""
+    """List all active chain instances — live inventory via the multichain
+    node configs, same source as ``aitbc node chains``."""
     try:
-        chains = [
-            {"Chain ID": "ait-mainnet", "Chain Type": "micro", "Status": "Active", "Block Height": "12345", "Peers": "5"}
+        import asyncio
+
+        from aitbc_cli.core.config import load_multichain_config
+        from aitbc_cli.core.node_client import NodeClient
+
+        config = load_multichain_config()
+        all_chains = []
+
+        async def get_all_chains():
+            tasks = []
+            for nid, node_config in config.nodes.items():
+
+                async def get_chains_for_node(nid, nconfig):
+                    try:
+                        async with NodeClient(nconfig) as client:
+                            chains = await client.get_hosted_chains()
+                            return [(nid, chain) for chain in chains]
+                    except Exception as e:  # noqa: BLE001 - NodeClient raises bare Exception; parity with `node chains`
+                        click.echo(f"Error getting chains from node {nid}: {e}")
+                        return []
+
+                tasks.append(get_chains_for_node(nid, node_config))
+
+            results = await asyncio.gather(*tasks)
+            for result in results:
+                all_chains.extend(result)
+
+        asyncio.run(get_all_chains())
+
+        if not all_chains:
+            output("No chains found on any node", ctx.obj.get("output", "table"))
+            return
+
+        chains_data = [
+            {
+                "Node ID": nid,
+                "Chain ID": chain.id,
+                "Name": chain.name,
+                "Status": chain.status.value,
+                "Block Height": chain.block_height,
+            }
+            for nid, chain in all_chains
         ]
 
-        output(chains, ctx.obj.get("output", "table"), title="Active Chains")
+        output(chains_data, ctx.obj.get("output", "table"), title="Active Chains")
 
     except Exception as e:
         error(f"Error listing chains: {str(e)}")
