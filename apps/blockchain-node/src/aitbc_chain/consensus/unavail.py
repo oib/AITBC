@@ -34,260 +34,17 @@ is set; with the flag off none of this code runs.
 from __future__ import annotations
 
 import asyncio
-import json
 import time
-from dataclasses import dataclass, field
 from functools import partial
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.crypto.consensus_signing import sign_consensus_message, verify_consensus_message
-from aitbc.crypto.signature_recovery import canonical_address
 
-from ..config import settings
 from ..gossip import gossip_broker
 from ..metrics import metrics_registry
 from .vote_fetch import locate_voted_block
 
 logger = get_logger(__name__)
-
-# Domain separation: an attestation signature must never verify as an
-# unavailability statement (and vice versa). The tag is inside the signed
-# payload, so it is covered by the signature.
-UNAVAIL_TAG = "unavail-v1"
-UC_VERSION = 1
-
-QUERY_TYPE = "unavail_query"
-RESPONSE_TYPE = "unavail_resp"
-
-
-def justification_enabled() -> bool:
-    """#1281 master switch — dormant default-off like Phase 1."""
-    return bool(
-        getattr(settings, "vote_journal_enabled", False) and getattr(settings, "vote_journal_justification_enabled", False)
-    )
-
-
-def nonblocking_persist_enabled() -> bool:
-    """#1306: attest-listener leg 1 reads the sampler instead of waiting on it.
-    Dormant default-off; only meaningful with the UC barrier armed."""
-    return bool(getattr(settings, "unavail_nonblocking_persist_enabled", False)) and justification_enabled()
-
-
-def _float(name: str, default: float) -> float:
-    return float(getattr(settings, name, default))
-
-
-def _int(name: str, default: int) -> int:
-    return int(getattr(settings, name, default))
-
-
-def collect_seconds() -> float:
-    return _float("unavail_collect_seconds", 15.0)
-
-
-def cert_max_age_seconds() -> float:
-    return _float("unavail_cert_max_age_seconds", 120.0)
-
-
-def evidence_seconds() -> float:
-    return _float("unavail_evidence_seconds", 90.0)
-
-
-# #1964: height plausibility window for the observation index, relative to the
-# node's local tip hint. The justification only ever concerns the next
-# height(s), so evidence far outside [tip - BEHIND, tip + AHEAD] is noise (or a
-# flood vector) and is not recorded. Unknown tip (None) records, as before.
-OBS_HEIGHT_BEHIND = 8
-OBS_HEIGHT_AHEAD = 64
-
-
-def obs_height_plausible(height: int, tip_hint: int | None) -> bool:
-    if tip_hint is None:
-        return True
-    return tip_hint - OBS_HEIGHT_BEHIND <= int(height) <= tip_hint + OBS_HEIGHT_AHEAD
-
-
-def visibility_seconds() -> float:
-    """Mesh-liveness window — deliberately much longer than T_evidence.
-
-    "Peers answering" is a coarse reachability signal, not the quiet-window
-    evidence: validator traffic is continuous in production, and the UC
-    responders themselves refresh it. A partition still fails visibility
-    once pre-partition actors age out of this window.
-    """
-    return _float("unavail_visibility_seconds", 300.0)
-
-
-def sample_seconds() -> float:
-    return _float("unavail_sample_seconds", 10.0)
-
-
-def min_responses() -> int:
-    """UC quorum-intersection threshold — ``MIN_ATTESTATIONS`` by ruling."""
-    configured = _int("unavail_min_responses", 0)
-    if configured > 0:
-        return configured
-    return max(1, _int("multi_validator_min_attestations", 2))
-
-
-def collect_backoff_seconds() -> float:
-    """Negative-result backoff after a failed UC probe (#1281 respin).
-
-    Floored at ``2 * collect_seconds`` per the respin ruling — a failed
-    collection must not be retried inside its own window, and gate retries
-    every few seconds must not storm the query topic.
-    """
-    return max(_float("unavail_collect_backoff_seconds", 30.0), 2.0 * collect_seconds())
-
-
-def query_topic(chain_id: str) -> str:
-    return f"consensus.unavail_query.{chain_id}"
-
-
-def response_topic(chain_id: str) -> str:
-    return f"consensus.unavail_resp.{chain_id}"
-
-
-def validator_addresses() -> set[str]:
-    """Canonical validator set from settings (same parse as the gates)."""
-    raw = getattr(settings, "validator_set", "")
-    if not raw:
-        return set()
-    try:
-        data = json.loads(raw)
-        entries = data if isinstance(data, list) else data.get("validators", [])
-        return {canonical_address(str(v.get("address", ""))) for v in entries if isinstance(v, dict) and v.get("address")}
-    except Exception:  # noqa: BLE001 - a malformed set means no UC can verify anyway
-        return set()
-
-
-# ---------------------------------------------------------------------------
-# Wire payloads
-# ---------------------------------------------------------------------------
-
-
-def unavail_response_message(chain_id: str, height: int, block_hash: str, epoch: int) -> dict[str, Any]:
-    """The exact dict a responder signs (canonical-JSON + keccak + secp256k1)."""
-    return {
-        "tag": UNAVAIL_TAG,
-        "chain_id": chain_id,
-        "height": int(height),
-        "hash": block_hash,
-        "epoch": int(epoch),
-    }
-
-
-def build_unavail_response(
-    chain_id: str, height: int, block_hash: str, epoch: int, signer: str, private_key: str
-) -> dict[str, Any]:
-    """One signed ``UNAVAIL_RESP`` payload."""
-    return {
-        "type": RESPONSE_TYPE,
-        "chain_id": chain_id,
-        "height": int(height),
-        "hash": block_hash,
-        "epoch": int(epoch),
-        "signer": canonical_address(signer),
-        "signature": sign_consensus_message(unavail_response_message(chain_id, height, block_hash, epoch), private_key),
-    }
-
-
-def verify_unavail_response(resp: dict[str, Any], validator_set: set[str]) -> str | None:
-    """Canonical signer address when ``resp`` is a valid unavailability statement.
-
-    Checks type, field binding is left to the caller (the cert verifier
-    re-checks chain/height/hash/epoch), signature recovers to ``signer``,
-    and ``signer`` is in ``validator_set``. Returns None on any failure.
-    """
-    if not isinstance(resp, dict) or resp.get("type") != RESPONSE_TYPE:
-        return None
-    signer = resp.get("signer")
-    signature = resp.get("signature")
-    if not signer or not signature:
-        return None
-    try:
-        canon = canonical_address(str(signer))
-    except (AttributeError, TypeError, ValueError):
-        return None
-    if canon not in validator_set:
-        return None
-    try:
-        height = int(resp.get("height", 0))
-        epoch = int(resp.get("epoch", 0))
-    except (TypeError, ValueError):
-        return None
-    message = unavail_response_message(str(resp.get("chain_id", "")), height, str(resp.get("hash", "")), epoch)
-    try:
-        if not verify_consensus_message(message, str(signature), canon):
-            return None
-    except Exception:  # noqa: BLE001 - malformed signature is just an invalid response
-        return None
-    return canon
-
-
-# ---------------------------------------------------------------------------
-# UnavailabilityCertificate
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class UnavailabilityCertificate:
-    """Signed proof that a quorum-intersecting set of validators declared
-    ``(chain_id, height, hash)`` unservable at ``epoch``."""
-
-    chain_id: str
-    height: int
-    hash: str
-    epoch: int
-    responses: tuple[dict[str, str], ...]  # {"validator","signature"}
-    index_verdict: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, Any]:
-        out: dict[str, Any] = {
-            "version": UC_VERSION,
-            "kind": "unavailability_cert",
-            "chain_id": self.chain_id,
-            "height": self.height,
-            "hash": self.hash,
-            "epoch": self.epoch,
-            "responses": [dict(r) for r in self.responses],
-        }
-        if self.index_verdict:
-            out["index_verdict"] = dict(self.index_verdict)
-        return out
-
-    @classmethod
-    def from_dict(cls, raw: Any) -> UnavailabilityCertificate | None:
-        if not isinstance(raw, dict) or raw.get("kind") != "unavailability_cert":
-            return None
-        # #1940 F6: version is enforced, not ignored — a foreign/newer cert
-        # shape must fail closed rather than parse as v1. Absent version is
-        # accepted as legacy v1 (hand-built/early certs carry none).
-        if raw.get("version", UC_VERSION) != UC_VERSION:
-            return None
-        try:
-            responses = tuple(
-                {"validator": str(r.get("validator", "")), "signature": str(r.get("signature", ""))}
-                for r in raw.get("responses", [])
-                if isinstance(r, dict)
-            )
-            verdict = raw.get("index_verdict")
-            return cls(
-                chain_id=str(raw.get("chain_id", "")),
-                height=int(raw.get("height", 0)),
-                hash=str(raw.get("hash", "")),
-                epoch=int(raw.get("epoch", 0)),
-                responses=responses,
-                index_verdict=verdict if isinstance(verdict, dict) else {},
-            )
-        except (TypeError, ValueError, OverflowError):
-            return None  # OverflowError: json.loads accepts Infinity for height/epoch
-
-
-def cert_message(cert: UnavailabilityCertificate) -> dict[str, Any]:
-    """Reconstruct the per-response signed payload for verification."""
-    return unavail_response_message(cert.chain_id, cert.height, cert.hash, cert.epoch)
 
 
 def verify_unavailability_cert(
@@ -337,28 +94,6 @@ def verify_unavailability_cert(
     return True, ""
 
 
-def _verify_cert_response(resp: dict[str, str], message: dict[str, Any], vset: set[str], seen: set[str]) -> str | None:
-    """One certificate response: distinct in-set signer + valid signature."""
-    signer = str(resp.get("validator", ""))
-    signature = str(resp.get("signature", ""))
-    try:
-        canon = canonical_address(signer)
-    except (AttributeError, TypeError, ValueError):
-        return "bad_signer"
-    if canon in seen:
-        return "duplicate_signer"
-    seen.add(canon)
-    if canon not in vset:
-        return "signer_not_validator"
-    try:
-        ok = verify_consensus_message(message, signature, canon)
-    except Exception:  # noqa: BLE001 - a bad signature invalidates the cert
-        return "bad_signature"
-    if not ok:
-        return "bad_signature"
-    return None
-
-
 # ---------------------------------------------------------------------------
 # UC collection (gossip round)
 # ---------------------------------------------------------------------------
@@ -373,24 +108,6 @@ async def _next_response(sub: Any, deadline: float) -> Any:
         return await asyncio.wait_for(sub.get(), timeout=min(remaining, 1.0))
     except (asyncio.TimeoutError, TimeoutError):
         return None
-
-
-def _matching_response_signer(
-    resp: Any, chain_id: str, height: int, block_hash: str, epoch: int, vset: set[str]
-) -> str | None:
-    """Canonical signer when ``resp`` answers THIS query, else None."""
-    if not isinstance(resp, dict):
-        return None
-    try:
-        resp_height = int(resp.get("height", 0))
-        resp_epoch = int(resp.get("epoch", 0))
-    except (TypeError, ValueError):
-        return None
-    if resp.get("chain_id") != chain_id or resp_height != int(height):
-        return None
-    if resp.get("hash") != block_hash or resp_epoch != epoch:
-        return None
-    return verify_unavail_response(resp, vset)
 
 
 async def collect_unavailability_cert(
@@ -464,241 +181,6 @@ async def collect_unavailability_cert(
         return None
     metrics_registry.increment("unavail_cert_collected_total")
     return cert
-
-
-# ---------------------------------------------------------------------------
-# GossipObservationIndex — the "can never join quorum" leg (#1279 substrate)
-# ---------------------------------------------------------------------------
-
-
-class GossipObservationIndex:
-    """Per-(height, hash) record of observed attestation traffic.
-
-    Fed by the persistent ``attest_request`` handler and a persistent
-    ``attest_response`` subscriber. Own validator addresses are excluded —
-    "foreign attestations" means OTHER validators; our own prior vote is
-    journal business, not gossip evidence.
-    """
-
-    def __init__(self) -> None:
-        self._lock = asyncio.Lock()
-        # (height, hash) -> observation record
-        self._entries: dict[tuple[int, str], dict[str, Any]] = {}
-        # height -> {validator_addr: last_seen_mono} — mesh-visibility actors
-        self._actors: dict[int, dict[str, float]] = {}
-        self._max_entries = 512
-
-    @staticmethod
-    def _mono() -> float:
-        return time.monotonic()
-
-    @staticmethod
-    def _entry_last(ent: dict[str, Any]) -> float:
-        stamps = list(ent["req_actors"].values()) + list(ent["attestations"].values())
-        return max(stamps) if stamps else 0.0
-
-    def _evict_for(self, height: int) -> bool:
-        """Make room for one new key at ``height``; False when nothing may go.
-
-        #1964: never ``.clear()`` — a flood must not wipe unrelated quiet-window
-        evidence. Victim order: (1) the entry whose last activity is oldest AND
-        already outside ``evidence_seconds()`` (it can no longer block a quiet
-        verdict); (2) the lowest-height entry strictly below the newcomer's
-        height (older heights matter least); otherwise the newcomer is refused
-        and the table keeps every in-window entry.
-        """
-        now = self._mono()
-        win = evidence_seconds()
-        stale = [(self._entry_last(e), k) for k, e in self._entries.items() if now - self._entry_last(e) >= win]
-        if stale:
-            del self._entries[min(stale)[1]]
-            return True
-        lower = [k for k in self._entries if k[0] < int(height)]
-        if lower:
-            del self._entries[min(lower)]
-            return True
-        return False
-
-    def _entry(self, height: int, block_hash: str) -> dict[str, Any] | None:
-        key = (int(height), block_hash)
-        ent = self._entries.get(key)
-        if ent is None:
-            if len(self._entries) >= self._max_entries and not self._evict_for(height):
-                metrics_registry.increment("unavail_obs_entry_refused_total")
-                return None
-            ent = {
-                "requests": 0,
-                "req_actors": {},  # actor -> last_request_mono
-                "attestations": {},  # signer -> last_attest_mono
-                # The signed attestation payload of the verified request that
-                # created this entry (#1964): responses are authenticated
-                # against it, so they can never create an entry themselves.
-                "att_message": None,
-            }
-            self._entries[key] = ent
-        return ent
-
-    def attestation_message(self, height: int, block_hash: str) -> dict[str, Any] | None:
-        """The verified request's attestation payload for ``(height, hash)``, if seen."""
-        ent = self._entries.get((int(height), block_hash))
-        msg = ent.get("att_message") if ent else None
-        return msg if isinstance(msg, dict) else None
-
-    def note_request(
-        self,
-        height: int,
-        block_hash: str,
-        actor: str,
-        *,
-        ignore: set[str] | None = None,
-        att_message: dict[str, Any] | None = None,
-        tip_hint: int | None = None,
-    ) -> None:
-        """An ``attest_request`` for ``block_hash`` was observed.
-
-        Caller contract: the request already passed every authenticity check.
-        ``att_message`` is its signed attestation payload; the first one for a
-        key is kept so ``note_response`` feeds can be signature-checked (#1964).
-        """
-        try:
-            canon = canonical_address(actor) if actor else ""
-        except (AttributeError, TypeError, ValueError):
-            canon = ""
-        if canon and ignore and canon in ignore:
-            return
-        if not obs_height_plausible(height, tip_hint):
-            metrics_registry.increment("unavail_obs_height_rejected_total")
-            return
-        now = self._mono()
-        ent = self._entry(height, block_hash)
-        if ent is None:
-            return
-        ent["requests"] += 1
-        if att_message is not None and ent.get("att_message") is None:
-            ent["att_message"] = att_message
-        if canon:
-            ent["req_actors"][canon] = now
-        self._note_actor(height, canon or actor, now)
-
-    def note_response(
-        self,
-        height: int,
-        block_hash: str,
-        validator: str,
-        *,
-        ignore: set[str] | None = None,
-        tip_hint: int | None = None,
-    ) -> None:
-        """An ``attest_response`` for ``block_hash`` was observed.
-
-        Caller contract (#1964): the response signature was verified against
-        ``attestation_message`` — the production feed does this and only calls
-        here for keys a verified request created, so responses cannot grow
-        the table; this method records, it does not authenticate.
-        """
-        try:
-            canon = canonical_address(validator)
-        except (AttributeError, TypeError, ValueError):
-            return
-        if ignore and canon in ignore:
-            return
-        if not obs_height_plausible(height, tip_hint):
-            metrics_registry.increment("unavail_obs_height_rejected_total")
-            return
-        now = self._mono()
-        ent = self._entry(height, block_hash)
-        if ent is None:
-            return
-        ent["attestations"][canon] = now
-        self._note_actor(height, canon, now)
-
-    def note_actor(self, height: int, address: str) -> None:
-        """Record a validator as recently reachable at ``height`` — used for
-        UC responders, whose signatures are themselves fresh proof the mesh
-        is delivering gossip right now."""
-        self._note_actor(height, address, self._mono())
-
-    def _note_actor(self, height: int, actor: str, now: float) -> None:
-        if not actor:
-            return
-        try:
-            canon = canonical_address(actor)
-        except (AttributeError, TypeError, ValueError):
-            return
-        actors = self._actors.setdefault(int(height), {})
-        actors[canon] = now
-        # Bound the actor table: drop heights far below anything recent.
-        if len(self._actors) > 256:
-            cutoff = now - 4 * evidence_seconds()
-            for h in [h for h, m in self._actors.items() if max(m.values(), default=0.0) < cutoff]:
-                self._actors.pop(h, None)
-
-    def quiet_verdict(
-        self,
-        height: int,
-        block_hash: str,
-        *,
-        ignore: set[str] | None = None,
-        window: float | None = None,
-    ) -> dict[str, Any]:
-        """The quiet half of ``index_clean`` — exposed separately for the
-        #1281 respin's probe ordering.
-
-        Quiet iff no attest_request re-broadcast and no foreign
-        attestation for the hash inside ``window`` (T_evidence). This is
-        the cheap passive gate: a hash with live attest traffic is not an
-        abandoned one, and probing it would be spam.
-        """
-        win = evidence_seconds() if window is None else window
-        now = self._mono()
-        ent = self._entries.get((int(height), block_hash))
-        if not ent:
-            return {"quiet": True, "quiet_seconds": None, "requests_seen": 0, "attestations_seen": 0}
-        req_actors = {a: ts for a, ts in ent["req_actors"].items() if not (ignore and a in ignore)}
-        attesters = {a: ts for a, ts in ent["attestations"].items() if not (ignore and a in ignore)}
-        stamps = list(req_actors.values()) + list(attesters.values())
-        last_activity = max(stamps) if stamps else 0.0
-        return {
-            "quiet": (now - last_activity) >= win,
-            "quiet_seconds": round(now - last_activity, 3),
-            "requests_seen": int(ent["requests"]),
-            "attestations_seen": len(attesters),
-        }
-
-    def clean_verdict(
-        self,
-        height: int,
-        block_hash: str,
-        *,
-        ignore: set[str] | None = None,
-        min_peers: int | None = None,
-        window: float | None = None,
-    ) -> dict[str, Any]:
-        """``index_clean`` verdict for ``(height, block_hash)``.
-
-        Clean iff quiet (``quiet_verdict``) AND the mesh shows ≥
-        ``min_peers`` distinct validators active at this height inside the
-        visibility window — which, post-respin, is established by
-        authenticated UC probe responses rather than passive traffic
-        alone (partition ⇒ not visible ⇒ not clean ⇒ hold preserved).
-        """
-        q = self.quiet_verdict(height, block_hash, ignore=ignore, window=window)
-        peers = min_responses() if min_peers is None else min_peers
-        now = self._mono()
-        actors = self._actors.get(int(height), {})
-        vis_win = visibility_seconds()
-        visible = sum(1 for a, ts in actors.items() if now - ts <= vis_win and not (ignore and a in ignore))
-        mesh_visible = visible >= peers
-        return {
-            **q,
-            "clean": q["quiet"] and mesh_visible,
-            "mesh_visible": mesh_visible,
-            "validators_visible": visible,
-        }
-
-    def reset(self) -> None:
-        self._entries.clear()
-        self._actors.clear()
 
 
 _INDICES: dict[str, GossipObservationIndex] = {}
@@ -847,33 +329,6 @@ async def unfetchable_persists(
             return True
         await asyncio.sleep(min(interval, max(0.05, deadline - time.monotonic())))
     return sampler.state()
-
-
-# ---------------------------------------------------------------------------
-# Combined predicate — the single release rule both gates share
-# ---------------------------------------------------------------------------
-
-
-def _carried_certs(
-    request_cert: dict[str, Any] | UnavailabilityCertificate | None,
-) -> dict[str, UnavailabilityCertificate]:
-    """Normalise a carried justification into ``{block_hash: cert}``.
-
-    Accepts a single cert (dict or dataclass) or the full unlock bundle
-    whose ``certs`` list holds one cert per voted hash.
-    """
-    carried: dict[str, UnavailabilityCertificate] = {}
-    if request_cert is None:
-        return carried
-    if isinstance(request_cert, dict) and isinstance(request_cert.get("certs"), list):
-        items: list[Any] = list(request_cert["certs"])
-    else:
-        items = [request_cert]
-    for item in items:
-        cand = item if isinstance(item, UnavailabilityCertificate) else UnavailabilityCertificate.from_dict(item)
-        if cand is not None:
-            carried[cand.hash] = cand
-    return carried
 
 
 # ---------------------------------------------------------------------------
@@ -1175,3 +630,60 @@ async def unlock_justification(
         "index": first,
         "certs": [c.to_dict() for c in certs],
     }
+
+
+# -- Split helpers -------------------------------------------------------------
+# Payloads/cert helpers live in ``unavail_core`` and the observation index in
+# ``unavail_index``; every name is re-exported here so
+# ``aitbc_chain.consensus.unavail.<name>`` keeps resolving (and staying
+# monkeypatchable) exactly as it did when this was a single module.
+from .unavail_core import (  # noqa: F401
+    OBS_HEIGHT_AHEAD,
+    OBS_HEIGHT_BEHIND,
+    QUERY_TYPE,
+    RESPONSE_TYPE,
+    UC_VERSION,
+    UNAVAIL_TAG,
+    UnavailabilityCertificate,
+    _carried_certs,
+    _float,
+    _int,
+    _matching_response_signer,
+    _verify_cert_response,
+    build_unavail_response,
+    cert_max_age_seconds,
+    cert_message,
+    collect_backoff_seconds,
+    collect_seconds,
+    evidence_seconds,
+    justification_enabled,
+    min_responses,
+    nonblocking_persist_enabled,
+    obs_height_plausible,
+    query_topic,
+    response_topic,
+    sample_seconds,
+    unavail_response_message,
+    validator_addresses,
+    verify_unavail_response,
+    visibility_seconds,
+)
+from .unavail_index import GossipObservationIndex  # noqa: F401
+
+
+def __getattr__(name: str):
+    """Resolve any other previously-importable name against the helper modules.
+
+    Keeps collaborator names that moved with the helpers (``settings``,
+    ``canonical_address``, ``verify_consensus_message`` …) importable from
+    ``aitbc_chain.consensus.unavail`` exactly as before the split.
+    """
+    from . import unavail_core as _core
+    from . import unavail_index as _index_mod
+
+    for _mod in (_core, _index_mod):
+        try:
+            return getattr(_mod, name)
+        except AttributeError:
+            continue
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
