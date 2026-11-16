@@ -1512,9 +1512,9 @@ class ChainSettings(BaseSettings):
     # #2118: max recorded slashing events per (validator, condition, height).
     # A flood of distinct forged hash pairs at one height grew hub's persisted
     # history to 67 MB (30,245 events at one height) and stalled the RPC
-    # worker. 0 = unbounded (legacy, dormant until armed); the cap applies on
-    # record and when a persisted history is loaded.
-    slashing_max_events_per_height: int = 0
+    # worker. Bounded by default since #2169 (0 = unbounded, the legacy opt-out); the
+    # cap applies on record and when a persisted history is loaded.
+    slashing_max_events_per_height: int = 8
     # #2130: verify equivocation evidence before it is recorded or levied. When
     # armed, an equivocation claim is admitted only if its two signatures verify
     # against the accused (same height/round, differing hashes, signer == accused),
@@ -1525,9 +1525,10 @@ class ChainSettings(BaseSettings):
     # events per validator (levied events are never dropped — they are the audit
     # trail of a deducted penalty — then signed evidence, then advisory records) and
     # persists a pruned count + digest per validator instead of the dropped events.
-    # 0 = unbounded (legacy, dormant until armed). An existing oversized blob is only
-    # compacted on the first persist after arming; nothing is pruned while this is 0.
-    slashing_history_persist_max_per_validator: int = 0
+    # Bounded by default since #2169 (0 = unbounded, the legacy opt-out). An existing
+    # oversized blob is compacted on the first persist after the bound applies;
+    # nothing is pruned while this is 0.
+    slashing_history_persist_max_per_validator: int = 1000
     # U2 failure-evidence window for cross-round signing: after observing a
     # later-round attest_request at the same height, the locked round's
     # gates window must fully elapse before a rival hash may be signed.

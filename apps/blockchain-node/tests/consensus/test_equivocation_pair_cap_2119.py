@@ -32,6 +32,8 @@ def _sign_and_record(svc, mgr, addr, key, block_hash):
 
 def _run(monkeypatch, n_hashes: int, cap: int):
     monkeypatch.setattr(settings, "equivocation_max_pairs_per_signature", cap)
+    # #2169: this module tests the pair cap, not the per-height cap (bounded by default now).
+    monkeypatch.setattr(settings, "slashing_max_events_per_height", 0)
     svc, mgr, addr, key, _other, _clock = _setup(monkeypatch)
     for i in range(1, n_hashes + 1):
         _sign_and_record(svc, mgr, addr, key, _hash(i))
