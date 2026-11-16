@@ -1135,10 +1135,21 @@ class MultiValidatorPoA:
             attestations=attestations,
             justification=justification,
             unlock_justification=unlock_justification,
+            accused_stake=self._accused_stake(validator_address),
         )
         if persist:
             self.save_state()
         return event
+
+    def _accused_stake(self, validator_address: str) -> Any:
+        """Stake of the accused validator, or None when it is not in the set (#2130)."""
+        from aitbc.crypto.signature_recovery import canonical_address
+
+        target = canonical_address(validator_address)
+        for addr, validator in (getattr(self, "validators", None) or {}).items():
+            if addr == validator_address or canonical_address(addr) == target:
+                return validator.stake
+        return None
 
     def get_state_snapshot(self) -> dict[str, Any]:
         """Get a snapshot of the current blockchain state"""
