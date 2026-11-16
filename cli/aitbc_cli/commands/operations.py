@@ -36,6 +36,10 @@ logger = get_logger(__name__)
 DEFAULT_RPC_URL = "http://localhost:8202"
 
 
+def _agent_coordinator_url() -> str:
+    return getattr(get_config(), "agent_coordinator_url", "") or "http://localhost:8107"
+
+
 def _load_wallet(
     wallet_path: Path,
     wallet_name: str,
@@ -129,7 +133,7 @@ def submit_job(ctx, wallet_name: str, job_type: str, prompt: str, payment: Decim
         }
 
         try:
-            http_client = AITBCHTTPClient(base_url="http://localhost:8107", timeout=30)
+            http_client = AITBCHTTPClient(base_url=_agent_coordinator_url(), timeout=30)
             result = http_client.post("/v1/jobs", json=job_config)
             success("AI job submitted successfully")
             click.echo(f"Job ID: {result.get('job_id', 'unknown')}")
@@ -161,7 +165,7 @@ def submit_job(ctx, wallet_name: str, job_type: str, prompt: str, payment: Decim
 def status(job_id: str | None, format: str):
     """Get the status of one or all AI jobs."""
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8107", timeout=30)
+        http_client = AITBCHTTPClient(base_url=_agent_coordinator_url(), timeout=30)
         if job_id:
             result = http_client.get(f"/v1/jobs/{job_id}")
             success(f"Job status for {job_id}")
@@ -200,7 +204,7 @@ def cancel(job_id: str | None):
         return
 
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8107", timeout=30)
+        http_client = AITBCHTTPClient(base_url=_agent_coordinator_url(), timeout=30)
         _ = http_client.post(f"/v1/jobs/{job_id}/cancel")
         success(f"AI job {job_id} cancelled")
     except NetworkError as e:
@@ -239,7 +243,7 @@ def register(agent_id: str, status: str):
     try:
         agent_config = {"agent_id": agent_id, "status": status}
 
-        http_client = AITBCHTTPClient(base_url="http://localhost:8107", timeout=30)
+        http_client = AITBCHTTPClient(base_url=_agent_coordinator_url(), timeout=30)
         _ = http_client.post("/v1/agents/register", json=agent_config)
         success(f"Agent {agent_id} registered with status {status}")
     except NetworkError as e:
@@ -266,7 +270,7 @@ def list(ctx, status: str | None, format: str):
     try:
         import requests
 
-        coordinator_url = "http://localhost:8107"
+        coordinator_url = _agent_coordinator_url()
 
         query = {}
         if status:
@@ -308,7 +312,7 @@ def list(ctx, status: str | None, format: str):
 def deregister(agent_id: str):
     """Deregister an agent by its ID."""
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8107", timeout=30)
+        http_client = AITBCHTTPClient(base_url=_agent_coordinator_url(), timeout=30)
         _ = http_client.post(f"/v1/agents/{agent_id}/deregister")
         success(f"Agent {agent_id} deregistered")
     except NetworkError as e:
