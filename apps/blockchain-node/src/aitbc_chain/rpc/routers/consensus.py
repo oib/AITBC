@@ -42,7 +42,7 @@ def consensus_status_route(request: Request, chain_id: str | None = None) -> dic
         from ...consensus.multi_validator_poa import get_consensus
 
         consensus = get_consensus(chain_id)
-        consensus.load_state()
+        consensus.load_state(slashing=False)
         participants = consensus.get_consensus_participants()
         if not participants:
             return {
@@ -103,7 +103,7 @@ def consensus_validators_route(request: Request, chain_id: str | None = None) ->
         from ...consensus.multi_validator_poa import get_consensus
 
         consensus = get_consensus(chain_id)
-        consensus.load_state()
+        consensus.load_state(slashing=False)
         if not consensus.validators:
             return {"validators": [], "chain_id": chain_id, "multi_validator_enabled": False}
         validators = [
