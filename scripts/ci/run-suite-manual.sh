@@ -263,6 +263,13 @@ run_check env-lock         "" ./venv/bin/python scripts/ci/check-env-matches-loc
 run_pytest required "PYTHONPATH=apps/blockchain-node/src" \
   $(./venv/bin/python scripts/ci/test_suites.py fast)
 
+# Coverage-floor ratchet (#1860): re-runs the scoped money/consensus pytest
+# selection under coverage and diffs per-file percent_covered against
+# scripts/ci/coverage-baseline.txt. ~10-12 min — deliberately after the fast
+# checks and the required suite, and a plain run_check (single testcase) since
+# its "coverage regression:" lines do not match run_ratchet's item parser.
+run_check coverage-ratchet "" bash scripts/ci/check-coverage-ratchet.sh
+
 if [ "$WITH_CONTRACTS" = 1 ] && command -v npm >/dev/null 2>&1; then
   t0=$(date +%s)
   set +e
