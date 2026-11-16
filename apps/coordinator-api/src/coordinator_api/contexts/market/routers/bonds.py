@@ -192,9 +192,10 @@ def create_bond(
     try:
         chain = BlockchainService().list_provider_bonds(wallet)
     except AITBCError as e:
+        logger.warning("bond %s chain verification failed: %s", bond_id, e)
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=f"could not verify bond {bond_id} against chain state",
+            detail="could not verify bond against chain state",
         ) from e
     entry = next((b for b in chain.get("bonds", []) if str(b.get("bond_id")) == bond_id), None)
     if entry is None:
