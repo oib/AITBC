@@ -241,6 +241,51 @@ def cap_history_per_height(events: list[SlashingEvent], cap: int) -> list[Slashi
     return [e for e in events if id(e) in keep]
 
 
+def _persist_max_per_validator() -> int:
+    """``slashing_history_persist_max_per_validator`` (0 = unbounded, legacy)."""
+    from ..config import settings
+
+    return int(getattr(settings, "slashing_history_persist_max_per_validator", 0) or 0)
+
+
+def bound_history_per_validator(
+    events: list[SlashingEvent], limit: int, summary: dict[str, dict] | None = None
+) -> tuple[list[SlashingEvent], dict[str, dict]]:
+    """Keep the newest ``limit`` events per validator; summarise the rest (#2131).
+
+    Levied events always survive (#2127 audit trail), then signature-bearing
+    evidence, then advisory records, newest first within each class; order is
+    preserved. Dropped events fold into ``summary[validator] = {"count", "digest"}``
+    (digest chains the sorted dedup keys of the dropped events onto the previous
+    digest, so it is deterministic). ``limit <= 0`` returns the inputs unchanged.
+    """
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    out_summary = {k: dict(v) for k, v in (summary or {}).items()}
+    if limit <= 0:
+        return events, out_summary
+    by_validator: dict[str, list[SlashingEvent]] = {}
+    for event in events:
+        by_validator.setdefault(canonical_address(event.validator_address), []).append(event)
+    keep: set[int] = set()
+    for validator, bucket in by_validator.items():
+        if len(bucket) <= limit:
+            keep.update(id(e) for e in bucket)
+            continue
+        levied = [e for e in bucket if e.is_applied]
+        signed = [e for e in bucket if not e.is_applied and event_signature_evidence(e) is not None]
+        unsigned = [e for e in bucket if not e.is_applied and event_signature_evidence(e) is None]
+        room = max(limit - len(levied), 0)
+        kept = levied + (signed[::-1] + unsigned[::-1])[:room]
+        keep.update(id(e) for e in kept)
+        dropped = sorted(_equivocation_dedup_key(e) for e in bucket if id(e) not in keep)
+        if dropped:
+            prev = out_summary.get(validator, {"count": 0, "digest": ""})
+            digest = hashlib.sha256((prev["digest"] + "".join(dropped)).encode()).hexdigest()
+            out_summary[validator] = {"count": prev["count"] + len(dropped), "digest": digest}
+    return [e for e in events if id(e) in keep], out_summary
+
+
 def _remove_by_identity(events: list[SlashingEvent], victim: SlashingEvent) -> bool:
     """Delete ``victim`` from ``events`` by identity (#2125).
 
@@ -356,6 +401,7 @@ class SlashingManager:
 
     def __init__(self) -> None:
         self.slashing_events: list[SlashingEvent] = []
+        self.pruned_summary: dict[str, dict] = {}  # #2131: validator -> {count, digest}
         self.slash_rates = {
             SlashingCondition.DOUBLE_SIGN: 0.5,  # 50% slash
             SlashingCondition.UNAVAILABLE: 0.1,  # 10% slash
@@ -368,6 +414,16 @@ class SlashingManager:
             SlashingCondition.INVALID_BLOCK: 1,  # Immediate slash
             SlashingCondition.SLOW_RESPONSE: 5,  # After 5 offenses
         }
+
+    def bound_for_persist(self) -> None:
+        """Apply the #2131 per-validator bound to the in-memory history (no-op when 0)."""
+        limit = _persist_max_per_validator()
+        if limit <= 0:
+            return
+        kept, self.pruned_summary = bound_history_per_validator(self.slashing_events, limit, self.pruned_summary)
+        if len(kept) != len(self.slashing_events):
+            self.slashing_events[:] = kept
+            metrics_registry.increment("slashing_events_persist_pruned_total")
 
     def _history_index(self) -> _HistoryIndex:
         """The dedup index, rebuilt when the list was replaced or edited outside ``apply_slashing``."""
