@@ -716,7 +716,7 @@ async def register_gpu(
         gpu_id = gpu_data.get("gpu_id", f"gpu_{uuid4().hex[:8]}")
         miner_id = gpu_data.get("miner_id", "default_miner")
         specs = gpu_data.get("specs", {})
-        gpu_data.get("registered_by", "0x0000000000000000000000000000000000000000")
+        gpu_data.get("registered_by", "0x0000000000000000000000000000000000000000")  # noqa: unawaited-async  # dict.get is sync
         if not specs:
             logger.info("No specs provided, auto-discovering via nvidia-smi")
             specs = discover_gpu_specs()

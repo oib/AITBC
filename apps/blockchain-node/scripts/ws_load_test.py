@@ -162,7 +162,7 @@ async def run_load(args: argparse.Namespace) -> None:
     except TimeoutError:
         pass
     finally:
-        stop_event.set()
+        stop_event.set()  # noqa: unawaited-async  # asyncio.Event.set is sync
         await asyncio.gather(*all_tasks, return_exceptions=True)
 
     _print_summary(publish_stats, subscription_stats)

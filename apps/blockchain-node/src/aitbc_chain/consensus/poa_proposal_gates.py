@@ -1024,7 +1024,7 @@ class _ProposalGatesMixin(_PoaBaseMixin):
         # writing the block. The block hash is the digest of the proposed
         # block and the certificate is stored in block_metadata.
         if self._stop_event.is_set():
-            session.rollback()
+            session.rollback()  # noqa: unawaited-async  # sqlmodel.Session.rollback is sync
             return False
         if self._pbft_consensus:
             # #2005 F3-C ruling 2A (Option R): while the view-change gate is
@@ -1067,20 +1067,20 @@ class _ProposalGatesMixin(_PoaBaseMixin):
                     next_height,
                     self._config.chain_id,
                 )
-                session.rollback()
+                session.rollback()  # noqa: unawaited-async  # sqlmodel.Session.rollback is sync
                 return False
 
         # v0.7.5: collect attestations from other local validators and store
         # them in block_metadata as JSON. The proposer signature remains the
         # canonical block signature.
         if self._stop_event.is_set():
-            session.rollback()
+            session.rollback()  # noqa: unawaited-async  # sqlmodel.Session.rollback is sync
             return False
 
         if not await self._collect_and_gate_attestations(
             block, block_hash, metadata_dict, transactions, round_number=round_number
         ):
-            session.rollback()
+            session.rollback()  # noqa: unawaited-async  # sqlmodel.Session.rollback is sync
             return False
         return True
 

@@ -286,8 +286,8 @@ class RateLimiter:
             self.redis_client.zremrangebyscore(key, 0, current_time - window_seconds)
             current_count = self.redis_client.zcard(key)
             if current_count < max_requests:
-                self.redis_client.zadd(key, {str(current_time): current_time})
-                self.redis_client.expire(key, window_seconds)
+                self.redis_client.zadd(key, {str(current_time): current_time})  # noqa: unawaited-async  # sync redis client
+                self.redis_client.expire(key, window_seconds)  # noqa: unawaited-async  # sync redis client
                 return {
                     "allowed": True,
                     "remaining": max_requests - current_count - 1,
