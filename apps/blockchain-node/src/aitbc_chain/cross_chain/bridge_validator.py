@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from eth_utils import keccak
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, func, select
 
 from aitbc.bridge import ValidatorInfo, ValidatorSet
@@ -146,7 +147,7 @@ class BridgeValidatorMixin(BridgeBase):
                     target_chain,
                     source_chain,
                 )
-            except Exception:
+            except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError):
                 logger.exception("Failed to backfill bridge validators for %s", target_chain)
 
     def load_validator_set(self, chain_id: str, epoch: int | None = None) -> Any:
@@ -302,7 +303,7 @@ class BridgeValidatorMixin(BridgeBase):
                 return False
             try:
                 vset = self.get_validator_set(source_chain)
-            except Exception as e:
+            except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                 logger.warning("Validator set lookup failed for chain=%s (%s); rejecting proof", source_chain, e)
                 return False
             if vset is None:
@@ -318,7 +319,7 @@ class BridgeValidatorMixin(BridgeBase):
                 return False
 
             return True
-        except Exception as e:
+        except (ImportError, SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             logger.warning("Proposer signature verification error: %s", e)
             return False
 
@@ -434,7 +435,7 @@ class BridgeValidatorMixin(BridgeBase):
             # unreadable set fails closed rather than accepting any key.
             try:
                 vset = self.get_validator_set(source_chain)
-            except Exception as e:
+            except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                 logger.warning("Validator set lookup failed for chain=%s (%s); rejecting proof", source_chain, e)
                 return False
 

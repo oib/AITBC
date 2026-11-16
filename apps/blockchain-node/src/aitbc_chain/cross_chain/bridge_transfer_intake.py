@@ -90,7 +90,7 @@ class BridgeTransferIntakeMixin(BridgeBase):
                     from aitbc.crypto.crypto import derive_ethereum_address
 
                     derived = canonical_address(derive_ethereum_address(key))
-                except Exception as e:
+                except (ImportError, ValueError, TypeError, AttributeError) as e:
                     logger.warning(
                         "bridge lock on %s: could not derive address from the configured release signing key (%s); "
                         "the BRIDGE_LOCK/BRIDGE_RELEASE signatures may fail validation",

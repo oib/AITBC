@@ -85,7 +85,7 @@ class _OpsMixin(_PoaBaseMixin):
             self._logger.info(
                 "[BROADCAST SUCCESS] block=%s, topic=%s, subscribers=%s", block.height, gossip_topic, subscriber_count
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - gossip publish fan-out is a pluggable backend (in-memory/redis/websocket); driver error families differ per backend
             poa_broadcast_skipped_total.labels(chain_id=self._config.chain_id).inc()
             self._logger.error("Failed to broadcast block %s: %s", block.height, e)
         if getattr(settings, "seal_republish_enabled", False):  # #1268: flag off never touches the new path
@@ -227,7 +227,7 @@ class _OpsMixin(_PoaBaseMixin):
                     timestamp = datetime.fromisoformat(genesis_timestamp)
                 else:
                     timestamp = genesis_timestamp
-            except Exception as e:
+            except (TypeError, ValueError) as e:
                 self._logger.error("Failed to parse genesis timestamp: %s", e)
                 raise RuntimeError(f"Invalid timestamp format in genesis file: {e}") from e
             genesis = Block(
@@ -264,7 +264,7 @@ class _OpsMixin(_PoaBaseMixin):
                     self._logger.info("Initialized %s accounts from genesis.json", len(genesis_allocations))
                 self._seed_chain_parameters(session, local_genesis_data.get("parameters"))
                 self._seed_bridge_validators(session, local_genesis_data)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - genesis apply spans DB + claim verification; any failure must roll back before re-raise
                 self._logger.error("Failed to create genesis block from genesis.json: %s", e)
                 session.rollback()  # noqa: unawaited-async - sync sqlmodel.Session.rollback is synchronous
                 raise
@@ -413,7 +413,7 @@ class _OpsMixin(_PoaBaseMixin):
             with open(genesis_path) as f:
                 genesis_data = json.load(f)
             return genesis_data  # type: ignore[no-any-return]
-        except Exception as e:
+        except (OSError, RecursionError, TypeError, ValueError) as e:
             self._logger.warning("Failed to load genesis file: %s", e)
             return {}
 

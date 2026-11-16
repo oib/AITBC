@@ -352,7 +352,7 @@ class _RoundLockMixin(_EvidenceMixin):
             # Reseeded ``_signed_once`` entries prune by height/cap exactly
             # like live ones.
             self._prune_signed_once()
-        except Exception as e:
+        except (ArithmeticError, AttributeError, KeyError, OSError, RecursionError, RuntimeError, TypeError, ValueError) as e:
             logger.warning("Failed to load round-lock records for %s: %s", self._chain_id, e)
 
     def _load_attestation_lock_record(self, rec: dict[str, Any], now_mono: float, now_wall: float) -> None:
@@ -526,7 +526,7 @@ class _RoundLockMixin(_EvidenceMixin):
         self._attested_lock_records[key] = record
         try:
             self._persist_round_locks()
-        except Exception:
+        except (ArithmeticError, AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError):
             # Roll back the in-memory record: an unpersisted entry must not
             # dedup a later retry into releasing a signature it never
             # durably recorded (fail-closed, not fail-open).
@@ -557,7 +557,7 @@ class _RoundLockMixin(_EvidenceMixin):
             return True
         try:
             self._record_attestation_lock_journal(height, header_hash, proposer, header)
-        except Exception as e:
+        except (ImportError, ArithmeticError, AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError) as e:
             metrics_registry.increment("attestation_lock_persist_failure_total")
             logger.error(
                 "Attestation-lock journal persist failed at height %s — refusing to sign: %s",

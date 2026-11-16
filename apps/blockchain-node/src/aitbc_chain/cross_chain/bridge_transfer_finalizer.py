@@ -9,6 +9,7 @@ import time
 from datetime import datetime
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import raiseload
 from sqlmodel import select
 
@@ -17,7 +18,7 @@ from ..config import settings
 from ..logger import get_logger
 from ..metrics import metrics_registry
 from ..models import Block, BridgeBlockHeader, CrossChainTransfer, Transaction
-from .bridge_base import BridgeBase
+from .bridge_base import BridgeBase, _OPS_ERRORS
 from .bridge_types import BridgeStatus, BridgeTransfer
 
 logger = get_logger(__name__)
@@ -77,7 +78,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
                             src_record.confirm_time = record.confirm_time
                             src_session.add(src_record)
                             src_session.commit()
-                except Exception:
+                except (SQLAlchemyError, OSError):
                     logger.exception("Failed to update source-chain bridge record for %s", record.transfer_id)
                 session.commit()
                 finalized += 1
@@ -152,7 +153,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
                     chain_id,
                 )
             return True
-        except Exception as e:
+        except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             unavailable[chain_id] = time.monotonic()
             log = logger.debug if failed_at is not None else logger.info
             log(
@@ -308,7 +309,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
                     chain_id,
                     deadline,
                 )
-            except Exception:
+            except _OPS_ERRORS:
                 logger.exception("Failed to repair stale bridge header for %s at height %s", chain_id, height)
                 continue
             repaired += 1
@@ -371,7 +372,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
         """
         try:
             self._run_with_header_lock_retry(lambda: self._store_header_batch(chain_id, pending), chain_id, deadline)  # type: ignore[attr-defined]
-        except Exception:
+        except _OPS_ERRORS:
             # at_height is None for the trailing partial flush, so name the batch itself.
             logger.exception(
                 "Failed to store bridge header batch for %s at height=%s (batch %s..%s, %d headers)",
@@ -395,7 +396,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
 
             if ledger_enabled():
                 register_transfer(record)
-        except Exception:
+        except Exception:  # noqa: BLE001 - shared-ledger client is httpx + lazy import; best-effort by design
             logger.exception("Bridge ledger register failed for %s", record.transfer_id)
 
     def _ledger_writeback(
@@ -411,7 +412,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
 
             if ledger_enabled():
                 write_status(transfer_id, status, target_tx_hash=target_tx_hash, proof_hash=proof_hash)
-        except Exception:
+        except Exception:  # noqa: BLE001 - shared-ledger client is httpx + lazy import; best-effort by design
             logger.exception("Bridge ledger status writeback failed for %s", transfer_id)
 
     def _ledger_local_record(self, row: dict[str, Any]) -> CrossChainTransfer | None:
@@ -449,7 +450,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
                     session.commit()
                     session.refresh(record)
                 return record
-        except Exception:
+        except _OPS_ERRORS:
             logger.exception("Bridge relayer: failed to materialise ledger row %s locally", transfer_id[:16])
             return None
 
@@ -527,7 +528,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
                 # available — normal intermediate state, retry next pass.
                 logger.debug("Bridge relayer: %s not ready for confirm: %s", transfer.transfer_id[:16], e)
                 continue
-            except Exception:
+            except _OPS_ERRORS:
                 logger.exception("Bridge relayer: failed to build proof for %s", transfer.transfer_id[:16])
                 continue
             try:
@@ -545,7 +546,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
                 # Finality/threshold/validator-set failures stay pending; the
                 # record keeps its honest state and we retry next interval.
                 logger.debug("Bridge relayer: confirm for %s rejected: %s", transfer.transfer_id[:16], e)
-            except Exception:
+            except _OPS_ERRORS:
                 logger.exception("Bridge relayer: confirm failed for %s", transfer.transfer_id[:16])
         return relayed
 
@@ -647,9 +648,9 @@ class BridgeTransferFinalizerMixin(BridgeBase):
                         await asyncio.wait_for(asyncio.to_thread(_run), timeout=pass_timeout)
                     except TimeoutError:
                         self._report_abandoned_pass(abandoned, chain_id, pass_timeout)
-                    except Exception:
+                    except _OPS_ERRORS:
                         logger.exception("Bridge finalizer pass failed for chain %s", chain_id)
-            except Exception:
+            except _OPS_ERRORS:
                 logger.exception("Bridge release finalizer loop failed")
             await asyncio.sleep(interval)
 
@@ -668,7 +669,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
             stored = self._sync_local_chain_headers(chain_id, deadline)
             if stored:
                 logger.debug("Stored %s bridge headers for chain %s", stored, chain_id)
-        except Exception:
+        except _OPS_ERRORS:
             logger.exception("Bridge header sync failed for chain %s", chain_id)
         self._finalizer_relay_and_finalize(chain_id, relayer_enabled, deadline)
 
@@ -683,14 +684,14 @@ class BridgeTransferFinalizerMixin(BridgeBase):
                 relayed = self._relay_pending_transfers(chain_id, deadline)
                 if relayed:
                     logger.info("Relayed %s bridge transfers on chain %s", relayed, chain_id)
-            except Exception:
+            except _OPS_ERRORS:
                 logger.exception("Bridge relayer failed for chain %s", chain_id)
         if not _expired():
             try:
                 count = self._finalize_confirmed_transfers(chain_id, deadline)
                 if count:
                     logger.info("Finalized %s bridge transfers on chain %s", count, chain_id)
-            except Exception:
+            except _OPS_ERRORS:
                 logger.exception("Bridge finalizer failed for chain %s", chain_id)
 
     def _build_transfer_from_record(self, record: CrossChainTransfer, proof: dict[str, Any] | None = None) -> BridgeTransfer:

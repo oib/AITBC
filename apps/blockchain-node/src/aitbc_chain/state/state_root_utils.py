@@ -8,6 +8,7 @@ from __future__ import annotations
 import time
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
 from ..logger import get_logger
@@ -49,7 +50,7 @@ def compute_state_root_full(session: Session, chain_id: str, deadline: float | N
         return "0x" + root.hex()
     except TimeoutError:
         raise
-    except Exception as e:
+    except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
         logger.warning("Failed to compute state root (full): %s", e)
         return None
 
@@ -89,6 +90,6 @@ def compute_state_root_incremental(
                 state_manager.update_account(address, 0, 0)
         root = state_manager.get_root()
         return "0x" + root.hex()
-    except Exception as e:
+    except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
         logger.warning("Failed to compute state root (incremental): %s", e)
         return None

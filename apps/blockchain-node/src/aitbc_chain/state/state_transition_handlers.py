@@ -62,7 +62,7 @@ class _HandlerMixin:
         if isinstance(payload, str):
             try:
                 payload = json.loads(payload)
-            except Exception:
+            except (RecursionError, TypeError, ValueError):
                 logger.warning("IPFS_SUBSCRIPTION payload is not valid JSON: %s", tx_hash)
                 return
         island_id = payload.get("island_id")
@@ -722,7 +722,7 @@ class _HandlerMixin:
                 session.add(registration)
             logger.info("GPU registration handled: %s", gpu_id)
             return (True, "GPU registration successful")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - handler boundary: any failure becomes a (False, reason) verdict
             logger.error("GPU registration error: %s", e)
             return (False, str(e))
 
@@ -796,6 +796,6 @@ class _HandlerMixin:
             session.add(allocation)
             logger.info("GPU allocation handled: %s for GPU %s", allocation_id, gpu_id)
             return (True, "GPU allocation successful")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - handler boundary: any failure becomes a (False, reason) verdict
             logger.error("GPU allocation error: %s", e)
             return (False, str(e))

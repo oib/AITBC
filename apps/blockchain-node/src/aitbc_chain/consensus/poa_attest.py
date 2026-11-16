@@ -9,6 +9,8 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from .poa import _PoaBaseMixin, _active_consensus_domain, _sign_consensus
 
 from ..config import settings
@@ -110,7 +112,17 @@ class _AttestMixin(_PoaBaseMixin):
                             seen.add(addr)
                         else:
                             self._logger.debug("Dropping duplicate remote attestation from %s", att["validator"])
-                except Exception as e:  # noqa: BLE001
+                except (
+                    ImportError,
+                    SQLAlchemyError,
+                    ArithmeticError,
+                    OSError,
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    AttributeError,
+                    KeyError,
+                ) as e:
                     self._logger.warning("Failed to collect remote attestations: %s", e)
 
         return attestations
@@ -174,6 +186,6 @@ class _AttestMixin(_PoaBaseMixin):
                     # round-bound preimage from this hint (or derives it).
                     attestation["round"] = str(att_round)
                 attestations.append(attestation)
-            except Exception as e:  # noqa: BLE001
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                 self._logger.warning("Failed to collect attestation from %s: %s", address, e)
         return attestations

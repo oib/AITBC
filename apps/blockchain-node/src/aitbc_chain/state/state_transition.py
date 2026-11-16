@@ -494,7 +494,7 @@ class StateTransition(_ValidationMixin, _ApplyMixin, _HandlerMixin):
                     result = self.apply_transaction(session, chain_id, tx_data, tx_hash, block_version=block_version, **kwargs)
             else:
                 result = self.apply_transaction(session, chain_id, tx_data, tx_hash, block_version=block_version, **kwargs)
-        except Exception:
+        except Exception:  # noqa: BLE001 - any apply failure must roll back to the savepoint before re-raise
             savepoint.rollback()
             raise
         if not result[0]:

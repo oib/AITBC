@@ -8,13 +8,14 @@ import json
 import threading
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import select
 
 
 from ..config import settings
 from ..logger import get_logger
 from ..models import Block, BridgeBlockHeader, CrossChainTransfer, Transaction
-from .bridge_base import BridgeBase
+from .bridge_base import BridgeBase, _OPS_ERRORS
 from .bridge_leaf import lock_leaf_v2_active, lock_leaf_value, unknown_lock_leaf
 from .bridge_tx_root import (
     build_tx_bridge_trie,
@@ -431,7 +432,7 @@ class BridgeTransferProofMixin(BridgeBase):
             return {}
         try:
             data = json.loads(raw)
-        except Exception:
+        except (RecursionError, TypeError, ValueError):
             logger.warning("VALIDATOR_KEYS is not valid JSON; local proof signing unavailable")
             return {}
         if not isinstance(data, dict):
@@ -449,7 +450,7 @@ class BridgeTransferProofMixin(BridgeBase):
         vset = None
         try:
             vset = self.get_validator_set(source_chain)
-        except Exception as e:
+        except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             logger.debug("Validator set lookup failed for %s: %s", source_chain, e)
         if vset is not None:
             return vset
@@ -481,7 +482,7 @@ class BridgeTransferProofMixin(BridgeBase):
                 threshold=int(getattr(settings, "bridge_multisig_threshold", 3)),
                 total=len(validators),
             )
-        except Exception as e:
+        except (ImportError, ArithmeticError, AttributeError, KeyError, RecursionError, TypeError, ValueError) as e:
             logger.warning("Failed to parse VALIDATOR_SET for proof augmentation: %s", e)
             return None
 
@@ -507,7 +508,7 @@ class BridgeTransferProofMixin(BridgeBase):
         """
         try:
             return self._augment_proof_validator_signatures_impl(block, source_chain, validator_signatures)
-        except Exception:
+        except _OPS_ERRORS:
             logger.exception(
                 "Proof signature augmentation failed for block %s height %s — keeping sealed attestations",
                 source_chain,
@@ -614,7 +615,7 @@ class BridgeTransferProofMixin(BridgeBase):
                     signature = sign_consensus_message(message, private_key)
                 else:
                     signature = sign_consensus_message_domain(message, private_key, signing_domain)
-            except Exception as e:
+            except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
                 logger.warning("Failed to sign proof attestation with local key %s: %s", address, e)
                 continue
             collected.append(signature)
@@ -689,7 +690,7 @@ class BridgeTransferProofMixin(BridgeBase):
             return []
         try:
             from ..consensus.remote_attestation import RemoteAttestationService
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - optional consensus helper import; module-level side effects are unbounded
             logger.debug("Remote attestation service unavailable for proof build: %s", e)
             return []
 
