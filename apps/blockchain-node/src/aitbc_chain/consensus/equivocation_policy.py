@@ -271,7 +271,9 @@ def view_change_justified(
         return False
     if kind == "free":
         return True
-    return kind == "locked" and selected == later_hash
+    # #2144: hashes compare case-insensitively like the rest of the pipeline —
+    # a case-variant of the permitted hash must excuse identically.
+    return kind == "locked" and selected is not None and selected.lower() == later_hash.lower()
 
 
 def _cross_view_later_vote(payload: dict[str, Any], sequence: int) -> tuple[int, str] | None:
