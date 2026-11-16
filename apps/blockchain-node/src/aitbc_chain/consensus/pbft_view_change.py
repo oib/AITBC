@@ -268,7 +268,7 @@ def _verify_lock_proof_record(msg: Any, kind: str, seq: int, lock_view: int, blo
     return canonical_address(sender), ""
 
 
-def _lock_proof_shape(vc: dict[str, Any], lock: dict[str, Any], required: int) -> tuple[bool, str]:
+def _lock_proof_shape(vc: dict[str, Any], lock: dict[str, Any]) -> tuple[bool, str]:
     """Structural gate of a lock proof: cheap checks only, no signatures."""
     lock_view = lock.get("view")
     msgs = lock.get("msgs")
@@ -282,8 +282,8 @@ def _lock_proof_shape(vc: dict[str, Any], lock: dict[str, Any], required: int) -
         return False, "view_change lock view is not below the target view"
     if lock.get("kind") not in ("prepare", "commit"):
         return False, "view_change lock kind must be prepare or commit"
-    if not isinstance(msgs, list) or len(msgs) < required or len(msgs) > MAX_LOCK_PROOF_MSGS:
-        return False, "view_change lock proof missing, below quorum or over cap"
+    if not isinstance(msgs, list) or not msgs or len(msgs) > MAX_LOCK_PROOF_MSGS:
+        return False, "view_change lock proof missing or over cap"
     return True, ""
 
 
@@ -320,7 +320,7 @@ def verify_vc_lock_proof(vc: dict[str, Any], canonical: set[str], required: int)
         return True, ""
     if not isinstance(lock, dict):
         return False, "view_change lock is not an object or null"
-    ok, reason = _lock_proof_shape(vc, lock, required)
+    ok, reason = _lock_proof_shape(vc, lock)
     if not ok:
         return False, reason
     msgs = lock["msgs"]
