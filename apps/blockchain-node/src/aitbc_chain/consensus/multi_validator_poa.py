@@ -1214,11 +1214,77 @@ class MultiValidatorPoA:
                     "VALIDATOR_DEACTIVATE tx to deactivate on-chain",
                     validator,
                 )
+            elif self._deactivation_floor_refuses(validator):
+                # #2158: the event is recorded and the stake slashed above;
+                # only the membership flip is withheld, so a wrongful-slash
+                # bug cannot take the active set below quorum (drill-1: all
+                # four validators deactivated, permanent halt).
+                from ..metrics import metrics_registry
+
+                metrics_registry.increment("consensus_deactivation_floor_refused_total")
+                health = self.quorum_health()
+                logger.critical(
+                    "Byzantine threshold reached for %s but deactivation REFUSED: it would leave %s active of %s "
+                    "configured, below the quorum of %s. Operator review required (#2158)",
+                    validator,
+                    health["active"] - 1,
+                    health["configured"],
+                    health["required"],
+                )
             else:
                 self.validators[validator].is_active = False
                 # Persist the deactivation — a restart must not clear
                 # a byzantine verdict and reset the slash history.
                 self.save_state()
+
+    def quorum_health(self) -> dict[str, Any]:
+        """Active vs configured validators and the PBFT quorum of the configured set (#2158).
+
+        ``configured`` counts proposer/validator-role entries regardless of
+        ``is_active`` (a deactivated validator keeps its role, so it is still
+        part of the configured set). ``required`` is the quorum of that
+        configured set, never of the shrinking active set.
+        """
+        from ..metrics import metrics_registry
+        from .pbft_quorum import pbft_required_messages
+
+        configured = sum(1 for v in self.validators.values() if v.role in (ValidatorRole.PROPOSER, ValidatorRole.VALIDATOR))
+        active = len(self.get_consensus_participants())
+        required = pbft_required_messages(configured) if configured else 0
+        below = configured > 0 and active < required
+        metrics_registry.set_gauge("consensus_active_below_quorum", 1.0 if below else 0.0)
+        return {"configured": configured, "active": active, "required": required, "below_quorum": below}
+
+    def _deactivation_floor_refuses(self, validator: str) -> bool:
+        """Whether deactivating ``validator`` would leave fewer active than the configured quorum."""
+        target = canonical_address(validator)
+        if target not in {canonical_address(a) for a in self.get_consensus_participants()}:
+            return False  # already out of the active set: nothing changes
+        health = self.quorum_health()
+        return bool(health["active"] - 1 < health["required"])
+
+    def reactivate_validator(self, address: str, reason: str) -> bool:
+        """Operator re-activation of a locally deactivated validator (#2158).
+
+        Legacy (node-local) regime only: with chain slashing armed the
+        canonical state is the on-chain marker and a local flip would diverge.
+        Requires a non-empty reason, writes an audit log line and persists.
+        Returns False when the validator is unknown or already active.
+        """
+        if not isinstance(reason, str) or not reason.strip():
+            raise ValueError("reactivation requires a non-empty reason")
+        if self._chain_slashing_armed():
+            raise ValueError("chain slashing is armed: deactivation is an on-chain marker, not local state")
+        key = next((k for k in self.validators if canonical_address(k) == canonical_address(address)), None)
+        if key is None or self.validators[key].is_active:
+            return False
+        self.validators[key].is_active = True
+        logger.warning("AUDIT validator %s re-activated by operator (#2158); reason: %s", key, reason.strip())
+        from ..metrics import metrics_registry
+
+        metrics_registry.increment("consensus_validator_reactivated_total")
+        self.save_state()
+        return True
 
     _VOTE_EVIDENCE_FIELDS = ("message_type", "sender", "view_number", "sequence_number", "digest", "block_hash", "signature")
 

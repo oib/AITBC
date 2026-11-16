@@ -44,6 +44,20 @@ def consensus_status_route(request: Request, chain_id: str | None = None) -> dic
         consensus = get_consensus(chain_id)
         consensus.load_state(slashing=False)
         participants = consensus.get_consensus_participants()
+        if not participants and consensus.quorum_health()["configured"] > 0:
+            # #2158: validators are configured but none is active — that is a
+            # halt, not a single-proposer deployment.
+            health = consensus.quorum_health()
+            return {
+                "mode": "MultiValidatorPoA (HALTED: no active validators)",
+                "multi_validator_enabled": True,
+                "halted": True,
+                "chain_id": chain_id,
+                "active_validators": 0,
+                "configured_validators": health["configured"],
+                "required_messages": health["required"],
+                "below_quorum": True,
+            }
         if not participants:
             return {
                 "mode": "PoA (single proposer)",
@@ -73,6 +87,7 @@ def consensus_status_route(request: Request, chain_id: str | None = None) -> dic
             "min_attestations": min_attestations,
             "active_validators": n,
             "total_validators": len(consensus.validators),
+            "below_quorum": consensus.quorum_health()["below_quorum"],
         }
         if pbft_enabled:
             result["current_view"] = consensus._pbft_view
