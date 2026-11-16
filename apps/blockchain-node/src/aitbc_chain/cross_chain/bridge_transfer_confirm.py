@@ -8,13 +8,14 @@ import time
 from datetime import UTC, datetime
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import select
 
 
 from ..config import settings
 from ..logger import get_logger
 from ..models import Account, CrossChainTransfer, Transaction
-from .bridge_base import BridgeBase
+from .bridge_base import BridgeBase, _OPS_ERRORS
 from .bridge_types import BridgeStatus, BridgeTransfer
 
 logger = get_logger(__name__)
@@ -255,7 +256,7 @@ class BridgeTransferConfirmMixin(BridgeBase):
                     src_record.confirm_time = record.confirm_time
                     src_session.add(src_record)
                     src_session.commit()
-        except Exception:
+        except (SQLAlchemyError, OSError):
             logger.exception("Failed to update source-chain bridge record for %s", transfer_id)
 
     def confirm_transfer(self, transfer_id: str, proof: dict[str, Any]) -> BridgeTransfer:
@@ -579,7 +580,7 @@ class BridgeTransferConfirmMixin(BridgeBase):
             try:
                 transfer = self.confirm_transfer(transfer_id, c["proof"])
                 results.append(transfer)
-            except Exception as e:
+            except _OPS_ERRORS as e:
                 logger.warning("Batch confirm failed for transfer %s: %s", transfer_id, e)
                 results.append({"transfer_id": transfer_id, "error": str(e)})
         return results

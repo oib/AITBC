@@ -39,6 +39,7 @@ from .vote_journal import KIND_PROPOSE, VoteJournalError, get_vote_journal, vote
 from aitbc.network import SharedHttpClient
 from datetime import UTC, datetime
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 import time
 
@@ -478,7 +479,17 @@ class _ProposalGatesMixin(_PoaBaseMixin):
             return
         try:
             service.record_proposal_equivocation(self._block_header_message(block), block.signature, round_number)
-        except Exception as exc:
+        except (
+            ImportError,
+            SQLAlchemyError,
+            ArithmeticError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            KeyError,
+        ) as exc:
             metrics_registry.increment("proposal_equivocation_record_failed_total")
             self._logger.warning(
                 "[PROPOSE] Failed to record proposer equivocation evidence at height %s: %s", block.height, exc
@@ -785,12 +796,12 @@ class _ProposalGatesMixin(_PoaBaseMixin):
                         tx_metadata=_rejection_metadata(reason, next_height, timestamp),
                     )
                 )
-            except Exception as exc:
+            except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as exc:
                 self._logger.warning("[PROPOSE] Failed to record rejection for tx %s: %s", tx.tx_hash, exc)
         if commit:
             try:
                 session.commit()
-            except Exception as exc:
+            except (SQLAlchemyError, OSError) as exc:
                 session.rollback()
                 self._logger.warning("[PROPOSE] Failed to commit rejected-tx records: %s", exc)
 
@@ -1381,5 +1392,5 @@ class _ProposalGatesMixin(_PoaBaseMixin):
             return
         try:
             mempool.batch_remove(hashes, self._config.chain_id)
-        except Exception as exc:
+        except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as exc:
             self._logger.warning("[PROPOSE] mempool eviction of %d rejected txs failed: %s", len(hashes), exc)

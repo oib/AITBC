@@ -19,6 +19,7 @@ from ..models import Block, CrossChainTransfer
 from ..state import side_root_shadow
 from ..state.block_deltas import BlockDeltaJournal
 from ..state.state_transition import get_block_version
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 
@@ -40,7 +41,7 @@ class _CommitMixin(_PoaBaseMixin):
 
             domain = _active_consensus_domain(block.height, DOMAIN_BLOCK_PROPOSAL)
             return _sign_consensus(self._block_header_message(block), private_key, domain)
-        except Exception as e:  # noqa: BLE001
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             self._logger.warning("Failed to sign block header for %s: %s", proposer, e)
             return ""
 
@@ -59,7 +60,7 @@ class _CommitMixin(_PoaBaseMixin):
             journal.persist(session)
         try:
             session.commit()
-        except Exception as exc:
+        except (SQLAlchemyError, OSError) as exc:
             # #1740: a disk-full/I/O-error commit leaves quick_check green —
             # quarantine on the error shape so import/propose/attest all
             # refuse instead of the proposer retrying into a dead disk.
@@ -211,6 +212,6 @@ class _CommitMixin(_PoaBaseMixin):
             domain = _active_consensus_domain(block.height, DOMAIN_BLOCK_PROPOSAL)
             message = self._block_header_message(block)
             return _sign_consensus(message, private_key, domain)
-        except Exception as e:  # noqa: BLE001
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             self._logger.warning("Failed to sign block header: %s", e)
             return ""

@@ -18,6 +18,8 @@ from __future__ import annotations
 
 import asyncio
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from aitbc.async_tasks import create_task_with_logging
 
 from ..logger import get_logger
@@ -27,6 +29,22 @@ logger = get_logger(__name__)
 
 # Interval between timeout checks in the background monitor loop.
 _MONITOR_INTERVAL_SECONDS = 10
+
+# Expected failure surface for the settlement-service calls below: SQLAlchemy
+# driver errors, OS/asyncio transport errors, lazy imports, JSON/data-shape
+# decode, HTLC/proof ValueErrors and Decimal arithmetic on untrusted amounts.
+# Genuine BaseExceptions (incl. asyncio.CancelledError) still propagate (#1860).
+_SERVICE_ERRORS = (
+    ImportError,
+    SQLAlchemyError,
+    ArithmeticError,
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    AttributeError,
+    KeyError,
+)
 
 
 class AtomicSettlementCoordinator:
@@ -109,14 +127,14 @@ class AtomicSettlementCoordinator:
                 "secret": secret,
             }
 
-        except Exception as e:
+        except _SERVICE_ERRORS as e:
             logger.error("Settlement %s failed: %s", escrow_id or "?", e)
             # Attempt refund if the escrow was created but not yet completed.
             if escrow_id is not None:
                 try:
                     await self._service.refund(escrow_id)
                     logger.info("Settlement %s: refunded after failure", escrow_id)
-                except Exception as refund_err:
+                except _SERVICE_ERRORS as refund_err:
                     logger.error("Settlement %s: refund also failed: %s", escrow_id, refund_err)
 
             return {
@@ -159,7 +177,7 @@ class AtomicSettlementCoordinator:
             recovered = await self._service.check_timeouts()
             if recovered:
                 logger.info("Startup recovery refunded %d timed-out escrows: %s", len(recovered), recovered)
-        except Exception as e:
+        except _SERVICE_ERRORS as e:
             logger.error("Startup recovery scan failed: %s", e)
         self._task = create_task_with_logging(self._monitor_loop(), name="settlement_monitor_loop")
         logger.info("Settlement timeout monitor started (interval=%ds)", _MONITOR_INTERVAL_SECONDS)
@@ -200,14 +218,14 @@ class AtomicSettlementCoordinator:
                     refunded = await self._service.check_timeouts()
                     if refunded:
                         logger.info("Monitor refunded %d timed-out escrows: %s", len(refunded), refunded)
-                except Exception as e:
+                except _SERVICE_ERRORS as e:
                     logger.error("Monitor loop error during timeout check: %s", e)
 
                 await asyncio.sleep(_MONITOR_INTERVAL_SECONDS)
         except asyncio.CancelledError:
             logger.info("Monitor loop cancelled")
             raise
-        except Exception as e:
+        except _SERVICE_ERRORS as e:
             logger.error("Monitor loop crashed: %s", e)
             raise
         finally:

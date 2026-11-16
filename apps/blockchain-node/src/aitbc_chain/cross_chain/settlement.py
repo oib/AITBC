@@ -26,6 +26,7 @@ import uuid
 from datetime import UTC, datetime
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import select
 
 from aitbc.settlement.htlc import (
@@ -888,7 +889,16 @@ class CrossChainSettlementService:
                 await self.refund(escrow_id)
             except ValueError as e:
                 logger.info("Escrow %s not refundable yet: %s", escrow_id, e)
-            except Exception as e:
+            except (
+                ImportError,
+                SQLAlchemyError,
+                ArithmeticError,
+                OSError,
+                RuntimeError,
+                TypeError,
+                AttributeError,
+                KeyError,
+            ) as e:
                 logger.error("Failed to refund timed-out escrow %s: %s", escrow_id, e)
             else:
                 refunded.append(escrow_id)

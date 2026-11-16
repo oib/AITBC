@@ -25,6 +25,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
 from ..models import Block
@@ -381,7 +382,7 @@ class MultiValidatorPoA:
         try:
             with self._chain_state_session() as session:
                 return session.exec(select(func.max(Block.height)).where(Block.chain_id == self.chain_id)).one()
-        except Exception as e:
+        except (SQLAlchemyError, OSError, RuntimeError) as e:
             # #1940 F4: injected scratch-session reads verify snapshot state —
             # a failure must refuse, not degrade to "no markers". The
             # production session_scope path keeps the legacy fallback.
@@ -419,7 +420,7 @@ class MultiValidatorPoA:
                 for addr, height in rows
                 if upto_height is None or height is None or height <= upto_height
             )
-        except Exception as e:
+        except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             # #1940 F4: injected scratch-session reads verify snapshot state —
             # a failure must refuse, not degrade to "no markers". The
             # production session_scope path keeps the legacy fallback.
@@ -463,7 +464,7 @@ class MultiValidatorPoA:
 
         try:
             report = self.chain_slashing_divergence_report()
-        except Exception as e:
+        except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             logger.warning("Slashing divergence report failed for %s: %s", self.chain_id, e)
             return
         for entry in report:
@@ -515,7 +516,7 @@ class MultiValidatorPoA:
             with session_scope(self.chain_id) as session:
                 for b in session.exec(select(Bond).where(Bond.chain_id == self.chain_id, Bond.status == "active")).all():
                     provider_bonds.setdefault(canonical_address(b.provider), b)
-        except Exception as e:
+        except (SQLAlchemyError, OSError, ValueError, TypeError, AttributeError, KeyError) as e:
             logger.error("Bond scan failed drafting deactivations for %s: %s", self.chain_id, e)
             return {"drafts": [], "skipped": [{"address": a, "reason": f"bond scan failed: {e}"} for a in self.validators]}
 
@@ -535,8 +536,6 @@ class MultiValidatorPoA:
         evidence_min_height = None
         if head is not None:
             try:
-                from sqlalchemy.exc import SQLAlchemyError
-
                 from ..state.state_transition import _chain_parameter_value
 
                 with session_scope(self.chain_id) as session:
@@ -1588,7 +1587,7 @@ class MultiValidatorPoA:
                 # consensus_state stayed empty fleet-wide.
                 session.commit()
             return True
-        except Exception as e:
+        except (SQLAlchemyError, ArithmeticError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             logger.error("Failed to save consensus state for %s: %s", self.chain_id, e)
             return False
 
@@ -1843,7 +1842,17 @@ class MultiValidatorPoA:
             if self._chain_slashing_armed():
                 self._report_slashing_divergence()
             return True
-        except Exception as e:
+        except (
+            ImportError,
+            SQLAlchemyError,
+            ArithmeticError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            KeyError,
+        ) as e:
             logger.error("Failed to load consensus state for %s: %s", self.chain_id, e)
             return self._load_validator_set_from_settings()
 

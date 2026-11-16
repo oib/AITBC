@@ -102,7 +102,7 @@ class _TxPipelineMixin(_PoaBaseMixin):
         for tx in pending_txs:
             try:
                 self._process_tx_sequential(ctx, tx)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - per-tx containment must roll back on ANY apply failure; the state-transition surface is unbounded
                 session.rollback()
                 self._logger.warning("Failed to process transaction %s: %s", tx.tx_hash, e)
                 _seq_reject(ctx, tx, f"processing exception: {e}")
@@ -703,7 +703,7 @@ class _TxPipelineMixin(_PoaBaseMixin):
             return self._parallel_write_tx_records(
                 session, all_deltas, prereg_rows, tx_data_map, chain_id, next_height, timestamp, existing_tx_map
             )
-        except Exception:
+        except Exception:  # noqa: BLE001 - write-phase containment must roll back on ANY failure; delta apply surface is unbounded
             session.rollback()
             self._logger.error("[PROPOSE-PARALLEL] Write phase failed; session rolled back — aborting proposal")
             return None

@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING, Any
 
 
 from aitbc.crypto.signature_recovery import canonical_address
+from sqlalchemy.exc import SQLAlchemyError
 
 from ..config import settings
 from ..metrics import metrics_registry
@@ -424,7 +425,7 @@ class _EvidenceMixin(_V9Mixin):
                 key = rec.get("key")
                 if isinstance(key, str) and isinstance(rec.get("record"), dict):
                     self._signed_attestations[key] = rec["record"]
-        except Exception as e:
+        except (AttributeError, KeyError, OSError, RecursionError, TypeError, ValueError) as e:
             logger.warning("Failed to load signed attestations for %s: %s", self._chain_id, e)
 
     def _persist_signed_attestations(self) -> None:
@@ -509,7 +510,7 @@ class _EvidenceMixin(_V9Mixin):
         self._signed_attestations[key] = record
         try:
             self._persist_signed_attestations()
-        except Exception as e:
+        except (AttributeError, KeyError, OSError, RuntimeError, TypeError, ValueError) as e:
             logger.warning("Failed to persist signed attestation for %s: %s", self._chain_id, e)
 
     def _recorder_stake_kwargs(self, recorder: Any, validator: str) -> dict[str, Any]:
@@ -675,7 +676,16 @@ class _EvidenceMixin(_V9Mixin):
                     block_hash_b=block_hash,
                     proposer=proposer,
                 )
-            except Exception as e:
+            except (
+                ImportError,
+                SQLAlchemyError,
+                ArithmeticError,
+                KeyError,
+                OSError,
+                RuntimeError,
+                TypeError,
+                ValueError,
+            ) as e:
                 logger.warning("Failed to record attestation equivocation for %s: %s", canon, e)
             else:
                 if attestations is not None and justification is None:

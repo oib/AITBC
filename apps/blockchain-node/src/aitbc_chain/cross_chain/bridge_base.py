@@ -7,10 +7,28 @@ from contextlib import AbstractContextManager
 from typing import Any, Protocol
 
 from aitbc.bridge import ValidatorSetRegistry
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session
 
 from ..models import BridgeBlockHeader, CrossChainTransfer
 from .bridge_types import BridgeTransfer
+
+# Expected failure surface for the best-effort bridge paths in the
+# bridge_transfer_* mixins: SQLAlchemy driver errors, OS/asyncio transport
+# errors, lazy imports, JSON/data-shape decode, crypto signing (ValueError),
+# and arithmetic on untrusted amounts. Genuine BaseExceptions (incl.
+# asyncio.CancelledError) still propagate (#1860).
+_OPS_ERRORS = (
+    ImportError,
+    SQLAlchemyError,
+    ArithmeticError,
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    AttributeError,
+    KeyError,
+)
 
 
 class BridgeBase(Protocol):
