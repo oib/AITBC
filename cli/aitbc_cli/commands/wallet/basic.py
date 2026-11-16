@@ -560,11 +560,48 @@ def info(ctx, name: str | None, password: str | None, password_file: str | None,
             f"(derived {derived_address}). The wallet file may be corrupted or tampered with."
         )
 
-    if "balance" in wallet_data:
-        # the local wallet file holds AIT; format_ait takes compute-units
-        wallet_info["balance"] = format_ait(ait_to_units(wallet_data["balance"]))
+    _attach_balance(wallet_info, wallet_data, display_address)
 
     output(wallet_info, ctx.obj.get("output_format", "table"))
+
+
+def _attach_balance(wallet_info: dict[str, Any], wallet_data: dict[str, Any], address: str) -> None:
+    """Attach the balance field, preferring the live chain over the stored file.
+
+    The wallet file's ``balance`` is a creation-time snapshot and goes stale
+    (#2097); the stored value is only a fallback, labelled as such.
+    """
+    live = _fetch_chain_balance(address)
+    if live is not None:
+        wallet_info["balance"] = live
+        wallet_info["balance_source"] = "chain"
+    elif "balance" in wallet_data:
+        # the local wallet file holds AIT; format_ait takes compute-units
+        wallet_info["balance"] = format_ait(ait_to_units(wallet_data["balance"]))
+        wallet_info["balance_source"] = "stored-file (may be stale)"
+
+
+def _fetch_chain_balance(address: str) -> str | None:
+    """Return the formatted on-chain AIT balance, or None if RPC is unreachable."""
+    if not address:
+        return None
+    config = get_config()
+    rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
+    try:
+        canonical = to_eip55(address)
+    except (ValueError, TypeError, AttributeError, ImportError):
+        canonical = address
+    try:
+        account_data = AITBCHTTPClient(base_url=rpc_url, timeout=10).get(f"/rpc/account/{canonical}")
+    except NetworkError as e:
+        if "404" in str(e) or "Not Found" in str(e):
+            return format_ait(0)
+        logger.debug("chain balance lookup failed for %s: %s", canonical, e)
+        return None
+    except Exception as e:  # noqa: BLE001 - any transport failure means "no live balance"
+        logger.debug("chain balance lookup failed for %s: %s", canonical, e)
+        return None
+    return format_ait(account_data.get("balance", 0))
 
 
 def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:

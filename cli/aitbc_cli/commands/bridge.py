@@ -974,6 +974,28 @@ def attest(ctx, header_file, source_rpc, height, chain_id, private_key, proposer
         abort(ctx, f"Failed to attest block header: {e}", from_exception=e)
 
 
+def _resolve_bridge_repo_root(repo_root: str | None) -> Path:
+    """Locate the AITBC checkout that owns apps/bridge-monitor.
+
+    Order: explicit --repo-root, AITBC_REPO_ROOT, ancestors of the cwd
+    (running from inside a checkout), the interpreter-derived path, then
+    the conventional /opt/aitbc deploy location.
+    """
+    candidates: list[Path] = []
+    if repo_root:
+        candidates.append(Path(repo_root))
+    if os.getenv("AITBC_REPO_ROOT"):
+        candidates.append(Path(os.environ["AITBC_REPO_ROOT"]))
+    for parent in Path.cwd().resolve().parents:
+        candidates.append(parent)
+    candidates.append(Path(sys.executable).resolve().parents[2])
+    candidates.append(Path("/opt/aitbc"))
+    for cand in candidates:
+        if (cand / "apps" / "bridge-monitor" / "src" / "bridge_monitor" / "admin.py").exists():
+            return cand
+    return candidates[0] if repo_root else Path(sys.executable).resolve().parents[2]
+
+
 @bridge.command(
     epilog="""Examples:
 
@@ -990,7 +1012,7 @@ def attest(ctx, header_file, source_rpc, height, chain_id, private_key, proposer
     "--repo-root",
     default=None,
     type=click.Path(exists=True, file_okay=False),
-    help="AITBC checkout containing apps/bridge-monitor (default: inferred from the running CLI, or AITBC_REPO_ROOT)",
+    help="AITBC checkout containing apps/bridge-monitor (default: inferred from cwd/interpreter or /opt/aitbc)",
 )
 @click.pass_context
 def deposits(ctx, status_filter, limit, tx_hash, repo_root):
@@ -1002,7 +1024,7 @@ def deposits(ctx, status_filter, limit, tx_hash, repo_root):
     stay in one place. Mutating admin commands stay on
     ``scripts/ops/bridge-admin.sh``.
     """
-    root = Path(repo_root or os.getenv("AITBC_REPO_ROOT") or Path(sys.executable).resolve().parents[2])
+    root = _resolve_bridge_repo_root(repo_root)
     monitor_src = root / "apps" / "bridge-monitor" / "src"
     if not (monitor_src / "bridge_monitor" / "admin.py").exists():
         abort(

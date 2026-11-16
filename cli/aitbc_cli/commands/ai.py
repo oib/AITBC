@@ -1536,7 +1536,7 @@ def stats(ctx, coordinator_url, format):
 
         headers = _auth_headers(ctx)
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
-        result = http_client.get("/v1/stats")
+        result = http_client.get("/v1/admin/stats")
 
         output(result, resolve_output_format(ctx, format), title="AI Service Statistics")
 
