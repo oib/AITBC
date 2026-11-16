@@ -13,12 +13,13 @@ from typing import Any, cast
 import click
 
 from aitbc.config.hub import normalize_hub_base
+from aitbc.exceptions import AITBCError
 
 from ...config import get_config
 from ...utils.wallet_secret import wallet_password_options
 from ...utils import error, info, output, success, warning
 from ...utils.address import to_canonical
-from ...utils.error_handling import abort
+from ...utils.error_handling import CLIError, abort
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.island_credentials import CREDENTIALS_PATH, load_island_credentials
 from ...utils.wallet_loader import find_wallet_by_address, load_wallet_for_payment
@@ -26,6 +27,20 @@ from ...utils.wallet_paths import find_wallet_file
 
 # Initialize logger
 logger = get_logger(__name__)
+
+# Expected failure surface for the market helper fallbacks below (#1860):
+# aitbc/CLI error hierarchies plus filesystem, parse and data-shape builtins.
+_MARKET_ERRORS = (
+    AITBCError,
+    CLIError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 
 def safe_load_credentials():
@@ -154,7 +169,7 @@ def _account_balance(address: str, chain_id: str) -> int:
         client = AITBCHTTPClient(base_url=normalize_hub_base(hub) or hub, timeout=5)
         data = client.get(f"/rpc/accounts/{address}", params={"chain_id": chain_id})
         return int(data.get("balance", 0))
-    except Exception as e:
+    except _MARKET_ERRORS as e:
         logger.debug("Could not get balance for %s: %s", address, e)
         return 0
 
@@ -165,7 +180,7 @@ def _wallet_service_wallets() -> list[dict[str, Any]]:
         http_client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=5, api_key=get_config().wallet_api_key)
         response = http_client.get("/v1/wallets")
         return response.get("items", []) if response else []
-    except Exception as e:
+    except _MARKET_ERRORS as e:
         logger.warning("Failed to get wallet from service: %s", e)
         return []
 
@@ -199,7 +214,7 @@ def _local_wallet_address() -> str | None:
             address = wallet.get("address")
             if address:
                 return str(address)
-    except Exception as e:
+    except _MARKET_ERRORS as e:
         logger.warning("Failed to load local wallet: %s", e)
     return None
 
@@ -248,7 +263,7 @@ def get_account_nonce(address: str, chain_id: str) -> int:
             if nonce is None:
                 raise ValueError(f"/rpc/accounts/{address} response carried no nonce")
             return int(nonce)
-        except Exception as e:
+        except _MARKET_ERRORS as e:
             logger.debug("Failed to get nonce from %s: %s", base_url, e)
             continue
     error(

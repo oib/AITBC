@@ -10,7 +10,7 @@ from pathlib import Path
 import click
 
 from ...utils import error, output, success
-from ...utils.error_handling import abort
+from ...utils.error_handling import CLIError, abort
 from ...utils.wallet_loader import validate_wallet_name, write_json_0600
 from ...utils.http_client import AITBCHTTPClient
 from ...utils.wallet_paths import (
@@ -19,6 +19,19 @@ from ...utils.wallet_paths import (
     wallet_write_restricted_message,
 )
 from . import _load_wallet, wallet
+
+# Expected failure surface for the wallet export/import fallbacks below (#1860):
+# CLI error hierarchy plus filesystem, parse and data-shape builtins.
+_WALLET_FILE_ERRORS = (
+    CLIError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -260,7 +273,7 @@ def export(ctx, destination: str | None):
             },
             ctx.obj.get("output_format", "table"),
         )
-    except Exception as e:
+    except _WALLET_FILE_ERRORS as e:
         abort(None, f"Error exporting wallet: {e}")
 
 
@@ -326,5 +339,5 @@ def import_wallet(ctx, file_path: str, name: str | None):
         )
     except json.JSONDecodeError:
         abort(None, "Invalid JSON file")
-    except Exception as e:
+    except _WALLET_FILE_ERRORS as e:
         abort(None, f"Error importing wallet: {e}")

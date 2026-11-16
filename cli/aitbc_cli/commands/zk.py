@@ -10,10 +10,26 @@ from typing import Any, cast
 
 import click
 
+from aitbc.exceptions import AITBCError
+
 from ..config import get_config
 from ..utils import output, resolve_output_format
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
+
+# Expected failure surface for the ZK fallbacks below (#1860): aitbc/CLI error
+# hierarchies plus filesystem, JSON-parse and data-shape builtins.
+_ZK_ERRORS = (
+    AITBCError,
+    CLIError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 
 def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
@@ -92,7 +108,7 @@ def circuits(ctx, coordinator_url: str | None, format: str):
         output(result, resolve_output_format(ctx, format), title="ZK Circuits")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _ZK_ERRORS as e:
         abort(ctx, f"Error listing ZK circuits: {e}", from_exception=e)
 
 
@@ -157,7 +173,7 @@ def verify(
         output(result, resolve_output_format(ctx, format), title="ZK Proof Verification")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _ZK_ERRORS as e:
         abort(ctx, f"Error verifying ZK proof: {e}", from_exception=e)
 
 
@@ -185,5 +201,5 @@ def health(ctx, coordinator_url: str | None, format: str):
         output(result, resolve_output_format(ctx, format), title="ZK Service Health")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _ZK_ERRORS as e:
         abort(ctx, f"Error checking ZK health: {e}", from_exception=e)

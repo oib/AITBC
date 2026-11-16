@@ -14,6 +14,7 @@ from typing import Any
 
 import click
 
+from aitbc.exceptions import AITBCError
 from aitbc.utils import ait_to_units
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 
@@ -42,7 +43,7 @@ def _build(ctx, path: str, body: dict[str, Any], rpc_url: str | None, chain_id: 
         path = f"{path}?chain_id={chain_id}"
     try:
         result = AITBCHTTPClient(base_url=rpc, timeout=15).post(path, json=body)
-    except Exception as e:
+    except (AITBCError, OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         abort(ctx, f"{path} failed: {e}", from_exception=e)
     output(result, "json" if as_json else resolve_output_format(ctx), title=title)
     return result

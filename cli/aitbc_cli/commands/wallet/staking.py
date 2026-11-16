@@ -11,6 +11,7 @@ from typing import Any
 
 import click
 
+from aitbc.exceptions import AITBCError
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT, ait_to_units, units_to_ait
 
 from aitbc.crypto.signature_recovery import canonical_address
@@ -20,7 +21,7 @@ from ...config import get_config
 from ...utils.fee_guard import ALLOW_HIGH_FEE_OPTION, validate_tx_fee
 from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ...utils import DECIMAL, error, output, success
-from ...utils.error_handling import abort
+from ...utils.error_handling import CLIError, abort
 from ...utils.http_client import AITBCHTTPClient, http_error_detail, retired_surface_message
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_paths import (
@@ -29,6 +30,21 @@ from ...utils.wallet_paths import (
     wallet_write_restricted_message,
 )
 from . import _emit_wallet_path_note, _load_wallet, _resave_wallet, wallet
+
+# Expected failure surface for the liquidity-submit fallbacks below (#1860):
+# aitbc/CLI error hierarchies plus filesystem, crypto-shape and data-shape
+# builtins. click.Abort/click.ClickException keep their own earlier clauses.
+_LIQUIDITY_TX_ERRORS = (
+    AITBCError,
+    CLIError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -653,7 +669,7 @@ def liquidity_stake(
         error(str(e))
         ctx.exit(1)
         return
-    except Exception as e:
+    except _LIQUIDITY_TX_ERRORS as e:
         detail = _http_error_detail(e)
         error(f"Error submitting liquidity deposit: {detail or e}")
         ctx.exit(1)
@@ -755,7 +771,7 @@ def liquidity_claim(
         error(str(e))
         ctx.exit(1)
         return
-    except Exception as e:
+    except _LIQUIDITY_TX_ERRORS as e:
         detail = _http_error_detail(e)
         error(f"Error submitting liquidity claim: {detail or e}")
         ctx.exit(1)
@@ -839,7 +855,7 @@ def liquidity_unstake(
         error(str(e))
         ctx.exit(1)
         return
-    except Exception as e:
+    except _LIQUIDITY_TX_ERRORS as e:
         detail = _http_error_detail(e)
         error(f"Error submitting liquidity withdraw: {detail or e}")
         ctx.exit(1)
