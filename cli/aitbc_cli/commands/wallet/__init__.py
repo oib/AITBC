@@ -3,7 +3,7 @@
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 import yaml
@@ -185,8 +185,7 @@ def _load_signing_key(ctx, wallet_name: str | None, wallet_path: Path | None, pa
     private_key = _load_wallet(wallet_path, wallet_name or wallet_path.stem, password=pw).get("private_key")
     if not isinstance(private_key, str) or not private_key:
         abort(ctx, "Wallet does not contain a private key")
-    assert isinstance(private_key, str)
-    return private_key
+    return cast(str, private_key)
 
 
 @click.group(

@@ -190,7 +190,8 @@ _PROXY_GET_MAX_BYTES = int(os.getenv("OLLAMA_GATE_PROXY_GET_MAX_BYTES", str(16 *
 
 
 async def _proxy_get(path: str) -> Response:
-    assert _client is not None
+    if _client is None:
+        return JSONResponse(status_code=503, content={"error": "upstream unavailable"})
     upstream = await _client.send(_client.build_request("GET", path), stream=True)
     chunks: list[bytes] = []
     total = 0
@@ -299,7 +300,9 @@ async def _proxy_gated(request: Request, path: str, job: dict[str, Any], release
     handler returns, so releasing here would let bounds lapse mid-generation
     (#1613).
     """
-    assert _client is not None
+    if _client is None:
+        release()
+        return JSONResponse(status_code=503, content={"error": "upstream unavailable"})
     body = await _read_bounded_body(request)
     try:
         payload = json.loads(body)
