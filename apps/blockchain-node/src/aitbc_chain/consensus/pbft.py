@@ -12,6 +12,7 @@ Provides Byzantine fault tolerance for up to 1/3 faulty validators
 
 import asyncio
 import hashlib
+import json
 import time
 from dataclasses import dataclass
 from enum import Enum
@@ -740,7 +741,17 @@ class PBFTConsensus:
         certificate = self.get_certificate(pp.block_hash, view=view)
         if not certificate:
             return
+        # #2156: ``block_metadata`` is a JSON STRING on the wire and in the DB
+        # (the proposer's gossip body carries ``block.block_metadata``). Parse
+        # the proposer's string so its stamps (rejected_txs, state version)
+        # survive the re-seal, and publish a string back — a dict here crashed
+        # every non-PBFT importer's ``json.loads``.
         prior_metadata = body_get.get("block_metadata")
+        if isinstance(prior_metadata, str) and prior_metadata:
+            try:
+                prior_metadata = json.loads(prior_metadata)
+            except (ValueError, RecursionError):
+                prior_metadata = None
         block_metadata = dict(prior_metadata) if isinstance(prior_metadata, dict) else {}
         block_metadata["pbft_certificate"] = certificate
         payload = {
@@ -755,7 +766,7 @@ class PBFTConsensus:
             "bridge_state_root": body_get.get("bridge_state_root"),
             "aux_state_root": body_get.get("aux_state_root"),
             "signature": body_get.get("signature"),
-            "block_metadata": block_metadata,
+            "block_metadata": json.dumps(block_metadata),
             "transactions": body_get.get("transactions") or [],
         }
         if self._gossip_backend is None:

@@ -262,6 +262,19 @@ class BlockImportMixin(SyncBase):
             raise ValueError(f"bridge_state_root mismatch: carried {carried} != computed {computed}")
         return str(carried)
 
+    @staticmethod
+    def _normalize_block_metadata(block_data: dict[str, Any]) -> dict[str, Any]:
+        """#2156: ``block_metadata`` is a JSON string everywhere downstream
+        (validators ``json.loads`` it, the column is text). Validators still
+        running the pre-fix PBFT view-change re-seal gossip it as a dict;
+        serialise it at the single import entry so every later parse, the
+        strict-era gate and the DB write see the string they assume. Returns
+        a copy — the caller's message is never mutated."""
+        raw = block_data.get("block_metadata")
+        if not isinstance(raw, dict):
+            return block_data
+        return {**block_data, "block_metadata": json.dumps(raw)}
+
     def import_block(
         self,
         block_data: dict[str, Any],
@@ -282,6 +295,7 @@ class BlockImportMixin(SyncBase):
             skip_state_root_validation: Skip state root validation (for bulk import)
         """
         start = time.perf_counter()
+        block_data = self._normalize_block_metadata(block_data)
         height = block_data.get("height", -1)
         block_hash = block_data.get("hash", "")
         if transactions is None:

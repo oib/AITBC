@@ -1194,9 +1194,32 @@ class TestDeadAfterQuorumReseal:
         assert payload["height"] == SEQ
         assert payload["proposer"] == proposer
         assert payload["signature"] == body["signature"]  # original proposer signature, as-is
-        cert = payload["block_metadata"]["pbft_certificate"]
+        # #2156: block_metadata is a JSON string on the wire, never a dict.
+        assert isinstance(payload["block_metadata"], str)
+        cert = json.loads(payload["block_metadata"])["pbft_certificate"]
         assert len(cert) == Q
         assert {c["sender"] for c in cert} == set(MEMBERS[:Q])
+
+    @pytest.mark.asyncio
+    async def test_reseal_keeps_the_proposers_metadata_stamps(self, vc_armed):
+        """#2156: the proposer's metadata string was dropped (only a dict was kept), losing
+        rejected_txs / state version on the re-seal. It is parsed and merged now."""
+        consensus = _make_consensus()
+        proposer = _proposer(SEQ, VIEW)
+        follower = next(s for s in MEMBERS if s != proposer)
+        pbft = _pbft(consensus, follower, KEYS[follower])
+        gossip = _FakeGossip()
+        pbft.set_gossip_backend(gossip)
+        body = _proposal_body(proposer)
+        body["block_metadata"] = json.dumps({"rejected_txs": [{"sender": "0xabc", "nonce": 7}], "state_transition_version": 3})
+        assert consensus.pbft_vc_proposal_store(SEQ, HA, body)
+        self._seed_quorum(pbft, proposer)
+        assert await pbft.execute_phase(f"{SEQ}:{VIEW}") is True
+        (payload,) = [p for t, p in gossip.published if t == f"blocks.{_CID}"]
+        meta = json.loads(payload["block_metadata"])
+        assert meta["rejected_txs"] == [{"sender": "0xabc", "nonce": 7}]
+        assert meta["state_transition_version"] == 3
+        assert len(meta["pbft_certificate"]) == Q
 
     @pytest.mark.asyncio
     async def test_proposer_does_not_reseal(self, vc_armed):
