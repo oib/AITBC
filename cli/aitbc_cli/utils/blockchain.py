@@ -5,6 +5,7 @@ Blockchain utility functions for AITBC CLI
 import os
 
 from aitbc import get_logger
+from aitbc.exceptions import AITBCError
 from aitbc.utils.units import UNITS_PER_AIT, units_to_ait
 
 from .http_client import AITBCHTTPClient, NetworkError
@@ -33,7 +34,7 @@ def get_chain_info(rpc_url: str = "http://localhost:8202") -> dict | None:
     except NetworkError as e:
         logger.error("Error: %s", e)
         return None
-    except Exception as e:
+    except (AITBCError, OSError, ValueError, TypeError, AttributeError, KeyError) as e:
         logger.error("Error: %s", e)
         return None
 
@@ -47,7 +48,7 @@ def get_network_status(rpc_url: str = "http://localhost:8202") -> dict | None:
     except NetworkError as e:
         logger.error("Error getting network status: %s", e)
         return None
-    except Exception as e:
+    except (AITBCError, OSError, ValueError, TypeError, AttributeError, KeyError) as e:
         logger.error("Error: %s", e)
         return None
 
@@ -110,6 +111,6 @@ def get_blockchain_analytics(analytics_type: str, limit: int = 10, rpc_url: str 
         else:
             return {"type": analytics_type, "status": "Not implemented yet"}
 
-    except Exception as e:
+    except (AITBCError, OSError, ValueError, TypeError, AttributeError, KeyError) as e:
         logger.error("Error getting analytics: %s", e)
         return None

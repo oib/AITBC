@@ -87,7 +87,7 @@ class LazyCommand(click.Command):
             try:
                 mod = importlib.import_module(self._lazy_module)
                 self._lazy_loaded = cast(click.Command, getattr(mod, self._lazy_attr))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - lazy-load boundary: any import failure degrades to _UnavailableCommand
                 logger.warning("Cannot load command %r from %s.%s: %s", self.name, self._lazy_module, self._lazy_attr, exc)
                 self._lazy_loaded = cast(click.Command, _UnavailableCommand(self._command_name, exc))
         return self._lazy_loaded
@@ -133,7 +133,7 @@ class LazyGroup(click.Group):
             try:
                 mod = importlib.import_module(self._lazy_module)
                 self._lazy_loaded = cast(click.Group, getattr(mod, self._lazy_attr))
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - lazy-load boundary: any import failure degrades to _UnavailableCommand
                 logger.warning(
                     "Cannot load command group %r from %s.%s: %s", self.name, self._lazy_module, self._lazy_attr, exc
                 )

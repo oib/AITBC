@@ -10,12 +10,27 @@ from datetime import datetime
 from enum import Enum
 from typing import Any
 
+import httpx
+
 from aitbc_cli.core.config import MultiChainConfig
 from aitbc_cli.core.node_client import NodeClient
 
 from aitbc import get_logger
 
 logger = get_logger(__name__)
+
+# Failure surface for the in-memory bookkeeping below (type/shape/arithmetic
+# errors on the dataclass payloads) plus the NodeClient probe in
+# _find_bridge_nodes (httpx transport errors and its response-shape errors).
+_AGENT_ERRORS = (
+    httpx.HTTPError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+)
 
 
 class MessageType(Enum):
@@ -159,7 +174,7 @@ class CrossChainAgentCommunication:
 
             return True
 
-        except Exception as e:
+        except _AGENT_ERRORS as e:
             logger.error("Error registering agent %s: %s", agent_info.agent_id, e)
             return False
 
@@ -215,7 +230,7 @@ class CrossChainAgentCommunication:
 
             return True
 
-        except Exception as e:
+        except _AGENT_ERRORS as e:
             logger.error("Error sending message %s: %s", message.message_id, e)
             return False
 
@@ -234,7 +249,7 @@ class CrossChainAgentCommunication:
                 # Cross-chain delivery
                 return await self._deliver_cross_chain(message, receiver)
 
-        except Exception as e:
+        except _AGENT_ERRORS as e:
             logger.error("Error delivering message %s: %s", message.message_id, e)
             return False
 
@@ -255,7 +270,7 @@ class CrossChainAgentCommunication:
 
             return True
 
-        except Exception as e:
+        except _AGENT_ERRORS as e:
             logger.error("Error in same-chain delivery: %s", e)
             return False
 
@@ -288,13 +303,13 @@ class CrossChainAgentCommunication:
 
                     return True
 
-                except Exception as e:
+                except _AGENT_ERRORS as e:
                     logger.error("Error routing through bridge node %s: %s", bridge_node, e)
                     continue
 
             return False
 
-        except Exception as e:
+        except _AGENT_ERRORS as e:
             logger.error("Error in cross-chain delivery: %s", e)
             return False
 
@@ -361,7 +376,7 @@ class CrossChainAgentCommunication:
 
             return collaboration_id
 
-        except Exception as e:
+        except _AGENT_ERRORS as e:
             logger.error("Error creating collaboration: %s", e)
             return None
 
@@ -401,7 +416,7 @@ class CrossChainAgentCommunication:
 
             return True
 
-        except Exception as e:
+        except _AGENT_ERRORS as e:
             logger.error("Error updating reputation for agent %s: %s", agent_id, e)
             return False
 
@@ -433,7 +448,7 @@ class CrossChainAgentCommunication:
 
             return status
 
-        except Exception as e:
+        except _AGENT_ERRORS as e:
             logger.error("Error getting agent status for %s: %s", agent_id, e)
             return None
 
@@ -483,7 +498,7 @@ class CrossChainAgentCommunication:
 
             return overview
 
-        except Exception as e:
+        except _AGENT_ERRORS as e:
             logger.error("Error getting network overview: %s", e)
             return {}
 
@@ -535,7 +550,7 @@ class CrossChainAgentCommunication:
 
                     if source_chain in chain_ids and target_chain in chain_ids:
                         bridge_nodes.append(node_id)
-            except Exception:
+            except _AGENT_ERRORS:
                 logger.debug("Node %s unavailable for bridge routing", node_id, exc_info=True)
                 continue
 

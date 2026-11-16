@@ -164,7 +164,9 @@ def test_monitor_metrics_expired_client_fails_fast(runner, monkeypatch):
     )
 
     def _boom(self, endpoint, **kw):  # pragma: no cover - must not be reached
-        raise AssertionError("request should not be attempted")
+        # NetworkError keeps the sentinel realistic for the chain-id probe's
+        # narrowed handler while still proving no request reaches the command.
+        raise NetworkError("request should not be attempted")
 
     monkeypatch.setattr(monitor_mod.AITBCHTTPClient, "get", _boom, raising=True)
     result = runner.invoke(cli, ["--output", "json", "monitor", "metrics", "--period", "1h"])

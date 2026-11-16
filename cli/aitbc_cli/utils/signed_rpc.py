@@ -20,9 +20,11 @@ import click
 
 from aitbc.utils import ait_to_units
 
+from aitbc.exceptions import AITBCError
+
 from ..config import get_config
 from . import output, resolve_output_format
-from .chain_id import get_chain_id
+from .chain_id import ChainIdLookupError, get_chain_id
 from .error_handling import abort
 from .http_client import AITBCHTTPClient
 from .wallet_loader import load_wallet_for_payment
@@ -82,7 +84,7 @@ def resolve_chain_id(ctx: click.Context, rpc_url: str, chain_id: str | None) -> 
         return str(explicit)
     try:
         return get_chain_id(rpc_url, override=None, timeout=5, strict=True)
-    except Exception as e:
+    except ChainIdLookupError as e:
         abort(
             ctx,
             f"Chain ID lookup via {rpc_url} failed: {e}. Pass --chain-id or point --rpc-url at a serving node",
@@ -156,7 +158,7 @@ def post_signed(
     body["signature"] = sign_fields(body, private_key)
     try:
         result = AITBCHTTPClient(base_url=rpc, timeout=30).post(path, json=body)
-    except Exception as e:
+    except (AITBCError, ValueError, TypeError, KeyError, AttributeError) as e:
         abort(ctx, f"{path} failed: {e}", from_exception=e)
     output(result, "json" if as_json else resolve_output_format(ctx), title=title)
     return result
@@ -177,7 +179,7 @@ def get_json(
         result = AITBCHTTPClient(base_url=rpc, timeout=15).get(
             path, params={k: v for k, v in (params or {}).items() if v is not None}
         )
-    except Exception as e:
+    except (AITBCError, ValueError, TypeError, KeyError, AttributeError) as e:
         abort(ctx, f"{path} failed: {e}", from_exception=e)
     output(result, "json" if as_json else resolve_output_format(ctx), title=title)
     return result

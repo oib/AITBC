@@ -8,10 +8,17 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING, Any
 
+from aitbc.exceptions import AITBCError
+
 from .http_client import AITBCHTTPClient, NetworkError, get_logger
 from .output import error
 
 logger = get_logger(__name__)
+
+# Failure surface for daemon calls: HTTP-layer errors (AITBCError covers
+# NetworkError/RateLimitError/CircuitBreakerOpenError), JSON decode failures,
+# and shape mismatches on daemon payloads.
+_DAEMON_ERRORS = (AITBCError, ValueError, TypeError, KeyError, AttributeError)
 
 if TYPE_CHECKING:
     from aitbc_cli.config import CLIConfig as Config
@@ -93,7 +100,7 @@ class WalletDaemonClient:
             logger.warning("Wallet daemon is unavailable: %s", e)
             logger.debug("Wallet daemon availability check failed", exc_info=True)
             return False
-        except Exception as e:
+        except _DAEMON_ERRORS as e:
             logger.warning("Wallet daemon is unavailable: %s", e)
             logger.debug("Wallet daemon availability check failed", exc_info=True)
             return False
@@ -106,7 +113,7 @@ class WalletDaemonClient:
         except NetworkError as e:
             logger.warning("Wallet daemon status unavailable: %s", e, exc_info=True)
             return {"status": "unavailable", "error": str(e)}
-        except Exception as e:
+        except _DAEMON_ERRORS as e:
             logger.warning("Wallet daemon status error: %s", e, exc_info=True)
             return {"status": "error", "error": str(e)}
 
@@ -128,7 +135,7 @@ class WalletDaemonClient:
         except NetworkError as e:
             error(f"Error creating wallet: {e}")
             raise
-        except Exception as e:
+        except _DAEMON_ERRORS as e:
             error(f"Error creating wallet: {str(e)}")
             raise
 
@@ -157,7 +164,7 @@ class WalletDaemonClient:
         except NetworkError as e:
             error(f"Failed to list daemon wallets: {str(e)}")
             raise
-        except Exception as e:
+        except _DAEMON_ERRORS as e:
             error(f"Error listing wallets: {str(e)}")
             raise
 
@@ -177,7 +184,7 @@ class WalletDaemonClient:
         except NetworkError as e:
             error(f"Failed to get wallet info: {e}")
             return None
-        except Exception as e:
+        except _DAEMON_ERRORS as e:
             error(f"Error getting wallet info: {str(e)}")
             return None
 
@@ -196,7 +203,7 @@ class WalletDaemonClient:
         except NetworkError as e:
             error(f"Failed to get wallet balance: {e}")
             return None
-        except Exception as e:
+        except _DAEMON_ERRORS as e:
             error(f"Error getting wallet balance: {str(e)}")
             return None
 
@@ -215,8 +222,8 @@ class WalletDaemonClient:
                     return data["signature_base64"]  # type: ignore[no-any-return]
                 else:
                     error(f"Failed to sign message: {response.text}")
-                    raise Exception(f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
+                    raise NetworkError(f"HTTP {response.status_code}: {response.text}")
+        except _DAEMON_ERRORS as e:
             error(f"Error signing message: {str(e)}")
             raise
 
@@ -238,8 +245,8 @@ class WalletDaemonClient:
                     return response.json()  # type: ignore[no-any-return]
                 else:
                     error(f"Failed to send transaction: {response.text}")
-                    raise Exception(f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
+                    raise NetworkError(f"HTTP {response.status_code}: {response.text}")
+        except _DAEMON_ERRORS as e:
             error(f"Error sending transaction: {str(e)}")
             raise
 
@@ -250,7 +257,7 @@ class WalletDaemonClient:
                 payload = {"password": password}
                 response = client.post(f"/v1/wallets/{wallet_id}/unlock", json=payload)
                 return response.status_code == 200  # type: ignore[no-any-return]
-        except Exception:
+        except _DAEMON_ERRORS:
             logger.warning("Wallet unlock failed", exc_info=True)
             return False
 
@@ -260,7 +267,7 @@ class WalletDaemonClient:
             with self._get_http_client() as client:
                 response = client.post(f"/v1/wallets/{wallet_id}/lock")
                 return response.status_code == 200  # type: ignore[no-any-return]
-        except Exception:
+        except _DAEMON_ERRORS:
             logger.warning("Wallet lock failed", exc_info=True)
             return False
 
@@ -271,7 +278,7 @@ class WalletDaemonClient:
                 payload = {"password": password}
                 response = client.delete(f"/v1/wallets/{wallet_id}", json=payload)
                 return response.status_code == 200  # type: ignore[no-any-return]
-        except Exception:
+        except _DAEMON_ERRORS:
             logger.warning("Wallet delete failed", exc_info=True)
             return False
 
@@ -286,8 +293,8 @@ class WalletDaemonClient:
                     return response.json()  # type: ignore[no-any-return]
                 else:
                     error(f"JSON-RPC call failed: {response.text}")
-                    raise Exception(f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
+                    raise NetworkError(f"HTTP {response.status_code}: {response.text}")
+        except _DAEMON_ERRORS as e:
             error(f"Error making JSON-RPC call: {str(e)}")
             raise
 
@@ -317,8 +324,8 @@ class WalletDaemonClient:
                     return chains
                 else:
                     error(f"Failed to list chains: {response.text}")
-                    raise Exception(f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
+                    raise NetworkError(f"HTTP {response.status_code}: {response.text}")
+        except _DAEMON_ERRORS as e:
             error(f"Error listing chains: {str(e)}")
             raise
 
@@ -352,8 +359,8 @@ class WalletDaemonClient:
                     )
                 else:
                     error(f"Failed to create chain: {response.text}")
-                    raise Exception(f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
+                    raise NetworkError(f"HTTP {response.status_code}: {response.text}")
+        except _DAEMON_ERRORS as e:
             error(f"Error creating chain: {str(e)}")
             raise
 
@@ -379,8 +386,8 @@ class WalletDaemonClient:
                     )
                 else:
                     error(f"Failed to create wallet in chain {chain_id}: {response.text}")
-                    raise Exception(f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
+                    raise NetworkError(f"HTTP {response.status_code}: {response.text}")
+        except _DAEMON_ERRORS as e:
             error(f"Error creating wallet in chain {chain_id}: {str(e)}")
             raise
 
@@ -406,8 +413,8 @@ class WalletDaemonClient:
                     return wallets
                 else:
                     error(f"Failed to list wallets in chain {chain_id}: {response.text}")
-                    raise Exception(f"HTTP {response.status_code}: {response.text}")
-        except Exception as e:
+                    raise NetworkError(f"HTTP {response.status_code}: {response.text}")
+        except _DAEMON_ERRORS as e:
             error(f"Error listing wallets in chain {chain_id}: {str(e)}")
             raise
 
@@ -419,7 +426,7 @@ class WalletDaemonClient:
                 if wallet.wallet_id == wallet_id:
                     return wallet
             return None
-        except Exception as e:
+        except _DAEMON_ERRORS as e:
             error(f"Error getting wallet info from chain {chain_id}: {str(e)}")
             return None
 
@@ -430,7 +437,7 @@ class WalletDaemonClient:
             payload = {"password": password}
             response = client.post(f"/v1/chains/{chain_id}/wallets/{wallet_id}/unlock", json=payload)
             return response.status_code == 200  # type: ignore[attr-defined, no-any-return]
-        except Exception:
+        except _DAEMON_ERRORS:
             logger.warning("Wallet unlock in chain failed", exc_info=True)
             return False
 
@@ -446,7 +453,7 @@ class WalletDaemonClient:
                     return data.get("signature_base64")  # type: ignore[no-any-return]  # type: ignore[no-any-return]
                 else:
                     return None
-        except Exception:
+        except _DAEMON_ERRORS:
             logger.warning("Sign message in chain failed", exc_info=True)
             return None
 
@@ -465,7 +472,7 @@ class WalletDaemonClient:
         except NetworkError as e:
             error(f"Failed to get wallet balance in chain {chain_id}: {e}")
             return None
-        except Exception as e:
+        except _DAEMON_ERRORS as e:
             error(f"Error getting wallet balance in chain {chain_id}: {str(e)}")
             return None
 
@@ -513,7 +520,7 @@ class WalletDaemonClient:
                 else:
                     error(f"Failed to migrate wallet: {response.text}")
                     return None
-        except Exception as e:
+        except _DAEMON_ERRORS as e:
             error(f"Error migrating wallet: {str(e)}")
             return None
 
@@ -538,6 +545,6 @@ class WalletDaemonClient:
                     for chain in chains
                 ],
             }
-        except Exception as e:
+        except _DAEMON_ERRORS as e:
             error(f"Error getting chain status: {str(e)}")
             return {"error": str(e)}

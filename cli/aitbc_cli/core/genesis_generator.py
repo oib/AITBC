@@ -234,7 +234,7 @@ class GenesisGenerator:
                     "purpose": template_data.get("genesis", {}).get("purpose", "unknown"),
                     "file_path": str(template_file),
                 }
-            except Exception as e:
+            except (OSError, yaml.YAMLError, ValueError, TypeError, AttributeError) as e:
                 templates[template_name] = {
                     "name": template_name,
                     "description": f"Error loading template: {e}",

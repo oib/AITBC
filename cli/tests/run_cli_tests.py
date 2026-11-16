@@ -33,7 +33,7 @@ def run_cli_test():
         else:
             print(f"❌ CLI help command failed: {result.stderr}")
             return False
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
         print(f"❌ CLI help command error: {e}")
         return False
 
@@ -57,7 +57,7 @@ def run_cli_test():
     except subprocess.TimeoutExpired:
         print("⚠️ CLI list command timed out (no blockchain node available)")
         print("   This is expected in CI environments without a running blockchain node")
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
         print(f"❌ CLI list command error: {e}")
         return False
 
@@ -90,7 +90,7 @@ def run_cli_test():
     except subprocess.TimeoutExpired:
         print("⚠️ CLI blockchain command timed out (no blockchain node available)")
         print("   This is expected in CI environments without a running blockchain node")
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
         print(f"❌ CLI blockchain command error: {e}")
         return False
 
@@ -104,7 +104,7 @@ def run_cli_test():
         else:
             print("❌ CLI invalid command should have failed")
             return False
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError, ValueError) as e:
         print(f"❌ CLI invalid command error: {e}")
         return False
 

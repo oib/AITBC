@@ -6,6 +6,7 @@ from typing import Any
 
 from aitbc.config.hub import hub_coordinator_url
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.exceptions import AITBCError
 
 from ..config import get_config
 from .error_handling import abort
@@ -29,7 +30,7 @@ def resolve_agent_payment_address(ctx, agent_id: str, chain_id: int = 1) -> str:
     try:
         client = AITBCHTTPClient(base_url=base, timeout=15, **auth)
         data: dict[str, Any] = client.get(path)
-    except Exception as exc:
+    except (AITBCError, ValueError, TypeError, KeyError, AttributeError) as exc:
         logger.warning("agent identity resolve failed for %s: %s", agent_id, exc)
         abort(ctx, f"Could not resolve payment address for agent {agent_id!r} ({exc})")
     address = data.get("address") if isinstance(data, dict) else None

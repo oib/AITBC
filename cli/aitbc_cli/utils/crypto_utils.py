@@ -7,7 +7,7 @@ import json
 import os
 import secrets
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from pathlib import Path
 
 from aitbc import ValidationError
@@ -79,7 +79,7 @@ def verify_signature(challenge: str, signature: str, signer_address: str) -> boo
         # Compare with expected signer
         return to_checksum_address(recovered_address) == to_checksum_address(signer_address)
 
-    except Exception:
+    except Exception:  # noqa: BLE001 - verification boundary: any failure means the signature is invalid
         logger.warning("Signature verification failed", exc_info=True)
         return False
 
@@ -109,7 +109,7 @@ def sign_challenge(challenge: str, private_key: str) -> str:
 
         return "0x" + signature.signature.hex()  # type: ignore[no-any-return]
 
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - crypto boundary: any failure is reported as ValueError
         raise ValueError(f"Failed to sign challenge: {e}") from e
 
 
@@ -146,7 +146,7 @@ def validate_multisig_transaction(tx_data: dict) -> tuple[bool, str]:
         amount = Decimal(str(tx_data["amount"]))
         if amount <= 0:
             return False, "Amount must be positive"
-    except Exception:
+    except (InvalidOperation, ValueError, TypeError):
         logger.warning("Invalid amount format for transaction: %s", tx_data.get("amount"), exc_info=True)
         return False, "Invalid amount format"
 

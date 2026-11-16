@@ -14,6 +14,18 @@ from aitbc import get_logger
 
 logger = get_logger(__name__)
 
+# Failure surface for the httpx calls below: transport/HTTP errors, JSON
+# decode failures, response-shape mismatches, and the RuntimeError sentinels
+# raised for non-2xx responses inside the try blocks.
+_NODE_ERRORS = (
+    httpx.HTTPError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+)
+
 
 def _endpoint_has_api_surface(endpoint: str) -> bool:
     """True when the endpoint's URL *path* is an /api-prefixed admin API.
@@ -64,7 +76,7 @@ class NodeClient:
             if response.status_code == 200:
                 data = response.json()
                 self._session_id = data.get("session_id")
-        except Exception as e:
+        except _NODE_ERRORS as e:
             # For development, we'll continue without authentication
             if self._dev_mocks_enabled:
                 logger.warning("[DEV_MODE] Authentication failed for node %s: %s", self.config.id, e)
@@ -81,8 +93,8 @@ class NodeClient:
             if response.status_code == 200:
                 return response.json()  # type: ignore[no-any-return]
             else:
-                raise Exception(f"Node info request failed: {response.status_code}")
-        except Exception as e:
+                raise RuntimeError(f"Node info request failed: {response.status_code}")
+        except _NODE_ERRORS as e:
             # Return mock data for development
             if self._dev_mocks_enabled:
                 self._mock_fallback_count += 1
@@ -120,7 +132,7 @@ class NodeClient:
                         if head_resp.status_code == 200:
                             head_data = head_resp.json()
                             block_height = head_data.get("height", 0)
-                    except Exception:
+                    except _NODE_ERRORS:
                         logger.debug("Head endpoint unavailable for chain %s", cid, exc_info=True)
                         pass
 
@@ -145,12 +157,12 @@ class NodeClient:
                 return result
             else:
                 if not self._dev_mocks_enabled:
-                    raise Exception(f"Health request failed: {response.status_code}")
+                    raise RuntimeError(f"Health request failed: {response.status_code}")
                 logger.warning(
                     "[DEV_MODE] Using mock chains for %s (health endpoint returned %s)", self.config.id, response.status_code
                 )
                 return self._get_mock_chains()
-        except Exception as e:
+        except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
                 logger.error("Failed to get hosted chains for %s: %s", self.config.id, e)
                 raise
@@ -181,7 +193,7 @@ class NodeClient:
                         if head_resp.status_code == 200:
                             head_data = head_resp.json()
                             block_height = head_data.get("height", 0)
-                    except Exception:
+                    except _NODE_ERRORS:
                         logger.debug("Head endpoint unavailable for chain %s", chain_id, exc_info=True)
                         pass
 
@@ -202,7 +214,7 @@ class NodeClient:
                         }
                     )
             return None
-        except Exception as e:
+        except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
                 logger.error("Failed to get chain info for %s on %s: %s", chain_id, self.config.id, e)
                 raise
@@ -223,8 +235,8 @@ class NodeClient:
                 data = response.json()
                 return data["chain_id"]  # type: ignore[no-any-return]
             else:
-                raise Exception(f"Chain creation failed: {response.status_code}")
-        except Exception as e:
+                raise RuntimeError(f"Chain creation failed: {response.status_code}")
+        except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
                 logger.error("Chain creation failed on node %s: %s", self.config.id, e)
                 raise
@@ -242,8 +254,8 @@ class NodeClient:
             if response.status_code == 200:
                 return True
             else:
-                raise Exception(f"Chain deletion failed: {response.status_code}")
-        except Exception as e:
+                raise RuntimeError(f"Chain deletion failed: {response.status_code}")
+        except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
                 logger.error("Chain deletion failed on node %s: %s", self.config.id, e)
                 raise
@@ -266,13 +278,13 @@ class NodeClient:
                 if response.status_code == 200:
                     head = response.json()
                     return {"block_height": head.get("height", 0), "chain_id": chain_id, "source": "rpc-head"}
-                raise Exception(f"Chain head request failed: {response.status_code}")
+                raise RuntimeError(f"Chain head request failed: {response.status_code}")
             response = await self._client.get(f"{self.config.endpoint}/api/chains/{chain_id}/stats")
             if response.status_code == 200:
                 return response.json()  # type: ignore[no-any-return]
             else:
-                raise Exception(f"Chain stats request failed: {response.status_code}")
-        except Exception as e:
+                raise RuntimeError(f"Chain stats request failed: {response.status_code}")
+        except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
                 logger.error("Chain stats request failed for %s on %s: %s", chain_id, self.config.id, e)
                 raise
@@ -290,8 +302,8 @@ class NodeClient:
             if response.status_code == 200:
                 return response.json()  # type: ignore[no-any-return]
             else:
-                raise Exception(f"Chain backup failed: {response.status_code}")
-        except Exception as e:
+                raise RuntimeError(f"Chain backup failed: {response.status_code}")
+        except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
                 logger.error("Chain backup failed for %s on %s: %s", chain_id, self.config.id, e)
                 raise
@@ -317,8 +329,8 @@ class NodeClient:
             if response.status_code == 200:
                 return response.json()  # type: ignore[no-any-return]
             else:
-                raise Exception(f"Chain restore failed: {response.status_code}")
-        except Exception as e:
+                raise RuntimeError(f"Chain restore failed: {response.status_code}")
+        except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
                 logger.error("Chain restore failed on %s: %s", self.config.id, e)
                 raise

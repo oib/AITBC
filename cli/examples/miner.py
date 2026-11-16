@@ -40,7 +40,7 @@ class AITBCMiner:
                 print(f"   Response: {response.text}")
                 return False
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return False
 
@@ -62,7 +62,7 @@ class AITBCMiner:
                 print(f"   Response: {response.text}")
                 return None
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return None
 
@@ -87,7 +87,7 @@ class AITBCMiner:
                 print(f"   Response: {response.text}")
                 return False
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return False
 
@@ -113,7 +113,7 @@ class AITBCMiner:
 
             return response.status_code == 200
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Heartbeat error: {e}")
             return False
 

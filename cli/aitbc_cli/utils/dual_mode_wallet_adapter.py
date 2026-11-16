@@ -9,12 +9,30 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
+import httpx
+
+from aitbc.exceptions import AITBCError
 from aitbc_cli.utils import error, success
 from aitbc_cli.utils.wallet_daemon_client import WalletDaemonClient
 
 from aitbc.crypto import derive_ethereum_address, generate_ethereum_private_key
 
 from aitbc_cli.utils.wallet_paths import find_wallet_file, wallet_dir, wallet_search_dirs
+
+# Failure surface shared by the daemon and file wallet paths: HTTP-layer
+# errors (AITBCError covers the daemon client's NetworkError family, httpx
+# covers the direct RPC calls), the RuntimeError sentinels raised in-function,
+# and the shape/IO errors a wallet JSON or daemon payload can produce.
+_ADAPTER_ERRORS = (
+    AITBCError,
+    httpx.HTTPError,
+    RuntimeError,
+    OSError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+)
 
 
 class DualModeWalletAdapter:
@@ -58,7 +76,7 @@ class DualModeWalletAdapter:
         try:
             if not self.is_daemon_available():
                 error("Wallet daemon is not available")
-                raise Exception("Daemon unavailable")
+                raise RuntimeError("Daemon unavailable")
 
             if self.daemon_client is None:
                 raise RuntimeError("Daemon client not initialized")
@@ -74,7 +92,7 @@ class DualModeWalletAdapter:
                 "created_at": wallet_info.created_at,
                 "metadata": wallet_info.metadata,
             }
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to create daemon wallet: {str(e)}")
             raise
 
@@ -86,7 +104,7 @@ class DualModeWalletAdapter:
 
         if wallet_path.exists():
             error(f"Wallet '{wallet_name}' already exists")
-            raise Exception("Wallet exists")
+            raise RuntimeError("Wallet exists")
 
         # Generate real secp256k1 key material and derive the address from it. Both wallet
         # types use the same generator; "hd" does not yet derive from a seed phrase, so it is
@@ -176,7 +194,7 @@ class DualModeWalletAdapter:
                 }
                 for w in wallets
             ]
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to list daemon wallets: {str(e)}")
             return []
 
@@ -207,7 +225,7 @@ class DualModeWalletAdapter:
                             "encrypted": wallet_data.get("encrypted", False),
                         }
                     )
-                except Exception as e:
+                except _ADAPTER_ERRORS as e:
                     error(f"Error reading wallet file {wallet_file}: {str(e)}")
 
         return wallets
@@ -243,7 +261,7 @@ class DualModeWalletAdapter:
                     "metadata": wallet_info.metadata,
                 }
             return None
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to get daemon wallet info: {str(e)}")
             return None
 
@@ -269,7 +287,7 @@ class DualModeWalletAdapter:
                 "encrypted": wallet_data.get("encrypted", False),
                 "transactions": wallet_data.get("transactions", []),
             }
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to get file wallet info: {str(e)}")
             return None
 
@@ -292,7 +310,7 @@ class DualModeWalletAdapter:
             if balance_info:
                 return balance_info.balance
             return None
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to get daemon wallet balance: {str(e)}")
             return None
 
@@ -323,7 +341,7 @@ class DualModeWalletAdapter:
         try:
             if not self.is_daemon_available():
                 error("Wallet daemon is not available")
-                raise Exception("Daemon unavailable")
+                raise RuntimeError("Daemon unavailable")
 
             if self.daemon_client is None:
                 raise RuntimeError("Daemon client not initialized")
@@ -339,7 +357,7 @@ class DualModeWalletAdapter:
                 "tx_hash": result.get("tx_hash"),
                 "timestamp": result.get("timestamp"),
             }
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to send daemon transaction: {str(e)}")
             raise
 
@@ -358,14 +376,14 @@ class DualModeWalletAdapter:
 
         if not wallet_path.exists():
             error(f"Wallet '{wallet_name}' not found")
-            raise Exception("Wallet not found")
+            raise RuntimeError("Wallet not found")
 
         wallet_data = _load_wallet(wallet_path, wallet_name)
         # Fetch current balance and nonce from blockchain
         from_address = wallet_data.get("address")
         if not from_address:
             error("Wallet does not have an address configured")
-            raise Exception("Invalid wallet")
+            raise RuntimeError("Invalid wallet")
 
         rpc_url = self.config.blockchain_rpc_url
         try:
@@ -376,14 +394,14 @@ class DualModeWalletAdapter:
                 nonce = data.get("nonce", 0)
             else:
                 error(f"Failed to get balance from chain: {resp.text}")
-                raise Exception("Chain error")
-        except Exception as e:
+                raise RuntimeError("Chain error")
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to connect to blockchain RPC: {e}")
             raise
 
         if Decimal(str(chain_balance)) < amount:
             error(f"Insufficient blockchain balance. Available: {chain_balance}, Required: {amount}")
-            raise Exception("Insufficient balance")
+            raise RuntimeError("Insufficient balance")
 
         # Construct and send transaction
         tx_payload = {
@@ -399,9 +417,9 @@ class DualModeWalletAdapter:
             resp = httpx.post(f"{rpc_url}/rpc/sendTx", json=tx_payload, timeout=5)
             if resp.status_code not in (200, 201):
                 error(f"Failed to submit transaction to chain: {resp.text}")
-                raise Exception("Chain submission failed")
+                raise RuntimeError("Chain submission failed")
             tx_hash = resp.json().get("tx_hash")
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to send transaction to RPC: {e}")
             raise
 
@@ -425,7 +443,7 @@ class DualModeWalletAdapter:
         # Save wallet - CRITICAL SECURITY FIX: Always use password if wallet is encrypted
         if wallet_data.get("encrypted") and not password:
             error("❌ CRITICAL: Cannot save encrypted wallet without password")
-            raise Exception("Password required for encrypted wallet")
+            raise RuntimeError("Password required for encrypted wallet")
         _save_wallet(wallet_path, wallet_data, password if wallet_data.get("encrypted") else None)
 
         success(f"Submitted transaction {tx_hash} to send {amount} AITBC to {to_address}")
@@ -455,7 +473,7 @@ class DualModeWalletAdapter:
             if self.daemon_client is None:
                 raise RuntimeError("Daemon client not initialized")
             return self.daemon_client.delete_wallet(wallet_name, password)
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to delete daemon wallet: {str(e)}")
             return False
 
@@ -471,7 +489,7 @@ class DualModeWalletAdapter:
             wallet_path.unlink()
             success(f"Deleted wallet: {wallet_name}")
             return True
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to delete wallet: {str(e)}")
             return False
 
@@ -500,7 +518,7 @@ class DualModeWalletAdapter:
                 }
                 for chain in chains
             ]
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to list chains: {str(e)}")
             return []
 
@@ -526,7 +544,7 @@ class DualModeWalletAdapter:
                 "wallet_count": chain.wallet_count,
                 "recent_activity": chain.recent_activity,
             }
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to create chain: {str(e)}")
             return None
 
@@ -552,7 +570,7 @@ class DualModeWalletAdapter:
                 "wallet_type": wallet_type,
                 "metadata": wallet.metadata or {},
             }
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to create wallet in chain {chain_id}: {str(e)}")
             return None
 
@@ -578,7 +596,7 @@ class DualModeWalletAdapter:
                 }
                 for wallet in wallets
             ]
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to list wallets in chain {chain_id}: {str(e)}")
             return []
 
@@ -603,7 +621,7 @@ class DualModeWalletAdapter:
                     "metadata": wallet.metadata or {},
                 }
             return None
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to get wallet info from chain {chain_id}: {str(e)}")
             return None
 
@@ -618,7 +636,7 @@ class DualModeWalletAdapter:
                 raise RuntimeError("Daemon client not initialized")
             balance = self.daemon_client.get_wallet_balance_in_chain(chain_id, wallet_name)
             return balance.balance if balance else None
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to get wallet balance in chain {chain_id}: {str(e)}")
             return None
 
@@ -632,7 +650,7 @@ class DualModeWalletAdapter:
             if self.daemon_client is None:
                 raise RuntimeError("Daemon client not initialized")
             return self.daemon_client.unlock_wallet_in_chain(chain_id, wallet_name, password)
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to unlock wallet in chain {chain_id}: {str(e)}")
             return False
 
@@ -646,7 +664,7 @@ class DualModeWalletAdapter:
             if self.daemon_client is None:
                 raise RuntimeError("Daemon client not initialized")
             return self.daemon_client.sign_message_in_chain(chain_id, wallet_name, password, message)
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to sign message in chain {chain_id}: {str(e)}")
             return None
 
@@ -680,7 +698,7 @@ class DualModeWalletAdapter:
                     "migration_timestamp": result.migration_timestamp,
                 }
             return None
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to migrate wallet: {str(e)}")
             return None
 
@@ -693,6 +711,6 @@ class DualModeWalletAdapter:
             if self.daemon_client is None:
                 raise RuntimeError("Daemon client not initialized")
             return self.daemon_client.get_chain_status()
-        except Exception as e:
+        except _ADAPTER_ERRORS as e:
             error(f"Failed to get chain status: {str(e)}")
             return {"error": str(e)}

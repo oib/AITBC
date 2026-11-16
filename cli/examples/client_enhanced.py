@@ -77,7 +77,7 @@ class AITBCClient:
                 print(f"   Response: {response.text}")
                 return None
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return None
 
@@ -92,7 +92,7 @@ class AITBCClient:
                 print(f"❌ Error getting status: {response.status_code}")
                 return None
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return None
 
@@ -109,7 +109,7 @@ class AITBCClient:
                 print(f"❌ Error getting blocks: {response.status_code}")
                 return None
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return None
 
@@ -128,7 +128,7 @@ class AITBCClient:
                 print(f"❌ Error getting transactions: {response.status_code}")
                 return None
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return None
 
@@ -149,7 +149,7 @@ class AITBCClient:
                 print(f"❌ Error getting receipts: {response.status_code}")
                 return None
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return None
 
@@ -164,7 +164,7 @@ class AITBCClient:
                 print(f"❌ Error cancelling job: {response.status_code}")
                 return False
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return False
 
@@ -224,7 +224,7 @@ def main():
         if args.file:
             try:
                 task_data = json.load(args.file)
-            except Exception as e:
+            except (OSError, ValueError) as e:
                 print(f"❌ Error reading job file: {e}")
                 sys.exit(1)
         else:

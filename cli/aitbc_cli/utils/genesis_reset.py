@@ -314,7 +314,7 @@ def _run_reset_script(
             return False
         if r.stdout:
             success(r.stdout)
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError) as e:
         error(f"Failed to run reset script: {e}")
         return False
     return True

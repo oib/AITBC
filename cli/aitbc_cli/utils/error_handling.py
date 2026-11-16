@@ -215,7 +215,7 @@ def handle_cli_error(func: Callable) -> Callable:
         except KeyboardInterrupt:
             warning("\nOperation cancelled by user")
             sys.exit(130)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - decorator boundary: any failure becomes exit 1
             error(f"Unexpected error: {e}")
             sys.exit(1)
 
@@ -243,7 +243,7 @@ def handle_async_cli_error(func: Callable) -> Callable:
         except KeyboardInterrupt:
             warning("\nOperation cancelled by user")
             sys.exit(130)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - decorator boundary: any failure becomes exit 1
             error(f"Unexpected error: {e}")
             sys.exit(1)
 
@@ -270,7 +270,7 @@ def safe_execute(
     """
     try:
         return operation()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - generic helper boundary; raise_on_error re-raises unchanged
         if raise_on_error:
             raise
         error(f"{error_message}: {e}")
