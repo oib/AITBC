@@ -696,72 +696,19 @@ class GovernanceService:
             "timestamp": vote.created_at.isoformat(),
         }
 
-    def get_treasury_balance(self, region: str | None = None) -> dict[str, Any]:
-        return {  # not-money: ratio, threshold or configuration default — not an amount of money
-            "total_balance": 0.0,
-            "allocated_funds": 0.0,
-            "available": 0.0,
-            "region": region or "global",
-        }
-
-    def allocate_treasury_funds(
-        self, council_id: str, amount: Decimal, purpose: str, recipient_address: str, approver_address: str
-    ) -> dict[str, Any]:
-        allocation_id = f"alloc_{uuid4().hex[:8]}"
-        return {
-            "allocation_id": allocation_id,
-            "council_id": council_id,
-            "amount": str(amount),
-            "purpose": purpose,
-            "recipient_address": recipient_address,
-            "approver_address": approver_address,
-            "status": "approved",
-            "created_at": datetime.now(UTC).isoformat(),
-        }
-
-    def get_treasury_transactions(self, limit: int = 100, offset: int = 0, region: str | None = None) -> list[dict[str, Any]]:
-        return []
-
-    def create_staking_pool(
-        self, pool_name: str, developer_address: str, base_apy: float, reputation_multiplier: float
-    ) -> dict[str, Any]:
-        pool_id = f"pool_{uuid4().hex[:8]}"
-        return {
-            "pool_id": pool_id,
-            "pool_name": pool_name,
-            "developer_address": developer_address,
-            "base_apy": base_apy,
-            "reputation_multiplier": reputation_multiplier,
-            "total_staked": 0.0,
-            "created_at": datetime.now(UTC).isoformat(),
-        }
-
-    def get_developer_staking_pools(self, developer_address: str | None = None) -> list[dict[str, Any]]:
-        return []
-
-    def calculate_staking_rewards(
-        self, pool_id: str, staker_address: str, amount: Decimal, duration_days: int
-    ) -> dict[str, Any]:
-        estimated_reward = amount * Decimal("0.05") * (Decimal(duration_days) / 365)
-        return {
-            "pool_id": pool_id,
-            "staker_address": staker_address,
-            "amount": str(amount),
-            "duration_days": duration_days,
-            "estimated_reward": str(estimated_reward),
-            "apy": 5.0,
-        }
-
-    def distribute_staking_rewards(self, pool_id: str) -> dict[str, Any]:
-        return {
-            "pool_id": pool_id,
-            "total_distributed": 0.0,
-            "recipients": 0,
-            "distributed_at": datetime.now(UTC).isoformat(),
-        }
+    # Treasury and staking read/write methods were removed in #2170: they
+    # returned fabricated data (zero balances, empty lists, a hardcoded 5%
+    # APY) with no on-chain backing. The corresponding router endpoints are
+    # honest 501 stubs; re-add real implementations backed by chain state.
 
     def get_governance_analytics(self, time_period_days: int = 30) -> dict[str, Any]:
-        from ..domain.governance import Proposal as DomainProposal, ProposalStatus, RegionalCouncil, Vote as DomainVote
+        from ..domain.governance import (
+            GovernanceProfile,
+            Proposal as DomainProposal,
+            ProposalStatus,
+            RegionalCouncil,
+            Vote as DomainVote,
+        )
         from sqlmodel import func, select as sm_select
 
         total = self._session_factory.execute(sm_select(func.count(DomainProposal.proposal_id))).scalar() or 0  # type: ignore[arg-type]
@@ -779,6 +726,12 @@ class GovernanceService:
         )
         total_votes = self._session_factory.execute(sm_select(func.count(DomainVote.vote_id))).scalar() or 0  # type: ignore[arg-type]
         total_councils = self._session_factory.execute(sm_select(func.count(RegionalCouncil.council_id))).scalar() or 0  # type: ignore[arg-type]
+        council_regions = self._session_factory.execute(sm_select(RegionalCouncil.region).distinct()).scalars().all()
+        total_profiles = self._session_factory.execute(sm_select(func.count(GovernanceProfile.profile_id))).scalar() or 0  # type: ignore[arg-type]
+        distinct_voters = (
+            self._session_factory.execute(sm_select(func.count(func.distinct(DomainVote.voter_id)))).scalar() or 0
+        )
+        participation_rate = round(distinct_voters / total_profiles * 100, 2) if total_profiles else 0.0
         return {
             "time_period_days": time_period_days,
             "proposals": {
@@ -786,21 +739,16 @@ class GovernanceService:
                 "still_active": active,
                 "passed": passed,
                 "total_votes": total_votes,
-                "participation_rate": 0.0,
+                "participation_rate": participation_rate,
             },
-            "regional_councils": {"total_councils": total_councils, "regions": 0},
+            "regional_councils": {"total_councils": total_councils, "regions": len(council_regions)},
+            # No on-chain treasury exists — these are placeholders, not a
+            # live balance. Marked so consumers do not read them as real.
             "treasury": {
                 "total_allocations": 0.0,
                 "total_balance": 0.0,
+                "simulated": True,
             },  # not-money: ratio, threshold or configuration default — not an amount of money
-            "staking": {"active_pools": 0, "total_staked": 0.0},
-        }
-
-    def get_regional_governance_health(self, region: str) -> dict[str, Any]:
-        return {
-            "region": region,
-            "health_score": 100.0,
-            "active_councils": 0,
-            "pending_proposals": 0,
-            "voter_participation": 0.0,
+            # No on-chain staking pools exist — same placeholder treatment.
+            "staking": {"active_pools": 0, "total_staked": 0.0, "simulated": True},
         }
