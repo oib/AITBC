@@ -214,10 +214,9 @@ def _pbft_proposer_for(ctx: VcApplyContext, view: int) -> str | None:
     Mirrors ``MultiValidatorPoA.select_proposer``: sorted active validators,
     index ``(block_height + view) % n``. Returns None on an empty set.
     """
-    members = sorted(ctx.validator_set)
-    if not members:
-        return None
-    return members[(ctx.sequence + max(0, view)) % len(members)]
+    from .pbft_view_change import scheduled_proposer
+
+    return scheduled_proposer(ctx.validator_set, ctx.sequence, view)
 
 
 def view_change_justified(
