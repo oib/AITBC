@@ -1569,6 +1569,15 @@ class BlockImportMixin(SyncBase):
             for e in entries:
                 if mempool.remove(e["tx_hash"], self._chain_id):
                     evicted += 1
+                    # #1999: name the tx and the proposer's verdict reason —
+                    # the count-only summary left probes unable to tell which
+                    # rejection fired.
+                    logger.info(
+                        "Evicted apply-rejected tx %s from mempool at height %s (reason: %s)",
+                        e["tx_hash"],
+                        block_data.get("height"),
+                        e.get("reason") or "unspecified",
+                    )
             if evicted:
                 logger.info(
                     "Evicted %d apply-rejected tx(s) from mempool at height %s",
