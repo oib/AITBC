@@ -115,40 +115,33 @@
      11 cli/aitbc_cli/commands/governance.py
       5 cli/aitbc_cli/commands/gpu_market.py
       4 cli/aitbc_cli/commands/grant.py
-      4 cli/aitbc_cli/commands/ipfs.py
-      1 cli/aitbc_cli/commands/liquidity.py
       6 cli/aitbc_cli/commands/market/escrow.py
-      1 cli/aitbc_cli/commands/market/exchange.py
-      2 cli/aitbc_cli/commands/market/host.py
-      4 cli/aitbc_cli/commands/market/__init__.py
-      4 cli/aitbc_cli/commands/market/jobs.py
-      9 cli/aitbc_cli/commands/market/offers.py
-      4 cli/aitbc_cli/commands/mining.py
-      5 cli/aitbc_cli/commands/monitor.py
-     12 cli/aitbc_cli/commands/network.py
-      1 cli/aitbc_cli/commands/node/main.py
-      1 cli/aitbc_cli/commands/node/monitor.py
-     16 cli/aitbc_cli/commands/operations.py
-      1 cli/aitbc_cli/commands/performance.py
-      2 cli/aitbc_cli/commands/pool_hub.py
-      2 cli/aitbc_cli/commands/reinvest.py
-      6 cli/aitbc_cli/commands/reputation.py
-      4 cli/aitbc_cli/commands/resource.py
-      2 cli/aitbc_cli/commands/script.py
-      3 cli/aitbc_cli/commands/security.py
-      1 cli/aitbc_cli/commands/sync.py
-      2 cli/aitbc_cli/commands/system.py
-      6 cli/aitbc_cli/commands/tee.py
-      7 cli/aitbc_cli/commands/transactions.py
-      6 cli/aitbc_cli/commands/wallet/basic.py
-      1 cli/aitbc_cli/commands/wallet/__init__.py
-      2 cli/aitbc_cli/commands/wallet/misc.py
-      3 cli/aitbc_cli/commands/wallet/staking.py
-      3 cli/aitbc_cli/commands/workflow.py
-      3 cli/aitbc_cli/commands/zk.py
+     11 cli/aitbc_cli/core/agent_communication.py
+      3 cli/aitbc_cli/core/analytics.py
+      7 cli/aitbc_cli/core/chain_manager.py
+      1 cli/aitbc_cli/core/genesis_generator.py
+      2 cli/aitbc_cli/core/main.py
+     18 cli/aitbc_cli/core/market.py
+      2 cli/aitbc_cli/core/node_client.py
+      1 cli/aitbc_cli/core/plugins.py
+      1 cli/aitbc_cli/utils/agent_identity_resolve.py
+      3 cli/aitbc_cli/utils/blockchain.py
+      2 cli/aitbc_cli/utils/chain_id.py
+      2 cli/aitbc_cli/utils/crypto_utils.py
+     17 cli/aitbc_cli/utils/dual_mode_wallet_adapter.py
+      2 cli/aitbc_cli/utils/error_handling.py
       1 cli/aitbc_cli/utils/escrow.py
+      1 cli/aitbc_cli/utils/genesis_reset.py
+      2 cli/aitbc_cli/utils/signed_rpc.py
+      1 cli/aitbc_cli/utils/subprocess.py
+     13 cli/aitbc_cli/utils/wallet_daemon_client.py
+      1 cli/aitbc_cli/utils/wallet_loader.py
       1 cli/config_data/__init__.py
+      7 cli/examples/client_enhanced.py
+      5 cli/examples/client.py
+      4 cli/examples/miner.py
       2 cli/security/translation_policy.py
+      4 cli/tests/run_cli_tests.py
       3 docs/agent-sdk/examples/computing_agent.py
       7 docs/agent-sdk/examples/oracle_agent.py
       1 mcp-server/aitbc_mcp_server.py

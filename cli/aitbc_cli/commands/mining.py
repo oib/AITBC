@@ -6,12 +6,28 @@ from typing import Any, cast
 
 import click
 
+from aitbc.exceptions import AITBCError
+
 from ..utils import success
-from ..utils.error_handling import abort, is_unauthorized
+from ..utils.error_handling import CLIError, abort, is_unauthorized
 from ..utils.http_client import KEYSTORE_DIR, AITBCHTTPClient, NetworkError
 from ..utils.wallet_paths import wallet_search_dirs
 
 DEFAULT_RPC_URL = "http://localhost:8202"
+
+# Expected failure surface for the RPC command fallbacks below (#1860):
+# aitbc/CLI error hierarchies plus filesystem, parse and data-shape builtins.
+_MINING_ERRORS = (
+    AITBCError,
+    CLIError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 
 def _keystore_dirs() -> list[Path]:
@@ -120,7 +136,7 @@ def start(ctx: click.Context, wallet_name: str, threads: int, rpc_url: str | Non
             abort(ctx, "Mining RPC endpoint not found. Check blockchain-node RPC configuration.", from_exception=e)
         else:
             abort(ctx, f"Error starting mining: {e}", from_exception=e)
-    except Exception as e:
+    except _MINING_ERRORS as e:
         abort(ctx, f"Error: {e}", from_exception=e)
 
 
@@ -159,7 +175,7 @@ def stop(ctx: click.Context, wallet_name: str | None, rpc_url: str | None):
             )
         else:
             abort(ctx, f"Error stopping mining: {e}", from_exception=e)
-    except Exception as e:
+    except _MINING_ERRORS as e:
         abort(ctx, f"Error: {e}", from_exception=e)
 
 
@@ -198,7 +214,7 @@ def status(ctx: click.Context, wallet_name: str | None, rpc_url: str | None):
             )
         else:
             abort(ctx, f"Error getting mining status: {e}", from_exception=e)
-    except Exception as e:
+    except _MINING_ERRORS as e:
         abort(ctx, f"Error: {e}", from_exception=e)
 
 
@@ -238,5 +254,5 @@ def list_miners(ctx: click.Context, wallet_name: str | None, rpc_url: str | None
             )
         else:
             abort(ctx, f"Error listing miners: {e}", from_exception=e)
-    except Exception as e:
+    except _MINING_ERRORS as e:
         abort(ctx, f"Error: {e}", from_exception=e)

@@ -12,13 +12,16 @@ from pathlib import Path
 from typing import Any
 
 import click
+import requests
 
 from aitbc.crypto.crypto import sign_transaction_data
+from aitbc.exceptions import AITBCError
 from aitbc.market.job_request_signature import jobs_request_message
 
 from ...config import get_config
 from ...utils import OUTPUT_FORMAT_OPTION, error, info, output, success, warning
 from ...utils.address import to_canonical
+from ...utils.error_handling import CLIError
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.output import resolve_output_format as _resolve_output_format
 from ..ipfs import (
@@ -40,6 +43,21 @@ from .escrow import _escrow_create, _post_escrow_release, _post_escrow_rpc
 from .jobs import _resolve_offer, _track_coordinator_job
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the host fallbacks below (#1860): aitbc/CLI
+# error hierarchies, requests transport, and data-shape builtins.
+_MARKET_HOST_ERRORS = (
+    AITBCError,
+    CLIError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    requests.RequestException,
+)
 
 
 def _resolve_ipfs_api(offer: dict[str, Any]) -> str:
@@ -196,7 +214,7 @@ def _buyer_used_bytes(buyer: str, offer_id: str) -> int:
             params={"buyer_address": buyer, "offer_id": offer_id},
         )
         return int(used_bytes_response.get("used_bytes", 0)) if used_bytes_response else 0
-    except Exception as e:
+    except _MARKET_HOST_ERRORS as e:
         logger.warning("Could not query active IPFS usage: %s", e)
         return 0
 
@@ -584,7 +602,7 @@ def _cat_ipfs(ipfs_api: str, cid: str, wait: bool) -> bytes | None:
             response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
         response.raise_for_status()
         return response.content
-    except Exception as e:
+    except _MARKET_HOST_ERRORS as e:
         warning(f"Could not retrieve CID {cid}: {e}")
         return None
 

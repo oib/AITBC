@@ -9,9 +9,11 @@ from typing import Any
 import click
 from rich.console import Console
 
+from aitbc.exceptions import AITBCError
+
 from ..auth import AuthManager, ExpiredAdminToken, ExpiredClientToken  # noqa: F401 — AuthManager stays re-exported; tests patch it here
 from ..utils import output, success, warning
-from ..utils.error_handling import LOGIN_HINT, LOGIN_REJECTED_HINT, abort, is_unauthorized
+from ..utils.error_handling import CLIError, LOGIN_HINT, LOGIN_REJECTED_HINT, abort, is_unauthorized
 from ..utils.http_client import (
     AITBCHTTPClient,
     auth_client_kwargs,
@@ -21,6 +23,22 @@ from ..utils.http_client import (
 
 logger = get_logger(__name__)
 console = Console()
+
+# Expected failure surface for the monitoring fallbacks below (#1860):
+# aitbc/CLI error hierarchies, expired-token probes, and data-shape builtins.
+_MONITOR_ERRORS = (
+    AITBCError,
+    CLIError,
+    ExpiredAdminToken,
+    ExpiredClientToken,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 
 def _login_hint(ctx) -> str:
@@ -107,7 +125,7 @@ def dashboard(ctx, refresh: int, duration: int):
                 metrics = data.get("metrics", {})
                 if metrics:
                     console.print(f"  Health: {metrics.get('health_percentage', 0):.1f}%")
-            except Exception as e:
+            except _MONITOR_ERRORS as e:
                 if is_unauthorized(e):
                     console.print(f"[red]{_login_hint(ctx)}[/red]")
                 else:
@@ -151,7 +169,7 @@ def metrics(ctx, period: str, export_path: str | None):
         metrics_data["coordinator"] = data.get("coordinator", {"status": "online"})
         metrics_data["jobs"] = data.get("jobs", metrics_data["jobs"])
         metrics_data["miners"] = data.get("miners", metrics_data["miners"])
-    except Exception as e:
+    except _MONITOR_ERRORS as e:
         if isinstance(e, ExpiredClientToken):
             warning(str(e))
         elif is_unauthorized(e):
@@ -192,7 +210,7 @@ def _send_test_webhook(ctx, webhook_url: str, payload: dict[str, Any]) -> None:
         http_client = AITBCHTTPClient(base_url=webhook_url, timeout=10)
         resp = http_client.post("", json=payload)
         output({"status": "sent", "response": resp}, ctx.obj["output_format"])
-    except Exception as e:
+    except _MONITOR_ERRORS as e:
         abort(ctx, f"Webhook test failed: {e}", from_exception=e)
 
 
@@ -333,7 +351,7 @@ def history(ctx, period: str):
             "failed": failed,
             "success_rate": success_rate,
         }
-    except Exception as e:
+    except _MONITOR_ERRORS as e:
         if isinstance(e, ExpiredClientToken):
             analysis["summary"] = {"error": str(e)}
         elif is_unauthorized(e):
@@ -621,7 +639,7 @@ def sweepers(ctx, show_config: bool):
     except ExpiredAdminToken as e:
         abort(ctx, str(e))
         return
-    except Exception as e:
+    except _MONITOR_ERRORS as e:
         if is_unauthorized(e):
             abort(ctx, _login_hint(ctx))
         abort(ctx, f"Error fetching sweeper status: {e}", from_exception=e)

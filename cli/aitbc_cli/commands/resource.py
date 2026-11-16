@@ -11,12 +11,27 @@ from typing import Any
 
 import click
 
+from aitbc.exceptions import AITBCError
+
 from ..config import get_config
 from ..utils import error, info, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger, service_root_url
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the resource fallbacks below (#1860):
+# aitbc error hierarchy plus filesystem, parse and data-shape builtins.
+_RESOURCE_ERRORS = (
+    AITBCError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 _OPTIMIZATION_TARGETS = ["speed", "accuracy", "efficiency", "cost", "scalability", "reliability"]
 _PERFORMANCE_METRICS = [
@@ -117,7 +132,7 @@ def allocate(
     except NetworkError as e:
         error(f"Network error: {e}")
         ctx.exit(1)
-    except Exception as e:
+    except _RESOURCE_ERRORS as e:
         error(f"Allocation failed: {e}")
         ctx.exit(1)
 
@@ -174,7 +189,7 @@ def optimize(
     except NetworkError as e:
         error(f"Network error: {e}")
         ctx.exit(1)
-    except Exception as e:
+    except _RESOURCE_ERRORS as e:
         error(f"Optimization failed: {e}")
         ctx.exit(1)
 
@@ -231,7 +246,7 @@ def status(ctx, agent_id: str | None, status_filter: str | None, limit: int):
     except NetworkError as e:
         error(f"Network error: {e}")
         ctx.exit(1)
-    except Exception as e:
+    except _RESOURCE_ERRORS as e:
         error(f"Failed to list allocations: {e}")
         ctx.exit(1)
 
@@ -257,6 +272,6 @@ def deallocate(ctx, allocation_id: str, force: bool):
     except NetworkError as e:
         error(f"Network error: {e}")
         ctx.exit(1)
-    except Exception as e:
+    except _RESOURCE_ERRORS as e:
         error(f"Deallocation failed: {e}")
         ctx.exit(1)

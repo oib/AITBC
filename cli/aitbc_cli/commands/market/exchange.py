@@ -427,7 +427,7 @@ def _record_withdrawal(config, amount: Decimal, address: str, tx_hash) -> None:
         )
         if record_response.status_code != 200:
             warning("Withdrawal completed but failed to record in exchange service")
-    except Exception as record_e:
+    except (httpx.HTTPError, OSError, ValueError, TypeError, AttributeError, RuntimeError) as record_e:
         warning(f"Withdrawal completed but failed to record: {record_e}")
 
 

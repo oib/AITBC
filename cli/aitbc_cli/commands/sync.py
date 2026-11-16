@@ -87,7 +87,7 @@ def bulk(ctx, source, import_url, batch_size, poll_interval):
         if result.returncode != 0:
             abort(ctx, "Bulk sync failed. Check logs for details.")
         click.echo("Bulk sync completed.")
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         abort(ctx, f"Error during bulk sync: {e}", from_exception=e)
 
 

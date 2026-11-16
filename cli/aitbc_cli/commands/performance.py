@@ -2,6 +2,8 @@
 
 import click
 
+from aitbc.exceptions import AITBCError
+
 from ..utils import output
 from ..utils.error_handling import abort
 
@@ -61,7 +63,7 @@ def benchmark(ctx, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Performance Benchmark")
     except NetworkError as e:
         abort(ctx, f"RPC unreachable at {rpc_url}: {e}", from_exception=e)
-    except Exception as e:
+    except (AITBCError, OSError, ArithmeticError, ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
         abort(ctx, f"Error running benchmark: {e}", from_exception=e)
 
 

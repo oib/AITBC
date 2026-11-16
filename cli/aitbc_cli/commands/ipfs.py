@@ -48,6 +48,16 @@ from aitbc.constants import DATA_DIR
 
 IPFS_DIR = Path(os.environ.get("AITBC_IPFS_DIR") or str(DATA_DIR / "ipfs"))
 IPFS_API = os.environ.get("IPFS_API_URL", "http://127.0.0.1:5001")
+
+# Expected failure surface for the best-effort Kubo API helpers below (#1860):
+# filesystem errors, JSON/parse and data-shape builtins, and requests transport.
+_IPFS_API_ERRORS = (
+    OSError,
+    ValueError,
+    TypeError,
+    AttributeError,
+    requests.RequestException,
+)
 TIMEOUT = 120
 
 logger = get_logger(__name__)
@@ -137,7 +147,7 @@ def _ipfs_add_file(ipfs_api: str, file_path: Path) -> str | None:
         response.raise_for_status()
         result = response.json()
         return cast(str | None, result.get("Hash") or result.get("cid"))
-    except Exception as e:
+    except _IPFS_API_ERRORS as e:
         warning(f"IPFS add failed: {e}")
         return None
 
@@ -152,7 +162,7 @@ def _ipfs_pin_cid(ipfs_api: str, cid: str) -> bool:
         )
         response.raise_for_status()
         return True
-    except Exception as e:
+    except _IPFS_API_ERRORS as e:
         warning(f"IPFS pin failed: {e}")
         return False
 
@@ -187,7 +197,7 @@ def _ipfs_unpin_cid(ipfs_api: str, cid: str) -> bool:
         )
         response.raise_for_status()
         return True
-    except Exception as e:
+    except _IPFS_API_ERRORS as e:
         warning(f"IPFS unpin failed: {e}")
         return False
 
@@ -220,7 +230,7 @@ def _ipfs_swarm_connect(ipfs_api: str, multiaddr: str) -> bool:
         )
         response.raise_for_status()
         return True
-    except Exception as e:
+    except _IPFS_API_ERRORS as e:
         warning(f"Could not swarm connect to {multiaddr}: {e}")
         return False
 

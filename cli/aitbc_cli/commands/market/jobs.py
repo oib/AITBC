@@ -5,6 +5,7 @@ Job commands: run, transcribe, process
 import hashlib
 import json
 import os
+import subprocess
 import urllib.request
 from datetime import datetime
 from decimal import Decimal, InvalidOperation
@@ -13,6 +14,7 @@ from typing import Any, cast
 import click
 
 from aitbc.config.hub import normalize_hub_base
+from aitbc.exceptions import AITBCError
 from aitbc.crypto.crypto import sign_transaction_data
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
@@ -22,6 +24,24 @@ from ...utils.http_client import AITBCHTTPClient, get_logger, http_error_detail,
 
 # Initialize logger
 logger = get_logger(__name__)
+
+# Expected failure surface for the job fallbacks below (#1860): aitbc error
+# hierarchy plus filesystem, crypto-shape and data-shape builtins.
+_JOBS_ERRORS = (
+    AITBCError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
+# refund_escrow signals failure with click.Abort/click.ClickException, which
+# the orphan-refund swallow must still catch so it never masks the primary
+# job error (#1860).
+_REFUND_ERRORS = _JOBS_ERRORS + (click.Abort, click.ClickException)
 
 from ...auth import AuthManager
 
@@ -47,7 +67,7 @@ def _refund_orphaned_escrow(ctx: click.Context, job_id: str, contract_id: str | 
         return
     try:
         refund_escrow(ctx, job_id, reason="job_failed")
-    except Exception:
+    except _REFUND_ERRORS:
         warning(
             f"Escrow refund failed for job {job_id} — the escrow stays locked; "
             f"retry manually with `aitbc market escrow refund --job-id {job_id} --reason job_failed`"
@@ -143,7 +163,7 @@ def _record_job_on_chain(config: Any, job_data: dict[str, Any], private_key: str
         client = AITBCHTTPClient(base_url=hub_url, timeout=10)
         try:
             job_tx_hash: str | None = client.post("/rpc/transactions/market", json=job_data).get("transaction_hash")
-        except Exception as e:
+        except _JOBS_ERRORS as e:
             # The nonce read is sealed-state only: the escrow lock can still be
             # pending in the mempool at nonce N when this record also claims N.
             # Only the occupied-slot refusal gets one re-signed retry at N+1 —
@@ -158,7 +178,7 @@ def _record_job_on_chain(config: Any, job_data: dict[str, Any], private_key: str
                 raise
         info(f"Job recorded on-chain: {job_tx_hash}")
         return job_tx_hash
-    except Exception as e:
+    except _JOBS_ERRORS as e:
         warning(f"Failed to record job on-chain: {e} — continuing with escrow release")
         return None
 
@@ -300,7 +320,7 @@ def _track_coordinator_job(
         result = client.post("/v1/jobs", json=job_data)
         info(f"Tracked market-run job with coordinator: {result.get('job_id')}")
         return result
-    except Exception as e:
+    except _JOBS_ERRORS as e:
         warning(f"Failed to track market-run job with coordinator: {e}")
         return None
 
@@ -509,7 +529,6 @@ def _software_job_tx_hash(
 
 def _audio_duration_seconds(audio_file: str) -> float:
     """ffprobe the audio duration in seconds; 0.0 when the probe fails."""
-    import subprocess
 
     try:
         probe = subprocess.run(
@@ -528,7 +547,7 @@ def _audio_duration_seconds(audio_file: str) -> float:
             timeout=10,
         )
         return float(probe.stdout.strip() or 0)
-    except Exception:
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError, AttributeError, RuntimeError):
         logger.debug("ffprobe duration probe failed", exc_info=True)
         return 0.0
 

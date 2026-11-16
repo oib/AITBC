@@ -17,6 +17,7 @@ import click
 from tabulate import tabulate
 
 from aitbc.config.hub import normalize_hub_base
+from aitbc.exceptions import AITBCError
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from ...config import _resolve_market_api_key, get_config
@@ -28,10 +29,25 @@ from aitbc.market.offer_registration import offer_body_hash, registration_messag
 # Initialize logger
 logger = get_logger(__name__)
 
+
 from ._group import market
 from . import get_chain_id, get_island_id, get_market_wallet, get_next_nonce, safe_load_credentials
 from .escrow import _get_blockchain_rpc_url, _get_rpc_client
 from ...utils.error_handling import CLIError, abort
+
+# Expected failure surface for the offer fallbacks below (#1860): aitbc/CLI
+# error hierarchies plus filesystem, parse and data-shape builtins.
+_OFFERS_ERRORS = (
+    AITBCError,
+    CLIError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 
 def _is_wallet_address(value: str | None) -> bool:
@@ -107,7 +123,7 @@ def _reputation_for_offer(http_client: AITBCHTTPClient, coordinator_url: str, of
                 offer["reputation_level"] = profile.get("reputation_level", "")
                 offer["jobs_completed"] = int(profile.get("jobs_completed", 0) or 0)
                 return
-        except (NetworkError, Exception) as e:
+        except _OFFERS_ERRORS as e:
             logger.debug("No reputation profile for %s: %s", candidate, e)
 
 
@@ -203,7 +219,7 @@ def _discover_local_gpus() -> list[dict[str, Any]]:
     except subprocess.TimeoutExpired:
         logger.debug("nvidia-smi timeout - GPU discovery skipped")
         return []
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.debug("Error running nvidia-smi: %s", e)
         return []
 
@@ -379,7 +395,7 @@ def _list_offers_via_market_api(
             return offers
         except NetworkError as e:
             logger.warning("Market service not available at %s: %s", base, e)
-        except Exception as e:
+        except _OFFERS_ERRORS as e:
             logger.warning("Error querying market service at %s: %s", base, e)
     return [] if answered else None
 
@@ -440,7 +456,7 @@ def _offer_rating(offer_id: str) -> str:
                 rating_count = service_response.get("rating_count", 0)
                 if rating_count > 0:
                     return f"⭐ {avg_rating:.1f} ({rating_count})"
-    except Exception:
+    except _OFFERS_ERRORS:
         logger.debug("Market service not available, skip ratings", exc_info=True)
     return "N/A"
 
@@ -645,7 +661,7 @@ def _try_get(client: AITBCHTTPClient, path: str, log_msg: str = "Offer lookup re
     """GET that returns None instead of raising — probes are best-effort."""
     try:
         return client.get(path)
-    except Exception:
+    except _OFFERS_ERRORS:
         logger.debug(log_msg, exc_info=True)
         return None
 
@@ -1053,7 +1069,7 @@ def _find_replaced_offers(
         if replaces:
             info(f"Replacing {len(replaces)} existing {service_type}/{model_or_variant} offer(s)")
         return replaces
-    except Exception:
+    except _OFFERS_ERRORS:
         logger.debug("Could not query existing market listings for replacement", exc_info=True)
         return []
 
@@ -1080,7 +1096,7 @@ def _mempool_has_pending_offer(hub_url, wallet_address, service_type, model_or_v
                     f"(tx_hash: {tx.get('tx_hash', 'unknown')}); skipping to avoid duplicate"
                 )
                 return True
-    except Exception:
+    except _OFFERS_ERRORS:
         logger.debug("Could not query mempool for pending offers", exc_info=True)
     return False
 
@@ -1390,7 +1406,7 @@ def offer(
             )
             plugin_client.post("/v1/market/offer", json=registration)
             info(f"Software service registered in market (plugin-id: {service_type}-{model_or_variant.replace(':', '-')})")
-        except Exception:
+        except _OFFERS_ERRORS:
             logger.debug("Offer lookup request failed", exc_info=True)
             pass  # Non-fatal — market service may not be running
 
@@ -1518,6 +1534,6 @@ def offer_disable(
         abort(None, f"Could not disable offer {plugin_id}: {result}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OFFERS_ERRORS as e:
         abort(None, f"Error disabling offer: {e}")
     raise click.Abort()

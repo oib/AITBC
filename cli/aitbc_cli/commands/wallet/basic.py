@@ -14,7 +14,7 @@ from ...config import get_config
 from ...utils import DECIMAL, error, output, resolve_output_format, success
 from ...utils.output import info as _info
 from ...utils.address import to_eip55
-from ...utils.error_handling import abort
+from ...utils.error_handling import CLIError, abort
 from ...utils.fee_guard import ALLOW_HIGH_FEE_OPTION as _ALLOW_HIGH_FEE_OPTION
 from ...utils.fee_guard import MAX_TX_FEE_AIT, validate_tx_fee
 from ...utils.wallet_secret import resolve_new_wallet_password, resolve_wallet_password, wallet_password_options
@@ -29,10 +29,29 @@ from ...utils.wallet_paths import (
     wallet_search_dirs,
     wallet_write_restricted_message,
 )
+from aitbc.exceptions import AITBCError
 from aitbc.utils import ait_to_units, format_ait
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 from . import _emit_wallet_path_note, _load_wallet, _resave_wallet, _save_wallet, get_wallet_client, wallet
 import yaml
+
+# Expected failure surface for the wallet fallbacks below (#1860): aitbc/CLI
+# error hierarchies, eth-keys/eth-account validation, and data-shape builtins.
+_WALLET_ERRORS = (
+    AITBCError,
+    CLIError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
+
+# eth_keys/eth_account raise eth_utils ValidationError (plain Exception) on bad
+# key material — the address-derivation probes must still degrade gracefully.
+from eth_keys.exceptions import ValidationError as _EthKeyValidationError
 
 logger = get_logger(__name__)
 
@@ -176,7 +195,7 @@ def list(ctx):
                 wallet_name = wallet.get("wallet_name", wallet.get("name", "unknown"))
                 wallet_address = wallet.get("address", "")
                 output(f"{wallet_name}: {wallet_address}")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - wallet adapter raises untyped Exception across daemon/file backends
         abort(ctx, f"Failed to list wallets: {str(e)}")
 
 
@@ -460,7 +479,7 @@ def _derive_wallet_address(wallet_data: dict[str, Any]) -> str | None:
             if len(pub_bytes) == 65 and pub_bytes[0] == 0x04:
                 pub_bytes = pub_bytes[1:]
             return keys.PublicKey(pub_bytes).to_checksum_address()
-        except Exception as e:
+        except (_EthKeyValidationError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.debug("address derivation from public_key failed: %s", e)
 
     private_key = wallet_data.get("private_key")
@@ -469,7 +488,7 @@ def _derive_wallet_address(wallet_data: dict[str, Any]) -> str | None:
             from eth_account import Account
 
             return cast(str, Account.from_key(private_key).address)
-        except Exception as e:
+        except (_EthKeyValidationError, ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.debug("address derivation from private_key failed: %s", e)
 
     return None
@@ -613,7 +632,7 @@ def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
             with open(wallet_path) as f:
                 data = json.load(f)
             return cast(str | None, data.get("address"))
-        except Exception as e:
+        except _WALLET_ERRORS as e:
             logger.debug("reading address from %s failed: %s", wallet_path, e)
 
     client = get_wallet_client()
@@ -623,7 +642,7 @@ def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
             if item.get("wallet_id") == wallet_name:
                 meta = item.get("metadata", {}) or {}
                 return cast(str | None, meta.get("address") or meta.get("original_address") or item.get("address"))
-    except Exception as e:
+    except _WALLET_ERRORS as e:
         logger.debug("wallet daemon lookup for %s failed: %s", wallet_name, e)
 
     for directory in wallet_search_dirs():
@@ -633,7 +652,7 @@ def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
                 with open(wallet_path) as f:
                     data = json.load(f)
                 return cast(str | None, data.get("address"))
-            except Exception as e:
+            except _WALLET_ERRORS as e:
                 logger.debug("reading address from %s failed: %s", wallet_path, e)
 
     return None

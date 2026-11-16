@@ -12,6 +12,7 @@ import click
 from eth_utils import keccak
 
 from aitbc import ValidationError
+from aitbc.exceptions import AITBCError
 from aitbc.config.hub import normalize_hub_base
 from aitbc.utils import ait_to_units, format_ait
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT, DEFAULT_TX_FEE_UNITS
@@ -35,6 +36,21 @@ from ..utils.wallet_secret import resolve_wallet_password, wallet_password_optio
 logger = get_logger(__name__)
 
 DEFAULT_RPC_URL = "http://127.0.0.1:8202"
+
+# Expected failure surface for the transaction fallbacks below (#1860):
+# aitbc/CLI error hierarchies plus filesystem, crypto-shape and data-shape
+# builtins. Sites that re-raise CLIError keep that earlier clause.
+_TRANSACTION_ERRORS = (
+    AITBCError,
+    CLIError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 # Transaction types whose apply path rejects any nonzero value — mirrors
 # aitbc_chain.state.state_transition._ZERO_VALUE_TX_TYPES (the node package
@@ -117,7 +133,7 @@ def _load_sender_private_key(sender_keystore: Path, sender_data: dict[str, Any],
         return keys.PrivateKey(bytes.fromhex(private_key_hex))
     except CLIError:
         raise
-    except Exception as e:
+    except _TRANSACTION_ERRORS as e:
         logger.error("Error loading private key: %s", e)
         abort(None, f"Error loading private key: {e}")
         return None
@@ -333,7 +349,7 @@ def _submit_signed_transaction(rpc_url: str, transaction: dict[str, Any], from_w
         logger.error("Network error submitting transaction: %s", e)
         abort(None, f"Error submitting transaction: {e}")
         return None
-    except Exception as e:
+    except _TRANSACTION_ERRORS as e:
         logger.error("Error submitting transaction: %s", e)
         abort(None, f"Error: {e}")
         return None
@@ -450,7 +466,7 @@ def send(
                 error(f"Transaction {tx_hash} not found")
             else:
                 error(f"Explorer API unavailable: {e}")
-        except Exception as e:
+        except _TRANSACTION_ERRORS as e:
             abort(None, f"Error checking status via Explorer: {e}")
 
     # Check if first wallet is unencrypted
@@ -533,7 +549,7 @@ def _process_batch_entry(
         # either way there is nothing valid to sign with, so the caller
         # prints a partial summary and the command exits non-zero.
         raise
-    except Exception as e:
+    except _TRANSACTION_ERRORS as e:
         results.append({"transaction": tx, "hash": None, "success": False, "error": str(e)})
         abort(None, f"Transaction error: {e}")
 
@@ -643,7 +659,7 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
                 abort(None, f"Transaction {tx_hash} not found", from_exception=e)
             else:
                 abort(None, f"Explorer API unavailable: {e}", from_exception=e)
-        except Exception as e:
+        except _TRANSACTION_ERRORS as e:
             abort(None, f"Error: {e}", from_exception=e)
     else:
         if not rpc_url:
@@ -656,7 +672,7 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
             click.echo(json.dumps(result, indent=2))
         except NetworkError as e:
             abort(None, f"Error getting transaction status: {e}", from_exception=e)
-        except Exception as e:
+        except _TRANSACTION_ERRORS as e:
             abort(None, f"Error: {e}", from_exception=e)
 
 
@@ -693,7 +709,7 @@ def pending(ctx, rpc_url: str | None):
                 click.echo(f"  - {tx_type} {amount} AIT from {sender[:16]}...")
     except NetworkError as e:
         abort(None, f"Error getting pending transactions: {e}")
-    except Exception as e:
+    except _TRANSACTION_ERRORS as e:
         abort(None, f"Error: {e}")
 
 

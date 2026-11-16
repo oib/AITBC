@@ -5,11 +5,26 @@ import os
 
 import click
 
+from aitbc.exceptions import AITBCError
+
 from ..utils import output
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 logger = logging.getLogger(__name__)
+
+# Expected failure surface for the pool-hub fallbacks below (#1860):
+# aitbc error hierarchy plus filesystem and data-shape builtins.
+_POOL_HUB_ERRORS = (
+    AITBCError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 # aitbc-pool-hub.service binds 8210 on the hub. Shop/follower nodes do not run
 # it (V23-92), so localhost is only valid when NODE_ROLE=hub.
@@ -87,7 +102,7 @@ def status(ctx, pool_hub_url):
         output(status, ctx.obj.get("output_format", "table"), title="Pool Hub Status")
     except NetworkError as e:
         abort(ctx, f"Pool Hub at {pool_hub_url} is unreachable: {e}", from_exception=e)
-    except Exception as e:
+    except _POOL_HUB_ERRORS as e:
         abort(ctx, f"Error getting pool hub status: {e}", from_exception=e)
 
 
@@ -142,5 +157,5 @@ def sla(ctx, pool_id, miner_id, hours, violations, resolved, pool_hub_url):
             output(sla_data, output_format, title="SLA Monitor")
     except NetworkError as e:
         abort(ctx, f"Pool Hub at {pool_hub_url} is unreachable: {e}", from_exception=e)
-    except Exception as e:
+    except _POOL_HUB_ERRORS as e:
         abort(ctx, f"Error monitoring SLA: {e}", from_exception=e)

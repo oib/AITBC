@@ -135,7 +135,7 @@ def chains(ctx, show_private, node_id):
                         async with NodeClient(nconfig) as client:
                             chains = await client.get_hosted_chains()
                             return [(nid, chain) for chain in chains]
-                    except Exception as e:
+                    except Exception as e:  # noqa: BLE001 - NodeClient raises plain Exception for HTTP failures; per-node probe degrades to []
                         click.echo(f"Error getting chains from node {nid}: {e}")
                         return []
 

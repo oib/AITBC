@@ -17,14 +17,29 @@ from typing import Any
 
 import click
 
+from aitbc.exceptions import AITBCError
 from aitbc.utils.units import ait_to_units, format_ait
 
 from ..config import get_config
 from ..utils import output, success, warning, OUTPUT_FORMAT_OPTION
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.address import to_canonical
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.output import resolve_output_format
+
+# Expected failure surface for the status/config fallbacks below (#1860):
+# aitbc/CLI error hierarchies plus filesystem, parse and data-shape builtins.
+_SYSTEM_ERRORS = (
+    AITBCError,
+    CLIError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+)
 
 logger = get_logger(__name__)
 
@@ -413,7 +428,7 @@ def status(ctx, service: str | None):
             output(status_data, ctx.obj.get("output_format", "table"))
         except NetworkError as e:
             abort(None, f"Network error: {e}", from_exception=e)
-        except Exception as e:
+        except _SYSTEM_ERRORS as e:
             abort(None, f"Error fetching status: {e}")
             return
         return
@@ -1316,7 +1331,7 @@ def config(ctx, show_secrets: bool):
 
         success("System Configuration:")
         output(config_data, ctx.obj.get("output_format", "table"))
-    except Exception as e:
+    except _SYSTEM_ERRORS as e:
         abort(None, f"Error reading configuration: {e}")
         return
 

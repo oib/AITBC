@@ -10,12 +10,28 @@ import click
 import requests
 
 from aitbc.config.hub import normalize_hub_base
+from aitbc.exceptions import AITBCError
 
 from ..utils import output
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
+
+# Expected failure surface for the RPC-command fallbacks below (#1860):
+# aitbc/CLI error hierarchies, requests transport, and data-shape builtins.
+_NETWORK_ERRORS = (
+    AITBCError,
+    CLIError,
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    requests.RequestException,
+)
 
 
 def get_default_node_id() -> str | None:
@@ -29,7 +45,7 @@ def get_default_node_id() -> str | None:
                     line = line.strip()
                     if line.startswith("NODE_ID="):
                         return line.split("=", 1)[1].strip()
-        except Exception:
+        except (OSError, ValueError):
             logger.debug("Failed to read /etc/aitbc/node.env", exc_info=True)
             pass
     # Fallback to environment variable
@@ -49,7 +65,7 @@ def get_default_chain_id() -> str | None:
                         # SUPPORTED_CHAINS can be comma-separated, take first
                         chains = line.split("=", 1)[1].strip()
                         return chains.split(",")[0].strip()
-        except Exception:
+        except (OSError, ValueError):
             logger.debug("Failed to read /etc/aitbc/node.env", exc_info=True)
             pass
     # Fallback to environment variable
@@ -92,7 +108,7 @@ def status(ctx, rpc_url):
             "message": "RPC endpoint not available - showing simulated status",
         }
         output(status, ctx.obj.get("output_format", "table"), title="Network Status (Simulated)")
-    except Exception as e:
+    except _NETWORK_ERRORS as e:
         abort(ctx, f"Error getting network status: {e}", from_exception=e)
 
 
@@ -115,7 +131,7 @@ def peers(ctx, rpc_url):
         # Fallback to simulated data if RPC endpoint not available
         peers = {"status": "simulated", "peers": [], "message": "RPC endpoint not available - showing simulated peers"}
         output(peers, ctx.obj.get("output_format", "table"), title="Connected Peers (Simulated)")
-    except Exception as e:
+    except _NETWORK_ERRORS as e:
         abort(ctx, f"Error listing peers: {e}", from_exception=e)
 
 
@@ -152,7 +168,7 @@ def test(ctx, peer, rpc_url):
         output(body, ctx.obj.get("output_format", "table"), title=f"Connectivity Test: {peer}")
     except requests.RequestException as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _NETWORK_ERRORS as e:
         abort(ctx, f"Error testing connectivity: {e}", from_exception=e)
 
 
@@ -201,7 +217,7 @@ def force_sync(ctx, rpc_url, peer_url, admin_private_key, admin_address):
         output(result, ctx.obj.get("output_format", "table"), title="Force Sync")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _NETWORK_ERRORS as e:
         abort(ctx, f"Error forcing sync: {e}", from_exception=e)
 
 
@@ -244,7 +260,7 @@ def subscribe(ctx, node_id, transport, chain_id, duration, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Subscription Registered")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _NETWORK_ERRORS as e:
         abort(ctx, f"Error registering subscription: {e}", from_exception=e)
 
 
@@ -275,7 +291,7 @@ def heartbeat(ctx, node_id, duration, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Lease Extended")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _NETWORK_ERRORS as e:
         abort(ctx, f"Error extending lease: {e}", from_exception=e)
 
 
@@ -316,7 +332,7 @@ def lease_status(ctx, node_id, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Lease Status")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _NETWORK_ERRORS as e:
         abort(ctx, f"Error checking lease status: {e}", from_exception=e)
 
 
@@ -343,7 +359,7 @@ def subscribers(ctx, chain_id, rpc_url):
         output(result, ctx.obj.get("output_format", "table"), title="Active Subscribers")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _NETWORK_ERRORS as e:
         abort(ctx, f"Error listing subscribers: {e}", from_exception=e)
 
 
@@ -494,12 +510,12 @@ def gossip(ctx, rpc_url, topics):
         info = http_client.get("/rpc/network-info")
     except NetworkError as e:
         abort(ctx, f"Could not reach the RPC at {rpc_url}: {e}", from_exception=e)
-    except Exception as e:
+    except _NETWORK_ERRORS as e:
         abort(ctx, f"Error getting network info: {e}", from_exception=e)
 
     try:
         samples = _scrape_prom(f"{rpc_url.rstrip('/')}/metrics", 10)
-    except Exception as e:
+    except _NETWORK_ERRORS as e:
         abort(ctx, f"Error scraping {rpc_url}/metrics: {e}", from_exception=e)
 
     accepted = _sample_map(samples, "blockchain_gossip_auth_accepted_total", "address")

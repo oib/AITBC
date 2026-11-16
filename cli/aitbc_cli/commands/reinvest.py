@@ -9,6 +9,8 @@ from pathlib import Path
 
 import click
 
+from aitbc.exceptions import AITBCError
+
 from ..utils import output
 from ..utils.error_handling import abort
 
@@ -85,7 +87,7 @@ def policy(ctx, agent_id: str, staking_pct: str, reserve_pct: str, min_reinvest:
         _save_policies(policies)
         result = {**policies[agent_id], "agent_id": agent_id, "status": "saved"}
         output(result, ctx.obj.get("output_format", "table"), title="Reinvestment Policy")
-    except Exception as e:
+    except (ArithmeticError, OSError, ValueError, TypeError) as e:
         abort(ctx, f"Error recording reinvestment policy: {e}", from_exception=e)
 
 
@@ -149,5 +151,17 @@ def simulate(
             ],
         }
         output(result, ctx.obj.get("output_format", "table"), title="Reinvestment Simulation")
-    except Exception as e:
+    # _load_miner_app() does a dynamic first-party import (ImportError) and the
+    # engine raises standard data-shape errors (#1860).
+    except (
+        AITBCError,
+        ImportError,
+        OSError,
+        ArithmeticError,
+        ValueError,
+        KeyError,
+        TypeError,
+        AttributeError,
+        RuntimeError,
+    ) as e:
         abort(ctx, f"Error simulating reinvestment for {agent_id}: {e}", from_exception=e)
