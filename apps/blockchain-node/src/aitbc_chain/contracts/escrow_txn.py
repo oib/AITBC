@@ -136,7 +136,7 @@ class EscrowMutation:
 
             def _in_lock() -> None:
                 fn(session)
-                session.flush()  # noqa: unawaited-async — sync Session, runs in a worker thread
+                session.flush()  # sync Session, runs in a worker thread
 
             await run_in_threadpool(_in_lock)
             return
@@ -144,7 +144,7 @@ class EscrowMutation:
         def _own_session() -> None:
             with self._scope() as session:
                 fn(session)
-                session.commit()  # noqa: unawaited-async — sync Session, runs in a worker thread
+                session.commit()  # sync Session, runs in a worker thread
 
         await run_in_threadpool(_own_session)
 
