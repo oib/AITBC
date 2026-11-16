@@ -12,12 +12,24 @@ Provides:
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from enum import Enum
 from typing import Any
 
+from sqlalchemy import delete
+from sqlmodel import col, select
+
 from aitbc.aitbc_logging import get_logger
+
+from ..domain.dispute import (
+    DisputeArbitratorRow,
+    DisputeCaseRow,
+    DisputeEvidenceRow,
+    DisputeVoteRow,
+)
 
 logger = get_logger(__name__)
 
@@ -135,7 +147,212 @@ class DisputeResolutionService:
         self._session_factory = session_factory
         self._disputes: dict[str, DisputeCase] = {}
         self._arbitrators: set[str] = set()
-        self.session = session_factory() if session_factory else None
+        if session_factory is not None:
+            self._hydrate()
+
+    @contextmanager
+    def _session(self) -> Iterator[Any]:
+        """Yield a short-lived DB session for one persistence operation.
+
+        ``session_factory`` may be a context-manager factory (e.g.
+        ``storage.db.session_scope`` or ``lambda: Session(engine)``) or a
+        FastAPI-style generator dependency (``storage.db.get_session``);
+        both are driven to yield exactly one session. Yields ``None`` when
+        no factory is wired so callers keep pure in-memory behavior.
+        """
+        if self._session_factory is None:
+            yield None
+            return
+        produced = self._session_factory()
+        if hasattr(produced, "__enter__"):
+            with produced as session:
+                yield session
+            return
+        # Generator-style dependency: drive it like contextlib does.
+        gen = iter(produced)
+        try:
+            session = next(gen)
+        except StopIteration as exc:
+            raise RuntimeError("session_factory produced no session") from exc
+        try:
+            yield session
+            try:
+                next(gen)
+            except StopIteration:
+                pass
+        finally:
+            gen.close()
+
+    @staticmethod
+    def _to_db_dt(value: datetime | None) -> datetime | None:
+        """Strip tzinfo for storage — SQLite/Postgres DateTime columns are naive."""
+        if value is None:
+            return None
+        if value.tzinfo is not None:
+            return value.astimezone(UTC).replace(tzinfo=None)
+        return value
+
+    @staticmethod
+    def _from_db_dt(value: datetime | None) -> datetime | None:
+        """Re-attach UTC on read so hydrated cases behave like fresh ones."""
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value
+
+    def _hydrate(self) -> None:
+        """Load persisted disputes/arbitrators into the in-memory caches.
+
+        Best-effort: if the tables do not exist yet (migration pending) or
+        the DB is unreachable, the service still boots with an empty cache —
+        writes remain best-effort too, so behavior never regresses below the
+        previous pure in-memory mode.
+        """
+        try:
+            with self._session() as session:
+                if session is None:
+                    return
+                case_rows = session.exec(select(DisputeCaseRow)).all()
+                evidence_rows = session.exec(select(DisputeEvidenceRow).order_by(col(DisputeEvidenceRow.id))).all()
+                vote_rows = session.exec(select(DisputeVoteRow).order_by(col(DisputeVoteRow.id))).all()
+                arb_rows = session.exec(select(DisputeArbitratorRow)).all()
+        except Exception as e:  # noqa: BLE001 - boot must survive a missing migration
+            logger.warning("Dispute service hydration failed; starting with empty cache: %s", e)
+            return
+
+        evidence_by_dispute: dict[str, list[DisputeEvidence]] = {}
+        for row in evidence_rows:
+            evidence_by_dispute.setdefault(row.dispute_id, []).append(
+                DisputeEvidence(
+                    submitted_by=row.submitted_by,
+                    evidence_type=row.evidence_type,
+                    description=row.description,
+                    ipfs_hash=row.ipfs_hash,
+                    timestamp=self._from_db_dt(row.timestamp) or datetime.now(UTC),
+                    tx_hash=row.tx_hash,
+                )
+            )
+        votes_by_dispute: dict[str, list[ArbitratorVote]] = {}
+        for row in vote_rows:
+            votes_by_dispute.setdefault(row.dispute_id, []).append(
+                ArbitratorVote(
+                    arbitrator=row.arbitrator,
+                    outcome=DisputeOutcome(row.outcome),
+                    reasoning=row.reasoning,
+                    stake_amount=int(row.stake_amount),
+                    timestamp=self._from_db_dt(row.timestamp) or datetime.now(UTC),
+                )
+            )
+        for row in case_rows:
+            dispute = DisputeCase(
+                dispute_id=row.dispute_id,
+                job_id=row.job_id,
+                client=row.client,
+                provider=row.provider,
+                amount=int(row.amount),
+                reason=row.reason,
+                filed_by=row.filed_by,
+            )
+            dispute.status = DisputeStatus(row.status)
+            dispute.outcome = DisputeOutcome(row.outcome) if row.outcome else None
+            dispute.created_at = self._from_db_dt(row.created_at) or dispute.created_at
+            dispute.evidence_deadline = self._from_db_dt(row.evidence_deadline)
+            dispute.voting_deadline = self._from_db_dt(row.voting_deadline)
+            dispute.resolved_at = self._from_db_dt(row.resolved_at)
+            dispute.refund_amount = int(row.refund_amount)
+            dispute.payout_amount = int(row.payout_amount)
+            dispute.evidence = evidence_by_dispute.get(row.dispute_id, [])
+            dispute.votes = votes_by_dispute.get(row.dispute_id, [])
+            self._disputes[row.dispute_id] = dispute
+        self._arbitrators = {row.address for row in arb_rows}
+        if case_rows or arb_rows:
+            logger.info(
+                "Dispute service hydrated: %d disputes, %d arbitrators",
+                len(case_rows),
+                len(arb_rows),
+            )
+
+    def _save_dispute(self, dispute: DisputeCase) -> None:
+        """Write-through persist of a dispute and its evidence/votes.
+
+        Children are rewritten wholesale (delete + reinsert in list order) so
+        one code path covers filing, evidence, votes, phase flips, and
+        resolution. No-op without a session factory; failures are logged and
+        never break the in-memory contract.
+        """
+        if self._session_factory is None:
+            return
+        try:
+            with self._session() as session:
+                if session is None:
+                    return
+                row = session.get(DisputeCaseRow, dispute.dispute_id)
+                if row is None:
+                    row = DisputeCaseRow(dispute_id=dispute.dispute_id)
+                    session.add(row)
+                row.job_id = dispute.job_id
+                row.client = dispute.client
+                row.provider = dispute.provider
+                row.amount = dispute.amount
+                row.reason = dispute.reason
+                row.filed_by = dispute.filed_by
+                row.status = dispute.status.value
+                row.outcome = dispute.outcome.value if dispute.outcome else None
+                row.created_at = self._to_db_dt(dispute.created_at) or dispute.created_at
+                row.evidence_deadline = self._to_db_dt(dispute.evidence_deadline)
+                row.voting_deadline = self._to_db_dt(dispute.voting_deadline)
+                row.resolved_at = self._to_db_dt(dispute.resolved_at)
+                row.refund_amount = dispute.refund_amount
+                row.payout_amount = dispute.payout_amount
+
+                session.exec(delete(DisputeEvidenceRow).where(col(DisputeEvidenceRow.dispute_id) == dispute.dispute_id))
+                for item in dispute.evidence:
+                    session.add(
+                        DisputeEvidenceRow(
+                            dispute_id=dispute.dispute_id,
+                            submitted_by=item.submitted_by,
+                            evidence_type=item.evidence_type,
+                            description=item.description,
+                            ipfs_hash=item.ipfs_hash,
+                            tx_hash=item.tx_hash,
+                            timestamp=self._to_db_dt(item.timestamp) or item.timestamp,
+                        )
+                    )
+                session.exec(delete(DisputeVoteRow).where(col(DisputeVoteRow.dispute_id) == dispute.dispute_id))
+                for vote in dispute.votes:
+                    session.add(
+                        DisputeVoteRow(
+                            dispute_id=dispute.dispute_id,
+                            arbitrator=vote.arbitrator,
+                            outcome=vote.outcome.value,
+                            reasoning=vote.reasoning,
+                            stake_amount=vote.stake_amount,
+                            timestamp=self._to_db_dt(vote.timestamp) or vote.timestamp,
+                        )
+                    )
+                session.commit()
+        except Exception as e:  # noqa: BLE001 - persistence must not break arbitration
+            logger.error("Failed to persist dispute %s: %s", dispute.dispute_id, e)
+
+    def _save_arbitrator(self, address: str) -> None:
+        """Persist an arbitrator registration (idempotent)."""
+        if self._session_factory is None:
+            return
+        try:
+            with self._session() as session:
+                if session is None:
+                    return
+                if session.get(DisputeArbitratorRow, address) is None:
+                    session.add(
+                        DisputeArbitratorRow(
+                            address=address,
+                            registered_at=self._to_db_dt(datetime.now(UTC)) or datetime.now(UTC),
+                        )
+                    )
+                    session.commit()
+        except Exception as e:  # noqa: BLE001 - persistence must not break arbitration
+            logger.error("Failed to persist arbitrator %s: %s", address, e)
 
     def file_dispute(
         self,
@@ -182,6 +399,7 @@ class DisputeResolutionService:
             )
             dispute.evidence.append(evidence)
         self._disputes[dispute_id] = dispute
+        self._save_dispute(dispute)
         logger.info("Dispute filed: %s for job %s by %s", dispute_id, job_id, filed_by)
         return dispute
 
@@ -219,6 +437,7 @@ class DisputeResolutionService:
             timestamp=datetime.now(UTC),
         )
         dispute.evidence.append(evidence)
+        self._save_dispute(dispute)
         logger.info("Evidence submitted for dispute %s by %s", dispute_id, submitted_by)
         return True
 
@@ -236,6 +455,7 @@ class DisputeResolutionService:
         if dispute.status == DisputeStatus.evidence_phase:
             if dispute.evidence_deadline and datetime.now(UTC) >= dispute.evidence_deadline:
                 dispute.status = DisputeStatus.voting_phase
+                self._save_dispute(dispute)
         if dispute.voting_deadline and datetime.now(UTC) > dispute.voting_deadline:
             raise ValueError("Voting deadline has passed")
         return dispute
@@ -282,6 +502,7 @@ class DisputeResolutionService:
         logger.info("Vote cast for dispute %s by %s: %s", dispute_id, arbitrator, outcome)
         if len(dispute.votes) >= self.MIN_ARBITRATORS:
             self._resolve_dispute(dispute)
+        self._save_dispute(dispute)
         return True
 
     def _resolve_dispute(self, dispute: DisputeCase) -> None:
@@ -331,6 +552,7 @@ class DisputeResolutionService:
     def register_arbitrator(self, address: str) -> bool:
         """Register an arbitrator"""
         self._arbitrators.add(address)
+        self._save_arbitrator(address)
         logger.info("Arbitrator registered: %s", address)
         return True
 
