@@ -71,21 +71,7 @@ def deposit(
         error("Wallet does not contain a private key")
         raise click.Abort()
 
-    config = get_config()
-    wallet_client = get_wallet_client()
-
-    try:
-        deposit_info = wallet_client.post(
-            "/v1/bridge/deposit",
-            json={"eth_amount": str(amount), "ait_address": ait_address},
-        )
-    except Exception as e:
-        error(f"Failed to get deposit instructions: {e}")
-        raise click.Abort() from e
-
-    if not (deposit_info.get("success") or deposit_info.get("status") == "ready"):
-        error(deposit_info.get("error", "Wallet service returned an error"))
-        raise click.Abort()
+    deposit_info = _fetch_deposit_instructions(amount, ait_address)
 
     instructions = deposit_info.get("instructions", {})
     estimate = deposit_info.get("estimate", {})
@@ -106,75 +92,58 @@ def deposit(
         ctx.obj.get("output_format", "table"),
     )
 
-    # Sign and send the ETH transaction
+    _submit_eth_deposit(
+        ctx,
+        ait_address=ait_address,
+        eth_private_key=eth_private_key,
+        bridge_eth_address=bridge_eth_address,
+        eth_amount=eth_amount,
+        hex_data=hex_data,
+        estimated_ait=estimated_ait,
+        eth_rpc_url=eth_rpc_url,
+    )
+
+
+def _fetch_deposit_instructions(amount: Decimal, ait_address: str) -> dict:
+    """Ask the wallet service for bridge deposit instructions."""
+    try:
+        deposit_info = get_wallet_client().post(
+            "/v1/bridge/deposit",
+            json={"eth_amount": str(amount), "ait_address": ait_address},
+        )
+    except Exception as e:
+        error(f"Failed to get deposit instructions: {e}")
+        raise click.Abort() from e
+
+    if not (deposit_info.get("success") or deposit_info.get("status") == "ready"):
+        error(deposit_info.get("error", "Wallet service returned an error"))
+        raise click.Abort()
+    return deposit_info
+
+
+def _submit_eth_deposit(
+    ctx,
+    *,
+    ait_address: str,
+    eth_private_key: str,
+    bridge_eth_address: str,
+    eth_amount: Decimal,
+    hex_data: str,
+    estimated_ait,
+    eth_rpc_url: str | None,
+) -> None:
+    """Sign and broadcast the ETH deposit transaction."""
+    config = get_config()
     rpc_url = eth_rpc_url or os.getenv("ETH_RPC_URL") or getattr(config, "eth_rpc_url", None) or "https://eth.llamarpc.com"
     try:
-        from eth_account import Account as EthAccount
-
-        account = EthAccount.from_key(eth_private_key)
-        derived_address = account.address
-
-        from aitbc.crypto.signature_recovery import canonical_address
-
-        if canonical_address(derived_address).lower() != canonical_address(ait_address).lower():
-            error(
-                f"Wallet address {ait_address} does not match the private key's address {derived_address}. "
-                "The CLI does not support signing for a different wallet."
-            )
-            raise click.Abort()
-
-        # Fetch chain id, nonce, gas price
-        import httpx
-
-        async def _send() -> str:
-            network = os.getenv("ETH_NETWORK", "sepolia")
-            try:
-                chain_id = int(network)
-            except (TypeError, ValueError):
-                chain_id = {"mainnet": 1, "sepolia": 11155111, "goerli": 5, "holesky": 17000}.get(network.lower(), 11155111)
-
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                rpc_body = {
-                    "jsonrpc": "2.0",
-                    "method": "eth_getTransactionCount",
-                    "params": [derived_address, "pending"],
-                    "id": 1,
-                }
-                resp = await client.post(rpc_url, json=rpc_body)
-                resp.raise_for_status()
-                nonce = int(resp.json()["result"], 16)
-
-                rpc_body = {"jsonrpc": "2.0", "method": "eth_gasPrice", "params": [], "id": 1}
-                resp = await client.post(rpc_url, json=rpc_body)
-                resp.raise_for_status()
-                gas_price = int(resp.json()["result"], 16)
-
-            value_wei = int(eth_amount * Decimal(10**18))
-            tx = {
-                "to": canonical_address(bridge_eth_address),
-                "value": value_wei,
-                "gas": 100000,
-                "gasPrice": gas_price,
-                "nonce": nonce,
-                "chainId": chain_id,
-                "data": hex_data,
-            }
-            signed = account.sign_transaction(tx)
-            raw = signed.raw_transaction
-            if isinstance(raw, bytes):
-                raw = "0x" + raw.hex()
-
-            async with httpx.AsyncClient(timeout=15.0) as client:
-                resp = await client.post(
-                    rpc_url, json={"jsonrpc": "2.0", "method": "eth_sendRawTransaction", "params": [raw], "id": 1}
-                )
-                resp.raise_for_status()
-                result = resp.json()
-                if "error" in result:
-                    raise RuntimeError(result["error"])
-                return str(result["result"])
-
-        eth_tx_hash = asyncio.get_event_loop().run_until_complete(_send())
+        eth_tx_hash = _send_eth_deposit_tx(
+            ait_address=ait_address,
+            eth_private_key=eth_private_key,
+            bridge_eth_address=bridge_eth_address,
+            eth_amount=eth_amount,
+            hex_data=hex_data,
+            rpc_url=rpc_url,
+        )
         success(f"ETH deposit transaction submitted: {eth_tx_hash}")
         output(
             {
@@ -189,6 +158,83 @@ def deposit(
     except Exception as e:
         error(f"Failed to send ETH deposit: {e}")
         raise click.Abort() from e
+
+
+def _send_eth_deposit_tx(
+    *,
+    ait_address: str,
+    eth_private_key: str,
+    bridge_eth_address: str,
+    eth_amount: Decimal,
+    hex_data: str,
+    rpc_url: str,
+) -> str:
+    """Build, sign, and broadcast the ETH deposit; return the tx hash."""
+    from eth_account import Account as EthAccount
+
+    account = EthAccount.from_key(eth_private_key)
+    derived_address = account.address
+
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    if canonical_address(derived_address).lower() != canonical_address(ait_address).lower():
+        error(
+            f"Wallet address {ait_address} does not match the private key's address {derived_address}. "
+            "The CLI does not support signing for a different wallet."
+        )
+        raise click.Abort()
+
+    import httpx
+
+    async def _send() -> str:
+        network = os.getenv("ETH_NETWORK", "sepolia")
+        try:
+            chain_id = int(network)
+        except (TypeError, ValueError):
+            chain_id = {"mainnet": 1, "sepolia": 11155111, "goerli": 5, "holesky": 17000}.get(network.lower(), 11155111)
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            rpc_body = {
+                "jsonrpc": "2.0",
+                "method": "eth_getTransactionCount",
+                "params": [derived_address, "pending"],
+                "id": 1,
+            }
+            resp = await client.post(rpc_url, json=rpc_body)
+            resp.raise_for_status()
+            nonce = int(resp.json()["result"], 16)
+
+            rpc_body = {"jsonrpc": "2.0", "method": "eth_gasPrice", "params": [], "id": 1}
+            resp = await client.post(rpc_url, json=rpc_body)
+            resp.raise_for_status()
+            gas_price = int(resp.json()["result"], 16)
+
+        value_wei = int(eth_amount * Decimal(10**18))
+        tx = {
+            "to": canonical_address(bridge_eth_address),
+            "value": value_wei,
+            "gas": 100000,
+            "gasPrice": gas_price,
+            "nonce": nonce,
+            "chainId": chain_id,
+            "data": hex_data,
+        }
+        signed = account.sign_transaction(tx)
+        raw = signed.raw_transaction
+        if isinstance(raw, bytes):
+            raw = "0x" + raw.hex()
+
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            resp = await client.post(
+                rpc_url, json={"jsonrpc": "2.0", "method": "eth_sendRawTransaction", "params": [raw], "id": 1}
+            )
+            resp.raise_for_status()
+            result = resp.json()
+            if "error" in result:
+                raise RuntimeError(result["error"])
+            return str(result["result"])
+
+    return asyncio.get_event_loop().run_until_complete(_send())
 
 
 @bridge.command(

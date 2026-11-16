@@ -101,16 +101,7 @@ def login(
 ):
     """Log in with a wallet-signed nonce and store a coordinator JWT."""
     config = get_config()
-    coord_url = coordinator_url or config.coordinator_api_url
-    if not coord_url:
-        abort(ctx, "Coordinator URL not configured")
-
-    # The configured URL may already contain the /v1 prefix that the
-    # coordinator application mounts.  Strip it so the login endpoints below
-    # use the canonical /v1/... paths without doubling.
-    coord_url = coord_url.rstrip("/")
-    if coord_url.endswith("/v1"):
-        coord_url = coord_url[:-3]
+    coord_url = _login_coord_url(ctx, coordinator_url, config)
 
     # A password is only needed when the key comes from an encrypted wallet
     # file — --private-key/--private-key-file paths must not require one.
@@ -132,32 +123,56 @@ def login(
         abort(ctx, str(e), from_exception=e)
         return
 
+    account = _account_from_key(ctx, raw_key)
+    address = wallet_address.lower().strip() if wallet_address else account.address.lower()
+
+    client = AITBCHTTPClient(base_url=coord_url, timeout=10)
+    nonce = _fetch_login_nonce(ctx, client, address)
+    signature = _sign_login_message(ctx, account, address, nonce)
+    token = _post_login(ctx, client, address, nonce, signature)
+    _store_login_token(ctx, token, address, environment, credential_name)
+
+
+def _login_coord_url(ctx, coordinator_url: str | None, config) -> str:
+    coord_url = coordinator_url or config.coordinator_api_url
+    if not coord_url:
+        abort(ctx, "Coordinator URL not configured")
+
+    # The configured URL may already contain the /v1 prefix that the
+    # coordinator application mounts.  Strip it so the login endpoints below
+    # use the canonical /v1/... paths without doubling.
+    coord_url = coord_url.rstrip("/")
+    if coord_url.endswith("/v1"):
+        coord_url = coord_url[:-3]
+    return coord_url
+
+
+def _account_from_key(ctx, raw_key: str):
     try:
         # Function-local: the CLI's auth path is exercised only on login;
         # eth_account no longer taxes every `aitbc` invocation.
         from eth_account import Account
 
-        account = Account.from_key(raw_key)
+        return Account.from_key(raw_key)
     except Exception as e:
         abort(ctx, f"Invalid private key: {e}", from_exception=e)
-        return
+        return None
 
-    if wallet_address:
-        address = wallet_address.lower().strip()
-    else:
-        address = account.address.lower()
 
-    client = AITBCHTTPClient(base_url=coord_url, timeout=10)
+def _fetch_login_nonce(ctx, client: AITBCHTTPClient, address: str) -> str:
     try:
         nonce_resp = client.post("/v1/auth/nonce", json={"wallet_address": address})
-        nonce = nonce_resp.get("nonce")
+        nonce: str | None = nonce_resp.get("nonce")
         if not nonce:
             abort(ctx, f"Coordinator did not return a nonce: {nonce_resp}")
-            return
+            raise AssertionError("unreachable: abort always raises")
+        return nonce
     except NetworkError as e:
         abort(ctx, f"Cannot reach coordinator auth endpoint: {e}", from_exception=e)
-        return
+        raise AssertionError("unreachable: abort always raises") from e
 
+
+def _sign_login_message(ctx, account, address: str, nonce: str) -> str:
     message = _build_sign_message(address, nonce)
     from eth_account.messages import encode_defunct
 
@@ -166,10 +181,12 @@ def login(
         signed = account.sign_message(signable)
     except Exception as e:
         abort(ctx, f"Failed to sign login message: {e}", from_exception=e)
-        return
+        raise AssertionError("unreachable: abort always raises") from e
+    signature_hex: str = signed.signature.hex()
+    return "0x" + signature_hex
 
-    signature = "0x" + signed.signature.hex()
 
+def _post_login(ctx, client: AITBCHTTPClient, address: str, nonce: str, signature: str) -> str:
     try:
         login_resp = client.post(
             "/v1/login",
@@ -177,14 +194,17 @@ def login(
         )
     except NetworkError as e:
         abort(ctx, f"Login request failed: {e}", from_exception=e)
-        return
+        raise AssertionError("unreachable: abort always raises") from e
 
-    token = login_resp.get("session_token")
+    token: str | None = login_resp.get("session_token")
     if not token:
         detail = login_resp.get("detail") or login_resp
         abort(ctx, f"Login failed: {detail}")
-        return
+        raise AssertionError("unreachable: abort always raises")
+    return token
 
+
+def _store_login_token(ctx, token: str, address: str, environment: str, credential_name: str) -> None:
     manager = AuthManager()
     if manager.store_credential(credential_name, token, environment=environment):
         success(f"Logged in as {address}")

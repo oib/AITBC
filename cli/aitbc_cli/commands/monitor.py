@@ -168,6 +168,100 @@ def metrics(ctx, period: str, export_path: str | None):
     output(metrics_data, ctx.obj["output_format"])
 
 
+def _json_store_file(directory: str, filename: str) -> Path:
+    store_dir = Path.home() / ".aitbc" / directory
+    store_dir.mkdir(parents=True, exist_ok=True)
+    return store_dir / filename
+
+
+def _load_json_list(path: Path) -> list[dict[str, Any]]:
+    if not path.exists():
+        return []
+    with open(path) as f:
+        data: list[dict[str, Any]] = json.load(f)
+        return data
+
+
+def _save_json_list(path: Path, items: list[dict[str, Any]]) -> None:
+    with open(path, "w") as f:
+        json.dump(items, f, indent=2)
+
+
+def _send_test_webhook(ctx, webhook_url: str, payload: dict[str, Any]) -> None:
+    try:
+        http_client = AITBCHTTPClient(base_url=webhook_url, timeout=10)
+        resp = http_client.post("", json=payload)
+        output({"status": "sent", "response": resp}, ctx.obj["output_format"])
+    except Exception as e:
+        abort(ctx, f"Webhook test failed: {e}", from_exception=e)
+
+
+def _alerts_add(
+    ctx,
+    existing: list[dict[str, Any]],
+    name: str | None,
+    alert_type: str | None,
+    threshold: float | None,
+    webhook: str | None,
+    alerts_file: Path,
+) -> None:
+    if not name or not alert_type:
+        abort(ctx, "Alert name and type required (--name, --type)")
+        return
+    alert = {
+        "name": name,
+        "type": alert_type,
+        "threshold": threshold,
+        "webhook": webhook,
+        "created_at": datetime.now().isoformat(),
+        "enabled": True,
+    }
+    existing.append(alert)
+    _save_json_list(alerts_file, existing)
+    success(f"Alert '{name}' added")
+    output(alert, ctx.obj["output_format"])
+
+
+def _alerts_list(ctx, existing: list[dict[str, Any]]) -> None:
+    if not existing:
+        output({"message": "No alerts configured"}, ctx.obj["output_format"])
+    else:
+        output(existing, ctx.obj["output_format"])
+
+
+def _alerts_remove(ctx, existing: list[dict[str, Any]], name: str | None, alerts_file: Path) -> None:
+    if not name:
+        abort(ctx, "Alert name required (--name)")
+        return
+    remaining = [a for a in existing if a["name"] != name]
+    _save_json_list(alerts_file, remaining)
+    success(f"Alert '{name}' removed")
+
+
+def _alerts_test(ctx, existing: list[dict[str, Any]], name: str | None) -> None:
+    if not name:
+        abort(ctx, "Alert name required (--name)")
+        return
+    alert = next((a for a in existing if a["name"] == name), None)
+    if not alert:
+        abort(ctx, f"Alert '{name}' not found")
+        return
+    webhook_url = alert.get("webhook")
+    if webhook_url and isinstance(webhook_url, str):
+        _send_test_webhook(
+            ctx,
+            webhook_url,
+            {
+                "alert": name,
+                "type": alert["type"],
+                "message": "Test alert from AITBC CLI",
+                "timestamp": datetime.now().isoformat(),
+            },
+        )
+    else:
+        output({"status": "no_webhook", "alert": alert}, ctx.obj["output_format"])
+
+
 @monitor.command(
     epilog="""Examples:
 
@@ -188,74 +282,17 @@ def metrics(ctx, period: str, export_path: str | None):
 @click.pass_context
 def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold: float | None, webhook: str | None):
     """Configure or query monitoring alerts by name, type, and threshold."""
-    alerts_dir = Path.home() / ".aitbc" / "alerts"
-    alerts_dir.mkdir(parents=True, exist_ok=True)
-    alerts_file = alerts_dir / "alerts.json"
-
-    existing: list[dict[str, Any]] = []
-    if alerts_file.exists():
-        with open(alerts_file) as f:
-            existing = json.load(f)
+    alerts_file = _json_store_file("alerts", "alerts.json")
+    existing = _load_json_list(alerts_file)
 
     if action == "add":
-        if not name or not alert_type:
-            abort(ctx, "Alert name and type required (--name, --type)")
-            return
-        alert = {
-            "name": name,
-            "type": alert_type,
-            "threshold": threshold,
-            "webhook": webhook,
-            "created_at": datetime.now().isoformat(),
-            "enabled": True,
-        }
-        existing.append(alert)
-        with open(alerts_file, "w") as f:
-            json.dump(existing, f, indent=2)
-        success(f"Alert '{name}' added")
-        output(alert, ctx.obj["output_format"])
-
+        _alerts_add(ctx, existing, name, alert_type, threshold, webhook, alerts_file)
     elif action == "list":
-        if not existing:
-            output({"message": "No alerts configured"}, ctx.obj["output_format"])
-        else:
-            output(existing, ctx.obj["output_format"])
-
+        _alerts_list(ctx, existing)
     elif action == "remove":
-        if not name:
-            abort(ctx, "Alert name required (--name)")
-            return
-        existing = [a for a in existing if a["name"] != name]
-        with open(alerts_file, "w") as f:
-            json.dump(existing, f, indent=2)
-        success(f"Alert '{name}' removed")
-
+        _alerts_remove(ctx, existing, name, alerts_file)
     elif action == "test":
-        if not name:
-            abort(ctx, "Alert name required (--name)")
-            return
-        alert = next((a for a in existing if a["name"] == name), None)  # type: ignore[arg-type]
-        if not alert:
-            abort(ctx, f"Alert '{name}' not found")
-            return
-        webhook_url = alert.get("webhook")
-        if webhook_url and isinstance(webhook_url, str):
-            try:
-                http_client = AITBCHTTPClient(base_url=webhook_url, timeout=10)
-                resp = http_client.post(
-                    "",
-                    json={
-                        "alert": name,
-                        "type": alert["type"],
-                        "message": "Test alert from AITBC CLI",
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                )
-                output({"status": "sent", "response": resp}, ctx.obj["output_format"])
-            except Exception as e:
-                abort(ctx, f"Webhook test failed: {e}", from_exception=e)
-        else:
-            output({"status": "no_webhook", "alert": alert}, ctx.obj["output_format"])
+        _alerts_test(ctx, existing, name)
 
 
 @monitor.command(
@@ -307,6 +344,63 @@ def history(ctx, period: str):
     output(analysis, ctx.obj["output_format"])
 
 
+def _webhooks_add(ctx, existing, name: str | None, url: str | None, events: str | None, webhooks_file: Path) -> None:
+    if not name or not url:
+        abort(ctx, "Webhook name and URL required (--name, --url)")
+        return
+    webhook = {
+        "name": name,
+        "url": url,
+        "events": events.split(",") if events else ["all"],
+        "created_at": datetime.now().isoformat(),
+        "enabled": True,
+    }
+    existing.append(webhook)
+    _save_json_list(webhooks_file, existing)
+    success(f"Webhook '{name}' added")
+    output(webhook, ctx.obj["output_format"])
+
+
+def _webhooks_list(ctx, existing) -> None:
+    if not existing:
+        output({"message": "No webhooks configured"}, ctx.obj["output_format"])
+    else:
+        output(existing, ctx.obj["output_format"])
+
+
+def _webhooks_remove(ctx, existing, name: str | None, webhooks_file: Path) -> None:
+    if not name:
+        abort(ctx, "Webhook name required (--name)")
+        return
+    remaining = [w for w in existing if w["name"] != name]
+    _save_json_list(webhooks_file, remaining)
+    success(f"Webhook '{name}' removed")
+
+
+def _webhooks_test(ctx, existing, name: str | None) -> None:
+    if not name:
+        abort(ctx, "Webhook name required (--name)")
+        return
+    wh = next((w for w in existing if w["name"] == name), None)
+    if not wh:
+        abort(ctx, f"Webhook '{name}' not found")
+        return
+    webhook_url = wh.get("url")
+    if webhook_url and isinstance(webhook_url, str):
+        _send_test_webhook(
+            ctx,
+            webhook_url,
+            {
+                "event": "test",
+                "source": "aitbc-cli",
+                "message": "Test webhook notification",
+                "timestamp": datetime.now().isoformat(),
+            },
+        )
+    else:
+        abort(ctx, f"Webhook '{name}' has no valid URL")
+
+
 @monitor.command(
     epilog="""Examples:
 
@@ -321,73 +415,17 @@ def history(ctx, period: str):
 @click.pass_context
 def webhooks(ctx, action: str, name: str | None, url: str | None, events: str | None):
     """Register, list, or remove monitoring webhooks."""
-    webhooks_dir = Path.home() / ".aitbc" / "webhooks"
-    webhooks_dir.mkdir(parents=True, exist_ok=True)
-    webhooks_file = webhooks_dir / "webhooks.json"
-
-    existing = []
-    if webhooks_file.exists():
-        with open(webhooks_file) as f:
-            existing = json.load(f)
+    webhooks_file = _json_store_file("webhooks", "webhooks.json")
+    existing = _load_json_list(webhooks_file)
 
     if action == "add":
-        if not name or not url:
-            abort(ctx, "Webhook name and URL required (--name, --url)")
-            return
-        webhook = {
-            "name": name,
-            "url": url,
-            "events": events.split(",") if events else ["all"],
-            "created_at": datetime.now().isoformat(),
-            "enabled": True,
-        }
-        existing.append(webhook)
-        with open(webhooks_file, "w") as f:
-            json.dump(existing, f, indent=2)
-        success(f"Webhook '{name}' added")
-        output(webhook, ctx.obj["output_format"])
-
+        _webhooks_add(ctx, existing, name, url, events, webhooks_file)
     elif action == "list":
-        if not existing:
-            output({"message": "No webhooks configured"}, ctx.obj["output_format"])
-        else:
-            output(existing, ctx.obj["output_format"])
-
+        _webhooks_list(ctx, existing)
     elif action == "remove":
-        if not name:
-            abort(ctx, "Webhook name required (--name)")
-            return
-        existing = [w for w in existing if w["name"] != name]
-        with open(webhooks_file, "w") as f:
-            json.dump(existing, f, indent=2)
-        success(f"Webhook '{name}' removed")
-
+        _webhooks_remove(ctx, existing, name, webhooks_file)
     elif action == "test":
-        if not name:
-            abort(ctx, "Webhook name required (--name)")
-            return
-        wh = next((w for w in existing if w["name"] == name), None)
-        if not wh:
-            abort(ctx, f"Webhook '{name}' not found")
-            return
-        webhook_url = wh.get("url")
-        if webhook_url and isinstance(webhook_url, str):
-            try:
-                http_client = AITBCHTTPClient(base_url=webhook_url, timeout=10)
-                resp = http_client.post(
-                    "",
-                    json={
-                        "event": "test",
-                        "source": "aitbc-cli",
-                        "message": "Test webhook notification",
-                        "timestamp": datetime.now().isoformat(),
-                    },
-                )
-                output({"status": "sent", "response": resp}, ctx.obj["output_format"])
-            except Exception as e:
-                abort(ctx, f"Webhook test failed: {e}", from_exception=e)
-        else:
-            abort(ctx, f"Webhook '{name}' has no valid URL")
+        _webhooks_test(ctx, existing, name)
 
 
 CAMPAIGNS_DIR = Path.home() / ".aitbc" / "campaigns"

@@ -170,6 +170,82 @@ def _map_agent_type(agent_type: str) -> str:
     return _AGENT_TYPE_MAP.get(agent_type, agent_type)
 
 
+def _load_agent_config(agent_id: str) -> dict[str, Any] | None:
+    """Find and parse the stored config for ``agent_id``; None when absent."""
+    config_dir = get_agent_config_dir()
+    for f in config_dir.glob("*.json"):
+        try:
+            with open(f) as fp:
+                data: dict[str, Any] = json.load(fp)
+            if data.get("agent_id") == agent_id:
+                return data
+        except _OPS_ERRORS:
+            continue
+    return None
+
+
+def _capability_values(capabilities: dict[str, Any]) -> list[str]:
+    capability_list: list[str] = []
+    for _k, v in capabilities.items():
+        if v is None:
+            continue
+        if isinstance(v, list):
+            for item in v:
+                capability_list.append(str(item))
+        else:
+            capability_list.append(str(v))
+    return capability_list
+
+
+def _build_register_request(agent_id: str, agent_data: dict[str, Any]) -> dict[str, Any]:
+    capabilities = agent_data.get("capabilities") or {}
+    return {
+        "agent_id": agent_id,
+        "agent_type": _map_agent_type(agent_data.get("agent_type", "general")),
+        "capabilities": _capability_values(capabilities),
+        "services": [],
+        "endpoints": {},
+        "metadata": {
+            "name": agent_data.get("name", agent_id),
+            "original_agent_type": agent_data.get("agent_type", "general"),
+        },
+        "chain_id": agent_data.get("chain_id") or get_config().chain_id,
+    }
+
+
+def _discover_body(
+    capability: str | None,
+    agent_type: str | None,
+    min_health: float,
+    limit: int,
+) -> dict[str, Any]:
+    body: dict[str, Any] = {"query": {}}
+    if capability:
+        body["query"]["capabilities"] = [capability]
+    if agent_type:
+        body["query"]["agent_type"] = _map_agent_type(agent_type)
+    if min_health > 0:
+        body["query"]["min_health_score"] = min_health
+    if limit:
+        body["query"]["limit"] = limit
+    return body
+
+
+def _discover_remote_agents(
+    ctx,
+    coordinator_url: str,
+    capability: str | None,
+    agent_type: str | None,
+    min_health: float,
+    limit: int,
+) -> dict[str, Any]:
+    """POST /v1/agents/discover and return the raw result."""
+    body = _discover_body(capability, agent_type, min_health, limit)
+    explicit = ctx.obj.get("api_key") if ctx.obj else None
+    client = AITBCHTTPClient(base_url=coordinator_url, timeout=10, **auth_client_kwargs(explicit, get_config().api_key))
+    return client.post("/v1/agents/discover", json=body)
+
+
 async def register_agent(
     agent_id: str,
     coordinator_url: str | None = None,
@@ -183,47 +259,11 @@ async def register_agent(
     coordinator_url = resolve_coordinator_url(coordinator_url)
 
     try:
-        config_dir = get_agent_config_dir()
-        agent_file: Path | None = None
-        for f in config_dir.glob("*.json"):
-            try:
-                with open(f) as fp:
-                    data = json.load(fp)
-                if data.get("agent_id") == agent_id:
-                    agent_file = f
-                    break
-            except _OPS_ERRORS:
-                continue
-
-        if not agent_file:
+        agent_data = _load_agent_config(agent_id)
+        if agent_data is None:
             return {"error": f"Agent configuration not found for id: {agent_id}"}
 
-        with open(agent_file) as fp:
-            agent_data = json.load(fp)
-
-        capabilities = agent_data.get("capabilities") or {}
-        capability_list: list[str] = []
-        for _k, v in capabilities.items():
-            if v is None:
-                continue
-            if isinstance(v, list):
-                for item in v:
-                    capability_list.append(str(item))
-            else:
-                capability_list.append(str(v))
-
-        request_body = {
-            "agent_id": agent_id,
-            "agent_type": _map_agent_type(agent_data.get("agent_type", "general")),
-            "capabilities": capability_list,
-            "services": [],
-            "endpoints": {},
-            "metadata": {
-                "name": agent_data.get("name", agent_id),
-                "original_agent_type": agent_data.get("agent_type", "general"),
-            },
-            "chain_id": agent_data.get("chain_id") or get_config().chain_id,
-        }
+        request_body = _build_register_request(agent_id, agent_data)
 
         client = AITBCHTTPClient(base_url=coordinator_url, timeout=10)
         if signing is not None:
@@ -1064,32 +1104,9 @@ try:
         if not _check_agent_coordinator(coordinator_url, ctx):
             return
         try:
-            import requests
+            import requests  # noqa: F401  (bound for the except clause below)
 
-            params = {}
-            if capability:
-                params["capability"] = capability
-            if agent_type:
-                params["agent_type"] = agent_type
-            if min_health > 0:
-                params["min_health_score"] = min_health
-            if limit:
-                params["limit"] = limit
-
-            body: dict[str, Any] = {"query": {}}
-            if capability:
-                body["query"]["capabilities"] = [capability]
-            if agent_type:
-                body["query"]["agent_type"] = _map_agent_type(agent_type)
-            if min_health > 0:
-                body["query"]["min_health_score"] = min_health
-            if limit:
-                body["query"]["limit"] = limit
-            explicit = ctx.obj.get("api_key") if ctx.obj else None
-            client = AITBCHTTPClient(
-                base_url=coordinator_url, timeout=10, **auth_client_kwargs(explicit, get_config().api_key)
-            )
-            result: dict[str, Any] = client.post("/v1/agents/discover", json=body)
+            result = _discover_remote_agents(ctx, coordinator_url, capability, agent_type, min_health, limit)
             output(
                 {
                     "discovered_agents": result.get("agents", []),

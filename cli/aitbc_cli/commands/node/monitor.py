@@ -23,6 +23,71 @@ from aitbc_cli.utils.error_handling import CLIError, abort
 logger = get_logger(__name__)
 
 
+def _fetch_node_info(node_config):
+    """Fetch node info once via an async client call."""
+
+    async def get_node_stats():
+        async with NodeClient(node_config) as client:
+            return await client.get_node_info()
+
+    return asyncio.run(get_node_stats())
+
+
+def _monitor_metrics_table(node_info):
+    return [
+        ["CPU Usage", f"{node_info['cpu_usage']}%"],
+        ["Memory Usage", f"{node_info['memory_usage_mb']:.1f}MB"],
+        ["Disk Usage", f"{node_info['disk_usage_mb']:.1f}MB"],
+        ["Network In", f"{node_info['network_in_mb']:.1f}MB/s"],
+        ["Network Out", f"{node_info['network_out_mb']:.1f}MB/s"],
+        ["Uptime", f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"],
+    ]
+
+
+def _monitor_chains_text(node_info):
+    hosted_chains = node_info.get("hosted_chains")
+    if not hosted_chains:
+        return "No chains hosted"
+    text = f"Hosted Chains: {len(hosted_chains)}\n"
+    for chain_id, chain in list(hosted_chains.items())[:5]:
+        text += f"  • {chain_id} ({chain.get('status', 'unknown')})\n"
+    return text
+
+
+def _build_monitor_layout(node_id, node_info):
+    from rich.layout import Layout
+
+    layout = Layout()
+    layout.split_column(Layout(name="header", size=3), Layout(name="metrics"), Layout(name="chains", size=10))
+
+    layout["header"].update(f"Node Monitor: {node_id} - {node_info['status'].upper()}")
+    layout["metrics"].update(str(_monitor_metrics_table(node_info)))
+    layout["chains"].update(_monitor_chains_text(node_info))
+
+    return layout
+
+
+def _monitor_layout_or_error(node_id, node_config):
+    """Render the monitor layout for one snapshot; error text on failure."""
+    try:
+        node_info = _fetch_node_info(node_config)
+        return _build_monitor_layout(node_id, node_info)
+    except Exception as e:
+        logger.warning("Error getting node stats: %s", e, exc_info=True)
+        return f"Error getting node stats: {e}"
+
+
+def _snapshot_stats_rows(node_info):
+    return [
+        {"Metric": "CPU Usage", "Value": f"{node_info['cpu_usage']}%"},
+        {"Metric": "Memory Usage", "Value": f"{node_info['memory_usage_mb']:.1f}MB"},
+        {"Metric": "Disk Usage", "Value": f"{node_info['disk_usage_mb']:.1f}MB"},
+        {"Metric": "Network In", "Value": f"{node_info['network_in_mb']:.1f}MB/s"},
+        {"Metric": "Network Out", "Value": f"{node_info['network_out_mb']:.1f}MB/s"},
+        {"Metric": "Uptime", "Value": f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"},
+    ]
+
+
 def monitor_command(ctx, node_id, realtime, interval):
     """Monitor node activity"""
     try:
@@ -34,80 +99,34 @@ def monitor_command(ctx, node_id, realtime, interval):
 
         node_config = config.nodes[node_id]
 
-        from rich.console import Console
-        from rich.layout import Layout
-        from rich.live import Live
-
-        console = Console()
-
-        async def get_node_stats():
-            async with NodeClient(node_config) as client:
-                node_info = await client.get_node_info()
-                return node_info
-
         if realtime:
-            # Real-time monitoring
-            def generate_monitor_layout():
-                try:
-                    node_info = asyncio.run(get_node_stats())
-
-                    layout = Layout()
-                    layout.split_column(Layout(name="header", size=3), Layout(name="metrics"), Layout(name="chains", size=10))
-
-                    # Header
-                    layout["header"].update(f"Node Monitor: {node_id} - {node_info['status'].upper()}")
-
-                    # Metrics table
-                    metrics_data = [
-                        ["CPU Usage", f"{node_info['cpu_usage']}%"],
-                        ["Memory Usage", f"{node_info['memory_usage_mb']:.1f}MB"],
-                        ["Disk Usage", f"{node_info['disk_usage_mb']:.1f}MB"],
-                        ["Network In", f"{node_info['network_in_mb']:.1f}MB/s"],
-                        ["Network Out", f"{node_info['network_out_mb']:.1f}MB/s"],
-                        ["Uptime", f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"],
-                    ]
-
-                    layout["metrics"].update(str(metrics_data))
-
-                    # Chains info
-                    if node_info.get("hosted_chains"):
-                        chains_text = f"Hosted Chains: {len(node_info['hosted_chains'])}\n"
-                        for chain_id, chain in list(node_info["hosted_chains"].items())[:5]:
-                            chains_text += f"  • {chain_id} ({chain.get('status', 'unknown')})\n"
-                        layout["chains"].update(chains_text)
-                    else:
-                        layout["chains"].update("No chains hosted")
-
-                    return layout
-                except Exception as e:
-                    logger.warning("Error getting node stats: %s", e, exc_info=True)
-                    return f"Error getting node stats: {e}"
-
-            with Live(generate_monitor_layout(), refresh_per_second=1) as live:
-                try:
-                    while True:
-                        live.update(generate_monitor_layout())
-                        time.sleep(interval)
-                except KeyboardInterrupt:
-                    console.print("\n[yellow]Monitoring stopped by user[/yellow]")
+            _monitor_realtime(ctx, node_id, node_config, interval)
         else:
-            # Single snapshot
-            node_info = asyncio.run(get_node_stats())
-
-            stats_data = [
-                {"Metric": "CPU Usage", "Value": f"{node_info['cpu_usage']}%"},
-                {"Metric": "Memory Usage", "Value": f"{node_info['memory_usage_mb']:.1f}MB"},
-                {"Metric": "Disk Usage", "Value": f"{node_info['disk_usage_mb']:.1f}MB"},
-                {"Metric": "Network In", "Value": f"{node_info['network_in_mb']:.1f}MB/s"},
-                {"Metric": "Network Out", "Value": f"{node_info['network_out_mb']:.1f}MB/s"},
-                {"Metric": "Uptime", "Value": f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"},
-            ]
-
-            output(stats_data, ctx.obj.get("output", "table"), title=f"Node Statistics: {node_id}")
+            node_info = _fetch_node_info(node_config)
+            output(
+                _snapshot_stats_rows(node_info),
+                ctx.obj.get("output", "table"),
+                title=f"Node Statistics: {node_id}",
+            )
 
     except Exception as e:
         error(f"Error during monitoring: {str(e)}")
         raise click.Abort() from e
+
+
+def _monitor_realtime(ctx, node_id, node_config, interval):
+    from rich.console import Console
+    from rich.live import Live
+
+    console = Console()
+
+    with Live(_monitor_layout_or_error(node_id, node_config), refresh_per_second=1) as live:
+        try:
+            while True:
+                live.update(_monitor_layout_or_error(node_id, node_config))
+                time.sleep(interval)
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Monitoring stopped by user[/yellow]")
 
 
 def test_command(ctx, node_id):

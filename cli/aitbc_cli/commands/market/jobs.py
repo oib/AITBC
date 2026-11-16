@@ -437,6 +437,168 @@ def _run_ollama(
         _track_coordinator_job(ctx, job_id, offer, wallet_address, provider_address, actual_cost, service_type, result_hash)
 
 
+def _release_metered_escrow(
+    ctx: click.Context,
+    config,
+    job_id: str,
+    contract_id: str | None,
+    actual_cost: Decimal,
+    provider_address: str,
+    job_tx_hash: str | None = None,
+) -> None:
+    """Release the metered escrow for the actual cost; warns on failure."""
+    if not contract_id:
+        return
+    release_result, release_failures = _post_escrow_release(
+        ctx, config, job_id, amount=str(actual_cost), job_tx_hash=job_tx_hash
+    )
+    if release_result and release_result.get("tx_hash"):
+        released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
+        success(f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
+        refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
+        if refunded_amount > 0:
+            info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
+    elif release_result:
+        warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
+    else:
+        warning(
+            f"Escrow release failed ({'; '.join(release_failures)}) — the escrow stays locked; "
+            f"retry with `aitbc market escrow release --job-id {job_id}`"
+        )
+
+
+def _software_job_tx_hash(
+    config,
+    *,
+    job_id: str,
+    offer_id: str,
+    wallet_address: str,
+    provider_address: str,
+    result_hash: str,
+    duration_minutes,
+    actual_cost: Decimal,
+    private_key: str,
+    chain_id,
+) -> str | None:
+    """Post the software_job proof-of-work TX; None when there is no result hash."""
+    if not result_hash:
+        return None
+    job_data = {
+        "from": wallet_address,
+        "to": "0x0000000000000000000000000000000000000000",
+        "amount": 0,
+        "fee": DEFAULT_TX_FEE_UNITS,
+        "nonce": get_next_nonce(wallet_address),
+        "type": "GPU_MARKET",
+        "chain_id": chain_id,
+        "payload": {
+            "action": "software_job",
+            "job_id": job_id,
+            "offer_id": offer_id,
+            "buyer_address": wallet_address,
+            "provider_address": provider_address or wallet_address,
+            "result_hash": result_hash,
+            "actual_duration_minutes": float(round(duration_minutes, 4)),
+            "actual_cost": str(round(actual_cost, 6)),
+            "status": "completed",
+            "completed_at": datetime.now().isoformat(),
+        },
+    }
+    return _record_job_on_chain(config, job_data, private_key)
+
+
+def _audio_duration_seconds(audio_file: str) -> float:
+    """ffprobe the audio duration in seconds; 0.0 when the probe fails."""
+    import subprocess
+
+    try:
+        probe = subprocess.run(
+            [
+                "ffprobe",
+                "-v",
+                "error",
+                "-show_entries",
+                "format=duration",
+                "-of",
+                "default=noprint_wrappers=1:nokey=1",
+                audio_file,
+            ],
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+        return float(probe.stdout.strip() or 0)
+    except Exception:
+        logger.debug("ffprobe duration probe failed", exc_info=True)
+        return 0.0
+
+
+def _whisper_multipart_body(audio_file: str, audio_bytes: bytes, language: str | None, task: str):
+    """Build the multipart/form-data body for the Whisper /transcribe call."""
+    filename = os.path.basename(audio_file)
+    boundary = b"----WhisperBoundary"
+    body = (
+        b"--" + boundary + b"\r\n"
+        b'Content-Disposition: form-data; name="file"; filename="' + filename.encode() + b'"\r\n'
+        b"Content-Type: application/octet-stream\r\n\r\n" + audio_bytes + b"\r\n"
+    )
+    if language:
+        body += b"--" + boundary + b'\r\nContent-Disposition: form-data; name="language"\r\n\r\n' + language.encode() + b"\r\n"
+    body += b"--" + boundary + b'\r\nContent-Disposition: form-data; name="task"\r\n\r\n' + task.encode() + b"\r\n"
+    body += b"--" + boundary + b"--\r\n"
+    return body, boundary.decode()
+
+
+def _post_whisper_audio(
+    ctx: click.Context,
+    job_id: str,
+    contract_id: str | None,
+    whisper_transcribe_url: str,
+    audio_file: str,
+    audio_bytes: bytes,
+    language: str | None,
+    task: str,
+):
+    """POST the audio to Whisper; refunds the orphaned escrow on any failure."""
+    import urllib.request as _urllib
+
+    body, boundary = _whisper_multipart_body(audio_file, audio_bytes, language, task)
+    req = _urllib.Request(
+        whisper_transcribe_url,
+        data=body,
+        headers={
+            "Content-Type": f"multipart/form-data; boundary={boundary}",
+            **_shop_access_headers(job_id),
+        },
+    )
+    # endpoint scheme validated
+    try:
+        with _urllib.urlopen(req, timeout=300) as resp:  # nosec B310
+            return json.loads(resp.read())
+    except BaseException:
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        raise
+
+
+def _whisper_transcript_output(fmt: str, resp_data: dict[str, Any]) -> None:
+    """Print the transcript in the requested format."""
+    transcript = resp_data.get("text", "")
+    if fmt == "text":
+        click.echo(f"\n{transcript}\n")
+    elif fmt == "srt":
+        try:
+            for i, seg in enumerate(resp_data.get("segments", []), 1):
+
+                def _ts(s):
+                    return f"{int(s // 3600):02d}:{int((s % 3600) // 60):02d}:{s % 60:06.3f}".replace(".", ",")
+
+                click.echo(f"{i}\n{_ts(seg['start'])} --> {_ts(seg['end'])}\n{seg['text']}\n")
+        except (KeyError, TypeError, ValueError):
+            warning("Provider returned malformed SRT segments — skipping transcript formatting")
+    elif fmt == "json":
+        click.echo(json.dumps(resp_data, indent=2))
+
+
 def _run_whisper(
     ctx: click.Context,
     offer: dict[str, Any],
@@ -453,9 +615,6 @@ def _run_whisper(
     provider_agent_id: str | None = None,
 ) -> None:
     """Transcribe audio using a Whisper software offer and pay metered escrow."""
-    import subprocess
-    import urllib.request as _urllib
-
     config = get_config()
     chain_id = get_chain_id()
 
@@ -480,27 +639,7 @@ def _run_whisper(
         audio_bytes = af.read()
 
     # Get audio duration for upfront escrow estimate
-    duration_seconds = 0.0
-    try:
-        probe = subprocess.run(
-            [
-                "ffprobe",
-                "-v",
-                "error",
-                "-show_entries",
-                "format=duration",
-                "-of",
-                "default=noprint_wrappers=1:nokey=1",
-                audio_file,
-            ],
-            capture_output=True,
-            text=True,
-            timeout=10,
-        )
-        duration_seconds = float(probe.stdout.strip() or 0)
-    except Exception:
-        logger.debug("ffprobe duration probe failed", exc_info=True)
-        pass
+    duration_seconds = _audio_duration_seconds(audio_file)
     duration_minutes = duration_seconds / 60
     estimated_cost = Decimal(str(duration_minutes)) * price if price_unit == "per_audio_min" else price
 
@@ -525,33 +664,7 @@ def _run_whisper(
     # Submit audio to Whisper service
     info("Sending audio to Whisper service...")
     t_start = datetime.now()
-    filename = os.path.basename(audio_file)
-    boundary = b"----WhisperBoundary"
-    body = (
-        b"--" + boundary + b"\r\n"
-        b'Content-Disposition: form-data; name="file"; filename="' + filename.encode() + b'"\r\n'
-        b"Content-Type: application/octet-stream\r\n\r\n" + audio_bytes + b"\r\n"
-    )
-    if language:
-        body += b"--" + boundary + b'\r\nContent-Disposition: form-data; name="language"\r\n\r\n' + language.encode() + b"\r\n"
-    body += b"--" + boundary + b'\r\nContent-Disposition: form-data; name="task"\r\n\r\n' + task.encode() + b"\r\n"
-    body += b"--" + boundary + b"--\r\n"
-
-    req = _urllib.Request(
-        whisper_transcribe_url,
-        data=body,
-        headers={
-            "Content-Type": f"multipart/form-data; boundary={boundary.decode()}",
-            **_shop_access_headers(job_id),
-        },
-    )
-    # endpoint scheme validated
-    try:
-        with _urllib.urlopen(req, timeout=300) as resp:  # nosec B310
-            resp_data = json.loads(resp.read())
-    except BaseException:
-        _refund_orphaned_escrow(ctx, job_id, contract_id)
-        raise
+    resp_data = _post_whisper_audio(ctx, job_id, contract_id, whisper_transcribe_url, audio_file, audio_bytes, language, task)
 
     elapsed = (datetime.now() - t_start).total_seconds()
     if not isinstance(resp_data, dict):
@@ -567,68 +680,24 @@ def _run_whisper(
     info(f"Done in {elapsed:.1f}s — {resp_data.get('duration_seconds', 0):.1f}s audio — actual cost: {actual_cost:.8f} AIT")
 
     # Post software_job TX as proof of work
-    job_tx_hash = None
-    if result_hash:
-        job_data = {
-            "from": wallet_address,
-            "to": "0x0000000000000000000000000000000000000000",
-            "amount": 0,
-            "fee": DEFAULT_TX_FEE_UNITS,
-            "nonce": get_next_nonce(wallet_address),
-            "type": "GPU_MARKET",
-            "chain_id": chain_id,
-            "payload": {
-                "action": "software_job",
-                "job_id": job_id,
-                "offer_id": offer_id,
-                "buyer_address": wallet_address,
-                "provider_address": provider_address or wallet_address,
-                "result_hash": result_hash,
-                "actual_duration_minutes": float(round(actual_duration_minutes, 4)),
-                "actual_cost": str(round(actual_cost, 6)),
-                "status": "completed",
-                "completed_at": datetime.now().isoformat(),
-            },
-        }
-        job_tx_hash = _record_job_on_chain(config, job_data, private_key)
+    job_tx_hash = _software_job_tx_hash(
+        config,
+        job_id=job_id,
+        offer_id=offer_id,
+        wallet_address=wallet_address,
+        provider_address=provider_address,
+        result_hash=result_hash,
+        duration_minutes=actual_duration_minutes,
+        actual_cost=actual_cost,
+        private_key=private_key,
+        chain_id=chain_id,
+    )
 
     # Print transcript
-    transcript = resp_data.get("text", "")
-    if fmt == "text":
-        click.echo(f"\n{transcript}\n")
-    elif fmt == "srt":
-        try:
-            for i, seg in enumerate(resp_data.get("segments", []), 1):
-
-                def _ts(s):
-                    return f"{int(s // 3600):02d}:{int((s % 3600) // 60):02d}:{s % 60:06.3f}".replace(".", ",")
-
-                click.echo(f"{i}\n{_ts(seg['start'])} --> {_ts(seg['end'])}\n{seg['text']}\n")
-        except (KeyError, TypeError, ValueError):
-            warning("Provider returned malformed SRT segments — skipping transcript formatting")
-    elif fmt == "json":
-        click.echo(json.dumps(resp_data, indent=2))
+    _whisper_transcript_output(fmt, resp_data)
 
     # Release metered escrow with job TX hash as proof
-    if contract_id:
-        release_result, release_failures = _post_escrow_release(
-            ctx, config, job_id, amount=str(actual_cost), job_tx_hash=job_tx_hash
-        )
-        if release_result and release_result.get("tx_hash"):
-            released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
-            success(
-                f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)"
-            )
-            refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
-            if refunded_amount > 0:
-                info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
-        elif release_result:
-            warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
-        else:
-            warning(
-                f"Escrow release failed ({'; '.join(release_failures)}) — the escrow stays locked; "
-                f"retry with `aitbc market escrow release --job-id {job_id}`"
-            )
+    _release_metered_escrow(ctx, config, job_id, contract_id, actual_cost, provider_address, job_tx_hash)
 
     output(
         {
@@ -829,6 +898,59 @@ def _run_ffmpeg(
         _track_coordinator_job(ctx, job_id, offer, wallet_address, provider_address, actual_cost, "ffmpeg", result_hash)
 
 
+def _hermes_estimated_cost(price: Decimal, price_unit: str, max_time: int) -> Decimal:
+    """Upfront escrow estimate from the buyer's chosen max_time."""
+    if price_unit == "per_minute":
+        estimated_minutes = Decimal(str(max_time)) / Decimal("60")
+        return price * estimated_minutes
+    if price_unit == "per_processing_hour":
+        estimated_hours = Decimal(str(max_time)) / Decimal("3600")
+        return price * estimated_hours
+    return price
+
+
+def _post_hermes_run(ctx, job_id: str, contract_id: str | None, hermes_base: str, prompt: str, max_time: int):
+    """POST the prompt to the Hermes /run endpoint; refunds escrow on failure."""
+    http_client = AITBCHTTPClient(base_url=hermes_base, timeout=max_time + 10)
+    try:
+        return http_client.post(
+            "/run",
+            json={"prompt": prompt, "max_time": max_time},
+            headers=_shop_access_headers(job_id),
+        )
+    except BaseException:
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        raise
+
+
+def _hermes_billed_duration(
+    ctx, job_id: str, contract_id: str | None, resp_data: dict, elapsed: float, max_time: int
+) -> Decimal:
+    """Provider-reported duration for billing, clamped to [0, max_time] minutes."""
+    duration_minutes = _provider_billing_decimal(
+        ctx, job_id, contract_id, resp_data.get("duration_minutes", elapsed / 60), "duration_minutes"
+    )
+    # HERMES-IPFS-DEPTH2-1 (#1633): duration_minutes is shop-reported over a
+    # plain-HTTP endpoint — clamp billing input to [0, max_time] so a malicious
+    # or MITM'd provider cannot inflate the charge past the locked escrow.
+    max_duration_minutes = Decimal(str(max_time)) / Decimal("60")
+    if duration_minutes < 0 or duration_minutes > max_duration_minutes:
+        warning(
+            f"Provider reported implausible duration {duration_minutes} min "
+            f"(max {max_duration_minutes} min) — clamping for billing"
+        )
+        duration_minutes = min(max(duration_minutes, Decimal("0")), max_duration_minutes)
+    return duration_minutes
+
+
+def _hermes_actual_cost(price: Decimal, price_unit: str, duration_minutes: Decimal) -> Decimal:
+    if price_unit == "per_minute":
+        return price * duration_minutes
+    if price_unit == "per_processing_hour":
+        return price * (duration_minutes / Decimal("60"))
+    return price
+
+
 def _run_hermes(
     ctx: click.Context,
     offer: dict[str, Any],
@@ -862,14 +984,7 @@ def _run_hermes(
     info(f"Hermes endpoint: {hermes_run_url}")
 
     # Estimate cost from the buyer's chosen max_time.
-    if price_unit == "per_minute":
-        estimated_minutes = Decimal(str(max_time)) / Decimal("60")
-        estimated_cost = price * estimated_minutes
-    elif price_unit == "per_processing_hour":
-        estimated_hours = Decimal(str(max_time)) / Decimal("3600")
-        estimated_cost = price * estimated_hours
-    else:
-        estimated_cost = price
+    estimated_cost = _hermes_estimated_cost(price, price_unit, max_time)
     info(f"Max time: {max_time}s — locking escrow: ~{estimated_cost:.8f} AIT")
 
     job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
@@ -891,16 +1006,7 @@ def _run_hermes(
 
     info("Sending prompt to Hermes Agent service...")
     t_start = datetime.now()
-    http_client = AITBCHTTPClient(base_url=hermes_base, timeout=max_time + 10)
-    try:
-        resp_data: Any = http_client.post(
-            "/run",
-            json={"prompt": prompt, "max_time": max_time},
-            headers=_shop_access_headers(job_id),
-        )
-    except BaseException:
-        _refund_orphaned_escrow(ctx, job_id, contract_id)
-        raise
+    resp_data = _post_hermes_run(ctx, job_id, contract_id, hermes_base, prompt, max_time)
     elapsed = (datetime.now() - t_start).total_seconds()
 
     if not isinstance(resp_data, dict):
@@ -913,78 +1019,31 @@ def _run_hermes(
         error(f"Hermes run did not complete: {resp_data.get('text', resp_data)}")
         raise click.Abort()
 
-    duration_minutes = _provider_billing_decimal(
-        ctx, job_id, contract_id, resp_data.get("duration_minutes", elapsed / 60), "duration_minutes"
-    )
-    # HERMES-IPFS-DEPTH2-1 (#1633): duration_minutes is shop-reported over a
-    # plain-HTTP endpoint — clamp billing input to [0, max_time] so a malicious
-    # or MITM'd provider cannot inflate the charge past the locked escrow.
-    max_duration_minutes = Decimal(str(max_time)) / Decimal("60")
-    if duration_minutes < 0 or duration_minutes > max_duration_minutes:
-        warning(
-            f"Provider reported implausible duration {duration_minutes} min "
-            f"(max {max_duration_minutes} min) — clamping for billing"
-        )
-        duration_minutes = min(max(duration_minutes, Decimal("0")), max_duration_minutes)
+    duration_minutes = _hermes_billed_duration(ctx, job_id, contract_id, resp_data, elapsed, max_time)
     elapsed_seconds = resp_data.get("elapsed_seconds", elapsed)
     result_text = resp_data.get("text", "")
     result_hash = resp_data.get("result_hash", "")
 
-    if price_unit == "per_minute":
-        actual_cost = price * duration_minutes
-    elif price_unit == "per_processing_hour":
-        actual_cost = price * (duration_minutes / Decimal("60"))
-    else:
-        actual_cost = price
+    actual_cost = _hermes_actual_cost(price, price_unit, duration_minutes)
 
     info(f"Done in {elapsed_seconds:.1f}s ({duration_minutes:.4f} min) — actual cost: {actual_cost:.8f} AIT")
 
     # Post software_job TX as proof of work
-    job_tx_hash = None
-    if result_hash:
-        job_data = {
-            "from": wallet_address,
-            "to": "0x0000000000000000000000000000000000000000",
-            "amount": 0,
-            "fee": DEFAULT_TX_FEE_UNITS,
-            "nonce": get_next_nonce(wallet_address),
-            "type": "GPU_MARKET",
-            "chain_id": chain_id,
-            "payload": {
-                "action": "software_job",
-                "job_id": job_id,
-                "offer_id": offer_id,
-                "buyer_address": wallet_address,
-                "provider_address": provider_address or wallet_address,
-                "result_hash": result_hash,
-                "actual_duration_minutes": float(round(duration_minutes, 4)),
-                "actual_cost": str(round(actual_cost, 6)),
-                "status": "completed",
-                "completed_at": datetime.now().isoformat(),
-            },
-        }
-        job_tx_hash = _record_job_on_chain(config, job_data, private_key)
+    job_tx_hash = _software_job_tx_hash(
+        config,
+        job_id=job_id,
+        offer_id=offer_id,
+        wallet_address=wallet_address,
+        provider_address=provider_address,
+        result_hash=result_hash,
+        duration_minutes=duration_minutes,
+        actual_cost=actual_cost,
+        private_key=private_key,
+        chain_id=chain_id,
+    )
 
     # Release metered escrow with job TX hash as proof
-    if contract_id:
-        release_result, release_failures = _post_escrow_release(
-            ctx, config, job_id, amount=str(actual_cost), job_tx_hash=job_tx_hash
-        )
-        if release_result and release_result.get("tx_hash"):
-            released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
-            success(
-                f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)"
-            )
-            refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
-            if refunded_amount > 0:
-                info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
-        elif release_result:
-            warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
-        else:
-            warning(
-                f"Escrow release failed ({'; '.join(release_failures)}) — the escrow stays locked; "
-                f"retry with `aitbc market escrow release --job-id {job_id}`"
-            )
+    _release_metered_escrow(ctx, config, job_id, contract_id, actual_cost, provider_address, job_tx_hash)
 
     click.echo(f"\n{result_text}\n")
     output(

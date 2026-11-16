@@ -207,6 +207,76 @@ def price(price, volatility, timesteps, delay, seed):
     click.echo(f"  Total Change: {((current_price - price) / price * 100):+.2f}%")
 
 
+def _create_network_nodes(nodes: int) -> list[dict[str, Any]]:
+    """Create the simulated node records."""
+    network_nodes: list[dict[str, Any]] = []
+    for i in range(nodes):
+        node: dict[str, Any] = {
+            "id": f"node_{i + 1}",
+            "address": f"192.0.2.{10 + i}",  # RFC 5737 documentation range
+            "status": "active",
+            "height": 0,
+            "connected_to": [],
+        }
+        network_nodes.append(node)
+    return network_nodes
+
+
+def _connect_network_topology(network_nodes: list[dict[str, Any]], rng) -> None:
+    """Wire the ring + mesh topology in place."""
+    for i, node in enumerate(network_nodes):
+        # Connect to next node (ring)
+        next_node = network_nodes[(i + 1) % len(network_nodes)]
+        node_connected_to: list[str] = node["connected_to"]
+        node_connected_to.append(next_node["id"])
+
+        # Connect to random nodes (mesh)
+        if len(network_nodes) > 2:
+            mesh_connections = rng.sample(
+                [n["id"] for n in network_nodes if n["id"] != node["id"]],
+                min(2, len(network_nodes) - 1),
+            )
+            for conn in mesh_connections:
+                if conn not in node_connected_to:
+                    node_connected_to.append(conn)
+
+
+def _print_network_topology(network_nodes: list[dict[str, Any]]) -> None:
+    click.echo("\nNetwork Topology:")
+    for node in network_nodes:
+        node_connections = node["connected_to"]
+        click.echo(f"  {node['id']} ({node['address']}): connected to {', '.join(node_connections)}")
+
+
+def _simulate_network_failures(active_nodes: list[dict[str, Any]], step: int, failure_rate: float, rng) -> None:
+    for node in active_nodes:
+        if rng.random() < failure_rate:
+            node["status"] = "failed"
+            click.echo(f"Step {step + 1}: {node['id']} failed")
+
+
+def _propagate_block(active_nodes: list[dict[str, Any]], rng, step: int) -> None:
+    """Random node produces a block; height propagates to connected peers."""
+    # Random node produces block
+    producer = rng.choice(active_nodes)
+    producer["height"] += 1
+
+    # Propagate to connected nodes
+    for node in active_nodes:
+        if node["id"] != producer["id"] and node["id"] in producer["connected_to"]:
+            node["height"] = max(node["height"], producer["height"] - 1)
+
+    click.echo(f"Step {step + 1}: {producer['id']} produced block {producer['height']}, {len(active_nodes)} nodes active")
+
+
+def _print_final_network_status(network_nodes: list[dict[str, Any]]) -> None:
+    click.echo("\nFinal Network Status:")
+    for node in network_nodes:
+        status_icon = "✅" if node["status"] == "active" else "❌"
+        connected_to: list[str] = node["connected_to"]
+        click.echo(f"  {status_icon} {node['id']}: height {node['height']}, connections: {len(connected_to)}")
+
+
 @simulate.command(
     epilog="""Examples:
 
@@ -224,40 +294,9 @@ def network(nodes, network_delay, failure_rate, seed):
 
     rng, use_real_sleeps = make_rng(seed)
 
-    # Create nodes
-    network_nodes: list[dict[str, Any]] = []
-    for i in range(nodes):
-        node: dict[str, Any] = {
-            "id": f"node_{i + 1}",
-            "address": f"192.0.2.{10 + i}",  # RFC 5737 documentation range
-            "status": "active",
-            "height": 0,
-            "connected_to": [],
-        }
-        network_nodes.append(node)
-
-    # Create network topology (ring + mesh)
-    for i, node in enumerate(network_nodes):
-        # Connect to next node (ring)
-        next_node = network_nodes[(i + 1) % len(network_nodes)]
-        node_connected_to: list[str] = node["connected_to"]
-        node_connected_to.append(next_node["id"])
-
-        # Connect to random nodes (mesh)
-        if len(network_nodes) > 2:
-            mesh_connections = rng.sample(
-                [n["id"] for n in network_nodes if n["id"] != node["id"]],
-                min(2, len(network_nodes) - 1),
-            )
-            for conn in mesh_connections:
-                if conn not in node_connected_to:
-                    node_connected_to.append(conn)
-
-    # Display network topology
-    click.echo("\nNetwork Topology:")
-    for node in network_nodes:
-        node_connections = node["connected_to"]
-        click.echo(f"  {node['id']} ({node['address']}): connected to {', '.join(node_connections)}")
+    network_nodes = _create_network_nodes(nodes)
+    _connect_network_topology(network_nodes, rng)
+    _print_network_topology(network_nodes)
 
     # Simulate network operations
     click.echo("\nSimulating network operations...")
@@ -265,40 +304,106 @@ def network(nodes, network_delay, failure_rate, seed):
 
     for step in range(10):
         # Simulate failures
-        for node in active_nodes:
-            if rng.random() < failure_rate:
-                node["status"] = "failed"
-                click.echo(f"Step {step + 1}: {node['id']} failed")
+        _simulate_network_failures(active_nodes, step, failure_rate, rng)
 
         # Remove failed nodes
         active_nodes = [n for n in active_nodes if n["status"] == "active"]
 
         # Simulate block propagation
         if active_nodes:
-            # Random node produces block
-            producer = rng.choice(active_nodes)
-            producer_height: int = producer["height"]
-            producer["height"] = producer_height + 1
-
-            # Propagate to connected nodes
-            for node in active_nodes:
-                node_height: int = node["height"]
-                if node["id"] != producer["id"] and node["id"] in producer["connected_to"]:
-                    node["height"] = max(node_height, producer["height"] - 1)
-
-            click.echo(
-                f"Step {step + 1}: {producer['id']} produced block {producer['height']}, {len(active_nodes)} nodes active"
-            )
+            _propagate_block(active_nodes, rng, step)
 
         if network_delay > 0 and use_real_sleeps:
             rng.sleep(network_delay)
 
-    # Final network status
-    click.echo("\nFinal Network Status:")
-    for node in network_nodes:
-        status_icon = "✅" if node["status"] == "active" else "❌"
-        connected_to: list[str] = node["connected_to"]
-        click.echo(f"  {status_icon} {node['id']}: height {node['height']}, connections: {len(connected_to)}")
+    _print_final_network_status(network_nodes)
+
+
+def _parse_duration_range(duration_range: str) -> tuple[int, int]:
+    try:
+        min_duration, max_duration = map(int, duration_range.split("-"))
+        return min_duration, max_duration
+    except ValueError:
+        return 30, 300
+
+
+def _submit_simulated_jobs(jobs, model_list, min_duration, max_duration, rng, base_time):
+    """Create and print the simulated job submissions."""
+    submitted_jobs = []
+    for i in range(jobs):
+        job = {
+            "job_id": f"job_{i + 1:03d}",
+            "model": rng.choice(model_list),
+            "status": "queued",
+            "submit_time": base_time,
+            "duration": rng.randint(min_duration, max_duration),
+            "wallet": f"wallet_{rng.randint(1, 5):03d}",
+        }
+        submitted_jobs.append(job)
+
+        click.echo(f"Submitted job {job['job_id']}: {job['model']} (est. {job['duration']}s)")
+    return submitted_jobs
+
+
+def _advance_simulated_job(job, current_time: float) -> bool:
+    """Advance one job one tick; True when it completed and left the queue."""
+    if job["status"] == "queued" and current_time - job["submit_time"] > 5:
+        job["status"] = "running"
+        job["start_time"] = current_time
+        click.echo(f"Started {job['job_id']}")
+    elif job["status"] == "running":
+        if current_time - job["start_time"] >= job["duration"]:
+            job["status"] = "completed"
+            job["end_time"] = current_time
+            job["actual_duration"] = job["end_time"] - job["start_time"]
+            click.echo(f"Completed {job['job_id']} in {job['actual_duration']:.1f}s")
+            return True
+    return False
+
+
+def _process_simulated_jobs(submitted_jobs, jobs, max_duration, delay, use_real_sleeps, rng, base_time):
+    """Run the simulated processing loop; return (completed, still-processing)."""
+    click.echo("\nSimulating job processing...")
+    processing_jobs = submitted_jobs.copy()
+    completed_jobs = []
+
+    current_time = base_time
+    max_iterations = max(jobs * max(max_duration, 1) // max(delay, 1) + 10, 1000)
+    iteration = 0
+    while processing_jobs and iteration < max_iterations:
+        iteration += 1
+        current_time += delay
+
+        for job in processing_jobs[:]:
+            if _advance_simulated_job(job, current_time):
+                processing_jobs.remove(job)
+                completed_jobs.append(job)
+
+        if delay > 0 and use_real_sleeps:
+            rng.sleep(delay)
+    return completed_jobs, processing_jobs
+
+
+def _print_job_stats(total_jobs, completed_jobs, processing_jobs) -> None:
+    click.echo("\nJob Statistics:")
+    click.echo(f"  Total Jobs: {total_jobs}")
+    click.echo(f"  Completed Jobs: {len(completed_jobs)}")
+    click.echo(f"  Failed Jobs: {len(processing_jobs)}")
+
+    if not completed_jobs:
+        return
+
+    avg_duration = sum(job["actual_duration"] for job in completed_jobs) / len(completed_jobs)
+    click.echo(f"  Average Duration: {avg_duration:.1f}s")
+
+    # Model statistics
+    model_stats: dict[str, int] = {}
+    for job in completed_jobs:
+        model_stats[job["model"]] = model_stats.get(job["model"], 0) + 1
+
+    click.echo("  Model Usage:")
+    for model, count in model_stats.items():
+        click.echo(f"    {model}: {count} jobs")
 
 
 @simulate.command(
@@ -324,74 +429,13 @@ def ai_jobs(jobs, models, duration_range, delay, seed):
     model_list = [m.strip() for m in models.split(",")]
 
     # Parse duration range
-    try:
-        min_duration, max_duration = map(int, duration_range.split("-"))
-    except ValueError:
-        min_duration, max_duration = 30, 300
+    min_duration, max_duration = _parse_duration_range(duration_range)
 
-    # Simulate job submission
-    submitted_jobs = []
-    for i in range(jobs):
-        job = {
-            "job_id": f"job_{i + 1:03d}",
-            "model": rng.choice(model_list),
-            "status": "queued",
-            "submit_time": base_time,
-            "duration": rng.randint(min_duration, max_duration),
-            "wallet": f"wallet_{rng.randint(1, 5):03d}",
-        }
-        submitted_jobs.append(job)
-
-        click.echo(f"Submitted job {job['job_id']}: {job['model']} (est. {job['duration']}s)")
-
-    # Simulate job processing
-    click.echo("\nSimulating job processing...")
-    processing_jobs = submitted_jobs.copy()
-    completed_jobs = []
-
-    current_time = base_time
-    max_iterations = max(jobs * max(max_duration, 1) // max(delay, 1) + 10, 1000)
-    iteration = 0
-    while processing_jobs and iteration < max_iterations:
-        iteration += 1
-        current_time += delay
-
-        for job in processing_jobs[:]:
-            if job["status"] == "queued" and current_time - job["submit_time"] > 5:
-                job["status"] = "running"
-                job["start_time"] = current_time
-                click.echo(f"Started {job['job_id']}")
-
-            elif job["status"] == "running":
-                if current_time - job["start_time"] >= job["duration"]:
-                    job["status"] = "completed"
-                    job["end_time"] = current_time
-                    job["actual_duration"] = job["end_time"] - job["start_time"]
-                    processing_jobs.remove(job)
-                    completed_jobs.append(job)
-                    click.echo(f"Completed {job['job_id']} in {job['actual_duration']:.1f}s")
-
-        if delay > 0 and use_real_sleeps:
-            rng.sleep(delay)
-
-    # Job statistics
-    click.echo("\nJob Statistics:")
-    click.echo(f"  Total Jobs: {jobs}")
-    click.echo(f"  Completed Jobs: {len(completed_jobs)}")
-    click.echo(f"  Failed Jobs: {len(processing_jobs)}")
-
-    if completed_jobs:
-        avg_duration = sum(job["actual_duration"] for job in completed_jobs) / len(completed_jobs)
-        click.echo(f"  Average Duration: {avg_duration:.1f}s")
-
-        # Model statistics
-        model_stats: dict[str, int] = {}
-        for job in completed_jobs:
-            model_stats[job["model"]] = model_stats.get(job["model"], 0) + 1
-
-        click.echo("  Model Usage:")
-        for model, count in model_stats.items():
-            click.echo(f"    {model}: {count} jobs")
+    submitted_jobs = _submit_simulated_jobs(jobs, model_list, min_duration, max_duration, rng, base_time)
+    completed_jobs, processing_jobs = _process_simulated_jobs(
+        submitted_jobs, jobs, max_duration, delay, use_real_sleeps, rng, base_time
+    )
+    _print_job_stats(jobs, completed_jobs, processing_jobs)
 
 
 @simulate.command(

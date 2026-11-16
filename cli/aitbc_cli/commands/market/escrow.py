@@ -480,24 +480,7 @@ def _escrow_create(
     # node's own /health advertisement: on customer nodes it already names
     # the settlement wallet (node0 and hub share it). HUB_PROPOSER_ID is a
     # different identity and only a warned fallback.
-    if not node_wallet:
-        # Local /health discovery names the node wallet (settlement custody).
-        from ...utils.escrow import get_node_wallet
-
-        try:
-            node_wallet = get_node_wallet(ctx, _get_blockchain_rpc_url(config))
-        except Exception as e:  # noqa: BLE001 - get_node_wallet may abort(); fail-open to proposer fallback
-            logger.debug("node wallet lookup failed, using fallback: %s", type(e).__name__)
-    if not node_wallet:
-        node_wallet = getattr(config, "hub_proposer_id", None) or None
-        if node_wallet:
-            warning(
-                "Using HUB_PROPOSER_ID as escrow destination — it is the consensus proposer, "
-                "not the node wallet; the settlement chain may reject the lock"
-            )
-    if not node_wallet:
-        error("No escrow node-wallet address available. Run on a node whose /health advertises node_wallet.")
-        raise click.Abort()
+    node_wallet = _resolve_escrow_node_wallet(ctx, config, node_wallet)
 
     rpc_url = _get_blockchain_rpc_url(config)
     try:
@@ -516,6 +499,43 @@ def _escrow_create(
         error(f"Failed to build escrow lock transaction: {e}")
         raise click.Abort() from e
 
+    payload = _escrow_request_payload(job_id, buyer, provider, amount, lock_tx, signature, buyer_agent_id, provider_agent_id)
+    return _escrow_create_remote(ctx, config, rpc_url, payload)
+
+
+def _resolve_escrow_node_wallet(ctx, config, node_wallet: str | None) -> str:
+    """Resolve the settlement node-wallet address for the escrow lock."""
+    if not node_wallet:
+        # Local /health discovery names the node wallet (settlement custody).
+        from ...utils.escrow import get_node_wallet
+
+        try:
+            node_wallet = get_node_wallet(ctx, _get_blockchain_rpc_url(config))
+        except Exception as e:  # noqa: BLE001 - get_node_wallet may abort(); fail-open to proposer fallback
+            logger.debug("node wallet lookup failed, using fallback: %s", type(e).__name__)
+    if not node_wallet:
+        node_wallet = getattr(config, "hub_proposer_id", None) or None
+        if node_wallet:
+            warning(
+                "Using HUB_PROPOSER_ID as escrow destination — it is the consensus proposer, "
+                "not the node wallet; the settlement chain may reject the lock"
+            )
+    if not node_wallet:
+        error("No escrow node-wallet address available. Run on a node whose /health advertises node_wallet.")
+        raise click.Abort()
+    return node_wallet
+
+
+def _escrow_request_payload(
+    job_id: str,
+    buyer: str,
+    provider: str,
+    amount: Decimal | None,
+    lock_tx: dict,
+    signature: str,
+    buyer_agent_id: str | None,
+    provider_agent_id: str | None,
+) -> dict:
     payload = {
         "job_id": job_id,
         "buyer": buyer,
@@ -528,62 +548,81 @@ def _escrow_create(
         payload["buyer_agent_id"] = buyer_agent_id
     if provider_agent_id:
         payload["provider_agent_id"] = provider_agent_id
+    return payload
+
+
+def _post_escrow_create(config, rpc_url: str, payload: dict):
+    http_client = _get_rpc_client(config, rpc_url, timeout=10)
+    return http_client.post("/rpc/escrow/create", json=payload)
+
+
+def _report_escrow_created(result) -> str | None:
+    contract_id = result.get("contract_id") if isinstance(result, dict) else None
+    if contract_id:
+        success(f"Escrow created: contract_id={contract_id}")
+    return contract_id
+
+
+def _escrow_create_remote(ctx, config, rpc_url: str, payload: dict) -> str | None:
+    """POST the escrow create, falling back to relay/settlement routes."""
     try:
-        http_client = _get_rpc_client(config, rpc_url, timeout=10)
-        result = http_client.post("/rpc/escrow/create", json=payload)
-        contract_id = result.get("contract_id") if isinstance(result, dict) else None
+        result = _post_escrow_create(config, rpc_url, payload)
+        return _report_escrow_created(result)
+    except Exception as e:  # noqa: BLE001 - any create failure routes to the relay/settlement fallback chain
+        return _escrow_create_fallback(ctx, config, rpc_url, payload, e)
+
+
+def _escrow_create_fallback(ctx, config, rpc_url: str, payload: dict, e: Exception) -> str | None:
+    # Customer route: the hub nginx allowlist 403s external
+    # /rpc/escrow/create, so a customer node cannot reach a
+    # settlement-capable RPC directly. Relay the buyer-signed lock
+    # through the coordinator instead — it submits from the hub,
+    # inside the allowlist. Older coordinators do not serve the relay
+    # endpoint (404) — fall through to the settlement-node retry.
+    try:
+        relayed = _coordinator_escrow_create(ctx, payload)
+    except Exception as relay_exc:
+        warning(f"Coordinator escrow relay failed ({relay_exc}) — trying direct node routes")
+        relayed = None
+    if relayed is not None:
+        contract_id = relayed.get("contract_id") if isinstance(relayed, dict) else None
         if contract_id:
-            success(f"Escrow created: contract_id={contract_id}")
+            success(f"Escrow created via coordinator relay: contract_id={contract_id}")
         return contract_id
-    except Exception as e:
-        # Customer route: the hub nginx allowlist 403s external
-        # /rpc/escrow/create, so a customer node cannot reach a
-        # settlement-capable RPC directly. Relay the buyer-signed lock
-        # through the coordinator instead — it submits from the hub,
-        # inside the allowlist. Older coordinators do not serve the relay
-        # endpoint (404) — fall through to the settlement-node retry.
+    detail = _http_503_detail(e)
+    if detail:
+        return _escrow_settlement_retry(ctx, config, rpc_url, payload, e, detail)
+    error(f"Escrow creation failed: {e}")
+    raise click.Abort() from e
+
+
+def _escrow_settlement_retry(ctx, config, rpc_url: str, payload: dict, e: Exception, detail: str) -> str | None:
+    """Retry the create on the settlement node named in a 503 detail."""
+    # A settlement-incapable node names its settlement node in the 503
+    # detail ("the settlement node is at <url>"). Retry the create there
+    # once — the same refusal is already encoded in the response, so the
+    # retry can only help a wrong-routed caller.
+    settlement_url = _settlement_node_url(detail)
+    if settlement_url and settlement_url.rstrip("/") != rpc_url.rstrip("/"):
+        # The named URL is server-supplied text in fund-moving client
+        # code: only ever retry against the configured hub or a
+        # loopback address — anything else could redirect a signed
+        # escrow lock to a foreign host.
+        if not _settlement_url_allowed(settlement_url, config):
+            error(
+                f"Escrow creation refused: settlement retry target {settlement_url} "
+                "is not the configured hub or a loopback address — not retrying"
+            )
+            raise click.Abort() from e
+        warning(f"Escrow creation refused locally ({detail}) — retrying on the settlement node")
         try:
-            relayed = _coordinator_escrow_create(ctx, payload)
-        except Exception as relay_exc:
-            warning(f"Coordinator escrow relay failed ({relay_exc}) — trying direct node routes")
-            relayed = None
-        if relayed is not None:
-            contract_id = relayed.get("contract_id") if isinstance(relayed, dict) else None
-            if contract_id:
-                success(f"Escrow created via coordinator relay: contract_id={contract_id}")
-            return contract_id
-        detail = _http_503_detail(e)
-        # A settlement-incapable node names its settlement node in the 503
-        # detail ("the settlement node is at <url>"). Retry the create there
-        # once — the same refusal is already encoded in the response, so the
-        # retry can only help a wrong-routed caller.
-        if detail:
-            settlement_url = _settlement_node_url(detail)
-            if settlement_url and settlement_url.rstrip("/") != rpc_url.rstrip("/"):
-                # The named URL is server-supplied text in fund-moving client
-                # code: only ever retry against the configured hub or a
-                # loopback address — anything else could redirect a signed
-                # escrow lock to a foreign host.
-                if not _settlement_url_allowed(settlement_url, config):
-                    error(
-                        f"Escrow creation refused: settlement retry target {settlement_url} "
-                        "is not the configured hub or a loopback address — not retrying"
-                    )
-                    raise click.Abort() from e
-                warning(f"Escrow creation refused locally ({detail}) — retrying on the settlement node")
-                try:
-                    result = _get_rpc_client(config, settlement_url, timeout=10).post("/rpc/escrow/create", json=payload)
-                    contract_id = result.get("contract_id") if isinstance(result, dict) else None
-                    if contract_id:
-                        success(f"Escrow created: contract_id={contract_id}")
-                    return contract_id
-                except Exception as e2:
-                    error(f"Escrow creation failed on the settlement node: {e2}")
-                    raise click.Abort() from e2
-            error(f"Escrow creation refused: {detail}")
-        else:
-            error(f"Escrow creation failed: {e}")
-        raise click.Abort() from e
+            result = _get_rpc_client(config, settlement_url, timeout=10).post("/rpc/escrow/create", json=payload)
+            return _report_escrow_created(result)
+        except Exception as e2:
+            error(f"Escrow creation failed on the settlement node: {e2}")
+            raise click.Abort() from e2
+    error(f"Escrow creation refused: {detail}")
+    raise click.Abort() from e
 
 
 @escrow.command(
