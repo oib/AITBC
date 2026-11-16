@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import Any
 
 
@@ -11,6 +11,10 @@ class TopicSubscription:
     topic: str
     queue: asyncio.Queue[Any]
     _unsubscribe: Callable[[], None]
+    # #1998 H4: backend-filled counters (frames/items/decode_errors/ended/...) a
+    # caller can log when a collect sees nothing. Empty for backends that do not
+    # fill it; purely observational.
+    stats: dict[str, Any] = field(default_factory=dict)
 
     def close(self) -> None:
         self._unsubscribe()

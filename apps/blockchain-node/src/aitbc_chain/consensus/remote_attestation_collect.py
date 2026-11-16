@@ -20,6 +20,7 @@ from .remote_attestation_crypto import (
     _attestation_message,
     _verify_attestation,
 )
+from . import attest_response_diag
 from . import remote_attestation as _ra
 
 if TYPE_CHECKING:
@@ -33,6 +34,26 @@ from .remote_attestation import _RoundLockMixin
 
 
 class _CollectMixin(_RoundLockMixin):
+    def _log_zero_seen_diagnostic(self, height: int, sub: Any) -> None:
+        """#1998 H4: one WARNING line when a collect saw no response at all.
+
+        Reports the transient subscription's counters next to what the persistent
+        observer saw for this height, so "never reached the node" / "reached the
+        observer but not the collector" / "subscription ended" can be told apart.
+        Observational only.
+        """
+        stats = dict(getattr(sub, "stats", None) or {})
+        queue = getattr(sub, "queue", None)
+        metrics_registry.increment("attest_collect_zero_seen_total")
+        logger.warning(
+            "Attestation collect 0/0 diagnostic: height=%s topic=%s sub_stats=%s sub_qsize=%s observer_responses=%d",
+            height,
+            self._response_topic,
+            stats,
+            queue.qsize() if queue is not None else None,
+            attest_response_diag.observer_count(height),
+        )
+
     async def collect_attestations(
         self,
         block: Block,
@@ -284,6 +305,10 @@ class _CollectMixin(_RoundLockMixin):
                     elif _ra.time.monotonic() - quorum_at >= linger:
                         break
         finally:
+            if not seen_validators:
+                # Before close(): the subscription's counters must read as they
+                # were when the collect gave up (#1998 H4).
+                self._log_zero_seen_diagnostic(block.height, sub)
             sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
             # #1306: one line per collect round so a quorum miss can be read
             # as "responses never reached us" vs "reached us and were refused".

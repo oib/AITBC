@@ -114,6 +114,8 @@ class BroadcastGossipBackend(GossipBackend):
         # attempt failed), so callers that publish a request right after
         # subscribing can wait for the subscription to be live.
         ready_event = asyncio.Event()
+        # #1998 H4: observational counters surfaced on the TopicSubscription.
+        stats: dict[str, Any] = {"frames": 0, "items": 0, "ready": False, "ended": False, "last_error": None}
 
         async def _run_subscription() -> None:
             from aitbc.aitbc_logging import get_logger
@@ -137,6 +139,7 @@ class BroadcastGossipBackend(GossipBackend):
                 pubsub = sub_redis.pubsub()
                 await pubsub.subscribe(topic)
                 ready_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
+                stats["ready"] = True
                 logger.info("[BROKER SUB] Successfully subscribed to redis topic: %s", topic)
                 while not stop_event.is_set():
                     try:
@@ -154,16 +157,20 @@ class BroadcastGossipBackend(GossipBackend):
                     # Per-message chatter duplicates gossip.telemetry metrics —
                     # DEBUG keeps the default journal readable (#1574).
                     logger.debug("[BROKER SUB] Received message from redis for topic %s", topic)
+                    stats["frames"] += 1
                     try:
                         for decoded in _decode_batch(message["data"]):
+                            stats["items"] += 1
                             await queue.put(decoded)
                             _set_queue_gauge(topic, queue.qsize())
                     except asyncio.CancelledError:
                         logger.warning("[BROKER SUB] Decode/queue cancelled for topic: %s", topic)
                         break
             except Exception as e:
+                stats["last_error"] = f"{type(e).__name__}: {e}"
                 logger.error("[BROKER SUB ERROR] Redis subscription error for topic %s: %s", topic, e)
             finally:
+                stats["ended"] = True
                 ready_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
                 with suppress(Exception):  # best-effort teardown; each handle guarded independently
                     if pubsub is not None:
@@ -203,7 +210,7 @@ class BroadcastGossipBackend(GossipBackend):
 
             create_task_with_logging(_stop(), name="broadcast_unsubscribe_stop")
 
-        return TopicSubscription(topic=topic, queue=queue, _unsubscribe=_unsubscribe)
+        return TopicSubscription(topic=topic, queue=queue, _unsubscribe=_unsubscribe, stats=stats)
 
     async def health(self) -> dict[str, Any]:
         """#1711: ping the local redis bus — the readiness heartbeat treats
