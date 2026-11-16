@@ -6,17 +6,27 @@ import os
 
 import click
 
+from ..config import get_config
 from ..utils import output, resolve_output_format
-from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, service_root_url
 from ..utils.error_handling import abort
 
 COORDINATOR_API_URL = "http://localhost:8203"
 
 
-def _get_client(url: str | None = None) -> AITBCHTTPClient:
-    """Create an HTTP client for the coordinator API."""
-    base_url: str = url or os.getenv("COORDINATOR_API_URL") or COORDINATOR_API_URL
-    return AITBCHTTPClient(base_url=base_url, timeout=30)
+def _get_client(ctx: click.Context | None = None, url: str | None = None) -> AITBCHTTPClient:
+    """Create an authenticated HTTP client for the configured coordinator API."""
+    config = get_config()
+    ctx_obj = ctx.obj if ctx is not None and isinstance(ctx.obj, dict) else {}
+    base_url: str = service_root_url(
+        url or ctx_obj.get("url") or os.getenv("COORDINATOR_API_URL") or config.coordinator_api_url,
+        COORDINATOR_API_URL,
+    )
+    return AITBCHTTPClient(
+        base_url=base_url,
+        timeout=30,
+        **auth_client_kwargs(ctx_obj.get("api_key"), config.api_key),
+    )
 
 
 @click.group(
@@ -54,7 +64,7 @@ def register(
 ):
     """Register a developer in the DAO grant registry with optional name, email, and GitHub handle."""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         payload = {
             "wallet_address": wallet_address,
             "name": name,
@@ -85,7 +95,7 @@ def register(
 def list_developers(ctx, active_only: bool, limit: int, offset: int, format: str):
     """List registered developers with optional active-only, limit, and offset filters."""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         params = {"active_only": active_only, "limit": limit, "offset": offset}
         # GET /v1/developers returns a bare JSON array; get() narrows via
         # expect_object and raises TypeError on non-object bodies (#552).
