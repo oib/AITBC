@@ -128,6 +128,32 @@ def vc_lock_fields(vc: dict[str, Any]) -> tuple[int, str]:
     return view, block_hash
 
 
+def scheduled_proposer(members: Any, sequence: int, view: int) -> str | None:
+    """The one proposer-schedule formula (#2005 review: no parallel copies).
+
+    ``sorted(members)[(sequence + max(0, view)) % n]`` — the rule
+    ``MultiValidatorPoA.select_proposer`` applies to its active set and the
+    evidence verifier applies to its context set; both call this so they
+    cannot drift. ``None`` on an empty set.
+    """
+    ordered = sorted(members)
+    if not ordered:
+        return None
+    chosen: str = ordered[(sequence + max(0, view)) % len(ordered)]
+    return chosen
+
+
+def proposal_body_bound(block: Any, block_hash: str, sequence: int) -> bool:
+    """Whether a proposal body is bound to the hash/height it is stored under.
+
+    The re-seal republishes the stored body under ``pp.block_hash``; a body
+    whose own ``hash``/``height`` differ would let a proposer commit voters
+    to one hash while handing importers another block. Checked at every
+    point a body enters the proposal store.
+    """
+    return isinstance(block, dict) and block.get("hash") == block_hash and block.get("height") == sequence
+
+
 def view_change_digest(chain_id: str, sequence: int, view: int, lock_view: int, lock_hash: str) -> str:
     """``sha256("vc|{chain_id}|{h}|{v'}|{lock_view}|{lock_hash}")``."""
     return hashlib.sha256(f"vc|{chain_id}|{sequence}|{view}|{lock_view}|{lock_hash}".encode()).hexdigest()

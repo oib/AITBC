@@ -263,9 +263,12 @@ class MultiValidatorPoA:
         if not active_validators:
             return None
 
-        # Round-robin selection on a deterministic, globally-consistent order.
-        proposer_index = (block_height + max(0, round_number)) % len(active_validators)
-        return active_validators[proposer_index].address
+        # Round-robin selection on a deterministic, globally-consistent order
+        # (the shared #2005 schedule formula; ``active_validators`` is already
+        # address-sorted, ``scheduled_proposer`` re-sorts the same strings).
+        from .pbft_view_change import scheduled_proposer
+
+        return scheduled_proposer([v.address for v in active_validators], block_height, round_number)
 
     def validate_block(self, block: Block, proposer: str, parent_timestamp: datetime | None = None) -> bool:
         """Validate a proposed block.

@@ -42,6 +42,7 @@ from .pbft_view_change import (
     verify_new_view,
     verify_view_change,
     MAX_LOCK_PROOF_MSGS,
+    proposal_body_bound,
     verify_vc_lock_proof,
 )
 
@@ -158,6 +159,7 @@ class PBFTConsensus:
         # persisted (the durable floor/lock/prepared/proposal state lives on
         # ``consensus`` — see multi_validator_poa._pbft_view_change).
         self._vc_messages: dict[tuple[int, int], dict[str, dict[str, Any]]] = {}
+        self._vc_last_resend: dict[tuple[int, int], float] = {}
         self._new_views: dict[tuple[int, int], dict[str, Any]] = {}
         # #1940 F3-B: this node's cross-view commit locks (sequence ->
         # committed block_hash), hydrated from the persisted ConsensusState
@@ -336,6 +338,7 @@ class PBFTConsensus:
                 await asyncio.wait_for(self._message_event.wait(), timeout=0.5)
             except asyncio.TimeoutError:
                 pass
+            await self._resend_view_change_if_due(pre_prepare_sequence, pre_prepare_view)
 
         # Wait for enough commits
         while True:
@@ -357,6 +360,7 @@ class PBFTConsensus:
                 await asyncio.wait_for(self._message_event.wait(), timeout=0.5)
             except asyncio.TimeoutError:
                 pass
+            await self._resend_view_change_if_due(pre_prepare_sequence, pre_prepare_view)
 
         duration = time.time() - started_at
         logger.info(
@@ -488,7 +492,7 @@ class PBFTConsensus:
             # block_hash in a later view — the first committed value is
             # final. Refusal happens BEFORE the message exists, so nothing
             # is stored or broadcast; prepare rotation is untouched.
-            if not self._commit_lock_allows(prepare_msg.sequence_number, prepare_msg.block_hash):
+            if not self._commit_lock_allows(prepare_msg.sequence_number, prepare_msg.block_hash, prepare_msg.view_number):
                 return False
             # #2005 F3-C: the floor rule + NEW_VIEW permit gate the commit
             # exactly like the prepare — a node that raised its floor may
@@ -564,7 +568,24 @@ class PBFTConsensus:
             return None
         return self._commit_locks.get(sequence)
 
-    def _commit_lock_allows(self, sequence: int, block_hash: str) -> bool:
+    def _new_view_supersedes_commit_lock(self, sequence: int, view: int | None, block_hash: str) -> bool:
+        """F3-A/F3-B/VC precedence (#2005 review).
+
+        While the VIEW_CHANGE gate is armed a VERIFIED NEW_VIEW for exactly
+        ``(sequence, view)`` is authoritative for what may be voted: its
+        selection is derived from a quorum of lock-proof-carrying VIEW_CHANGEs
+        (Q1), so a hash it selects is safe even when this node's own F3-B
+        pin names an older hash — refusing would strand the height behind a
+        lock the quorum already superseded. Never applies without a stored
+        NEW_VIEW (floor never raised -> pre-protocol, F3-B governs unchanged).
+        """
+        if view is None or not view_change_active(sequence):
+            return False
+        if self._vc_floor(sequence) is None or (sequence, view) not in self._new_views:
+            return False
+        return self._view_change_permit(sequence, view, block_hash)
+
+    def _commit_lock_allows(self, sequence: int, block_hash: str, view: int | None = None) -> bool:
         """Whether this node may emit a local COMMIT for ``block_hash``.
 
         Dormant while ``cross_view_commit_lock_active(sequence)`` is False —
@@ -593,6 +614,9 @@ class PBFTConsensus:
             return False
         if locked == block_hash:
             return True
+        if self._new_view_supersedes_commit_lock(sequence, view, block_hash):
+            metrics_registry.increment("pbft_cross_view_commit_lock_superseded_total")
+            return True
         metrics_registry.increment("pbft_cross_view_commit_refused_total")
         logger.warning(
             "PBFT refusing cross-view commit at seq %s: locked to %s, offered %s",
@@ -618,7 +642,7 @@ class PBFTConsensus:
             return None
         return pp.block_hash
 
-    def _execute_allowed_by_commit_lock(self, sequence: int, key: str) -> bool:
+    def _execute_allowed_by_commit_lock(self, sequence: int, key: str, view: int | None = None) -> bool:
         """Whether a commit quorum for ``key`` may trigger local execution.
 
         Dormant while the gate is inactive or this node holds no lock for
@@ -634,6 +658,8 @@ class PBFTConsensus:
             return True
         winner = self._quorum_block_hash(key)
         if winner is None or winner == locked:
+            return True
+        if self._new_view_supersedes_commit_lock(sequence, view, winner):
             return True
         metrics_registry.increment("pbft_cross_view_execute_refused_total")
         logger.warning(
@@ -651,7 +677,7 @@ class PBFTConsensus:
 
         # #1940 F3-B: a commit quorum for a hash this node did not lock at
         # this sequence must not trigger local execution.
-        if not self._execute_allowed_by_commit_lock(sequence, key):
+        if not self._execute_allowed_by_commit_lock(sequence, key, view):
             return False
 
         # Update state
@@ -1107,7 +1133,9 @@ class PBFTConsensus:
             if view_change_active(message.sequence_number):
                 if isinstance(message.new_view, dict):
                     await self._handle_new_view_payload(message.new_view)
-                if isinstance(message.block, dict):
+                if isinstance(message.block, dict) and proposal_body_bound(
+                    message.block, message.block_hash, message.sequence_number
+                ):
                     message._proposal_persisted = self._vc_proposal_store(
                         message.sequence_number, message.block_hash, message.block
                     )
@@ -1213,6 +1241,23 @@ class PBFTConsensus:
         result = fn(sequence, block_hash)
         return result if isinstance(result, dict) else None
 
+    def view_change_unlock_justification(self, sequence: int, view: int) -> dict[str, Any] | None:
+        """The ``unlock_justification`` for cross-view evidence at ``(h, v')``.
+
+        ``{"kind": "view_change", "new_view": <the verified NEW_VIEW>}`` — the
+        exact shape ``equivocation_policy.view_change_justified`` verifies —
+        or ``None`` when this node holds no verified NEW_VIEW for the slot
+        (or the gate is dormant). Producer for #2005: without it the proof
+        existed only in tests.
+        """
+        if not view_change_active(sequence):
+            return None
+        entry = self._new_views.get((sequence, view))
+        payload = entry.get("payload") if entry is not None else None
+        if not isinstance(payload, dict):
+            return None
+        return {"kind": "view_change", "new_view": dict(payload)}
+
     def _vc_participants(self) -> list[str]:
         return list(self.consensus.get_consensus_participants())
 
@@ -1284,6 +1329,39 @@ class PBFTConsensus:
             await self._gossip_backend.publish(f"pbft.{VC_MESSAGE_TYPE}.{self._chain_id}", vc)
         await self._maybe_build_new_view(sequence, view)
         return True
+
+    VC_RESEND_INTERVAL_SECONDS = 2.0
+
+    async def _resend_view_change_if_due(self, sequence: int, view: int) -> None:
+        """Periodic re-send (#2005 review): gossip is lossy, and a VIEW_CHANGE
+        or NEW_VIEW published once can be missed by exactly the peers that
+        need it. While the gate is armed and no NEW_VIEW is stored for the
+        slot, re-publish this node's own VC; the proposer also re-publishes
+        the NEW_VIEW it built. Rate-limited, never creates a message — it only
+        repeats ones already built, signed and persisted.
+        """
+        if not view_change_active(sequence) or self._gossip_backend is None:
+            return
+        now = time.monotonic()
+        if now - self._vc_last_resend.get((sequence, view), 0.0) < self.VC_RESEND_INTERVAL_SECONDS:
+            return
+        entry = self._new_views.get((sequence, view))
+        if entry is not None:
+            payload = entry.get("payload")
+            if isinstance(payload, dict) and canonical_address(str(payload.get("sender", ""))) == canonical_address(
+                str(self._local_validator)
+            ):
+                self._vc_last_resend[(sequence, view)] = now
+                await self._gossip_backend.publish(f"pbft.{NV_MESSAGE_TYPE}.{self._chain_id}", payload)
+            return
+        own = self._vc_messages.get((sequence, view), {}).get(canonical_address(str(self._local_validator)))
+        if own is None:
+            return
+        if len(self._vc_last_resend) >= MAX_VC_BUCKETS:
+            self._vc_last_resend.clear()
+        self._vc_last_resend[(sequence, view)] = now
+        metrics_registry.increment("pbft_view_change_resent_total")
+        await self._gossip_backend.publish(f"pbft.{VC_MESSAGE_TYPE}.{self._chain_id}", own)
 
     async def _ensure_view_change_sent(self, sequence: int, view: int) -> bool:
         """Raise the floor to ``view`` when the round has reached it.
@@ -1490,6 +1568,9 @@ class PBFTConsensus:
                 sequence,
             )
             return None
+        if not proposal_body_bound(block_payload, block_hash, sequence):
+            logger.error("PBFT proposal body for seq %s is not bound to hash %s; refusing pre-prepare", sequence, block_hash)
+            return None
         if not await self._ensure_view_change_sent(sequence, view):
             return None
         entry = self._new_views.get((sequence, view))
@@ -1514,7 +1595,7 @@ class PBFTConsensus:
             return True
         if not await self._ensure_view_change_sent(sequence, view):
             return False
-        if isinstance(pp_msg.block, dict):
+        if isinstance(pp_msg.block, dict) and proposal_body_bound(pp_msg.block, pp_msg.block_hash, sequence):
             if not pp_msg._proposal_persisted:
                 pp_msg._proposal_persisted = self._vc_proposal_store(sequence, pp_msg.block_hash, pp_msg.block)
         if not pp_msg._proposal_persisted:
