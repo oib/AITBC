@@ -1,5 +1,11 @@
 """Governance domain models."""
 
+from coordinator_api.contexts.governance.domain.dispute import (
+    DisputeArbitratorRow,
+    DisputeCaseRow,
+    DisputeEvidenceRow,
+    DisputeVoteRow,
+)
 from coordinator_api.contexts.governance.domain.dao_governance import (
     ProposalState,
     ProposalType,
@@ -18,6 +24,10 @@ from coordinator_api.contexts.governance.domain.governance import (
 
 __all__ = [
     "DAOVote",
+    "DisputeArbitratorRow",
+    "DisputeCaseRow",
+    "DisputeEvidenceRow",
+    "DisputeVoteRow",
     "DaoTreasury",
     "GovernanceProfile",
     "GovernanceRole",
