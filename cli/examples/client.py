@@ -37,7 +37,7 @@ class AITBCClient:
                 print(f"   Response: {response.text}")
                 return None
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return None
 
@@ -52,7 +52,7 @@ class AITBCClient:
             else:
                 print(f"❌ Error listing transactions: {response.status_code}")
                 return None
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return None
 
@@ -70,7 +70,7 @@ class AITBCClient:
             else:
                 print(f"❌ Error listing receipts: {response.status_code}")
                 return None
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return None
 
@@ -85,7 +85,7 @@ class AITBCClient:
                 print(f"❌ Error getting status: {response.status_code}")
                 return None
 
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return None
 
@@ -100,7 +100,7 @@ class AITBCClient:
             else:
                 print(f"❌ Error listing blocks: {response.status_code}")
                 return None
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError) as e:
             print(f"❌ Error: {e}")
             return None
 

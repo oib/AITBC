@@ -52,7 +52,7 @@ def load_plugins(cli_group):
             # Look for a click group or command named 'plugin_command'
             if hasattr(module, "plugin_command"):
                 cli_group.add_command(module.plugin_command)
-        except Exception:
+        except Exception:  # noqa: BLE001 - plugin boundary: a broken plugin is skipped, never fatal
             logger.debug("Skipping broken plugin %s", plugin_info.get("name"), exc_info=True)
             pass  # Skip broken plugins silently
 

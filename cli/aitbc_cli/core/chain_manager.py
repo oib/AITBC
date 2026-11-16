@@ -8,6 +8,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+import httpx
+
 from ..models.chain import (
     ChainBackupResult,
     ChainConfig,
@@ -25,6 +27,23 @@ from .config import MultiChainConfig
 from .node_client import NodeClient
 
 logger = get_logger(__name__)
+
+# Failure surface for the NodeClient calls below: transport/HTTP errors plus
+# the response-shape errors its narrowed handlers let through, and the
+# in-memory dict/attribute access on ChainInfo payloads. ArithmeticError
+# covers the size-ratio division in _execute_backup. OSError covers builtin
+# ConnectionError/TimeoutError — realistic network failures raised by
+# transport layers that do not go through httpx.
+_NODE_CALL_ERRORS = (
+    httpx.HTTPError,
+    OSError,
+    RuntimeError,
+    TypeError,
+    ValueError,
+    KeyError,
+    AttributeError,
+    ArithmeticError,
+)
 
 
 class ChainAlreadyExistsError(Exception):
@@ -74,7 +93,7 @@ class ChainManager:
                         continue
 
                     chains.append(chain)
-            except Exception as e:
+            except _NODE_CALL_ERRORS as e:
                 # Log error but continue with other nodes
                 logger.error("Error getting chains from node %s: %s", node_id, e)
                 errors.append((node_id, e))
@@ -171,7 +190,7 @@ class ChainManager:
         for node_id in hosting_nodes:
             try:
                 await self._delete_chain_from_node(node_id, chain_id)
-            except Exception as e:
+            except _NODE_CALL_ERRORS as e:
                 logger.error("Error deleting chain from node %s: %s", node_id, e)
                 success = False
 
@@ -194,7 +213,7 @@ class ChainManager:
         try:
             await self._add_chain_to_node(node_id, chain_info)
             return True
-        except Exception as e:
+        except _NODE_CALL_ERRORS as e:
             logger.error("Error adding chain to node: %s", e)
             return False
 
@@ -217,7 +236,7 @@ class ChainManager:
         try:
             await self._remove_chain_from_node(node_id, chain_id)
             return True
-        except Exception as e:
+        except _NODE_CALL_ERRORS as e:
             logger.error("Error removing chain from node: %s", e)
             return False
 
@@ -319,7 +338,7 @@ class ChainManager:
             async with NodeClient(node_config) as client:
                 chains = await client.get_hosted_chains()
                 return chains  # type: ignore[no-any-return]
-        except Exception as e:
+        except _NODE_CALL_ERRORS as e:
             logger.error("Error getting chains from node %s: %s", node_id, e)
             return []
 
@@ -331,7 +350,7 @@ class ChainManager:
                 for chain in chains:
                     if chain.id == chain_id:
                         return chain
-            except Exception:
+            except _NODE_CALL_ERRORS:
                 logger.debug("Node %s unavailable for chain lookup", node_id, exc_info=True)
                 continue
         return None
@@ -387,7 +406,7 @@ class ChainManager:
             async with NodeClient(node_config) as client:
                 chain_id = await client.create_chain(genesis_block.dict())
                 logger.info("Successfully created chain %s on node %s", chain_id, node_id)
-        except Exception as e:
+        except _NODE_CALL_ERRORS as e:
             logger.error("Error creating chain on node %s: %s", node_id, e)
             raise
 
@@ -399,7 +418,7 @@ class ChainManager:
                 chains = await self._get_node_chains(node_id)
                 if any(chain.id == chain_id for chain in chains):
                     hosting_nodes.append(node_id)
-            except Exception:
+            except _NODE_CALL_ERRORS:
                 logger.debug("Node %s unavailable for chain lookup", node_id, exc_info=True)
                 continue
         return hosting_nodes
@@ -417,8 +436,8 @@ class ChainManager:
                 if success:
                     logger.info("Successfully deleted chain %s from node %s", chain_id, node_id)
                 else:
-                    raise Exception(f"Failed to delete chain {chain_id}")
-        except Exception as e:
+                    raise RuntimeError(f"Failed to delete chain {chain_id}")
+        except _NODE_CALL_ERRORS as e:
             logger.error("Error deleting chain from node %s: %s", node_id, e)
             raise
 
@@ -485,7 +504,7 @@ class ChainManager:
                     checksum=backup_info["checksum"],
                     verification_passed=verify,
                 )
-        except Exception as e:
+        except _NODE_CALL_ERRORS as e:
             logger.error("Error during backup: %s", e)
             raise
 
@@ -506,7 +525,7 @@ class ChainManager:
                     blocks_restored=restore_info["blocks_restored"],
                     verification_passed=restore_info["verification_passed"],
                 )
-        except Exception as e:
+        except _NODE_CALL_ERRORS as e:
             logger.error("Error during restore: %s", e)
             raise
 
