@@ -103,9 +103,31 @@ def test_mismatched_height_in_attestation_refused():
     assert mgr.apply_slashing(val, _event(atts)) is False
 
 
-def test_mismatched_round_refused():
+def test_cross_round_pair_without_excuse_is_levied():
+    """#1940 F1: ROUND_BOUND_CROSS_ROUND pairs are valid slashable evidence —
+    the UC excuse is verified at apply, so the record gate must not refuse
+    differing strict-int rounds outright (that made the whole UC path
+    unreachable while the gate was armed)."""
     mgr, val = SlashingManager(), _val()
     atts = _atts(rounds=(1, 2))
+    assert mgr.apply_slashing(val, _event(atts)) is True
+
+
+def test_cross_round_malformed_round_still_refused():
+    """Differing rounds must both be strict ints — a round/None mix is not
+    a well-formed cross-round claim."""
+    mgr, val = SlashingManager(), _val()
+    atts = _atts(rounds=(1, None))
+    assert mgr.apply_slashing(val, _event(atts)) is False
+
+
+def test_cross_round_bool_round_refused():
+    """``True`` is an int in Python but never a valid round."""
+    mgr, val = SlashingManager(), _val()
+    atts = [
+        _attestation_record(ADDR_KEY, HA, height=H, round_in_payload=True, request_round=True),
+        _attestation_record(ADDR_KEY, HB, height=H, round_in_payload=True, request_round=2),
+    ]
     assert mgr.apply_slashing(val, _event(atts)) is False
 
 
