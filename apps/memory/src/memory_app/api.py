@@ -90,7 +90,8 @@ async def store_blob(request: Request, body: StoreRequest) -> dict[str, Any]:
     except BlobTooLargeError as e:
         raise HTTPException(status_code=413, detail=str(e)) from e
     except StoreFullError as e:
-        raise HTTPException(status_code=507, detail=str(e)) from e
+        logging.getLogger(__name__).warning("memory store full: %s", e)
+        raise HTTPException(status_code=507, detail="memory store is full") from e
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:

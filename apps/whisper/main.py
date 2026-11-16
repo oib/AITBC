@@ -83,10 +83,8 @@ def _ensure_temp_disk_space() -> None:
     """Refuse the job when the temp filesystem cannot hold the upload."""
     free = shutil.disk_usage(tempfile.gettempdir()).free
     if free < _MIN_FREE_BYTES:
-        raise HTTPException(
-            status_code=503,
-            detail=f"Insufficient disk space for transcription ({free // (1024 * 1024)}MB free)",
-        )
+        logger.warning("temp disk too small for transcription: %dMB free", free // (1024 * 1024))
+        raise HTTPException(status_code=503, detail="Insufficient disk space for transcription")
 
 
 @asynccontextmanager
@@ -415,10 +413,8 @@ async def transcribe(
     try:
         result = await asyncio.wait_for(asyncio.shield(decode), timeout=_TRANSCRIBE_TIMEOUT_SECONDS)
     except TimeoutError:
-        raise HTTPException(
-            status_code=504,
-            detail=f"Transcription exceeded the {_TRANSCRIBE_TIMEOUT_SECONDS:.0f}s limit",
-        ) from None
+        logger.warning("transcription exceeded the %.0fs limit", _TRANSCRIBE_TIMEOUT_SECONDS)
+        raise HTTPException(status_code=504, detail="Transcription exceeded the time limit") from None
     elapsed = round(time.time() - t_start, 2)
     transcript = " ".join(result["full_text"])
     result_hash = hashlib.sha256(transcript.encode()).hexdigest()
