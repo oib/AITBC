@@ -342,20 +342,7 @@ def download(
 
     if _daemon_available(ipfs_api):
         try:
-            for _attempt in range(1, 60 if wait else 1):
-                response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
-                if response.status_code == 200:
-                    break
-                if not wait:
-                    response.raise_for_status()
-                    break
-                import time
-
-                time.sleep(2)
-            else:
-                response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
-            response.raise_for_status()
-            data = response.content
+            data = _fetch_via_daemon(cid, wait, ipfs_api)
         except requests.RequestException:
             data = None
     else:
@@ -368,16 +355,37 @@ def download(
             raise click.Abort()
         data = cid_path.read_bytes()
 
+    file_path = _write_download(data, output_path)
+    click.echo(json.dumps({"success": True, "data": {"cid": cid, "file_path": file_path, "size": len(data)}}))
+
+
+def _fetch_via_daemon(cid: str, wait: bool, ipfs_api: str) -> bytes:
+    """Fetch content bytes from the Kubo daemon, polling while ``wait`` is set."""
+    import time
+
+    for _attempt in range(1, 60 if wait else 1):
+        response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
+        if response.status_code == 200:
+            break
+        if not wait:
+            response.raise_for_status()
+            break
+        time.sleep(2)
+    else:
+        response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
+    response.raise_for_status()
+    return response.content
+
+
+def _write_download(data: bytes, output_path: str | None) -> str:
+    """Write downloaded bytes to ``output_path`` or a temp file; return its path."""
     if output_path:
         out_path = Path(output_path)
         out_path.write_bytes(data)
-        file_path = str(out_path)
-    else:
-        with tempfile.NamedTemporaryFile(delete=False, mode="wb") as tmp:
-            tmp.write(data)
-            file_path = tmp.name
-
-    click.echo(json.dumps({"success": True, "data": {"cid": cid, "file_path": file_path, "size": len(data)}}))
+        return str(out_path)
+    with tempfile.NamedTemporaryFile(delete=False, mode="wb") as tmp:
+        tmp.write(data)
+        return tmp.name
 
 
 @ipfs.command(
@@ -705,6 +713,26 @@ def swarm_key(
             raise click.Abort()
 
     resolved_coordinator_url = _default_coordinator_url(coordinator_url)
+    resolved_api_key = _resolve_swarm_api_key(api_key)
+
+    base = resolved_coordinator_url.rstrip("/")
+    if base.endswith("/v1"):
+        base = base[:-3]
+
+    nonce = _request_swarm_nonce(ctx, base, resolved_api_key, chain_id, island_id, member_address)
+    request = _build_swarm_key_request(chain_id, island_id, member_address, nonce, private_key)
+    response = _post_swarm_key(ctx, base, resolved_api_key, request)
+
+    data = response.json()
+    key = data.get("swarm_key", "")
+    if output_path:
+        _write_swarm_key(output_path, key)
+
+    result_data = _swarm_result_data(data, key, bootstrap)
+    click.echo(json.dumps({"success": True, "data": result_data}, indent=2))
+
+
+def _resolve_swarm_api_key(api_key: str | None) -> str:
     resolved_api_key = api_key
     if not resolved_api_key:
         resolved_api_key = getattr(get_config(), "api_key", None)
@@ -712,11 +740,12 @@ def swarm_key(
         resolved_api_key = _resolve_api_key({})
     if not resolved_api_key:
         abort(None, "No API key available; set AITBC_API_KEY, add api_key to config, or pass --api-key")
+        raise AssertionError("unreachable: abort always raises")
+    return resolved_api_key
 
-    base = resolved_coordinator_url.rstrip("/")
-    if base.endswith("/v1"):
-        base = base[:-3]
 
+def _request_swarm_nonce(ctx, base: str, api_key: str, chain_id: str, island_id: str, member_address: str) -> str:
+    """Fetch the server-issued swarm-key nonce; aborts on failure."""
     # V13-RES2-IPFS-SWARM-1 (#1712): the nonce is server-issued — single-use,
     # expiring, and bound to (chain_id, island_id, member_address) — and the
     # signed challenge covers chain_id so it cannot be replayed elsewhere.
@@ -728,7 +757,7 @@ def swarm_key(
                 "island_id": island_id,
                 "member_address": member_address,
             },
-            headers={"X-Api-Key": resolved_api_key},
+            headers={"X-Api-Key": api_key},
             timeout=30,
         )
         nonce_response.raise_for_status()
@@ -737,17 +766,21 @@ def swarm_key(
         if isinstance(e, requests.HTTPError) and e.response is not None:
             click.echo(e.response.text, err=True)
         abort(ctx, f"Failed to request swarm key: {e}", from_exception=e)
-        return
+        return ""
     if not nonce:
         abort(ctx, "Failed to request swarm key: coordinator returned no nonce", from_exception=None)
-        return
+        return ""
+    return nonce
 
+
+def _build_swarm_key_request(chain_id: str, island_id: str, member_address: str, nonce: str, private_key: PrivateKey) -> dict:
+    """Sign the swarm-key challenge and assemble the request body."""
     challenge = f"{chain_id}:{island_id}:{member_address}:{nonce}".encode()
     msg_hash = "0x" + keccak(challenge).hex()
     private_key_hex = private_key.to_hex()
     signature = sign_transaction_hash(msg_hash, private_key_hex)
 
-    request = {
+    return {
         "chain_id": chain_id,
         "island_id": island_id,
         "member_address": member_address,
@@ -755,12 +788,15 @@ def swarm_key(
         "signature": signature,
     }
 
+
+def _post_swarm_key(ctx, base: str, api_key: str, request: dict):
+    """POST the signed swarm-key request; aborts on failure."""
     url = f"{base}/v1/ipfs/island/swarm-key"
     try:
         response = requests.post(
             url,
             json=request,
-            headers={"X-Api-Key": resolved_api_key},
+            headers={"X-Api-Key": api_key},
             timeout=30,
         )
         response.raise_for_status()
@@ -768,19 +804,21 @@ def swarm_key(
         if isinstance(e, requests.HTTPError) and e.response is not None:
             click.echo(e.response.text, err=True)
         abort(ctx, f"Failed to request swarm key: {e}", from_exception=e)
-        return
+        return None
+    return response
 
-    data = response.json()
-    key = data.get("swarm_key", "")
-    if output_path:
-        out_path = Path(output_path)
-        # Swarm key is a secret — 0o600 at creation, no umask window.
-        fd = os.open(out_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        os.fchmod(fd, 0o600)
-        with os.fdopen(fd, "w") as f:
-            f.write(key)
-        success(f"Swarm key written to {output_path}")
 
+def _write_swarm_key(output_path: str, key: str) -> None:
+    """Write the swarm key with 0o600 at creation — it is a secret."""
+    out_path = Path(output_path)
+    fd = os.open(out_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w") as f:
+        f.write(key)
+    success(f"Swarm key written to {output_path}")
+
+
+def _swarm_result_data(data: dict[str, Any], key: str, bootstrap: bool) -> dict[str, Any]:
     result_data: dict[str, Any] = {
         "island_id": data.get("island_id"),
         "chain_id": data.get("chain_id"),
@@ -794,8 +832,7 @@ def swarm_key(
             result_data["bootstrap_hint"] = template
         else:
             result_data["bootstrap"] = template
-
-    click.echo(json.dumps({"success": True, "data": result_data}, indent=2))
+    return result_data
 
 
 ipfs.add_command(island, name="island")

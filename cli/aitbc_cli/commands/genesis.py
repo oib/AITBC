@@ -144,10 +144,17 @@ def verify(ctx, chain_id: str):
         config = get_config()
         chain_id = getattr(config, "chain_id", os.getenv("CHAIN_ID", ""))
 
-    import json
-    import sqlite3
+    verified = _verify_genesis_config(ctx, chain_id)
+    verified = _verify_genesis_db(ctx, chain_id) and verified
+    verified = _verify_treasury_wallet(ctx) and verified
 
-    verified = True
+    if not verified:
+        ctx.exit(1)
+
+
+def _verify_genesis_config(ctx, chain_id: str) -> bool:
+    """Check the genesis config file; exits the command on hard failures."""
+    import json
 
     # Check genesis config file
     genesis_path = Path(f"/var/lib/aitbc/data/{chain_id}/genesis.json")
@@ -172,6 +179,12 @@ def verify(ctx, chain_id: str):
     except Exception as e:
         error(f"Failed to read genesis config: {e}")
         ctx.exit(1)
+    return True
+
+
+def _verify_genesis_db(ctx, chain_id: str) -> bool:
+    """Check the genesis block and accounts in the chain database."""
+    import sqlite3
 
     # Check database (chain-specific path)
     db_path = Path(f"/var/lib/aitbc/data/{chain_id}/chain.db")
@@ -182,6 +195,7 @@ def verify(ctx, chain_id: str):
             error("Database not found at chain-specific or legacy path")
             ctx.exit(1)
 
+    verified = True
     try:
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
@@ -214,9 +228,15 @@ def verify(ctx, chain_id: str):
     except Exception as e:
         error(f"Failed to verify database: {e}")
         ctx.exit(1)
+    return verified
 
-    # Check the treasury (genesis) wallet
+
+def _verify_treasury_wallet(ctx) -> bool:
+    """Check the treasury (genesis) wallet file."""
+    import json
+
     wallet_path = Path("/var/lib/aitbc/keystore/genesis.json")
+    verified = True
     if wallet_path.exists():
         success(f"✓ Treasury (genesis) wallet found: {wallet_path}")
         try:
@@ -235,9 +255,7 @@ def verify(ctx, chain_id: str):
     else:
         error(f"Treasury (genesis) wallet not found: {wallet_path}")
         verified = False
-
-    if not verified:
-        ctx.exit(1)
+    return verified
 
 
 def _sealed_genesis_block(db_path: Path, chain_id: str) -> dict[str, Any] | None:

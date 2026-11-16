@@ -169,25 +169,70 @@ def _send_transaction_impl(
         abort(None, f"Invalid recipient address: {e}")
         return None
 
-    # Validate amount/fee. Zero-value types (mirrors
-    # aitbc_chain.state.state_transition._ZERO_VALUE_TX_TYPES — no shared
-    # constants package exists) are REJECTED by apply when value != 0, so
-    # they need --amount 0; for every other type a zero amount is a no-op
-    # that only burns the fee, kept an error.
-    upper = tx_type.upper()
-    if upper in _ZERO_VALUE_TX_TYPES or upper in _AGENT_SESSION_TX_TYPES:
-        if amount != 0:
-            error(f"{upper} transactions must have amount=0")
-            return None
-    elif amount <= 0:
-        logger.error("Invalid amount: %s must be positive", amount)
-        error("Amount must be positive")
+    if not _validate_send_amount(tx_type, amount):
         return None
 
     # Get sender wallet info. An explicit keystore_dir wins outright; otherwise
     # the shared search order applies (configured wallet dir, then the service
     # wallet dir — a wallet that only exists under /var/lib/aitbc/wallets is
     # still found by name).
+    sender_keystore = _resolve_sender_keystore(from_wallet, keystore_dir)
+    if sender_keystore is None:
+        return None
+
+    with open(sender_keystore) as f:
+        sender_data = json.load(f)
+
+    sender_address = sender_data["address"]
+
+    # Decrypt private key if wallet is encrypted, otherwise use directly
+    private_key = _load_sender_private_key(sender_keystore, sender_data, password)
+    if private_key is None:
+        return None
+
+    chain_id = _resolve_send_chain_id(rpc_url)
+
+    # Batch callers pass a per-sender offset: the chain's account nonce does not
+    # move while earlier batch transactions sit in the mempool, so every entry
+    # would otherwise sign with the same nonce and only the first could be mined.
+    actual_nonce = _resolve_nonce(rpc_url, sender_address) + nonce_offset
+
+    transaction = _build_signed_transaction(
+        chain_id=chain_id,
+        sender_address=sender_address,
+        to_address=to_address,
+        amount=amount,
+        fee=fee,
+        nonce=actual_nonce,
+        tx_type=tx_type,
+        payload=payload,
+        private_key=private_key,
+    )
+
+    # Submit to blockchain
+    return _submit_signed_transaction(rpc_url, transaction, from_wallet, to_address)
+
+
+def _validate_send_amount(tx_type: str, amount: Decimal) -> bool:
+    """Validate amount/fee. Zero-value types (mirrors
+    aitbc_chain.state.state_transition._ZERO_VALUE_TX_TYPES — no shared
+    constants package exists) are REJECTED by apply when value != 0, so
+    they need --amount 0; for every other type a zero amount is a no-op
+    that only burns the fee, kept an error."""
+    upper = tx_type.upper()
+    if upper in _ZERO_VALUE_TX_TYPES or upper in _AGENT_SESSION_TX_TYPES:
+        if amount != 0:
+            error(f"{upper} transactions must have amount=0")
+            return False
+    elif amount <= 0:
+        logger.error("Invalid amount: %s must be positive", amount)
+        error("Amount must be positive")
+        return False
+    return True
+
+
+def _resolve_sender_keystore(from_wallet: str, keystore_dir: Path | None) -> Path | None:
+    """Locate the sender keystore; reports and returns None when absent."""
     report: WalletSearchResult | None = None
     sender_keystore: Path | None
     if keystore_dir is not None:
@@ -207,21 +252,16 @@ def _send_transaction_impl(
         else:
             error(f"Wallet '{from_wallet}' not found at {sender_keystore}")
         return None
+    return sender_keystore
 
-    with open(sender_keystore) as f:
-        sender_data = json.load(f)
 
-    sender_address = sender_data["address"]
+def _resolve_send_chain_id(rpc_url: str) -> str:
+    """Resolve chain_id and nonce source from the blockchain node.
 
-    # Decrypt private key if wallet is encrypted, otherwise use directly
-    private_key = _load_sender_private_key(sender_keystore, sender_data, password)
-    if private_key is None:
-        return None
-
-    # Resolve chain_id and nonce from the blockchain node this transaction
-    # will be submitted to. An explicit CHAIN_ID wins; otherwise the node
-    # must advertise one — a silent default signs a transaction no node
-    # serves. (No ctx here: the send/batch commands carry no --chain-id.)
+    An explicit CHAIN_ID wins; otherwise the node must advertise one — a
+    silent default signs a transaction no node serves. (No ctx here: the
+    send/batch commands carry no --chain-id.)
+    """
     from ..utils.chain_id import get_chain_id
 
     chain_id = os.getenv("CHAIN_ID") or ""
@@ -235,12 +275,22 @@ def _send_transaction_impl(
                 from_exception=e,
             )
             raise AssertionError("unreachable: abort always raises") from e
+    return chain_id
 
-    # Batch callers pass a per-sender offset: the chain's account nonce does not
-    # move while earlier batch transactions sit in the mempool, so every entry
-    # would otherwise sign with the same nonce and only the first could be mined.
-    actual_nonce = _resolve_nonce(rpc_url, sender_address) + nonce_offset
 
+def _build_signed_transaction(
+    *,
+    chain_id: str,
+    sender_address: str,
+    to_address: str,
+    amount: Decimal,
+    fee: Decimal,
+    nonce: int,
+    tx_type: str,
+    payload: dict[str, Any] | None,
+    private_key,
+) -> dict[str, Any]:
+    """Assemble the transaction dict and attach the canonical-JSON signature."""
     # Convert AIT to compute-units (chain unit)
     amount_seconds = ait_to_units(amount)
     fee_seconds = ait_to_units(fee)
@@ -258,7 +308,7 @@ def _send_transaction_impl(
         "to": to_address,
         "amount": amount_seconds,
         "fee": fee_seconds,
-        "nonce": actual_nonce,
+        "nonce": nonce,
         "type": tx_type,
         "payload": tx_payload,
     }
@@ -267,8 +317,11 @@ def _send_transaction_impl(
     message = json.dumps(transaction, sort_keys=True, separators=(",", ":")).encode()
     signature = private_key.sign_msg_hash(keccak(message))
     transaction["signature"] = signature.to_bytes().hex()
+    return transaction
 
-    # Submit to blockchain
+
+def _submit_signed_transaction(rpc_url: str, transaction: dict[str, Any], from_wallet: str, to_address: str) -> str | None:
+    """POST the signed transaction to the blockchain RPC."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.post("/rpc/transaction", json=transaction)

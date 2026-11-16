@@ -440,25 +440,7 @@ def _buy_evm(
     """Fund an EVM protected rental by calling AIPowerRental.startRental."""
     config = get_config()
     parsed = parse_quote(quote_dict)
-
-    if not config.evm_rpc_url:
-        error("EVM RPC URL not configured (set EVM_RPC_URL)")
-        sys.exit(1)
-    if not config.energy_rental_contract_address:
-        error("AIPowerRental contract address not configured")
-        sys.exit(1)
-    if not config.energy_token_contract_address:
-        error("ERC-20 token contract address not configured")
-        sys.exit(1)
-
-    from ...utils.evm_contract import EVMContractClient
-
-    evm = EVMContractClient(
-        rpc_url=config.evm_rpc_url,
-        chain_id=config.energy_pricing_chain_id,
-        rental_contract_address=config.energy_rental_contract_address,
-        token_contract_address=config.energy_token_contract_address,
-    )
+    evm = _evm_contract_client(config)
 
     # The buyer must have already created the rental agreement on-chain
     # via createProtectedRental. The agreement ID is passed in the quote
@@ -466,11 +448,7 @@ def _buy_evm(
     # provide it via the energy_quote's job_id mapping or a separate flag.
     # In a full flow, the coordinator would create the agreement on-chain
     # and return the agreement ID.
-    agreement_id = quote_dict.get("evm_agreement_id")
-    if agreement_id is None:
-        error("EVM buy requires evm_agreement_id in the quote or --agreement-id")
-        sys.exit(1)
-    agreement_id = int(agreement_id)
+    agreement_id = _evm_agreement_id(quote_dict)
 
     # Check the agreement on-chain.
     agreement = evm.get_rental_agreement(agreement_id)
@@ -485,6 +463,55 @@ def _buy_evm(
             abort=True,
         )
 
+    start_result = _run_evm_rental_txs(evm, config, agreement, agreement_id, buyer_address, private_key)
+    _notify_evm_purchase(
+        ctx,
+        buyer_id=buyer_id,
+        gpu_id=gpu_id,
+        job_id=job_id,
+        duration_hours=duration_hours,
+        quote_dict=quote_dict,
+        buyer_address=buyer_address,
+        parsed=parsed,
+        max_ait=max_ait,
+        json_output=json_output,
+        start_result=start_result,
+        agreement_id=agreement_id,
+    )
+
+
+def _evm_contract_client(config):
+    """Build the EVM contract client after validating the required config."""
+    if not config.evm_rpc_url:
+        error("EVM RPC URL not configured (set EVM_RPC_URL)")
+        sys.exit(1)
+    if not config.energy_rental_contract_address:
+        error("AIPowerRental contract address not configured")
+        sys.exit(1)
+    if not config.energy_token_contract_address:
+        error("ERC-20 token contract address not configured")
+        sys.exit(1)
+
+    from ...utils.evm_contract import EVMContractClient
+
+    return EVMContractClient(
+        rpc_url=config.evm_rpc_url,
+        chain_id=config.energy_pricing_chain_id,
+        rental_contract_address=config.energy_rental_contract_address,
+        token_contract_address=config.energy_token_contract_address,
+    )
+
+
+def _evm_agreement_id(quote_dict) -> int:
+    agreement_id = quote_dict.get("evm_agreement_id")
+    if agreement_id is None:
+        error("EVM buy requires evm_agreement_id in the quote or --agreement-id")
+        sys.exit(1)
+    return int(agreement_id)
+
+
+def _run_evm_rental_txs(evm, config, agreement, agreement_id: int, buyer_address, private_key):
+    """Approve token spend, then call startRental; return the start result."""
     # Approve the rental contract to spend the buyer's tokens.
     total_amount = int(agreement[4]) + int(agreement[7])  # price + platformFee
     nonce = evm.rpc._get_web3().eth.get_transaction_count(buyer_address)
@@ -513,8 +540,25 @@ def _buy_evm(
         error(f"startRental transaction failed: {start_result.tx_hash}")
         sys.exit(1)
     success(f"startRental confirmed: {start_result.tx_hash}")
+    return start_result
 
-    # Notify the coordinator.
+
+def _notify_evm_purchase(
+    ctx,
+    *,
+    buyer_id,
+    gpu_id,
+    job_id,
+    duration_hours,
+    quote_dict,
+    buyer_address,
+    parsed,
+    max_ait,
+    json_output,
+    start_result,
+    agreement_id: int,
+) -> None:
+    """Notify the coordinator of the EVM rental and print the result."""
     client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
     payload: dict[str, Any] = {
         "buyer_id": buyer_id,

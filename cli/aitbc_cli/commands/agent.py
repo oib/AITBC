@@ -294,6 +294,25 @@ def send(
         abort(None, f"Error creating coordinator client: {e}")
         return
 
+    sender = _resolve_send_sender(ctx, http_client, from_agent, signing)
+
+    _post_agent_message(
+        ctx,
+        http_client,
+        sender=sender,
+        to_agent=to_agent,
+        message=message,
+        message_id=message_id,
+        message_type=message_type,
+        encrypt=encrypt,
+        priority=priority,
+        ttl=ttl,
+        signing=signing,
+    )
+
+
+def _resolve_send_sender(ctx, http_client: AITBCHTTPClient, from_agent: str | None, signing):
+    """Resolve the sender agent id, binding it to the signing wallet when given."""
     sender = _resolve_agent_id(from_agent)
     if signing is not None:
         # The wallet must be the sender's REGISTERED identity (doc §3/§5): the
@@ -315,8 +334,25 @@ def send(
             info(f"Resolved signing wallet to registered agent '{sender}'")
     if not sender:
         abort(None, "--from-agent is required when AGENT_ID is not set")
-        return
+        return None
+    return sender
 
+
+def _post_agent_message(
+    ctx,
+    http_client: AITBCHTTPClient,
+    *,
+    sender: str,
+    to_agent: str,
+    message: str,
+    message_id: str | None,
+    message_type: str,
+    encrypt: bool,
+    priority: str,
+    ttl: int,
+    signing,
+) -> None:
+    """Build, sign, and POST the agent message envelope."""
     try:
         message_data: dict[str, Any] = {
             "sender": sender,
@@ -339,7 +375,6 @@ def send(
         abort(None, f"Network error: {e}")
     except Exception as e:
         abort(None, f"Error sending message: {e}")
-        return
 
 
 @messaging.command(
@@ -612,73 +647,8 @@ def request_coins(
                 if not await _consume_connection_frame(ctx, ws, timeout, display_endpoint):
                     return
 
-                # Send REQUEST_COINS frame
-                content = f'REQUEST_COINS {{"amount": {amount}, "wallet_address": "{wallet_address}"}}'
-                request_frame = {
-                    "type": "message",
-                    "payload": {"content": content, "recipient_id": "hub-coordinator"},
-                }
-                await ws.send(json.dumps(request_frame))
-                success(f"REQUEST_COINS sent ({amount} AIT to {wallet_address})")
-
-                # Read frames until we get COINS_TRANSFERRED or a status response
-                # Two response patterns:
-                #   First-time: COINS_TRANSFERRED message (via send_personal_message)
-                #   Subsequent: handler_acknowledgment with result.action = coin_request_received/pending_approval
-                try:
-                    while True:
-                        reply_data = json.loads(await _asyncio.wait_for(ws.recv(), timeout=timeout))
-                        msg_type = reply_data.get("type", "")
-
-                        # Pattern 1: COINS_TRANSFERRED (auto-transfer, sent as separate message)
-                        if msg_type == "COINS_TRANSFERRED":
-                            tx_hash = reply_data.get("transaction_hash", "")
-                            transferred = reply_data.get("amount", amount)
-                            success(f"Received {transferred} AIT!")
-                            click.echo(f"  wallet: {reply_data.get('wallet_address', wallet_address)}")
-                            click.echo(f"  transaction: {tx_hash}")
-                            if reply_data.get("timestamp"):
-                                click.echo(f"  timestamp: {reply_data['timestamp']}")
-                            click.echo(f"\nCheck balance: aitbc wallet balance {wallet or ''}".strip())
-                            return
-
-                        # Pattern 2: handler_acknowledgment with embedded result
-                        if msg_type == "handler_acknowledgment":
-                            results = reply_data.get("handler_results", {}).get("results", [])
-                            for r in results:
-                                result = r.get("result", {})
-                                action = result.get("action", "")
-
-                                if action == "coins_transferred":
-                                    tx_hash = result.get("transaction_hash", "")
-                                    transferred = result.get("amount", amount)
-                                    success(f"Received {transferred} AIT!")
-                                    click.echo(f"  wallet: {result.get('wallet_address', wallet_address)}")
-                                    click.echo(f"  transaction: {tx_hash}")
-                                    click.echo(f"\nCheck balance: aitbc wallet balance {wallet or ''}".strip())
-                                    return
-
-                                if action == "coin_request_received" and result.get("status") == "pending_approval":
-                                    request_id = result.get("request_id", "")
-                                    success("Request submitted — pending manual approval")
-                                    if request_id:
-                                        click.echo(f"  request_id: {request_id}")
-                                    click.echo(f"  message: {result.get('message', '')}")
-                                    click.echo("  The hub operator must approve this request.")
-                                    if request_id:
-                                        click.echo(f"\n  Hub operator: aitbc coin-requests approve {request_id}")
-                                    return
-
-                                if action == "coin_request_failed":
-                                    err = result.get("error", "unknown error")
-                                    detail = result.get("detail", "")
-                                    if detail:
-                                        click.echo(f"  detail: {detail}", err=True)
-                                    abort(ctx, f"Coin request failed: {err}")
-                                    return
-
-                except _asyncio.TimeoutError:
-                    abort(None, f"No response within {timeout}s")
+                await _send_coins_request(ws, amount, wallet_address)
+                await _await_coin_response(ctx, ws, amount, wallet_address, timeout, wallet)
         except WebSocketException as e:
             abort(None, f"WebSocket error: {e}")
         except OSError as e:
@@ -686,6 +656,107 @@ def request_coins(
             return
 
     _asyncio.run(_request())
+
+
+async def _send_coins_request(ws, amount: int, wallet_address: str | None) -> None:
+    """Send the REQUEST_COINS frame on the open WebSocket."""
+    # Send REQUEST_COINS frame
+    content = f'REQUEST_COINS {{"amount": {amount}, "wallet_address": "{wallet_address}"}}'
+    request_frame = {
+        "type": "message",
+        "payload": {"content": content, "recipient_id": "hub-coordinator"},
+    }
+    await ws.send(json.dumps(request_frame))
+    success(f"REQUEST_COINS sent ({amount} AIT to {wallet_address})")
+
+
+def _print_coins_received(
+    amount: int,
+    wallet_address: str | None,
+    tx_hash: str,
+    wallet: str | None = None,
+    extra_fields: dict | None = None,
+    show_timestamp: bool = False,
+) -> None:
+    fields = extra_fields or {}
+    transferred = fields.get("amount", amount)
+    success(f"Received {transferred} AIT!")
+    click.echo(f"  wallet: {fields.get('wallet_address', wallet_address)}")
+    click.echo(f"  transaction: {tx_hash}")
+    timestamp = fields.get("timestamp")
+    if show_timestamp and timestamp:
+        click.echo(f"  timestamp: {timestamp}")
+    click.echo(f"\nCheck balance: aitbc wallet balance {wallet or ''}".strip())
+
+
+def _handle_coin_reply(ctx, reply_data: dict, amount: int, wallet_address: str | None, wallet: str | None) -> bool:
+    """Handle one reply frame; True when the exchange reached a terminal state."""
+    msg_type = reply_data.get("type", "")
+
+    # Pattern 1: COINS_TRANSFERRED (auto-transfer, sent as separate message)
+    if msg_type == "COINS_TRANSFERRED":
+        _print_coins_received(
+            amount,
+            wallet_address,
+            reply_data.get("transaction_hash", ""),
+            wallet=wallet,
+            extra_fields=reply_data,
+            show_timestamp=True,
+        )
+        return True
+
+    # Pattern 2: handler_acknowledgment with embedded result
+    if msg_type == "handler_acknowledgment":
+        results = reply_data.get("handler_results", {}).get("results", [])
+        for r in results:
+            result = r.get("result", {})
+            action = result.get("action", "")
+
+            if action == "coins_transferred":
+                _print_coins_received(
+                    amount,
+                    wallet_address,
+                    result.get("transaction_hash", ""),
+                    wallet=wallet,
+                    extra_fields=result,
+                )
+                return True
+
+            if action == "coin_request_received" and result.get("status") == "pending_approval":
+                request_id = result.get("request_id", "")
+                success("Request submitted — pending manual approval")
+                if request_id:
+                    click.echo(f"  request_id: {request_id}")
+                click.echo(f"  message: {result.get('message', '')}")
+                click.echo("  The hub operator must approve this request.")
+                if request_id:
+                    click.echo(f"\n  Hub operator: aitbc coin-requests approve {request_id}")
+                return True
+
+            if action == "coin_request_failed":
+                err = result.get("error", "unknown error")
+                detail = result.get("detail", "")
+                if detail:
+                    click.echo(f"  detail: {detail}", err=True)
+                abort(ctx, f"Coin request failed: {err}")
+                return True
+
+    return False
+
+
+async def _await_coin_response(ctx, ws, amount: int, wallet_address: str | None, timeout: int, wallet: str | None) -> None:
+    """Read frames until a terminal coin-transfer response arrives."""
+    # Read frames until we get COINS_TRANSFERRED or a status response
+    # Two response patterns:
+    #   First-time: COINS_TRANSFERRED message (via send_personal_message)
+    #   Subsequent: handler_acknowledgment with result.action = coin_request_received/pending_approval
+    try:
+        while True:
+            reply_data = json.loads(await _asyncio.wait_for(ws.recv(), timeout=timeout))
+            if _handle_coin_reply(ctx, reply_data, amount, wallet_address, wallet):
+                return
+    except _asyncio.TimeoutError:
+        abort(None, f"No response within {timeout}s")
 
 
 # Tests in tests/cli/ still import this module as `agent`; the CLI registers

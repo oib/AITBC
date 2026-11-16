@@ -151,86 +151,19 @@ def status(ctx, node_url, chain_id, hub_url, gap_threshold, alert):
         base_url=node_url,
         api_key=(ctx.obj or {}).get("api_key") or getattr(_sync_cfg(), "blockchain_rpc_api_key", None),
     )
-    try:
-        # Query current chain head
-        head_params = {"chain_id": chain_id} if chain_id else None
-        head = client.get("/rpc/head", params=head_params)
-
-        # Query network info
-        network_info = client.get("/rpc/network-info")
-
-        # Query sync configuration (v0.6.2)
-        sync_config: dict[str, Any] | None = client.get("/rpc/sync/config")
-    except NetworkError as e:
-        abort(ctx, f"Cannot connect to node at {node_url}", from_exception=e)
-    finally:
-        client.close()
-
-    # Handle error responses from endpoints
-    if isinstance(head, dict) and head.get("error"):
-        abort(ctx, f"Error from /rpc/head: {head['error']}")
-    if isinstance(network_info, dict) and network_info.get("error"):
-        abort(ctx, f"Error from /rpc/network-info: {network_info['error']}")
-    # Sync config endpoint might not exist in older versions
-    if isinstance(sync_config, dict) and sync_config.get("error"):
-        sync_config = None
+    head, network_info, sync_config = _query_sync_endpoints(ctx, client, chain_id, node_url)
+    sync_config = _validate_sync_responses(ctx, head, network_info, sync_config)
 
     # Extract head fields (fall back to network-info chain_id if not provided)
-    resolved_chain_id = chain_id or network_info.get("chain_id") or head.get("chain_id")
-    height = head.get("height")
-    block_hash = head.get("hash") or head.get("last_block_hash")
-    timestamp = head.get("timestamp")
-    total_transactions = head.get("total_transactions")
-    total_accounts = head.get("total_accounts")
-
-    p2p_endpoint = network_info.get("p2p_endpoint")
-    supported_chains = network_info.get("supported_chains") or []
+    resolved_chain_id, height, block_hash, timestamp, total_transactions, total_accounts, p2p_endpoint, supported_chains = (
+        _extract_head_fields(chain_id, head, network_info)
+    )
 
     # Compare with hub if a hub URL is available
-    hub_status: dict[str, Any] = {}
-    if not hub_url:
-        hub_url = os.environ.get("HUB_RPC_URL")
-    if hub_url:
-        hub_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-        try:
-            hub_head = hub_client.get("/rpc/head", params=head_params)
-            hub_client.get("/rpc/network-info")
-        except NetworkError:
-            hub_status = {
-                "height": "N/A",
-                "hash": "",
-                "gap": "N/A",
-                "divergence": "HUB_UNREACHABLE",
-            }
-        else:
-            hub_client.close()
-            hub_height = hub_head.get("height") if isinstance(hub_head, dict) else None
-            hub_hash = hub_head.get("hash") or hub_head.get("last_block_hash") if isinstance(hub_head, dict) else None
-            gap = (hub_height - height) if (hub_height is not None and height is not None) else None
-            divergence = "none"
-            if gap is not None and gap > gap_threshold:
-                divergence = f"BEHIND_BY_{gap}"
-            elif gap is not None and gap < 0:
-                divergence = f"AHEAD_BY_{-gap}"
-            elif hub_height is not None and height == hub_height and hub_hash and block_hash and hub_hash != block_hash:
-                divergence = "HASH_MISMATCH"
-            hub_status = {
-                "height": hub_height if hub_height is not None else "N/A",
-                "hash": hub_hash or "",
-                "gap": gap if gap is not None else "N/A",
-                "divergence": divergence,
-            }
+    hub_url = hub_url or os.environ.get("HUB_RPC_URL")
+    hub_status = _hub_divergence_status(hub_url, chain_id, height, block_hash, gap_threshold)
 
-    sync_optimization: dict[str, Any] | None = None
-    if sync_config:
-        parallel_enabled = sync_config.get("sync_parallel_enabled", False)
-        delta_enabled = sync_config.get("sync_delta_enabled", False)
-        priority_enabled = sync_config.get("gossip_priority_enabled", False)
-        sync_optimization = {
-            "parallel_enabled": parallel_enabled,
-            "delta_enabled": delta_enabled,
-            "priority_enabled": priority_enabled,
-        }
+    sync_optimization = _sync_optimization_block(sync_config)
 
     fmt = resolve_output_format(ctx)
     if fmt == "json":
@@ -266,10 +199,118 @@ def status(ctx, node_url, chain_id, hub_url, gap_threshold, alert):
     if alert and divergence not in ("none", "N/A", "HUB_UNREACHABLE"):
         ctx.exit(1)
 
+    _print_sync_optimization(sync_optimization, fmt)
+
+
+def _query_sync_endpoints(ctx, client: AITBCHTTPClient, chain_id, node_url):
+    """Query head, network-info, and sync config; aborts when the node is down."""
+    head_params = {"chain_id": chain_id} if chain_id else None
+    try:
+        head = client.get("/rpc/head", params=head_params)
+        network_info = client.get("/rpc/network-info")
+        # Query sync configuration (v0.6.2)
+        sync_config: dict[str, Any] | None = client.get("/rpc/sync/config")
+    except NetworkError as e:
+        abort(ctx, f"Cannot connect to node at {node_url}", from_exception=e)
+    finally:
+        client.close()
+    return head, network_info, sync_config
+
+
+def _validate_sync_responses(ctx, head, network_info, sync_config):
+    """Abort on endpoint error payloads; sync config errors mean 'unsupported'."""
+    # Handle error responses from endpoints
+    if isinstance(head, dict) and head.get("error"):
+        abort(ctx, f"Error from /rpc/head: {head['error']}")
+    if isinstance(network_info, dict) and network_info.get("error"):
+        abort(ctx, f"Error from /rpc/network-info: {network_info['error']}")
+    # Sync config endpoint might not exist in older versions
+    if isinstance(sync_config, dict) and sync_config.get("error"):
+        sync_config = None
+    return sync_config
+
+
+def _extract_head_fields(chain_id, head, network_info):
+    resolved_chain_id = chain_id or network_info.get("chain_id") or head.get("chain_id")
+    height = head.get("height")
+    block_hash = head.get("hash") or head.get("last_block_hash")
+    timestamp = head.get("timestamp")
+    total_transactions = head.get("total_transactions")
+    total_accounts = head.get("total_accounts")
+    p2p_endpoint = network_info.get("p2p_endpoint")
+    supported_chains = network_info.get("supported_chains") or []
+    return (
+        resolved_chain_id,
+        height,
+        block_hash,
+        timestamp,
+        total_transactions,
+        total_accounts,
+        p2p_endpoint,
+        supported_chains,
+    )
+
+
+def _hub_divergence(hub_height, hub_hash, height, block_hash, gap_threshold: int) -> str:
+    gap = (hub_height - height) if (hub_height is not None and height is not None) else None
+    if gap is not None and gap > gap_threshold:
+        return f"BEHIND_BY_{gap}"
+    if gap is not None and gap < 0:
+        return f"AHEAD_BY_{-gap}"
+    if hub_height is not None and height == hub_height and hub_hash and block_hash and hub_hash != block_hash:
+        return "HASH_MISMATCH"
+    return "none"
+
+
+def _hub_status_from_head(hub_head, height, block_hash, gap_threshold: int) -> dict[str, Any]:
+    hub_height = hub_head.get("height") if isinstance(hub_head, dict) else None
+    hub_hash = (hub_head.get("hash") or hub_head.get("last_block_hash")) if isinstance(hub_head, dict) else None
+    gap = (hub_height - height) if (hub_height is not None and height is not None) else None
+    return {
+        "height": hub_height if hub_height is not None else "N/A",
+        "hash": hub_hash or "",
+        "gap": gap if gap is not None else "N/A",
+        "divergence": _hub_divergence(hub_height, hub_hash, height, block_hash, gap_threshold),
+    }
+
+
+def _hub_divergence_status(hub_url, chain_id, height, block_hash, gap_threshold: int) -> dict[str, Any]:
+    """Compare local head against the hub; {} when no hub URL is configured."""
+    if not hub_url:
+        return {}
+    head_params = {"chain_id": chain_id} if chain_id else None
+    hub_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
+    try:
+        hub_head = hub_client.get("/rpc/head", params=head_params)
+        hub_client.get("/rpc/network-info")
+    except NetworkError:
+        return {
+            "height": "N/A",
+            "hash": "",
+            "gap": "N/A",
+            "divergence": "HUB_UNREACHABLE",
+        }
+    else:
+        hub_client.close()
+        return _hub_status_from_head(hub_head, height, block_hash, gap_threshold)
+
+
+def _sync_optimization_block(sync_config) -> dict[str, Any] | None:
+    if not sync_config:
+        return None
+    return {
+        "parallel_enabled": sync_config.get("sync_parallel_enabled", False),
+        "delta_enabled": sync_config.get("sync_delta_enabled", False),
+        "priority_enabled": sync_config.get("gossip_priority_enabled", False),
+    }
+
+
+def _print_sync_optimization(sync_optimization, fmt: str) -> None:
     # Show v0.6.2 sync optimization status if available
-    if sync_optimization and fmt != "json":
-        click.echo("\nSync Optimization (v0.6.2)")
-        click.echo("-" * 40)
-        click.echo(f"Parallel sync      : {'enabled' if sync_optimization['parallel_enabled'] else 'disabled'}")
-        click.echo(f"Delta sync        : {'enabled' if sync_optimization['delta_enabled'] else 'disabled'}")
-        click.echo(f"Gossip priority   : {'enabled' if sync_optimization['priority_enabled'] else 'disabled'}")
+    if not (sync_optimization and fmt != "json"):
+        return
+    click.echo("\nSync Optimization (v0.6.2)")
+    click.echo("-" * 40)
+    click.echo(f"Parallel sync      : {'enabled' if sync_optimization['parallel_enabled'] else 'disabled'}")
+    click.echo(f"Delta sync        : {'enabled' if sync_optimization['delta_enabled'] else 'disabled'}")
+    click.echo(f"Gossip priority   : {'enabled' if sync_optimization['priority_enabled'] else 'disabled'}")

@@ -710,35 +710,9 @@ def alerts(
     """
     url = _prometheus_url(ctx, prometheus_url)
 
-    def _fetch() -> list[dict[str, Any]] | None:
-        """The alerts Prometheus reports, or None when it did not answer (which is not the same as "no alerts")."""
-        data = _prometheus_get(url, "/api/v1/alerts")
-        if data.get("status") != "success":
-            return None
-        return cast(list[dict[str, Any]], data.get("data", {}).get("alerts", []))
-
-    def _present(raw_alerts: list[dict[str, Any]]) -> dict[str, Any]:
-        return {
-            "alerts": [
-                {
-                    "name": a.get("labels", {}).get("alertname"),
-                    "state": a.get("state"),
-                    "severity": a.get("labels", {}).get("severity"),
-                    "summary": a.get("annotations", {}).get("summary"),
-                    "description": a.get("annotations", {}).get("description"),
-                    "active_at": a.get("activeAt"),
-                    "labels": a.get("labels"),
-                }
-                for a in raw_alerts
-            ],
-            "firing": sum(1 for a in raw_alerts if a.get("state") == "firing"),
-            "pending": sum(1 for a in raw_alerts if a.get("state") == "pending"),
-            "checked_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
-        }
-
     if not watch:
-        raw_now = _fetch()
-        output(_present(raw_now or []), ctx.obj["output_format"])
+        raw_now = _fetch_alerts(url)
+        output(_present_alerts(raw_now or []), ctx.obj["output_format"])
         return
 
     # Watch mode is the one path in this CLI that runs as a long-lived service
@@ -751,68 +725,6 @@ def alerts(
 
     stats: dict[str, Any] = {"notify_errors": 0}
 
-    def _event(
-        name: str,
-        alert: dict[str, Any] | None,
-        *,
-        via: str,
-        silenced: dict[str, Any] | None,
-        extra: dict[str, Any] | None = None,
-    ) -> None:
-        record: dict[str, Any] = {
-            "event": name,
-            "via": via,
-            "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
-            "timestamp_unix": int(time.time()),
-        }
-        if alert is not None:
-            labels = alert.get("labels", {})
-            record.update(
-                {
-                    "alertname": labels.get("alertname"),
-                    "state": "resolved" if name == "prometheus_alert_resolved" else "firing",
-                    "severity": labels.get("severity"),
-                    "summary": alert.get("annotations", {}).get("summary"),
-                    "description": alert.get("annotations", {}).get("description"),
-                    "labels": labels,
-                    "active_at": alert.get("activeAt"),
-                }
-            )
-            if name == "prometheus_alert_resolved":
-                record["duration_seconds"] = _seconds_since(alert.get("activeAt"))
-        if silenced is not None:
-            record["silenced"] = True
-            if silenced.get("reason"):
-                record["silence_reason"] = silenced["reason"]
-        if extra:
-            record.update(extra)
-        line = json.dumps(record, sort_keys=True)
-        if alert_log is not None:
-            alert_log.info(line)
-        if emit:
-            # Structured line for journalctl / external watchers
-            click.echo(line, file=sys.stdout)
-            if name in ("prometheus_alert_firing", "prometheus_alert_still_firing") and silenced is None:
-                logger.warning(line)
-            else:
-                logger.info(line)
-        # A silence suppresses the push, not the record: the event still lands in
-        # the alert log and the journal so "what happened" stays auditable.
-        # The severity floor works the same way: below-floor alerts are logged
-        # (the daily digest reads them) but never pushed.
-        if silenced is None and _severity_at_least(record.get("severity"), notify_min_severity):
-            _notify(
-                notify_urls,
-                record,
-                stats,
-                notify_format=notify_format,
-                topic=notify_topic,
-                click_url=notify_click,
-                # Env only -- the token is never an option, never in a URL and
-                # never in a log line (AITBC_WATCH_NOTIFY_TOKEN).
-                token=os.environ.get("AITBC_WATCH_NOTIFY_TOKEN"),
-            )
-
     # Alert state is tracked across polls: an alert is reported when it starts firing (again, if it had resolved) and
     # when it stops. A poll Prometheus did not answer changes nothing -- it must not read as "everything resolved".
     # firing maps alert_id -> {"alert": ..., "silenced": bool, "last_notify": monotonic|None}.
@@ -820,93 +732,213 @@ def alerts(
     # watcher restart does not re-emit every active alert as a fresh
     # "startup" event (WATCHER-REEMIT-1).
     state_path = alert_log_path + ".state" if alert_log_path else None
-    firing = _load_firing_state(state_path) if state_path else {}
-    unreachable = False
-    first_poll = True
-    silence_cache: dict[str, Any] = {"mtime": None, "entries": [], "warned": False}
-    metrics_warn: dict[str, bool] = {}
+    watch_state: dict[str, Any] = {
+        "alert_log": alert_log,
+        "emit": emit,
+        "notify_urls": notify_urls,
+        "notify_format": notify_format,
+        "notify_topic": notify_topic,
+        "notify_click": notify_click,
+        "notify_min_severity": notify_min_severity,
+        "stats": stats,
+        "state_path": state_path,
+        "metrics_file": metrics_file,
+        "metrics_warn": {},
+        "silence_file": silence_file,
+        "remind_interval": remind_interval,
+        "firing": _load_firing_state(state_path) if state_path else {},
+        "unreachable": False,
+        "first_poll": True,
+        "silence_cache": {"mtime": None, "entries": [], "warned": False},
+        "interval": interval,
+    }
+    watch_state["event"] = lambda name, alert, **kwargs: _emit_watch_event(watch_state, name, alert, **kwargs)
     try:
         while True:
-            # Feed the watchdog at the top of every iteration, not only at
-            # the bottom: under load one iteration used to exceed
-            # WatchdogSec between end-of-loop pings and systemd SIGABRT'd
-            # the watcher (21 restarts on hub during the 22 Oct OOM night).
-            _sd_notify_watchdog()
-            now_mono = time.monotonic()
-            try:
-                raw = _fetch()
-            except CLIError as e:
-                # _prometheus_get abort()s (exit 2) on a refused connection or
-                # an HTTP error status. In watch mode that must be an
-                # unanswered poll, not a process exit: the whole point of the
-                # unreachable path below is to outlive a Prometheus outage,
-                # and aborting here crash-looped the service every RestartSec
-                # while Prometheus was down (Refs #1609). The one-shot
-                # `alerts` command still aborts — it is outside this loop.
-                logger.debug("prometheus poll failed, treating as unanswered: %s", e.message)
-                raw = None
-            # The Prometheus query is the iteration's first long step; ping
-            # again once it returns so a slow query plus a slow notify pass
-            # cannot chain into one silent window.
-            _sd_notify_watchdog()
-            if raw is None:
-                if not unreachable:
-                    logger.warning("Prometheus did not answer; alert state is unknown until it does")
-                unreachable = True
-            else:
-                if unreachable:
-                    logger.info("Prometheus answers again")
-                    # Restart the reminder clocks: an alert that survived an outage
-                    # should not burst a reminder the moment Prometheus is back.
-                    for tracked in firing.values():
-                        tracked["last_notify"] = now_mono
-                unreachable = False
-                summary = _present(raw)
-                if ctx.obj["output_format"] == "json":
-                    output(summary, "json")
-                now_wall = datetime.now(UTC)
-                silences = _load_silences(silence_file, silence_cache)
-                current = {_alert_id(a): a for a in raw if a.get("state") == "firing"}
-                if first_poll:
-                    _event(
-                        "prometheus_watch_started",
-                        None,
-                        via="startup",
-                        silenced=None,
-                        extra={
-                            "firing_count": len(current),
-                            "firing_alertnames": sorted({a.get("labels", {}).get("alertname") for a in current.values()}),
-                        },
-                    )
-                _emit_alert_changes(
-                    current,
-                    firing,
-                    silences,
-                    now_mono,
-                    now_wall,
-                    remind_interval,
-                    first_poll,
-                    _event,
-                )
-                if state_path:
-                    _save_firing_state(state_path, firing)
-                first_poll = False
-            _sd_notify_watchdog()
-            if metrics_file:
-                _write_metrics_file(
-                    metrics_file,
-                    {
-                        "poll_unix": float(time.time()),
-                        "reachable": 0.0 if unreachable else 1.0,
-                        "firing": float(sum(1 for s in firing.values() if not s["silenced"])),
-                        "silenced_firing": float(sum(1 for s in firing.values() if s["silenced"])),
-                        "notify_errors": float(stats.get("notify_errors", 0)),
-                    },
-                    metrics_warn,
-                )
-            time.sleep(interval)
+            _watch_iteration(ctx, url, watch_state)
     except KeyboardInterrupt:
         click.echo("\nWatch stopped")
+
+
+def _emit_watch_event(
+    w: dict[str, Any],
+    name: str,
+    alert: dict[str, Any] | None,
+    *,
+    via: str,
+    silenced: dict[str, Any] | None,
+    extra: dict[str, Any] | None = None,
+) -> None:
+    """Record one watch event to the alert log/journal and push it unless silenced."""
+    record: dict[str, Any] = {
+        "event": name,
+        "via": via,
+        "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
+        "timestamp_unix": int(time.time()),
+    }
+    if alert is not None:
+        labels = alert.get("labels", {})
+        record.update(
+            {
+                "alertname": labels.get("alertname"),
+                "state": "resolved" if name == "prometheus_alert_resolved" else "firing",
+                "severity": labels.get("severity"),
+                "summary": alert.get("annotations", {}).get("summary"),
+                "description": alert.get("annotations", {}).get("description"),
+                "labels": labels,
+                "active_at": alert.get("activeAt"),
+            }
+        )
+        if name == "prometheus_alert_resolved":
+            record["duration_seconds"] = _seconds_since(alert.get("activeAt"))
+    if silenced is not None:
+        record["silenced"] = True
+        if silenced.get("reason"):
+            record["silence_reason"] = silenced["reason"]
+    if extra:
+        record.update(extra)
+    line = json.dumps(record, sort_keys=True)
+    alert_log = w["alert_log"]
+    if alert_log is not None:
+        alert_log.info(line)
+    if w["emit"]:
+        # Structured line for journalctl / external watchers
+        click.echo(line, file=sys.stdout)
+        if name in ("prometheus_alert_firing", "prometheus_alert_still_firing") and silenced is None:
+            logger.warning(line)
+        else:
+            logger.info(line)
+    # A silence suppresses the push, not the record: the event still lands in
+    # the alert log and the journal so "what happened" stays auditable.
+    # The severity floor works the same way: below-floor alerts are logged
+    # (the daily digest reads them) but never pushed.
+    if silenced is None and _severity_at_least(record.get("severity"), w["notify_min_severity"]):
+        _notify(
+            w["notify_urls"],
+            record,
+            w["stats"],
+            notify_format=w["notify_format"],
+            topic=w["notify_topic"],
+            click_url=w["notify_click"],
+            # Env only -- the token is never an option, never in a URL and
+            # never in a log line (AITBC_WATCH_NOTIFY_TOKEN).
+            token=os.environ.get("AITBC_WATCH_NOTIFY_TOKEN"),
+        )
+
+
+def _fetch_alerts(url: str) -> list[dict[str, Any]] | None:
+    """The alerts Prometheus reports, or None when it did not answer (which is not the same as "no alerts")."""
+    data = _prometheus_get(url, "/api/v1/alerts")
+    if data.get("status") != "success":
+        return None
+    return cast(list[dict[str, Any]], data.get("data", {}).get("alerts", []))
+
+
+def _present_alerts(raw_alerts: list[dict[str, Any]]) -> dict[str, Any]:
+    return {
+        "alerts": [
+            {
+                "name": a.get("labels", {}).get("alertname"),
+                "state": a.get("state"),
+                "severity": a.get("labels", {}).get("severity"),
+                "summary": a.get("annotations", {}).get("summary"),
+                "description": a.get("annotations", {}).get("description"),
+                "active_at": a.get("activeAt"),
+                "labels": a.get("labels"),
+            }
+            for a in raw_alerts
+        ],
+        "firing": sum(1 for a in raw_alerts if a.get("state") == "firing"),
+        "pending": sum(1 for a in raw_alerts if a.get("state") == "pending"),
+        "checked_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
+    }
+
+
+def _watch_iteration(ctx: click.Context, url: str, w: dict[str, Any]) -> None:
+    """One watch-loop poll: fetch, diff alert state, emit events, write metrics, sleep."""
+    # Feed the watchdog at the top of every iteration, not only at
+    # the bottom: under load one iteration used to exceed
+    # WatchdogSec between end-of-loop pings and systemd SIGABRT'd
+    # the watcher (21 restarts on hub during the 22 Oct OOM night).
+    _sd_notify_watchdog()
+    now_mono = time.monotonic()
+    try:
+        raw = _fetch_alerts(url)
+    except CLIError as e:
+        # _prometheus_get abort()s (exit 2) on a refused connection or
+        # an HTTP error status. In watch mode that must be an
+        # unanswered poll, not a process exit: the whole point of the
+        # unreachable path below is to outlive a Prometheus outage,
+        # and aborting here crash-looped the service every RestartSec
+        # while Prometheus was down (Refs #1609). The one-shot
+        # `alerts` command still aborts — it is outside this loop.
+        logger.debug("prometheus poll failed, treating as unanswered: %s", e.message)
+        raw = None
+    # The Prometheus query is the iteration's first long step; ping
+    # again once it returns so a slow query plus a slow notify pass
+    # cannot chain into one silent window.
+    _sd_notify_watchdog()
+    if raw is None:
+        if not w["unreachable"]:
+            logger.warning("Prometheus did not answer; alert state is unknown until it does")
+        w["unreachable"] = True
+    else:
+        _watch_alerts_poll(ctx, raw, now_mono, w)
+    _sd_notify_watchdog()
+    if w["metrics_file"]:
+        _write_metrics_file(
+            w["metrics_file"],
+            {
+                "poll_unix": float(time.time()),
+                "reachable": 0.0 if w["unreachable"] else 1.0,
+                "firing": float(sum(1 for s in w["firing"].values() if not s["silenced"])),
+                "silenced_firing": float(sum(1 for s in w["firing"].values() if s["silenced"])),
+                "notify_errors": float(w["stats"].get("notify_errors", 0)),
+            },
+            w["metrics_warn"],
+        )
+    time.sleep(w["interval"])
+
+
+def _watch_alerts_poll(ctx: click.Context, raw: list[dict[str, Any]], now_mono: float, w: dict[str, Any]) -> None:
+    """Handle one answered poll: reset outage state, emit alert diffs, save state."""
+    if w["unreachable"]:
+        logger.info("Prometheus answers again")
+        # Restart the reminder clocks: an alert that survived an outage
+        # should not burst a reminder the moment Prometheus is back.
+        for tracked in w["firing"].values():
+            tracked["last_notify"] = now_mono
+    w["unreachable"] = False
+    summary = _present_alerts(raw)
+    if ctx.obj["output_format"] == "json":
+        output(summary, "json")
+    now_wall = datetime.now(UTC)
+    silences = _load_silences(w["silence_file"], w["silence_cache"])
+    current = {_alert_id(a): a for a in raw if a.get("state") == "firing"}
+    if w["first_poll"]:
+        w["event"](
+            "prometheus_watch_started",
+            None,
+            via="startup",
+            silenced=None,
+            extra={
+                "firing_count": len(current),
+                "firing_alertnames": sorted({a.get("labels", {}).get("alertname") for a in current.values()}),
+            },
+        )
+    _emit_alert_changes(
+        current,
+        w["firing"],
+        silences,
+        now_mono,
+        now_wall,
+        w["remind_interval"],
+        w["first_poll"],
+        w["event"],
+    )
+    if w["state_path"]:
+        _save_firing_state(w["state_path"], w["firing"])
+    w["first_poll"] = False
 
 
 @prometheus.command(
@@ -962,62 +994,16 @@ def alert_history(
     them. Rotated files can be read by passing them to --path.
     """
     path = Path(log_path)
-    events: list[dict[str, Any]] = []
-    if path.exists():
-        with path.open(encoding="utf-8") as fh:
-            for line in fh:
-                line = line.strip()
-                if not line:
-                    continue
-                try:
-                    record = json.loads(line)
-                except ValueError:
-                    continue
-                if isinstance(record, dict):
-                    events.append(record)
+    events = _read_alert_events(path)
     cutoff = _parse_since(since)
 
-    def _identity(record: dict[str, Any]) -> bool:
-        """Filters that also scope the firing-now replay."""
-        if alertname and alertname not in str(record.get("alertname") or ""):
-            return False
-        if node_filter:
-            labels = record.get("labels") or {}
-            if node_filter not in (str(labels.get("node") or ""), str(labels.get("instance") or "")):
-                return False
-        return True
-
-    def _keep(record: dict[str, Any]) -> bool:
-        if not _identity(record):
-            return False
-        if cutoff is not None:
-            epoch = _event_epoch(record)
-            if epoch is None or epoch < cutoff:
-                return False
-        if state_filter == "silenced":
-            return record.get("silenced") is True
-        if state_filter:
-            return record.get("state") == state_filter
-        return True
-
-    matched = [e for e in events if _keep(e)]
+    matched = [e for e in events if _history_record_kept(e, cutoff, state_filter, alertname, node_filter)]
     if last_n is not None:
         matched = matched[-last_n:]
 
     # firing-now replays the identity-filtered stream and deliberately ignores
     # --since/--state: a resolve outside the window still clears its firing.
-    firing_now: dict[str, dict[str, Any]] = {}
-    for record in events:
-        if not _identity(record):
-            continue
-        name = record.get("event")
-        if name not in ("prometheus_alert_firing", "prometheus_alert_resolved", "prometheus_alert_still_firing"):
-            continue
-        key = f"{record.get('alertname')}{json.dumps(record.get('labels') or {}, sort_keys=True)}"
-        if name == "prometheus_alert_resolved":
-            firing_now.pop(key, None)
-        else:
-            firing_now[key] = record
+    firing_now = _firing_now(events, alertname, node_filter)
 
     output(
         {
@@ -1037,6 +1023,73 @@ def alert_history(
         },
         ctx.obj["output_format"],
     )
+
+
+def _read_alert_events(path: Path) -> list[dict[str, Any]]:
+    """Parse JSON-lines alert events from the log; skips blanks and bad lines."""
+    events: list[dict[str, Any]] = []
+    if not path.exists():
+        return events
+    with path.open(encoding="utf-8") as fh:
+        for line in fh:
+            line = line.strip()
+            if not line:
+                continue
+            try:
+                record = json.loads(line)
+            except ValueError:
+                continue
+            if isinstance(record, dict):
+                events.append(record)
+    return events
+
+
+def _history_identity(record: dict[str, Any], alertname: str | None, node_filter: str | None) -> bool:
+    """Filters that also scope the firing-now replay."""
+    if alertname and alertname not in str(record.get("alertname") or ""):
+        return False
+    if node_filter:
+        labels = record.get("labels") or {}
+        if node_filter not in (str(labels.get("node") or ""), str(labels.get("instance") or "")):
+            return False
+    return True
+
+
+def _history_record_kept(
+    record: dict[str, Any],
+    cutoff,
+    state_filter: str | None,
+    alertname: str | None,
+    node_filter: str | None,
+) -> bool:
+    if not _history_identity(record, alertname, node_filter):
+        return False
+    if cutoff is not None:
+        epoch = _event_epoch(record)
+        if epoch is None or epoch < cutoff:
+            return False
+    if state_filter == "silenced":
+        return record.get("silenced") is True
+    if state_filter:
+        return record.get("state") == state_filter
+    return True
+
+
+def _firing_now(events: list[dict[str, Any]], alertname: str | None, node_filter: str | None) -> dict[str, dict[str, Any]]:
+    """Replay the identity-filtered stream to the set still firing at end of log."""
+    firing_now: dict[str, dict[str, Any]] = {}
+    for record in events:
+        if not _history_identity(record, alertname, node_filter):
+            continue
+        name = record.get("event")
+        if name not in ("prometheus_alert_firing", "prometheus_alert_resolved", "prometheus_alert_still_firing"):
+            continue
+        key = f"{record.get('alertname')}{json.dumps(record.get('labels') or {}, sort_keys=True)}"
+        if name == "prometheus_alert_resolved":
+            firing_now.pop(key, None)
+        else:
+            firing_now[key] = record
+    return firing_now
 
 
 @prometheus.command(
