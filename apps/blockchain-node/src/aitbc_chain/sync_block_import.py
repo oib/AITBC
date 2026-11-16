@@ -4,6 +4,9 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Callable
+from dataclasses import dataclass, field
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import func, text
@@ -82,6 +85,35 @@ _PARALLEL_V2V8_ENABLED: bool = False
 # pure_state_transition.SEQUENTIAL_ONLY_TX_TYPES (one list, one rule — the
 # pure path returns requires_sequential=True for exactly these types).
 _SEQUENTIAL_ONLY_TX_TYPES = SEQUENTIAL_ONLY_TX_TYPES
+
+
+@dataclass
+class _AppendContext:
+    """Shared stage parameters for ``BlockImportMixin._append_block``.
+
+    The append path is split into ordered stage helpers; this object carries
+    the values every stage needs so each helper keeps an explicit signature
+    instead of a dozen positional arguments. The mutable fields
+    (``tx_only_root``, ``gate_height``, the lock-hash sets) are filled by the
+    era-prep stage and consumed by the apply/root stages — the mutation order
+    is the same as the original inline sequence.
+    """
+
+    session: Session
+    block_data: dict[str, Any]
+    block_hash: str
+    block_version: int
+    timestamp: datetime
+    tx_only_root: bool
+    gate_height: int
+    probe: bool
+    reject_tag: str
+    check_deadline: Callable[[], None]
+    probe_deadline: float | None
+    journal: BlockDeltaJournal | None
+    skip_state_root_validation: bool
+    declared_lock_hashes: set[str] = field(default_factory=set)
+    successful_lock_hashes: set[str] = field(default_factory=set)
 
 
 class BlockImportMixin(SyncBase):
@@ -303,6 +335,8 @@ class BlockImportMixin(SyncBase):
             transactions = block_data.get("transactions") or []
         parent_hash = block_data.get("parent_hash", "")
         metrics_registry.increment("sync_blocks_received_total")
+        # NOTE: kept inline — tests drive import_block on minimal stubs that
+        # only carry _validate_signatures/_validator/_normalize_block_metadata.
         if self._validate_signatures:
             phase_start = time.perf_counter()
             valid, reason = self._validator.validate_block_signature(block_data)
@@ -322,193 +356,306 @@ class BlockImportMixin(SyncBase):
         # actually persisted.
         get_state_transition().reset_processed_cache()
         with self._session_factory() as session:
-            from .database import ensure_chain_db_healthy
-
-            phase_start = time.perf_counter()
-            db_ok, db_reason = ensure_chain_db_healthy(self._chain_id, session=session)
-            sync_import_phase_seconds.labels(phase="db_health_check").observe(time.perf_counter() - phase_start)
-            if not db_ok:
-                metrics_registry.increment("sync_blocks_rejected_total")
-                logger.error(
-                    "Refusing block import at height %s for chain %s — chain.db integrity failure: %s",
-                    height,
-                    self._chain_id,
-                    db_reason,
-                )
-                return self._make_import_result(
-                    accepted=False,
-                    height=height,
-                    block_hash=block_hash,
-                    reason=f"chain.db integrity check failed: {db_reason}",
-                )
-            if height == 0 and block_data.get("block_metadata"):
-                is_valid, reason = self._validate_genesis_metadata(block_data, session)
-                if not is_valid:
-                    metrics_registry.increment("sync_state_root_rejected_total")
-                    logger.error(
-                        "Genesis block metadata validation failed: %s", reason, extra={"height": height, "hash": block_hash}
-                    )
-                    return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason=reason)
-            phase_start = time.perf_counter()
-            existing = session.exec(
-                select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == block_hash)
-            ).first()
-            if existing:
-                metrics_registry.increment("sync_blocks_duplicate_total")
-                return self._make_import_result(
-                    accepted=False, height=height, block_hash=block_hash, reason="Block already exists"
-                )
-            our_head = session.exec(
-                select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
-            ).first()
-            our_height = our_head.height if our_head else -1
-            gap = height - our_height
-            logger.info(
-                "Import block check: remote height=%s, local height=%s (gap=%s), parent=%s, block=%s",
+            return self._import_block_in_session(
+                session,
+                block_data,
+                transactions,
+                skip_state_root_validation,
                 height,
-                our_height,
-                gap,
-                parent_hash,
                 block_hash,
+                parent_hash,
+                start,
             )
-            if height == our_height + 1:
-                parent_exists = session.exec(
-                    select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)
-                ).first()
-                parent_is_our_head = parent_exists is not None and our_head is not None and parent_exists.hash == our_head.hash
-                sync_import_phase_seconds.labels(phase="block_lookup").observe(time.perf_counter() - phase_start)
-                if (height == 0 and parent_hash == "0x00") or (height > 0 and parent_is_our_head):
-                    try:
-                        result = self._append_block(session, block_data, transactions, skip_state_root_validation)
-                        duration = time.perf_counter() - start
-                        metrics_registry.observe("sync_import_duration_seconds", duration)
-                        block_processing_duration.observe(duration)
-                        return result
-                    except Exception as append_exc:  # noqa: BLE001 - must-run rollback + quarantine classification boundary
-                        session.rollback()
-                        # #1740: SQLITE_FULL / IOERR / corrupt-store errors
-                        # leave quick_check green while every write fails —
-                        # quarantine on the error shape, not just on
-                        # integrity-check failures.
-                        from .database import quarantine_chain_db_for_error
 
-                        quarantined = quarantine_chain_db_for_error(self._chain_id, append_exc, session=session)
-                        if quarantined is not None:
-                            logger.error(
-                                "Append block failed for height %s — chain.db quarantined: %s",
-                                height,
-                                quarantined,
-                            )
-                            return self._make_import_result(
-                                accepted=False,
-                                height=height,
-                                block_hash=block_hash,
-                                reason=f"chain.db unrecoverable error — quarantined: {quarantined}",
-                            )
-                        reason = str(append_exc).lower()
-                        if "unique" in reason and "constraint" in reason:
-                            # A unique violation here is not automatically a
-                            # committed duplicate: a concurrent import can mark
-                            # the height and roll back afterwards, and a
-                            # tx-row collision surfaces the same error text.
-                            # Roll back the dead transaction and check the
-                            # committed view before deciding (Refs #712).
-                            session.rollback()
-                            committed = session.exec(
-                                select(Block).where(Block.chain_id == self._chain_id).where(Block.height == height)
-                            ).first()
-                            if committed is not None and committed.hash == block_hash:
-                                metrics_registry.increment("sync_blocks_duplicate_total")
-                                logger.info(
-                                    "Concurrent block import: height %s already inserted, treating as duplicate", height
-                                )
-                                return self._make_import_result(
-                                    accepted=False,
-                                    height=height,
-                                    block_hash=block_hash,
-                                    reason="Block already exists (concurrent import)",
-                                )
-                            if committed is None:
-                                # Phantom marker: the concurrent attempt that
-                                # claimed the height has rolled back. Retry the
-                                # append once — without this the block is
-                                # permanently reported as already present and
-                                # the importer stalls (Refs #712).
-                                try:
-                                    result = self._append_block(session, block_data, transactions, skip_state_root_validation)
-                                    duration = time.perf_counter() - start
-                                    metrics_registry.observe("sync_import_duration_seconds", duration)
-                                    block_processing_duration.observe(duration)
-                                    return result
-                                except Exception as retry_exc:  # noqa: BLE001 - must-run rollback boundary on append retry
-                                    session.rollback()
-                                    logger.warning(
-                                        "Retry after phantom height marker failed for height %s: %s",
-                                        height,
-                                        retry_exc,
-                                    )
-                                    return self._make_import_result(
-                                        accepted=False,
-                                        height=height,
-                                        block_hash=block_hash,
-                                        reason=f"Import conflict (retryable): {retry_exc}",
-                                    )
-                            logger.warning(
-                                "Unique violation importing height %s but committed block %s differs from %s",
-                                height,
-                                committed.hash,
-                                block_hash,
-                            )
-                            return self._make_import_result(
-                                accepted=False,
-                                height=height,
-                                block_hash=block_hash,
-                                reason=f"Divergent committed block at height {height}",
-                                diverged=True,
-                            )
-                        logger.exception("Append block failed for height %s", height)
-                        return self._make_import_result(
-                            accepted=False,
-                            height=height,
-                            block_hash=block_hash,
-                            reason=f"Append block failed: {append_exc}",
-                        )
-                # Peer is one height ahead but the parent is not our tip: a fork
-                # where the peer is *ahead* of us. `_resolve_fork` only runs when
-                # height <= our_height, so this used to fall through to
-                # "Unhandled import case" and stall catch-up forever (V23-90).
-                metrics_registry.increment("sync_divergence_rejected_total")
-                our_hash = our_head.hash if our_head else ""
-                return self._make_import_result(
-                    accepted=False,
-                    height=height,
-                    block_hash=block_hash,
-                    reason=(
-                        f"Divergent chain: next block parent {parent_hash[:16]}... "
-                        f"is not our head {our_hash[:16]}... at height {our_height}"
-                    ),
-                    diverged=True,
-                )
-            if height <= our_height:
-                existing_at_height = session.exec(
-                    select(Block).where(Block.chain_id == self._chain_id).where(Block.height == height)
-                ).first()
-                if existing_at_height and existing_at_height.hash != block_hash:
-                    if our_head:
-                        return self._resolve_fork(session, block_data, transactions, our_head)
-                metrics_registry.increment("sync_blocks_stale_total")
-                return self._make_import_result(
-                    accepted=False, height=height, block_hash=block_hash, reason=f"Stale block (our height: {our_height})"
-                )
-            if height > our_height + 1:
-                metrics_registry.increment("sync_blocks_gap_total")
-                return self._make_import_result(
-                    accepted=False,
-                    height=height,
-                    block_hash=block_hash,
-                    reason=f"Gap detected (our height: {our_height}, received: {height})",
-                )
+    def _import_block_in_session(
+        self,
+        session: Session,
+        block_data: dict[str, Any],
+        transactions: list[dict[str, Any]],
+        skip_state_root_validation: bool,
+        height: int,
+        block_hash: str,
+        parent_hash: str,
+        start: float,
+    ) -> ImportResult:
+        """Route an imported block by height: next-block append, same-height
+        fork/stale resolution, or gap rejection."""
+        from .database import ensure_chain_db_healthy
+
+        phase_start = time.perf_counter()
+        db_ok, db_reason = ensure_chain_db_healthy(self._chain_id, session=session)
+        sync_import_phase_seconds.labels(phase="db_health_check").observe(time.perf_counter() - phase_start)
+        if not db_ok:
+            metrics_registry.increment("sync_blocks_rejected_total")
+            logger.error(
+                "Refusing block import at height %s for chain %s — chain.db integrity failure: %s",
+                height,
+                self._chain_id,
+                db_reason,
+            )
+            return self._make_import_result(
+                accepted=False,
+                height=height,
+                block_hash=block_hash,
+                reason=f"chain.db integrity check failed: {db_reason}",
+            )
+        rejected = self._check_genesis_metadata(session, block_data, height, block_hash)
+        if rejected is not None:
+            return rejected
+        lookup_start = time.perf_counter()
+        rejected = self._check_duplicate_import(session, height, block_hash)
+        if rejected is not None:
+            return rejected
+        our_head = session.exec(
+            select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
+        ).first()
+        our_height = our_head.height if our_head else -1
+        gap = height - our_height
+        logger.info(
+            "Import block check: remote height=%s, local height=%s (gap=%s), parent=%s, block=%s",
+            height,
+            our_height,
+            gap,
+            parent_hash,
+            block_hash,
+        )
+        if height == our_height + 1:
+            return self._import_next_block(
+                session,
+                block_data,
+                transactions,
+                skip_state_root_validation,
+                height,
+                block_hash,
+                parent_hash,
+                our_head,
+                our_height,
+                lookup_start,
+                start,
+            )
+        if height <= our_height:
+            return self._import_at_or_below_head(session, block_data, transactions, our_head, height, block_hash, our_height)
+        if height > our_height + 1:
+            metrics_registry.increment("sync_blocks_gap_total")
+            return self._make_import_result(
+                accepted=False,
+                height=height,
+                block_hash=block_hash,
+                reason=f"Gap detected (our height: {our_height}, received: {height})",
+            )
         return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason="Unhandled import case")
+
+    def _check_genesis_metadata(
+        self, session: Session, block_data: dict[str, Any], height: int, block_hash: str
+    ) -> ImportResult | None:
+        """Genesis block metadata validation — runs before the local head is
+        consulted."""
+        if height == 0 and block_data.get("block_metadata"):
+            is_valid, reason = self._validate_genesis_metadata(block_data, session)
+            if not is_valid:
+                metrics_registry.increment("sync_state_root_rejected_total")
+                logger.error(
+                    "Genesis block metadata validation failed: %s", reason, extra={"height": height, "hash": block_hash}
+                )
+                return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason=reason)
+        return None
+
+    def _check_duplicate_import(self, session: Session, height: int, block_hash: str) -> ImportResult | None:
+        """Duplicate detection by block hash."""
+        existing = session.exec(select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == block_hash)).first()
+        if existing:
+            metrics_registry.increment("sync_blocks_duplicate_total")
+            return self._make_import_result(
+                accepted=False, height=height, block_hash=block_hash, reason="Block already exists"
+            )
+        return None
+
+    def _import_next_block(
+        self,
+        session: Session,
+        block_data: dict[str, Any],
+        transactions: list[dict[str, Any]],
+        skip_state_root_validation: bool,
+        height: int,
+        block_hash: str,
+        parent_hash: str,
+        our_head: Block | None,
+        our_height: int,
+        lookup_start: float,
+        start: float,
+    ) -> ImportResult:
+        """Peer is exactly one height ahead: append when the parent is our tip,
+        otherwise the parent mismatch is a divergence (V23-90)."""
+        parent_exists = session.exec(
+            select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)
+        ).first()
+        parent_is_our_head = parent_exists is not None and our_head is not None and parent_exists.hash == our_head.hash
+        sync_import_phase_seconds.labels(phase="block_lookup").observe(time.perf_counter() - lookup_start)
+        if (height == 0 and parent_hash == "0x00") or (height > 0 and parent_is_our_head):
+            return self._append_with_conflict_retry(
+                session, block_data, transactions, skip_state_root_validation, height, block_hash, start
+            )
+        # Peer is one height ahead but the parent is not our tip: a fork
+        # where the peer is *ahead* of us. `_resolve_fork` only runs when
+        # height <= our_height, so this used to fall through to
+        # "Unhandled import case" and stall catch-up forever (V23-90).
+        metrics_registry.increment("sync_divergence_rejected_total")
+        our_hash = our_head.hash if our_head else ""
+        return self._make_import_result(
+            accepted=False,
+            height=height,
+            block_hash=block_hash,
+            reason=(
+                f"Divergent chain: next block parent {parent_hash[:16]}... "
+                f"is not our head {our_hash[:16]}... at height {our_height}"
+            ),
+            diverged=True,
+        )
+
+    def _import_at_or_below_head(
+        self,
+        session: Session,
+        block_data: dict[str, Any],
+        transactions: list[dict[str, Any]],
+        our_head: Block | None,
+        height: int,
+        block_hash: str,
+        our_height: int,
+    ) -> ImportResult:
+        """Same-height hash conflict goes to fork resolution; anything else at
+        or below our head is stale."""
+        existing_at_height = session.exec(
+            select(Block).where(Block.chain_id == self._chain_id).where(Block.height == height)
+        ).first()
+        if existing_at_height and existing_at_height.hash != block_hash:
+            if our_head:
+                return self._resolve_fork(session, block_data, transactions, our_head)
+        metrics_registry.increment("sync_blocks_stale_total")
+        return self._make_import_result(
+            accepted=False, height=height, block_hash=block_hash, reason=f"Stale block (our height: {our_height})"
+        )
+
+    def _append_with_conflict_retry(
+        self,
+        session: Session,
+        block_data: dict[str, Any],
+        transactions: list[dict[str, Any]],
+        skip_state_root_validation: bool,
+        height: int,
+        block_hash: str,
+        start: float,
+    ) -> ImportResult:
+        """Append the next block, classifying append failures: chain.db
+        quarantine on storage errors (#1740), duplicate/concurrent-import
+        detection and one retry on a phantom height marker (Refs #712),
+        divergent-commit detection, and the generic failure path."""
+        try:
+            result = self._append_block(session, block_data, transactions, skip_state_root_validation)
+            duration = time.perf_counter() - start
+            metrics_registry.observe("sync_import_duration_seconds", duration)
+            block_processing_duration.observe(duration)
+            return result
+        except Exception as append_exc:  # noqa: BLE001 - must-run rollback + quarantine classification boundary
+            session.rollback()
+            # #1740: SQLITE_FULL / IOERR / corrupt-store errors
+            # leave quick_check green while every write fails —
+            # quarantine on the error shape, not just on
+            # integrity-check failures.
+            from .database import quarantine_chain_db_for_error
+
+            quarantined = quarantine_chain_db_for_error(self._chain_id, append_exc, session=session)
+            if quarantined is not None:
+                logger.error(
+                    "Append block failed for height %s — chain.db quarantined: %s",
+                    height,
+                    quarantined,
+                )
+                return self._make_import_result(
+                    accepted=False,
+                    height=height,
+                    block_hash=block_hash,
+                    reason=f"chain.db unrecoverable error — quarantined: {quarantined}",
+                )
+            reason = str(append_exc).lower()
+            if "unique" in reason and "constraint" in reason:
+                return self._handle_append_unique_conflict(
+                    session, append_exc, block_data, transactions, skip_state_root_validation, height, block_hash, start
+                )
+            logger.exception("Append block failed for height %s", height)
+            return self._make_import_result(
+                accepted=False,
+                height=height,
+                block_hash=block_hash,
+                reason=f"Append block failed: {append_exc}",
+            )
+
+    def _handle_append_unique_conflict(
+        self,
+        session: Session,
+        append_exc: Exception,
+        block_data: dict[str, Any],
+        transactions: list[dict[str, Any]],
+        skip_state_root_validation: bool,
+        height: int,
+        block_hash: str,
+        start: float,
+    ) -> ImportResult:
+        """Unique-violation classification after a rolled-back append.
+
+        A unique violation here is not automatically a committed duplicate: a
+        concurrent import can mark the height and roll back afterwards, and a
+        tx-row collision surfaces the same error text. Roll back the dead
+        transaction and check the committed view before deciding (Refs #712).
+        """
+        session.rollback()
+        committed = session.exec(select(Block).where(Block.chain_id == self._chain_id).where(Block.height == height)).first()
+        if committed is not None and committed.hash == block_hash:
+            metrics_registry.increment("sync_blocks_duplicate_total")
+            logger.info("Concurrent block import: height %s already inserted, treating as duplicate", height)
+            return self._make_import_result(
+                accepted=False,
+                height=height,
+                block_hash=block_hash,
+                reason="Block already exists (concurrent import)",
+            )
+        if committed is None:
+            # Phantom marker: the concurrent attempt that
+            # claimed the height has rolled back. Retry the
+            # append once — without this the block is
+            # permanently reported as already present and
+            # the importer stalls (Refs #712).
+            try:
+                result = self._append_block(session, block_data, transactions, skip_state_root_validation)
+                duration = time.perf_counter() - start
+                metrics_registry.observe("sync_import_duration_seconds", duration)
+                block_processing_duration.observe(duration)
+                return result
+            except Exception as retry_exc:  # noqa: BLE001 - must-run rollback boundary on append retry
+                session.rollback()
+                logger.warning(
+                    "Retry after phantom height marker failed for height %s: %s",
+                    height,
+                    retry_exc,
+                )
+                return self._make_import_result(
+                    accepted=False,
+                    height=height,
+                    block_hash=block_hash,
+                    reason=f"Import conflict (retryable): {retry_exc}",
+                )
+        logger.warning(
+            "Unique violation importing height %s but committed block %s differs from %s",
+            height,
+            committed.hash,
+            block_hash,
+        )
+        return self._make_import_result(
+            accepted=False,
+            height=height,
+            block_hash=block_hash,
+            reason=f"Divergent committed block at height {height}",
+            diverged=True,
+        )
 
     def _probe_peer_segment(
         self,
@@ -602,8 +749,6 @@ class BlockImportMixin(SyncBase):
             transactions: Optional list of transactions
             skip_state_root_validation: Skip state root validation (for bulk import)
         """
-        from datetime import UTC, datetime
-
         apply_start = time.perf_counter()
 
         def _check_probe_deadline() -> None:
@@ -624,43 +769,70 @@ class BlockImportMixin(SyncBase):
         # Normalize transaction data from blocks-range (Transaction model dumps use
         # sender/recipient/value/tx_hash) to the signed transaction shape the state
         # transition expects (from/to/amount/fee/nonce/type/chain_id/signature/payload).
-        if transactions:
-            normalized = []
-            for raw_tx in transactions:
-                _check_probe_deadline()
-                norm = dict(raw_tx)
-                # Hoist a nested envelope: a peer serving a row stored before
-                # the fix can send a column dump with an empty top-level
-                # signature and the real signed envelope under "envelope".
-                # Without this the import stores and re-serves an unsigned tx
-                # — and a signature that exists anywhere must never end up "".
-                nested = norm.get("envelope")
-                if not norm.get("signature") and isinstance(nested, dict) and nested.get("signature"):
-                    kept_hash = norm.get("tx_hash")
-                    norm = dict(nested)
-                    if kept_hash:
-                        norm["tx_hash"] = kept_hash
-                if "from" not in norm and "sender" in norm:
-                    norm["from"] = norm["sender"]
-                if "to" not in norm and "recipient" in norm:
-                    norm["to"] = norm["recipient"]
-                if "amount" not in norm and "value" in norm:
-                    norm["amount"] = norm["value"]
-                if "signature" not in norm:
-                    norm["signature"] = ""
-                if "chain_id" not in norm:
-                    norm["chain_id"] = self._chain_id
-                # Block broadcasts carry the proposer's pre-computed tx_hash —
-                # it is authoritative: the same hash is what later transactions
-                # (e.g. STAKE_RELEASE lock_tx_hashes) and local lookups resolve.
-                # Recompute only as a fallback for legacy hashless payloads; the
-                # recompute runs over normalized content and may differ from the
-                # proposer's hash, so it must not overwrite a carried value.
-                if not norm.get("tx_hash"):
-                    norm["tx_hash"] = compute_tx_hash(norm)
-                normalized.append(norm)
-            transactions = normalized
+        transactions = self._normalize_import_txs(transactions, _check_probe_deadline)
 
+        timestamp, tx_count = self._block_header_fields(block_data, transactions)
+
+        block = self._build_import_block(block_data, timestamp, tx_count)
+
+        # v0.25.6: when multi-validator consensus is configured, ensure the
+        # proposer is an active validator scheduled for this height.  This wires
+        # MultiValidatorPoA.validate_block into the import path on the follower.
+        self._validate_proposer_schedule(session, block_data, block)
+
+        # v0.25.7: determine the state-transition rule version for this block.
+        # New blocks carry an explicit version in block_metadata; unversioned
+        # legacy blocks fall back to the configured v2 activation height.
+        block_version = get_block_version(block_data, block_data["height"])
+
+        ctx = _AppendContext(
+            session=session,
+            block_data=block_data,
+            block_hash=block_hash,
+            block_version=block_version,
+            timestamp=timestamp,
+            tx_only_root=False,
+            gate_height=0,
+            probe=_probe,
+            reject_tag=reject_tag,
+            check_deadline=_check_probe_deadline,
+            probe_deadline=_probe_deadline,
+            journal=journal,
+            skip_state_root_validation=skip_state_root_validation,
+        )
+
+        # #1940 F5 era gate + declared-lock scan, then the v20 signed
+        # tx-list hash check — both reject before any state is mutated.
+        rejected = self._prepare_tx_root_era(ctx, transactions) or self._verify_signed_tx_list_hash(ctx, transactions)
+        if rejected is not None:
+            return rejected
+
+        if transactions:
+            parallel_applied = self._apply_parallel_transactions(ctx, transactions, timestamp)
+            if not parallel_applied:
+                # Sequential path (fallback when parallel_tx_validation is off
+                # or the conflict rate exceeds the threshold).
+                self._apply_sequential_transactions(ctx, transactions, _state_transition)
+
+        rejected = (
+            self._check_lock_apply_evidence(ctx)
+            or self._finalize_block_roots(ctx, block, transactions)
+            or self._check_required_state_root(ctx)
+            or self._verify_state_root(ctx)
+            or self._verify_aux_root(ctx)
+        )
+        if rejected is not None:
+            return rejected
+        return self._commit_import(ctx, block, transactions, tx_count, apply_start)
+
+    # ------------------------------------------------------------------
+    # _append_block stage helpers — each preserves the original statement
+    # order and side effects of the inline sequence they were extracted from.
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _block_header_fields(block_data: dict[str, Any], transactions: list[dict[str, Any]] | None) -> tuple[datetime, int]:
+        """Parse the header timestamp and resolve ``tx_count`` for the Block row."""
         timestamp_str = block_data.get("timestamp", "")
         try:
             timestamp = datetime.fromisoformat(timestamp_str) if timestamp_str else datetime.now(UTC)
@@ -669,22 +841,25 @@ class BlockImportMixin(SyncBase):
         tx_count = block_data.get("tx_count", 0)
         if transactions and get_block_version(block_data, block_data.get("height", 0)) < 20:
             tx_count = len(transactions)
+        return timestamp, tx_count
 
-        # Build the Block object early so we can run proposer-schedule validation
-        # before any state is mutated.  Only block_metadata is filled in after
-        # transactions have been applied.
-        #
-        # The state and bridge roots are carried over from the incoming block
-        # here rather than left unset, because the schedule check below verifies
-        # the proposer signature and both roots are part of the canonical header
-        # that was signed.  Leaving them empty made every multi-validator block
-        # fail that check: the follower rebuilt the header with empty roots, the
-        # signature recovered to an unrelated address, and the block was rejected
-        # with "signature does not match the declared proposer" even though it
-        # was correctly signed.  These fields are re-assigned below (state_root
-        # from the same source, bridge_state_root via _derive_bridge_state_root)
-        # once transactions have been applied, so nothing downstream changes.
-        block = Block(
+    def _build_import_block(self, block_data: dict[str, Any], timestamp: datetime, tx_count: int) -> Block:
+        """Build the Block object early so proposer-schedule validation can run
+        before any state is mutated.  Only block_metadata is filled in after
+        transactions have been applied.
+
+        The state and bridge roots are carried over from the incoming block
+        here rather than left unset, because the schedule check below verifies
+        the proposer signature and both roots are part of the canonical header
+        that was signed.  Leaving them empty made every multi-validator block
+        fail that check: the follower rebuilt the header with empty roots, the
+        signature recovered to an unrelated address, and the block was rejected
+        with "signature does not match the declared proposer" even though it
+        was correctly signed.  These fields are re-assigned below (state_root
+        from the same source, bridge_state_root via _derive_bridge_state_root)
+        once transactions have been applied, so nothing downstream changes.
+        """
+        return Block(
             chain_id=self._chain_id,
             height=block_data["height"],
             hash=block_data["hash"],
@@ -701,554 +876,742 @@ class BlockImportMixin(SyncBase):
             signature=block_data.get("signature", ""),
         )
 
-        # v0.25.6: when multi-validator consensus is configured, ensure the
-        # proposer is an active validator scheduled for this height.  This wires
-        # MultiValidatorPoA.validate_block into the import path on the follower.
-        self._validate_proposer_schedule(session, block_data, block)
+    def _normalize_import_txs(
+        self,
+        transactions: list[dict[str, Any]] | None,
+        check_deadline: Callable[[], None],
+    ) -> list[dict[str, Any]] | None:
+        """Normalize raw block tx payloads to the signed shape the state
+        transition expects (from/to/amount/fee/nonce/type/chain_id/signature/
+        payload). Returns the input unchanged when there is nothing to do."""
+        if not transactions:
+            return transactions
+        return [self._normalize_import_tx(raw_tx, check_deadline) for raw_tx in transactions]
 
-        # v0.25.7: determine the state-transition rule version for this block.
-        # New blocks carry an explicit version in block_metadata; unversioned
-        # legacy blocks fall back to the configured v2 activation height.
-        block_version = get_block_version(block_data, block_data["height"])
+    def _normalize_import_tx(self, raw_tx: dict[str, Any], check_deadline: Callable[[], None]) -> dict[str, Any]:
+        """Normalize one raw block tx payload to the signed shape."""
+        check_deadline()
+        norm = self._hoist_signed_envelope(dict(raw_tx))
+        self._fill_normalized_tx_defaults(norm)
+        # Block broadcasts carry the proposer's pre-computed tx_hash —
+        # it is authoritative: the same hash is what later transactions
+        # (e.g. STAKE_RELEASE lock_tx_hashes) and local lookups resolve.
+        # Recompute only as a fallback for legacy hashless payloads; the
+        # recompute runs over normalized content and may differ from the
+        # proposer's hash, so it must not overwrite a carried value.
+        if not norm.get("tx_hash"):
+            norm["tx_hash"] = compute_tx_hash(norm)
+        return norm
 
-        # #1940 F5: tx-derived bridge-root era — history-only gate resolved
-        # at block_height - 1. The gate decision uses an int-convertible
-        # header height; once active a non-strict-int/bool height refuses.
-        tx_only_root = False
-        declared_lock_hashes: set[str] = set()
-        successful_lock_hashes: set[str] = set()
+    @staticmethod
+    def _hoist_signed_envelope(norm: dict[str, Any]) -> dict[str, Any]:
+        """Hoist a nested envelope: a peer serving a row stored before
+        the fix can send a column dump with an empty top-level
+        signature and the real signed envelope under "envelope".
+        Without this the import stores and re-serves an unsigned tx
+        — and a signature that exists anywhere must never end up ""."""
+        nested = norm.get("envelope")
+        if not norm.get("signature") and isinstance(nested, dict) and nested.get("signature"):
+            kept_hash = norm.get("tx_hash")
+            norm = dict(nested)
+            if kept_hash:
+                norm["tx_hash"] = kept_hash
+        return norm
+
+    def _fill_normalized_tx_defaults(self, norm: dict[str, Any]) -> None:
+        """Alias stored-row field names onto the signed-tx shape and fill
+        defaults the state transition requires."""
+        if "from" not in norm and "sender" in norm:
+            norm["from"] = norm["sender"]
+        if "to" not in norm and "recipient" in norm:
+            norm["to"] = norm["recipient"]
+        if "amount" not in norm and "value" in norm:
+            norm["amount"] = norm["value"]
+        if "signature" not in norm:
+            norm["signature"] = ""
+        if "chain_id" not in norm:
+            norm["chain_id"] = self._chain_id
+
+    def _prepare_tx_root_era(self, ctx: _AppendContext, transactions: list[dict[str, Any]] | None) -> ImportResult | None:
+        """#1940 F5: resolve the tx-derived bridge-root era gate at
+        ``block_height - 1`` and, when active, enforce the integer-height rule
+        and scan declared BRIDGE_LOCK bodies for contract violations. Fills
+        ``ctx.tx_only_root``/``ctx.gate_height``/``ctx.declared_lock_hashes``.
+        Returns a rejection result or None."""
+        block_data = ctx.block_data
         _height_raw = block_data.get("height")
         try:
-            _gate_height = int(_height_raw or 0)
+            ctx.gate_height = int(_height_raw or 0)
         except (TypeError, ValueError):
-            _gate_height = 0
-        tx_only_root = tx_only_root_active(session, self._chain_id, _gate_height)
-        if tx_only_root:
-            if not (isinstance(_height_raw, int) and not isinstance(_height_raw, bool)):
-                if not _probe:
+            ctx.gate_height = 0
+        ctx.tx_only_root = tx_only_root_active(ctx.session, self._chain_id, ctx.gate_height)
+        if not ctx.tx_only_root:
+            return None
+        if not (isinstance(_height_raw, int) and not isinstance(_height_raw, bool)):
+            if not ctx.probe:
+                metrics_registry.increment("sync_blocks_rejected_total")
+            logger.warning(
+                "[SYNC] Block rejected: non-integer height %r in tx-derived bridge-root era",
+                _height_raw,
+            )
+            return self._make_import_result(
+                accepted=False,
+                height=block_data.get("height", 0),
+                block_hash=block_data.get("hash", ""),
+                reason="non_integer_height_tx_root_era",
+            )
+        if transactions:
+            return self._scan_declared_lock_txs(ctx, transactions)
+        return None
+
+    def _scan_declared_lock_txs(self, ctx: _AppendContext, transactions: list[dict[str, Any]]) -> ImportResult | None:
+        """Declared-lock contract scan for the tx-derived bridge-root era.
+
+        Normalization already ran above, but it only adds equal
+        amount/value aliases and hoists the signed envelope — it
+        can neither create nor hide an alias conflict, so the
+        authoritative signed body still reaches these checks.
+        Stored-row type disagreements involving BRIDGE_LOCK,
+        canonical signed fields, and the outer amount/value debit
+        alias all reject the whole sealed block here — it is
+        never partially applied. Fills ``ctx.declared_lock_hashes``.
+        """
+        block_data = ctx.block_data
+        _tx_hashes = [str(tx.get("tx_hash") or "") for tx in transactions if isinstance(tx, dict)]
+        _stored_types: dict[str, str] = {}
+        if _tx_hashes:
+            for _h, _t in ctx.session.exec(
+                select(ChainTransaction.tx_hash, ChainTransaction.type).where(
+                    ChainTransaction.chain_id == self._chain_id,
+                    ChainTransaction.tx_hash.in_(_tx_hashes),  # type: ignore[attr-defined]
+                )
+            ).all():
+                _stored_types[_h] = _t
+        for _tx_raw in transactions:
+            _tx: Any = _tx_raw
+            if not isinstance(_tx, dict):
+                continue
+            _tx_hash = str(_tx.get("tx_hash") or "")
+            try:
+                _eff = resolve_lock_type(_tx, _stored_types.get(_tx_hash))
+                if _eff == "BRIDGE_LOCK":
+                    if _tx_hash in ctx.declared_lock_hashes:
+                        raise ValueError(f"duplicate BRIDGE_LOCK tx_hash {_tx_hash}")
+                    ctx.declared_lock_hashes.add(_tx_hash)
+                    _fields = canonical_lock_fields({**_tx, "tx_hash": _tx_hash}, _tx_hash, self._chain_id, ctx.gate_height)
+                    assert_lock_debit(_fields, effective_lock_debit(_tx))
+            except (TypeError, ValueError) as _e:
+                if not ctx.probe:
                     metrics_registry.increment("sync_blocks_rejected_total")
                 logger.warning(
-                    "[SYNC] Block rejected: non-integer height %r in tx-derived bridge-root era",
-                    _height_raw,
+                    "[SYNC] Block rejected: bridge lock contract violation at height %s: %s",
+                    block_data.get("height"),
+                    _e,
                 )
                 return self._make_import_result(
                     accepted=False,
                     height=block_data.get("height", 0),
                     block_hash=block_data.get("hash", ""),
-                    reason="non_integer_height_tx_root_era",
+                    reason=f"bridge_lock_contract_violation: {_e}",
                 )
-            if transactions:
-                # Normalization already ran above, but it only adds equal
-                # amount/value aliases and hoists the signed envelope — it
-                # can neither create nor hide an alias conflict, so the
-                # authoritative signed body still reaches these checks.
-                # Stored-row type disagreements involving BRIDGE_LOCK,
-                # canonical signed fields, and the outer amount/value debit
-                # alias all reject the whole sealed block here — it is
-                # never partially applied.
-                _tx_hashes = [str(tx.get("tx_hash") or "") for tx in transactions if isinstance(tx, dict)]
-                _stored_types: dict[str, str] = {}
-                if _tx_hashes:
-                    for _h, _t in session.exec(
-                        select(ChainTransaction.tx_hash, ChainTransaction.type).where(
-                            ChainTransaction.chain_id == self._chain_id,
-                            ChainTransaction.tx_hash.in_(_tx_hashes),  # type: ignore[attr-defined]
-                        )
-                    ).all():
-                        _stored_types[_h] = _t
-                for _tx_raw in transactions:
-                    _tx: Any = _tx_raw
-                    if not isinstance(_tx, dict):
-                        continue
-                    _tx_hash = str(_tx.get("tx_hash") or "")
+        return None
+
+    def _verify_signed_tx_list_hash(
+        self, ctx: _AppendContext, transactions: list[dict[str, Any]] | None
+    ) -> ImportResult | None:
+        """v20+: the signed block hash must reproduce over the delivered tx
+        list — a relayed list that does not hash to it is rejected (#1064)."""
+        block_data = ctx.block_data
+        if ctx.block_version < 20 or not block_data.get("hash"):
+            return None
+        from .consensus.block_hash import compute_block_hash
+
+        timestamp_str = block_data.get("timestamp", "")
+        delivered_hashes = [str(tx.get("tx_hash", "")) for tx in transactions or []]
+        recomputed = compute_block_hash(
+            self._chain_id,
+            int(block_data["height"]),
+            str(block_data.get("parent_hash", "")),
+            timestamp_str,
+            delivered_hashes,
+            str(block_data.get("proposer", "")),
+            str(block_data.get("state_root") or ""),
+            str(block_data.get("bridge_state_root") or ""),
+            str(block_data.get("aux_state_root") or ""),
+        )
+        if recomputed == str(block_data["hash"]):
+            return None
+        if not ctx.probe:
+            metrics_registry.increment("sync_blocks_rejected_total")
+        logger.warning(
+            ("[ATTEST-PROBE] " if ctx.probe else "")
+            + "Block rejected at v20+: delivered tx list does not hash to the signed block hash at height %s",
+            block_data["height"],
+        )
+        return self._make_import_result(
+            accepted=False,
+            height=block_data["height"],
+            block_hash=block_data.get("hash", ""),
+            reason="tx_list_hash_mismatch",
+        )
+
+    def _apply_parallel_transactions(
+        self, ctx: _AppendContext, transactions: list[dict[str, Any]], timestamp: datetime
+    ) -> bool:
+        """Parallel transaction validation path (v0.6.1).
+
+        When enabled and the conflict rate is low enough, transactions are
+        partitioned into conflict-free groups and their state deltas are
+        computed in parallel using pure functions (no DB access). Deltas are
+        applied to an in-memory account_map in tx-index order (deterministic)
+        so the resulting state root matches the sequential path exactly.
+
+        Returns True when the parallel path applied the block; False falls
+        through to the sequential path.
+        """
+        escrow_context, bridge_lock_context = self._parallel_tx_contexts(ctx, transactions)
+        if not self._parallel_path_eligible(ctx, transactions, escrow_context, bridge_lock_context):
+            return False
+        # Build dependency graph from read/write sets.
+        graph = DependencyGraph()
+        tx_hash_to_data: dict[str, dict[str, Any]] = {}
+        tx_hash_to_index: dict[str, int] = {}
+        for idx, tx_data in enumerate(transactions):
+            ctx.check_deadline()
+            tx_hash = tx_data.get("tx_hash", "")
+            tx_hash_to_data[tx_hash] = tx_data
+            tx_hash_to_index[tx_hash] = idx
+            read_set, write_set = extract_read_write_sets(tx_data)
+            graph.add_transaction(tx_hash, read_set, write_set, index=idx)
+        groups = graph.get_conflict_groups()
+        # Fall back to sequential if too many transactions conflict.
+        if not groups or graph.conflict_rate() > settings.conflict_threshold:
+            return False
+        # Bridge-signed txs (credits v5, locks v9) need the bridge release
+        # authority for the signature gate — resolved once here.
+        bridge_authority = self._parallel_bridge_authority(ctx, transactions)
+        unique_addresses = self._parallel_unique_addresses(ctx, transactions, escrow_context)
+        account_map = self._parallel_account_map(ctx, unique_addresses)
+        existing_tx_hashes = self._parallel_existing_tx_hashes(ctx, transactions)
+        all_deltas = self._parallel_execute_groups(
+            ctx,
+            groups,
+            tx_hash_to_data,
+            tx_hash_to_index,
+            account_map,
+            existing_tx_hashes,
+            escrow_context,
+            bridge_authority,
+            bridge_lock_context,
+            timestamp,
+        )
+        # Collect successful deltas in tx-index order (deterministic).
+        successful_deltas = sorted(
+            [d for d in all_deltas if d.success],
+            key=lambda d: tx_hash_to_index.get(d.tx_hash, 0),
+        )
+        # Batch-write all deltas to the DB.
+        apply_deltas_to_db(
+            ctx.session,
+            successful_deltas,
+            self._chain_id,
+            ctx.block_version,
+            block_height=ctx.block_data["height"],
+            block_time=timestamp,
+        )
+        self._persist_parallel_tx_rows(ctx, successful_deltas, all_deltas, tx_hash_to_data)
+        return True
+
+    def _parallel_tx_contexts(
+        self, ctx: _AppendContext, transactions: list[dict[str, Any]]
+    ) -> tuple[dict[str, dict[str, Any]] | None, dict[str, dict[str, Any]] | None]:
+        """Prefetch contexts for the parallel path. Historical v1 blocks
+        (pre state-transition fix) use the sequential path so the v1/v2
+        account-creation gating is applied correctly. S-4: v2/v3 blocks may
+        use the parallel path once per-job escrow lock metadata is prefetched.
+        A release/refund with no resolvable lock returns None and the block
+        stays sequential."""
+        if not (settings.parallel_tx_validation and 2 <= ctx.block_version <= 8):
+            return None, None
+        escrow_context = build_escrow_context(ctx.session, self._chain_id, transactions, block_height=ctx.block_data["height"])
+        bridge_lock_context: dict[str, dict[str, Any]] | None = None
+        # v6: refunds need their named BRIDGE_LOCK records prefetched —
+        # a batch with two refunds for one lock returns None and the
+        # block goes sequential so the double-refund rule applies in order.
+        if (
+            ctx.block_version >= 6
+            and escrow_context is not None
+            and any(_determine_tx_type(tx) == "BRIDGE_REFUND" for tx in transactions)
+        ):
+            bridge_lock_context = build_bridge_lock_context(ctx.session, self._chain_id, transactions)
+        return escrow_context, bridge_lock_context
+
+    def _parallel_path_eligible(
+        self,
+        ctx: _AppendContext,
+        transactions: list[dict[str, Any]],
+        escrow_context: dict[str, dict[str, Any]] | None,
+        bridge_lock_context: dict[str, dict[str, Any]] | None,
+    ) -> bool:
+        """Eligibility gate for the parallel apply path."""
+        return (
+            settings.parallel_tx_validation
+            # FORK-GUARD-1: parallel import is disabled at v2-v8 — its
+            # prefetch pre-creates every raw `to` and apply_deltas
+            # creates recipients for non-MESSAGE deltas, so zero-value
+            # fresh-recipient txs diverge from the proposer's serial
+            # path (state-root mismatch; #432 pins GPU_MARKET->0x0 and
+            # MESSAGE->fresh). The sequential path reproduces
+            # pure_state_transition exactly; the divergence can only
+            # re-enable after a recipient-rule guard lands.
+            and _PARALLEL_V2V8_ENABLED
+            and escrow_context is not None
+            and (
+                ctx.block_version < 6
+                or bridge_lock_context is not None
+                or not any(_determine_tx_type(tx) == "BRIDGE_REFUND" for tx in transactions)
+            )
+            and not any(_determine_tx_type(tx) in _SEQUENTIAL_ONLY_TX_TYPES for tx in transactions)
+        )
+
+    def _parallel_bridge_authority(self, ctx: _AppendContext, transactions: list[dict[str, Any]]) -> str | None:
+        """Only queried when a v5+ block actually contains a bridge-signed tx."""
+        if ctx.block_version >= 5 and any(_determine_tx_type(tx) in BRIDGE_AUTHORITY_TX_TYPES for tx in transactions):
+            return _bridge_release_authority(ctx.session, self._chain_id, ctx.block_data["height"])
+        return None
+
+    def _parallel_unique_addresses(
+        self,
+        ctx: _AppendContext,
+        transactions: list[dict[str, Any]],
+        escrow_context: dict[str, dict[str, Any]] | None,
+    ) -> set[str]:
+        """Collect every account address the parallel deltas may touch,
+        including per-escrow accounts for v3+ escrow locks."""
+        unique_addresses: set[str] = set()
+        for tx_data in transactions:
+            ctx.check_deadline()
+            raw_from = tx_data.get("from", "")
+            raw_to = tx_data.get("to", "")
+            sender_addr = _to_ait_address(raw_from)
+            recipient_addr = _to_ait_address(raw_to)
+            if sender_addr and raw_from not in {"bridge_release", "bridge_refund"}:
+                unique_addresses.add(sender_addr)
+            if recipient_addr and raw_to != "bridge_lock":
+                unique_addresses.add(recipient_addr)
+            tx_type = _determine_tx_type(tx_data)
+            if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND"):
+                payload = tx_data.get("payload", {}) or {}
+                if isinstance(payload, str):
                     try:
-                        _eff = resolve_lock_type(_tx, _stored_types.get(_tx_hash))
-                        if _eff == "BRIDGE_LOCK":
-                            if _tx_hash in declared_lock_hashes:
-                                raise ValueError(f"duplicate BRIDGE_LOCK tx_hash {_tx_hash}")
-                            declared_lock_hashes.add(_tx_hash)
-                            _fields = canonical_lock_fields(
-                                {**_tx, "tx_hash": _tx_hash}, _tx_hash, self._chain_id, _gate_height
-                            )
-                            assert_lock_debit(_fields, effective_lock_debit(_tx))
-                    except (TypeError, ValueError) as _e:
-                        if not _probe:
-                            metrics_registry.increment("sync_blocks_rejected_total")
-                        logger.warning(
-                            "[SYNC] Block rejected: bridge lock contract violation at height %s: %s",
-                            block_data.get("height"),
-                            _e,
-                        )
-                        return self._make_import_result(
-                            accepted=False,
-                            height=block_data.get("height", 0),
-                            block_hash=block_data.get("hash", ""),
-                            reason=f"bridge_lock_contract_violation: {_e}",
-                        )
+                        payload = json.loads(payload)
+                    except (
+                        RecursionError,
+                        TypeError,
+                        ValueError,
+                    ):  # malformed payload JSON decodes to the empty/default branch
+                        payload = {}
+                job_id = payload.get("job_id", "")
+                if job_id:
+                    esc_ctx = (escrow_context or {}).get(job_id, {})
+                    lock_version = esc_ctx.get("lock_version")
+                    # Only pre-fetch the per-escrow account when the
+                    # lock itself was a v3 per-escrow lock; v2 locks
+                    # keep the generic sender->recipient transfer.
+                    if lock_version is not None and lock_version >= 3:
+                        unique_addresses.add(_escrow_address(job_id))
+        return unique_addresses
 
-        if block_version >= 20 and block_data.get("hash"):
-            # v20+: the signed block hash must reproduce over the delivered tx
-            # list — a relayed list that does not hash to it is rejected (#1064).
-            from .consensus.block_hash import compute_block_hash
+    def _parallel_account_map(self, ctx: _AppendContext, unique_addresses: set[str]) -> dict[str, Account]:
+        """Batch-fetch all sender/recipient/v3-escrow accounts into
+        account_map. Pre-create any missing accounts with zero balance so that
+        ``compute_state_delta`` does not fail on followers that have not yet
+        replayed the blocks that created those accounts."""
+        account_map: dict[str, Account] = {}
+        if unique_addresses:
+            existing_accounts = ctx.session.exec(
+                select(Account).where(
+                    Account.chain_id == self._chain_id,
+                    Account.address.in_(unique_addresses),  # type: ignore[attr-defined]
+                )
+            ).all()
+            account_map = {acc.address: acc for acc in existing_accounts}
+        for addr in unique_addresses:
+            if addr not in account_map:
+                acct = Account(chain_id=self._chain_id, address=addr, balance=0, nonce=0)
+                ctx.session.add(acct)
+                ctx.session.flush()
+                account_map[acct.address] = acct
+        return account_map
 
-            delivered_hashes = [str(tx.get("tx_hash", "")) for tx in transactions or []]
-            recomputed = compute_block_hash(
+    def _parallel_existing_tx_hashes(self, ctx: _AppendContext, transactions: list[dict[str, Any]]) -> set[str]:
+        """Batch-fetch tx hashes already in the DB (duplicate detection)."""
+        existing_tx_hashes: set[str] = set()
+        all_tx_hashes = [tx_data.get("tx_hash", "") for tx_data in transactions]
+        if all_tx_hashes:
+            existing_rows = ctx.session.exec(
+                select(ChainTransaction.tx_hash).where(
+                    ChainTransaction.chain_id == self._chain_id,
+                    ChainTransaction.tx_hash.in_(all_tx_hashes),  # type: ignore[attr-defined]
+                    ChainTransaction.status != "rejected",
+                )
+            ).all()
+            existing_tx_hashes = set(existing_rows)
+        return existing_tx_hashes
+
+    def _parallel_execute_groups(
+        self,
+        ctx: _AppendContext,
+        groups: list[list[str]],
+        tx_hash_to_data: dict[str, dict[str, Any]],
+        tx_hash_to_index: dict[str, int],
+        account_map: dict[str, Account],
+        existing_tx_hashes: set[str],
+        escrow_context: dict[str, dict[str, Any]] | None,
+        bridge_authority: str | None,
+        bridge_lock_context: dict[str, dict[str, Any]] | None,
+        timestamp: datetime,
+    ) -> list[StateDelta]:
+        """Execute conflict groups sequentially; within each group, deltas are
+        computed in parallel (group members are conflict-free)."""
+
+        def _compute_delta(tx_data: dict[str, Any]) -> StateDelta:
+            txh = tx_data.get("tx_hash", "")
+            return compute_state_delta(
+                account_map,
+                tx_data,
                 self._chain_id,
-                int(block_data["height"]),
-                str(block_data.get("parent_hash", "")),
-                timestamp_str,
-                delivered_hashes,
-                str(block_data.get("proposer", "")),
-                str(block_data.get("state_root") or ""),
-                str(block_data.get("bridge_state_root") or ""),
-                str(block_data.get("aux_state_root") or ""),
+                txh,
+                existing_tx_hashes,
+                block_version=ctx.block_version,
+                escrow_context=escrow_context,
+                bridge_authority=bridge_authority,
+                bridge_lock_context=bridge_lock_context,
+                block_time=timestamp,
             )
-            if recomputed != str(block_data["hash"]):
-                if not _probe:
-                    metrics_registry.increment("sync_blocks_rejected_total")
-                logger.warning(
-                    ("[ATTEST-PROBE] " if _probe else "")
-                    + "Block rejected at v20+: delivered tx list does not hash to the signed block hash at height %s",
-                    block_data["height"],
-                )
-                return self._make_import_result(
-                    accepted=False,
-                    height=block_data["height"],
-                    block_hash=block_data.get("hash", ""),
-                    reason="tx_list_hash_mismatch",
-                )
 
-        if transactions:
-            # Parallel transaction validation path (v0.6.1).
-            # When enabled and the conflict rate is low enough, transactions are
-            # partitioned into conflict-free groups and their state deltas are
-            # computed in parallel using pure functions (no DB access). Deltas are
-            # applied to an in-memory account_map in tx-index order (deterministic)
-            # so the resulting state root matches the sequential path exactly.
-            parallel_applied = False
-            # Historical v1 blocks (pre state-transition fix) use the sequential
-            # path so the v1/v2 account-creation gating is applied correctly.
-            # S-4: v2/v3 blocks may use the parallel path once per-job escrow
-            # lock metadata is prefetched. A release/refund with no resolvable
-            # lock returns None and the block stays sequential.
-            escrow_context: dict[str, dict[str, Any]] | None = None
-            bridge_lock_context: dict[str, dict[str, Any]] | None = None
-            if settings.parallel_tx_validation and 2 <= block_version <= 8:
-                escrow_context = build_escrow_context(session, self._chain_id, transactions, block_height=block_data["height"])
-                # v6: refunds need their named BRIDGE_LOCK records prefetched —
-                # a batch with two refunds for one lock returns None and the
-                # block goes sequential so the double-refund rule applies in order.
-                if (
-                    block_version >= 6
-                    and escrow_context is not None
-                    and any(_determine_tx_type(tx) == "BRIDGE_REFUND" for tx in transactions)
-                ):
-                    bridge_lock_context = build_bridge_lock_context(session, self._chain_id, transactions)
-            if (
-                settings.parallel_tx_validation
-                # FORK-GUARD-1: parallel import is disabled at v2-v8 — its
-                # prefetch pre-creates every raw `to` and apply_deltas
-                # creates recipients for non-MESSAGE deltas, so zero-value
-                # fresh-recipient txs diverge from the proposer's serial
-                # path (state-root mismatch; #432 pins GPU_MARKET->0x0 and
-                # MESSAGE->fresh). The sequential path reproduces
-                # pure_state_transition exactly; the divergence can only
-                # re-enable after a recipient-rule guard lands.
-                and _PARALLEL_V2V8_ENABLED
-                and escrow_context is not None
-                and (
-                    block_version < 6
-                    or bridge_lock_context is not None
-                    or not any(_determine_tx_type(tx) == "BRIDGE_REFUND" for tx in transactions)
-                )
-                and not any(_determine_tx_type(tx) in _SEQUENTIAL_ONLY_TX_TYPES for tx in transactions)
-            ):
-                # Build dependency graph from read/write sets.
-                graph = DependencyGraph()
-                tx_hash_to_data: dict[str, dict[str, Any]] = {}
-                tx_hash_to_index: dict[str, int] = {}
-                for idx, tx_data in enumerate(transactions):
-                    _check_probe_deadline()
-                    tx_hash = tx_data.get("tx_hash", "")
-                    tx_hash_to_data[tx_hash] = tx_data
-                    tx_hash_to_index[tx_hash] = idx
-                    read_set, write_set = extract_read_write_sets(tx_data)
-                    graph.add_transaction(tx_hash, read_set, write_set, index=idx)
-                groups = graph.get_conflict_groups()
-                # Fall back to sequential if too many transactions conflict.
-                if groups and graph.conflict_rate() <= settings.conflict_threshold:
-                    # Bridge-signed txs (credits v5, locks v9) need the bridge
-                    # release authority for the signature gate — resolve the
-                    # on-chain parameter once so the pure path applies the same
-                    # rule as the sequential one. Only queried when a v5+ block
-                    # actually contains a bridge-signed tx.
-                    bridge_authority: str | None = None
-                    if block_version >= 5 and any(_determine_tx_type(tx) in BRIDGE_AUTHORITY_TX_TYPES for tx in transactions):
-                        bridge_authority = _bridge_release_authority(session, self._chain_id, block_data["height"])
-                    # Batch-fetch all sender/recipient/v3-escrow accounts into
-                    # account_map. Pre-create any missing accounts with zero
-                    # balance so that `compute_state_delta` does not fail on
-                    # followers that have not yet replayed the blocks that created
-                    # those accounts.
-                    unique_addresses: set[str] = set()
-                    for tx_data in transactions:
-                        _check_probe_deadline()
-                        raw_from = tx_data.get("from", "")
-                        raw_to = tx_data.get("to", "")
-                        sender_addr = _to_ait_address(raw_from)
-                        recipient_addr = _to_ait_address(raw_to)
-                        if sender_addr and raw_from not in {"bridge_release", "bridge_refund"}:
-                            unique_addresses.add(sender_addr)
-                        if recipient_addr and raw_to != "bridge_lock":
-                            unique_addresses.add(recipient_addr)
-                        tx_type = _determine_tx_type(tx_data)
-                        if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND"):
-                            payload = tx_data.get("payload", {}) or {}
-                            if isinstance(payload, str):
-                                try:
-                                    payload = json.loads(payload)
-                                except (
-                                    RecursionError,
-                                    TypeError,
-                                    ValueError,
-                                ):  # malformed payload JSON decodes to the empty/default branch
-                                    payload = {}
-                            job_id = payload.get("job_id", "")
-                            if job_id:
-                                ctx = (escrow_context or {}).get(job_id, {})
-                                lock_version = ctx.get("lock_version")
-                                # Only pre-fetch the per-escrow account when the
-                                # lock itself was a v3 per-escrow lock; v2 locks
-                                # keep the generic sender->recipient transfer.
-                                if lock_version is not None and lock_version >= 3:
-                                    unique_addresses.add(_escrow_address(job_id))
-                    account_map: dict[str, Account] = {}
-                    if unique_addresses:
-                        existing_accounts = session.exec(
-                            select(Account).where(
-                                Account.chain_id == self._chain_id,
-                                Account.address.in_(unique_addresses),  # type: ignore[attr-defined]
-                            )
-                        ).all()
-                        account_map = {acc.address: acc for acc in existing_accounts}
-                    for addr in unique_addresses:
-                        if addr not in account_map:
-                            acct = Account(chain_id=self._chain_id, address=addr, balance=0, nonce=0)
-                            session.add(acct)
-                            session.flush()
-                            account_map[acct.address] = acct
-                    # Batch-fetch tx hashes already in the DB (duplicate detection).
-                    existing_tx_hashes: set[str] = set()
-                    all_tx_hashes = [tx_data.get("tx_hash", "") for tx_data in transactions]
-                    if all_tx_hashes:
-                        existing_rows = session.exec(
-                            select(ChainTransaction.tx_hash).where(
-                                ChainTransaction.chain_id == self._chain_id,
-                                ChainTransaction.tx_hash.in_(all_tx_hashes),  # type: ignore[attr-defined]
-                                ChainTransaction.status != "rejected",
-                            )
-                        ).all()
-                        existing_tx_hashes = set(existing_rows)
-                    # Execute groups sequentially; within each group, deltas are
-                    # computed in parallel (group members are conflict-free).
-                    executor = ParallelExecutor(max_workers=settings.parallel_workers)
-                    all_deltas: list[StateDelta] = []
-                    try:
+        executor = ParallelExecutor(max_workers=settings.parallel_workers)
+        all_deltas: list[StateDelta] = []
+        try:
+            for group in groups:
+                ctx.check_deadline()
+                # Update nonces from account_map before processing each group
+                # (conflicting txs in later groups need updated nonces)
+                for txh in group:
+                    tx_data = tx_hash_to_data[txh]
+                    sender = _to_ait_address(tx_data.get("from", ""))
+                    sender_account = account_map.get(sender)
+                    if sender_account:
+                        # Bridge credits sign their nonce at
+                        # issuance (v5) — the pseudo-sender
+                        # account's nonce must not replace it.
+                        if _determine_tx_type(tx_data) not in (
+                            "BRIDGE_RELEASE",
+                            "BRIDGE_REFUND",
+                        ) and use_account_nonce_override(tx_data, ctx.block_version):
+                            tx_data["nonce"] = sender_account.nonce
+                        tx_data["value"] = tx_data.get("amount", 0)
+                group_txs = [tx_hash_to_data[txh] for txh in group]
+                group_results = executor.execute_groups([group_txs], _compute_delta, deadline=ctx.probe_deadline)[0]
+                # Apply successful deltas to account_map in tx-index
+                # order within the group (deterministic). Group members
+                # are conflict-free so application order does not affect
+                # the final state, but we keep index order for safety.
+                group_results_sorted = sorted(group_results, key=lambda d: tx_hash_to_index.get(d.tx_hash, 0))
+                for delta in group_results_sorted:
+                    if delta.success:
+                        apply_delta_to_map(account_map, delta, self._chain_id, ctx.block_version)
+                        existing_tx_hashes.add(delta.tx_hash)
+                all_deltas.extend(group_results_sorted)
+        finally:
+            executor.close()
+        return all_deltas
 
-                        def _compute_delta(tx_data: dict[str, Any]) -> StateDelta:
-                            txh = tx_data.get("tx_hash", "")
-                            return compute_state_delta(
-                                account_map,
-                                tx_data,
-                                self._chain_id,
-                                txh,
-                                existing_tx_hashes,
-                                block_version=block_version,
-                                escrow_context=escrow_context,
-                                bridge_authority=bridge_authority,
-                                bridge_lock_context=bridge_lock_context,
-                                block_time=timestamp,
-                            )
+    def _upsert_import_tx_row(self, session: Session, db_tx: ChainTransaction, tx_only_root: bool) -> ChainTransaction | None:
+        """Insert the sealed tx row, or upgrade an existing pending/rejected
+        writeback row to the sealed record rather than collide on the unique
+        constraint (Refs #712 follow-up). Returns the pre-existing row when
+        one was upgraded (None on fresh insert) so callers can keep the same
+        identity-map lifetime the inline loop had."""
+        existing_tx = session.exec(
+            select(ChainTransaction)
+            .where(ChainTransaction.chain_id == self._chain_id)
+            .where(ChainTransaction.tx_hash == db_tx.tx_hash)
+        ).first()
+        if existing_tx is not None:
+            existing_tx.block_height = db_tx.block_height
+            existing_tx.status = db_tx.status
+            if tx_only_root and db_tx.type == "BRIDGE_LOCK":
+                # #1940 F5: the upgraded row must carry the exact
+                # accepted body — semantic columns and envelope —
+                # so proof reconstruction never replays a stale
+                # pre-seal envelope. (Same semantic refresh as the
+                # parallel-path upgrade.)
+                existing_tx.sender = db_tx.sender
+                existing_tx.recipient = db_tx.recipient
+                existing_tx.value = db_tx.value
+                existing_tx.fee = db_tx.fee
+                existing_tx.nonce = db_tx.nonce
+                existing_tx.type = db_tx.type
+                existing_tx.payload = db_tx.payload
+                existing_tx.envelope = db_tx.envelope
+            session.add(existing_tx)
+        else:
+            session.add(db_tx)
+        return existing_tx
 
-                        for group in groups:
-                            _check_probe_deadline()
-                            # Update nonces from account_map before processing each group
-                            # (conflicting txs in later groups need updated nonces)
-                            for txh in group:
-                                tx_data = tx_hash_to_data[txh]
-                                sender = _to_ait_address(tx_data.get("from", ""))
-                                sender_account = account_map.get(sender)
-                                if sender_account:
-                                    # Bridge credits sign their nonce at
-                                    # issuance (v5) — the pseudo-sender
-                                    # account's nonce must not replace it.
-                                    if _determine_tx_type(tx_data) not in (
-                                        "BRIDGE_RELEASE",
-                                        "BRIDGE_REFUND",
-                                    ) and use_account_nonce_override(tx_data, block_version):
-                                        tx_data["nonce"] = sender_account.nonce
-                                    tx_data["value"] = tx_data.get("amount", 0)
-                            group_txs = [tx_hash_to_data[txh] for txh in group]
-                            group_results = executor.execute_groups([group_txs], _compute_delta, deadline=_probe_deadline)[0]
-                            # Apply successful deltas to account_map in tx-index
-                            # order within the group (deterministic). Group members
-                            # are conflict-free so application order does not affect
-                            # the final state, but we keep index order for safety.
-                            group_results_sorted = sorted(group_results, key=lambda d: tx_hash_to_index.get(d.tx_hash, 0))
-                            for delta in group_results_sorted:
-                                if delta.success:
-                                    apply_delta_to_map(account_map, delta, self._chain_id, block_version)
-                                    existing_tx_hashes.add(delta.tx_hash)
-                            all_deltas.extend(group_results_sorted)
-                    finally:
-                        executor.close()
-                    # Collect successful deltas in tx-index order (deterministic).
-                    successful_deltas = sorted(
-                        [d for d in all_deltas if d.success],
-                        key=lambda d: tx_hash_to_index.get(d.tx_hash, 0),
-                    )
-                    # Batch-write all deltas to the DB.
-                    apply_deltas_to_db(
-                        session,
-                        successful_deltas,
-                        self._chain_id,
-                        block_version,
-                        block_height=block_data["height"],
-                        block_time=timestamp,
-                    )
-                    # Create Transaction records for all successful txs.
-                    for delta in successful_deltas:
-                        tx_data = tx_hash_to_data.get(delta.tx_hash, {})
-                        db_tx = ChainTransaction(
-                            chain_id=self._chain_id,
-                            tx_hash=delta.tx_hash,
-                            block_height=block_data["height"],
-                            # Raw, not the canonicalised delta: these are signed (V23-65).
-                            sender=tx_data.get("from", delta.sender),
-                            recipient=tx_data.get("to", delta.recipient),
-                            payload=tx_data.get("payload", {}),
-                            envelope=dict(tx_data),
-                            type=delta.tx_type,
-                            value=tx_data.get("value", tx_data.get("amount", 0)),
-                            fee=tx_data.get("fee", 0),
-                            nonce=tx_data.get("nonce", 0),
-                            status="confirmed",
-                        )
-                        existing_tx = session.exec(
-                            select(ChainTransaction)
-                            .where(ChainTransaction.chain_id == self._chain_id)
-                            .where(ChainTransaction.tx_hash == db_tx.tx_hash)
-                        ).first()
-                        if existing_tx is not None:
-                            # A pending/rejected writeback already owns the row —
-                            # upgrade it to the sealed record rather than collide
-                            # on the unique constraint (Refs #712 follow-up).
-                            existing_tx.block_height = db_tx.block_height
-                            existing_tx.status = db_tx.status
-                            if tx_only_root and db_tx.type == "BRIDGE_LOCK":
-                                # #1940 F5: same semantic refresh as the
-                                # sequential upgrade — stale envelopes must
-                                # not diverge the proof builder.
-                                existing_tx.sender = db_tx.sender
-                                existing_tx.recipient = db_tx.recipient
-                                existing_tx.value = db_tx.value
-                                existing_tx.fee = db_tx.fee
-                                existing_tx.nonce = db_tx.nonce
-                                existing_tx.type = db_tx.type
-                                existing_tx.payload = db_tx.payload
-                                existing_tx.envelope = db_tx.envelope
-                            session.add(existing_tx)
-                        else:
-                            session.add(db_tx)
-                    # Log failed transactions.
-                    for delta in all_deltas:
-                        if not delta.success:
-                            logger.warning(reject_tag + " Failed to apply transaction %s: %s", delta.tx_hash, delta.error)
-                    if tx_only_root:
-                        # #1940 F5: actual apply success is the only evidence
-                        # a lock may contribute a trie leaf — persisted or
-                        # claimed status is never consulted.
-                        for delta in all_deltas:
-                            if delta.tx_hash in declared_lock_hashes and delta.success:
-                                successful_lock_hashes.add(delta.tx_hash)
-                    parallel_applied = True
-            if not parallel_applied:
-                # Sequential path (fallback when parallel_tx_validation is off
-                # or the conflict rate exceeds the threshold).
-                for tx_data in transactions:
-                    _check_probe_deadline()
-                    sender_addr = _to_ait_address(tx_data.get("from", ""))
-                    recipient_addr = _to_ait_address(tx_data.get("to", ""))
-                    int(tx_data.get("amount", 0) or 0)
-                    int(tx_data.get("fee", 0) or 0)
-                    tx_hash = tx_data.get("tx_hash", "")
-                    raw_from = tx_data.get("from", "")
-                    if raw_from not in {"bridge_release", "bridge_refund"}:
-                        sender_acct = session.get(Account, (self._chain_id, sender_addr))
-                        # v22 (CONSENSUS-STATE-001, #1169): no pre-apply sender
-                        # insert — a tx that validate/apply rejects must leave
-                        # zero mutation, and a phantom account row is committed
-                        # state. apply_transaction creates accounts only on its
-                        # success paths; a same-block-earlier credit is already
-                        # visible via session.get above.
-                        if sender_acct is None and 2 <= block_version < 22:
-                            sender_acct = Account(chain_id=self._chain_id, address=sender_addr, balance=0, nonce=0)
-                            session.add(sender_acct)
-                            session.flush()
-                    # Do not create the recipient account here, matching the
-                    # proposer (poa.py): apply_transaction ensures the recipient
-                    # itself on the paths that credit it. Pre-creating left a
-                    # phantom row for zero-value types (GPU_MARKET offers carry
-                    # to=0x0000…0000), so the importer computed a state root the
-                    # committed header never had — every validator rejected the
-                    # block (bc-2 fork at height 1462).
-                    # Bump tx_data nonce/value to the live account state before
-                    # applying, mirroring the block producer.  Blocks may contain
-                    # multiple same-sender transactions that share the stored nonce
-                    # (e.g. parallel-validated GPU_MARKET offers); the follower
-                    # must apply them with the current account nonce, not the stored
-                    # one, or the second transaction fails and the state root diverges.
-                    if raw_from not in {"bridge_release", "bridge_refund"} and use_account_nonce_override(
-                        tx_data, block_version
-                    ):
-                        if block_version >= 24:
-                            # #1314 V5 mirror: authoritative scalar read — the
-                            # identity-mapped sender_acct can be stale after
-                            # raw-SQL writes earlier in this block.
-                            _, auth_nonce, auth_exists = read_current_account(session, self._chain_id, sender_addr)
-                            if auth_exists:
-                                tx_data["nonce"] = auth_nonce
-                        elif sender_acct is not None:
-                            tx_data["nonce"] = sender_acct.nonce
-                    if block_version >= 20:
-                        # v20+: value is unsigned — the signed amount always
-                        # wins, exactly as the proposer does (#1066).
-                        if "amount" in tx_data:
-                            tx_data["value"] = tx_data["amount"]
-                    elif "value" not in tx_data and "amount" in tx_data:
-                        tx_data["value"] = tx_data["amount"]
-                    state_transition = _state_transition if _state_transition is not None else get_state_transition()
-                    success, error_msg = state_transition.apply_transaction_guarded(
-                        session,
-                        self._chain_id,
-                        tx_data,
-                        tx_hash,
-                        block_version=block_version,
-                        block_height=block_data["height"],
-                        # v18: the sealed header timestamp drives the
-                        # deterministic apply paths — identical to the
-                        # ``timestamp`` the proposer threaded through.
-                        block_time=timestamp,
-                    )
-                    if not success:
-                        logger.warning(reject_tag + " Failed to apply transaction %s: %s", tx_hash, error_msg)
-                    if tx_only_root and tx_hash in declared_lock_hashes and success:
-                        # #1940 F5: only an actually-applied lock may be
-                        # certified by the tx-derived root — below v20 the
-                        # persisted "confirmed" status proves nothing.
-                        successful_lock_hashes.add(tx_hash)
-                    tx_type = tx_data.get("type", "TRANSFER")
-                    if tx_type:
-                        tx_type = tx_type.upper()
-                    else:
-                        tx_type = "TRANSFER"
-                    if tx_only_root and _determine_tx_type(tx_data) == "BRIDGE_LOCK":
-                        # #1940 F5: payload-typed locks store their real
-                        # resolved type, matching the producer.
-                        tx_type = "BRIDGE_LOCK"
-                    db_tx = ChainTransaction(
-                        chain_id=self._chain_id,
-                        tx_hash=tx_hash,
-                        block_height=block_data["height"],
-                        # Raw, not the canonicalised locals: these are signed (V23-65).
-                        sender=tx_data.get("from", sender_addr),
-                        recipient=tx_data.get("to", recipient_addr),
-                        payload=tx_data.get("payload", {}),
-                        envelope=dict(tx_data),
-                        type=tx_type,
-                        value=tx_data.get("value", tx_data.get("amount", 0)),
-                        fee=tx_data.get("fee", 0),
-                        nonce=tx_data.get("nonce", 0),
-                        status="confirmed" if success or block_version < 20 else "failed",
-                    )
-                    existing_tx = session.exec(
-                        select(ChainTransaction)
-                        .where(ChainTransaction.chain_id == self._chain_id)
-                        .where(ChainTransaction.tx_hash == db_tx.tx_hash)
-                    ).first()
-                    if existing_tx is not None:
-                        # A pending/rejected writeback already owns the row —
-                        # upgrade it to the sealed record rather than collide
-                        # on the unique constraint (Refs #712 follow-up).
-                        existing_tx.block_height = db_tx.block_height
-                        existing_tx.status = db_tx.status
-                        if tx_only_root and db_tx.type == "BRIDGE_LOCK":
-                            # #1940 F5: the upgraded row must carry the exact
-                            # accepted body — semantic columns and envelope —
-                            # so proof reconstruction never replays a stale
-                            # pre-seal envelope.
-                            existing_tx.sender = db_tx.sender
-                            existing_tx.recipient = db_tx.recipient
-                            existing_tx.value = db_tx.value
-                            existing_tx.fee = db_tx.fee
-                            existing_tx.nonce = db_tx.nonce
-                            existing_tx.type = db_tx.type
-                            existing_tx.payload = db_tx.payload
-                            existing_tx.envelope = db_tx.envelope
-                        session.add(existing_tx)
-                    else:
-                        session.add(db_tx)
-                    if block_version >= 24:
-                        # #1314 R2 importer mirror: prod sessions run
-                        # autoflush=False, so without this flush the sealed
-                        # row stays pending and later same-block applies
-                        # (escrow-lock/refund Transaction-row reads) cannot
-                        # see it — diverging from the proposer's in-loop
-                        # flush schedule.
-                        session.flush()
-
-        # Fill in the state/bridge roots and metadata now that transactions have
-        # been applied, then persist the block.  This keeps the schedule check
-        # above from touching any state.
-        if tx_only_root and declared_lock_hashes != successful_lock_hashes:
-            # #1940 F5: every declared/effectively-typed lock must have
-            # actually applied — a failed, skipped or hidden lock rejects
-            # the whole block and rolls back every write above.
-            _failed = sorted(declared_lock_hashes - successful_lock_hashes)
-            if not _probe:
-                metrics_registry.increment("sync_blocks_rejected_total")
-            session.rollback()
-            if not _probe:
-                self._track_rejection(self._chain_id)
-            logger.warning(
-                "[SYNC] Block rejected: BRIDGE_LOCK without actual apply success at height %s: %s",
-                block_data.get("height"),
-                _failed,
+    def _persist_parallel_tx_rows(
+        self,
+        ctx: _AppendContext,
+        successful_deltas: list[StateDelta],
+        all_deltas: list[StateDelta],
+        tx_hash_to_data: dict[str, dict[str, Any]],
+    ) -> None:
+        """Create Transaction records for all successful parallel txs, log
+        failures, and record tx-derived-era lock apply successes."""
+        for delta in successful_deltas:
+            tx_data = tx_hash_to_data.get(delta.tx_hash, {})
+            db_tx = ChainTransaction(
+                chain_id=self._chain_id,
+                tx_hash=delta.tx_hash,
+                block_height=ctx.block_data["height"],
+                # Raw, not the canonicalised delta: these are signed (V23-65).
+                sender=tx_data.get("from", delta.sender),
+                recipient=tx_data.get("to", delta.recipient),
+                payload=tx_data.get("payload", {}),
+                envelope=dict(tx_data),
+                type=delta.tx_type,
+                value=tx_data.get("value", tx_data.get("amount", 0)),
+                fee=tx_data.get("fee", 0),
+                nonce=tx_data.get("nonce", 0),
+                status="confirmed",
             )
-            return self._make_import_result(
-                accepted=False,
-                height=block_data.get("height", 0),
-                block_hash=block_hash,
-                reason=f"bridge_lock_apply_failed: {_failed}",
+            self._upsert_import_tx_row(ctx.session, db_tx, ctx.tx_only_root)
+        # Log failed transactions.
+        for delta in all_deltas:
+            if not delta.success:
+                logger.warning(ctx.reject_tag + " Failed to apply transaction %s: %s", delta.tx_hash, delta.error)
+        if ctx.tx_only_root:
+            # #1940 F5: actual apply success is the only evidence
+            # a lock may contribute a trie leaf — persisted or
+            # claimed status is never consulted.
+            for delta in all_deltas:
+                if delta.tx_hash in ctx.declared_lock_hashes and delta.success:
+                    ctx.successful_lock_hashes.add(delta.tx_hash)
+
+    def _apply_sequential_transactions(
+        self,
+        ctx: _AppendContext,
+        transactions: list[dict[str, Any]],
+        state_transition: StateTransition | None,
+    ) -> None:
+        """Sequential fallback path (parallel_tx_validation off or conflict
+        rate exceeds the threshold)."""
+        # The loop-carried bindings deliberately mirror the original inline
+        # loop's frame locals: they keep the most recently touched ORM objects
+        # (sender Account, tx rows) referenced for the next iteration, which
+        # preserves the session identity-map lifetime the v<7 nonce override
+        # and same-hash tx-row upgrade rely on.
+        sender_acct: Account | None = None
+        db_tx: ChainTransaction | None = None
+        existing_tx: ChainTransaction | None = None
+        for tx_data in transactions:
+            ctx.check_deadline()
+            sender_acct, db_tx, existing_tx = self._apply_sequential_tx(
+                ctx, tx_data, state_transition, sender_acct, db_tx, existing_tx
             )
+
+    def _ensure_sequential_sender(self, ctx: _AppendContext, sender_addr: str, raw_from: str) -> Account | None:
+        """v22 (CONSENSUS-STATE-001, #1169): no pre-apply sender insert — a tx
+        that validate/apply rejects must leave zero mutation, and a phantom
+        account row is committed state. apply_transaction creates accounts only
+        on its success paths; a same-block-earlier credit is already visible
+        via session.get above. Historical v2-v21 blocks still pre-create the
+        sender to match their sealed state roots."""
+        if raw_from in {"bridge_release", "bridge_refund"}:
+            return None
+        sender_acct = ctx.session.get(Account, (self._chain_id, sender_addr))
+        if sender_acct is None and 2 <= ctx.block_version < 22:
+            sender_acct = Account(chain_id=self._chain_id, address=sender_addr, balance=0, nonce=0)
+            ctx.session.add(sender_acct)
+            ctx.session.flush()
+        return sender_acct
+
+    def _sync_sequential_tx_fields(
+        self,
+        ctx: _AppendContext,
+        tx_data: dict[str, Any],
+        sender_acct: Account | None,
+        sender_addr: str,
+        raw_from: str,
+    ) -> None:
+        """Bump tx_data nonce/value to the live account state before applying,
+        mirroring the block producer.  Blocks may contain multiple same-sender
+        transactions that share the stored nonce (e.g. parallel-validated
+        GPU_MARKET offers); the follower must apply them with the current
+        account nonce, not the stored one, or the second transaction fails and
+        the state root diverges."""
+        if raw_from not in {"bridge_release", "bridge_refund"} and use_account_nonce_override(tx_data, ctx.block_version):
+            if ctx.block_version >= 24:
+                # #1314 V5 mirror: authoritative scalar read — the
+                # identity-mapped sender_acct can be stale after
+                # raw-SQL writes earlier in this block.
+                _, auth_nonce, auth_exists = read_current_account(ctx.session, self._chain_id, sender_addr)
+                if auth_exists:
+                    tx_data["nonce"] = auth_nonce
+            elif sender_acct is not None:
+                tx_data["nonce"] = sender_acct.nonce
+        if ctx.block_version >= 20:
+            # v20+: value is unsigned — the signed amount always
+            # wins, exactly as the proposer does (#1066).
+            if "amount" in tx_data:
+                tx_data["value"] = tx_data["amount"]
+        elif "value" not in tx_data and "amount" in tx_data:
+            tx_data["value"] = tx_data["amount"]
+
+    def _sequential_tx_type(self, ctx: _AppendContext, tx_data: dict[str, Any]) -> str:
+        """Resolve the stored tx type, including the tx-derived-era
+        BRIDGE_LOCK override (#1940 F5: payload-typed locks store their real
+        resolved type, matching the producer)."""
+        tx_type: str = tx_data.get("type", "TRANSFER")
+        if tx_type:
+            tx_type = tx_type.upper()
+        else:
+            tx_type = "TRANSFER"
+        if ctx.tx_only_root and _determine_tx_type(tx_data) == "BRIDGE_LOCK":
+            tx_type = "BRIDGE_LOCK"
+        return tx_type
+
+    def _apply_sequential_tx(
+        self,
+        ctx: _AppendContext,
+        tx_data: dict[str, Any],
+        state_transition: StateTransition | None,
+        sender_acct: Account | None,
+        db_tx: ChainTransaction | None,
+        existing_tx: ChainTransaction | None,
+    ) -> tuple[Account | None, ChainTransaction | None, ChainTransaction | None]:
+        """Apply one transaction through the full StateTransition path and
+        persist its sealed Transaction row.
+
+        Returns ``(sender_acct, db_tx, existing_tx)`` so the caller's
+        loop-carried bindings keep the same identity-map lifetime the
+        original inline loop's frame locals had."""
+        sender_addr = _to_ait_address(tx_data.get("from", ""))
+        recipient_addr = _to_ait_address(tx_data.get("to", ""))
+        int(tx_data.get("amount", 0) or 0)
+        int(tx_data.get("fee", 0) or 0)
+        tx_hash = tx_data.get("tx_hash", "")
+        raw_from = tx_data.get("from", "")
+        if raw_from not in {"bridge_release", "bridge_refund"}:
+            # Only non-bridge senders rebind sender_acct — a bridge tx leaves
+            # the previous iteration's Account referenced, exactly as the
+            # original inline loop did (identity-map lifetime matters for the
+            # v<24 nonce override below).
+            sender_acct = self._ensure_sequential_sender(ctx, sender_addr, raw_from)
+        # Do not create the recipient account here, matching the
+        # proposer (poa.py): apply_transaction ensures the recipient
+        # itself on the paths that credit it. Pre-creating left a
+        # phantom row for zero-value types (GPU_MARKET offers carry
+        # to=0x0000…0000), so the importer computed a state root the
+        # committed header never had — every validator rejected the
+        # block (bc-2 fork at height 1462).
+        self._sync_sequential_tx_fields(ctx, tx_data, sender_acct, sender_addr, raw_from)
+        state_transition = state_transition if state_transition is not None else get_state_transition()
+        success, error_msg = state_transition.apply_transaction_guarded(
+            ctx.session,
+            self._chain_id,
+            tx_data,
+            tx_hash,
+            block_version=ctx.block_version,
+            block_height=ctx.block_data["height"],
+            # v18: the sealed header timestamp drives the
+            # deterministic apply paths — identical to the
+            # ``timestamp`` the proposer threaded through.
+            block_time=ctx.timestamp,
+        )
+        if not success:
+            logger.warning(ctx.reject_tag + " Failed to apply transaction %s: %s", tx_hash, error_msg)
+        if ctx.tx_only_root and tx_hash in ctx.declared_lock_hashes and success:
+            # #1940 F5: only an actually-applied lock may be
+            # certified by the tx-derived root — below v20 the
+            # persisted "confirmed" status proves nothing.
+            ctx.successful_lock_hashes.add(tx_hash)
+        db_tx = ChainTransaction(
+            chain_id=self._chain_id,
+            tx_hash=tx_hash,
+            block_height=ctx.block_data["height"],
+            # Raw, not the canonicalised locals: these are signed (V23-65).
+            sender=tx_data.get("from", sender_addr),
+            recipient=tx_data.get("to", recipient_addr),
+            payload=tx_data.get("payload", {}),
+            envelope=dict(tx_data),
+            type=self._sequential_tx_type(ctx, tx_data),
+            value=tx_data.get("value", tx_data.get("amount", 0)),
+            fee=tx_data.get("fee", 0),
+            nonce=tx_data.get("nonce", 0),
+            status="confirmed" if success or ctx.block_version < 20 else "failed",
+        )
+        existing_tx = self._upsert_import_tx_row(ctx.session, db_tx, ctx.tx_only_root)
+        if ctx.block_version >= 24:
+            # #1314 R2 importer mirror: prod sessions run
+            # autoflush=False, so without this flush the sealed
+            # row stays pending and later same-block applies
+            # (escrow-lock/refund Transaction-row reads) cannot
+            # see it — diverging from the proposer's in-loop
+            # flush schedule.
+            ctx.session.flush()
+        return sender_acct, db_tx, existing_tx
+
+    def _check_lock_apply_evidence(self, ctx: _AppendContext) -> ImportResult | None:
+        """#1940 F5: every declared/effectively-typed lock must have actually
+        applied — a failed, skipped or hidden lock rejects the whole block and
+        rolls back every write above."""
+        if not ctx.tx_only_root or ctx.declared_lock_hashes == ctx.successful_lock_hashes:
+            return None
+        _failed = sorted(ctx.declared_lock_hashes - ctx.successful_lock_hashes)
+        if not ctx.probe:
+            metrics_registry.increment("sync_blocks_rejected_total")
+        ctx.session.rollback()
+        if not ctx.probe:
+            self._track_rejection(self._chain_id)
+        logger.warning(
+            "[SYNC] Block rejected: BRIDGE_LOCK without actual apply success at height %s: %s",
+            ctx.block_data.get("height"),
+            _failed,
+        )
+        return self._make_import_result(
+            accepted=False,
+            height=ctx.block_data.get("height", 0),
+            block_hash=ctx.block_hash,
+            reason=f"bridge_lock_apply_failed: {_failed}",
+        )
+
+    def _finalize_block_roots(
+        self, ctx: _AppendContext, block: Block, transactions: list[dict[str, Any]] | None
+    ) -> ImportResult | None:
+        """Fill in the state/bridge roots and metadata now that transactions
+        have been applied, then stage the block.  This keeps the schedule
+        check above from touching any state."""
+        block_data = ctx.block_data
         block.state_root = block_data.get("state_root")
-        if tx_only_root:
+        if ctx.tx_only_root:
             try:
                 block.bridge_state_root = self._derive_bridge_state_root(
-                    session,
+                    ctx.session,
                     block_data,
                     transactions,
                     tx_only_era=True,
-                    successful_lock_hashes=successful_lock_hashes,
-                    tx_height=_gate_height,
+                    successful_lock_hashes=ctx.successful_lock_hashes,
+                    tx_height=ctx.gate_height,
                 )
             except ValueError as _bridge_err:
                 # #1940 F5: missing/mismatched carried root or missing
                 # success evidence — reject and roll back, never synthesize.
-                if not _probe:
+                if not ctx.probe:
                     metrics_registry.increment("sync_blocks_rejected_total")
-                session.rollback()
-                if not _probe:
+                ctx.session.rollback()
+                if not ctx.probe:
                     self._track_rejection(self._chain_id)
                 logger.warning(
                     "[SYNC] Block rejected: tx-derived bridge root violation at height %s: %s",
@@ -1258,188 +1621,219 @@ class BlockImportMixin(SyncBase):
                 return self._make_import_result(
                     accepted=False,
                     height=block_data.get("height", 0),
-                    block_hash=block_hash,
+                    block_hash=ctx.block_hash,
                     reason=f"bridge_root_violation: {_bridge_err}",
                 )
         else:
             # Gate-off: the original three-argument derive call, outside the
             # new-era ValueError catch — legacy behavior byte-identical.
-            block.bridge_state_root = self._derive_bridge_state_root(session, block_data, transactions, _probe=_probe)
+            block.bridge_state_root = self._derive_bridge_state_root(ctx.session, block_data, transactions, _probe=ctx.probe)
         # v14 (V-3): the header's committed side-table root. Stored only at
         # v14+ — below the activation the field does not exist and any value a
         # peer supplies is ignored, so replayed pre-v14 blocks keep NULL.
         block.aux_state_root = (
-            str(block_data["aux_state_root"]) if block_version >= 14 and block_data.get("aux_state_root") else None
+            str(block_data["aux_state_root"]) if ctx.block_version >= 14 and block_data.get("aux_state_root") else None
         )
         block.block_metadata = block_data.get("block_metadata")
-        session.add(block)
+        ctx.session.add(block)
+        return None
 
+    def _check_required_state_root(self, ctx: _AppendContext) -> ImportResult | None:
+        """#1325 (e): a block that omits its root cannot be allowed to skip the
+        required-root comparison — vote-only attestation leans on it."""
+        block_data = ctx.block_data
         require_root_height = getattr(settings, "sync_require_state_root_height", None)
-        if (
+        if not (
             require_root_height is not None
             and not block_data.get("state_root")
-            and not skip_state_root_validation
+            and not ctx.skip_state_root_validation
             and int(block_data["height"]) >= int(require_root_height)
         ):
-            # #1325 (e): vote-only attestation leans on this comparison, so a
-            # block that omits its root cannot be allowed to skip it.
-            if not _probe:
-                metrics_registry.increment("sync_state_root_missing_rejected_total")
-            session.rollback()
+            return None
+        if not ctx.probe:
+            metrics_registry.increment("sync_state_root_missing_rejected_total")
+        ctx.session.rollback()
+        self._track_rejection(self._chain_id)
+        logger.error(
+            ctx.reject_tag + " Missing state root at height %s (required from %s) - BLOCK REJECTED",
+            block_data["height"],
+            require_root_height,
+        )
+        return self._make_import_result(
+            accepted=False,
+            height=block_data["height"],
+            block_hash=ctx.block_hash,
+            reason="Missing state root",
+        )
+
+    def _verify_state_root(self, ctx: _AppendContext) -> ImportResult | None:
+        """Recompute the full account-state root and compare it to the
+        committed header root. Two very different faults produced the same
+        rejection before, and only one of them is about the incoming block —
+        see ``_describe_local_state_divergence``."""
+        block_data = ctx.block_data
+        ctx.check_deadline()
+        if not (block_data.get("state_root") and (not ctx.skip_state_root_validation)):
+            return None
+        ctx.session.flush()
+        # Compute state root from the full account state. The previous
+        # "incremental" approach created a fresh trie per call but only
+        # populated it with accounts touched in this block — producing an
+        # empty trie (root=0x00..00) for blocks with no transactions and a
+        # wrong root for blocks with transactions. Since the trie is not
+        # persisted across blocks, a full recompute is the only correct option.
+        computed_hex = state_root_utils.compute_state_root_full(ctx.session, self._chain_id, deadline=ctx.probe_deadline)
+        computed_root = bytes.fromhex(computed_hex.replace("0x", "")) if computed_hex else None
+        try:
+            expected_root = bytes.fromhex(str(block_data.get("state_root")).replace("0x", ""))
+        except ValueError:
+            expected_root = None
+        if expected_root is None or len(expected_root) != 32:
+            if not ctx.probe:
+                metrics_registry.increment("sync_state_root_rejected_total")
+            ctx.session.rollback()
             self._track_rejection(self._chain_id)
             logger.error(
-                reject_tag + " Missing state root at height %s (required from %s) - BLOCK REJECTED",
+                ctx.reject_tag + " Invalid state root at height %s: %s - BLOCK REJECTED",
                 block_data["height"],
-                require_root_height,
+                block_data.get("state_root"),
+            )
+
+            return self._make_import_result(
+                accepted=False,
+                height=block_data["height"],
+                block_hash=ctx.block_hash,
+                reason=f"Invalid state root: {block_data.get('state_root')}",
+            )
+        if computed_root == expected_root:
+            return None
+        if not ctx.probe:
+            metrics_registry.increment("sync_state_root_rejected_total")
+        ctx.session.rollback()
+        self._track_rejection(self._chain_id)
+        # If our own account state has drifted away from our head, re-applying
+        # the block on top of state that already contains it can never
+        # reproduce the expected root, so the node retries forever. hub2
+        # emitted 866 identical "BLOCK REJECTED" lines over six hours pointing
+        # at block 1300 while the actual fault was a single local account row
+        # one transaction ahead of its own head.
+        divergence = self._describe_local_state_divergence(ctx.session, block_data["height"] - 1)
+        if divergence:
+            if not ctx.probe:
+                metrics_registry.increment("sync_local_state_divergence_total")
+            logger.error(
+                ctx.reject_tag + " Local state diverged from our own head %s: %s. "
+                "Block %s cannot be imported until local state is repaired; "
+                "retrying will not help - BLOCK REJECTED",
+                block_data["height"] - 1,
+                divergence,
+                block_data["height"],
             )
             return self._make_import_result(
                 accepted=False,
                 height=block_data["height"],
-                block_hash=block_hash,
-                reason="Missing state root",
+                block_hash=ctx.block_hash,
+                reason=(f"Local state diverged from head {block_data['height'] - 1}: {divergence}"),
+                diverged=True,
             )
+        logger.error(
+            ctx.reject_tag + " State root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
+            block_data["height"],
+            expected_root.hex(),
+            computed_root.hex(),  # type: ignore[union-attr]
+        )
 
-        _check_probe_deadline()
-        if block_data.get("state_root") and (not skip_state_root_validation):
-            session.flush()
-            # Compute state root from the full account state. The previous
-            # "incremental" approach created a fresh trie per call but only
-            # populated it with accounts touched in this block — producing an
-            # empty trie (root=0x00..00) for blocks with no transactions and a
-            # wrong root for blocks with transactions. Since the trie is not
-            # persisted across blocks, a full recompute is the only correct option.
-            computed_hex = state_root_utils.compute_state_root_full(session, self._chain_id, deadline=_probe_deadline)
-            computed_root = bytes.fromhex(computed_hex.replace("0x", "")) if computed_hex else None
-            try:
-                expected_root = bytes.fromhex(str(block_data.get("state_root")).replace("0x", ""))
-            except ValueError:
-                expected_root = None
-            if expected_root is None or len(expected_root) != 32:
-                if not _probe:
-                    metrics_registry.increment("sync_state_root_rejected_total")
-                session.rollback()
-                self._track_rejection(self._chain_id)
-                logger.error(
-                    reject_tag + " Invalid state root at height %s: %s - BLOCK REJECTED",
-                    block_data["height"],
-                    block_data.get("state_root"),
-                )
+        return self._make_import_result(
+            accepted=False,
+            height=block_data["height"],
+            block_hash=ctx.block_hash,
+            reason=f"State root mismatch: expected {expected_root.hex()}, computed {computed_root.hex()}",  # type: ignore[union-attr]
+        )
 
-                return self._make_import_result(
-                    accepted=False,
-                    height=block_data["height"],
-                    block_hash=block_hash,
-                    reason=f"Invalid state root: {block_data.get('state_root')}",
-                )
-            elif computed_root != expected_root:
-                if not _probe:
-                    metrics_registry.increment("sync_state_root_rejected_total")
-                session.rollback()
-                self._track_rejection(self._chain_id)
-                # Two very different faults produced this same message before, and only
-                # one of them is about the incoming block. If our own account state has
-                # drifted away from our head, re-applying the block on top of state that
-                # already contains it can never reproduce the expected root, so the node
-                # retries forever. hub2 emitted 866 identical "BLOCK REJECTED" lines over
-                # six hours pointing at block 1300 while the actual fault was a single
-                # local account row one transaction ahead of its own head.
-                divergence = self._describe_local_state_divergence(session, block_data["height"] - 1)
-                if divergence:
-                    if not _probe:
-                        metrics_registry.increment("sync_local_state_divergence_total")
-                    logger.error(
-                        reject_tag + " Local state diverged from our own head %s: %s. "
-                        "Block %s cannot be imported until local state is repaired; "
-                        "retrying will not help - BLOCK REJECTED",
-                        block_data["height"] - 1,
-                        divergence,
-                        block_data["height"],
-                    )
-                    return self._make_import_result(
-                        accepted=False,
-                        height=block_data["height"],
-                        block_hash=block_hash,
-                        reason=(f"Local state diverged from head {block_data['height'] - 1}: {divergence}"),
-                        diverged=True,
-                    )
-                logger.error(
-                    reject_tag + " State root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
-                    block_data["height"],
-                    expected_root.hex(),
-                    computed_root.hex(),  # type: ignore[union-attr]
-                )
+    def _verify_aux_root(self, ctx: _AppendContext) -> ImportResult | None:
+        """v14 (V-3): the block commits to the 13-table side-table root over the
+        committed set after this block's transactions applied. Recompute it
+        against local state — a mismatch means the proposer's committed state
+        and ours disagree in a way the account-level state_root does not see,
+        so the block is rejected rather than sealing a divergence."""
+        block_data = ctx.block_data
+        if ctx.skip_state_root_validation or ctx.block_version < 14:
+            return None
+        ctx.session.flush()
+        computed_aux = side_root_shadow.committed_fingerprint(
+            ctx.session.connection().connection, ctx.block_version, deadline=ctx.probe_deadline
+        )["fingerprint"]
+        recorded_aux = block_data.get("aux_state_root")
+        if not recorded_aux or computed_aux == str(recorded_aux):
+            return None
+        if not side_root_shadow.aux_check_verifiable(ctx.block_version):
+            # The era set includes tables whose only writers were
+            # node-local RPC/aux paths (stake, edge_node_registration):
+            # the sealed digest mixed the sealer's own local rows and
+            # cannot be reproduced here — a mismatch cannot distinguish
+            # real divergence from legitimate local rows, so the check
+            # runs compare-only for these eras rather than stalling
+            # replay of history no node can re-verify.
+            if not ctx.probe:
+                metrics_registry.increment("sync_aux_root_unverifiable_total")
+            logger.warning(
+                ctx.reject_tag + " Aux state root mismatch at height %s on an "
+                "unverifiable era (v%s): expected %s, computed %s - "
+                "compare-only, block not rejected",
+                block_data["height"],
+                ctx.block_version,
+                recorded_aux,
+                computed_aux,
+            )
+            return None
+        if not ctx.probe:
+            metrics_registry.increment("sync_aux_root_rejected_total")
+        ctx.session.rollback()
+        self._track_rejection(self._chain_id)
+        logger.error(
+            ctx.reject_tag + " Aux state root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
+            block_data["height"],
+            recorded_aux,
+            computed_aux,
+        )
+        return self._make_import_result(
+            accepted=False,
+            height=block_data["height"],
+            block_hash=ctx.block_hash,
+            reason=f"Aux state root mismatch: expected {recorded_aux}, computed {computed_aux}",
+        )
 
-                return self._make_import_result(
-                    accepted=False,
-                    height=block_data["height"],
-                    block_hash=block_hash,
-                    reason=f"State root mismatch: expected {expected_root.hex()}, computed {computed_root.hex()}",  # type: ignore[union-attr]
-                )
-        # v14 (V-3): the block commits to the 13-table side-table root over the
-        # committed set after this block's transactions applied. Recompute it
-        # against local state — a mismatch means the proposer's committed state
-        # and ours disagree in a way the account-level state_root does not see,
-        # so the block is rejected rather than sealing a divergence.
-        if (not skip_state_root_validation) and block_version >= 14:
-            session.flush()
-            computed_aux = side_root_shadow.committed_fingerprint(
-                session.connection().connection, block_version, deadline=_probe_deadline
-            )["fingerprint"]
-            recorded_aux = block_data.get("aux_state_root")
-            if not recorded_aux or computed_aux != str(recorded_aux):
-                if not side_root_shadow.aux_check_verifiable(block_version):
-                    # The era set includes tables whose only writers were
-                    # node-local RPC/aux paths (stake, edge_node_registration):
-                    # the sealed digest mixed the sealer's own local rows and
-                    # cannot be reproduced here — a mismatch cannot distinguish
-                    # real divergence from legitimate local rows, so the check
-                    # runs compare-only for these eras rather than stalling
-                    # replay of history no node can re-verify.
-                    if not _probe:
-                        metrics_registry.increment("sync_aux_root_unverifiable_total")
-                    logger.warning(
-                        reject_tag + " Aux state root mismatch at height %s on an "
-                        "unverifiable era (v%s): expected %s, computed %s - "
-                        "compare-only, block not rejected",
-                        block_data["height"],
-                        block_version,
-                        recorded_aux,
-                        computed_aux,
-                    )
-                else:
-                    if not _probe:
-                        metrics_registry.increment("sync_aux_root_rejected_total")
-                    session.rollback()
-                    self._track_rejection(self._chain_id)
-                    logger.error(
-                        reject_tag + " Aux state root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
-                        block_data["height"],
-                        recorded_aux,
-                        computed_aux,
-                    )
-                    return self._make_import_result(
-                        accepted=False,
-                        height=block_data["height"],
-                        block_hash=block_hash,
-                        reason=f"Aux state root mismatch: expected {recorded_aux}, computed {computed_aux}",
-                    )
-        self._persist_import_rejections(session, block_data)
-        if journal is not None and not _probe:
+    def _commit_import(
+        self,
+        ctx: _AppendContext,
+        block: Block,
+        transactions: list[dict[str, Any]] | None,
+        tx_count: int,
+        apply_start: float,
+    ) -> ImportResult:
+        """Persist import rejections and the delta journal, commit the block,
+        then run the post-commit side effects (shadow roots, mempool eviction,
+        rejection counter, metrics, logging)."""
+        block_data = ctx.block_data
+        self._persist_import_rejections(ctx.session, block_data)
+        if ctx.journal is not None and not ctx.probe:
             # #1940 F4: persist also advances the process-global prune
             # watermark — a speculative apply must not move it.
-            journal.persist(session)
-        if not _probe:
+            ctx.journal.persist(ctx.session)
+        if not ctx.probe:
             sync_import_phase_seconds.labels(phase="tx_apply").observe(time.perf_counter() - apply_start)
         phase_start = time.perf_counter()
-        if _probe:
-            session.flush()
+        if ctx.probe:
+            ctx.session.flush()
             return self._make_import_result(
-                accepted=True, height=int(block_data["height"]), block_hash=block_hash, reason="probe"
+                accepted=True, height=int(block_data["height"]), block_hash=ctx.block_hash, reason="probe"
             )
-        session.commit()
+        ctx.session.commit()
         sync_import_phase_seconds.labels(phase="commit").observe(time.perf_counter() - phase_start)
         # V-3 shadow (flag-gated, compare-only — never affects the imported block).
-        side_root_shadow.on_block_sealed(session, self._chain_id, int(block_data["height"]), block_version=block_version)
+        side_root_shadow.on_block_sealed(
+            ctx.session, self._chain_id, int(block_data["height"]), block_version=ctx.block_version
+        )
         if transactions:
             self._evict_included_from_mempool(transactions)
         self._evict_rejected_from_mempool(block_data)
@@ -1767,67 +2161,19 @@ class BlockImportMixin(SyncBase):
                 reason=f"Incompatible chain: block from chain '{fork_chain_id}' does not match our chain '{self._chain_id}' (heights: {fork_height} vs {our_height})",
             )
 
-        ours = session.exec(select(Block).where(Block.chain_id == self._chain_id).where(Block.height == fork_height)).first()
-        parent_hash = block_data.get("parent_hash", "")
-        if ours is None or parent_hash != ours.parent_hash or fork_height != our_height:
-            # Not a decidable tip race: either the parents differ (the rival's
-            # round is not derivable without its parent timestamp) or our block
-            # already has descendants, in which case a single rival header
-            # cannot outweigh our whole segment. The pull resolver fetches the
-            # rival's segment and decides on branch weight.
-            metrics_registry.increment("sync_divergence_rejected_total")
-            return self._make_import_result(
-                accepted=False,
-                height=fork_height,
-                block_hash=fork_hash,
-                reason=(
-                    f"Divergent chain: we hold a different block at height {fork_height} "
-                    f"(ours {ours.hash[:16] if ours else '?'}..., peer {fork_hash[:16]}...); "
-                    "branch-weight resolution required via pull"
-                ),
-                diverged=True,
-            )
+        ours_or_error = self._fork_tip_race_check(session, block_data, our_head, fork_height, fork_hash)
+        if isinstance(ours_or_error, ImportResult):
+            return ours_or_error
+        ours = ours_or_error
 
+        parent_hash = block_data.get("parent_hash", "")
         parent = session.exec(select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)).first()
         parent_ts = parent.timestamp if parent else None
 
-        # Validate the rival BEFORE it is allowed to matter: a block that
-        # fails timestamp sanity or the proposer schedule is rejected outright
-        # and can never cost us our head.
-        invalid, rival_ts = self._validate_rival_header(session, block_data, parent_ts)
-        if invalid:
-            metrics_registry.increment("sync_fork_invalid_rival_total")
-            metrics_registry.increment("sync_blocks_rejected_total")
-            logger.warning("Rival fork block at height %s rejected: %s", fork_height, invalid)
-            return self._make_import_result(
-                accepted=False, height=fork_height, block_hash=fork_hash, reason=f"Invalid rival fork block: {invalid}"
-            )
-
-        our_key = self._fork_choice_key(ours.timestamp, parent_ts, ours.hash)
-        their_key = self._fork_choice_key(rival_ts, parent_ts, fork_hash)
-        metrics_registry.increment("sync_fork_choice_compared_total")
-
-        if their_key >= our_key:
-            metrics_registry.increment("sync_fork_choice_local_wins_total")
-            metrics_registry.increment("sync_divergence_rejected_total")
-            logger.warning(
-                "Fork resolved at height %s: local block wins (round %s hash %s... beats round %s hash %s...)",
-                fork_height,
-                our_key[0],
-                ours.hash[:16],
-                their_key[0],
-                fork_hash[:16],
-            )
-            return self._make_import_result(
-                accepted=False,
-                height=fork_height,
-                block_hash=fork_hash,
-                reason=(
-                    f"Fork resolved at height {fork_height}: our block wins deterministically "
-                    f"(round {our_key[0]} vs {their_key[0]}) — peer must resync"
-                ),
-                diverged=True,
-            )
+        judgment = self._judge_rival_fork(session, block_data, ours, parent_ts, fork_height, fork_hash)
+        if isinstance(judgment, ImportResult):
+            return judgment
+        our_key, their_key = judgment
 
         # Rival wins the tip race. Replacing our head removes a committed row:
         # provably-empty blocks are deleted outright, non-empty ones are
@@ -1835,40 +2181,9 @@ class BlockImportMixin(SyncBase):
         # parent's recorded state root + the per-table digests + the
         # structural row check) — otherwise escalate to an operator resync.
         # SYNC_FORK_UNDO_ENABLED=false is the operator kill-switch.
-        orphaned: list[dict[str, Any]] = []
-        if not self._blocks_provably_empty(session, [ours]):
-            reverted = (
-                revert_losing_segment(session, self._chain_id, [ours], parent, self._blocks_provably_empty)
-                if settings.sync_fork_undo_enabled
-                else None
-            )
-            if reverted is None:
-                metrics_registry.increment("sync_fork_reorg_unsafe_total")
-                metrics_registry.increment("sync_divergence_rejected_total")
-                logger.error(
-                    "Rival block wins fork at height %s but our block there could not be reverted — "
-                    "missing journal or state-root mismatch; operator resync required",
-                    fork_height,
-                )
-                return self._make_import_result(
-                    accepted=False,
-                    height=fork_height,
-                    block_hash=fork_hash,
-                    reason=(
-                        f"Rival fork wins at height {fork_height} but local block could not be undone; manual resync required"
-                    ),
-                    diverged=True,
-                )
-            orphaned = reverted
-            metrics_registry.increment("sync_fork_reorg_undone_total")
-        else:
-            for tx in session.exec(
-                select(ChainTransaction)
-                .where(ChainTransaction.chain_id == self._chain_id)
-                .where(ChainTransaction.block_height == ours.height)
-            ).all():
-                session.delete(tx)
-            session.delete(ours)
+        orphaned, undo_error = self._revert_local_head_for_rival(session, ours, parent, fork_height, fork_hash)
+        if undo_error is not None:
+            return undo_error
         # The undos/deletes above are flushed so the unique (chain_id, height)
         # constraint admits the rival, but nothing is committed until
         # _append_block's own commit — its failure paths roll back, restoring
@@ -1892,6 +2207,152 @@ class BlockImportMixin(SyncBase):
             result.diverged = True
             metrics_registry.increment("sync_fork_invalid_rival_total")
             return result
+        return self._finalize_rival_reorg(result, orphaned, fork_height, their_key, our_key)
+
+    def _fork_tip_race_check(
+        self,
+        session: Session,
+        block_data: dict[str, Any],
+        our_head: Block,
+        fork_height: int,
+        fork_hash: str,
+    ) -> Block | ImportResult:
+        """Confirm the fork is a decidable tip race: we hold a block at the
+        rival's height whose parent matches the rival's parent, and our head
+        sits at that same height (no descendants yet). Returns the ``ours``
+        Block on success, or an ImportResult rejection when the race is not
+        decidable here — anything deeper is a branch-weight question for the
+        pull resolver."""
+        ours = session.exec(select(Block).where(Block.chain_id == self._chain_id).where(Block.height == fork_height)).first()
+        parent_hash = block_data.get("parent_hash", "")
+        if ours is None or parent_hash != ours.parent_hash or fork_height != our_head.height:
+            # Not a decidable tip race: either the parents differ (the rival's
+            # round is not derivable without its parent timestamp) or our block
+            # already has descendants, in which case a single rival header
+            # cannot outweigh our whole segment. The pull resolver fetches the
+            # rival's segment and decides on branch weight.
+            metrics_registry.increment("sync_divergence_rejected_total")
+            return self._make_import_result(
+                accepted=False,
+                height=fork_height,
+                block_hash=fork_hash,
+                reason=(
+                    f"Divergent chain: we hold a different block at height {fork_height} "
+                    f"(ours {ours.hash[:16] if ours else '?'}..., peer {fork_hash[:16]}...); "
+                    "branch-weight resolution required via pull"
+                ),
+                diverged=True,
+            )
+        return ours
+
+    def _judge_rival_fork(
+        self,
+        session: Session,
+        block_data: dict[str, Any],
+        ours: Block,
+        parent_ts: Any,
+        fork_height: int,
+        fork_hash: str,
+    ) -> ImportResult | tuple[tuple[int, str], tuple[int, str]]:
+        """Validate the rival header, then compare deterministic fork-choice
+        keys. Returns an ImportResult rejection (invalid rival or local
+        wins), or ``(our_key, their_key)`` when the rival wins the tip race."""
+        # Validate the rival BEFORE it is allowed to matter: a block that
+        # fails timestamp sanity or the proposer schedule is rejected outright
+        # and can never cost us our head.
+        invalid, rival_ts = self._validate_rival_header(session, block_data, parent_ts)
+        if invalid:
+            metrics_registry.increment("sync_fork_invalid_rival_total")
+            metrics_registry.increment("sync_blocks_rejected_total")
+            logger.warning("Rival fork block at height %s rejected: %s", fork_height, invalid)
+            return self._make_import_result(
+                accepted=False,
+                height=fork_height,
+                block_hash=fork_hash,
+                reason=f"Invalid rival fork block: {invalid}",
+            )
+
+        our_key = self._fork_choice_key(ours.timestamp, parent_ts, ours.hash)
+        their_key = self._fork_choice_key(rival_ts, parent_ts, fork_hash)
+        metrics_registry.increment("sync_fork_choice_compared_total")
+
+        if their_key < our_key:
+            return our_key, their_key
+        metrics_registry.increment("sync_fork_choice_local_wins_total")
+        metrics_registry.increment("sync_divergence_rejected_total")
+        logger.warning(
+            "Fork resolved at height %s: local block wins (round %s hash %s... beats round %s hash %s...)",
+            fork_height,
+            our_key[0],
+            ours.hash[:16],
+            their_key[0],
+            fork_hash[:16],
+        )
+        return self._make_import_result(
+            accepted=False,
+            height=fork_height,
+            block_hash=fork_hash,
+            reason=(
+                f"Fork resolved at height {fork_height}: our block wins deterministically "
+                f"(round {our_key[0]} vs {their_key[0]}) — peer must resync"
+            ),
+            diverged=True,
+        )
+
+    def _revert_local_head_for_rival(
+        self,
+        session: Session,
+        ours: Block,
+        parent: Block | None,
+        fork_height: int,
+        fork_hash: str,
+    ) -> tuple[list[dict[str, Any]], ImportResult | None]:
+        """Undo our head block so the winning rival can take its height.
+        Returns ``(orphaned_txs, error_result)`` — exactly one is meaningful."""
+        if self._blocks_provably_empty(session, [ours]):
+            for tx in session.exec(
+                select(ChainTransaction)
+                .where(ChainTransaction.chain_id == self._chain_id)
+                .where(ChainTransaction.block_height == ours.height)
+            ).all():
+                session.delete(tx)
+            session.delete(ours)
+            return [], None
+        reverted = (
+            revert_losing_segment(session, self._chain_id, [ours], parent, self._blocks_provably_empty)
+            if settings.sync_fork_undo_enabled
+            else None
+        )
+        if reverted is None:
+            metrics_registry.increment("sync_fork_reorg_unsafe_total")
+            metrics_registry.increment("sync_divergence_rejected_total")
+            logger.error(
+                "Rival block wins fork at height %s but our block there could not be reverted — "
+                "missing journal or state-root mismatch; operator resync required",
+                fork_height,
+            )
+            return [], self._make_import_result(
+                accepted=False,
+                height=fork_height,
+                block_hash=fork_hash,
+                reason=(
+                    f"Rival fork wins at height {fork_height} but local block could not be undone; manual resync required"
+                ),
+                diverged=True,
+            )
+        metrics_registry.increment("sync_fork_reorg_undone_total")
+        return reverted, None
+
+    def _finalize_rival_reorg(
+        self,
+        result: ImportResult,
+        orphaned: list[dict[str, Any]],
+        fork_height: int,
+        their_key: tuple[int, str],
+        our_key: tuple[int, str],
+    ) -> ImportResult:
+        """Record the completed tip reorg and requeue orphaned transactions
+        into the mempool."""
         metrics_registry.increment("sync_reorgs_total")
         metrics_registry.increment("sync_fork_choice_remote_wins_total")
         metrics_registry.observe("sync_reorg_depth", 1.0)
