@@ -77,7 +77,6 @@
       1 apps/blockchain-node/src/aitbc_chain/state/bridge_credit.py
       2 apps/blockchain-node/src/aitbc_chain/state/state_root_utils.py
       3 apps/blockchain-node/src/aitbc_chain/state/state_transition_handlers.py
-      1 apps/blockchain-node/src/aitbc_chain/state/state_transition.py
      10 apps/blockchain-node/src/aitbc_chain/subscription_client.py
       1 apps/blockchain-node/tests/test_gossip_broadcast.py
       3 cli/aitbc_cli/auth/__init__.py
