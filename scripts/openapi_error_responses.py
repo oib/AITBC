@@ -235,7 +235,18 @@ def _same_module_helper(fn: Any, name: str) -> Any | None:
     if helper_module != fn_module and not (
         isinstance(helper_module, str) and isinstance(fn_module, str) and helper_module.startswith(fn_module + "_")
     ):
-        return None
+        # Routers-package handlers (`<service>.routers.<leaf>` or
+        # `<app>.contexts.<ctx>.routers.<leaf>`) legitimately import private
+        # helpers from sibling modules anywhere in the enclosing service or
+        # context package -- the same "code that merely moved" case the
+        # `<module>_*` sibling rule covers for flat layouts (#1860 C3 splits).
+        if not (
+            isinstance(helper_module, str)
+            and isinstance(fn_module, str)
+            and ".routers." in fn_module
+            and helper_module.startswith(fn_module.rsplit(".", 2)[0] + ".")
+        ):
+            return None
     return helper
 
 
