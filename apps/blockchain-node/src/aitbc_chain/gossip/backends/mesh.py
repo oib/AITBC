@@ -244,7 +244,7 @@ class MeshGossipBackend(GossipBackend):
         from ...config import settings
 
         wait_peers = bool(getattr(settings, "gossip_mesh_subscribe_wait_peers_enabled", False))
-        if wait_peers:
+        if wait_peers and _wait_peers_applies(topic, getattr(settings, "gossip_mesh_subscribe_wait_peers_topics", "")):
             timeout = float(getattr(settings, "gossip_mesh_subscribe_wait_peers_timeout_seconds", 2.0))
             await sub.wait_for_pending_peers(timeout)
         self._subscriptions.add(sub)
@@ -300,6 +300,13 @@ class MeshGossipBackend(GossipBackend):
             "peers_configured": configured,
             "peer_detail": peer_results,
         }
+
+
+def _wait_peers_applies(topic: str, prefixes: str) -> bool:
+    """#2109: True when the #1764 peer wait covers ``topic``. An empty prefix
+    list means every topic (the original behaviour)."""
+    wanted = [p.strip() for p in str(prefixes or "").split(",") if p.strip()]
+    return not wanted or any(topic.startswith(p) for p in wanted)
 
 
 class _MeshSubscription:
