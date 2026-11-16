@@ -1655,7 +1655,10 @@ class TestR3Blockers:
         pbft.state.current_sequence = SEQ - 1
         for i in range(MAX_VC_BUCKETS + 20):
             await pbft._handle_view_change_payload(_vc(MEMBERS[3], SEQ + 1 + i, VIEW))
-        assert len(pbft._vc_messages) == MAX_VC_BUCKETS
+        # #2133: one sender is capped at its per-sender budget, well under the table cap.
+        from aitbc_chain.consensus.pbft_view_change import MAX_VC_BUCKETS_PER_SENDER
+
+        assert len(pbft._vc_messages) == MAX_VC_BUCKETS_PER_SENDER < MAX_VC_BUCKETS
         await pbft._handle_view_change_payload(_vc(MEMBERS[1], SEQ, VIEW))
         await pbft._handle_view_change_payload(_vc(MEMBERS[2], SEQ, VIEW))
         assert set(pbft._vc_messages[(SEQ, VIEW)]) == {canonical_address(MEMBERS[1]), canonical_address(MEMBERS[2])}
@@ -1823,3 +1826,43 @@ class TestR4VcSetOrderInsensitive:
         monkeypatch.setattr(pbft_mod, "verify_new_view", lambda *a, **k: calls.append(1))
         await pbft._handle_new_view_payload(_nv(impostor, SEQ, VIEW, _vc_set(SEQ, VIEW, MEMBERS[:Q]), None))
         assert calls == [] and pbft._new_views == {}
+
+
+class TestR4NearerFlood:
+    """#2133 (reviewer B's R1): a Byzantine validator flooding keys NEARER than the
+    stalled pair must not starve the honest VCs for it."""
+
+    @pytest.mark.asyncio
+    async def test_nearer_flood_cannot_starve_honest_vcs(self, vc_armed):
+        from aitbc_chain.consensus.pbft_view_change import MAX_VC_BUCKETS, MAX_VC_BUCKETS_PER_SENDER
+
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        pbft.state.current_sequence = SEQ - 5
+        pbft.state.current_view = 0
+        attacker = MEMBERS[3]
+        # 325 signed VCs, every key nearer than (SEQ, VIEW): seqs SEQ-5..SEQ-1 x views 0..64
+        for s in range(SEQ - 5, SEQ):
+            for v in range(65):
+                await pbft._handle_view_change_payload(_vc(attacker, s, v))
+        assert len(pbft._vc_messages) <= MAX_VC_BUCKETS_PER_SENDER < MAX_VC_BUCKETS
+        await pbft._handle_view_change_payload(_vc(MEMBERS[1], SEQ, VIEW))
+        await pbft._handle_view_change_payload(_vc(MEMBERS[2], SEQ, VIEW))
+        assert set(pbft._vc_messages[(SEQ, VIEW)]) == {canonical_address(MEMBERS[1]), canonical_address(MEMBERS[2])}
+
+    @pytest.mark.asyncio
+    async def test_sender_displaces_its_own_farthest_for_a_nearer_key_only(self, vc_armed):
+        from aitbc_chain.consensus.pbft_view_change import MAX_VC_BUCKETS_PER_SENDER
+
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        pbft.state.current_sequence = SEQ
+        sender = MEMBERS[1]
+        for v in range(1, MAX_VC_BUCKETS_PER_SENDER + 1):
+            await pbft._handle_view_change_payload(_vc(sender, SEQ, v))
+        assert (SEQ, MAX_VC_BUCKETS_PER_SENDER) in pbft._vc_messages
+        await pbft._handle_view_change_payload(_vc(sender, SEQ, MAX_VC_BUCKETS_PER_SENDER + 1))  # farther: refused
+        assert (SEQ, MAX_VC_BUCKETS_PER_SENDER + 1) not in pbft._vc_messages
+        await pbft._handle_view_change_payload(_vc(sender, SEQ, 0))  # nearer: displaces the farthest own
+        assert (SEQ, 0) in pbft._vc_messages and (SEQ, MAX_VC_BUCKETS_PER_SENDER) not in pbft._vc_messages
+        assert len(pbft._vc_messages) == MAX_VC_BUCKETS_PER_SENDER
