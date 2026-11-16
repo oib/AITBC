@@ -35,6 +35,7 @@ from .pbft_view_change import (
     NV_MESSAGE_TYPE,
     VC_MESSAGE_TYPE,
     new_view_digest,
+    scheduled_proposer,
     select_forced_hash,
     vc_signed_message,
     nv_signed_message,
@@ -1145,7 +1146,7 @@ class PBFTConsensus:
                     message.block, message.block_hash, message.sequence_number
                 ):
                     message._proposal_persisted = self._vc_proposal_store(
-                        message.sequence_number, message.block_hash, message.block
+                        message.sequence_number, message.block_hash, message.block, message.sender
                     )
                 await self._ensure_view_change_sent(message.sequence_number, message.view_number)
             self.state.pre_prepare_messages[key] = message
@@ -1259,7 +1260,30 @@ class PBFTConsensus:
         fn = getattr(self.consensus, "pbft_vc_prepared_arm", None)
         return bool(fn(sequence, view, block_hash)) if callable(fn) else False
 
-    def _vc_proposal_store(self, sequence: int, block_hash: str, payload: dict[str, Any]) -> bool:
+    def _vc_expected_proposer(self, sequence: int, view: int) -> str | None:
+        """Scheduled NEW_VIEW sender for ``(sequence, view)`` (#2133 R1).
+
+        Derived from the shared VC member set — the exact computation the
+        on-chain ``view_change_justified`` runs — so the engine can never accept
+        a NEW_VIEW from a proposer the chain would not excuse under
+        ``is_active``/role skew. Falls back to the engine schedule only when the
+        consensus object exposes no shared set (legacy/test doubles).
+        """
+        members = self._vc_participants(sequence)
+        if callable(getattr(self.consensus, "pbft_vc_validator_set", None)) and members:
+            return scheduled_proposer(members, sequence, view)
+        try:
+            return self.consensus.select_proposer(sequence, view)
+        except TypeError:
+            return self.consensus.select_proposer(sequence)
+
+    def _vc_proposal_store(self, sequence: int, block_hash: str, payload: dict[str, Any], sender: str) -> bool:
+        # #2133 R4: the body's self-declared proposer must be the authenticated
+        # pre-prepare sender (itself checked against the schedule at intake).
+        if canonical_address(str(payload.get("proposer", ""))) != canonical_address(sender):
+            metrics_registry.increment("pbft_view_change_proposal_unsigned_total")
+            logger.warning("PBFT refusing proposal body for seq %s: proposer is not the pre-prepare sender", sequence)
+            return False
         if not proposal_body_signed(payload):
             metrics_registry.increment("pbft_view_change_proposal_unsigned_total")
             logger.warning("PBFT refusing proposal body for seq %s: missing/invalid proposer block signature", sequence)
@@ -1566,11 +1590,8 @@ class PBFTConsensus:
         if existing is not None:
             payload = existing.get("payload")
             return payload if isinstance(payload, dict) else None
-        try:
-            expected = self.consensus.select_proposer(sequence, view)
-        except TypeError:
-            expected = self.consensus.select_proposer(sequence)
-        if expected != self._local_validator:
+        expected = self._vc_expected_proposer(sequence, view)
+        if canonical_address(str(expected or "")) != canonical_address(self._local_validator):
             return None
         bucket = self._vc_messages.get((sequence, view), {})
         # Dedup by canonical sender — the same rule analyze_vc_set applies.
@@ -1619,7 +1640,7 @@ class PBFTConsensus:
         if (seq, view) in self._new_views:
             return  # cheap dedup BEFORE any signature verification (ECDSA DoS)
         try:
-            expected = self.consensus.select_proposer(seq, view)
+            expected = self._vc_expected_proposer(seq, view)
         except Exception:  # noqa: BLE001
             expected = None
         if not isinstance(expected, str) or not expected:
@@ -1689,7 +1710,7 @@ class PBFTConsensus:
         new_view_payload = entry["payload"] if entry is not None else None
         if new_view_payload is None:
             new_view_payload = await self._build_new_view(sequence, view)
-        if not self._vc_proposal_store(sequence, block_hash, block_payload):
+        if not self._vc_proposal_store(sequence, block_hash, block_payload, self._local_validator or ""):
             metrics_registry.increment("pbft_view_change_persist_failed_total")
             logger.error("PBFT proposal body for seq %s could not be persisted; refusing pre-prepare", sequence)
             return None
@@ -1709,7 +1730,7 @@ class PBFTConsensus:
             return False
         if isinstance(pp_msg.block, dict) and proposal_body_bound(pp_msg.block, pp_msg.block_hash, sequence):
             if not pp_msg._proposal_persisted:
-                pp_msg._proposal_persisted = self._vc_proposal_store(sequence, pp_msg.block_hash, pp_msg.block)
+                pp_msg._proposal_persisted = self._vc_proposal_store(sequence, pp_msg.block_hash, pp_msg.block, pp_msg.sender)
         if not pp_msg._proposal_persisted:
             metrics_registry.increment("pbft_view_change_proposal_missing_total")
             logger.warning(
