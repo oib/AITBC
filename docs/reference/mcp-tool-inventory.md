@@ -2,7 +2,7 @@
 
 # MCP tool inventory
 
-**813 tools** across 90 modules.
+**813 tools** across 92 modules.
 
 | Kind | Tools |
 |---|---|
@@ -15,7 +15,7 @@
 |---|---|
 | mcp-server/aitbc_mcp_chain_tools.py | 24 |
 | mcp-server/aitbc_mcp_cli_pivot_tools.py | 27 |
-| mcp-server/aitbc_mcp_cli_tools.py | 83 |
+| mcp-server/aitbc_mcp_cli_tools.py | 62 |
 | mcp-server/aitbc_mcp_cli_tools_generated_account.py | 2 |
 | mcp-server/aitbc_mcp_cli_tools_generated_agent.py | 20 |
 | mcp-server/aitbc_mcp_cli_tools_generated_agent_comm.py | 10 |
@@ -95,13 +95,15 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | 34 |
 | mcp-server/aitbc_mcp_cli_tools_generated_workflow.py | 4 |
 | mcp-server/aitbc_mcp_cli_tools_generated_zk.py | 3 |
+| mcp-server/aitbc_mcp_cli_tools_market.py | 21 |
 | mcp-server/aitbc_mcp_control_tools.py | 5 |
 | mcp-server/aitbc_mcp_http_tools.py | 10 |
 | mcp-server/aitbc_mcp_liquidity_tools.py | 6 |
 | mcp-server/aitbc_mcp_mutating_tools.py | 9 |
 | mcp-server/aitbc_mcp_node_tools.py | 8 |
 | mcp-server/aitbc_mcp_ops_tools.py | 6 |
-| mcp-server/aitbc_mcp_rpc_tools.py | 71 |
+| mcp-server/aitbc_mcp_rpc_tools.py | 53 |
+| mcp-server/aitbc_mcp_rpc_tools_bridge.py | 18 |
 | mcp-server/aitbc_mcp_zk_tools.py | 5 |
 
 | Tool | File | Kind | Route or command |
@@ -188,58 +190,37 @@
 | `aitbc_wallet_staking_info` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc wallet staking-info` |
 | `buy_ait_exchange` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc exchange-island buy` |
 | `cancel_exchange_order` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc exchange-island cancel` |
-| `cancel_market_order` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market cancel` |
 | `check_aitbc_config` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc config check` |
 | `create_island` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc node island create` |
-| `create_market_escrow` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market escrow create` |
 | `create_market_offer` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market offer` |
 | `create_wallet` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc wallet create` |
-| `disable_market_offer` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market offer-disable` |
 | `download_ipfs` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc ipfs download` |
-| `download_market_ipfs` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market download` |
 | `get_aitbc_config` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc config get` |
 | `get_aitbc_config_path` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc config path` |
 | `get_exchange_orderbook` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc exchange-island orderbook` |
 | `get_exchange_orders` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc exchange-island orders` |
 | `get_exchange_rates` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc exchange-island rates` |
-| `get_market_escrow_status` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market escrow status` |
-| `get_market_exchange_price` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market exchange price` |
-| `get_market_exchange_status` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market exchange status` |
-| `get_market_order_status` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market status` |
-| `get_market_service_ratings` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market ratings` |
 | `get_node_island_info` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc node island island-info` |
 | `get_wallet_address` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc wallet address` |
 | `get_wallet_info` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc wallet info` |
 | `host_ipfs` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market host` |
 | `join_island` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc node island join` |
 | `leave_island` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc node island leave` |
-| `list_market_exchange_deposits` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market exchange list-deposits` |
 | `list_market_offers_cli` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market list` |
 | `list_my_market_offers` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market list` |
 | `list_node_islands` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc node island list-islands` |
 | `login_aitbc` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc auth login` |
 | `logout_aitbc` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc auth logout` |
-| `market_match` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market match` |
-| `market_providers` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market providers` |
-| `mint_ait_from_eth_deposit` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market exchange mint-ait` |
 | `pin_ipfs` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc ipfs pin` |
-| `process_market_offer` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market process` |
-| `rate_market_service` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market rate` |
 | `record_wallet_earnings` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc wallet earn` |
-| `refund_market_escrow` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market escrow refund` |
-| `release_market_escrow` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market escrow release` |
-| `run_market_offer` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market run` |
 | `sell_ait_exchange` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc exchange-island sell` |
 | `send_aitbc_from_wallet` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc wallet send` |
 | `set_aitbc_config` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc config set` |
 | `show_aitbc_config` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc config show` |
 | `spend_aitbc_from_wallet` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc wallet spend` |
-| `sync_market_ratings` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market sync-ratings` |
-| `transcribe_market_offer` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market transcribe` |
 | `unpin_ipfs` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc ipfs unpin` |
 | `upload_ipfs` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc ipfs upload` |
 | `validate_aitbc_config` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc config validate` |
-| `withdraw_eth_from_bridge` | mcp-server/aitbc_mcp_cli_tools.py | cli | `aitbc market exchange withdraw-eth` |
 | `aitbc_account_get` | mcp-server/aitbc_mcp_cli_tools_generated_account.py | generated | `aitbc account get` |
 | `aitbc_account_list` | mcp-server/aitbc_mcp_cli_tools_generated_account.py | generated | `aitbc account list` |
 | `aitbc_agent_capabilities` | mcp-server/aitbc_mcp_cli_tools_generated_agent.py | generated | `aitbc agent capabilities` |
@@ -799,6 +780,27 @@
 | `aitbc_zk_circuits` | mcp-server/aitbc_mcp_cli_tools_generated_zk.py | generated | `aitbc zk circuits` |
 | `aitbc_zk_health` | mcp-server/aitbc_mcp_cli_tools_generated_zk.py | generated | `aitbc zk health` |
 | `aitbc_zk_verify` | mcp-server/aitbc_mcp_cli_tools_generated_zk.py | generated | `aitbc zk verify` |
+| `cancel_market_order` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market cancel` |
+| `create_market_escrow` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market escrow create` |
+| `disable_market_offer` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market offer-disable` |
+| `download_market_ipfs` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market download` |
+| `get_market_escrow_status` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market escrow status` |
+| `get_market_exchange_price` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market exchange price` |
+| `get_market_exchange_status` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market exchange status` |
+| `get_market_order_status` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market status` |
+| `get_market_service_ratings` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market ratings` |
+| `list_market_exchange_deposits` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market exchange list-deposits` |
+| `market_match` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market match` |
+| `market_providers` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market providers` |
+| `mint_ait_from_eth_deposit` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market exchange mint-ait` |
+| `process_market_offer` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market process` |
+| `rate_market_service` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market rate` |
+| `refund_market_escrow` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market escrow refund` |
+| `release_market_escrow` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market escrow release` |
+| `run_market_offer` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market run` |
+| `sync_market_ratings` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market sync-ratings` |
+| `transcribe_market_offer` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market transcribe` |
+| `withdraw_eth_from_bridge` | mcp-server/aitbc_mcp_cli_tools_market.py | cli | `aitbc market exchange withdraw-eth` |
 | `restart_node` | mcp-server/aitbc_mcp_control_tools.py | other | `—` |
 | `run_aitbc_command` | mcp-server/aitbc_mcp_control_tools.py | other | `—` |
 | `run_cron_job` | mcp-server/aitbc_mcp_control_tools.py | cli | `aitbc system run-script` |
@@ -858,9 +860,6 @@
 | `create_market_listing` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/market/create` |
 | `deploy_bounty` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/bounty/deploy` |
 | `dispute_bounty` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/bounty/{bounty_id}/dispute` |
-| `eth_bridge_withdraw_build` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST wallet:v1/bridge/withdraw/build` |
-| `eth_bridge_withdraw_estimate` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST wallet:v1/bridge/withdraw/estimate` |
-| `eth_bridge_withdraw_submit` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST wallet:v1/bridge/withdraw/submit` |
 | `execute_governance_proposal` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/governance/proposal/{proposal_id}/execute` |
 | `expire_bounty` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/bounty/{bounty_id}/expire` |
 | `force_sync_chain` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/force-sync` |
@@ -870,22 +869,9 @@
 | `get_arbitration_votes` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/disputes/{dispute_id}/votes` |
 | `get_arbitrator_disputes` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/disputes/arbitrators/{arbitrator_address}` |
 | `get_authorized_arbitrators` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/disputes/arbitrators` |
-| `get_bridge_balance` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/bridge/balance/{chain_id}` |
-| `get_bridge_block_header` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/bridge/block-headers/{chain_id}/{height}` |
-| `get_bridge_oracle_status` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/bridge/oracle/status` |
-| `get_bridge_security_status` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/bridge/security/status` |
-| `get_bridge_transfer_proof` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/bridge/transfer/{transfer_id}/proof` |
-| `get_bridge_validators` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/bridge/validators/{chain_id}` |
-| `get_cross_chain_bridge` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/cross-chain/bridge/{bridge_id}` |
-| `get_cross_chain_stats` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/cross-chain/stats` |
-| `get_cross_chain_swap` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/cross-chain/swap/{swap_id}` |
 | `get_dispute` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/disputes/{dispute_id}` |
 | `get_dispute_evidence` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/disputes/{dispute_id}/evidence` |
 | `get_edge_info` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/edge/info/{node_id}` |
-| `get_eth_bridge_deposit_instructions` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST wallet:v1/bridge/deposit` |
-| `get_eth_bridge_status` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET wallet:v1/bridge/status` |
-| `get_eth_bridge_status_redacted` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET wallet:v1/bridge/status` |
-| `get_eth_bridge_withdrawal` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET wallet:v1/bridge/withdraw/{ait_tx_hash}` |
 | `get_forum_topics` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/contracts/messaging/topics` |
 | `get_governance_proposal` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/governance/proposal/{proposal_id}` |
 | `get_gpu_allocations` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/gpu/allocations/{gpu_id}` |
@@ -897,8 +883,6 @@
 | `get_topic_messages` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/contracts/messaging/topics/{topic_id}/messages` |
 | `get_user_disputes` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/disputes/user/{user_address}` |
 | `list_contracts` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/contracts` |
-| `list_cross_chain_swaps` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/cross-chain/swaps` |
-| `list_eth_bridge_withdrawals` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET wallet:v1/bridge/withdrawals` |
 | `list_market_listings` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/market/listings` |
 | `list_subscribers` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/subscribers` |
 | `refund_escrow` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/escrow/{job_id}/refund` |
@@ -914,6 +898,24 @@
 | `unbond_agent_stake` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/agent-staking/stake/{stake_id}/unbond` |
 | `unstake_tokens` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/staking/unstake` |
 | `verify_bounty` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `POST /rpc/bounty/{bounty_id}/verify` |
+| `eth_bridge_withdraw_build` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `POST wallet:v1/bridge/withdraw/build` |
+| `eth_bridge_withdraw_estimate` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `POST wallet:v1/bridge/withdraw/estimate` |
+| `eth_bridge_withdraw_submit` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `POST wallet:v1/bridge/withdraw/submit` |
+| `get_bridge_balance` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET /rpc/bridge/balance/{chain_id}` |
+| `get_bridge_block_header` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET /rpc/bridge/block-headers/{chain_id}/{height}` |
+| `get_bridge_oracle_status` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET /rpc/bridge/oracle/status` |
+| `get_bridge_security_status` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET /rpc/bridge/security/status` |
+| `get_bridge_transfer_proof` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET /rpc/bridge/transfer/{transfer_id}/proof` |
+| `get_bridge_validators` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET /rpc/bridge/validators/{chain_id}` |
+| `get_cross_chain_bridge` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET /rpc/cross-chain/bridge/{bridge_id}` |
+| `get_cross_chain_stats` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET /rpc/cross-chain/stats` |
+| `get_cross_chain_swap` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET /rpc/cross-chain/swap/{swap_id}` |
+| `get_eth_bridge_deposit_instructions` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `POST wallet:v1/bridge/deposit` |
+| `get_eth_bridge_status` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET wallet:v1/bridge/status` |
+| `get_eth_bridge_status_redacted` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET wallet:v1/bridge/status` |
+| `get_eth_bridge_withdrawal` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET wallet:v1/bridge/withdraw/{ait_tx_hash}` |
+| `list_cross_chain_swaps` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET /rpc/cross-chain/swaps` |
+| `list_eth_bridge_withdrawals` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET wallet:v1/bridge/withdrawals` |
 | `generate_zk_proof` | mcp-server/aitbc_mcp_zk_tools.py | rpc | `POST coordinator-api:v1/zk/generate` |
 | `get_zk_health` | mcp-server/aitbc_mcp_zk_tools.py | rpc | `GET coordinator-api:v1/zk/health` |
 | `get_zk_info` | mcp-server/aitbc_mcp_zk_tools.py | rpc | `GET coordinator-api:v1/zk/info` |
