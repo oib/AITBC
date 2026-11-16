@@ -820,7 +820,23 @@ class BlockDeltaJournal:
                 self.height,
             )
             return
+        pk = self._account_dml_pk(statement, verb, multiparams, params)
+        if pk is None:
+            return
+        if verb.startswith("insert"):
+            self._record("account", "ins", pk, None)
+            return
+        self._record_account_update(conn, pk)
 
+    def _account_dml_pk(
+        self,
+        statement: str,
+        verb: str,
+        multiparams: Any,
+        params: Any,
+    ) -> dict[str, Any] | None:
+        """Resolve an account-table DML statement to its (chain_id, address)
+        pk, flagging ``_incomplete`` and returning None when unresolvable."""
         bound: dict[str, Any] = {}
         for p in multiparams or []:
             if isinstance(p, dict):
@@ -829,7 +845,7 @@ class BlockDeltaJournal:
             bound.update(params)
         if not bound:
             self._incomplete = True
-            return
+            return None
 
         if verb.startswith("insert"):
             if verb != "insert into":
@@ -837,7 +853,7 @@ class BlockDeltaJournal:
                 # upsert semantics — the before-image depends on whether the row
                 # already existed, which the journal cannot know cheaply.
                 self._incomplete = True
-                return
+                return None
             cid = bound.get("chain_id")
             addr = bound.get("address")
         else:
@@ -851,17 +867,15 @@ class BlockDeltaJournal:
                     verb,
                     self.height,
                 )
-                return
+                return None
             cid = bound.get(where.group(1))
             addr = bound.get(where.group(2))
         if not cid or not addr:
             self._incomplete = True
-            return
-        pk = {"chain_id": cid, "address": addr}
-        if verb.startswith("insert"):
-            self._record("account", "ins", pk, None)
-            return
+            return None
+        return {"chain_id": cid, "address": addr}
 
+    def _record_account_update(self, conn: Any, pk: dict[str, Any]) -> None:
         key = self._key("account", pk, "upd")
         if key in self._seen:
             return
@@ -871,7 +885,11 @@ class BlockDeltaJournal:
         acct = chain_metadata.tables["account"]
         self._suppress = True
         try:
-            row = conn.execute(acct.select().where(and_(acct.c.chain_id == cid, acct.c.address == addr))).mappings().first()
+            row = (
+                conn.execute(acct.select().where(and_(acct.c.chain_id == pk["chain_id"], acct.c.address == pk["address"])))
+                .mappings()
+                .first()
+            )
         finally:
             self._suppress = False
         if row is None:
@@ -986,9 +1004,48 @@ def revert_losing_segment(
         if not journaled.get(blk.height) and not provably_empty(session, [blk]):
             return None
 
-    # Collect each block's side-table pre-state digests before _revert_block
-    # deletes its delta rows. Blocks journaled before the digest feature carry
-    # no meta row — they simply contribute no entries.
+    pre_digests = _pre_digests_at(session, chain_id, blocks)
+
+    # Account addresses whose rows the revert restores/creates/deletes —
+    # captured before _revert_block consumes the delta rows so the caller can
+    # drop their balance/detail cache keys once the revert commits.
+    if reverted_accounts is not None:
+        _capture_reverted_accounts(session, chain_id, blocks, reverted_accounts)
+
+    payloads = _undo_reverted_blocks(session, chain_id, blocks, journaled)
+
+    # Structural check: nothing may remain at the reverted heights — the
+    # digest excludes transaction/block (the Sep-02 incident was exactly
+    # orphan rows in those tables), so prove they are empty directly.
+    reverted_heights = [b.height for b in blocks]
+    leftover = _segment_row_count(session, chain_id, reverted_heights)
+    if leftover:
+        logger.error(
+            "Fork undo left %s block/transaction rows at heights %s — refusing revert",
+            leftover,
+            reverted_heights,
+        )
+        return None
+
+    # Side-table digest: for every table any reverted block digested, the
+    # post-revert contents must equal the earliest reverted block's recorded
+    # pre-state. Earlier-in-segment pre-state is the segment's pre-state for
+    # tables untouched by still-earlier reverted blocks.
+    if not _side_table_digests_match(session, chain_id, pre_digests):
+        return None
+
+    # Undo correctness is verified against the ancestor's recorded state
+    # root — a journal gap can only ever produce a mismatch here, which is
+    # rejected before commit, never a silently wrong revert.
+    if not _ancestor_root_matches(session, chain_id, ancestor):
+        return None
+    return payloads
+
+
+def _pre_digests_at(session: Session, chain_id: str, blocks: list[Block]) -> dict[int, dict[str, str]]:
+    """Each block's side-table pre-state digests, captured before
+    ``_revert_block`` deletes its delta rows. Blocks journaled before the
+    digest feature carry no meta row — they simply contribute no entries."""
     pre_digests: dict[int, dict[str, str]] = {}
     for blk in blocks:
         meta = session.exec(
@@ -1002,23 +1059,40 @@ def revert_losing_segment(
             pre_digests[blk.height] = {
                 str(k): str(v) for k, v in (meta_row.get("pre_digest") or {}).items() if isinstance(v, str)
             }
+    return pre_digests
 
-    # Account addresses whose rows the revert restores/creates/deletes —
-    # captured before _revert_block consumes the delta rows so the caller can
-    # drop their balance/detail cache keys once the revert commits.
-    if reverted_accounts is not None:
-        reverted_heights = [b.height for b in blocks]
-        for pk_json in session.exec(
-            select(BlockStateDelta.pk_json)
-            .where(BlockStateDelta.chain_id == chain_id)
-            .where(col(BlockStateDelta.height).in_(reverted_heights))
-            .where(BlockStateDelta.table_name == "account")
-        ).all():
-            pk = _decode_row(pk_json) or {}
-            addr = pk.get("address")
-            if addr:
-                reverted_accounts.add(str(addr))
 
+def _capture_reverted_accounts(
+    session: Session,
+    chain_id: str,
+    blocks: list[Block],
+    reverted_accounts: set[str],
+) -> None:
+    """Add every account address the journal touched at the reverted heights
+    to ``reverted_accounts`` — captured before ``_revert_block`` consumes the
+    delta rows so the caller can drop their balance/detail cache keys once
+    the revert commits."""
+    reverted_heights = [b.height for b in blocks]
+    for pk_json in session.exec(
+        select(BlockStateDelta.pk_json)
+        .where(BlockStateDelta.chain_id == chain_id)
+        .where(col(BlockStateDelta.height).in_(reverted_heights))
+        .where(BlockStateDelta.table_name == "account")
+    ).all():
+        pk = _decode_row(pk_json) or {}
+        addr = pk.get("address")
+        if addr:
+            reverted_accounts.add(str(addr))
+
+
+def _undo_reverted_blocks(
+    session: Session,
+    chain_id: str,
+    blocks: list[Block],
+    journaled: dict[int, bool],
+) -> list[dict[str, Any]]:
+    """Replay each block's undo (journaled) or row-drop (provably-empty),
+    collecting tx payloads for requeue. Returns the payloads."""
     payloads: list[dict[str, Any]] = []
     for blk in sorted(blocks, key=lambda b: -b.height):
         # Collect payloads before the 'ins' undos remove the tx rows.
@@ -1035,12 +1109,12 @@ def revert_losing_segment(
                 session.delete(tx)
             session.delete(blk)
     session.flush()
+    return payloads
 
-    # Structural check: nothing may remain at the reverted heights — the
-    # digest excludes transaction/block (the Sep-02 incident was exactly
-    # orphan rows in those tables), so prove they are empty directly.
-    reverted_heights = [b.height for b in blocks]
-    leftover = (
+
+def _segment_row_count(session: Session, chain_id: str, reverted_heights: list[int]) -> int:
+    """Block + transaction rows still present at the reverted heights."""
+    return (
         session.exec(
             select(func.count())
             .select_from(ChainTransaction)
@@ -1054,18 +1128,11 @@ def revert_losing_segment(
             .where(col(Block.height).in_(reverted_heights))
         ).one()
     )
-    if leftover:
-        logger.error(
-            "Fork undo left %s block/transaction rows at heights %s — refusing revert",
-            leftover,
-            reverted_heights,
-        )
-        return None
 
-    # Side-table digest: for every table any reverted block digested, the
-    # post-revert contents must equal the earliest reverted block's recorded
-    # pre-state. Earlier-in-segment pre-state is the segment's pre-state for
-    # tables untouched by still-earlier reverted blocks.
+
+def _side_table_digests_match(session: Session, chain_id: str, pre_digests: dict[int, dict[str, str]]) -> bool:
+    """Post-revert contents of every digested side table must equal the
+    earliest reverted block's recorded pre-state for that table."""
     expected_digest: dict[str, str] = {}
     for height in sorted(pre_digests):
         for table_name, digest in pre_digests[height].items():
@@ -1079,23 +1146,25 @@ def revert_losing_segment(
                 want[:16],
                 (got or "skipped")[:16],
             )
-            return None
+            return False
+    return True
 
-    # Undo correctness is verified against the ancestor's recorded state
-    # root — a journal gap can only ever produce a mismatch here, which is
-    # rejected before commit, never a silently wrong revert.
-    if ancestor is not None and ancestor.state_root:
-        actual = compute_state_root_full(session, chain_id)
-        recorded = str(ancestor.state_root).replace("0x", "").lower()
-        if actual is None or actual.replace("0x", "").lower() != recorded:
-            logger.error(
-                "Fork undo state-root mismatch at ancestor %s: recorded=%s reverted=%s — refusing revert",
-                ancestor.height,
-                ancestor.state_root,
-                actual,
-            )
-            return None
-    return payloads
+
+def _ancestor_root_matches(session: Session, chain_id: str, ancestor: Block | None) -> bool:
+    """The recomputed state root must equal the ancestor's recorded root."""
+    if ancestor is None or not ancestor.state_root:
+        return True
+    actual = compute_state_root_full(session, chain_id)
+    recorded = str(ancestor.state_root).replace("0x", "").lower()
+    if actual is None or actual.replace("0x", "").lower() != recorded:
+        logger.error(
+            "Fork undo state-root mismatch at ancestor %s: recorded=%s reverted=%s — refusing revert",
+            ancestor.height,
+            ancestor.state_root,
+            actual,
+        )
+        return False
+    return True
 
 
 def _mark_domain_row_orphaned(session_factory: Any, chain_id: str, tx: dict[str, Any]) -> int:
@@ -1114,9 +1183,28 @@ def _mark_domain_row_orphaned(session_factory: Any, chain_id: str, tx: dict[str,
     raw_payload = tx.get("payload")
     payload: dict[str, Any] = raw_payload if isinstance(raw_payload, dict) else {}
     tx_type = tx.get("type")
-    # (lock tx type, payload key, model, model field naming the key)
+    targets = _domain_lock_targets(tx_type, payload)
+    if not targets:
+        return 0
+    marked = 0
+    try:
+        with session_factory() as session:
+            for model, field, payload_key in targets:
+                value = str(payload[payload_key])
+                if _orphan_target(session, chain_id, tx_type, tx, model, field, payload_key, value):
+                    marked += 1
+            session.commit()
+    except Exception:
+        logger.exception("Failed to orphan-mark domain rows for lost tx %s", tx.get("tx_hash"))
+        return marked
+    return marked
+
+
+def _domain_lock_targets(tx_type: Any, payload: dict[str, Any]) -> list[tuple[type[Any], str, str]]:
+    """(model, model field naming the key, payload key) triples the lock tx
+    type funds — a ``STAKE_LOCK`` can back both a ``Stake`` and an
+    ``AgentStakeRecord`` row, a ``BOUNTY_LOCK`` a ``BountyContract``."""
     from ..base_models import AgentStakeRecord, BountyContract, Stake
-    from ..protocol_escrow import confirmed_lock_txs
 
     targets: list[tuple[type[Any], str, str]] = []
     if tx_type == "STAKE_LOCK":
@@ -1126,42 +1214,47 @@ def _mark_domain_row_orphaned(session_factory: Any, chain_id: str, tx: dict[str,
             targets.append((AgentStakeRecord, "stake_id", "agent_stake_id"))
     elif tx_type == "BOUNTY_LOCK" and payload.get("bounty_id"):
         targets.append((BountyContract, "bounty_id", "bounty_id"))
-    if not targets:
-        return 0
-    marked = 0
-    try:
-        with session_factory() as session:
-            for model, field, payload_key in targets:
-                value = str(payload[payload_key])
-                # Multiple locks can fund one record (agent-stake top-ups) —
-                # only orphan it when no confirmed lock references it anymore.
-                if confirmed_lock_txs(session, chain_id, str(tx_type), payload_key, value):
-                    continue
-                row = session.exec(
-                    select(model).where(
-                        col(model.chain_id) == chain_id,
-                        col(getattr(model, field)) == (int(value) if field == "id" else value),
-                    )
-                ).first()
-                if row is None or row.status == "orphaned":
-                    continue
-                row.status = "orphaned"
-                row.updated_at = datetime.now(UTC)
-                session.add(row)
-                marked += 1
-                logger.warning(
-                    "Orphaned %s row %s=%s: confirming %s tx %s lost in fork",
-                    model.__tablename__,
-                    field,
-                    value,
-                    tx_type,
-                    str(tx.get("tx_hash") or "")[:18],
-                )
-            session.commit()
-    except Exception:
-        logger.exception("Failed to orphan-mark domain rows for lost tx %s", tx.get("tx_hash"))
-        return marked
-    return marked
+    return targets
+
+
+def _orphan_target(
+    session: Any,
+    chain_id: str,
+    tx_type: Any,
+    tx: dict[str, Any],
+    model: type[Any],
+    field: str,
+    payload_key: str,
+    value: str,
+) -> bool:
+    """Mark one domain row ``orphaned`` when no confirmed lock tx references
+    it anymore. Returns True when a row was marked."""
+    from ..protocol_escrow import confirmed_lock_txs
+
+    # Multiple locks can fund one record (agent-stake top-ups) —
+    # only orphan it when no confirmed lock references it anymore.
+    if confirmed_lock_txs(session, chain_id, str(tx_type), payload_key, value):
+        return False
+    row = session.exec(
+        select(model).where(
+            col(model.chain_id) == chain_id,
+            col(getattr(model, field)) == (int(value) if field == "id" else value),
+        )
+    ).first()
+    if row is None or row.status == "orphaned":
+        return False
+    row.status = "orphaned"
+    row.updated_at = datetime.now(UTC)
+    session.add(row)
+    logger.warning(
+        "Orphaned %s row %s=%s: confirming %s tx %s lost in fork",
+        model.__tablename__,
+        field,
+        value,
+        tx_type,
+        str(tx.get("tx_hash") or "")[:18],
+    )
+    return True
 
 
 def _tx_on_chain(session_factory: Any, chain_id: str, tx_hash: str) -> bool:

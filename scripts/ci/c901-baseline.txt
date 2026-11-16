@@ -34,7 +34,6 @@
       1 apps/blockchain-node/src/aitbc_chain/rpc/utils.py
       3 apps/blockchain-node/src/aitbc_chain/rpc/websocket.py
       1 apps/blockchain-node/src/aitbc_chain/state/admission_authority.py
-      3 apps/blockchain-node/src/aitbc_chain/state/block_deltas.py
       1 apps/blockchain-node/src/aitbc_chain/state/liquidity_transition.py
       1 apps/blockchain-node/src/aitbc_chain/state/merkle_patricia_trie.py
       2 apps/blockchain-node/src/aitbc_chain/state/pure_state_transition.py
