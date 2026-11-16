@@ -490,6 +490,7 @@ class _PoaBaseMixin:
             from ..gossip import gossip_broker
 
             self._pbft_consensus.set_gossip_backend(gossip_broker)
+            self._sync_pbft_to_head()
             self._logger.info(
                 "PBFT consensus initialized for chain %s with local validator %s",
                 self._config.chain_id,
@@ -508,6 +509,17 @@ class _PoaBaseMixin:
                 self._config.chain_id,
                 len(self._validator_keys),
             )
+
+    def _sync_pbft_to_head(self, head: Block | None = None) -> None:
+        """#2145: PBFT's intake window is based on its local sequence; keep it at the sealed head."""
+        if self._pbft_consensus is None:
+            return
+        try:
+            head = head if head is not None else self._fetch_chain_head()
+            if head is not None:
+                self._pbft_consensus.sync_to_head(head.height)
+        except Exception as exc:  # noqa: BLE001 - a head read must never stop the proposer
+            self._logger.warning("PBFT head sync failed: %s", exc)
 
     def _fetch_chain_head(self) -> Block | None:
         """Fetch the current chain head block from the database."""
@@ -857,6 +869,7 @@ class _PoaBaseMixin:
         await self._ensure_genesis_block()
         head = self._fetch_chain_head()
         if head is not None:
+            self._sync_pbft_to_head(head)
             self._last_block_timestamp = head.timestamp
             self._logger.info("Initialized last block timestamp from head", extra={"height": head.height})
         self._stop_event.clear()
@@ -957,6 +970,7 @@ class _PoaBaseMixin:
         head = self._fetch_chain_head()
         if head is None:
             return
+        self._sync_pbft_to_head(head)
         now = datetime.now(UTC)
         head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=UTC)
         elapsed = (now - head_timestamp).total_seconds()
