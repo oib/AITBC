@@ -19,6 +19,7 @@ def test_c901_and_except_ratchets_on_pre_push():
     for hook_id, script in (
         ("c901-ratchet", "check-c901-ratchet.sh"),
         ("except-ratchet", "check-except-ratchet.sh"),
+        ("module-size-ratchet", "check-module-size.py"),
     ):
         assert f"id: {hook_id}" in text
         assert script in text

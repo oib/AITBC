@@ -1,0 +1,15 @@
+# module-size ratchet baseline — regenerate: check-module-size.py --update
+# files over 2000 lines grandfathered at their current size;
+# the gate fails on NEW offenders and on growth of these.
+2072	apps/blockchain-node/src/aitbc_chain/config.py
+2103	apps/blockchain-node/src/aitbc_chain/consensus/multi_validator_poa.py
+2399	apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py
+2237	apps/blockchain-node/src/aitbc_chain/state/state_transition.py
+2069	apps/coordinator-api/src/coordinator_api/contexts/market/routers/market_gpu.py
+2088	apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py
+2489	apps/exchange/simple_exchange/handlers/exchange.py
+2369	apps/market/src/market_service/main.py
+2384	apps/wallet/src/wallet_app/bridge/bridge_db.py
+2514	mcp-server/aitbc_mcp_cli_tools.py
+2407	mcp-server/aitbc_mcp_rpc_tools.py
+2437	scripts/reset-harness/rehearsal.py

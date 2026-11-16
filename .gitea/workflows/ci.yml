@@ -58,6 +58,9 @@ jobs:
       - name: BLE001/S110 exception ratchet
         run: make except-ratchet
 
+      - name: Module-size ceiling ratchet
+        run: make module-size-ratchet
+
       - name: No float money
         run: make no-float-money
 

@@ -307,6 +307,19 @@ repos:
         pass_filenames: false
         always_run: true
         stages: [pre-push]
+  # Module-size ceiling ratchet (#1860) — same baseline+delta shape as c901.
+  # Fails on NEW tracked .py files over 2000 lines and on growth of the
+  # grandfathered offenders in scripts/ci/module-size-baseline.txt.
+  # Pre-push, not pre-commit: the scan is repo-wide, not per-file.
+  - repo: local
+    hooks:
+      - id: module-size-ratchet
+        name: module-size-ceiling-ratchet
+        entry: python3 scripts/ci/check-module-size.py
+        language: system
+        pass_filenames: false
+        always_run: true
+        stages: [pre-push]
   # Production assert/print gate, same baseline+ratchet shape as c901. It used
   # to run nowhere and also skipped whole trees when the checkout path merely
   # contained a directory named like a skip entry; the scan is now relative to
