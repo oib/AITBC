@@ -17,7 +17,7 @@ from .logger import get_logger
 from .metrics import metrics_registry
 from .state import state_root_utils
 from .sync_base import SyncBase
-from .sync_divergence import report_divergence
+from .sync_divergence import Divergence, report_divergence
 from .sync_peer_http import PeerResponseTooLarge, get_json_bounded
 
 logger = get_logger(__name__)
@@ -142,63 +142,15 @@ class StateSyncMixin(SyncBase):
         # the account table agreeing with the peer while the block history does not, so the head
         # block's state_root no longer describes the accounts underneath it — which is what this
         # function did 414 times during the V23-90 outage, healing the symptom it should report.
-        # If the follower is far behind, do not pull a snapshot now. The block
-        # sync path will build the state from the actual blocks and the snapshot
-        # would only make old transactions fail their nonce checks.
-        max_gap = getattr(settings, "state_sync_max_gap", 10)
         divergence, peer_height = await self.peer_head_divergence(source_url)
         with self._session_factory() as session:
             local_height, local_root = self._local_head(session)
-        # #1629: with zero local blocks there is no trusted anchor — both
-        # root checks below key on ``local_root``, so an empty head would
-        # commit whatever the source claims. Refuse and let block import
-        # rebuild state deterministically; once blocks exist the recorded
-        # head root engages the normal verification.
-        if local_height == 0 and not local_root:
-            return self._refuse_sync(
-                "empty_head",
-                f"state sync refused: no local blocks — {source_url} state cannot be verified "
-                "against a head root; import blocks first",
-            )
-        if peer_height - local_height > max_gap:
-            self._logger.info(
-                "State sync skipped: local head %s is %s blocks behind remote head %s (threshold %s)",
-                local_height,
-                peer_height - local_height,
-                peer_height,
-                max_gap,
-                extra={"chain_id": self._chain_id, "local_head": local_height, "remote_head": peer_height},
-            )
-            return {
-                "synced": 0,
-                "skipped": True,
-                "reason": "large gap",
-                "local_head": local_height,
-                "remote_head": peer_height,
-            }
-        if divergence is not None:
-            report_divergence(self._chain_id, divergence)
-            self._logger.error(
-                "State sync skipped: our block history disagrees with %s at height %s, so its balances do not "
-                "describe our chain",
-                source_url,
-                divergence.height,
-                extra={"chain_id": self._chain_id, "divergence_height": divergence.height},
-            )
-            return {"synced": 0, "diverged": True, "divergence_height": divergence.height}
-        try:
-            data = await get_json_bounded(
-                self._client,
-                f"{source_url}/rpc/state/snapshot",
-                {"chain_id": self._chain_id},
-                settings.sync_state_response_max_bytes,
-            )
-        except PeerResponseTooLarge as e:
-            self._logger.error("Failed to fetch state snapshot: %s", e)
-            return {"synced": 0, "error": str(e)}
-        except Exception as e:
-            self._logger.error("Failed to fetch state snapshot: %s", e)
-            return {"synced": 0, "error": str(e)}
+        guard = self._snapshot_head_guard(source_url, local_height, local_root, peer_height, divergence)
+        if guard is not None:
+            return guard
+        data, fetch_error = await self._fetch_state_snapshot(source_url)
+        if fetch_error is not None:
+            return fetch_error
 
         remote_accounts = data.get("accounts", [])
         max_accounts = settings.sync_state_max_accounts
@@ -229,6 +181,134 @@ class StateSyncMixin(SyncBase):
                 remote_root=remote_root,
             )
 
+        applied = self._apply_state_snapshot(
+            remote_accounts,
+            remote_parameters,
+            remote_parameter_history,
+            remote_aux,
+            local_root,
+            local_height,
+            remote_root,
+        )
+        if isinstance(applied, dict):
+            return applied
+        created, updated, computed_hex = applied
+
+        match = computed_hex == remote_root
+        # A mismatch that survives a full account sync is not information: either the peer's root
+        # covers a different account set than ours, or the roots are computed differently. Either
+        # way it needs looking at, so it is a warning rather than the INFO it was for 414 cycles.
+        log = self._logger.info if match else self._logger.warning
+        log(
+            "State sync complete: created=%s, updated=%s, local_root=%s, remote_root=%s, match=%s",
+            created,
+            updated,
+            computed_hex,
+            remote_root,
+            match,
+        )
+        return {
+            "synced": created + updated,
+            "created": created,
+            "updated": updated,
+            "local_state_root": computed_hex,
+            "remote_state_root": remote_root,
+            "match": match,
+        }
+
+    def _snapshot_head_guard(
+        self,
+        source_url: str,
+        local_height: int,
+        local_root: str,
+        peer_height: int,
+        divergence: Divergence | None,
+    ) -> dict[str, Any] | None:
+        """Refuse or skip a state sync that cannot be verified against the local head.
+
+        Returns the response dict the caller should return verbatim, or None
+        when the snapshot fetch may proceed.
+        """
+        # #1629: with zero local blocks there is no trusted anchor — both
+        # root checks key on ``local_root``, so an empty head would
+        # commit whatever the source claims. Refuse and let block import
+        # rebuild state deterministically; once blocks exist the recorded
+        # head root engages the normal verification.
+        if local_height == 0 and not local_root:
+            return self._refuse_sync(
+                "empty_head",
+                f"state sync refused: no local blocks — {source_url} state cannot be verified "
+                "against a head root; import blocks first",
+            )
+        # If the follower is far behind, do not pull a snapshot now. The block
+        # sync path will build the state from the actual blocks and the snapshot
+        # would only make old transactions fail their nonce checks.
+        max_gap = getattr(settings, "state_sync_max_gap", 10)
+        if peer_height - local_height > max_gap:
+            self._logger.info(
+                "State sync skipped: local head %s is %s blocks behind remote head %s (threshold %s)",
+                local_height,
+                peer_height - local_height,
+                peer_height,
+                max_gap,
+                extra={"chain_id": self._chain_id, "local_head": local_height, "remote_head": peer_height},
+            )
+            return {
+                "synced": 0,
+                "skipped": True,
+                "reason": "large gap",
+                "local_head": local_height,
+                "remote_head": peer_height,
+            }
+        if divergence is not None:
+            report_divergence(self._chain_id, divergence)
+            self._logger.error(
+                "State sync skipped: our block history disagrees with %s at height %s, so its balances do not "
+                "describe our chain",
+                source_url,
+                divergence.height,
+                extra={"chain_id": self._chain_id, "divergence_height": divergence.height},
+            )
+            return {"synced": 0, "diverged": True, "divergence_height": divergence.height}
+        return None
+
+    async def _fetch_state_snapshot(self, source_url: str) -> tuple[Any, dict[str, Any] | None]:
+        """Fetch the peer's account-state snapshot.
+
+        Returns (snapshot, None) on success or (None, error_response) when the
+        fetch fails — the caller returns the error response verbatim.
+        """
+        try:
+            data = await get_json_bounded(
+                self._client,
+                f"{source_url}/rpc/state/snapshot",
+                {"chain_id": self._chain_id},
+                settings.sync_state_response_max_bytes,
+            )
+        except PeerResponseTooLarge as e:
+            self._logger.error("Failed to fetch state snapshot: %s", e)
+            return None, {"synced": 0, "error": str(e)}
+        except Exception as e:
+            self._logger.error("Failed to fetch state snapshot: %s", e)
+            return None, {"synced": 0, "error": str(e)}
+        return data, None
+
+    def _apply_state_snapshot(
+        self,
+        remote_accounts: list[dict[str, Any]],
+        remote_parameters: Any,
+        remote_parameter_history: Any,
+        remote_aux: dict[str, Any],
+        local_root: str,
+        local_height: int,
+        remote_root: str,
+    ) -> tuple[int, int, str] | dict[str, Any]:
+        """Apply a verified snapshot in one transaction.
+
+        Returns (created, updated, computed_root), or the refusal dict when
+        the post-apply root disagrees with the local head — in that case the
+        transaction is rolled back before the refusal is returned.
+        """
         created = 0
         updated = 0
         with self._session_factory() as session:
@@ -291,28 +371,7 @@ class StateSyncMixin(SyncBase):
                     remote_root=remote_root,
                 )
             session.commit()
-
-        match = computed_hex == remote_root
-        # A mismatch that survives a full account sync is not information: either the peer's root
-        # covers a different account set than ours, or the roots are computed differently. Either
-        # way it needs looking at, so it is a warning rather than the INFO it was for 414 cycles.
-        log = self._logger.info if match else self._logger.warning
-        log(
-            "State sync complete: created=%s, updated=%s, local_root=%s, remote_root=%s, match=%s",
-            created,
-            updated,
-            computed_hex,
-            remote_root,
-            match,
-        )
-        return {
-            "synced": created + updated,
-            "created": created,
-            "updated": updated,
-            "local_state_root": computed_hex,
-            "remote_state_root": remote_root,
-            "match": match,
-        }
+        return created, updated, computed_hex
 
     async def delta_sync_from(self, source_url: str, from_height: int, to_height: int) -> dict[str, Any]:
         """Sync state delta from a peer (only changed accounts).
