@@ -41,6 +41,7 @@ from decimal import Decimal
 
 from .main import BridgeMonitor
 from .storage import BridgeDepositStatus, create_deposit, get_deposit, get_deposits, init_db, update_deposit
+import click
 
 
 def _load_env_file(path: str) -> None:
@@ -55,7 +56,7 @@ def _load_env_file(path: str) -> None:
             val = val.strip().strip('"').strip("'")
             os.environ.setdefault(key, val)
     except OSError as e:
-        print(f"warning: cannot read env file {path}: {e}", file=sys.stderr)
+        click.echo(f"warning: cannot read env file {path}: {e}", err=True)
 
 
 def _valid_recipient(addr: object) -> bool:
@@ -117,29 +118,29 @@ def cmd_list(status: str | None, limit: int) -> int:
         try:
             filt = BridgeDepositStatus(status.lower())
         except ValueError:
-            print(f"unknown status {status!r} — one of: {', '.join(s.value for s in BridgeDepositStatus)}")
+            click.echo(f"unknown status {status!r} — one of: {', '.join(s.value for s in BridgeDepositStatus)}")
             return 2
     rows = get_deposits(status=filt, limit=limit)
     for d in rows:
-        print(
+        click.echo(
             f"{d.get('created_at', '')}  {d.get('status', ''):<15} "
             f"{d.get('eth_tx_hash', '')}  {d.get('eth_from_address', '')}  "
             f"{d.get('eth_amount', '')} ETH" + (f"  err={d['error_message']}" if d.get("error_message") else "")
         )
     if not rows:
-        print("no rows" + (f" with status {filt.value}" if filt else ""))
+        click.echo("no rows" + (f" with status {filt.value}" if filt else ""))
     return 0
 
 
 def cmd_status(tx_hash: str) -> int:
     d = get_deposit(tx_hash)
     if not d:
-        print(f"no deposit row {tx_hash}")
+        click.echo(f"no deposit row {tx_hash}")
         return 1
     for k, v in d.items():
         if k == "signed_tx":
             v = f"<{len(v)} chars>" if v else v
-        print(f"{k}: {v}")
+        click.echo(f"{k}: {v}")
     return 0
 
 
@@ -168,15 +169,15 @@ _WRITE_OFF_SOURCES = frozenset(
 
 def cmd_write_off(tx_hash: str, reason: str | None, allow_recipient: bool = False, envelope_dead: bool = False) -> int:
     if not reason or not reason.strip():
-        print("write-off requires --reason (a written justification is mandatory)")
+        click.echo("write-off requires --reason (a written justification is mandatory)")
         return 2
     d = get_deposit(tx_hash)
     if not d:
-        print(f"no deposit row {tx_hash}")
+        click.echo(f"no deposit row {tx_hash}")
         return 1
     denial = write_off_denial_reason(d, allow_recipient, envelope_dead)
     if denial:
-        print(f"deposit {tx_hash} {denial}")
+        click.echo(f"deposit {tx_hash} {denial}")
         return 1
     # CAS (#1918): the denial check ran on a snapshot — a sweep payout
     # or another admin command may have moved the row since. The write
@@ -191,20 +192,20 @@ def cmd_write_off(tx_hash: str, reason: str | None, allow_recipient: bool = Fals
         error_message=reason.strip(),
         expected_statuses=sources,
     ):
-        print(f"deposit {tx_hash} moved on since read — write-off not applied")
+        click.echo(f"deposit {tx_hash} moved on since read — write-off not applied")
         return 1
-    print(f"deposit {tx_hash} written off: {reason.strip()}")
+    click.echo(f"deposit {tx_hash} written off: {reason.strip()}")
     return 0
 
 
 def cmd_abandon(tx_hash: str) -> int:
     ok, msg = BridgeMonitor().abandon_payout(tx_hash)
-    print(msg)
+    click.echo(msg)
     return 0 if ok else 1
 
 
 def _report(msg: str, code: int) -> int:
-    print(msg)
+    click.echo(msg)
     return code
 
 
@@ -311,7 +312,7 @@ def main() -> int:
     if ns.command in {"write-off", "abandon-and-resign", "manual-payout"}:
         lock_fd = _admin_lock()
         if lock_fd is None:
-            print("another bridge-admin mutation is in progress — refusing to run concurrently", file=sys.stderr)
+            click.echo("another bridge-admin mutation is in progress — refusing to run concurrently", err=True)
             return 1
     try:
         return _dispatch(ns, parser)
