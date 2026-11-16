@@ -337,11 +337,16 @@ def equivocation_evidence_verifies(event: SlashingEvent) -> bool:
     payload = event_signature_evidence(event)
     if payload is None or not _pair_shape_ok(event, payload):
         return False
+    from ..config import settings
+
     try:
-        # Cross-view evidence is window-checked on chain at apply time; here the
-        # window is the event's own height, so only the cryptography is gated.
+        # #2135 R3: cross-view evidence only counts on chain once the cross-view
+        # evidence height is armed; the closest local mirror is the engine's own
+        # ``pbft_cross_view_commit_lock_height``. Unset -> None -> the verifier
+        # fails closed (it used to be hard-coded 0, i.e. always armed).
+        cross_view_height = getattr(settings, "pbft_cross_view_commit_lock_height", None)
         ok, _reason = _verify_equivocation_claim(
-            payload, event, canonical_address(event.validator_address), None, None, 0, event.block_height
+            payload, event, canonical_address(event.validator_address), None, None, cross_view_height, event.block_height
         )
     except (AttributeError, IndexError, KeyError, TypeError, ValueError):  # malformed evidence refuses, never raises
         return False
