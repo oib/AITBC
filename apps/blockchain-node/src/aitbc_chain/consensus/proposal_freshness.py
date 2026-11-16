@@ -156,15 +156,7 @@ class ProposalFreshnessChecker:
         only excluded from the ahead check, where their taller fork would
         otherwise silence us forever.
         """
-        bases = []
-        for u in self._peer_urls:
-            if u.startswith(("http://", "https://")):
-                bases.append(u)
-            else:
-                base = peer_base_url(u)
-                if base:
-                    bases.append(base)
-        bases = list(dict.fromkeys(bases))
+        bases = self._peer_base_urls()
         if not bases:
             return FreshnessResult(FreshnessVerdict.FRESH)
 
@@ -196,6 +188,44 @@ class ProposalFreshnessChecker:
             )
 
         # Nobody ahead (that we still trust): vote on the hash at our height.
+        vote = self._hash_vote_verdict(reachable, local_height, local_hash)
+        if vote is not None:
+            return vote
+
+        if ahead_all:
+            tallest = max(ahead_all.items(), key=lambda kv: kv[1]["height"])
+            return FreshnessResult(
+                FreshnessVerdict.QUARANTINED,
+                peer_url=tallest[0],
+                peer_height=tallest[1]["height"],
+            )
+        return FreshnessResult(FreshnessVerdict.FRESH)
+
+    def _peer_base_urls(self) -> list[str]:
+        """Deduplicated HTTP(S) base URLs for every configured peer."""
+        bases = []
+        for u in self._peer_urls:
+            if u.startswith(("http://", "https://")):
+                bases.append(u)
+            else:
+                base = peer_base_url(u)
+                if base:
+                    bases.append(base)
+        return list(dict.fromkeys(bases))
+
+    def _hash_vote_verdict(
+        self,
+        reachable: dict[str, dict[str, Any]],
+        local_height: int,
+        local_hash: str,
+    ) -> FreshnessResult | None:
+        """Same-height hash vote; a result when a rival hash exists, else None.
+
+        We vote for our own head; peers at ``local_height`` voting a rival
+        hash are tallied. A rival with strictly more support holds the
+        proposal (HASH_MISMATCH); a tie proceeds (HASH_TIE); a minority
+        rival still returns FRESH but keeps the observation in the result.
+        """
         our_votes = 1  # we vote for our own head
         rivals: dict[str, int] = {}
         rival_peer: str | None = None
@@ -207,42 +237,34 @@ class ProposalFreshnessChecker:
             else:
                 rivals[head["hash"]] = rivals.get(head["hash"], 0) + 1
                 rival_peer = base
-        if rivals:
-            rival_hash, rival_votes = max(rivals.items(), key=lambda kv: kv[1])
-            if rival_votes > our_votes:
-                return FreshnessResult(
-                    FreshnessVerdict.HASH_MISMATCH,
-                    peer_url=rival_peer,
-                    peer_height=local_height,
-                    peer_hash=rival_hash,
-                    our_votes=our_votes,
-                    rival_votes=rival_votes,
-                )
-            if rival_votes == our_votes:
-                return FreshnessResult(
-                    FreshnessVerdict.HASH_TIE,
-                    peer_url=rival_peer,
-                    peer_height=local_height,
-                    peer_hash=rival_hash,
-                    our_votes=our_votes,
-                    rival_votes=rival_votes,
-                )
-            # Rival in the minority: proceed, but keep the observation in the
-            # result so the caller can log that a diverged peer exists.
+        if not rivals:
+            return None
+        rival_hash, rival_votes = max(rivals.items(), key=lambda kv: kv[1])
+        if rival_votes > our_votes:
             return FreshnessResult(
-                FreshnessVerdict.FRESH,
+                FreshnessVerdict.HASH_MISMATCH,
                 peer_url=rival_peer,
                 peer_height=local_height,
                 peer_hash=rival_hash,
                 our_votes=our_votes,
                 rival_votes=rival_votes,
             )
-
-        if ahead_all:
-            tallest = max(ahead_all.items(), key=lambda kv: kv[1]["height"])
+        if rival_votes == our_votes:
             return FreshnessResult(
-                FreshnessVerdict.QUARANTINED,
-                peer_url=tallest[0],
-                peer_height=tallest[1]["height"],
+                FreshnessVerdict.HASH_TIE,
+                peer_url=rival_peer,
+                peer_height=local_height,
+                peer_hash=rival_hash,
+                our_votes=our_votes,
+                rival_votes=rival_votes,
             )
-        return FreshnessResult(FreshnessVerdict.FRESH)
+        # Rival in the minority: proceed, but keep the observation in the
+        # result so the caller can log that a diverged peer exists.
+        return FreshnessResult(
+            FreshnessVerdict.FRESH,
+            peer_url=rival_peer,
+            peer_height=local_height,
+            peer_hash=rival_hash,
+            our_votes=our_votes,
+            rival_votes=rival_votes,
+        )

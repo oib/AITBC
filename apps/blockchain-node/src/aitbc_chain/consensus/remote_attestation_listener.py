@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from sqlmodel import select
@@ -39,6 +40,24 @@ else:
     logger = _ra.logger
 
 from .remote_attestation import _RaBaseMixin
+
+
+@dataclass
+class _AttestRequestCtx:
+    """Verified-request context shared by the per-key signing helpers."""
+
+    request: dict[str, Any]
+    header: dict[str, Any]
+    proposer: str
+    height_int: int
+    header_hash: str
+    request_round: int | None
+    request_cert: Any
+    round_lock: bool
+    att_sig_domain: Any
+    validator_set: set[str]
+    header_age: float | None
+    lock_minted: bool = False
 
 
 class _ListenerMixin(_RaBaseMixin):
@@ -360,49 +379,55 @@ class _ListenerMixin(_RaBaseMixin):
         metrics_registry.increment("attestation_refused_total")
         metrics_registry.increment(f"attestation_refused_{reason}_total")
 
-    async def _handle_request(self, request: Any) -> None:
+    def _attest_request_fields(self, request: Any) -> tuple[dict[str, Any], str, int, str, float | None] | None:
+        """Shape/identity fields of a well-formed attest request, else None."""
         if not isinstance(request, dict):
-            return
+            return None
         header = request.get("header")
         if not isinstance(header, dict):
-            return
+            return None
 
         proposer = header.get("proposer", "")
         if not proposer:
-            return
+            return None
 
         try:
             height_int = int(header.get("height", 0))
         except (TypeError, ValueError):
-            return
+            return None
         header_hash = str(header.get("hash", ""))
         if not header_hash:
-            return
+            return None
 
         # #1245: a stale or far-future header is refused before it can touch
         # the lock. The age is read from the signed header, not from when the
         # request arrived, so retransmitting a captured request refreshes
         # nothing.
         header_age = self._header_age_seconds(header)
+        return header, proposer, height_int, header_hash, header_age
+
+    def _refuse_stale_header(self, header_age: float | None, height_int: int) -> bool:
+        """Count+log and refuse a stale/far-future header; True = refused."""
         stale_reason = self._header_freshness_refusal(header_age)
-        if stale_reason is not None:
-            self._count_refusal(stale_reason)
-            logger.info(
-                "Attestation refusal: %s at height %s (header age %.1fs, bound %.0fs, future skew %.0fs)",
-                stale_reason,
-                height_int,
-                header_age if header_age is not None else 0.0,
-                float(getattr(settings, "attestation_header_max_age_seconds", 60.0)),
-                float(getattr(settings, "attestation_header_future_skew_seconds", 10.0)),
-            )
-            return
+        if stale_reason is None:
+            return False
+        self._count_refusal(stale_reason)
+        logger.info(
+            "Attestation refusal: %s at height %s (header age %.1fs, bound %.0fs, future skew %.0fs)",
+            stale_reason,
+            height_int,
+            header_age if header_age is not None else 0.0,
+            float(getattr(settings, "attestation_header_max_age_seconds", 60.0)),
+            float(getattr(settings, "attestation_header_future_skew_seconds", 10.0)),
+        )
+        return True
 
-        # #1298: the domain this request's signatures are minted under —
-        # computed once and reused for the acceptance-key lookups below and
-        # the evidence-record stamping in the signing loop. None below the
-        # armed activation height (legacy shared preimage).
-        att_sig_domain = _attestation_signature_domain(height_int)
+    def _request_round_gate(self, header: dict[str, Any], height_int: int, header_hash: str) -> tuple[int | None, bool, bool]:
+        """Round authentication for the request.
 
+        Returns ``(request_round, round_lock, proceed)`` — ``proceed`` is
+        False after a counted refusal was logged.
+        """
         # #1242 round-keyed lock path: tip-height/canonical-parent check and
         # independent round derivation run before any lock evaluation, inside
         # the same await-free section as the signature — the head snapshot
@@ -416,72 +441,82 @@ class _ListenerMixin(_RaBaseMixin):
         round_lock = self._round_lock_enabled()
         round_authenticated = round_lock or _attestation_domain_active(height_int)
         request_round: int | None = None
-        if round_authenticated:
-            request_round = self._derive_request_round(header)
-            try:
-                declared_round = int(str(header.get("round")))
-            except (TypeError, ValueError):
-                declared_round = -1
-            if request_round is None or declared_round != request_round:
-                self._count_refusal("round_auth_mismatch")
+        if not round_authenticated:
+            return request_round, round_lock, True
+        request_round = self._derive_request_round(header)
+        try:
+            declared_round = int(str(header.get("round")))
+        except (TypeError, ValueError):
+            declared_round = -1
+        if request_round is None or declared_round != request_round:
+            self._count_refusal("round_auth_mismatch")
+            logger.info(
+                "Round authentication refusal: round mismatch/underivable at height %s — declared=%s derived=%s",
+                height_int,
+                header.get("round"),
+                request_round,
+            )
+            return request_round, round_lock, False
+        if round_lock:
+            tip_refusal = self._tip_authorizes(header, height_int, header_hash)
+            if tip_refusal is not None:
+                self._count_refusal(f"tip_{tip_refusal}")
                 logger.info(
-                    "Round authentication refusal: round mismatch/underivable at height %s — declared=%s derived=%s",
+                    "Round-lock refusal: %s for %s at height %s",
+                    tip_refusal,
+                    header_hash[:18],
                     height_int,
-                    header.get("round"),
-                    request_round,
                 )
-                return
-            if round_lock:
-                tip_refusal = self._tip_authorizes(header, height_int, header_hash)
-                if tip_refusal is not None:
-                    self._count_refusal(f"tip_{tip_refusal}")
-                    logger.info(
-                        "Round-lock refusal: %s for %s at height %s",
-                        tip_refusal,
-                        header_hash[:18],
-                        height_int,
-                    )
-                    return
+                return request_round, round_lock, False
+        return request_round, round_lock, True
 
-        # #1298: the durable lock journal also reseeds the in-memory
-        # attestation lock and ``_signed_once`` across restarts — load it
-        # once before either lock path consults them.
-        self._ensure_round_locks_loaded()
-
+    def _refuse_attestation_lock_rival(
+        self,
+        height_int: int,
+        header_hash: str,
+        round_lock: bool,
+        att_sig_domain: Any,
+        window: float,
+    ) -> bool:
+        """Attestation-lock + signed-once refusals; True = refused."""
         # Attestation lock: having signed one header at this height, refuse a
         # rival hash for one round window. Double-signing two blocks at h is
         # the equivocation that lets an asymmetric partition become a fork.
-        window = attestation_lock_window_seconds(height_int)
-        if not round_lock and getattr(settings, "attestation_lock_enabled", True):
-            existing = self.attestation_lock(height_int, window, att_sig_domain)
-            if existing is not None and existing[0] != header_hash:
-                self._count_refusal("attestation_lock_rival")
-                logger.info(
-                    "Attestation lock: refusing to sign rival %s at height %s — already attested %s",
-                    header_hash[:18],
-                    height_int,
-                    existing[0][:18],
-                )
-                return
-            # #1245: this exact (height, hash) was signed before and its lock
-            # has lapsed -- signing again would re-arm the lock for another
-            # window, so a replayer could keep an attester locked out of a
-            # height indefinitely. Refuse; a duplicate inside the window
-            # (existing is not None) falls through as an idempotent re-publish.
-            if existing is None and self._signed_once_contains(height_int, header_hash, att_sig_domain):
-                self._count_refusal("resign_after_expiry")
-                logger.info(
-                    "Attestation refusal: %s at height %s already signed and its lock has lapsed",
-                    header_hash[:18],
-                    height_int,
-                )
-                return
+        if round_lock or not getattr(settings, "attestation_lock_enabled", True):
+            return False
+        existing = self.attestation_lock(height_int, window, att_sig_domain)
+        if existing is not None and existing[0] != header_hash:
+            self._count_refusal("attestation_lock_rival")
+            logger.info(
+                "Attestation lock: refusing to sign rival %s at height %s — already attested %s",
+                header_hash[:18],
+                height_int,
+                existing[0][:18],
+            )
+            return True
+        # #1245: this exact (height, hash) was signed before and its lock
+        # has lapsed -- signing again would re-arm the lock for another
+        # window, so a replayer could keep an attester locked out of a
+        # height indefinitely. Refuse; a duplicate inside the window
+        # (existing is not None) falls through as an idempotent re-publish.
+        if existing is None and self._signed_once_contains(height_int, header_hash, att_sig_domain):
+            self._count_refusal("resign_after_expiry")
+            logger.info(
+                "Attestation refusal: %s at height %s already signed and its lock has lapsed",
+                header_hash[:18],
+                height_int,
+            )
+            return True
+        return False
 
+    def _refuse_untrusted_proposer(
+        self, proposer: str, validator_set: set[str], height_int: int, header: dict[str, Any]
+    ) -> bool:
+        """Validator-set membership + scheduled-proposer refusals; True = refused."""
         # Only sign for blocks produced by a known validator in our set.
-        validator_set = self._load_validator_set()
         if validator_set and canonical_address(proposer) not in {canonical_address(v) for v in validator_set}:
             self._count_refusal("non_validator_proposer")
-            return
+            return True
 
         # The claimed proposer must be the scheduled one for (height, round):
         # a forged request used to get a signature and a lock anyway (#1058).
@@ -495,8 +530,13 @@ class _ListenerMixin(_RaBaseMixin):
                     expected[:18],
                 )
                 self._count_refusal("not_scheduled_proposer")
-                return
+                return True
+        return False
 
+    def _proposer_signature_refused(
+        self, request: dict[str, Any], header: dict[str, Any], proposer: str, height_int: int
+    ) -> bool:
+        """Verify the carried proposer block signature; True = refused."""
         # The schedule check proves the claimed name, not authorship: a
         # forged request naming the scheduled proposer passed it anyway
         # (#1058). The request must carry the proposer's block signature.
@@ -533,14 +573,19 @@ class _ListenerMixin(_RaBaseMixin):
                     proposer[:18],
                 )
                 self._count_refusal("bad_proposer_signature")
-                return
+                return True
         elif getattr(settings, "consensus_require_signed_attest_request", False):
             logger.info("Attestation refusal: unsigned attest_request at height %s", height_int)
             self._count_refusal("unsigned_attest_request")
-            return
+            return True
         else:
             count_v9_would_reject("attest_unsigned_request")
+        return False
 
+    def _round_or_abandon_refused(
+        self, height_int: int, request_round: int | None, header_hash: str, round_lock: bool
+    ) -> bool:
+        """Round-lock verdict + abandon-statement refusals; True = refused."""
         if round_lock and request_round is not None:
             # The request is authentic (proposer signature verified): record
             # it as U2 round-advance evidence, then apply the shared U1/U2
@@ -560,7 +605,7 @@ class _ListenerMixin(_RaBaseMixin):
                     verdict.proposer[:18],
                 )
                 self._count_refusal("round_lock_refusal")
-                return
+                return True
             abandoned = self._abandoned_round_rival(height_int, request_round, header_hash)
             if abandoned is not None:
                 metrics_registry.increment("vote_journal_abandon_same_round_refused_total")
@@ -572,7 +617,7 @@ class _ListenerMixin(_RaBaseMixin):
                     abandoned[:18],
                 )
                 self._count_refusal("abandon_same_round_refusal")
-                return
+                return True
         elif abandon.abandon_enabled():
             # #1940 F2: round-lock off (or round underivable) — the
             # (height, round) index cannot prove same-round vs cross-round,
@@ -595,8 +640,18 @@ class _ListenerMixin(_RaBaseMixin):
                     abandoned[:18],
                 )
                 self._count_refusal(f"abandon_{kind}_refusal")
-                return
+                return True
+        return False
 
+    async def _v9_request_refused(
+        self,
+        request: dict[str, Any],
+        header: dict[str, Any],
+        proposer_signature: Any,
+        height_int: int,
+        header_hash: str,
+    ) -> bool:
+        """v9 transaction-check refusal for the request; True = refused."""
         # v9: before signing, verify every transaction in the request —
         # sender signature (except the shared internal allowlist) and nonce
         # order against this validator's own state at the block's parent.
@@ -624,24 +679,267 @@ class _ListenerMixin(_RaBaseMixin):
                 refusal = await self._run_v9_check(header, txs, proposer_signature=proposer_signature)
             else:
                 refusal = await self._run_v9_check(header, txs)
-        if refusal is not None:
-            count_v9_would_reject(f"attest_{refusal}")
-            if probe_gate or get_block_version_for_height(height_int) >= 9:
-                logger.warning(
-                    "v9: refusing attestation for block %s at height %s — %s",
-                    header_hash[:18],
-                    height_int,
-                    refusal,
-                )
-                self._count_refusal(f"v9_{refusal}")
-                return
+        if refusal is None:
+            return False
+        count_v9_would_reject(f"attest_{refusal}")
+        if probe_gate or get_block_version_for_height(height_int) >= 9:
             logger.warning(
-                "v9 shadow: would refuse attestation for block %s at height %s — %s",
+                "v9: refusing attestation for block %s at height %s — %s",
                 header_hash[:18],
                 height_int,
                 refusal,
             )
+            self._count_refusal(f"v9_{refusal}")
+            return True
+        logger.warning(
+            "v9 shadow: would refuse attestation for block %s at height %s — %s",
+            header_hash[:18],
+            height_int,
+            refusal,
+        )
+        return False
 
+    async def _attest_for_key(self, ctx: _AttestRequestCtx, address: str, private_key: Any) -> bool:
+        """Sign+publish one attestation for ``address``; True ends the request.
+
+        Returns True when handling must stop (a response was published, or
+        the pre-sign lock could not be persisted); False continues to the
+        next key.
+        """
+        # Do not sign our own block.
+        if _same_address(address, ctx.proposer):
+            return False
+        # Only sign with keys that are part of the configured validator set.
+        if ctx.validator_set and canonical_address(address) not in {canonical_address(v) for v in ctx.validator_set}:
+            return False
+
+        # #1268: durable one-vote-per-height gate. Records the vote before
+        # the signature exists; flag-guarded, off = nothing above changes.
+        if vote_journal_enabled() and await self._journal_refuses(
+            ctx.height_int,
+            ctx.header_hash,
+            address,
+            ctx.proposer,
+            ctx.request_round,
+            request_cert=ctx.request_cert,
+        ):
+            return False
+        if not ctx.lock_minted:
+            if not self._record_pre_sign_lock(
+                ctx.height_int, ctx.request_round, ctx.header_hash, ctx.proposer, ctx.header, ctx.round_lock
+            ):
+                return True
+            ctx.lock_minted = True
+
+        message = {
+            "chain_id": ctx.header.get("chain_id", self._chain_id),
+            "height": ctx.header.get("height", 0),
+            "hash": ctx.header.get("hash", ""),
+            "parent_hash": ctx.header.get("parent_hash", ""),
+            "proposer": ctx.proposer,
+            "state_root": ctx.header.get("state_root", ""),
+            "bridge_state_root": ctx.header.get("bridge_state_root", ""),
+        }
+        if ctx.request_round is not None:
+            # Amendment A + #1298 T7a: the round is inside the signed
+            # payload — under round_lock at any height, and
+            # unconditionally at/above the domain-separation height —
+            # not transport metadata; changing it invalidates the
+            # signature. ``request_round`` is only ever set on those two
+            # paths, so this condition covers both.
+            message["round"] = ctx.request_round
+        try:
+            signature = _sign_attestation(message, private_key, ctx.height_int)
+        except Exception as e:
+            logger.warning("Failed to sign attestation: %s", e)
+            return False
+        return await self._record_and_publish(ctx, address, message, signature)
+
+    async def _record_and_publish(self, ctx: _AttestRequestCtx, address: str, message: dict[str, Any], signature: str) -> bool:
+        """Record evidence/locks for a fresh signature, then publish it.
+
+        True = the response was published (caller stops); False = publish
+        failed and the caller may try the next key.
+        """
+        # #1263: retain the signed attestation (durably) so a rival-hash
+        # signing at this height can cite BOTH signatures as equivocation
+        # evidence, then record the equivocation for this signer.
+        self._record_signed_attestation(
+            ctx.height_int,
+            ctx.header_hash,
+            address,
+            message,
+            ctx.request_round,
+            ctx.round_lock,
+            signature,
+            ctx.att_sig_domain,
+        )
+        # #1281: distinct evidence class — "unavailability_cert" when the
+        # armed barrier released this vote under a verified UC,
+        # "unjustified" for any other armed-mode conflicting vote.
+        # Absent entirely with the flag off (pre-#1281 evidence shape).
+        just_class: str | None = None
+        if unavail.justification_enabled():
+            just_class = (
+                "unavailability_cert" if (ctx.height_int, ctx.header_hash) in self._vote_justifications else "unjustified"
+            )
+        self._record_attestation_equivocation_evidence(
+            ctx.height_int,
+            ctx.header_hash,
+            address,
+            ctx.proposer,
+            ctx.request_round,
+            justification=just_class,
+            signature_domain=ctx.att_sig_domain,
+        )
+        if not ctx.round_lock:
+            self._record_attestation_lock(ctx.height_int, ctx.header_hash, ctx.proposer, ctx.att_sig_domain)
+
+        response = {
+            "chain_id": self._chain_id,
+            "height": message["height"],
+            "hash": message["hash"],
+            "validator": address,
+            "signature": signature,
+        }
+        stored_just = self._vote_justifications.get((ctx.height_int, ctx.header_hash))
+        if stored_just is not None:
+            # #1281: carry the unlock justification on the vote itself so
+            # collectors and evidence verifiers see the same artifact.
+            response["unlock_justification"] = stored_just
+        if ctx.request_round is not None:
+            # #1298 T7a: post-H round-auth responses carry the round even
+            # with round_lock OFF — collectors use it as the verify hint.
+            response["round"] = ctx.request_round
+        # #1709: request_age_ms is this node's clock minus the proposer's
+        # request timestamp — transit, queueing, v9 checks, plus any clock
+        # offset between the hosts. Carried on the response so collectors
+        # can distinguish a slow-but-honest responder from a skewed one;
+        # it is unsigned transport metadata like `round`, not part of the
+        # attestation payload.
+        request_ts = ctx.request.get("timestamp")
+        if isinstance(request_ts, (int, float)):
+            response["request_age_ms"] = int((_ra.time.time() - float(request_ts)) * 1000)
+        try:
+            await _ra.gossip_broker.publish(self._response_topic, response)
+        except Exception as e:
+            logger.warning("Failed to publish attestation response: %s", e)
+            return False
+        request_age_ms = response.get("request_age_ms", "unknown")
+        logger.info(
+            "Attestation response published: height=%s validator=%s proposer=%s header_age_ms=%s request_age_ms=%s",
+            message["height"],
+            address,
+            ctx.proposer,
+            int(ctx.header_age * 1000) if ctx.header_age is not None else "unknown",
+            request_age_ms,
+        )
+        return True
+
+    async def _handle_request(self, request: Any) -> None:
+        fields = self._attest_request_fields(request)
+        if fields is None:
+            return
+        header, proposer, height_int, header_hash, header_age = fields
+        if self._refuse_stale_header(header_age, height_int):
+            return
+
+        # #1298: the domain this request's signatures are minted under —
+        # computed once and reused for the acceptance-key lookups below and
+        # the evidence-record stamping in the signing loop. None below the
+        # armed activation height (legacy shared preimage).
+        att_sig_domain = _attestation_signature_domain(height_int)
+
+        request_round, round_lock, round_ok = self._request_round_gate(header, height_int, header_hash)
+        if not round_ok:
+            return
+
+        # #1298: the durable lock journal also reseeds the in-memory
+        # attestation lock and ``_signed_once`` across restarts — load it
+        # once before either lock path consults them.
+        self._ensure_round_locks_loaded()
+
+        # Durable lock record BEFORE any signature is released (#1242
+        # round-lock / #1298 attestation-lock journal): a crash after this
+        # point can never forget that this height is bound to header_hash,
+        # and a persistence failure refuses the signing — no signature goes
+        # out unrecorded.
+        # #1985 (liveness flag): the lock is minted only once a signer has passed the
+        # journal gate below, so a rival this validator refuses to vote for leaves no
+        # lock for a hash it never signed (it used to pin the round for the proposer).
+        window = attestation_lock_window_seconds(height_int)
+        if self._refuse_attestation_lock_rival(height_int, header_hash, round_lock, att_sig_domain, window):
+            return
+
+        validator_set = await self._request_semantics_ok(
+            request, header, proposer, height_int, header_hash, request_round, round_lock
+        )
+        if validator_set is None:
+            return
+
+        ctx = await self._signing_context(
+            request,
+            header,
+            proposer,
+            height_int,
+            header_hash,
+            request_round,
+            round_lock,
+            att_sig_domain,
+            validator_set,
+            header_age,
+        )
+        if ctx is None:
+            return
+        for address, private_key in self._validator_keys.items():
+            if await self._attest_for_key(ctx, address, private_key):
+                return
+
+    async def _request_semantics_ok(
+        self,
+        request: dict[str, Any],
+        header: dict[str, Any],
+        proposer: str,
+        height_int: int,
+        header_hash: str,
+        request_round: int | None,
+        round_lock: bool,
+    ) -> set[str] | None:
+        """Proposer-authenticity + round/abandon + v9 gates.
+
+        Returns the loaded validator set when every gate passes; None after
+        a counted refusal was logged.
+        """
+        # Only sign for blocks produced by a known validator in our set.
+        validator_set = self._load_validator_set()
+        if self._refuse_untrusted_proposer(proposer, validator_set, height_int, header):
+            return None
+
+        if self._proposer_signature_refused(request, header, proposer, height_int):
+            return None
+
+        if self._round_or_abandon_refused(height_int, request_round, header_hash, round_lock):
+            return None
+
+        proposer_signature = request.get("proposer_signature")
+        if await self._v9_request_refused(request, header, proposer_signature, height_int, header_hash):
+            return None
+        return validator_set
+
+    async def _signing_context(
+        self,
+        request: dict[str, Any],
+        header: dict[str, Any],
+        proposer: str,
+        height_int: int,
+        header_hash: str,
+        request_round: int | None,
+        round_lock: bool,
+        att_sig_domain: Any,
+        validator_set: set[str],
+        header_age: float | None,
+    ) -> _AttestRequestCtx | None:
+        """Pre-sign lock + observation-index note; None refuses the request."""
         # Durable lock record BEFORE any signature is released (#1242
         # round-lock / #1298 attestation-lock journal): a crash after this
         # point can never forget that this height is bound to header_hash,
@@ -654,7 +952,7 @@ class _ListenerMixin(_RaBaseMixin):
         lock_minted = False
         if not lock_after_gate:
             if not self._record_pre_sign_lock(height_int, request_round, header_hash, proposer, header, round_lock):
-                return
+                return None
             lock_minted = True
 
         # #1198/#1263 advisory: attestation equivocation is recorded inside the
@@ -680,109 +978,17 @@ class _ListenerMixin(_RaBaseMixin):
             )
         request_cert = request.get("unlock_justification")
 
-        for address, private_key in self._validator_keys.items():
-            # Do not sign our own block.
-            if _same_address(address, proposer):
-                continue
-            # Only sign with keys that are part of the configured validator set.
-            if validator_set and canonical_address(address) not in {canonical_address(v) for v in validator_set}:
-                continue
-
-            # #1268: durable one-vote-per-height gate. Records the vote before
-            # the signature exists; flag-guarded, off = nothing above changes.
-            if vote_journal_enabled() and await self._journal_refuses(
-                height_int, header_hash, address, proposer, request_round, request_cert=request_cert
-            ):
-                continue
-            if not lock_minted:
-                if not self._record_pre_sign_lock(height_int, request_round, header_hash, proposer, header, round_lock):
-                    return
-                lock_minted = True
-
-            message = {
-                "chain_id": header.get("chain_id", self._chain_id),
-                "height": header.get("height", 0),
-                "hash": header.get("hash", ""),
-                "parent_hash": header.get("parent_hash", ""),
-                "proposer": proposer,
-                "state_root": header.get("state_root", ""),
-                "bridge_state_root": header.get("bridge_state_root", ""),
-            }
-            if request_round is not None:
-                # Amendment A + #1298 T7a: the round is inside the signed
-                # payload — under round_lock at any height, and
-                # unconditionally at/above the domain-separation height —
-                # not transport metadata; changing it invalidates the
-                # signature. ``request_round`` is only ever set on those two
-                # paths, so this condition covers both.
-                message["round"] = request_round
-            try:
-                signature = _sign_attestation(message, private_key, height_int)
-            except Exception as e:
-                logger.warning("Failed to sign attestation: %s", e)
-                continue
-            # #1263: retain the signed attestation (durably) so a rival-hash
-            # signing at this height can cite BOTH signatures as equivocation
-            # evidence, then record the equivocation for this signer.
-            self._record_signed_attestation(
-                height_int, header_hash, address, message, request_round, round_lock, signature, att_sig_domain
-            )
-            # #1281: distinct evidence class — "unavailability_cert" when the
-            # armed barrier released this vote under a verified UC,
-            # "unjustified" for any other armed-mode conflicting vote.
-            # Absent entirely with the flag off (pre-#1281 evidence shape).
-            just_class: str | None = None
-            if unavail.justification_enabled():
-                just_class = "unavailability_cert" if (height_int, header_hash) in self._vote_justifications else "unjustified"
-            self._record_attestation_equivocation_evidence(
-                height_int,
-                header_hash,
-                address,
-                proposer,
-                request_round,
-                justification=just_class,
-                signature_domain=att_sig_domain,
-            )
-            if not round_lock:
-                self._record_attestation_lock(height_int, header_hash, proposer, att_sig_domain)
-
-            response = {
-                "chain_id": self._chain_id,
-                "height": message["height"],
-                "hash": message["hash"],
-                "validator": address,
-                "signature": signature,
-            }
-            stored_just = self._vote_justifications.get((height_int, header_hash))
-            if stored_just is not None:
-                # #1281: carry the unlock justification on the vote itself so
-                # collectors and evidence verifiers see the same artifact.
-                response["unlock_justification"] = stored_just
-            if request_round is not None:
-                # #1298 T7a: post-H round-auth responses carry the round even
-                # with round_lock OFF — collectors use it as the verify hint.
-                response["round"] = request_round
-            # #1709: request_age_ms is this node's clock minus the proposer's
-            # request timestamp — transit, queueing, v9 checks, plus any clock
-            # offset between the hosts. Carried on the response so collectors
-            # can distinguish a slow-but-honest responder from a skewed one;
-            # it is unsigned transport metadata like `round`, not part of the
-            # attestation payload.
-            request_ts = request.get("timestamp")
-            if isinstance(request_ts, (int, float)):
-                response["request_age_ms"] = int((_ra.time.time() - float(request_ts)) * 1000)
-            try:
-                await _ra.gossip_broker.publish(self._response_topic, response)
-            except Exception as e:
-                logger.warning("Failed to publish attestation response: %s", e)
-                continue
-            request_age_ms = response.get("request_age_ms", "unknown")
-            logger.info(
-                "Attestation response published: height=%s validator=%s proposer=%s header_age_ms=%s request_age_ms=%s",
-                message["height"],
-                address,
-                proposer,
-                int(header_age * 1000) if header_age is not None else "unknown",
-                request_age_ms,
-            )
-            return
+        return _AttestRequestCtx(
+            request=request,
+            header=header,
+            proposer=proposer,
+            height_int=height_int,
+            header_hash=header_hash,
+            request_round=request_round,
+            request_cert=request_cert,
+            round_lock=round_lock,
+            att_sig_domain=att_sig_domain,
+            validator_set=validator_set,
+            header_age=header_age,
+            lock_minted=lock_minted,
+        )
