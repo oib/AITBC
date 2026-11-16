@@ -946,10 +946,76 @@ class MultiValidatorPoA:
                 # permits it — protocol-sanctioned, not a double-sign. The same
                 # proof rides the evidence so peers and the chain apply path
                 # excuse it identically.
-                continue
+                # #1940 F3: excusing the canonical pair must not hide another
+                # conflicting pair whose later vote is NOT sanctioned.
+                event = self._first_unjustified_cross_view_event(validator, sequence, seq_msgs)
+                if event is None:
+                    continue
             self._apply_equivocation_slash(validator, event)
             detected = True
         return detected
+
+    @staticmethod
+    def _cross_view_later_candidates(seq_msgs: list[dict[str, Any]]):
+        """Yield ``(earlier, later)`` conflicting record pairs, one per distinct
+        later ``(view, hash)``, in deterministic ``(view, hash)`` order (#1940 F3).
+
+        ``earlier`` is the first record in ``_cross_view_message_order`` with a
+        lower view and a different hash — found from a running prefix in
+        O(1), so the whole scan is O(k log k). A NEW_VIEW excuses a pair by its
+        LATER vote only, so one candidate per later ``(view, hash)`` covers
+        every pair the excuse can distinguish."""
+        from .slashing import _cross_view_message_order
+
+        ordered = sorted(seq_msgs, key=_cross_view_message_order)
+        first: dict[str, Any] | None = None
+        first_diff: dict[str, Any] | None = None
+        i = 0
+        while i < len(ordered):
+            view = ordered[i]["view_number"]
+            j = i
+            while j < len(ordered) and ordered[j]["view_number"] == view:
+                j += 1
+            group = ordered[i:j]
+            seen: set[str] = set()
+            for rec in group:
+                h = str(rec["block_hash"]).lower()
+                if h in seen or first is None:
+                    continue
+                seen.add(h)
+                earlier = first if str(first["block_hash"]).lower() != h else first_diff
+                if earlier is not None:
+                    yield earlier, rec
+            for rec in group:
+                if first is None:
+                    first = rec
+                elif first_diff is None and str(rec["block_hash"]).lower() != str(first["block_hash"]).lower():
+                    first_diff = rec
+            i = j
+
+    def _first_unjustified_cross_view_event(self, validator: str, sequence: int, seq_msgs: list[dict[str, Any]]) -> Any:
+        """The event for the first conflicting pair whose later vote no verified
+        NEW_VIEW permits, or None when every conflicting pair is excused.
+
+        At most two NEW_VIEW verifications per view: a free NEW_VIEW permits
+        every hash, a locked one exactly one, so two distinct hashes that both
+        verify prove the whole view is sanctioned."""
+        sanctioned: dict[int, int] = {}
+        for earlier, later in self._cross_view_later_candidates(seq_msgs):
+            view = later["view_number"]
+            if sanctioned.get(view, 0) >= 2:
+                continue
+            msg_a = {k: earlier.get(k) for k in self._VOTE_EVIDENCE_FIELDS}
+            msg_b = {k: later.get(k) for k in self._VOTE_EVIDENCE_FIELDS}
+            justification = self._cross_view_unlock_justification(sequence, msg_a, msg_b)
+            event = self._slashing_manager.cross_view_vote_equivocation_event(
+                validator, sequence, "commit", msg_a, msg_b, unlock_justification=justification
+            )
+            if justification is not None and self._cross_view_pair_justified(event, justification, sequence):
+                sanctioned[view] = sanctioned.get(view, 0) + 1
+                continue
+            return event
+        return None
 
     def _cross_view_unlock_justification(
         self, sequence: int, msg_a: dict[str, Any], msg_b: dict[str, Any]
