@@ -6,6 +6,7 @@ import socket
 import time
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import cast
 
 import click
 import requests
@@ -691,7 +692,7 @@ def _read_wallet_address(ctx: click.Context, wallet: str) -> str:
     wallet_path = find_wallet_file(wallet)
     if wallet_path is None or not Path(wallet_path).exists():
         abort(ctx, f"wallet '{wallet}' not found in the configured wallet directories.")
-    assert wallet_path is not None  # abort() raises; this only narrows for mypy
+    wallet_path = cast(Path, wallet_path)
 
     try:
         wallet_data = json.loads(Path(wallet_path).read_text())
@@ -702,8 +703,7 @@ def _read_wallet_address(ctx: click.Context, wallet: str) -> str:
     wallet_address: str | None = wallet_data.get("address")
     if not wallet_address:
         abort(ctx, "wallet file has no 'address' field.")
-    assert wallet_address is not None  # abort() raises; this only narrows for mypy
-    return wallet_address
+    return cast(str, wallet_address)
 
 
 def _hub_post(ctx: click.Context, url: str, payload: dict, headers: dict, action: str):

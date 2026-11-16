@@ -8,7 +8,7 @@ and `aitbc market` for the coordinator-backed or service-backed paths.
 import json
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 from cryptography.hazmat.primitives import serialization
@@ -117,7 +117,7 @@ def submit_job(ctx, wallet_name: str, job_type: str, prompt: str, payment: Decim
         wallet_path = find_wallet_file(wallet_name)
         if wallet_path is None:
             abort(ctx, f"Wallet '{wallet_name}' not found")
-        assert wallet_path is not None  # abort() raises; this only narrows for mypy
+        wallet_path = cast(Path, wallet_path)
 
         with open(wallet_path) as f:
             wallet_data = json.load(f)

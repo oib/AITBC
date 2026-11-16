@@ -18,7 +18,7 @@ import json
 import secrets
 import time
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import click
 from tabulate import tabulate
@@ -193,8 +193,7 @@ def _emit_pair_rate(ctx, rates_data, rates, from_chain, to_chain, from_token, to
             suffix = f" ({pair_note})" if pair_note else ""
             success(f"Swap rate {from_chain} → {to_chain}: {pair_rate}{suffix}")
         else:
-            assert pair_note is not None
-            info(pair_note)
+            info(cast(str, pair_note))
     else:
         output({"from_chain": from_chain, "to_chain": to_chain, "rate": pair_rate, "note": pair_note}, fmt)
 

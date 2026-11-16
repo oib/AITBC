@@ -574,9 +574,8 @@ def _is_production_deployment() -> bool:
 def _assert_production_config() -> None:
     # Fail closed: production must have auth enabled and not be in test mode
     if _is_production_deployment():
-        assert settings.auth_enabled and not settings.test_mode, (
-            "Production environment requires auth_enabled=True and test_mode=False"
-        )
+        if not (settings.auth_enabled and not settings.test_mode):
+            raise RuntimeError("Production environment requires auth_enabled=True and test_mode=False")
 
     # Fail closed: production FHE requires a real provider when mock is disabled
     if _is_production_deployment() and settings.fhe_enabled and not settings.fhe_allow_mock:

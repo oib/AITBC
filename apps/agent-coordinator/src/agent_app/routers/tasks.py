@@ -85,9 +85,8 @@ def _lock_escrow_on_chain(escrow: Any, payment: TaskPayment, task_id: str) -> st
 
     Returns the ``contract_id`` the chain assigned, or ``None``.
     """
-    # Only called from _create_task_escrow, which returns early when
-    # state.payment_escrow is unset — re-narrow for mypy.
-    assert state.payment_escrow is not None
+    if state.payment_escrow is None:
+        raise HTTPException(status_code=503, detail="Payment escrow not available")
     if escrow.status == EscrowStatus.LOCKED:
         # #1553 replay: the escrow for this task already locked on-chain —
         # return its contract id instead of submitting a second lock tx.

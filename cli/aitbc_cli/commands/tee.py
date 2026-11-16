@@ -207,7 +207,7 @@ def _resolve_quote_from_cli(ctx, quote: str, attestation_id: str, job_id: str) -
     client = _api_client(ctx)
     if client is None:
         abort(ctx, "Coordinator API URL not configured")
-    assert client is not None
+    client = cast(AITBCHTTPClient, client)
     if attestation_id:
         att = client.get(f"/v1/tee/attestations/{attestation_id}")
         return cast(str, att.get("quote", ""))
@@ -311,7 +311,7 @@ def register(ctx, enclave_id: str, public_key: str, agent_id: str):
         client = _api_client(ctx)
         if client is None:
             abort(ctx, "Coordinator API URL not configured")
-        assert client is not None
+        client = cast(AITBCHTTPClient, client)
         if not public_key:
             abort(
                 ctx,
@@ -350,7 +350,7 @@ def status(ctx, enclave_id: str):
         client = _api_client(ctx)
         if client is None:
             abort(ctx, "Coordinator API URL not configured")
-        assert client is not None
+        client = cast(AITBCHTTPClient, client)
         result = client.get(f"/v1/tee/enclaves/{enclave_id}")
         output(result, ctx.obj.get("output_format", "table"), title="TEE Enclave Status")
     except NetworkError as e:

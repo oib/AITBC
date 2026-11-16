@@ -29,7 +29,7 @@ def create_genesis():
     try:
         reset_guard.assert_data_dir_env()
     except reset_guard.ResetGuardError as exc:
-        print(f"refused: {exc}", file=sys.stderr)
+        sys.stderr.write(f"refused: {exc}\n")
         sys.exit(1)
     logger.info("Creating genesis block...")
 

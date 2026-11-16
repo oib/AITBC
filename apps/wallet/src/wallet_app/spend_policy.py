@@ -27,9 +27,8 @@ def assert_transfer_allowed(amount: int, payload: dict[str, Any] | None) -> None
     op = str(payload.get("op") or "wallet.execute")
     if op not in ALLOWED_OPS:
         raise ValueError(f"spend policy: disallowed op {op!r}")
-    if payload.get("max_amount") is None:
-        raise ValueError("spend policy: max_amount required when enforcement is enabled")
     max_amount_raw = payload.get("max_amount")
-    assert max_amount_raw is not None
+    if max_amount_raw is None:
+        raise ValueError("spend policy: max_amount required when enforcement is enabled")
     if amount > int(max_amount_raw):
         raise ValueError("spend policy: amount exceeds payload max_amount")

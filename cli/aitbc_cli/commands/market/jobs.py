@@ -1132,7 +1132,7 @@ def run_job(
         service_type = offer.get("service_type", "")
 
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
-        assert private_key is not None
+        private_key = cast(str, private_key)
 
         # --proposer stays the explicit override; otherwise _escrow_create
         # resolves the node wallet from the node RPC's /health. The escrow
@@ -1264,7 +1264,7 @@ def transcribe_job(
         output_format = resolve_output_format(ctx, output_format)
         offer = _resolve_offer(ctx, offer_id_or_plugin_id)
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
-        assert private_key is not None
+        private_key = cast(str, private_key)
         _run_whisper(ctx, offer, audio_file, wallet_address, private_key, language, task, fmt, output_format)
     except Exception as e:
         error(f"Error transcribing audio: {e}")
@@ -1302,7 +1302,7 @@ def process_video(
         output_format = resolve_output_format(ctx, output_format)
         offer = _resolve_offer(ctx, offer_id_or_plugin_id)
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
-        assert private_key is not None
+        private_key = cast(str, private_key)
         _run_ffmpeg(
             ctx, offer, input_file, wallet_address, private_key, output_container, codec, resolution, bitrate, output_format
         )
@@ -1356,7 +1356,7 @@ def hermes_job(
         output_format = resolve_output_format(ctx, output_format)
         offer = _resolve_offer(ctx, offer_id_or_plugin_id)
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
-        assert private_key is not None
+        private_key = cast(str, private_key)
         # --proposer is the explicit override; otherwise _escrow_create
         # resolves the node wallet from /health (warned HUB_PROPOSER_ID
         # fallback) — see run_job (#455).

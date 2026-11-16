@@ -399,8 +399,8 @@ async def rotate_agent_identity(
     """
     agent, old_address, new_address = rotation
     try:
-        # _rotation_guards already 503'd on a missing registry — re-narrow for mypy.
-        assert state.agent_registry is not None
+        if state.agent_registry is None:
+            raise HTTPException(status_code=503, detail="Agent registry not available")
         await _consume_identity_nonce(agent_id, request.identity_nonce)
 
         if not await state.agent_registry.update_agent_identity(agent_id, new_address, request.new_proof):

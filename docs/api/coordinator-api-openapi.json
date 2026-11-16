@@ -925,7 +925,7 @@
             }
           },
           "404": {
-            "description": "job not found",
+            "description": "job not found / payment not found",
             "content": {
               "application/json": {
                 "schema": {
