@@ -22,8 +22,6 @@
       1 apps/blockchain-node/src/aitbc_chain/rpc/blocks.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/bridge.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_lock.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_release.py
       2 apps/blockchain-node/src/aitbc_chain/rpc/sync.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/utils.py
       1 apps/blockchain-node/src/aitbc_chain/state/admission_authority.py
