@@ -65,6 +65,13 @@ _OPS_ERRORS = (
 _PARTICIPANT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$")
 
 
+class _SyncAuditLoadUnsupported:
+    """Sentinel type: storage backend has no synchronous audit-key loader."""
+
+
+_SYNC_AUDIT_LOAD_UNSUPPORTED = _SyncAuditLoadUnsupported()
+
+
 def validate_participant_id(participant_id: str) -> str:
     """Return participant_id when it is filename-safe, else raise ValueError."""
     if not isinstance(participant_id, str) or not _PARTICIPANT_ID_RE.fullmatch(participant_id):
@@ -79,9 +86,14 @@ class KeyManager:
         self.storage = storage_backend
         self.backend = default_backend()
         self._key_cache: dict[str, Any] = {}
-        self._audit_key = None
-        self._audit_private = None
+        self._audit_key: X25519PublicKey | None = None
+        self._audit_private: bytes | None = None
         self._audit_key_rotation = timedelta(days=30)
+        # #2162: in-flight audit-key storage/load tasks. A generated audit
+        # key must never be lost silently, and a persisted one must be
+        # loaded before any regeneration.
+        self._audit_load_task: asyncio.Task[KeyPair | None] | None = None
+        self._audit_store_task: asyncio.Task[bool] | None = None
 
     async def generate_key_pair(self, participant_id: str) -> KeyPair:
         """Generate X25519 key pair for participant"""
@@ -172,8 +184,7 @@ class KeyManager:
 
     def get_audit_key(self) -> X25519PublicKey:
         """Get public audit key for escrow (synchronous for tests)."""
-        if not self._audit_key:
-            self._generate_audit_key_in_memory()
+        self._ensure_audit_key()
         if self._should_rotate_audit_key():
             self._generate_audit_key_in_memory()
         return self._audit_key  # type: ignore[return-value]
@@ -182,14 +193,22 @@ class KeyManager:
         """Get private audit key with authorization (sync helper)."""
         if not self.verify_audit_authorization_sync(authorization):
             raise AccessDeniedError("Invalid audit authorization")
-        if not self._audit_key:
-            self._generate_audit_key_in_memory()
-        if not self._audit_private:
-            self._generate_audit_key_in_memory()
+        self._ensure_audit_key()
         return X25519PrivateKey.from_private_bytes(self._audit_private)  # type: ignore[arg-type]
 
     async def get_audit_private_key(self, authorization: str) -> X25519PrivateKey:
         """Async wrapper for audit private key."""
+        # #2162: if a persisted-key load was scheduled on this loop by a
+        # sync accessor (async-only storage backend), wait for it here so
+        # the persisted key — not a fresh one — is returned.
+        task = self._audit_load_task
+        if task is not None and not task.done():
+            try:
+                await task
+            except _OPS_ERRORS as e:
+                logger.debug("Audit key preload failed: %s", e)
+            except asyncio.CancelledError:
+                pass
         return self.get_audit_private_key_sync(authorization)
 
     def verify_audit_authorization_sync(self, authorization: str) -> bool:
@@ -265,7 +284,7 @@ class KeyManager:
         try:
             audit_private = X25519PrivateKey.generate()
             audit_public = audit_private.public_key()
-            self._audit_private = audit_private.private_bytes_raw()  # type: ignore[assignment]
+            self._audit_private = audit_private.private_bytes_raw()
             audit_key_pair = KeyPair(
                 participant_id="audit",
                 private_key=self._audit_private,
@@ -276,27 +295,196 @@ class KeyManager:
             )
             try:
                 store = getattr(self.storage, "store_audit_key", None)
-                if store:
+                if store is not None:
                     if asyncio.iscoroutinefunction(store):
                         try:
-                            # Only run the coroutine if no event loop is already
-                            # active (sync route / worker thread); otherwise the
-                            # audit key stays in memory and will be persisted on
-                            # the next async path that awaits it.
                             asyncio.get_running_loop()
                         except RuntimeError:
-                            asyncio.run(store(audit_key_pair))
-                    else:
-                        store(audit_key_pair)
-            except _OPS_ERRORS:
-                logger.debug("Audit key persistence skipped", exc_info=True)
-            self._audit_key = audit_public  # type: ignore[assignment]
+                            # No loop running (sync route / worker thread).
+                            if asyncio.run(store(audit_key_pair)) is False:
+                                logger.warning("Audit key persistence reported failure")
+                        else:
+                            # #2162: a loop IS running — schedule the write on
+                            # it instead of dropping it. A generated audit key
+                            # must never be lost silently.
+                            task = asyncio.ensure_future(store(audit_key_pair))
+                            self._audit_store_task = task
+                            task.add_done_callback(self._on_audit_store_done)
+                    elif store(audit_key_pair) is False:
+                        logger.warning("Audit key persistence reported failure")
+                else:
+                    logger.debug("Storage backend has no store_audit_key; audit key stays in memory")
+            except _OPS_ERRORS as e:
+                logger.warning("Audit key persistence failed: %s", e)
+            self._audit_key = audit_public
         except _OPS_ERRORS as e:
             logger.error("Failed to generate audit key: %s", e)
             raise KeyManagementError(f"Audit key generation failed: {e}") from e
 
+    def _ensure_audit_key(self) -> None:
+        """Load the persisted audit key, generating + persisting one if absent.
+
+        #2162: previously this always generated a fresh keypair, orphaning
+        every audit signature made before a restart. Now a persisted key is
+        loaded first; generation only happens when no usable persisted key
+        exists.
+        """
+        if self._audit_key is not None and self._audit_private is not None:
+            return
+        self._settle_audit_load_task()
+        if self._audit_key is not None and self._audit_private is not None:
+            return
+        if self._load_persisted_audit_key():
+            return
+        if self._audit_load_task is not None:
+            # An async-only backend inside a running loop: the load is
+            # scheduled but cannot be awaited from this sync accessor.
+            # Generating now could overwrite a persisted key we have not
+            # read yet, so refuse rather than risk orphaning it.
+            raise KeyManagementError(
+                "Persisted audit key load is pending on the event loop; "
+                "use the async audit accessor or retry after the loop yields"
+            )
+        self._generate_audit_key_in_memory()
+
+    def _settle_audit_load_task(self) -> None:
+        """Adopt a finished async audit-key load; raise while one is pending."""
+        task = self._audit_load_task
+        if task is None:
+            return
+        if not task.done():
+            raise KeyManagementError(
+                "Persisted audit key load is still running on the event loop; use the async audit accessor"
+            )
+        self._audit_load_task = None
+        try:
+            key_pair = task.result()
+        except _OPS_ERRORS as e:
+            logger.warning("Async audit key load failed: %s", e)
+            return
+        except asyncio.CancelledError:
+            return
+        if key_pair is not None:
+            self._adopt_audit_key_pair(key_pair)
+
+    def _load_persisted_audit_key(self) -> bool:
+        """Best-effort load of the persisted audit keypair.
+
+        Returns True when both halves were restored into ``_audit_key`` /
+        ``_audit_private``. Sync storage paths are tried first; the async
+        ``get_audit_key`` is used via ``asyncio.run`` when no loop is
+        running, or scheduled on the running loop for the async accessor
+        to collect (``_audit_load_task``).
+        """
+        key_pair = self._load_audit_key_sync()
+        if isinstance(key_pair, _SyncAuditLoadUnsupported):
+            key_pair = self._load_audit_key_via_async()
+        if key_pair is None or isinstance(key_pair, _SyncAuditLoadUnsupported):
+            return False
+        return self._adopt_audit_key_pair(key_pair)
+
+    def _load_audit_key_sync(self) -> "KeyPair | None | _SyncAuditLoadUnsupported":
+        """Synchronous persisted-audit-key load.
+
+        Returns the KeyPair, None when no persisted key exists, or the
+        ``_SyncAuditLoadUnsupported`` sentinel when the backend exposes no
+        working synchronous loader (caller then tries the async path).
+        """
+        loader = getattr(self.storage, "get_audit_key_sync", None)
+        if loader is not None:
+            try:
+                return loader()  # type: ignore[no-any-return]
+            except NotImplementedError:
+                pass  # fall through to the generic pair loader
+            except _OPS_ERRORS as e:
+                logger.debug("Sync audit key load via get_audit_key_sync failed: %s", e)
+                return None
+        pair_loader = getattr(self.storage, "get_key_pair_sync", None)
+        if pair_loader is not None:
+            try:
+                # FileKeyStorage persists the audit pair under the
+                # participant id "audit" (audit.json / audit.priv).
+                return pair_loader("audit")  # type: ignore[no-any-return]
+            except NotImplementedError:
+                pass
+            except _OPS_ERRORS as e:
+                logger.debug("Sync audit key load via get_key_pair_sync failed: %s", e)
+                return None
+        return _SYNC_AUDIT_LOAD_UNSUPPORTED
+
+    def _load_audit_key_via_async(self) -> KeyPair | None:
+        """Async persisted-audit-key load for backends without a sync path."""
+        getter = getattr(self.storage, "get_audit_key", None)
+        if getter is None or not asyncio.iscoroutinefunction(getter):
+            return None
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            try:
+                return asyncio.run(getter())  # type: ignore[no-any-return]
+            except _OPS_ERRORS as e:
+                logger.debug("Async audit key load failed: %s", e)
+                return None
+        # A loop is already running and only the async getter exists: the
+        # sync accessors cannot await it, so schedule the load and let
+        # ``get_audit_private_key`` (or a later sync call once the task is
+        # done) adopt the result via ``_settle_audit_load_task``.
+        task = asyncio.ensure_future(getter())
+        self._audit_load_task = task
+        task.add_done_callback(self._on_audit_load_done)
+        return None
+
+    def _on_audit_load_done(self, task: "asyncio.Task[KeyPair | None]") -> None:
+        """Consume a scheduled audit-key load's exception so it is not lost."""
+        if task.cancelled():
+            return
+        exc = task.exception()
+        if exc is not None:
+            logger.warning("Async audit key load failed: %s", exc)
+
+    def _on_audit_store_done(self, task: "asyncio.Task[bool]") -> None:
+        """Consume a scheduled audit-key store's result/exception."""
+        if task.cancelled():
+            return
+        try:
+            ok = task.result()
+        except _OPS_ERRORS as e:
+            logger.warning("Persisted audit key write failed: %s", e)
+            return
+        if ok is False:
+            logger.warning("Persisted audit key write reported failure")
+
+    def _adopt_audit_key_pair(self, key_pair: KeyPair) -> bool:
+        """Install a persisted audit KeyPair after sanity checks.
+
+        The private half is authoritative: the public key is re-derived
+        from it and must match the stored public bytes, so a truncated or
+        mismatched audit.json/audit.priv pair is rejected rather than
+        adopted.
+        """
+        try:
+            private_key = X25519PrivateKey.from_private_bytes(key_pair.private_key)
+            derived_public = private_key.public_key().public_bytes_raw()
+            if key_pair.public_key != derived_public:
+                logger.warning("Persisted audit key public/private mismatch; ignoring it")
+                return False
+            self._audit_private = key_pair.private_key
+            self._audit_key = private_key.public_key()
+            logger.info("Loaded persisted audit key (version %s)", key_pair.version)
+            return True
+        except _OPS_ERRORS as e:
+            logger.warning("Ignoring unusable persisted audit key: %s", e)
+            return False
+
     def _should_rotate_audit_key(self) -> bool:
-        """Check if audit key needs rotation"""
+        """Check if audit key needs rotation.
+
+        NOTE (#2162): time-based rotation (``self._audit_key_rotation``,
+        currently 30 days) is NOT yet implemented — a persisted audit key
+        is loaded as-is across restarts and only a missing/unusable key
+        triggers regeneration. Track the key's creation time before
+        enabling scheduled rotation.
+        """
         return self._audit_key is None
 
     async def _reencrypt_transactions(self, participant_id: str, old_key_pair: KeyPair, new_key_pair: KeyPair) -> None:
@@ -459,6 +647,14 @@ class FileKeyStorage(KeyStorageBackend):
 
     async def get_audit_key(self) -> KeyPair | None:
         """Get audit key"""
+        return self.get_key_pair_sync("audit")
+
+    def get_audit_key_sync(self) -> KeyPair | None:
+        """Synchronous audit key load (#2162 restart recovery).
+
+        Optional sync counterpart to ``get_audit_key``; ``KeyManager``
+        prefers it so persisted audit keys load without an event loop.
+        """
         return self.get_key_pair_sync("audit")
 
     async def list_participants(self) -> list[str]:
