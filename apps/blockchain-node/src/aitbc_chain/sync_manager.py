@@ -356,6 +356,32 @@ class SyncManager:
         This is the single entry point for all block push paths (gossip,
         subscription, or future transports).
         """
+        rejected = self._validate_block_message(chain_id, block_data, source)
+        if rejected is not None:
+            return rejected
+
+        block_hash = self._block_hash(block_data)
+        state = self._chain_states.get(chain_id)
+        if not state or not state.chain_sync:
+            return ImportResult(
+                accepted=False,
+                height=block_data.get("height", -1),
+                block_hash=block_hash,
+                reason="Chain not managed by SyncManager",
+            )
+        return await self._import_block_deduped(state, state.chain_sync, chain_id, block_data, block_hash, source)
+
+    def _validate_block_message(
+        self,
+        chain_id: str,
+        block_data: dict[str, Any],
+        source: str,
+    ) -> ImportResult | None:
+        """Reject malformed or self-produced block messages before import.
+
+        Returns the rejection ImportResult, or None when the message is a
+        block this node should attempt to import.
+        """
         if not isinstance(block_data, dict) or "height" not in block_data or "proposer" not in block_data:
             logger.debug(
                 "Ignoring non-block message in handle_block",
@@ -397,17 +423,18 @@ class SyncManager:
                 block_hash=block_data.get("hash", ""),
                 reason="Self-proposed block",
             )
+        return None
 
-        block_hash = self._block_hash(block_data)
-        state = self._chain_states.get(chain_id)
-        if not state or not state.chain_sync:
-            return ImportResult(
-                accepted=False,
-                height=block_data.get("height", -1),
-                block_hash=block_hash,
-                reason="Chain not managed by SyncManager",
-            )
-
+    async def _import_block_deduped(
+        self,
+        state: ChainSyncState,
+        chain_sync: ChainSync,
+        chain_id: str,
+        block_data: dict[str, Any],
+        block_hash: str,
+        source: str,
+    ) -> ImportResult:
+        """Run the dedup check and import_block under the chain state lock."""
         async with state.lock:
             self._prune_seen_blocks()
             key = (chain_id, block_hash)
@@ -430,7 +457,7 @@ class SyncManager:
             # the whole busy_timeout under write-lock contention (node1,
             # #1290: keepalive timeouts + dropped bridge header batches).
             result = await asyncio.to_thread(
-                state.chain_sync.import_block,
+                chain_sync.import_block,
                 block_data,
                 transactions=block_data.get("transactions"),
                 skip_state_root_validation=not settings.sync_state_root_validation_enabled,
@@ -443,75 +470,122 @@ class SyncManager:
             # (gossip + subscription) does not produce duplicate import attempts.
             # Transient reasons (gaps, divergence, state-root mismatches) must not be
             # cached because the block can become valid after catch-up / state sync.
-            transient_reason = (
-                "Gap detected" in result.reason
-                or result.diverged
-                or "state root" in result.reason.lower()
-                or "stale" in result.reason.lower()
-            )
-            if result.accepted or not transient_reason:
+            if result.accepted or not self._is_transient_rejection(result):
                 self._seen_blocks[key] = now
 
             if result.accepted:
-                state.last_push_at = time.time()
-                state.last_local_height = block_data.get("height", state.last_local_height)
-                if state.mode in (SyncMode.CATCH_UP, SyncMode.ERROR):
-                    state.mode = SyncMode.PUSH
-                self._reset_rejection_counts(chain_id)
-                self._consecutive_divergence.pop(chain_id, None)
-                clear_divergence(chain_id)
-                logger.info(
-                    "Block imported via %s sync",
-                    source,
-                    extra={
-                        "chain_id": chain_id,
-                        "height": block_data.get("height"),
-                        "hash": block_hash,
-                        "source": source,
-                    },
-                )
-                if source == "subscription":
-                    metrics_registry.increment("subscription_blocks_received_total")
-                metrics_registry.increment("sync_manager_blocks_received_total")
-                return result
+                return self._handle_block_accepted(state, chain_id, block_data, block_hash, source, result)
 
-            logger.debug(
-                "Block not accepted via %s (height=%s): %s",
-                source,
-                block_data.get("height"),
-                result.reason,
-                extra={"chain_id": chain_id, "hash": block_hash, "source": source, "reason": result.reason},
-            )
-
-            if "Gap detected" in result.reason:
-                state.mode = SyncMode.CATCH_UP
-                await self._maybe_force_bulk(chain_id)
-            elif result.diverged:
-                self._consecutive_divergence[chain_id] = self._consecutive_divergence.get(chain_id, 0) + 1
-                threshold = getattr(settings, "divergence_after_rejections", 3)
-                if self._consecutive_divergence[chain_id] >= threshold:
-                    div = state.chain_sync.detect_divergence(
-                        self._source_resolver.get_sync_source(chain_id) or "",
-                        block_data.get("height", -1),
-                        block_hash,
-                    )
-                    if div is not None:
-                        report_divergence(chain_id, div)
-            else:
-                self._consecutive_divergence.pop(chain_id, None)
-                if self._is_state_root_rejection(result.reason):
-                    rejection_count = state.chain_sync._rejection_counts.get(chain_id, 0)
-                    threshold = settings.auto_resync_after_rejections
-                    if rejection_count >= threshold and settings.auto_resync_enabled:
-                        logger.warning(
-                            "State root rejection threshold reached (%s/%s) for chain %s, forcing catch-up",
-                            rejection_count,
-                            threshold,
-                            chain_id,
-                        )
-                        await self._maybe_force_bulk(chain_id)
-
+            await self._handle_block_rejection(state, chain_sync, chain_id, block_data, block_hash, source, result)
             return result
+
+    @staticmethod
+    def _is_transient_rejection(result: ImportResult) -> bool:
+        return (
+            "Gap detected" in result.reason
+            or result.diverged
+            or "state root" in result.reason.lower()
+            or "stale" in result.reason.lower()
+        )
+
+    def _handle_block_accepted(
+        self,
+        state: ChainSyncState,
+        chain_id: str,
+        block_data: dict[str, Any],
+        block_hash: str,
+        source: str,
+        result: ImportResult,
+    ) -> ImportResult:
+        """Update chain state, divergence counters, metrics, and logging for an accepted import."""
+        state.last_push_at = time.time()
+        state.last_local_height = block_data.get("height", state.last_local_height)
+        if state.mode in (SyncMode.CATCH_UP, SyncMode.ERROR):
+            state.mode = SyncMode.PUSH
+        self._reset_rejection_counts(chain_id)
+        self._consecutive_divergence.pop(chain_id, None)
+        clear_divergence(chain_id)
+        logger.info(
+            "Block imported via %s sync",
+            source,
+            extra={
+                "chain_id": chain_id,
+                "height": block_data.get("height"),
+                "hash": block_hash,
+                "source": source,
+            },
+        )
+        if source == "subscription":
+            metrics_registry.increment("subscription_blocks_received_total")
+        metrics_registry.increment("sync_manager_blocks_received_total")
+        return result
+
+    async def _handle_block_rejection(
+        self,
+        state: ChainSyncState,
+        chain_sync: ChainSync,
+        chain_id: str,
+        block_data: dict[str, Any],
+        block_hash: str,
+        source: str,
+        result: ImportResult,
+    ) -> None:
+        """Log a rejected import and run the gap/divergence/state-root follow-ups."""
+        logger.debug(
+            "Block not accepted via %s (height=%s): %s",
+            source,
+            block_data.get("height"),
+            result.reason,
+            extra={"chain_id": chain_id, "hash": block_hash, "source": source, "reason": result.reason},
+        )
+
+        if "Gap detected" in result.reason:
+            state.mode = SyncMode.CATCH_UP
+            await self._maybe_force_bulk(chain_id)
+        elif result.diverged:
+            await self._handle_divergent_block(chain_sync, chain_id, block_data, block_hash)
+        else:
+            self._consecutive_divergence.pop(chain_id, None)
+            await self._handle_state_root_rejection(chain_sync, chain_id, result)
+
+    async def _handle_divergent_block(
+        self,
+        chain_sync: ChainSync,
+        chain_id: str,
+        block_data: dict[str, Any],
+        block_hash: str,
+    ) -> None:
+        """Track consecutive divergences and report once the threshold is hit."""
+        self._consecutive_divergence[chain_id] = self._consecutive_divergence.get(chain_id, 0) + 1
+        threshold = getattr(settings, "divergence_after_rejections", 3)
+        if self._consecutive_divergence[chain_id] >= threshold:
+            div = chain_sync.detect_divergence(
+                self._source_resolver.get_sync_source(chain_id) or "",
+                block_data.get("height", -1),
+                block_hash,
+            )
+            if div is not None:
+                report_divergence(chain_id, div)
+
+    async def _handle_state_root_rejection(
+        self,
+        chain_sync: ChainSync,
+        chain_id: str,
+        result: ImportResult,
+    ) -> None:
+        """Force a bulk pull when state-root rejections hit the auto-resync threshold."""
+        if not self._is_state_root_rejection(result.reason):
+            return
+        rejection_count = chain_sync._rejection_counts.get(chain_id, 0)
+        threshold = settings.auto_resync_after_rejections
+        if rejection_count >= threshold and settings.auto_resync_enabled:
+            logger.warning(
+                "State root rejection threshold reached (%s/%s) for chain %s, forcing catch-up",
+                rejection_count,
+                threshold,
+                chain_id,
+            )
+            await self._maybe_force_bulk(chain_id)
 
     @staticmethod
     def _is_state_root_rejection(reason: str) -> bool:
