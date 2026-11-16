@@ -456,6 +456,14 @@ def analyze_vc_set(
         # More records than members means duplicates — reject BEFORE the
         # per-record ECDSA verifications so a padded vc_set costs nothing.
         return False, "new_view vc_set exceeds entry cap", {}
+    # A quorum certificate never carries two records from one sender. new_view_digest
+    # sorts the VC digests, so one proposer signature validates EVERY ordering of
+    # vc_set; a duplicate sender would make the first-record-wins dedup (and so
+    # select_forced_hash) order-sensitive and let a Byzantine proposer split the
+    # fleet's view of the forced hash. Reject before any ECDSA work (#2005 r4).
+    raw_senders = [canonical_address(str(vc.get("sender", ""))) for vc in vc_set if isinstance(vc, dict)]
+    if len(raw_senders) != len(vc_set) or len(set(raw_senders)) != len(raw_senders):
+        return False, "new_view vc_set carries a duplicate or malformed sender record", {}
     by_sender: dict[str, dict[str, Any]] = {}
     for vc in vc_set:
         ok, reason = _vc_record_acceptable(vc, canonical, chain_id=chain_id, sequence=sequence, view=view, required=required)
@@ -576,19 +584,3 @@ def _new_view_selection_verdict(
     if chosen is not None:
         return False, "free new_view must carry chosen_hash=null", None, None
     return True, "", kind, None
-
-
-def new_view_permits(nv: dict[str, Any], block_hash: str) -> bool:
-    """Whether a verified NEW_VIEW permits voting ``block_hash`` at its view.
-
-    ``nv`` must be a dict that already passed ``verify_new_view`` — the
-    ``selection_kind``/``selected_hash`` fields are stamped by the engine
-    at intake; a hand-built dict without them is treated conservatively
-    (only an explicit ``"free"`` kind permits arbitrary hashes).
-    """
-    kind = nv.get("selection_kind")
-    if kind == "free":
-        return True
-    if kind == "locked":
-        return nv.get("chosen_hash") == block_hash
-    return False
