@@ -107,6 +107,289 @@ def _refuse_retired_gpu(tx_type: str, payload: Any) -> None:
         raise ValueError(error)
 
 
+def _admission_next_height(session: Any, chain_id: str) -> int:
+    """Height the next sealed block on ``chain_id`` would carry."""
+    head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
+    return (head or 0) + 1
+
+
+def _check_admission_account(session: Any, chain_id: str, tx_data: dict[str, Any], mempool: Any) -> None:
+    """Sender existence, balance-vs-pending-cost, and nonce-window checks."""
+    sender_account = session.get(Account, (chain_id, tx_data["from"]))
+    if sender_account is None:
+        raise ValueError(f"sender account not found on chain '{chain_id}'")
+
+    total_cost = tx_data["amount"] + tx_data["fee"]
+    # Charge the sender's other signed pending transactions against the
+    # same balance so an account cannot queue more than it can ever pay.
+    # The occupied (sender, nonce) slot is excluded — it can only be
+    # displaced by this transaction, never paid alongside it.
+    pending_cost = 0
+    if mempool is not None:
+        pending = mempool.pending_cost(chain_id, tx_data["from"], exclude_nonce=tx_data["nonce"])
+        if isinstance(pending, int) and not isinstance(pending, bool):
+            pending_cost = pending
+    if sender_account.balance < total_cost + pending_cost:
+        raise ValueError(
+            f"insufficient balance for sender '{tx_data['from']}' on chain '{chain_id}': "
+            f"has {sender_account.balance}, needs {total_cost} plus {pending_cost} already pending"
+        )
+
+    # Pending transactions may queue ahead of the account nonce within a
+    # bounded window: execution still requires sequential nonces at apply
+    # time, but admission no longer forces one-at-a-time submission.
+    from ..config import settings
+
+    nonce = tx_data["nonce"]
+    if nonce < sender_account.nonce:
+        raise ValueError(
+            f"stale nonce for sender '{tx_data['from']}' on chain '{chain_id}': "
+            f"account is at {sender_account.nonce}, got {nonce}"
+        )
+    lookahead = settings.mempool_nonce_lookahead
+    if nonce > sender_account.nonce + lookahead:
+        raise ValueError(
+            f"nonce too far ahead for sender '{tx_data['from']}' on chain '{chain_id}': "
+            f"account nonce {sender_account.nonce} + lookahead {lookahead}, got {nonce}"
+        )
+
+
+def _evict_apply_rejected_occupant(session: Any, chain_id: str, tx_data: dict[str, Any], mempool: Any) -> None:
+    """R14-M1 (#1248): evict a terminally apply-rejected occupant of this nonce slot."""
+    slot_occupant = getattr(mempool, "slot_occupant", None) if mempool is not None else None
+    if slot_occupant is None:
+        return
+    nonce = tx_data["nonce"]
+    occupant_hash = slot_occupant(chain_id, tx_data["from"], nonce)
+    if not occupant_hash:
+        return
+    dead = session.exec(
+        select(Transaction.tx_hash).where(
+            Transaction.chain_id == chain_id,
+            Transaction.tx_hash == occupant_hash,
+            Transaction.status == "rejected",
+        )
+    ).first()
+    if dead:
+        mempool.remove(occupant_hash, chain_id)
+        _logger.info(
+            "Evicted apply-rejected occupant %s from slot (%s, %d)",
+            occupant_hash,
+            tx_data["from"],
+            nonce,
+        )
+
+
+def _admission_authority_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
+    # Refuse here what a proposer would refuse at apply (V-8): a sender outside the on-chain authority for the
+    # type. Last, so every earlier rejection keeps its message. Version and parameters are those a block at the
+    # next height would apply; this door is shared by REST, gossip ingest and the p2p transport.
+    from ..state.admission_authority import AUTHORITY_GATED_TYPES, sender_authority_error
+    from ..state.state_transition import get_block_version_for_height
+
+    if tx_type not in AUTHORITY_GATED_TYPES:
+        return
+    next_height = _admission_next_height(session, chain_id)
+    authority_error = sender_authority_error(
+        session,
+        chain_id,
+        tx_type,
+        tx_data["from"],
+        block_version=get_block_version_for_height(next_height),
+        block_height=next_height,
+        recipient=tx_data.get("to", ""),
+        payload=tx_data.get("payload"),
+        fee=tx_data.get("fee", 0),
+        value=tx_data.get("value", tx_data.get("amount", 0)) or 0,
+    )
+    if authority_error:
+        raise ValueError(authority_error)
+
+
+def _admission_governance_propose_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
+    if tx_type != "GOVERNANCE_PROPOSE":
+        return
+    # v13 (see state_transition._v13_shadow_observe): apply
+    # refuses a propose that does not carry the execution_payload it
+    # commits to — refuse it at the door too. Below the armed height
+    # the check only counts v13_would_reject_* and admission is
+    # unchanged.
+    from ..state.state_transition import _v13_shadow_observe, get_block_version_for_height
+
+    next_height = _admission_next_height(session, chain_id)
+    propose_error = _v13_shadow_observe(
+        session,
+        chain_id,
+        tx_type,
+        tx_data.get("payload"),
+        block_version=get_block_version_for_height(next_height),
+        block_height=next_height,
+        tx_hash=tx_data.get("tx_hash", ""),
+    )
+    if propose_error:
+        raise ValueError(propose_error)
+
+
+def _admission_bridge_lock_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
+    if tx_type != "BRIDGE_LOCK":
+        return
+    # v14 (see state_transition.validate_transaction's lock branch):
+    # apply refuses a lock whose leaf data is not derivable — refuse
+    # it at the door too. Below the shared activation height the same
+    # lock is only counted by the dry-run guard and admitted exactly
+    # as before.
+    from ..cross_chain.bridge_lock_guard import lock_derivation_source
+    from ..state.state_transition import get_block_version_for_height
+
+    next_height = _admission_next_height(session, chain_id)
+    if get_block_version_for_height(next_height) >= 14:
+        payload = tx_data.get("payload")
+        if lock_derivation_source(payload if isinstance(payload, dict) else {}, tx_data) == "unreadable":
+            raise ValueError("BRIDGE_LOCK carries no derivable leaf data for the bridge event trie")
+
+
+def _admission_escrow_fee_sweep_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
+    if tx_type != "ESCROW_FEE_SWEEP":
+        return
+    # v11 (see state_transition.validate_transaction's sweep branch). Below the activation height the
+    # type has no consensus meaning, so it is refused here rather than sealed as a plain transfer —
+    # the sender/recipient gates above only apply once the type is live.
+    from ..state.state_transition import get_block_version_for_height
+
+    next_height = _admission_next_height(session, chain_id)
+    if get_block_version_for_height(next_height) < 11:
+        raise ValueError("ESCROW_FEE_SWEEP is not active on this chain yet (state_transition_v11_height)")
+
+
+def _admission_gpu_deregister_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
+    if tx_type != "GPU_DEREGISTER":
+        return
+    # v10 (see state/gpu_resources.py::gpu_deregister_error, the rule apply uses too). Below the activation
+    # height the type has no consensus meaning, so it is refused here rather than sealed as a plain transfer.
+    from ..state.gpu_resources import gpu_deregister_error
+    from ..state.state_transition import get_block_version_for_height
+
+    next_height = _admission_next_height(session, chain_id)
+    if get_block_version_for_height(next_height) < 10:
+        raise ValueError("GPU_DEREGISTER is not active on this chain yet (state_transition_v10_height)")
+    deregister_error = gpu_deregister_error(session, chain_id, tx_data.get("payload"), _to_ait_address(tx_data["from"]))
+    if deregister_error:
+        raise ValueError(deregister_error)
+
+
+def _admission_gpu_allocate_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
+    if tx_type != "GPU_ALLOCATE":
+        return
+    # v10 (see state/gpu_resources.py::gpu_allocate_deactivated_error, the rule apply uses too).
+    # Unlike GPU_DEREGISTER the type itself predates v10, so below the activation height
+    # admission stays exactly as it was and only the deactivated-row door applies.
+    from ..state.gpu_resources import gpu_allocate_admission_error, gpu_allocate_deactivated_error
+    from ..state.state_transition import get_block_version_for_height
+
+    next_height = _admission_next_height(session, chain_id)
+    block_version = get_block_version_for_height(next_height)
+    if block_version >= 10:
+        deactivated_error = gpu_allocate_deactivated_error(session, chain_id, tx_data.get("payload"))
+        if deactivated_error:
+            raise ValueError(deactivated_error)
+    if block_version >= 16:
+        # v16 (GPU-ADMISSION-1 #384): allocation_id + existing gpu_id at the door
+        # too — shared helper, same verdict as the block-time rule.
+        allocate_error = gpu_allocate_admission_error(session, chain_id, tx_data.get("payload"))
+        if allocate_error:
+            raise ValueError(allocate_error)
+
+
+def _admission_bond_lock_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
+    if tx_type != "BOND_LOCK":
+        return
+    # v19 (see state_transition.validate_transaction's bond-lock
+    # branch): a top-up on a bond row that is not status=active strands
+    # the added funds — refuse it at the door too. Below the activation
+    # height admission stays exactly as it was.
+    from ..state.state_transition import get_block_version_for_height
+
+    next_height = _admission_next_height(session, chain_id)
+    if get_block_version_for_height(next_height) >= 19:
+        bond_id = (tx_data.get("payload") or {}).get("bond_id")
+        if bond_id:
+            existing_bond = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)).first()
+            if existing_bond is not None and existing_bond.status != "active":
+                raise ValueError(f"BOND_LOCK top-up refused: bond {bond_id} is {existing_bond.status}, not active")
+
+
+def _admission_bond_verdict_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
+    if tx_type not in ("BOND_LOCK", "BOND_RELEASE"):
+        return
+    # v22 (BOND-RELEASE-001, BOND-LOCK-TOPUP-PROVIDER-MISMATCH,
+    # #1166/#1167): refuse at the door what apply refuses — the
+    # same shared verdict, judged at the version a block at the
+    # next height would use. block_time is the door's advisory
+    # estimate; the sealed block_time is authoritative at apply.
+    # Below the activation height admission is unchanged.
+    from ..state.state_transition import bond_tx_verdict, get_block_version_for_height
+
+    next_height = _admission_next_height(session, chain_id)
+    block_version = get_block_version_for_height(next_height)
+    if block_version >= 22:
+        bond_error = bond_tx_verdict(
+            session,
+            chain_id,
+            tx_type,
+            tx_data.get("payload"),
+            tx_data.get("from", ""),
+            tx_data.get("to", ""),
+            tx_data.get("value", tx_data.get("amount", 0)),
+            block_version=block_version,
+            block_time=datetime.now(UTC),
+            block_height=next_height,
+        )
+        if bond_error:
+            raise ValueError(bond_error)
+
+
+def _admission_agent_spend_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
+    # v21 (AGENT-SPEND-B-1, #1142): refuse at the door what apply would
+    # refuse — session lifecycle shape errors and session-bound spend
+    # violations. Same verdict function apply runs at block_version of the
+    # next height; admission stays inert below the gate.
+    from ..state.state_transition import get_block_version_for_height as _gbv_v21
+
+    next_height = _admission_next_height(session, chain_id)
+    if _gbv_v21(next_height) >= 21:
+        from ..state.agent_spend import agent_spend_verdict
+
+        spend_error = agent_spend_verdict(
+            session,
+            chain_id,
+            _to_ait_address(tx_data["from"]),
+            tx_type,
+            tx_data.get("payload"),
+            tx_data.get("amount", 0),
+            next_height,
+        )
+        if spend_error:
+            raise ValueError(spend_error)
+
+
+def _admission_message_gate(tx_data: dict[str, Any], tx_type: str) -> None:
+    if tx_type != "MESSAGE":
+        return
+    # MSG-1: a payload claiming the forum namespace must be a valid
+    # envelope — refuse it at the door so the signer hears why before
+    # paying the fee. Opaque MESSAGE payloads (bridge internals, other
+    # uses) are untouched. Index-time filtering enforces the same
+    # predicate on anything a proposer seals anyway.
+    from ..messaging_index import admission_error
+
+    message_error = admission_error(tx_data.get("payload"), tx_data["from"])
+    if message_error:
+        from ..messaging_metrics import note_admission_rejected
+
+        note_admission_rejected(message_error)
+        raise ValueError(message_error)
+
+
 def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> None:
     """Validate transaction can be admitted to mempool"""
     from ..mempool import compute_tx_hash
@@ -121,260 +404,18 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
     compute_tx_hash(tx_data)
 
     with session_scope() as session:
-        sender_account = session.get(Account, (chain_id, tx_data["from"]))
-        if sender_account is None:
-            raise ValueError(f"sender account not found on chain '{chain_id}'")
-
-        total_cost = tx_data["amount"] + tx_data["fee"]
-        # Charge the sender's other signed pending transactions against the
-        # same balance so an account cannot queue more than it can ever pay.
-        # The occupied (sender, nonce) slot is excluded — it can only be
-        # displaced by this transaction, never paid alongside it.
-        pending_cost = 0
-        if mempool is not None:
-            pending = mempool.pending_cost(chain_id, tx_data["from"], exclude_nonce=tx_data["nonce"])
-            if isinstance(pending, int) and not isinstance(pending, bool):
-                pending_cost = pending
-        if sender_account.balance < total_cost + pending_cost:
-            raise ValueError(
-                f"insufficient balance for sender '{tx_data['from']}' on chain '{chain_id}': "
-                f"has {sender_account.balance}, needs {total_cost} plus {pending_cost} already pending"
-            )
-
-        # Pending transactions may queue ahead of the account nonce within a
-        # bounded window: execution still requires sequential nonces at apply
-        # time, but admission no longer forces one-at-a-time submission.
-        from ..config import settings
-
-        nonce = tx_data["nonce"]
-        if nonce < sender_account.nonce:
-            raise ValueError(
-                f"stale nonce for sender '{tx_data['from']}' on chain '{chain_id}': "
-                f"account is at {sender_account.nonce}, got {nonce}"
-            )
-        lookahead = settings.mempool_nonce_lookahead
-        if nonce > sender_account.nonce + lookahead:
-            raise ValueError(
-                f"nonce too far ahead for sender '{tx_data['from']}' on chain '{chain_id}': "
-                f"account nonce {sender_account.nonce} + lookahead {lookahead}, got {nonce}"
-            )
-
-        # R14-M1 (#1248): a slot held by a terminally apply-rejected tx must
-        # not force the sender to fee-bump (impossible at min_fee=0) or wait
-        # out mempool_entry_ttl. Evict the dead occupant so this submission
-        # takes the slot at any fee. The rejection row is chain.db service
-        # state propagated via block_metadata, so every host sees it.
-        slot_occupant = getattr(mempool, "slot_occupant", None) if mempool is not None else None
-        if slot_occupant is not None:
-            occupant_hash = slot_occupant(chain_id, tx_data["from"], nonce)
-            if occupant_hash:
-                dead = session.exec(
-                    select(Transaction.tx_hash).where(
-                        Transaction.chain_id == chain_id,
-                        Transaction.tx_hash == occupant_hash,
-                        Transaction.status == "rejected",
-                    )
-                ).first()
-                if dead:
-                    mempool.remove(occupant_hash, chain_id)
-                    _logger.info(
-                        "Evicted apply-rejected occupant %s from slot (%s, %d)",
-                        occupant_hash,
-                        tx_data["from"],
-                        nonce,
-                    )
-
-        # Refuse here what a proposer would refuse at apply (V-8): a sender outside the on-chain authority for the
-        # type. Last, so every earlier rejection keeps its message. Version and parameters are those a block at the
-        # next height would apply; this door is shared by REST, gossip ingest and the p2p transport.
-        from ..state.admission_authority import AUTHORITY_GATED_TYPES, sender_authority_error
-        from ..state.state_transition import get_block_version_for_height
-
-        if tx_type in AUTHORITY_GATED_TYPES:
-            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
-            next_height = (head or 0) + 1
-            authority_error = sender_authority_error(
-                session,
-                chain_id,
-                tx_type,
-                tx_data["from"],
-                block_version=get_block_version_for_height(next_height),
-                block_height=next_height,
-                recipient=tx_data.get("to", ""),
-                payload=tx_data.get("payload"),
-                fee=tx_data.get("fee", 0),
-                value=tx_data.get("value", tx_data.get("amount", 0)) or 0,
-            )
-            if authority_error:
-                raise ValueError(authority_error)
-
-        if tx_type == "GOVERNANCE_PROPOSE":
-            # v13 (see state_transition._v13_shadow_observe): apply
-            # refuses a propose that does not carry the execution_payload it
-            # commits to — refuse it at the door too. Below the armed height
-            # the check only counts v13_would_reject_* and admission is
-            # unchanged.
-            from ..state.state_transition import _v13_shadow_observe, get_block_version_for_height
-
-            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
-            next_height = (head or 0) + 1
-            propose_error = _v13_shadow_observe(
-                session,
-                chain_id,
-                tx_type,
-                tx_data.get("payload"),
-                block_version=get_block_version_for_height(next_height),
-                block_height=next_height,
-                tx_hash=tx_data.get("tx_hash", ""),
-            )
-            if propose_error:
-                raise ValueError(propose_error)
-
-        if tx_type == "BRIDGE_LOCK":
-            # v14 (see state_transition.validate_transaction's lock branch):
-            # apply refuses a lock whose leaf data is not derivable — refuse
-            # it at the door too. Below the shared activation height the same
-            # lock is only counted by the dry-run guard and admitted exactly
-            # as before.
-            from ..cross_chain.bridge_lock_guard import lock_derivation_source
-            from ..state.state_transition import get_block_version_for_height
-
-            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
-            next_height = (head or 0) + 1
-            if get_block_version_for_height(next_height) >= 14:
-                payload = tx_data.get("payload")
-                if lock_derivation_source(payload if isinstance(payload, dict) else {}, tx_data) == "unreadable":
-                    raise ValueError("BRIDGE_LOCK carries no derivable leaf data for the bridge event trie")
-
-        if tx_type == "ESCROW_FEE_SWEEP":
-            # v11 (see state_transition.validate_transaction's sweep branch). Below the activation height the
-            # type has no consensus meaning, so it is refused here rather than sealed as a plain transfer —
-            # the sender/recipient gates above only apply once the type is live.
-            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
-            next_height = (head or 0) + 1
-            if get_block_version_for_height(next_height) < 11:
-                raise ValueError("ESCROW_FEE_SWEEP is not active on this chain yet (state_transition_v11_height)")
-
-        if tx_type == "GPU_DEREGISTER":
-            # v10 (see state/gpu_resources.py::gpu_deregister_error, the rule apply uses too). Below the activation
-            # height the type has no consensus meaning, so it is refused here rather than sealed as a plain transfer.
-            from ..state.gpu_resources import gpu_deregister_error
-
-            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
-            next_height = (head or 0) + 1
-            if get_block_version_for_height(next_height) < 10:
-                raise ValueError("GPU_DEREGISTER is not active on this chain yet (state_transition_v10_height)")
-            deregister_error = gpu_deregister_error(
-                session, chain_id, tx_data.get("payload"), _to_ait_address(tx_data["from"])
-            )
-            if deregister_error:
-                raise ValueError(deregister_error)
-
-        if tx_type == "GPU_ALLOCATE":
-            # v10 (see state/gpu_resources.py::gpu_allocate_deactivated_error, the rule apply uses too).
-            # Unlike GPU_DEREGISTER the type itself predates v10, so below the activation height
-            # admission stays exactly as it was and only the deactivated-row door applies.
-            from ..state.gpu_resources import gpu_allocate_deactivated_error
-
-            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
-            next_height = (head or 0) + 1
-            if get_block_version_for_height(next_height) >= 10:
-                deactivated_error = gpu_allocate_deactivated_error(session, chain_id, tx_data.get("payload"))
-                if deactivated_error:
-                    raise ValueError(deactivated_error)
-            if get_block_version_for_height(next_height) >= 16:
-                # v16 (GPU-ADMISSION-1 #384): allocation_id + existing gpu_id at the door
-                # too — shared helper, same verdict as the block-time rule.
-                from ..state.gpu_resources import gpu_allocate_admission_error
-
-                allocate_error = gpu_allocate_admission_error(session, chain_id, tx_data.get("payload"))
-                if allocate_error:
-                    raise ValueError(allocate_error)
-
-        if tx_type == "BOND_LOCK":
-            # v19 (see state_transition.validate_transaction's bond-lock
-            # branch): a top-up on a bond row that is not status=active strands
-            # the added funds — refuse it at the door too. Below the activation
-            # height admission stays exactly as it was.
-            from ..state.state_transition import get_block_version_for_height
-
-            head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
-            next_height = (head or 0) + 1
-            if get_block_version_for_height(next_height) >= 19:
-                bond_id = (tx_data.get("payload") or {}).get("bond_id")
-                if bond_id:
-                    existing_bond = session.exec(
-                        select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id)
-                    ).first()
-                    if existing_bond is not None and existing_bond.status != "active":
-                        raise ValueError(f"BOND_LOCK top-up refused: bond {bond_id} is {existing_bond.status}, not active")
-
-        if tx_type in ("BOND_LOCK", "BOND_RELEASE"):
-            # v22 (BOND-RELEASE-001, BOND-LOCK-TOPUP-PROVIDER-MISMATCH,
-            # #1166/#1167): refuse at the door what apply refuses — the
-            # same shared verdict, judged at the version a block at the
-            # next height would use. block_time is the door's advisory
-            # estimate; the sealed block_time is authoritative at apply.
-            # Below the activation height admission is unchanged.
-            from ..state.state_transition import bond_tx_verdict, get_block_version_for_height as _gbv_v22
-
-            _head_v22 = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
-            _next_height_v22 = (_head_v22 or 0) + 1
-            _version_v22 = _gbv_v22(_next_height_v22)
-            if _version_v22 >= 22:
-                bond_error = bond_tx_verdict(
-                    session,
-                    chain_id,
-                    tx_type,
-                    tx_data.get("payload"),
-                    tx_data.get("from", ""),
-                    tx_data.get("to", ""),
-                    tx_data.get("value", tx_data.get("amount", 0)),
-                    block_version=_version_v22,
-                    block_time=datetime.now(UTC),
-                    block_height=_next_height_v22,
-                )
-                if bond_error:
-                    raise ValueError(bond_error)
-
-        # v21 (AGENT-SPEND-B-1, #1142): refuse at the door what apply would
-        # refuse — session lifecycle shape errors and session-bound spend
-        # violations. Same verdict function apply runs at block_version of the
-        # next height; admission stays inert below the gate.
-        from ..state.state_transition import get_block_version_for_height as _gbv_v21
-
-        _head_v21 = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
-        _next_height_v21 = (_head_v21 or 0) + 1
-        if _gbv_v21(_next_height_v21) >= 21:
-            from ..state.agent_spend import agent_spend_verdict
-
-            spend_error = agent_spend_verdict(
-                session,
-                chain_id,
-                _to_ait_address(tx_data["from"]),
-                tx_type,
-                tx_data.get("payload"),
-                tx_data.get("amount", 0),
-                _next_height_v21,
-            )
-            if spend_error:
-                raise ValueError(spend_error)
-
-        # MSG-1: a payload claiming the forum namespace must be a valid
-        # envelope — refuse it at the door so the signer hears why before
-        # paying the fee. Opaque MESSAGE payloads (bridge internals, other
-        # uses) are untouched. Index-time filtering enforces the same
-        # predicate on anything a proposer seals anyway.
-        if tx_type == "MESSAGE":
-            from ..messaging_index import admission_error
-
-            message_error = admission_error(tx_data.get("payload"), tx_data["from"])
-            if message_error:
-                from ..messaging_metrics import note_admission_rejected
-
-                note_admission_rejected(message_error)
-                raise ValueError(message_error)
-
+        _check_admission_account(session, chain_id, tx_data, mempool)
+        _evict_apply_rejected_occupant(session, chain_id, tx_data, mempool)
+        _admission_authority_gate(session, chain_id, tx_data, tx_type)
+        _admission_governance_propose_gate(session, chain_id, tx_data, tx_type)
+        _admission_bridge_lock_gate(session, chain_id, tx_data, tx_type)
+        _admission_escrow_fee_sweep_gate(session, chain_id, tx_data, tx_type)
+        _admission_gpu_deregister_gate(session, chain_id, tx_data, tx_type)
+        _admission_gpu_allocate_gate(session, chain_id, tx_data, tx_type)
+        _admission_bond_lock_gate(session, chain_id, tx_data, tx_type)
+        _admission_bond_verdict_gate(session, chain_id, tx_data, tx_type)
+        _admission_agent_spend_gate(session, chain_id, tx_data, tx_type)
+        _admission_message_gate(tx_data, tx_type)
         # Last, like the authority gate: every earlier rejection keeps its message. Off unless GPU_RETIRED_IDS is set.
         _refuse_retired_gpu(tx_type, tx_data.get("payload"))
 
@@ -581,6 +622,77 @@ def _has_active_bond(session, chain_id: str, provider: str, min_amount: int) -> 
     return True
 
 
+def _enforce_market_offer_rules(
+    tx_data: dict[str, Any],
+    chain_id: str,
+    sender: Any,
+    payload: dict[str, Any],
+    is_offer: bool,
+    is_hardware_offer: bool,
+) -> None:
+    """Offer-listing preconditions: sender present, amount=0, hardware bond."""
+    if not is_offer:
+        return
+    if not sender:
+        raise HTTPException(status_code=400, detail="Sender required")
+    # Offers are value-zero listings: consensus has no GPU_MARKET branch,
+    # so a nonzero amount would execute as a plain transfer.
+    try:
+        offer_amount = int(tx_data.get("amount", 0) or 0)
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=400, detail="transaction.amount must be an integer") from None
+    if offer_amount != 0:
+        raise HTTPException(status_code=403, detail="Offer transactions must have amount=0")
+    # P2.5: software service offers (Whisper, FFmpeg, Ollama) do not require a prior
+    # on-chain bond to list; hardware bundle offers still do if the bond minimum is set.
+    if is_hardware_offer:
+        min_bond = _market_bond_min_amount()
+        if min_bond > 0:
+            with session_scope(chain_id) as session:
+                if not _has_active_bond(session, chain_id, sender, min_bond):
+                    raise HTTPException(
+                        status_code=403,
+                        detail=f"Active bond of at least {min_bond} compute-units required to list",
+                    )
+
+
+def _verify_market_signature(tx_data: dict[str, Any], signature: Any, sender: Any) -> dict[str, Any]:
+    """Require a signature on every market tx and verify it against ``from``.
+
+    Returns the tx dict stripped of signature/sig keys, with ``signature``
+    set to the resolved signature for the verifier and normalizer.
+    """
+    # The V23-90 unsigned-offer exemption is closed: every transaction here
+    # — offer or not — carries a secp256k1 signature verified against `from`.
+    if not signature:
+        raise HTTPException(status_code=403, detail="Signature required")
+    if not sender:
+        raise HTTPException(status_code=400, detail="Sender required")
+    tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
+    tx_for_verify["signature"] = signature
+    if not verify_transaction_signature(tx_for_verify, signature, sender):
+        raise HTTPException(status_code=403, detail="Invalid transaction signature")
+    return tx_for_verify
+
+
+def _admit_market_transaction(tx_data_dict: dict[str, Any], mempool: Any, chain_id: str) -> None:
+    """Route a normalized market tx through admission (or the GPU_REGISTER door)."""
+    # For GPU registration, use GPU_REGISTER transaction type
+    if tx_data_dict.get("type") == "GPU_REGISTER":
+        # This branch skips _validate_transaction_admission, so the checks it
+        # owns are repeated at their admission-door order: supported chain
+        # first (an unchecked request chain_id used to reach mempool.add
+        # unfiltered, minting foreign-chain mempool entries and gauge series),
+        # then the retired-id door check.
+        _require_supported_chain(chain_id)
+        _refuse_retired_gpu("GPU_REGISTER", tx_data_dict.get("payload"))
+        tx_data_dict["type"] = "GPU_REGISTER"
+        # GPU registration doesn't require amount transfer, only fee
+        tx_data_dict["amount"] = 0
+    else:
+        _validate_transaction_admission(tx_data_dict, mempool)
+
+
 @rate_limit(rate=50, per=60)
 def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -> dict[str, Any]:
     """Submit a market transaction"""
@@ -597,56 +709,13 @@ def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -> dict
         payload = tx_data.get("payload") or {}
         is_offer = tx_data.get("type") == "GPU_MARKET" and payload.get("action") in OFFER_ACTIONS
         is_hardware_offer = is_offer and payload.get("action") == "offer"
-        if is_offer:
-            if not sender:
-                raise HTTPException(status_code=400, detail="Sender required")
-            # Offers are value-zero listings: consensus has no GPU_MARKET branch,
-            # so a nonzero amount would execute as a plain transfer.
-            try:
-                offer_amount = int(tx_data.get("amount", 0) or 0)
-            except (TypeError, ValueError):
-                raise HTTPException(status_code=400, detail="transaction.amount must be an integer") from None
-            if offer_amount != 0:
-                raise HTTPException(status_code=403, detail="Offer transactions must have amount=0")
-            # P2.5: software service offers (Whisper, FFmpeg, Ollama) do not require a prior
-            # on-chain bond to list; hardware bundle offers still do if the bond minimum is set.
-            if is_hardware_offer:
-                min_bond = _market_bond_min_amount()
-                if min_bond > 0:
-                    with session_scope(chain_id) as session:
-                        if not _has_active_bond(session, chain_id, sender, min_bond):
-                            raise HTTPException(
-                                status_code=403,
-                                detail=f"Active bond of at least {min_bond} compute-units required to list",
-                            )
-        # The V23-90 unsigned-offer exemption is closed: every transaction here
-        # — offer or not — carries a secp256k1 signature verified against `from`.
-        if not signature:
-            raise HTTPException(status_code=403, detail="Signature required")
-        if not sender:
-            raise HTTPException(status_code=400, detail="Sender required")
-        tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
-        tx_for_verify["signature"] = signature
-        if not verify_transaction_signature(tx_for_verify, signature, sender):
-            raise HTTPException(status_code=403, detail="Invalid transaction signature")
+        _enforce_market_offer_rules(tx_data, chain_id, sender, payload, is_offer, is_hardware_offer)
+        tx_for_verify = _verify_market_signature(tx_data, signature, sender)
 
         # Normalize transaction data
         tx_data_dict = normalize_transaction_data(tx_for_verify, chain_id)
 
-        # For GPU registration, use GPU_REGISTER transaction type
-        if tx_data_dict.get("type") == "GPU_REGISTER":
-            # This branch skips _validate_transaction_admission, so the checks it
-            # owns are repeated at their admission-door order: supported chain
-            # first (an unchecked request chain_id used to reach mempool.add
-            # unfiltered, minting foreign-chain mempool entries and gauge series),
-            # then the retired-id door check.
-            _require_supported_chain(chain_id)
-            _refuse_retired_gpu("GPU_REGISTER", tx_data_dict.get("payload"))
-            tx_data_dict["type"] = "GPU_REGISTER"
-            # GPU registration doesn't require amount transfer, only fee
-            tx_data_dict["amount"] = 0
-        else:
-            _validate_transaction_admission(tx_data_dict, mempool)
+        _admit_market_transaction(tx_data_dict, mempool, chain_id)
 
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
         _queue_peer_fanout(chain_id, tx_data_dict)
@@ -770,6 +839,195 @@ def match_market(request: Request, chain_id: str | None = None, limit: int = 500
         }
 
 
+def _job_id_payload_clause(session: Any, job_id: str) -> Any:
+    """SQL predicate for ``payload.job_id == job_id`` on the session's dialect.
+
+    Filter in SQL, not in Python: the other payload filters below load every
+    transaction on the chain first. Settlement asks this question before paying
+    a provider, so it has to stay cheap.
+
+    The JSON *path* is inlined rather than bound. SQLModel's
+    `payload["job_id"].as_string()` binds the path as a parameter, and neither
+    SQLite nor Postgres can match a parameterised path against an expression
+    index built on a literal one -- the plan degrades to a full scan. The
+    searched value stays bound; only the fixed path is inline.
+    """
+    expression = _JOB_ID_INDEX_EXPRESSIONS.get(session.get_bind().dialect.name)
+    if expression is not None:
+        return literal_column(expression) == job_id
+    return Transaction.payload["job_id"].as_string() == job_id
+
+
+def _payload_filter_clauses(
+    session: Any,
+    island_id: str | None,
+    pair: str | None,
+    status: str | None,
+    order_id: str | None,
+) -> list[Any]:
+    """SQL predicates for the island_id/pair/status/order_id payload filters."""
+    clauses: list[Any] = []
+    if island_id:
+        clauses.append(_payload_field_clause(session, "island_id", island_id))
+    if pair:
+        clauses.append(_payload_field_clause(session, "pair", pair))
+    if status:
+        clauses.append(_payload_field_clause(session, "status", status))
+    if order_id:
+        clauses.append(or_(*(_payload_field_clause(session, f, order_id) for f in _ORDER_ID_PAYLOAD_FIELDS)))
+    return clauses
+
+
+def _transaction_query(
+    session: Any,
+    resolved_chain_id: str,
+    *,
+    before_id: int | None,
+    address: str | None,
+    sender: str | None,
+    recipient: str | None,
+    transaction_type: str | None,
+    job_id: str | None,
+    island_id: str | None,
+    pair: str | None,
+    status: str | None,
+    order_id: str | None,
+    limit: int | None,
+) -> Any:
+    """Build the filtered, bounded newest-first transaction query."""
+    # Newest first. `limit` is applied after the payload filters below, so with the
+    # natural (ascending id) order a bounded query returned the OLDEST rows and
+    # silently omitted recent ones -- a caller asking for "the last 40 releases" got
+    # the first 40 instead. Settlement depended on that answer to decide whether a job
+    # had already been paid.
+    query = (
+        select(Transaction).where(Transaction.chain_id == resolved_chain_id).order_by(Transaction.id.desc())  # type: ignore[union-attr]
+    )
+    if before_id is not None:
+        # Cursor paging: rows are newest-first, so a caller walks history
+        # with before_id = the lowest transaction_id it already saw.
+        query = query.where(col(Transaction.id) < before_id)
+    if address:
+        from ..base_models import address_spellings
+
+        spellings = address_spellings(address)
+        query = query.where(col(Transaction.sender).in_(spellings) | col(Transaction.recipient).in_(spellings))
+
+    if sender:
+        from ..base_models import address_spellings
+
+        query = query.where(col(Transaction.sender).in_(address_spellings(sender)))
+
+    if recipient:
+        from ..base_models import address_spellings
+
+        query = query.where(col(Transaction.recipient).in_(address_spellings(recipient)))
+
+    if transaction_type:
+        # Column filter in SQL. It used to live in the Python loop below,
+        # so a type-filtered call still read every row on the chain.
+        query = query.where(Transaction.type == transaction_type)
+
+    if job_id is not None:
+        query = query.where(_job_id_payload_clause(session, job_id))
+
+    # TX-QUERY-PAYLOAD-FILTER-UNBOUNDED (#1599): the payload filters used
+    # to run only in the Python loop below, which forced the LIMIT to be
+    # skipped — a filtered call materialised every transaction on the
+    # chain. They now also bind in SQL (JSON-path predicate per dialect),
+    # so the limit composes with the filters exactly like the column
+    # filters above. The Python checks stay: they are the exact-match
+    # guard for payload values whose JSON type is not a plain string.
+    for clause in _payload_filter_clauses(session, island_id, pair, status, order_id):
+        query = query.where(clause)
+
+    # Bind the limit in SQL unconditionally — every filter above is now a
+    # SQL predicate, so the bounded newest-first window IS the final
+    # result set's superset and must not materialise the whole table to
+    # slice it in Python (RPC-TX-QUERY-UNBOUNDED-1).
+    if limit is not None:
+        # An omitted/0/huge limit loaded the whole chain table (#1057);
+        # `if limit` let 0 skip the clamp entirely.
+        query = query.limit(max(1, min(limit or 100, 500)))
+    return query
+
+
+def _sealing_block_map(session: Any, resolved_chain_id: str, transactions: list[Transaction]) -> dict[int, Block]:
+    """Batch-fetch sealing blocks so callers get hash/proposer without N+1
+    lookups (marketplace offer confirmation reads these per anchor tx)."""
+    heights = {tx.block_height for tx in transactions if tx.block_height is not None}
+    block_map: dict[int, Block] = {}
+    if heights:
+        for b in session.exec(
+            select(Block).where(
+                Block.chain_id == resolved_chain_id,
+                col(Block.height).in_(heights),
+            )
+        ).all():
+            block_map[b.height] = b
+    return block_map
+
+
+def _tx_matches_payload_filters(
+    tx: Transaction,
+    island_id: str | None,
+    pair: str | None,
+    status: str | None,
+    order_id: str | None,
+) -> bool:
+    """Python-side exact-match guard for the payload filters."""
+    # Filter by island_id in payload
+    if island_id and tx.payload.get("island_id") != island_id:
+        return False
+
+    # Filter by pair in payload
+    if pair and tx.payload.get("pair") != pair:
+        return False
+
+    # Filter by status in payload
+    if status and tx.payload.get("status") != status:
+        return False
+
+    # Filter by order_id in payload
+    if (
+        order_id
+        and tx.payload.get("order_id") != order_id
+        and tx.payload.get("offer_id") != order_id
+        and tx.payload.get("bid_id") != order_id
+    ):
+        return False
+    return True
+
+
+def _tx_result_row(
+    tx: Transaction,
+    block_map: dict[int, Block],
+    finality_on: bool,
+    head_for_finality: int | None,
+) -> dict[str, Any]:
+    sealing_block = block_map.get(tx.block_height) if tx.block_height is not None else None
+    row = {
+        "transaction_id": tx.id,
+        "tx_hash": tx.tx_hash,
+        "block_height": tx.block_height,
+        "block_hash": sealing_block.hash if sealing_block else None,
+        "block_proposer": sealing_block.proposer if sealing_block else None,
+        "sender": tx.sender,
+        "recipient": tx.recipient,
+        "payload": tx.payload,
+        "type": tx.type,
+        "status": tx.status,
+        "created_at": tx.created_at.isoformat(),
+        "timestamp": tx.timestamp,
+        "nonce": tx.nonce,
+        "value": tx.value,
+        "fee": tx.fee,
+    }
+    if finality_on:
+        row.update(finality_view(tx.block_height, head_for_finality))
+    return row
+
+
 @rate_limit(rate=200, per=60)
 def query_transactions(
     request: Request,
@@ -794,97 +1052,27 @@ def query_transactions(
     _logger.debug(f"Query transactions for chain {resolved_chain_id}")
 
     with session_scope() as session:
-        # Newest first. `limit` is applied after the payload filters below, so with the
-        # natural (ascending id) order a bounded query returned the OLDEST rows and
-        # silently omitted recent ones -- a caller asking for "the last 40 releases" got
-        # the first 40 instead. Settlement depended on that answer to decide whether a job
-        # had already been paid.
-        query = (
-            select(Transaction).where(Transaction.chain_id == resolved_chain_id).order_by(Transaction.id.desc())  # type: ignore[union-attr]
+        query = _transaction_query(
+            session,
+            resolved_chain_id,
+            before_id=before_id,
+            address=address,
+            sender=sender,
+            recipient=recipient,
+            transaction_type=transaction_type,
+            job_id=job_id,
+            island_id=island_id,
+            pair=pair,
+            status=status,
+            order_id=order_id,
+            limit=limit,
         )
-        if before_id is not None:
-            # Cursor paging: rows are newest-first, so a caller walks history
-            # with before_id = the lowest transaction_id it already saw.
-            query = query.where(col(Transaction.id) < before_id)
-        if address:
-            from ..base_models import address_spellings
-
-            spellings = address_spellings(address)
-            query = query.where(col(Transaction.sender).in_(spellings) | col(Transaction.recipient).in_(spellings))
-
-        if sender:
-            from ..base_models import address_spellings
-
-            query = query.where(col(Transaction.sender).in_(address_spellings(sender)))
-
-        if recipient:
-            from ..base_models import address_spellings
-
-            query = query.where(col(Transaction.recipient).in_(address_spellings(recipient)))
-
-        if transaction_type:
-            # Column filter in SQL. It used to live in the Python loop below,
-            # so a type-filtered call still read every row on the chain.
-            query = query.where(Transaction.type == transaction_type)
-
-        if job_id is not None:
-            # Filter in SQL, not in Python: the other payload filters below load every
-            # transaction on the chain first. Settlement asks this question before paying
-            # a provider, so it has to stay cheap.
-            #
-            # The JSON *path* is inlined rather than bound. SQLModel's
-            # `payload["job_id"].as_string()` binds the path as a parameter, and neither
-            # SQLite nor Postgres can match a parameterised path against an expression
-            # index built on a literal one -- the plan degrades to a full scan. The
-            # searched value stays bound; only the fixed path is inline.
-            expression = _JOB_ID_INDEX_EXPRESSIONS.get(session.get_bind().dialect.name)
-            if expression is not None:
-                query = query.where(literal_column(expression) == job_id)
-            else:
-                query = query.where(Transaction.payload["job_id"].as_string() == job_id)
-
-        # TX-QUERY-PAYLOAD-FILTER-UNBOUNDED (#1599): the payload filters used
-        # to run only in the Python loop below, which forced the LIMIT to be
-        # skipped — a filtered call materialised every transaction on the
-        # chain. They now also bind in SQL (JSON-path predicate per dialect),
-        # so the limit composes with the filters exactly like the column
-        # filters above. The Python checks stay: they are the exact-match
-        # guard for payload values whose JSON type is not a plain string.
-        if island_id:
-            query = query.where(_payload_field_clause(session, "island_id", island_id))
-        if pair:
-            query = query.where(_payload_field_clause(session, "pair", pair))
-        if status:
-            query = query.where(_payload_field_clause(session, "status", status))
-        if order_id:
-            query = query.where(or_(*(_payload_field_clause(session, f, order_id) for f in _ORDER_ID_PAYLOAD_FIELDS)))
-
-        # Bind the limit in SQL unconditionally — every filter above is now a
-        # SQL predicate, so the bounded newest-first window IS the final
-        # result set's superset and must not materialise the whole table to
-        # slice it in Python (RPC-TX-QUERY-UNBOUNDED-1).
-        if limit is not None:
-            # An omitted/0/huge limit loaded the whole chain table (#1057);
-            # `if limit` let 0 skip the clamp entirely.
-            query = query.limit(max(1, min(limit or 100, 500)))
 
         _logger.debug(f"Query: {query}")
 
         # Apply filters based on payload fields
         transactions = session.exec(query).all()
-
-        # Batch-fetch sealing blocks so callers get hash/proposer without N+1
-        # lookups (marketplace offer confirmation reads these per anchor tx).
-        heights = {tx.block_height for tx in transactions if tx.block_height is not None}
-        block_map: dict[int, Block] = {}
-        if heights:
-            for b in session.exec(
-                select(Block).where(
-                    Block.chain_id == resolved_chain_id,
-                    col(Block.height).in_(heights),
-                )
-            ).all():
-                block_map[b.height] = b
+        block_map = _sealing_block_map(session, resolved_chain_id, transactions)
 
         _logger.debug(f"Found {len(transactions)} transactions for chain {resolved_chain_id}")
 
@@ -894,48 +1082,9 @@ def query_transactions(
 
         results = []
         for tx in transactions:
-            # Filter by island_id in payload
-            if island_id and tx.payload.get("island_id") != island_id:
+            if not _tx_matches_payload_filters(tx, island_id, pair, status, order_id):
                 continue
-
-            # Filter by pair in payload
-            if pair and tx.payload.get("pair") != pair:
-                continue
-
-            # Filter by status in payload
-            if status and tx.payload.get("status") != status:
-                continue
-
-            # Filter by order_id in payload
-            if (
-                order_id
-                and tx.payload.get("order_id") != order_id
-                and tx.payload.get("offer_id") != order_id
-                and tx.payload.get("bid_id") != order_id
-            ):
-                continue
-
-            sealing_block = block_map.get(tx.block_height) if tx.block_height is not None else None
-            row = {
-                "transaction_id": tx.id,
-                "tx_hash": tx.tx_hash,
-                "block_height": tx.block_height,
-                "block_hash": sealing_block.hash if sealing_block else None,
-                "block_proposer": sealing_block.proposer if sealing_block else None,
-                "sender": tx.sender,
-                "recipient": tx.recipient,
-                "payload": tx.payload,
-                "type": tx.type,
-                "status": tx.status,
-                "created_at": tx.created_at.isoformat(),
-                "timestamp": tx.timestamp,
-                "nonce": tx.nonce,
-                "value": tx.value,
-                "fee": tx.fee,
-            }
-            if finality_on:
-                row.update(finality_view(tx.block_height, head_for_finality))
-            results.append(row)
+            results.append(_tx_result_row(tx, block_map, finality_on, head_for_finality))
 
         # Apply limit (results are newest-first, so this keeps the most recent rows)
         if limit:
