@@ -7,6 +7,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from aitbc.exceptions import ValidationError
 from aitbc.utils.validation import validate_address, validate_hash
 
 
@@ -47,7 +48,7 @@ try:
     validate_address(test_data["proposer"])
     validate_hash(test_data["hash"])
     print("✅ Address and hash validation passed")
-except Exception as e:
+except (ValidationError, ValueError, TypeError) as e:
     print(f"⚠️  Validation warning: {e}")
 
 try:
@@ -60,7 +61,7 @@ try:
         print(f"  tx_hash: {tx.tx_hash}")
         print(f"  sender: {tx.sender}")
         print(f"  recipient: {tx.recipient}")
-except Exception as e:
+except (ValidationError, ValueError, TypeError, AttributeError, KeyError) as e:
     print(f"\n❌ Validation failed: {e}")
     import traceback
 

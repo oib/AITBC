@@ -174,7 +174,7 @@ class ComputeConsumer(Agent):
                     return job_id
                 logger.error("Failed to submit job to coordinator: %s %s", response.status_code, response.text)
                 return ""
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Error submitting job to coordinator: %s", e)
             return ""
 
@@ -195,7 +195,7 @@ class ComputeConsumer(Agent):
                     return response.json()
                 else:
                     return {"job_id": job_id, "status": "error", "error": f"HTTP {response.status_code}"}
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError) as e:
             logger.error("Error querying job status: %s", e)
             return {"job_id": job_id, "status": "error", "error": str(e)}
 

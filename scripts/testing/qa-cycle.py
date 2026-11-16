@@ -201,7 +201,7 @@ def query_api(path, method="GET", data=None):
         # rule on the call itself and fires whatever guards precede it.
         with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
             return json.load(resp)
-    except Exception as e:
+    except (OSError, ValueError, TypeError) as e:
         log(f"API error {path}: {e}")
         return None
 

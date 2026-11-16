@@ -32,7 +32,7 @@ from typing import Any
 
 import httpx
 import websockets
-from websockets.exceptions import ConnectionClosed, InvalidStatus
+from websockets.exceptions import ConnectionClosed, InvalidStatus, WebSocketException
 
 from aitbc.async_tasks import create_task_with_logging
 
@@ -172,7 +172,7 @@ class OfferSubscriptionClient:
                 raise
             logger.warning("Failed to obtain offer subscription lease for %s: %s", chain_id, e)
             return False
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, RuntimeError, OSError, asyncio.TimeoutError) as e:
             logger.warning("Failed to obtain offer subscription lease for %s: %s", chain_id, e)
             return False
 
@@ -195,7 +195,7 @@ class OfferSubscriptionClient:
             log = logger.error if e.response.status_code in (401, 403) else logger.warning
             log("Failed to renew offer subscription lease for %s: %s", chain_id, e)
             return False
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, RuntimeError, OSError, asyncio.TimeoutError) as e:
             logger.warning("Failed to renew offer subscription lease for %s: %s", chain_id, e)
             return False
 
@@ -340,7 +340,7 @@ class OfferSubscriptionClient:
                 async for event in self._polling_fallback(chain_id, self._subscriptions[chain_id]):
                     yield event
                 return
-            except Exception as e:
+            except (WebSocketException, ValueError, TypeError, RuntimeError, OSError, asyncio.TimeoutError) as e:
                 logger.warning(
                     "Offer subscription WebSocket error for chain %s: %s, falling back to polling",
                     chain_id,
@@ -422,7 +422,7 @@ class OfferSubscriptionClient:
                         )
                         raise
                     logger.warning("Polling fallback error for chain %s: %s", chain_id, e)
-                except Exception as e:
+                except (httpx.HTTPError, ValueError, TypeError, RuntimeError, OSError, asyncio.TimeoutError) as e:
                     logger.warning("Polling fallback error for chain %s: %s", chain_id, e)
                 await asyncio.sleep(poll_interval)
         finally:

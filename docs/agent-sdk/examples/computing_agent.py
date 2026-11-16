@@ -111,7 +111,7 @@ class ComputingAgentExample:
                 # Sleep before next iteration
                 await asyncio.sleep(5)
 
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - example agent loop must keep running regardless of task failure
                 logger.error("Error in task processing loop: %s", e)
                 await asyncio.sleep(10)
 
@@ -142,7 +142,7 @@ class ComputingAgentExample:
 
             logger.info("Task %s completed successfully", task.id)
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - task boundary: any failure is reported back to the chain as a failed result
             logger.error("Error processing task %s: %s", task.id, e)
 
             # Submit error result
@@ -273,7 +273,7 @@ async def main():
     except KeyboardInterrupt:
         logger.info("Shutting down agent...")
         await agent.stop()
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - top-level example boundary: stop the agent cleanly on any fatal error
         logger.error("Agent error: %s", e)
         await agent.stop()
 

@@ -288,7 +288,7 @@ def _verify_signature(
             # When a trusted set is configured the signer must be in it.
             valid = False
             reason = "key_id not in trusted set"
-    except Exception as exc:  # pragma: no cover - verifier could raise on malformed payloads
+    except (ValueError, TypeError, KeyError, AttributeError) as exc:  # verifier/key-decoding surface on malformed payloads
         valid = False
         reason = str(exc) or "signature verification error"
     algorithm = signature.get("algorithm") or "Ed25519"

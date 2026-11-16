@@ -117,7 +117,7 @@ class SubscriptionManager:
                 break  # Normal exit
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - SubscriptionClientProtocol implementations are untyped; any failure must feed the restart backoff
                 entry.restart_count += 1
                 entry.last_error = str(e)
                 logger.warning(
@@ -152,5 +152,5 @@ class SubscriptionManager:
             if client.is_connected:
                 try:
                     await client.stop()
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - SubscriptionClientProtocol.stop is untyped; shutdown must attempt every client
                     logger.warning("Error stopping subscription client for %s: %s", client.chain_id, e)

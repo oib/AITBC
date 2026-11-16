@@ -51,7 +51,7 @@ def register_request_validation_error_handler(app: FastAPI) -> None:
     async def _request_validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
         try:
             errors = exc.errors()
-        except Exception:
+        except (AttributeError, KeyError, TypeError, ValueError):
             # Defensive: a pathological error object must not 500 the 422 path.
             errors = []
         detail = [{str(k): _json_safe(v) for k, v in error.items()} for error in errors]

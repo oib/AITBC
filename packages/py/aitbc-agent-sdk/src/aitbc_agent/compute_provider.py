@@ -6,14 +6,14 @@ import asyncio
 import uuid
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.exceptions import NetworkError
+from aitbc.exceptions import AITBCError, NetworkError
 
 from .agent import Agent, AgentCapabilities, AgentIdentity
 
@@ -131,7 +131,7 @@ class ComputeProvider(Agent):
             logger.info("Resource offer submitted: %s AITBC/hour", price_per_hour)
             return True
 
-        except Exception as e:
+        except (AITBCError, InvalidOperation, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             logger.error("Failed to offer resources: %s", e)
             return False
 
@@ -146,7 +146,7 @@ class ComputeProvider(Agent):
             logger.info("Availability schedule updated")
             return True
 
-        except Exception as e:
+        except (AITBCError, InvalidOperation, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             logger.error("Failed to update availability: %s", e)
             return False
 
@@ -173,7 +173,7 @@ class ComputeProvider(Agent):
             logger.info("Dynamic pricing enabled")
             return True
 
-        except Exception as e:
+        except (AITBCError, InvalidOperation, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             logger.error("Failed to enable dynamic pricing: %s", e)
             return False
 
@@ -207,7 +207,7 @@ class ComputeProvider(Agent):
 
                 logger.debug("Dynamic pricing: utilization=%.2f, price=%s AITBC/h", current_utilization, new_price)
 
-            except Exception as e:
+            except (AITBCError, InvalidOperation, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
                 logger.error("Dynamic pricing error: %s", e)
 
             # Wait for next adjustment
@@ -237,7 +237,7 @@ class ComputeProvider(Agent):
             logger.info("Job accepted: %s from %s", job.job_id, job.consumer_id)
             return True
 
-        except Exception as e:
+        except (AITBCError, InvalidOperation, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             logger.error("Failed to accept job: %s", e)
             return False
 
@@ -268,7 +268,7 @@ class ComputeProvider(Agent):
 
             logger.info("Job completed: %s, earned %s AITBC", job.job_id, earnings)
 
-        except Exception as e:
+        except (AITBCError, InvalidOperation, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             job.status = "failed"
             logger.error("Job execution failed: %s - %s", job.job_id, e)
 
@@ -334,7 +334,7 @@ class ComputeProvider(Agent):
             raise NetworkError(f"Market submission failed: {result}")
         except NetworkError:
             raise
-        except Exception as e:
+        except (AITBCError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Error submitting to market: %s", e)
             raise
 
@@ -356,7 +356,7 @@ class ComputeProvider(Agent):
             logger.info("Offer updated successfully: %s", offer.provider_id)
         except NetworkError:
             raise
-        except Exception as e:
+        except (AITBCError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Error updating market offer: %s", e)
             raise
 
@@ -436,7 +436,7 @@ class ComputeProvider(Agent):
             capabilities["supported_models"] = ["llama3.2-quantized"]
             capabilities["performance_score"] = 0.3
             capabilities["max_concurrent_jobs"] = 1
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             logger.error("Error assessing capabilities: %s", e)
             capabilities["supported_models"] = ["llama3.2-quantized"]
             capabilities["performance_score"] = 0.3

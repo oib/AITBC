@@ -85,7 +85,7 @@ def coordinator_client() -> Generator[TestClient]:
     try:
         from coordinator_api.main import create_app as _create_app
         import coordinator_api.storage.db as _db
-    except Exception as _e:
+    except Exception as _e:  # noqa: BLE001 - app import surface is untyped; any import-time failure means coordinator-api is unavailable -> skip
         pytest.skip(f"coordinator-api not available: {_e}")
 
     app = _create_app()
