@@ -69,7 +69,9 @@ class _OpsMixin(_PoaBaseMixin):
         try:
             subscribers = await lease_tracker.get_valid_subscribers(self._config.chain_id)
             subscriber_count = len(subscribers)
-            poa_valid_subscribers.labels(chain_id=self._config.chain_id).set(subscriber_count)
+            poa_valid_subscribers.labels(chain_id=self._config.chain_id).set(  # noqa: unawaited-async - prometheus Gauge.set is synchronous
+                subscriber_count
+            )
             self._logger.info(
                 "[BROADCAST] block=%s, topic=%s, valid_subscribers=%s", block.height, gossip_topic, subscriber_count
             )
@@ -179,7 +181,7 @@ class _OpsMixin(_PoaBaseMixin):
                 if genesis.bridge_state_root is None:
                     genesis.bridge_state_root = self._empty_bridge_root()
                     session.add(genesis)
-                    session.commit()
+                    session.commit()  # noqa: unawaited-async - sync sqlmodel.Session.commit is synchronous
                 self._logger.info(
                     "Genesis block already exists: height=%s, hash=%s, proposer=%s",
                     genesis.height,
@@ -250,7 +252,7 @@ class _OpsMixin(_PoaBaseMixin):
                     timestamp=timestamp,
                 )
                 self._verify_bridge_validators_claim(local_genesis_data)
-                session.commit()
+                session.commit()  # noqa: unawaited-async - sync sqlmodel.Session.commit is synchronous
                 self._logger.info(
                     "Successfully created genesis block from genesis.json: hash=%s, state_root=%s, timestamp=%s",
                     genesis_hash,
@@ -264,7 +266,7 @@ class _OpsMixin(_PoaBaseMixin):
                 self._seed_bridge_validators(session, local_genesis_data)
             except Exception as e:
                 self._logger.error("Failed to create genesis block from genesis.json: %s", e)
-                session.rollback()
+                session.rollback()  # noqa: unawaited-async - sync sqlmodel.Session.rollback is synchronous
                 raise
             await _poa.gossip_broker.publish(
                 f"blocks.{self._config.chain_id}",

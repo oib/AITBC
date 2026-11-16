@@ -4,14 +4,6 @@ aitbc/auth/middleware.py	is_allowed	self.redis_client.zadd(key, {str(current_tim
 apps/blockchain-node/scripts/ws_load_test.py	run_load	stop_event.set()	1
 apps/blockchain-node/src/aitbc_chain/chain_sync.py	_receive_blocks	self._receiver_ready.set()	1
 apps/blockchain-node/src/aitbc_chain/chain_sync.py	stop	self._stop_event.set()	1
-apps/blockchain-node/src/aitbc_chain/consensus/pbft.py	commit_phase	self._message_event.set()	1
-apps/blockchain-node/src/aitbc_chain/consensus/pbft.py	handle_incoming_message	self._message_event.set()	3
-apps/blockchain-node/src/aitbc_chain/consensus/pbft.py	pre_prepare_phase	self._message_event.set()	1
-apps/blockchain-node/src/aitbc_chain/consensus/pbft.py	prepare_phase	self._message_event.set()	1
-apps/blockchain-node/src/aitbc_chain/consensus/poa.py	stop	self._stop_event.set()	1
-apps/blockchain-node/src/aitbc_chain/consensus/poa_ops.py	_broadcast_block	poa_valid_subscribers.labels(chain_id=self._config.chain_id).set(subscriber_count)	1
-apps/blockchain-node/src/aitbc_chain/consensus/poa_ops.py	_ensure_genesis_block	session.commit()	2
-apps/blockchain-node/src/aitbc_chain/consensus/poa_ops.py	_ensure_genesis_block	session.rollback()	1
 apps/blockchain-node/src/aitbc_chain/consensus/poa_proposal_gates.py	_run_consensus_gates	session.rollback()	4
 apps/blockchain-node/src/aitbc_chain/gossip/backends/base.py	__aiter__	self.close()	1
 apps/blockchain-node/src/aitbc_chain/gossip/backends/broadcast.py	_stop	stop_event.set()	1
@@ -33,21 +25,9 @@ apps/blockchain-node/src/aitbc_chain/p2p_network.py	_listen_to_stream	writer.clo
 apps/blockchain-node/src/aitbc_chain/p2p_network.py	stop	self._server.close()	1
 apps/blockchain-node/src/aitbc_chain/p2p_network.py	stop	writer.close()	1
 apps/blockchain-node/src/aitbc_chain/rpc/websocket.py	_stream_topic	subscription.close()	1
-apps/blockchain-node/src/aitbc_chain/rpc/websocket.py	gossip_websocket	subscription.close()	1
-apps/blockchain-node/src/aitbc_chain/sync_bulk.py	_resolve_fork_with_peer	session.commit()	1
-apps/blockchain-node/src/aitbc_chain/sync_bulk.py	_resolve_fork_with_peer	session.delete(old_block)	1
-apps/blockchain-node/src/aitbc_chain/sync_bulk.py	_resolve_fork_with_peer	session.delete(tx)	1
 apps/blockchain-node/src/aitbc_chain/sync_manager.py	_gossip_consumer	state.gossip_sub.close()	1
 apps/blockchain-node/src/aitbc_chain/sync_manager.py	_tick	sync_lag_blocks.labels(chain_id=chain_id).set(float(gap))	1
-apps/blockchain-node/src/aitbc_chain/sync_manager.py	_tick	sync_peer_reachable.labels(chain_id=chain_id).set(0.0)	2
 apps/blockchain-node/src/aitbc_chain/sync_manager.py	_tick	sync_peer_reachable.labels(chain_id=chain_id).set(1.0)	1
 apps/blockchain-node/src/aitbc_chain/sync_manager.py	stop	self._stop_event.set()	1
-apps/blockchain-node/src/aitbc_chain/sync_state.py	delta_sync_from	session.commit()	1
-apps/blockchain-node/src/aitbc_chain/sync_state.py	delta_sync_from	session.delete(db_acc)	1
-apps/blockchain-node/src/aitbc_chain/sync_state.py	delta_sync_from	session.flush()	1
-apps/blockchain-node/src/aitbc_chain/sync_state.py	delta_sync_from	session.rollback()	1
-apps/blockchain-node/src/aitbc_chain/sync_state.py	sync_state_from	session.commit()	1
-apps/blockchain-node/src/aitbc_chain/sync_state.py	sync_state_from	session.flush()	1
-apps/blockchain-node/src/aitbc_chain/sync_state.py	sync_state_from	session.rollback()	1
 apps/ffmpeg/main.py	_spool_upload	tmp.close()	2
 apps/gpu/src/gpu_service/main.py	register_gpu	gpu_data.get("registered_by", "0x0000000000000000000000000000000000000000")	1
