@@ -206,37 +206,26 @@ class ProposerSignatureValidator:
         active_non_proposer = max(0, len({canonical_address(v) for v in validator_set}) - 1)
         return max(0, min(configured, active_non_proposer))
 
-    def _validate_attestations(self, block_data: dict[str, Any]) -> tuple[bool, str]:
-        """Validate attestations in block_metadata for multi-validator consensus."""
-        strict_verdict = self._strict_pbft_verdict(block_data)
-        if strict_verdict is not None:
-            return strict_verdict
-        min_attestations = self._effective_min_attestations()
-        if min_attestations <= 0:
-            return (True, "No attestations required")
+    def _attestation_metadata(self, block_data: dict[str, Any]) -> tuple[Any, tuple[bool, str] | None]:
+        """Parse ``block_metadata`` for the attestation path.
 
+        Returns ``(metadata, None)`` on success, or ``(None, verdict)`` where
+        verdict is the rejection tuple the caller returns directly.
+        """
         metadata_str = block_data.get("block_metadata", "")
         if not metadata_str:
-            return (False, "Multi-validator block missing block_metadata attestations")
+            return None, (False, "Multi-validator block missing block_metadata attestations")
 
         try:
             import json
 
             metadata = json.loads(metadata_str)
         except json.JSONDecodeError as e:
-            return (False, f"Invalid block_metadata JSON: {e}")
+            return None, (False, f"Invalid block_metadata JSON: {e}")
+        return metadata, None
 
-        # v0.7.7: PBFT blocks store a commit certificate in block_metadata instead
-        # of the older attestations list. A PBFT commit is equivalent to an
-        # attestation: it is a signature over the block hash from a validator.
-        pbft_certificate = metadata.get("pbft_certificate")
-        if isinstance(pbft_certificate, list):
-            return self._validate_pbft_certificate(block_data, pbft_certificate)
-
-        attestations = metadata.get("attestations", [])
-        if not isinstance(attestations, list) or len(attestations) < min_attestations:
-            return (False, f"Insufficient attestations: {len(attestations)} < {min_attestations}")
-
+    def _count_valid_attestations(self, block_data: dict[str, Any], attestations: list[Any]) -> int:
+        """Count distinct validator-set attestations with valid signatures."""
         validator_set = self._load_validator_set() or self._trusted
         from aitbc.crypto.signature_recovery import canonical_address
 
@@ -259,7 +248,33 @@ class ProposerSignatureValidator:
             if self._attestation_sig_ok(block_data, att, validator):
                 valid_count += 1
                 seen.add(validator_key)
+        return valid_count
 
+    def _validate_attestations(self, block_data: dict[str, Any]) -> tuple[bool, str]:
+        """Validate attestations in block_metadata for multi-validator consensus."""
+        strict_verdict = self._strict_pbft_verdict(block_data)
+        if strict_verdict is not None:
+            return strict_verdict
+        min_attestations = self._effective_min_attestations()
+        if min_attestations <= 0:
+            return (True, "No attestations required")
+
+        metadata, error = self._attestation_metadata(block_data)
+        if error is not None:
+            return error
+
+        # v0.7.7: PBFT blocks store a commit certificate in block_metadata instead
+        # of the older attestations list. A PBFT commit is equivalent to an
+        # attestation: it is a signature over the block hash from a validator.
+        pbft_certificate = metadata.get("pbft_certificate")
+        if isinstance(pbft_certificate, list):
+            return self._validate_pbft_certificate(block_data, pbft_certificate)
+
+        attestations = metadata.get("attestations", [])
+        if not isinstance(attestations, list) or len(attestations) < min_attestations:
+            return (False, f"Insufficient attestations: {len(attestations)} < {min_attestations}")
+
+        valid_count = self._count_valid_attestations(block_data, attestations)
         if valid_count < min_attestations:
             return (False, f"Only {valid_count} valid attestations, need {min_attestations}")
         return (True, f"{valid_count} valid attestations")

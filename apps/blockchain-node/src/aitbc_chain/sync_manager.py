@@ -24,7 +24,7 @@ from .logger import get_logger
 from .metrics import metrics_registry, sync_lag_blocks, sync_peer_reachable
 from .subscription_client import SubscriptionClient
 from .sync import ChainSync
-from .sync_divergence import clear_divergence, report_divergence
+from .sync_divergence import Divergence, clear_divergence, report_divergence
 from .sync_validator import ImportResult
 
 logger = get_logger(__name__)
@@ -701,9 +701,115 @@ class SyncManager:
             return
         await self.handle_block(chain_id, block_data, source="gossip")
 
+    async def _poll_bulk_task(self, state: ChainSyncState, chain_id: str, poll: float) -> float | None:
+        """Poll an in-flight bulk pull once.
+
+        Returns the interval the tick should sleep for, or None when no bulk
+        task is running and the tick should continue to the remote-head check.
+        """
+        if not (state.bulk_task and not state.bulk_task.done()):
+            return None
+        try:
+            done, _ = await asyncio.wait({state.bulk_task}, timeout=0.1)
+            if not done:
+                return poll
+            imported = state.bulk_task.result()
+            state.last_bulk_at = time.time()
+            state.bulk_task = None
+            state.bulk_backoff_until = 0.0
+            state.bulk_error_count = 0
+            logger.info("Bulk pull completed", extra={"chain_id": chain_id, "imported": imported})
+            state.error_count = 0
+        except Exception as e:
+            logger.error("Bulk pull failed for %s: %s", chain_id, e)
+            state.bulk_task = None
+            state.bulk_error_count += 1
+            state.bulk_backoff_until = time.time() + min(60, 2**state.bulk_error_count)
+            return min(poll, state.bulk_backoff_until - time.time())
+        return poll
+
+    async def _fetch_remote_head(
+        self,
+        state: ChainSyncState,
+        chain_sync: ChainSync,
+        chain_id: str,
+        source_url: str,
+    ) -> tuple[Divergence | None, int] | None:
+        """Read the peer head once, marking the peer unreachable on failure.
+
+        Returns ``(head_divergence, remote_height)`` on success; ``None``
+        after recording DISCONNECTED state — the caller then returns the
+        normal poll interval.
+        """
+        try:
+            head_divergence, remote_height = await chain_sync.peer_head_divergence(source_url)
+            state.last_remote_height = remote_height
+        except Exception as e:
+            logger.warning("Failed to get remote head for %s: %s", chain_id, e)
+            state.mode = SyncMode.DISCONNECTED
+            state.last_remote_height = -1
+            sync_peer_reachable.labels(chain_id=chain_id).set(0.0)  # noqa: unawaited-async — prometheus Gauge.set() is synchronous
+            _drop_sync_lag(chain_id)
+            return None
+
+        if remote_height < 0:
+            # peer_head_divergence maps every fetch failure to (None, -1), so a
+            # dead peer arrives here, not in the except branch. -1 is "unknown",
+            # not a height: publishing gap = max(0, -1 - local) = 0 would read as
+            # perfectly synced on a blind node, and the state-sync range below
+            # would be called with to_height=-1.
+            logger.warning("Remote head unknown for %s via %s; peer unreachable", chain_id, source_url)
+            state.mode = SyncMode.DISCONNECTED
+            sync_peer_reachable.labels(chain_id=chain_id).set(0.0)  # noqa: unawaited-async — prometheus Gauge.set() is synchronous
+            _drop_sync_lag(chain_id)
+            return None
+
+        return head_divergence, remote_height
+
+    async def _maybe_state_sync(
+        self,
+        chain_sync: ChainSync,
+        state: ChainSyncState,
+        chain_id: str,
+        source_url: str,
+        gap: int,
+    ) -> None:
+        """Run follower state sync when due; never on block producers."""
+        # Block producers never run follower state sync — their account state
+        # is the product of applying blocks (incident 27207). The mixin guard
+        # is the backstop.
+        if is_block_producer():
+            logger.debug("State sync skipped: node produces blocks", extra={"chain_id": chain_id})
+            return
+        if not (
+            gap <= getattr(settings, "state_sync_max_gap", 10)
+            and state.mode == SyncMode.SYNCED
+            and time.time() - state.last_state_sync_at > getattr(settings, "sync_manager_state_sync_interval", 300)
+        ):
+            return
+        state.mode = SyncMode.STATE_SYNC
+        state.last_state_sync_at = time.time()
+        try:
+            # When the node is fully caught up, delta sync would otherwise be
+            # called with from_height == to_height, which the source endpoint
+            # rejects as an invalid zero-block range. Ask for the diff of the
+            # last block instead (to_height - 1 -> to_height) so the state sync
+            # actually validates the head instead of falling back to a full sync.
+            if state.last_local_height == state.last_remote_height and state.last_remote_height > 0:
+                delta_from = state.last_remote_height - 1
+                delta_to = state.last_remote_height
+            else:
+                delta_from = state.last_local_height
+                delta_to = state.last_remote_height
+            await chain_sync.delta_sync_from(source_url, delta_from, delta_to)
+        except Exception as e:
+            logger.warning("State sync failed for %s: %s", chain_id, e)
+        state.mode = SyncMode.SYNCED
+
     async def _tick(self, chain_id: str) -> float:
         state = self._chain_states[chain_id]
-        if not state.chain_sync:
+        chain_sync = state.chain_sync
+        if chain_sync is None:
             return getattr(settings, "sync_manager_poll_interval", 5.0)
 
         poll = getattr(settings, "sync_manager_poll_interval", 5.0)
@@ -711,25 +817,9 @@ class SyncManager:
         if time.time() < state.bulk_backoff_until:
             return min(poll, state.bulk_backoff_until - time.time())
 
-        if state.bulk_task and not state.bulk_task.done():
-            try:
-                done, _ = await asyncio.wait({state.bulk_task}, timeout=0.1)
-                if not done:
-                    return poll
-                imported = state.bulk_task.result()
-                state.last_bulk_at = time.time()
-                state.bulk_task = None
-                state.bulk_backoff_until = 0.0
-                state.bulk_error_count = 0
-                logger.info("Bulk pull completed", extra={"chain_id": chain_id, "imported": imported})
-                state.error_count = 0
-            except Exception as e:
-                logger.error("Bulk pull failed for %s: %s", chain_id, e)
-                state.bulk_task = None
-                state.bulk_error_count += 1
-                state.bulk_backoff_until = time.time() + min(60, 2**state.bulk_error_count)
-                return min(poll, state.bulk_backoff_until - time.time())
-            return poll
+        bulk_interval = await self._poll_bulk_task(state, chain_id, poll)
+        if bulk_interval is not None:
+            return bulk_interval
 
         source_url = self._source_resolver.get_sync_source(chain_id)
         if not source_url or not self._should_sync_remote(chain_id, source_url):
@@ -740,32 +830,14 @@ class SyncManager:
             )
             return poll
 
-        try:
-            head_divergence, remote_height = await state.chain_sync.peer_head_divergence(source_url)
-            state.last_remote_height = remote_height
-        except Exception as e:
-            logger.warning("Failed to get remote head for %s: %s", chain_id, e)
-            state.mode = SyncMode.DISCONNECTED
-            state.last_remote_height = -1
-            sync_peer_reachable.labels(chain_id=chain_id).set(0.0)
-            _drop_sync_lag(chain_id)
+        head = await self._fetch_remote_head(state, chain_sync, chain_id, source_url)
+        if head is None:
             return poll
-
-        if remote_height < 0:
-            # peer_head_divergence maps every fetch failure to (None, -1), so a
-            # dead peer arrives here, not in the except branch. -1 is "unknown",
-            # not a height: publishing gap = max(0, -1 - local) = 0 would read as
-            # perfectly synced on a blind node, and the state-sync range below
-            # would be called with to_height=-1.
-            logger.warning("Remote head unknown for %s via %s; peer unreachable", chain_id, source_url)
-            state.mode = SyncMode.DISCONNECTED
-            sync_peer_reachable.labels(chain_id=chain_id).set(0.0)
-            _drop_sync_lag(chain_id)
-            return poll
+        head_divergence, remote_height = head
 
         sync_peer_reachable.labels(chain_id=chain_id).set(1.0)
 
-        state.last_local_height = state.chain_sync.get_local_height()
+        state.last_local_height = chain_sync.get_local_height()
         gap = max(0, state.last_remote_height - state.last_local_height)
         sync_lag_blocks.labels(chain_id=chain_id).set(float(gap))
 
@@ -785,34 +857,7 @@ class SyncManager:
 
         state.mode = SyncMode.SYNCED if gap == 0 else SyncMode.PUSH
 
-        # Block producers never run follower state sync — their account state
-        # is the product of applying blocks (incident 27207). The mixin guard
-        # is the backstop.
-        if is_block_producer():
-            logger.debug("State sync skipped: node produces blocks", extra={"chain_id": chain_id})
-        elif (
-            gap <= getattr(settings, "state_sync_max_gap", 10)
-            and state.mode == SyncMode.SYNCED
-            and time.time() - state.last_state_sync_at > getattr(settings, "sync_manager_state_sync_interval", 300)
-        ):
-            state.mode = SyncMode.STATE_SYNC
-            state.last_state_sync_at = time.time()
-            try:
-                # When the node is fully caught up, delta sync would otherwise be
-                # called with from_height == to_height, which the source endpoint
-                # rejects as an invalid zero-block range. Ask for the diff of the
-                # last block instead (to_height - 1 -> to_height) so the state sync
-                # actually validates the head instead of falling back to a full sync.
-                if state.last_local_height == state.last_remote_height and state.last_remote_height > 0:
-                    delta_from = state.last_remote_height - 1
-                    delta_to = state.last_remote_height
-                else:
-                    delta_from = state.last_local_height
-                    delta_to = state.last_remote_height
-                await state.chain_sync.delta_sync_from(source_url, delta_from, delta_to)
-            except Exception as e:
-                logger.warning("State sync failed for %s: %s", chain_id, e)
-            state.mode = SyncMode.SYNCED
+        await self._maybe_state_sync(chain_sync, state, chain_id, source_url, gap)
 
         if gap == 0:
             return getattr(settings, "sync_manager_synced_poll_interval", 30.0)
