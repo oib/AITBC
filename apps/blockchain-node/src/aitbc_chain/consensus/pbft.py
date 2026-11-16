@@ -44,6 +44,7 @@ from .pbft_view_change import (
     verify_view_change,
     MAX_LOCK_PROOF_MSGS,
     proposal_body_bound,
+    proposal_body_signed,
     verify_vc_lock_proof,
 )
 
@@ -1259,6 +1260,10 @@ class PBFTConsensus:
         return bool(fn(sequence, view, block_hash)) if callable(fn) else False
 
     def _vc_proposal_store(self, sequence: int, block_hash: str, payload: dict[str, Any]) -> bool:
+        if not proposal_body_signed(payload):
+            metrics_registry.increment("pbft_view_change_proposal_unsigned_total")
+            logger.warning("PBFT refusing proposal body for seq %s: missing/invalid proposer block signature", sequence)
+            return False
         fn = getattr(self.consensus, "pbft_vc_proposal_store", None)
         return bool(fn(sequence, block_hash, payload)) if callable(fn) else False
 
