@@ -97,6 +97,22 @@ def test_get_falls_back_to_effective_config(runner, tmp_path, monkeypatch):
     assert '"source": "effective"' in result.output or '"source":"effective"' in result.output
 
 
+def test_get_effective_secret_shaped_value_refused(runner, tmp_path, monkeypatch):
+    """#2105: the effective path must apply the same secret-shape refusal as YAML —
+    an env-only credentialed URL must not print."""
+    f = tmp_path / "aitbc.yaml"
+    f.write_text("timeout: 60\n")
+    monkeypatch.setenv("AITBC_CONFIG_FILE", str(f))
+
+    effective = type("C", (), {"eth_rpc_url": "https://user:s3cr3tpass@rpc.example.com"})()
+    monkeypatch.setattr(config_mod, "get_config", lambda: effective)
+
+    result = runner.invoke(config, obj={"output_format": "json"}, args=["get", "eth_rpc_url"])
+    assert result.exit_code != 0
+    assert "s3cr3tpass" not in result.output
+    assert "secret-shaped" in result.output
+
+
 def test_get_effective_empty_is_not_set(runner, tmp_path, monkeypatch):
     f = tmp_path / "aitbc.yaml"
     f.write_text("timeout: 60\n")
