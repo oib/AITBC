@@ -204,3 +204,97 @@ async def test_list_gpus_falls_back_to_mirrored_listings(seeded_session, monkeyp
     assert len(out) == 2
     assert {g["id"] for g in out} == {"gpu-1", "gpu-2"}
     assert all(g.get("source") == "mirror" for g in out)
+
+
+async def _insert_listings(engine, *rows: GPUListing) -> None:
+    async with AsyncSession(engine) as session:
+        for row in rows:
+            session.add(row)
+        await session.commit()
+
+
+def _mirror_row(
+    gpu_id: str,
+    *,
+    status: str = "active",
+    memory_gb: int | None = None,
+    architecture: str | None = None,
+    edge_optimized: bool | None = None,
+) -> GPUListing:
+    extra: dict[str, Any] = {}
+    if architecture is not None:
+        extra["architecture"] = architecture
+    if edge_optimized is not None:
+        extra["edge_optimized"] = edge_optimized
+    return GPUListing(gpu_id=gpu_id, model=gpu_id, memory_gb=memory_gb, status=status, extra_data=extra)
+
+
+@pytest.mark.asyncio
+async def test_fallback_serves_only_active_rows(seeded_session, monkeypatch):
+    """#2129: mirror fallback must not serve inactive/booked rows as bookable."""
+    engine, _set_profiles = seeded_session
+    await _insert_listings(
+        engine,
+        _mirror_row("gpu-active", status="active"),
+        _mirror_row("gpu-inactive", status="inactive"),
+        _mirror_row("gpu-booked", status="booked"),
+    )
+    monkeypatch.setattr(svc_mod, "GPUServiceClient", _FailingGPUServiceClient)
+
+    out = await GPUService().list_gpus()
+
+    assert [g["id"] for g in out] == ["gpu-active"]
+
+
+@pytest.mark.asyncio
+async def test_fallback_applies_min_memory_gb(seeded_session, monkeypatch):
+    """#2129: min_memory_gb must filter mirror rows like the remote query."""
+    engine, _set_profiles = seeded_session
+    await _insert_listings(
+        engine,
+        _mirror_row("gpu-16", memory_gb=16),
+        _mirror_row("gpu-24", memory_gb=24),
+        _mirror_row("gpu-32", memory_gb=32),
+        _mirror_row("gpu-unknown", memory_gb=None),
+    )
+    monkeypatch.setattr(svc_mod, "GPUServiceClient", _FailingGPUServiceClient)
+
+    out = await GPUService().list_gpus(min_memory_gb=24)
+
+    assert {g["id"] for g in out} == {"gpu-24", "gpu-32"}
+
+
+@pytest.mark.asyncio
+async def test_fallback_applies_architecture_filter(seeded_session, monkeypatch):
+    """#2129: architecture matches the remote profile stored in extra_data."""
+    engine, _set_profiles = seeded_session
+    await _insert_listings(
+        engine,
+        _mirror_row("gpu-ampere", architecture="ampere"),
+        _mirror_row("gpu-turing", architecture="turing"),
+        _mirror_row("gpu-legacy"),
+    )
+    monkeypatch.setattr(svc_mod, "GPUServiceClient", _FailingGPUServiceClient)
+
+    out = await GPUService().list_gpus(architecture="ampere")
+
+    assert [g["id"] for g in out] == ["gpu-ampere"]
+
+
+@pytest.mark.asyncio
+async def test_fallback_applies_edge_optimized_filter(seeded_session, monkeypatch):
+    """#2129: edge_optimized matches extra_data; absent reads as False."""
+    engine, _set_profiles = seeded_session
+    await _insert_listings(
+        engine,
+        _mirror_row("gpu-edge", edge_optimized=True),
+        _mirror_row("gpu-plain", edge_optimized=False),
+        _mirror_row("gpu-legacy"),
+    )
+    monkeypatch.setattr(svc_mod, "GPUServiceClient", _FailingGPUServiceClient)
+
+    out = await GPUService().list_gpus(edge_optimized=True)
+    assert [g["id"] for g in out] == ["gpu-edge"]
+
+    out = await GPUService().list_gpus(edge_optimized=False)
+    assert {g["id"] for g in out} == {"gpu-plain", "gpu-legacy"}

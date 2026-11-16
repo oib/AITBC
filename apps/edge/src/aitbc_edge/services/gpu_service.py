@@ -61,7 +61,7 @@ class GPUService:
             # GPU service down (e.g. unit inactive on a shop node): serve the
             # mirrored gpu_listings rows instead of a bare 500 (#2088).
             logger.warning("GPU service unreachable (%s); serving mirrored listings", e)
-            return await self._mirrored_listings()
+            return await self._mirrored_listings(architecture, edge_optimized, min_memory_gb)
 
         # Mirror the remote profile list into gpu_listings, upserting by
         # gpu_id. The remote list is the source of truth: every call used to
@@ -98,25 +98,47 @@ class GPUService:
 
         return profiles
 
-    async def _mirrored_listings(self) -> list[dict[str, Any]]:
-        """Return gpu_listings rows shaped like remote GPU profiles."""
+    async def _mirrored_listings(
+        self,
+        architecture: str | None = None,
+        edge_optimized: bool | None = None,
+        min_memory_gb: int | None = None,
+    ) -> list[dict[str, Any]]:
+        """Return gpu_listings rows shaped like remote GPU profiles.
+
+        The mirror is a degraded read, so it must not widen the result set
+        beyond what the caller asked for (#2129): only ``active`` rows are
+        served, ``memory_gb`` is filtered in SQL like the remote query, and
+        ``architecture``/``edge_optimized`` are matched against the remote
+        profile stored in ``extra_data``.
+        """
         async with get_session() as session:
-            result = await session.execute(select(GPUListing))
+            stmt = select(GPUListing).where(col(GPUListing.status) == "active")
+            if min_memory_gb is not None:
+                stmt = stmt.where(col(GPUListing.memory_gb) >= min_memory_gb)
+            result = await session.execute(stmt)
             rows = result.scalars().all()
-        return [
-            {
-                "id": g.gpu_id,
-                "model": g.model,
-                "price_per_hour": str(g.price_per_hour),
-                "memory_gb": g.memory_gb,
-                "cuda_version": g.cuda_version,
-                "region": g.region,
-                "capabilities": g.capabilities,
-                "status": g.status,
-                "source": "mirror",
-            }
-            for g in rows
-        ]
+        listings = []
+        for g in rows:
+            extra = g.extra_data or {}
+            if architecture is not None and extra.get("architecture") != architecture:
+                continue
+            if edge_optimized is not None and bool(extra.get("edge_optimized", False)) != edge_optimized:
+                continue
+            listings.append(
+                {
+                    "id": g.gpu_id,
+                    "model": g.model,
+                    "price_per_hour": str(g.price_per_hour),
+                    "memory_gb": g.memory_gb,
+                    "cuda_version": g.cuda_version,
+                    "region": g.region,
+                    "capabilities": g.capabilities,
+                    "status": g.status,
+                    "source": "mirror",
+                }
+            )
+        return listings
 
     async def get_gpu_listing(self, gpu_id: str) -> dict[str, Any] | None:
         """Get GPU listing details"""
