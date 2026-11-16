@@ -280,6 +280,16 @@ def _keystore_patches():
     )
 
 
+def _credentials_write_patches():
+    """Stub the 0600 island-credentials write so join tests never touch
+    ``/var/lib/aitbc/island_credentials.json`` on the host."""
+    return (
+        patch("aitbc_cli.commands.node.island.os.open", return_value=0),
+        patch("aitbc_cli.commands.node.island.os.fchmod"),
+        patch("aitbc_cli.commands.node.island.os.fdopen", return_value=MagicMock()),
+    )
+
+
 def test_island_join_aborts_when_chain_probe_fails():
     coord = MagicMock()
     exists, m_open, _chown, _chmod = _keystore_patches()
@@ -302,18 +312,21 @@ def test_island_join_env_chain_id_wins(monkeypatch):
     coord.post.return_value = {
         "success": True,
         "island_id": "isl-1",
+        "island_name": "isl",
+        "island_chain_id": "env-chain",
         "members": [],
-        "credentials": {"rpc_endpoint": "http://x"},
+        "credentials": {"node_api_key": "test-key"},
     }
     exists, m_open, _chown, _chmod = _keystore_patches()
+    o_open, fchmod, fdopen = _credentials_write_patches()
     with (
         exists,
         m_open,
         _chown,
         _chmod,
-        patch("os.open", return_value=99),
-        patch("os.fchmod"),
-        patch("os.fdopen", return_value=mock_open()()),
+        o_open,
+        fchmod,
+        fdopen,
         patch("aitbc_cli.commands.node.island.AITBCHTTPClient", return_value=coord),
         _failing_probe() as prober_cls,
     ):

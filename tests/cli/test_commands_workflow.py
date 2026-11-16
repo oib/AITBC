@@ -51,8 +51,22 @@ class TestWorkflowCommands:
 
         assert "stop" in workflow.commands
 
-    def test_workflow_list_command(self, runner):
-        """``workflow list`` lists available workflows."""
+    @patch("httpx.get")
+    @patch("aitbc_cli.commands.workflow.get_config")
+    def test_workflow_list_command(self, mock_get_config, mock_get, runner):
+        """``workflow list`` lists available workflows from the coordinator."""
+        mock_config = mock_get_config.return_value
+        mock_config.coordinator_api_url = "http://localhost:8203"
+        mock_config.coordinator_api_key = "test-key"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {"id": "wf-1", "name": "gpu-market", "version": "1.0.0", "steps": {"a": {}, "b": {}}},
+            {"id": "wf-2", "name": "ai-job-processing", "version": "1.0.0", "steps": {"a": {}}},
+        ]
+        mock_get.return_value = mock_response
+
         from aitbc_cli.commands.workflow import workflow
 
         result = runner.invoke(workflow, ["list"])
@@ -61,8 +75,21 @@ class TestWorkflowCommands:
         assert "gpu-market" in result.output
         assert "ai-job-processing" in result.output
 
-    def test_workflow_list_json_format(self, runner):
+    @patch("httpx.get")
+    @patch("aitbc_cli.commands.workflow.get_config")
+    def test_workflow_list_json_format(self, mock_get_config, mock_get, runner):
         """``workflow list --format json`` outputs JSON."""
+        mock_config = mock_get_config.return_value
+        mock_config.coordinator_api_url = "http://localhost:8203"
+        mock_config.coordinator_api_key = "test-key"
+
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.json.return_value = [
+            {"id": "wf-1", "name": "gpu-market", "version": "1.0.0", "steps": {"a": {}, "b": {}}},
+        ]
+        mock_get.return_value = mock_response
+
         from aitbc_cli.commands.workflow import workflow
 
         result = runner.invoke(workflow, ["list", "--format", "json"])
