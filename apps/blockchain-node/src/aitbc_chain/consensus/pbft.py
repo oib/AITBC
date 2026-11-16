@@ -913,6 +913,31 @@ class PBFTConsensus:
             msg_data["new_view"] = message.new_view
         await self._gossip_backend.publish(topic, msg_data)
 
+    def sync_to_head(self, head_height: int) -> bool:
+        """#2145: align the local sequence with the sealed chain head.
+
+        ``current_sequence`` is the base of the intake window
+        (``current_sequence + pbft_max_sequence_ahead``) and starts at 0, but
+        the proposer keys every round by block height. Armed on a chain that
+        already has blocks, every real-height vote was therefore past the
+        window and silently dropped until a first local ``execute_phase`` that
+        could never happen. Monotonic: only ever raises the sequence, so a
+        stale or reorged-low head cannot reopen an already-executed height.
+        The prepared/committed buckets are not carried across a restart, so
+        only entries below the new base are pruned. ``current_view`` is left
+        alone: it is the proposer round (re-derived from block timestamps and
+        adopted per pre-prepare), not a height-like counter.
+        """
+        try:
+            height = int(head_height)
+        except (TypeError, ValueError):
+            return False
+        if height <= self.state.current_sequence:
+            return False
+        self.state.current_sequence = height
+        self._cleanup_messages(height)
+        return True
+
     def _cleanup_messages(self, sequence: int) -> None:
         """Clean up old messages to prevent memory leaks"""
         old_keys = [key for key in self.state.prepared_messages.keys() if _int_key_seq(key) < sequence]
