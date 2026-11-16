@@ -91,7 +91,7 @@ class TestR3CrossViewHeight:
     def _capture(self, monkeypatch):
         seen = {}
 
-        def fake(ep, event, addr, uc_ctx, uc_contexts, cross_view_height, apply_height):
+        def fake(ep, event, addr, uc_ctx, uc_contexts, cross_view_height, apply_height, **_):
             seen["cvh"] = cross_view_height
             return True, None
 
