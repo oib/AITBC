@@ -261,7 +261,7 @@ class PBFTConsensus:
         # Broadcast to all validators
         await self._broadcast_message(message)
 
-        self._message_event.set()
+        self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
         return True
 
     async def _ensure_synced(self) -> bool:
@@ -363,48 +363,16 @@ class PBFTConsensus:
 
         # Wait for enough prepares (other validators respond via handle_incoming_message)
         deadline = time.time() + timeout if timeout else None
-        while True:
-            self._recalculate_fault_tolerance()
-            if len(self.state.prepared_messages.get(key, [])) >= self.required_messages:
-                break
-            if deadline and time.time() > deadline:
-                duration = time.time() - started_at
-                logger.warning(
-                    "PBFT prepare quorum timeout for key %s (required=%s, have=%s, duration=%.3fs)",
-                    key,
-                    self.required_messages,
-                    len(self.state.prepared_messages.get(key, [])),
-                    duration,
-                )
-                return False
-            self._message_event.clear()
-            try:
-                await asyncio.wait_for(self._message_event.wait(), timeout=0.5)
-            except asyncio.TimeoutError:
-                pass
-            await self._resend_view_change_if_due(pre_prepare_sequence, pre_prepare_view)
+        if not await self._wait_for_quorum(
+            key, self.state.prepared_messages, "prepare", deadline, started_at, pre_prepare_sequence, pre_prepare_view
+        ):
+            return False
 
         # Wait for enough commits
-        while True:
-            self._recalculate_fault_tolerance()
-            if len(self.state.committed_messages.get(key, [])) >= self.required_messages:
-                break
-            if deadline and time.time() > deadline:
-                duration = time.time() - started_at
-                logger.warning(
-                    "PBFT commit quorum timeout for key %s (required=%s, have=%s, duration=%.3fs)",
-                    key,
-                    self.required_messages,
-                    len(self.state.committed_messages.get(key, [])),
-                    duration,
-                )
-                return False
-            self._message_event.clear()
-            try:
-                await asyncio.wait_for(self._message_event.wait(), timeout=0.5)
-            except asyncio.TimeoutError:
-                pass
-            await self._resend_view_change_if_due(pre_prepare_sequence, pre_prepare_view)
+        if not await self._wait_for_quorum(
+            key, self.state.committed_messages, "commit", deadline, started_at, pre_prepare_sequence, pre_prepare_view
+        ):
+            return False
 
         duration = time.time() - started_at
         logger.info(
@@ -423,6 +391,43 @@ class PBFTConsensus:
         # caller's fresh block, whose hash is not the decided value.
         return locked is None
 
+    async def _wait_for_quorum(
+        self,
+        key: str,
+        messages: dict[str, list[PBFTMessage]],
+        phase: str,
+        deadline: float | None,
+        started_at: float,
+        sequence: int,
+        view: int,
+    ) -> bool:
+        """Block until ``messages[key]`` reaches the required quorum or the deadline.
+
+        ``phase`` is the log label ("prepare"/"commit"); ``sequence``/``view``
+        feed the view-change resend.
+        """
+        while True:
+            self._recalculate_fault_tolerance()
+            if len(messages.get(key, [])) >= self.required_messages:
+                return True
+            if deadline and time.time() > deadline:
+                duration = time.time() - started_at
+                logger.warning(
+                    "PBFT %s quorum timeout for key %s (required=%s, have=%s, duration=%.3fs)",
+                    phase,
+                    key,
+                    self.required_messages,
+                    len(messages.get(key, [])),
+                    duration,
+                )
+                return False
+            self._message_event.clear()
+            try:
+                await asyncio.wait_for(self._message_event.wait(), timeout=0.5)
+            except asyncio.TimeoutError:
+                pass
+            await self._resend_view_change_if_due(sequence, view)
+
     async def prepare_phase(self, validator: str, pre_prepare_msg: PBFTMessage) -> bool:
         """Phase 2: Prepare"""
         self._recalculate_fault_tolerance()
@@ -436,60 +441,9 @@ class PBFTConsensus:
             return False
 
         # Only the local validator sends one prepare per key
-        if validator == self._local_validator:
-            # v0.25.6: one block per height per round, and never a round this
-            # node has already left behind. Preparing two blocks in the same
-            # round would let both reach a quorum and fork the height; going
-            # back to an earlier round would do the same in slow motion.
-            #
-            # v0.25.7: the rule used to be one block per height across *every*
-            # round, which is safe and also dead. A round that fails leaves its
-            # block hash pinned at that height, and the stand-in the next round
-            # hands the slot to necessarily proposes a different hash, so every
-            # validator refuses it. A proposer dying between its pre-prepare and
-            # the commit quorum -- the exact fault the rotation exists to
-            # survive -- therefore froze that height until the survivors were
-            # restarted, because the pin lives only in memory. Being in round r
-            # is itself the evidence, derived from the parent block's timestamp
-            # and agreed by every node without a message, that no round below r
-            # produced a block; superseding them is what lets the rotation
-            # finish the height instead of only re-nominating for it.
-            height = pre_prepare_msg.sequence_number
-            view = pre_prepare_msg.view_number
-            prepared = self._prepared_heights.get(height) or self._durable_prepared(height)
-            if prepared is not None:
-                prepared_view, prepared_hash = prepared
-                if view < prepared_view:
-                    logger.warning(
-                        "PBFT refusing height %s round %s: this node has already prepared round %s",
-                        height,
-                        view,
-                        prepared_view,
-                    )
-                    return False
-                if view == prepared_view and prepared_hash != pre_prepare_msg.block_hash:
-                    logger.warning(
-                        "PBFT refusing a second block at height %s round %s (prepared %s, offered %s)",
-                        height,
-                        view,
-                        prepared_hash,
-                        pre_prepare_msg.block_hash,
-                    )
-                    return False
-            if key in self._local_prepared:
-                return len(self.state.prepared_messages.get(key, [])) >= self.required_messages
-            # #2005 F3-C: while the VIEW_CHANGE gate is armed this node may
-            # only prepare a block the verified NEW_VIEW for (height, view)
-            # permits — and only after its proposal body is persisted
-            # (Option R). Both checks are dormant while the gate is unset.
-            if not await self._view_change_prepare_allows(height, view, pre_prepare_msg):
-                return False
-            # The durable prepared record persists BEFORE the prepare is
-            # broadcast — a restart must not forget this vote (design §7).
-            if view_change_active(height) and not self._vc_prepared_arm(height, view, pre_prepare_msg.block_hash):
-                return False
-            self._local_prepared.add(key)
-            self._prepared_heights[height] = (view, pre_prepare_msg.block_hash)
+        local_decision = await self._local_prepare_decision(pre_prepare_msg, key, validator)
+        if local_decision is not None:
+            return local_decision
 
         # Create prepare message
         prepare_msg = PBFTMessage(
@@ -513,7 +467,7 @@ class PBFTConsensus:
         # Broadcast prepare message
         await self._broadcast_message(prepare_msg)
 
-        self._message_event.set()
+        self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
 
         # Check if we have enough prepare messages and trigger commit
         if len(self.state.prepared_messages[key]) >= self.required_messages:
@@ -521,6 +475,72 @@ class PBFTConsensus:
                 await self._maybe_send_commit(key)
             return True
         return False
+
+    async def _local_prepare_decision(self, pre_prepare_msg: PBFTMessage, key: str, validator: str) -> bool | None:
+        """Local-validator prepare gate for ``prepare_phase``.
+
+        Returns ``None`` when the caller should continue building the
+        PREPARE message; a bool is ``prepare_phase``'s own return value for
+        the early-exit paths (refusals, an already-sent prepare, or a
+        duplicate that already reached quorum). Non-local senders skip the
+        gate entirely.
+        """
+        if validator != self._local_validator:
+            return None
+        # v0.25.6: one block per height per round, and never a round this
+        # node has already left behind. Preparing two blocks in the same
+        # round would let both reach a quorum and fork the height; going
+        # back to an earlier round would do the same in slow motion.
+        #
+        # v0.25.7: the rule used to be one block per height across *every*
+        # round, which is safe and also dead. A round that fails leaves its
+        # block hash pinned at that height, and the stand-in the next round
+        # hands the slot to necessarily proposes a different hash, so every
+        # validator refuses it. A proposer dying between its pre-prepare and
+        # the commit quorum -- the exact fault the rotation exists to
+        # survive -- therefore froze that height until the survivors were
+        # restarted, because the pin lives only in memory. Being in round r
+        # is itself the evidence, derived from the parent block's timestamp
+        # and agreed by every node without a message, that no round below r
+        # produced a block; superseding them is what lets the rotation
+        # finish the height instead of only re-nominating for it.
+        height = pre_prepare_msg.sequence_number
+        view = pre_prepare_msg.view_number
+        prepared = self._prepared_heights.get(height) or self._durable_prepared(height)
+        if prepared is not None:
+            prepared_view, prepared_hash = prepared
+            if view < prepared_view:
+                logger.warning(
+                    "PBFT refusing height %s round %s: this node has already prepared round %s",
+                    height,
+                    view,
+                    prepared_view,
+                )
+                return False
+            if view == prepared_view and prepared_hash != pre_prepare_msg.block_hash:
+                logger.warning(
+                    "PBFT refusing a second block at height %s round %s (prepared %s, offered %s)",
+                    height,
+                    view,
+                    prepared_hash,
+                    pre_prepare_msg.block_hash,
+                )
+                return False
+        if key in self._local_prepared:
+            return len(self.state.prepared_messages.get(key, [])) >= self.required_messages
+        # #2005 F3-C: while the VIEW_CHANGE gate is armed this node may
+        # only prepare a block the verified NEW_VIEW for (height, view)
+        # permits — and only after its proposal body is persisted
+        # (Option R). Both checks are dormant while the gate is unset.
+        if not await self._view_change_prepare_allows(height, view, pre_prepare_msg):
+            return False
+        # The durable prepared record persists BEFORE the prepare is
+        # broadcast — a restart must not forget this vote (design §7).
+        if view_change_active(height) and not self._vc_prepared_arm(height, view, pre_prepare_msg.block_hash):
+            return False
+        self._local_prepared.add(key)
+        self._prepared_heights[height] = (view, pre_prepare_msg.block_hash)
+        return None
 
     async def commit_phase(self, validator: str, prepare_msg: PBFTMessage) -> bool:
         """Phase 3: Commit"""
@@ -590,7 +610,7 @@ class PBFTConsensus:
         # Broadcast commit message
         await self._broadcast_message(commit_msg)
 
-        self._message_event.set()
+        self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
 
         # Check if we have enough commit messages
         if len(self.state.committed_messages[key]) >= self.required_messages:
@@ -1121,16 +1141,66 @@ class PBFTConsensus:
         # own schemas (lock / vc_set / chosen_hash) — they are NOT
         # PBFTMessage votes and never enter the phase buckets. Routed before
         # reconstruction; dormant while the gate is unset.
-        if isinstance(message_data, dict):
-            mtype = message_data.get("message_type")
-            if mtype == VC_MESSAGE_TYPE:
-                await self._handle_view_change_payload(message_data)
-                return
-            if mtype == NV_MESSAGE_TYPE:
-                await self._handle_new_view_payload(message_data)
-                return
+        if await self._route_view_change_message(message_data):
+            return
+        message = self._pbft_message_from_dict(message_data)
+        if message is None:
+            return  # malformed message — drop
+
+        # B6: verify the signature before processing
+        if not self._verify_message_signature(message):
+            return
+
+        # Intake bounds (#1060): sequence/view must coerce to non-negative ints
+        # within a window of the local position — a poisoned key used to crash
+        # _cleanup_messages/handle_view_change and a far-future one lingered.
+        if not self._message_intake_ok(message):
+            return
+
+        # The signed digest must recompute from the (unsigned) block_hash +
+        # bounded fields — otherwise block_hash rides unsigned and a swapped
+        # hash still verifies (#1059).
+        if message.digest != self.get_message_digest(message.block_hash, message.sequence_number, message.view_number):
+            return
+
+        # Membership gate: a prepare or commit only carries weight when its
+        # sender is in the active consensus set. A valid signature from an
+        # address outside the set is still not a vote — without this check any
+        # key could inject a quorum and drive commit quorum to execute_phase.
+        # An empty participant view stays permissive so single-proposer or
+        # not-yet-configured deployments are unaffected (same policy as
+        # _is_scheduled_proposer).
+        if not self._consensus_membership_ok(message):
+            return
+
+        key = f"{message.sequence_number}:{message.view_number}"
+
+        # Route to the appropriate phase handler
+        if message.message_type == PBFTMessageType.PRE_PREPARE:
+            await self._handle_pre_prepare_vote(message, key)
+        elif message.message_type == PBFTMessageType.PREPARE:
+            await self._handle_prepare_vote(message, key)
+        elif message.message_type == PBFTMessageType.COMMIT:
+            await self._handle_commit_vote(message, key)
+
+    async def _route_view_change_message(self, message_data: Any) -> bool:
+        """Dispatch a VIEW_CHANGE/NEW_VIEW dict payload; True when handled."""
+        if not isinstance(message_data, dict):
+            return False
+        mtype = message_data.get("message_type")
+        if mtype == VC_MESSAGE_TYPE:
+            await self._handle_view_change_payload(message_data)
+            return True
+        if mtype == NV_MESSAGE_TYPE:
+            await self._handle_new_view_payload(message_data)
+            return True
+        return False
+
+    @staticmethod
+    def _pbft_message_from_dict(message_data: dict[str, Any]) -> PBFTMessage | None:
+        """Reconstruct a PBFTMessage; None on a malformed payload."""
         try:
-            message = PBFTMessage(
+            return PBFTMessage(
                 message_type=PBFTMessageType(message_data["message_type"]),
                 sender=message_data["sender"],
                 view_number=message_data["view_number"],
@@ -1143,122 +1213,108 @@ class PBFTConsensus:
                 new_view=message_data.get("new_view"),
             )
         except (KeyError, ValueError):
-            return  # malformed message — drop
+            return None
 
-        # B6: verify the signature before processing
-        if not self._verify_message_signature(message):
-            return
-
-        # Intake bounds (#1060): sequence/view must coerce to non-negative ints
-        # within a window of the local position — a poisoned key used to crash
-        # _cleanup_messages/handle_view_change and a far-future one lingered.
+    def _message_intake_ok(self, message: PBFTMessage) -> bool:
+        """Coerce/bound sequence+view in place; False drops the message."""
         try:
             seq = int(message.sequence_number)
             view = int(message.view_number)
         except (TypeError, ValueError):
-            return  # non-integer sequence/view — drop
+            return False  # non-integer sequence/view — drop
         if seq < 0 or view < 0:
-            return
+            return False
         max_seq = self.state.current_sequence + getattr(settings, "pbft_max_sequence_ahead", 512)
         max_view = self.state.current_view + getattr(settings, "pbft_max_view_ahead", 64)
         if seq > max_seq or view > max_view:
-            return  # far-future sequence/view — drop
+            return False  # far-future sequence/view — drop
         message.sequence_number = seq
         message.view_number = view
+        return True
 
-        # The signed digest must recompute from the (unsigned) block_hash +
-        # bounded fields — otherwise block_hash rides unsigned and a swapped
-        # hash still verifies (#1059).
-        if message.digest != self.get_message_digest(message.block_hash, seq, view):
+    def _consensus_membership_ok(self, message: PBFTMessage) -> bool:
+        """False drops a PREPARE/COMMIT whose sender is outside the consensus set."""
+        if message.message_type not in (PBFTMessageType.PREPARE, PBFTMessageType.COMMIT):
+            return True
+        participants = {canonical_address(a) for a in self.consensus.get_consensus_participants()}
+        if participants and canonical_address(message.sender) not in participants:
+            logger.warning(
+                "PBFT dropping %s for height %s round %s from %s: sender is not a consensus participant",
+                message.message_type.value,
+                message.sequence_number,
+                message.view_number,
+                message.sender,
+            )
+            return False
+        return True
+
+    async def _handle_pre_prepare_vote(self, message: PBFTMessage, key: str) -> None:
+        if not self._is_scheduled_proposer(message.sender, message.sequence_number, message.view_number):
+            logger.warning(
+                "PBFT dropping pre-prepare for height %s round %s from %s: not the scheduled proposer",
+                message.sequence_number,
+                message.view_number,
+                message.sender,
+            )
             return
-
-        # Membership gate: a prepare or commit only carries weight when its
-        # sender is in the active consensus set. A valid signature from an
-        # address outside the set is still not a vote — without this check any
-        # key could inject a quorum and drive commit quorum to execute_phase.
-        # An empty participant view stays permissive so single-proposer or
-        # not-yet-configured deployments are unaffected (same policy as
-        # _is_scheduled_proposer).
-        if message.message_type in (PBFTMessageType.PREPARE, PBFTMessageType.COMMIT):
-            participants = {canonical_address(a) for a in self.consensus.get_consensus_participants()}
-            if participants and canonical_address(message.sender) not in participants:
-                logger.warning(
-                    "PBFT dropping %s for height %s round %s from %s: sender is not a consensus participant",
-                    message.message_type.value,
-                    message.sequence_number,
-                    message.view_number,
-                    message.sender,
-                )
-                return
-
-        key = f"{message.sequence_number}:{message.view_number}"
-
-        # Route to the appropriate phase handler
-        if message.message_type == PBFTMessageType.PRE_PREPARE:
-            if not self._is_scheduled_proposer(message.sender, message.sequence_number, message.view_number):
-                logger.warning(
-                    "PBFT dropping pre-prepare for height %s round %s from %s: not the scheduled proposer",
-                    message.sequence_number,
-                    message.view_number,
-                    message.sender,
-                )
-                return
-            # Follow the rotation the proposer's round implies. Every node
-            # derives the same round from the same on-chain timestamps, so a
-            # pre-prepare carrying a higher one is the view change arriving.
-            self._adopt_round_as_view(message.view_number)
-            # #2005 F3-C: while the gate is armed, an extended pre-prepare
-            # carries the NEW_VIEW proof and the full proposal body. The NV
-            # is verified and stored FIRST so the vote gate below can see
-            # it; the body is persisted BEFORE any PREPARE may be broadcast
-            # (Option R, fail closed); then the floor rises to this view.
-            if view_change_active(message.sequence_number):
-                if isinstance(message.new_view, dict):
-                    await self._handle_new_view_payload(message.new_view)
-                if isinstance(message.block, dict) and proposal_body_bound(
-                    message.block, message.block_hash, message.sequence_number
-                ):
-                    message._proposal_persisted = self._vc_proposal_store(
-                        message.sequence_number, message.block_hash, message.block, message.sender
-                    )
-                await self._ensure_view_change_sent(message.sequence_number, message.view_number)
-            self.state.pre_prepare_messages[key] = message
-            self._message_event.set()
-            # As a validator, respond with a prepare for this pre-prepare
-            if self._local_validator and message.sender != self._local_validator and key not in self._local_prepared:
-                await self.prepare_phase(self._local_validator, message)
-        elif message.message_type == PBFTMessageType.PREPARE:
-            # Feed the slashing detector BEFORE the silent duplicate drop:
-            # a same-sender prepare for a different block at the same round is
-            # a double-sign — it used to vanish into the dedup branch (#1062).
-            if settings.consensus_slashing_enabled:
-                self.consensus.record_prepare(message.sender, message.block_hash, message.view_number, message=message)
-            if key not in self.state.prepared_messages:
-                self.state.prepared_messages[key] = []
-            if any(m.sender == message.sender for m in self.state.prepared_messages[key]):
-                return  # ignore duplicate prepare from same sender
-            self.state.prepared_messages[key].append(message)
-            self._message_event.set()
-            if self._local_validator:
-                await self._maybe_send_commit(key)
-        elif message.message_type == PBFTMessageType.COMMIT:
-            # Feed the slashing detector BEFORE the silent duplicate drop —
-            # symmetric to the PREPARE branch (#1235): a same-sender commit
-            # for a different digest at the same round is a double-sign.
-            if settings.consensus_slashing_enabled:
-                self.consensus.record_commit(message.sender, message.block_hash, message.view_number, message=message)
-            if key not in self.state.committed_messages:
-                self.state.committed_messages[key] = []
-            if any(m.sender == message.sender for m in self.state.committed_messages[key]):
-                return  # ignore duplicate commit from same sender
-            self.state.committed_messages[key].append(message)
-            self._message_event.set()
-            pp_digest = self._pre_prepare_digest(key)
-            if (
-                pp_digest is not None
-                and self._digest_count(self.state.committed_messages[key], pp_digest) >= self.required_messages
+        # Follow the rotation the proposer's round implies. Every node
+        # derives the same round from the same on-chain timestamps, so a
+        # pre-prepare carrying a higher one is the view change arriving.
+        self._adopt_round_as_view(message.view_number)
+        # #2005 F3-C: while the gate is armed, an extended pre-prepare
+        # carries the NEW_VIEW proof and the full proposal body. The NV
+        # is verified and stored FIRST so the vote gate below can see
+        # it; the body is persisted BEFORE any PREPARE may be broadcast
+        # (Option R, fail closed); then the floor rises to this view.
+        if view_change_active(message.sequence_number):
+            if isinstance(message.new_view, dict):
+                await self._handle_new_view_payload(message.new_view)
+            if isinstance(message.block, dict) and proposal_body_bound(
+                message.block, message.block_hash, message.sequence_number
             ):
-                await self.execute_phase(key)
+                message._proposal_persisted = self._vc_proposal_store(
+                    message.sequence_number, message.block_hash, message.block, message.sender
+                )
+            await self._ensure_view_change_sent(message.sequence_number, message.view_number)
+        self.state.pre_prepare_messages[key] = message
+        self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
+        # As a validator, respond with a prepare for this pre-prepare
+        if self._local_validator and message.sender != self._local_validator and key not in self._local_prepared:
+            await self.prepare_phase(self._local_validator, message)
+
+    async def _handle_prepare_vote(self, message: PBFTMessage, key: str) -> None:
+        # Feed the slashing detector BEFORE the silent duplicate drop:
+        # a same-sender prepare for a different block at the same round is
+        # a double-sign — it used to vanish into the dedup branch (#1062).
+        if settings.consensus_slashing_enabled:
+            self.consensus.record_prepare(message.sender, message.block_hash, message.view_number, message=message)
+        if key not in self.state.prepared_messages:
+            self.state.prepared_messages[key] = []
+        if any(m.sender == message.sender for m in self.state.prepared_messages[key]):
+            return  # ignore duplicate prepare from same sender
+        self.state.prepared_messages[key].append(message)
+        self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
+        if self._local_validator:
+            await self._maybe_send_commit(key)
+
+    async def _handle_commit_vote(self, message: PBFTMessage, key: str) -> None:
+        # Feed the slashing detector BEFORE the silent duplicate drop —
+        # symmetric to the PREPARE branch (#1235): a same-sender commit
+        # for a different digest at the same round is a double-sign.
+        if settings.consensus_slashing_enabled:
+            self.consensus.record_commit(message.sender, message.block_hash, message.view_number, message=message)
+        if key not in self.state.committed_messages:
+            self.state.committed_messages[key] = []
+        if any(m.sender == message.sender for m in self.state.committed_messages[key]):
+            return  # ignore duplicate commit from same sender
+        self.state.committed_messages[key].append(message)
+        self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
+        pp_digest = self._pre_prepare_digest(key)
+        if (
+            pp_digest is not None
+            and self._digest_count(self.state.committed_messages[key], pp_digest) >= self.required_messages
+        ):
+            await self.execute_phase(key)
 
     # ------------------------------------------------------------------
     # #2005 F3-C: VIEW_CHANGE / NEW_VIEW protocol (dormant)

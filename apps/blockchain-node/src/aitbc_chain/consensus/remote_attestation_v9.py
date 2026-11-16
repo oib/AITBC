@@ -270,12 +270,74 @@ class _V9Mixin(_ListenerMixin):
           ahead, or on a rival hash makes the nonce check meaningless, so it
           refuses rather than attest from stale state.
         """
+        bound = self._v9_request_binding(header, txs)
+        if isinstance(bound, str):
+            return bound
+        height, parent_hash, header_hash, declared_hashes, probe_active = bound
+
+        if self._session_factory is None:
+            return "no_state_access"
+        try:
+            session_ctx = self._session_factory()
+            with session_ctx as session:
+                from ..database import ensure_chain_db_healthy
+
+                db_ok, _ = ensure_chain_db_healthy(self._chain_id, session=session)
+                if not db_ok:
+                    return "db_corrupt"
+                tip_verdict, proceed = self._v9_tip_gate(
+                    session, header, txs, height, parent_hash, header_hash, probe_active, proposer_signature, _probe_deadline
+                )
+                if not proceed:
+                    return tip_verdict
+
+                refusal = self._v9_tx_sequence_gate(session, header, txs, height, declared_hashes)
+                if refusal is not None:
+                    return refusal
+                if probe_active:
+                    from .attestation_state_probe import probe_post_state
+
+                    return probe_post_state(
+                        session,
+                        self._chain_id,
+                        header,
+                        txs,
+                        deadline=_probe_deadline,
+                        proposer_signature=proposer_signature,
+                    )
+        except Exception as e:  # noqa: BLE001 - any check failure verdicts check_error: refuse, never attest unverified
+            if _attempt < V9_CHECK_ATTEMPTS and _is_transient_db_lock(e):
+                logger.info(
+                    "v9 attestation tx check hit a locked database for height %s (attempt %s of %s), retrying: %s",
+                    height,
+                    _attempt,
+                    V9_CHECK_ATTEMPTS,
+                    e,
+                )
+                time.sleep(V9_CHECK_RETRY_DELAY_S)
+                return self._v9_check_transactions(
+                    header,
+                    txs,
+                    _attempt + 1,
+                    proposer_signature=proposer_signature,
+                    _probe_deadline=_probe_deadline,
+                )
+            logger.warning("v9 attestation tx check failed to run for height %s: %s", height, e)
+            return "check_error"
+        return None
+
+    def _v9_request_binding(self, header: dict[str, Any], txs: list[Any]) -> str | tuple[int, str, str, set[str], bool]:
+        """Header/tx-set binding preamble for ``_v9_check_transactions``.
+
+        Returns a refusal reason, or ``(height, parent_hash, header_hash,
+        declared_hashes, probe_active)`` when the request binds cleanly.
+        """
         header_hash = str(header.get("hash", ""))
         try:
             height = int(header.get("height", 0))
         except (TypeError, ValueError):
             return "bad_header"
-        from .attestation_state_probe import post_state_probe_active, probe_post_state
+        from .attestation_state_probe import post_state_probe_active
 
         # #1940 F4: the gate decided on the int-convertible height above so a
         # malformed numeric representation cannot skip the check; the probe
@@ -310,190 +372,216 @@ class _V9Mixin(_ListenerMixin):
         if recomputed != header_hash:
             return "tx_set_mismatch"
         declared_hashes = {str(h) for h in tx_hashes}
+        return height, parent_hash, header_hash, declared_hashes, probe_active
 
-        if self._session_factory is None:
-            return "no_state_access"
-        try:
-            session_ctx = self._session_factory()
-            with session_ctx as session:
-                from ..database import ensure_chain_db_healthy
+    def _v9_tip_gate(
+        self,
+        session: Any,
+        header: dict[str, Any],
+        txs: list[Any],
+        height: int,
+        parent_hash: str,
+        header_hash: str,
+        probe_active: bool,
+        proposer_signature: str | None,
+        probe_deadline: float | None,
+    ) -> tuple[str | None, bool]:
+        """Parent-position gate; ``(verdict, proceed)`` — proceed=False ends the check.
 
-                db_ok, _ = ensure_chain_db_healthy(self._chain_id, session=session)
-                if not db_ok:
-                    return "db_corrupt"
-                # Column-only select: loading the Block ORM entity would
-                # eager-load its selectin relationships (transactions and
-                # receipts) and cost seconds per request on a slow host.
-                tip_row = session.exec(
-                    select(Block.height, Block.hash)
-                    .where(Block.chain_id == self._chain_id)
-                    .order_by(text("height DESC"))
-                    .limit(1)
-                ).first()
-                if tip_row is None:
-                    return "not_at_parent"
-                tip_height, tip_hash = tip_row
-                self._tip_height_hint = int(tip_height)
-                if tip_hash != parent_hash:
-                    # Late request for the block this validator already
-                    # imported: the request's hash IS the local head at that
-                    # height. The parent-binding/nonce checks below cannot
-                    # run (the tip moved past the parent) and need not —
-                    # import already validated this exact block, so signing
-                    # it is idempotent rather than a would-reject.
-                    # A RIVAL at the same height still refuses: tip.height
-                    # matches but tip.hash != header hash falls through to
-                    # not_at_parent, which is the fork protection working.
-                    if tip_height == height and tip_hash == header_hash:
-                        if probe_active:
-                            return probe_post_state(
-                                session,
-                                self._chain_id,
-                                header,
-                                txs,
-                                deadline=_probe_deadline,
-                                proposer_signature=proposer_signature,
-                            )
-                        return None
-                    return "not_at_parent"
+        ``verdict`` is the refusal/result to return when ``proceed`` is
+        False (None for the idempotent late-request accept).
+        """
+        from .attestation_state_probe import probe_post_state
 
-                # #1940 F5: tx-derived bridge-root era — structural lock
-                # contract plus derived-root equality, gated by the
-                # parent-history rule at this block's height (NOT the F4
-                # post-state gate). Shallow by design: canonical signed
-                # fields, debit equality, duplicate/malformed rejection and
-                # the shared trie root vs the claimed bridge_state_root.
-                # Full apply verification remains the post-state probe's
-                # job; failed-state roots are not claimed here.
-                from ..cross_chain.bridge_tx_root import tx_only_root_active
-
-                if tx_only_root_active(session, self._chain_id, height):
-                    refusal = self._v9_tx_root_structural_check(session, header, txs, height)
-                    if refusal:
-                        return refusal
-
-                from ..base_models import _to_ait_address
-                from ..models import Account
-                from ..rpc.utils import verify_transaction_signature
-
-                expected_nonce: dict[str, int] = {}
-                for tx in txs:
-                    if not isinstance(tx, dict):
-                        return "malformed_tx"
-                    payload = tx.get("payload") or {}
-                    tx_type = str(
-                        tx.get("type") or (payload.get("type") if isinstance(payload, dict) else "") or "TRANSFER"
-                    ).upper()
-                    sender = _to_ait_address(str(tx.get("from") or tx.get("sender") or ""))
-                    signature = tx.get("signature") or tx.get("sig")
-                    # Every delivered envelope must be one of the tx hashes
-                    # the block hash commits to. User txs recompute from the
-                    # body; allowlisted internals carry arbitrary ids (e.g.
-                    # bridge transfer_id) so membership is the check there.
-                    declared_hash = str(tx.get("tx_hash") or "")
-                    if tx_type in V9_UNSIGNED_ALLOWED_TX_TYPES:
-                        if declared_hash not in declared_hashes:
-                            return "tx_not_in_block"
-                    else:
-                        from ..mempool import compute_tx_hash
-
-                        recomputed_tx = compute_tx_hash({k: v for k, v in tx.items() if k != "tx_hash"})
-                        if recomputed_tx != declared_hash or recomputed_tx not in declared_hashes:
-                            return "tx_not_in_block"
-                    if signature:
-                        # A present signature must verify for every type —
-                        # apply enforces that even for allowlisted internals.
-                        if not sender or not verify_transaction_signature(tx, signature, sender):
-                            return "invalid_signature"
-                    elif tx_type not in V9_UNSIGNED_ALLOWED_TX_TYPES:
-                        # v17: protocol transfers may authorize via
-                        # payload.auth instead of a sender signature. Attest
-                        # only when apply would accept the same tx: version
-                        # armed, auth well-formed, and verifiably bound.
-                        from ..state.state_transition import (
-                            StateTransition,
-                            get_block_version_for_height,
-                        )
-                        from ..state.v9_policy import (
-                            V17_PAYLOAD_AUTH_TX_TYPES,
-                            _payload_auth_of,
-                            payload_auth_shape,
-                        )
-
-                        auth = _payload_auth_of(tx)
-                        if not (
-                            get_block_version_for_height(height) >= 17
-                            and tx_type in V17_PAYLOAD_AUTH_TX_TYPES
-                            and payload_auth_shape(auth)
-                        ):
-                            if not sender:
-                                return "missing_sender"
-                            return "missing_signature"
-                        if not StateTransition._verify_payload_auth(tx_type, auth, tx):
-                            return "invalid_payload_auth"
-                    # Bridge-issued internals are exempt from the *sender*
-                    # signature only because the bridge authority's signature
-                    # replaces it — attest to neither exemption without it.
-                    if tx_type in {"BRIDGE_LOCK", "BRIDGE_RELEASE", "BRIDGE_REFUND"}:
-                        from ..state.bridge_credit import (
-                            bridge_credit_signature,
-                            verify_bridge_credit_signature,
-                            verify_bridge_lock_signature,
-                        )
-                        from ..state.state_transition import _bridge_release_authority
-
-                        authority = _bridge_release_authority(session, self._chain_id, height)
-                        if not authority:
-                            return "bridge_authority_unset"
-                        if not bridge_credit_signature(tx):
-                            return "bridge_signature_missing"
-                        verify = verify_bridge_lock_signature if tx_type == "BRIDGE_LOCK" else verify_bridge_credit_signature
-                        if not verify(tx, declared_hash, authority):
-                            return "bridge_signature_invalid"
-                    # Nonce ordering: signed txs must arrive in account-nonce
-                    # order. Unsigned internal txs carry a placeholder nonce
-                    # rewritten at seal time, but they still increment the
-                    # sender nonce at apply (BRIDGE_LOCK) — the
-                    # counter must advance past them or a same-sender signed
-                    # tx later in the block would read as out of order.
-                    if sender:
-                        if sender not in expected_nonce:
-                            account = session.get(Account, (self._chain_id, sender))
-                            expected_nonce[sender] = account.nonce if account and account.nonce is not None else 0
-                        if signature:
-                            try:
-                                tx_nonce = int(tx.get("nonce") or 0)
-                            except (TypeError, ValueError):
-                                return "bad_nonce"
-                            if tx_nonce != expected_nonce[sender]:
-                                return "nonce_order"
-                        expected_nonce[sender] += 1
-                if probe_active:
-                    return probe_post_state(
+        # Column-only select: loading the Block ORM entity would
+        # eager-load its selectin relationships (transactions and
+        # receipts) and cost seconds per request on a slow host.
+        tip_row = session.exec(
+            select(Block.height, Block.hash).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
+        ).first()
+        if tip_row is None:
+            return "not_at_parent", False
+        tip_height, tip_hash = tip_row
+        self._tip_height_hint = int(tip_height)
+        if tip_hash == parent_hash:
+            return None, True
+        # Late request for the block this validator already
+        # imported: the request's hash IS the local head at that
+        # height. The parent-binding/nonce checks below cannot
+        # run (the tip moved past the parent) and need not —
+        # import already validated this exact block, so signing
+        # it is idempotent rather than a would-reject.
+        # A RIVAL at the same height still refuses: tip.height
+        # matches but tip.hash != header hash falls through to
+        # not_at_parent, which is the fork protection working.
+        if tip_height == height and tip_hash == header_hash:
+            if probe_active:
+                return (
+                    probe_post_state(
                         session,
                         self._chain_id,
                         header,
                         txs,
-                        deadline=_probe_deadline,
+                        deadline=probe_deadline,
                         proposer_signature=proposer_signature,
-                    )
-        except Exception as e:  # noqa: BLE001 - any check failure verdicts check_error: refuse, never attest unverified
-            if _attempt < V9_CHECK_ATTEMPTS and _is_transient_db_lock(e):
-                logger.info(
-                    "v9 attestation tx check hit a locked database for height %s (attempt %s of %s), retrying: %s",
-                    height,
-                    _attempt,
-                    V9_CHECK_ATTEMPTS,
-                    e,
+                    ),
+                    False,
                 )
-                time.sleep(V9_CHECK_RETRY_DELAY_S)
-                return self._v9_check_transactions(
-                    header,
-                    txs,
-                    _attempt + 1,
-                    proposer_signature=proposer_signature,
-                    _probe_deadline=_probe_deadline,
-                )
-            logger.warning("v9 attestation tx check failed to run for height %s: %s", height, e)
-            return "check_error"
+            return None, False
+        return "not_at_parent", False
+
+    def _v9_tx_sequence_gate(
+        self, session: Any, header: dict[str, Any], txs: list[Any], height: int, declared_hashes: set[str]
+    ) -> str | None:
+        """tx-derived bridge-root era check, then the per-envelope loop."""
+        # #1940 F5: tx-derived bridge-root era — structural lock
+        # contract plus derived-root equality, gated by the
+        # parent-history rule at this block's height (NOT the F4
+        # post-state gate). Shallow by design: canonical signed
+        # fields, debit equality, duplicate/malformed rejection and
+        # the shared trie root vs the claimed bridge_state_root.
+        # Full apply verification remains the post-state probe's
+        # job; failed-state roots are not claimed here.
+        from ..cross_chain.bridge_tx_root import tx_only_root_active
+
+        if tx_only_root_active(session, self._chain_id, height):
+            refusal = self._v9_tx_root_structural_check(session, header, txs, height)
+            if refusal:
+                return refusal
+
+        expected_nonce: dict[str, int] = {}
+        for tx in txs:
+            refusal = self._v9_check_tx(session, tx, declared_hashes, expected_nonce, height)
+            if refusal is not None:
+                return refusal
+        return None
+
+    def _v9_check_tx(
+        self,
+        session: Any,
+        tx: Any,
+        declared_hashes: set[str],
+        expected_nonce: dict[str, int],
+        height: int,
+    ) -> str | None:
+        """Per-envelope v9 checks; a refusal reason or None. Mutates ``expected_nonce``."""
+        from ..base_models import _to_ait_address
+        from ..models import Account
+
+        if not isinstance(tx, dict):
+            return "malformed_tx"
+        payload = tx.get("payload") or {}
+        tx_type = str(tx.get("type") or (payload.get("type") if isinstance(payload, dict) else "") or "TRANSFER").upper()
+        sender = _to_ait_address(str(tx.get("from") or tx.get("sender") or ""))
+        signature = tx.get("signature") or tx.get("sig")
+        # Every delivered envelope must be one of the tx hashes
+        # the block hash commits to. User txs recompute from the
+        # body; allowlisted internals carry arbitrary ids (e.g.
+        # bridge transfer_id) so membership is the check there.
+        declared_hash = str(tx.get("tx_hash") or "")
+        refusal = self._v9_tx_block_membership(tx, tx_type, declared_hash, declared_hashes)
+        if refusal is not None:
+            return refusal
+        refusal = self._v9_tx_signature_gate(tx, tx_type, sender, signature, height)
+        if refusal is not None:
+            return refusal
+        # Bridge-issued internals are exempt from the *sender*
+        # signature only because the bridge authority's signature
+        # replaces it — attest to neither exemption without it.
+        refusal = self._v9_tx_bridge_authority(session, tx, tx_type, declared_hash, height)
+        if refusal is not None:
+            return refusal
+        # Nonce ordering: signed txs must arrive in account-nonce
+        # order. Unsigned internal txs carry a placeholder nonce
+        # rewritten at seal time, but they still increment the
+        # sender nonce at apply (BRIDGE_LOCK) — the
+        # counter must advance past them or a same-sender signed
+        # tx later in the block would read as out of order.
+        if not sender:
+            return None
+        if sender not in expected_nonce:
+            account = session.get(Account, (self._chain_id, sender))
+            expected_nonce[sender] = account.nonce if account and account.nonce is not None else 0
+        if signature:
+            try:
+                tx_nonce = int(tx.get("nonce") or 0)
+            except (TypeError, ValueError):
+                return "bad_nonce"
+            if tx_nonce != expected_nonce[sender]:
+                return "nonce_order"
+        expected_nonce[sender] += 1
+        return None
+
+    @staticmethod
+    def _v9_tx_block_membership(tx: dict[str, Any], tx_type: str, declared_hash: str, declared_hashes: set[str]) -> str | None:
+        """The envelope's tx_hash must be one the signed block commits to."""
+        if tx_type in V9_UNSIGNED_ALLOWED_TX_TYPES:
+            if declared_hash not in declared_hashes:
+                return "tx_not_in_block"
+            return None
+        from ..mempool import compute_tx_hash
+
+        recomputed_tx = compute_tx_hash({k: v for k, v in tx.items() if k != "tx_hash"})
+        if recomputed_tx != declared_hash or recomputed_tx not in declared_hashes:
+            return "tx_not_in_block"
+        return None
+
+    def _v9_tx_signature_gate(self, tx: dict[str, Any], tx_type: str, sender: str, signature: Any, height: int) -> str | None:
+        """Sender-signature / payload-auth gate for one envelope."""
+        from ..rpc.utils import verify_transaction_signature
+
+        if signature:
+            # A present signature must verify for every type —
+            # apply enforces that even for allowlisted internals.
+            if not sender or not verify_transaction_signature(tx, signature, sender):
+                return "invalid_signature"
+            return None
+        if tx_type in V9_UNSIGNED_ALLOWED_TX_TYPES:
+            return None
+        # v17: protocol transfers may authorize via
+        # payload.auth instead of a sender signature. Attest
+        # only when apply would accept the same tx: version
+        # armed, auth well-formed, and verifiably bound.
+        from ..state.state_transition import (
+            StateTransition,
+            get_block_version_for_height,
+        )
+        from ..state.v9_policy import (
+            V17_PAYLOAD_AUTH_TX_TYPES,
+            _payload_auth_of,
+            payload_auth_shape,
+        )
+
+        auth = _payload_auth_of(tx)
+        if not (
+            get_block_version_for_height(height) >= 17 and tx_type in V17_PAYLOAD_AUTH_TX_TYPES and payload_auth_shape(auth)
+        ):
+            if not sender:
+                return "missing_sender"
+            return "missing_signature"
+        if not StateTransition._verify_payload_auth(tx_type, auth, tx):
+            return "invalid_payload_auth"
+        return None
+
+    def _v9_tx_bridge_authority(
+        self, session: Any, tx: dict[str, Any], tx_type: str, declared_hash: str, height: int
+    ) -> str | None:
+        """Bridge-internal envelopes must carry a valid authority signature."""
+        if tx_type not in {"BRIDGE_LOCK", "BRIDGE_RELEASE", "BRIDGE_REFUND"}:
+            return None
+        from ..state.bridge_credit import (
+            bridge_credit_signature,
+            verify_bridge_credit_signature,
+            verify_bridge_lock_signature,
+        )
+        from ..state.state_transition import _bridge_release_authority
+
+        authority = _bridge_release_authority(session, self._chain_id, height)
+        if not authority:
+            return "bridge_authority_unset"
+        if not bridge_credit_signature(tx):
+            return "bridge_signature_missing"
+        verify = verify_bridge_lock_signature if tx_type == "BRIDGE_LOCK" else verify_bridge_credit_signature
+        if not verify(tx, declared_hash, authority):
+            return "bridge_signature_invalid"
         return None
