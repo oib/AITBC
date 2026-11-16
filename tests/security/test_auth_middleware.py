@@ -117,6 +117,24 @@ def test_the_coordinator_key_is_not_a_miner_credential(monkeypatch):
     assert response.status_code == 401
 
 
+def test_authorization_apikey_scheme_is_not_a_middleware_credential():
+    """#2140: ``Authorization: ApiKey`` is an agent-coordinator scoped-key
+    scheme consumed by router-level ``get_current_user`` on services that do
+    not mount AuthMiddleware. This middleware deliberately recognizes only
+    Bearer JWT and X-Api-Key miner keys — the scheme must keep 401ing here.
+    """
+    app = _make_app()
+    client = TestClient(app)
+
+    response = client.get(
+        "/v1/miners/register",
+        headers={"Authorization": "ApiKey some-scoped-key"},
+    )
+
+    assert response.status_code == 401
+    assert response.json()["detail"] == "Authentication required"
+
+
 def test_the_reason_for_a_401_reaches_the_log(monkeypatch, caplog):
     """V23-68c: the two 401s need different actions, so the log has to tell them apart.
 

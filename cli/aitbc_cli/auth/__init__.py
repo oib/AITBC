@@ -70,6 +70,42 @@ def _is_token_expired(token: str) -> bool:
     return datetime.now(UTC).timestamp() > exp
 
 
+def _jwt_seconds_until_expiry(token: str) -> float | None:
+    """Seconds until the JWT's ``exp`` claim, or None when undecidable."""
+    payload = _jwt_payload(token)
+    if not payload:
+        return None
+    exp = payload.get("exp")
+    if not isinstance(exp, int | float):
+        return None
+    return float(exp) - datetime.now(UTC).timestamp()
+
+
+_NEAR_EXPIRY_WARNED: set[str] = set()
+
+
+def _warn_near_expiry_once(token: str, within_seconds: float) -> None:
+    """Warn once per token when its ``exp`` falls inside ``within_seconds`` (#2140).
+
+    Proactive refresh hint: the fleet's 168 h JWTs (#1185) die silently
+    otherwise — the first symptom is a bare 401 on the next call. Dedup is
+    per token value so a dashboard refresh loop cannot spam the warning.
+    """
+    remaining = _jwt_seconds_until_expiry(token)
+    if remaining is None or remaining <= 0 or remaining > within_seconds:
+        return
+    import hashlib
+
+    marker = hashlib.sha256(token.encode()).hexdigest()[:16]
+    if marker in _NEAR_EXPIRY_WARNED:
+        return
+    _NEAR_EXPIRY_WARNED.add(marker)
+    hours = max(1, int(remaining // 3600))
+    warning(
+        f"Stored credential expires in ~{hours}h — run `aitbc auth login` to refresh it before calls start failing with 401."
+    )
+
+
 def _resolve_keyring():
     """Return a usable keyring backend, or None.
 
@@ -180,7 +216,7 @@ class AuthManager:
             warning(f"No stored credential found for '{name}' in '{environment}'")
         return cast(str | None, value)
 
-    def get_admin_token(self, environment: str = "default") -> str | None:
+    def get_admin_token(self, environment: str = "default", *, warn_within_seconds: float | None = None) -> str | None:
         """Return the stored admin JWT if available, falling back to the client JWT.
 
         The token's role is a server-side claim, not a property of the storage slot,
@@ -196,9 +232,11 @@ class AuthManager:
         token = admin or self.get_credential("client", environment, quiet=True)
         if token and _is_token_expired(token):
             raise ExpiredAdminToken("The stored admin credential has expired. Run `aitbc auth login` to refresh it.")
+        if token and warn_within_seconds is not None:
+            _warn_near_expiry_once(token, warn_within_seconds)
         return token
 
-    def get_client_token(self, environment: str = "default") -> str | None:
+    def get_client_token(self, environment: str = "default", *, warn_within_seconds: float | None = None) -> str | None:
         """Return the stored client credential, or None if absent.
 
         Raises:
@@ -209,6 +247,8 @@ class AuthManager:
         token = self.get_credential("client", environment, quiet=True)
         if token and _is_token_expired(token):
             raise ExpiredClientToken("The stored client credential has expired. Run `aitbc auth login` to refresh it.")
+        if token and warn_within_seconds is not None:
+            _warn_near_expiry_once(token, warn_within_seconds)
         return token
 
     def delete_credential(self, name: str, environment: str = "default") -> bool:

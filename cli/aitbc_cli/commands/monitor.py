@@ -54,7 +54,7 @@ def _monitoring_client(ctx: click.Context, timeout: int = 10) -> AITBCHTTPClient
     return AITBCHTTPClient(
         base_url=base_url,
         timeout=timeout,
-        **auth_client_kwargs(ctx.obj.get("api_key"), config.api_key),
+        **auth_client_kwargs(ctx.obj.get("api_key"), config.api_key, warn_within_seconds=24 * 3600),
     )
 
 
@@ -544,7 +544,7 @@ def _admin_client(ctx: click.Context, timeout: int = 15) -> AITBCHTTPClient:
     return AITBCHTTPClient(
         base_url=base_url,
         timeout=timeout,
-        **auth_client_kwargs(ctx.obj.get("api_key"), config.api_key, credential="admin"),
+        **auth_client_kwargs(ctx.obj.get("api_key"), config.api_key, credential="admin", warn_within_seconds=24 * 3600),
     )
 
 
