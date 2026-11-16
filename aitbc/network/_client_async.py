@@ -1,0 +1,462 @@
+"""Asynchronous ``httpx``-backed AITBC HTTP client.
+
+Extracted verbatim from ``client.py``; helpers come from ``_client_base``.
+"""
+
+from datetime import UTC, datetime
+from typing import Any
+
+import httpx
+
+from ..aitbc_logging import get_logger
+from ..exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError, RetryError
+from ._client_base import _check_api_key_target, _detail_suffix, _response_json
+from .cache_layer import CacheLayer
+from .circuit_breaker import CircuitBreaker
+from .json_types import JSONResponse, expect_object
+from .rate_limiter import RateLimiter
+from .retry_policy import RetryPolicy
+
+
+class AsyncAITBCHTTPClient:
+    """
+    Async HTTP client for AITBC applications.
+    Provides async HTTP methods with error handling.
+    """
+
+    def __init__(
+        self,
+        base_url: str = "",
+        timeout: int | float = 30,
+        headers: dict[str, str] | None = None,
+        api_key: str | None = None,
+        max_retries: int = 3,
+        enable_cache: bool = False,
+        cache_ttl: int = 300,
+        enable_logging: bool = False,
+        circuit_breaker_threshold: int = 5,
+        rate_limit: int | None = None,
+        correlation_id: str | None = None,
+        enable_circuit_breaker: bool = True,
+    ):
+        """
+        Initialize async HTTP client.
+
+        Args:
+            base_url: Base URL for all requests
+            timeout: Request timeout in seconds
+            headers: Default headers for all requests
+            api_key: API key added to request headers
+            max_retries: Maximum retry attempts with exponential backoff
+            enable_cache: Enable request/response caching for GET requests
+            cache_ttl: Cache time-to-live in seconds
+            enable_logging: Enable request/response logging
+            circuit_breaker_threshold: Failures before opening circuit breaker
+            rate_limit: Rate limit in requests per minute
+            correlation_id: Correlation ID for distributed tracing
+            enable_circuit_breaker: Set False for callers whose requests must
+                never be rejected by accrued failure state (see the sync
+                client's docstring).
+        """
+        self.base_url = base_url.rstrip("/")
+        self.timeout = timeout
+        self.headers = dict(headers or {})
+        if api_key:
+            self.headers["X-API-Key"] = api_key
+        _check_api_key_target(base_url, headers=self.headers)
+        self.correlation_id = correlation_id
+        self.logger = get_logger(__name__)
+
+        # Initialize components
+        #
+        # V23-12 listed this module as needing a concurrency audit: several `async def`s and
+        # no lock. This is the result of that audit, recorded here because the next reader
+        # will ask the same question.
+        #
+        # This class holds no mutable shared state of its own. Everything set above is
+        # read-only after __init__ (base_url, headers, timeout, correlation_id,
+        # enable_logging), and every piece of state that *does* change across requests lives
+        # in the collaborators below, each of which locks it:
+        #
+        #   CircuitBreaker  — failure count and open/closed state
+        #   RateLimiter     — the request window
+        #   CacheLayer      — the response cache
+        #   RetryPolicy     — stateless; holds parameters only
+        #
+        # Those three use threading.Lock rather than asyncio.Lock, which is correct here:
+        # their critical sections are synchronous and contain no await, so they cannot be
+        # suspended while held. That makes them safe under the event loop and under threads,
+        # whereas an asyncio.Lock would only cover the former.
+        #
+        # So the absence of a lock here is a conclusion, not an omission. Adding one would
+        # serialise unrelated requests through a client that is already safe to share.
+        #
+        # If mutable state is ever added to this class, it needs its own lock: the
+        # collaborators' locks protect their state, not this object's.
+        self.circuit_breaker = CircuitBreaker(threshold=circuit_breaker_threshold, enabled=enable_circuit_breaker)
+        self.rate_limiter = RateLimiter(rate_limit=rate_limit)
+        self.retry_policy = RetryPolicy(max_retries=max_retries, enable_logging=enable_logging)
+        self.cache = CacheLayer(enable=enable_cache, ttl=cache_ttl, enable_logging=enable_logging)
+        self.enable_logging = enable_logging
+
+    def _build_url(self, endpoint: str) -> str:
+        """Build full URL from base URL and endpoint."""
+        if endpoint.startswith("http://") or endpoint.startswith("https://"):
+            return endpoint
+        return f"{self.base_url}/{endpoint.lstrip('/')}"
+
+    def _build_headers(self, headers: dict[str, str] | None = None, idempotency_key: str | None = None) -> dict[str, str]:
+        """Build request headers with correlation ID if set."""
+        req_headers = {**self.headers, **(headers or {})}
+        if self.correlation_id:
+            req_headers["X-Request-ID"] = self.correlation_id
+        if idempotency_key:
+            req_headers["Idempotency-Key"] = idempotency_key
+        return req_headers
+
+    def _check_request_target(self, url: str, req_headers: dict[str, str]) -> None:
+        """Refuse credentials bound for a host outside the trusted set (see sync client)."""
+        _check_api_key_target(url, headers=req_headers)
+
+    async def get(
+        self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+    ) -> dict[str, Any]:
+        """
+        Perform async GET request for an endpoint that returns a JSON object.
+
+        Args:
+            endpoint: API endpoint
+            params: Query parameters
+            headers: Additional headers
+
+        Returns:
+            Decoded JSON object
+
+        Raises:
+            TypeError: If the endpoint returned a JSON array -- use get_json() for those
+            NetworkError: If request fails
+            CircuitBreakerOpenError: If circuit breaker is open
+            RateLimitError: If rate limit is exceeded
+        """
+        return expect_object(await self.get_json(endpoint, params=params, headers=headers), self._build_url(endpoint))
+
+    async def get_json(
+        self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+    ) -> JSONResponse:
+        """
+        Perform async GET request.
+
+        Args:
+            endpoint: API endpoint
+            params: Query parameters
+            headers: Additional headers
+
+        Returns:
+            Decoded JSON body: an object, or an array for the endpoints that
+            return one. The caller must check the shape.
+
+        Raises:
+            NetworkError: If request fails
+            CircuitBreakerOpenError: If circuit breaker is open
+            RateLimitError: If rate limit is exceeded
+        """
+        url = self._build_url(endpoint)
+        cache_key = self.cache.get_cache_key(url, params)
+        cached_data = self.cache.get(cache_key)
+        if cached_data is not None:
+            return cached_data
+
+        self.circuit_breaker.check()
+        self.rate_limiter.check()
+        req_headers = self._build_headers(headers)
+        self._check_request_target(url, req_headers)
+
+        if self.enable_logging:
+            self.logger.info("GET %s with params=%s", url, params)
+        start_time = datetime.now(UTC)
+
+        async def _make_request():
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.get(url, params=params, headers=req_headers)
+                response.raise_for_status()
+                return _response_json(response)
+
+        try:
+            result: JSONResponse = await self.retry_policy.execute_async(_make_request, method="GET")
+            self.cache.set(cache_key, result)  # noqa: unawaited-async — CacheLayer.set is synchronous
+            self.circuit_breaker.record_success()
+            self.rate_limiter.record_request()
+            if self.enable_logging:
+                elapsed = (datetime.now(UTC) - start_time).total_seconds()
+                self.logger.info("GET %s succeeded in %ss", url, elapsed)
+            return result
+        except (RateLimitError, CircuitBreakerOpenError):
+            raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"GET request failed: {e}{_detail_suffix(e)}") from e
+        except httpx.HTTPError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"GET request failed: {e}{_detail_suffix(e)}") from e
+
+    async def post(
+        self,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Perform async POST request.
+
+        Args:
+            endpoint: API endpoint
+            data: Form data
+            json: JSON data
+            headers: Additional headers
+            idempotency_key: sent as the Idempotency-Key header; when set,
+                ambiguous post-send failures are retried on the assumption
+                the upstream deduplicates by key
+
+        Returns:
+            Decoded JSON object
+
+        Raises:
+            TypeError: If the endpoint returned a JSON array
+            AmbiguousRequestError: a post-send failure occurred and no
+                idempotency key was given — the write may have committed
+            NetworkError: If request fails
+            CircuitBreakerOpenError: If circuit breaker is open
+            RateLimitError: If rate limit is exceeded
+        """
+        url = self._build_url(endpoint)
+        self.circuit_breaker.check()
+        self.rate_limiter.check()
+        req_headers = self._build_headers(headers, idempotency_key)
+        self._check_request_target(url, req_headers)
+
+        if self.enable_logging:
+            self.logger.info("POST %s with json=%s", url, json)
+        start_time = datetime.now(UTC)
+
+        async def _make_request():
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.post(url, data=data, json=json, headers=req_headers)
+                response.raise_for_status()
+                return _response_json(response)
+
+        try:
+            result: JSONResponse = await self.retry_policy.execute_async(
+                _make_request, method="POST", retry_ambiguous=bool(idempotency_key)
+            )
+            self.circuit_breaker.record_success()
+            self.rate_limiter.record_request()
+            if self.enable_logging:
+                elapsed = (datetime.now(UTC) - start_time).total_seconds()
+                self.logger.info("POST %s succeeded in %ss", url, elapsed)
+            return expect_object(result, url)
+        except (RateLimitError, CircuitBreakerOpenError):
+            raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"POST request failed: {e}{_detail_suffix(e)}") from e
+        except httpx.HTTPError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"POST request failed: {e}{_detail_suffix(e)}") from e
+
+    async def put(
+        self,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Perform async PUT request.
+
+        Args:
+            endpoint: API endpoint
+            data: Form data
+            json: JSON data
+            headers: Additional headers
+            idempotency_key: sent as the Idempotency-Key header (PUT is
+                spec-idempotent, so ambiguous retries are already allowed;
+                the key lets the upstream deduplicate explicitly)
+
+        Returns:
+            Decoded JSON object
+
+        Raises:
+            TypeError: If the endpoint returned a JSON array
+            NetworkError: If request fails
+            CircuitBreakerOpenError: If circuit breaker is open
+            RateLimitError: If rate limit is exceeded
+        """
+        url = self._build_url(endpoint)
+        self.circuit_breaker.check()
+        self.rate_limiter.check()
+        req_headers = self._build_headers(headers, idempotency_key)
+        self._check_request_target(url, req_headers)
+
+        if self.enable_logging:
+            self.logger.info("PUT %s with json=%s", url, json)
+        start_time = datetime.now(UTC)
+
+        async def _make_request():
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.put(url, data=data, json=json, headers=req_headers)
+                response.raise_for_status()
+                return _response_json(response)
+
+        try:
+            result: JSONResponse = await self.retry_policy.execute_async(_make_request, method="PUT")
+            self.circuit_breaker.record_success()
+            self.rate_limiter.record_request()
+            if self.enable_logging:
+                elapsed = (datetime.now(UTC) - start_time).total_seconds()
+                self.logger.info("PUT %s succeeded in %ss", url, elapsed)
+            return expect_object(result, url)
+        except (RateLimitError, CircuitBreakerOpenError):
+            raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"PUT request failed: {e}{_detail_suffix(e)}") from e
+        except httpx.HTTPError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"PUT request failed: {e}{_detail_suffix(e)}") from e
+
+    async def patch(
+        self,
+        endpoint: str,
+        data: dict[str, Any] | None = None,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Perform async PATCH request.
+
+        Args:
+            endpoint: API endpoint
+            data: Form data
+            json: JSON data
+            headers: Additional headers
+            idempotency_key: sent as the Idempotency-Key header; when set,
+                ambiguous post-send failures are retried (PATCH is not
+                spec-idempotent)
+
+        Returns:
+            Decoded JSON object
+
+        Raises:
+            AmbiguousRequestError: a post-send failure occurred and no
+                idempotency key was given — the write may have committed
+        """
+        url = self._build_url(endpoint)
+        self.circuit_breaker.check()
+        self.rate_limiter.check()
+        req_headers = self._build_headers(headers, idempotency_key)
+        self._check_request_target(url, req_headers)
+
+        if self.enable_logging:
+            self.logger.info("PATCH %s with json=%s", url, json)
+        start_time = datetime.now(UTC)
+
+        async def _make_request():
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.patch(url, data=data, json=json, headers=req_headers)
+                response.raise_for_status()
+                return _response_json(response)
+
+        try:
+            result: JSONResponse = await self.retry_policy.execute_async(
+                _make_request, method="PATCH", retry_ambiguous=bool(idempotency_key)
+            )
+            self.circuit_breaker.record_success()
+            self.rate_limiter.record_request()
+            if self.enable_logging:
+                elapsed = (datetime.now(UTC) - start_time).total_seconds()
+                self.logger.info("PATCH %s succeeded in %ss", url, elapsed)
+            return expect_object(result, url)
+        except (RateLimitError, CircuitBreakerOpenError):
+            raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"PATCH request failed: {e}{_detail_suffix(e)}") from e
+        except httpx.HTTPError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"PATCH request failed: {e}{_detail_suffix(e)}") from e
+
+    async def delete(
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
+    ) -> dict[str, Any]:
+        """
+        Perform async DELETE request.
+
+        Args:
+            endpoint: API endpoint
+            params: Query parameters
+            headers: Additional headers
+            idempotency_key: sent as the Idempotency-Key header (DELETE is
+                spec-idempotent; the key lets the upstream deduplicate
+                explicitly)
+
+        Returns:
+            Decoded JSON object
+
+        Raises:
+            TypeError: If the endpoint returned a JSON array
+            NetworkError: If request fails
+            CircuitBreakerOpenError: If circuit breaker is open
+            RateLimitError: If rate limit is exceeded
+        """
+        url = self._build_url(endpoint)
+        self.circuit_breaker.check()
+        self.rate_limiter.check()
+        req_headers = self._build_headers(headers, idempotency_key)
+        self._check_request_target(url, req_headers)
+
+        if self.enable_logging:
+            self.logger.info("DELETE %s with params=%s", url, params)
+        start_time = datetime.now(UTC)
+
+        async def _make_request():
+            async with httpx.AsyncClient(timeout=self.timeout) as client:
+                response = await client.delete(url, params=params, headers=req_headers)
+                response.raise_for_status()
+                return _response_json(response)
+
+        try:
+            result = await self.retry_policy.execute_async(_make_request, method="DELETE")
+            self.circuit_breaker.record_success()
+            self.rate_limiter.record_request()
+            if self.enable_logging:
+                elapsed = (datetime.now(UTC) - start_time).total_seconds()
+                self.logger.info("DELETE %s succeeded in %ss", url, elapsed)
+            return expect_object(result, url)
+        except (RateLimitError, CircuitBreakerOpenError):
+            raise
+        except RetryError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"DELETE request failed: {e}{_detail_suffix(e)}") from e
+        except httpx.HTTPError as e:
+            self.circuit_breaker.record_failure()
+            raise NetworkError(f"DELETE request failed: {e}{_detail_suffix(e)}") from e
+
+    async def close(self) -> None:
+        """Close the async HTTP client (no-op for requests)."""
+        pass
+
+    async def __aenter__(self):
+        """Async context manager entry."""
+        return self
+
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        """Async context manager exit."""
+        await self.close()
