@@ -79,18 +79,100 @@ def _systemctl_prefix() -> list:
     return ["sudo", "-n"]
 
 
+def _partition_installed(services: list) -> tuple[list, list]:
+    """Split role services into (installed, not-installed) on this host.
+
+    The role lists in ``scripts/monitoring/health_check.sh`` are role-ideal
+    manifests shared by every node of that role; a shop node legitimately
+    lacks units that live on the hub (#1549). Acting on the full manifest
+    makes ``--dry-run`` enumerate units systemd does not have and makes a
+    real run fail on ``Unit not found``. ``systemctl is-enabled`` prints
+    ``not-found`` for units with no unit file; anything else means the
+    unit exists and start/stop/restart can act on it. The check is
+    output-based and fails open, mirroring ``service_is_installed`` in
+    health_check.sh, so a host without systemctl keeps the old behavior.
+    """
+    installed, missing = [], []
+    for svc in services:
+        try:
+            res = subprocess.run(
+                ["systemctl", "is-enabled", svc],
+                capture_output=True,
+                text=True,
+                timeout=10,
+            )
+            state = res.stdout.strip()
+        except (OSError, subprocess.SubprocessError):
+            state = ""
+        if state == "not-found":
+            missing.append(svc)
+        else:
+            installed.append(svc)
+    return installed, missing
+
+
+def _skipped_result(svc: str, action: str, human: bool) -> dict:
+    """Result entry for a role-ideal unit this host does not have installed."""
+    if human:
+        click.echo(f"skipping {svc}: unit not installed on this host")
+    return {
+        "service": svc,
+        "action": action,
+        "status": "skipped",
+        "message": "unit not installed on this host",
+    }
+
+
+def _run_service_action(prefix: list, action: str, svc: str, dry_run: bool, human: bool) -> tuple[dict, bool]:
+    """Run ``systemctl <action> <svc>`` (or echo it under ``--dry-run``).
+
+    Returns the result entry and whether the action succeeded. Per-service
+    lines are human-facing only; in json/yaml mode stdout must stay a
+    single output()/abort() document.
+    """
+    cmd = prefix + ["systemctl", action, svc]
+    if dry_run:
+        click.echo(f"would run: {' '.join(cmd)}")
+        return {"service": svc, "action": action, "status": "dry-run"}, True
+
+    res = subprocess.run(cmd, capture_output=True, text=True, timeout=120)
+    ok = res.returncode == 0
+    if ok:
+        if human:
+            success(f"{action} {svc}: OK")
+    else:
+        err = res.stderr.strip() or res.stdout.strip()
+        if human:
+            # assignment keeps error() out of the AST-guard's
+            # "trailing expression" shape; the abort below is what
+            # actually sets the non-zero exit.
+            _ = error(f"{action} {svc} failed: {err}")
+    return (
+        {
+            "service": svc,
+            "action": action,
+            "status": "ok" if ok else "failed",
+            "message": res.stderr.strip() if not ok else res.stdout.strip(),
+        },
+        ok,
+    )
+
+
 def _control_services(
     ctx,
     action: str,
     role: str | None,
     dry_run: bool,
 ):
-    """Run ``systemctl <action>`` for each unit of the selected role."""
+    """Run ``systemctl <action>`` for each installed unit of the selected role."""
     try:
         services = _role_services(role)
     except RuntimeError as e:
         abort(None, str(e))
         return 1
+
+    _, missing = _partition_installed(services)
+    missing_set = set(missing)
 
     prefix = _systemctl_prefix()
     if not prefix:
@@ -100,44 +182,16 @@ def _control_services(
 
     results = []
     overall_ok = True
-    # Per-service lines are human-facing; in json/yaml mode stdout must stay a
-    # single output()/abort() document.
     fmt = ctx.obj.get("output_format", "table") if ctx and ctx.obj else "table"
     human = fmt not in ("json", "yaml")
 
     for svc in services:
-        cmd = prefix + ["systemctl", action, svc]
-        if dry_run:
-            click.echo(f"would run: {' '.join(cmd)}")
-            results.append({"service": svc, "action": action, "status": "dry-run"})
+        if svc in missing_set:
+            results.append(_skipped_result(svc, action, human))
             continue
-
-        res = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=120,
-        )
-        ok = res.returncode == 0
-        if ok:
-            if human:
-                success(f"{action} {svc}: OK")
-        else:
-            overall_ok = False
-            err = res.stderr.strip() or res.stdout.strip()
-            if human:
-                # assignment keeps error() out of the AST-guard's
-                # "trailing expression" shape; the abort below is what
-                # actually sets the non-zero exit.
-                _ = error(f"{action} {svc} failed: {err}")
-        results.append(
-            {
-                "service": svc,
-                "action": action,
-                "status": "ok" if ok else "failed",
-                "message": res.stderr.strip() if not ok else res.stdout.strip(),
-            }
-        )
+        entry, ok = _run_service_action(prefix, action, svc, dry_run, human)
+        results.append(entry)
+        overall_ok = overall_ok and ok
 
     payload = {"role": role or "auto", "action": action, "services": results}
 
