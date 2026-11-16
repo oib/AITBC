@@ -17,7 +17,7 @@ aitbc bridge deposits [OPTIONS]
 | `--status` | text | — | no | Filter rows by deposit status (e.g. funding, failed) |
 | `--limit` | integer | `50` | no | Max ledger rows (default 50) |
 | `--tx-hash` | text | — | no | Show one deposit row by its eth tx hash |
-| `--repo-root` | directory | — | no | AITBC checkout containing apps/bridge-monitor (default: inferred from the running CLI, or AITBC_REPO_ROOT) |
+| `--repo-root` | directory | — | no | AITBC checkout containing apps/bridge-monitor (default: inferred from cwd/interpreter or /opt/aitbc) |
 
 ## Examples
 

@@ -170,3 +170,37 @@ async def test_hardware_uuid_falls_back_as_key(seeded_session):
     listings = await _listings(engine)
     assert len(listings) == 1
     assert listings[0].gpu_id == "hw-9"
+
+
+class _FailingGPUServiceClient:
+    """Stand-in that makes every remote call fail like a dead gpu unit."""
+
+    def __init__(self) -> None:
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def get_gpu_profiles(self, *args: Any, **kwargs: Any) -> list[dict[str, Any]]:
+        import httpx
+
+        raise httpx.ConnectError("All connection attempts failed")
+
+
+@pytest.mark.asyncio
+async def test_list_gpus_falls_back_to_mirrored_listings(seeded_session, monkeypatch):
+    """#2088: dead GPU service must not 500 — serve mirrored rows honestly."""
+    engine, set_profiles = seeded_session
+    set_profiles(PROFILES)
+    service = GPUService()
+    await service.list_gpus()  # populate mirror while remote is "up"
+
+    monkeypatch.setattr(svc_mod, "GPUServiceClient", _FailingGPUServiceClient)
+    out = await service.list_gpus()
+
+    assert len(out) == 2
+    assert {g["id"] for g in out} == {"gpu-1", "gpu-2"}
+    assert all(g.get("source") == "mirror" for g in out)

@@ -240,6 +240,8 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc wallet bridge sell lock` | `/rpc/account/{from_address}` | `get_account_route` (core.py) | —
 | `aitbc wallet bridge sell lock` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
 | `aitbc wallet bridge withdraw` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
+| `aitbc wallet info` | `/rpc/account/` | — | —
+| `aitbc wallet info` | `/rpc/account/{canonical}` | `get_account_route` (core.py) | —
 | `aitbc wallet liquidity-claim` | `/rpc/chain` | — | —
 | `aitbc wallet liquidity-claim` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
 | `aitbc wallet liquidity-stake` | `/rpc/account/` | — | —
