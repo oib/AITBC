@@ -59,7 +59,7 @@ class STUNClient:
                 if endpoint:
                     logger.info("Discovered public endpoint: %s:%s via %s", endpoint.address, endpoint.port, stun_server)
                     return endpoint
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
                 logger.warning("STUN query failed for %s: %s", stun_server, e)
                 continue
         logger.error("Failed to discover public endpoint from all STUN servers")
@@ -89,7 +89,7 @@ class STUNClient:
         except TimeoutError:
             logger.warning("STUN request to %s:%s timed out", host, port)
             return None
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             logger.error("STUN request to %s:%s failed: %s", host, port, e)
             return None
 
@@ -136,7 +136,7 @@ class STUNClient:
                 pos += attr_length
             logger.warning("No XOR-MAPPED-ADDRESS found in STUN response")
             return None
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError) as e:
             logger.error("Failed to parse STUN response: %s", e)
             return None
 

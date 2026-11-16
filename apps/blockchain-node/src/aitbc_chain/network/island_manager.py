@@ -9,6 +9,8 @@ import uuid
 from dataclasses import dataclass
 from enum import Enum
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 
@@ -103,7 +105,7 @@ class IslandManager:
         ]
         try:
             await asyncio.gather(*tasks)
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             logger.error("Island manager error: %s", e)
         finally:
             self.running = False
@@ -162,7 +164,16 @@ class IslandManager:
 
                 shutdown_db(chain_id)
                 logger.info("Shut down database for chain %s on island %s", chain_id, island_id)
-            except Exception as e:
+            except (
+                ImportError,
+                SQLAlchemyError,
+                OSError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+                AttributeError,
+                LookupError,
+            ) as e:
                 logger.warning("Failed to shut down database for chain %s: %s", chain_id, e)
         if island_id in self.active_bridges:
             self.active_bridges.remove(island_id)
@@ -275,7 +286,7 @@ class IslandManager:
                     del self.bridge_requests[req_id]
                     logger.info("Removed expired bridge request %s", req_id)
                 await asyncio.sleep(60)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 logger.error("Bridge request monitor error: %s", e)
                 await asyncio.sleep(10)
 
@@ -293,7 +304,7 @@ class IslandManager:
                             membership.status = IslandStatus.INACTIVE
                             logger.warning("Island %s marked as inactive (no peers)", island_id)
                 await asyncio.sleep(30)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 logger.error("Island health check error: %s", e)
                 await asyncio.sleep(10)
 

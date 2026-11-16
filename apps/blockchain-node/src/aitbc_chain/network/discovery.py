@@ -124,7 +124,7 @@ class P2PDiscovery:
 
         try:
             await asyncio.gather(*tasks)
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Discovery service error: {e}")
         finally:
             self.running = False
@@ -148,7 +148,7 @@ class P2PDiscovery:
                 # Wait before next discovery cycle
                 await asyncio.sleep(self.discovery_interval)
 
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 log_error(f"Discovery loop error: {e}")
                 await asyncio.sleep(5)
 
@@ -189,7 +189,7 @@ class P2PDiscovery:
                 log_warn(f"Failed to connect to peer {address}:{port}")
                 return False
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Error connecting to peer {address}:{port}: {e}")
             return False
 
@@ -217,7 +217,7 @@ class P2PDiscovery:
 
             return False
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_debug(f"Failed to send discovery message to {address}:{port}: {e}")
             return False
 
@@ -259,7 +259,7 @@ class P2PDiscovery:
                 f"Added peer {peer_node_id} from {peer_address}:{peer_port} (island: {peer_island_id}, hub: {peer_is_hub})"
             )
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Error handling hello response: {e}")
 
     async def _discover_peers(self) -> None:
@@ -288,7 +288,7 @@ class P2PDiscovery:
             if success:
                 log_debug(f"Requested peer list from {peer.node_id}")
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Error requesting peer list from {peer.node_id}: {e}")
 
     async def _peer_health_check(self) -> None:
@@ -321,7 +321,7 @@ class P2PDiscovery:
 
                 await asyncio.sleep(60)  # Check every minute
 
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 log_error(f"Peer health check error: {e}")
                 await asyncio.sleep(30)
 
@@ -352,7 +352,7 @@ class P2PDiscovery:
             writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
             await writer.wait_closed()
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Error handling discovery connection: {e}")
 
     async def _process_discovery_message(self, message: dict[str, Any]) -> dict[str, Any]:

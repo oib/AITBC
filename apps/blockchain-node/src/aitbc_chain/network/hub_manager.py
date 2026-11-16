@@ -29,6 +29,8 @@ from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, cast
 
+from redis.exceptions import RedisError
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.constants import DATA_DIR, KEYSTORE_DIR
@@ -115,7 +117,7 @@ class HubManager:
             safe_url = _sanitize_redis_url(self.redis_url)
             logger.info("Connected to Redis for hub persistence: %s", safe_url)
             return True
-        except Exception as e:
+        except (ImportError, RedisError, OSError, ValueError, TypeError) as e:
             logger.error("Failed to connect to Redis: %s", e)
             return False
 
@@ -132,7 +134,7 @@ class HubManager:
             await cast(Any, self._redis).setex(key, 3600, value)
             logger.info("Persisted hub registration to Redis: %s", key)
             return True
-        except Exception as e:
+        except (RedisError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
             logger.error("Failed to persist hub registration: %s", e)
             return False
 
@@ -148,7 +150,7 @@ class HubManager:
             await cast(Any, self._redis).delete(key)
             logger.info("Removed hub registration from Redis: %s", key)
             return True
-        except Exception as e:
+        except (RedisError, OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
             logger.error("Failed to remove hub registration: %s", e)
             return False
 
@@ -165,7 +167,7 @@ class HubManager:
                 data = json.loads(value)
                 return HubInfo(**data)
             return None
-        except Exception as e:
+        except (RedisError, ValueError, TypeError, OSError, RuntimeError, AttributeError) as e:
             logger.error("Failed to load hub registration: %s", e)
             return None
 
@@ -204,7 +206,7 @@ class HubManager:
             credentials["rpc_endpoint"] = f"http://{rpc_host}:8202"
             credentials["p2p_port"] = self.local_port
             return credentials
-        except Exception as e:
+        except (OSError, ValueError, TypeError, LookupError, AttributeError) as e:
             logger.error("Failed to get blockchain credentials: %s", e)
             return {}
 
@@ -258,7 +260,7 @@ class HubManager:
             }
             logger.info("Sent join_response to node %s with %s members", join_request.get("node_id"), len(members))
             return response
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             logger.error("Error handling join request: %s", e)
             return None
 
@@ -386,7 +388,7 @@ class HubManager:
         ]
         try:
             await asyncio.gather(*tasks)
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             logger.error("Hub manager error: %s", e)
         finally:
             self.running = False
@@ -410,7 +412,7 @@ class HubManager:
                     if node_id != self.local_node_id:
                         self.remove_known_hub(node_id)
                 await asyncio.sleep(60)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 logger.error("Hub health check error: %s", e)
                 await asyncio.sleep(10)
 
@@ -427,7 +429,7 @@ class HubManager:
                     self.unregister_peer(node_id)
                     logger.debug("Removed stale peer %s", node_id)
                 await asyncio.sleep(60)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 logger.error("Peer cleanup error: %s", e)
                 await asyncio.sleep(10)
 

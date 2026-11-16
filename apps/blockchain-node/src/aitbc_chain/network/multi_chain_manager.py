@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Any
 
 from sqlmodel import select
+from sqlalchemy.exc import SQLAlchemyError
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -199,7 +200,7 @@ class MultiChainManager:
                     attempt,
                 )
                 return True
-            except Exception as e:
+            except (SQLAlchemyError, OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 last_error = str(e)
                 logger.warning(
                     "Failed to start chain %s (attempt %s/%s): %s",
@@ -253,7 +254,7 @@ class MultiChainManager:
             chain.stopped_at = time.time()
             logger.info("Stopped chain %s", chain_id)
             return True
-        except Exception as e:
+        except (SQLAlchemyError, OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             chain.status = ChainStatus.ERROR
             chain.error_message = str(e)
             logger.error("Failed to stop chain %s: %s", chain_id, e)
@@ -312,7 +313,7 @@ class MultiChainManager:
             asyncio.ensure_future(gossip_broker.publish(f"chain.{chain_id}.sync", {"height": local_height}))
             logger.info("Sync completed for chain %s", chain_id)
             return True
-        except Exception as e:
+        except (SQLAlchemyError, OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             logger.error("Failed to sync chain %s: %s", chain_id, e)
             return False
 
@@ -323,7 +324,7 @@ class MultiChainManager:
         tasks = [create_task_with_logging(self._chain_health_check(), name="multi_chain_health_check")]
         try:
             await asyncio.gather(*tasks)
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             logger.error("Multi-chain manager error: %s", e)
         finally:
             self.running = False
@@ -371,7 +372,7 @@ class MultiChainManager:
                     if chain.status == ChainStatus.ERROR:
                         logger.warning("Chain %s in error state: %s", chain_id, chain.error_message)
                 await asyncio.sleep(health_interval)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 logger.error("Chain health check error: %s", e)
                 await asyncio.sleep(10)
 

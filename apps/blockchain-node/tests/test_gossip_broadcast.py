@@ -29,7 +29,7 @@ try:
     _redis = redis.Redis.from_url(_TEST_REDIS_URL, socket_connect_timeout=2)
     _redis.ping()
     _redis.close()
-except Exception:
+except Exception:  # noqa: BLE001 - skip-guard probe must not raise
     pytestmark = pytest.mark.skip(
         f"Redis at {_TEST_REDIS_URL} is not reachable or requires auth; "
         "set GOSSIP_BROADCAST_URL to a reachable Redis instance to run these tests"

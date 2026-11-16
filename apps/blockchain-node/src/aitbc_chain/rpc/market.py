@@ -58,7 +58,7 @@ async def _publish_offer_event(
         topic = f"offers.{chain_id}"
         await gossip_broker.publish(topic, event)
         logger.debug("Published offer event %s for offer %s to topic %s", event_type, offer_id, topic)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - pluggable gossip broker publish surface is untyped
         logger.warning("Failed to publish offer event: %s", e)
 
 

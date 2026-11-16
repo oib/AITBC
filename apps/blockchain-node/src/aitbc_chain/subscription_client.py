@@ -8,6 +8,7 @@ from typing import Any
 
 import httpx
 import websockets
+from sqlalchemy.exc import SQLAlchemyError
 
 from .config import settings
 from .database import session_scope
@@ -85,7 +86,16 @@ class SubscriptionClient:
         ]
         try:
             await asyncio.gather(*tasks)
-        except Exception as e:
+        except (
+            httpx.HTTPError,
+            websockets.exceptions.WebSocketException,
+            OSError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+            AttributeError,
+            LookupError,
+        ) as e:
             logger.error(
                 "Subscription client error: %s",
                 str(e),
@@ -131,7 +141,7 @@ class SubscriptionClient:
             )
             self._set_sync_mode("push")
             return True
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError, LookupError) as e:
             logger.warning(
                 "Failed to subscribe to hub: %s",
                 str(e),
@@ -179,7 +189,7 @@ class SubscriptionClient:
                 extra={"hub_url": self._hub_url, "node_id": self._node_id},
             )
             return False
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, AttributeError, RuntimeError, OSError, LookupError) as e:
             logger.warning(
                 "Heartbeat failed (hub unreachable): %s",
                 str(e),
@@ -213,7 +223,16 @@ class SubscriptionClient:
                         extra={"transport": self._transport, "node_id": self._node_id},
                     )
                     await asyncio.sleep(30)
-            except Exception as e:
+            except (
+                httpx.HTTPError,
+                websockets.exceptions.WebSocketException,
+                OSError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+                AttributeError,
+                LookupError,
+            ) as e:
                 logger.error(
                     "Subscription loop error: %s",
                     str(e),
@@ -242,7 +261,16 @@ class SubscriptionClient:
                             chain_id=chain_id,
                         )
                         local_height = sync.get_sync_status().get("head_height", -1)
-                    except Exception as e:
+                    except (
+                        ImportError,
+                        SQLAlchemyError,
+                        OSError,
+                        ValueError,
+                        TypeError,
+                        RuntimeError,
+                        AttributeError,
+                        LookupError,
+                    ) as e:
                         logger.debug("Failed to get local height for heartbeat: %s", e)
                     logger.info(
                         "Lease status",
@@ -269,7 +297,7 @@ class SubscriptionClient:
                             extra={"node_id": self._node_id, "hub_url": self._hub_url},
                         )
                         self._set_sync_mode("pull")
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 logger.error(
                     "Heartbeat loop error: %s",
                     str(e),
@@ -329,7 +357,15 @@ class SubscriptionClient:
                                 topic=f"blocks.{self._chain_id}",
                             ).inc()
                             await self._import_block(block_data)
-                        except Exception as e:
+                        except (
+                            SQLAlchemyError,
+                            OSError,
+                            ValueError,
+                            TypeError,
+                            RuntimeError,
+                            AttributeError,
+                            LookupError,
+                        ) as e:
                             logger.error(
                                 "Error processing WebSocket message: %s",
                                 str(e),
@@ -354,7 +390,15 @@ class SubscriptionClient:
                 subscription_reconnects_total.labels(chain_id=self._chain_id, topic=f"blocks.{self._chain_id}").inc()
                 self._set_sync_mode("pull")
                 await asyncio.sleep(self._ws_backoff.next_delay())
-            except Exception as e:
+            except (
+                websockets.exceptions.WebSocketException,
+                OSError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+                AttributeError,
+                LookupError,
+            ) as e:
                 logger.warning(
                     "WebSocket connection error, falling back to pull: %s",
                     str(e),
@@ -399,7 +443,7 @@ class SubscriptionClient:
                     topic=f"blocks.{self._chain_id}",
                 ).inc()
                 await self._import_block(block_data)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - pluggable gossip broker subscribe surface is untyped
             logger.error(
                 "Redis subscription error: %s",
                 str(e),
@@ -487,7 +531,7 @@ class SubscriptionClient:
                             report_divergence(self._chain_id, div)
                 else:
                     self._consecutive_divergence = 0
-        except Exception as e:
+        except (SQLAlchemyError, OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             logger.error(
                 "Failed to import block %s: %s",
                 block_data.get("height", "?"),

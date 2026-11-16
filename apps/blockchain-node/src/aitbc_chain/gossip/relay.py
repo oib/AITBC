@@ -14,7 +14,7 @@ from starlette.middleware import Middleware
 from starlette.middleware.cors import CORSMiddleware
 from starlette.responses import JSONResponse
 from starlette.routing import Route, WebSocketRoute
-from starlette.websockets import WebSocket
+from starlette.websockets import WebSocket, WebSocketDisconnect
 
 from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.security import RateLimiter
@@ -269,7 +269,16 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
         async with subscriber_cm as subscriber:
             async for message in subscriber:
                 await websocket.send_text(message if isinstance(message, str) else json.dumps(message))
-    except Exception as e:
+    except (
+        BroadcastCapacityError,
+        WebSocketDisconnect,
+        OSError,
+        RuntimeError,
+        ValueError,
+        TypeError,
+        AttributeError,
+        LookupError,
+    ) as e:
         logger.error("WebSocket error: %s", e)
     finally:
         remaining = _ws_ip_counts.get(client_ip, 1) - 1

@@ -88,7 +88,7 @@ class MeshGossipBackend(GossipBackend):
         for name, peer in self._peers.items():
             try:
                 await peer.start()
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - pluggable gossip backend start surface is untyped
                 logger.warning("Mesh gossip peer %s failed to start: %s", name, e)
         self._running = True
         metrics_registry.set_gauge("gossip_mesh_peers_configured", float(len(self._peers)))
@@ -177,7 +177,7 @@ class MeshGossipBackend(GossipBackend):
                     **batch_field,
                     _level="info",
                 )
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - pluggable gossip backend publish surface is untyped
                 _increment_publication("gossip_mesh_peer_publish_failed", topic)
                 logger.info("Mesh gossip publish to peer %s on %s failed: %s", name, topic, e)
                 gossip_event(
@@ -268,7 +268,7 @@ class MeshGossipBackend(GossipBackend):
         for name, peer in self._peers.items():
             try:
                 await asyncio.wait_for(peer.shutdown(), timeout=5.0)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - pluggable gossip backend shutdown surface is untyped
                 from aitbc.aitbc_logging import get_logger
 
                 get_logger(__name__).warning("Mesh gossip peer %s shutdown raised: %s", name, e)
@@ -404,7 +404,7 @@ class _MeshSubscription:
                 return  # type: ignore[unreachable]
             try:
                 source = await backend.subscribe(self._topic, max_queue_size=self._max_queue_size)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - pluggable gossip backend subscribe surface is untyped
                 delay = min(delay * 2, self._mesh._retry_max_delay)
                 logger.info("Mesh gossip peer %s still unavailable for %s (retry in %ss): %s", name, self._topic, delay, e)
                 gossip_event(

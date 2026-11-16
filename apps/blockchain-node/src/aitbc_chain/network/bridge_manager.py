@@ -10,6 +10,8 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import Any
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 
@@ -335,7 +337,16 @@ class BridgeManager:
                     logger.warning("Stuck bridge transfers detected: %d", len(stuck))
 
                 await asyncio.sleep(interval)
-            except Exception as e:
+            except (
+                ImportError,
+                SQLAlchemyError,
+                OSError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+                AttributeError,
+                LookupError,
+            ) as e:
                 logger.error("Bridge monitor loop error: %s", e)
                 await asyncio.sleep(interval)
 
@@ -348,7 +359,7 @@ class BridgeManager:
         tasks = [create_task_with_logging(self._request_timeout_monitor(), name="bridge_request_timeout_monitor")]
         try:
             await asyncio.gather(*tasks)
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             logger.error("Bridge manager error: %s", e)
         finally:
             self.running = False
@@ -375,7 +386,7 @@ class BridgeManager:
                     del self.pending_requests[island_id]
                     logger.info("Removed expired bridge request %s to island %s", bridge_id, island_id)
                 await asyncio.sleep(60)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 logger.error("Bridge request timeout monitor error: %s", e)
                 await asyncio.sleep(10)
 

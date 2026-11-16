@@ -26,6 +26,7 @@ from typing import Any, cast
 
 from fastapi import APIRouter, HTTPException, Request
 from sqlmodel import col, func, select
+from sqlalchemy.exc import SQLAlchemyError
 
 from aitbc.rate_limiting import rate_limit
 
@@ -280,7 +281,7 @@ def _swap_status_payload(swap: CrossChainSwap, bridge: Any) -> dict[str, Any]:
                             completed_at = record.completed_at.isoformat()
                         session.add(record)
                         session.commit()
-            except Exception:
+            except (SQLAlchemyError, OSError, ValueError, TypeError, RuntimeError):
                 _logger.debug("Failed to persist swap status for %s", swap.swap_id)
     return {
         "success": True,
@@ -493,7 +494,7 @@ def get_cross_chain_swap(request: Request, swap_id: str) -> dict[str, Any]:
                 record = session.exec(
                     select(CrossChainSwap).where((CrossChainSwap.swap_id == swap_id) | (CrossChainSwap.transfer_id == swap_id))
                 ).first()
-        except Exception as exc:
+        except (SQLAlchemyError, OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as exc:
             _logger.warning("swap lookup: chain %s query failed: %s", chain_id, exc)
             continue
         if record is not None:
@@ -536,7 +537,7 @@ def list_cross_chain_swaps(
                         continue
                     seen.add(record.swap_id)
                     results.append(_swap_status_payload(record, bridge))
-        except Exception as exc:
+        except (SQLAlchemyError, OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as exc:
             _logger.warning("swap list: chain %s query failed: %s", chain_id, exc)
             continue
     # swap_id is the tiebreaker so same-created_at rows keep a stable order.
@@ -694,7 +695,7 @@ def get_cross_chain_stats(request: Request) -> dict[str, Any]:
                     entry = bridge_stats.setdefault(status, {"status": status, "count": 0, "volume": 0})
                     entry["count"] += int(count)
                     entry["volume"] += int(volume)
-        except Exception as exc:
+        except (SQLAlchemyError, OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as exc:
             _logger.warning("bridge stats: chain %s query failed: %s", chain_id, exc)
             continue
     return {

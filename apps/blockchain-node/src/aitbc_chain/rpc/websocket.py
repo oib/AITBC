@@ -6,6 +6,7 @@ import time
 from typing import Any
 
 from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from redis.exceptions import RedisError
 
 from aitbc.rate_limiting import client_ip_from_peer_and_headers
 from aitbc.security import RateLimiter
@@ -442,7 +443,7 @@ async def shutdown_chain_brokers(timeout: float = 5.0) -> None:
             await asyncio.wait_for(broker.shutdown(), timeout=timeout)
         except asyncio.TimeoutError:
             logger.warning("Gossip broker shutdown timed out for chain %s", chain_id)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - pluggable gossip broker shutdown surface is untyped
             logger.warning("Failed to shut down gossip broker for chain %s: %s", chain_id, exc)
 
     await asyncio.gather(*(_one(c, b) for c, b in brokers))
@@ -565,7 +566,7 @@ async def _gossip_forward_one_message(state: _GossipConnState, sub: TopicSubscri
     event_id = _message_id(state.topic, message)
     try:
         await _gossip_ws_send_json(state.websocket, message)
-    except Exception as send_exc:
+    except (WebSocketDisconnect, OSError, RuntimeError, ValueError, TypeError, AttributeError) as send_exc:
         gossip_ws_echo_forward_failed_total.labels(topic_class=bounded_topic_label(state.topic)).inc()
         gossip_event(
             "echo_forward_failed",
@@ -601,7 +602,7 @@ async def _gossip_forward_broker_to_client(state: _GossipConnState) -> None:
         async for message in sub:
             if not await _gossip_forward_one_message(state, sub, message):
                 break
-    except Exception as e:
+    except (WebSocketDisconnect, OSError, RuntimeError, ValueError, TypeError, AttributeError, LookupError) as e:
         logger.warning("Error forwarding broker message for %s: %s", state.topic, e)
 
 
@@ -851,7 +852,7 @@ async def _gossip_run_forwarders(state: _GossipConnState) -> None:
                 logger.error("WebSocket gossip error for topic %s: %s", state.topic, exc)
     except WebSocketDisconnect:
         logger.info("WebSocket gossip subscriber disconnected: topic=%s", state.topic)
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, TypeError, AttributeError, LookupError) as e:
         logger.error("WebSocket gossip error for topic %s: %s", state.topic, e)
     finally:
         for task in (broker_task, client_task):
@@ -971,7 +972,7 @@ async def _subscribe_authorize(websocket: WebSocket, node_id: Any, chain_id: Any
             )
             await _gossip_ws_close(websocket, code=1008)
             return False
-    except Exception as e:
+    except (RedisError, OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
         logger.error("Failed to validate lease for %s: %s", node_id, e)
         await _gossip_ws_send_json(websocket, {"error": "Failed to validate lease"})
         await _gossip_ws_close(websocket, code=1011)
@@ -1041,7 +1042,7 @@ async def _subscribe_send_blocks(websocket: WebSocket, node_id: str, block_subsc
             logger.debug("Sent block to %s", node_id)
     except WebSocketDisconnect:
         logger.info("WebSocket disconnected for %s", node_id)
-    except Exception as e:
+    except (OSError, RuntimeError, ValueError, TypeError, AttributeError, LookupError) as e:
         logger.error("Error sending block to %s: %s", node_id, e)
 
 
@@ -1057,7 +1058,7 @@ async def _subscribe_heartbeat(websocket: WebSocket, node_id: str, chain_id: str
             # is transient and must not drop live subscribers.
             try:
                 lease_expiry = await lease_tracker.get_lease_expiry(node_id, chain_id)
-            except Exception as e:
+            except (RedisError, OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 logger.warning("Lease revalidation failed for %s: %s", node_id, e)
                 lease_expiry = time.time() + 1
             if lease_expiry <= time.time():
@@ -1134,7 +1135,7 @@ async def subscription_websocket(websocket: WebSocket) -> None:
         await _subscribe_run_forwarders(websocket, node_id, chain_id, block_subscription)
     except WebSocketDisconnect:
         logger.info("WebSocket subscriber disconnected: %s", node_id)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - subscribe endpoint wraps the pluggable gossip broker surface
         logger.error("WebSocket error for %s: %s", node_id, e)
     finally:
         _release_subscribe_ip_slot(client_ip)

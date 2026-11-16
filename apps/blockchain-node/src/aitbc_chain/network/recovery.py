@@ -86,7 +86,7 @@ class NetworkRecoveryManager:
                 await self._monitor_network_health()
                 await self._adaptive_strategy_adjustment()
                 await asyncio.sleep(self.recovery_interval)
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 log_error(f"Recovery service error: {e}")
                 await asyncio.sleep(10)
 
@@ -264,7 +264,7 @@ class NetworkRecoveryManager:
                 log_warn(f"Unknown recovery action type: {action.action_type}")
                 return False
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Error executing recovery action {action.action_type}: {e}")
             return False
 
@@ -277,7 +277,7 @@ class NetworkRecoveryManager:
             if success:
                 log_info(f"Bootstrap connect successful to {address}:{port}")
             return success
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Bootstrap connect failed to {address}:{port}: {e}")
             return False
 
@@ -294,7 +294,7 @@ class NetworkRecoveryManager:
             new_peers = len(self.discovery.get_peer_list())
             return new_peers > 0
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Alternative discovery failed: {e}")
             return False
 
@@ -309,7 +309,7 @@ class NetworkRecoveryManager:
             if success:
                 log_info(f"Reconnected to peer {action.target_node}")
             return success
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Reconnection failed for peer {action.target_node}: {e}")
             return False
 

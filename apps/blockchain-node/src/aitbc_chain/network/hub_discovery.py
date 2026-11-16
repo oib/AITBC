@@ -81,7 +81,7 @@ class HubDiscovery:
         except socket.gaierror as e:
             logger.error("DNS resolution failed for %s: %s", self.discovery_url, e)
             return []
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
             logger.error("DNS discovery error: %s", e)
             return []
 
@@ -130,7 +130,7 @@ class HubDiscovery:
         except httpx.RequestError as e:
             logger.error("DNS registration request failed: %s", e)
             return False
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("DNS registration error: %s", e)
             return False
 
@@ -158,7 +158,7 @@ class HubDiscovery:
         except httpx.RequestError as e:
             logger.error("DNS unregistration request failed: %s", e)
             return False
-        except Exception as e:
+        except (ValueError, TypeError, AttributeError, RuntimeError) as e:
             logger.error("DNS unregistration error: %s", e)
             return False
 

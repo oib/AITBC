@@ -468,7 +468,7 @@ async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -
         try:
             await backend.start()
             await backend.publish(f"transactions.{chain_id}", {"type": "new_transaction", "tx": tx_data})
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - pluggable gossip backend publish surface is untyped
             _logger.warning("tx fan-out to %s failed: %s", url, e)
         finally:
             try:
