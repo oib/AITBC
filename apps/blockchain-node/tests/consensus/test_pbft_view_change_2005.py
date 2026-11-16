@@ -1413,3 +1413,157 @@ class TestLockProofCostBound:
         calls = self._count(monkeypatch)
         assert self._run(_locked(MEMBERS[0], HA, 0, SEQ, VIEW)) == (True, "")
         assert len(calls) == Q
+
+
+class TestRespinRemainder:
+    """Rest of B's review list: schedule reuse, body binding, F3-B precedence,
+    unlock producer, VC re-send, floor rule."""
+
+    @pytest.fixture(autouse=True)
+    def _iso(self, _fresh_chain):
+        return _fresh_chain
+
+    def test_schedule_is_one_function_shared_by_engine_and_evidence(self):
+        from aitbc_chain.consensus.equivocation_policy import _pbft_proposer_for
+        from aitbc_chain.consensus.pbft_view_change import scheduled_proposer
+
+        consensus = _make_consensus()
+        ctx = VcApplyContext(chain_id=CHAIN, sequence=SEQ, validator_set=frozenset(MEMBERS))
+        for view in range(0, 9):
+            expected = scheduled_proposer(MEMBERS, SEQ, view)
+            assert _pbft_proposer_for(ctx, view) == expected
+            assert consensus.select_proposer(SEQ, view) == expected
+        assert scheduled_proposer([], SEQ, 0) is None
+
+    def test_proposal_body_must_match_hash_and_height(self):
+        from aitbc_chain.consensus.pbft_view_change import proposal_body_bound
+
+        good = {"hash": HA, "height": SEQ}
+        assert proposal_body_bound(good, HA, SEQ)
+        assert not proposal_body_bound(good, HB, SEQ)  # body names another hash
+        assert not proposal_body_bound(good, HA, SEQ + 1)
+        assert not proposal_body_bound({"hash": HA}, HA, SEQ)
+        assert not proposal_body_bound(None, HA, SEQ)
+
+    @pytest.mark.asyncio
+    async def test_unbound_body_is_not_persisted_at_intake(self, vc_armed):
+        consensus = _make_consensus()
+        local = MEMBERS[0]
+        pbft = _pbft(consensus, local, KEYS[local])
+        pp = PBFTMessage(
+            message_type=PBFTMessageType.PRE_PREPARE,
+            sender=_proposer(SEQ, 0),
+            view_number=0,
+            sequence_number=SEQ,
+            digest="d",
+            signature="",
+            timestamp=0.0,
+            block_hash=HA,
+            block={"hash": HB, "height": SEQ},  # swapped body
+        )
+        assert not await pbft._view_change_prepare_allows(SEQ, 0, pp)
+        assert consensus.pbft_vc_proposal_get(SEQ, HA) is None
+        assert consensus.pbft_vc_proposal_get(SEQ, HB) is None
+
+    @pytest.mark.asyncio
+    async def test_proposer_refuses_unbound_payload(self, vc_armed):
+        consensus = _make_consensus()
+        local = _proposer(SEQ, 0)
+        pbft = _pbft(consensus, local, KEYS[local])
+        assert await pbft._prepare_view_change_proposal(SEQ, 0, HA, {"hash": HB, "height": SEQ}) is None
+
+    @pytest.mark.asyncio
+    async def test_new_view_supersedes_stale_f3b_lock(self, vc_armed, monkeypatch):
+        """F3-B pinned HA; a verified NEW_VIEW selecting HB must let this node
+        commit HB. Without a stored NEW_VIEW the F3-B refusal is unchanged."""
+        monkeypatch.setattr(settings, "pbft_cross_view_commit_lock_height", 0)
+        consensus = _make_consensus()
+        local = MEMBERS[0]
+        pbft = _pbft(consensus, local, KEYS[local])
+        assert pbft._commit_lock_allows(SEQ, HA, 0)  # arms the pin on HA
+        assert not pbft._commit_lock_allows(SEQ, HB, 1)  # no NV: refused
+        assert pbft._vc_floor_raise(SEQ, 1)
+        vc_set = _vc_set(SEQ, 1, MEMBERS[:Q])
+        await pbft._handle_new_view_payload(_nv(_proposer(SEQ, 1), SEQ, 1, vc_set, None))
+        assert pbft._commit_lock_allows(SEQ, HB, 1)  # free NV at view 1 supersedes
+        assert not pbft._commit_lock_allows(SEQ, HB, 2)  # no NV for view 2
+
+    @pytest.mark.asyncio
+    async def test_locked_new_view_does_not_supersede_for_other_hash(self, vc_armed, monkeypatch):
+        monkeypatch.setattr(settings, "pbft_cross_view_commit_lock_height", 0)
+        consensus = _make_consensus()
+        local = MEMBERS[0]
+        pbft = _pbft(consensus, local, KEYS[local])
+        assert pbft._commit_lock_allows(SEQ, HA, 0)
+        assert pbft._vc_floor_raise(SEQ, 1)
+        vc_set = _vc_set(SEQ, 1, MEMBERS[:Q], locked_hash=HC, lock_view=0)
+        await pbft._handle_new_view_payload(_nv(_proposer(SEQ, 1), SEQ, 1, vc_set, HC))
+        assert pbft._commit_lock_allows(SEQ, HC, 1)
+        assert not pbft._commit_lock_allows(SEQ, HB, 1)  # NV forces HC, not HB
+
+    @pytest.mark.asyncio
+    async def test_f3b_unchanged_when_view_change_gate_dormant(self, monkeypatch):
+        monkeypatch.setattr(settings, "pbft_cross_view_commit_lock_height", 0)
+        consensus = _make_consensus()
+        local = MEMBERS[0]
+        pbft = _pbft(consensus, local, KEYS[local])
+        assert pbft._commit_lock_allows(SEQ, HA, 0)
+        assert not pbft._commit_lock_allows(SEQ, HB, 1)
+
+    @pytest.mark.asyncio
+    async def test_unlock_producer_round_trips_through_the_verifier(self, vc_armed):
+        """The producer's output is accepted by ``view_change_justified``."""
+        consensus = _make_consensus()
+        local = MEMBERS[0]
+        pbft = _pbft(consensus, local, KEYS[local])
+        assert pbft.view_change_unlock_justification(SEQ, 1) is None  # no NV yet
+        vc_set = _vc_set(SEQ, 1, MEMBERS[:Q])
+        await pbft._handle_new_view_payload(_nv(_proposer(SEQ, 1), SEQ, 1, vc_set, None))
+        just = pbft.view_change_unlock_justification(SEQ, 1)
+        assert just is not None and just["kind"] == "view_change"
+        payload = _evidence_payload(seq=SEQ, view_a=0, view_b=1, hash_a=HA, hash_b=HB)
+        ctx = VcApplyContext(chain_id=_CID, sequence=SEQ, validator_set=frozenset(MEMBERS))
+        assert view_change_justified(payload, just, ctx) is True
+
+    def test_unlock_producer_dormant_without_gate(self):
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        pbft._new_views[(SEQ, 1)] = {"payload": {"x": 1}, "kind": "free", "selected": None}
+        assert pbft.view_change_unlock_justification(SEQ, 1) is None
+
+    @pytest.mark.asyncio
+    async def test_own_vc_is_resent_until_a_new_view_arrives(self, vc_armed):
+        consensus = _make_consensus()
+        local = MEMBERS[0]
+        pbft = _pbft(consensus, local, KEYS[local])
+        gossip = _FakeGossip()
+        pbft.set_gossip_backend(gossip)
+        assert await pbft._send_view_change(SEQ, VIEW)
+        sent = len(gossip.published)
+        await pbft._resend_view_change_if_due(SEQ, VIEW)
+        assert len(gossip.published) == sent + 1  # first re-send goes out
+        await pbft._resend_view_change_if_due(SEQ, VIEW)
+        assert len(gossip.published) == sent + 1  # rate-limited
+        pbft._vc_last_resend.clear()
+        pbft._new_views[(SEQ, VIEW)] = {"payload": {"sender": MEMBERS[1]}, "kind": "free", "selected": None}
+        await pbft._resend_view_change_if_due(SEQ, VIEW)
+        assert len(gossip.published) == sent + 1  # NV known (not ours): stop re-sending the VC
+
+    @pytest.mark.asyncio
+    async def test_resend_is_dormant_without_gate(self):
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        gossip = _FakeGossip()
+        pbft.set_gossip_backend(gossip)
+        await pbft._resend_view_change_if_due(SEQ, VIEW)
+        assert gossip.published == []
+
+    @pytest.mark.asyncio
+    async def test_floor_rule_refuses_lower_view_vote(self, vc_armed):
+        """Floor rule: after a VC for view v the node never votes below v."""
+        consensus = _make_consensus()
+        local = MEMBERS[0]
+        pbft = _pbft(consensus, local, KEYS[local])
+        assert await pbft._send_view_change(SEQ, 4)
+        for v in (0, 1, 2, 3):
+            assert pbft._view_change_permit(SEQ, v, HA) is False
