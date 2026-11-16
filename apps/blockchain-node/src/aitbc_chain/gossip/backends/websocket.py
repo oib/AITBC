@@ -9,6 +9,8 @@ import uuid
 from contextlib import suppress
 from typing import Any
 
+import websockets
+
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.crypto.consensus_signing import sign_consensus_message
 from aitbc.crypto.signature_recovery import canonical_address
@@ -510,7 +512,15 @@ class WebsocketGossipBackend(GossipBackend):
                 code=exc.code,
                 reason=str(exc.reason)[:120],
             )
-        except Exception as e:
+        except (
+            websockets.exceptions.WebSocketException,
+            OSError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+            AttributeError,
+            LookupError,
+        ) as e:
             from aitbc.aitbc_logging import get_logger
 
             get_logger(__name__).warning("WebSocket gossip reader error for %s peer=%s: %s", topic, self._peer_name, e)
@@ -596,7 +606,15 @@ class WebsocketGossipBackend(GossipBackend):
                 sleep_overshoot_s=round(max(sleep_overshoot, 0.0), 3),
                 _level="info",
             )
-        except Exception as e:
+        except (
+            websockets.exceptions.WebSocketException,
+            OSError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+            AttributeError,
+            LookupError,
+        ) as e:
             current = self._reconnect_backoff.get(topic, 0.5)
             self._reconnect_backoff[topic] = min(current * 2, 30.0)
             gossip_peer_reconnect_attempts_total.labels(
@@ -695,7 +713,7 @@ class WebsocketGossipBackend(GossipBackend):
                         attempt_age_ms=attempt_age_ms,
                         _level="warning",
                     )
-        except Exception as telemetry_exc:
+        except (ValueError, TypeError, AttributeError, RuntimeError, OSError) as telemetry_exc:
             logger.debug("Gossip publish telemetry failed for %s: %s", topic, telemetry_exc)
 
     async def _publish_with_ack(
@@ -752,7 +770,15 @@ class WebsocketGossipBackend(GossipBackend):
             # is a transport error, not a missing echo.
             outcome = "ack_timeout" if ack_wait_reached else "error"
             failure = e
-        except Exception as e:
+        except (
+            websockets.exceptions.WebSocketException,
+            OSError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+            AttributeError,
+            LookupError,
+        ) as e:
             outcome = "error"
             failure = e
         finally:
@@ -863,7 +889,15 @@ class WebsocketGossipBackend(GossipBackend):
 
                 logger = get_logger(__name__)
                 logger.warning("WebSocket cleanup for %s timed out; leaving connection", topic)
-            except Exception as e:
+            except (
+                websockets.exceptions.WebSocketException,
+                OSError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+                AttributeError,
+                LookupError,
+            ) as e:
                 from aitbc.aitbc_logging import get_logger
 
                 logger = get_logger(__name__)

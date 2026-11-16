@@ -6,6 +6,8 @@ from collections import defaultdict
 from contextlib import asynccontextmanager, suppress
 from typing import Any
 
+from redis.exceptions import RedisError
+
 from aitbc.async_tasks import create_task_with_logging
 
 from ...metrics import metrics_registry
@@ -75,7 +77,7 @@ async def _run_broadcast_subscription(
             except asyncio.CancelledError:
                 logger.warning("[BROKER SUB] Decode/queue cancelled for topic: %s", topic)
                 break
-    except Exception as e:
+    except (RedisError, OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
         stats["last_error"] = f"{type(e).__name__}: {e}"
         logger.error("[BROKER SUB ERROR] Redis subscription error for topic %s: %s", topic, e)
     finally:
@@ -285,7 +287,7 @@ class BroadcastGossipBackend(GossipBackend):
         if self._redis:
             try:
                 await self._redis.aclose()
-            except Exception as e:
+            except (RedisError, OSError, ValueError, TypeError, RuntimeError) as e:
                 logger.warning("Failed to close broadcast redis connection: %s", e)
 
 

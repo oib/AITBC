@@ -75,7 +75,7 @@ class DynamicPeerManager:
                 await self._enforce_peer_policies()
                 await self._optimize_topology()
                 await asyncio.sleep(30)  # Check every 30 seconds
-            except Exception as e:
+            except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
                 log_error(f"Peer management error: {e}")
                 await asyncio.sleep(10)
 
@@ -203,7 +203,7 @@ class DynamicPeerManager:
                 log_warn(f"Failed to add peer {address}:{port}")
                 return False
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Error adding peer {address}:{port}: {e}")
             return False
 
@@ -236,7 +236,7 @@ class DynamicPeerManager:
                 log_warn(f"Peer {node_id} not found for removal")
                 return False
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Error removing peer {node_id}: {e}")
             return False
 
@@ -275,7 +275,7 @@ class DynamicPeerManager:
                 log_warn(f"Peer {node_id} not found for promotion")
                 return False
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Error promoting peer {node_id}: {e}")
             return False
 
@@ -297,7 +297,7 @@ class DynamicPeerManager:
                 log_warn(f"Peer {node_id} not found for demotion")
                 return False
 
-        except Exception as e:
+        except (OSError, ValueError, TypeError, RuntimeError, AttributeError, LookupError) as e:
             log_error(f"Error demoting peer {node_id}: {e}")
             return False
 

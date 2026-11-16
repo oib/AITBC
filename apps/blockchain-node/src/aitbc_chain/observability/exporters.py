@@ -53,7 +53,7 @@ def register_exporters(exporters: Iterable[str]) -> None:
                 _initialize_exporter(exporter_name)
                 REGISTERED_EXPORTERS.append(exporter_name)
                 logger.info("Registered exporter: %s", exporter_name)
-            except Exception as e:
+            except (ValueError, TypeError, AttributeError, RuntimeError) as e:
                 logger.warning("Failed to initialize exporter %s: %s", exporter_name, e)
 
 
@@ -82,7 +82,7 @@ def _initialize_prometheus() -> None:
         thread.start()
         _exporter_instances["prometheus"] = server
         logger.info("Prometheus exporter started on %s:%s", host, port)
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError) as e:
         logger.warning("Failed to start Prometheus exporter: %s", e)
 
 
@@ -96,7 +96,7 @@ def _initialize_log_shipper() -> None:
             logger.info("Log shipper configured for endpoint: %s", log_endpoint)
         else:
             logger.debug("LOG_SHIPPER_ENDPOINT not configured, skipping log shipper")
-    except Exception as e:
+    except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         logger.warning("Failed to initialize log shipper: %s", e)
 
 
@@ -132,7 +132,7 @@ def _initialize_tracing() -> None:
         logger.info("Tracing exporter configured: %s", type(exporter).__name__)
     except ImportError:
         logger.warning("opentelemetry packages not installed, skipping tracing exporter")
-    except Exception as e:
+    except (OSError, ValueError, TypeError, RuntimeError, AttributeError) as e:
         logger.warning("Failed to initialize tracing exporter: %s", e)
 
 

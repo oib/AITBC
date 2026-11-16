@@ -75,7 +75,16 @@ class NetworkTopology:
                 await self._optimize_topology()
                 await self._analyze_topology()
                 await asyncio.sleep(self.optimization_interval)
-            except Exception as e:
+            except (
+                nx.NetworkXException,
+                OSError,
+                ValueError,
+                TypeError,
+                RuntimeError,
+                AttributeError,
+                LookupError,
+                ArithmeticError,
+            ) as e:
                 log_error(f"Topology optimization error: {e}")
                 await asyncio.sleep(30)
 
@@ -391,7 +400,16 @@ class NetworkTopology:
 
             log_info(f"Established connection between {peer1.node_id} and {peer2.node_id}")
 
-        except Exception as e:
+        except (
+            nx.NetworkXException,
+            OSError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+            AttributeError,
+            LookupError,
+            ArithmeticError,
+        ) as e:
             log_error(f"Failed to establish connection between {peer1.node_id} and {peer2.node_id}: {e}")
 
     async def _remove_connection(self, node1_id: str, node2_id: str) -> None:
@@ -400,7 +418,16 @@ class NetworkTopology:
             if self.graph.has_edge(node1_id, node2_id):
                 self.graph.remove_edge(node1_id, node2_id)
                 log_info(f"Removed connection between {node1_id} and {node2_id}")
-        except Exception as e:
+        except (
+            nx.NetworkXException,
+            OSError,
+            ValueError,
+            TypeError,
+            RuntimeError,
+            AttributeError,
+            LookupError,
+            ArithmeticError,
+        ) as e:
             log_error(f"Failed to remove connection between {node1_id} and {node2_id}: {e}")
 
     def get_topology_metrics(self) -> dict[str, Any]:

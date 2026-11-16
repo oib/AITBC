@@ -60,7 +60,7 @@ def _register_metrics() -> None:
         _REGISTERED = True
     except ImportError:
         logger.warning("prometheus_client not installed, consensus metrics disabled")
-    except Exception as e:
+    except (ValueError, TypeError, RuntimeError, AttributeError) as e:
         logger.warning("Failed to register consensus metrics: %s", e)
 
 
