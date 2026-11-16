@@ -786,6 +786,26 @@ class MultiValidatorPoA:
             "signature": getattr(message, "signature", ""),
         }
 
+    @staticmethod
+    def _vote_sequence(record: dict[str, Any]) -> int | None:
+        """Strict-int sequence a recorded vote carries, else None (unknown)."""
+        seq = record.get("sequence_number")
+        return seq if isinstance(seq, int) and not isinstance(seq, bool) else None
+
+    @classmethod
+    def _same_vote_slot(cls, a: dict[str, Any], b: dict[str, Any]) -> bool:
+        """#2147: two votes occupy one slot only at the same ``(sequence, view)``.
+
+        The round (view) is timestamp-derived and repeats across heights, so
+        honest votes at different sequences share a view; keying on the view
+        alone flagged them as equivocation and deactivated every validator.
+        A vote whose sequence is unknown (legacy ``message=None`` records)
+        cannot be exonerated, so it keeps the pre-#2147 view-only behaviour
+        against anything in the same round.
+        """
+        seq_a, seq_b = cls._vote_sequence(a), cls._vote_sequence(b)
+        return seq_a is None or seq_b is None or seq_a == seq_b
+
     def _record_phase_vote(
         self,
         store: dict[str, list[dict[str, Any]]],
@@ -806,7 +826,7 @@ class MultiValidatorPoA:
 
         # Check for conflicting messages (Byzantine detection)
         for msg in store[validator]:
-            if msg["round"] == round and msg["block_hash"] != block_hash:
+            if msg["round"] == round and msg["block_hash"] != block_hash and self._same_vote_slot(msg, record):
                 # B4: conflicting message detected — reject and trigger slashing (C2 + C6)
                 store[validator].append(record)
                 self.detect_byzantine_behavior(validator)
@@ -863,19 +883,10 @@ class MultiValidatorPoA:
             if not messages or len(messages) < 2:
                 continue
 
-            # Check for conflicting messages in same round
-            rounds: dict[int, set[str]] = {}
-            for msg in messages:
-                if msg["round"] not in rounds:
-                    rounds[msg["round"]] = set()
-                rounds[msg["round"]].add(msg["block_hash"])
-
-            # Byzantine if any round has multiple block hashes — slash the offender
-            for round_num, block_hashes in rounds.items():
-                if len(block_hashes) <= 1:
-                    continue
+            # Check for conflicting messages in the same (sequence, round) slot (#2147)
+            for round_num, sequence, block_hashes in self._conflicting_vote_slots(messages):
                 detected = True
-                event = self._vote_equivocation_event(validator, store, messages, round_num, block_hashes)
+                event = self._vote_equivocation_event(validator, store, messages, round_num, block_hashes, sequence)
                 if event is None or validator not in self.validators:
                     continue
                 self._apply_equivocation_slash(validator, event)
@@ -888,6 +899,27 @@ class MultiValidatorPoA:
             detected = True
 
         return detected
+
+    @classmethod
+    def _conflicting_vote_slots(cls, messages: list[dict[str, Any]]) -> list[tuple[int, int | None, set[str]]]:
+        """#2147: ``(round, sequence, hashes)`` for every slot with 2+ block hashes.
+
+        Slots are ``(sequence, round)``. A record with an unknown sequence
+        joins every slot of its round (it cannot be exonerated); when a
+        round has no known sequence at all the unknown records form one slot.
+        """
+        by_round: dict[int, list[dict[str, Any]]] = {}
+        for msg in messages:
+            by_round.setdefault(msg["round"], []).append(msg)
+        found: list[tuple[int, int | None, set[str]]] = []
+        for round_num, records in by_round.items():
+            known = sorted({seq for r in records if (seq := cls._vote_sequence(r)) is not None})
+            slots: list[int | None] = list(known) if known else [None]
+            for sequence in slots:
+                hashes = {r["block_hash"] for r in records if cls._vote_sequence(r) in (None, sequence)}
+                if len(hashes) > 1:
+                    found.append((round_num, sequence, hashes))
+        return found
 
     def _detect_cross_view_commit_equivocations(self, validator: str) -> bool:
         """Slash a validator that COMMIT two different block hashes at the
@@ -1197,6 +1229,7 @@ class MultiValidatorPoA:
         messages: list[dict[str, Any]],
         round_num: int,
         block_hashes: set[str],
+        sequence: int | None = None,
     ):
         """Build the slashing event for one conflicting round (#1263).
 
@@ -1209,7 +1242,11 @@ class MultiValidatorPoA:
         phase = "prepare" if store is self.prepare_messages else "commit"
         by_hash: dict[str, dict[str, Any]] = {}
         for msg in messages:
-            if msg.get("round") == round_num and msg.get("block_hash") in block_hashes:
+            if (
+                msg.get("round") == round_num
+                and msg.get("block_hash") in block_hashes
+                and self._vote_sequence(msg) in (None, sequence)
+            ):
                 by_hash.setdefault(msg["block_hash"], msg)
         signed = [{k: m.get(k) for k in self._VOTE_EVIDENCE_FIELDS} for m in list(by_hash.values())[:2]]
         if (
