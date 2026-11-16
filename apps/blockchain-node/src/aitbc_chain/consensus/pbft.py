@@ -1578,6 +1578,10 @@ class PBFTConsensus:
             # check off (expected_sender=None skips it) — drop the NEW_VIEW.
             logger.warning("Dropping NEW_VIEW for %s:%s: proposer schedule unavailable", seq, view)
             return
+        # Cheap sender pre-filter BEFORE the ~n ECDSA verifications in verify_new_view.
+        if canonical_address(str(data.get("sender", ""))) != canonical_address(expected):
+            logger.debug("Dropping NEW_VIEW for %s:%s: sender is not the scheduled proposer", seq, view)
+            return
         ok, reason, kind, selected = verify_new_view(
             data,
             self._vc_participants(),
