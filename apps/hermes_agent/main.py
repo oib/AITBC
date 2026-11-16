@@ -239,7 +239,7 @@ def _kill_process_group(proc: asyncio.subprocess.Process) -> None:
         os.killpg(proc.pid, signal.SIGKILL)
     except (ProcessLookupError, PermissionError, OSError):
         try:
-            proc.kill()  # noqa: unawaited-async — Process.kill() is synchronous
+            proc.kill()  # Process.kill() is synchronous
         except ProcessLookupError:
             pass
 

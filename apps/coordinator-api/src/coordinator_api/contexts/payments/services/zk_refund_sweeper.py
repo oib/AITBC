@@ -230,7 +230,7 @@ class ZkRefundSweeper:
         if payment and payment.status == "refunded" and payment.refund_transaction_hash:
             job.payment_status = "refunded"
             session.add(job)
-            session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+            session.commit()  # sync Session (sqlmodel)
             counts["refunded"] += 1
             logger.info("Refunded payment %s for job %s due to failed ZK receipt", job.payment_id, job.id)
         else:
@@ -255,7 +255,7 @@ class ZkRefundSweeper:
                 escrow.is_active = False
                 escrow.refunded_at = None
                 session.add(escrow)
-            session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+            session.commit()  # sync Session (sqlmodel)
 
     def _handle_zk_refund_refusal(self, session: Any, job: Job, counts: dict[str, int]) -> None:
         counts["failed"] += 1
@@ -281,7 +281,7 @@ class ZkRefundSweeper:
                 escrow.is_active = False
                 escrow.refunded_at = None
                 session.add(escrow)
-            session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+            session.commit()  # sync Session (sqlmodel)
         else:
             logger.warning("Job %s ZK refund did not settle; retrying next sweep", job.id)
 

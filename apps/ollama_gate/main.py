@@ -377,7 +377,7 @@ async def _dispatch_gated(request: Request, path: str, job: dict[str, Any]) -> R
         if released:
             return
         released = True
-        _inflight.release()  # noqa: unawaited-async — threading.BoundedSemaphore.release is sync
+        _inflight.release()  # threading.BoundedSemaphore.release is sync
         with _jobs_mu:
             _inflight_jobs.discard(job_id)
 
