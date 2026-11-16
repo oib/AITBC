@@ -11,6 +11,7 @@ from collections.abc import Callable, Iterator
 from typing import Any, TypeVar
 
 from sqlalchemy import update
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.dialects.postgresql import insert as postgresql_insert
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlmodel import col, select
@@ -109,7 +110,7 @@ class BridgeFinalityMixin(BridgeBase):
         while True:
             try:
                 return fn()
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - inspect-and-reraise: any lock-shaped error must retry regardless of which driver wrapped it
                 if not self._is_sqlite_lock_error(exc):
                     raise
                 attempt += 1
@@ -402,7 +403,7 @@ class BridgeFinalityMixin(BridgeBase):
         # own — would verify, so a missing or unreadable set fails closed.
         try:
             vset = self.get_validator_set(header.chain_id)
-        except Exception as e:
+        except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             logger.warning("Validator set lookup failed for chain=%s (%s); rejecting header", header.chain_id, e)
             return False
 
@@ -465,7 +466,7 @@ class BridgeFinalityMixin(BridgeBase):
             value_bytes = lock_value.encode() if isinstance(lock_value, str) else lock_value
 
             return trie.verify_proof(key_bytes, value_bytes, proof_bytes)
-        except Exception as e:
+        except (AttributeError, TypeError, ValueError) as e:
             logger.warning("Merkle proof verification error: %s", e)
             return False
 

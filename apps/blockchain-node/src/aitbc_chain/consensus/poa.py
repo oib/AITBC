@@ -24,6 +24,7 @@ from .vote_journal import (
 )
 
 from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import Session, select
 
 from aitbc.async_tasks import create_task_with_logging as create_task_with_logging
@@ -564,7 +565,17 @@ class _PoaBaseMixin:
                 len(validators),
                 self._config.chain_id,
             )
-        except Exception as e:
+        except (
+            ImportError,
+            SQLAlchemyError,
+            ArithmeticError,
+            OSError,
+            RuntimeError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            KeyError,
+        ) as e:
             self._logger.warning("Failed to load validator set: %s", e)
 
     def _load_validator_keys(self) -> None:
@@ -580,7 +591,7 @@ class _PoaBaseMixin:
                 len(self._validator_keys),
                 self._config.chain_id,
             )
-        except Exception as e:
+        except (ImportError, RecursionError, TypeError, ValueError) as e:
             self._logger.warning("Failed to load validator keys: %s", e)
 
     def _select_proposer(self, block_height: int, round_number: int = 0) -> str | None:

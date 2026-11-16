@@ -109,13 +109,13 @@ class _CollectMixin(_RoundLockMixin):
         # Subscribe first to avoid missing a fast response.
         try:
             sub = await _ra.gossip_broker.subscribe(self._response_topic, max_queue_size=1000)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - gossip subscribe is a pluggable backend (in-memory/redis/websocket); driver error families differ per backend
             logger.warning("Failed to subscribe to attestation responses: %s", e)
             return []
 
         try:
             await _ra.gossip_broker.publish(self._request_topic, request)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - gossip publish is a pluggable backend (in-memory/redis/websocket); driver error families differ per backend
             logger.warning("Failed to publish attestation request: %s", e)
             sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
             return []
@@ -389,7 +389,7 @@ class _CollectMixin(_RoundLockMixin):
                         attestation_record["round"] = str(ctx.collect_round)
                     ctx.run.attestations.append(attestation_record)
                     outcome = f"valid rank={len(ctx.run.attestations)}"
-        except Exception as e:
+        except (ImportError, RecursionError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             logger.warning("Failed to verify attestation from %s: %s", validator, e)
             outcome = "verify_error"
         return outcome

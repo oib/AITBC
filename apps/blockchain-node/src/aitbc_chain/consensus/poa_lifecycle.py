@@ -121,7 +121,7 @@ class _LifecycleMixin(_PoaBaseMixin):
                         await asyncio.wait_for(self._stop_event.wait(), timeout=self._config.interval_seconds)
                     except TimeoutError:
                         pass
-            except Exception as exc:  # noqa: BLE001
+            except Exception as exc:  # noqa: BLE001 - the proposer loop must never die; the proposal pipeline's failure surface is unbounded
                 self._logger.error("Failed to propose block: %s\n%s", exc, traceback.format_exc())
                 await asyncio.sleep(1.0)
 

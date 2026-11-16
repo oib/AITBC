@@ -7,6 +7,7 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
+from sqlalchemy.exc import SQLAlchemyError
 from sqlmodel import select
 
 from aitbc.async_tasks import create_task_with_logging
@@ -133,7 +134,7 @@ class _ListenerMixin(_RaBaseMixin):
     async def _listen(self) -> None:
         try:
             sub = await _ra.gossip_broker.subscribe(self._request_topic, max_queue_size=1000)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - gossip subscribe is a pluggable backend (in-memory/redis/websocket); driver error families differ per backend
             logger.warning("Failed to subscribe to attestation requests: %s", e)
             return
 
@@ -144,7 +145,17 @@ class _ListenerMixin(_RaBaseMixin):
                     break
                 try:
                     await self._handle_request(request)
-                except Exception as e:
+                except (
+                    ImportError,
+                    SQLAlchemyError,
+                    ArithmeticError,
+                    OSError,
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    AttributeError,
+                    KeyError,
+                ) as e:
                     logger.warning("Error handling attestation request: %s", e)
         finally:
             sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
@@ -154,7 +165,7 @@ class _ListenerMixin(_RaBaseMixin):
         topic = abandon.abandon_topic(self._chain_id)
         try:
             sub = await _ra.gossip_broker.subscribe(topic, max_queue_size=256)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - gossip subscribe is a pluggable backend (in-memory/redis/websocket); driver error families differ per backend
             logger.warning("Failed to subscribe to abandon statements: %s", e)
             return
         try:
@@ -163,7 +174,16 @@ class _ListenerMixin(_RaBaseMixin):
                     break
                 try:
                     self.handle_abandon(payload)
-                except Exception as e:
+                except (
+                    ImportError,
+                    ArithmeticError,
+                    AttributeError,
+                    KeyError,
+                    OSError,
+                    RuntimeError,
+                    TypeError,
+                    ValueError,
+                ) as e:
                     logger.warning("Error handling abandon statement: %s", e)
         finally:
             sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
@@ -192,7 +212,7 @@ class _ListenerMixin(_RaBaseMixin):
         topic = unavail.query_topic(self._chain_id)
         try:
             sub = await _ra.gossip_broker.subscribe(topic, max_queue_size=256)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - gossip subscribe is a pluggable backend (in-memory/redis/websocket); driver error families differ per backend
             logger.warning("Failed to subscribe to unavailability queries: %s", e)
             return
         logger.info("Subscribed to unavailability queries on %s", topic)
@@ -202,7 +222,17 @@ class _ListenerMixin(_RaBaseMixin):
                     break
                 try:
                     await self._handle_unavail_query(query)
-                except Exception as e:
+                except (
+                    ImportError,
+                    SQLAlchemyError,
+                    ArithmeticError,
+                    OSError,
+                    RuntimeError,
+                    ValueError,
+                    TypeError,
+                    AttributeError,
+                    KeyError,
+                ) as e:
                     logger.warning("Error handling unavailability query: %s", e)
         finally:
             sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
@@ -217,7 +247,7 @@ class _ListenerMixin(_RaBaseMixin):
         """
         try:
             sub = await _ra.gossip_broker.subscribe(self._response_topic, max_queue_size=2000)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - gossip subscribe is a pluggable backend (in-memory/redis/websocket); driver error families differ per backend
             logger.warning("Failed to subscribe to attestation responses for index: %s", e)
             return
         logger.info("Subscribed to attestation responses for observation index on %s", self._response_topic)
@@ -346,7 +376,7 @@ class _ListenerMixin(_RaBaseMixin):
             try:
                 response = unavail.build_unavail_response(self._chain_id, height, block_hash, epoch, canon, private_key)
                 await _ra.gossip_broker.publish(unavail.response_topic(self._chain_id), response)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - gossip publish is a pluggable backend (in-memory/redis/websocket); driver error families differ per backend
                 logger.warning("Failed to publish unavailability response: %s", e)
             # One statement per node keeps the certificate compact; a node
             # holding several validator keys still answers once — the
@@ -750,7 +780,7 @@ class _ListenerMixin(_RaBaseMixin):
             message["round"] = ctx.request_round
         try:
             signature = _sign_attestation(message, private_key, ctx.height_int)
-        except Exception as e:
+        except (ImportError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             logger.warning("Failed to sign attestation: %s", e)
             return False
         return await self._record_and_publish(ctx, address, message, signature)
@@ -822,7 +852,7 @@ class _ListenerMixin(_RaBaseMixin):
             response["request_age_ms"] = int((_ra.time.time() - float(request_ts)) * 1000)
         try:
             await _ra.gossip_broker.publish(self._response_topic, response)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - gossip publish is a pluggable backend (in-memory/redis/websocket); driver error families differ per backend
             logger.warning("Failed to publish attestation response: %s", e)
             return False
         request_age_ms = response.get("request_age_ms", "unknown")

@@ -238,7 +238,7 @@ def bridge_credit_private_key(target_chain: str | None = None) -> str | None:
                 key = str(json.loads(raw_map).get(target_chain) or "").strip()
                 if key:
                     return key
-            except Exception:
+            except (AttributeError, RecursionError, TypeError, ValueError):
                 logger.warning("BRIDGE_RELEASE_KEYS_JSON is not valid JSON — ignoring the per-target key map")
     key = (getattr(settings, "bridge_release_private_key", "") or os.getenv("BRIDGE_RELEASE_PRIVATE_KEY", "")).strip()
     if not key:
