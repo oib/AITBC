@@ -1566,4 +1566,7 @@ class TestRespinRemainder:
         pbft = _pbft(consensus, local, KEYS[local])
         assert await pbft._send_view_change(SEQ, 4)
         for v in (0, 1, 2, 3):
+            # Even a verified free NEW_VIEW at the lower view cannot reopen it:
+            # only the floor check refuses here (a missing NV would too).
+            pbft._new_views[(SEQ, v)] = {"payload": {}, "kind": "free", "selected": None}
             assert pbft._view_change_permit(SEQ, v, HA) is False
