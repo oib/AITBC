@@ -10,10 +10,12 @@ from typing import Any
 
 import click
 import websockets
+import httpx
 from websockets.exceptions import WebSocketException
 
+from aitbc.exceptions import AITBCError
 from ..config import get_config
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils import error, info, output, success
 from ..utils.agent_signing import (
     agent_login_token,
@@ -26,6 +28,25 @@ from ..utils.agent_signing import (
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger
 from ..utils.wallet_paths import find_wallet_file, wallet_search_dirs
 from ..utils.wallet_secret import wallet_password_options
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 logger = get_logger(__name__)
 
@@ -117,7 +138,7 @@ def _ws_auth_token(
         signing = load_signing_wallet(
             ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
         )
-    except Exception as e:
+    except _OPS_ERRORS as e:
         info(f"Wallet login unavailable ({e})")
         signing = None
     if signing is not None:
@@ -158,7 +179,7 @@ def _default_wallet_name() -> str | None:
         with open(config_file) as f:
             config = yaml.safe_load(f)
         return config.get("active_wallet") if isinstance(config, dict) else None
-    except Exception:
+    except Exception:  # noqa: BLE001 - best-effort probe: optional in-try `import yaml` plus parse failures must degrade to None
         logger.debug("Failed to read active_wallet from config.yaml", exc_info=True)
         return None
 
@@ -290,7 +311,7 @@ def send(
             timeout=10,
             **auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, get_config().api_key),
         )
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error creating coordinator client: {e}")
         return
 
@@ -373,7 +394,7 @@ def _post_agent_message(
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error sending message: {e}")
 
 
@@ -441,7 +462,7 @@ def receive(
         output(messages_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error receiving messages: {e}")
         return
 
@@ -471,7 +492,7 @@ def peers(ctx, coordinator_url: str | None):
         output(peers_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error fetching peers: {e}", from_exception=e)
 
 

@@ -20,7 +20,9 @@ import json
 import sys
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils.wallet_secret import wallet_password_options
 from ..utils import error, info, output, success, warning
@@ -31,6 +33,26 @@ from ..utils.energy_quote import (
     verify_quote_against_oracle,
 )
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger
+from ..utils.error_handling import CLIError
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 logger = get_logger(__name__)
 
@@ -575,7 +597,7 @@ def _evm_rate_value(config, scale):
         rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
         oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
         return Decimal(oracle.get_rate().ait_per_eur_scaled) / scale
-    except Exception as exc:  # oracle unavailable -> reference fallback
+    except _OPS_ERRORS as exc:  # oracle unavailable -> reference fallback
         logger.warning("On-chain rate read failed (%s); using reference", exc)
         return None
 
@@ -589,7 +611,7 @@ def _native_rate_value(ctx):
         native_rate = Decimal(str(result["ait_per_eur"]))
         if native_rate > 0:
             return native_rate
-    except Exception as exc:  # coordinator unavailable -> reference fallback
+    except _OPS_ERRORS as exc:  # coordinator unavailable -> reference fallback
         logger.warning("Native rate read failed (%s); using reference", exc)
     return None
 

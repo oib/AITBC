@@ -8,14 +8,35 @@ from collections import Counter
 from typing import Any, cast
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..auth import AuthManager
 from ..utils import error, info, output, success, warning
 from ..utils.address import to_canonical
-from ..utils.error_handling import LOGIN_HINT, LOGIN_REJECTED_HINT, is_unauthorized
+from ..utils.error_handling import CLIError, LOGIN_HINT, LOGIN_REJECTED_HINT, is_unauthorized
 from ..utils.http_client import AITBCHTTPClient, JSONResponse, NetworkError, get_logger
 from aitbc.config.hub import normalize_hub_base
 from aitbc.utils import format_ait
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 logger = get_logger(__name__)
 
@@ -157,7 +178,7 @@ def _safe_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None 
             _warn_unauthorized_once(client)
         logger.warning("Dashboard GET %s failed: %s", path, e)
         return None
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Dashboard GET %s failed: %s", path, e)
         return None
 
@@ -201,7 +222,7 @@ def _safe_post_or_get(client: AITBCHTTPClient, path: str, params: dict[str, Any]
             logger.warning("Dashboard POST %s failed: %s", path, e)
             return None
         logger.debug("POST %s not allowed; retrying as GET", path)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Dashboard POST %s failed: %s", path, e)
         return None
     return _safe_get(client, path, params=params)
@@ -214,7 +235,7 @@ def _blockchain_balance(rpc_url: str, address: str, chain_id: str) -> tuple[int,
         client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         data = client.get(f"/rpc/account/{canon}") or {}
         return int(data.get("balance", 0)), int(data.get("nonce", 0)), data.get("chain_id", chain_id)
-    except Exception:
+    except _OPS_ERRORS:
         logger.debug("Blockchain balance query failed for %s", address, exc_info=True)
         return 0, 0, chain_id
 
@@ -265,7 +286,7 @@ def _escrow_payment_status(blockchain_rpc_url: str, job_id: str) -> str | None:
             "refunded": "refunded",
         }
         return mapping.get(state)
-    except Exception:
+    except _OPS_ERRORS:
         logger.debug("Escrow payment status query failed for %s", job_id, exc_info=True)
         return None
 
@@ -499,7 +520,7 @@ def _shop_sla_data(miner_id: str) -> dict[str, Any]:
                 _shop_sla_violations(sla_client, sla_data, miner_id)
             sla_data["pool_hub_url"] = pool_hub_url
             break
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("SLA section unavailable: %s", e)
     return sla_data
 
@@ -618,7 +639,7 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
             success("Customer dashboard loaded")
     except click.Abort:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         error(f"Error loading customer dashboard: {e}")
         raise click.Abort() from e
 
@@ -666,6 +687,6 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         success("Shop dashboard loaded")
     except click.Abort:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         error(f"Error loading shop dashboard: {e}")
         raise click.Abort() from e

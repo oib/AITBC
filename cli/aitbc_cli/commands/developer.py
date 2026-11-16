@@ -5,11 +5,32 @@ from __future__ import annotations
 import os
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils import output, resolve_output_format
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, service_root_url
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 COORDINATOR_API_URL = "http://localhost:8203"
 
@@ -75,7 +96,7 @@ def register(
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error registering developer: {e}")
 
 
@@ -103,5 +124,5 @@ def list_developers(ctx, active_only: bool, limit: int, offset: int, format: str
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error listing developers: {e}")

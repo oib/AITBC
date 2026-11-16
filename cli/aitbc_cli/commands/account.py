@@ -1,13 +1,34 @@
 """Account commands for AITBC CLI"""
 
 import click
+import httpx
 
 from aitbc.utils import format_ait
 
+from aitbc.exceptions import AITBCError
 from ..utils import output
 from ..utils.address import to_eip55
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 @click.group(
@@ -60,7 +81,7 @@ def get(ctx, address, rpc_url, chain_id):
         output(account_data, fmt, title=f"Account: {canonical}")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting account: {e}", from_exception=e)
 
 
@@ -94,5 +115,5 @@ def list(ctx, rpc_url, chain_id):
         output(accounts, fmt, title="Accounts")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error listing accounts: {e}", from_exception=e)

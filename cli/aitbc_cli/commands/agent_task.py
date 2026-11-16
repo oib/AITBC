@@ -25,9 +25,11 @@ from pathlib import Path
 from typing import Any, cast
 
 import click
+import httpx
 
 from aitbc.utils.units import ait_to_units
 
+from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils.wallet_secret import wallet_password_options
 from ..utils import error, info, output, success, warning
@@ -42,7 +44,26 @@ from ..utils.wallet_loader import load_wallet_for_payment
 from .ipfs import _daemon_available, _ipfs_add_file, _is_cid
 from .market.escrow import _get_blockchain_rpc_url
 from .market.host import _resolve_ipfs_api
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 logger = get_logger(__name__)
 
@@ -94,7 +115,7 @@ def _send_task_message(
         body = sign_send_envelope(body, address, private_key)
     try:
         return client.post("/api/v1/agent/messages/send", json=body)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         warning(f"Failed to send {message_type}: {e}")
         return None
 
@@ -112,7 +133,7 @@ def _inbox(
     headers = signed_request_headers(agent_id, signing_key) if signing_key else None
     try:
         data = client.get("/api/v1/agent/messages/inbox", params=params, headers=headers)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         warning(f"Inbox poll failed: {e}")
         return []
     messages = data.get("messages", []) if isinstance(data, dict) else []
@@ -147,7 +168,7 @@ def _find_task_messages(messages: list[dict[str, Any]], task_id: str) -> dict[st
 def _resolve_provider_wallet(client: AITBCHTTPClient, agent_id: str) -> str | None:
     try:
         data = client.get(f"/v1/agents/{agent_id}")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Could not look up agent {agent_id}: {e}")
         return None
     agent = data.get("agent", {}) if isinstance(data, dict) else {}
@@ -182,7 +203,7 @@ def _parse_max_price(max_price: str) -> Decimal:
     """Parse --max-price as a positive AIT amount or abort."""
     try:
         max_price_ait = Decimal(str(max_price))
-    except Exception:
+    except (ArithmeticError, TypeError, ValueError):
         error(f"Invalid --max-price: {max_price}")
         raise click.Abort() from None
     if max_price_ait <= 0:
@@ -292,7 +313,7 @@ def _submit_task(
             private_key,
             node_wallet=settlement_wallet,
         )
-    except Exception as e:
+    except _OPS_ERRORS as e:
         error(f"Failed to build escrow lock transaction: {e}")
         raise click.Abort() from e
 
@@ -325,7 +346,7 @@ def _submit_task(
                 },
             },
         )
-    except Exception as e:
+    except _OPS_ERRORS as e:
         error(f"Task submission failed: {e}")
         raise click.Abort() from e
     escrow_id = submission.get("escrow_id") if isinstance(submission, dict) else None
@@ -362,7 +383,7 @@ def _fetch_result_capped(ipfs_api: str, result_ref: object) -> bytes:
                 if total > _RESULT_MAX_BYTES:
                     raise ValueError(f"result exceeds {_RESULT_MAX_BYTES} bytes")
                 chunks.append(chunk)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         error(f"Could not fetch result {result_ref}: {e}")
         raise click.Abort() from e
     return b"".join(chunks)
@@ -605,7 +626,7 @@ def status(
     try:
         data = client.get(f"/v1/tasks/{task_id}/escrow")
         escrow = data.get("escrow") if isinstance(data, dict) else None
-    except Exception as e:
+    except _OPS_ERRORS as e:
         warning(f"Escrow lookup failed: {e}")
 
     found = _find_task_messages(_inbox(client, buyer_agent, signing_key=signing_key), task_id)

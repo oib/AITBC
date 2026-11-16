@@ -6,15 +6,36 @@ import os
 from typing import Any
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils import output, resolve_output_format
 from ..auth import AuthManager, ExpiredAdminToken
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 
 from .auth import _resolve_private_key
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 def _looks_like_jwt(token: str) -> bool:
@@ -195,7 +216,7 @@ def create(
         output(result, resolve_output_format(ctx, format), title="Bond Created")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error creating bond for {provider_id}: {e}", from_exception=e)
 
 
@@ -245,7 +266,7 @@ def status(ctx, provider_id, coordinator_url, format):
         output(result, resolve_output_format(ctx, format), title="Bond Status")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error fetching bond status for {provider_id}: {e}", from_exception=e)
 
 
@@ -309,7 +330,7 @@ def top_up(
         output(result, resolve_output_format(ctx, format), title="Bond Top-Up")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error topping up bond for {provider_id}: {e}", from_exception=e)
 
 
@@ -332,7 +353,7 @@ def lock(ctx, provider_id, coordinator_url, format):
         output(result, resolve_output_format(ctx, format), title="Bond Locked")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error locking bond for {provider_id}: {e}", from_exception=e)
 
 
@@ -367,7 +388,7 @@ def release(ctx, provider_id, coordinator_url, format):
         output(result, resolve_output_format(ctx, format), title="Bond Released")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error releasing bond for {provider_id}: {e}", from_exception=e)
 
 
@@ -392,7 +413,7 @@ def slash(ctx, provider_id, reason, coordinator_url, format):
         output(result, resolve_output_format(ctx, format), title="Bond Slashed")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error slashing bond for {provider_id}: {e}", from_exception=e)
 
 
@@ -420,5 +441,5 @@ def appeal(ctx, bond_id, reason, evidence, coordinator_url, format):
         output(result, resolve_output_format(ctx, format), title="Slash Appeal")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error submitting slash appeal for {bond_id}: {e}", from_exception=e)

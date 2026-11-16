@@ -5,11 +5,32 @@ from __future__ import annotations
 import os
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils import output
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, service_root_url
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 def _api_client() -> AITBCHTTPClient | None:
@@ -52,7 +73,7 @@ def distributed(ctx, cost_optimize):
     try:
         result = {"action": "distributed_optimization", "cost_optimize": cost_optimize, "status": "simulated"}
         output(result, ctx.obj.get("output_format", "table"), title="Distributed Economics")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error in distributed economics: {e}", from_exception=e)
 
 
@@ -70,7 +91,7 @@ def model(ctx, type):
     try:
         result = {"action": "economic_modeling", "model_type": type, "status": "simulated"}
         output(result, ctx.obj.get("output_format", "table"), title="Economic Model")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error in economic modeling: {e}", from_exception=e)
 
 
@@ -87,7 +108,7 @@ def market(ctx):
     try:
         result = {"action": "market_analysis", "status": "simulated"}
         output(result, ctx.obj.get("output_format", "table"), title="Market Economics")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error in market analysis: {e}", from_exception=e)
 
 
@@ -131,7 +152,7 @@ def propose(ctx, parameter, current, proposed, unit, proposer_id):
         output(result, ctx.obj.get("output_format", "table"), title="Economic Proposal")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error submitting economic proposal: {e}", from_exception=e)
 
 
@@ -160,7 +181,7 @@ def vote(ctx, proposal_id, vote, voting_power):
         output(result, ctx.obj.get("output_format", "table"), title="Economic Vote")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error voting on proposal {proposal_id}: {e}", from_exception=e)
 
 
@@ -191,5 +212,5 @@ def status(ctx, proposal_id):
         output(result, ctx.obj.get("output_format", "table"), title="Economic Proposal Status")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error fetching proposal {proposal_id}: {e}", from_exception=e)

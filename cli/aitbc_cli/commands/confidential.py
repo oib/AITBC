@@ -14,14 +14,35 @@ from __future__ import annotations
 import os
 
 import click
+import httpx
 
 from aitbc.agent_economics.confidential_payments import ConfidentialPayment, settle_payment, validate_payment
 from aitbc.wallet.confidential import ConfidentialWallet
 
+from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils import output
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 def _api_client() -> AITBCHTTPClient | None:
@@ -147,7 +168,7 @@ def send(ctx, wallet_id: str, recipient_id: str, amount: str):
         output(result, ctx.obj.get("output_format", "table"), title="Confidential Send")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error sending confidential transaction: {e}", from_exception=e)
 
 
@@ -168,5 +189,5 @@ def balance(ctx, wallet_id: str):
         proof["wallet_id"] = wallet_id
         proof["status"] = "simulated"
         output(proof, ctx.obj.get("output_format", "table"), title="Confidential Balance")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error fetching confidential balance for {wallet_id}: {e}", from_exception=e)

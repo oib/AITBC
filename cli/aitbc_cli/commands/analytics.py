@@ -5,12 +5,33 @@ from datetime import datetime, timedelta
 from typing import Any
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..core.analytics import ChainAnalytics
 from ..core.config import load_multichain_config
 from ..utils import output, resolve_output_format, success
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import get_logger
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 def _fmt(ctx: click.Context, command_format: str | None) -> str:
@@ -123,7 +144,7 @@ def summary(ctx, chain_id, hours, format):
     except CLIError:
         # abort() already printed the error once — do not wrap it again.
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting analytics summary: {str(e)}", from_exception=e)
 
 
@@ -183,7 +204,7 @@ def _monitor_table_or_error(analytics: ChainAnalytics, cid: str | None) -> Any:
             # All chains monitoring
             _all_chains_rows(table, analytics)
         return table
-    except Exception as e:
+    except _OPS_ERRORS as e:
         logger.warning("Error collecting metrics: %s", e, exc_info=True)
         return f"Error collecting metrics: {e}"
 
@@ -273,7 +294,7 @@ def monitor(ctx, realtime, interval, chain_id):
     except CLIError:
         # abort() already printed the error once — do not wrap it again.
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error during monitoring: {str(e)}", from_exception=e)
 
 
@@ -346,7 +367,7 @@ def predict(ctx, chain_id, hours, format):
 
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error generating predictions: {str(e)}", from_exception=e)
 
 
@@ -423,7 +444,7 @@ def optimize(ctx, chain_id, format):
 
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting optimization recommendations: {str(e)}", from_exception=e)
 
 
@@ -475,7 +496,7 @@ def alerts(ctx, severity, hours, format):
 
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting alerts: {str(e)}", from_exception=e)
 
 
@@ -507,5 +528,5 @@ def dashboard(ctx, format):
         else:
             abort(ctx, "Dashboard data only available in JSON format")
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting dashboard data: {str(e)}", from_exception=e)

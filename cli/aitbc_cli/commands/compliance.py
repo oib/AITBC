@@ -8,13 +8,34 @@ from datetime import UTC, datetime
 from typing import Any
 
 import click
+import httpx
 
 from aitbc.compliance.policies import ComplianceFramework, DataClassification, load_policy_template, normalize_classification
 
+from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils import output
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, service_root_url
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 def _api_client() -> AITBCHTTPClient | None:
@@ -67,7 +88,7 @@ def check(ctx, framework: str, classification: str):
             "status": "simulated",
         }
         output(result, ctx.obj.get("output_format", "table"), title="Compliance Check")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error checking compliance: {e}", from_exception=e)
 
 
@@ -97,7 +118,7 @@ def classify(ctx, label: str):
             },
         }
         output(result, ctx.obj.get("output_format", "table"), title="Classification")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error normalizing classification {label}: {e}", from_exception=e)
 
 
@@ -147,5 +168,5 @@ def export_audit(ctx, output_file: str):
         output(result, ctx.obj.get("output_format", "table"), title="Audit Export")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error exporting audit records: {e}", from_exception=e)

@@ -5,7 +5,9 @@ from datetime import datetime
 from typing import Any
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..utils import info, output, resolve_output_format, success
 from ..utils.wallet_secret import wallet_password_options
 from ..utils.agent_signing import (
@@ -17,6 +19,25 @@ from ..utils.agent_signing import (
 )
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, origin_base_url
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 logger = get_logger(__name__)
 
@@ -151,7 +172,7 @@ def register(
             abort(ctx, f"Failed to register agent {agent_id}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error registering agent: {str(e)}", from_exception=e)
 
 
@@ -207,7 +228,7 @@ def list_agents(ctx, chain_id, status, capabilities, output_format):
         output(agent_data, _fmt(ctx, output_format), title="Registered Agents")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error listing agents: {str(e)}", from_exception=e)
 
 
@@ -252,7 +273,7 @@ def discover(ctx, chain_id, capabilities, output_format):
         output(agent_data, _fmt(ctx, output_format), title=f"Agents on Chain {chain_id}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error discovering agents: {str(e)}", from_exception=e)
 
 
@@ -293,7 +314,7 @@ def status(ctx, agent_id, output_format):
         output(status_data, _fmt(ctx, output_format), title=f"Agent Status: {agent_id}")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting agent status: {str(e)}", from_exception=e)
 
 
@@ -355,7 +376,7 @@ def network(ctx, output_format):
             output(chain_data, _fmt(ctx, output_format), title="Agents by Chain")
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting network overview: {str(e)}", from_exception=e)
 
 
@@ -439,7 +460,7 @@ def send(
         output(result, ctx.obj.get("output_format", "table"))
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error sending message: {str(e)}", from_exception=e)
 
 
@@ -540,5 +561,5 @@ def receive(ctx, receiver_id, limit, wallet_name, password, password_file, passw
         output(result, _fmt(ctx, format))
     except CLIError:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error receiving messages: {e}", from_exception=e)

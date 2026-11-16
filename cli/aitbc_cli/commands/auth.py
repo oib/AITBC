@@ -6,15 +6,36 @@ import json
 from pathlib import Path
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..auth import AuthManager
 from ..config import get_config
 from ..utils import info, output, success, warning
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_paths import find_wallet_file, is_service_wallet_path
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 @click.group(
@@ -154,7 +175,7 @@ def _account_from_key(ctx, raw_key: str):
         from eth_account import Account
 
         return Account.from_key(raw_key)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Invalid private key: {e}", from_exception=e)
         return None
 
@@ -179,7 +200,7 @@ def _sign_login_message(ctx, account, address: str, nonce: str) -> str:
     signable = encode_defunct(text=message)
     try:
         signed = account.sign_message(signable)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Failed to sign login message: {e}", from_exception=e)
         raise AssertionError("unreachable: abort always raises") from e
     signature_hex: str = signed.signature.hex()
