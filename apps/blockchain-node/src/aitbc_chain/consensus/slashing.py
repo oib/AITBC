@@ -232,10 +232,27 @@ def cap_history_per_height(events: list[SlashingEvent], cap: int) -> list[Slashi
         buckets.setdefault(_height_key(event), []).append(event)
     keep: set[int] = set()
     for bucket in buckets.values():
-        signed = [e for e in bucket if event_signature_evidence(e) is not None]
-        unsigned = [e for e in bucket if event_signature_evidence(e) is None]
-        keep.update(id(e) for e in (signed + unsigned)[:cap])
+        # Levied events first (#2127: the audit trail of an executed penalty must
+        # not be compacted away), then signed evidence, then the oldest advisory.
+        levied = [e for e in bucket if e.is_applied]
+        signed = [e for e in bucket if not e.is_applied and event_signature_evidence(e) is not None]
+        unsigned = [e for e in bucket if not e.is_applied and event_signature_evidence(e) is None]
+        keep.update(id(e) for e in (levied + signed + unsigned)[:cap])
     return [e for e in events if id(e) in keep]
+
+
+def _remove_by_identity(events: list[SlashingEvent], victim: SlashingEvent) -> bool:
+    """Delete ``victim`` from ``events`` by identity (#2125).
+
+    ``list.remove`` is equality-based and ``SlashingEvent`` is a dataclass, so a
+    field-equal sibling earlier in the list would be removed instead while the
+    index dropped the victim's entries.
+    """
+    for i in range(len(events) - 1, -1, -1):
+        if events[i] is victim:
+            del events[i]
+            return True
+    return False
 
 
 class _HistoryIndex:
@@ -271,9 +288,13 @@ class _HistoryIndex:
                 break
 
     def newest_unsigned_at(self, event: SlashingEvent) -> SlashingEvent | None:
-        """The most recently recorded advisory (unsigned) event in ``event``'s bucket."""
+        """The most recently recorded evictable event in ``event``'s bucket.
+
+        Evictable = advisory (no signature evidence) AND never levied: an applied
+        event is the record of a penalty already deducted (#2127).
+        """
         for candidate in reversed(self.by_height.get(_height_key(event), ())):
-            if event_signature_evidence(candidate) is None:
+            if event_signature_evidence(candidate) is None and not candidate.is_applied:
                 return candidate
         return None
 
@@ -305,6 +326,27 @@ class SlashingManager:
             index = _HistoryIndex(events)
             self._index = index
         return index
+
+    def _admit_at_cap(self, index: _HistoryIndex, event: SlashingEvent) -> bool:
+        """Make room for ``event`` under the per-height cap (#2118/#2124).
+
+        True when there is room (or the cap is off). At the cap a signature-bearing
+        event displaces the newest evictable record in its bucket (identity-based
+        removal, #2125); an unsigned event, or a bucket holding only signed/levied
+        records, is refused. Shared by the levying and the advisory path so the
+        two cannot disagree about signed priority.
+        """
+        cap = _max_events_per_height()
+        if cap <= 0 or index.count_at(event) < cap:
+            return True
+        victim = index.newest_unsigned_at(event) if event_signature_evidence(event) is not None else None
+        if victim is None:
+            metrics_registry.increment("slashing_events_cap_refused_total")
+            return False
+        _remove_by_identity(self.slashing_events, victim)
+        index.remove(victim)
+        metrics_registry.increment("slashing_events_cap_evicted_total")
+        return True
 
     def detect_double_sign(self, validator: str, block_hash1: str, block_hash2: str, height: int) -> SlashingEvent | None:
         """Detect double signing (validator signed two different blocks at same height)"""
@@ -387,10 +429,10 @@ class SlashingManager:
         # recorded offence at a height already carries the deactivation
         # evidence; a flood of distinct forged hash pairs at the same height
         # grew the persisted blob to 67 MB on hub (30,245 events at one
-        # height). Over the cap: no record, no further penalty. 0 = unbounded.
-        cap = _max_events_per_height()
-        if cap > 0 and index.count_at(event) >= cap:
-            metrics_registry.increment("slashing_events_cap_refused_total")
+        # height). #2124: at the cap a signature-bearing event displaces an
+        # unsigned advisory record instead of being refused, so a forged flood
+        # cannot suppress a later signed slash. 0 = unbounded.
+        if not self._admit_at_cap(index, event):
             return False
 
         stake_before = validator.stake
@@ -487,18 +529,9 @@ class SlashingManager:
             return existing
         # #2118 (respin): the advisory path filled hub's blob (30,417 events with
         # stake_before None never passed apply_slashing), so the same per-height cap
-        # applies here. Signature-bearing evidence is verifiable deactivation material
-        # and takes priority: at the cap it displaces the newest unsigned record at that
-        # height; with only signed records left it is refused, as is an unsigned one.
-        cap = _max_events_per_height()
-        if cap > 0 and index.count_at(event) >= cap:
-            victim = index.newest_unsigned_at(event) if event_signature_evidence(event) is not None else None
-            if victim is None:
-                metrics_registry.increment("slashing_events_cap_refused_total")
-                return event  # not recorded; callers only use it as a handle
-            self.slashing_events.remove(victim)
-            index.remove(victim)
-            metrics_registry.increment("slashing_events_cap_evicted_total")
+        # applies here, through the same admission rule as apply_slashing.
+        if not self._admit_at_cap(index, event):
+            return event  # not recorded; callers only use it as a handle
         self.slashing_events.append(event)
         index.add(new_key, event)
         index._sig = (id(self.slashing_events), len(self.slashing_events), id(event))
