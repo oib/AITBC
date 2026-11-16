@@ -25,11 +25,14 @@ from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA, Validat
 from aitbc_chain.consensus.pbft import PBFTConsensus, PBFTMessage, PBFTMessageType
 from aitbc_chain.consensus.pbft_certificate import validate_commit_certificate
 from aitbc_chain.consensus.pbft_vote_signature import pbft_vote_preimage, verify_pbft_vote_signature
+from aitbc_chain.consensus.slashing import SlashingManager, slashing_event_record
 from aitbc_chain.state.deactivation_evidence import (
     _cross_view_message_crypto_ok,
     _verify_vote_equivocation,
+    verify_deactivation_evidence,
 )
 from aitbc.crypto.consensus_signing import sign_consensus_message
+from aitbc.crypto.signature_recovery import canonical_address
 
 CHAIN_A = "chain-a-2102"
 CHAIN_B = "chain-b-2102"
@@ -214,3 +217,107 @@ class TestEquivocationEvidenceChainBinding:
         assert _cross_view_message_crypto_ok(fields, ADDR, CHAIN_A) is None
         reason = _cross_view_message_crypto_ok(fields, ADDR, CHAIN_B)
         assert reason is not None and "signature" in reason
+
+
+# ---------------------------------------------------------------------------
+# Empty chain_id — sign/verify symmetry (#2102 respin)
+# ---------------------------------------------------------------------------
+
+
+class TestEmptyChainId:
+    """``settings.chain_id`` defaults to ``""``: an empty chain must sign the
+    legacy preimage, or ``_sign_message``/``_verify_message_signature``
+    diverge and the node cannot verify its own votes (self-DoS)."""
+
+    def test_empty_chain_id_preimage_is_legacy(self):
+        rec = _record(ADDR)
+        assert pbft_vote_preimage(rec, "") == pbft_vote_preimage(rec, None)
+        assert "chain_id" not in pbft_vote_preimage(rec, "")
+
+    def test_empty_chain_id_signature_verifies(self):
+        rec = _record(ADDR)
+        sig = _sign(rec, KEY, "")
+        assert verify_pbft_vote_signature(rec, sig, ADDR, "")
+        assert verify_pbft_vote_signature(rec, sig, ADDR, None)
+        assert verify_pbft_vote_signature(rec, sig, ADDR, CHAIN_A)
+
+    def test_empty_chain_id_consensus_roundtrip(self):
+        pbft = _make_pbft("", priv=KEY)
+        msg = PBFTMessage(
+            message_type=PBFTMessageType.COMMIT,
+            sender=ADDR,
+            view_number=VIEW,
+            sequence_number=SEQ,
+            digest=_digest(BH, SEQ, VIEW),
+            signature="",
+            timestamp=0.0,
+            block_hash=BH,
+        )
+        pbft._sign_message(msg)
+        assert msg.signature
+        assert pbft._verify_message_signature(msg)
+
+
+# ---------------------------------------------------------------------------
+# verify_deactivation_evidence — end-to-end chain_id forwarding (#2102 respin)
+# ---------------------------------------------------------------------------
+
+
+def _v2_bundle(chain_id: str | None) -> dict[str, Any]:
+    """A v2 evidence bundle whose vote_equivocation messages are signed under
+    ``chain_id`` — the same shape ``_deactivation_payload`` emits."""
+    mgr = SlashingManager()
+    msgs = []
+    for h in (BH, BH2):
+        rec = _record(ADDR, block_hash=h)
+        msgs.append({**rec, "signature": _sign(rec, KEY, chain_id)})
+    mgr.slashing_events.append(mgr.vote_equivocation_event(ADDR, VIEW, "commit", msgs[0], msgs[1]))
+    canon = canonical_address(ADDR)
+    bundle_mgr = SlashingManager()
+    bundle_mgr.slashing_events = list(mgr.slashing_events)
+    return {
+        "validator_address": canon,
+        "evidence_hash": bundle_mgr.evidence_hash(canon),
+        "evidence_version": 2,
+        "evidence": [slashing_event_record(e) for e in mgr.slashing_events],
+    }
+
+
+class TestDeactivationEvidenceChainForwarding:
+    """Pin the public entry point: ``verify_deactivation_evidence`` must pass
+    its ``chain_id`` argument through to the leaf PBFT signature checks —
+    a ``chain_id=None`` forwarding mutation must fail these tests."""
+
+    def test_bound_bundle_verifies_on_own_chain(self):
+        payload = _v2_bundle(CHAIN_A)
+        assert (
+            verify_deactivation_evidence(
+                payload,
+                chain_id=CHAIN_A,
+                validator_addr=payload["validator_address"],
+                evidence_hash=payload["evidence_hash"],
+            )
+            is None
+        )
+
+    def test_bound_bundle_rejected_on_foreign_chain(self):
+        payload = _v2_bundle(CHAIN_A)
+        reason = verify_deactivation_evidence(
+            payload,
+            chain_id=CHAIN_B,
+            validator_addr=payload["validator_address"],
+            evidence_hash=payload["evidence_hash"],
+        )
+        assert reason is not None
+
+    def test_legacy_bundle_still_verifies(self):
+        payload = _v2_bundle(None)
+        assert (
+            verify_deactivation_evidence(
+                payload,
+                chain_id=CHAIN_B,
+                validator_addr=payload["validator_address"],
+                evidence_hash=payload["evidence_hash"],
+            )
+            is None
+        )
