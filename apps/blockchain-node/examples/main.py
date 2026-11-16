@@ -389,7 +389,7 @@ async def execute_deployment(deployment_id: str):
         deployment["status"] = "completed"
         deployment["completed_at"] = datetime.now(UTC).isoformat()
         logger.info("Deployment completed: %s", deployment_id)
-    except Exception as e:
+    except (KeyError, TypeError, ValueError, AttributeError) as e:
         deployment["status"] = "failed"
         deployment["error"] = str(e)
         logger.error("Deployment failed: %s - %s", deployment_id, str(e))
@@ -416,7 +416,7 @@ async def start_health_monitoring(balancer_id: str):
                     balancer["health_status"][region_id] = "healthy" if is_healthy else "unhealthy"
             update_load_balancer_weights(balancer_id)
             await asyncio.sleep(balancer["health_check_interval"])
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError) as e:
             logger.error("Health monitoring error for %s: %s", balancer_id, str(e))
             await asyncio.sleep(10)
 

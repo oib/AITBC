@@ -7,6 +7,9 @@ import asyncio
 import os
 from typing import Any
 
+import httpx
+from redis.exceptions import RedisError
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.network import SharedHttpClient
@@ -57,7 +60,7 @@ class ChainSyncService:
             self._redis = redis.from_url(self.redis_url)
             await self._redis.ping()
             logger.info("Connected to Redis for chain sync")
-        except Exception as e:
+        except (ImportError, RedisError, OSError, ValueError) as e:
             logger.error("Failed to connect to Redis: %s", e)
             return
         receive_task = create_task_with_logging(self._receive_blocks(), name="chain_sync_receive_blocks")
@@ -89,7 +92,7 @@ class ChainSyncService:
             if resp.status_code == 404:
                 return -1
             logger.warning("Failed to get import head height: RPC returned status %s", resp.status_code)
-        except Exception as e:
+        except (httpx.HTTPError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.warning("Failed to get import head height: %s", e)
         return -1
 
@@ -119,10 +122,10 @@ class ChainSyncService:
                         last_broadcast_height = current_height
                         logger.info("Broadcasted blocks up to height %s", current_height)
                 elif resp.status_code == 429:
-                    raise Exception("rate_limit")
+                    raise RuntimeError("rate_limit")
                 else:
-                    raise Exception(f"RPC returned status {resp.status_code}")
-            except Exception as e:
+                    raise RuntimeError(f"RPC returned status {resp.status_code}")
+            except (httpx.HTTPError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
                 retry_count += 1
                 if str(e) == "rate_limit":
                     delay = base_delay * 30
@@ -165,7 +168,7 @@ class ChainSyncService:
 
                     block_data = decode_payload(message["data"])
                     await self._import_block(block_data)
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - per-message isolation: one bad payload must not kill the subscription
                     logger.error("Error processing received block: %s", e)
         finally:
             try:
@@ -184,7 +187,7 @@ class ChainSyncService:
                 blocks = blocks_data.get("blocks", [])
                 block = blocks[0] if blocks else None
                 return block
-        except Exception as e:
+        except (httpx.HTTPError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Error getting block %s: %s", height, e)
         return None
 
@@ -201,7 +204,7 @@ class ChainSyncService:
             channel = f"blocks.{self.chain_id}" if self.chain_id else "blocks"
             await self._redis.publish(channel, payload)
             logger.info("Broadcasted block %s on channel %s", block_data.get("height"), channel)
-        except Exception as e:
+        except (RedisError, OSError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Error broadcasting block: %s", e)
 
     async def _import_block(self, block_data: dict[str, Any]) -> None:
@@ -227,8 +230,8 @@ class ChainSyncService:
                         return
                     else:
                         body = resp.text
-                        raise Exception(f"HTTP {resp.status_code}: {body}")
-                except Exception as e:
+                        raise RuntimeError(f"HTTP {resp.status_code}: {body}")
+                except (httpx.HTTPError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
                     if attempt < max_retries - 1:
                         delay = base_delay * 2**attempt
                         logger.warning(
@@ -240,7 +243,7 @@ class ChainSyncService:
                             "Failed to import block %s after %s attempts: %s", block_data.get("height"), max_retries, e
                         )
                         return
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - import boundary must log any per-block failure (payload may be non-dict)
             logger.error("Error importing block: %s", e)
 
 

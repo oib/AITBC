@@ -183,7 +183,7 @@ class ProposerSignatureValidator:
             import json
 
             return {v.get("address", "").lower() for v in json.loads(validator_set) if v.get("address")}
-        except Exception as exc:
+        except (ImportError, ValueError, TypeError, KeyError, AttributeError) as exc:
             # #842: a VALIDATOR_SET that does not parse must not silently read
             # as "no validators" — that turns attestation enforcement off.
             logger.warning("VALIDATOR_SET failed to parse (%s) — treating as empty", exc)

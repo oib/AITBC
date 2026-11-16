@@ -11,6 +11,7 @@ from collections.abc import Iterable
 
 from sqlalchemy import BigInteger, Boolean, Column, Float, Index, Integer, MetaData, Text, bindparam, delete, event, func
 from sqlalchemy import select as sa_select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.dialects.postgresql import DOUBLE_PRECISION
 from sqlmodel import Field, Session, create_engine, select, text
 
@@ -586,7 +587,7 @@ def _slot_advisory_lock_by_key(session: Session, lock_key: str) -> None:
     _apply_admission_timeouts(session)
     try:
         session.exec(text("SELECT pg_advisory_xact_lock(hashtext(:key))").bindparams(key=lock_key))  # type: ignore[call-overload]
-    except Exception as exc:
+    except SQLAlchemyError as exc:
         if _is_admission_timeout(exc):
             raise MempoolAdmissionTimeout(f"mempool advisory lock timed out for key {lock_key!r}") from exc
         raise
@@ -729,7 +730,7 @@ class DatabaseMempool:
                 continue
             try:
                 session.exec(text(f"ALTER TABLE mempool ADD COLUMN {column} {ddl}"))  # type: ignore[call-overload]
-            except Exception:
+            except SQLAlchemyError:
                 # Rolling back also releases the advisory lock and undoes
                 # every ALTER in the transaction — a sender added moments
                 # earlier is gone too if nonce failed. Verify all columns,
@@ -789,7 +790,7 @@ class DatabaseMempool:
                     )
                 ).all()
             return {r[0] for r in rows}
-        except Exception:
+        except (ImportError, SQLAlchemyError, OSError):
             logger.warning(
                 "[MEMPOOL] sealed-on-chain check failed for %d hashes on %s — failing open",
                 len(hashes),

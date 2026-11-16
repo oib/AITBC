@@ -280,7 +280,7 @@ class RequestLoggingMiddleware:
             await self.app(scope, receive, send_wrapper)
         except HTTPException:
             raise
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - ASGI boundary must log+metric any unhandled downstream error
             duration = time.perf_counter() - start
             metrics_registry.increment("rpc_unhandled_errors_total")
             _app_logger.exception(
@@ -374,7 +374,7 @@ def _evict_rejected_mempool_entries() -> int:
             for tx_hash in dead:
                 if mempool.remove(tx_hash, chain_id):
                     removed += 1
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-chain isolation: one bad chain must not stall the sweep
             # One unreachable/foreign chain must not stall the others.
             _app_logger.debug("Rejected-entry sweep skipped chain %s: %s", chain_id, exc)
     return removed
@@ -419,7 +419,7 @@ def _reconcile_sealed_mempool_entries() -> int:
                     sealed.update(rows)
             if sealed:
                 removed += mempool.reconcile_sealed(chain_id, sealed)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - per-chain isolation: one bad chain must not stall the sweep
             # One unreachable/foreign chain must not stall the others.
             _app_logger.debug("Sealed-reconcile sweep skipped chain %s: %s", chain_id, exc)
     return removed
@@ -455,7 +455,7 @@ async def _sweep_mempool_forever() -> None:
                 ensure_chain_db_healthy(cid)
         except asyncio.CancelledError:
             raise
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - a sweep failure must never end the loop; next tick retries
             # A sweep failure must never end the loop; the next tick retries.
             _app_logger.warning("Mempool sweep failed: %s", e)
 
@@ -515,7 +515,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         sealed_removed = _reconcile_sealed_mempool_entries()
         if sealed_removed:
             _app_logger.info("Startup sealed-reconcile evicted %d already-sealed mempool entries", sealed_removed)
-    except Exception as exc:
+    except Exception as exc:  # noqa: BLE001 - startup reconcile is non-fatal; mempool backend is pluggable
         _app_logger.warning("Startup sealed-reconcile failed (non-fatal): %s", exc)
     _app_logger.info(
         "Initializing gossip backend: %s, url: %s",
@@ -537,7 +537,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             f"{settings.supported_chains.split(',')[0].strip() or settings.chain_id}-island",
         )
         create_island_manager(node_id, default_island_id, default_chain_id)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - island manager init is non-fatal at startup
         _app_logger.error("Failed to initialize island manager: %s", e)
 
     # v0.6.4: Initialize MultiChainManager in the RPC service so that
@@ -556,7 +556,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             base_p2p_port=base_p2p_port,
         )
         _app_logger.info("Multi-chain manager initialized in RPC service")
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - multi-chain manager init is non-fatal at startup
         _app_logger.warning("Failed to initialize multi-chain manager: %s", e)
 
     proposers = []
@@ -588,14 +588,14 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                 set_poa_proposer(proposer)
                 create_task_with_logging(proposer.start(), name="poa_proposer_start")
                 proposers.append(proposer)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - proposer init is non-fatal at startup
             _app_logger.warning("Failed to initialize PoA proposer for mining: %s", e)
 
     try:
         from .services.balance_tracker import init_balance_tracker
 
         init_balance_tracker(session_scope)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - balance tracker init is non-fatal at startup
         _app_logger.warning("Failed to initialize balance tracker: %s", e)
 
     # Initialize cross-chain bridge (enables /rpc/bridge/* endpoints)
@@ -618,7 +618,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Production safety misconfiguration is fatal: refuse to start a node that
         # could move value with security controls disabled.
         raise
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - bridge init is non-fatal at startup; safety errors re-raise above
         _app_logger.warning("Failed to initialize cross-chain bridge: %s", e)
 
     # Consolidated startup summary
@@ -638,7 +638,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await lease_tracker.start()
         node_type = "hub" if settings.blockchain_mode == "hub" else "follower"
         _app_logger.info("Lease tracker started on %s node (RPC service)", node_type)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - lease tracker start is non-fatal in the RPC service
         _app_logger.error("Failed to start lease tracker in RPC service: %s", e)
 
     # Per-host sweeper leadership (#832): under --workers N every worker runs
@@ -675,25 +675,25 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
                     await asyncio.wait_for(proposer.stop(), timeout=10.0)
                 except asyncio.TimeoutError:
                     _app_logger.warning("PoA proposer stop timed out during shutdown")
-                except Exception as exc:
+                except Exception as exc:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
                     _app_logger.warning("Failed to stop PoA proposer during shutdown: %s", exc)
             try:
                 await asyncio.wait_for(gossip_broker.shutdown(), timeout=10.0)
             except asyncio.TimeoutError:
                 _app_logger.warning("Gossip broker shutdown timed out during shutdown")
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
                 _app_logger.warning("Failed to shut down gossip broker: %s", exc)
             try:
                 await asyncio.wait_for(shutdown_chain_brokers(timeout=4.0), timeout=8.0)
             except asyncio.TimeoutError:
                 _app_logger.warning("Per-chain gossip broker shutdown timed out during shutdown")
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
                 _app_logger.warning("Failed to shut down per-chain gossip brokers: %s", exc)
             try:
                 await asyncio.wait_for(lease_tracker.stop(), timeout=5.0)
             except asyncio.TimeoutError:
                 _app_logger.warning("Lease tracker stop timed out during shutdown")
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
                 _app_logger.warning("Failed to stop lease tracker: %s", exc)
             _app_logger.info("Blockchain node stopped")
 
