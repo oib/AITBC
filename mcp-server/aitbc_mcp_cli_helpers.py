@@ -5,12 +5,21 @@ token helpers), the destructive/read-only subcommand classification tables,
 and the ``env`` prefix renderer live here.  ``aitbc_mcp_server`` re-exports
 every name so existing ``from aitbc_mcp_server import ...`` call sites and
 tests keep working unchanged.
+
+This module deliberately has **no** dependency on ``aitbc_mcp_server``: the
+``aitbc`` CLI path resolution (``_aitbc_cli_path`` / ``AITBC_CLI``) lives here
+too, and the server re-exports it, so ``import aitbc_mcp_cli_helpers`` works
+standalone in either import order.
 """
 
 from __future__ import annotations
 
+import os
 import re
 import shlex
+import shutil
+import sys
+from pathlib import Path
 from typing import Any
 
 from aitbc_mcp_cli_tools_generated_groups import (
@@ -18,7 +27,35 @@ from aitbc_mcp_cli_tools_generated_groups import (
     GENERATED_DESTRUCTIVE_AITBC_PATHS,
     GENERATED_READ_ONLY_AITBC_PATHS,
 )
-from aitbc_mcp_server import AITBC_CLI
+
+
+def _aitbc_cli_path() -> str:
+    """Resolve the path to the ``aitbc`` CLI executable.
+
+    Order of preference:
+    1. ``AITBC_MCP_AITBC_CLI`` environment variable.
+    2. ``aitbc`` on ``$PATH`` (respects active venv / poetry shell).
+    3. ``<sys.prefix>/bin/aitbc`` (the current virtual environment).
+    4. The legacy hard-coded ``/opt/aitbc/venv/bin/aitbc``.
+    """
+    env_path = os.getenv("AITBC_MCP_AITBC_CLI", "").strip()
+    if env_path:
+        return env_path
+
+    from_path = shutil.which("aitbc")
+    if from_path:
+        return from_path
+
+    venv_path = Path(sys.prefix) / "bin" / "aitbc"
+    if venv_path.is_file():
+        return str(venv_path)
+
+    return "/opt/aitbc/venv/bin/aitbc"
+
+
+# Backwards-compatible constant for modules that import the name directly.
+# ``aitbc_mcp_server`` re-exports this name unchanged.
+AITBC_CLI = _aitbc_cli_path()
 
 
 def _build_env_prefix(env: dict[str, str] | None) -> str:

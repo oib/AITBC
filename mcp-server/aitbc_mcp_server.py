@@ -28,7 +28,6 @@ import json
 import os
 import re
 import shlex
-import shutil
 import socket
 import subprocess
 import sys
@@ -297,32 +296,10 @@ def _role_for_host(host: str) -> str | None:
     return None
 
 
-def _aitbc_cli_path() -> str:
-    """Resolve the path to the ``aitbc`` CLI executable.
-
-    Order of preference:
-    1. ``AITBC_MCP_AITBC_CLI`` environment variable.
-    2. ``aitbc`` on ``$PATH`` (respects active venv / poetry shell).
-    3. ``<sys.prefix>/bin/aitbc`` (the current virtual environment).
-    4. The legacy hard-coded ``/opt/aitbc/venv/bin/aitbc``.
-    """
-    env_path = os.getenv("AITBC_MCP_AITBC_CLI", "").strip()
-    if env_path:
-        return env_path
-
-    from_path = shutil.which("aitbc")
-    if from_path:
-        return from_path
-
-    venv_path = Path(sys.prefix) / "bin" / "aitbc"
-    if venv_path.is_file():
-        return str(venv_path)
-
-    return "/opt/aitbc/venv/bin/aitbc"
-
-
-# Backwards-compatible constant for modules that import the name directly.
-AITBC_CLI = _aitbc_cli_path()
+# ``_aitbc_cli_path`` / ``AITBC_CLI`` live in aitbc_mcp_cli_helpers.py (the
+# helpers module must not import this module — that was a circular import);
+# both names are re-exported from the helpers import block below so
+# ``from aitbc_mcp_server import AITBC_CLI`` keeps working.
 
 # Logical service names accepted by ``aitbc http call``. The base URLs and
 # ports live in the CLI, not the MCP server, so no local network topology is
@@ -957,11 +934,13 @@ if __name__ == "__main__":
     sys.modules["aitbc_mcp_server"] = sys.modules["__main__"]
 
 from aitbc_mcp_cli_helpers import (  # noqa: F401  # re-exports moved helpers as mcp_server.<name>
+    AITBC_CLI,
     ALL_AITBC_GROUPS,
     DESTRUCTIVE_AITBC_PATHS,
     DESTRUCTIVE_AITBC_SUBCOMMANDS,
     _CURATED_ONLY_AITBC_GROUPS,
     _DESTRUCTIVE_PATH_TOKENS,
+    _aitbc_cli_path,
     _GENERATED_DESTRUCTIVE_PATH_TOKENS,
     _READ_ONLY_PATH_TOKENS,
     _append_cli_option_tokens,
