@@ -266,8 +266,26 @@ class JobService:
         self.session = session
         self.payment_service = PaymentService(session)
 
+    @staticmethod
+    def _apply_payment_terms(job: Job, req: JobCreate, payment_hold: bool) -> None:
+        if req.payment_amount and req.payment_amount > 0:
+            job.payment_amount = req.payment_amount
+            job.payment_token = req.payment_currency
+            job.payment_status = "pending"
+        elif payment_hold:
+            # #2000: committed non-dispatchable until a payment secures it — the
+            # caller prices the job after this commit (the quote needs the id),
+            # so an unpriced row must never be pickable in between.
+            job.payment_status = "pending"
+
     def create_job(
-        self, client_id: str, req: JobCreate, *, ttl_cap: int | None = None, enforce_inflight_cap: bool = False
+        self,
+        client_id: str,
+        req: JobCreate,
+        *,
+        ttl_cap: int | None = None,
+        enforce_inflight_cap: bool = False,
+        payment_hold: bool = False,
     ) -> Job:
         # ``ttl_cap`` bounds client-supplied TTLs on the public submit path.
         # Internal callers (market_gpu bookings, services.py renders) pass
@@ -319,10 +337,7 @@ class JobService:
             requested_at=now,
             expires_at=now + timedelta(seconds=ttl),
         )
-        if req.payment_amount and req.payment_amount > 0:
-            job.payment_amount = req.payment_amount
-            job.payment_token = req.payment_currency
-            job.payment_status = "pending"
+        self._apply_payment_terms(job, req, payment_hold)
         # G1/D3: a job bought against an offer is bound to that offer's provider,
         # not just to the price. Keep the quoted terms on the job so dispatch
         # matching can consult them without a payment lookup.
