@@ -1513,6 +1513,13 @@ class ChainSettings(BaseSettings):
     # the accused still has stake, and no signed or levied record already stands at
     # that (validator, condition, height). Dormant (False) = legacy behaviour.
     equivocation_verify_before_record: bool = False
+    # #2131: bound the persisted slashing history per validator. Keeps the newest N
+    # events per validator (levied events are never dropped — they are the audit
+    # trail of a deducted penalty — then signed evidence, then advisory records) and
+    # persists a pruned count + digest per validator instead of the dropped events.
+    # 0 = unbounded (legacy, dormant until armed). An existing oversized blob is only
+    # compacted on the first persist after arming; nothing is pruned while this is 0.
+    slashing_history_persist_max_per_validator: int = 0
     # U2 failure-evidence window for cross-round signing: after observing a
     # later-round attest_request at the same height, the locked round's
     # gates window must fully elapse before a rival hash may be signed.

@@ -169,6 +169,10 @@ def consensus_slashing_history_route(
             "slashing_events": slashing_events,
             "total": len(all_events),
             "truncated": len(all_events) > len(events),
+            "pruned_count": sum(
+                int(v.get("count", 0))
+                for v in getattr(getattr(consensus, "_slashing_manager", None), "pruned_summary", {}).values()
+            ),
             "chain_id": chain_id,
             "multi_validator_enabled": True,
         }

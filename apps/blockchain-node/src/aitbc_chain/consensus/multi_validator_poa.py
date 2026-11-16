@@ -1269,7 +1269,12 @@ class MultiValidatorPoA:
         # VALIDATOR_DEACTIVATE v2 evidence payload must be byte-identical.
         from .slashing import slashing_event_record
 
-        slashing_events = [slashing_event_record(e) for e in self._slashing_manager.get_slashing_history()]
+        self._slashing_manager.bound_for_persist()  # #2131 (no-op while the limit is 0)
+        slashing_events: list[dict[str, Any]] = [
+            slashing_event_record(e) for e in self._slashing_manager.get_slashing_history()
+        ]
+        if self._slashing_manager.pruned_summary:
+            slashing_events.append({"_pruned_summary": self._slashing_manager.pruned_summary})
         # #1940 F3-B: str(seq) -> block_hash, keys in ascending int order so
         # the persisted bytes are deterministic regardless of insertion order.
         commit_locks_json = json.dumps({str(seq): self._pbft_commit_locks[seq] for seq in sorted(self._pbft_commit_locks)})
@@ -1304,6 +1309,18 @@ class MultiValidatorPoA:
         except Exception as e:
             logger.error("Failed to save consensus state for %s: %s", self.chain_id, e)
             return False
+
+    @staticmethod
+    def _split_pruned_summary(records: list[Any]) -> tuple[list[Any], dict[str, dict]]:
+        """Separate the #2131 ``_pruned_summary`` marker record from the event records."""
+        summary: dict[str, dict] = {}
+        events: list[Any] = []
+        for rec in records:
+            if isinstance(rec, dict) and "_pruned_summary" in rec:
+                summary = dict(rec["_pruned_summary"])
+            else:
+                events.append(rec)
+        return events, summary
 
     @staticmethod
     def _parse_slashing_events(records: list[dict[str, Any]]) -> list[Any]:
@@ -1491,7 +1508,10 @@ class MultiValidatorPoA:
                 # unavailability rule started over each time the node came back.
                 from .slashing import _max_events_per_height, cap_history_per_height
 
-                loaded = self._parse_slashing_events(json.loads(row.slashing_events_json) if row.slashing_events_json else [])
+                records, self._slashing_manager.pruned_summary = self._split_pruned_summary(
+                    json.loads(row.slashing_events_json) if row.slashing_events_json else []
+                )
+                loaded = self._parse_slashing_events(records)
                 self._slashing_manager.slashing_events = cap_history_per_height(loaded, _max_events_per_height())
                 # #1940 F3-B: restore this node's cross-view commit locks.
                 # Entries below the persisted current sequence can never be
