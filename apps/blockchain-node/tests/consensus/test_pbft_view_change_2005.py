@@ -27,7 +27,7 @@ from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA, Validat
 from aitbc_chain.consensus.pbft import PBFTConsensus, PBFTMessage, PBFTMessageType
 from aitbc_chain.consensus.pbft_quorum import pbft_required_messages
 from aitbc_chain.consensus.pbft_view_change import (
-    MAX_LOCK_COMMIT_MSGS,
+    MAX_LOCK_PROOF_MSGS,
     MAX_VC_SET_ENTRIES,
     analyze_vc_set,
     commit_digest,
@@ -36,7 +36,7 @@ from aitbc_chain.consensus.pbft_view_change import (
     select_forced_hash,
     verify_new_view,
     verify_view_change,
-    verify_vc_lock_commits,
+    verify_vc_lock_proof,
     view_change_active,
     view_change_digest,
     vc_signed_message,
@@ -81,11 +81,13 @@ def _proposer(seq: int, view: int, members: list[str] | None = None) -> str:
     return members[(seq + max(0, view)) % len(members)]
 
 
-def _commit_rec(sender: str, block_hash: str, seq: int, view: int, *, key: str | None = None) -> dict[str, Any]:
-    """One own signed COMMIT record as carried in a VC ``lock.commit_msgs``."""
+def _commit_rec(
+    sender: str, block_hash: str, seq: int, view: int, *, key: str | None = None, kind: str = "commit"
+) -> dict[str, Any]:
+    """One signed vote record (COMMIT by default) as carried in a lock proof."""
     digest = commit_digest(block_hash, seq, view)
     rec = {
-        "message_type": "commit",
+        "message_type": kind,
         "sender": sender,
         "view_number": view,
         "sequence_number": seq,
@@ -94,6 +96,13 @@ def _commit_rec(sender: str, block_hash: str, seq: int, view: int, *, key: str |
     }
     rec["signature"] = sign_consensus_message(commit_signed_message(rec), key or KEYS[sender])
     return rec
+
+
+def _proof(
+    block_hash: str, seq: int, lock_view: int, voters: list[str] | None = None, kind: str = "prepare"
+) -> list[dict[str, Any]]:
+    """A quorum certificate: one signed ``kind`` vote per voter (default q members)."""
+    return [_commit_rec(v, block_hash, seq, lock_view, kind=kind) for v in (voters if voters is not None else MEMBERS[:Q])]
 
 
 def _vc(
@@ -137,7 +146,8 @@ def _locked(sender: str, block_hash: str, lock_view: int, seq: int, view: int) -
         lock={
             "view": lock_view,
             "block_hash": block_hash,
-            "commit_msgs": [_commit_rec(sender, block_hash, seq, lock_view)],
+            "kind": "prepare",
+            "msgs": _proof(block_hash, seq, lock_view),
         },
     )
 
@@ -339,12 +349,12 @@ class TestVerifyViewChange:
     def test_valid_unlocked_vc_accepted(self):
         vc = _vc(MEMBERS[0], SEQ, VIEW)
         assert verify_view_change(vc, CHAIN) == (True, "")
-        assert verify_vc_lock_commits(vc) == (True, "")
+        assert verify_vc_lock_proof(vc, set(MEMBERS), Q) == (True, "")
 
     def test_valid_locked_vc_accepted(self):
         vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
         assert verify_view_change(vc, CHAIN) == (True, "")
-        assert verify_vc_lock_commits(vc) == (True, "")
+        assert verify_vc_lock_proof(vc, set(MEMBERS), Q) == (True, "")
 
     def test_digest_tamper_rejected(self):
         vc = _vc(MEMBERS[0], SEQ, VIEW)
@@ -371,24 +381,63 @@ class TestVerifyViewChange:
         ok, _ = verify_view_change(vc, CHAIN)
         assert not ok
 
-    def test_lock_commit_wrong_sender_rejected(self):
-        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
-        vc["lock"]["commit_msgs"] = [_commit_rec(MEMBERS[1], HA, SEQ, 0)]
-        ok, reason = verify_vc_lock_commits(vc)
-        assert not ok
-        assert "sender" in reason
+    def _check(self, vc):
+        return verify_vc_lock_proof(vc, {canonical_address(m) for m in MEMBERS}, Q)
 
-    def test_lock_commit_bad_signature_rejected(self):
+    def test_lock_proof_below_quorum_rejected(self):
+        """A lone member's own COMMIT (the old proof shape) is not a quorum."""
         vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
-        vc["lock"]["commit_msgs"][0]["block_hash"] = HB  # digest now stale
-        ok, _ = verify_vc_lock_commits(vc)
+        vc["lock"]["msgs"] = _proof(HA, SEQ, 0, [MEMBERS[0]])
+        ok, _ = self._check(vc)
         assert not ok
 
-    def test_lock_commit_msgs_over_cap_rejected(self):
+    def test_lock_proof_duplicate_voters_do_not_inflate(self):
         vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
-        vc["lock"]["commit_msgs"] = [_commit_rec(MEMBERS[0], HA, SEQ, 0) for _ in range(MAX_LOCK_COMMIT_MSGS + 1)]
-        ok, _ = verify_vc_lock_commits(vc)
+        vc["lock"]["msgs"] = _proof(HA, SEQ, 0, [MEMBERS[0]] * Q)
+        ok, reason = self._check(vc)
+        assert not ok and "distinct" in reason
+
+    def test_lock_proof_non_member_voter_rejected(self):
+        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
+        outsider = _key("99")
+        KEYS[outsider[0]] = outsider[1]
+        vc["lock"]["msgs"] = _proof(HA, SEQ, 0, MEMBERS[: Q - 1] + [outsider[0]])
+        ok, reason = self._check(vc)
+        assert not ok and "member" in reason
+
+    def test_lock_proof_bad_signature_rejected(self):
+        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
+        vc["lock"]["msgs"][1]["block_hash"] = HB  # digest now stale
+        ok, _ = self._check(vc)
         assert not ok
+
+    def test_lock_proof_wrong_view_or_hash_rejected(self):
+        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
+        vc["lock"]["msgs"] = _proof(HA, SEQ, 1)  # proof for view 1, lock claims 0
+        assert not self._check(vc)[0]
+        vc["lock"]["msgs"] = _proof(HB, SEQ, 0)  # proof for another hash
+        assert not self._check(vc)[0]
+
+    def test_lock_view_at_or_above_target_view_rejected(self):
+        """The view:1000 PoC: a lock may only claim a view below the VC's target."""
+        vc = _locked(MEMBERS[0], HA, VIEW, SEQ, VIEW)
+        ok, reason = self._check(vc)
+        assert not ok and "below" in reason
+        vc = _locked(MEMBERS[0], HA, 1000, SEQ, VIEW)
+        assert not self._check(vc)[0]
+
+    def test_lock_proof_commit_kind_accepted_unknown_kind_rejected(self):
+        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
+        vc["lock"]["kind"] = "commit"
+        vc["lock"]["msgs"] = _proof(HA, SEQ, 0, kind="commit")
+        assert self._check(vc) == (True, "")
+        vc["lock"]["kind"] = "pre_prepare"
+        assert not self._check(vc)[0]
+
+    def test_lock_proof_over_cap_rejected(self):
+        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
+        vc["lock"]["msgs"] = _proof(HA, SEQ, 0, [MEMBERS[0]] * (MAX_LOCK_PROOF_MSGS + 1))
+        assert not self._check(vc)[0]
 
     def test_oversized_payload_rejected(self):
         vc = _vc(MEMBERS[0], SEQ, VIEW)
@@ -862,7 +911,7 @@ class TestEngineFloorsAndPersistence:
         _pbft(consensus, local, KEYS[local])
         commit = _commit_rec(local, HA, SEQ, 0)
         assert consensus.pbft_vc_floor_raise(SEQ, VIEW)
-        assert consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, commit)
+        assert consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, commit, _proof(HA, SEQ, 0))
         assert consensus.pbft_vc_proposal_store(SEQ, HA, {"block": {"txs": []}})
         # "Restart": a fresh MultiValidatorPoA on the same chain loads state.
         consensus2 = MultiValidatorPoA(_CID)
@@ -882,10 +931,10 @@ class TestEngineFloorsAndPersistence:
         consensus = _make_consensus()
         commit_a = _commit_rec(MEMBERS[0], HA, SEQ, 0)
         commit_b = _commit_rec(MEMBERS[0], HB, SEQ, 1)
-        assert consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, commit_a)
+        assert consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, commit_a, _proof(HA, SEQ, 0))
         # Same (view, hash) idempotent; different refused.
-        assert consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, commit_a)
-        assert not consensus.pbft_vc_commit_lock_arm(SEQ, 1, HB, commit_b)
+        assert consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, commit_a, _proof(HA, SEQ, 0))
+        assert not consensus.pbft_vc_commit_lock_arm(SEQ, 1, HB, commit_b, _proof(HB, SEQ, 1))
         assert consensus.pbft_vc_commit_lock(SEQ)["block_hash"] == HA
 
     @pytest.mark.asyncio
@@ -1190,3 +1239,141 @@ class TestEvidenceGate:
         payload = self._payload_with_unlock(self._valid_nv(), seq=SEQ)
         with self._session(tmp_path, params, name="e.db") as session:
             assert self._verify(payload, session=session) is None
+
+
+# ---------------------------------------------------------------------------
+# Respin (#2005 B review): Q1 quorum-backed locks, Q2 NEW_VIEW on VC quorum,
+# fail-closed persistence, bounded proposal store.
+# ---------------------------------------------------------------------------
+
+
+class TestRespinQ1Q2:
+    @pytest.fixture(autouse=True)
+    def _iso(self, _fresh_chain):
+        return _fresh_chain
+
+    @pytest.mark.asyncio
+    async def test_fabricated_single_voter_lock_dropped_at_intake(self, vc_armed):
+        """PoC: one Byzantine voter's own signed lock (same-view fabricated
+        lock / view:1000) must not enter the VC bucket."""
+        consensus = _make_consensus()
+        local = MEMBERS[0]
+        pbft = _pbft(consensus, local, KEYS[local])
+        for lock_view in (0, 1000):
+            vc = _vc(
+                MEMBERS[1],
+                SEQ,
+                VIEW,
+                lock={
+                    "view": lock_view,
+                    "block_hash": HB,
+                    "kind": "prepare",
+                    "msgs": _proof(HB, SEQ, lock_view, [MEMBERS[1]]),
+                },
+            )
+            await pbft._handle_view_change_payload(vc)
+        assert pbft._vc_messages.get((SEQ, VIEW), {}) == {}
+
+    @pytest.mark.asyncio
+    async def test_quorum_backed_lock_accepted_at_intake(self, vc_armed):
+        consensus = _make_consensus()
+        local = MEMBERS[0]
+        pbft = _pbft(consensus, local, KEYS[local])
+        await pbft._handle_view_change_payload(_locked(MEMBERS[1], HA, 0, SEQ, VIEW))
+        assert set(pbft._vc_messages[(SEQ, VIEW)]) == {canonical_address(MEMBERS[1])}
+
+    @pytest.mark.asyncio
+    async def test_new_view_built_when_vcs_arrive_after_first_pre_prepare(self, vc_armed):
+        """Q2: the proposer publishes NEW_VIEW the moment the bucket reaches
+        quorum — without waiting for a (re-)pre-prepare."""
+        consensus = _make_consensus()
+        proposer = _proposer(SEQ, VIEW)
+        pbft = _pbft(consensus, proposer, KEYS[proposer])
+        others = [m for m in MEMBERS if m != proposer]
+        await pbft._handle_view_change_payload(_vc(others[0], SEQ, VIEW))
+        assert (SEQ, VIEW) not in pbft._new_views  # sub-quorum: never built
+        await pbft._handle_view_change_payload(_vc(others[1], SEQ, VIEW))
+        assert (SEQ, VIEW) not in pbft._new_views
+        await pbft._handle_view_change_payload(_vc(others[2], SEQ, VIEW))
+        assert (SEQ, VIEW) in pbft._new_views
+        assert pbft._new_views[(SEQ, VIEW)]["kind"] == "free"
+
+    @pytest.mark.asyncio
+    async def test_non_proposer_never_builds_new_view(self, vc_armed):
+        consensus = _make_consensus()
+        proposer = _proposer(SEQ, VIEW)
+        local = next(m for m in MEMBERS if m != proposer)
+        pbft = _pbft(consensus, local, KEYS[local])
+        for m in [m for m in MEMBERS if m != local][:Q]:
+            await pbft._handle_view_change_payload(_vc(m, SEQ, VIEW))
+        assert (SEQ, VIEW) not in pbft._new_views
+
+    @pytest.mark.asyncio
+    async def test_new_view_dropped_when_schedule_unavailable(self, vc_armed, monkeypatch):
+        consensus = _make_consensus()
+        local = _proposer(SEQ, VIEW)
+        pbft = _pbft(consensus, local, KEYS[local])
+        nv = _nv(local, SEQ, VIEW, _vc_set(SEQ, VIEW, MEMBERS[:Q]), None)
+
+        def _boom(*_a, **_k):
+            raise RuntimeError("schedule unavailable")
+
+        monkeypatch.setattr(consensus, "select_proposer", _boom)
+        await pbft._handle_new_view_payload(nv)
+        assert (SEQ, VIEW) not in pbft._new_views
+
+    @pytest.mark.asyncio
+    async def test_duplicate_new_view_skips_signature_verification(self, vc_armed, monkeypatch):
+        """ECDSA DoS guard: a repeat NEW_VIEW is dropped before any crypto."""
+        import aitbc_chain.consensus.pbft as pbft_mod
+
+        consensus = _make_consensus()
+        local = _proposer(SEQ, VIEW)
+        pbft = _pbft(consensus, local, KEYS[local])
+        nv = _nv(local, SEQ, VIEW, _vc_set(SEQ, VIEW, MEMBERS[:Q]), None)
+        await pbft._handle_new_view_payload(nv)
+        assert (SEQ, VIEW) in pbft._new_views
+        calls = []
+        monkeypatch.setattr(pbft_mod, "verify_new_view", lambda *a, **k: calls.append(1))
+        await pbft._handle_new_view_payload(nv)
+        assert calls == []
+
+    def test_padded_vc_set_rejected_before_signatures(self):
+        vc_set = _vc_set(SEQ, VIEW, MEMBERS[:Q])
+        padded = vc_set + [dict(vc_set[0]) for _ in range(len(MEMBERS))]
+        ok, reason, _ = analyze_vc_set(padded, MEMBERS, chain_id=CHAIN, sequence=SEQ, view=VIEW)
+        assert not ok and "cap" in reason
+
+    def test_proposal_store_evicts_oldest_instead_of_refusing(self, vc_armed):
+        from aitbc_chain.consensus.pbft_view_change import MAX_PROPOSALS_PER_SEQUENCE
+
+        consensus = _make_consensus()
+        for i in range(MAX_PROPOSALS_PER_SEQUENCE + 3):
+            assert consensus.pbft_vc_proposal_store(SEQ, f"0x{i:064x}", {"block": {"i": i}})
+        held = consensus._pbft_view_change[SEQ]["proposals"]
+        assert len(held) == MAX_PROPOSALS_PER_SEQUENCE
+        assert f"0x{MAX_PROPOSALS_PER_SEQUENCE + 2:064x}" in held and f"0x{0:064x}" not in held
+
+    def test_proposal_store_never_evicts_the_locked_body(self, vc_armed):
+        from aitbc_chain.consensus.pbft_view_change import MAX_PROPOSALS_PER_SEQUENCE
+
+        consensus = _make_consensus()
+        assert consensus.pbft_vc_proposal_store(SEQ, HA, {"block": {"locked": True}})
+        assert consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, _commit_rec(MEMBERS[0], HA, SEQ, 0), _proof(HA, SEQ, 0))
+        for i in range(MAX_PROPOSALS_PER_SEQUENCE + 3):
+            consensus.pbft_vc_proposal_store(SEQ, f"0x{i:064x}", {"block": {"i": i}})
+        assert consensus.pbft_vc_proposal_get(SEQ, HA) == {"block": {"locked": True}}
+
+    def test_commit_lock_arm_refuses_empty_proof(self, vc_armed):
+        consensus = _make_consensus()
+        assert not consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, _commit_rec(MEMBERS[0], HA, SEQ, 0), [])
+
+    def test_corrupt_persisted_vc_state_fails_closed(self, vc_armed):
+        """A corrupt record must not read as 'no floor, no lock': VC-armed
+        persistence refuses until repaired."""
+        with pytest.raises(ValueError):
+            MultiValidatorPoA._parse_view_change_records("{not json")
+        consensus = _make_consensus()
+        consensus._pbft_vc_corrupt = True
+        assert not consensus.pbft_vc_floor_raise(SEQ, VIEW)
+        assert not consensus.pbft_vc_prepared_arm(SEQ, 0, HA)

@@ -73,7 +73,7 @@ NV_MESSAGE_TYPE = "new_view"
 MAX_VC_PAYLOAD_BYTES = 65_536  # one VIEW_CHANGE incl. its lock commit_msgs
 MAX_NV_PAYLOAD_BYTES = 1_048_576  # NEW_VIEW incl. the embedded vc_set
 MAX_VC_SET_ENTRIES = 512  # vc_set records accepted inside one NEW_VIEW
-MAX_LOCK_COMMIT_MSGS = 8  # own COMMIT records a VC lock may carry
+MAX_LOCK_PROOF_MSGS = 64  # vote records a VC lock proof may carry
 MAX_VC_BUCKETS = 256  # distinct (sequence, view) VC sets tracked per engine
 MAX_NV_BUCKETS = 256  # distinct (sequence, view) NEW_VIEWs tracked per engine
 MAX_PROPOSAL_PAYLOAD_BYTES = 1_000_000  # persisted pre-prepare block body
@@ -237,46 +237,49 @@ def verify_view_change(vc: Any, chain_id: str, *, check_signature: bool = True) 
     return True, ""
 
 
-def _verify_lock_commit_record(commit: Any, sender: str, seq: int, lock_view: int, block_hash: str) -> tuple[bool, str]:
-    """One own-COMMIT record inside a VC ``lock.commit_msgs``.
+def _verify_lock_proof_record(msg: Any, kind: str, seq: int, lock_view: int, block_hash: str) -> tuple[str, str]:
+    """One vote record inside a VC lock proof.
 
-    Must be a ``commit`` from the VC's own sender at the VC's sequence and
-    the lock's view, carrying ``sha256(block_hash:seq:view)`` and a valid
-    signature.
+    Returns ``(canonical_sender, "")`` on success or ``("", reason)``. Must
+    be a ``kind`` ("prepare"/"commit") vote at the VC's sequence and the
+    lock's view for ``block_hash``, carrying the legacy digest and a valid
+    signature by its own sender. Membership is the caller's check.
     """
-    if not isinstance(commit, dict):
-        return False, "view_change lock commit record is not an object"
-    if commit.get("message_type") != "commit":
-        return False, "view_change lock record is not a commit"
-    if canonical_address(str(commit.get("sender", ""))) != canonical_address(str(sender)):
-        return False, "view_change lock commit sender mismatch"
-    c_seq = commit.get("sequence_number")
-    c_view = commit.get("view_number")
-    c_hash = commit.get("block_hash")
-    c_digest = commit.get("digest")
+    if not isinstance(msg, dict):
+        return "", "view_change lock proof record is not an object"
+    if msg.get("message_type") != kind:
+        return "", "view_change lock proof record has the wrong message_type"
+    sender = msg.get("sender")
+    m_seq = msg.get("sequence_number")
+    m_view = msg.get("view_number")
+    m_digest = msg.get("digest")
     if (
-        not (_strict_int(c_seq) and c_seq == seq)
-        or not (_strict_int(c_view) and c_view == lock_view)
-        or c_hash != block_hash
-        or not _non_empty_str(c_digest)
+        not _non_empty_str(sender)
+        or not (_strict_int(m_seq) and m_seq == seq)
+        or not (_strict_int(m_view) and m_view == lock_view)
+        or msg.get("block_hash") != block_hash
+        or not _non_empty_str(m_digest)
     ):
-        return False, "view_change lock commit fields do not match the lock"
-    if c_digest != commit_digest(block_hash, c_seq, c_view):
-        return False, "view_change lock commit digest mismatch"
-    if not _verify_signature(commit_signed_message(commit), commit.get("signature"), sender):
-        return False, "view_change lock commit signature verification failed"
-    return True, ""
+        return "", "view_change lock proof record fields do not match the lock"
+    if m_digest != commit_digest(block_hash, m_seq, m_view):
+        return "", "view_change lock proof record digest mismatch"
+    if not _verify_signature(commit_signed_message(msg), msg.get("signature"), sender):
+        return "", "view_change lock proof record signature verification failed"
+    return canonical_address(sender), ""
 
 
-def verify_vc_lock_commits(vc: dict[str, Any]) -> tuple[bool, str]:
-    """Verify the own-COMMIT records inside a VIEW_CHANGE ``lock``.
+def verify_vc_lock_proof(vc: dict[str, Any], canonical: set[str], required: int) -> tuple[bool, str]:
+    """Verify the quorum certificate inside a VIEW_CHANGE ``lock`` (#2005 Q1).
 
-    A lock is ``{view, block_hash, commit_msgs: [...]}``; every listed
-    record must be a ``commit`` from the VC's own sender at the VC's
-    sequence and the lock's view, carrying ``sha256(block_hash:seq:view)``
-    and a valid signature. At least one record is required — an empty
-    ``commit_msgs`` cannot prove the voter ever locked. ``lock: null``
-    (no commit-lock) verifies trivially.
+    A lock is ``{view, block_hash, kind, msgs}`` where ``msgs`` are signed
+    PREPARE (or COMMIT) votes for ``block_hash`` at ``view`` from at least
+    ``required`` DISTINCT members of ``canonical``. A single member's own
+    signature therefore proves nothing: a lone Byzantine voter cannot
+    fabricate a lock, so it cannot force the next view onto a hash no
+    quorum ever prepared. ``lock.view`` must lie strictly below the VC's
+    target view. ``lock: null`` verifies trivially. Cheap structural and
+    duplicate checks run before any signature is verified, and the record
+    count is capped, so a proof costs a bounded number of verifications.
     """
     lock = vc.get("lock")
     if lock is None:
@@ -285,19 +288,38 @@ def verify_vc_lock_commits(vc: dict[str, Any]) -> tuple[bool, str]:
         return False, "view_change lock is not an object or null"
     lock_view = lock.get("view")
     block_hash = lock.get("block_hash")
-    commit_msgs = lock.get("commit_msgs")
+    kind = lock.get("kind")
+    msgs = lock.get("msgs")
+    seq = vc.get("sequence_number")
+    vc_view = vc.get("view_number")
     if not (_strict_int(lock_view) and lock_view >= 0) or not _non_empty_str(block_hash):
         return False, "view_change lock has malformed view or block_hash"
-    if not isinstance(commit_msgs, list) or not commit_msgs or len(commit_msgs) > MAX_LOCK_COMMIT_MSGS:
-        return False, "view_change lock commit_msgs missing or over cap"
-    sender = vc.get("sender")
-    seq = vc.get("sequence_number")
-    if not _strict_int(seq):
-        return False, "view_change lock sequence malformed"
-    for commit in commit_msgs:
-        ok, reason = _verify_lock_commit_record(commit, str(sender), seq, lock_view, block_hash)
-        if not ok:
+    if not _strict_int(seq) or not _strict_int(vc_view):
+        return False, "view_change lock sequence or view malformed"
+    if lock_view >= vc_view:
+        return False, "view_change lock view is not below the target view"
+    if kind not in ("prepare", "commit"):
+        return False, "view_change lock kind must be prepare or commit"
+    if not isinstance(msgs, list) or len(msgs) < required or len(msgs) > MAX_LOCK_PROOF_MSGS:
+        return False, "view_change lock proof missing, below quorum or over cap"
+    seen: set[str] = set()
+    for msg in msgs:
+        if not isinstance(msg, dict):
+            return False, "view_change lock proof record is not an object"
+        who = canonical_address(str(msg.get("sender", "")))
+        if who not in canonical:
+            return False, "view_change lock proof voter is not a consensus member"
+        seen.add(who)
+    if len(seen) < required:
+        return False, "view_change lock proof has too few distinct voters"
+    voters: set[str] = set()
+    for msg in msgs:
+        who, reason = _verify_lock_proof_record(msg, str(kind), seq, lock_view, block_hash)
+        if reason:
             return False, reason
+        voters.add(who)
+    if len(voters) < required:
+        return False, "view_change lock proof has too few distinct voters"
     return True, ""
 
 
@@ -345,9 +367,10 @@ def _vc_record_acceptable(
     chain_id: str,
     sequence: int,
     view: int,
+    required: int,
 ) -> tuple[bool, str]:
     """One vc_set record: signature, digest, chain binding, target
-    (sequence, view), membership and lock-commit signatures."""
+    (sequence, view), membership and the lock's quorum proof."""
     ok, reason = verify_view_change(vc, chain_id)
     if not ok:
         return False, reason
@@ -356,10 +379,7 @@ def _vc_record_acceptable(
     sender_canonical = canonical_address(str(vc.get("sender", "")))
     if sender_canonical not in canonical:
         return False, "view_change sender is not a consensus member"
-    ok, reason = verify_vc_lock_commits(vc)
-    if not ok:
-        return False, reason
-    return True, ""
+    return verify_vc_lock_proof(vc, canonical, required)
 
 
 def analyze_vc_set(
@@ -389,11 +409,13 @@ def analyze_vc_set(
         required = pbft_required_messages(len(canonical))
     if not isinstance(vc_set, list) or not vc_set:
         return False, "new_view vc_set is not a non-empty list", {}
-    if len(vc_set) > MAX_VC_SET_ENTRIES:
+    if len(vc_set) > MAX_VC_SET_ENTRIES or len(vc_set) > len(canonical):
+        # More records than members means duplicates — reject BEFORE the
+        # per-record ECDSA verifications so a padded vc_set costs nothing.
         return False, "new_view vc_set exceeds entry cap", {}
     by_sender: dict[str, dict[str, Any]] = {}
     for vc in vc_set:
-        ok, reason = _vc_record_acceptable(vc, canonical, chain_id=chain_id, sequence=sequence, view=view)
+        ok, reason = _vc_record_acceptable(vc, canonical, chain_id=chain_id, sequence=sequence, view=view, required=required)
         if not ok:
             return False, reason, {}
         # First record per sender wins; a second conflicting VC from the
@@ -466,6 +488,8 @@ def verify_new_view(
         return False, "new_view message_type mismatch", None, None
     if nv.get("sequence_number") != sequence or nv.get("view_number") != view:
         return False, "new_view targets a different sequence or view", None, None
+    if not _payload_size_ok(nv, MAX_NV_PAYLOAD_BYTES):
+        return False, "new_view payload exceeds size cap", None, None
     vc_set = nv.get("vc_set")
     ok, reason, by_sender = analyze_vc_set(
         vc_set, validators, chain_id=chain_id, sequence=sequence, view=view, required=required
