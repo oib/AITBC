@@ -1313,6 +1313,7 @@ class TestRespinQ1Q2:
             raise RuntimeError("schedule unavailable")
 
         monkeypatch.setattr(consensus, "select_proposer", _boom)
+        monkeypatch.setattr(consensus, "pbft_vc_validator_set", _boom)
         await pbft._handle_new_view_payload(nv)
         assert (SEQ, VIEW) not in pbft._new_views
 
@@ -1885,7 +1886,7 @@ class TestItem2ProposalBodySignature:
 
     def test_signed_body_is_stored(self, vc_armed):
         consensus, proposer, pbft = self._engine()
-        assert pbft._vc_proposal_store(SEQ, HA, _proposal_body(proposer)) is True
+        assert pbft._vc_proposal_store(SEQ, HA, _proposal_body(proposer), proposer) is True
         assert consensus.pbft_vc_proposal_get(SEQ, HA)
 
     def test_substituted_body_is_refused(self, vc_armed):
@@ -1893,7 +1894,7 @@ class TestItem2ProposalBodySignature:
         consensus, proposer, pbft = self._engine()
         body = _proposal_body(proposer)
         body["state_root"] = "0x" + "22" * 32
-        assert pbft._vc_proposal_store(SEQ, HA, body) is False
+        assert pbft._vc_proposal_store(SEQ, HA, body, proposer) is False
 
     def test_foreign_signature_is_refused(self, vc_armed):
         consensus, proposer, pbft = self._engine()
@@ -1902,13 +1903,13 @@ class TestItem2ProposalBodySignature:
         from aitbc.crypto.consensus_signing import sign_block_hash
 
         body["signature"] = sign_block_hash(body, KEYS[other])
-        assert pbft._vc_proposal_store(SEQ, HA, body) is False
+        assert pbft._vc_proposal_store(SEQ, HA, body, proposer) is False
 
     def test_unsigned_body_is_refused(self, vc_armed):
         consensus, proposer, pbft = self._engine()
         body = _proposal_body(proposer)
         body["signature"] = ""
-        assert pbft._vc_proposal_store(SEQ, HA, body) is False
+        assert pbft._vc_proposal_store(SEQ, HA, body, proposer) is False
 
 
 class TestItem1SharedValidatorSet:
@@ -1941,3 +1942,50 @@ class TestItem1SharedValidatorSet:
         marked = [(MEMBERS[3], SEQ - 1)]
         assert MEMBERS[3] not in vc_active_set(MEMBERS, marked, SEQ)
         assert MEMBERS[3] in vc_active_set(MEMBERS, [(MEMBERS[3], SEQ)], SEQ)  # not yet at parent
+
+
+class TestRespin2133Rework:
+    """Validator needs-rework on ff8b17d3ca: R1 schedule, R4 signer binding, detector wiring pin."""
+
+    def test_nv_expected_sender_ignores_local_is_active_skew(self, vc_armed):
+        """R1: engine NV sender == scheduled_proposer(shared set), the chain's computation."""
+        from aitbc_chain.consensus.pbft_view_change import scheduled_proposer
+
+        consensus = _make_consensus()
+        consensus.validators[MEMBERS[3]].is_active = False  # local-only skew
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        for view in range(6):
+            assert pbft._vc_expected_proposer(SEQ, view) == scheduled_proposer(
+                [canonical_address(a) for a in MEMBERS], SEQ, view
+            )
+
+    def test_body_signed_by_another_validator_is_refused(self, vc_armed):
+        """R4: a body validly signed by member X but delivered as proposer P's is refused."""
+        consensus = _make_consensus()
+        proposer = _proposer(SEQ, VIEW)
+        other = next(a for a in MEMBERS if a != proposer)
+        pbft = _pbft(consensus, proposer, KEYS[proposer])
+        body = _proposal_body(other)  # self-consistent: proposer=other, signed by other
+        assert pbft._vc_proposal_store(SEQ, HA, body, proposer) is False
+        assert pbft._vc_proposal_store(SEQ, HA, body, other) is True  # sanity: binds, not blocks
+
+    def test_detector_context_uses_the_shared_set(self, vc_armed, monkeypatch):
+        """Pin gap: _cross_view_pair_justified must feed pbft_vc_validator_set to the proof."""
+        import json
+
+        import aitbc_chain.consensus.equivocation_policy as policy
+
+        consensus = _make_consensus()
+        marked = frozenset({canonical_address(MEMBERS[3])})  # chain deactivation marker at the parent height
+        monkeypatch.setattr(consensus, "_chain_deactivated_addresses", lambda upto: marked)
+        seen = {}
+
+        def fake(payload, justification, ctx):
+            seen["set"] = ctx.validator_set
+            return True
+
+        monkeypatch.setattr(policy, "view_change_justified", fake)
+        event = type("E", (), {"evidence": json.dumps({"kind": "x"})})()
+        assert consensus._cross_view_pair_justified(event, {}, SEQ) is True
+        assert seen["set"] == consensus.pbft_vc_validator_set(SEQ)
+        assert canonical_address(MEMBERS[3]) not in seen["set"]  # raw self.validators would still hold it
