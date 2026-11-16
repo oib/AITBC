@@ -1532,6 +1532,7 @@ from aitbc_mcp_chain_tools import (  # noqa: F401  # re-exports moved tools as m
 
 import aitbc_mcp_cli_tools  # noqa: F401  # registers more CLI tools
 import aitbc_mcp_cli_tools_generated  # noqa: F401  # registers auto-generated CLI tools
+import aitbc_mcp_cli_tools_market  # noqa: F401  # registers market CLI tools
 
 # ---------------------------------------------------------------------------
 # Additional typed RPC tools from the companion module

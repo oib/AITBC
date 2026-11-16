@@ -32,6 +32,7 @@ def _fake_run_remote(host: str, command: str, timeout: int = 60) -> dict[str, ob
 mcp_server._run_remote = _fake_run_remote
 
 import aitbc_mcp_cli_tools  # noqa: E402
+import aitbc_mcp_cli_tools_market  # noqa: E402
 
 
 def _last_command() -> str:
@@ -282,7 +283,7 @@ def test_dry_run_gating():
 def test_run_market_offer():
     _clear()
     result = json.loads(
-        aitbc_mcp_cli_tools.run_market_offer(
+        aitbc_mcp_cli_tools_market.run_market_offer(
             offer_id_or_plugin_id="sw_offer_1234",
             prompt="transcribe this",
             wallet="test-wallet-3",
@@ -328,7 +329,7 @@ def test_send_aitbc_from_wallet():
 def test_nested_market_escrow_create():
     _clear()
     result = json.loads(
-        aitbc_mcp_cli_tools.create_market_escrow(
+        aitbc_mcp_cli_tools_market.create_market_escrow(
             job_id="job-1234",
             buyer="0xABCDabcdABcDabcDaBCDAbcdABcdAbCdABcDABCd",
             provider="0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d",
@@ -654,10 +655,18 @@ def test_read_only_curated_tools_have_ungated_twins():
         ),
         (aitbc_mcp_cli_tools.list_node_islands, "aitbc_mcp_cli_tools_generated_node", "aitbc_node_island_list_islands"),
         (aitbc_mcp_cli_tools.get_node_island_info, "aitbc_mcp_cli_tools_generated_node", "aitbc_node_island_island_info"),
-        (aitbc_mcp_cli_tools.get_market_escrow_status, "aitbc_mcp_cli_tools_generated_market", "aitbc_market_escrow_status"),
-        (aitbc_mcp_cli_tools.get_market_exchange_price, "aitbc_mcp_cli_tools_generated_market", "aitbc_market_exchange_price"),
         (
-            aitbc_mcp_cli_tools.list_market_exchange_deposits,
+            aitbc_mcp_cli_tools_market.get_market_escrow_status,
+            "aitbc_mcp_cli_tools_generated_market",
+            "aitbc_market_escrow_status",
+        ),
+        (
+            aitbc_mcp_cli_tools_market.get_market_exchange_price,
+            "aitbc_mcp_cli_tools_generated_market",
+            "aitbc_market_exchange_price",
+        ),
+        (
+            aitbc_mcp_cli_tools_market.list_market_exchange_deposits,
             "aitbc_mcp_cli_tools_generated_market",
             "aitbc_market_exchange_list_deposits",
         ),
@@ -683,7 +692,7 @@ def test_ipfs_downloaders_are_gated_both_lanes():
 
     for func in (
         aitbc_mcp_cli_tools.download_ipfs,
-        aitbc_mcp_cli_tools.download_market_ipfs,
+        aitbc_mcp_cli_tools_market.download_market_ipfs,
         _generated("aitbc_mcp_cli_tools_generated_ipfs", "aitbc_ipfs_download"),
         _generated("aitbc_mcp_cli_tools_generated_market", "aitbc_market_download"),
     ):
@@ -693,7 +702,7 @@ def test_ipfs_downloaders_are_gated_both_lanes():
         assert params["confirm"].default is False, f"{func.__name__} defaults confirm on"
 
     _clear()
-    result = json.loads(aitbc_mcp_cli_tools.download_market_ipfs(cid="QmTest", role="hub"))
+    result = json.loads(aitbc_mcp_cli_tools_market.download_market_ipfs(cid="QmTest", role="hub"))
     assert result.get("dry_run") is True
     assert not CAPTURED
 
@@ -853,7 +862,7 @@ def test_rental_token_tools_use_file_forms():
     assert "token" not in reg_params
     assert "token_file" in reg_params
 
-    dl_params = inspect.signature(aitbc_mcp_cli_tools.download_market_ipfs).parameters
+    dl_params = inspect.signature(aitbc_mcp_cli_tools_market.download_market_ipfs).parameters
     assert "access_secret" not in dl_params
 
 
