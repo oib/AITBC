@@ -922,16 +922,52 @@ class MultiValidatorPoA:
             best_pair = self._canonical_cross_view_pair(seq_msgs)
             if best_pair is None:
                 continue
+            msg_a = {k: best_pair[0].get(k) for k in self._VOTE_EVIDENCE_FIELDS}
+            msg_b = {k: best_pair[1].get(k) for k in self._VOTE_EVIDENCE_FIELDS}
+            justification = self._cross_view_unlock_justification(sequence, msg_a, msg_b)
             event = self._slashing_manager.cross_view_vote_equivocation_event(
-                validator,
-                sequence,
-                "commit",
-                {k: best_pair[0].get(k) for k in self._VOTE_EVIDENCE_FIELDS},
-                {k: best_pair[1].get(k) for k in self._VOTE_EVIDENCE_FIELDS},
+                validator, sequence, "commit", msg_a, msg_b, unlock_justification=justification
             )
+            if justification is not None and self._cross_view_pair_justified(event, justification, sequence):
+                # #2005 r3: the later commit followed a verified NEW_VIEW that
+                # permits it — protocol-sanctioned, not a double-sign. The same
+                # proof rides the evidence so peers and the chain apply path
+                # excuse it identically.
+                continue
             self._apply_equivocation_slash(validator, event)
             detected = True
         return detected
+
+    def _cross_view_unlock_justification(
+        self, sequence: int, msg_a: dict[str, Any], msg_b: dict[str, Any]
+    ) -> dict[str, Any] | None:
+        """The engine's verified NEW_VIEW for the pair's higher view, or None."""
+        engine = getattr(self, "_pbft_engine", None)
+        producer = getattr(engine, "view_change_unlock_justification", None)
+        if not callable(producer):
+            return None
+        views = [v for v in (msg_a.get("view_number"), msg_b.get("view_number")) if isinstance(v, int)]
+        if not views:
+            return None
+        result = producer(sequence, max(views))
+        return result if isinstance(result, dict) else None
+
+    def _cross_view_pair_justified(self, event: Any, justification: dict[str, Any], sequence: int) -> bool:
+        """Verify the proof exactly as the apply path does (same function, same set)."""
+        import json
+
+        from .equivocation_policy import VcApplyContext, view_change_justified
+
+        try:
+            payload = json.loads(event.evidence)
+        except (TypeError, ValueError):
+            return False
+        ctx = VcApplyContext(
+            chain_id=self.chain_id,
+            sequence=sequence,
+            validator_set=frozenset(canonical_address(a) for a in self.validators),
+        )
+        return view_change_justified(payload, justification, ctx)
 
     def _cross_view_record_eligible(self, msg: dict[str, Any], validator: str) -> bool:
         """Fully-signed COMMIT record bound to ``validator`` on an armed
@@ -1741,16 +1777,31 @@ class MultiValidatorPoA:
 
         ``proof`` is the PREPARE quorum certificate (#2005 Q1) carried inside
         VIEW_CHANGE ``lock.msgs``; an empty proof is refused — a lock no peer
-        can verify must not be armed. ``commit`` is the node's own COMMIT. First
-        lock wins: a different ``(view, block_hash)`` is refused (the floor
-        + NEW_VIEW rules are what make a later same-hash commit legal, and
-        the F3-B ``pbft_commit_lock_arm`` already guards emission).
+        can verify must not be armed. ``commit`` is the node's own COMMIT. A
+        different hash is refused; the same hash re-arms at a strictly higher
+        view (the floor + NEW_VIEW rules make that later commit legal, and the
+        F3-B ``pbft_commit_lock_arm`` already guards emission).
         """
         if not proof:
             return False
         existing = self.pbft_vc_commit_lock(sequence)
         if existing is not None:
-            return existing.get("view") == view and str(existing.get("block_hash", "")).lower() == block_hash.lower()
+            if str(existing.get("block_hash", "")).lower() != block_hash.lower():
+                return False
+            raw_view = existing.get("view")
+            if not _is_strict_int(raw_view) or not isinstance(raw_view, int):
+                return False
+            existing_view = raw_view
+            # #2005 r3: the SAME hash may advance to a higher view — a NEW_VIEW
+            # that selects ("locked", H) makes a node that committed H at v
+            # commit it again at v' > v, and without the advance that second
+            # commit aborts before broadcast forever (permanent stall at n=4,
+            # q=3 with two prior committers). Only the view moves; a lower
+            # view is stale and a different hash stays refused.
+            if view < existing_view:
+                return False
+            if view == existing_view:
+                return True
 
         def _arm(rec: dict[str, Any]) -> None:
             rec["commit_lock"] = {
@@ -1849,8 +1900,13 @@ class MultiValidatorPoA:
                 continue
             if seq < 0 or not isinstance(value, dict):
                 continue
+            raw_floor = value.get("floor")
+            if raw_floor is not None and not _is_strict_int(raw_floor):
+                # #2005 r3: a malformed floor must not silently become "no
+                # floor" (restart amnesia) — fail closed like corrupt JSON.
+                raise ValueError(f"pbft_view_change_json floor for height {key} is not an integer")
             rec: dict[str, Any] = {
-                "floor": value.get("floor") if _is_strict_int(value.get("floor")) else None,
+                "floor": raw_floor,
                 "prepared": value.get("prepared") if isinstance(value.get("prepared"), dict) else None,
                 "commit_lock": value.get("commit_lock") if isinstance(value.get("commit_lock"), dict) else None,
                 "proposals": value.get("proposals") if isinstance(value.get("proposals"), dict) else {},

@@ -139,6 +139,12 @@ class PBFTConsensus:
                 "Set multi_validator_consensus_enabled=true in config to enable (requires security review)."
             )
         self.consensus = consensus
+        # #2005 r3: the cross-view evidence detector on the consensus object
+        # needs this engine's verified NEW_VIEWs to attach the unlock proof.
+        try:
+            consensus._pbft_engine = self  # type: ignore[attr-defined]
+        except AttributeError:
+            pass  # duck-typed double without attribute assignment
         self._private_key = private_key
         self._chain_id = chain_id
         self._local_validator = local_validator
@@ -409,7 +415,7 @@ class PBFTConsensus:
             # finish the height instead of only re-nominating for it.
             height = pre_prepare_msg.sequence_number
             view = pre_prepare_msg.view_number
-            prepared = self._prepared_heights.get(height)
+            prepared = self._prepared_heights.get(height) or self._durable_prepared(height)
             if prepared is not None:
                 prepared_view, prepared_hash = prepared
                 if view < prepared_view:
@@ -1200,6 +1206,27 @@ class PBFTConsensus:
         fn = getattr(self.consensus, "pbft_vc_commit_lock", None)
         return fn(sequence) if callable(fn) else None
 
+    def _durable_prepared(self, sequence: int) -> tuple[int, str] | None:
+        """This node's persisted prepared ``(view, hash)`` for an armed height.
+
+        #2005 r3: the durable record used to be write-only, so a restart lost
+        ``_prepared_heights`` and the node could prepare a second block in the
+        same view (the restart-amnesia hole the design claims to close). Read
+        back through the persisted record and mirror it into memory.
+        """
+        if not view_change_active(sequence):
+            return None
+        records = getattr(self.consensus, "pbft_vc_records", None)
+        rec = records().get(sequence) if callable(records) else None
+        prepared = rec.get("prepared") if isinstance(rec, dict) else None
+        if not isinstance(prepared, dict):
+            return None
+        view, block_hash = prepared.get("view"), prepared.get("block_hash")
+        if not isinstance(view, int) or isinstance(view, bool) or not isinstance(block_hash, str) or not block_hash:
+            return None
+        self._prepared_heights[sequence] = (view, block_hash)
+        return view, block_hash
+
     def _vc_commit_lock_arm(
         self, sequence: int, view: int, block_hash: str, commit: dict[str, Any], proof: list[dict[str, Any]]
     ) -> bool:
@@ -1380,6 +1407,36 @@ class PBFTConsensus:
 
     # -- receiving VIEW_CHANGE --
 
+    def _vc_in_window(self, seq: int, view: int) -> bool:
+        """Same sequence/view window the PREPARE/COMMIT intake applies (#1060).
+
+        VIEW_CHANGE / NEW_VIEW used to skip it, so one validator could fill the
+        bucket table with signed junk (seq, view) pairs and starve the honest
+        VC for the real stalled height (#2005 r2 finding 3).
+        """
+        if seq < self.state.current_sequence:
+            return False
+        max_seq = self.state.current_sequence + getattr(settings, "pbft_max_sequence_ahead", 512)
+        max_view = self.state.current_view + getattr(settings, "pbft_max_view_ahead", 64)
+        return seq <= max_seq and view <= max_view
+
+    def _vc_make_room(self, table: dict[tuple[int, int], Any], key: tuple[int, int], cap: int) -> bool:
+        """Admit ``key`` into a bounded (seq, view) table, evicting the FARTHEST slot.
+
+        Entries below the local height are dead and go first; if the table is
+        still full the farthest-ahead slot is dropped only when the newcomer is
+        nearer, so the live stalled (h, v') pair always displaces junk.
+        """
+        for stale in [k for k in table if k[0] < self.state.current_sequence]:
+            table.pop(stale, None)
+        if len(table) < cap:
+            return True
+        farthest = max(table)
+        if key < farthest:
+            table.pop(farthest, None)
+            return True
+        return False
+
     async def _handle_view_change_payload(self, data: dict[str, Any]) -> None:
         """Intake one gossip VIEW_CHANGE: verify, bound, store."""
         seq = data.get("sequence_number")
@@ -1392,6 +1449,7 @@ class PBFTConsensus:
             or seq < 0
             or view < 0
             or not view_change_active(seq)
+            or not self._vc_in_window(seq, view)
         ):
             return
         ok, reason = verify_view_change(data, self._chain_id)
@@ -1417,7 +1475,7 @@ class PBFTConsensus:
         key = (seq, view)
         bucket = self._vc_messages.get(key)
         if bucket is None:
-            if len(self._vc_messages) >= MAX_VC_BUCKETS:
+            if not self._vc_make_room(self._vc_messages, key, MAX_VC_BUCKETS):
                 metrics_registry.increment("pbft_view_change_flood_dropped_total")
                 return
             bucket = self._vc_messages[key] = {}
@@ -1506,6 +1564,7 @@ class PBFTConsensus:
             or seq < 0
             or view < 0
             or not view_change_active(seq)
+            or not self._vc_in_window(seq, view)
         ):
             return
         if (seq, view) in self._new_views:
@@ -1533,7 +1592,7 @@ class PBFTConsensus:
         key = (seq, view)
         if key in self._new_views:
             return  # first valid NEW_VIEW wins — a second is proposer equivocation
-        if len(self._new_views) >= MAX_NV_BUCKETS:
+        if not self._vc_make_room(self._new_views, key, MAX_NV_BUCKETS):
             metrics_registry.increment("pbft_view_change_flood_dropped_total")
             return
         self._new_views[key] = {"payload": data, "kind": kind, "selected": selected}
