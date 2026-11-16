@@ -148,6 +148,28 @@ class HealthChecker:
                 overall_status = HealthStatus.UNHEALTHY
 
         # Run async checks
+        overall_status = await self._run_async_checks(results, overall_status, all_details)
+
+        if overall_status == HealthStatus.HEALTHY:
+            message = "All health checks passed"
+        elif overall_status == HealthStatus.DEGRADED:
+            failed = [name for name, status, _ in results if status != HealthStatus.HEALTHY]
+            message = f"Degraded: {', '.join(failed)}"
+        else:
+            failed = [name for name, status, _ in results if status != HealthStatus.HEALTHY]
+            message = f"Unhealthy: {', '.join(failed)}"
+        health_check = HealthCheck(
+            service=self.service_name, status=overall_status, message=message, timestamp=datetime.now(), details=all_details
+        )
+        self._last_check = health_check
+        return health_check
+
+    async def _run_async_checks(
+        self,
+        results: list,
+        overall_status: HealthStatus,
+        all_details: dict[str, Any],
+    ) -> HealthStatus:
         for name, check_func in self._async_checks.items():
             try:
                 result = await check_func()
@@ -166,20 +188,7 @@ class HealthChecker:
                 results.append((name, HealthStatus.UNHEALTHY, str(e)))
                 all_details[name] = {"status": HealthStatus.UNHEALTHY.value, "message": str(e), "details": None}
                 overall_status = HealthStatus.UNHEALTHY
-
-        if overall_status == HealthStatus.HEALTHY:
-            message = "All health checks passed"
-        elif overall_status == HealthStatus.DEGRADED:
-            failed = [name for name, status, _ in results if status != HealthStatus.HEALTHY]
-            message = f"Degraded: {', '.join(failed)}"
-        else:
-            failed = [name for name, status, _ in results if status != HealthStatus.HEALTHY]
-            message = f"Unhealthy: {', '.join(failed)}"
-        health_check = HealthCheck(
-            service=self.service_name, status=overall_status, message=message, timestamp=datetime.now(), details=all_details
-        )
-        self._last_check = health_check
-        return health_check
+        return overall_status
 
     async def async_get_health_dict(self) -> dict[str, Any]:
         """

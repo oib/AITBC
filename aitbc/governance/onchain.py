@@ -233,6 +233,22 @@ def validate_governance_payload(
 
     # Check required fields
     required = _REQUIRED_FIELDS.get(tx_type.value, [])
+    _check_required_fields(payload, required, errors)
+
+    # Type-specific validation
+    if tx_type == GovernanceTxType.PROPOSE:
+        _validate_propose_payload(payload, errors)
+    elif tx_type == GovernanceTxType.VOTE:
+        _validate_vote_payload(payload, errors)
+
+    return errors
+
+
+def _check_required_fields(
+    payload: dict[str, Any],
+    required: list[str],
+    errors: list[str],
+) -> None:
     for field_name in required:
         value = payload.get(field_name)
         if value is None:
@@ -240,27 +256,32 @@ def validate_governance_payload(
         elif isinstance(value, str) and not value.strip():
             errors.append(f"empty required field: {field_name}")
 
-    # Type-specific validation
-    if tx_type == GovernanceTxType.PROPOSE:
-        proposal_type = payload.get("proposal_type")
-        if proposal_type is not None and proposal_type not in _VALID_PROPOSAL_TYPES:
-            errors.append(f"invalid proposal_type: {proposal_type} (must be one of {sorted(_VALID_PROPOSAL_TYPES)})")
-        voting_starts = payload.get("voting_starts_block")
-        voting_ends = payload.get("voting_ends_block")
-        if isinstance(voting_starts, int) and isinstance(voting_ends, int) and voting_ends <= voting_starts:
-            errors.append("voting_ends_block must be greater than voting_starts_block")
 
-    elif tx_type == GovernanceTxType.VOTE:
-        vote_type = payload.get("vote_type")
-        if vote_type is not None and vote_type not in _VALID_VOTE_CHOICES:
-            errors.append(f"invalid vote_type: {vote_type} (must be one of {sorted(_VALID_VOTE_CHOICES)})")
-        voting_power = payload.get("voting_power")
-        if voting_power is not None and not isinstance(voting_power, int | float):
-            errors.append(f"voting_power must be numeric, got {type(voting_power).__name__}")
-        if isinstance(voting_power, int | float) and voting_power < 0:
-            errors.append("voting_power must be non-negative")
+def _validate_propose_payload(
+    payload: dict[str, Any],
+    errors: list[str],
+) -> None:
+    proposal_type = payload.get("proposal_type")
+    if proposal_type is not None and proposal_type not in _VALID_PROPOSAL_TYPES:
+        errors.append(f"invalid proposal_type: {proposal_type} (must be one of {sorted(_VALID_PROPOSAL_TYPES)})")
+    voting_starts = payload.get("voting_starts_block")
+    voting_ends = payload.get("voting_ends_block")
+    if isinstance(voting_starts, int) and isinstance(voting_ends, int) and voting_ends <= voting_starts:
+        errors.append("voting_ends_block must be greater than voting_starts_block")
 
-    return errors
+
+def _validate_vote_payload(
+    payload: dict[str, Any],
+    errors: list[str],
+) -> None:
+    vote_type = payload.get("vote_type")
+    if vote_type is not None and vote_type not in _VALID_VOTE_CHOICES:
+        errors.append(f"invalid vote_type: {vote_type} (must be one of {sorted(_VALID_VOTE_CHOICES)})")
+    voting_power = payload.get("voting_power")
+    if voting_power is not None and not isinstance(voting_power, int | float):
+        errors.append(f"voting_power must be numeric, got {type(voting_power).__name__}")
+    if isinstance(voting_power, int | float) and voting_power < 0:
+        errors.append("voting_power must be non-negative")
 
 
 # ---------------------------------------------------------------------------

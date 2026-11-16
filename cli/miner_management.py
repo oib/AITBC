@@ -22,6 +22,58 @@ DEFAULT_COORDINATOR_URL = os.getenv("COORDINATOR_URL", "http://127.0.0.1:8203")
 DEFAULT_API_KEY = os.getenv("MINER_API_KEY", "")
 
 
+def _build_register_caps(
+    gpu_memory: int | None,
+    models: list | None,
+    pricing: float | None,
+    capabilities: str | None,
+) -> dict[str, int | float | str | list]:
+    # Build capabilities from arguments
+    caps: dict[str, int | float | str | list] = {}
+
+    if gpu_memory:
+        caps["gpu_memory"] = gpu_memory
+        caps["gpu_memory_gb"] = gpu_memory
+    if models:
+        caps["models"] = models
+        caps["supported_models"] = models
+    if pricing:
+        caps["pricing_per_hour"] = pricing
+        caps["price_per_hour"] = pricing
+        caps["gpu"] = "AI-GPU"
+        caps["gpu_count"] = 1
+        caps["cuda_version"] = "12.0"
+
+    # Override with capabilities JSON if provided
+    if capabilities:
+        caps.update(json.loads(capabilities))
+    return caps
+
+
+def _build_update_caps(
+    gpu_memory: int | None,
+    models: list | None,
+    pricing: float | None,
+    capabilities: str | None,
+) -> dict[str, int | float | str | list]:
+    # Build capabilities from arguments
+    caps: dict[str, int | float | str | list] = {}
+    if gpu_memory:
+        caps["gpu_memory"] = gpu_memory
+        caps["gpu_memory_gb"] = gpu_memory
+    if models:
+        caps["models"] = models
+        caps["supported_models"] = models
+    if pricing:
+        caps["pricing_per_hour"] = pricing
+        caps["price_per_hour"] = pricing
+
+    # Override with capabilities JSON if provided
+    if capabilities:
+        caps.update(json.loads(capabilities))
+    return caps
+
+
 def register_miner(
     miner_id: str,
     wallet: str,
@@ -38,25 +90,7 @@ def register_miner(
     try:
         headers = {"X-Api-Key": api_key, "X-Miner-ID": miner_id, "Content-Type": "application/json"}
 
-        # Build capabilities from arguments
-        caps: dict[str, int | float | str | list] = {}
-
-        if gpu_memory:
-            caps["gpu_memory"] = gpu_memory
-            caps["gpu_memory_gb"] = gpu_memory
-        if models:
-            caps["models"] = models
-            caps["supported_models"] = models
-        if pricing:
-            caps["pricing_per_hour"] = pricing
-            caps["price_per_hour"] = pricing
-            caps["gpu"] = "AI-GPU"
-            caps["gpu_count"] = 1
-            caps["cuda_version"] = "12.0"
-
-        # Override with capabilities JSON if provided
-        if capabilities:
-            caps.update(json.loads(capabilities))
+        caps = _build_register_caps(gpu_memory, models, pricing, capabilities)
 
         payload = {"wallet_address": wallet, "capabilities": caps, "concurrency": concurrency, "region": region}
 
@@ -297,21 +331,7 @@ def update_capabilities(
     try:
         headers = {"X-Api-Key": api_key, "X-Miner-ID": miner_id, "Content-Type": "application/json"}
 
-        # Build capabilities from arguments
-        caps: dict[str, int | float | str | list] = {}
-        if gpu_memory:
-            caps["gpu_memory"] = gpu_memory
-            caps["gpu_memory_gb"] = gpu_memory
-        if models:
-            caps["models"] = models
-            caps["supported_models"] = models
-        if pricing:
-            caps["pricing_per_hour"] = pricing
-            caps["price_per_hour"] = pricing
-
-        # Override with capabilities JSON if provided
-        if capabilities:
-            caps.update(json.loads(capabilities))
+        caps = _build_update_caps(gpu_memory, models, pricing, capabilities)
 
         payload = {"capabilities": caps, "concurrency": concurrency, "region": region}
 

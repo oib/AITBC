@@ -16,6 +16,24 @@ from aitbc_cli.commands.market import market
 MARKET_DIR = Path(__file__).resolve().parents[2] / "cli" / "aitbc_cli" / "commands" / "market"
 
 
+def _decorator_command_name(deco: ast.expr, node: ast.FunctionDef | ast.AsyncFunctionDef) -> tuple[str, str] | None:
+    """Return (group variable, command name) for a ``@<group>.command`` decorator, else None."""
+    call = deco if isinstance(deco, ast.Call) else None
+    func = call.func if call else deco
+    if not (isinstance(func, ast.Attribute) and func.attr == "command" and isinstance(func.value, ast.Name)):
+        return None
+    name = None
+    if call:
+        for kw in call.keywords:
+            if kw.arg == "name" and isinstance(kw.value, ast.Constant):
+                name = kw.value.value
+        if name is None and call.args and isinstance(call.args[0], ast.Constant):
+            name = call.args[0].value
+    if name is None:
+        name = node.name.replace("_", "-")
+    return func.value.id, str(name)
+
+
 def _registered_command_names() -> dict[tuple[str, str], list[str]]:
     """Map (group variable, command name) to every ``@<group>.command`` site that registers it."""
     sites: dict[tuple[str, str], list[str]] = defaultdict(list)
@@ -24,20 +42,9 @@ def _registered_command_names() -> dict[tuple[str, str], list[str]]:
             if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef):
                 continue
             for deco in node.decorator_list:
-                call = deco if isinstance(deco, ast.Call) else None
-                func = call.func if call else deco
-                if not (isinstance(func, ast.Attribute) and func.attr == "command" and isinstance(func.value, ast.Name)):
-                    continue
-                name = None
-                if call:
-                    for kw in call.keywords:
-                        if kw.arg == "name" and isinstance(kw.value, ast.Constant):
-                            name = kw.value.value
-                    if name is None and call.args and isinstance(call.args[0], ast.Constant):
-                        name = call.args[0].value
-                if name is None:
-                    name = node.name.replace("_", "-")
-                sites[(func.value.id, str(name))].append(f"{path.name}:{node.lineno}")
+                site = _decorator_command_name(deco, node)
+                if site is not None:
+                    sites[site].append(f"{path.name}:{node.lineno}")
     return sites
 
 

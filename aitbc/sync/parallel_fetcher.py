@@ -106,61 +106,11 @@ class ParallelBlockFetcher:
             failed_ranges.append((rs, re_))
 
         for task in done:
-            rpc_url, rs, re_ = tasks[task]
-            exc = task.exception()
-            if exc is not None:
-                logger.warning(
-                    "Peer %s failed for range [%d, %d]: %s",
-                    rpc_url,
-                    rs,
-                    re_,
-                    exc,
-                )
-                # Record failure using peer_id (find it from rpc_url)
-                fail_peer_id = self._find_peer_id(rpc_url)
-                if fail_peer_id:
-                    self._tracker.record_failure(fail_peer_id, reason=str(exc))
-                failed_ranges.append((rs, re_))
-                continue
-            for block in task.result():
-                height = block.get("height") if block.get("height") is not None else block.get("index")
-                if height is None:
-                    continue
-                if height not in results:
-                    results[height] = block
-            # Record success using peer_id
-            success_peer_id = self._find_peer_id(rpc_url)
-            if success_peer_id:
-                self._tracker.record_success(success_peer_id, blocks_fetched=re_ - rs + 1)
+            self._collect_task_result(task, tasks[task], results, failed_ranges)
 
         # Re-fetch failed sub-ranges from any remaining healthy peer
         for rs, re_ in failed_ranges:
-            fallback = self._tracker.select_peers_for_range(rs, re_, max_peers=1)
-            if not fallback:
-                logger.error("No fallback peer for failed range [%d, %d]", rs, re_)
-                continue
-            fb_peer_id, _ = fallback[0]
-            fb_peer = self._tracker.get_peer(fb_peer_id)
-            if fb_peer is None:
-                continue
-            try:
-                blocks = await self._fetch_with_timeout(fb_peer.rpc_url, rs, re_, fetch_fn)
-                for block in blocks:
-                    height = block.get("height") if block.get("height") is not None else block.get("index")
-                    if height is None:
-                        continue
-                    if height not in results:
-                        results[height] = block
-                self._tracker.record_success(fb_peer_id, blocks_fetched=re_ - rs + 1)
-            except Exception as exc:  # noqa: BLE001
-                logger.error(
-                    "Fallback peer %s failed for range [%d, %d]: %s",
-                    fb_peer.rpc_url,
-                    rs,
-                    re_,
-                    exc,
-                )
-                self._tracker.record_failure(fb_peer_id, reason=str(exc))
+            await self._refetch_failed_range(rs, re_, fetch_fn, results)
 
         return [results[h] for h in sorted(results)]
 
@@ -176,6 +126,74 @@ class ParallelBlockFetcher:
         return sorted(blocks, key=lambda b: b.get("height", b.get("index", 0)))
 
     # --- internals ---
+
+    def _collect_task_result(
+        self,
+        task: asyncio.Future,
+        assignment: tuple[str, int, int],
+        results: dict[int, dict[str, Any]],
+        failed_ranges: list[tuple[int, int]],
+    ) -> None:
+        rpc_url, rs, re_ = assignment
+        exc = task.exception()
+        if exc is not None:
+            logger.warning(
+                "Peer %s failed for range [%d, %d]: %s",
+                rpc_url,
+                rs,
+                re_,
+                exc,
+            )
+            # Record failure using peer_id (find it from rpc_url)
+            fail_peer_id = self._find_peer_id(rpc_url)
+            if fail_peer_id:
+                self._tracker.record_failure(fail_peer_id, reason=str(exc))
+            failed_ranges.append((rs, re_))
+            return
+        for block in task.result():
+            height = block.get("height") if block.get("height") is not None else block.get("index")
+            if height is None:
+                continue
+            if height not in results:
+                results[height] = block
+        # Record success using peer_id
+        success_peer_id = self._find_peer_id(rpc_url)
+        if success_peer_id:
+            self._tracker.record_success(success_peer_id, blocks_fetched=re_ - rs + 1)
+
+    async def _refetch_failed_range(
+        self,
+        rs: int,
+        re_: int,
+        fetch_fn: Callable[[str, int, int], Awaitable[list[dict[str, Any]]]],
+        results: dict[int, dict[str, Any]],
+    ) -> None:
+        fallback = self._tracker.select_peers_for_range(rs, re_, max_peers=1)
+        if not fallback:
+            logger.error("No fallback peer for failed range [%d, %d]", rs, re_)
+            return
+        fb_peer_id, _ = fallback[0]
+        fb_peer = self._tracker.get_peer(fb_peer_id)
+        if fb_peer is None:
+            return
+        try:
+            blocks = await self._fetch_with_timeout(fb_peer.rpc_url, rs, re_, fetch_fn)
+            for block in blocks:
+                height = block.get("height") if block.get("height") is not None else block.get("index")
+                if height is None:
+                    continue
+                if height not in results:
+                    results[height] = block
+            self._tracker.record_success(fb_peer_id, blocks_fetched=re_ - rs + 1)
+        except Exception as exc:  # noqa: BLE001
+            logger.error(
+                "Fallback peer %s failed for range [%d, %d]: %s",
+                fb_peer.rpc_url,
+                rs,
+                re_,
+                exc,
+            )
+            self._tracker.record_failure(fb_peer_id, reason=str(exc))
 
     def _find_peer_id(self, rpc_url: str) -> str | None:
         """Find peer_id by rpc_url."""
