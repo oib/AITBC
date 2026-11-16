@@ -467,5 +467,5 @@ class _MeshSubscription:
         self._tasks.clear()
         for source in self._sources.values():
             with suppress(Exception):
-                source.close()
+                source.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
         self._sources.clear()

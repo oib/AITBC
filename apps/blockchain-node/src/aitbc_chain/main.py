@@ -753,7 +753,7 @@ class BlockchainNode:
 
     async def stop(self) -> None:
         logger.info("Stopping blockchain node")
-        self._stop_event.set()
+        self._stop_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
         await self._shutdown()
 
     def _start_proposers(self) -> None:

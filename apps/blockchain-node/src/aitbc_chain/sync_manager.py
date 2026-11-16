@@ -213,7 +213,7 @@ class SyncManager:
 
     async def stop(self) -> None:
         logger.info("Stopping SyncManager")
-        self._stop_event.set()
+        self._stop_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
         for client in self._subscription_clients:
             try:
                 await client.stop()
@@ -684,7 +684,7 @@ class SyncManager:
             pass
         finally:
             if state.gossip_sub:
-                state.gossip_sub.close()
+                state.gossip_sub.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
 
     async def _process_gossip_message(self, chain_id: str, block_data: Any) -> None:
         if isinstance(block_data, str):
@@ -838,11 +838,11 @@ class SyncManager:
             return poll
         head_divergence, remote_height = head
 
-        sync_peer_reachable.labels(chain_id=chain_id).set(1.0)
+        sync_peer_reachable.labels(chain_id=chain_id).set(1.0)  # noqa: unawaited-async — prometheus Gauge.set() is synchronous
 
         state.last_local_height = chain_sync.get_local_height()
         gap = max(0, state.last_remote_height - state.last_local_height)
-        sync_lag_blocks.labels(chain_id=chain_id).set(float(gap))
+        sync_lag_blocks.labels(chain_id=chain_id).set(float(gap))  # noqa: unawaited-async — prometheus Gauge.set() is synchronous
 
         # Equal heights with different head hashes: a symmetric fork (e.g. the
         # isolated proposer rejoining). The bulk path's fork resolver records

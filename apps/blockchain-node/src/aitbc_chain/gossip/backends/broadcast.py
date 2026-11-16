@@ -200,7 +200,7 @@ class BroadcastGossipBackend(GossipBackend):
 
         def _unsubscribe() -> None:
             async def _stop() -> None:
-                stop_event.set()
+                stop_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
                 task.cancel()
                 with suppress(asyncio.CancelledError):
                     await task

@@ -78,7 +78,7 @@ class ChainSyncService:
     async def stop(self) -> None:
         """Stop chain synchronization service"""
         logger.info("Stopping chain sync service")
-        self._stop_event.set()
+        self._stop_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
 
     async def _get_import_head_height(self) -> int:
         """Get the current height on the local import target."""
@@ -152,7 +152,7 @@ class ChainSyncService:
         pubsub = self._redis.pubsub()
         channel = f"blocks.{self.chain_id}" if self.chain_id else "blocks"
         await pubsub.subscribe(channel)
-        self._receiver_ready.set()
+        self._receiver_ready.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
         logger.info("Subscribed to block broadcasts on channel: %s", channel)
         # Poll with get_message(timeout=...) instead of listen(): listen()
         # blocks on the socket until a message arrives, so a silently-dead
