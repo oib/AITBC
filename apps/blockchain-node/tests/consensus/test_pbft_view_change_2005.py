@@ -2221,6 +2221,35 @@ class TestLockedReproposal2157:
         assert calls[0][0] == HB
 
     @pytest.mark.asyncio
+    async def test_lock_on_the_fresh_hash_keeps_the_fresh_payload(self, vc_armed, monkeypatch):
+        owner = MEMBERS[1]
+        pbft = self._engine(owner, owner)
+        seen: list[Any] = []
+
+        async def fake_pre_prepare(proposer, block_hash, sequence=None, view=None, block_payload=None, new_view_payload=None):
+            seen.append((block_hash, block_payload))
+            return True
+
+        monkeypatch.setattr(pbft, "pre_prepare_phase", fake_pre_prepare)
+        monkeypatch.setattr(pbft, "_ensure_synced", lambda: _true())
+        fresh = _proposal_body(owner, HA)
+        fresh["tx_count"] = 99  # distinguishes the caller's payload from the stored body
+        await pbft.propose_and_wait(owner, HA, timeout=0.01, sequence=SEQ, view=VIEW, block_payload=fresh)
+        assert seen[0][0] == HA
+        assert seen[0][1]["tx_count"] == 99
+
+    @pytest.mark.asyncio
+    async def test_unbound_stored_body_is_never_reproposed(self, vc_armed, monkeypatch):
+        owner = MEMBERS[1]
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, owner, KEYS[owner])
+        bad = _proposal_body(owner, HB)  # body says HB, stored under the locked hash HA
+        consensus.pbft_vc_proposal_store(SEQ, HA, bad)
+        assert consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, _commit_rec(MEMBERS[0], HA, SEQ, 0), _proof(HA, SEQ, 0))
+        calls = await self._run(pbft, monkeypatch)
+        assert calls[0][0] == HB
+
+    @pytest.mark.asyncio
     async def test_reproposal_never_reports_success_for_the_fresh_block(self, vc_armed, monkeypatch):
         owner = MEMBERS[1]
         pbft = self._engine(owner, owner)
