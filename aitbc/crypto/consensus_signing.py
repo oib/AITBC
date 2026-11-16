@@ -288,8 +288,6 @@ def verify_block_signature(
         record_failure("block", UNPARSEABLE)
         return False
 
-    from .signature_recovery import SignatureMalformed, recover_address, verify_signature
-
     # Try the new canonical header format first.
     if not isinstance(block, str):
         try:
@@ -299,6 +297,16 @@ def verify_block_signature(
             logger.debug("canonical header verification failed, trying legacy path: %s", e)
 
     # Fall back to legacy raw block-hash signing.
+    return _verify_legacy_block_signature(block, signature, expected_proposer)
+
+
+def _verify_legacy_block_signature(
+    block: Any,
+    signature: str,
+    expected_proposer: str,
+) -> bool:
+    from .signature_recovery import SignatureMalformed, recover_address, verify_signature
+
     if isinstance(block, str):
         block_hash = block
     elif isinstance(block, dict):

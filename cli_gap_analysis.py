@@ -122,16 +122,7 @@ def parse_usage_guide_groups(text):
     return groups
 
 
-def main():
-    top_level = set(cli.commands.keys())
-
-    readme_text = (REPO / "cli" / "README.md").read_text()
-    usage_text = (REPO / "cli" / "CLI_USAGE_GUIDE.md").read_text()
-
-    readme_groups = parse_readme_table(readme_text)
-    usage_groups = parse_usage_guide_groups(usage_text)
-
-    # merge: explicit subcommand lists from README take precedence; Usage Guide fills gaps
+def _merge_groups(readme_groups, usage_groups):
     expected = {}
     for g in set(readme_groups) | set(usage_groups):
         r = readme_groups.get(g)
@@ -142,20 +133,10 @@ def main():
             expected[g] = u
         else:
             expected[g] = None
+    return expected
 
-    click.echo("=" * 60)
-    click.echo("Top-level CLI commands not documented as groups:")
-    doc_top = set(expected)
-    for cmd in sorted(top_level - doc_top):
-        click.echo(f"  aitbc {cmd}")
 
-    click.echo()
-    click.echo("Top-level commands documented but missing from CLI:")
-    for cmd in sorted(doc_top - top_level):
-        click.echo(f"  aitbc {cmd}")
-
-    click.echo()
-    click.echo("Subcommand gaps for groups with explicit key subcommand lists:")
+def _report_subcommand_gaps(expected) -> None:
     for group in sorted(expected):
         subs = expected[group]
         if subs is None:
@@ -179,6 +160,34 @@ def main():
                 click.echo(f"    documented but missing: {', '.join(sorted(missing))}")
             if extra:
                 click.echo(f"    implemented but not documented: {', '.join(sorted(extra))}")
+
+
+def main():
+    top_level = set(cli.commands.keys())
+
+    readme_text = (REPO / "cli" / "README.md").read_text()
+    usage_text = (REPO / "cli" / "CLI_USAGE_GUIDE.md").read_text()
+
+    readme_groups = parse_readme_table(readme_text)
+    usage_groups = parse_usage_guide_groups(usage_text)
+
+    # merge: explicit subcommand lists from README take precedence; Usage Guide fills gaps
+    expected = _merge_groups(readme_groups, usage_groups)
+
+    click.echo("=" * 60)
+    click.echo("Top-level CLI commands not documented as groups:")
+    doc_top = set(expected)
+    for cmd in sorted(top_level - doc_top):
+        click.echo(f"  aitbc {cmd}")
+
+    click.echo()
+    click.echo("Top-level commands documented but missing from CLI:")
+    for cmd in sorted(doc_top - top_level):
+        click.echo(f"  aitbc {cmd}")
+
+    click.echo()
+    click.echo("Subcommand gaps for groups with explicit key subcommand lists:")
+    _report_subcommand_gaps(expected)
 
     click.echo()
     click.echo("=" * 60)

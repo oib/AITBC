@@ -280,9 +280,10 @@ class OfferSubscriptionClient:
                 "filters": filters,
             }
         )
-        ws_headers = {"X-Trading-Api-Key": self._api_key} if self._api_key else None
+        ws_headers = self._ws_headers()
         reconnect_attempts = 0
-        while self._running and chain_id in self._subscriptions:
+        use_polling_fallback = False
+        while self._stream_active(chain_id):
             try:
                 async with websockets.connect(
                     ws_url,
@@ -295,10 +296,8 @@ class OfferSubscriptionClient:
                         self._status[chain_id] = SubscriptionStatus.SUBSCRIBED
                     reconnect_attempts = 0
                     logger.info("Offer subscription WebSocket connected for chain %s", chain_id)
-                    async for raw in websocket:
-                        event = self._parse_message(raw)
-                        if event is not None:
-                            yield event
+                    async for event in self._iter_ws_messages(websocket):
+                        yield event
             except ConnectionClosed:
                 logger.warning(
                     "Offer subscription WebSocket closed for chain %s, reconnecting",
@@ -307,16 +306,9 @@ class OfferSubscriptionClient:
                 async with self._lock:
                     self._status[chain_id] = SubscriptionStatus.RECONNECTING
                 reconnect_attempts += 1
-                if reconnect_attempts > self._max_reconnect_attempts:
-                    logger.warning(
-                        "Offer subscription for chain %s exceeded max reconnect attempts, falling back to polling",
-                        chain_id,
-                    )
-                    async with self._lock:
-                        self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
-                    async for event in self._polling_fallback(chain_id, self._subscriptions[chain_id]):
-                        yield event
-                    return
+                if self._reconnect_exhausted(chain_id, reconnect_attempts):
+                    use_polling_fallback = True
+                    break
                 await asyncio.sleep(self._reconnect_delay)
             except InvalidStatus as e:
                 # A rejected handshake is an HTTP response, not a WS close. 401/403
@@ -346,11 +338,36 @@ class OfferSubscriptionClient:
                     chain_id,
                     e,
                 )
-                async with self._lock:
-                    self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
-                async for event in self._polling_fallback(chain_id, self._subscriptions[chain_id]):
-                    yield event
-                return
+                use_polling_fallback = True
+                break
+
+        if use_polling_fallback:
+            async with self._lock:
+                self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
+            # Polling fallback path.
+            async for event in self._polling_fallback(chain_id, self._subscriptions[chain_id]):
+                yield event
+
+    async def _iter_ws_messages(self, websocket: Any) -> AsyncIterator[OfferEvent]:
+        async for raw in websocket:
+            event = self._parse_message(raw)
+            if event is not None:
+                yield event
+
+    def _reconnect_exhausted(self, chain_id: str, reconnect_attempts: int) -> bool:
+        if reconnect_attempts > self._max_reconnect_attempts:
+            logger.warning(
+                "Offer subscription for chain %s exceeded max reconnect attempts, falling back to polling",
+                chain_id,
+            )
+            return True
+        return False
+
+    def _stream_active(self, chain_id: str) -> bool:
+        return self._running and chain_id in self._subscriptions
+
+    def _ws_headers(self) -> dict[str, str] | None:
+        return {"X-Trading-Api-Key": self._api_key} if self._api_key else None
 
     async def _polling_fallback(self, chain_id: str, sub: OfferSubscription) -> AsyncIterator[OfferEvent]:
         r"""Fall back to v0.8.1 polling-based sync.

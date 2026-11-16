@@ -693,11 +693,63 @@ def evaluate_quote(
     refusal rather than raising for economic conflicts (cap, expiry, floor).
     Only programmer errors or corrupt quote objects raise ``EnergyPricingError``.
     """
+    refusal = _profile_rate_refusal(quote, profile, rate)
+    if refusal is not None:
+        return refusal
+    refusal = _timing_refusal(quote, rate, now, max_rate_age_seconds)
+    if refusal is not None:
+        return refusal
+
+    floor = compute_energy_net_units(
+        tbp_watts=quote.tbp_watts,
+        eur_per_kwh_scaled=quote.eur_per_kwh_scaled,
+        ait_per_eur_scaled=quote.ait_per_eur_scaled,
+        gpu_count=quote.gpu_count,
+        duration_seconds=quote.duration_seconds,
+        settlement_unit_scale=quote.settlement_unit_scale,
+    )
+    refusal = _floor_principal_refusal(quote, floor)
+    if refusal is not None:
+        return refusal
+
+    breakdown = compute_funding_breakdown(
+        principal_units=quote.principal_units,
+        fee_basis_points=quote.fee_basis_points,
+        fee_model=quote.fee_model,
+        net_energy_floor_units=floor,
+    )
+
+    refusal = _cap_refusal(quote, breakdown, hard_cap_units)
+    if refusal is not None:
+        return refusal
+
+    return QuoteResult(
+        quote=quote,
+        breakdown=breakdown,
+        approved=True,
+    )
+
+
+def _profile_rate_refusal(
+    quote: EnergyQuote,
+    profile: EnergyProfile,
+    rate: EnergyRate,
+) -> QuoteResult | None:
     if not profile.enabled:
         return _refusal(quote, RefusalCode.PROFILE_DISABLED, "profile is disabled")
     if not rate.enabled:
         return _refusal(quote, RefusalCode.RATE_DISABLED, "rate is disabled")
 
+    refusal = _profile_mismatch_refusal(quote, profile)
+    if refusal is not None:
+        return refusal
+    return _rate_mismatch_refusal(quote, rate)
+
+
+def _profile_mismatch_refusal(
+    quote: EnergyQuote,
+    profile: EnergyProfile,
+) -> QuoteResult | None:
     if quote.resource_id != profile.resource_id:
         return _refusal(quote, RefusalCode.PROFILE_MISMATCH, "resource_id mismatch")
     if quote.provider != profile.provider:
@@ -710,13 +762,28 @@ def evaluate_quote(
         return _refusal(quote, RefusalCode.PROFILE_MISMATCH, "eur_per_kwh mismatch")
     if quote.profile_revision != profile.revision:
         return _refusal(quote, RefusalCode.PROFILE_MISMATCH, "profile revision mismatch")
+    return None
+
+
+def _rate_mismatch_refusal(
+    quote: EnergyQuote,
+    rate: EnergyRate,
+) -> QuoteResult | None:
     if quote.ait_per_eur_scaled != rate.ait_per_eur_scaled:
         return _refusal(quote, RefusalCode.RATE_MISMATCH, "ait_per_eur mismatch")
     if quote.rate_version != rate.version:
         return _refusal(quote, RefusalCode.RATE_MISMATCH, "rate version mismatch")
     if quote.rate_source_kind != rate.source_kind:
         return _refusal(quote, RefusalCode.RATE_MISMATCH, "rate source kind mismatch")
+    return None
 
+
+def _timing_refusal(
+    quote: EnergyQuote,
+    rate: EnergyRate,
+    now: int,
+    max_rate_age_seconds: int,
+) -> QuoteResult | None:
     if now >= quote.expires_at:
         return _refusal(quote, RefusalCode.EXPIRED, "quote expired")
     if now < quote.issued_at - FUTURE_TIMESTAMP_TOLERANCE_SECONDS:
@@ -727,15 +794,13 @@ def evaluate_quote(
         return _refusal(quote, RefusalCode.FUTURE_TIMESTAMP, "rate observed in future")
     if rate.submitted_at > now + FUTURE_TIMESTAMP_TOLERANCE_SECONDS:
         return _refusal(quote, RefusalCode.FUTURE_TIMESTAMP, "rate submitted in future")
+    return None
 
-    floor = compute_energy_net_units(
-        tbp_watts=quote.tbp_watts,
-        eur_per_kwh_scaled=quote.eur_per_kwh_scaled,
-        ait_per_eur_scaled=quote.ait_per_eur_scaled,
-        gpu_count=quote.gpu_count,
-        duration_seconds=quote.duration_seconds,
-        settlement_unit_scale=quote.settlement_unit_scale,
-    )
+
+def _floor_principal_refusal(
+    quote: EnergyQuote,
+    floor: int,
+) -> QuoteResult | None:
     if floor != quote.net_energy_floor_units:
         return _refusal(
             quote,
@@ -749,14 +814,14 @@ def evaluate_quote(
             RefusalCode.BELOW_FLOOR,
             f"principal_units {quote.principal_units} below floor {floor}",
         )
+    return None
 
-    breakdown = compute_funding_breakdown(
-        principal_units=quote.principal_units,
-        fee_basis_points=quote.fee_basis_points,
-        fee_model=quote.fee_model,
-        net_energy_floor_units=floor,
-    )
 
+def _cap_refusal(
+    quote: EnergyQuote,
+    breakdown: FundingBreakdown,
+    hard_cap_units: int | None,
+) -> QuoteResult | None:
     if quote.buyer_cap_units is not None and breakdown.buyer_charge_units > quote.buyer_cap_units:
         return _refusal(
             quote,
@@ -769,12 +834,7 @@ def evaluate_quote(
             RefusalCode.HARD_CAP_CONFLICT,
             f"buyer charge {breakdown.buyer_charge_units} exceeds hard cap {hard_cap_units}",
         )
-
-    return QuoteResult(
-        quote=quote,
-        breakdown=breakdown,
-        approved=True,
-    )
+    return None
 
 
 # --------------------------------------------------------------------------- #

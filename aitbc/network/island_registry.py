@@ -52,35 +52,7 @@ class IslandRegistry:
             rest = parts[2].strip()
             if not island_id or not chain_id or not rest:
                 raise ValueError(f"Invalid island registry entry (empty fields): {entry}")
-            # Normalize URL with protocol prefix
-            if not rest.startswith("http://") and not rest.startswith("https://"):
-                rest = f"http://{rest}"
-            # Determine protocol prefix
-            protocol = "https://" if rest.startswith("https://") else "http://"
-            after_protocol = rest[len(protocol) :]
-            # after_protocol is "host:port[:island_name]" or "host[:island_name]"
-            sub_parts = after_protocol.split(":")
-            if len(sub_parts) <= 1:
-                # Just host, no port, no island_name
-                hub_url = rest
-                island_name = island_id
-            elif len(sub_parts) == 2:
-                if sub_parts[1].strip().isdigit():
-                    # host:port — no island_name
-                    hub_url = rest
-                    island_name = island_id
-                else:
-                    # host:island_name (no port)
-                    hub_url = f"{protocol}{sub_parts[0].strip()}"
-                    island_name = sub_parts[1].strip()
-            else:
-                # 3+ parts: host:port:island_name[:...]
-                hub_url = f"{protocol}{sub_parts[0].strip()}:{sub_parts[1].strip()}"
-                island_name = ":".join(sub_parts[2:]).strip()
-            if not island_name:
-                island_name = island_id
-            if not hub_url:
-                raise ValueError(f"Invalid island registry entry (empty hub_url): {entry}")
+            hub_url, island_name = _parse_hub_url(rest, island_id, entry)
             result[island_id] = IslandRegistryEntry(
                 island_id=island_id,
                 chain_id=chain_id,
@@ -102,3 +74,36 @@ class IslandRegistry:
     def get_hub_for_island(self, island_id: str) -> str | None:
         entry = self._entries.get(island_id)
         return entry.hub_url if entry else None
+
+
+def _parse_hub_url(rest: str, island_id: str, entry: str) -> tuple[str, str]:
+    # Normalize URL with protocol prefix
+    if not rest.startswith("http://") and not rest.startswith("https://"):
+        rest = f"http://{rest}"
+    # Determine protocol prefix
+    protocol = "https://" if rest.startswith("https://") else "http://"
+    after_protocol = rest[len(protocol) :]
+    # after_protocol is "host:port[:island_name]" or "host[:island_name]"
+    sub_parts = after_protocol.split(":")
+    if len(sub_parts) <= 1:
+        # Just host, no port, no island_name
+        hub_url = rest
+        island_name = island_id
+    elif len(sub_parts) == 2:
+        if sub_parts[1].strip().isdigit():
+            # host:port — no island_name
+            hub_url = rest
+            island_name = island_id
+        else:
+            # host:island_name (no port)
+            hub_url = f"{protocol}{sub_parts[0].strip()}"
+            island_name = sub_parts[1].strip()
+    else:
+        # 3+ parts: host:port:island_name[:...]
+        hub_url = f"{protocol}{sub_parts[0].strip()}:{sub_parts[1].strip()}"
+        island_name = ":".join(sub_parts[2:]).strip()
+    if not island_name:
+        island_name = island_id
+    if not hub_url:
+        raise ValueError(f"Invalid island registry entry (empty hub_url): {entry}")
+    return hub_url, island_name

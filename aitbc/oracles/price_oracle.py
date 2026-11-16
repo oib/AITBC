@@ -349,29 +349,9 @@ class PriceOracle:
         #   AIT_USD_FIXED_PRICE — pins the USD quote directly (legacy)
         #   no env              — the €0.25 compute-backed reference
         if base.upper() == "AIT":
-            eur_fixed = os.getenv("AIT_EUR_FIXED_PRICE")
-            usd_fixed = os.getenv("AIT_USD_FIXED_PRICE")
-
-            if eur_fixed:
-                try:
-                    result = self._ait_derived_price(Decimal(eur_fixed), quote, "fixed_eur")
-                    if result is not None:
-                        return result
-                except (ValueError, InvalidOperation):
-                    logger.warning("Invalid AIT_EUR_FIXED_PRICE: %s", eur_fixed)
-
-            if usd_fixed and quote.upper() == "USD":
-                try:
-                    price = Decimal(usd_fixed)
-                    logger.debug("Using fixed AIT/USD price: %s", price)
-                    return PriceResult(base, quote, price, "fixed", time.time(), {"source": "fixed_price"})
-                except (ValueError, InvalidOperation):
-                    logger.warning("Invalid AIT_USD_FIXED_PRICE: %s", usd_fixed)
-
-            if not eur_fixed and not usd_fixed:
-                result = self._ait_derived_price(AIT_REFERENCE_PRICE_EUR, quote, "reference")
-                if result is not None:
-                    return result
+            result = self._get_ait_price(base, quote)
+            if result is not None:
+                return result
 
         result = self._chainlink.get_price(base, quote)
         if result is not None:
@@ -384,6 +364,32 @@ class PriceOracle:
             return result
 
         logger.warning("No price available for pair: %s/%s", base, quote)
+        return None
+
+    def _get_ait_price(self, base: str, quote: str) -> PriceResult | None:
+        eur_fixed = os.getenv("AIT_EUR_FIXED_PRICE")
+        usd_fixed = os.getenv("AIT_USD_FIXED_PRICE")
+
+        if eur_fixed:
+            try:
+                result = self._ait_derived_price(Decimal(eur_fixed), quote, "fixed_eur")
+                if result is not None:
+                    return result
+            except (ValueError, InvalidOperation):
+                logger.warning("Invalid AIT_EUR_FIXED_PRICE: %s", eur_fixed)
+
+        if usd_fixed and quote.upper() == "USD":
+            try:
+                price = Decimal(usd_fixed)
+                logger.debug("Using fixed AIT/USD price: %s", price)
+                return PriceResult(base, quote, price, "fixed", time.time(), {"source": "fixed_price"})
+            except (ValueError, InvalidOperation):
+                logger.warning("Invalid AIT_USD_FIXED_PRICE: %s", usd_fixed)
+
+        if not eur_fixed and not usd_fixed:
+            result = self._ait_derived_price(AIT_REFERENCE_PRICE_EUR, quote, "reference")
+            if result is not None:
+                return result
         return None
 
     def get_price_or_raise(self, base: str, quote: str = "USD") -> PriceResult:

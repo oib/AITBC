@@ -324,6 +324,46 @@ def mock_subprocess(monkeypatch):
 # ---------------------------------------------------------------------------
 
 
+def _eth_utils_fallback():
+    import re
+
+    _ADDR_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")
+
+    def to_checksum_address(value: str) -> str:
+        if not value.startswith("0x"):
+            value = "0x" + value
+        return value
+
+    def is_address(value: str) -> bool:
+        return bool(_ADDR_RE.match(value))
+
+    def is_checksum_address(value: str) -> bool:
+        return is_address(value)
+
+    def is_hex(value: str) -> bool:
+        if value.startswith("0x") or value.startswith("0X"):
+            value = value[2:]
+        try:
+            int(value, 16)
+            return True
+        except (ValueError, TypeError):
+            return False
+
+    def to_hex(value) -> str:
+        if isinstance(value, bytes):
+            return "0x" + value.hex()
+        return hex(value)
+
+    return SimpleNamespace(
+        to_checksum_address=to_checksum_address,
+        is_address=is_address,
+        is_checksum_address=is_checksum_address,
+        is_hex=is_hex,
+        to_hex=to_hex,
+        hexbytes_if_bigint=lambda x: hex(x),
+    )
+
+
 @pytest.fixture
 def mock_eth_utils():
     """Provide ``eth_utils`` helper functions for tests that skip on import.
@@ -345,43 +385,7 @@ def mock_eth_utils():
             hexbytes_if_bigint=_eu.hexbytes_if_bigint if hasattr(_eu, "hexbytes_if_bigint") else lambda x: hex(x),
         )
     except (ImportError, AttributeError):  # pragma: no cover - fallback when eth_utils missing
-        import re
-
-        _ADDR_RE = re.compile(r"^0x[a-fA-F0-9]{40}$")
-
-        def to_checksum_address(value: str) -> str:
-            if not value.startswith("0x"):
-                value = "0x" + value
-            return value
-
-        def is_address(value: str) -> bool:
-            return bool(_ADDR_RE.match(value))
-
-        def is_checksum_address(value: str) -> bool:
-            return is_address(value)
-
-        def is_hex(value: str) -> bool:
-            if value.startswith("0x") or value.startswith("0X"):
-                value = value[2:]
-            try:
-                int(value, 16)
-                return True
-            except (ValueError, TypeError):
-                return False
-
-        def to_hex(value) -> str:
-            if isinstance(value, bytes):
-                return "0x" + value.hex()
-            return hex(value)
-
-        return SimpleNamespace(
-            to_checksum_address=to_checksum_address,
-            is_address=is_address,
-            is_checksum_address=is_checksum_address,
-            is_hex=is_hex,
-            to_hex=to_hex,
-            hexbytes_if_bigint=lambda x: hex(x),
-        )
+        return _eth_utils_fallback()
 
 
 # ---------------------------------------------------------------------------
