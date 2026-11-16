@@ -6,17 +6,27 @@ import os
 
 import click
 
+from ..config import get_config
 from ..utils import output, resolve_output_format
-from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, service_root_url
 from ..utils.error_handling import abort
 
 COORDINATOR_API_URL = "http://localhost:8203"
 
 
-def _get_client(url: str | None = None) -> AITBCHTTPClient:
-    """Create an HTTP client for the coordinator API."""
-    base_url: str = url or os.getenv("COORDINATOR_API_URL") or COORDINATOR_API_URL
-    return AITBCHTTPClient(base_url=base_url, timeout=30)
+def _get_client(ctx: click.Context | None = None, url: str | None = None) -> AITBCHTTPClient:
+    """Create an authenticated HTTP client for the configured coordinator API."""
+    config = get_config()
+    ctx_obj = ctx.obj if ctx is not None and isinstance(ctx.obj, dict) else {}
+    base_url: str = service_root_url(
+        url or ctx_obj.get("url") or os.getenv("COORDINATOR_API_URL") or config.coordinator_api_url,
+        COORDINATOR_API_URL,
+    )
+    return AITBCHTTPClient(
+        base_url=base_url,
+        timeout=30,
+        **auth_client_kwargs(ctx_obj.get("api_key"), config.api_key),
+    )
 
 
 @click.group(
@@ -56,7 +66,7 @@ def create(
 ):
     """Create a new DAO grant proposal."""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         payload = {
             "developer_id": developer_id,
             "title": title,
@@ -96,7 +106,7 @@ def list_grants(
 ):
     """List DAO grant proposals with optional status, developer, and pagination filters."""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         params: dict[str, str | int] = {"limit": limit, "offset": offset}
         if status:
             params["status"] = status
@@ -127,7 +137,7 @@ def list_grants(
 def vote(ctx, grant_id: str, vote: str, voting_power: float, format: str):
     """Cast a vote for, against, or abstain on a grant proposal."""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         result = client.post(f"/v1/grants/{grant_id}/vote", json={"vote": vote, "voting_power": voting_power})
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
@@ -151,7 +161,7 @@ def vote(ctx, grant_id: str, vote: str, voting_power: float, format: str):
 def disburse(ctx, grant_id: str, milestone_id: str | None, amount: str | None, format: str):
     """Disburse funds for a grant or a specific milestone."""
     try:
-        client = _get_client()
+        client = _get_client(ctx)
         payload = {"milestone_id": milestone_id, "amount": amount}
         result = client.post(
             f"/v1/grants/{grant_id}/disburse",
