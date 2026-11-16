@@ -115,6 +115,11 @@ def check_cli(row: inv.ToolRow, leaves: set, groups: set) -> str:
 _ROUTE_DEC = re.compile(r'@(\w+)\.(get|post|put|delete|patch|websocket)\(\s*"([^"]*)"')
 _ROUTER_DEF = re.compile(r'(\w+)\s*=\s*\w*APIRouter\(\s*prefix="([^"]*)"')
 _MOUNT = re.compile(r'include_router\(\s*\w+\s*,\s*prefix="([^"]+)"')
+# `from .sibling import router` — single-line or parenthesized. Router objects
+# legitimately live in a shared sibling module (#1860 band splits), so a
+# decorator's prefix must be resolved through the import, not just same-file
+# APIRouter() assignments.
+_FROM_REL_IMPORT = re.compile(r"from\s+\.(\w+)\s+import\s*(\([^)]*\)|[^\n(]+)", re.S)
 
 
 def _service_root(service: str) -> Path | None:
@@ -135,15 +140,31 @@ def app_route_paths(service: str) -> set[str]:
     if root is None:
         return set()
     mounts = [""]
+    py_files = sorted(root.rglob("*.py"))
+    texts = {py: py.read_text(errors="replace") for py in py_files}
+    # var -> prefix, per file: same-file APIRouter(prefix=...) assignments.
+    local_prefixes = {py: dict(_ROUTER_DEF.findall(text)) for py, text in texts.items()}
     file_routes: set[str] = set()
-    for py in sorted(root.rglob("*.py")):
-        text = py.read_text(errors="replace")
+    for py in py_files:
+        text = texts[py]
         mounts += _MOUNT.findall(text)
-        prefixes = dict(_ROUTER_DEF.findall(text))
+        # Routers imported from a sibling module carry that file's prefix.
+        visible = {}
+        for mod, names in _FROM_REL_IMPORT.findall(text):
+            target = py.parent / f"{mod}.py"
+            if target not in local_prefixes:
+                continue
+            for raw in names.strip().strip("()").split(","):
+                imported, _, alias = raw.partition(" as ")
+                local = (alias or imported).strip()
+                imported = imported.strip()
+                if local and imported in local_prefixes[target]:
+                    visible[local] = local_prefixes[target][imported]
+        visible.update(local_prefixes[py])  # same-file defs win
         for var, _method, path in _ROUTE_DEC.findall(text):
             candidates = {path}
-            if var in prefixes:
-                candidates.add(prefixes[var] + path)
+            if var in visible:
+                candidates.add(visible[var] + path)
             file_routes |= candidates
     full = {p.lstrip("/") for p in file_routes}
     for mount in mounts:

@@ -7,9 +7,9 @@ import logging
 import os
 import sqlite3
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 
-from wallet_app.utc_time import parse_stored, utc_now
+from wallet_app.utc_time import utc_now
 from decimal import Decimal, InvalidOperation
 from pathlib import Path
 from typing import Annotated, Any
@@ -25,7 +25,7 @@ from aitbc.utils.chain_id import ChainIdNotConfigured, resolve_chain_id
 from aitbc.utils.validation import validate_address_strict
 
 # Forward-compatible import used in "/v1/bridge/status"
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request
 
 import httpx
 
@@ -56,17 +56,13 @@ from .bridge_db import (
     get_all_withdrawals,
     get_deposit_by_id,
     get_deposit_by_tx_hash,
-    get_deposits_by_recipient,
     get_pending_deposits,
-    count_open_sell_quotes,
-    get_latest_sell_quote_by_shop,
     get_sell_lock_by_ait_tx_hash,
     get_sell_lock_by_id,
     get_sell_lock_by_quote_id,
     get_sell_quote,
     get_withdrawal_by_ait_tx_hash,
     insert_sell_quote,
-    list_exchange_settlements,
     update_deposit_status,
 )
 from .bridge_monitor import (
@@ -77,9 +73,24 @@ from .bridge_monitor import (
 from .price_api import AIT_REFERENCE_PRICE_EUR, calculate_ait_amount, calculate_eth_amount, get_exchange_rate
 from .url_redact import redact_text
 
-exchange_router = APIRouter(prefix="/v1/exchange", tags=["exchange"])
-bridge_router = APIRouter(prefix="/v1/bridge", tags=["bridge"])
-price_router = APIRouter(tags=["exchange"])
+# Router objects live in bridge_routes_common so the route-section siblings
+# (bridge_routes_deposits / _sell / _admin) decorate the same instances
+# without a circular import (#1860 band split). APIRouter is re-exported
+# through it for the root_router assembly below.
+from .bridge_routes_common import bridge_router, exchange_router, price_router
+
+# Pre-split import surface: names the moved sections used to import (or
+# re-export) through this module. ``as``-aliases mark them intentional
+# re-exports so the F401 ratchet does not strip them.
+from datetime import datetime as datetime
+from fastapi import APIRouter as APIRouter
+from wallet_app.utc_time import parse_stored as parse_stored
+from .bridge_db import (
+    count_open_sell_quotes as count_open_sell_quotes,
+    get_deposits_by_recipient as get_deposits_by_recipient,
+    get_latest_sell_quote_by_shop as get_latest_sell_quote_by_shop,
+    list_exchange_settlements as list_exchange_settlements,
+)
 
 # Backward-compatible name for any in-module references
 router = exchange_router
@@ -484,73 +495,18 @@ async def bridge_deposit(request: Request, body: dict[str, Any]) -> dict[str, An
     }
 
 
-@bridge_router.get("/deposits")
-def bridge_list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
-    """List bridge deposits."""
-    limit = max(0, min(limit, 500))
-    if status == "pending":
-        deposits = get_pending_deposits(limit=limit, offset=offset)
-    else:
-        deposits = get_all_deposits(limit=limit, offset=offset)
-    return {
-        "deposits": _normalize_deposits(deposits),
-        "count": len(deposits),
-        "total": len(deposits),
-        "limit": limit,
-        "offset": offset,
-    }
-
-
-@bridge_router.get("/deposit/{tx_hash}")
-def bridge_get_deposit(tx_hash: str) -> dict[str, Any]:
-    """Get a single bridge deposit by ETH transaction hash."""
-    deposit = get_deposit_by_tx_hash(tx_hash)
-    if not deposit:
-        raise HTTPException(status_code=404, detail="Deposit not found")
-    return _normalize_deposit(deposit)
-
-
-@bridge_router.get("/deposit/by-recipient/{address}")
-@rate_limit(rate=50, per=60)
-def bridge_deposits_by_recipient(request: Request, address: str, limit: int = 10) -> dict[str, Any]:
-    """Get recent bridge deposits for a single AIT recipient address.
-
-    Non-enumerable: the caller must already know the recipient, matching the
-    privacy profile of the public per-tx-hash lookup. The enumerable
-    /v1/bridge/deposits index stays loopback-only in nginx.
-    """
-    # Format check only — a lookup field must accept the address however the
-    # user copied it (lowercase or checksummed); matching is case-insensitive.
-    if not (address.startswith("0x") and len(address) == 42 and all(c in "0123456789abcdefABCDEF" for c in address[2:])):
-        raise HTTPException(status_code=422, detail="Invalid AIT address: expected 0x + 40 hex chars")
-    limit = max(1, min(limit, 50))
-    deposits = get_deposits_by_recipient(address, limit=limit)
-    # The caller is the recipient — their own ETH sender isn't theirs to see;
-    # the enumerable deposit index stays loopback-only for the same reason.
-    return {
-        "deposits": [{k: v for k, v in d.items() if k != "eth_from_address"} for d in _normalize_deposits(deposits)],
-        "count": len(deposits),
-    }
-
-
-def _normalize_deposit(deposit: dict[str, Any]) -> dict[str, Any]:
-    """Normalize wallet-bridge deposit to the shape the website expects."""
-    return {
-        "id": deposit.get("id"),
-        "eth_tx_hash": deposit.get("tx_hash"),
-        "eth_from_address": deposit.get("from_address"),
-        "eth_amount": _money_str(deposit.get("amount_eth")),
-        "ait_amount": _money_str(deposit.get("amount_ait")),
-        "ait_recipient": deposit.get("recipient") or "",
-        "status": deposit.get("status"),
-        "ait_tx_hash": deposit.get("ait_tx_hash"),
-        "created_at": deposit.get("created_at"),
-        "processed_at": deposit.get("completed_at") or deposit.get("created_at"),
-    }
-
-
-def _normalize_deposits(deposits: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    return [_normalize_deposit(d) for d in deposits]
+# Deposit read routes + normalizers moved to bridge_routes_deposits.py
+# (#1860 band split). Imported at the position the section used to occupy
+# so bridge_router registration order — and the OpenAPI path order built
+# from it — is unchanged; the names are re-exported for the
+# wallet_app.bridge.bridge_routes import surface.
+from .bridge_routes_deposits import (
+    _normalize_deposit as _normalize_deposit,
+    _normalize_deposits as _normalize_deposits,
+    bridge_deposits_by_recipient as bridge_deposits_by_recipient,
+    bridge_get_deposit as bridge_get_deposit,
+    bridge_list_deposits as bridge_list_deposits,
+)
 
 
 @bridge_router.get("/estimate")
@@ -821,52 +777,16 @@ def _normalize_withdrawal(withdrawal: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _normalize_sell_quote(quote: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "quote_id": quote.get("id"),
-        "shop_ait_address": quote.get("shop_ait_address"),
-        "shop_eth_address": quote.get("shop_eth_address"),
-        "ait_amount": _money_str(quote.get("ait_amount")),
-        "rate": _money_str(quote.get("rate_eth_usd")),
-        "fee_ait": _money_str(quote.get("fee_ait")),
-        "eth_amount": _money_str(quote.get("eth_amount")),
-        "status": quote.get("status"),
-        "expires_at": quote.get("expires_at"),
-        "created_at": quote.get("created_at"),
-    }
-
-
-def _normalize_sell_lock(lock: dict[str, Any]) -> dict[str, Any]:
-    return {
-        "id": lock.get("id"),
-        "quote_id": lock.get("quote_id"),
-        "ait_tx_hash": lock.get("ait_tx_hash"),
-        "shop_ait_address": lock.get("shop_ait_address"),
-        "shop_eth_address": lock.get("shop_eth_address"),
-        "ait_amount": _money_str(lock.get("amount_ait")),
-        "eth_amount": _money_str(lock.get("eth_amount")),
-        "requoted": bool(lock.get("requoted")),
-        "status": lock.get("status"),
-        "eth_tx_hash": lock.get("eth_tx_hash"),
-        "settle_tx_hash": lock.get("settle_tx_hash"),
-        "refund_tx_hash": lock.get("refund_tx_hash"),
-        "locked_height": lock.get("locked_height"),
-        "error": lock.get("error"),
-        "created_at": lock.get("created_at"),
-        "released_at": lock.get("released_at"),
-        "settled_at": lock.get("settled_at"),
-        "refunded_at": lock.get("refunded_at"),
-    }
-
-
-def _sell_gate() -> None:
-    """Fail closed: no sell feature when the escrow is unconfigured."""
-    from .sell_escrow_monitor import sell_config_status
-
-    enabled, reason = sell_config_status()
-    if not enabled:
-        logger.warning("Sell escrow disabled: %s", redact_text(reason))
-        raise HTTPException(status_code=503, detail="Sell escrow disabled")
+# Sell normalizers + gates moved to bridge_routes_sell.py (#1860 band
+# split). Re-exported here: bridge_sell_quote/status/list resolve these
+# names through this module's globals, so monkeypatches on
+# wallet_app.bridge.bridge_routes keep intercepting them.
+from .bridge_routes_sell import (
+    _check_sell_quote_rate_limit,
+    _normalize_sell_lock,
+    _normalize_sell_quote,
+    _sell_gate,
+)
 
 
 def _validate_sell_quote_params(body: dict[str, Any]) -> tuple[Decimal, str, str]:
@@ -899,34 +819,6 @@ def _validate_sell_quote_params(body: dict[str, Any]) -> tuple[Decimal, str, str
         raise HTTPException(status_code=400, detail=f"Invalid ait_address: {exc}") from exc
 
     return ait_amount, eth_address, ait_address
-
-
-def _check_sell_quote_rate_limit(ait_address: str) -> None:
-    """Per-shop limits: open-quote cap and a minimum interval between quotes."""
-    try:
-        max_open = int(os.getenv("SELL_MAX_OPEN_QUOTES_PER_SHOP", "5"))
-    except (TypeError, ValueError):
-        max_open = 5
-    if count_open_sell_quotes(ait_address) >= max_open:
-        raise HTTPException(
-            status_code=429,
-            detail=f"Too many open sell quotes for this shop (max {max_open}) — let one expire or lock first",
-        )
-    try:
-        min_interval = int(os.getenv("SELL_QUOTE_MIN_INTERVAL_SECONDS", "30"))
-    except (TypeError, ValueError):
-        min_interval = 30
-    latest = get_latest_sell_quote_by_shop(ait_address)
-    if latest and latest.get("created_at"):
-        try:
-            waited = (utc_now() - parse_stored(latest["created_at"])).total_seconds()
-        except (TypeError, ValueError):
-            waited = min_interval
-        if waited < min_interval:
-            raise HTTPException(
-                status_code=429,
-                detail=f"Quote rate limit: wait {int(min_interval - waited) + 1}s between quotes",
-            )
 
 
 @bridge_router.post("/sell/quote")
@@ -1030,138 +922,17 @@ def bridge_sell_list(
     }
 
 
-def _normalize_settlement(row: dict[str, Any]) -> dict[str, Any]:
-    out = dict(row)
-    for key in ("amount_ait", "eth_amount", "fee_ait"):
-        out[key] = _money_str(row.get(key))
-    return out
-
-
-@bridge_router.get("/settlements")
-def bridge_settlements(
-    status: str | None = None,
-    kind: str | None = None,
-    limit: int = 50,
-    offset: int = 0,
-    _admin: Annotated[None, Depends(require_admin_api_key)] = None,
-) -> dict[str, Any]:
-    """List exchange-settlement ledger rows (CLI-1).
-
-    Admin-keyed like sell/quote: the /v1/bridge mount is publicly exposed on
-    hub and settlement rows carry diagnostic error text plus release
-    nonces/hashes — not a participants board. Flag-off the table is empty and
-    the route returns []."""
-    if kind is not None and kind not in ("trade", "order_refund"):
-        raise HTTPException(status_code=400, detail="kind must be 'trade' or 'order_refund'")
-    limit = max(0, min(limit, 500))
-    offset = max(0, offset)
-    rows = list_exchange_settlements(status=status, kind=kind, limit=limit, offset=offset)
-    return {
-        "settlements": [_normalize_settlement(r) for r in rows],
-        "count": len(rows),
-        "limit": limit,
-        "offset": offset,
-    }
-
-
-def _release_window(since: datetime) -> dict[str, Any]:
-    """Per-lane ETH released (or possibly released) since ``since`` —
-    the committed-status semantics of get_*_eth_committed_since.
-
-    Ledger rows are stamped with aware UTC ``datetime.now(UTC)`` (#1575),
-    so the comparison runs on the UTC isoformat. Pre-#1575 naive
-    host-local rows still order by wall time but can skew a lexical
-    window boundary by the host's UTC offset — bounded and documented.
-    The reported ``since`` attaches the host's zone for display, and
-    ``timezone`` names it."""
-    from .bridge_db import (
-        get_exchange_eth_committed_since,
-        get_sell_eth_committed_since,
-        get_withdrawal_eth_committed_since,
-    )
-
-    since_iso = since.isoformat()
-    withdrawals = get_withdrawal_eth_committed_since(since_iso)
-    sell = get_sell_eth_committed_since(since_iso)
-    exchange = get_exchange_eth_committed_since(since_iso)
-    aware = since.astimezone()
-    return {
-        "since": aware.isoformat(),
-        "timezone": aware.tzname(),
-        "withdrawals_eth": _money_str(withdrawals),
-        "sell_eth": _money_str(sell),
-        "exchange_eth": _money_str(exchange),
-        "total_eth": _money_str(withdrawals + sell + exchange),
-    }
-
-
-@bridge_router.get("/float")
-async def bridge_float(
-    _admin: Annotated[None, Depends(require_admin_api_key)] = None,
-) -> dict[str, Any]:
-    """Bridge ETH float: wallet balance, pending reserve, and release
-    windows (CLI-5). Read-only — the balance is an eth_getBalance call on
-    the configured RPC; ledger figures come from the same reserve/committed
-    helpers the monitors use.
-
-    Admin-keyed like /settlements: reserve and committed totals reveal the
-    bridge's in-flight payment book. ``windows.today`` starts at UTC
-    midnight; each window reports ``since`` with the host's zone name in
-    ``timezone``. ``windows.last_24h`` is the rolling 24h window the sell
-    day-cap itself uses. Ledger stamps are aware UTC (#1575); pre-#1575
-    naive host-local rows can skew a window boundary by the host's UTC
-    offset — bounded and documented."""
-    from .bridge_withdraw_monitor import _eth_balance, _pending_eth_reserve
-
-    address = os.getenv("ETH_WALLET_ADDRESS", "")
-    balance: Decimal | None = None
-    balance_error: str | None = None
-    if address:
-        try:
-            balance = await _eth_balance(address)
-        except Exception as e:  # noqa: BLE001 - provider hiccup must not blank the float view — ledger stays authoritative
-            # A provider hiccup must not blank the whole float view — the
-            # ledger-side numbers below stay authoritative either way.
-            balance_error = redact_text(str(e))
-    reserve = _pending_eth_reserve()
-    available = balance - reserve if balance is not None else None
-
-    now = utc_now()
-    windows = {
-        "today": _release_window(now.replace(hour=0, minute=0, second=0, microsecond=0)),
-        "last_24h": _release_window(now - timedelta(hours=24)),
-    }
-    cap = Decimal(os.getenv("SELL_MAX_ETH_PER_DAY", "0.03"))
-    sell_committed = Decimal(windows["last_24h"]["sell_eth"])
-    return {
-        "eth_address": address,
-        "balance_eth": _money_str(balance) if balance is not None else None,
-        "balance_error": balance_error,
-        "pending_reserve_eth": _money_str(reserve),
-        "available_eth": _money_str(available) if available is not None else None,
-        "windows": windows,
-        "sell_daily_cap": {
-            "max_eth_per_day": _money_str(cap),
-            "committed_24h": _money_str(sell_committed),
-            "remaining": _money_str(max(cap - sell_committed, Decimal(0))),
-            "window": "rolling 24h",
-        },
-    }
-
-
-@bridge_router.get("/sell/config-status")
-def bridge_sell_config_status(
-    _admin: Annotated[None, Depends(require_admin_api_key)] = None,
-) -> dict[str, Any]:
-    """Sell-lane enablement + non-secret config (CLI-5).
-
-    The sell lane's enabled/disabled state readable without journald —
-    sell_status_document() carries the fail-closed (enabled, reason) pair
-    and redacts key slots to configured booleans. Admin-keyed: config
-    internals are operator information, not a participants board."""
-    from .sell_escrow_monitor import sell_status_document
-
-    return sell_status_document()
+# Settlement listing, the admin ETH-float view and the sell config-status
+# document moved to bridge_routes_admin.py (#1860 band split). Imported at
+# the position the section used to occupy so bridge_router registration
+# order is unchanged; names re-exported for the import surface.
+from .bridge_routes_admin import (
+    _normalize_settlement as _normalize_settlement,
+    _release_window as _release_window,
+    bridge_float as bridge_float,
+    bridge_sell_config_status as bridge_sell_config_status,
+    bridge_settlements as bridge_settlements,
+)
 
 
 # Root router that combines exchange + bridge + price endpoints
