@@ -32,7 +32,6 @@ from aitbc_chain.consensus.pbft_view_change import (
     analyze_vc_set,
     commit_digest,
     new_view_digest,
-    new_view_permits,
     select_forced_hash,
     verify_new_view,
     verify_view_change,
@@ -509,7 +508,7 @@ class TestVerifyNewView:
         nv = _nv(proposer, SEQ, VIEW, vc_set, None)
         ok, reason, _, _ = verify_new_view(nv, MEMBERS, chain_id=CHAIN, sequence=SEQ, view=VIEW, expected_sender=proposer)
         assert not ok
-        assert "distinct" in reason
+        assert "duplicate" in reason
 
     def test_non_member_sender_rejected(self):
         outsider, outsider_key = _key("99")
@@ -572,15 +571,6 @@ class TestVerifyNewView:
         ok, reason, _ = analyze_vc_set(vc_set, MEMBERS, chain_id=CHAIN, sequence=SEQ, view=VIEW)
         assert not ok
         assert "cap" in reason
-
-    def test_new_view_permits(self):
-        locked_nv = {"selection_kind": "locked", "chosen_hash": HA}
-        free_nv = {"selection_kind": "free"}
-        assert new_view_permits(locked_nv, HA)
-        assert not new_view_permits(locked_nv, HB)
-        assert new_view_permits(free_nv, HB)
-        assert not new_view_permits({}, HB)
-        assert not new_view_permits({"selection_kind": "conflict"}, HA)
 
 
 # ---------------------------------------------------------------------------
@@ -1775,3 +1765,61 @@ class TestR3Blockers:
         consensus = _make_consensus()
         with pytest.raises(ValueError):
             consensus._parse_view_change_records(json.dumps({str(SEQ): {"floor": "three", "proposals": {}}}))
+
+
+class TestR4VcSetOrderInsensitive:
+    """#2005 r4: one NEW_VIEW signature validates every vc_set ordering, so a
+    duplicate sender must be rejected or the forced hash becomes order-dependent."""
+
+    def _equivocating_set(self):
+        s = MEMBERS[0]
+        return [
+            _locked(s, HA, 1, SEQ, VIEW),
+            _locked(s, HB, 2, SEQ, VIEW),
+            _vc(MEMBERS[1], SEQ, VIEW),
+            _vc(MEMBERS[2], SEQ, VIEW),
+        ]
+
+    def test_duplicate_sender_rejected_in_every_order(self):
+        base = self._equivocating_set()
+        for vc_set in (base, list(reversed(base))):
+            ok, reason, _ = analyze_vc_set(vc_set, MEMBERS, chain_id=CHAIN, sequence=SEQ, view=VIEW)
+            assert not ok and "duplicate" in reason
+
+    def test_new_view_with_duplicate_sender_fails_verification(self):
+        proposer = _proposer(SEQ, VIEW)
+        for vc_set in (self._equivocating_set(), list(reversed(self._equivocating_set()))):
+            nv = _nv(proposer, SEQ, VIEW, vc_set, HB)
+            ok, reason, _, _ = verify_new_view(nv, MEMBERS, chain_id=CHAIN, sequence=SEQ, view=VIEW, expected_sender=proposer)
+            assert not ok and "duplicate" in reason
+
+    def test_duplicate_rejected_before_signature_work(self, monkeypatch):
+        import aitbc_chain.consensus.pbft_view_change as vcm
+
+        calls = []
+        monkeypatch.setattr(vcm, "_vc_record_acceptable", lambda *a, **k: calls.append(1) or (True, ""))
+        analyze_vc_set(self._equivocating_set(), MEMBERS, chain_id=CHAIN, sequence=SEQ, view=VIEW)
+        assert calls == []
+
+    @pytest.mark.asyncio
+    async def test_new_view_outside_window_dropped(self, vc_armed):
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        pbft.state.current_sequence = SEQ
+        far_view = pbft.state.current_view + getattr(settings, "pbft_max_view_ahead", 64) + 1
+        proposer = _proposer(SEQ, far_view)
+        await pbft._handle_new_view_payload(_nv(proposer, SEQ, far_view, _vc_set(SEQ, far_view, MEMBERS[:Q]), None))
+        assert pbft._new_views == {}
+
+    @pytest.mark.asyncio
+    async def test_new_view_wrong_sender_skips_signature_verification(self, vc_armed, monkeypatch):
+        import aitbc_chain.consensus.pbft as pbft_mod
+
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        proposer = _proposer(SEQ, VIEW)
+        impostor = next(m for m in MEMBERS if m != proposer)
+        calls = []
+        monkeypatch.setattr(pbft_mod, "verify_new_view", lambda *a, **k: calls.append(1))
+        await pbft._handle_new_view_payload(_nv(impostor, SEQ, VIEW, _vc_set(SEQ, VIEW, MEMBERS[:Q]), None))
+        assert calls == [] and pbft._new_views == {}
