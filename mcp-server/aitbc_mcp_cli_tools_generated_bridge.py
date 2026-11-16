@@ -181,7 +181,7 @@ def aitbc_bridge_deposits(
     repo_root: Annotated[
         str | None,
         Field(
-            description="AITBC checkout containing apps/bridge-monitor (default: inferred from the running CLI, or AITBC_REPO_ROOT)"
+            description="AITBC checkout containing apps/bridge-monitor (default: inferred from cwd/interpreter or /opt/aitbc)"
         ),
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,

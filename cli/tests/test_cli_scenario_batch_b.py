@@ -214,3 +214,128 @@ def test_list_chains_uses_live_inventory(runner):
         patch("aitbc_cli.core.node_client.NodeClient", return_value=fake_client),
     ):
         chain_mod.list_chains_command(ctx)
+
+
+# --- #2097 wallet info shows live chain balance ------------------------------
+
+
+def _write_wallet(tmp_path, name="w1"):
+    import aitbc_cli.commands.wallet.basic as basic_mod
+
+    wdir = tmp_path / "wallets"
+    wdir.mkdir(exist_ok=True)
+    (wdir / f"{name}.json").write_text(
+        json.dumps(
+            {
+                "wallet_id": name,
+                "type": "simple",
+                "address": "0xce6c422fe31fc3bc0299cfad0070125ebc306dff",
+                "public_key": "0x02" + "11" * 32,
+                "balance": 5.0,
+                "created_at": "2026-01-01T00:00:00",
+            }
+        )
+    )
+    return basic_mod, wdir
+
+
+def test_wallet_info_prefers_chain_balance(runner, tmp_path):
+    basic_mod, wdir = _write_wallet(tmp_path)
+    client = MagicMock()
+    client.get.return_value = {"balance": 108000000, "nonce": 3, "chain_id": "bc-2"}
+    cfg = MagicMock()
+    cfg.blockchain_rpc_url = "http://rpc:8202"
+    import aitbc_cli.commands.wallet as wallet_pkg
+
+    with (
+        patch.object(basic_mod, "AITBCHTTPClient", return_value=client),
+        patch.object(basic_mod, "get_config", return_value=cfg),
+        patch.object(wallet_pkg, "resolve_wallet_dir", return_value=wdir),
+    ):
+        result = runner.invoke(
+            basic_mod.wallet,
+            obj={"output_format": "json", "wallet_name": "w1", "chain_id": "bc-2"},
+            args=["info", "--name", "w1"],
+        )
+    assert result.exit_code == 0, result.output
+    body = json.loads(result.output[result.output.index("{") :])
+    assert body["balance_source"] == "chain"
+    assert body["balance"] == basic_mod.format_ait(108000000)
+
+
+def test_wallet_info_falls_back_to_stored_with_label(runner, tmp_path):
+    from aitbc.exceptions import NetworkError
+
+    basic_mod, wdir = _write_wallet(tmp_path)
+    client = MagicMock()
+    client.get.side_effect = NetworkError("connection refused")
+    cfg = MagicMock()
+    cfg.blockchain_rpc_url = "http://rpc:8202"
+    import aitbc_cli.commands.wallet as wallet_pkg
+
+    with (
+        patch.object(basic_mod, "AITBCHTTPClient", return_value=client),
+        patch.object(basic_mod, "get_config", return_value=cfg),
+        patch.object(wallet_pkg, "resolve_wallet_dir", return_value=wdir),
+    ):
+        result = runner.invoke(
+            basic_mod.wallet,
+            obj={"output_format": "json", "wallet_name": "w1", "chain_id": "bc-2"},
+            args=["info", "--name", "w1"],
+        )
+    assert result.exit_code == 0, result.output
+    body = json.loads(result.output[result.output.index("{") :])
+    assert body["balance_source"] == "stored-file (may be stale)"
+    assert "balance" in body
+
+
+# --- #2101-partial: ai stats hits the registered admin route -----------------
+
+
+def test_ai_stats_uses_admin_route(runner):
+    import aitbc_cli.commands.ai as ai_mod
+
+    client = MagicMock()
+    client.get.return_value = {"total_jobs": 3}
+    cfg = MagicMock()
+    cfg.coordinator_api_url = "http://coord:8203"
+    with (
+        patch.object(ai_mod, "get_config", return_value=cfg),
+        patch.object(ai_mod, "_coordinator_base_url", return_value="http://coord:8203"),
+        patch.object(ai_mod, "_auth_headers", return_value={}),
+        patch.object(ai_mod, "AITBCHTTPClient", return_value=client),
+    ):
+        result = runner.invoke(ai_mod.stats, ["--coordinator-url", "http://coord:8203"], obj={"output_format": "json"})
+    assert result.exit_code == 0, result.output
+    assert client.get.call_args[0][0] == "/v1/admin/stats"
+
+
+# --- #2092 bridge deposits repo-root auto-detection --------------------------
+
+
+def test_bridge_repo_root_finds_checkout_from_cwd(tmp_path, monkeypatch):
+    import aitbc_cli.commands.bridge as bridge_mod
+
+    checkout = tmp_path / "opt" / "aitbc"
+    admin = checkout / "apps" / "bridge-monitor" / "src" / "bridge_monitor" / "admin.py"
+    admin.parent.mkdir(parents=True)
+    admin.write_text("# stub\n")
+    workdir = checkout / "sub" / "dir"
+    workdir.mkdir(parents=True)
+    monkeypatch.chdir(workdir)
+    monkeypatch.delenv("AITBC_REPO_ROOT", raising=False)
+    assert bridge_mod._resolve_bridge_repo_root(None) == checkout
+
+
+def test_bridge_repo_root_explicit_wins(tmp_path, monkeypatch):
+    import aitbc_cli.commands.bridge as bridge_mod
+
+    explicit = tmp_path / "explicit"
+    (explicit / "apps" / "bridge-monitor" / "src" / "bridge_monitor").mkdir(parents=True)
+    (explicit / "apps" / "bridge-monitor" / "src" / "bridge_monitor" / "admin.py").write_text("# stub\n")
+    other = tmp_path / "other"
+    (other / "apps" / "bridge-monitor" / "src" / "bridge_monitor").mkdir(parents=True)
+    (other / "apps" / "bridge-monitor" / "src" / "bridge_monitor" / "admin.py").write_text("# stub\n")
+    monkeypatch.chdir(other)
+    monkeypatch.delenv("AITBC_REPO_ROOT", raising=False)
+    assert bridge_mod._resolve_bridge_repo_root(str(explicit)) == explicit

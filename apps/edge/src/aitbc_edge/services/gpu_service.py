@@ -53,9 +53,15 @@ class GPUService:
     async def list_gpus(
         self, architecture: str | None = None, edge_optimized: bool | None = None, min_memory_gb: int | None = None
     ) -> list[dict[str, Any]]:
-        """List GPUs via GPU service"""
-        async with GPUServiceClient() as gpu_client:
-            profiles = await gpu_client.get_gpu_profiles(architecture, edge_optimized, min_memory_gb)
+        """List GPUs via GPU service, falling back to mirrored listings."""
+        try:
+            async with GPUServiceClient() as gpu_client:
+                profiles = await gpu_client.get_gpu_profiles(architecture, edge_optimized, min_memory_gb)
+        except _OPS_ERRORS as e:
+            # GPU service down (e.g. unit inactive on a shop node): serve the
+            # mirrored gpu_listings rows instead of a bare 500 (#2088).
+            logger.warning("GPU service unreachable (%s); serving mirrored listings", e)
+            return await self._mirrored_listings()
 
         # Mirror the remote profile list into gpu_listings, upserting by
         # gpu_id. The remote list is the source of truth: every call used to
@@ -91,6 +97,26 @@ class GPUService:
             await session.commit()
 
         return profiles
+
+    async def _mirrored_listings(self) -> list[dict[str, Any]]:
+        """Return gpu_listings rows shaped like remote GPU profiles."""
+        async with get_session() as session:
+            result = await session.execute(select(GPUListing))
+            rows = result.scalars().all()
+        return [
+            {
+                "id": g.gpu_id,
+                "model": g.model,
+                "price_per_hour": str(g.price_per_hour),
+                "memory_gb": g.memory_gb,
+                "cuda_version": g.cuda_version,
+                "region": g.region,
+                "capabilities": g.capabilities,
+                "status": g.status,
+                "source": "mirror",
+            }
+            for g in rows
+        ]
 
     async def get_gpu_listing(self, gpu_id: str) -> dict[str, Any] | None:
         """Get GPU listing details"""
