@@ -87,7 +87,7 @@ def _auth_headers(ctx: click.Context | dict[str, Any], role: str = "client") -> 
     if not token:
         # get_client_token raises ExpiredClientToken on a stale JWT so the
         # command fails fast with a re-login hint instead of a bare 401 (#2138).
-        token = AuthManager().get_client_token()
+        token = AuthManager().get_client_token(warn_within_seconds=24 * 3600)
     if token:
         return {"Authorization": f"Bearer {token}"}
     return None
@@ -440,10 +440,14 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         jobs_metrics = metrics.get("jobs", {}) if isinstance(metrics, dict) else {}
         miners_metrics = metrics.get("miners", {}) if isinstance(metrics, dict) else {}
 
-        # Try to get local miner details if an ID is available
+        # Try to get local miner details if an ID is available. /v1/miners/*
+        # is MINER-level: a Bearer JWT (client/admin role) would only 403, so
+        # skip those calls unless a miner API key (X-Api-Key) is in play —
+        # the dashboard degrades to the shop-scoped endpoint set (#2140).
         miner_jobs: list[dict[str, Any]] = []
         miner_earnings: dict[str, Any] = {}
-        if miner_id:
+        has_miner_auth = bool(miner_headers and miner_headers.get("X-Api-Key"))
+        if miner_id and has_miner_auth:
             jobs_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/jobs", {"limit": limit})
             if isinstance(jobs_resp, list):
                 miner_jobs = jobs_resp

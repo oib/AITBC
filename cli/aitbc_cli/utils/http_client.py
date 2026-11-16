@@ -91,6 +91,7 @@ def auth_client_kwargs(
     *,
     credential: str = "client",
     use_store: bool = True,
+    warn_within_seconds: float | None = None,
 ) -> dict[str, Any]:
     """Return ``AITBCHTTPClient`` kwargs carrying the best available credential.
 
@@ -100,6 +101,10 @@ def auth_client_kwargs(
     API key. A JWT-shaped token goes in ``Authorization: Bearer``; anything
     else is sent via the client's ``api_key`` kwarg (``X-API-Key``). Returns
     ``{}`` when no credential exists.
+
+    ``warn_within_seconds`` opts into the near-expiry refresh warning (#2140):
+    when the resolved JWT's ``exp`` falls inside the window, a once-per-token
+    warning points at ``aitbc auth login`` before the credential dies.
     """
     token = explicit_key
     if not token and use_store:
@@ -108,7 +113,7 @@ def auth_client_kwargs(
         manager = AuthManager()
         if credential == "admin":
             # May raise ExpiredAdminToken — callers surface it as a re-auth hint.
-            token = manager.get_admin_token()
+            token = manager.get_admin_token(warn_within_seconds=warn_within_seconds)
         else:
             token = manager.get_credential(credential, quiet=True)
             if not token and credential != "client":
@@ -117,6 +122,10 @@ def auth_client_kwargs(
         token = config_key
     if not token:
         return {}
+    if warn_within_seconds is not None and looks_like_jwt(token):
+        from ..auth import _warn_near_expiry_once  # late import: auth imports ..utils
+
+        _warn_near_expiry_once(token, warn_within_seconds)
     if looks_like_jwt(token):
         return {"headers": {"Authorization": f"Bearer {token}"}}
     return {"api_key": token}
