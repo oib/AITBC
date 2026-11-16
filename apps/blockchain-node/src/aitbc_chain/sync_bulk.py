@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import asyncio
 import time
+from collections.abc import Sequence
 from typing import Any
 
 from sqlalchemy import text
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from .base_models import Block
 from .base_models import Transaction as ChainTransaction
@@ -416,53 +417,12 @@ class BulkSyncMixin(SyncBase):
 
         Returns True only when our losing segment was removed.
         """
-        ancestor_height: int | None = None
-        peer_seg: dict[int, dict[str, Any]] = {}
-        with self._session_factory() as session:
-            ours_by_height = {
-                b.height: b
-                for b in session.exec(
-                    select(Block)
-                    .where(Block.chain_id == self._chain_id)
-                    .where(Block.height <= local_height)
-                    .where(Block.height > local_height - self._max_reorg_depth)
-                ).all()
-            }
-        h = local_height
-        while h >= 0:
-            ours = ours_by_height.get(h)
-            if ours is None:
-                break  # older than the reorg window — too deep to auto-resolve
-            fetched = await self.fetch_blocks_range(h, h, source_url)
-            peer_block = fetched[0] if fetched else None
-            if peer_block is None:
-                return False  # cannot decide without peer data
-            if peer_block.get("hash") == ours.hash:
-                ancestor_height = h
-                break
-            peer_seg[h] = peer_block
-            h -= 1
-        if ancestor_height is None or not peer_seg:
-            self._logger.error(
-                "Fork resolution failed: no common ancestor with %s within %s blocks of height %s",
-                source_url,
-                self._max_reorg_depth,
-                local_height,
-            )
+        found = await self._find_fork_ancestor(source_url, local_height, remote_height)
+        if found is None:
             return False
+        ancestor_height, peer_seg = found
 
-        # Fetch the rest of the peer's segment beyond our head so the distinct
-        # proposer count sees more than the overlap. Capped at max_reorg_depth
-        # blocks past the ancestor — the peer's claimed head height only bounds
-        # the fetch; the branch length below is derived from the blocks actually
-        # returned and validated, never from the claim.
-        fetch_to = min(remote_height, ancestor_height + self._max_reorg_depth)
-        for fh in range(local_height + 1, fetch_to + 1):
-            fetched = await self.fetch_blocks_range(fh, fh, source_url)
-            if not fetched:
-                break  # compare on the contiguous prefix we could fetch
-            peer_seg[fh] = fetched[0]
-
+        orphaned: list[dict[str, Any]] = []
         with self._session_factory() as session:
             ancestor = session.exec(
                 select(Block).where(Block.chain_id == self._chain_id).where(Block.height == ancestor_height)
@@ -477,202 +437,28 @@ class BulkSyncMixin(SyncBase):
             if not our_segment:
                 return False  # nothing of ours beyond the ancestor — not our fork
 
-            # Validate every fetched peer-segment block BEFORE deleting our
-            # rows. Parent timestamps chain through the peer's own segment —
-            # exactly what a reimport would face. So do parent hashes: a
-            # "segment" whose blocks do not link parent→child back to the
-            # common ancestor is a spliced bundle of headers, not a branch,
-            # and must never win a reorg no matter what it claims.
-            peer_ts_map: dict[int, Any] = {}
-            seg_parent_ts = parent_ts
-            expected_parent_hash = ancestor.hash if ancestor else None
-            for fh in sorted(peer_seg):
-                bd = peer_seg[fh]
-                if bd.get("height") != fh:
-                    self._logger.warning(
-                        "Peer %s returned mismatched height in fork segment (%s vs %s) — refusing to reorg",
-                        source_url,
-                        bd.get("height"),
-                        fh,
-                    )
-                    return False
-                if expected_parent_hash is None or bd.get("parent_hash") != expected_parent_hash:
-                    self._logger.warning(
-                        "Peer %s fork segment is unlinked at height %s (parent_hash %s, expected %s) — "
-                        "refusing to reorg onto a spliced segment",
-                        source_url,
-                        fh,
-                        bd.get("parent_hash"),
-                        expected_parent_hash,
-                    )
-                    metrics_registry.increment("sync_fork_invalid_rival_total")
-                    return False
-                if self._validate_signatures:
-                    sig_ok, sig_reason = self._validator.validate_block_signature(bd)
-                    if not sig_ok:
-                        self._logger.warning(
-                            "Peer fork block at height %s failed signature validation (%s) — refusing to reorg",
-                            fh,
-                            sig_reason,
-                        )
-                        metrics_registry.increment("sync_fork_invalid_rival_total")
-                        return False
-                invalid, seg_parent_ts = self._validate_rival_header(session, bd, seg_parent_ts)
-                if invalid:
-                    self._logger.warning(
-                        "Peer fork block at height %s failed validation (%s) — refusing to reorg", fh, invalid
-                    )
-                    metrics_registry.increment("sync_fork_invalid_rival_total")
-                    return False
-                peer_ts_map[fh] = seg_parent_ts
-                expected_parent_hash = str(bd.get("hash") or "")
-
-            our_proposers = {str(b.proposer) for b in our_segment}
+            peer_ts_map = self._validate_peer_fork_segment(session, peer_seg, ancestor, source_url)
+            if peer_ts_map is None:
+                return False
+            # Read every ORM attribute the post-commit log needs now — the
+            # reorg below deletes our_segment rows and expires the session,
+            # so touching b.proposer after the with-block would detach.
+            fork_h = ancestor_height + 1
             peer_proposers = {str(peer_seg[fh].get("proposer")) for fh in peer_seg}
-            our_len = local_height - ancestor_height
+            our_proposers = {str(b.proposer) for b in our_segment}
+            peer_len = len(peer_seg)
             # The peer's branch length is the number of fetched-and-validated
             # blocks past the ancestor — not remote_height minus the ancestor,
             # which would let an inflated head claim outrun every real branch.
-            peer_len = len(peer_seg)
-            fork_h = ancestor_height + 1
-            our_child = next(b for b in our_segment if b.height == fork_h)
-            peer_child = peer_seg[fork_h]
-            our_key = self._fork_choice_key(our_child.timestamp, parent_ts, our_child.hash)
-            their_key = self._fork_choice_key(peer_ts_map[fork_h], parent_ts, str(peer_child.get("hash", "")))
-            metrics_registry.increment("sync_fork_choice_compared_total")
-
-            peer_wins = len(peer_proposers) > len(our_proposers) or (
-                len(peer_proposers) == len(our_proposers) and peer_len > our_len
-            )
-            if not peer_wins and len(peer_proposers) == len(our_proposers) and peer_len == our_len:
-                # Full tie: a lone node's round-1 child would win this key
-                # comparison against the majority's later-round block, so wait
-                # one round window instead — a branch that grows during it
-                # wins by length above. Only a tie that survives the window
-                # (a genuinely symmetric split) falls to (round, hash).
-                deadline = self._deferred_forks.get(ancestor_height)
-                now = time.monotonic()
-                if deadline is None or now < deadline:
-                    if deadline is None:
-                        window = getattr(settings, "consensus_proposer_round_seconds", 60)
-                        self._deferred_forks: dict[int, float] = {a: d for a, d in self._deferred_forks.items() if d > now}
-                        self._deferred_forks[ancestor_height] = now + window
-                        metrics_registry.increment("sync_fork_choice_deferred_total")
-                        self._logger.warning(
-                            "Fork tie at height %s vs %s (proposers %s vs %s, length %s vs %s) — "
-                            "deferring reorg for one %ss round window; a growing branch wins by length",
-                            fork_h,
-                            source_url,
-                            len(our_proposers),
-                            len(peer_proposers),
-                            our_len,
-                            peer_len,
-                            window,
-                        )
-                    return False
-                peer_wins = their_key < our_key
-            self._deferred_forks.pop(ancestor_height, None)
-            if not peer_wins:
-                metrics_registry.increment("sync_fork_choice_local_wins_total")
-                self._logger.warning(
-                    "Fork resolved against %s: our branch wins at height %s (proposers %s vs %s, "
-                    "length %s vs %s, key %s vs %s) — the peer is on the losing branch",
-                    source_url,
-                    fork_h,
-                    len(our_proposers),
-                    len(peer_proposers),
-                    our_len,
-                    peer_len,
-                    our_key,
-                    their_key,
-                )
+            our_len = local_height - ancestor_height
+            if not self._peer_branch_wins(
+                source_url, ancestor_height, local_height, parent_ts, our_segment, peer_seg, peer_ts_map
+            ):
                 return False
-
-            if len(our_segment) > self._max_reorg_depth:
-                metrics_registry.increment("sync_fork_reorg_unsafe_total")
-                self._logger.error(
-                    "Peer branch wins at height %s (proposers %s vs %s) but our losing segment (%s "
-                    "blocks) exceeds max reorg depth — operator resync required",
-                    fork_h,
-                    len(peer_proposers),
-                    len(our_proposers),
-                    len(our_segment),
-                )
+            applied = self._apply_peer_branch_reorg(session, source_url, ancestor_height, our_segment, peer_seg, ancestor)
+            if applied is None:
                 return False
-            if getattr(settings, "sync_fork_apply_probe_enabled", False):
-                verdict = self._probe_peer_segment(
-                    session, list(our_segment), ancestor, [peer_seg[fh] for fh in sorted(peer_seg)]
-                )
-                if verdict != "ok":
-                    metrics_registry.increment(f"sync_fork_probe_{verdict}_total")
-                    self._logger.warning(
-                        "Fork probe %s for peer segment at height %s from %s — keeping our segment",
-                        verdict,
-                        fork_h,
-                        source_url,
-                    )
-                    return False
-                metrics_registry.increment("sync_fork_probe_ok_total")
-            orphaned: list[dict[str, Any]] = []
-            segment_empty = self._blocks_provably_empty(session, list(our_segment))
-            # Operator kill-switch: undo is on by default (the journal is
-            # proven by the ancestor root + side-table digests + the
-            # differential suite); SYNC_FORK_UNDO_ENABLED=false restores
-            # escalate-only behaviour.
-            if not segment_empty and not settings.sync_fork_undo_enabled:
-                metrics_registry.increment("sync_fork_reorg_unsafe_total")
-                self._logger.error(
-                    "Peer branch wins at height %s (proposers %s vs %s) but our losing segment (%s "
-                    "blocks) is not provably empty — operator resync required",
-                    fork_h,
-                    len(peer_proposers),
-                    len(our_proposers),
-                    len(our_segment),
-                )
-                return False
-            reverted_accounts: set[str] = set()
-            if not segment_empty:
-                # Non-empty losing segment: undo its state changes via the
-                # per-block delta journal instead of refusing the reorg. None
-                # means undo was impossible — do not commit, escalate.
-                reverted = revert_losing_segment(
-                    session,
-                    self._chain_id,
-                    list(our_segment),
-                    ancestor,
-                    self._blocks_provably_empty,
-                    reverted_accounts=reverted_accounts,
-                )
-                if reverted is None:
-                    metrics_registry.increment("sync_fork_reorg_unsafe_total")
-                    self._logger.error(
-                        "Peer branch wins at height %s (proposers %s vs %s) but our losing segment "
-                        "(%s blocks) could not be reverted — missing journal or state-root "
-                        "mismatch; operator resync required",
-                        fork_h,
-                        len(peer_proposers),
-                        len(our_proposers),
-                        len(our_segment),
-                    )
-                    return False
-                orphaned = reverted
-                metrics_registry.increment("sync_fork_reorg_undone_total")
-            else:
-                for old_block in our_segment:
-                    for tx in session.exec(
-                        select(ChainTransaction)
-                        .where(ChainTransaction.chain_id == self._chain_id)
-                        .where(ChainTransaction.block_height == old_block.height)
-                    ).all():
-                        session.delete(tx)
-                    session.delete(old_block)
-            session.commit()
-            # The DB now holds pre-fork balances but Redis may still serve the
-            # reverted values for the cache TTL — drop both key forms for every
-            # account the journal touched. Provably-empty segments restore no
-            # account rows, so reverted_accounts is empty there anyway.
-            if reverted_accounts:
-                invalidate_account_caches(self._chain_id, reverted_accounts)
+            orphaned = applied
         metrics_registry.increment("sync_fork_choice_remote_wins_total")
         metrics_registry.increment("sync_reorgs_total")
         metrics_registry.observe("sync_reorg_depth", float(len(our_segment)))
@@ -699,6 +485,352 @@ class BulkSyncMixin(SyncBase):
             # import lands, so the rejected payloads wait in the pending list.
             self._orphan_reconcile_pending.extend(failed)
         return True
+
+    async def _find_fork_ancestor(
+        self, source_url: str, local_height: int, remote_height: int
+    ) -> tuple[int, dict[int, dict[str, Any]]] | None:
+        """Locate the common ancestor with the peer and collect its segment.
+
+        Walks back from our head comparing the peer's block hash at each
+        height, then fetches the rest of the peer's segment beyond our head.
+        Returns ``(ancestor_height, peer_seg)`` on success, or None when the
+        fork cannot be walked (peer data missing, no common ancestor within
+        the reorg window, or an empty peer segment — the no-ancestor case is
+        already logged here).
+        """
+        ancestor_height: int | None = None
+        peer_seg: dict[int, dict[str, Any]] = {}
+        with self._session_factory() as session:
+            ours_by_height = {
+                b.height: b
+                for b in session.exec(
+                    select(Block)
+                    .where(Block.chain_id == self._chain_id)
+                    .where(Block.height <= local_height)
+                    .where(Block.height > local_height - self._max_reorg_depth)
+                ).all()
+            }
+        h = local_height
+        while h >= 0:
+            ours = ours_by_height.get(h)
+            if ours is None:
+                break  # older than the reorg window — too deep to auto-resolve
+            fetched = await self.fetch_blocks_range(h, h, source_url)
+            peer_block = fetched[0] if fetched else None
+            if peer_block is None:
+                return None  # cannot decide without peer data
+            if peer_block.get("hash") == ours.hash:
+                ancestor_height = h
+                break
+            peer_seg[h] = peer_block
+            h -= 1
+        if ancestor_height is None or not peer_seg:
+            self._logger.error(
+                "Fork resolution failed: no common ancestor with %s within %s blocks of height %s",
+                source_url,
+                self._max_reorg_depth,
+                local_height,
+            )
+            return None
+
+        # Fetch the rest of the peer's segment beyond our head so the distinct
+        # proposer count sees more than the overlap. Capped at max_reorg_depth
+        # blocks past the ancestor — the peer's claimed head height only bounds
+        # the fetch; the branch length below is derived from the blocks actually
+        # returned and validated, never from the claim.
+        fetch_to = min(remote_height, ancestor_height + self._max_reorg_depth)
+        for fh in range(local_height + 1, fetch_to + 1):
+            fetched = await self.fetch_blocks_range(fh, fh, source_url)
+            if not fetched:
+                break  # compare on the contiguous prefix we could fetch
+            peer_seg[fh] = fetched[0]
+        return ancestor_height, peer_seg
+
+    def _validate_peer_fork_segment(
+        self,
+        session: Session,
+        peer_seg: dict[int, dict[str, Any]],
+        ancestor: Block | None,
+        source_url: str,
+    ) -> dict[int, Any] | None:
+        """Validate every fetched peer-segment block before our rows are touched.
+
+        Returns the per-height parent timestamps used for fork-choice keys,
+        or None when any block fails validation (each refusal is already
+        logged and counted here).
+        """
+        # Parent timestamps chain through the peer's own segment —
+        # exactly what a reimport would face. So do parent hashes: a
+        # "segment" whose blocks do not link parent→child back to the
+        # common ancestor is a spliced bundle of headers, not a branch,
+        # and must never win a reorg no matter what it claims.
+        peer_ts_map: dict[int, Any] = {}
+        seg_parent_ts = ancestor.timestamp if ancestor else None
+        expected_parent_hash = ancestor.hash if ancestor else None
+        for fh in sorted(peer_seg):
+            bd = peer_seg[fh]
+            if bd.get("height") != fh:
+                self._logger.warning(
+                    "Peer %s returned mismatched height in fork segment (%s vs %s) — refusing to reorg",
+                    source_url,
+                    bd.get("height"),
+                    fh,
+                )
+                return None
+            if expected_parent_hash is None or bd.get("parent_hash") != expected_parent_hash:
+                self._logger.warning(
+                    "Peer %s fork segment is unlinked at height %s (parent_hash %s, expected %s) — "
+                    "refusing to reorg onto a spliced segment",
+                    source_url,
+                    fh,
+                    bd.get("parent_hash"),
+                    expected_parent_hash,
+                )
+                metrics_registry.increment("sync_fork_invalid_rival_total")
+                return None
+            if self._validate_signatures:
+                sig_ok, sig_reason = self._validator.validate_block_signature(bd)
+                if not sig_ok:
+                    self._logger.warning(
+                        "Peer fork block at height %s failed signature validation (%s) — refusing to reorg",
+                        fh,
+                        sig_reason,
+                    )
+                    metrics_registry.increment("sync_fork_invalid_rival_total")
+                    return None
+            invalid, seg_parent_ts = self._validate_rival_header(session, bd, seg_parent_ts)
+            if invalid:
+                self._logger.warning("Peer fork block at height %s failed validation (%s) — refusing to reorg", fh, invalid)
+                metrics_registry.increment("sync_fork_invalid_rival_total")
+                return None
+            peer_ts_map[fh] = seg_parent_ts
+            expected_parent_hash = str(bd.get("hash") or "")
+        return peer_ts_map
+
+    def _peer_branch_wins(
+        self,
+        source_url: str,
+        ancestor_height: int,
+        local_height: int,
+        parent_ts: Any,
+        our_segment: Sequence[Block],
+        peer_seg: dict[int, dict[str, Any]],
+        peer_ts_map: dict[int, Any],
+    ) -> bool:
+        """Decide the fork by branch weight; True only when the peer's branch wins.
+
+        Compares distinct proposer counts, then segment length, then — on a
+        full tie that survives the deferral window — the ``(round, hash)``
+        fork-choice keys. Every refusal path (still-deferred tie, local win)
+        is logged and counted here.
+        """
+        fork_h = ancestor_height + 1
+        our_child = next(b for b in our_segment if b.height == fork_h)
+        peer_child = peer_seg[fork_h]
+        our_proposers = {str(b.proposer) for b in our_segment}
+        peer_proposers = {str(peer_seg[fh].get("proposer")) for fh in peer_seg}
+        our_len = local_height - ancestor_height
+        # The peer's branch length is the number of fetched-and-validated
+        # blocks past the ancestor — not remote_height minus the ancestor,
+        # which would let an inflated head claim outrun every real branch.
+        peer_len = len(peer_seg)
+        our_key = self._fork_choice_key(our_child.timestamp, parent_ts, our_child.hash)
+        their_key = self._fork_choice_key(peer_ts_map[fork_h], parent_ts, str(peer_child.get("hash", "")))
+        metrics_registry.increment("sync_fork_choice_compared_total")
+
+        peer_wins = len(peer_proposers) > len(our_proposers) or (
+            len(peer_proposers) == len(our_proposers) and peer_len > our_len
+        )
+        if not peer_wins and len(peer_proposers) == len(our_proposers) and peer_len == our_len:
+            # Full tie: a lone node's round-1 child would win this key
+            # comparison against the majority's later-round block, so wait
+            # one round window instead — a branch that grows during it
+            # wins by length above. Only a tie that survives the window
+            # (a genuinely symmetric split) falls to (round, hash).
+            if self._fork_tie_still_deferred(
+                source_url, ancestor_height, fork_h, our_len, peer_len, len(our_proposers), len(peer_proposers)
+            ):
+                return False
+            peer_wins = their_key < our_key
+        self._deferred_forks.pop(ancestor_height, None)
+        if not peer_wins:
+            metrics_registry.increment("sync_fork_choice_local_wins_total")
+            self._logger.warning(
+                "Fork resolved against %s: our branch wins at height %s (proposers %s vs %s, "
+                "length %s vs %s, key %s vs %s) — the peer is on the losing branch",
+                source_url,
+                fork_h,
+                len(our_proposers),
+                len(peer_proposers),
+                our_len,
+                peer_len,
+                our_key,
+                their_key,
+            )
+            return False
+        return True
+
+    def _fork_tie_still_deferred(
+        self,
+        source_url: str,
+        ancestor_height: int,
+        fork_h: int,
+        our_len: int,
+        peer_len: int,
+        our_proposer_count: int,
+        peer_proposer_count: int,
+    ) -> bool:
+        """Handle a full fork-choice tie: defer one round window, then compare keys.
+
+        Returns True while the decision is still deferred (the caller must
+        not reorg); False once the window has expired and the ``(round,
+        hash)`` keys should decide.
+        """
+        deadline = self._deferred_forks.get(ancestor_height)
+        now = time.monotonic()
+        if deadline is not None and now >= deadline:
+            return False
+        if deadline is None:
+            window = getattr(settings, "consensus_proposer_round_seconds", 60)
+            self._deferred_forks: dict[int, float] = {a: d for a, d in self._deferred_forks.items() if d > now}
+            self._deferred_forks[ancestor_height] = now + window
+            metrics_registry.increment("sync_fork_choice_deferred_total")
+            self._logger.warning(
+                "Fork tie at height %s vs %s (proposers %s vs %s, length %s vs %s) — "
+                "deferring reorg for one %ss round window; a growing branch wins by length",
+                fork_h,
+                source_url,
+                our_proposer_count,
+                peer_proposer_count,
+                our_len,
+                peer_len,
+                window,
+            )
+        return True
+
+    def _apply_peer_branch_reorg(
+        self,
+        session: Session,
+        source_url: str,
+        ancestor_height: int,
+        our_segment: Sequence[Block],
+        peer_seg: dict[int, dict[str, Any]],
+        ancestor: Block | None,
+    ) -> list[dict[str, Any]] | None:
+        """Apply a peer-branch-wins decision: depth check, probe, then undo.
+
+        Returns the orphaned transactions on success, or None when the reorg
+        was refused (metric and log already emitted — the caller keeps its
+        segment).
+        """
+        fork_h = ancestor_height + 1
+        our_proposers = {str(b.proposer) for b in our_segment}
+        peer_proposers = {str(peer_seg[fh].get("proposer")) for fh in peer_seg}
+        if len(our_segment) > self._max_reorg_depth:
+            metrics_registry.increment("sync_fork_reorg_unsafe_total")
+            self._logger.error(
+                "Peer branch wins at height %s (proposers %s vs %s) but our losing segment (%s "
+                "blocks) exceeds max reorg depth — operator resync required",
+                fork_h,
+                len(peer_proposers),
+                len(our_proposers),
+                len(our_segment),
+            )
+            return None
+        if getattr(settings, "sync_fork_apply_probe_enabled", False):
+            verdict = self._probe_peer_segment(session, list(our_segment), ancestor, [peer_seg[fh] for fh in sorted(peer_seg)])
+            if verdict != "ok":
+                metrics_registry.increment(f"sync_fork_probe_{verdict}_total")
+                self._logger.warning(
+                    "Fork probe %s for peer segment at height %s from %s — keeping our segment",
+                    verdict,
+                    fork_h,
+                    source_url,
+                )
+                return None
+            metrics_registry.increment("sync_fork_probe_ok_total")
+        return self._remove_losing_segment(session, ancestor_height, our_segment, peer_seg, ancestor)
+
+    def _remove_losing_segment(
+        self,
+        session: Session,
+        ancestor_height: int,
+        our_segment: Sequence[Block],
+        peer_seg: dict[int, dict[str, Any]],
+        ancestor: Block | None,
+    ) -> list[dict[str, Any]] | None:
+        """Undo our losing fork segment and commit.
+
+        Provably-empty blocks are simply deleted; non-empty ones are reverted
+        through the per-block delta journal (``state.block_deltas``) and
+        their transactions returned as orphans. Returns None when undo was
+        impossible — missing journal or state-root mismatch — in which case
+        nothing is committed and the caller escalates.
+        """
+        fork_h = ancestor_height + 1
+        our_proposers = {str(b.proposer) for b in our_segment}
+        peer_proposers = {str(peer_seg[fh].get("proposer")) for fh in peer_seg}
+        orphaned: list[dict[str, Any]] = []
+        segment_empty = self._blocks_provably_empty(session, list(our_segment))
+        # Operator kill-switch: undo is on by default (the journal is
+        # proven by the ancestor root + side-table digests + the
+        # differential suite); SYNC_FORK_UNDO_ENABLED=false restores
+        # escalate-only behaviour.
+        if not segment_empty and not settings.sync_fork_undo_enabled:
+            metrics_registry.increment("sync_fork_reorg_unsafe_total")
+            self._logger.error(
+                "Peer branch wins at height %s (proposers %s vs %s) but our losing segment (%s "
+                "blocks) is not provably empty — operator resync required",
+                fork_h,
+                len(peer_proposers),
+                len(our_proposers),
+                len(our_segment),
+            )
+            return None
+        reverted_accounts: set[str] = set()
+        if not segment_empty:
+            # Non-empty losing segment: undo its state changes via the
+            # per-block delta journal instead of refusing the reorg. None
+            # means undo was impossible — do not commit, escalate.
+            reverted = revert_losing_segment(
+                session,
+                self._chain_id,
+                list(our_segment),
+                ancestor,
+                self._blocks_provably_empty,
+                reverted_accounts=reverted_accounts,
+            )
+            if reverted is None:
+                metrics_registry.increment("sync_fork_reorg_unsafe_total")
+                self._logger.error(
+                    "Peer branch wins at height %s (proposers %s vs %s) but our losing segment "
+                    "(%s blocks) could not be reverted — missing journal or state-root "
+                    "mismatch; operator resync required",
+                    fork_h,
+                    len(peer_proposers),
+                    len(our_proposers),
+                    len(our_segment),
+                )
+                return None
+            orphaned = reverted
+            metrics_registry.increment("sync_fork_reorg_undone_total")
+        else:
+            for old_block in our_segment:
+                for tx in session.exec(
+                    select(ChainTransaction)
+                    .where(ChainTransaction.chain_id == self._chain_id)
+                    .where(ChainTransaction.block_height == old_block.height)
+                ).all():
+                    session.delete(tx)
+                session.delete(old_block)
+        session.commit()
+        # The DB now holds pre-fork balances but Redis may still serve the
+        # reverted values for the cache TTL — drop both key forms for every
+        # account the journal touched. Provably-empty segments restore no
+        # account rows, so reverted_accounts is empty there anyway.
+        if reverted_accounts:
+            invalidate_account_caches(self._chain_id, reverted_accounts)
+        return orphaned
 
     def _reconcile_pending_orphans(self) -> None:
         """Classify requeue-rejected orphans now that the winning branch is
@@ -780,6 +912,21 @@ class BulkSyncMixin(SyncBase):
 
         results = await asyncio.gather(*[fetch_from_peer(pid, sr) for pid, sr in assignments])
 
+        unique_blocks = self._merge_parallel_block_results(results)
+        if unique_blocks is None:
+            # Conflicting hashes at one height — fall back to sequential
+            return await self._sequential_bulk_import(start_height, end_height, source_url, batch_size, poll_interval)
+
+        return self._import_merged_parallel_blocks(unique_blocks)
+
+    def _merge_parallel_block_results(self, results: list[list[dict[str, Any]]]) -> list[dict[str, Any]] | None:
+        """Merge per-peer fetch results into one deduplicated block list.
+
+        Concatenates, sorts by height, deduplicates by hash (keeping the
+        first occurrence), then checks for conflicts (same height, different
+        hash). Returns the unique block list, or None on conflict — the
+        warning is already logged here.
+        """
         # Merge results: concatenate, sort by height, deduplicate by hash
         all_blocks: list[dict[str, Any]] = []
         for blocks in results:
@@ -808,9 +955,11 @@ class BulkSyncMixin(SyncBase):
 
         if conflicts:
             self._logger.warning("Block conflicts at heights %s, falling back to sequential", conflicts)
-            return await self._sequential_bulk_import(start_height, end_height, source_url, batch_size, poll_interval)
+            return None
+        return unique_blocks
 
-        # Import merged block list
+    def _import_merged_parallel_blocks(self, unique_blocks: list[dict[str, Any]]) -> int:
+        """Import the merged block list, stopping at the first rejection."""
         imported = 0
         for block_data in unique_blocks:
             result = self.import_block(

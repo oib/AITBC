@@ -38,7 +38,6 @@
       1 apps/blockchain-node/src/aitbc_chain/state/merkle_patricia_trie.py
       2 apps/blockchain-node/src/aitbc_chain/state/pure_state_transition.py
       3 apps/blockchain-node/src/aitbc_chain/sync_block_import.py
-      2 apps/blockchain-node/src/aitbc_chain/sync_bulk.py
       1 apps/blockchain-node/tests/consensus/test_pbft.py
       1 apps/blockchain-node/tests/test_gauge_wiring_review.py
       1 apps/blockchain-node/tests/test_parallel_performance.py
