@@ -2154,3 +2154,105 @@ class TestRespin2133Rework:
         assert consensus._cross_view_pair_justified(event, {}, SEQ) is True
         assert seen["set"] == consensus.pbft_vc_validator_set(SEQ)
         assert canonical_address(MEMBERS[3]) not in seen["set"]  # raw self.validators would still hold it
+
+
+class TestLockedReproposal2157:
+    """#2157: a commit-locked height can only decide the locked hash, so the
+    body's own proposer re-proposes it instead of a fresh block."""
+
+    @pytest.fixture(autouse=True)
+    def _iso(self, _fresh_chain):
+        return _fresh_chain
+
+    def _engine(self, local: str, body_proposer: str, lock: bool = True):
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, local, KEYS[local])
+        assert consensus.pbft_vc_proposal_store(SEQ, HA, _proposal_body(body_proposer))
+        if lock:
+            assert consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, _commit_rec(MEMBERS[0], HA, SEQ, 0), _proof(HA, SEQ, 0))
+        return pbft
+
+    async def _run(self, pbft: PBFTConsensus, monkeypatch):
+        calls: list[tuple[str, Any]] = []
+
+        async def fake_pre_prepare(proposer, block_hash, sequence=None, view=None, block_payload=None, new_view_payload=None):
+            calls.append((block_hash, block_payload))
+            return True
+
+        monkeypatch.setattr(pbft, "pre_prepare_phase", fake_pre_prepare)
+        monkeypatch.setattr(pbft, "_ensure_synced", lambda: _true())
+        await pbft.propose_and_wait(
+            pbft._local_validator,
+            HB,
+            timeout=0.01,
+            sequence=SEQ,
+            view=VIEW,
+            block_payload=_proposal_body(pbft._local_validator, HB),
+        )
+        return calls
+
+    @pytest.mark.asyncio
+    async def test_original_proposer_reproposes_the_locked_block(self, vc_armed, monkeypatch):
+        owner = MEMBERS[1]
+        pbft = self._engine(owner, owner)
+        calls = await self._run(pbft, monkeypatch)
+        assert calls and calls[0][0] == HA
+        assert calls[0][1]["hash"] == HA
+
+    @pytest.mark.asyncio
+    async def test_non_author_proposes_its_fresh_block(self, vc_armed, monkeypatch):
+        pbft = self._engine(MEMBERS[2], MEMBERS[1])
+        calls = await self._run(pbft, monkeypatch)
+        assert calls[0][0] == HB
+
+    @pytest.mark.asyncio
+    async def test_no_lock_proposes_the_fresh_block(self, vc_armed, monkeypatch):
+        owner = MEMBERS[1]
+        pbft = self._engine(owner, owner, lock=False)
+        calls = await self._run(pbft, monkeypatch)
+        assert calls[0][0] == HB
+
+    @pytest.mark.asyncio
+    async def test_gate_unset_is_dormant(self, monkeypatch):
+        owner = MEMBERS[1]
+        pbft = self._engine(owner, owner)
+        monkeypatch.setattr(settings, "pbft_view_change_height", None)
+        calls = await self._run(pbft, monkeypatch)
+        assert calls[0][0] == HB
+
+    @pytest.mark.asyncio
+    async def test_reproposal_never_reports_success_for_the_fresh_block(self, vc_armed, monkeypatch):
+        owner = MEMBERS[1]
+        pbft = self._engine(owner, owner)
+
+        async def fake_pre_prepare(proposer, block_hash, sequence=None, view=None, block_payload=None, new_view_payload=None):
+            key = f"{sequence}:{view}"
+            pbft.state.pre_prepare_messages[key] = PBFTMessage(
+                message_type=PBFTMessageType.PRE_PREPARE,
+                sender=proposer,
+                view_number=view,
+                sequence_number=sequence,
+                digest="",
+                signature="",
+                timestamp=0.0,
+                block_hash=block_hash,
+                block=block_payload,
+            )
+            pbft.state.prepared_messages[key] = [object()] * Q
+            pbft.state.committed_messages[key] = [object()] * Q
+            return True
+
+        async def fake_prepare(validator, msg):
+            return True
+
+        monkeypatch.setattr(pbft, "pre_prepare_phase", fake_pre_prepare)
+        monkeypatch.setattr(pbft, "prepare_phase", fake_prepare)
+        monkeypatch.setattr(pbft, "_ensure_synced", lambda: _true())
+        ok = await pbft.propose_and_wait(
+            owner, HB, timeout=1, sequence=SEQ, view=VIEW, block_payload=_proposal_body(owner, HB)
+        )
+        assert ok is False
+
+
+async def _true() -> bool:
+    return True
