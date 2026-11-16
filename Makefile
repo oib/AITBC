@@ -10,7 +10,7 @@ PYTHON ?= $(shell \
 	elif [ -x ./venv/bin/python ]; then echo ./venv/bin/python; \
 	else command -v python3; fi)
 
-.PHONY: help lint lint-strict lint-report c901-ratchet except-ratchet coverage-ratchet module-size-ratchet no-float-money bandit typecheck test test-smoke test-shell test-integration test-e2e test-apps test-cli test-governance test-migrations-slow test-required test-nightly test-suite-parity live-dry-run readiness openapi openapi-check version-check ci
+.PHONY: help lint lint-strict lint-report c901-ratchet except-ratchet coverage-ratchet critical-path-tests module-size-ratchet no-float-money bandit typecheck test test-smoke test-shell test-integration test-e2e test-apps test-cli test-governance test-migrations-slow test-required test-nightly test-suite-parity live-dry-run readiness openapi openapi-check version-check ci
 
 help:
 	@echo "make lint            ruff over the repo, fail on any finding (the CI lint gate)"
@@ -19,6 +19,7 @@ help:
 	@echo "make except-ratchet   fail if BLE001/S110 counts grow vs scripts/ci/except-baseline.txt"
 	@echo "make coverage-ratchet fail if coverage drops below scripts/ci/coverage-baseline.txt on money/consensus paths"
 	@echo "make module-size-ratchet  fail if a new .py file exceeds 2000 lines vs scripts/ci/module-size-baseline.txt"
+	@echo "make critical-path-tests  fail if critical-path modules lose test coverage vs scripts/ci/critical-paths.txt"
 	@echo "make typecheck       mypy over all clean apps (the CI type gate)"
 	@echo "make test            unit tests (fast, no external services)"
 	@echo "make test-smoke      smoke tests (import production modules, no services)"
@@ -58,6 +59,8 @@ module-size-ratchet:
 
 coverage-ratchet:
 	PYTHON=$(PYTHON) bash scripts/ci/check-coverage-ratchet.sh
+critical-path-tests:
+	bash scripts/ci/check-critical-path-tests.sh
 
 bandit:
 	PYTHON=$(PYTHON) bash scripts/ci/check-bandit.sh
@@ -174,4 +177,5 @@ openapi-check:
 version-check:
 	$(PYTHON) scripts/ci/check-version-consistency.py
 
-ci: lint-strict c901-ratchet except-ratchet coverage-ratchet module-size-ratchet no-float-money bandit typecheck test-required test-suite-parity live-dry-run openapi-check version-check
+ci: lint-strict c901-ratchet except-ratchet coverage-ratchet critical-path-tests module-size-ratchet no-float-money bandit typecheck test-required test-suite-parity live-dry-run openapi-check version-check
+ci: lint-strict c901-ratchet except-ratchet critical-path-tests no-float-money bandit typecheck test-required test-suite-parity live-dry-run openapi-check version-check

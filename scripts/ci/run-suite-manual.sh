@@ -231,6 +231,7 @@ run_check lint-strict      "" ./venv/bin/python -m ruff check .
 run_ratchet c901-ratchet   scripts/ci/check-c901-ratchet.sh
 run_ratchet except-ratchet scripts/ci/check-except-ratchet.sh
 run_check module-size     "" python3 scripts/ci/check-module-size.py
+run_ratchet critical-path-tests scripts/ci/check-critical-path-tests.sh
 run_check unawaited-async  "" python3 scripts/ci/check-unawaited-async.py --all
 run_check no-float-money   "" ./venv/bin/python scripts/lint/no_float_money.py
 run_check typecheck        "" bash scripts/ci/mypy-precommit.sh
