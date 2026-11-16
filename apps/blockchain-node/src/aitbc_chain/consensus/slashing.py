@@ -319,8 +319,16 @@ def _pair_shape_ok(event: SlashingEvent, payload: dict) -> bool:
         return False
     if any(a.get("height", event.block_height) != event.block_height for a in atts):
         return False
-    if atts[0].get("request_round") != atts[1].get("request_round"):
-        return False
+    rounds = [a.get("request_round") for a in atts]
+    if rounds[0] != rounds[1]:
+        # #1940 F1: UC-excused pairs are ROUND_BOUND_CROSS_ROUND — differing
+        # strict-int rounds are a valid evidence shape. The excuse itself is
+        # verified at apply via uc_ctx (kind "uc" is unregistered without
+        # one, so pair_stands_as_evidence still counts the pair here); the
+        # record gate only checks signature material, so cross-round claims
+        # must not be refused outright or the UC path is unreachable.
+        if not all(isinstance(r, int) and not isinstance(r, bool) for r in rounds):
+            return False
     return {str(a.get("hash", "")).lower() for a in atts} == {hash_a, hash_b}
 
 

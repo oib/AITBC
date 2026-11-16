@@ -258,3 +258,85 @@ def test_guard_clean_with_round_lock_or_domain_separation():
 def test_guard_inert_when_justification_off():
     errors, _ = uc_combo_findings(ChainSettings(**{**_BASE, "vote_journal_justification_enabled": False}))
     assert errors == []
+
+
+# ---------- F1 residual: production-emitted bundle end-to-end ----------
+
+
+@pytest.fixture
+def _unavail_env(monkeypatch, tmp_path):
+    """The same environment test_unavail_justification_1281's ``_env``
+    fixture provides — the real producer's collect/evidence windows and
+    journal/data dirs must be the fast test values or ``unlock_justification``
+    legitimately returns None."""
+    from aitbc_chain.consensus import remote_attestation as ra_module, vote_fetch, vote_journal
+    from aitbc_chain.metrics import metrics_registry
+
+    metrics_registry.reset()
+    vote_journal.reset_vote_journals()
+    vote_fetch.reset_throttle()
+    monkeypatch.setattr(vote_journal, "DATA_DIR", tmp_path)
+    monkeypatch.setattr(ra_module, "DATA_DIR", tmp_path)
+    from aitbc_chain.config import settings as chain_settings
+
+    monkeypatch.setattr(chain_settings, "consensus_require_signed_attest_request", False)
+    monkeypatch.setattr(chain_settings, "consensus_proposer_round_seconds", 60)
+    monkeypatch.setattr(chain_settings, "attestation_lock_enabled", True)
+    monkeypatch.setattr(chain_settings, "attestation_header_max_age_seconds", 0.0)
+    monkeypatch.setattr(chain_settings, "attestation_round_lock_enabled", False)
+    monkeypatch.setattr(chain_settings, "chain_id", CHAIN)
+    monkeypatch.setattr(chain_settings, "vote_journal_enabled", True)
+    monkeypatch.setattr(chain_settings, "vote_journal_unlock_seconds", 300.0)
+    monkeypatch.setattr(chain_settings, "vote_journal_justification_enabled", False)
+    monkeypatch.setattr(chain_settings, "unavail_collect_seconds", 0.3)
+    monkeypatch.setattr(chain_settings, "unavail_cert_max_age_seconds", 120.0)
+    monkeypatch.setattr(chain_settings, "unavail_evidence_seconds", 0.25)
+    monkeypatch.setattr(chain_settings, "unavail_sample_seconds", 0.05)
+    monkeypatch.setattr(chain_settings, "multi_validator_min_attestations", 2)
+    monkeypatch.setattr(chain_settings, "validator_set", json.dumps([{"address": a} for a in (ADDR1, ADDR2, ADDR3)]))
+    yield
+    vote_journal.reset_vote_journals()
+    metrics_registry.reset()
+
+
+@pytest.mark.asyncio
+async def test_production_bundle_excuses_recorded_evidence(monkeypatch, _unavail_env):
+    """#1940 F1 residual pin: a bundle emitted by the REAL
+    ``unavail.unlock_justification`` — not a hand-built dict — must flow
+    bundle → ``_uc_unlock_justification`` → ``record_attestation_equivocation``
+    → apply-gate excuse. Every prior test hand-built the consumer shape;
+    this one proves the producer's actual output satisfies it."""
+    import time
+    from unittest.mock import AsyncMock
+
+    from .test_unavail_justification_1281 import _Broker
+
+    await unavail.reset_observation_indices()
+    monkeypatch.setattr(unavail, "locate_voted_block", AsyncMock(return_value=None))
+    bundle = await unavail.unlock_justification(CHAIN, HEIGHT, [HA], ignore={canonical_address(ADDR1)}, broker=_Broker())
+    assert bundle is not None and bundle["kind"] == "unavailability_cert"
+    assert bundle["certs"] and bundle["certs"][0]["hash"] == HA
+
+    m = _evidence_mixin()
+    prior = {"hash": HA, "request_round": 0, "round_in_payload": True}
+    current = {"hash": HB, "request_round": 5, "round_in_payload": True}
+    unlock = m._uc_unlock_justification(bundle, prior, current)
+    assert unlock is not None and unlock["kind"] == "uc"
+    assert unlock["cert"]["hash"] == HA
+
+    mgr = SlashingManager()
+    event = mgr.record_attestation_equivocation(
+        validator_address=SIGNER,
+        height=HEIGHT,
+        round_number=5,
+        block_hash_a=HA,
+        block_hash_b=HB,
+        proposer="0x" + "22" * 32,
+        attestations=_records(0, 5),
+        justification="unavailability_cert",
+        unlock_justification=unlock,
+    )
+    payload = json.loads(event.evidence)
+    assert payload[JUSTIFICATION_FIELD] == unlock
+    ctx = UcApplyContext(chain_id=CHAIN, now=time.time(), validator_set=VSET, max_age=120.0, min_responses=2)
+    assert pair_stands_as_evidence(payload, ctx) is False
