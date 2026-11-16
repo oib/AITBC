@@ -8,7 +8,7 @@ from typing import Any
 from sqlalchemy import desc, func as sqlfunc
 from sqlmodel import select
 
-from aitbc.sync import apply_state_diff, decode_state_diff
+from aitbc.sync import StateDiff, apply_state_diff, decode_state_diff
 
 from .aux_state import upsert_aux_rows
 from .base_models import Account, Block, ChainParameter, _to_ait_address, record_chain_parameter_history
@@ -340,65 +340,15 @@ class StateSyncMixin(SyncBase):
         # block import must catch up first, so there is no snapshot fallback.
         with self._session_factory() as session:
             local_height, local_root = self._local_head(session)
-        # #1629: same empty-head hole as the snapshot path — with no recorded
-        # head root there is nothing to verify the delta against.
-        if local_height == 0 and not local_root:
-            return self._refuse_sync(
-                "empty_head",
-                f"delta sync refused: no local blocks — {source_url} state cannot be verified "
-                "against a head root; import blocks first",
-                to_height=to_height,
-            )
-        if to_height < local_height:
-            return self._refuse_sync(
-                "stale_target",
-                f"delta sync refused: target {to_height} is behind our head {local_height}",
-                local_head=local_height,
-                to_height=to_height,
-            )
-        if to_height > local_height:
-            return self._refuse_sync(
-                "ahead_of_local_head",
-                f"delta sync refused: target {to_height} is ahead of our head {local_height}; "
-                "block import must catch up first",
-                local_head=local_height,
-                to_height=to_height,
-            )
+        head_refusal = self._delta_head_guard(local_height, local_root, source_url, to_height)
+        if head_refusal is not None:
+            return head_refusal
 
         self._logger.info("Starting delta sync from %s, heights %d -> %d", source_url, from_height, to_height)
-        try:
-            data = await get_json_bounded(
-                self._client,
-                f"{source_url}/rpc/state/delta",
-                {"from_height": from_height, "to_height": to_height, "chain_id": self._chain_id},
-                settings.sync_state_response_max_bytes,
-            )
-        except Exception as e:
-            self._logger.warning("Delta sync endpoint failed (%s), falling back to full sync", e)
+        fetched = await self._fetch_state_delta(source_url, from_height, to_height)
+        if fetched is None:
             return await self.sync_state_from(source_url)
-
-        # Consensus-relevant chain parameters ride alongside the diff — the
-        # account-only state root never covers them.
-        remote_parameters = data.get("chain_parameters", [])
-        remote_parameter_history = data.get("chain_parameter_history", [])
-        remote_aux = data.get("aux_state", {}) or {}
-
-        # The response contains an encoded StateDiff
-        encoded_diff = data.get("diff")
-        if not encoded_diff:
-            self._logger.warning("No diff in delta sync response, falling back to full sync")
-            return await self.sync_state_from(source_url)
-
-        # Decode the StateDiff
-        try:
-            diff_bytes = base64.b64decode(encoded_diff) if isinstance(encoded_diff, str) else encoded_diff
-            # Peer-controlled compressed payload: bound the DECOMPRESSED size
-            # here — the root check below runs only after decode, so an
-            # unbounded decompress_json is a pre-verification OOM (#1627).
-            diff = decode_state_diff(diff_bytes, max_bytes=settings.sync_state_diff_max_bytes)
-        except Exception as e:
-            self._logger.error("Failed to decode state diff: %s", e)
-            return await self.sync_state_from(source_url)
+        diff, remote_parameters, remote_parameter_history, remote_aux = fetched
 
         max_accounts = settings.sync_state_max_accounts
         if len(diff.changes) > max_accounts:
@@ -422,13 +372,7 @@ class StateSyncMixin(SyncBase):
 
         # Check if delta is too large
         threshold = getattr(settings, "sync_delta_threshold", 0.5)
-        # Estimate full state size from current account count
-        with self._session_factory() as session:
-            count_result = session.exec(
-                select(sqlfunc.count()).select_from(Account).where(Account.chain_id == self._chain_id)
-            ).first()
-            total_accounts = count_result or 0
-        full_state_size = total_accounts * 100  # rough estimate
+        full_state_size = self._delta_full_state_size()
         if diff.is_too_large(full_state_size, threshold=threshold):
             self._logger.info(
                 "Delta too large (%d bytes > %d threshold), using full sync",
@@ -437,7 +381,126 @@ class StateSyncMixin(SyncBase):
             )
             return await self.sync_state_from(source_url)
 
-        # Apply delta to local state
+        changed, computed_hex, apply_refusal = self._apply_state_delta(
+            diff,
+            remote_parameters,
+            remote_parameter_history,
+            remote_aux,
+            local_root,
+            local_height,
+            to_height,
+        )
+        if apply_refusal is not None:
+            return apply_refusal
+
+        self._logger.info("Delta sync complete: %d accounts changed, state root matches", len(changed))
+        return {
+            "synced": len(changed),
+            "created": sum(1 for c in diff.changes if c.is_new),
+            "updated": sum(1 for c in diff.changes if not c.is_new and not c.is_deleted),
+            "deleted": sum(1 for c in diff.changes if c.is_deleted),
+            "local_state_root": computed_hex,
+            "remote_state_root": diff.to_state_root,
+            "match": True,
+            "mode": "delta",
+        }
+
+    def _delta_head_guard(self, local_height: int, local_root: str, source_url: str, to_height: int) -> dict[str, Any] | None:
+        """Refuse a delta sync that cannot be verified against the local head.
+
+        #1629: same empty-head hole as the snapshot path — with no recorded
+        head root there is nothing to verify the delta against.
+        """
+        if local_height == 0 and not local_root:
+            return self._refuse_sync(
+                "empty_head",
+                f"delta sync refused: no local blocks — {source_url} state cannot be verified "
+                "against a head root; import blocks first",
+                to_height=to_height,
+            )
+        if to_height < local_height:
+            return self._refuse_sync(
+                "stale_target",
+                f"delta sync refused: target {to_height} is behind our head {local_height}",
+                local_head=local_height,
+                to_height=to_height,
+            )
+        if to_height > local_height:
+            return self._refuse_sync(
+                "ahead_of_local_head",
+                f"delta sync refused: target {to_height} is ahead of our head {local_height}; "
+                "block import must catch up first",
+                local_head=local_height,
+                to_height=to_height,
+            )
+        return None
+
+    async def _fetch_state_delta(
+        self, source_url: str, from_height: int, to_height: int
+    ) -> tuple[StateDiff, Any, Any, dict[str, Any]] | None:
+        """Fetch and decode the peer's state delta.
+
+        Returns (diff, chain_parameters, chain_parameter_history, aux_state),
+        or None when the caller should fall back to full sync.
+        """
+        try:
+            data = await get_json_bounded(
+                self._client,
+                f"{source_url}/rpc/state/delta",
+                {"from_height": from_height, "to_height": to_height, "chain_id": self._chain_id},
+                settings.sync_state_response_max_bytes,
+            )
+        except Exception as e:
+            self._logger.warning("Delta sync endpoint failed (%s), falling back to full sync", e)
+            return None
+
+        # Consensus-relevant chain parameters ride alongside the diff — the
+        # account-only state root never covers them.
+        remote_parameters = data.get("chain_parameters", [])
+        remote_parameter_history = data.get("chain_parameter_history", [])
+        remote_aux = data.get("aux_state", {}) or {}
+
+        # The response contains an encoded StateDiff
+        encoded_diff = data.get("diff")
+        if not encoded_diff:
+            self._logger.warning("No diff in delta sync response, falling back to full sync")
+            return None
+
+        # Decode the StateDiff
+        try:
+            diff_bytes = base64.b64decode(encoded_diff) if isinstance(encoded_diff, str) else encoded_diff
+            # Peer-controlled compressed payload: bound the DECOMPRESSED size
+            # here — the root check below runs only after decode, so an
+            # unbounded decompress_json is a pre-verification OOM (#1627).
+            diff = decode_state_diff(diff_bytes, max_bytes=settings.sync_state_diff_max_bytes)
+        except Exception as e:
+            self._logger.error("Failed to decode state diff: %s", e)
+            return None
+        return diff, remote_parameters, remote_parameter_history, remote_aux
+
+    def _delta_full_state_size(self) -> int:
+        """Rough full-state size estimate (account count * 100 bytes)."""
+        with self._session_factory() as session:
+            count_result = session.exec(
+                select(sqlfunc.count()).select_from(Account).where(Account.chain_id == self._chain_id)
+            ).first()
+        return (count_result or 0) * 100
+
+    def _apply_state_delta(
+        self,
+        diff: StateDiff,
+        remote_parameters: Any,
+        remote_parameter_history: Any,
+        remote_aux: dict[str, Any],
+        local_root: str,
+        local_height: int,
+        to_height: int,
+    ) -> tuple[list[str], str, dict[str, Any] | None]:
+        """Apply a verified state diff in one transaction.
+
+        Returns (changed_addresses, computed_root, refusal); refusal is None
+        when the transaction committed.
+        """
         with self._session_factory() as session:
             existing_accounts = session.exec(select(Account).where(Account.chain_id == self._chain_id)).all()
             account_map: dict[str, Any] = {_to_ait_address(acc.address): acc for acc in existing_accounts}
@@ -496,23 +559,16 @@ class StateSyncMixin(SyncBase):
                 computed_hex = "0x" + "\x00" * 32
             if computed_hex != local_root:
                 session.rollback()
-                return self._refuse_sync(
-                    "root_mismatch_local_head",
-                    f"delta sync rolled back: resulting root {computed_hex} != local head {local_height} "
-                    f"recorded root {local_root} (source claimed {diff.to_state_root})",
-                    local_head=local_height,
-                    to_height=to_height,
+                return (
+                    changed,
+                    computed_hex,
+                    self._refuse_sync(
+                        "root_mismatch_local_head",
+                        f"delta sync rolled back: resulting root {computed_hex} != local head {local_height} "
+                        f"recorded root {local_root} (source claimed {diff.to_state_root})",
+                        local_head=local_height,
+                        to_height=to_height,
+                    ),
                 )
             session.commit()
-
-        self._logger.info("Delta sync complete: %d accounts changed, state root matches", len(changed))
-        return {
-            "synced": len(changed),
-            "created": sum(1 for c in diff.changes if c.is_new),
-            "updated": sum(1 for c in diff.changes if not c.is_new and not c.is_deleted),
-            "deleted": sum(1 for c in diff.changes if c.is_deleted),
-            "local_state_root": computed_hex,
-            "remote_state_root": diff.to_state_root,
-            "match": True,
-            "mode": "delta",
-        }
+        return changed, computed_hex, None
