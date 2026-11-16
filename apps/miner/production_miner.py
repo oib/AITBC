@@ -151,6 +151,14 @@ DEFAULT_SOFTWARE_OFFERS = [
     },
 ]
 OFFER_PUBLISH_INTERVAL = 300
+# Default offers whose backing service must answer /health before the offer is
+# published (#2099/#1549): the units are not deployed on every shop node, and
+# an active offer with no backend sells a job that can never run.
+_OFFER_BACKENDS = {
+    "whisper": ("WHISPER_SERVICE_URL", "http://127.0.0.1:8110"),
+    "ffmpeg": ("FFMPEG_SERVICE_URL", "http://127.0.0.1:8230"),
+}
+OFFER_BACKEND_PROBE_TIMEOUT = 3.0
 # Provider-side IPFS hosting: pin CIDs for market ipfs jobs assigned to
 # this miner so paid storage is actually stored locally (island daemon).
 IPFS_PIN_SWEEP_INTERVAL = int(os.environ.get("IPFS_PIN_SWEEP_INTERVAL", "120"))
@@ -174,6 +182,23 @@ async def offer_publish_cycle(ollama_models: list[str]) -> bool:
     return True
 
 
+def _offer_backend_up(service_type: str) -> bool:
+    """True when the service behind a default offer answers /health.
+
+    Service types without a registered backend probe (ollama has its own model
+    check, ipfs its own daemon) are not gated here.
+    """
+    probe = _OFFER_BACKENDS.get(service_type)
+    if probe is None:
+        return True
+    env_name, default_url = probe
+    url = os.environ.get(env_name, default_url).rstrip("/") + "/health"
+    try:
+        return requests.get(url, timeout=OFFER_BACKEND_PROBE_TIMEOUT).status_code == 200
+    except _OPS_ERRORS:
+        return False
+
+
 def publish_default_offers(ollama_models: list[str]) -> None:
     """Publish default Whisper, FFmpeg and Ollama software offers.
 
@@ -195,6 +220,11 @@ def publish_default_offers(ollama_models: list[str]) -> None:
             continue
         if offer["service_type"] == "ollama" and offer["model"] not in ollama_models:
             logger.info("Skipping default offer for Ollama model %s (not available)", offer["model"])
+            continue
+        if not _offer_backend_up(offer["service_type"]):
+            logger.warning(
+                "Skipping default offer %s/%s: backend not reachable (#2099)", offer["service_type"], offer["model"]
+            )
             continue
         cmd = [
             AITBC_CLI,

@@ -7,6 +7,13 @@ import pytest
 from aitbc.exceptions import NetworkError
 
 
+@pytest.fixture(autouse=True)
+def _backends_up(monkeypatch):
+    """Offer-publish tests assume the default-offer backends are reachable;
+    test_default_offer_backend_2099.py covers the gate itself."""
+    monkeypatch.setattr(production_miner, "_offer_backend_up", lambda service_type: True)
+
+
 @pytest.mark.unit
 def test_classify_architecture_4090():
     """Test architecture classification for RTX 4090"""
