@@ -287,6 +287,27 @@ class PBFTConsensus:
         logger.warning("PBFT timed out waiting for sync on chain %s", self._chain_id)
         return False
 
+    def _locked_reproposal(self, sequence: int, fresh_hash: str) -> tuple[str, dict[str, Any]] | None:
+        """The commit-locked ``(hash, body)`` this node must re-propose (#2157).
+
+        Only while the view-change gate is armed at ``sequence``, a durable
+        commit lock exists for a hash other than the fresh block's, the body
+        is held, signed, bound to that hash, and this node is the body's own
+        proposer (#2133 R4 requires body proposer == pre-prepare sender).
+        """
+        if not view_change_active(sequence):
+            return None
+        lock = self._vc_commit_lock(sequence)
+        locked_hash = lock.get("block_hash") if isinstance(lock, dict) else None
+        if not isinstance(locked_hash, str) or not locked_hash or locked_hash == fresh_hash:
+            return None
+        body = self._vc_proposal_get(sequence, locked_hash)
+        if body is None or not proposal_body_bound(body, locked_hash, sequence):
+            return None
+        if canonical_address(str(body.get("proposer", ""))) != canonical_address(str(self._local_validator)):
+            return None
+        return locked_hash, body
+
     async def propose_and_wait(
         self,
         proposer: str,
@@ -312,6 +333,19 @@ class PBFTConsensus:
         pre_prepare_sequence = self.state.current_sequence + 1 if sequence is None else sequence
         pre_prepare_view = self.state.current_view if view is None else view
         key = f"{pre_prepare_sequence}:{pre_prepare_view}"
+        # #2157: a height with a persisted commit lock can only ever decide
+        # the locked hash (a locked NEW_VIEW permits nothing else), so a fresh
+        # block here is refused by every follower and the chain stalls. When
+        # this node authored the locked body, re-propose it as-is in this view.
+        locked = self._locked_reproposal(pre_prepare_sequence, block_hash)
+        if locked is not None:
+            block_hash, block_payload = locked
+            logger.warning(
+                "PBFT re-proposing commit-locked block %s at seq %s view %s instead of a fresh block",
+                block_hash[:18],
+                pre_prepare_sequence,
+                pre_prepare_view,
+            )
         await self.pre_prepare_phase(
             proposer,
             block_hash,
@@ -384,7 +418,10 @@ class PBFTConsensus:
             len(self.state.committed_messages.get(key, [])),
             duration,
         )
-        return True
+        # A re-proposed locked block is imported by the re-seal path (the
+        # original block + this round's certificate), never sealed from the
+        # caller's fresh block, whose hash is not the decided value.
+        return locked is None
 
     async def prepare_phase(self, validator: str, pre_prepare_msg: PBFTMessage) -> bool:
         """Phase 2: Prepare"""
