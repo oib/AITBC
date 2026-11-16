@@ -49,6 +49,26 @@ import ipfs_pinning_sweeper
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.units import ait_to_units
 
+# Service endpoints, health map, IPFS/content helpers and the whisper/ffmpeg/
+# ipfs service handlers live in agent_task_services (#1860); every moved name
+# is re-exported here so ``agent_task_executor.<name>`` keeps resolving for
+# callers and for the tests' monkeypatch seams.
+from agent_task_services import (
+    FFMPEG_URL as FFMPEG_URL,
+    ISLAND_IPFS_API as ISLAND_IPFS_API,
+    OLLAMA_URL as OLLAMA_URL,
+    WHISPER_URL as WHISPER_URL,
+    _SERVICE_HEALTH as _SERVICE_HEALTH,
+    _bounded_content as _bounded_content,
+    _exec_ffmpeg as _exec_ffmpeg,
+    _exec_ipfs as _exec_ipfs,
+    _exec_whisper as _exec_whisper,
+    _ipfs_object_size as _ipfs_object_size,
+    _require_cid_arg as _require_cid_arg,
+    _service_ready as _service_ready,
+    _shop_access_headers as _shop_access_headers,
+)
+
 logger = get_logger(__name__)
 
 # Executor failure surface: island IPFS HTTP calls, local state/key file IO,
@@ -71,20 +91,6 @@ COORDINATOR_URL = os.environ.get("AGENT_COORDINATOR_URL") or os.environ.get("COO
 AGENT_EXECUTOR_ID = os.environ.get("AGENT_EXECUTOR_ID") or os.environ.get("MINER_ID", "aitbc-miner-1")
 STATE_PATH = Path(os.environ.get("AGENT_EXECUTOR_STATE", "/var/lib/aitbc/data/agent_executor_state.json"))
 HTTP_TIMEOUT = int(os.environ.get("AGENT_EXECUTOR_HTTP_TIMEOUT", "30"))
-
-# Local service endpoints (provider-side execution)
-ISLAND_IPFS_API = os.environ.get("ISLAND_IPFS_API", "http://127.0.0.1:5002")
-WHISPER_URL = os.environ.get("AGENT_EXECUTOR_WHISPER_URL", "http://127.0.0.1:8110")
-FFMPEG_URL = os.environ.get("AGENT_EXECUTOR_FFMPEG_URL", "http://127.0.0.1:8230")
-OLLAMA_URL = os.environ.get("AGENT_EXECUTOR_OLLAMA_URL", "http://127.0.0.1:11434")
-
-# Per-service health probes used for the capacity check.
-_SERVICE_HEALTH = {
-    "whisper": f"{WHISPER_URL}/health",
-    "ffmpeg": f"{FFMPEG_URL}/health",
-    "ollama": f"{OLLAMA_URL}/api/tags",
-    "ipfs": f"{ISLAND_IPFS_API}/api/v0/id",
-}
 
 _MAX_DONE = 2000
 
@@ -586,58 +592,6 @@ def _task_max_payload_bytes() -> int:
         return _TASK_DEFAULT_MAX_BYTES
 
 
-def _require_cid_arg(cid: str) -> None:
-    """Reject non-CID payload_ref values before they reach a Kubo arg (#1939).
-
-    Kubo resolves pin/cat/object args as IPFS *paths*, so a buyer-controlled
-    ``payload_ref`` containing '/', '..', whitespace or other path syntax could
-    steer the daemon at unintended DAGs. Only bare alphanumeric CID spellings
-    pass — the same check the pinning sweeper applies (#1582).
-    """
-    if not ipfs_pinning_sweeper._valid_cid_arg(cid):
-        raise ValueError(f"malformed IPFS CID arg: {cid!r}")
-
-
-def _bounded_content(resp: requests.Response, cap: int) -> bytes:
-    """Read a response body with a running byte count — never holds > cap."""
-    headers = getattr(resp, "headers", None) or {}
-    cl = headers.get("Content-Length")
-    try:
-        declared = int(cl) if cl is not None else None
-    except (TypeError, ValueError):
-        declared = None
-    if declared is not None and declared > cap:
-        raise ValueError(f"response body {cl} bytes exceeds {cap} cap")
-    stream = getattr(resp, "iter_content", None)
-    if callable(stream):
-        buf = bytearray()
-        try:
-            for chunk in stream(chunk_size=65536):
-                buf += chunk
-                if len(buf) > cap:
-                    raise ValueError(f"response body exceeds {cap} cap")
-            return bytes(buf)
-        except TypeError:
-            pass  # streamless/mocked response — bound on .content instead
-    content = resp.content
-    if len(content) > cap:
-        raise ValueError(f"response body {len(content)} bytes exceeds {cap} cap")
-    return content
-
-
-def _ipfs_object_size(cid: str) -> int | None:
-    """Best-effort object size from the daemon; None when unknown."""
-    _require_cid_arg(cid)
-    try:
-        resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/object/stat", params={"arg": cid}, timeout=30)
-        if resp.status_code == 200:
-            size = resp.json().get("CumulativeSize") or resp.json().get("DataSize")
-            return int(size) if size is not None else None
-    except (requests.exceptions.RequestException, ValueError, TypeError) as exc:
-        logger.debug("ipfs object stat failed for %s: %s", cid, exc)  # cat stream still bounds the read
-    return None
-
-
 def _ipfs_cat(cid: str, timeout: int = 120, max_bytes: int | None = None) -> bytes:
     _require_cid_arg(cid)
     cap = _task_max_payload_bytes() if max_bytes is None else max_bytes
@@ -663,56 +617,6 @@ def _ipfs_add(data: bytes, filename: str = "result.bin") -> str:
 #
 # Each handler receives the task request dict and returns (result_bytes,
 # result_hash). Handlers raise on failure — the sweep catches and reports.
-
-
-def _shop_access_headers(req: dict[str, Any]) -> dict[str, str]:
-    """Shop-gate credential headers (#803) carried on the task request (#1612).
-
-    Paid shop endpoints (whisper ``/transcribe``, ffmpeg ``/process``) require
-    ``X-Access-Key`` + ``X-Access-Secret`` bound to the market job via
-    ``X-Job-Id``. A buyer agent places the credential triple in the
-    task_request content — ``access_key``/``access_secret`` plus the market
-    job id under ``access_job_id``/``job_id`` — and this executor forwards it
-    verbatim; ``task_id`` is the fallback binding. Without it the gated
-    service answers 401 and paid A2A work fails. Absent credentials omit the
-    headers (the gate's intended refusal for unpaid calls).
-    """
-    key = req.get("access_key")
-    secret = req.get("access_secret")
-    if not key or not secret:
-        return {}
-    bound_job = req.get("access_job_id") or req.get("job_id") or req.get("task_id")
-    return {
-        "X-Access-Key": str(key),
-        "X-Access-Secret": str(secret),
-        "X-Job-Id": str(bound_job),
-    }
-
-
-def _exec_whisper(req: dict[str, Any], payload: bytes) -> bytes:
-    resp = requests.post(
-        f"{WHISPER_URL}/transcribe",
-        files={"file": ("audio", payload)},
-        data={"task": "transcribe"},
-        headers=_shop_access_headers(req),
-        timeout=600,
-        stream=True,
-    )
-    resp.raise_for_status()
-    return _bounded_content(resp, _task_max_payload_bytes())
-
-
-def _exec_ffmpeg(req: dict[str, Any], payload: bytes) -> bytes:
-    resp = requests.post(
-        f"{FFMPEG_URL}/process",
-        files={"file": ("input", payload)},
-        data={"output_format": "mp4", "codec": "h264"},
-        headers=_shop_access_headers(req),
-        timeout=1800,
-        stream=True,
-    )
-    resp.raise_for_status()
-    return _bounded_content(resp, _task_max_payload_bytes())
 
 
 # Generation bounds (#1614): the payload itself is already capped at
@@ -788,50 +692,14 @@ def _ipfs_unpin(cid: str) -> None:
         pass
 
 
-def _exec_ipfs(req: dict[str, Any], payload: bytes) -> bytes:
-    """IPFS "hosting" task: pin the request's payload CID on the island daemon.
-
-    The CID is buyer-chosen and usually not local yet, so ``object/stat``
-    cannot size it before the fetch — ``pin/add`` pulls the whole DAG. Mirror
-    the market sweeper's measure-then-reclaim (#1489): pin, stat the now-local
-    root, and unpin immediately when the object exceeds the payload cap rather
-    than leaving unbounded disk committed (#1614). The per-buyer cumulative
-    quota is enforced by the caller, which knows the quoting buyer.
-    """
-    cid = str(req.get("payload_ref") or "")
-    if not cid:
-        raise ValueError("ipfs task requires payload_ref (CID)")
-    _require_cid_arg(cid)
-    resp = requests.post(f"{ISLAND_IPFS_API}/api/v0/pin/add", params={"arg": cid}, timeout=120)
-    resp.raise_for_status()
-    size = _ipfs_object_size(cid)
-    cap = _task_max_payload_bytes()
-    if size is not None and size > cap:
-        _ipfs_unpin(cid)
-        raise ValueError(f"IPFS object {cid} is {size} bytes, over the {cap} cap — pin reclaimed")
-    return json.dumps({"pinned": cid, "size": size}).encode()
-
-
+# service_type → handler; the whisper/ffmpeg/ipfs entries are the re-exported
+# agent_task_services implementations, "ollama" is the local _exec_ollama.
 SERVICE_HANDLERS = {
     "whisper": _exec_whisper,
     "ffmpeg": _exec_ffmpeg,
     "ollama": _exec_ollama,
     "ipfs": _exec_ipfs,
 }
-
-
-def _service_ready(service_type: str) -> bool:
-    url = _SERVICE_HEALTH.get(service_type)
-    if not url:
-        return False
-    try:
-        if service_type in ("ipfs",):
-            resp = requests.post(url, timeout=5)
-        else:
-            resp = requests.get(url, timeout=5)
-        return resp.status_code == 200
-    except requests.RequestException:
-        return False
 
 
 # --- Message parsing ----------------------------------------------------------
