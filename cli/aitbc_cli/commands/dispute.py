@@ -19,12 +19,33 @@ import os
 from typing import Any
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..auth import AuthManager, ExpiredAdminToken
 from ..config import get_config
 from ..utils import output, resolve_output_format
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 def _looks_like_jwt(token: str) -> bool:
@@ -143,7 +164,7 @@ def file_dispute(ctx, agreement_id, respondent, dispute_type, reason, evidence_h
         output(result, resolve_output_format(ctx, format), title="Dispute Filed")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error filing dispute against agreement {agreement_id}: {e}", from_exception=e)
 
 
@@ -166,7 +187,7 @@ def active(ctx, node_url, format):
         output(result, resolve_output_format(ctx, format), title="Active Disputes")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error listing active disputes: {e}", from_exception=e)
 
 
@@ -188,7 +209,7 @@ def get(ctx, dispute_id, node_url, format):
         output(result, resolve_output_format(ctx, format), title=f"Dispute {dispute_id}")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error fetching dispute {dispute_id}: {e}", from_exception=e)
 
 
@@ -210,7 +231,7 @@ def user(ctx, user_address, node_url, format):
         output(result, resolve_output_format(ctx, format), title=f"Disputes for {user_address}")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error fetching disputes for {user_address}: {e}", from_exception=e)
 
 
@@ -237,7 +258,7 @@ def votes(ctx, dispute_id, node_url, format):
         if _is_not_found(e):
             abort(ctx, f"Dispute {dispute_id} not found", from_exception=e)
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error fetching votes for dispute {dispute_id}: {e}", from_exception=e)
 
 
@@ -262,7 +283,7 @@ def vote(ctx, dispute_id, vote, reasoning, node_url, format):
         output(result, resolve_output_format(ctx, format), title="Vote Submitted")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error voting on dispute {dispute_id}: {e}", from_exception=e)
 
 
@@ -313,7 +334,7 @@ def evidence_add(ctx, dispute_id, evidence_hash, evidence_type, description, nod
         output(result, resolve_output_format(ctx, format), title="Evidence Submitted")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error submitting evidence for dispute {dispute_id}: {e}", from_exception=e)
 
 
@@ -340,7 +361,7 @@ def evidence_list(ctx, dispute_id, node_url, format):
         if _is_not_found(e):
             abort(ctx, f"Dispute {dispute_id} not found", from_exception=e)
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error fetching evidence for dispute {dispute_id}: {e}", from_exception=e)
 
 
@@ -367,7 +388,7 @@ def evidence_verify(ctx, dispute_id, evidence_id, reject, node_url, format):
         output(result, resolve_output_format(ctx, format), title="Evidence Verification")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error verifying evidence {evidence_id}: {e}", from_exception=e)
 
 
@@ -406,7 +427,7 @@ def arbitrator_list(ctx, node_url, format):
         output(result, resolve_output_format(ctx, format), title="Authorized Arbitrators")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error listing arbitrators: {e}", from_exception=e)
 
 
@@ -428,7 +449,7 @@ def arbitrator_queue(ctx, arbitrator_address, node_url, format):
         output(result, resolve_output_format(ctx, format), title=f"Caseload for {arbitrator_address}")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error fetching caseload for {arbitrator_address}: {e}", from_exception=e)
 
 
@@ -463,7 +484,7 @@ def arbitrator_authorize(ctx, arbitrator_address, revoke, owner_signature, node_
         output(result, resolve_output_format(ctx, format), title=f"Arbitrator {action}")
     except NetworkError as e:
         abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error updating arbitrator {arbitrator_address}: {e}", from_exception=e)
 
 
@@ -509,7 +530,7 @@ def resolve(ctx, job_id, outcome, reason, assume_yes, coordinator_url, format):
         abort(ctx, str(e))
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error resolving dispute for job {job_id}: {e}", from_exception=e)
 
 
@@ -542,5 +563,5 @@ def auto_adjudicate(ctx, assume_yes, coordinator_url, format):
         abort(ctx, str(e))
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error auto-adjudicating disputes: {e}", from_exception=e)

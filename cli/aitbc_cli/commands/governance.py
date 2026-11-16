@@ -22,12 +22,33 @@ import uuid
 from typing import Any
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils import output, resolve_output_format
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.wallet_secret import wallet_password_options
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -60,7 +81,7 @@ def _get_sealed_execution_payload(http_client: AITBCHTTPClient, proposal_id: str
     """
     try:
         sealed = http_client.get(f"/rpc/governance/sealed-proposal/{proposal_id}", params={"chain_id": chain_id})
-    except Exception as e:
+    except _OPS_ERRORS as e:
         raise click.ClickException(f"cannot fetch sealed proposal {proposal_id}: {e}") from e
     payload = sealed.get("execution_payload")
     if not isinstance(payload, dict):
@@ -123,7 +144,7 @@ def _wallet_signer(
 
     try:
         return load_signing_wallet(ctx, wallet_name, password, password_file=password_file, password_stdin=password_stdin)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         raise click.ClickException(str(e)) from e
 
 
@@ -156,7 +177,7 @@ def _governance_voting_period_blocks(client: AITBCHTTPClient, proposal_type: str
     key = "emergency_voting_period_blocks" if proposal_type == "emergency" else "voting_period_blocks"
     try:
         status = client.get("/v1/governance/status")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         raise click.ClickException(f"cannot read the governance voting window from /v1/governance/status: {e}") from e
     value = status.get(key)
     if not isinstance(value, int) or isinstance(value, bool) or value <= 0:
@@ -382,7 +403,7 @@ def propose(
         abort(ctx, f"Network error: {e}", from_exception=e)
     except click.ClickException:
         raise
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error creating proposal: {e}", from_exception=e)
 
 
@@ -470,7 +491,7 @@ def vote(
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error casting vote: {e}", from_exception=e)
 
 
@@ -504,7 +525,7 @@ def list(ctx, status: str | None, category: str | None, proposer_id: str | None,
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error listing proposals: {e}", from_exception=e)
 
 
@@ -574,7 +595,7 @@ def execute(
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error executing proposal: {e}", from_exception=e)
 
 
@@ -617,7 +638,7 @@ def close(
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error closing proposal: {e}", from_exception=e)
 
 
@@ -638,7 +659,7 @@ def status(ctx, format: str):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting governance status: {e}", from_exception=e)
 
 
@@ -672,7 +693,7 @@ def get(ctx, proposal_id: str, format: str):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting proposal: {e}", from_exception=e)
 
 
@@ -712,7 +733,7 @@ def proposal_show(ctx, proposal_id: str, format: str):
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error getting sealed proposal: {e}", from_exception=e)
 
 
@@ -770,7 +791,7 @@ def propagate(
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error propagating proposal: {e}", from_exception=e)
 
 
@@ -815,7 +836,7 @@ def aggregate_votes(
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error aggregating votes: {e}", from_exception=e)
 
 
@@ -860,7 +881,7 @@ def execute_cross_chain(
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error executing cross-chain: {e}", from_exception=e)
 
 

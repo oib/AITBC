@@ -10,17 +10,38 @@ from decimal import Decimal
 from typing import Any, cast
 
 import click
+import httpx
 
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
+from aitbc.exceptions import AITBCError
 from ..utils import DECIMAL, error, info, output, success
 from ..utils.wallet_secret import wallet_password_options
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.wallet_loader import load_wallet_for_payment
 
 # Import shared modules
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.island_credentials import get_chain_id, get_island_id, get_rpc_endpoint, load_island_credentials
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -382,10 +403,10 @@ def buy(
             output(response, ctx.obj.get("output_format", "table"), title="Transaction")
         except NetworkError as e:
             abort(ctx, f"Network error submitting transaction: {e}", from_exception=e)
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"Error submitting transaction: {e}", from_exception=e)
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error creating buy order: {str(e)}", from_exception=e)
 
 
@@ -455,7 +476,7 @@ def sell(
             output(response, ctx.obj.get("output_format", "table"), title="Transaction")
         except NetworkError as e:
             abort(ctx, f"Network error submitting transaction: {e}", from_exception=e)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error creating sell order: {str(e)}", from_exception=e)
 
 
@@ -572,7 +593,7 @@ def orderbook(ctx, pair: str, limit: int):
 
         # Calculate spread if both exist
         _print_orderbook_spread(pair, sell_orders, buy_orders)
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error fetching order book: {str(e)}", from_exception=e)
 
 
@@ -632,7 +653,7 @@ def rates(ctx):
 
         output(rates_data, ctx.obj.get("output_format", "table"), title="Exchange Rates")
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error viewing exchange rates: {str(e)}", from_exception=e)
 
 
@@ -701,7 +722,7 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
 
         output(orders_data, ctx.obj.get("output_format", "table"), title=f"Exchange Orders ({island_id[:16]}...)")
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error listing orders: {str(e)}", from_exception=e)
 
 
@@ -774,5 +795,5 @@ def cancel(ctx, order_id: str, wallet: str | None, password: str | None, passwor
         except NetworkError as e:
             abort(ctx, f"Network error submitting transaction: {e}", from_exception=e)
 
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(ctx, f"Error cancelling order: {str(e)}", from_exception=e)

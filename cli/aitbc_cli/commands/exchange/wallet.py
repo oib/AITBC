@@ -3,7 +3,19 @@ Wallet-related exchange commands.
 """
 
 from aitbc_cli.utils import output, success
-from ...utils.error_handling import abort
+from ...utils.error_handling import CLIError, abort
+
+# Expected failure surface for these stub command handlers: filesystem/JSON,
+# data-shape, runtime and CLIError (abort()). BaseExceptions still propagate.
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    CLIError,
+)
 
 
 def balance_command(ctx):
@@ -12,7 +24,7 @@ def balance_command(ctx):
         balance_data = {"aitbc": 1000.0, "eth": 0.05}
         output(balance_data, title="Wallet Balance")
         success("Wallet balance retrieved")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -22,5 +34,5 @@ def info_command(ctx):
         wallet_info = {"address": "0x1234...5678", "network": "mainnet", "created_at": "2024-01-01T00:00:00Z"}
         output(wallet_info, title="Wallet Information")
         success("Wallet information retrieved")
-    except Exception as e:
+    except _OPS_ERRORS as e:
         abort(None, f"Error: {e}")

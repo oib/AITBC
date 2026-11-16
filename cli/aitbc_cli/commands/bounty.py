@@ -15,11 +15,32 @@ from decimal import Decimal
 from typing import Any
 
 import click
+import httpx
 
+from aitbc.exceptions import AITBCError
 from ..utils import DECIMAL, output, resolve_output_format
-from ..utils.error_handling import abort
+from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient
 from ..utils.signed_rpc import amount_to_units, operator_options, post_signed, resolve_rpc_url
+
+# Expected failure surface for the command handlers below: filesystem/JSON,
+# data-shape, runtime, optional-dependency imports, HTTP-client errors and
+# both error hierarchies (CLIError, aitbc_errors.AITBCError). RuntimeError
+# covers generic runtime failures; abort() raises CLIError (already listed),
+# preserving the previous re-abort behaviour. BaseExceptions still propagate
+# (#1864).
+_OPS_ERRORS = (
+    OSError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    ImportError,
+    CLIError,
+    AITBCError,
+    httpx.HTTPError,
+)
 
 
 @click.group(
@@ -185,7 +206,7 @@ def status(ctx, bounty_id, chain_id, rpc_url, limit, as_json):
         params = {"transaction_type": tx_type, "chain_id": chain_id, "limit": limit}
         try:
             rows: Any = client.get("/rpc/transactions", params={k: v for k, v in params.items() if v is not None})
-        except Exception as e:
+        except _OPS_ERRORS as e:
             abort(ctx, f"/rpc/transactions lookup failed: {e}", from_exception=e)
         txs: list[dict[str, Any]] = rows if isinstance(rows, list) else []
         matches = [tx for tx in txs if str((tx.get("payload") or {}).get("bounty_id")) == bounty_id]
