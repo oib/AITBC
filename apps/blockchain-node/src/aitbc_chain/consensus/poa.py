@@ -518,6 +518,8 @@ class _PoaBaseMixin:
             head = head if head is not None else self._fetch_chain_head()
             if head is not None:
                 self._pbft_consensus.sync_to_head(head.height)
+                # #2157: keep the view window on the clock-derived round, not on a counter that restarts at 0.
+                self._pbft_consensus.sync_view(self._proposer_round(head.timestamp, datetime.now(UTC)))
         except Exception as exc:  # noqa: BLE001 - a head read must never stop the proposer
             self._logger.warning("PBFT head sync failed: %s", exc)
 

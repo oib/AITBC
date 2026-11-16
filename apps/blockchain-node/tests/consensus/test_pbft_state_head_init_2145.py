@@ -131,3 +131,51 @@ def test_proposer_helper_syncs_engine_from_the_head_and_swallows_read_errors():
 
     owner._pbft_consensus = None  # PBFT off: nothing to do
     PoAProposer._sync_pbft_to_head(owner)  # type: ignore[arg-type]
+
+
+# --- #2157: the same silent window, on the view axis ------------------------
+
+
+def test_restarted_engine_drops_votes_from_a_round_past_the_view_window():
+    """The second stall layer: views climb with the clock while the window restarts at 0."""
+    pbft = _pbft()
+    pbft.sync_to_head(HEAD)
+    asyncio.run(pbft.handle_incoming_message(_prepare(HEAD + 1, view=95)))
+    assert not _counted(pbft, HEAD + 1, 95)
+
+
+def test_sync_view_reopens_the_window_for_the_networks_round():
+    pbft = _pbft()
+    pbft.sync_to_head(HEAD)
+    assert pbft.sync_view(95) is True
+    assert pbft.state.current_view == 95
+    asyncio.run(pbft.handle_incoming_message(_prepare(HEAD + 1, view=95)))
+    assert _counted(pbft, HEAD + 1, 95)
+
+
+def test_sync_view_is_monotonic_and_rejects_garbage():
+    pbft = _pbft()
+    assert pbft.sync_view(10) is True
+    assert pbft.sync_view(10) is False
+    assert pbft.sync_view(3) is False
+    assert pbft.sync_view("9") is False  # type: ignore[arg-type]
+    assert pbft.sync_view(True) is False  # type: ignore[arg-type]
+    assert pbft.state.current_view == 10
+
+
+def test_proposer_helper_seeds_the_view_from_the_head_timestamp():
+    from datetime import UTC, datetime, timedelta
+    from types import SimpleNamespace
+
+    from aitbc_chain.consensus.poa import PoAProposer
+
+    pbft = _pbft()
+    head_ts = datetime.now(UTC) - timedelta(seconds=600)
+    owner = SimpleNamespace(
+        _pbft_consensus=pbft,
+        _fetch_chain_head=lambda: SimpleNamespace(height=HEAD, timestamp=head_ts),
+        _proposer_round=lambda parent, now: int((now - parent).total_seconds() // 60),
+        _logger=SimpleNamespace(warning=lambda *a, **k: None),
+    )
+    PoAProposer._sync_pbft_to_head(owner)  # type: ignore[arg-type]
+    assert pbft.state.current_view == 10

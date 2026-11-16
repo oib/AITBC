@@ -981,6 +981,21 @@ class PBFTConsensus:
             msg_data["new_view"] = message.new_view
         await self._gossip_backend.publish(topic, msg_data)
 
+    def sync_view(self, round_number: int) -> bool:
+        """#2157: seed the view window from the clock-derived proposer round.
+
+        ``current_view`` is the base of the view intake window
+        (``current_view + pbft_max_view_ahead``) and restarts at 0, while the
+        network's round is derived from block timestamps and keeps climbing
+        while a height is stuck. Once the round passed the window every
+        pre-prepare and VIEW_CHANGE was dropped silently, so a restarted node
+        could never rejoin a stalled height. Monotonic like ``sync_to_head``.
+        """
+        if isinstance(round_number, bool) or not isinstance(round_number, int) or round_number <= self.state.current_view:
+            return False
+        self._adopt_round_as_view(round_number)
+        return True
+
     def sync_to_head(self, head_height: int) -> bool:
         """#2145: align the local sequence with the sealed chain head.
 
