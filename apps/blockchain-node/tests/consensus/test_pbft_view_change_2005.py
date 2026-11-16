@@ -26,6 +26,7 @@ from aitbc_chain.consensus.equivocation_policy import VcApplyContext, view_chang
 from aitbc_chain.consensus.multi_validator_poa import MultiValidatorPoA, ValidatorRole
 from aitbc_chain.consensus.pbft import PBFTConsensus, PBFTMessage, PBFTMessageType
 from aitbc_chain.consensus.pbft_quorum import pbft_required_messages
+from aitbc_chain.consensus.pbft_vote_signature import pbft_vote_preimage
 from aitbc_chain.consensus.pbft_view_change import (
     MAX_LOCK_PROOF_MSGS,
     MAX_VC_SET_ENTRIES,
@@ -81,9 +82,22 @@ def _proposer(seq: int, view: int, members: list[str] | None = None) -> str:
 
 
 def _commit_rec(
-    sender: str, block_hash: str, seq: int, view: int, *, key: str | None = None, kind: str = "commit"
+    sender: str,
+    block_hash: str,
+    seq: int,
+    view: int,
+    *,
+    key: str | None = None,
+    kind: str = "commit",
+    chain_id: str | None = None,
 ) -> dict[str, Any]:
-    """One signed vote record (COMMIT by default) as carried in a lock proof."""
+    """One signed vote record (COMMIT by default) as carried in a lock proof.
+
+    ``chain_id=None`` signs the legacy five-field preimage (pre-#2102
+    records); any other value signs ``pbft_vote_preimage(rec, chain_id)`` —
+    the exact preimage ``PBFTConsensus._sign_message`` produces in
+    production (#2141).
+    """
     digest = commit_digest(block_hash, seq, view)
     rec = {
         "message_type": kind,
@@ -93,15 +107,26 @@ def _commit_rec(
         "block_hash": block_hash,
         "digest": digest,
     }
-    rec["signature"] = sign_consensus_message(commit_signed_message(rec), key or KEYS[sender])
+    if chain_id is None:
+        rec["signature"] = sign_consensus_message(commit_signed_message(rec), key or KEYS[sender])
+    else:
+        rec["signature"] = sign_consensus_message(pbft_vote_preimage(rec, chain_id), key or KEYS[sender])
     return rec
 
 
 def _proof(
-    block_hash: str, seq: int, lock_view: int, voters: list[str] | None = None, kind: str = "prepare"
+    block_hash: str,
+    seq: int,
+    lock_view: int,
+    voters: list[str] | None = None,
+    kind: str = "prepare",
+    chain_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """A quorum certificate: one signed ``kind`` vote per voter (default q members)."""
-    return [_commit_rec(v, block_hash, seq, lock_view, kind=kind) for v in (voters if voters is not None else MEMBERS[:Q])]
+    return [
+        _commit_rec(v, block_hash, seq, lock_view, kind=kind, chain_id=chain_id)
+        for v in (voters if voters is not None else MEMBERS[:Q])
+    ]
 
 
 def _vc(
@@ -136,7 +161,15 @@ def _vc(
     return vc
 
 
-def _locked(sender: str, block_hash: str, lock_view: int, seq: int, view: int) -> dict[str, Any]:
+def _locked(
+    sender: str,
+    block_hash: str,
+    lock_view: int,
+    seq: int,
+    view: int,
+    *,
+    chain_id: str | None = None,
+) -> dict[str, Any]:
     """A VC carrying a commit-lock for ``block_hash`` at ``lock_view``."""
     return _vc(
         sender,
@@ -146,7 +179,7 @@ def _locked(sender: str, block_hash: str, lock_view: int, seq: int, view: int) -
             "view": lock_view,
             "block_hash": block_hash,
             "kind": "prepare",
-            "msgs": _proof(block_hash, seq, lock_view),
+            "msgs": _proof(block_hash, seq, lock_view, chain_id=chain_id),
         },
     )
 
@@ -179,13 +212,19 @@ def _nv(
 
 
 def _vc_set(
-    seq: int, view: int, senders: list[str], *, locked_hash: str | None = None, lock_view: int = 0
+    seq: int,
+    view: int,
+    senders: list[str],
+    *,
+    locked_hash: str | None = None,
+    lock_view: int = 0,
+    lock_chain_id: str | None = None,
 ) -> list[dict[str, Any]]:
     """Signed VCs for ``senders``; optionally each carries a lock on ``locked_hash``."""
     out = []
     for s in senders:
         if locked_hash is not None:
-            out.append(_locked(s, locked_hash, lock_view, seq, view))
+            out.append(_locked(s, locked_hash, lock_view, seq, view, chain_id=lock_chain_id))
         else:
             out.append(_vc(s, seq, view))
     return out
@@ -348,12 +387,12 @@ class TestVerifyViewChange:
     def test_valid_unlocked_vc_accepted(self):
         vc = _vc(MEMBERS[0], SEQ, VIEW)
         assert verify_view_change(vc, CHAIN) == (True, "")
-        assert verify_vc_lock_proof(vc, set(MEMBERS), Q) == (True, "")
+        assert verify_vc_lock_proof(vc, set(MEMBERS), Q, chain_id=CHAIN) == (True, "")
 
     def test_valid_locked_vc_accepted(self):
         vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
         assert verify_view_change(vc, CHAIN) == (True, "")
-        assert verify_vc_lock_proof(vc, set(MEMBERS), Q) == (True, "")
+        assert verify_vc_lock_proof(vc, set(MEMBERS), Q, chain_id=CHAIN) == (True, "")
 
     def test_digest_tamper_rejected(self):
         vc = _vc(MEMBERS[0], SEQ, VIEW)
@@ -381,7 +420,7 @@ class TestVerifyViewChange:
         assert not ok
 
     def _check(self, vc):
-        return verify_vc_lock_proof(vc, {canonical_address(m) for m in MEMBERS}, Q)
+        return verify_vc_lock_proof(vc, {canonical_address(m) for m in MEMBERS}, Q, chain_id=CHAIN)
 
     def test_lock_proof_below_quorum_rejected(self):
         """A lone member's own COMMIT (the old proof shape) is not a quorum."""
@@ -444,6 +483,52 @@ class TestVerifyViewChange:
         ok, reason = verify_view_change(vc, CHAIN)
         assert not ok
         assert "size" in reason
+
+
+class TestLockProofChainBinding:
+    """#2141: lock-proof votes are production PBFT votes — chain-bound
+    signatures must verify on their own chain, foreign-chain-bound votes
+    must fail, and legacy-signed proofs keep verifying via the #2102
+    fallback."""
+
+    def _check(self, vc, chain_id=CHAIN):
+        return verify_vc_lock_proof(vc, {canonical_address(m) for m in MEMBERS}, Q, chain_id=chain_id)
+
+    def test_chain_bound_lock_proof_verifies_on_own_chain(self):
+        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW, chain_id=CHAIN)
+        assert self._check(vc) == (True, "")
+
+    def test_chain_bound_lock_proof_verifies_through_vc_set(self):
+        """The analyze_vc_set path every NEW_VIEW takes."""
+        vc_set = _vc_set(SEQ, VIEW, MEMBERS[:Q], locked_hash=HA, lock_view=0, lock_chain_id=CHAIN)
+        ok, reason, _ = analyze_vc_set(vc_set, MEMBERS, chain_id=CHAIN, sequence=SEQ, view=VIEW)
+        assert ok, reason
+
+    def test_foreign_chain_bound_lock_proof_rejected(self):
+        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW, chain_id="foreign-chain")
+        ok, reason = self._check(vc)
+        assert not ok and "signature" in reason
+
+    def test_foreign_chain_bound_vc_set_rejected(self):
+        vc_set = _vc_set(SEQ, VIEW, MEMBERS[:Q], locked_hash=HA, lock_view=0, lock_chain_id="foreign-chain")
+        ok, reason, _ = analyze_vc_set(vc_set, MEMBERS, chain_id=CHAIN, sequence=SEQ, view=VIEW)
+        assert not ok
+
+    def test_legacy_signed_lock_proof_still_verifies(self):
+        """#2102 fallback: pre-change five-field signatures stay valid."""
+        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)  # chain_id=None -> legacy sign
+        assert self._check(vc) == (True, "")
+
+    def test_mixed_chain_bound_and_legacy_votes_verify(self):
+        "Transitional quorum: each record verifies under whichever preimage it was signed with."
+        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW, chain_id=CHAIN)
+        vc["lock"]["msgs"][0] = _commit_rec(MEMBERS[0], HA, SEQ, 0, kind="prepare")  # legacy
+        assert self._check(vc) == (True, "")
+
+    def test_empty_chain_id_lock_proof_matches_legacy(self):
+        """``chain_id=""`` must behave byte-identically to the legacy path."""
+        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
+        assert self._check(vc, chain_id="") == (True, "")
 
 
 # ---------------------------------------------------------------------------
@@ -786,6 +871,53 @@ class TestEngineIntake:
         await pbft._handle_new_view_payload(_nv(_proposer(SEQ, VIEW), SEQ, VIEW, _vc_set(SEQ, VIEW, MEMBERS[:Q]), None))
         assert pbft._vc_messages == {}
         assert pbft._new_views == {}
+
+
+class TestEngineLockProofChainBinding:
+    """#2141 armed-gate integration: lock proofs signed the way production
+    signs them (``pbft_vote_preimage`` with the engine's chain_id) must pass
+    intake; foreign-chain-bound proofs must be dropped."""
+
+    @pytest.fixture(autouse=True)
+    def _iso(self, _fresh_chain):
+        return _fresh_chain
+
+    @pytest.mark.asyncio
+    async def test_chain_bound_lock_accepted_at_intake(self, vc_armed):
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        vc = _locked(MEMBERS[1], HA, 0, SEQ, VIEW, chain_id=_CID)
+        await pbft._handle_view_change_payload(vc)
+        bucket = pbft._vc_messages.get((SEQ, VIEW), {})
+        assert set(bucket) == {canonical_address(MEMBERS[1])}
+
+    @pytest.mark.asyncio
+    async def test_foreign_chain_bound_lock_dropped_at_intake(self, vc_armed):
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        vc = _locked(MEMBERS[1], HA, 0, SEQ, VIEW, chain_id="foreign-chain")
+        await pbft._handle_view_change_payload(vc)
+        assert (SEQ, VIEW) not in pbft._vc_messages or canonical_address(MEMBERS[1]) not in pbft._vc_messages[(SEQ, VIEW)]
+
+    @pytest.mark.asyncio
+    async def test_chain_bound_locked_vc_set_builds_forced_new_view(self, vc_armed):
+        """Full armed path: quorum of chain-bound-locked VCs -> NEW_VIEW
+        verifies through analyze_vc_set -> verify_vc_lock_proof."""
+        consensus = _make_consensus()
+        local = _proposer(SEQ, VIEW)
+        pbft = _pbft(consensus, local, KEYS[local])
+        for s in MEMBERS:
+            if s == local:
+                continue
+            await pbft._handle_view_change_payload(_locked(s, HA, 0, SEQ, VIEW, chain_id=_CID))
+            if len(pbft._vc_messages.get((SEQ, VIEW), {})) >= Q - 1:
+                break
+        assert await pbft._send_view_change(SEQ, VIEW)
+        nv = await pbft._build_new_view(SEQ, VIEW)
+        assert nv is not None
+        ok, reason, kind, _ = verify_new_view(nv, MEMBERS, chain_id=_CID, sequence=SEQ, view=VIEW, expected_sender=local)
+        assert ok, reason
+        assert kind == "locked"
 
 
 class TestEngineNewViewBuild:
@@ -1383,12 +1515,12 @@ class TestLockProofCostBound:
         import aitbc_chain.consensus.pbft_view_change as core
 
         calls: list[int] = []
-        real = core._verify_signature
-        monkeypatch.setattr(core, "_verify_signature", lambda *a, **k: calls.append(1) or real(*a, **k))
+        real = core._verify_lock_proof_signature
+        monkeypatch.setattr(core, "_verify_lock_proof_signature", lambda *a, **k: calls.append(1) or real(*a, **k))
         return calls
 
     def _run(self, vc):
-        return verify_vc_lock_proof(vc, {canonical_address(m) for m in MEMBERS}, Q)
+        return verify_vc_lock_proof(vc, {canonical_address(m) for m in MEMBERS}, Q, chain_id=CHAIN)
 
     def test_sub_quorum_proof_costs_no_signature_verification(self, monkeypatch):
         calls = self._count(monkeypatch)

@@ -321,7 +321,29 @@ def verify_view_change(vc: Any, chain_id: str, *, check_signature: bool = True) 
     return True, ""
 
 
-def _verify_lock_proof_record(msg: Any, kind: str, seq: int, lock_view: int, block_hash: str) -> tuple[str, str]:
+def _verify_lock_proof_signature(msg: dict[str, Any], chain_id: str) -> bool:
+    """Verify one lock-proof vote signature — chain-bound first, legacy
+    fallback, matching ``PBFTConsensus._verify_message_signature`` (#2102).
+
+    Production PREPARE/COMMIT votes are signed over ``pbft_vote_preimage``
+    which binds ``chain_id`` whenever non-empty; verifying only the legacy
+    five-field preimage rejects every chain-bound vote (#2141). Never
+    raises — malformed input is False.
+    """
+    from .pbft_vote_signature import verify_pbft_vote_signature
+
+    signature = msg.get("signature")
+    if not isinstance(signature, str) or not signature:
+        return False
+    try:
+        return verify_pbft_vote_signature(msg, signature, str(msg.get("sender", "")), chain_id or None)
+    except (SignatureMalformed, ValueError, TypeError):
+        return False
+
+
+def _verify_lock_proof_record(
+    msg: Any, kind: str, seq: int, lock_view: int, block_hash: str, *, chain_id: str
+) -> tuple[str, str]:
     """One vote record inside a VC lock proof.
 
     Returns ``(canonical_sender, "")`` on success or ``("", reason)``. Must
@@ -347,7 +369,7 @@ def _verify_lock_proof_record(msg: Any, kind: str, seq: int, lock_view: int, blo
         return "", "view_change lock proof record fields do not match the lock"
     if m_digest != commit_digest(block_hash, m_seq, m_view):
         return "", "view_change lock proof record digest mismatch"
-    if not _verify_signature(commit_signed_message(msg), msg.get("signature"), sender):
+    if not _verify_lock_proof_signature(msg, chain_id):
         return "", "view_change lock proof record signature verification failed"
     return canonical_address(sender), ""
 
@@ -386,7 +408,7 @@ def _lock_proof_members(msgs: list[Any], canonical: set[str], required: int) -> 
     return True, ""
 
 
-def verify_vc_lock_proof(vc: dict[str, Any], canonical: set[str], required: int) -> tuple[bool, str]:
+def verify_vc_lock_proof(vc: dict[str, Any], canonical: set[str], required: int, *, chain_id: str) -> tuple[bool, str]:
     """Verify the quorum certificate inside a VIEW_CHANGE ``lock`` (#2005 Q1).
 
     A lock is ``{view, block_hash, kind, msgs}`` where ``msgs`` are signed
@@ -398,6 +420,12 @@ def verify_vc_lock_proof(vc: dict[str, Any], canonical: set[str], required: int)
     target view. ``lock: null`` verifies trivially. Cheap structural and
     duplicate checks run before any signature is verified, and the record
     count is capped, so a proof costs a bounded number of verifications.
+
+    ``chain_id`` binds the embedded vote signatures the same way
+    ``PBFTConsensus._verify_message_signature`` does (#2141): production
+    votes sign ``pbft_vote_preimage(record, chain_id)``, so verification
+    tries the chain-bound preimage first and falls back to the legacy
+    pre-#2102 preimage.
     """
     lock = vc.get("lock")
     if lock is None:
@@ -414,7 +442,7 @@ def verify_vc_lock_proof(vc: dict[str, Any], canonical: set[str], required: int)
     voters: set[str] = set()
     for msg in msgs:
         who, reason = _verify_lock_proof_record(
-            msg, str(lock["kind"]), vc["sequence_number"], lock["view"], lock["block_hash"]
+            msg, str(lock["kind"]), vc["sequence_number"], lock["view"], lock["block_hash"], chain_id=chain_id
         )
         if reason:
             return False, reason
@@ -480,7 +508,7 @@ def _vc_record_acceptable(
     sender_canonical = canonical_address(str(vc.get("sender", "")))
     if sender_canonical not in canonical:
         return False, "view_change sender is not a consensus member"
-    return verify_vc_lock_proof(vc, canonical, required)
+    return verify_vc_lock_proof(vc, canonical, required, chain_id=chain_id)
 
 
 def analyze_vc_set(

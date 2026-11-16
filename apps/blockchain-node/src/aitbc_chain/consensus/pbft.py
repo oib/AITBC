@@ -1541,7 +1541,7 @@ class PBFTConsensus:
             logger.debug("Dropping invalid VIEW_CHANGE for %s:%s: %s", seq, view, reason)
             return
         participants = {canonical_address(a) for a in self._vc_participants(seq)}
-        ok, reason = verify_vc_lock_proof(data, participants, self._vc_quorum(seq))
+        ok, reason = verify_vc_lock_proof(data, participants, self._vc_quorum(seq), chain_id=self._chain_id)
         if not ok:
             logger.debug("Dropping VIEW_CHANGE with bad lock for %s:%s: %s", seq, view, reason)
             return
