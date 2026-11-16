@@ -319,6 +319,13 @@ def _parse_payload_json(payload: str | None) -> dict[str, Any] | None:
 @click.option("--rpc-url", help="Blockchain RPC URL")
 @click.option("--type", "tx_type", default="TRANSFER", help="Transaction type (default TRANSFER)")
 @click.option("--payload", help="JSON payload for non-standard transaction types")
+@click.option(
+    "--nonce-offset",
+    type=int,
+    default=0,
+    show_default=True,
+    help="Extra nonce offset for queueing a second pending tx from the same wallet",
+)
 @click.option("--use-explorer", is_flag=True, help="Use Explorer API for status checks")
 def send(
     from_wallet: str,
@@ -332,6 +339,7 @@ def send(
     rpc_url: str | None,
     tx_type: str,
     payload: str | None,
+    nonce_offset: int,
     use_explorer: bool,
 ):
     """Send a transaction from one wallet to another."""
@@ -363,6 +371,7 @@ def send(
         rpc_url=rpc_url,
         tx_type=tx_type,
         payload=parsed_payload,
+        nonce_offset=nonce_offset,
     )
     if not tx_hash:
         # _send_transaction_impl already printed the specific refusal (bad amount,
@@ -409,7 +418,22 @@ def _process_batch_entry(
         amount = Decimal(str(tx["amount"]))
         # default fee matches `send --fee` (standard chain fee), not the old 10 AIT
         fee = Decimal(str(tx.get("fee", DEFAULT_TX_FEE_AIT)))
-        entry_key = (tx["from_wallet"], str(tx["to_address"]).lower(), amount, fee)
+        # #1997: entries may carry the same type/payload keys `send` exposes so a
+        # batch can queue typed nonces, not just TRANSFERs.
+        tx_type = str(tx.get("type") or "TRANSFER").upper()
+        payload = tx.get("payload")
+        if isinstance(payload, str):
+            payload = _parse_payload_json(payload)
+        if payload is not None and not isinstance(payload, dict):
+            raise ValueError("batch entry 'payload' must be a JSON object")
+        entry_key = (
+            tx["from_wallet"],
+            str(tx["to_address"]).lower(),
+            amount,
+            fee,
+            tx_type,
+            json.dumps(payload, sort_keys=True) if payload else None,
+        )
         if entry_key in seen_entries:
             results.append(
                 {"transaction": tx, "hash": None, "success": False, "skipped": True, "error": "duplicate batch entry"}
@@ -426,6 +450,8 @@ def _process_batch_entry(
             fee,
             password,
             rpc_url=rpc_url,
+            tx_type=tx_type,
+            payload=payload,
             nonce_offset=nonce_offsets.get(from_wallet, 0),
         )
         if tx_hash:
@@ -470,7 +496,9 @@ def _process_batch_entry(
     from_wallet  — sender wallet name (required)
     to_address   — recipient 0x address (required)
     amount       — AIT amount to send (required)
-    fee          — AIT fee (optional, defaults to the standard chain fee like `send --fee`)"""
+    fee          — AIT fee (optional, defaults to the standard chain fee like `send --fee`)
+    type         — transaction type (optional, default TRANSFER; same values as `send --type`)
+    payload      — JSON object payload for non-standard types (optional, same as `send --payload`)"""
 )
 @click.option("--transactions-file", required=True, help="JSON file with batch transactions")
 @wallet_password_options

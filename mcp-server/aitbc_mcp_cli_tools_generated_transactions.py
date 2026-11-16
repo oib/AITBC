@@ -173,6 +173,9 @@ def aitbc_transactions_send(
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     tx_type: Annotated[str | None, Field(description="Transaction type (default TRANSFER)")] = None,
     payload: Annotated[str | None, Field(description="JSON payload for non-standard transaction types")] = None,
+    nonce_offset: Annotated[
+        int | None, Field(description="Extra nonce offset for queueing a second pending tx from the same wallet")
+    ] = None,
     use_explorer: Annotated[bool | None, Field(description="Use Explorer API for status checks")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -193,6 +196,7 @@ def aitbc_transactions_send(
             "rpc_url": "rpc-url",
             "tx_type": "type",
             "payload": "payload",
+            "nonce_offset": "nonce-offset",
         },
     )
     args = None
