@@ -294,6 +294,7 @@ def _vc_validator_set(session: Session, chain_id: str, sequence: int) -> frozens
     ``uc`` rule), so a rotation stops the proof excusing until the digest
     is updated. ``None`` on any mismatch or empty set — fail closed.
     """
+    from ..consensus.pbft_view_change import vc_active_set
     from ..consensus.unavail import validator_addresses
     from .state_transition import _chain_parameter_value
 
@@ -308,8 +309,7 @@ def _vc_validator_set(session: Session, chain_id: str, sequence: int) -> frozens
         ).all()
     except Exception:  # noqa: BLE001 - an unreadable marker set must not excuse anything
         return None
-    deactivated = {canonical_address(addr) for addr, height in rows if height is None or height <= sequence - 1}
-    active = frozenset(vset - deactivated)
+    active = vc_active_set(vset, rows, sequence)
     if not active:
         return None
     digest = (

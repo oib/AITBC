@@ -1909,3 +1909,35 @@ class TestItem2ProposalBodySignature:
         body = _proposal_body(proposer)
         body["signature"] = ""
         assert pbft._vc_proposal_store(SEQ, HA, body) is False
+
+
+class TestItem1SharedValidatorSet:
+    """#2133 item 1: engine intake, detector context and on-chain apply derive
+    ONE VC member set from chain state — a local ``is_active=False`` (off-chain
+    slashing state the apply path cannot see) must not shrink the engine's set
+    or quorum below what the chain verifies against."""
+
+    def test_local_inactive_flag_does_not_shrink_the_engine_set(self, vc_armed):
+        consensus = _make_consensus()
+        consensus.validators[MEMBERS[3]].is_active = False  # local-only
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        engine = {canonical_address(a) for a in pbft._vc_participants(SEQ)}
+        assert engine == {canonical_address(a) for a in MEMBERS}
+        assert pbft._vc_quorum(SEQ) == Q
+
+    def test_engine_detector_and_apply_agree(self, vc_armed):
+        from aitbc_chain.consensus.pbft_view_change import vc_active_set
+
+        consensus = _make_consensus()
+        consensus.validators[MEMBERS[3]].is_active = False
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        apply_side = vc_active_set(MEMBERS, [], SEQ)  # chain: no markers
+        assert frozenset(pbft._vc_participants(SEQ)) == apply_side
+        assert consensus.pbft_vc_validator_set(SEQ) == apply_side
+
+    def test_marker_at_parent_height_excludes_everywhere(self):
+        from aitbc_chain.consensus.pbft_view_change import vc_active_set
+
+        marked = [(MEMBERS[3], SEQ - 1)]
+        assert MEMBERS[3] not in vc_active_set(MEMBERS, marked, SEQ)
+        assert MEMBERS[3] in vc_active_set(MEMBERS, [(MEMBERS[3], SEQ)], SEQ)  # not yet at parent
