@@ -123,3 +123,45 @@ async def test_wait_bounded_by_timeout(monkeypatch):
     assert not flaky.available
     sub.close()
     await mesh.shutdown()
+
+
+# --- #2109: topic-scoped wait --------------------------------------------------
+
+
+def test_wait_scope_empty_prefix_list_covers_every_topic():
+    from aitbc_chain.gossip.backends.mesh import _wait_peers_applies
+
+    assert _wait_peers_applies("blocks", "")
+    assert _wait_peers_applies("blocks", " , ")
+
+
+def test_wait_scope_matches_prefixes_only():
+    from aitbc_chain.gossip.backends.mesh import _wait_peers_applies
+
+    prefixes = "consensus.attest_response., consensus.abandon."
+    assert _wait_peers_applies("consensus.attest_response.bc-2", prefixes)
+    assert _wait_peers_applies("consensus.abandon.bc-2", prefixes)
+    assert not _wait_peers_applies("blocks", prefixes)
+    assert not _wait_peers_applies("consensus.attest_request.bc-2", prefixes)
+
+
+@pytest.mark.asyncio
+async def test_scoped_wait_blocks_only_the_matching_topic(monkeypatch):
+    monkeypatch.setattr(settings, "gossip_mesh_subscribe_wait_peers_enabled", True)
+    monkeypatch.setattr(settings, "gossip_mesh_subscribe_wait_peers_timeout_seconds", 0.3)
+    monkeypatch.setattr(settings, "gossip_mesh_subscribe_wait_peers_topics", "consensus.attest_response.")
+    peer = _FlakyPeer()  # down: its leg stays pending
+    mesh = MeshGossipBackend(InMemoryGossipBackend(), {"p": peer})
+    await mesh.start()
+
+    t0 = time.monotonic()
+    other = await mesh.subscribe("blocks")
+    assert time.monotonic() - t0 < 0.2  # out of scope: no wait
+
+    t0 = time.monotonic()
+    scoped = await mesh.subscribe("consensus.attest_response.bc-2")
+    assert time.monotonic() - t0 >= 0.25  # in scope: waited out the timeout
+
+    other.close()
+    scoped.close()
+    await mesh.shutdown()

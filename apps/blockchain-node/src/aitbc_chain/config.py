@@ -746,6 +746,11 @@ class ChainSettings(BaseSettings):
     gossip_mesh_subscribe_wait_peers_timeout_seconds: float = float(
         os.getenv("GOSSIP_MESH_SUBSCRIBE_WAIT_PEERS_TIMEOUT", "2.0")
     )
+    # #2109: restrict the #1764 wait to topics starting with one of these
+    # comma-separated prefixes (e.g. "consensus.attest_response."), so a trial
+    # does not delay every other subscribe. Empty (default) = the flag applies
+    # to all topics, as before. Has no effect unless the flag above is on.
+    gossip_mesh_subscribe_wait_peers_topics: str = os.getenv("GOSSIP_MESH_SUBSCRIBE_WAIT_PEERS_TOPICS", "")
     gossip_max_messages_per_minute: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE", "2000"))
     # Body-size cap for POST /gossip on the standalone relay unit
     # (aitbc-blockchain-p2p, aitbc_chain.gossip.relay) — #1591. The ws gossip
