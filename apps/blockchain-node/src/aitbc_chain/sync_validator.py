@@ -67,55 +67,13 @@ class ProposerSignatureValidator:
         if not getattr(settings, "bridge_block_signature_required", True):
             return (True, "Block signature verification disabled")
 
-        proposer = block_data.get("proposer", "")
-        block_hash = block_data.get("hash", "")
-        if not proposer:
-            return (False, "Missing proposer field")
-        if not block_hash:
-            return (False, f"Invalid block hash format: {block_hash}")
-        if not block_hash.startswith("0x"):
-            block_hash = f"0x{block_hash}"
-        expected_fields = ["height", "parent_hash", "timestamp"]
-        for field in expected_fields:
-            if field not in block_data:
-                return (False, f"Missing required field: {field}")
-        hash_hex = block_hash[2:]
-        if len(hash_hex) != 64:
-            return (False, f"Invalid hash length: {len(hash_hex)}")
-        try:
-            int(hash_hex, 16)
-        except ValueError:
-            return (False, f"Invalid hex in hash: {hash_hex}")
+        proposer, header_error = self._validate_block_header(block_data)
+        if header_error:
+            return (False, header_error)
 
-        if self._trusted and proposer not in self._trusted:
-            metrics_registry.increment("sync_signature_rejected_total")
-            return (False, f"Proposer '{proposer}' not in trusted set")
-        signature = block_data.get("signature", "")
-        if signature:
-            from aitbc.crypto.consensus_signing import (
-                DOMAIN_BLOCK_PROPOSAL,
-                block_header_message,
-                verify_block_signature,
-                verify_consensus_message_domain,
-            )
-
-            # #1298: at/above the armed activation height the proposer signs
-            # under the proposal domain — the legacy/raw-hash fallbacks in
-            # verify_block_signature must not accept it (hard cutover).
-            height = block_data.get("height", 0)
-            activation = getattr(settings, "consensus_domain_separation_height", None)
-            if activation is not None and isinstance(height, int) and height >= activation:
-                sig_ok = verify_consensus_message_domain(
-                    block_header_message(block_data), signature, proposer, DOMAIN_BLOCK_PROPOSAL
-                )
-            else:
-                sig_ok = verify_block_signature(block_data, signature, proposer)
-            if not sig_ok:
-                metrics_registry.increment("sync_signature_rejected_total")
-                return (False, "Invalid proposer signature")
-        elif not self._trusted:
-            metrics_registry.increment("sync_signature_rejected_total")
-            return (False, "Unsigned block and no trusted proposer set configured")
+        auth_error = self._verify_proposer_auth(block_data, proposer)
+        if auth_error is not None:
+            return (False, auth_error)
 
         # #1940 F3: the multi-validator attestation gate below only runs when
         # BOTH its flag and a non-empty configured set are present — with
@@ -154,6 +112,67 @@ class ProposerSignatureValidator:
 
         metrics_registry.increment("sync_signature_validated_total")
         return (True, "Valid")
+
+    def _validate_block_header(self, block_data: dict[str, Any]) -> tuple[str, str]:
+        """Extract and validate the block header fields.
+
+        Returns (proposer, error_reason); error_reason is empty on success.
+        """
+        proposer = block_data.get("proposer", "")
+        block_hash = block_data.get("hash", "")
+        if not proposer:
+            return ("", "Missing proposer field")
+        if not block_hash:
+            return ("", f"Invalid block hash format: {block_hash}")
+        if not block_hash.startswith("0x"):
+            block_hash = f"0x{block_hash}"
+        for field in ("height", "parent_hash", "timestamp"):
+            if field not in block_data:
+                return ("", f"Missing required field: {field}")
+        hash_hex = block_hash[2:]
+        if len(hash_hex) != 64:
+            return ("", f"Invalid hash length: {len(hash_hex)}")
+        try:
+            int(hash_hex, 16)
+        except ValueError:
+            return ("", f"Invalid hex in hash: {hash_hex}")
+        return (proposer, "")
+
+    def _verify_proposer_auth(self, block_data: dict[str, Any], proposer: str) -> str | None:
+        """Verify proposer authorization: trusted-set membership plus signature.
+
+        Returns the rejection reason, or None when the proposer authenticates.
+        """
+        if self._trusted and proposer not in self._trusted:
+            metrics_registry.increment("sync_signature_rejected_total")
+            return f"Proposer '{proposer}' not in trusted set"
+        signature = block_data.get("signature", "")
+        if signature:
+            from aitbc.crypto.consensus_signing import (
+                DOMAIN_BLOCK_PROPOSAL,
+                block_header_message,
+                verify_block_signature,
+                verify_consensus_message_domain,
+            )
+
+            # #1298: at/above the armed activation height the proposer signs
+            # under the proposal domain — the legacy/raw-hash fallbacks in
+            # verify_block_signature must not accept it (hard cutover).
+            height = block_data.get("height", 0)
+            activation = getattr(settings, "consensus_domain_separation_height", None)
+            if activation is not None and isinstance(height, int) and height >= activation:
+                sig_ok = verify_consensus_message_domain(
+                    block_header_message(block_data), signature, proposer, DOMAIN_BLOCK_PROPOSAL
+                )
+            else:
+                sig_ok = verify_block_signature(block_data, signature, proposer)
+            if not sig_ok:
+                metrics_registry.increment("sync_signature_rejected_total")
+                return "Invalid proposer signature"
+        elif not self._trusted:
+            metrics_registry.increment("sync_signature_rejected_total")
+            return "Unsigned block and no trusted proposer set configured"
+        return None
 
     def _load_validator_set(self) -> set[str]:
         """Return the configured validator set addresses."""
