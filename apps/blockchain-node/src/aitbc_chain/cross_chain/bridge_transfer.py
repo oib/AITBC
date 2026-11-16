@@ -175,6 +175,60 @@ class BridgeTransferMixin(BridgeBase):
         else:
             credit[BRIDGE_SIGNATURE_FIELD] = signature
 
+    def _maybe_debit_lock_account(
+        self, session: Any, sender_account: Account, total_deduction: int, block_scoped: bool
+    ) -> None:
+        """Debit the sender for amount+fee on the pre-block-scoped path."""
+        if not block_scoped:
+            sender_account.balance -= total_deduction
+            sender_account.nonce += 1
+            session.add(sender_account)
+
+    def _maybe_preregister_lock_tx(
+        self,
+        session: Any,
+        *,
+        source_chain: str,
+        transfer_id: str,
+        sender: str,
+        recipient: str,
+        target_chain: str,
+        amount: int,
+        fee: int,
+        asset: str,
+        lock_nonce: int,
+        timestamp: datetime,
+        lock_body: dict[str, Any],
+        block_scoped: bool,
+    ) -> None:
+        """Pre-register the confirmed BRIDGE_LOCK row on the non-block-scoped path."""
+        if block_scoped:
+            return
+        lock_tx = Transaction(
+            chain_id=source_chain,
+            tx_hash=transfer_id,
+            sender=sender,
+            recipient="bridge_lock",
+            payload={
+                "type": "BRIDGE_LOCK",
+                "transfer_id": transfer_id,
+                "target_chain": target_chain,
+                "target_recipient": recipient,
+                "amount": amount,
+                "fee": fee,
+                "asset": asset,
+                **({BRIDGE_SIGNATURE_FIELD: lock_body[BRIDGE_SIGNATURE_FIELD]} if BRIDGE_SIGNATURE_FIELD in lock_body else {}),
+            },
+            value=amount,
+            fee=fee,
+            nonce=lock_nonce,
+            timestamp=timestamp,
+            block_height=None,
+            status="confirmed",
+            type="BRIDGE_LOCK",
+        )
+        session.add(lock_tx)
+
     def initiate_transfer(
         self,
         source_chain: str,
@@ -240,10 +294,7 @@ class BridgeTransferMixin(BridgeBase):
                 raise ValueError(f"Insufficient balance: {sender_account.balance} < {total_deduction}")
             lock_nonce = sender_account.nonce
             block_scoped = getattr(settings, "block_scoped_preregistered_transactions", True)
-            if not block_scoped:
-                sender_account.balance -= total_deduction
-                sender_account.nonce += 1
-                session.add(sender_account)
+            self._maybe_debit_lock_account(session, sender_account, total_deduction, block_scoped)
 
             # v0.7.3: put the bridge lock in the mempool so the next block
             # produced by this node will include it and anchor the event in a
@@ -285,35 +336,21 @@ class BridgeTransferMixin(BridgeBase):
                 tx_hash=transfer_id,
             )
 
-            if not block_scoped:
-                lock_tx = Transaction(
-                    chain_id=source_chain,
-                    tx_hash=transfer_id,
-                    sender=sender,
-                    recipient="bridge_lock",
-                    payload={
-                        "type": "BRIDGE_LOCK",
-                        "transfer_id": transfer_id,
-                        "target_chain": target_chain,
-                        "target_recipient": recipient,
-                        "amount": amount,
-                        "fee": fee,
-                        "asset": asset,
-                        **(
-                            {BRIDGE_SIGNATURE_FIELD: lock_body[BRIDGE_SIGNATURE_FIELD]}
-                            if BRIDGE_SIGNATURE_FIELD in lock_body
-                            else {}
-                        ),
-                    },
-                    value=amount,
-                    fee=fee,
-                    nonce=lock_nonce,
-                    timestamp=timestamp,
-                    block_height=None,
-                    status="confirmed",
-                    type="BRIDGE_LOCK",
-                )
-                session.add(lock_tx)
+            self._maybe_preregister_lock_tx(
+                session,
+                source_chain=source_chain,
+                transfer_id=transfer_id,
+                sender=sender,
+                recipient=recipient,
+                target_chain=target_chain,
+                amount=amount,
+                fee=fee,
+                asset=asset,
+                lock_nonce=lock_nonce,
+                timestamp=timestamp,
+                lock_body=lock_body,
+                block_scoped=block_scoped,
+            )
             transfer_record = CrossChainTransfer(
                 transfer_id=transfer_id,
                 source_chain=source_chain,
@@ -398,6 +435,199 @@ class BridgeTransferMixin(BridgeBase):
                 release_amount=src.release_amount,
             )
 
+    def _resolve_confirm_record(
+        self, session: Any, transfer_id: str, proof: dict[str, Any], target_chain: str
+    ) -> tuple[CrossChainTransfer, bool]:
+        """Load the target-chain transfer record for a confirm, or build it.
+
+        Returns ``(record, proof_built_record)``. F1: the fields a release
+        pays out on (amount, recipient, target chain) must come from a record
+        this node wrote when it served the lock, or be bound by the proof's
+        Merkle leaf. A record built from the proof alone used to be checked
+        against itself. When no local record exists the lock is on another
+        node; the record is materialised from the proof (v0.7.3
+        mint-and-release pattern for cross-island bridges), but only
+        persisted once the proof verifies.
+        """
+        record = session.get(CrossChainTransfer, transfer_id)
+        if not record:
+            record = self._lock_record_from_source(transfer_id, proof, target_chain)
+        if record:
+            return record, False
+        proof_built_record = CrossChainTransfer(
+            transfer_id=transfer_id,
+            source_chain=proof.get("source_chain", ""),
+            target_chain=target_chain,
+            sender=proof.get("sender", ""),
+            recipient=proof.get("recipient", ""),
+            amount=proof.get("amount", 0),
+            asset=proof.get("asset", "native"),
+            status="pending",
+            source_tx_hash=transfer_id,
+            lock_time=datetime.now(UTC),
+        )
+        return proof_built_record, True
+
+    def _release_nonce_for_mode(
+        self, session: Any, record: CrossChainTransfer, release_amount: int, block_scoped: bool
+    ) -> int:
+        """Credit the recipient (and bridge release account) on the legacy path.
+
+        Returns the nonce to anchor the release row/credit on; 0 when
+        block-scoped preregistered transactions are in effect.
+        """
+        if block_scoped:
+            return 0
+        recipient_account: Account | None = session.get(Account, (record.target_chain, record.recipient))
+        if not recipient_account:
+            recipient_account = Account(chain_id=record.target_chain, address=record.recipient, balance=0, nonce=0)
+            session.add(recipient_account)
+        recipient_account.balance += release_amount
+        release_nonce = recipient_account.nonce
+        recipient_account.nonce += 1
+        session.add(recipient_account)
+        # Create a bridge release account with enough balance to satisfy
+        # the MESSAGE state transition (fee=0, value=0).  The recipient
+        # is already credited here; the block proposer will record the
+        # MESSAGE in a block and advance the bridge release nonce.
+        bridge_release_addr = "bridge_release"
+        bridge_release_account: Account | None = session.get(Account, (record.target_chain, bridge_release_addr))
+        if not bridge_release_account:
+            bridge_release_account = Account(
+                chain_id=record.target_chain, address=bridge_release_addr, balance=release_amount, nonce=0
+            )
+            session.add(bridge_release_account)
+        release_nonce = bridge_release_account.nonce
+        return release_nonce
+
+    def _apply_legacy_release_row(
+        self,
+        session: Any,
+        record: CrossChainTransfer,
+        transfer_id: str,
+        proof_hash: str,
+        release_amount: int,
+        release_nonce: int,
+        target_tx_hash: str,
+        block_scoped: bool,
+    ) -> None:
+        """Pre-register the signed BRIDGE_RELEASE row on the legacy path."""
+        if block_scoped:
+            return
+        release_payload = {
+            "type": "BRIDGE_RELEASE",
+            "transfer_id": transfer_id,
+            "source_chain": record.source_chain,
+            "source_sender": record.sender,
+            "target_chain": record.target_chain,
+            "amount": release_amount,
+            "asset": record.asset,
+            "proof": proof_hash,
+        }
+        # v5+ consensus requires the bridge authority signature over
+        # the credit's semantic fields — sign the row-shaped view the
+        # proposer sweep will rebuild (value=0: the credit already
+        # happened above; the row anchors the record).
+        self._sign_bridge_credit(
+            {
+                "type": "BRIDGE_RELEASE",
+                "to": record.recipient,
+                "value": 0,
+                "fee": 0,
+                "nonce": release_nonce,
+                "payload": release_payload,
+            },
+            target_tx_hash,
+            payload=release_payload,
+            target_chain=record.target_chain,
+        )
+        release_tx = Transaction(
+            chain_id=record.target_chain,
+            tx_hash=target_tx_hash,
+            sender="bridge_release",
+            recipient=record.recipient,
+            payload=release_payload,
+            value=0,
+            fee=0,
+            nonce=release_nonce,
+            timestamp=datetime.now(UTC),
+            block_height=None,
+            status="confirmed",
+            type="BRIDGE_RELEASE",
+        )
+        session.add(release_tx)
+
+    def _submit_release_mempool_credit(
+        self,
+        record: CrossChainTransfer,
+        transfer_id: str,
+        proof_hash: str,
+        release_amount: int,
+        release_nonce: int,
+        target_tx_hash: str,
+        block_scoped: bool,
+    ) -> None:
+        """Submit the signed BRIDGE_RELEASE credit to the mempool (block-scoped path)."""
+        if not block_scoped:
+            return
+        from ..mempool import get_mempool
+
+        mempool = get_mempool()
+        # Semantic fields go inside ``payload`` — the same shape the
+        # pre-registered Transaction row carries. The sealer persists
+        # ``tx_data["payload"]`` and ``/rpc/blocks-range`` serves the
+        # row, so a flat dict would drop bridge_signature (and
+        # lock_tx_hash) from everything range-synced validators see:
+        # at v5+ a bulk-synced node would fail the signature check and
+        # silently skip the credit while gossip-fed nodes apply it.
+        # ``bridge_credit_message`` reads payload-first, so the signed
+        # bytes are identical to the old flat shape.
+        credit_payload = {
+            "type": "BRIDGE_RELEASE",
+            "transfer_id": transfer_id,
+            "source_chain": record.source_chain,
+            "source_sender": record.sender,
+            "target_chain": record.target_chain,
+            "amount": release_amount,
+            "asset": record.asset,
+            "proof": proof_hash,
+        }
+        credit_dict = {
+            "from": "bridge_release",
+            "to": record.recipient,
+            "amount": release_amount,
+            "fee": 0,
+            "type": "BRIDGE_RELEASE",
+            "nonce": release_nonce,
+            "timestamp": (record.confirm_time or datetime.now(UTC)).isoformat(),
+            "payload": credit_payload,
+        }
+        self._sign_bridge_credit(credit_dict, target_tx_hash, payload=credit_payload, target_chain=record.target_chain)
+        mempool.add(
+            credit_dict,
+            chain_id=record.target_chain,
+            tx_hash=target_tx_hash,
+        )
+
+    def _mark_source_record_confirmed(
+        self, record: CrossChainTransfer, transfer_id: str, target_tx_hash: str, proof_hash: str
+    ) -> None:
+        """Mirror the confirmed state onto the source-chain transfer record."""
+        # Also mark the source-chain transfer record completed so bridge
+        # health and query endpoints reflect the finalised state.
+        try:
+            with self._session_for(record.source_chain) as src_session:
+                src_record = src_session.get(CrossChainTransfer, transfer_id)
+                if src_record:
+                    src_record.status = "confirmed"
+                    src_record.target_tx_hash = target_tx_hash
+                    src_record.proof_hash = proof_hash
+                    src_record.confirm_time = record.confirm_time
+                    src_session.add(src_record)
+                    src_session.commit()
+        except Exception:
+            logger.exception("Failed to update source-chain bridge record for %s", transfer_id)
+
     def confirm_transfer(self, transfer_id: str, proof: dict[str, Any]) -> BridgeTransfer:
         """
         Confirm a cross-chain transfer on target chain.
@@ -423,30 +653,7 @@ class BridgeTransferMixin(BridgeBase):
             ).first()
             if persisted_proof is not None:
                 raise ValueError("Proof already processed (double-spend attempt)")
-            record = session.get(CrossChainTransfer, transfer_id)
-            # F1: the fields a release pays out on (amount, recipient, target
-            # chain) must come from a record this node wrote when it served the
-            # lock, or be bound by the proof's Merkle leaf. A record built from
-            # the proof alone used to be checked against itself.
-            proof_built_record = False
-            if not record:
-                record = self._lock_record_from_source(transfer_id, proof, target_chain)
-            if not record:
-                # v0.7.3: the lock is on another node; materialise the record
-                # from the proof, but only persist it once the proof verifies.
-                proof_built_record = True
-                record = CrossChainTransfer(
-                    transfer_id=transfer_id,
-                    source_chain=proof.get("source_chain", ""),
-                    target_chain=target_chain,
-                    sender=proof.get("sender", ""),
-                    recipient=proof.get("recipient", ""),
-                    amount=proof.get("amount", 0),
-                    asset=proof.get("asset", "native"),
-                    status="pending",
-                    source_tx_hash=transfer_id,
-                    lock_time=datetime.now(UTC),
-                )
+            record, proof_built_record = self._resolve_confirm_record(session, transfer_id, proof, target_chain)
             if record.status != "pending":
                 raise ValueError(f"Transfer already processed: {record.status}")
             if not self._validate_proof(proof, record, require_leaf_binding=proof_built_record):
@@ -456,132 +663,21 @@ class BridgeTransferMixin(BridgeBase):
             # differs from the locked amount; plain bridges release `amount`.
             release_amount = record.release_amount if record.release_amount is not None else record.amount
             block_scoped = getattr(settings, "block_scoped_preregistered_transactions", True)
-            if not block_scoped:
-                recipient_account = session.get(Account, (record.target_chain, record.recipient))
-                if not recipient_account:
-                    recipient_account = Account(chain_id=record.target_chain, address=record.recipient, balance=0, nonce=0)
-                    session.add(recipient_account)
-                recipient_account.balance += release_amount
-                release_nonce = recipient_account.nonce
-                recipient_account.nonce += 1
-                session.add(recipient_account)
-                # Create a bridge release account with enough balance to satisfy
-                # the MESSAGE state transition (fee=0, value=0).  The recipient
-                # is already credited here; the block proposer will record the
-                # MESSAGE in a block and advance the bridge release nonce.
-                bridge_release_addr = "bridge_release"
-                bridge_release_account = session.get(Account, (record.target_chain, bridge_release_addr))
-                if not bridge_release_account:
-                    bridge_release_account = Account(
-                        chain_id=record.target_chain, address=bridge_release_addr, balance=release_amount, nonce=0
-                    )
-                    session.add(bridge_release_account)
-                release_nonce = bridge_release_account.nonce
-            else:
-                release_nonce = 0
+            release_nonce = self._release_nonce_for_mode(session, record, release_amount, block_scoped)
             target_tx_hash = hashlib.sha256(f"{transfer_id}:{record.target_chain}:{int(time.time())}".encode()).hexdigest()
-            if not block_scoped:
-                release_payload = {
-                    "type": "BRIDGE_RELEASE",
-                    "transfer_id": transfer_id,
-                    "source_chain": record.source_chain,
-                    "source_sender": record.sender,
-                    "target_chain": record.target_chain,
-                    "amount": release_amount,
-                    "asset": record.asset,
-                    "proof": proof_hash,
-                }
-                # v5+ consensus requires the bridge authority signature over
-                # the credit's semantic fields — sign the row-shaped view the
-                # proposer sweep will rebuild (value=0: the credit already
-                # happened above; the row anchors the record).
-                self._sign_bridge_credit(
-                    {
-                        "type": "BRIDGE_RELEASE",
-                        "to": record.recipient,
-                        "value": 0,
-                        "fee": 0,
-                        "nonce": release_nonce,
-                        "payload": release_payload,
-                    },
-                    target_tx_hash,
-                    payload=release_payload,
-                    target_chain=record.target_chain,
-                )
-                release_tx = Transaction(
-                    chain_id=record.target_chain,
-                    tx_hash=target_tx_hash,
-                    sender="bridge_release",
-                    recipient=record.recipient,
-                    payload=release_payload,
-                    value=0,
-                    fee=0,
-                    nonce=release_nonce,
-                    timestamp=datetime.now(UTC),
-                    block_height=None,
-                    status="confirmed",
-                    type="BRIDGE_RELEASE",
-                )
-                session.add(release_tx)
-            if block_scoped:
-                from ..mempool import get_mempool
-
-                mempool = get_mempool()
-                # Semantic fields go inside ``payload`` — the same shape the
-                # pre-registered Transaction row carries. The sealer persists
-                # ``tx_data["payload"]`` and ``/rpc/blocks-range`` serves the
-                # row, so a flat dict would drop bridge_signature (and
-                # lock_tx_hash) from everything range-synced validators see:
-                # at v5+ a bulk-synced node would fail the signature check and
-                # silently skip the credit while gossip-fed nodes apply it.
-                # ``bridge_credit_message`` reads payload-first, so the signed
-                # bytes are identical to the old flat shape.
-                credit_payload = {
-                    "type": "BRIDGE_RELEASE",
-                    "transfer_id": transfer_id,
-                    "source_chain": record.source_chain,
-                    "source_sender": record.sender,
-                    "target_chain": record.target_chain,
-                    "amount": release_amount,
-                    "asset": record.asset,
-                    "proof": proof_hash,
-                }
-                credit_dict = {
-                    "from": "bridge_release",
-                    "to": record.recipient,
-                    "amount": release_amount,
-                    "fee": 0,
-                    "type": "BRIDGE_RELEASE",
-                    "nonce": release_nonce,
-                    "timestamp": (record.confirm_time or datetime.now(UTC)).isoformat(),
-                    "payload": credit_payload,
-                }
-                self._sign_bridge_credit(credit_dict, target_tx_hash, payload=credit_payload, target_chain=record.target_chain)
-                mempool.add(
-                    credit_dict,
-                    chain_id=record.target_chain,
-                    tx_hash=target_tx_hash,
-                )
+            self._apply_legacy_release_row(
+                session, record, transfer_id, proof_hash, release_amount, release_nonce, target_tx_hash, block_scoped
+            )
+            self._submit_release_mempool_credit(
+                record, transfer_id, proof_hash, release_amount, release_nonce, target_tx_hash, block_scoped
+            )
             record.status = "confirmed"
             record.target_tx_hash = target_tx_hash
             record.proof_hash = proof_hash
             record.confirm_time = datetime.now(UTC)
             session.add(record)
             session.commit()
-            # Also mark the source-chain transfer record completed so bridge
-            # health and query endpoints reflect the finalised state.
-            try:
-                with self._session_for(record.source_chain) as src_session:
-                    src_record = src_session.get(CrossChainTransfer, transfer_id)
-                    if src_record:
-                        src_record.status = "confirmed"
-                        src_record.target_tx_hash = target_tx_hash
-                        src_record.proof_hash = proof_hash
-                        src_record.confirm_time = record.confirm_time
-                        src_session.add(src_record)
-                        src_session.commit()
-            except Exception:
-                logger.exception("Failed to update source-chain bridge record for %s", transfer_id)
+            self._mark_source_record_confirmed(record, transfer_id, target_tx_hash, proof_hash)
             self._processed_proofs.add(proof_hash)
             transfer = self._pending_transfers.get(transfer_id)
             if transfer:
@@ -618,6 +714,156 @@ class BridgeTransferMixin(BridgeBase):
             records = session.exec(query).all()
             return [self._build_transfer_from_record(r) for r in records]
 
+    def _check_refund_lock_sealed(self, session: Any, record: CrossChainTransfer, transfer_id: str) -> None:
+        """#703 emission-before-seal guard: the apply-side v6 gate binds the
+        refund to a SEALED BRIDGE_LOCK row — a refund emitted while its
+        lock is still unsealed can never apply and strands the amount.
+        """
+        source_hash = (record.source_tx_hash or "").strip()
+        if not source_hash:
+            raise ValueError(
+                f"Transfer {transfer_id} has no recorded source tx — refund refused until the lock is recorded (pre-#669 row)"
+            )
+        lock_tx = session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == record.source_chain,
+                Transaction.tx_hash == source_hash,
+            )
+        ).first()
+        if lock_tx is None or lock_tx.block_height is None:
+            height = lock_tx.block_height if lock_tx else "unsealed"
+            raise ValueError(
+                f"Lock {source_hash} not yet sealed (height {height}) — refund refused; retry after the lock seals"
+            )
+
+    def _check_refund_delay(self, record: CrossChainTransfer) -> None:
+        """Enforce ``bridge_refund_delay_seconds`` since the lock was recorded."""
+        refund_delay = getattr(settings, "bridge_refund_delay_seconds", 0)
+        if refund_delay:
+            lock_time = record.lock_time or record.confirm_time or datetime.now(UTC)
+            elapsed = (datetime.now(UTC) - lock_time).total_seconds()
+            if elapsed < refund_delay:
+                raise ValueError(f"Refund not allowed yet: {elapsed:.0f}s since lock, minimum delay is {refund_delay}s")
+
+    def _refund_credit_legacy_nonce(self, session: Any, record: CrossChainTransfer, block_scoped: bool) -> int:
+        """Return the locked amount to the sender on the legacy path.
+
+        The fee was already deducted at lock time. Returns the nonce to
+        anchor the refund row/credit on; 0 when block-scoped preregistered
+        transactions are in effect.
+        """
+        if block_scoped:
+            return 0
+        sender_account: Account | None = session.get(Account, (record.source_chain, record.sender))
+        if not sender_account:
+            sender_account = Account(chain_id=record.source_chain, address=record.sender, balance=0, nonce=0)
+            session.add(sender_account)
+        sender_account.balance += record.amount
+        refund_nonce = sender_account.nonce
+        sender_account.nonce += 1
+        session.add(sender_account)
+        return refund_nonce
+
+    def _apply_legacy_refund_row(
+        self,
+        session: Any,
+        record: CrossChainTransfer,
+        transfer_id: str,
+        refund_tx_hash: str,
+        refund_nonce: int,
+        block_scoped: bool,
+    ) -> None:
+        """Pre-register the signed BRIDGE_REFUND row on the legacy path."""
+        if block_scoped:
+            return
+        refund_payload = {
+            "type": "BRIDGE_REFUND",
+            "transfer_id": transfer_id,
+            # v6: consensus binds the refund to the sealed BRIDGE_LOCK it
+            # repays — the lock's tx_hash on this (source) chain.
+            "lock_tx_hash": record.source_tx_hash or transfer_id,
+            "source_chain": record.source_chain,
+            "target_chain": record.target_chain,
+            "amount": record.amount,
+            "asset": record.asset,
+        }
+        # v5+ consensus requires the bridge authority signature; and
+        # like the release row, value=0 — the sender was already
+        # credited above, the sealed row only anchors the record
+        # (a nonzero value would double-credit at apply).
+        self._sign_bridge_credit(
+            {
+                "type": "BRIDGE_REFUND",
+                "to": record.sender,
+                "value": 0,
+                "fee": 0,
+                "nonce": refund_nonce,
+                "payload": refund_payload,
+            },
+            refund_tx_hash,
+            payload=refund_payload,
+            target_chain=record.source_chain,
+        )
+        refund_tx = Transaction(
+            chain_id=record.source_chain,
+            tx_hash=refund_tx_hash,
+            sender="bridge_refund",
+            recipient=record.sender,
+            payload=refund_payload,
+            value=0,
+            fee=0,
+            nonce=refund_nonce,
+            timestamp=datetime.now(UTC),
+            block_height=None,
+            status="confirmed",
+            type="BRIDGE_REFUND",
+        )
+        session.add(refund_tx)
+
+    def _submit_refund_mempool_credit(
+        self,
+        record: CrossChainTransfer,
+        transfer_id: str,
+        refund_tx_hash: str,
+        refund_nonce: int,
+        block_scoped: bool,
+    ) -> None:
+        """Submit the signed BRIDGE_REFUND credit to the mempool (block-scoped path)."""
+        if not block_scoped:
+            return
+        from ..mempool import get_mempool
+
+        mempool = get_mempool()
+        # Same payload-shaping as the release above: lock_tx_hash must
+        # survive into the persisted row — the v6 refund-binding probe
+        # reads prior.payload["lock_tx_hash"], and validators that see
+        # only the row (blocks-range sync) need bridge_signature in it.
+        credit_payload = {
+            "type": "BRIDGE_REFUND",
+            "transfer_id": transfer_id,
+            "lock_tx_hash": record.source_tx_hash or transfer_id,
+            "source_chain": record.source_chain,
+            "target_chain": record.target_chain,
+            "amount": record.amount,
+            "asset": record.asset,
+        }
+        credit_dict = {
+            "from": "bridge_refund",
+            "to": record.sender,
+            "amount": record.amount,
+            "fee": 0,
+            "type": "BRIDGE_REFUND",
+            "nonce": refund_nonce,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "payload": credit_payload,
+        }
+        self._sign_bridge_credit(credit_dict, refund_tx_hash, payload=credit_payload, target_chain=record.source_chain)
+        mempool.add(
+            credit_dict,
+            chain_id=record.source_chain,
+            tx_hash=refund_tx_hash,
+        )
+
     def refund_transfer(self, transfer_id: str, sender: str, chain_id: str | None = None) -> BridgeTransfer:
         """Refund a pending bridge transfer — return locked funds to sender.
 
@@ -640,129 +886,19 @@ class BridgeTransferMixin(BridgeBase):
             if record.sender != sender:
                 raise ValueError("Only the original sender can refund this transfer")
 
-            # #703 emission-before-seal guard: the apply-side v6 gate binds the
-            # refund to a SEALED BRIDGE_LOCK row — a refund emitted while its
-            # lock is still unsealed can never apply and strands the amount.
-            source_hash = (record.source_tx_hash or "").strip()
-            if not source_hash:
-                raise ValueError(
-                    f"Transfer {transfer_id} has no recorded source tx — refund refused "
-                    "until the lock is recorded (pre-#669 row)"
-                )
-            lock_tx = session.exec(
-                select(Transaction).where(
-                    Transaction.chain_id == record.source_chain,
-                    Transaction.tx_hash == source_hash,
-                )
-            ).first()
-            if lock_tx is None or lock_tx.block_height is None:
-                height = lock_tx.block_height if lock_tx else "unsealed"
-                raise ValueError(
-                    f"Lock {source_hash} not yet sealed (height {height}) — refund refused; retry after the lock seals"
-                )
-
-            refund_delay = getattr(settings, "bridge_refund_delay_seconds", 0)
-            if refund_delay:
-                lock_time = record.lock_time or record.confirm_time or datetime.now(UTC)
-                elapsed = (datetime.now(UTC) - lock_time).total_seconds()
-                if elapsed < refund_delay:
-                    raise ValueError(f"Refund not allowed yet: {elapsed:.0f}s since lock, minimum delay is {refund_delay}s")
+            self._check_refund_lock_sealed(session, record, transfer_id)
+            self._check_refund_delay(record)
 
             # Return the locked amount to the sender (fee was already deducted at lock time)
             block_scoped = getattr(settings, "block_scoped_preregistered_transactions", True)
-            if not block_scoped:
-                sender_account = session.get(Account, (record.source_chain, record.sender))
-                if not sender_account:
-                    sender_account = Account(chain_id=record.source_chain, address=record.sender, balance=0, nonce=0)
-                    session.add(sender_account)
-                sender_account.balance += record.amount
-                refund_nonce = sender_account.nonce
-                sender_account.nonce += 1
-                session.add(sender_account)
-            else:
-                refund_nonce = 0
+            refund_nonce = self._refund_credit_legacy_nonce(session, record, block_scoped)
 
             # Create a BRIDGE_REFUND transaction record
             refund_tx_hash = hashlib.sha256(
                 f"{transfer_id}:refund:{record.source_chain}:{int(time.time())}".encode()
             ).hexdigest()
-            if not block_scoped:
-                refund_payload = {
-                    "type": "BRIDGE_REFUND",
-                    "transfer_id": transfer_id,
-                    # v6: consensus binds the refund to the sealed BRIDGE_LOCK it
-                    # repays — the lock's tx_hash on this (source) chain.
-                    "lock_tx_hash": record.source_tx_hash or transfer_id,
-                    "source_chain": record.source_chain,
-                    "target_chain": record.target_chain,
-                    "amount": record.amount,
-                    "asset": record.asset,
-                }
-                # v5+ consensus requires the bridge authority signature; and
-                # like the release row, value=0 — the sender was already
-                # credited above, the sealed row only anchors the record
-                # (a nonzero value would double-credit at apply).
-                self._sign_bridge_credit(
-                    {
-                        "type": "BRIDGE_REFUND",
-                        "to": record.sender,
-                        "value": 0,
-                        "fee": 0,
-                        "nonce": refund_nonce,
-                        "payload": refund_payload,
-                    },
-                    refund_tx_hash,
-                    payload=refund_payload,
-                    target_chain=record.source_chain,
-                )
-                refund_tx = Transaction(
-                    chain_id=record.source_chain,
-                    tx_hash=refund_tx_hash,
-                    sender="bridge_refund",
-                    recipient=record.sender,
-                    payload=refund_payload,
-                    value=0,
-                    fee=0,
-                    nonce=refund_nonce,
-                    timestamp=datetime.now(UTC),
-                    block_height=None,
-                    status="confirmed",
-                    type="BRIDGE_REFUND",
-                )
-                session.add(refund_tx)
-            if block_scoped:
-                from ..mempool import get_mempool
-
-                mempool = get_mempool()
-                # Same payload-shaping as the release above: lock_tx_hash must
-                # survive into the persisted row — the v6 refund-binding probe
-                # reads prior.payload["lock_tx_hash"], and validators that see
-                # only the row (blocks-range sync) need bridge_signature in it.
-                credit_payload = {
-                    "type": "BRIDGE_REFUND",
-                    "transfer_id": transfer_id,
-                    "lock_tx_hash": record.source_tx_hash or transfer_id,
-                    "source_chain": record.source_chain,
-                    "target_chain": record.target_chain,
-                    "amount": record.amount,
-                    "asset": record.asset,
-                }
-                credit_dict = {
-                    "from": "bridge_refund",
-                    "to": record.sender,
-                    "amount": record.amount,
-                    "fee": 0,
-                    "type": "BRIDGE_REFUND",
-                    "nonce": refund_nonce,
-                    "timestamp": datetime.now(UTC).isoformat(),
-                    "payload": credit_payload,
-                }
-                self._sign_bridge_credit(credit_dict, refund_tx_hash, payload=credit_payload, target_chain=record.source_chain)
-                mempool.add(
-                    credit_dict,
-                    chain_id=record.source_chain,
-                    tx_hash=refund_tx_hash,
-                )
+            self._apply_legacy_refund_row(session, record, transfer_id, refund_tx_hash, refund_nonce, block_scoped)
+            self._submit_refund_mempool_credit(record, transfer_id, refund_tx_hash, refund_nonce, block_scoped)
             record.status = "refunded"
             session.add(record)
             session.commit()
@@ -1550,14 +1686,8 @@ class BridgeTransferMixin(BridgeBase):
             return False
         return True
 
-    def _validate_proof(self, proof: dict[str, Any], record: CrossChainTransfer, require_leaf_binding: bool = False) -> bool:
-        """Validate cross-chain transfer proof with cryptographic verification (v0.7.3).
-
-        ``require_leaf_binding`` is set when ``record`` was built from the
-        proof itself: the field checks below then compare the proof with
-        itself, so the proof must carry a recipient-bound leaf and a Merkle
-        inclusion proof against a stored header, or it is refused.
-        """
+    def _proof_required_fields_present(self, proof: dict[str, Any]) -> bool:
+        """True when the proof carries every field ``_validate_proof`` requires."""
         required_fields = [
             "source_chain",
             "lock_tx_hash",
@@ -1572,8 +1702,10 @@ class BridgeTransferMixin(BridgeBase):
             if field not in proof:
                 logger.warning("Proof missing field: %s", field)
                 return False
+        return True
 
-        # Step 1: Verify field equality with record
+    def _proof_fields_match_record(self, proof: dict[str, Any], record: CrossChainTransfer, record_chain_id: str) -> bool:
+        """Step 1: verify the proof's claimed fields equal the transfer record's."""
         if proof.get("source_chain") != record.source_chain:
             logger.warning("Proof source_chain mismatch")
             return False
@@ -1588,7 +1720,6 @@ class BridgeTransferMixin(BridgeBase):
             return False
 
         # Bug 12: Verify chain_id matches
-        record_chain_id = getattr(record, "chain_id", None) or record.source_chain
         if proof.get("chain_id") != record_chain_id:
             logger.warning("Proof chain_id mismatch: %s != %s", proof.get("chain_id"), record_chain_id)
             return False
@@ -1602,108 +1733,128 @@ class BridgeTransferMixin(BridgeBase):
         if proof.get("lock_tx_hash") != (getattr(record, "source_tx_hash", None) or record.transfer_id):
             logger.warning("Proof lock_tx_hash does not match the transfer record")
             return False
-        if require_leaf_binding and not self._proof_binds_payout_fields(proof, record):
-            return False
+        return True
+
+    def _proof_lock_event_matches(self, proof: dict[str, Any], record: CrossChainTransfer) -> bool:
+        """F1 leaf binding: a proof-built record must commit to the payout fields."""
         if proof.get("merkle_proof"):
             expected_event = self._build_lock_event_value(record, proof.get("block_height"))
             if proof.get("lock_event") != expected_event:
                 logger.warning("Proof lock_event does not match the transfer fields")
                 return False
+        return True
 
-        # Step 2: Verify block anchor (height + hash must be present and consistent)
+    def _proof_block_anchor(self, proof: dict[str, Any]) -> tuple[int, str] | None:
+        """Step 2: block anchor (height + hash must be present and consistent).
+
+        Returns ``(block_height, block_hash)`` or None when either is invalid.
+        """
         block_height = proof.get("block_height")
         block_hash = proof.get("block_hash")
         if not isinstance(block_height, int) or block_height < 0:
             logger.warning("Proof has invalid block_height")
-            return False
+            return None
         if not isinstance(block_hash, str) or not block_hash.strip():
             logger.warning("Proof has invalid block_hash")
-            return False
+            return None
+        return block_height, block_hash
 
-        # Step 3: Signature requirement check (proposer_signature or validator_signatures)
+    def _verify_in_process_proof(
+        self,
+        proof: dict[str, Any],
+        record: CrossChainTransfer,
+        record_chain_id: str,
+        block_height: int,
+        block_hash: str,
+    ) -> BridgeBlockHeader | None:
+        """Step 5: in-process block header lookup and verification (v0.7.2).
+
+        Returns the verified stored header, or None when any check fails
+        (each failure is logged at the point it is detected).
+        """
+        # F2: only a header this node stored can anchor a proof. A header
+        # built from the proof would let the proof choose its own roots,
+        # proposer and confirmation_count.
+        header = self._get_block_header(record_chain_id, block_height)
+        if header is None:
+            logger.warning("No stored block header for chain=%s height=%s; rejecting proof", record_chain_id, block_height)
+            return None
+
+        # Verify block hash matches
+        if header.hash != block_hash:
+            logger.warning(
+                "Block hash mismatch: proof=%s vs header=%s (height=%s)",
+                block_hash[:16],
+                header.hash[:16],
+                block_height,
+            )
+            return None
+
+        # Step 5a: Bridge state root verification
+        proof_bridge_root = proof.get("bridge_state_root") or proof.get("state_root", "")
+        expected_bridge_root = header.bridge_state_root or header.state_root
+        if proof_bridge_root and proof_bridge_root != expected_bridge_root:
+            logger.warning(
+                "Bridge state root mismatch: proof=%s vs header=%s",
+                proof_bridge_root[:16],
+                expected_bridge_root[:16],
+            )
+            return None
+
+        # Step 5b: Block header signature verification (B4)
+        if not self._verify_block_header_signature(header):
+            logger.warning("Block header signature verification failed for height=%s", block_height)
+            return None
+
+        # Step 5c: Merkle proof verification (B3)
+        merkle_proof = proof.get("merkle_proof", [])
+        if merkle_proof:
+            merkle_state_root = header.bridge_state_root or header.state_root
+            if not self._verify_merkle_proof(merkle_state_root, proof):
+                logger.warning("Merkle proof verification failed for height=%s", block_height)
+                return None
+        else:
+            # v0.10.16: Merkle inclusion proof is required for production
+            # release paths. When bridge_release_enabled is True, a missing
+            # merkle_proof is a hard failure; the standalone
+            # bridge_require_merkle_proof flag still allows explicit enforcement.
+            release_enabled = getattr(settings, "bridge_release_enabled", False)
+            require_merkle = release_enabled or getattr(settings, "bridge_require_merkle_proof", False)
+            if require_merkle:
+                logger.warning(
+                    "Proof has no merkle_proof and release/production enforcement enabled — rejecting (height=%s)",
+                    block_height,
+                )
+                return None
+            logger.warning(
+                "Proof has no merkle_proof — skipping trie verification (field+sig only, height=%s)",
+                block_height,
+            )
+
+        # Step 5d: Finality check (B5)
+        if not self._check_finality_for_transfer(header, record.amount):
+            logger.warning(
+                "Finality check failed for height=%s (confirmations=%s, amount=%s)",
+                block_height,
+                header.confirmation_count,
+                record.amount,
+            )
+            return None
+        return header
+
+    def _proof_signature_present(self, proof: dict[str, Any]) -> bool:
+        """Step 3: a proof must carry proposer_signature or validator_signatures."""
         proposer_signature = proof.get("proposer_signature")
         validator_signatures = proof.get("validator_signatures", [])
         if not proposer_signature and not validator_signatures:
             logger.warning("Proof has no signatures (proposer_signature or validator_signatures required)")
             return False
+        return True
 
-        # Step 5: Block header lookup + verification (v0.7.2)
-        header: BridgeBlockHeader | None = None
-        verification_mode = getattr(settings, "bridge_verification_mode", "in_process")
-        if verification_mode == "in_process":
-            # F2: only a header this node stored can anchor a proof. A header
-            # built from the proof would let the proof choose its own roots,
-            # proposer and confirmation_count.
-            header = self._get_block_header(record_chain_id, block_height)
-            if header is None:
-                logger.warning("No stored block header for chain=%s height=%s; rejecting proof", record_chain_id, block_height)
-                return False
-
-            # Verify block hash matches
-            if header.hash != block_hash:
-                logger.warning(
-                    "Block hash mismatch: proof=%s vs header=%s (height=%s)",
-                    block_hash[:16],
-                    header.hash[:16],
-                    block_height,
-                )
-                return False
-
-            # Step 5a: Bridge state root verification
-            proof_bridge_root = proof.get("bridge_state_root") or proof.get("state_root", "")
-            expected_bridge_root = header.bridge_state_root or header.state_root
-            if proof_bridge_root and proof_bridge_root != expected_bridge_root:
-                logger.warning(
-                    "Bridge state root mismatch: proof=%s vs header=%s",
-                    proof_bridge_root[:16],
-                    expected_bridge_root[:16],
-                )
-                return False
-
-            # Step 5b: Block header signature verification (B4)
-            if not self._verify_block_header_signature(header):
-                logger.warning("Block header signature verification failed for height=%s", block_height)
-                return False
-
-            # Step 5c: Merkle proof verification (B3)
-            merkle_proof = proof.get("merkle_proof", [])
-            if merkle_proof:
-                merkle_state_root = header.bridge_state_root or header.state_root
-                if not self._verify_merkle_proof(merkle_state_root, proof):
-                    logger.warning("Merkle proof verification failed for height=%s", block_height)
-                    return False
-            else:
-                # v0.10.16: Merkle inclusion proof is required for production
-                # release paths. When bridge_release_enabled is True, a missing
-                # merkle_proof is a hard failure; the standalone
-                # bridge_require_merkle_proof flag still allows explicit enforcement.
-                release_enabled = getattr(settings, "bridge_release_enabled", False)
-                require_merkle = release_enabled or getattr(settings, "bridge_require_merkle_proof", False)
-                if require_merkle:
-                    logger.warning(
-                        "Proof has no merkle_proof and release/production enforcement enabled — rejecting (height=%s)",
-                        block_height,
-                    )
-                    return False
-                logger.warning(
-                    "Proof has no merkle_proof — skipping trie verification (field+sig only, height=%s)",
-                    block_height,
-                )
-
-            # Step 5d: Finality check (B5)
-            if not self._check_finality_for_transfer(header, record.amount):
-                logger.warning(
-                    "Finality check failed for height=%s (confirmations=%s, amount=%s)",
-                    block_height,
-                    header.confirmation_count,
-                    record.amount,
-                )
-                return False
-
-        elif require_leaf_binding:
-            logger.warning("Proof-built transfer record needs in-process Merkle verification; rejecting")
-            return False
-
+    def _verify_proof_threshold_and_freshness(
+        self, proof: dict[str, Any], header: BridgeBlockHeader | None, record: CrossChainTransfer, record_chain_id: str
+    ) -> bool:
+        """Steps 4+6: multi-sig threshold verification, then validator-set freshness."""
         # Step 4: Multi-sig threshold verification (v0.7.1, kept)
         # Moved to occur after the BridgeBlockHeader is available.
         if not self._verify_threshold_signatures(proof, header=header):
@@ -1716,8 +1867,56 @@ class BridgeTransferMixin(BridgeBase):
         if not self._check_validator_set_freshness(record_chain_id, proof.get("validator_epoch") or None):
             logger.warning("Validator set for chain=%s is stale (grace period expired)", record_chain_id)
             return False
-
         return True
+
+    def _validate_proof(self, proof: dict[str, Any], record: CrossChainTransfer, require_leaf_binding: bool = False) -> bool:
+        """Validate cross-chain transfer proof with cryptographic verification (v0.7.3).
+
+        ``require_leaf_binding`` is set when ``record`` was built from the
+        proof itself: the field checks below then compare the proof with
+        itself, so the proof must carry a recipient-bound leaf and a Merkle
+        inclusion proof against a stored header, or it is refused.
+        """
+        if not self._proof_required_fields_present(proof):
+            return False
+
+        # Bug 12: Verify chain_id matches
+        record_chain_id = getattr(record, "chain_id", None) or record.source_chain
+
+        # Step 1: Verify field equality with record
+        if not self._proof_fields_match_record(proof, record, record_chain_id):
+            return False
+
+        # F1: the proven key and leaf must be the ones this transfer's fields
+        # produce. Without this the Merkle check below only proves that *some*
+        # lock exists — not that it carries this amount, recipient or target.
+        if require_leaf_binding and not self._proof_binds_payout_fields(proof, record):
+            return False
+        if not self._proof_lock_event_matches(proof, record):
+            return False
+
+        # Step 2: Verify block anchor (height + hash must be present and consistent)
+        anchor = self._proof_block_anchor(proof)
+        if anchor is None:
+            return False
+        block_height, block_hash = anchor
+
+        # Step 3: Signature requirement check (proposer_signature or validator_signatures)
+        if not self._proof_signature_present(proof):
+            return False
+
+        # Step 5: Block header lookup + verification (v0.7.2)
+        header: BridgeBlockHeader | None = None
+        verification_mode = getattr(settings, "bridge_verification_mode", "in_process")
+        if verification_mode == "in_process":
+            header = self._verify_in_process_proof(proof, record, record_chain_id, block_height, block_hash)
+            if header is None:
+                return False
+        elif require_leaf_binding:
+            logger.warning("Proof-built transfer record needs in-process Merkle verification; rejecting")
+            return False
+
+        return self._verify_proof_threshold_and_freshness(proof, header, record, record_chain_id)
 
     def _finalize_confirmed_transfers(self, chain_id: str, deadline: float | None = None) -> int:
         """Move 'confirmed' transfers to 'completed' once the release tx is in a block.
