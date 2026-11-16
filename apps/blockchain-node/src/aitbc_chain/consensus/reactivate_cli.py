@@ -38,6 +38,10 @@ def main(argv: list[str] | None = None) -> int:
     health = consensus.quorum_health()
     _say(f"before: active={health['active']} configured={health['configured']} required={health['required']}")
     if not args.confirm:
+        refusal = consensus.reactivation_refusal()
+        if refusal:
+            _say(f"dry run: a confirmed run would be refused: {refusal}")
+            return 2
         _say("dry run: pass --confirm to re-activate")
         return 0
     try:
