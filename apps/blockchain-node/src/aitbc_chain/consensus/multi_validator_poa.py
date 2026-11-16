@@ -904,12 +904,10 @@ class MultiValidatorPoA:
 
             # Canonical conflicting pair: the smallest key over all
             # unordered record pairs with different view AND different hash
-            # — observation order cannot change the evidence.
-            best_pair = min(
-                self._cross_view_conflicting_pairs(seq_msgs),
-                key=self._cross_view_pair_key,
-                default=None,
-            )
+            # — observation order cannot change the evidence. Computed in
+            # O(k log k) (#2128): the O(k^2) pair enumeration ran on every
+            # armed commit receipt, so k commits at one sequence cost O(k^3).
+            best_pair = self._canonical_cross_view_pair(seq_msgs)
             if best_pair is None:
                 continue
             event = self._slashing_manager.cross_view_vote_equivocation_event(
@@ -936,9 +934,77 @@ class MultiValidatorPoA:
         )
 
     @staticmethod
+    def _canonical_cross_view_pair(seq_msgs: list[dict[str, Any]]):
+        """The canonical conflicting ``(lo, hi)`` record pair for one armed
+        sequence — byte-identical to ``min`` over all conflicting pairs under
+        ``_cross_view_pair_key`` (#2128), computed in O(k log k).
+
+        Records are sorted by ``_cross_view_message_order`` —
+        ``(view_number, block_hash.lower(), signature)`` — which is exactly
+        the pair-key ordering restricted to a single side of the pair.
+        ``lo`` is the first sorted record that has ANY conflicting partner:
+        the pair key leads with ``(lo.view, lo.hash)``, so the global min's
+        first element is the smallest ``(view, hash, signature)`` record that
+        can pair at all. Every partner of ``lo`` must sort after it (a
+        partner sorting before ``lo`` would itself have a partner and would
+        have been chosen instead). ``hi`` is then the first sorted record
+        after ``lo`` with a different ``view_number`` AND a different
+        ``block_hash`` — the minimum ``(view, hash, signature)`` partner,
+        which is exactly what the pair key's trailing fields select.
+
+        Partner existence for a record ``(v, h)`` is decided in O(1) from
+        per-view hash-set counts: a conflicting partner needs a record with
+        view ``!= v`` and hash ``!= h``. ``bad_total(h)`` counts views whose
+        hash-set is not exactly ``{h}`` (each supplies a record with hash
+        ``!= h``); view ``v`` itself is subtracted via ``v_bad`` when its own
+        hash-set contains something other than ``h`` — that view does not
+        count as a "different view".
+        """
+        from .slashing import _cross_view_message_order
+
+        ordered = sorted(seq_msgs, key=_cross_view_message_order)
+        if len(ordered) < 2:
+            return None
+
+        hashes_by_view: dict[int, set[str]] = {}
+        for msg in ordered:
+            hashes_by_view.setdefault(msg["view_number"], set()).add(str(msg["block_hash"]).lower())
+        total_views = len(hashes_by_view)
+        sig_counts: dict[frozenset, int] = {}
+        for view_hashes in hashes_by_view.values():
+            key = frozenset(view_hashes)
+            sig_counts[key] = sig_counts.get(key, 0) + 1
+
+        def _has_partner(msg: dict[str, Any]) -> bool:
+            h = str(msg["block_hash"]).lower()
+            bad_total = total_views - sig_counts.get(frozenset({h}), 0)
+            v_bad = 1 if hashes_by_view[msg["view_number"]] - {h} else 0
+            return bad_total - v_bad > 0
+
+        lo = next((msg for msg in ordered if _has_partner(msg)), None)
+        if lo is None:
+            return None
+        lo_view = lo["view_number"]
+        lo_hash = str(lo["block_hash"]).lower()
+        seen_lo = False
+        for msg in ordered:
+            if msg is lo:
+                seen_lo = True
+                continue
+            if not seen_lo:
+                continue
+            if msg["view_number"] != lo_view and str(msg["block_hash"]).lower() != lo_hash:
+                return lo, msg
+        return None  # unreachable: _has_partner(lo) guarantees a partner after lo
+
+    @staticmethod
     def _cross_view_conflicting_pairs(seq_msgs: list[dict[str, Any]]):
         """Yield canonically-ordered ``(lo, hi)`` record pairs that conflict:
-        different ``view_number`` AND different ``block_hash``."""
+        different ``view_number`` AND different ``block_hash``.
+
+        Retained as the brute-force reference for tests pinning
+        ``_canonical_cross_view_pair`` exact-equivalence (#2128); production
+        detection no longer enumerates pairs."""
         from .slashing import _cross_view_message_order
 
         for i in range(len(seq_msgs)):

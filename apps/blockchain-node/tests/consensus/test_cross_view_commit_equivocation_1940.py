@@ -923,3 +923,105 @@ class TestDraftExclusion:
         payload = out["drafts"][0]["payload"]
         assert payload["evidence_version"] == 2
         assert self._kinds(payload) == ["vote_equivocation"]
+
+
+# ---------------------------------------------------------------------------
+# #2128: canonical pair in O(k log k) — exact-equivalence pin vs brute force
+# ---------------------------------------------------------------------------
+
+
+class TestCanonicalPairScanBound:
+    """``_canonical_cross_view_pair`` must return the same ``(lo, hi)`` as
+    ``min`` over every conflicting pair under ``_cross_view_pair_key`` —
+    the O(k^2) enumeration it replaces ran on every armed commit receipt,
+    making k commits at one sequence cost O(k^3) total CPU."""
+
+    @staticmethod
+    def _rec(view: int, block_hash: str, *, alt_sig: bool = False) -> dict[str, Any]:
+        return _signed_fields(
+            ADDR,
+            ADDR_KEY,
+            block_hash=block_hash,
+            seq=SEQ,
+            view=view,
+            signature_key=ADDR2_KEY if alt_sig else ADDR_KEY,
+        )
+
+    @staticmethod
+    def _brute_force(seq_msgs: list[dict[str, Any]]):
+        return min(
+            MultiValidatorPoA._cross_view_conflicting_pairs(seq_msgs),
+            key=MultiValidatorPoA._cross_view_pair_key,
+            default=None,
+        )
+
+    def test_matches_brute_force_min_on_mixed_sets(self):
+        cases = [
+            [(0, HA), (1, HB)],
+            [(2, HC), (0, HA), (1, HB), (3, HA), (0, HB), (1, HC)],
+            [(5, HB), (1, HC), (1, HA), (4, HB), (2, HC), (5, HA)],
+            [(0, HA), (0, HB), (1, HC)],  # same-view multi-hash view present
+            [(7, HA), (3, HB), (9, HC), (3, HC), (7, HB)],
+        ]
+        for specs in cases:
+            msgs = [self._rec(v, h) for v, h in specs]
+            # deterministic non-sorted insertion order (interleave halves)
+            msgs = msgs[::2] + msgs[1::2]
+            fast = MultiValidatorPoA._canonical_cross_view_pair(msgs)
+            slow = self._brute_force(msgs)
+            assert fast is not None and slow is not None
+            assert fast == slow
+            lo, hi = fast
+            assert lo["view_number"] != hi["view_number"]
+            assert str(lo["block_hash"]).lower() != str(hi["block_hash"]).lower()
+
+    def test_matches_brute_force_with_duplicate_records(self):
+        """Duplicate (view, hash) records — incl. a differing signature —
+        must not disturb canonical selection."""
+        msgs = [
+            self._rec(0, HA),
+            self._rec(0, HA, alt_sig=True),  # same view+hash, other signature
+            self._rec(1, HB),
+            self._rec(2, HC),
+            self._rec(1, HB, alt_sig=True),
+        ]
+        fast = MultiValidatorPoA._canonical_cross_view_pair(msgs)
+        slow = self._brute_force(msgs)
+        assert fast is not None and slow is not None
+        assert fast == slow
+
+    def test_matches_brute_force_when_no_conflict(self):
+        for specs in (
+            [(0, HA), (0, HB)],  # all same view
+            [(1, HA), (2, HA), (3, HA)],  # all same hash
+            [(4, HB)],  # single record
+        ):
+            msgs = [self._rec(v, h) for v, h in specs]
+            assert MultiValidatorPoA._canonical_cross_view_pair(msgs) is None
+            assert self._brute_force(msgs) is None
+
+    def test_edge_cases_return_none(self):
+        cls = MultiValidatorPoA._canonical_cross_view_pair
+        assert cls([]) is None
+        assert cls([self._rec(0, HA)]) is None
+
+    def test_scale_many_records_one_sequence_one_event(self, armed):
+        """~400 eligible commit records at one armed sequence: detection
+        completes and still records exactly one canonical equivocation event
+        (the dedup key absorbs re-observation as the store grows)."""
+        c = _poa(ADDR, ADDR2)
+        # Fix the canonical pair up front — (view 0, HA) vs (view 1, HB)
+        # stays minimal because every later record has view >= 2.
+        c.record_commit(ADDR, HA, 0, message=_PBFTMsg("commit", ADDR, 0, SEQ, HA, ADDR_KEY))
+        c.record_commit(ADDR, HB, 1, message=_PBFTMsg("commit", ADDR, 1, SEQ, HB, ADDR_KEY))
+        extra_hashes = [HB, HC, "0x" + "dd" * 32]
+        for view in range(2, 400):
+            h = extra_hashes[view % 3]
+            assert c.record_commit(ADDR, h, view, message=_PBFTMsg("commit", ADDR, view, SEQ, h, ADDR_KEY)) is True
+        assert len(c.commit_messages[ADDR]) == 400
+        equiv = [e for e in c._slashing_manager.slashing_events if event_is_equivocation_claim(e)]
+        assert len(equiv) == 1
+        ep = json.loads(equiv[0].evidence)
+        assert ep["kind"] == PBFT_CROSS_VIEW_VOTE_EQUIVOCATION
+        assert ep["sequence"] == SEQ
+        assert ep["views"] == [0, 1]  # canonical pair unchanged by later records
