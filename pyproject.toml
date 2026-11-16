@@ -280,9 +280,11 @@ ignore_missing_imports = true
 # Gradual type checking approach - no apps currently ignored
 
 # Coverage policy: one documented baseline. `fail_under` only bites when a
-# coverage run actually executes — nothing in CI or the Makefile invokes
-# coverage today (#1943/R11-07), so the 60% floor is a target, not an
-# enforced gate. Per-package aspirational targets live in
+# coverage run actually executes. The enforced gate is the scoped
+# money/consensus ratchet — scripts/ci/check-coverage-ratchet.sh compares
+# per-file percent_covered against scripts/ci/coverage-baseline.txt (#1860);
+# the repo-wide 60% floor below remains a target, not an enforced gate.
+# Per-package aspirational targets live in
 # docs/testing/TEST_COVERAGE_REQUIREMENTS.md.
 [tool.coverage.report]
 fail_under = 60
