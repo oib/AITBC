@@ -456,6 +456,21 @@ class SlashingManager:
         metrics_registry.increment("slashing_events_cap_evicted_total")
         return True
 
+    @staticmethod
+    def _upgrade_evidence(existing: SlashingEvent, event: SlashingEvent) -> None:
+        """#1263 in-place evidence upgrade of an evidence-less record.
+
+        #2130 follow-up: when the verify gate is armed the new evidence must verify
+        BEFORE it is grafted — otherwise forged evidence attached to a record that
+        was created while disarmed would pass, and block a later genuine upgrade.
+        """
+        if event_signature_evidence(event) is None or event_signature_evidence(existing) is not None:
+            return
+        if _equivocation_gate_on() and event_is_equivocation_claim(event) and not equivocation_evidence_verifies(event):
+            metrics_registry.increment("slashing_equivocation_gate_refused_total")
+            return
+        existing.evidence = event.evidence
+
     def _gate_refuses(self, index: _HistoryIndex, event: SlashingEvent, stake: Decimal | None) -> bool:
         """#2130: True when the armed gate refuses to record/levy this equivocation claim.
 
@@ -548,8 +563,7 @@ class SlashingManager:
         index = self._history_index()
         existing = index.by_key.get(new_key)
         if existing is not None:
-            if event_signature_evidence(event) is not None and event_signature_evidence(existing) is None:
-                existing.evidence = event.evidence
+            self._upgrade_evidence(existing, event)
             return False
         if self._gate_refuses(index, event, validator.stake):  # #2130
             return False
@@ -652,8 +666,7 @@ class SlashingManager:
         index = self._history_index()
         existing = index.by_key.get(new_key)
         if existing is not None:
-            if event_signature_evidence(event) is not None and event_signature_evidence(existing) is None:
-                existing.evidence = event.evidence
+            self._upgrade_evidence(existing, event)
             return existing
         if self._gate_refuses(index, event, accused_stake):  # #2130
             return event  # not recorded; callers only use it as a handle

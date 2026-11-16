@@ -165,3 +165,42 @@ def test_gate_off_is_legacy(monkeypatch):
 
 def test_derive_address_sanity():
     assert derive_ethereum_address(ADDR_KEY) == ADDR
+
+
+def _unsigned_record_then_arm(mgr: SlashingManager, monkeypatch) -> None:
+    """An evidence-less record created while the gate is disarmed (legacy history)."""
+    monkeypatch.setattr(settings, "equivocation_verify_before_record", False)
+    mgr.record_attestation_equivocation(ADDR, H, None, HA, HB)  # hash-only
+    monkeypatch.setattr(settings, "equivocation_verify_before_record", True)
+
+
+def test_forged_evidence_is_not_grafted_onto_a_legacy_record(monkeypatch):
+    mgr = SlashingManager()
+    _unsigned_record_then_arm(mgr, monkeypatch)
+    forged = _atts()
+    forged[1] = _attestation_record(OTHER_KEY, HB, height=H, round_in_payload=False, request_round=None)
+    mgr.record_attestation_equivocation(ADDR, H, None, HA, HB, attestations=forged, accused_stake=Decimal(5))
+    assert "attestations" not in mgr.slashing_events[0].evidence  # still evidence-less
+    # ...and a later genuine observation can still upgrade it.
+    mgr.record_attestation_equivocation(ADDR, H, None, HA, HB, attestations=_atts(), accused_stake=Decimal(5))
+    assert "attestations" in mgr.slashing_events[0].evidence
+    assert len(mgr.slashing_events) == 1
+
+
+def test_apply_path_graft_is_gated_too(monkeypatch):
+    mgr, val = SlashingManager(), _val()
+    _unsigned_record_then_arm(mgr, monkeypatch)
+    forged = _atts()
+    forged[1] = _attestation_record(OTHER_KEY, HB, height=H, round_in_payload=False, request_round=None)
+    assert mgr.apply_slashing(val, _event(forged)) is False
+    assert "attestations" not in mgr.slashing_events[0].evidence
+
+
+def test_graft_unchanged_when_gate_off(monkeypatch):
+    mgr = SlashingManager()
+    _unsigned_record_then_arm(mgr, monkeypatch)
+    monkeypatch.setattr(settings, "equivocation_verify_before_record", False)
+    forged = _atts()
+    forged[1] = _attestation_record(OTHER_KEY, HB, height=H, round_in_payload=False, request_round=None)
+    mgr.record_attestation_equivocation(ADDR, H, None, HA, HB, attestations=forged)
+    assert "attestations" in mgr.slashing_events[0].evidence  # legacy upgrade preserved
