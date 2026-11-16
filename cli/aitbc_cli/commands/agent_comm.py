@@ -456,9 +456,9 @@ def send(
 @click.pass_context
 def collaborate(ctx, agent_ids, collaboration_type, governance):
     """Create a multi-agent collaboration with a list of agent IDs."""
-    output(
-        {"message": "Agent collaboration is not available via the coordinator API"},
-        ctx.obj.get("output_format", "table"),
+    abort(
+        ctx,
+        "Agent collaboration is not implemented: the coordinator API has no collaboration endpoint (#2152)",
     )
 
 
@@ -481,9 +481,9 @@ def collaborate(ctx, agent_ids, collaboration_type, governance):
 @click.pass_context
 def reputation(ctx, agent_id, interaction_result, feedback):
     """Update the reputation score for an agent based on an interaction result."""
-    output(
-        {"message": "Agent reputation update is not available via the coordinator API"},
-        ctx.obj.get("output_format", "table"),
+    abort(
+        ctx,
+        "Agent reputation update is not implemented: the coordinator API has no reputation endpoint (#2152)",
     )
 
 
@@ -499,9 +499,9 @@ def reputation(ctx, agent_id, interaction_result, feedback):
 @click.pass_context
 def monitor(ctx, realtime, interval):
     """Monitor cross-chain agent communication in real time or at an interval."""
-    output(
-        {"message": "Real-time agent monitor is not available via the coordinator API"},
-        ctx.obj.get("output_format", "table"),
+    abort(
+        ctx,
+        "Real-time agent monitor is not implemented: the coordinator API has no comm-traffic monitor endpoint (#2152)",
     )
 
 
