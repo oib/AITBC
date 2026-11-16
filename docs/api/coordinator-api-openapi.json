@@ -3861,7 +3861,7 @@
             }
           },
           "502": {
-            "description": "could not verify bond {bond_id} against chain state",
+            "description": "could not verify bond against chain state",
             "content": {
               "application/json": {
                 "schema": {
