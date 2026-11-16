@@ -2,7 +2,7 @@
 
 # MCP tool inventory
 
-**813 tools** across 92 modules.
+**813 tools** across 140 modules.
 
 | Kind | Tools |
 |---|---|
@@ -61,7 +61,29 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_liquidity.py | 3 |
 | mcp-server/aitbc_mcp_cli_tools_generated_liquidity_stake.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_list.py | 1 |
-| mcp-server/aitbc_mcp_cli_tools_generated_market.py | 35 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_cancel.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_download.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_escrow.py | 4 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_exchange.py | 6 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | 5 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_hermes.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_host.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_jobs.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_list.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_match.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_offer.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_offer_cancel.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_offer_disable.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_offer_list.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_payment.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_process.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_providers.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_rate.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_ratings.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_run.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_status.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_sync_ratings.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_transcribe.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_messaging.py | 23 |
 | mcp-server/aitbc_mcp_cli_tools_generated_mining.py | 4 |
 | mcp-server/aitbc_mcp_cli_tools_generated_monitor.py | 6 |
@@ -92,7 +114,33 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_transactions.py | 6 |
 | mcp-server/aitbc_mcp_cli_tools_generated_unstake.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_version.py | 1 |
-| mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | 34 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_address.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_backup.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_balance.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_bridge.py | 8 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_create.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_earn.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_eth_balance.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_eth_send.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_export.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_info.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_inspect.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_liquidity_claim.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_liquidity_stake.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_liquidity_unstake.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_list.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_multisig_create.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_multisig_propose.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_multisig_sign.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_request_payment.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_restore.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_send.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_spend.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_stake.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_stats.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_switch.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_transactions.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_wallet_unstake.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_workflow.py | 4 |
 | mcp-server/aitbc_mcp_cli_tools_generated_zk.py | 3 |
 | mcp-server/aitbc_mcp_cli_tools_market.py | 21 |
@@ -527,41 +575,41 @@
 | `aitbc_liquidity_build_withdraw` | mcp-server/aitbc_mcp_cli_tools_generated_liquidity.py | generated | `aitbc liquidity build-withdraw` |
 | `aitbc_liquidity_stake` | mcp-server/aitbc_mcp_cli_tools_generated_liquidity_stake.py | generated | `aitbc liquidity-stake` |
 | `aitbc_list` | mcp-server/aitbc_mcp_cli_tools_generated_list.py | generated | `aitbc list` |
-| `aitbc_market_cancel` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market cancel` |
-| `aitbc_market_download` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market download` |
-| `aitbc_market_escrow_create` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market escrow create` |
-| `aitbc_market_escrow_refund` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market escrow refund` |
-| `aitbc_market_escrow_release` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market escrow release` |
-| `aitbc_market_escrow_status` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market escrow status` |
-| `aitbc_market_exchange_deposit_eth` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market exchange deposit-eth` |
-| `aitbc_market_exchange_list_deposits` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market exchange list-deposits` |
-| `aitbc_market_exchange_mint_ait` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market exchange mint-ait` |
-| `aitbc_market_exchange_price` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market exchange price` |
-| `aitbc_market_exchange_status` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market exchange status` |
-| `aitbc_market_exchange_withdraw_eth` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market exchange withdraw-eth` |
-| `aitbc_market_gpu_buy` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market gpu buy` |
-| `aitbc_market_gpu_quote` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market gpu quote` |
-| `aitbc_market_gpu_refund` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market gpu refund` |
-| `aitbc_market_gpu_release` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market gpu release` |
-| `aitbc_market_gpu_status` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market gpu status` |
-| `aitbc_market_hermes` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market hermes` |
-| `aitbc_market_host` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market host` |
-| `aitbc_market_jobs` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market jobs` |
-| `aitbc_market_list` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market list` |
-| `aitbc_market_match` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market match` |
-| `aitbc_market_offer` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market offer` |
-| `aitbc_market_offer_cancel` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market offer-cancel` |
-| `aitbc_market_offer_disable` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market offer-disable` |
-| `aitbc_market_offer_list` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market offer-list` |
-| `aitbc_market_payment` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market payment` |
-| `aitbc_market_process` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market process` |
-| `aitbc_market_providers` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market providers` |
-| `aitbc_market_rate` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market rate` |
-| `aitbc_market_ratings` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market ratings` |
-| `aitbc_market_run` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market run` |
-| `aitbc_market_status` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market status` |
-| `aitbc_market_sync_ratings` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market sync-ratings` |
-| `aitbc_market_transcribe` | mcp-server/aitbc_mcp_cli_tools_generated_market.py | generated | `aitbc market transcribe` |
+| `aitbc_market_cancel` | mcp-server/aitbc_mcp_cli_tools_generated_market_cancel.py | generated | `aitbc market cancel` |
+| `aitbc_market_download` | mcp-server/aitbc_mcp_cli_tools_generated_market_download.py | generated | `aitbc market download` |
+| `aitbc_market_escrow_create` | mcp-server/aitbc_mcp_cli_tools_generated_market_escrow.py | generated | `aitbc market escrow create` |
+| `aitbc_market_escrow_refund` | mcp-server/aitbc_mcp_cli_tools_generated_market_escrow.py | generated | `aitbc market escrow refund` |
+| `aitbc_market_escrow_release` | mcp-server/aitbc_mcp_cli_tools_generated_market_escrow.py | generated | `aitbc market escrow release` |
+| `aitbc_market_escrow_status` | mcp-server/aitbc_mcp_cli_tools_generated_market_escrow.py | generated | `aitbc market escrow status` |
+| `aitbc_market_exchange_deposit_eth` | mcp-server/aitbc_mcp_cli_tools_generated_market_exchange.py | generated | `aitbc market exchange deposit-eth` |
+| `aitbc_market_exchange_list_deposits` | mcp-server/aitbc_mcp_cli_tools_generated_market_exchange.py | generated | `aitbc market exchange list-deposits` |
+| `aitbc_market_exchange_mint_ait` | mcp-server/aitbc_mcp_cli_tools_generated_market_exchange.py | generated | `aitbc market exchange mint-ait` |
+| `aitbc_market_exchange_price` | mcp-server/aitbc_mcp_cli_tools_generated_market_exchange.py | generated | `aitbc market exchange price` |
+| `aitbc_market_exchange_status` | mcp-server/aitbc_mcp_cli_tools_generated_market_exchange.py | generated | `aitbc market exchange status` |
+| `aitbc_market_exchange_withdraw_eth` | mcp-server/aitbc_mcp_cli_tools_generated_market_exchange.py | generated | `aitbc market exchange withdraw-eth` |
+| `aitbc_market_gpu_buy` | mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | generated | `aitbc market gpu buy` |
+| `aitbc_market_gpu_quote` | mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | generated | `aitbc market gpu quote` |
+| `aitbc_market_gpu_refund` | mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | generated | `aitbc market gpu refund` |
+| `aitbc_market_gpu_release` | mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | generated | `aitbc market gpu release` |
+| `aitbc_market_gpu_status` | mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | generated | `aitbc market gpu status` |
+| `aitbc_market_hermes` | mcp-server/aitbc_mcp_cli_tools_generated_market_hermes.py | generated | `aitbc market hermes` |
+| `aitbc_market_host` | mcp-server/aitbc_mcp_cli_tools_generated_market_host.py | generated | `aitbc market host` |
+| `aitbc_market_jobs` | mcp-server/aitbc_mcp_cli_tools_generated_market_jobs.py | generated | `aitbc market jobs` |
+| `aitbc_market_list` | mcp-server/aitbc_mcp_cli_tools_generated_market_list.py | generated | `aitbc market list` |
+| `aitbc_market_match` | mcp-server/aitbc_mcp_cli_tools_generated_market_match.py | generated | `aitbc market match` |
+| `aitbc_market_offer` | mcp-server/aitbc_mcp_cli_tools_generated_market_offer.py | generated | `aitbc market offer` |
+| `aitbc_market_offer_cancel` | mcp-server/aitbc_mcp_cli_tools_generated_market_offer_cancel.py | generated | `aitbc market offer-cancel` |
+| `aitbc_market_offer_disable` | mcp-server/aitbc_mcp_cli_tools_generated_market_offer_disable.py | generated | `aitbc market offer-disable` |
+| `aitbc_market_offer_list` | mcp-server/aitbc_mcp_cli_tools_generated_market_offer_list.py | generated | `aitbc market offer-list` |
+| `aitbc_market_payment` | mcp-server/aitbc_mcp_cli_tools_generated_market_payment.py | generated | `aitbc market payment` |
+| `aitbc_market_process` | mcp-server/aitbc_mcp_cli_tools_generated_market_process.py | generated | `aitbc market process` |
+| `aitbc_market_providers` | mcp-server/aitbc_mcp_cli_tools_generated_market_providers.py | generated | `aitbc market providers` |
+| `aitbc_market_rate` | mcp-server/aitbc_mcp_cli_tools_generated_market_rate.py | generated | `aitbc market rate` |
+| `aitbc_market_ratings` | mcp-server/aitbc_mcp_cli_tools_generated_market_ratings.py | generated | `aitbc market ratings` |
+| `aitbc_market_run` | mcp-server/aitbc_mcp_cli_tools_generated_market_run.py | generated | `aitbc market run` |
+| `aitbc_market_status` | mcp-server/aitbc_mcp_cli_tools_generated_market_status.py | generated | `aitbc market status` |
+| `aitbc_market_sync_ratings` | mcp-server/aitbc_mcp_cli_tools_generated_market_sync_ratings.py | generated | `aitbc market sync-ratings` |
+| `aitbc_market_transcribe` | mcp-server/aitbc_mcp_cli_tools_generated_market_transcribe.py | generated | `aitbc market transcribe` |
 | `aitbc_messaging_dm_inbox` | mcp-server/aitbc_mcp_cli_tools_generated_messaging.py | generated | `aitbc messaging dm inbox` |
 | `aitbc_messaging_dm_keygen` | mcp-server/aitbc_mcp_cli_tools_generated_messaging.py | generated | `aitbc messaging dm keygen` |
 | `aitbc_messaging_dm_read` | mcp-server/aitbc_mcp_cli_tools_generated_messaging.py | generated | `aitbc messaging dm read` |
@@ -739,40 +787,40 @@
 | `aitbc_transactions_status` | mcp-server/aitbc_mcp_cli_tools_generated_transactions.py | generated | `aitbc transactions status` |
 | `aitbc_unstake` | mcp-server/aitbc_mcp_cli_tools_generated_unstake.py | generated | `aitbc unstake` |
 | `aitbc_version` | mcp-server/aitbc_mcp_cli_tools_generated_version.py | generated | `aitbc version` |
-| `aitbc_wallet_address` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet address` |
-| `aitbc_wallet_backup` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet backup` |
-| `aitbc_wallet_balance` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet balance` |
-| `aitbc_wallet_bridge_deposit` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet bridge deposit` |
-| `aitbc_wallet_bridge_float` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet bridge float` |
-| `aitbc_wallet_bridge_sell_lock` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet bridge sell lock` |
-| `aitbc_wallet_bridge_sell_quote` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet bridge sell quote` |
-| `aitbc_wallet_bridge_sell_status` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet bridge sell status` |
-| `aitbc_wallet_bridge_settlements` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet bridge settlements` |
-| `aitbc_wallet_bridge_status` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet bridge status` |
-| `aitbc_wallet_bridge_withdraw` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet bridge withdraw` |
-| `aitbc_wallet_create` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet create` |
-| `aitbc_wallet_earn` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet earn` |
-| `aitbc_wallet_eth_balance` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet eth-balance` |
-| `aitbc_wallet_eth_send` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet eth-send` |
-| `aitbc_wallet_export` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet export` |
-| `aitbc_wallet_info` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet info` |
-| `aitbc_wallet_inspect` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet inspect` |
-| `aitbc_wallet_liquidity_claim` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet liquidity-claim` |
-| `aitbc_wallet_liquidity_stake` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet liquidity-stake` |
-| `aitbc_wallet_liquidity_unstake` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet liquidity-unstake` |
-| `aitbc_wallet_list` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet list` |
-| `aitbc_wallet_multisig_create` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet multisig-create` |
-| `aitbc_wallet_multisig_propose` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet multisig-propose` |
-| `aitbc_wallet_multisig_sign` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet multisig-sign` |
-| `aitbc_wallet_request_payment` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet request-payment` |
-| `aitbc_wallet_restore` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet restore` |
-| `aitbc_wallet_send` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet send` |
-| `aitbc_wallet_spend` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet spend` |
-| `aitbc_wallet_stake` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet stake` |
-| `aitbc_wallet_stats` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet stats` |
-| `aitbc_wallet_switch` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet switch` |
-| `aitbc_wallet_transactions` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet transactions` |
-| `aitbc_wallet_unstake` | mcp-server/aitbc_mcp_cli_tools_generated_wallet.py | generated | `aitbc wallet unstake` |
+| `aitbc_wallet_address` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_address.py | generated | `aitbc wallet address` |
+| `aitbc_wallet_backup` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_backup.py | generated | `aitbc wallet backup` |
+| `aitbc_wallet_balance` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_balance.py | generated | `aitbc wallet balance` |
+| `aitbc_wallet_bridge_deposit` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_bridge.py | generated | `aitbc wallet bridge deposit` |
+| `aitbc_wallet_bridge_float` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_bridge.py | generated | `aitbc wallet bridge float` |
+| `aitbc_wallet_bridge_sell_lock` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_bridge.py | generated | `aitbc wallet bridge sell lock` |
+| `aitbc_wallet_bridge_sell_quote` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_bridge.py | generated | `aitbc wallet bridge sell quote` |
+| `aitbc_wallet_bridge_sell_status` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_bridge.py | generated | `aitbc wallet bridge sell status` |
+| `aitbc_wallet_bridge_settlements` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_bridge.py | generated | `aitbc wallet bridge settlements` |
+| `aitbc_wallet_bridge_status` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_bridge.py | generated | `aitbc wallet bridge status` |
+| `aitbc_wallet_bridge_withdraw` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_bridge.py | generated | `aitbc wallet bridge withdraw` |
+| `aitbc_wallet_create` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_create.py | generated | `aitbc wallet create` |
+| `aitbc_wallet_earn` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_earn.py | generated | `aitbc wallet earn` |
+| `aitbc_wallet_eth_balance` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_eth_balance.py | generated | `aitbc wallet eth-balance` |
+| `aitbc_wallet_eth_send` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_eth_send.py | generated | `aitbc wallet eth-send` |
+| `aitbc_wallet_export` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_export.py | generated | `aitbc wallet export` |
+| `aitbc_wallet_info` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_info.py | generated | `aitbc wallet info` |
+| `aitbc_wallet_inspect` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_inspect.py | generated | `aitbc wallet inspect` |
+| `aitbc_wallet_liquidity_claim` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_liquidity_claim.py | generated | `aitbc wallet liquidity-claim` |
+| `aitbc_wallet_liquidity_stake` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_liquidity_stake.py | generated | `aitbc wallet liquidity-stake` |
+| `aitbc_wallet_liquidity_unstake` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_liquidity_unstake.py | generated | `aitbc wallet liquidity-unstake` |
+| `aitbc_wallet_list` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_list.py | generated | `aitbc wallet list` |
+| `aitbc_wallet_multisig_create` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_multisig_create.py | generated | `aitbc wallet multisig-create` |
+| `aitbc_wallet_multisig_propose` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_multisig_propose.py | generated | `aitbc wallet multisig-propose` |
+| `aitbc_wallet_multisig_sign` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_multisig_sign.py | generated | `aitbc wallet multisig-sign` |
+| `aitbc_wallet_request_payment` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_request_payment.py | generated | `aitbc wallet request-payment` |
+| `aitbc_wallet_restore` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_restore.py | generated | `aitbc wallet restore` |
+| `aitbc_wallet_send` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_send.py | generated | `aitbc wallet send` |
+| `aitbc_wallet_spend` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_spend.py | generated | `aitbc wallet spend` |
+| `aitbc_wallet_stake` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_stake.py | generated | `aitbc wallet stake` |
+| `aitbc_wallet_stats` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_stats.py | generated | `aitbc wallet stats` |
+| `aitbc_wallet_switch` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_switch.py | generated | `aitbc wallet switch` |
+| `aitbc_wallet_transactions` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_transactions.py | generated | `aitbc wallet transactions` |
+| `aitbc_wallet_unstake` | mcp-server/aitbc_mcp_cli_tools_generated_wallet_unstake.py | generated | `aitbc wallet unstake` |
 | `aitbc_workflow_list` | mcp-server/aitbc_mcp_cli_tools_generated_workflow.py | generated | `aitbc workflow list` |
 | `aitbc_workflow_run` | mcp-server/aitbc_mcp_cli_tools_generated_workflow.py | generated | `aitbc workflow run` |
 | `aitbc_workflow_status` | mcp-server/aitbc_mcp_cli_tools_generated_workflow.py | generated | `aitbc workflow status` |

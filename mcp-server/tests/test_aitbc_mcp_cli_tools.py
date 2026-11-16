@@ -546,9 +546,9 @@ PROMOTED_READ_LEAVES = [
     ("aitbc_mcp_cli_tools_generated_zk", "aitbc_zk_circuits", {}),
     ("aitbc_mcp_cli_tools_generated_dispute", "aitbc_dispute_active", {}),
     # Curated-twin leaves promoted alongside (issue gate-3…14).
-    ("aitbc_mcp_cli_tools_generated_market", "aitbc_market_escrow_status", {"job_id": "job-1"}),
-    ("aitbc_mcp_cli_tools_generated_market", "aitbc_market_exchange_price", {}),
-    ("aitbc_mcp_cli_tools_generated_market", "aitbc_market_exchange_list_deposits", {}),
+    ("aitbc_mcp_cli_tools_generated_market_escrow", "aitbc_market_escrow_status", {"job_id": "job-1"}),
+    ("aitbc_mcp_cli_tools_generated_market_exchange", "aitbc_market_exchange_price", {}),
+    ("aitbc_mcp_cli_tools_generated_market_exchange", "aitbc_market_exchange_list_deposits", {}),
     ("aitbc_mcp_cli_tools_generated_dashboard", "aitbc_dashboard_customer", {}),
     ("aitbc_mcp_cli_tools_generated_dashboard", "aitbc_dashboard_shop", {}),
     ("aitbc_mcp_cli_tools_generated_node", "aitbc_node_island_island_info", {"island_id": "is-1"}),
@@ -586,7 +586,7 @@ def test_mutating_gate_check_still_enforced():
     """The 10 Phase-A gate-check tools keep the dry_run/confirm contract:
     dry-run envelope on defaults, refusal without confirm, execute with both."""
     gated = [
-        ("aitbc_mcp_cli_tools_generated_wallet", "aitbc_wallet_create", {"name": "w1"}),
+        ("aitbc_mcp_cli_tools_generated_wallet_create", "aitbc_wallet_create", {"name": "w1"}),
         (
             "aitbc_mcp_cli_tools_generated_transactions",
             "aitbc_transactions_send",
@@ -594,7 +594,7 @@ def test_mutating_gate_check_still_enforced():
         ),
         ("aitbc_mcp_cli_tools_generated_ai", "aitbc_ai_submit", {}),
         (
-            "aitbc_mcp_cli_tools_generated_market",
+            "aitbc_mcp_cli_tools_generated_market_offer",
             "aitbc_market_offer",
             {"service_type": "whisper", "model_or_variant": "tiny", "price": "1"},
         ),
@@ -657,17 +657,17 @@ def test_read_only_curated_tools_have_ungated_twins():
         (aitbc_mcp_cli_tools.get_node_island_info, "aitbc_mcp_cli_tools_generated_node", "aitbc_node_island_island_info"),
         (
             aitbc_mcp_cli_tools_market.get_market_escrow_status,
-            "aitbc_mcp_cli_tools_generated_market",
+            "aitbc_mcp_cli_tools_generated_market_escrow",
             "aitbc_market_escrow_status",
         ),
         (
             aitbc_mcp_cli_tools_market.get_market_exchange_price,
-            "aitbc_mcp_cli_tools_generated_market",
+            "aitbc_mcp_cli_tools_generated_market_exchange",
             "aitbc_market_exchange_price",
         ),
         (
             aitbc_mcp_cli_tools_market.list_market_exchange_deposits,
-            "aitbc_mcp_cli_tools_generated_market",
+            "aitbc_mcp_cli_tools_generated_market_exchange",
             "aitbc_market_exchange_list_deposits",
         ),
         (mcp_server.get_ai_job_results, "aitbc_mcp_cli_tools_generated_ai", "aitbc_ai_results"),
@@ -694,7 +694,7 @@ def test_ipfs_downloaders_are_gated_both_lanes():
         aitbc_mcp_cli_tools.download_ipfs,
         aitbc_mcp_cli_tools_market.download_market_ipfs,
         _generated("aitbc_mcp_cli_tools_generated_ipfs", "aitbc_ipfs_download"),
-        _generated("aitbc_mcp_cli_tools_generated_market", "aitbc_market_download"),
+        _generated("aitbc_mcp_cli_tools_generated_market_download", "aitbc_market_download"),
     ):
         params = inspect.signature(func).parameters
         assert "dry_run" in params and "confirm" in params, f"{func.__name__} lost its gate"
@@ -838,7 +838,7 @@ def test_removed_secret_params_stay_removed():
         ("aitbc_mcp_cli_tools_generated_http", "aitbc_http_call"): {"api_key"},
         ("aitbc_mcp_cli_tools_generated_ipfs", "aitbc_ipfs_island_swarm_key"): {"api_key"},
         ("aitbc_mcp_cli_tools_generated_ipfs", "aitbc_ipfs_download"): {"access_secret"},
-        ("aitbc_mcp_cli_tools_generated_market", "aitbc_market_download"): {"access_secret"},
+        ("aitbc_mcp_cli_tools_generated_market_download", "aitbc_market_download"): {"access_secret"},
         ("aitbc_mcp_cli_tools_generated_trade", "aitbc_trade_settle"): {"api_key", "secret"},
         ("aitbc_mcp_cli_tools_generated_trade", "aitbc_trade_lock_escrow"): {"api_key"},
     }
@@ -964,7 +964,7 @@ def test_group_options_forwarded_before_subcommand():
     group token and the subcommand path (Click rejects them after the leaf)."""
     import inspect
 
-    func = _generated("aitbc_mcp_cli_tools_generated_wallet", "aitbc_wallet_send")
+    func = _generated("aitbc_mcp_cli_tools_generated_wallet_send", "aitbc_wallet_send")
     params = inspect.signature(func).parameters
     for name in ("wallet_name", "wallet_path", "chain_id"):
         assert name in params, f"aitbc_wallet_send missing group option {name}"
@@ -994,7 +994,7 @@ def test_group_options_forwarded_before_subcommand():
 def test_group_options_omitted_when_unset():
     """Unset group options must not reach the command line — a default
     `--wallet-name=None` would send from a wallet literally named 'None'."""
-    func = _generated("aitbc_mcp_cli_tools_generated_wallet", "aitbc_wallet_send")
+    func = _generated("aitbc_mcp_cli_tools_generated_wallet_send", "aitbc_wallet_send")
     _clear()
     result = json.loads(func(to_address="0xabc", amount="1"))
     assert result.get("dry_run") is True
@@ -1007,7 +1007,7 @@ def test_group_options_on_read_only_leaf():
     """Read leaves under an optioned group forward group options too —
     `aitbc wallet --wallet-name X balance` reads the named wallet, not the
     active one."""
-    func = _generated("aitbc_mcp_cli_tools_generated_wallet", "aitbc_wallet_balance")
+    func = _generated("aitbc_mcp_cli_tools_generated_wallet_balance", "aitbc_wallet_balance")
     _clear()
     result = json.loads(func(wallet_name="genesis", role="hub"))
     assert result["returncode"] == 0
@@ -1021,7 +1021,7 @@ def test_market_group_wallet_option_forwarded():
     group level; leaves that do not redeclare them still get the parameters."""
     import inspect
 
-    func = _generated("aitbc_mcp_cli_tools_generated_market", "aitbc_market_offer")
+    func = _generated("aitbc_mcp_cli_tools_generated_market_offer", "aitbc_market_offer")
     params = inspect.signature(func).parameters
     # The market group option declares the --wallet flag under the parameter
     # name `market_wallet` (and likewise --wallet-path → market_wallet_path).
