@@ -2,16 +2,21 @@
 Load Balancer for Agent Distribution and Task Assignment
 """
 
+from __future__ import annotations
+
 import asyncio
 import hashlib
 import json
+import sqlite3
 import statistics
 import uuid
 from collections import deque
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from enum import StrEnum
-from typing import Any
+from typing import TYPE_CHECKING, Any
+
+from sqlalchemy.exc import SQLAlchemyError
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.network.url_safety import avalidate_fleet_outbound_url
@@ -19,6 +24,9 @@ from aitbc.network.url_safety import avalidate_fleet_outbound_url
 from ..protocols.communication import AgentMessage
 from ..protocols.message_types import create_task_message
 from .agent_discovery import AgentRegistry, AgentStatus
+
+if TYPE_CHECKING:
+    from ..storage.assignment_store import TaskAssignmentStore
 
 logger = get_logger(__name__)
 
@@ -42,6 +50,10 @@ try:
     _OPS_ERRORS = _OPS_ERRORS + (httpx.HTTPError,)
 except ImportError:
     pass
+
+# Durable-store failure surface for the assignment write-through paths:
+# everything in _OPS_ERRORS plus DBAPI/SQLAlchemy errors from aitbc.db.
+_STORE_ERRORS: tuple[type[Exception], ...] = _OPS_ERRORS + (sqlite3.Error, SQLAlchemyError)
 
 
 class LoadBalancingStrategy(StrEnum):
@@ -134,8 +146,13 @@ class AgentWeight:
 class LoadBalancer:
     """Advanced load balancer for agent distribution"""
 
-    def __init__(self, registry: AgentRegistry) -> None:
+    def __init__(self, registry: AgentRegistry, assignment_store: TaskAssignmentStore | None = None) -> None:
         self.registry = registry
+        # #2163: optional durable backend for task_assignments (same
+        # write-through-cache convention as PaymentEscrow's EscrowStore).
+        # When wired, every mutation is persisted and pending rows are
+        # rehydrated here so a restart cannot strand escrowed tasks.
+        self._assignment_store = assignment_store
         self.strategy = LoadBalancingStrategy.LEAST_CONNECTIONS
         self.agent_weights: dict[str, AgentWeight] = {}
         self.agent_metrics: dict[str, LoadMetrics] = {}
@@ -154,6 +171,57 @@ class LoadBalancer:
         self._max_assignments = 10_000
         self._assignment_timeout_seconds = 3600.0
         self._lock = asyncio.Lock()
+        if assignment_store is not None:
+            self._load_assignments_from_store()
+
+    def _load_assignments_from_store(self) -> None:
+        """Rehydrate persisted assignments at construction (write-through cache).
+
+        Mirrors ``PaymentEscrow``'s store reload: a store failure degrades to
+        an empty view rather than refusing to start — the error is loud in
+        the logs and in-flight chain state is unaffected. Rehydrated pending
+        rows also rebuild their ``pending_tasks`` count so per-agent capacity
+        accounting survives the restart too.
+        """
+        store = self._assignment_store
+        if store is None:
+            return
+        try:
+            for persisted in store.load_all():
+                self.task_assignments[persisted.task_id] = persisted
+                if persisted.status == "pending":
+                    metrics = self.agent_metrics.setdefault(persisted.agent_id, LoadMetrics())
+                    metrics.pending_tasks += 1
+        except _STORE_ERRORS as e:
+            logger.error("Failed to load persisted task assignments: %s", e)
+        else:
+            if self.task_assignments:
+                logger.info("Reloaded %d persisted task assignment(s)", len(self.task_assignments))
+                self._evict_terminal_assignments()
+
+    def _persist_assignment(self, assignment: TaskAssignment) -> None:
+        """Write ``assignment`` through to the store (best effort).
+
+        A store failure is logged but never raised: the in-memory record —
+        which the completion endpoints and sweeper act on — is already
+        updated, so raising would only mislead the caller into retrying a
+        settled transition (#2163, same rationale as ``PaymentEscrow._persist``).
+        """
+        if self._assignment_store is None:
+            return
+        try:
+            self._assignment_store.save(assignment)
+        except _STORE_ERRORS as e:
+            logger.error("Failed to persist task assignment %s: %s", assignment.task_id, e)
+
+    def _delete_assignment(self, task_id: str) -> None:
+        """Drop ``task_id`` from the store after in-memory eviction (best effort)."""
+        if self._assignment_store is None:
+            return
+        try:
+            self._assignment_store.delete(task_id)
+        except _STORE_ERRORS as e:
+            logger.error("Failed to delete persisted task assignment %s: %s", task_id, e)
 
     def set_strategy(self, strategy: LoadBalancingStrategy) -> None:
         """Set load balancing strategy"""
@@ -220,6 +288,7 @@ class LoadBalancer:
                 task_data["task_id"] = task_id
                 assignment = TaskAssignment(task_id=task_id, agent_id=selected_agent, assigned_at=datetime.now(UTC))
                 self.task_assignments[task_id] = assignment
+                self._persist_assignment(assignment)
                 self.assignment_history.append(assignment)
                 self._evict_terminal_assignments()
                 self.total_assignments += 1
@@ -265,6 +334,7 @@ class LoadBalancer:
                         metrics.avg_response_time = (
                             metrics.avg_response_time * (total_completed - 1) + response_time
                         ) / total_completed
+            self._persist_assignment(assignment)
             logger.info("Task %s completed by agent %s, success: %s", task_id, assignment.agent_id, success)
         except _OPS_ERRORS as e:
             logger.error("Error completing task %s: %s", task_id, e)
@@ -301,6 +371,7 @@ class LoadBalancer:
                 metrics.pending_tasks = max(0, metrics.pending_tasks - 1)
                 metrics.failed_tasks += 1
             self.failed_assignments += 1
+            self._persist_assignment(assignment)
             expired.append(task_id)
             logger.warning("Task assignment %s timed out waiting for agent %s", task_id, agent_id)
         return expired
@@ -322,6 +393,7 @@ class LoadBalancer:
         excess = len(self.task_assignments) - self._max_assignments
         for assignment in terminal[: max(0, min(excess, len(terminal)))]:
             self.task_assignments.pop(assignment.task_id, None)
+            self._delete_assignment(assignment.task_id)
 
     @staticmethod
     def _build_discovery_query(requirements: dict[str, Any] | None, chain_id: str | None) -> dict[str, Any]:

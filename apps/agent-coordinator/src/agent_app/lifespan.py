@@ -177,6 +177,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     from .protocols.message_types import MessageProcessor
     from .routing.agent_discovery import AgentDiscoveryService, AgentRegistry
     from .routing.load_balancer import LoadBalancer, LoadBalancingStrategy, TaskDistributor
+    from .storage.assignment_store import TaskAssignmentStore
     from .storage.message_storage import MessageStorage, PeerStorage
 
     from .config import settings
@@ -187,7 +188,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     state.agent_registry = AgentRegistry(redis_url=redis_url)
     await state.agent_registry.start()
     state.discovery_service = AgentDiscoveryService(state.agent_registry)
-    state.load_balancer = LoadBalancer(state.agent_registry)
+    # #2163: assignments persist to the shared agent DB (same write-through
+    # convention as the escrow store) so a restart cannot strand escrowed
+    # tasks whose task -> agent mapping lived only in memory.
+    state.load_balancer = LoadBalancer(state.agent_registry, assignment_store=TaskAssignmentStore())
     state.load_balancer.set_strategy(LoadBalancingStrategy.LEAST_CONNECTIONS)
     state.task_distributor = TaskDistributor(state.load_balancer)
     state.communication_manager = CommunicationManager("agent-coordinator")
