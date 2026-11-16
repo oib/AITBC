@@ -55,11 +55,9 @@ class TestBlockchainRouter:
         client = TestClient(app)
 
         response = client.get("/v1/status")
-        assert response.status_code == 200
-        data = response.json()
-        # On NetworkError, the router returns mock data with "synced" status
-        assert data["status"] == "synced"
-        assert data["block"] == 0
+        # #2170: a dead RPC node is an honest 503 — never mock "synced" data.
+        assert response.status_code == 503
+        assert response.json()["detail"] == "Blockchain RPC unavailable"
 
     @patch("coordinator_api.config.settings")
     @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")

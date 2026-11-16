@@ -22695,7 +22695,7 @@
           "Enhanced Governance"
         ],
         "summary": "Get Treasury Balance",
-        "description": "Get treasury balance for global or specific region",
+        "description": "Get treasury balance for global or specific region.\n\nDisabled until real on-chain treasury reads are implemented \u2014 the\nprevious implementation returned hardcoded zeros as if they were a\nlive balance (#2170).",
         "operationId": "get_treasury_balance_v1_governance_enhanced_treasury_balance_get",
         "parameters": [
           {
@@ -22738,8 +22738,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "Treasury balance reads are not implemented: no on-chain treasury integration exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -22856,7 +22856,7 @@
           "Enhanced Governance"
         ],
         "summary": "Get Treasury Transactions",
-        "description": "Get treasury transaction history",
+        "description": "Get treasury transaction history.\n\nDisabled until real on-chain treasury reads are implemented \u2014 the\nprevious implementation always returned an empty list regardless of\nactual treasury activity (#2170).",
         "operationId": "get_treasury_transactions_v1_governance_enhanced_treasury_transactions_get",
         "parameters": [
           {
@@ -22925,8 +22925,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "Treasury transaction reads are not implemented: no on-chain treasury integration exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -23024,7 +23024,7 @@
           "Enhanced Governance"
         ],
         "summary": "Get Developer Staking Pools",
-        "description": "Get staking pools for a specific developer or all pools",
+        "description": "Get staking pools for a specific developer or all pools.\n\nDisabled until real on-chain staking reads are implemented \u2014 the\nprevious implementation always returned an empty list regardless of\nactual staking activity (#2170).",
         "operationId": "get_developer_staking_pools_v1_governance_enhanced_staking_pools_get",
         "parameters": [
           {
@@ -23070,8 +23070,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "Staking pool reads are not implemented: no on-chain staking integration exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -23089,7 +23089,7 @@
           "Enhanced Governance"
         ],
         "summary": "Calculate Staking Rewards",
-        "description": "Calculate staking rewards for a specific position",
+        "description": "Calculate staking rewards for a specific position.\n\nDisabled until real on-chain staking reads are implemented \u2014 the\nprevious implementation fabricated a flat 5% APY estimate (#2170).",
         "operationId": "calculate_staking_rewards_v1_governance_enhanced_staking_calculate_rewards_get",
         "parameters": [
           {
@@ -23160,8 +23160,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "Staking reward calculation is not implemented: no on-chain staking integration exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -23290,7 +23290,7 @@
           "Enhanced Governance"
         ],
         "summary": "Get Regional Governance Health",
-        "description": "Get health metrics for a specific region's governance",
+        "description": "Get health metrics for a specific region's governance.\n\nDisabled until real per-region governance metrics exist \u2014 the previous\nimplementation returned a hardcoded health_score of 100 (#2170).",
         "operationId": "get_regional_governance_health_v1_governance_enhanced_analytics_regional_health__region__get",
         "parameters": [
           {
@@ -23326,8 +23326,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "Regional governance health metrics are not implemented",
             "content": {
               "application/json": {
                 "schema": {
@@ -33336,7 +33336,7 @@
           "blockchain"
         ],
         "summary": "Blockchain Status",
-        "description": "Get blockchain status.",
+        "description": "Get blockchain status.\n\nA dead RPC node is an honest 503 \u2014 the previous fallback returned\n``{\"status\": \"synced\", ...}`` mock data with HTTP 200, so a down chain\nlooked healthy (#2170).",
         "operationId": "blockchain_status_v1_status_get",
         "responses": {
           "200": {
@@ -33347,6 +33347,26 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Blockchain Status V1 Status Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to get blockchain status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Blockchain RPC unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
