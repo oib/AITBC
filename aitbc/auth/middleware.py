@@ -212,6 +212,15 @@ class AuthMiddleware:
             await self.app(scope, receive, send)
             return
 
+        # Credential boundary (#2140): this middleware intentionally recognizes
+        # only ``Authorization: Bearer <jwt>`` and ``X-Api-Key`` miner keys.
+        # ``Authorization: ApiKey <key>`` is an agent-coordinator scoped-key
+        # credential consumed by router-level ``get_current_user`` /
+        # ``agent_auth`` on services that do NOT mount AuthMiddleware
+        # (coordinator-api has no ``get_current_user`` consumer). Accepting it
+        # here would validate against APIKeyManager's node-shared store and
+        # yield role="api", which the security matrix cannot express — a
+        # privilege-surface widening the matrix never intended. Deliberate 401.
         if await self._try_bearer_auth(request, scope, receive, send, auth_level):
             return
         if await self._try_miner_api_key_auth(request, scope, receive, send, auth_level):
