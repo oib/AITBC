@@ -44,7 +44,7 @@ class PasswordManager:
             salt = bcrypt.gensalt()
             hashed = bcrypt.hashpw(password.encode("utf-8"), salt)
             return {"status": "success", "hashed_password": hashed.decode("utf-8"), "salt": salt.decode("utf-8")}
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error hashing password: %s", e)
             return {"status": "error", "message": str(e)}
 
@@ -63,7 +63,7 @@ class PasswordManager:
             password_bytes = password.encode("utf-8")
             is_valid = bcrypt.checkpw(password_bytes, hashed_bytes)
             return {"status": "success", "valid": is_valid}
-        except Exception as e:
+        except (ImportError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error verifying password: %s", e)
             return {"status": "error", "message": str(e)}
 

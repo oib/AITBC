@@ -185,7 +185,7 @@ class AuthManager:
                 data = self._read_file_store()
                 data[key] = api_key
                 self._write_file_store(data)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - pluggable keyring/file backend: any store failure must surface as a clean CLI error
             # Report it. The previous implementation always claimed success.
             error(f"Failed to store credential '{name}' for environment '{environment}': {exc}")
             return False
@@ -208,7 +208,7 @@ class AuthManager:
                 value = self._keyring.get_password(self.SERVICE_NAME, key)
             else:
                 value = self._read_file_store().get(key)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - pluggable keyring/file backend: any store failure must surface as a clean CLI error
             error(f"Failed to read credential '{name}' for environment '{environment}': {exc}")
             return None
 
@@ -264,7 +264,7 @@ class AuthManager:
                     return False
                 del data[key]
                 self._write_file_store(data)
-        except Exception:
+        except Exception:  # noqa: BLE001 - pluggable keyring/file backend: delete failure (incl. absent entry) reads as not-found
             # keyring raises PasswordDeleteError when the entry is absent; treating that
             # as "nothing to delete" keeps the command idempotent.
             warning(f"Credential '{name}' not found for environment '{environment}'")

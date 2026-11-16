@@ -98,7 +98,7 @@ class SecurityAuditor:
             self.log_file.parent.mkdir(parents=True, exist_ok=True)
             with self.log_file.open("a") as f:
                 f.write(json.dumps(asdict(log_entry), default=str) + "\n")
-        except Exception as e:
+        except (OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             logger.error("Failed to write audit log to file: %s", e)
 
     def get_recent_logs(self, hours: int = 24) -> list[SecurityAuditLog]:

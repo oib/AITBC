@@ -13,6 +13,7 @@ from decimal import Decimal
 from typing import Any, cast
 
 from aitbc.crypto.crypto import sign_transaction_hash
+from aitbc.exceptions import AITBCError
 
 from aitbc.utils import DEFAULT_TX_FEE_UNITS, ait_to_units
 
@@ -195,7 +196,7 @@ def create_signed_escrow_lock(
             from .chain_id import get_chain_id
 
             chain_id = get_chain_id(rpc_url, override=None, timeout=5, strict=True)
-        except Exception as e:
+        except (AITBCError, OSError, ArithmeticError, ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
             abort(
                 ctx,
                 f"Chain ID lookup via {rpc_url} failed: {e}. Set CHAIN_ID or point --rpc-url at a serving node",

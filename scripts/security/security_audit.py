@@ -32,6 +32,20 @@ ROOT_BY_DESIGN = frozenset(
     }
 )
 
+# Expected failure surface for the audit check functions (#1860): filesystem,
+# subprocess/git probes, and the data-shape builtins. A check that fails this
+# way is recorded as a critical finding; anything else is a bug and crashes
+# the audit rather than silently scoring zero.
+_CHECK_ERRORS = (
+    OSError,
+    subprocess.SubprocessError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+    RuntimeError,
+)
+
 
 class SecurityAudit:
     """Comprehensive security audit for AITBC production"""
@@ -86,7 +100,7 @@ class SecurityAudit:
                     elif issue["severity"] == "warning":
                         self.results["warnings"].append(issue)
 
-            except Exception as e:
+            except _CHECK_ERRORS as e:
                 # SECURITY FIX: Don't log full exception details to prevent leaking sensitive information
                 logger.error("Error in %s check: %s", category_name, type(e).__name__)
                 self.results["findings"].append(
@@ -163,7 +177,7 @@ class SecurityAudit:
                                 }
                             )
                             score -= 1
-            except Exception as e:
+            except (OSError, ValueError, TypeError) as e:
                 logger.warning("Could not check %s: %s", pattern, type(e).__name__)
 
         # Check for world-writable files
@@ -185,7 +199,7 @@ class SecurityAudit:
                     }
                 )
                 score -= min(5, len(writable_files))
-        except Exception as e:
+        except (subprocess.SubprocessError, OSError) as e:
             logger.warning("Could not check world-writable files: %s", type(e).__name__)
 
         return max(0, score), issues
@@ -248,7 +262,7 @@ class SecurityAudit:
             if sensitive_files:
                 issues.append({"type": "secrets_in_git", "files": sensitive_files, "severity": "critical"})
                 penalty = 5
-        except Exception:
+        except (subprocess.SubprocessError, OSError):
             logger.warning("Could not check git for secrets")
         return penalty, issues
 
@@ -425,7 +439,7 @@ class SecurityAudit:
                             }
                         )
                         score -= 1
-            except Exception as e:
+            except (OSError, ValueError) as e:  # per-file scan probe: unreadable/undecodable files are skipped
                 logger.warning("Could not analyze dependencies: %s", type(e).__name__)
 
         # Check for poetry.lock (Poetry source of truth)

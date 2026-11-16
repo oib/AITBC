@@ -107,7 +107,7 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: _er.Decimal, job
             provider,
             resp.text[:200],
         )
-    except Exception as e:
+    except _er._HTTP_PROBE_ERRORS_WITH_IMPORTS as e:
         _er._logger.error(
             "ESCROW_RELEASE TX submission failed for job_id=%s (provider %s was NOT paid on-chain): %s",
             job_id,

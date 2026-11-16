@@ -175,7 +175,7 @@ def _scan(etc_dir: Path = ETC_DIR, wallet_dirs: tuple[Path, ...] = WALLET_DIRS) 
                 with open(path) as f:
                     data = json.load(f)
                 results.extend(_audit_json(path, data))
-            except Exception as e:
+            except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
                 results.append({"source": str(path), "error": f"read/parse failed: {e}"})
 
     for path in sorted(etc_dir.glob("*.env")):
@@ -183,7 +183,7 @@ def _scan(etc_dir: Path = ETC_DIR, wallet_dirs: tuple[Path, ...] = WALLET_DIRS) 
             with open(path) as f:
                 text = f.read()
             results.extend(_audit_env(path, text))
-        except Exception as e:
+        except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             results.append({"source": str(path), "error": f"read failed: {e}"})
 
     # Backup copies are listed too, flagged: a rotated key lives on in them. They stay out of the verdict (see

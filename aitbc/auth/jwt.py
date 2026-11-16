@@ -288,6 +288,20 @@ def _identity_payload(payload: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+# Expected failure surface for the dict-style JWTHandler APIs below:
+# PyJWT encode/decode failures plus the data-shape builtins a malformed
+# payload, claims mapping, or expiry can raise. Anything outside propagates —
+# the decode path already maps every jwt failure to an error dict.
+_JWT_HANDLER_ERRORS = (
+    jwt.PyJWTError,
+    AttributeError,
+    KeyError,
+    OverflowError,
+    TypeError,
+    ValueError,
+)
+
+
 # Live instances so a secret reload can refresh every consumer without a
 # restart (SECRET-RELOAD-1, #1776). WeakSet: instances die with their service.
 _env_backed_instances: weakref.WeakSet[Any] = weakref.WeakSet()
@@ -543,7 +557,7 @@ class JWTHandler:
                 "expires_at": expire.isoformat() if expire else None,
                 "token_type": "Bearer",  # nosec
             }
-        except Exception as e:
+        except _JWT_HANDLER_ERRORS as e:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": "Token generation failed"}
 
@@ -559,7 +573,7 @@ class JWTHandler:
                 token_payload.setdefault("exp", expire)
             token = jwt.encode(token_payload, self.secret_key, algorithm=self.algorithm)
             return {"status": "success", "refresh_token": token, "expires_at": expire.isoformat() if expire else None}
-        except Exception as e:
+        except _JWT_HANDLER_ERRORS as e:
             logger.error("Error generating refresh token: %s", e)
             return {"status": "error", "message": "Token generation failed"}
 
@@ -592,7 +606,7 @@ class JWTHandler:
                     expired = True
                 except jwt.InvalidTokenError:
                     continue
-        except Exception as e:
+        except _JWT_HANDLER_ERRORS as e:
             logger.error("Error validating token: %s", e)
             return {"status": "error", "valid": False, "message": "Token validation failed"}
         if payload is None:
@@ -622,7 +636,7 @@ class JWTHandler:
                 "permissions": payload.get("permissions", []),
             }
             return self.generate_token(user_payload)
-        except Exception as e:
+        except _JWT_HANDLER_ERRORS as e:
             logger.error("Error refreshing token: %s", e)
             return {"status": "error", "message": "Token refresh failed"}
 

@@ -12,6 +12,7 @@ Usage:
 
 from __future__ import annotations
 
+import http.client
 import json
 from decimal import Decimal, InvalidOperation
 import os
@@ -145,7 +146,7 @@ class ChainlinkOracle:
                 timestamp=updated_at,
                 raw={"feed": feed_addr, "round_id": round_data[0], "answer": answer},
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - oracle probe: any feed/web3 failure means unavailable, fall through to next source
             logger.debug("Chainlink price fetch failed for %s: %s", pair, e)
             return None
 
@@ -274,7 +275,17 @@ class CoinGeckoOracle:
             self._cache[cache_key] = result
             self._store_to_disk(cache_key, result)
             return result
-        except Exception as e:
+        except (
+            ImportError,
+            OSError,
+            http.client.HTTPException,
+            RuntimeError,
+            ArithmeticError,
+            ValueError,
+            TypeError,
+            AttributeError,
+            KeyError,
+        ) as e:
             logger.warning("CoinGecko price fetch failed for %s: %s", cache_key, e)
             # Fall back to on-disk last-known-good cache
             disk_cached = self._get_cached_from_disk(cache_key)

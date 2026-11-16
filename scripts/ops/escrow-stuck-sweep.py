@@ -79,6 +79,20 @@ from typing import Any
 
 logger = logging.getLogger(__name__)
 
+# Expected failure surface for the read-only DB/ssh probes below (#1860):
+# sqlite3 errors, subprocess/ssh failures, JSON decode, and the usual
+# data-shape builtins. Anything else is a bug and should propagate.
+_READ_ERRORS = (
+    sqlite3.Error,
+    subprocess.SubprocessError,
+    OSError,
+    RuntimeError,
+    ValueError,
+    TypeError,
+    KeyError,
+    AttributeError,
+)
+
 # Terminal job states — coordinator ``job.state`` and ``marketplace_jobs.state``
 # share this vocabulary (services/jobs.py: COMPLETED, FAILED, CANCELED, EXPIRED;
 # CANCELED is the American spelling the code writes).
@@ -389,7 +403,7 @@ def _read_job_state(
             payments = payment_states(coord, job_ids)
         if "marketplace" not in failed_sources:
             jobs.update({k: v for k, v in job_states(market, job_ids).items() if k not in jobs})
-    except Exception as e:
+    except _READ_ERRORS as e:
         print(f"error: job/payment read failed: {e}", file=sys.stderr)
         return jobs, payments, True
     return jobs, payments, False
@@ -493,7 +507,7 @@ def _sweep_chains(chain_dbs: list[str], ssh_host: str | None):
         try:
             rows = locked_escrows(chain)
             settled_all |= settled_txs(chain)
-        except Exception as e:
+        except _READ_ERRORS as e:
             print(f"error: {e}", file=sys.stderr)
             failures += 1
             continue

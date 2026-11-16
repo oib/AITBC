@@ -9,6 +9,10 @@ from __future__ import annotations
 
 from . import escrow_routes as _er
 
+# Chain-probe failure surface lives on the facade as _er._HTTP_PROBE_ERRORS
+# (#1860): httpx transport/protocol errors, socket errors, and JSON decode /
+# response-shape builtins.
+
 
 def _chain_id() -> str:
     """This node's chain id, resolved lazily per call.
@@ -316,7 +320,7 @@ def _get_settlement_address() -> str | None:
         return None
     try:
         derived = _er.canonical_address(_er.derive_ethereum_address(key))
-    except Exception as e:
+    except (ImportError, ValueError, AttributeError, TypeError) as e:
         _er._logger.error("ESCROW_RELEASE: failed to derive settlement address: %s", e)
         return None
     if not _er._ESCROW_RELEASE_ADDRESS:
@@ -387,7 +391,7 @@ async def _find_existing_lock_tx(job_id: str) -> dict[str, _er.Any] | None:
         for tx in r.json() or []:
             if isinstance(tx, dict) and (tx.get("payload") or {}).get("job_id") == job_id:
                 return tx
-    except Exception as e:
+    except _er._HTTP_PROBE_ERRORS as e:
         _er._logger.warning("ESCROW_LOCK: settled-lock lookup failed for job_id=%s: %s", job_id, e)
     return None
 
@@ -428,7 +432,7 @@ async def _find_existing_release(job_id: str) -> str | None:
             if (tx.get("payload") or {}).get("job_id") == job_id:
                 settled_hash = tx.get("tx_hash")
                 return str(settled_hash) if settled_hash else None
-    except Exception as e:
+    except _er._HTTP_PROBE_ERRORS as e:
         _er._logger.warning("ESCROW_RELEASE: settled-release lookup failed for job_id=%s: %s", job_id, e)
     return None
 
@@ -449,7 +453,7 @@ async def _find_existing_refund(job_id: str) -> str | None:
             if (tx.get("payload") or {}).get("job_id") == job_id:
                 settled_hash = tx.get("tx_hash")
                 return str(settled_hash) if settled_hash else None
-    except Exception as e:
+    except _er._HTTP_PROBE_ERRORS as e:
         _er._logger.warning("ESCROW_REFUND: settled-refund lookup failed for job_id=%s: %s", job_id, e)
     return None
 
@@ -681,6 +685,6 @@ async def _find_contract_id(mgr: _er.Any, job_id: str) -> str | None:
         contract = await mgr.get_or_load_contract(job_id)
         if contract:
             return str(contract.contract_id)
-    except Exception as e:
+    except Exception as e:  # noqa: BLE001 - best-effort contract-id probe: any manager/DB failure degrades to None
         _er._logger.warning("Failed to load contract for job %s: %s", job_id, e)
     return None
