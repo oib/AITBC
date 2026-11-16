@@ -175,7 +175,7 @@ class PeerHealthMonitor:
 
             (time.time() - start_time) * 1000
 
-            writer.close()
+            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
             await writer.wait_closed()
 
             # Calculate availability based on recent history
@@ -213,7 +213,7 @@ class PeerHealthMonitor:
 
             transfer_time = time.time() - start_time
 
-            writer.close()
+            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
             await writer.wait_closed()
 
             # Calculate throughput in Mbps

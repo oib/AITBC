@@ -254,7 +254,7 @@ class WebsocketGossipBackend(GossipBackend):
                 # This echo satisfies the CURRENT attempt's wait — it is that
                 # attempt's own ack, not a late ack for the timed-out one.
                 await self._supersede_timed_out(msg_id, timed_out_attempt)
-            ack_event.set()
+            ack_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
             return True
         suppressed = await self._suppressed_sent(msg_id)
         if suppressed and timed_out_attempt is not None:

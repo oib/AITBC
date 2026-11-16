@@ -145,7 +145,7 @@ class GossipBroker:
             return
         if self._priority_enabled and self._priority_queue is not None:
             priority = self._priority_for_topic(topic)
-            self._priority_queue.put(topic, message, priority)
+            self._priority_queue.put(topic, message, priority)  # noqa: unawaited-async — PriorityMessageQueue.put() is synchronous
             return
         await self._backend.publish(topic, message)
 

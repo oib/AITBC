@@ -227,7 +227,7 @@ async def _stream_topic(topic: str, websocket: WebSocket) -> None:
     except WebSocketDisconnect:
         pass
     finally:
-        subscription.close()
+        subscription.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous
 
 
 def _connectable_chain_ids() -> list[str]:
