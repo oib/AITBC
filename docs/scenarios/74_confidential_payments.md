@@ -28,6 +28,13 @@ breadcrumb: Home > Scenarios > Confidential Payments
 > and only then tries the API. There is no persistence layer behind it —
 > output is the simulated/confidential-compute path, not ledger state.
 > Label it `(Simulated)` exactly like the `tee` group.
+>
+> The API leg falls back to the simulated result **only** when the
+> coordinator reports confidential TEE settlement unavailable (HTTP 503).
+> Auth failures — 401 invalid/expired token, 403 from an edge proxy —
+> abort with the server error instead of simulating a send that never
+> happened; refresh credentials (`aitbc auth login`) or fix the proxy
+> rule before retrying.
 
 This scenario covers `aitbc confidential`: a confidential send and balance
 query using amount commitments rather than plaintext values.
