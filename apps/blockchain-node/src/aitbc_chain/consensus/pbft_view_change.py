@@ -268,6 +268,40 @@ def _verify_lock_proof_record(msg: Any, kind: str, seq: int, lock_view: int, blo
     return canonical_address(sender), ""
 
 
+def _lock_proof_shape(vc: dict[str, Any], lock: dict[str, Any], required: int) -> tuple[bool, str]:
+    """Structural gate of a lock proof: cheap checks only, no signatures."""
+    lock_view = lock.get("view")
+    msgs = lock.get("msgs")
+    seq = vc.get("sequence_number")
+    vc_view = vc.get("view_number")
+    if not (_strict_int(lock_view) and lock_view >= 0) or not _non_empty_str(lock.get("block_hash")):
+        return False, "view_change lock has malformed view or block_hash"
+    if not _strict_int(seq) or not _strict_int(vc_view):
+        return False, "view_change lock sequence or view malformed"
+    if lock_view >= vc_view:
+        return False, "view_change lock view is not below the target view"
+    if lock.get("kind") not in ("prepare", "commit"):
+        return False, "view_change lock kind must be prepare or commit"
+    if not isinstance(msgs, list) or len(msgs) < required or len(msgs) > MAX_LOCK_PROOF_MSGS:
+        return False, "view_change lock proof missing, below quorum or over cap"
+    return True, ""
+
+
+def _lock_proof_members(msgs: list[Any], canonical: set[str], required: int) -> tuple[bool, str]:
+    """Members + distinct-voter count over the raw records, before any ECDSA."""
+    seen: set[str] = set()
+    for msg in msgs:
+        if not isinstance(msg, dict):
+            return False, "view_change lock proof record is not an object"
+        who = canonical_address(str(msg.get("sender", "")))
+        if who not in canonical:
+            return False, "view_change lock proof voter is not a consensus member"
+        seen.add(who)
+    if len(seen) < required:
+        return False, "view_change lock proof has too few distinct voters"
+    return True, ""
+
+
 def verify_vc_lock_proof(vc: dict[str, Any], canonical: set[str], required: int) -> tuple[bool, str]:
     """Verify the quorum certificate inside a VIEW_CHANGE ``lock`` (#2005 Q1).
 
@@ -286,35 +320,18 @@ def verify_vc_lock_proof(vc: dict[str, Any], canonical: set[str], required: int)
         return True, ""
     if not isinstance(lock, dict):
         return False, "view_change lock is not an object or null"
-    lock_view = lock.get("view")
-    block_hash = lock.get("block_hash")
-    kind = lock.get("kind")
-    msgs = lock.get("msgs")
-    seq = vc.get("sequence_number")
-    vc_view = vc.get("view_number")
-    if not (_strict_int(lock_view) and lock_view >= 0) or not _non_empty_str(block_hash):
-        return False, "view_change lock has malformed view or block_hash"
-    if not _strict_int(seq) or not _strict_int(vc_view):
-        return False, "view_change lock sequence or view malformed"
-    if lock_view >= vc_view:
-        return False, "view_change lock view is not below the target view"
-    if kind not in ("prepare", "commit"):
-        return False, "view_change lock kind must be prepare or commit"
-    if not isinstance(msgs, list) or len(msgs) < required or len(msgs) > MAX_LOCK_PROOF_MSGS:
-        return False, "view_change lock proof missing, below quorum or over cap"
-    seen: set[str] = set()
-    for msg in msgs:
-        if not isinstance(msg, dict):
-            return False, "view_change lock proof record is not an object"
-        who = canonical_address(str(msg.get("sender", "")))
-        if who not in canonical:
-            return False, "view_change lock proof voter is not a consensus member"
-        seen.add(who)
-    if len(seen) < required:
-        return False, "view_change lock proof has too few distinct voters"
+    ok, reason = _lock_proof_shape(vc, lock, required)
+    if not ok:
+        return False, reason
+    msgs = lock["msgs"]
+    ok, reason = _lock_proof_members(msgs, canonical, required)
+    if not ok:
+        return False, reason
     voters: set[str] = set()
     for msg in msgs:
-        who, reason = _verify_lock_proof_record(msg, str(kind), seq, lock_view, block_hash)
+        who, reason = _verify_lock_proof_record(
+            msg, str(lock["kind"]), vc["sequence_number"], lock["view"], lock["block_hash"]
+        )
         if reason:
             return False, reason
         voters.add(who)
