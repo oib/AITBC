@@ -2,7 +2,7 @@
 
 # `aitbc reinvest simulate`
 
-Simulate reinvestment actions for a given earnings amount.
+Simulate reinvestment actions for a given earnings amount. Uses the policy recorded by ``aitbc reinvest policy --agent-id <id>`` when present; option overrides take precedence, else engine defaults.
 
 ## Usage
 
@@ -19,6 +19,9 @@ aitbc reinvest simulate [OPTIONS]
 | `--budget-total` | text | `100` | no | Total budget for the agent |
 | `--staking-contract` | text | `0xSTAKE` | no | Staking contract address |
 | `--reserve-address` | text | `0xRESERVE` | no | Reserve address for capacity funds |
+| `--staking-pct` | text | — | no | Override stored policy: % of reinvested funds to staking |
+| `--reserve-pct` | text | — | no | Override stored policy: % of reinvested funds to capacity reserve |
+| `--min-reinvest` | text | — | no | Override stored policy: minimum reinvest amount |
 
 ## Examples
 

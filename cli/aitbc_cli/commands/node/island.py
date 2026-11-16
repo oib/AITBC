@@ -120,8 +120,17 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub, *, r
             error(f"Failed to join island - status={status}: {message}")
             raise click.Abort()
 
+        # Reject malformed join responses before persisting credentials —
+        # a response with null island_id/credentials would otherwise clobber
+        # the stored credential file (#2096).
+        returned_island_id = response.get("island_id")
+        returned_credentials = response.get("credentials")
+        if not returned_island_id or not isinstance(returned_credentials, dict) or not returned_credentials:
+            error(f"Join response missing island_id/credentials — refusing to store: {response}")
+            raise click.Abort()
+
         # Prefer RPC endpoint from response; fall back to the URL we used.
-        credentials = response.get("credentials") or {}
+        credentials = dict(returned_credentials)
         if not credentials.get("rpc_endpoint"):
             credentials["rpc_endpoint"] = f"{rpc_base}/rpc" if not rpc_base.endswith("/rpc") else rpc_base
 

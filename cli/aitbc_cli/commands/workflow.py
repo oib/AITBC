@@ -108,18 +108,46 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
 def list(ctx, format: str):
     """List all available workflows from the coordinator."""
     fmt = resolve_output_format(ctx, format)
+    config_obj = get_config()
+    coordinator_url = _coordinator_url(config_obj)
+    headers = _coordinator_headers(config_obj)
+
+    try:
+        import httpx
+
+        response = httpx.get(f"{coordinator_url}/v1/agents/workflows", headers=headers, timeout=15)
+    except Exception as e:  # noqa: BLE001 - surface any transport/config failure to the caller
+        abort(None, f"Error listing workflows: {e}")
+
+    if response.status_code != 200:
+        abort(None, f"Failed to list workflows: HTTP {response.status_code} — {response.text[:200]}")
+
+    raw = response.json()
+    # ``list`` is shadowed by this module's command function — use builtins.
+    import builtins
+
+    items = raw if isinstance(raw, builtins.list) else raw.get("workflows", []) if isinstance(raw, builtins.dict) else []
     workflows = [
-        {"name": "gpu-market", "status": "active", "steps": 5},
-        {"name": "ai-job-processing", "status": "active", "steps": 3},
-        {"name": "mining-optimization", "status": "inactive", "steps": 4},
+        {
+            "name": w.get("name", w.get("id", "?")),
+            "id": w.get("id"),
+            "owner_id": w.get("owner_id"),
+            "version": w.get("version"),
+            "steps": len(w.get("steps") or {}),
+        }
+        for w in items
+        if isinstance(w, dict)
     ]
 
     if fmt == "json":
         click.echo(json.dumps(workflows, indent=2))
     else:
+        if not workflows:
+            success("No workflows registered")
+            return
         success("Available workflows:")
         for wf in workflows:
-            click.echo(f"  - {wf['name']}: {wf['status']} ({wf['steps']} steps)")
+            click.echo(f"  - {wf['name']}: {wf['steps']} steps (v{wf.get('version', '?')})")
 
 
 @workflow.command(

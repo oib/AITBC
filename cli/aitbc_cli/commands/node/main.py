@@ -139,7 +139,7 @@ def chains(ctx, show_private, node_id):
                         click.echo(f"Error getting chains from node {nid}: {e}")
                         return []
 
-                tasks.append(get_chains_for_node(node_id, node_config))
+                tasks.append(get_chains_for_node(nid, node_config))
 
             results = await asyncio.gather(*tasks)
             for result in results:

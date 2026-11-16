@@ -28,8 +28,8 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_reinvest_policy(
     agent_id: Annotated[str, Field(description="The Agent-id.")],
-    staking_pct: Annotated[str | None, Field(description="Percentage directed to staking")] = None,
-    reserve_pct: Annotated[str | None, Field(description="Percentage kept in reserve")] = None,
+    staking_pct: Annotated[str | None, Field(description="Percentage of reinvested funds directed to staking")] = None,
+    reserve_pct: Annotated[str | None, Field(description="Percentage of reinvested funds kept as capacity reserve")] = None,
     min_reinvest: Annotated[str | None, Field(description="Minimum amount to reinvest")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -37,7 +37,7 @@ def aitbc_reinvest_policy(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Show or record a reinvestment policy for an agent."""
+    """Record a reinvestment policy for an agent (persisted locally)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -88,6 +88,11 @@ def aitbc_reinvest_simulate(
     budget_total: Annotated[str | None, Field(description="Total budget for the agent")] = None,
     staking_contract: Annotated[str | None, Field(description="Staking contract address")] = None,
     reserve_address: Annotated[str | None, Field(description="Reserve address for capacity funds")] = None,
+    staking_pct: Annotated[str | None, Field(description="Override stored policy: % of reinvested funds to staking")] = None,
+    reserve_pct: Annotated[
+        str | None, Field(description="Override stored policy: % of reinvested funds to capacity reserve")
+    ] = None,
+    min_reinvest: Annotated[str | None, Field(description="Override stored policy: minimum reinvest amount")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -102,6 +107,9 @@ def aitbc_reinvest_simulate(
             "budget_total": "budget-total",
             "staking_contract": "staking-contract",
             "reserve_address": "reserve-address",
+            "staking_pct": "staking-pct",
+            "reserve_pct": "reserve-pct",
+            "min_reinvest": "min-reinvest",
         },
     )
     args = None
