@@ -246,7 +246,11 @@ def register_wallet_with_service(wallet_address: str, wallet_data: dict, service
     """
     try:
         import httpx
+    except ImportError as e:
+        print(f"⚠️  Could not connect to wallet service: {e}")
+        return False
 
+    try:
         response = httpx.post(
             f"{service_url}/v1/wallets",
             json={
@@ -263,7 +267,7 @@ def register_wallet_with_service(wallet_address: str, wallet_data: dict, service
             print(f"⚠️  Failed to register with wallet service: {response.status_code}")
             return False
 
-    except Exception as e:
+    except (httpx.HTTPError, KeyError, TypeError, ValueError) as e:
         print(f"⚠️  Could not connect to wallet service: {e}")
         return False
 
@@ -368,7 +372,7 @@ def main():
     if init_db is not None:
         try:
             init_db(args.chain_id)
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - pluggable node-lib init_db may raise anything
             print(f"⚠️  Could not initialize database schema via node: {exc}")
     if initialize_genesis_database(genesis_block, allocations, db_path):
         print(f"Database initialized: {db_path}")

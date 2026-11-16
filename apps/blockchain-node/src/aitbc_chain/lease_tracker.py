@@ -93,7 +93,7 @@ class LeaseTracker:
             self._running = True
             self._cleanup_task = create_task_with_logging(self._cleanup_loop(), name="lease_tracker_cleanup")
             logger.info("Lease tracker started successfully")
-        except Exception as e:
+        except (redis.RedisError, OSError, ValueError, RuntimeError) as e:
             logger.error("Failed to start lease tracker: %s", e)
             raise
 
@@ -340,7 +340,7 @@ class LeaseTracker:
                 await self.cleanup_expired_leases()
             except asyncio.CancelledError:
                 break
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - cleanup loop must survive any per-tick failure
                 logger.error("Lease cleanup error: %s", e)
 
     async def cleanup_expired_leases(self) -> int:

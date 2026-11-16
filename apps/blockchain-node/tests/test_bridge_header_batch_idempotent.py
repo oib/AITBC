@@ -95,7 +95,7 @@ def test_two_writers_on_the_same_batch_both_finish_and_store_each_height_once(br
         try:
             start.wait()
             stored.append(mine._store_header_batch(CHAIN_ID, headers))
-        except BaseException as exc:
+        except BaseException as exc:  # noqa: BLE001 - test must capture any thread failure verbatim
             errors.append(exc)
 
     threads = [threading.Thread(target=_writer) for _ in range(2)]

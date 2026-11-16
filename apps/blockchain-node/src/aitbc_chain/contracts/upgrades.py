@@ -235,7 +235,7 @@ class ContractUpgradeManager:
             # Check voting results
             await self._finalize_voting(proposal_id)
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError, ArithmeticError, RuntimeError) as e:
             log_error(f"Error in voting process for {proposal_id}: {e}")
             proposal.status = UpgradeStatus.FAILED
 
@@ -347,7 +347,7 @@ class ContractUpgradeManager:
                 proposal.status = UpgradeStatus.FAILED
                 log_error(f"Upgrade execution failed: {proposal_id}")
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError, ArithmeticError, RuntimeError) as e:
             proposal.status = UpgradeStatus.FAILED
             log_error(f"Error executing upgrade {proposal_id}: {e}")
 
@@ -402,7 +402,7 @@ class ContractUpgradeManager:
 
             return True
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError, ArithmeticError, RuntimeError) as e:
             log_error(f"Upgrade execution error: {e}")
             return False
 
@@ -419,7 +419,7 @@ class ContractUpgradeManager:
                 # No rollback requested, finalize upgrade
                 await self._finalize_upgrade(proposal_id)
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError, ArithmeticError, RuntimeError) as e:
             log_error(f"Error in rollback window for {proposal_id}: {e}")
 
     async def _finalize_upgrade(self, proposal_id: str) -> None:
@@ -469,7 +469,7 @@ class ContractUpgradeManager:
             else:
                 return False, "Rollback execution failed"
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError, ArithmeticError, RuntimeError) as e:
             log_error(f"Rollback error for {proposal_id}: {e}")
             return False, f"Rollback failed: {str(e)}"
 
@@ -486,7 +486,7 @@ class ContractUpgradeManager:
 
             return True
 
-        except Exception as e:
+        except (KeyError, TypeError, ValueError, AttributeError, ArithmeticError, RuntimeError) as e:
             log_error(f"Rollback execution error: {e}")
             return False
 

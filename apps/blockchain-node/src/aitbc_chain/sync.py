@@ -161,7 +161,7 @@ class ChainSync(BulkSyncMixin, StateSyncMixin, BlockImportMixin, DivergenceMixin
                     logger.info("Auto re-sync completed: %s blocks imported", imported)
                     self._reset_rejection_counter(chain_id)
                     return True
-                except Exception as e:
+                except Exception as e:  # noqa: BLE001 - auto re-sync spans the full bulk-import surface; failure is logged and retried next rejection
                     logger.error("Auto re-sync failed: %s", e)
             else:
                 logger.warning("No source URL available for auto re-sync")

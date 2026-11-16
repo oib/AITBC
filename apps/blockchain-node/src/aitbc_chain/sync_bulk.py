@@ -7,6 +7,7 @@ import time
 from collections.abc import Sequence
 from typing import Any
 
+import httpx
 from sqlalchemy import text
 from sqlmodel import Session, select
 
@@ -148,7 +149,7 @@ class BulkSyncMixin(SyncBase):
                 e,
             )
             return []
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, RuntimeError) as e:
             # F-5b: put the error in the message so the journal formatter
             # renders it — the default JournalFormatter only renders
             # record.getMessage(), not the extra dict.
@@ -198,7 +199,7 @@ class BulkSyncMixin(SyncBase):
             remote_head = resp.json()
             remote_height = remote_head.get("height", -1)
             remote_hash = remote_head.get("hash", "")
-        except Exception as e:
+        except (httpx.HTTPError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             logger.error("Failed to fetch remote head", extra={"source_url": source_url, "error": str(e)})
             return None
         return remote_height, remote_hash
@@ -905,7 +906,7 @@ class BulkSyncMixin(SyncBase):
                 )
                 self._peer_tracker.record_success(peer_id, len(blocks))
                 return blocks
-            except Exception as e:
+            except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
                 self._logger.warning("Peer %s failed: %s", peer_id, e)
                 self._peer_tracker.record_failure(peer_id, str(e))
                 return []

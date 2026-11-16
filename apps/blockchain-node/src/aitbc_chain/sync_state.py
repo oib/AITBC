@@ -288,7 +288,7 @@ class StateSyncMixin(SyncBase):
         except PeerResponseTooLarge as e:
             self._logger.error("Failed to fetch state snapshot: %s", e)
             return None, {"synced": 0, "error": str(e)}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - peer fetch boundary: any transport failure becomes an error response
             self._logger.error("Failed to fetch state snapshot: %s", e)
             return None, {"synced": 0, "error": str(e)}
         return data, None
@@ -509,7 +509,7 @@ class StateSyncMixin(SyncBase):
                 {"from_height": from_height, "to_height": to_height, "chain_id": self._chain_id},
                 settings.sync_state_response_max_bytes,
             )
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - peer fetch boundary: any transport failure falls back to full sync
             self._logger.warning("Delta sync endpoint failed (%s), falling back to full sync", e)
             return None
 
@@ -532,7 +532,7 @@ class StateSyncMixin(SyncBase):
             # here — the root check below runs only after decode, so an
             # unbounded decompress_json is a pre-verification OOM (#1627).
             diff = decode_state_diff(diff_bytes, max_bytes=settings.sync_state_diff_max_bytes)
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - peer-controlled decode boundary: any decode failure falls back to full sync
             self._logger.error("Failed to decode state diff: %s", e)
             return None
         return diff, remote_parameters, remote_parameter_history, remote_aux

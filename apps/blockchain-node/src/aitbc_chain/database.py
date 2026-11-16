@@ -439,7 +439,7 @@ def _probe_chain_db_writable(engine: Engine | None) -> tuple[bool, str]:
             row = conn.execute(text("PRAGMA user_version")).first()
             current = int(row[0]) if row else 0
             conn.execute(text(f"PRAGMA user_version = {current}"))
-    except Exception as exc:
+    except (SQLAlchemyError, ValueError, TypeError) as exc:
         reason = classify_unrecoverable_db_error(exc)
         return (False, reason or f"{type(exc).__name__}: {exc}")
     return (True, "ok")
@@ -1461,7 +1461,7 @@ def shutdown_db(chain_id: str = "") -> None:
                 # Clean up temporary file
                 Path(temp_path).unlink(missing_ok=True)
                 del _db_temp_paths[resolved_chain_id]
-            except Exception as e:
+            except (OSError, ValueError, TypeError) as e:
                 raise RuntimeError(f"Failed to encrypt database for chain {resolved_chain_id}: {e}") from e
 
     # Dispose of engine and cached session factory
