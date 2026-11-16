@@ -813,6 +813,7 @@ class SlashingManager:
         phase: str,
         message_a: dict,
         message_b: dict,
+        unlock_justification: dict | None = None,
     ) -> SlashingEvent:
         """Build a cross-view PBFT COMMIT equivocation event (#1940 F3-A).
 
@@ -846,6 +847,10 @@ class SlashingManager:
             "views": view_numbers,
             "messages": ordered,
         }
+        if unlock_justification is not None:
+            # #2005 r3: the ``{"kind": "view_change", "new_view": ...}`` proof
+            # ``equivocation_policy.view_change_justified`` verifies at apply time.
+            evidence["unlock_justification"] = unlock_justification
         return SlashingEvent(
             validator_address=validator_address,
             condition=SlashingCondition.DOUBLE_SIGN,

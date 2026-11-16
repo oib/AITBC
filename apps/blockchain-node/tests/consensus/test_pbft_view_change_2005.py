@@ -932,7 +932,7 @@ class TestEngineFloorsAndPersistence:
         commit_a = _commit_rec(MEMBERS[0], HA, SEQ, 0)
         commit_b = _commit_rec(MEMBERS[0], HB, SEQ, 1)
         assert consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, commit_a, _proof(HA, SEQ, 0))
-        # Same (view, hash) idempotent; different refused.
+        # Same (view, hash) idempotent; a DIFFERENT hash is refused at any view.
         assert consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, commit_a, _proof(HA, SEQ, 0))
         assert not consensus.pbft_vc_commit_lock_arm(SEQ, 1, HB, commit_b, _proof(HB, SEQ, 1))
         assert consensus.pbft_vc_commit_lock(SEQ)["block_hash"] == HA
@@ -1610,3 +1610,168 @@ class TestQuorumIntersectionWithCertificates:
             else:
                 assert ok, (vc_senders, reason)
                 assert (kind, selected) == ("locked", HA)
+
+
+class TestR3Blockers:
+    """#2005 r3: the three release-blocking r2 findings plus durable prepared."""
+
+    @pytest.fixture(autouse=True)
+    def _iso(self, _fresh_chain):
+        return _fresh_chain
+
+    def test_same_hash_commit_lock_advances_to_higher_view(self, vc_armed):
+        """r2 B1: a committer of H at v must be able to commit H again at v' > v."""
+        consensus = _make_consensus()
+        c0 = _commit_rec(MEMBERS[0], HA, SEQ, 0)
+        c1 = _commit_rec(MEMBERS[0], HA, SEQ, 1)
+        assert consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, c0, _proof(HA, SEQ, 0))
+        assert consensus.pbft_vc_commit_lock_arm(SEQ, 1, HA, c1, _proof(HA, SEQ, 1))
+        lock = consensus.pbft_vc_commit_lock(SEQ)
+        assert lock["view"] == 1 and lock["commit"]["view_number"] == 1
+        # Never backwards, never a different hash.
+        assert not consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, c0, _proof(HA, SEQ, 0))
+        assert not consensus.pbft_vc_commit_lock_arm(SEQ, 2, HB, _commit_rec(MEMBERS[0], HB, SEQ, 2), _proof(HB, SEQ, 2))
+        assert consensus.pbft_vc_commit_lock(SEQ)["view"] == 1
+
+    def test_commit_lock_advance_survives_restart(self, vc_armed):
+        consensus = _make_consensus()
+        consensus.pbft_vc_commit_lock_arm(SEQ, 0, HA, _commit_rec(MEMBERS[0], HA, SEQ, 0), _proof(HA, SEQ, 0))
+        consensus.pbft_vc_commit_lock_arm(SEQ, 2, HA, _commit_rec(MEMBERS[0], HA, SEQ, 2), _proof(HA, SEQ, 2))
+        consensus2 = _make_consensus()
+        consensus2.load_state()
+        assert consensus2.pbft_vc_commit_lock(SEQ)["view"] == 2
+
+    @pytest.mark.asyncio
+    async def test_vc_outside_window_dropped(self, vc_armed):
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        pbft.state.current_sequence = SEQ
+        far_view = pbft.state.current_view + getattr(settings, "pbft_max_view_ahead", 64) + 1
+        far_seq = SEQ + getattr(settings, "pbft_max_sequence_ahead", 512) + 1
+        await pbft._handle_view_change_payload(_vc(MEMBERS[1], SEQ + 1, far_view))
+        await pbft._handle_view_change_payload(_vc(MEMBERS[1], far_seq, VIEW))
+        await pbft._handle_view_change_payload(_vc(MEMBERS[1], SEQ - 1, VIEW))
+        assert pbft._vc_messages == {}
+        await pbft._handle_view_change_payload(_vc(MEMBERS[1], SEQ + 1, VIEW))
+        assert (SEQ + 1, VIEW) in pbft._vc_messages
+
+    @pytest.mark.asyncio
+    async def test_honest_vc_survives_junk_flood(self, vc_armed):
+        """r2 B3: a flood of junk (seq, view) buckets must not starve the real pair."""
+        from aitbc_chain.consensus.pbft_view_change import MAX_VC_BUCKETS
+
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        pbft.state.current_sequence = SEQ - 1
+        for i in range(MAX_VC_BUCKETS + 20):
+            await pbft._handle_view_change_payload(_vc(MEMBERS[3], SEQ + 1 + i, VIEW))
+        assert len(pbft._vc_messages) == MAX_VC_BUCKETS
+        await pbft._handle_view_change_payload(_vc(MEMBERS[1], SEQ, VIEW))
+        await pbft._handle_view_change_payload(_vc(MEMBERS[2], SEQ, VIEW))
+        assert set(pbft._vc_messages[(SEQ, VIEW)]) == {canonical_address(MEMBERS[1]), canonical_address(MEMBERS[2])}
+        assert len(pbft._vc_messages) <= MAX_VC_BUCKETS
+
+    @pytest.mark.asyncio
+    async def test_stale_buckets_pruned_on_intake(self, vc_armed):
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        pbft.state.current_sequence = SEQ - 1
+        await pbft._handle_view_change_payload(_vc(MEMBERS[1], SEQ, VIEW))
+        pbft.state.current_sequence = SEQ + 5
+        await pbft._handle_view_change_payload(_vc(MEMBERS[1], SEQ + 6, VIEW))
+        assert (SEQ, VIEW) not in pbft._vc_messages
+
+    @staticmethod
+    def _cross_view_setup(monkeypatch, with_new_view: bool):
+        from types import SimpleNamespace
+
+        monkeypatch.setattr(settings, "pbft_cross_view_commit_lock_height", SEQ)
+        consensus = _make_consensus()
+        pbft = _pbft(consensus, MEMBERS[0], KEYS[MEMBERS[0]])
+        if with_new_view:
+            nv = _nv(_proposer(SEQ, 1), SEQ, 1, _vc_set(SEQ, 1, MEMBERS[:Q]), None)
+            pbft._new_views[(SEQ, 1)] = {"payload": nv, "kind": "free", "selected": None}
+        voter = MEMBERS[1]
+        for view, block_hash in ((0, HA), (1, HB)):
+            rec = _commit_rec(voter, block_hash, SEQ, view)
+            consensus.record_commit(voter, block_hash, view, message=SimpleNamespace(**rec))
+        return consensus
+
+    def test_justified_cross_view_commit_is_not_slashed(self, vc_armed, monkeypatch):
+        """r2 B2: an honest node committing B after a free NEW_VIEW is not DOUBLE_SIGN."""
+        consensus = self._cross_view_setup(monkeypatch, with_new_view=True)
+        assert consensus._slashing_manager.slashing_events == []
+
+    def test_unjustified_cross_view_commit_still_slashed_with_no_proof(self, vc_armed, monkeypatch):
+        consensus = self._cross_view_setup(monkeypatch, with_new_view=False)
+        events = consensus._slashing_manager.slashing_events
+        assert len(events) == 1
+        assert "unlock_justification" not in json.loads(events[0].evidence)
+
+    def test_event_carries_unlock_justification_when_supplied(self, vc_armed):
+        from aitbc_chain.consensus.slashing import SlashingManager
+
+        a = _commit_rec(MEMBERS[1], HA, SEQ, 0)
+        b = _commit_rec(MEMBERS[1], HB, SEQ, 1)
+        proof = {"kind": "view_change", "new_view": {"x": 1}}
+        event = SlashingManager().cross_view_vote_equivocation_event(
+            MEMBERS[1], SEQ, "commit", a, b, unlock_justification=proof
+        )
+        assert json.loads(event.evidence)["unlock_justification"] == proof
+
+    @pytest.mark.asyncio
+    async def test_prepared_record_blocks_same_view_second_block_after_restart(self, vc_armed):
+        """r2 durable-prepared: restart must not forget the prepared (view, hash)."""
+        consensus = _make_consensus()
+        local = MEMBERS[0]
+        assert consensus.pbft_vc_prepared_arm(SEQ, VIEW, HA)
+        pbft = _pbft(consensus, local, KEYS[local])  # fresh engine: _prepared_heights empty
+        assert pbft._prepared_heights == {}
+        assert pbft._durable_prepared(SEQ) == (VIEW, HA)
+        assert pbft._prepared_heights[SEQ] == (VIEW, HA)
+
+    @pytest.mark.asyncio
+    async def test_restart_cannot_prepare_a_second_block_in_the_same_view(self, vc_armed):
+        """The prepare path itself honours the durable record — even when a FREE
+        NEW_VIEW would otherwise permit any hash at that view (the amnesia hole)."""
+        consensus = _make_consensus()
+        local = MEMBERS[0]
+        assert consensus.pbft_vc_prepared_arm(SEQ, VIEW, HA)
+        pbft = _pbft(consensus, local, KEYS[local])  # restart: no in-memory prepared height
+        nv = _nv(_proposer(SEQ, VIEW), SEQ, VIEW, _vc_set(SEQ, VIEW, MEMBERS[:Q]), None)
+        pbft._new_views[(SEQ, VIEW)] = {"payload": nv, "kind": "free", "selected": None}
+        key = f"{SEQ}:{VIEW}"
+        proposer = _proposer(SEQ, VIEW)
+        signer = _pbft(consensus, proposer, KEYS[proposer])
+
+        def _offer(block_hash: str) -> PBFTMessage:
+            msg = PBFTMessage(
+                message_type=PBFTMessageType.PRE_PREPARE,
+                sender=proposer,
+                view_number=VIEW,
+                sequence_number=SEQ,
+                digest=pbft.get_message_digest(block_hash, SEQ, VIEW),
+                signature="",
+                timestamp=0.0,
+                block_hash=block_hash,
+                block=_proposal_body(proposer, block_hash),
+            )
+            signer._sign_message(msg)
+            return msg
+
+        offered_b = _offer(HB)
+        pbft.state.pre_prepare_messages[key] = offered_b
+        await pbft.prepare_phase(local, offered_b)
+        assert key not in pbft._local_prepared
+        assert not pbft.state.prepared_messages.get(key)
+        # Control: the same gate lets the previously prepared hash through, so
+        # the refusal above is the durable record and nothing else.
+        offered_a = _offer(HA)
+        pbft.state.pre_prepare_messages[key] = offered_a
+        await pbft.prepare_phase(local, offered_a)
+        assert key in pbft._local_prepared
+
+    def test_malformed_floor_fails_closed(self, vc_armed):
+        consensus = _make_consensus()
+        with pytest.raises(ValueError):
+            consensus._parse_view_change_records(json.dumps({str(SEQ): {"floor": "three", "proposals": {}}}))
