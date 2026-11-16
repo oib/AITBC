@@ -49,6 +49,7 @@ class _EvidenceMixin(_V9Mixin):
         recorder = self._equivocation_recorder()
         defer_save = callable(getattr(recorder, "save_state", None))
         extra: dict[str, Any] = {"persist": False} if defer_save else {}
+        extra.update(self._recorder_stake_kwargs(recorder, rec["validator"]))
         try:
             recorder.record_attestation_equivocation(
                 validator_address=rec["validator"],
@@ -511,6 +512,25 @@ class _EvidenceMixin(_V9Mixin):
         except Exception as e:
             logger.warning("Failed to persist signed attestation for %s: %s", self._chain_id, e)
 
+    def _recorder_stake_kwargs(self, recorder: Any, validator: str) -> dict[str, Any]:
+        """``accused_stake`` for recorders that cannot look it up themselves (#2135 R2).
+
+        The per-chain ``MultiValidatorPoA`` recorder resolves the stake in its
+        own wrapper; the module-global ``SlashingManager`` fallback has no
+        validator set, so the armed gate's zero-stake refusal was skipped there.
+        Resolve it from this chain's consensus when one is available.
+        """
+        if hasattr(recorder, "_accused_stake"):
+            return {}
+        try:
+            from .multi_validator_poa import get_consensus
+
+            stake = get_consensus(self._chain_id)._accused_stake(validator)
+        except Exception as e:  # noqa: BLE001 - no consensus for this chain -> legacy None
+            logger.debug("accused stake unavailable for %s: %s", validator, type(e).__name__)
+            return {}
+        return {"accused_stake": stake} if stake is not None else {}
+
     def _equivocation_recorder(self):
         """The slashing recorder for this chain (#1198 routing, #1263 reuse)."""
         from .slashing import slashing_manager
@@ -613,6 +633,7 @@ class _EvidenceMixin(_V9Mixin):
         # module-global SlashingManager never does, so there is nothing to defer.
         defer_save = not persist and callable(getattr(recorder, "save_state", None))
         extra: dict[str, Any] = {"persist": False} if defer_save else {}
+        extra.update(self._recorder_stake_kwargs(recorder, canon))
         # #1940 F1: the UC bundle that released THIS vote (keyed by the new
         # hash). Only meaningful for attestation-domain records — the excuse
         # binds signed attestation rounds, never proposal signatures.
