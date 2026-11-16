@@ -155,7 +155,7 @@ class MultiValidatorPoA:
         # B4: slashing manager (imported here to avoid circular import at module load)
         from .slashing import SlashingManager
 
-        self._slashing_manager = SlashingManager()
+        self._slashing_manager = SlashingManager(chain_id=self.chain_id)
 
         # B5: validator-set epoch rotation was removed (#848) — it was never
         # invoked, and the strategies in rotation.py demoted validators beyond
