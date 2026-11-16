@@ -1377,3 +1377,39 @@ class TestRespinQ1Q2:
         consensus._pbft_vc_corrupt = True
         assert not consensus.pbft_vc_floor_raise(SEQ, VIEW)
         assert not consensus.pbft_vc_prepared_arm(SEQ, 0, HA)
+
+
+class TestLockProofCostBound:
+    """The cheap structural/member/distinct checks must reject BEFORE any ECDSA
+    verification (they are masked by the later voter count otherwise)."""
+
+    @staticmethod
+    def _count(monkeypatch):
+        import aitbc_chain.consensus.pbft_view_change as core
+
+        calls: list[int] = []
+        real = core._verify_signature
+        monkeypatch.setattr(core, "_verify_signature", lambda *a, **k: calls.append(1) or real(*a, **k))
+        return calls
+
+    def _run(self, vc):
+        return verify_vc_lock_proof(vc, {canonical_address(m) for m in MEMBERS}, Q)
+
+    def test_sub_quorum_proof_costs_no_signature_verification(self, monkeypatch):
+        calls = self._count(monkeypatch)
+        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
+        vc["lock"]["msgs"] = _proof(HA, SEQ, 0, [MEMBERS[0]] * (Q - 1))
+        assert not self._run(vc)[0]
+        assert calls == []
+
+    def test_padded_duplicate_proof_costs_no_signature_verification(self, monkeypatch):
+        calls = self._count(monkeypatch)
+        vc = _locked(MEMBERS[0], HA, 0, SEQ, VIEW)
+        vc["lock"]["msgs"] = _proof(HA, SEQ, 0, [MEMBERS[0]] * (MAX_LOCK_PROOF_MSGS))
+        assert not self._run(vc)[0]
+        assert calls == []
+
+    def test_valid_proof_verifies_exactly_q_signatures(self, monkeypatch):
+        calls = self._count(monkeypatch)
+        assert self._run(_locked(MEMBERS[0], HA, 0, SEQ, VIEW)) == (True, "")
+        assert len(calls) == Q
