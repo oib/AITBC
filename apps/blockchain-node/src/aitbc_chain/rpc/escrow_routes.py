@@ -178,14 +178,10 @@ def _auto_stake(provider: str, amount: int, chain_id: str, job_id: str | None = 
     return None
 
 
-@router.post("/escrow/create", summary="Create escrow for a job")
-async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
-    """Create a new escrow contract after the buyer has signed an ESCROW_LOCK transaction.
+def _parse_create_request(body: dict[str, Any]) -> tuple[str, str, str, Decimal, str | None, str | None]:
+    """Validate the create request body and return its canonical fields.
 
-    The request must include either a fully signed `lock_tx` dict or the
-    `lock_signature` plus the lock transaction fields (nonce/fee).  The lock
-    transaction must transfer the escrow amount from the buyer to the node
-    wallet and include the job_id and provider in the payload.
+    Raises the same 400s the route raised inline, in the same order.
     """
     job_id = body.get("job_id")
     buyer = body.get("buyer")
@@ -205,71 +201,63 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="escrow buyer cannot be the node wallet") from None
 
     buyer_agent_id, provider_agent_id = _optional_agent_binding(body)
+    return job_id, buyer, provider, amount_dec, buyer_agent_id, provider_agent_id
 
-    mgr = get_escrow_manager()
-    if mgr is None:
-        raise HTTPException(status_code=503, detail="EscrowManager not initialised")
 
-    # Settlement capability gates create: a node that cannot sign the release
-    # or refund would still accept and submit the buyer's ESCROW_LOCK, leaving
-    # the funds locked with no settlement path on this node. The release gate's
-    # own predicate runs here — before the idempotent lock probe, before any
-    # submission, before any row or contract is written.
-    _require_settlement_signing(job_id, "ESCROW_CREATE")
+async def _existing_lock_create_result(
+    mgr: Any,
+    job_id: str,
+    buyer: str,
+    provider: str,
+    amount_dec: Decimal,
+    buyer_agent_id: str | None,
+    provider_agent_id: str | None,
+    existing_lock_hash: str,
+) -> dict[str, Any]:
+    """The idempotent response for a create whose ESCROW_LOCK already landed on-chain."""
 
-    # Idempotency: a retry whose first create already landed an ESCROW_LOCK
-    # on-chain must not submit a second lock. Mirrors the
-    # _find_existing_release/_find_existing_refund guards on the settlement
-    # paths — this was the one submission path without it.
-    existing_lock_hash = await _find_existing_lock(job_id)
-    if existing_lock_hash:
+    def _read_lock_row() -> Escrow | None:
+        with session_scope() as session:
+            return session.get(Escrow, job_id)
 
-        def _read_lock_row() -> Escrow | None:
-            with session_scope() as session:
-                return session.get(Escrow, job_id)
+    existing_row = await run_in_threadpool(_read_lock_row)
+    if existing_row and (
+        _to_canonical(existing_row.buyer) != _to_canonical(buyer)
+        or _to_canonical(existing_row.provider) != _to_canonical(provider)
+        or int(existing_row.amount) != ait_to_units(amount_dec)
+    ):
+        raise HTTPException(
+            status_code=409,
+            detail=(f"escrow for job {job_id} is already locked on-chain with different parameters (tx {existing_lock_hash})"),
+        ) from None
+    if existing_row:
+        _check_stored_agent_binding(existing_row, buyer_agent_id, provider_agent_id)
+    # ``_find_contract_id`` falls back to loading the contract from the DB
+    # row and finally to reconstructing row + contract from the on-chain
+    # lock, so a create whose response was lost after the lock landed still
+    # heals the local state here instead of returning contract_id=None.
+    existing_contract_id = await _find_contract_id(mgr, job_id)
+    _logger.info(
+        "ESCROW_LOCK already settled for job_id=%s (%s); returning existing escrow",
+        job_id,
+        existing_lock_hash,
+    )
+    return {
+        "success": True,
+        "duplicate": True,
+        "contract_id": existing_contract_id,
+        "job_id": job_id,
+        "buyer": buyer,
+        "provider": provider,
+        "amount": str(amount_dec),
+        "lock_tx_hash": (existing_row.lock_tx_hash if existing_row and existing_row.lock_tx_hash else existing_lock_hash),
+        "message": "escrow already locked",
+        **_escrow_agent_fields(existing_row),
+    }
 
-        existing_row = await run_in_threadpool(_read_lock_row)
-        if existing_row and (
-            _to_canonical(existing_row.buyer) != _to_canonical(buyer)
-            or _to_canonical(existing_row.provider) != _to_canonical(provider)
-            or int(existing_row.amount) != ait_to_units(amount_dec)
-        ):
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    f"escrow for job {job_id} is already locked on-chain with different parameters (tx {existing_lock_hash})"
-                ),
-            ) from None
-        if existing_row:
-            _check_stored_agent_binding(existing_row, buyer_agent_id, provider_agent_id)
-        # ``_find_contract_id`` falls back to loading the contract from the DB
-        # row and finally to reconstructing row + contract from the on-chain
-        # lock, so a create whose response was lost after the lock landed still
-        # heals the local state here instead of returning contract_id=None.
-        existing_contract_id = await _find_contract_id(mgr, job_id)
-        _logger.info(
-            "ESCROW_LOCK already settled for job_id=%s (%s); returning existing escrow",
-            job_id,
-            existing_lock_hash,
-        )
-        return {
-            "success": True,
-            "duplicate": True,
-            "contract_id": existing_contract_id,
-            "job_id": job_id,
-            "buyer": buyer,
-            "provider": provider,
-            "amount": str(amount_dec),
-            "lock_tx_hash": (existing_row.lock_tx_hash if existing_row and existing_row.lock_tx_hash else existing_lock_hash),
-            "message": "escrow already locked",
-            **_escrow_agent_fields(existing_row),
-        }
 
-    # No ESCROW_LOCK for this job_id reached the chain, so any contract or
-    # Escrow row still carrying the id is residue of a create whose lock
-    # submission failed -- or of a restart, since ``load_from_db`` revives every
-    # unsettled row. Drop it so the retry below is not rejected as a duplicate
-    # ("Invalid contract inputs") with no funds locked to show for it.
+async def _drop_stale_create_state(mgr: Any, job_id: str) -> None:
+    """Drop the stale in-memory contract and unsettled row a failed create leaves behind."""
     stale_contract_id = next((cid for cid, c in mgr.escrow_contracts.items() if c.job_id == job_id), None)
     if stale_contract_id is not None:
         mgr.escrow_contracts.pop(stale_contract_id, None)
@@ -293,18 +281,31 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     except Exception as e:
         _logger.warning("Failed to drop stale escrow record for job_id=%s: %s", job_id, e)
 
+
+def _create_energy_quote(body: dict[str, Any]) -> EnergyQuote | None:
+    """Parse the energy quote up front so the lock_signature reconstruction can bind it."""
     # E1: parse the energy quote up front so the lock_signature reconstruction
     # below can bind the quote id and digest into the payload. The signature
     # check downstream rejects any tx that differs from what the buyer signed,
     # so a field the buyer did not sign can never be smuggled in this way.
     energy_quote_data = body.get("energy_quote") or body.get("energy_quote_snapshot")
-    quote: EnergyQuote | None = None
-    if energy_quote_data:
-        try:
-            quote = EnergyQuote.from_dict(energy_quote_data)
-        except EnergyPricingError as exc:
-            raise HTTPException(status_code=400, detail=f"Invalid energy quote: {exc}") from exc
+    if not energy_quote_data:
+        return None
+    try:
+        return EnergyQuote.from_dict(energy_quote_data)
+    except EnergyPricingError as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid energy quote: {exc}") from exc
 
+
+def _resolve_create_lock_tx(
+    body: dict[str, Any],
+    job_id: str,
+    buyer: str,
+    provider: str,
+    amount_dec: Decimal,
+    quote: EnergyQuote | None,
+) -> dict[str, Any]:
+    """Return the lock tx to submit: the caller's pre-built one, or one rebuilt from lock_signature."""
     # Accept a pre-built signed lock tx or build one from the provided signature.
     signed_lock_tx = body.get("lock_tx")
     lock_signature = body.get("lock_signature")
@@ -314,8 +315,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             raise HTTPException(status_code=400, detail="lock_tx must be an object") from None
         if signed_lock_tx.get("type") != "ESCROW_LOCK":
             raise HTTPException(status_code=400, detail="lock_tx type must be ESCROW_LOCK") from None
-        tx_to_submit = signed_lock_tx
-    elif lock_signature:
+        return signed_lock_tx
+    if lock_signature:
         nonce = body.get("lock_nonce")
         if nonce is None:
             raise HTTPException(
@@ -349,10 +350,12 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from None
         tx_to_submit["signature"] = lock_signature
-    else:
-        raise HTTPException(status_code=400, detail="escrow lock is required: provide lock_tx or lock_signature") from None
+        return tx_to_submit
+    raise HTTPException(status_code=400, detail="escrow lock is required: provide lock_tx or lock_signature") from None
 
-    # Verify the lock tx moves the expected amount to the node wallet.
+
+def _verify_create_lock_tx(tx_to_submit: dict[str, Any], job_id: str, buyer: str, provider: str, amount_dec: Decimal) -> None:
+    """Verify the lock tx moves the expected amount to the node wallet."""
     try:
         expected_tx, _ = _build_lock_tx(job_id, buyer, provider, amount_dec, tx_to_submit.get("nonce", 0))
     except ValueError as e:
@@ -371,93 +374,298 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     if _to_canonical(payload.get("provider", "")) != _to_canonical(provider):
         raise HTTPException(status_code=400, detail="lock_tx payload provider mismatch") from None
 
-    # E1: validate the energy quote for fixed-duration GPU rentals.
+
+def _verify_energy_quote_identity(quote: EnergyQuote, job_id: str, buyer: str, provider: str) -> None:
+    """The quote must name this job, provider, buyer, and the native settlement route."""
+    if quote.job_id != job_id:
+        raise HTTPException(status_code=400, detail="energy quote job_id mismatch") from None
+    if quote.provider != provider:
+        raise HTTPException(status_code=400, detail="energy quote provider mismatch") from None
+    if quote.buyer != buyer:
+        raise HTTPException(status_code=400, detail="energy quote buyer mismatch") from None
+    if quote.settlement_route != SettlementRoute.NATIVE:
+        raise HTTPException(status_code=400, detail="energy quote settlement route is not native") from None
+
+
+def _verify_energy_quote_payload_binding(quote: EnergyQuote, payload: dict[str, Any], lock_amount_units: int) -> None:
+    """Bind the quote to the signed lock payload: principal, digest, route, and unit scale."""
+    if quote.principal_units != lock_amount_units:
+        raise HTTPException(
+            status_code=400,
+            detail=f"energy quote principal {quote.principal_units} does not match lock amount {lock_amount_units}",
+        ) from None
+    # Bind the quote digest and settlement metadata so a replay or
+    # substitution cannot fund a different route/asset/amount against the
+    # same quote id. The digest covers the canonical signed payload, so a
+    # mismatch here means the quote was altered after signing.
+    payload_energy_quote_digest = payload.get("energy_quote_digest")
+    if payload_energy_quote_digest and payload_energy_quote_digest != quote.digest_sha256().hex():
+        raise HTTPException(
+            status_code=400,
+            detail="energy quote digest in lock payload does not match supplied quote",
+        ) from None
+    if payload.get("settlement_route") and payload.get("settlement_route") != quote.settlement_route.value:
+        raise HTTPException(
+            status_code=400,
+            detail="energy quote settlement route in lock payload does not match quote",
+        ) from None
+    payload_unit_scale = payload.get("settlement_unit_scale")
+    if payload_unit_scale is not None and int(payload_unit_scale) != quote.settlement_unit_scale:
+        raise HTTPException(
+            status_code=400,
+            detail="energy quote settlement unit scale in lock payload does not match quote",
+        ) from None
+
+
+def _approved_energy_quote_breakdown(quote: EnergyQuote, max_rate_age_seconds: int) -> Any:
+    """Verify the operator signature and freshness of the quote; return its funding breakdown."""
+    # Verify the operator signature against the configured operator address
+    # so a self-attested quote cannot fund an escrow. ``evaluate_quote``
+    # below still compares the quote against ``quote.to_profile()`` /
+    # ``quote.to_rate()``, which is self-referential and therefore proves
+    # nothing on its own; this signature is what makes those embedded terms
+    # attributable to the operator. Replacing them with an authoritative
+    # oracle read is tracked separately.
+    _operator = _energy_operator_address()
+    if _operator and not quote.verify_operator_signature(_operator):
+        raise HTTPException(
+            status_code=422,
+            detail="Energy quote operator signature is missing or invalid",
+        ) from None
+
+    result = evaluate_quote(
+        quote=quote,
+        profile=quote.to_profile(),
+        rate=quote.to_rate(),
+        now=int(datetime.now(UTC).timestamp()),
+        max_rate_age_seconds=max_rate_age_seconds,
+    )
+    if not result.approved:
+        raise HTTPException(
+            status_code=422,
+            detail=f"Energy quote refused: {result.refusal_reason} ({result.refusal_code})",
+        ) from None
+    if result.breakdown is None:
+        raise HTTPException(status_code=422, detail="Energy quote did not produce a funding breakdown") from None
+    return result.breakdown
+
+
+def _create_energy_kwargs(
+    body: dict[str, Any],
+    tx_to_submit: dict[str, Any],
+    job_id: str,
+    buyer: str,
+    provider: str,
+    amount_dec: Decimal,
+    quote: EnergyQuote | None,
+    max_rate_age_seconds: int,
+) -> tuple[dict[str, Any], Decimal]:
+    """Validate a protected energy quote against the lock tx and return its contract kwargs.
+
+    Returns ``(energy_kwargs, amount_dec)``; ``amount_dec`` is re-quantized to the
+    quote's principal units when a protected quote applies, exactly as the route
+    did inline.
+    """
     energy_kwargs: dict[str, Any] = {}
-    if payload.get("energy_quote_id") or energy_quote_data:
-        if quote is None:
-            raise HTTPException(
-                status_code=400,
-                detail="Protected ESCROW_LOCK payload references an energy quote but no quote was supplied",
-            ) from None
-        if quote.job_id != job_id:
-            raise HTTPException(status_code=400, detail="energy quote job_id mismatch") from None
-        if quote.provider != provider:
-            raise HTTPException(status_code=400, detail="energy quote provider mismatch") from None
-        if quote.buyer != buyer:
-            raise HTTPException(status_code=400, detail="energy quote buyer mismatch") from None
-        if quote.settlement_route != SettlementRoute.NATIVE:
-            raise HTTPException(status_code=400, detail="energy quote settlement route is not native") from None
-        lock_amount_units = int(tx_to_submit.get("amount", 0))
-        if quote.principal_units != lock_amount_units:
-            raise HTTPException(
-                status_code=400,
-                detail=f"energy quote principal {quote.principal_units} does not match lock amount {lock_amount_units}",
-            ) from None
-        # Bind the quote digest and settlement metadata so a replay or
-        # substitution cannot fund a different route/asset/amount against the
-        # same quote id. The digest covers the canonical signed payload, so a
-        # mismatch here means the quote was altered after signing.
-        payload_energy_quote_digest = payload.get("energy_quote_digest")
-        if payload_energy_quote_digest and payload_energy_quote_digest != quote.digest_sha256().hex():
-            raise HTTPException(
-                status_code=400,
-                detail="energy quote digest in lock payload does not match supplied quote",
-            ) from None
-        if payload.get("settlement_route") and payload.get("settlement_route") != quote.settlement_route.value:
-            raise HTTPException(
-                status_code=400,
-                detail="energy quote settlement route in lock payload does not match quote",
-            ) from None
-        payload_unit_scale = payload.get("settlement_unit_scale")
-        if payload_unit_scale is not None and int(payload_unit_scale) != quote.settlement_unit_scale:
-            raise HTTPException(
-                status_code=400,
-                detail="energy quote settlement unit scale in lock payload does not match quote",
-            ) from None
+    # E1: validate the energy quote for fixed-duration GPU rentals.
+    energy_quote_data = body.get("energy_quote") or body.get("energy_quote_snapshot")
+    payload = tx_to_submit.get("payload") or {}
+    if not (payload.get("energy_quote_id") or energy_quote_data):
+        return energy_kwargs, amount_dec
+    if quote is None:
+        raise HTTPException(
+            status_code=400,
+            detail="Protected ESCROW_LOCK payload references an energy quote but no quote was supplied",
+        ) from None
+    _verify_energy_quote_identity(quote, job_id, buyer, provider)
+    _verify_energy_quote_payload_binding(quote, payload, int(tx_to_submit.get("amount", 0)))
+    breakdown = _approved_energy_quote_breakdown(quote, max_rate_age_seconds)
 
-        # Verify the operator signature against the configured operator address
-        # so a self-attested quote cannot fund an escrow. ``evaluate_quote``
-        # below still compares the quote against ``quote.to_profile()`` /
-        # ``quote.to_rate()``, which is self-referential and therefore proves
-        # nothing on its own; this signature is what makes those embedded terms
-        # attributable to the operator. Replacing them with an authoritative
-        # oracle read is tracked separately.
-        _operator = _energy_operator_address()
-        if _operator and not quote.verify_operator_signature(_operator):
-            raise HTTPException(
-                status_code=422,
-                detail="Energy quote operator signature is missing or invalid",
-            ) from None
+    # Use the exact locked units as the authoritative gross amount.
+    amount_dec = units_to_ait(quote.principal_units)
+    energy_kwargs = {
+        "protected": True,
+        "energy_quote_snapshot": quote.to_dict(include_signature=False),
+        "energy_quote_id": quote.quote_id,
+        "energy_quote_digest": quote.digest_sha256().hex(),
+        "energy_settlement_route": quote.settlement_route.value,
+        "energy_settlement_asset": quote.settlement_asset,
+        "energy_settlement_unit_scale": quote.settlement_unit_scale,
+        "energy_net_floor_units": quote.net_energy_floor_units,
+        "energy_provider_credit_units": breakdown.provider_credit_units,
+        "energy_fee_basis_points": quote.fee_basis_points,
+    }
+    return energy_kwargs, amount_dec
 
-        result = evaluate_quote(
-            quote=quote,
-            profile=quote.to_profile(),
-            rate=quote.to_rate(),
-            now=int(datetime.now(UTC).timestamp()),
-            max_rate_age_seconds=_energy_max_rate_age_seconds(),
+
+def _drop_created_contract(mgr: Any, contract_id: str) -> None:
+    """Evict a just-created contract whose funding could not be proven."""
+    mgr.escrow_contracts.pop(contract_id, None)
+    mgr.active_contracts.discard(contract_id)
+    mgr.disputed_contracts.discard(contract_id)
+
+
+async def _fund_created_contract(
+    mgr: Any, contract_id: str, lock_tx_hash: str, job_id: str, buyer: str, amount_units: int
+) -> None:
+    """Verify the lock still exists and carries this contract's facts before marking FUNDED."""
+    # Verify the lock still exists and carries this contract's facts before
+    # marking FUNDED. Admission's hash is not proof: a mempool-evicted lock
+    # would leave the job funded with nothing locked, and the settlement gates
+    # would 425 forever on a hash that never seals. On any failure the
+    # just-created contract is dropped, mirroring the stale-cleanup above, so
+    # the retry starts clean.
+    try:
+        verified_lock = await _verify_funding_lock(lock_tx_hash, job_id=job_id, buyer=buyer, amount_units=amount_units)
+        funded, fund_message = await mgr.fund_contract(contract_id, lock_tx_hash, verified_lock)
+    except HTTPException:
+        _drop_created_contract(mgr, contract_id)
+        raise
+    if not funded:
+        _drop_created_contract(mgr, contract_id)
+        raise HTTPException(status_code=425, detail=fund_message, headers={"Retry-After": "5"}) from None
+
+
+def _create_state_columns(mgr: Any, contract_id: str) -> dict[str, Any]:
+    """The contract's lifecycle columns, taken from the contract just funded so the row
+    carries what the in-memory object does. The id is the one create_contract
+    derived (contract_id_for), identical on every worker."""
+    funded_contract = mgr.escrow_contracts.get(contract_id)
+    if funded_contract is None:
+        return {}
+    return {
+        "contract_id": contract_id,
+        "state": EscrowState.FUNDED.value,
+        "expires_at": datetime.fromtimestamp(funded_contract.expires_at, UTC),
+        "fee_bps": int((funded_contract.fee_rate * 10000).to_integral_value()),
+        "milestones": serialise_milestones(funded_contract.milestones),
+        "current_milestone": funded_contract.current_milestone,
+    }
+
+
+def _persist_escrow_row_sync(
+    job_id: str,
+    buyer: str,
+    provider: str,
+    amount_units: int,
+    lock_tx_hash: str,
+    state_columns: dict[str, Any],
+    buyer_agent_id: str | None,
+    provider_agent_id: str | None,
+    energy_kwargs: dict[str, Any],
+) -> None:
+    """Write or update the Escrow row for a just-locked create (runs in the threadpool)."""
+    with session_scope() as session:
+        existing = session.get(Escrow, job_id)
+        if existing:
+            existing.status = "locked"
+            existing.lock_tx_hash = lock_tx_hash
+            existing.buyer = _to_canonical(buyer)
+            existing.provider = _to_canonical(provider)
+            existing.amount = amount_units
+            if buyer_agent_id:
+                existing.buyer_agent_id = buyer_agent_id
+            if provider_agent_id:
+                existing.provider_agent_id = provider_agent_id
+            for column, value in state_columns.items():
+                setattr(existing, column, value)
+            if energy_kwargs:
+                existing.protected = True
+                existing.energy_quote_snapshot = energy_kwargs.get("energy_quote_snapshot")
+                existing.energy_quote_id = energy_kwargs.get("energy_quote_id")
+                existing.energy_quote_digest = energy_kwargs.get("energy_quote_digest")
+                existing.energy_settlement_route = energy_kwargs.get("energy_settlement_route")
+                existing.energy_settlement_asset = energy_kwargs.get("energy_settlement_asset")
+                existing.energy_settlement_unit_scale = energy_kwargs.get("energy_settlement_unit_scale")
+                existing.energy_net_floor_units = energy_kwargs.get("energy_net_floor_units")
+                existing.energy_provider_credit_units = energy_kwargs.get("energy_provider_credit_units")
+                existing.energy_fee_basis_points = energy_kwargs.get("energy_fee_basis_points")
+        else:
+            escrow_record = Escrow(
+                job_id=job_id,
+                chain_id=_chain_id(),
+                buyer=_to_canonical(buyer),
+                provider=_to_canonical(provider),
+                amount=amount_units,
+                status="locked",
+                lock_tx_hash=lock_tx_hash,
+                buyer_agent_id=buyer_agent_id,
+                provider_agent_id=provider_agent_id,
+                **state_columns,
+                **(
+                    {
+                        "protected": True,
+                        "energy_quote_snapshot": energy_kwargs.get("energy_quote_snapshot"),
+                        "energy_quote_id": energy_kwargs.get("energy_quote_id"),
+                        "energy_quote_digest": energy_kwargs.get("energy_quote_digest"),
+                        "energy_settlement_route": energy_kwargs.get("energy_settlement_route"),
+                        "energy_settlement_asset": energy_kwargs.get("energy_settlement_asset"),
+                        "energy_settlement_unit_scale": energy_kwargs.get("energy_settlement_unit_scale"),
+                        "energy_net_floor_units": energy_kwargs.get("energy_net_floor_units"),
+                        "energy_provider_credit_units": energy_kwargs.get("energy_provider_credit_units"),
+                        "energy_fee_basis_points": energy_kwargs.get("energy_fee_basis_points"),
+                    }
+                    if energy_kwargs
+                    else {}
+                ),
+            )
+            session.add(escrow_record)
+        session.commit()
+
+
+@router.post("/escrow/create", summary="Create escrow for a job")
+async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
+    """Create a new escrow contract after the buyer has signed an ESCROW_LOCK transaction.
+
+    The request must include either a fully signed `lock_tx` dict or the
+    `lock_signature` plus the lock transaction fields (nonce/fee).  The lock
+    transaction must transfer the escrow amount from the buyer to the node
+    wallet and include the job_id and provider in the payload.
+    """
+    job_id, buyer, provider, amount_dec, buyer_agent_id, provider_agent_id = _parse_create_request(body)
+    amount = body.get("amount")
+
+    mgr = get_escrow_manager()
+    if mgr is None:
+        raise HTTPException(status_code=503, detail="EscrowManager not initialised")
+
+    # Settlement capability gates create: a node that cannot sign the release
+    # or refund would still accept and submit the buyer's ESCROW_LOCK, leaving
+    # the funds locked with no settlement path on this node. The release gate's
+    # own predicate runs here — before the idempotent lock probe, before any
+    # submission, before any row or contract is written.
+    _require_settlement_signing(job_id, "ESCROW_CREATE")
+
+    # Idempotency: a retry whose first create already landed an ESCROW_LOCK
+    # on-chain must not submit a second lock. Mirrors the
+    # _find_existing_release/_find_existing_refund guards on the settlement
+    # paths — this was the one submission path without it.
+    existing_lock_hash = await _find_existing_lock(job_id)
+    if existing_lock_hash:
+        return await _existing_lock_create_result(
+            mgr, job_id, buyer, provider, amount_dec, buyer_agent_id, provider_agent_id, existing_lock_hash
         )
-        if not result.approved:
-            raise HTTPException(
-                status_code=422,
-                detail=f"Energy quote refused: {result.refusal_reason} ({result.refusal_code})",
-            ) from None
-        if result.breakdown is None:
-            raise HTTPException(status_code=422, detail="Energy quote did not produce a funding breakdown") from None
 
-        # Use the exact locked units as the authoritative gross amount.
-        amount_dec = units_to_ait(quote.principal_units)
-        energy_kwargs = {
-            "protected": True,
-            "energy_quote_snapshot": quote.to_dict(include_signature=False),
-            "energy_quote_id": quote.quote_id,
-            "energy_quote_digest": quote.digest_sha256().hex(),
-            "energy_settlement_route": quote.settlement_route.value,
-            "energy_settlement_asset": quote.settlement_asset,
-            "energy_settlement_unit_scale": quote.settlement_unit_scale,
-            "energy_net_floor_units": quote.net_energy_floor_units,
-            "energy_provider_credit_units": result.breakdown.provider_credit_units,
-            "energy_fee_basis_points": quote.fee_basis_points,
-        }
+    # No ESCROW_LOCK for this job_id reached the chain, so any contract or
+    # Escrow row still carrying the id is residue of a create whose lock
+    # submission failed -- or of a restart, since ``load_from_db`` revives every
+    # unsettled row. Drop it so the retry below is not rejected as a duplicate
+    # ("Invalid contract inputs") with no funds locked to show for it.
+    await _drop_stale_create_state(mgr, job_id)
+
+    quote = _create_energy_quote(body)
+    tx_to_submit = _resolve_create_lock_tx(body, job_id, buyer, provider, amount_dec, quote)
+    _verify_create_lock_tx(tx_to_submit, job_id, buyer, provider, amount_dec)
+    energy_kwargs, amount_dec = _create_energy_kwargs(
+        body,
+        tx_to_submit,
+        job_id,
+        buyer,
+        provider,
+        amount_dec,
+        quote,
+        max_rate_age_seconds=_energy_max_rate_age_seconds(),
+    )
 
     # v0.25.5: do not call POST /register-account to bootstrap the buyer.  The
     # buyer must already have an on-chain account (genesis allocation or previous transfer)
@@ -492,106 +700,30 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
 
     amount_units = int(tx_to_submit.get("amount", 0)) if energy_kwargs else ait_to_units(amount_dec)
 
-    # Verify the lock still exists and carries this contract's facts before
-    # marking FUNDED. Admission's hash is not proof: a mempool-evicted lock
-    # would leave the job funded with nothing locked, and the settlement gates
-    # would 425 forever on a hash that never seals. On any failure the
-    # just-created contract is dropped, mirroring the stale-cleanup above, so
-    # the retry starts clean.
-    try:
-        verified_lock = await _verify_funding_lock(lock_tx_hash, job_id=job_id, buyer=buyer, amount_units=amount_units)
-        funded, fund_message = await mgr.fund_contract(contract_id, lock_tx_hash, verified_lock)
-    except HTTPException:
-        mgr.escrow_contracts.pop(contract_id, None)
-        mgr.active_contracts.discard(contract_id)
-        mgr.disputed_contracts.discard(contract_id)
-        raise
-    if not funded:
-        mgr.escrow_contracts.pop(contract_id, None)
-        mgr.active_contracts.discard(contract_id)
-        mgr.disputed_contracts.discard(contract_id)
-        raise HTTPException(status_code=425, detail=fund_message, headers={"Retry-After": "5"}) from None
+    await _fund_created_contract(mgr, contract_id, lock_tx_hash, job_id, buyer, amount_units)
 
     # #780 (b): the contract's lifecycle columns, taken from the contract just funded so
     # the row carries what the in-memory object does. The id is the one create_contract
     # derived (contract_id_for), identical on every worker.
-    funded_contract = mgr.escrow_contracts.get(contract_id)
-    state_columns: dict[str, Any] = {}
-    if funded_contract is not None:
-        state_columns = {
-            "contract_id": contract_id,
-            "state": EscrowState.FUNDED.value,
-            "expires_at": datetime.fromtimestamp(funded_contract.expires_at, UTC),
-            "fee_bps": int((funded_contract.fee_rate * 10000).to_integral_value()),
-            "milestones": serialise_milestones(funded_contract.milestones),
-            "current_milestone": funded_contract.current_milestone,
-        }
+    state_columns = _create_state_columns(mgr, contract_id)
 
     # Persist the Escrow DB record only once the lock was accepted. If the
     # process dies between submit and this write the row is missing, but the
     # next create (or release/refund) rebuilds it from the on-chain lock via
     # ``_reconstruct_escrow_from_chain`` — the funds are never orphaned.
     try:
-
-        def _persist_escrow_row() -> None:
-            with session_scope() as session:
-                existing = session.get(Escrow, job_id)
-                if existing:
-                    existing.status = "locked"
-                    existing.lock_tx_hash = lock_tx_hash
-                    existing.buyer = _to_canonical(buyer)
-                    existing.provider = _to_canonical(provider)
-                    existing.amount = amount_units
-                    if buyer_agent_id:
-                        existing.buyer_agent_id = buyer_agent_id
-                    if provider_agent_id:
-                        existing.provider_agent_id = provider_agent_id
-                    for column, value in state_columns.items():
-                        setattr(existing, column, value)
-                    if energy_kwargs:
-                        existing.protected = True
-                        existing.energy_quote_snapshot = energy_kwargs.get("energy_quote_snapshot")
-                        existing.energy_quote_id = energy_kwargs.get("energy_quote_id")
-                        existing.energy_quote_digest = energy_kwargs.get("energy_quote_digest")
-                        existing.energy_settlement_route = energy_kwargs.get("energy_settlement_route")
-                        existing.energy_settlement_asset = energy_kwargs.get("energy_settlement_asset")
-                        existing.energy_settlement_unit_scale = energy_kwargs.get("energy_settlement_unit_scale")
-                        existing.energy_net_floor_units = energy_kwargs.get("energy_net_floor_units")
-                        existing.energy_provider_credit_units = energy_kwargs.get("energy_provider_credit_units")
-                        existing.energy_fee_basis_points = energy_kwargs.get("energy_fee_basis_points")
-                else:
-                    escrow_record = Escrow(
-                        job_id=job_id,
-                        chain_id=_chain_id(),
-                        buyer=_to_canonical(buyer),
-                        provider=_to_canonical(provider),
-                        amount=amount_units,
-                        status="locked",
-                        lock_tx_hash=lock_tx_hash,
-                        buyer_agent_id=buyer_agent_id,
-                        provider_agent_id=provider_agent_id,
-                        **state_columns,
-                        **(
-                            {
-                                "protected": True,
-                                "energy_quote_snapshot": energy_kwargs.get("energy_quote_snapshot"),
-                                "energy_quote_id": energy_kwargs.get("energy_quote_id"),
-                                "energy_quote_digest": energy_kwargs.get("energy_quote_digest"),
-                                "energy_settlement_route": energy_kwargs.get("energy_settlement_route"),
-                                "energy_settlement_asset": energy_kwargs.get("energy_settlement_asset"),
-                                "energy_settlement_unit_scale": energy_kwargs.get("energy_settlement_unit_scale"),
-                                "energy_net_floor_units": energy_kwargs.get("energy_net_floor_units"),
-                                "energy_provider_credit_units": energy_kwargs.get("energy_provider_credit_units"),
-                                "energy_fee_basis_points": energy_kwargs.get("energy_fee_basis_points"),
-                            }
-                            if energy_kwargs
-                            else {}
-                        ),
-                    )
-                    session.add(escrow_record)
-                session.commit()
-
-        await run_in_threadpool(_persist_escrow_row)
+        await run_in_threadpool(
+            _persist_escrow_row_sync,
+            job_id,
+            buyer,
+            provider,
+            amount_units,
+            lock_tx_hash,
+            state_columns,
+            buyer_agent_id,
+            provider_agent_id,
+            energy_kwargs,
+        )
     except Exception as e:
         _logger.error("Failed to persist escrow to DB after lock: %s", e)
         raise HTTPException(status_code=500, detail="Failed to persist escrow") from e
