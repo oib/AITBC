@@ -672,7 +672,23 @@ def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_session
     return result
 
 
-@router.post("/market/gpu/quote")
+# The pricing steps moved into _price_quote_job (#2000), two calls below the handler, which is
+# deeper than the OpenAPI error scan descends; declare what _build_energy_quote can raise.
+_QUOTE_ERROR_BODY = {"application/json": {"schema": {"$ref": "#/components/schemas/ErrorResponse"}}}
+_QUOTE_PRICING_ERRORS: dict[int | str, dict[str, Any]] = {
+    400: {
+        "description": "buyer_id does not match resolved address for agent {request.buyer_agent_id}",
+        "content": _QUOTE_ERROR_BODY,
+    },
+    500: {"description": "Failed to sign energy quote", "content": _QUOTE_ERROR_BODY},
+    503: {
+        "description": ("Energy pricing oracle is not configured / Could not read energy inputs; refusing protected funding"),
+        "content": _QUOTE_ERROR_BODY,
+    },
+}
+
+
+@router.post("/market/gpu/quote", responses=_QUOTE_PRICING_ERRORS)
 @rate_limit(rate=30, per=60)
 def quote_gpu(
     request: GPUQuoteRequest,
@@ -717,7 +733,32 @@ def quote_gpu(
         ),
         ttl_seconds=duration_seconds + settings.energy_quote_lifetime_seconds + 60,
     )
-    job = job_service.create_job(client_id=request.buyer_id, req=job_create, enforce_inflight_cap=True)
+    # #2000: the job is created NON-DISPATCHABLE (payment hold) and committed
+    # before the quote is priced, because the quote needs its id. If anything
+    # after that fails the job is cancelled, so no failure path (and no race
+    # with a polling miner) can leave an unpriced dispatchable gpu_compute job.
+    job = job_service.create_job(client_id=request.buyer_id, req=job_create, enforce_inflight_cap=True, payment_hold=True)
+    try:
+        return _price_quote_job(session, job, gpu, request, duration_seconds)
+    except BaseException:
+        _cancel_failed_quote_job(session, job_service, job)
+        raise
+
+
+def _cancel_failed_quote_job(session: Session, job_service: JobService, job: Job) -> None:
+    """Cancel a quote's job after a post-create failure (#2000); never raises."""
+    job_id = job.id
+    try:
+        session.rollback()
+        job_service.cancel_job(job)
+    except Exception:  # noqa: BLE001 - cleanup must not mask the original failure
+        logger.exception("Could not cancel quote job %s after a failed quote", job_id)
+
+
+def _price_quote_job(
+    session: Session, job: Job, gpu: GPURegistry, request: GPUQuoteRequest, duration_seconds: int
+) -> dict[str, Any]:
+    """Build, evaluate and bind the energy quote on the (held) quote job."""
     job.protected = True
     job.resource_id = gpu.resource_id
     job.model_id = gpu.model_id or gpu.model

@@ -1617,3 +1617,115 @@ def test_get_gpu_reviews_respects_limit(client, client_token, available_gpu):
     resp = client.get(f"/v1/market/gpu/{available_gpu}/reviews?limit=2")
     assert resp.status_code == 200, resp.text
     assert len(resp.json()["reviews"]) == 2
+
+
+# --- #2000: a failed quote must not leave an unpriced dispatchable job ---
+
+
+def _quote_payload(gpu_id: str, **extra) -> dict:
+    return {
+        "buyer_id": "client1",
+        "gpu_id": gpu_id,
+        "duration_hours": 8760,
+        "gpu_count": 1,
+        "settlement_route": "native",
+        **extra,
+    }
+
+
+def _client_jobs(db_session) -> list[Job]:
+    db_session.expire_all()
+    return list(db_session.query(Job).all())
+
+
+def _online_miner(db_session) -> Miner:
+    miner = Miner(
+        id="miner_2000",
+        region="localhost",
+        capabilities={"gpus": [{"name": MODEL, "memory_mb": 16380}]},
+        status="ONLINE",
+        last_heartbeat=datetime.now(UTC),
+    )
+    db_session.add(miner)
+    db_session.commit()
+    return miner
+
+
+@pytest.mark.unit
+def test_refused_quote_leaves_no_dispatchable_job(client, client_token, db_session, native_pricing, available_gpu):
+    """A quote refused by evaluate_quote (cap below the minimum) is a 422 AND the
+    already-committed job is cancelled: nothing a miner can pick up."""
+    _seed_energy(db_session)
+    resp = client.post(
+        "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json=_quote_payload(available_gpu, buyer_max_amount=0.000001),
+    )
+    assert resp.status_code == 422
+    jobs = _client_jobs(db_session)
+    assert jobs and all(j.state == "CANCELED" for j in jobs)
+    assert JobService(db_session).acquire_next_job(_online_miner(db_session)) is None
+
+
+@pytest.mark.unit
+def test_quote_build_failure_cancels_the_job(client, client_token, db_session, native_pricing, available_gpu, monkeypatch):
+    from fastapi import HTTPException
+
+    import importlib
+
+    market_gpu = importlib.import_module("coordinator_api.contexts.market.routers.market_gpu")
+
+    def _boom(**_kwargs):
+        raise HTTPException(status_code=502, detail="oracle down")
+
+    _seed_energy(db_session)
+    monkeypatch.setattr(market_gpu, "_build_energy_quote", _boom)
+    resp = client.post(
+        "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json=_quote_payload(available_gpu),
+    )
+    assert resp.status_code == 502
+    jobs = _client_jobs(db_session)
+    assert jobs and all(j.state == "CANCELED" for j in jobs)
+    assert JobService(db_session).acquire_next_job(_online_miner(db_session)) is None
+
+
+@pytest.mark.unit
+def test_quote_job_is_held_while_unpriced(client, client_token, db_session, native_pricing, available_gpu, monkeypatch):
+    """The success-path race: at the moment the quote is being priced the job is
+    already committed — it must be non-dispatchable then, not only afterwards."""
+    import importlib
+
+    market_gpu = importlib.import_module("coordinator_api.contexts.market.routers.market_gpu")
+
+    seen: dict[str, object] = {}
+    real = market_gpu._build_energy_quote
+
+    def _spy(**kwargs):
+        job = db_session.get(Job, kwargs["job_id"])
+        seen["payment_status"] = job.payment_status
+        seen["miner_pick"] = JobService(db_session).acquire_next_job(_online_miner(db_session))
+        return real(**kwargs)
+
+    _seed_energy(db_session)
+    monkeypatch.setattr(market_gpu, "_build_energy_quote", _spy)
+    resp = client.post(
+        "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json=_quote_payload(available_gpu, duration_hours=0.05),
+    )
+    assert resp.status_code == 200
+    assert seen["payment_status"] == "pending"
+    assert seen["miner_pick"] is None
+
+
+@pytest.mark.unit
+def test_create_job_default_is_unchanged_and_hold_is_opt_in(db_session):
+    from coordinator_api.schemas import JobCreate
+
+    svc = JobService(db_session)
+    plain = svc.create_job("client1", JobCreate(payload={"type": "x"}, ttl_seconds=60))
+    held = svc.create_job("client1", JobCreate(payload={"type": "x"}, ttl_seconds=60), payment_hold=True)
+    assert plain.payment_status is None
+    assert held.payment_status == "pending"
