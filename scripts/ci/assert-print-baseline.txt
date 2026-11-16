@@ -2,7 +2,7 @@
      1 apps/agent-coordinator/src/agent_app/routers/tasks.py
      1 apps/blockchain-node/create_genesis.py
      1 apps/blockchain-node/init_genesis.py
-    17 apps/bridge-monitor/src/bridge_monitor/admin.py
+    14 apps/bridge-monitor/src/bridge_monitor/admin.py
      1 apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/client.py
      2 apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py
      1 apps/coordinator-api/src/coordinator_api/main.py
@@ -10,7 +10,7 @@
      1 apps/wallet/src/wallet_app/bridge/bridge_monitor.py
      1 apps/wallet/src/wallet_app/bridge/bridge_withdraw_monitor.py
     55 apps/wallet/src/wallet_app/bridge/sell_admin.py
-    47 apps/wallet/src/wallet_app/bridge/withdraw_admin.py
+    40 apps/wallet/src/wallet_app/bridge/withdraw_admin.py
      1 apps/wallet/src/wallet_app/spend_policy.py
      2 cli/aitbc_cli/commands/ai.py
      2 cli/aitbc_cli/commands/coin_requests.py
