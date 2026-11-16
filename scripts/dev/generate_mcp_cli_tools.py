@@ -1181,6 +1181,7 @@ def _write_groups_list_module(
     groups: dict[str, list[dict[str, Any]]],
     args: argparse.Namespace,
     written: list[Path],
+    module_groups: dict[str, str],
 ) -> int:
     """Emit the <master>_groups.py metadata module carrying GENERATED_AITBC_GROUPS."""
     groups_list_path = output_dir / f"{master_name}_groups.py"
@@ -1224,6 +1225,15 @@ def _write_groups_list_module(
             "    }",
             ")",
             "",
+            "# Module stem -> top-level CLI group.  Oversized groups are emitted as",
+            "# '<group>_<sub>' submodules (#1860), so the stem alone no longer",
+            "# names the group; consumers that map modules back to groups (the",
+            "# ALL_AITBC_GROUPS allow-list test) read this table instead of",
+            "# guessing from the filename.",
+            "GENERATED_MODULE_GROUPS = {",
+            *(f'    "{module}": "{group}",' for module, group in sorted(module_groups.items())),
+            "}",
+            "",
         ]
     )
     if args.check:
@@ -1234,6 +1244,77 @@ def _write_groups_list_module(
         groups_list_path.write_text(groups_list_output)
         written.append(groups_list_path)
         print(f"Wrote {len(groups)} group names to {groups_list_path}")
+    return 0
+
+
+# A group module whose rendered output exceeds this many lines is split one
+# level deeper — by the second command-path token (the CLI subcommand domain)
+# — so no generated module grows past the repo's module-size budget (#1860).
+# Only oversized groups split; every other group keeps its flat
+# ``<master>_<group>`` module name.
+MAX_GROUP_MODULE_LINES = 1500
+
+
+def _emit_split_module(
+    output_dir: Path,
+    module_name: str,
+    specs: list[dict[str, Any]],
+    args: argparse.Namespace,
+    written: list[Path],
+) -> int:
+    """Render and check/write one split module; return 0 or 1 on --check drift."""
+    module_path = output_dir / f"{module_name}.py"
+    module_output = render_module(args.mode, specs)
+
+    if args.check:
+        if not module_path.exists() or not _emitted_matches(module_path, module_output):
+            print(f"Generated module would change: {module_path}")
+            return 1
+        return 0
+
+    module_path.parent.mkdir(parents=True, exist_ok=True)
+    module_path.write_text(module_output)
+    written.append(module_path)
+    print(f"Wrote {len(specs)} tools to {module_path}")
+    return 0
+
+
+def _emit_group_or_submodules(
+    output_dir: Path,
+    master_name: str,
+    group: str,
+    specs: list[dict[str, Any]],
+    args: argparse.Namespace,
+    written: list[Path],
+    group_modules: list[str],
+    module_groups: dict[str, str],
+) -> int:
+    """Emit one group's module(s); oversized groups split by second path token.
+
+    A group whose rendered module exceeds ``MAX_GROUP_MODULE_LINES`` is bucketed
+    by the second command-path token (the CLI subcommand domain) into
+    ``<master>_<group>_<sub>`` modules, so e.g. ``wallet bridge *`` lands in
+    ``..._wallet_bridge.py``.  A spec at depth 1 (a bare top-level leaf) falls
+    into a "root" bucket.
+    """
+    safe_group = group.replace("-", "_")
+    if render_module(args.mode, specs).count("\n") <= MAX_GROUP_MODULE_LINES:
+        module_name = f"{master_name}_{safe_group}"
+        group_modules.append(module_name)
+        module_groups[module_name] = group
+        return _emit_split_module(output_dir, module_name, specs, args, written)
+
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for spec in specs:
+        sub = spec["path"][1].replace("-", "_") if len(spec["path"]) > 1 else "root"
+        buckets.setdefault(sub, []).append(spec)
+    for sub, sub_specs in sorted(buckets.items()):
+        module_name = f"{master_name}_{safe_group}_{sub}"
+        group_modules.append(module_name)
+        module_groups[module_name] = group
+        rc = _emit_split_module(output_dir, module_name, sub_specs, args, written)
+        if rc:
+            return rc
     return 0
 
 
@@ -1252,29 +1333,17 @@ def write_split_modules(results: list[dict[str, Any]], args: argparse.Namespace)
         raise ValueError("a CLI group named 'groups' would collide with the generated group-list module")
 
     group_modules: list[str] = []
+    module_groups: dict[str, str] = {}
     written: list[Path] = []
     for group, specs in sorted(groups.items()):
-        safe_group = group.replace("-", "_")
-        module_name = f"{master_name}_{safe_group}"
-        group_modules.append(module_name)
-        group_path = output_dir / f"{module_name}.py"
-        group_output = render_module(args.mode, specs)
-
-        if args.check:
-            if not group_path.exists() or not _emitted_matches(group_path, group_output):
-                print(f"Generated module would change: {group_path}")
-                return 1
-            continue
-
-        group_path.parent.mkdir(parents=True, exist_ok=True)
-        group_path.write_text(group_output)
-        written.append(group_path)
-        print(f"Wrote {len(specs)} tools to {group_path}")
+        rc = _emit_group_or_submodules(output_dir, master_name, group, specs, args, written, group_modules, module_groups)
+        if rc:
+            return rc
 
     # Group-list metadata module: the pivot allow-list in aitbc_mcp_server
     # derives from it.  It lives in its own module so importing it does not
     # pull in the tool modules (which import aitbc_mcp_server back).
-    rc = _write_groups_list_module(output_dir, master_name, groups, args, written)
+    rc = _write_groups_list_module(output_dir, master_name, groups, args, written, module_groups)
     if rc:
         return rc
 

@@ -85,13 +85,23 @@ _GROUPS_LIST_MODULE_STEM = "aitbc_mcp_cli_tools_generated_groups"
 
 
 def _generated_tool_groups() -> set[str]:
-    """Top-level CLI groups that have a generated per-group tool module."""
+    """Top-level CLI groups that have a generated tool module.
+
+    Oversized groups are emitted as ``<group>_<sub>`` submodules (#1860), so
+    the module stem no longer names the group directly — resolve through the
+    generator-emitted GENERATED_MODULE_GROUPS table.
+    """
+    import aitbc_mcp_cli_tools_generated_groups as groups_mod
+
+    module_groups = groups_mod.GENERATED_MODULE_GROUPS
     names: set[str] = set()
     for path in MCP_SERVER_DIR.glob(f"{_GENERATED_MODULE_PREFIX}*.py"):
         stem = path.stem
         if stem in {_GROUPS_LIST_MODULE_STEM, "aitbc_mcp_cli_tools_generated"}:
             continue
-        names.add(stem[len(_GENERATED_MODULE_PREFIX) :].replace("_", "-"))
+        group = module_groups.get(stem)
+        assert group is not None, f"generated module {stem} missing from GENERATED_MODULE_GROUPS — regenerate"
+        names.add(group)
     return names
 
 
