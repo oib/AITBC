@@ -711,6 +711,16 @@ class TestViewChangeUnlock:
         payload = _evidence_payload(seq=seq, view_a=0, view_b=v_later, hash_a=HA, hash_b=HB)
         assert view_change_justified(payload, self._justification(nv), self._ctx(seq)) is True
 
+    def test_locked_nv_permits_case_variant_later_hash(self):
+        """#2144: a case-variant of the permitted hash excuses identically —
+        the locked compare must not be case-sensitive like raw ``==``."""
+        seq, v_later = SEQ, 1
+        vc_set = _vc_set(seq, v_later, MEMBERS[:Q], locked_hash=HB, lock_view=0)
+        proposer = _proposer(seq, v_later)
+        nv = _nv(proposer, seq, v_later, vc_set, HB)
+        payload = _evidence_payload(seq=seq, view_a=0, view_b=v_later, hash_a=HA, hash_b=HB.upper())
+        assert view_change_justified(payload, self._justification(nv), self._ctx(seq)) is True
+
     def test_locked_nv_permitting_wrong_hash_rejected(self):
         """Votes HA@v0, HB@v1; a NEW_VIEW forcing HA does NOT permit the
         later HB vote -> the pair stands."""
