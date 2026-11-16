@@ -538,22 +538,41 @@ class _EvidenceMixin(_V9Mixin):
         prior_hashes.discard(block_hash)
         return prior_hashes
 
-    @staticmethod
-    def _pairing_priors(prior_hashes: set[str]) -> list[str]:
-        """Prior hashes a newly signed hash is paired with (#2119).
+    def _pairing_priors(
+        self,
+        height: int,
+        signer: str,
+        signature_domain: str | None,
+        prior_hashes: set[str],
+    ) -> list[str]:
+        """Prior hashes a newly signed hash is paired with (#2119, #2126).
 
         n signed hashes at one height recorded n(n-1)/2 pairs (hub, h27301: 602
         hashes, 30,245 events, 67 MB). One signed pair already proves the
-        equivocation, so when armed each new hash pairs with at most N priors
-        (the lowest-sorted, deterministic): growth is linear. 0 = every prior
-        (legacy, dormant).
+        equivocation, so when armed each new hash pairs with at most N priors:
+        growth is linear. 0 = every prior (legacy, dormant).
+
+        #2126: when the cap trims, prefer priors that carry a signed record
+        under the SAME ``signature_domain`` — those pairs are gate-verifiable,
+        while a hash-only prior records advisory evidence. Ordering is
+        deterministic and observation-order independent: signature-bearing
+        priors first (sorted), then hash-only priors (sorted). The check uses
+        the same domain-scoped ``_signed_attestation_key`` lookup the pairing
+        loop uses, so a record minted under another domain does not count.
+        Dropping a hash-only prior loses no excuse: ``_uc_unlock_justification``
+        needs the prior's signed record, which a hash-only prior never has.
         """
         priors = sorted(prior_hashes)
         pair_cap = int(getattr(settings, "equivocation_max_pairs_per_signature", 0) or 0)
-        if pair_cap > 0 and len(priors) > pair_cap:
-            metrics_registry.increment("equivocation_pairs_trimmed_total", len(priors) - pair_cap)
-            priors = priors[:pair_cap]
-        return priors
+        if pair_cap <= 0 or len(priors) <= pair_cap:
+            return priors
+        metrics_registry.increment("equivocation_pairs_trimmed_total", len(priors) - pair_cap)
+        signature_backed: list[str] = []
+        hash_only: list[str] = []
+        for prior_hash in priors:
+            key = self._signed_attestation_key(height, prior_hash, signer, signature_domain)
+            (signature_backed if self._signed_attestations.get(key) is not None else hash_only).append(prior_hash)
+        return (signature_backed + hash_only)[:pair_cap]
 
     def _record_attestation_equivocation_evidence(
         self,
@@ -605,7 +624,7 @@ class _EvidenceMixin(_V9Mixin):
             else None
         )
         recorded = False
-        priors = self._pairing_priors(prior_hashes)
+        priors = self._pairing_priors(height, signer, signature_domain, prior_hashes)
         for prior_hash in priors:
             prior = self._signed_attestations.get(self._signed_attestation_key(height, prior_hash, signer, signature_domain))
             attestations = [prior, current] if prior is not None else None
