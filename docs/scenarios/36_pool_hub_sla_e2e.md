@@ -67,6 +67,21 @@ On the shop (`<node2>`):
 - `aitbc-miner.service` running
 - `/etc/aitbc/blockchain.env` has `HUB_POOL_HUB_URL=http://hub.example.net/pool-hub`
 
+### Current fleet baseline (operator ruling, 16 Nov 2026 — #2093)
+
+On the live fleet **no shop miner is deployed** (#1549 topology: the miner
+unit was never installed on node2 and no miner is registered with the hub
+pool hub). For that fleet the expected readings are therefore:
+
+- `aitbc pool-hub status` → `"miners_online": 0`
+- `aitbc pool-hub sla` → `"status": "critical"` — this is the honest
+  zero-capacity signal, **not a defect**
+
+The `miners_online: 1` / `status: ok` expectations below apply once a shop
+miner is deployed and registered; the scenario re-tightens automatically if
+shop duties return. Do not file the zero-miner readings as incidents while
+the #1549 topology stands.
+
 ---
 
 ## Step-by-Step Workflow
