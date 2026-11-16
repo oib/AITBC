@@ -74,6 +74,25 @@ def _make_engine():
     return engine
 
 
+def _seed_accounts(engine, account_map) -> None:
+    """Insert one Account row per entry in ``account_map``."""
+    with Session(engine) as session:
+        for _addr, acc in account_map.items():
+            session.add(Account(chain_id=acc.chain_id, address=acc.address, balance=acc.balance, nonce=acc.nonce))
+        session.commit()
+
+
+def _reset_account_balances(engine, account_map) -> None:
+    """Restore every account to INITIAL_BALANCE / nonce 0."""
+    with Session(engine) as session:
+        for addr in account_map:
+            session.execute(
+                text("UPDATE account SET balance = :bal, nonce = 0 WHERE chain_id = :cid AND address = :addr"),
+                {"bal": INITIAL_BALANCE, "cid": CHAIN_ID, "addr": addr},
+            )
+        session.commit()
+
+
 class TestParallelPerformance:
     """Benchmark parallel vs sequential tx validation."""
 
@@ -339,10 +358,7 @@ class TestParallelPerformance:
 
         # --- Batch path: apply_deltas_to_db ---
         engine_batch = _make_engine()
-        with Session(engine_batch) as session:
-            for _addr, acc in account_map.items():
-                session.add(Account(chain_id=acc.chain_id, address=acc.address, balance=acc.balance, nonce=acc.nonce))
-            session.commit()
+        _seed_accounts(engine_batch, account_map)
 
         # Warm up
         with Session(engine_batch) as session:
@@ -350,13 +366,7 @@ class TestParallelPerformance:
             session.commit()
 
         # Reset balances for the real measurement
-        with Session(engine_batch) as session:
-            for addr in account_map:
-                session.execute(
-                    text("UPDATE account SET balance = :bal, nonce = 0 WHERE chain_id = :cid AND address = :addr"),
-                    {"bal": INITIAL_BALANCE, "cid": CHAIN_ID, "addr": addr},
-                )
-            session.commit()
+        _reset_account_balances(engine_batch, account_map)
 
         t0 = time.perf_counter()
         with Session(engine_batch) as session:
@@ -366,10 +376,7 @@ class TestParallelPerformance:
 
         # --- Individual path: one session.execute per delta (mirroring apply_deltas_to_db logic) ---
         engine_indiv = _make_engine()
-        with Session(engine_indiv) as session:
-            for _addr, acc in account_map.items():
-                session.add(Account(chain_id=acc.chain_id, address=acc.address, balance=acc.balance, nonce=acc.nonce))
-            session.commit()
+        _seed_accounts(engine_indiv, account_map)
 
         def _apply_individual(session: Session, deltas: list) -> None:
             """Mirror apply_deltas_to_db logic but with per-delta session.get + execute."""
@@ -412,13 +419,7 @@ class TestParallelPerformance:
             session.commit()
 
         # Reset balances
-        with Session(engine_indiv) as session:
-            for addr in account_map:
-                session.execute(
-                    text("UPDATE account SET balance = :bal, nonce = 0 WHERE chain_id = :cid AND address = :addr"),
-                    {"bal": INITIAL_BALANCE, "cid": CHAIN_ID, "addr": addr},
-                )
-            session.commit()
+        _reset_account_balances(engine_indiv, account_map)
 
         t0 = time.perf_counter()
         with Session(engine_indiv) as session:
