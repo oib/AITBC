@@ -684,7 +684,10 @@ class BlockDeltaJournal:
         self._digest_touched_tables(session)
         for obj in session.new:
             self._pending_ins.append(obj)
+        self._record_dirty_updates(session)
+        self._record_deleted_rows(session)
 
+    def _record_dirty_updates(self, session: Session) -> None:
         for obj in session.dirty:
             if not session.is_modified(obj, include_collections=False):
                 continue
@@ -713,6 +716,7 @@ class BlockDeltaJournal:
             if before:
                 self._record(table, "upd", pk, before)
 
+    def _record_deleted_rows(self, session: Session) -> None:
         for obj in session.deleted:
             try:
                 mapper = inspect(type(obj))
@@ -730,30 +734,34 @@ class BlockDeltaJournal:
                     self.height,
                 )
                 continue
-            # Before-image = the committed (pre-block) values, not the current
-            # attributes: a row modified and deleted in one block must
-            # re-insert with its pre-modification state. ``history.deleted``
-            # holds it for changed columns, ``loaded_value`` for the rest —
-            # neither triggers a mid-flush SELECT. An unloaded column means
-            # the before-image cannot be proven: fail closed.
-            state = inspect(obj)
-            before = {}
-            for attr in mapper.column_attrs:
-                hist = state.attrs[attr.key].history
-                if hist.deleted:
-                    before[attr.columns[0].name] = hist.deleted[0]
-                    continue
-                value = state.attrs[attr.key].loaded_value
-                if value is NEVER_SET:
-                    self._incomplete = True
-                    logger.warning(
-                        "Delta journal: deleted %s row has unloaded column %r at height %s — marked incomplete",
-                        table,
-                        attr.key,
-                        self.height,
-                    )
-                before[attr.columns[0].name] = None if value is NEVER_SET else value
+            before = self._deleted_before_image(obj, mapper, table)
             self._record(table, "del", pk, before)
+
+    def _deleted_before_image(self, obj: Any, mapper: Any, table: str) -> dict[str, Any]:
+        # Before-image = the committed (pre-block) values, not the current
+        # attributes: a row modified and deleted in one block must
+        # re-insert with its pre-modification state. ``history.deleted``
+        # holds it for changed columns, ``loaded_value`` for the rest —
+        # neither triggers a mid-flush SELECT. An unloaded column means
+        # the before-image cannot be proven: fail closed.
+        state = inspect(obj)
+        before: dict[str, Any] = {}
+        for attr in mapper.column_attrs:
+            hist = state.attrs[attr.key].history
+            if hist.deleted:
+                before[attr.columns[0].name] = hist.deleted[0]
+                continue
+            value = state.attrs[attr.key].loaded_value
+            if value is NEVER_SET:
+                self._incomplete = True
+                logger.warning(
+                    "Delta journal: deleted %s row has unloaded column %r at height %s — marked incomplete",
+                    table,
+                    attr.key,
+                    self.height,
+                )
+            before[attr.columns[0].name] = None if value is NEVER_SET else value
+        return before
 
     def _on_flush_postexec(self, session: Session, flush_context: Any) -> None:
         """Resolve deferred insert pks — populated once INSERTs execute."""
