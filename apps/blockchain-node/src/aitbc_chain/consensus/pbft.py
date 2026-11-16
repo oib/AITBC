@@ -41,7 +41,8 @@ from .pbft_view_change import (
     view_change_digest,
     verify_new_view,
     verify_view_change,
-    verify_vc_lock_commits,
+    MAX_LOCK_PROOF_MSGS,
+    verify_vc_lock_proof,
 )
 
 logger = get_logger(__name__)
@@ -528,6 +529,7 @@ class PBFTConsensus:
                 commit_msg.view_number,
                 commit_msg.block_hash,
                 commit_msg.to_dict(),
+                self._lock_proof_msgs(key, commit_msg.block_hash),
             )
         ):
             self.state.committed_messages[key].remove(commit_msg)
@@ -1170,9 +1172,31 @@ class PBFTConsensus:
         fn = getattr(self.consensus, "pbft_vc_commit_lock", None)
         return fn(sequence) if callable(fn) else None
 
-    def _vc_commit_lock_arm(self, sequence: int, view: int, block_hash: str, commit: dict[str, Any]) -> bool:
+    def _vc_commit_lock_arm(
+        self, sequence: int, view: int, block_hash: str, commit: dict[str, Any], proof: list[dict[str, Any]]
+    ) -> bool:
         fn = getattr(self.consensus, "pbft_vc_commit_lock_arm", None)
-        return bool(fn(sequence, view, block_hash, commit)) if callable(fn) else False
+        return bool(fn(sequence, view, block_hash, commit, proof)) if callable(fn) else False
+
+    def _lock_proof_msgs(self, key: str, block_hash: str) -> list[dict[str, Any]]:
+        """The PREPARE quorum certificate backing a commit-lock (#2005 Q1).
+
+        One signed PREPARE per distinct sender for ``block_hash`` at the
+        locked ``key`` (``seq:view``), capped. Returns ``[]`` when fewer than
+        ``required_messages`` distinct voters are held — the caller then
+        refuses to arm (a lock nobody can verify would only get its VIEW_CHANGE
+        dropped).
+        """
+        proof: dict[str, dict[str, Any]] = {}
+        for msg in self.state.prepared_messages.get(key, []):
+            if msg.block_hash != block_hash or not msg.signature:
+                continue
+            proof.setdefault(canonical_address(str(msg.sender)), msg.to_dict())
+            if len(proof) >= MAX_LOCK_PROOF_MSGS:
+                break
+        if len(proof) < self.required_messages:
+            return []
+        return list(proof.values())
 
     def _vc_prepared_arm(self, sequence: int, view: int, block_hash: str) -> bool:
         fn = getattr(self.consensus, "pbft_vc_prepared_arm", None)
@@ -1230,10 +1254,17 @@ class PBFTConsensus:
         if isinstance(lock_rec, dict):
             lv = lock_rec.get("view")
             lh = lock_rec.get("block_hash")
-            commit = lock_rec.get("commit")
-            if isinstance(lv, int) and not isinstance(lv, bool) and lv >= 0 and isinstance(lh, str) and lh:
+            proof = lock_rec.get("proof")
+            if (
+                isinstance(lv, int)
+                and not isinstance(lv, bool)
+                and 0 <= lv < view
+                and isinstance(lh, str)
+                and lh
+                and isinstance(proof, list)
+            ):
                 lock_view, lock_hash = lv, lh
-                lock = {"view": lv, "block_hash": lh, "commit_msgs": [commit] if isinstance(commit, dict) else []}
+                lock = {"view": lv, "block_hash": lh, "kind": "prepare", "msgs": proof}
         vc = {
             "message_type": VC_MESSAGE_TYPE,
             "sender": self._local_validator,
@@ -1251,6 +1282,7 @@ class PBFTConsensus:
         bucket.setdefault(canonical_address(self._local_validator), vc)
         if self._gossip_backend is not None:
             await self._gossip_backend.publish(f"pbft.{VC_MESSAGE_TYPE}.{self._chain_id}", vc)
+        await self._maybe_build_new_view(sequence, view)
         return True
 
     async def _ensure_view_change_sent(self, sequence: int, view: int) -> bool:
@@ -1288,11 +1320,11 @@ class PBFTConsensus:
         if not ok:
             logger.debug("Dropping invalid VIEW_CHANGE for %s:%s: %s", seq, view, reason)
             return
-        ok, reason = verify_vc_lock_commits(data)
+        participants = {canonical_address(a) for a in self._vc_participants()}
+        ok, reason = verify_vc_lock_proof(data, participants, self.required_messages)
         if not ok:
             logger.debug("Dropping VIEW_CHANGE with bad lock for %s:%s: %s", seq, view, reason)
             return
-        participants = {canonical_address(a) for a in self._vc_participants()}
         sender = canonical_address(str(data.get("sender", "")))
         # Membership gate BEFORE storing: with an empty participant view the
         # deployment is permissive (same policy as prepare/commit votes).
@@ -1318,6 +1350,21 @@ class PBFTConsensus:
             return
         bucket[sender] = data
         self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
+        await self._maybe_build_new_view(seq, view)
+
+    async def _maybe_build_new_view(self, sequence: int, view: int) -> None:
+        """Q2 (#2005): the scheduled proposer builds NEW_VIEW the moment the
+        (h, v') VC bucket reaches quorum — not only when it is about to
+        pre-prepare. A NEW_VIEW built lazily at pre-prepare time sees
+        whatever VCs happen to have arrived by then, so a late VC could be
+        missed and the sub-quorum case never published. Never builds below
+        quorum (``_build_new_view`` re-checks) and is idempotent per slot.
+        """
+        if (sequence, view) in self._new_views:
+            return
+        if len(self._vc_messages.get((sequence, view), {})) < self.required_messages:
+            return
+        await self._build_new_view(sequence, view)
 
     # -- NEW_VIEW: build, receive, verify --
 
@@ -1383,10 +1430,17 @@ class PBFTConsensus:
             or not view_change_active(seq)
         ):
             return
+        if (seq, view) in self._new_views:
+            return  # cheap dedup BEFORE any signature verification (ECDSA DoS)
         try:
             expected = self.consensus.select_proposer(seq, view)
-        except Exception:  # noqa: BLE001 - unknown schedule stays permissive
+        except Exception:  # noqa: BLE001
             expected = None
+        if not isinstance(expected, str) or not expected:
+            # Fail closed: an unknown schedule must not turn the proposer
+            # check off (expected_sender=None skips it) — drop the NEW_VIEW.
+            logger.warning("Dropping NEW_VIEW for %s:%s: proposer schedule unavailable", seq, view)
+            return
         ok, reason, kind, selected = verify_new_view(
             data,
             self._vc_participants(),
