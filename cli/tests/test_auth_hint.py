@@ -11,8 +11,9 @@ import requests
 from click.testing import CliRunner
 
 import aitbc_cli.commands.ai as ai_mod
+from aitbc_cli import auth as auth_pkg
 from aitbc_cli.commands.ai import ai
-from aitbc_cli.utils.error_handling import LOGIN_HINT, is_unauthorized
+from aitbc_cli.utils.error_handling import LOGIN_HINT, LOGIN_REJECTED_HINT, is_unauthorized
 from aitbc_cli.utils.http_client import NetworkError
 
 
@@ -69,12 +70,61 @@ def _stub_jobs(monkeypatch, error):
     monkeypatch.setattr(ai_mod, "AITBCHTTPClient", C)
 
 
+def _stub_empty_store(monkeypatch):
+    monkeypatch.setattr(auth_pkg.AuthManager, "get_credential", lambda self, *a, **kw: None)
+
+
+def _stub_stored_token(monkeypatch, token):
+    monkeypatch.setattr(auth_pkg.AuthManager, "get_credential", lambda self, *a, **kw: token)
+
+
 def test_ai_jobs_401_prints_login_hint(runner, monkeypatch):
     _stub_jobs(monkeypatch, _network_error(401))
+    _stub_empty_store(monkeypatch)
     result = runner.invoke(ai, obj={"output_format": "table"}, args=["jobs"])
     assert result.exit_code != 0
     assert LOGIN_HINT in result.output
+    assert LOGIN_REJECTED_HINT not in result.output
     assert "No stored credential found" not in result.output
+
+
+def test_ai_jobs_401_with_stored_credential_prints_rejected_hint(runner, monkeypatch):
+    """#2095: a stored-but-rejected token must not claim 'No login'."""
+    _stub_jobs(monkeypatch, _network_error(401))
+    _stub_stored_token(monkeypatch, "eyJhbGciOi.fake.token")
+    result = runner.invoke(ai, obj={"output_format": "table"}, args=["jobs"])
+    assert result.exit_code != 0
+    assert LOGIN_REJECTED_HINT in result.output
+    assert LOGIN_HINT not in result.output
+
+
+def test_ai_jobs_401_with_api_key_prints_rejected_hint(runner, monkeypatch):
+    _stub_jobs(monkeypatch, _network_error(401))
+    _stub_empty_store(monkeypatch)
+    result = runner.invoke(ai, obj={"output_format": "table", "api_key": "k"}, args=["jobs"])
+    assert result.exit_code != 0
+    assert LOGIN_REJECTED_HINT in result.output
+
+
+class _Ctx:
+    def __init__(self, obj):
+        self.obj = obj
+
+
+def test_auth_headers_jwt_goes_bearer(monkeypatch):
+    _stub_stored_token(monkeypatch, "eyJhbGciOi.fake.token")
+    assert ai_mod._auth_headers(_Ctx({})) == {"Authorization": "Bearer eyJhbGciOi.fake.token"}
+
+
+def test_auth_headers_api_key_goes_x_api_key(monkeypatch):
+    """#2095 nit: a non-JWT stored credential is an API key, not a Bearer token."""
+    _stub_stored_token(monkeypatch, "deadbeef")
+    assert ai_mod._auth_headers(_Ctx({})) == {"X-API-Key": "deadbeef"}
+
+
+def test_auth_headers_explicit_api_key_non_jwt(monkeypatch):
+    _stub_empty_store(monkeypatch)
+    assert ai_mod._auth_headers(_Ctx({"api_key": "deadbeef"})) == {"X-API-Key": "deadbeef"}
 
 
 def test_ai_jobs_500_keeps_network_error(runner, monkeypatch):
