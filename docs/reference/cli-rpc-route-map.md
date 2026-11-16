@@ -143,7 +143,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc liquidity build-withdraw` | `/rpc/liquidity/build-withdraw` | `build_withdraw` (liquidity.py) | `LIQUIDITY_WITHDRAW`
 | `aitbc market cancel` | `/rpc/escrow/` | — | —
 | `aitbc market cancel` | `/rpc/escrow/{job_id}/refund` | `refund_escrow` (escrow_routes.py) | `ESCROW_REFUND`
-| `aitbc market escrow create` | `/rpc/escrow/create` | `create_escrow` (escrow_routes.py) | `ESCROW_LOCK`
+| `aitbc market escrow create` | `/rpc/escrow/create` | `create_escrow` (escrow_routes.py) | —
 | `aitbc market escrow refund` | `/rpc/escrow/` | — | —
 | `aitbc market escrow refund` | `/rpc/escrow/{job_id}/refund` | `refund_escrow` (escrow_routes.py) | `ESCROW_REFUND`
 | `aitbc market escrow release` | `/rpc/escrow/` | — | —
