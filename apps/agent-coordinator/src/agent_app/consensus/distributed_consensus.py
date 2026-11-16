@@ -3,19 +3,28 @@ Distributed Consensus Implementation for AITBC Agent Coordinator
 Implements various consensus algorithms for distributed decision making
 """
 
+from __future__ import annotations
+
 import uuid
 from collections import defaultdict
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from aitbc.aitbc_logging import get_logger
+
+from ..storage.consensus_store import ConsensusStore as _ConsensusStore
+
+if TYPE_CHECKING:
+    from ..storage.consensus_store import ConsensusStore
 
 logger = get_logger(__name__)
 
 # Expected failure surface for the best-effort consensus handlers below:
-# in-memory data-shape and arithmetic/decode errors only — this module does
-# no I/O. Genuine BaseExceptions still propagate (#1865).
+# in-memory data-shape and arithmetic/decode errors only. Persistence write
+# failures are caught separately via _PERSIST_ERRORS so a DB outage degrades
+# to in-memory operation instead of breaking the API (#2164).
 _OPS_ERRORS = (
     ValueError,
     TypeError,
@@ -25,6 +34,18 @@ _OPS_ERRORS = (
     ArithmeticError,
     RuntimeError,
 )
+
+# Persistence adds filesystem/OS and SQLAlchemy transport errors on top of
+# the in-memory surface (JSON decode errors are already ValueError).
+_PERSIST_ERRORS: tuple[type[Exception], ...]
+try:
+    from sqlalchemy.exc import SQLAlchemyError
+
+    _PERSIST_ERRORS = _OPS_ERRORS + (OSError, SQLAlchemyError)
+except ImportError:
+    _PERSIST_ERRORS = _OPS_ERRORS + (OSError,)
+
+_VALID_ALGORITHMS = ("majority_vote", "supermajority", "unanimous")
 
 
 @dataclass
@@ -56,13 +77,91 @@ class ConsensusNode:
 class DistributedConsensus:
     """Distributed consensus implementation with multiple algorithms"""
 
-    def __init__(self) -> None:
+    def __init__(self, store: ConsensusStore | None = None) -> None:
         self.nodes: dict[str, ConsensusNode] = {}
         self.proposals: dict[str, ConsensusProposal] = {}
         self.consensus_history: list[dict[str, Any]] = []
         self.current_algorithm = "majority_vote"
         self.voting_timeout = timedelta(minutes=5)
         self.min_participation = 0.5
+        # Write-through persistence (#2164): ``store=None`` keeps the pure
+        # in-memory path for tests; the module singleton gets a real store.
+        self._store = store
+        if store is not None:
+            self._hydrate()
+
+    def _hydrate(self) -> None:
+        """Load persisted consensus state into the in-memory dicts.
+
+        Best-effort: if the store cannot be read (DB down, unwritable path),
+        the store is dropped so this process cannot overwrite good persisted
+        rows with state derived from an empty cache.
+        """
+        store = self._store
+        if store is None:
+            return
+        try:
+            state = store.load_all()
+        except _PERSIST_ERRORS as e:
+            logger.error("Consensus persistence hydration failed; running without durable store: %s", e)
+            self._store = None
+            return
+        for raw in state["nodes"]:
+            self.nodes[raw["node_id"]] = ConsensusNode(
+                node_id=raw["node_id"],
+                endpoint=raw["endpoint"],
+                last_seen=datetime.fromtimestamp(raw["last_seen"], UTC),
+                reputation_score=raw["reputation_score"],
+                voting_power=raw["voting_power"],
+                is_active=raw["is_active"],
+            )
+        for raw in state["proposals"]:
+            self.proposals[raw["proposal_id"]] = ConsensusProposal(
+                proposal_id=raw["proposal_id"],
+                proposer_id=raw["proposer_id"],
+                proposal_data=raw["proposal_data"],
+                timestamp=datetime.fromtimestamp(raw["timestamp"], UTC),
+                deadline=datetime.fromtimestamp(raw["deadline"], UTC),
+                required_votes=raw["required_votes"],
+                current_votes=dict(raw["current_votes"]),
+                status=raw["status"],
+            )
+        self.consensus_history = [dict(record) for record in state["history"]]
+        algorithm = state.get("algorithm")
+        if algorithm in _VALID_ALGORITHMS:
+            self.current_algorithm = algorithm
+
+    def _persist(self, what: str, write: Callable[[], None]) -> None:
+        """Run one store write, logging failures without breaking the API."""
+        try:
+            write()
+        except _PERSIST_ERRORS as e:
+            logger.error("Consensus persistence write failed (%s): %s", what, e)
+
+    def _save_node(self, node: ConsensusNode) -> None:
+        store = self._store
+        if store is not None:
+            self._persist("node", lambda: store.upsert_node(node))
+
+    def _save_proposal(self, proposal: ConsensusProposal) -> None:
+        store = self._store
+        if store is not None:
+            self._persist("proposal", lambda: store.upsert_proposal(proposal))
+
+    def _delete_proposal(self, proposal_id: str) -> None:
+        store = self._store
+        if store is not None:
+            self._persist("proposal_delete", lambda: store.delete_proposal(proposal_id))
+
+    def _save_history(self, record: dict[str, Any]) -> None:
+        store = self._store
+        if store is not None:
+            self._persist("history", lambda: store.append_history(record))
+
+    def _save_algorithm(self, algorithm: str) -> None:
+        store = self._store
+        if store is not None:
+            self._persist("algorithm", lambda: store.set_algorithm(algorithm))
 
     def register_node(self, node_data: dict[str, Any]) -> dict[str, Any]:
         """Register a new node in the consensus network"""
@@ -78,6 +177,7 @@ class DistributedConsensus:
                 is_active=True,
             )
             self.nodes[node_id] = node
+            self._save_node(node)
             return {
                 "status": "success",
                 "node_id": node_id,
@@ -110,6 +210,9 @@ class DistributedConsensus:
                 required_votes=required_votes,
             )
             self.proposals[proposal_id] = proposal
+            # Persist before _initiate_voting: if voting finalizes the proposal
+            # immediately, _cleanup_old_proposals deletes the row again.
+            self._save_proposal(proposal)
             self._initiate_voting(proposal)
             return {
                 "status": "success",
@@ -146,6 +249,8 @@ class DistributedConsensus:
                 return {"status": "error", "message": "Node not registered"}
             proposal.current_votes[node_id] = vote
             self.nodes[node_id].last_seen = datetime.now(UTC)
+            self._save_proposal(proposal)
+            self._save_node(self.nodes[node_id])
             self._check_consensus(proposal)
             return {
                 "status": "success",
@@ -220,6 +325,7 @@ class DistributedConsensus:
                 "algorithm": self.current_algorithm,
             }
             self.consensus_history.append(history_record)
+            self._save_history(history_record)
             self._cleanup_old_proposals()
             logger.info("Proposal %s %s: %s", proposal.proposal_id, "approved" if approved else "rejected", reason)
         except _OPS_ERRORS as e:
@@ -236,6 +342,7 @@ class DistributedConsensus:
             ]
             for pid in expired_proposals:
                 del self.proposals[pid]
+                self._delete_proposal(pid)
         except _OPS_ERRORS as e:
             logger.error("Error cleaning up proposals: %s", e)
 
@@ -269,10 +376,10 @@ class DistributedConsensus:
     def set_consensus_algorithm(self, algorithm: str) -> dict[str, Any]:
         """Set the consensus algorithm"""
         try:
-            valid_algorithms = ["majority_vote", "supermajority", "unanimous"]
-            if algorithm not in valid_algorithms:
-                return {"status": "error", "message": f"Invalid algorithm. Valid options: {valid_algorithms}"}
+            if algorithm not in _VALID_ALGORITHMS:
+                return {"status": "error", "message": f"Invalid algorithm. Valid options: {list(_VALID_ALGORITHMS)}"}
             self.current_algorithm = algorithm
+            self._save_algorithm(algorithm)
             return {"status": "success", "algorithm": algorithm, "changed_at": datetime.now(UTC).isoformat()}
         except _OPS_ERRORS as e:
             logger.error("Error setting consensus algorithm: %s", e)
@@ -334,6 +441,7 @@ class DistributedConsensus:
                 return {"status": "error", "message": "Node not found"}
             self.nodes[node_id].is_active = is_active
             self.nodes[node_id].last_seen = datetime.now(UTC)
+            self._save_node(self.nodes[node_id])
             return {
                 "status": "success",
                 "node_id": node_id,
@@ -345,4 +453,4 @@ class DistributedConsensus:
             return {"status": "error", "message": str(e)}
 
 
-distributed_consensus = DistributedConsensus()
+distributed_consensus = DistributedConsensus(store=_ConsensusStore())
