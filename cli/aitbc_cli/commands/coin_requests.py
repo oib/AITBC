@@ -285,6 +285,217 @@ def reject(ctx, request_id, reason):
         send_agent_notification(req.sender if req.sender else "unknown", notification_content)
 
 
+def _load_executable_request(ctx, session, request_id):
+    """Fetch the request and enforce the executable-state guards."""
+    req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
+
+    if not req:
+        abort(ctx, f"Request {request_id} not found.")
+        return None
+
+    if req.status != CoinRequestStatus.APPROVED:
+        abort(ctx, f"Request {request_id} is not approved (status: {req.status.value if req.status else 'N/A'}).")
+        return None
+
+    # An approved grant past its expires_at is no longer spendable (#1579)
+    # — same rule the hub's /execute endpoint enforces.
+    if req.expires_at is not None and req.expires_at < datetime.now(UTC).replace(tzinfo=None):
+        abort(ctx, f"Request {request_id} expired at {req.expires_at} — it can no longer be executed.")
+        return None
+
+    if req.transaction_hash:
+        abort(ctx, f"Request {request_id} already executed (tx hash: {req.transaction_hash}).")
+        return None
+    return req
+
+
+def _hub_faucet_api_key(ctx) -> str:
+    """Resolve the API key for hub-forwarded execution; aborts when unset."""
+    # FOLLOWER_API_KEY first: it is the one an island follower is meant to hold,
+    # provisioned in the node's blockchain.env and scoped to /register and /execute.
+    # The other two also open the agent WebSocket and coordinator-api's miner
+    # endpoints, so they belong to hub operators only and are accepted here as a
+    # fallback (V23-68).
+    api_key = os.getenv("FOLLOWER_API_KEY") or os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
+    if not api_key:
+        abort(
+            ctx,
+            "No FAUCET_PRIVATE_KEY or GENESIS_PRIVATE_KEY locally and no API key set. "
+            "Followers: FOLLOWER_API_KEY is provisioned by the hub operator "
+            "in /etc/aitbc/blockchain.env. Do not use COORDINATOR_API_KEY on a follower.",
+        )
+        return ""
+    return api_key
+
+
+def _register_request_at_hub(ctx, base_url: str, api_key: str, req) -> None:
+    """Register the request at the hub (idempotent) before executing it there."""
+    import httpx
+
+    # The hub pays from its own record of the request, not from what we send it,
+    # so a request raised on this island has to exist there before it can execute.
+    # Registering is idempotent, so re-running after a failure is safe.
+    reg = httpx.post(
+        f"{base_url}/register",
+        json={
+            "request_id": req.id,
+            "sender": req.sender,
+            "amount": req.amount,
+            "wallet_address": req.wallet_address,
+            "recipient": req.recipient,
+        },
+        headers={"x-api-key": api_key},
+        timeout=30,
+    )
+    if reg.status_code != 200:
+        abort(ctx, f"Hub registration failed: {reg.status_code} {reg.text}")
+        return
+    registered = reg.json()
+    if registered.get("status") != "approved":
+        abort(
+            ctx,
+            f"Hub has not approved {req.id}: {registered.get('reason', 'no reason given')}. "
+            f"Status at hub: {registered.get('status')}. A hub operator must approve it.",
+        )
+
+
+def _execute_request_at_hub(ctx, req, execute_url: str, api_key: str) -> str:
+    """POST the execute call to the hub; returns the tx hash."""
+    import httpx
+
+    resp = httpx.post(
+        execute_url,
+        json={
+            "request_id": req.id,
+            "sender": req.sender,
+            "amount": req.amount,
+            "wallet_address": req.wallet_address,
+            "approved_by": req.approved_by or "cli",
+        },
+        headers={"x-api-key": api_key},
+        timeout=30,
+    )
+    if resp.status_code == 200:
+        tx_hash: str = resp.json().get("tx_hash")
+        return tx_hash
+    abort(ctx, f"Hub execution failed: {resp.status_code} {resp.text}")
+    raise AssertionError("unreachable: abort always raises")
+
+
+def _record_hub_execution(req, tx_hash: str) -> None:
+    """Persist the hub-submitted hash and notify the sender."""
+    req.transaction_hash = tx_hash
+    audit_entry = f" | Forwarded to hub for execution at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
+    req.audit_log = (req.audit_log or "") + audit_entry
+    click.echo(f"Transaction submitted by hub: {tx_hash}")
+    click.echo(f"Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'} to {req.wallet_address}")
+    send_agent_notification(
+        req.sender if req.sender else "unknown",
+        f"Coin request {req.id} EXECUTED via hub. TX: {tx_hash}. Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'}.",
+    )
+
+
+def _execute_via_hub(ctx, req) -> None:
+    """Forward execution to the hub when no local genesis key exists."""
+    from aitbc.config.hub import hub_agent_url
+
+    hub_url = hub_agent_url()
+    if not hub_url:
+        abort(
+            ctx,
+            "No hub agent URL configured. Set HUB_AGENT_URL or HUB_DISCOVERY_URL in /etc/aitbc/blockchain.env.",
+        )
+        return
+    api_key = _hub_faucet_api_key(ctx)
+    base_url = f"{hub_url.rstrip('/')}/coin-requests"
+    execute_url = f"{base_url}/execute"
+    click.echo(f"No local genesis key — forwarding execution to hub: {execute_url}")
+    try:
+        _register_request_at_hub(ctx, base_url, api_key, req)
+        tx_hash = _execute_request_at_hub(ctx, req, execute_url, api_key)
+        _record_hub_execution(req, tx_hash)
+    except CLIError:
+        raise
+    except Exception as e:
+        abort(ctx, f"Error forwarding to hub: {e}", from_exception=e)
+
+
+def _sign_local_transfer(ctx, tx_service, req):
+    """Check genesis config and balance, then build the signed transfer."""
+    # Check genesis wallet configuration
+    if not tx_service.genesis_address:
+        abort(ctx, "FAUCET_ADDRESS or GENESIS_ADDRESS not configured")
+        return None
+
+    # Check balance before submission
+    balance = tx_service.get_balance(tx_service.genesis_address)
+    total_required = (req.amount or 0) + DEFAULT_TX_FEE_UNITS  # amount + fee
+    if balance < total_required:
+        abort(
+            ctx,
+            f"Insufficient balance. Required: {format_ait(total_required)}, Available: {format_ait(balance)}",
+        )
+        return None
+
+    click.echo(f"Executing request {req.id}...")
+    click.echo(f"Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'} to {req.wallet_address}")
+    click.echo(f"Genesis wallet balance: {format_ait(balance)}")
+
+    if req.wallet_address is None or req.amount is None:
+        abort(ctx, "Missing wallet_address or amount in request")
+        return None
+    signed_tx = tx_service.generate_signed_transaction(
+        to_address=req.wallet_address, amount=req.amount, fee=DEFAULT_TX_FEE_UNITS
+    )
+    if not signed_tx:
+        # Revert to PENDING for retry
+        req.status = CoinRequestStatus.PENDING
+        audit_entry = f" | Execution failed: could not generate signed transaction at {datetime.now(UTC).isoformat()}"
+        req.audit_log = (req.audit_log or "") + audit_entry
+        abort(ctx, "Failed to generate signed transaction")
+        return None
+    return signed_tx
+
+
+def _submit_signed_tx(ctx, tx_service, req, signed_tx) -> None:
+    """POST the signed transaction; update the request on success."""
+    try:
+        from ..utils.http_client import AITBCHTTPClient
+
+        http_client = AITBCHTTPClient(base_url=tx_service.rpc_url, timeout=30)
+        result = http_client.post("/rpc/transaction", json=signed_tx)
+        tx_hash = result.get("transaction_hash")
+
+        if tx_hash:
+            # Update database with transaction hash
+            req.transaction_hash = tx_hash
+            req.signed_transaction = json.dumps(signed_tx)
+            audit_entry = f" | Transaction executed at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
+            req.audit_log = (req.audit_log or "") + audit_entry
+
+            click.echo(f"Transaction submitted successfully: {tx_hash}")
+            click.echo(f"Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'} to {req.wallet_address}")
+
+            # Send notification to sender
+            notification_content = f"Coin request {req.id} EXECUTED. Transaction hash: {tx_hash}. Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'}."
+            send_agent_notification(req.sender if req.sender else "unknown", notification_content)
+        else:
+            # Revert to PENDING on failure
+            req.status = CoinRequestStatus.PENDING
+            audit_entry = f" | Execution failed: no transaction hash returned at {datetime.now(UTC).isoformat()}"
+            req.audit_log = (req.audit_log or "") + audit_entry
+            abort(ctx, "Transaction submission failed - no hash returned")
+
+    except CLIError:
+        raise
+    except Exception as e:
+        # Revert to PENDING on failure
+        req.status = CoinRequestStatus.PENDING
+        audit_entry = f" | Execution failed: {str(e)} at {datetime.now(UTC).isoformat()}"
+        req.audit_log = (req.audit_log or "") + audit_entry
+        abort(ctx, f"Error submitting transaction: {e}", from_exception=e)
+
+
 @coin_requests.command(
     epilog="""Examples:
 
@@ -297,190 +508,20 @@ def reject(ctx, request_id, reason):
 def execute(ctx, request_id):
     """Execute an approved coin transfer request by submitting a signed transaction."""
     with get_db_session() as session:
-        req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
-
-        if not req:
-            abort(ctx, f"Request {request_id} not found.")
-            return
-
-        if req.status != CoinRequestStatus.APPROVED:
-            abort(ctx, f"Request {request_id} is not approved (status: {req.status.value if req.status else 'N/A'}).")
-            return
-
-        # An approved grant past its expires_at is no longer spendable (#1579)
-        # — same rule the hub's /execute endpoint enforces.
-        if req.expires_at is not None and req.expires_at < datetime.now(UTC).replace(tzinfo=None):
-            abort(ctx, f"Request {request_id} expired at {req.expires_at} — it can no longer be executed.")
-            return
-
-        if req.transaction_hash:
-            abort(ctx, f"Request {request_id} already executed (tx hash: {req.transaction_hash}).")
-            return
+        req = _load_executable_request(ctx, session, request_id)
 
         # Initialize transaction service
         tx_service = TransactionService()
 
         # If no local genesis key, forward to hub for execution
         if not tx_service.genesis_private_key:
-            from aitbc.config.hub import hub_agent_url
-
-            hub_url = hub_agent_url()
-            if not hub_url:
-                abort(
-                    ctx,
-                    "No hub agent URL configured. Set HUB_AGENT_URL or HUB_DISCOVERY_URL in /etc/aitbc/blockchain.env.",
-                )
-                return
-            # FOLLOWER_API_KEY first: it is the one an island follower is meant to hold,
-            # provisioned in the node's blockchain.env and scoped to /register and /execute.
-            # The other two also open the agent WebSocket and coordinator-api's miner
-            # endpoints, so they belong to hub operators only and are accepted here as a
-            # fallback (V23-68).
-            api_key = os.getenv("FOLLOWER_API_KEY") or os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
-            if not api_key:
-                abort(
-                    ctx,
-                    "No FAUCET_PRIVATE_KEY or GENESIS_PRIVATE_KEY locally and no API key set. "
-                    "Followers: FOLLOWER_API_KEY is provisioned by the hub operator "
-                    "in /etc/aitbc/blockchain.env. Do not use COORDINATOR_API_KEY on a follower.",
-                )
-                return
-            base_url = f"{hub_url.rstrip('/')}/coin-requests"
-            execute_url = f"{base_url}/execute"
-            click.echo(f"No local genesis key — forwarding execution to hub: {execute_url}")
-            try:
-                import httpx
-
-                # The hub pays from its own record of the request, not from what we send it,
-                # so a request raised on this island has to exist there before it can execute.
-                # Registering is idempotent, so re-running after a failure is safe.
-                reg = httpx.post(
-                    f"{base_url}/register",
-                    json={
-                        "request_id": req.id,
-                        "sender": req.sender,
-                        "amount": req.amount,
-                        "wallet_address": req.wallet_address,
-                        "recipient": req.recipient,
-                    },
-                    headers={"x-api-key": api_key},
-                    timeout=30,
-                )
-                if reg.status_code != 200:
-                    abort(ctx, f"Hub registration failed: {reg.status_code} {reg.text}")
-                registered = reg.json()
-                if registered.get("status") != "approved":
-                    abort(
-                        ctx,
-                        f"Hub has not approved {req.id}: {registered.get('reason', 'no reason given')}. "
-                        f"Status at hub: {registered.get('status')}. A hub operator must approve it.",
-                    )
-
-                resp = httpx.post(
-                    execute_url,
-                    json={
-                        "request_id": req.id,
-                        "sender": req.sender,
-                        "amount": req.amount,
-                        "wallet_address": req.wallet_address,
-                        "approved_by": req.approved_by or "cli",
-                    },
-                    headers={"x-api-key": api_key},
-                    timeout=30,
-                )
-                if resp.status_code == 200:
-                    result = resp.json()
-                    tx_hash = result.get("tx_hash")
-                    req.transaction_hash = tx_hash
-                    audit_entry = f" | Forwarded to hub for execution at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
-                    req.audit_log = (req.audit_log or "") + audit_entry
-                    click.echo(f"Transaction submitted by hub: {tx_hash}")
-                    click.echo(
-                        f"Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'} to {req.wallet_address}"
-                    )
-                    send_agent_notification(
-                        req.sender if req.sender else "unknown",
-                        f"Coin request {req.id} EXECUTED via hub. TX: {tx_hash}. Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'}.",
-                    )
-                else:
-                    abort(ctx, f"Hub execution failed: {resp.status_code} {resp.text}")
-            except CLIError:
-                raise
-            except Exception as e:
-                abort(ctx, f"Error forwarding to hub: {e}", from_exception=e)
+            _execute_via_hub(ctx, req)
             return
 
-        # Check genesis wallet configuration
-        if not tx_service.genesis_address:
-            abort(ctx, "FAUCET_ADDRESS or GENESIS_ADDRESS not configured")
+        signed_tx = _sign_local_transfer(ctx, tx_service, req)
+        if signed_tx is None:
             return
-
-        # Check balance before submission
-        balance = tx_service.get_balance(tx_service.genesis_address)
-        total_required = (req.amount or 0) + DEFAULT_TX_FEE_UNITS  # amount + fee
-        if balance < total_required:
-            abort(
-                ctx,
-                f"Insufficient balance. Required: {format_ait(total_required)}, Available: {format_ait(balance)}",
-            )
-            return
-
-        click.echo(f"Executing request {request_id}...")
-        click.echo(f"Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'} to {req.wallet_address}")
-        click.echo(f"Genesis wallet balance: {format_ait(balance)}")
-
-        # Generate signed transaction
-        if req.wallet_address is None or req.amount is None:
-            abort(ctx, "Missing wallet_address or amount in request")
-            return
-        signed_tx = tx_service.generate_signed_transaction(
-            to_address=req.wallet_address, amount=req.amount, fee=DEFAULT_TX_FEE_UNITS
-        )
-
-        if not signed_tx:
-            # Revert to PENDING for retry
-            req.status = CoinRequestStatus.PENDING
-            audit_entry = f" | Execution failed: could not generate signed transaction at {datetime.now(UTC).isoformat()}"
-            req.audit_log = (req.audit_log or "") + audit_entry
-            abort(ctx, "Failed to generate signed transaction")
-            return
-
-        # Submit transaction to blockchain
-        try:
-            from ..utils.http_client import AITBCHTTPClient
-
-            http_client = AITBCHTTPClient(base_url=tx_service.rpc_url, timeout=30)
-            result = http_client.post("/rpc/transaction", json=signed_tx)
-            tx_hash = result.get("transaction_hash")
-
-            if tx_hash:
-                # Update database with transaction hash
-                req.transaction_hash = tx_hash
-                req.signed_transaction = json.dumps(signed_tx)
-                audit_entry = f" | Transaction executed at {datetime.now(UTC).isoformat()} | Hash: {tx_hash}"
-                req.audit_log = (req.audit_log or "") + audit_entry
-
-                click.echo(f"Transaction submitted successfully: {tx_hash}")
-                click.echo(f"Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'} to {req.wallet_address}")
-
-                # Send notification to sender
-                notification_content = f"Coin request {req.id} EXECUTED. Transaction hash: {tx_hash}. Amount: {format_ait(req.amount) if req.amount is not None else 'N/A'}."
-                send_agent_notification(req.sender if req.sender else "unknown", notification_content)
-            else:
-                # Revert to PENDING on failure
-                req.status = CoinRequestStatus.PENDING
-                audit_entry = f" | Execution failed: no transaction hash returned at {datetime.now(UTC).isoformat()}"
-                req.audit_log = (req.audit_log or "") + audit_entry
-                abort(ctx, "Transaction submission failed - no hash returned")
-
-        except CLIError:
-            raise
-        except Exception as e:
-            # Revert to PENDING on failure
-            req.status = CoinRequestStatus.PENDING
-            audit_entry = f" | Execution failed: {str(e)} at {datetime.now(UTC).isoformat()}"
-            req.audit_log = (req.audit_log or "") + audit_entry
-            abort(ctx, f"Error submitting transaction: {e}", from_exception=e)
+        _submit_signed_tx(ctx, tx_service, req, signed_tx)
 
 
 @coin_requests.command(

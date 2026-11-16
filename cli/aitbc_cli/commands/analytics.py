@@ -127,6 +127,127 @@ def summary(ctx, chain_id, hours, format):
         abort(ctx, f"Error getting analytics summary: {str(e)}", from_exception=e)
 
 
+def _health_color(score: float) -> str:
+    return "green" if score > 70 else "yellow" if score > 40 else "red"
+
+
+def _monitor_table() -> Any:
+    from rich.table import Table
+
+    table = Table(title=f"Chain Monitor - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    table.add_column("Chain ID", style="cyan")
+    table.add_column("TPS", style="green")
+    table.add_column("Block Time", style="yellow")
+    table.add_column("Health", style="red")
+    table.add_column("Alerts", style="magenta")
+    return table
+
+
+def _single_chain_row(table, cid: str, summary: dict[str, Any]) -> None:
+    health_color = _health_color(summary["health_score"])
+    table.add_row(
+        cid,
+        f"{summary['statistics']['tps']['avg']:.2f}",
+        f"{summary['statistics']['block_time']['avg']:.2f}s",
+        f"[{health_color}]{summary['health_score']:.1f}[/{health_color}]",
+        str(summary["active_alerts"]),
+    )
+
+
+def _all_chains_rows(table, analytics: ChainAnalytics) -> None:
+    analysis = analytics.get_cross_chain_analysis()
+    for chain_id, data in analysis["performance_comparison"].items():
+        health_color = _health_color(data["health_score"])
+        table.add_row(
+            chain_id,
+            f"{data['tps']:.2f}",
+            f"{data['block_time']:.2f}s",
+            f"[{health_color}]{data['health_score']:.1f}[/{health_color}]",
+            str(len([a for a in analytics.alerts if a.chain_id == chain_id])),
+        )
+
+
+def _monitor_table_or_error(analytics: ChainAnalytics, cid: str | None) -> Any:
+    """Build the realtime monitor table for one snapshot; error text on failure."""
+    try:
+        # Collect latest metrics
+        asyncio.run(analytics.collect_all_metrics())
+
+        table = _monitor_table()
+        if cid:
+            # Single chain monitoring
+            summary = analytics.get_chain_performance_summary(cid, 1)
+            if summary:
+                _single_chain_row(table, cid, summary)
+        else:
+            # All chains monitoring
+            _all_chains_rows(table, analytics)
+        return table
+    except Exception as e:
+        logger.warning("Error collecting metrics: %s", e, exc_info=True)
+        return f"Error collecting metrics: {e}"
+
+
+def _realtime_monitor(analytics: ChainAnalytics, interval, chain_id: str | None) -> None:
+    import time
+
+    from rich.console import Console
+    from rich.live import Live
+
+    console = Console()
+
+    with Live(_monitor_table_or_error(analytics, chain_id), refresh_per_second=1) as live:
+        try:
+            while True:
+                live.update(_monitor_table_or_error(analytics, chain_id))
+                time.sleep(interval)
+        except KeyboardInterrupt:
+            console.print("\n[yellow]Monitoring stopped by user[/yellow]")
+
+
+def _single_chain_monitor_rows(summary: dict[str, Any]) -> list[dict[str, str]]:
+    return [
+        {"Metric": "Chain ID", "Value": summary["chain_id"]},
+        {"Metric": "Current TPS", "Value": f"{summary['statistics']['tps']['avg']:.2f}"},
+        {"Metric": "Current Block Time", "Value": f"{summary['statistics']['block_time']['avg']:.2f}s"},
+        {"Metric": "Health Score", "Value": f"{summary['health_score']:.1f}/100"},
+        {"Metric": "Active Alerts", "Value": summary["active_alerts"]},
+        {"Metric": "Memory Usage", "Value": f"{summary['latest_metrics']['memory_usage_mb']:.1f}MB"},
+        {"Metric": "Disk Usage", "Value": f"{summary['latest_metrics']['disk_usage_mb']:.1f}MB"},
+        {"Metric": "Active Nodes", "Value": summary["latest_metrics"]["active_nodes"]},
+        {"Metric": "Client Count", "Value": summary["latest_metrics"]["client_count"]},
+        {"Metric": "Agent Count", "Value": summary["latest_metrics"]["agent_count"]},
+    ]
+
+
+def _all_chains_monitor_rows(analysis: dict[str, Any]) -> list[dict[str, str]]:
+    return [
+        {"Metric": "Total Chains", "Value": analysis["total_chains"]},
+        {"Metric": "Active Chains", "Value": analysis["active_chains"]},
+        {"Metric": "Total Memory Usage", "Value": f"{analysis['resource_usage']['total_memory_mb']:.1f}MB"},
+        {"Metric": "Total Disk Usage", "Value": f"{analysis['resource_usage']['total_disk_mb']:.1f}MB"},
+        {"Metric": "Total Clients", "Value": analysis["resource_usage"]["total_clients"]},
+        {"Metric": "Total Agents", "Value": analysis["resource_usage"]["total_agents"]},
+        {"Metric": "Total Alerts", "Value": analysis["alerts_summary"]["total_alerts"]},
+        {"Metric": "Critical Alerts", "Value": analysis["alerts_summary"]["critical_alerts"]},
+    ]
+
+
+def _snapshot_monitor(ctx: click.Context, analytics: ChainAnalytics, chain_id: str | None) -> None:
+    # Single snapshot
+    asyncio.run(analytics.collect_all_metrics())
+    fmt = _fmt(ctx, None)
+
+    if chain_id:
+        summary = analytics.get_chain_performance_summary(chain_id, 1)
+        if not summary:
+            abort(ctx, f"No data available for chain {chain_id}")
+        output(_single_chain_monitor_rows(summary), fmt, title=f"Chain Monitor: {chain_id}")
+    else:
+        analysis = analytics.get_cross_chain_analysis()
+        output(_all_chains_monitor_rows(analysis), fmt, title="System Monitor")
+
+
 @analytics.command(
     epilog="""Examples:
 
@@ -145,111 +266,9 @@ def monitor(ctx, realtime, interval, chain_id):
         analytics = ChainAnalytics(config)
 
         if realtime:
-            # Real-time monitoring
-            import time
-
-            from rich.console import Console
-            from rich.live import Live
-            from rich.table import Table
-
-            console = Console()
-
-            def generate_monitor_table(cid: str = chain_id):
-                try:
-                    # Collect latest metrics
-                    asyncio.run(analytics.collect_all_metrics())
-
-                    table = Table(title=f"Chain Monitor - {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
-                    table.add_column("Chain ID", style="cyan")
-                    table.add_column("TPS", style="green")
-                    table.add_column("Block Time", style="yellow")
-                    table.add_column("Health", style="red")
-                    table.add_column("Alerts", style="magenta")
-
-                    if cid:
-                        # Single chain monitoring
-                        summary = analytics.get_chain_performance_summary(cid, 1)
-                        if summary:
-                            health_color = (
-                                "green"
-                                if summary["health_score"] > 70
-                                else "yellow"
-                                if summary["health_score"] > 40
-                                else "red"
-                            )
-                            table.add_row(
-                                cid,
-                                f"{summary['statistics']['tps']['avg']:.2f}",
-                                f"{summary['statistics']['block_time']['avg']:.2f}s",
-                                f"[{health_color}]{summary['health_score']:.1f}[/{health_color}]",
-                                str(summary["active_alerts"]),
-                            )
-                    else:
-                        # All chains monitoring
-                        analysis = analytics.get_cross_chain_analysis()
-                        for chain_id, data in analysis["performance_comparison"].items():
-                            health_color = (
-                                "green" if data["health_score"] > 70 else "yellow" if data["health_score"] > 40 else "red"
-                            )
-                            table.add_row(
-                                chain_id,
-                                f"{data['tps']:.2f}",
-                                f"{data['block_time']:.2f}s",
-                                f"[{health_color}]{data['health_score']:.1f}[/{health_color}]",
-                                str(len([a for a in analytics.alerts if a.chain_id == chain_id])),
-                            )
-
-                    return table
-                except Exception as e:
-                    logger.warning("Error collecting metrics: %s", e, exc_info=True)
-                    return f"Error collecting metrics: {e}"
-
-            with Live(generate_monitor_table(), refresh_per_second=1) as live:
-                try:
-                    while True:
-                        live.update(generate_monitor_table())
-                        time.sleep(interval)
-                except KeyboardInterrupt:
-                    console.print("\n[yellow]Monitoring stopped by user[/yellow]")
+            _realtime_monitor(analytics, interval, chain_id)
         else:
-            # Single snapshot
-            asyncio.run(analytics.collect_all_metrics())
-            fmt = _fmt(ctx, None)
-
-            if chain_id:
-                summary = analytics.get_chain_performance_summary(chain_id, 1)
-                if not summary:
-                    abort(ctx, f"No data available for chain {chain_id}")
-
-                monitor_data = [
-                    {"Metric": "Chain ID", "Value": summary["chain_id"]},
-                    {"Metric": "Current TPS", "Value": f"{summary['statistics']['tps']['avg']:.2f}"},
-                    {"Metric": "Current Block Time", "Value": f"{summary['statistics']['block_time']['avg']:.2f}s"},
-                    {"Metric": "Health Score", "Value": f"{summary['health_score']:.1f}/100"},
-                    {"Metric": "Active Alerts", "Value": summary["active_alerts"]},
-                    {"Metric": "Memory Usage", "Value": f"{summary['latest_metrics']['memory_usage_mb']:.1f}MB"},
-                    {"Metric": "Disk Usage", "Value": f"{summary['latest_metrics']['disk_usage_mb']:.1f}MB"},
-                    {"Metric": "Active Nodes", "Value": summary["latest_metrics"]["active_nodes"]},
-                    {"Metric": "Client Count", "Value": summary["latest_metrics"]["client_count"]},
-                    {"Metric": "Agent Count", "Value": summary["latest_metrics"]["agent_count"]},
-                ]
-
-                output(monitor_data, fmt, title=f"Chain Monitor: {chain_id}")
-            else:
-                analysis = analytics.get_cross_chain_analysis()
-
-                monitor_data = [
-                    {"Metric": "Total Chains", "Value": analysis["total_chains"]},
-                    {"Metric": "Active Chains", "Value": analysis["active_chains"]},
-                    {"Metric": "Total Memory Usage", "Value": f"{analysis['resource_usage']['total_memory_mb']:.1f}MB"},
-                    {"Metric": "Total Disk Usage", "Value": f"{analysis['resource_usage']['total_disk_mb']:.1f}MB"},
-                    {"Metric": "Total Clients", "Value": analysis["resource_usage"]["total_clients"]},
-                    {"Metric": "Total Agents", "Value": analysis["resource_usage"]["total_agents"]},
-                    {"Metric": "Total Alerts", "Value": analysis["alerts_summary"]["total_alerts"]},
-                    {"Metric": "Critical Alerts", "Value": analysis["alerts_summary"]["critical_alerts"]},
-                ]
-
-                output(monitor_data, fmt, title="System Monitor")
+            _snapshot_monitor(ctx, analytics, chain_id)
 
     except CLIError:
         # abort() already printed the error once — do not wrap it again.

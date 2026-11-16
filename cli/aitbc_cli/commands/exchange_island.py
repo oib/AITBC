@@ -459,6 +459,85 @@ def sell(
         abort(ctx, f"Error creating sell order: {str(e)}", from_exception=e)
 
 
+def _order_payload(order: dict[str, Any]) -> dict[str, Any]:
+    return order.get("payload") or order
+
+
+def _orderbook_transactions(rpc_endpoint: str, island_id: str, pair: str, limit: int) -> list[Any]:
+    """Query open exchange orders; simulated fallback when the RPC is down."""
+    params = {
+        "transaction_type": "EXCHANGE",
+        "island_id": island_id,
+        "pair": pair,
+        "status": "open",
+        "limit": limit * 2,  # Get both buys and sells
+    }
+
+    http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+    try:
+        transactions = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
+    except NetworkError:
+        transactions = _simulated_orderbook_transactions(pair, limit)
+    transactions, _book_cancelled = _apply_cancels(transactions)
+    return [t for t in transactions if ((t.get("payload") or t).get("order_id") not in _book_cancelled)]
+
+
+def _split_sorted_orders(transactions) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Split transactions into (buy_orders desc by max_price, sell_orders asc by min_price)."""
+    buy_orders = []
+    sell_orders = []
+
+    for order in transactions:
+        if not isinstance(order, dict):
+            continue
+        payload = _order_payload(order)
+        if payload.get("side") == "buy":
+            buy_orders.append(payload)
+        elif payload.get("side") == "sell":
+            sell_orders.append(payload)
+
+    # Sort buy orders by price descending (highest first)
+    buy_orders.sort(key=lambda x: _as_decimal(x.get("max_price", 0)), reverse=True)
+    # Sort sell orders by price ascending (lowest first)
+    sell_orders.sort(key=lambda x: _as_decimal(x.get("min_price", 0)))
+    return buy_orders, sell_orders
+
+
+def _orderbook_row(order: dict[str, Any], price_key: str, quote_symbol: str) -> dict[str, str]:
+    price = _as_decimal(order.get(price_key, 0))
+    amount = _as_decimal(order.get("amount", 0))
+    return {
+        "Price": f"{price:.8f}",
+        "Amount": f"{amount:.4f} AIT",
+        "Total": f"{price * amount:.8f} {quote_symbol}",
+        "User": order.get("user_id", "")[:16] + "...",
+        "Order": order.get("order_id", "")[:16] + "...",
+    }
+
+
+def _print_orderbook_side(ctx, orders, pair: str, limit: int, *, price_key: str, title: str) -> None:
+    if not orders:
+        return
+    quote_symbol = pair.split("/")[1]
+    rows = [_orderbook_row(order, price_key, quote_symbol) for order in orders[:limit]]
+    output(rows, ctx.obj.get("output_format", "table"), title=title)
+
+
+def _print_orderbook_spread(pair: str, sell_orders, buy_orders) -> None:
+    """Print spread info when both sides of the book are non-empty."""
+    if not (sell_orders and buy_orders):
+        return
+    quote_symbol = pair.split("/")[1]
+    best_ask = _as_decimal(sell_orders[0].get("min_price", 0))
+    best_bid = _as_decimal(buy_orders[0].get("max_price", 0))
+    spread = best_ask - best_bid
+    if best_bid > 0:
+        spread_pct = (spread / best_bid) * 100
+        info(f"Spread: {spread:.8f} ({spread_pct:.4f}%)")
+        info(f"Best Bid: {best_bid:.8f} {quote_symbol}/AIT")
+        info(f"Best Ask: {best_ask:.8f} {quote_symbol}/AIT")
+
+
 @exchange_island.command(
     epilog="""Examples:
 
@@ -479,90 +558,20 @@ def orderbook(ctx, pair: str, limit: int):
         rpc_endpoint = get_rpc_endpoint()
         island_id = get_island_id()
 
-        # Query blockchain for exchange orders
-        params = {
-            "transaction_type": "EXCHANGE",
-            "island_id": island_id,
-            "pair": pair,
-            "status": "open",
-            "limit": limit * 2,  # Get both buys and sells
-        }
-
-        http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-        try:
-            transactions = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
-        except NetworkError:
-            transactions = _simulated_orderbook_transactions(pair, limit)
-        transactions, _book_cancelled = _apply_cancels(transactions)
-        transactions = [t for t in transactions if ((t.get("payload") or t).get("order_id") not in _book_cancelled)]
-
-        def _order_payload(order: dict[str, Any]) -> dict[str, Any]:
-            return order.get("payload") or order
-
-        # Separate buy and sell orders
-        buy_orders = []
-        sell_orders = []
-
-        for order in transactions:
-            if not isinstance(order, dict):
-                continue  # type: ignore[unreachable]
-            payload = _order_payload(order)
-            if payload.get("side") == "buy":
-                buy_orders.append(payload)
-            elif payload.get("side") == "sell":
-                sell_orders.append(payload)
-
-        # Sort buy orders by price descending (highest first)
-        buy_orders.sort(key=lambda x: _as_decimal(x.get("max_price", 0)), reverse=True)
-        # Sort sell orders by price ascending (lowest first)
-        sell_orders.sort(key=lambda x: _as_decimal(x.get("min_price", 0)))
+        transactions = _orderbook_transactions(rpc_endpoint, island_id, pair, limit)
+        buy_orders, sell_orders = _split_sorted_orders(transactions)
 
         if not buy_orders and not sell_orders:
             info(f"No open orders for {pair}")
             return
 
         # Display sell orders (asks)
-        if sell_orders:
-            asks_data = []
-            for order in sell_orders[:limit]:
-                asks_data.append(
-                    {
-                        "Price": f"{_as_decimal(order.get('min_price', 0)):.8f}",
-                        "Amount": f"{_as_decimal(order.get('amount', 0)):.4f} AIT",
-                        "Total": f"{_as_decimal(order.get('min_price', 0)) * _as_decimal(order.get('amount', 0)):.8f} {pair.split('/')[1]}",
-                        "User": order.get("user_id", "")[:16] + "...",
-                        "Order": order.get("order_id", "")[:16] + "...",
-                    }
-                )
-
-            output(asks_data, ctx.obj.get("output_format", "table"), title=f"Sell Orders (Asks) - {pair}")
-
+        _print_orderbook_side(ctx, sell_orders, pair, limit, price_key="min_price", title=f"Sell Orders (Asks) - {pair}")
         # Display buy orders (bids)
-        if buy_orders:
-            bids_data = []
-            for order in buy_orders[:limit]:
-                bids_data.append(
-                    {
-                        "Price": f"{_as_decimal(order.get('max_price', 0)):.8f}",
-                        "Amount": f"{_as_decimal(order.get('amount', 0)):.4f} AIT",
-                        "Total": f"{_as_decimal(order.get('max_price', 0)) * _as_decimal(order.get('amount', 0)):.8f} {pair.split('/')[1]}",
-                        "User": order.get("user_id", "")[:16] + "...",
-                        "Order": order.get("order_id", "")[:16] + "...",
-                    }
-                )
-
-            output(bids_data, ctx.obj.get("output_format", "table"), title=f"Buy Orders (Bids) - {pair}")
+        _print_orderbook_side(ctx, buy_orders, pair, limit, price_key="max_price", title=f"Buy Orders (Bids) - {pair}")
 
         # Calculate spread if both exist
-        if sell_orders and buy_orders:
-            best_ask = _as_decimal(sell_orders[0].get("min_price", 0))
-            best_bid = _as_decimal(buy_orders[0].get("max_price", 0))
-            spread = best_ask - best_bid
-            if best_bid > 0:
-                spread_pct = (spread / best_bid) * 100
-                info(f"Spread: {spread:.8f} ({spread_pct:.4f}%)")
-                info(f"Best Bid: {best_bid:.8f} {pair.split('/')[1]}/AIT")
-                info(f"Best Ask: {best_ask:.8f} {pair.split('/')[1]}/AIT")
+        _print_orderbook_spread(pair, sell_orders, buy_orders)
     except Exception as e:
         abort(ctx, f"Error fetching order book: {str(e)}", from_exception=e)
 

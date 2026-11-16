@@ -3,6 +3,7 @@
 import json
 import logging
 from datetime import datetime, UTC
+from decimal import Decimal as _Decimal
 from decimal import InvalidOperation
 from pathlib import Path
 
@@ -117,6 +118,71 @@ def inspect(ctx, wallet_file: str, field: str | None):
     output(public_view, ctx.obj.get("output_format", "table"))
 
 
+def _rewards_decimal(value) -> _Decimal:
+    if value is None:
+        return _Decimal("0")
+    try:
+        return _Decimal(str(value))
+    except (InvalidOperation, ValueError, TypeError, ArithmeticError):
+        return _Decimal("0")
+
+
+def _staking_reward_totals(staking) -> tuple[_Decimal, _Decimal, _Decimal]:
+    """Return (earned, pending, active) staking reward totals."""
+    # Staking rewards (kept as local cache; staking is unchanged)
+    staking_rewards = sum(
+        (_rewards_decimal(s.get("rewards", 0)) for s in staking if s.get("status") == "completed"), _Decimal("0")
+    )
+    active_staking = sum((_rewards_decimal(s["amount"]) for s in staking if s.get("status") == "active"), _Decimal("0"))
+
+    pending_staking = _Decimal("0")
+    for s in staking:
+        if s.get("status") == "active":
+            start = datetime.fromisoformat(s["start_date"])
+            if start.tzinfo is None:
+                start = start.replace(tzinfo=UTC)
+            days = _Decimal(str(max((datetime.now(UTC) - start).total_seconds() / 86400, 0)))
+            pending_staking += (
+                _rewards_decimal(s["amount"]) * (_rewards_decimal(s["apy"]) / _Decimal("100")) * (days / _Decimal("365"))
+            )
+    return staking_rewards, pending_staking, active_staking
+
+
+def _onchain_liquidity_totals(wallet_data: dict, liquidity) -> tuple[_Decimal, _Decimal, _Decimal]:
+    """Return (earned, pending, active) liquidity reward totals.
+
+    On-chain liquidity rewards: query the canonical pool state; fall back to
+    the local wallet cache if the node or endpoint is unavailable."""
+    liq_rewards = _Decimal("0")
+    active_liquidity = _Decimal("0")
+    pending_liquidity = _Decimal("0")
+    try:
+        from ...config import get_config
+        from ...utils.chain_id import get_chain_id
+
+        config = get_config()
+        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
+        chain_id = get_chain_id(rpc_url)
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        address = wallet_data.get("address", "")
+        result = http_client.get(f"/rpc/liquidity/stakes/{address}?chain_id={chain_id}")
+        if result.get("success"):
+            for s in result.get("stakes", []):
+                if s.get("status") == "active":
+                    active_liquidity += _rewards_decimal(s.get("amount_ait", 0))
+                    pending_liquidity += _rewards_decimal(s.get("rewards_pending_ait", 0))
+                if s.get("status") == "withdrawn":
+                    liq_rewards += _rewards_decimal(s.get("rewards", 0))
+    except Exception as e:  # noqa: BLE001 - node/endpoint/config failures all fall back to the local cache
+        logger.debug("on-chain liquidity lookup failed, using local cache: %s", type(e).__name__)
+        for r in liquidity:
+            if r.get("status") == "active":
+                active_liquidity += _rewards_decimal(r.get("amount", 0))
+            elif r.get("status") == "completed":
+                liq_rewards += _rewards_decimal(r.get("rewards", 0))
+    return liq_rewards, pending_liquidity, active_liquidity
+
+
 @wallet.command(
     epilog="""Examples:
 
@@ -137,58 +203,8 @@ def rewards(ctx):
     staking = wallet_data.get("staking", [])
     liquidity = wallet_data.get("liquidity", [])
 
-    from decimal import Decimal as _Decimal
-
-    def _as_number(value):
-        if value is None:
-            return _Decimal("0")
-        try:
-            return _Decimal(str(value))
-        except (InvalidOperation, ValueError, TypeError, ArithmeticError):
-            return _Decimal("0")
-
-    # Staking rewards (kept as local cache; staking is unchanged)
-    staking_rewards = sum(_as_number(s.get("rewards", 0)) for s in staking if s.get("status") == "completed")
-    active_staking = sum(_as_number(s["amount"]) for s in staking if s.get("status") == "active")
-
-    pending_staking = _Decimal("0")
-    for s in staking:
-        if s.get("status") == "active":
-            start = datetime.fromisoformat(s["start_date"])
-            if start.tzinfo is None:
-                start = start.replace(tzinfo=UTC)
-            days = _Decimal(str(max((datetime.now(UTC) - start).total_seconds() / 86400, 0)))
-            pending_staking += _as_number(s["amount"]) * (_as_number(s["apy"]) / _Decimal("100")) * (days / _Decimal("365"))
-
-    # On-chain liquidity rewards: query the canonical pool state.
-    liq_rewards = _Decimal("0")
-    active_liquidity = _Decimal("0")
-    pending_liquidity = _Decimal("0")
-    try:
-        from ...config import get_config
-        from ...utils.chain_id import get_chain_id
-
-        config = get_config()
-        rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        chain_id = get_chain_id(rpc_url)
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        address = wallet_data.get("address", "")
-        result = http_client.get(f"/rpc/liquidity/stakes/{address}?chain_id={chain_id}")
-        if result.get("success"):
-            for s in result.get("stakes", []):
-                if s.get("status") == "active":
-                    active_liquidity += _as_number(s.get("amount_ait", 0))
-                    pending_liquidity += _as_number(s.get("rewards_pending_ait", 0))
-                if s.get("status") == "withdrawn":
-                    liq_rewards += _as_number(s.get("rewards", 0))
-    except Exception as e:  # noqa: BLE001 - node/endpoint/config failures all fall back to the local cache
-        logger.debug("on-chain liquidity lookup failed, using local cache: %s", type(e).__name__)
-        # Fall back to the local wallet cache if the node or endpoint is unavailable
-        for r in liquidity:
-            if r.get("status") == "active":
-                active_liquidity += _as_number(r.get("amount", 0))
-            elif r.get("status") == "completed":
-                liq_rewards += _as_number(r.get("rewards", 0))
+    staking_rewards, pending_staking, active_staking = _staking_reward_totals(staking)
+    liq_rewards, pending_liquidity, active_liquidity = _onchain_liquidity_totals(wallet_data, liquidity)
 
     output(
         {

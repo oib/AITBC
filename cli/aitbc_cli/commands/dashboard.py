@@ -308,6 +308,269 @@ def dashboard():
     pass
 
 
+def _job_row(job: dict[str, Any]) -> dict[str, str]:
+    requested_at = job.get("requested_at") or job.get("created_at")
+    created = str(requested_at)[:19] if requested_at else "N/A"
+    return {
+        "Job ID": job.get("job_id", job.get("id", "N/A")),
+        "State": job.get("state", "N/A"),
+        "Payment": job.get("payment_status", "N/A"),
+        "Model": _model_for_job(job),
+        "Created": created,
+    }
+
+
+def _customer_job_rows(jobs: list[Any]) -> tuple[Counter, Counter, list[dict[str, Any]]]:
+    state_counts: Counter = Counter()
+    payment_counts: Counter = Counter()
+    recent_jobs: list[dict[str, Any]] = []
+    for job in jobs:
+        if not isinstance(job, dict):
+            continue
+        state_counts[job.get("state", "UNKNOWN")] += 1
+        payment_counts[job.get("payment_status", "unknown")] += 1
+        recent_jobs.append(_job_row(job))
+    return state_counts, payment_counts, recent_jobs
+
+
+def _wallet_balance_rows(
+    ctx: click.Context,
+    config,
+    blockchain_rpc_url: str,
+    wallet_limit: int,
+) -> list[dict[str, Any]]:
+    """Wallet balances from the wallet daemon; empty when it is unreachable."""
+    wallet_balances: list[dict[str, Any]] = []
+    try:
+        wallet_client = AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=10, api_key=config.wallet_api_key)
+        wallets_data = wallet_client.get_json("/v1/wallets") or {}
+        wallets = wallets_data.get("items", []) if isinstance(wallets_data, dict) else []
+        chain_id = ctx.obj.get("chain_id") or "ait-devnet"
+        for wallet in wallets[:wallet_limit]:
+            if not isinstance(wallet, dict):
+                continue
+            wallet_id = wallet.get("wallet_id", "N/A")
+            address = wallet.get("address") or wallet.get("metadata", {}).get("address", "N/A")
+            canonical = to_canonical(address)
+            bal_info = _live_wallet_balance(wallet_client, wallet_id, address, chain_id, blockchain_rpc_url)
+            wallet_balances.append(
+                {
+                    "Wallet": wallet_id,
+                    "Address": address,
+                    "Canonical": canonical,
+                    "Balance AIT": bal_info["balance_ait"],
+                }
+            )
+    except NetworkError as e:
+        logger.warning("Wallet daemon unavailable: %s", e)
+    return wallet_balances
+
+
+def _resolve_miner_id(miner_id: str | None, config) -> str:
+    if miner_id:
+        return miner_id
+    return (
+        _miner_env().get("MINER_ID")
+        or os.environ.get("NODE_ID")
+        or socket.gethostname()
+        or getattr(config, "node_id", "")
+        or "unknown"
+    )
+
+
+def _shop_coord_client(ctx: click.Context, miner_id: str) -> tuple[AITBCHTTPClient, dict[str, str] | None]:
+    # Miner-role headers for /v1/miners/* and /v1/monitoring* (ANY authenticated role).
+    miner_headers = _coord_headers(ctx)
+    if miner_headers is not None:
+        # The path miner_id comes from --miner-id/NODE_ID/hostname while
+        # _auth_headers only reads MINER_ID; the coordinator refuses a
+        # path/header mismatch (#804), so pin the header to the resolved id.
+        miner_headers = {**miner_headers, "X-Miner-ID": miner_id}
+    coord_url = _coordinator_base_url(ctx)
+    return AITBCHTTPClient(base_url=coord_url, timeout=15, headers=miner_headers), miner_headers
+
+
+def _shop_miner_activity(
+    coord_client: AITBCHTTPClient,
+    miner_headers: dict[str, str] | None,
+    miner_id: str,
+    limit: int,
+    blockchain_rpc_url: str,
+) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    """Jobs and earnings for this miner; empty unless a miner API key is in play."""
+    # /v1/miners/* is MINER-level: a Bearer JWT (client/admin role) would only 403, so
+    # skip those calls unless a miner API key (X-Api-Key) is in play —
+    # the dashboard degrades to the shop-scoped endpoint set (#2140).
+    has_miner_auth = bool(miner_headers and miner_headers.get("X-Api-Key"))
+    miner_jobs: list[dict[str, Any]] = []
+    miner_earnings: dict[str, Any] = {}
+    if miner_id and has_miner_auth:
+        jobs_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/jobs", {"limit": limit})
+        if isinstance(jobs_resp, list):
+            miner_jobs = jobs_resp
+        elif jobs_resp:
+            miner_jobs = cast(list[dict[str, Any]], jobs_resp.get("jobs", jobs_resp.get("items", [])))
+        earnings_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/earnings")
+        if earnings_resp:
+            miner_earnings = earnings_resp if isinstance(earnings_resp, dict) else {}
+
+    _enrich_jobs_with_escrow(miner_jobs, blockchain_rpc_url)
+    return miner_jobs, miner_earnings
+
+
+def _shop_gpus(config, miner_id: str) -> list[dict[str, Any]]:
+    """GPUs on this node: miner-registered GPUs plus the local nvidia-smi spec."""
+    gpus: list[dict[str, Any]] = []
+    gpu_client = AITBCHTTPClient(base_url=config.gpu_service_url or "http://localhost:8101", timeout=10)
+    if miner_id:
+        registered = _safe_get(gpu_client, f"/v1/miners/{miner_id}/gpus")
+        if isinstance(registered, list):
+            gpus.extend(g for g in registered if isinstance(g, dict))
+    # /v1/gpu/discover returns the nvidia-smi spec of the first local GPU as a
+    # flat dict ({} when none), not a {"gpus": [...]} wrapper.
+    discovered = _safe_get(gpu_client, "/v1/gpu/discover") or {}
+    if isinstance(discovered, dict) and discovered.get("model"):
+        known = {(g.get("model"), g.get("memory_gb")) for g in gpus}
+        if (discovered.get("model"), discovered.get("memory_gb")) not in known:
+            gpus.append(discovered)
+    return gpus
+
+
+def _shop_market_offers(ctx: click.Context, config, miner_id: str, limit: int) -> list[dict[str, Any]]:
+    """Market offers published by this shop; empty when the market is down."""
+    offer_rows: list[dict[str, Any]] = []
+    try:
+        hub = config.hub_discovery_url or "hub.aitbc.invalid"
+        market_client = AITBCHTTPClient(
+            base_url=normalize_hub_base(hub) or hub,
+            timeout=10,
+            headers=_auth_headers(ctx),
+        )
+        offers_data = _safe_get(market_client, "/v1/market/offer", {"limit": limit}) or {}
+        offers = offers_data.get("offers", []) if isinstance(offers_data, dict) else []
+        shop_id = miner_id or config.node_id or ""
+        if shop_id:
+            offers = [o for o in offers if o.get("node_id") == shop_id or shop_id in str(o.get("provider_address", ""))]
+        for offer in offers:
+            offer_rows.append(
+                {
+                    "Plugin ID": offer.get("plugin_id", "N/A"),
+                    "Model": offer.get("model", "N/A"),
+                    "Price": f"{offer.get('price', 0)} {offer.get('price_unit', 'units')}",
+                    "Status": offer.get("status", "unknown"),
+                    "Rating": f"{offer.get('avg_rating', 0):.1f} ({offer.get('rating_count', 0)})",
+                }
+            )
+    except NetworkError as e:
+        logger.warning("Market service unavailable: %s", e)
+    return offer_rows
+
+
+def _shop_sla_violations(sla_client: AITBCHTTPClient, sla_data: dict[str, Any], miner_id: str) -> None:
+    sla_violations = _safe_get(sla_client, "/v1/sla/violations", {"miner_id": miner_id, "resolved": "false"})
+    if isinstance(sla_violations, list):
+        sla_data["open_violations_for_miner"] = len(sla_violations)
+    sla_metrics = _safe_get(sla_client, f"/v1/sla/metrics/{miner_id}", {"hours": 24})
+    if isinstance(sla_metrics, list):
+        latest: dict[str, Any] = {}
+        for m in sla_metrics:
+            if isinstance(m, dict) and m.get("metric_type") not in latest:
+                latest[m["metric_type"]] = m.get("metric_value")
+        sla_data["latest_metrics_24h"] = latest
+
+
+def _shop_sla_data(miner_id: str) -> dict[str, Any]:
+    """SLA standing from pool-hub; {'status': 'unavailable'} on any failure."""
+    sla_data: dict[str, Any] = {"status": "unavailable"}
+    try:
+        from .pool_hub import DEFAULT_POOL_HUB_URL, _default_pool_hub_url
+
+        pool_hub_urls = [_default_pool_hub_url()]
+        if DEFAULT_POOL_HUB_URL not in pool_hub_urls:
+            pool_hub_urls.append(DEFAULT_POOL_HUB_URL)
+        for pool_hub_url in pool_hub_urls:
+            sla_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=10)
+            # /sla/violations and /sla/metrics return lists, /sla/status an object.
+            sla_status = _safe_get(sla_client, "/v1/sla/status")
+            if not isinstance(sla_status, dict):
+                continue
+            sla_data = dict(sla_status)
+            if miner_id:
+                _shop_sla_violations(sla_client, sla_data, miner_id)
+            sla_data["pool_hub_url"] = pool_hub_url
+            break
+    except Exception as e:
+        logger.warning("SLA section unavailable: %s", e)
+    return sla_data
+
+
+def _assigned_job_row(job: dict[str, Any]) -> dict[str, str]:
+    return {
+        "Job ID": job.get("job_id", job.get("id", "N/A")),
+        "State": job.get("state", "N/A"),
+        "Payment": job.get("payment_status", "N/A"),
+        "Model": (
+            (job.get("result") or {}).get("model")
+            or (job.get("payload") or {}).get("model")
+            or ((job.get("result") or {}).get("result") or {}).get("model")
+            or "N/A"
+        ),
+        "Created": str(job.get("requested_at") or job.get("created_at"))[:19],
+    }
+
+
+def _gpu_row(g: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "Model": g.get("model") or g.get("name") or "N/A",
+        "Memory GB": g.get("memory_gb", "N/A"),
+        "Status": g.get("status") or "detected",
+    }
+
+
+def _monitoring_sections(metrics: Any) -> tuple[dict[str, Any], dict[str, Any]]:
+    if not isinstance(metrics, dict):
+        return {}, {}
+    return metrics.get("jobs", {}), metrics.get("miners", {})
+
+
+def _shop_dashboard_data(
+    miner_id: str,
+    jobs_metrics: dict[str, Any],
+    miners_metrics: dict[str, Any],
+    miner_jobs: list[dict[str, Any]],
+    gpus: list[dict[str, Any]],
+    offer_rows: list[dict[str, Any]],
+    sla_data: dict[str, Any],
+    wallet_balances: list[dict[str, Any]],
+    miner_earnings: dict[str, Any],
+) -> dict[str, Any]:
+    return {
+        "summary": {
+            "miner_id": miner_id,
+            "network_jobs_total": jobs_metrics.get("total", 0),
+            "network_jobs_completed": jobs_metrics.get("completed", 0),
+            "network_jobs_pending": jobs_metrics.get("pending", 0),
+            "network_jobs_failed": jobs_metrics.get("failed", 0),
+            "miners_total": miners_metrics.get("total", 0),
+            "miners_online": miners_metrics.get("online", 0),
+            "gpus_found": len(gpus),
+            "offers_published": len(offer_rows),
+            "shop_assigned_jobs": len(miner_jobs),
+            "wallets": len(wallet_balances),
+        },
+        "assigned_jobs": [_assigned_job_row(job) for job in (miner_jobs if isinstance(miner_jobs, list) else [])],
+        "gpus": [_gpu_row(g) for g in gpus],
+        "market_offers": offer_rows,
+        "sla": sla_data,
+        "wallets": wallet_balances,
+        "earnings": {
+            "total": miner_earnings.get("total_earnings", "N/A"),
+            "paid": miner_earnings.get("paid_earnings", "N/A"),
+            "pending": miner_earnings.get("pending_earnings", "N/A"),
+        },
+    }
+
+
 @dashboard.command(
     epilog="""Examples:
 
@@ -334,50 +597,8 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
             jobs = []
 
         _enrich_jobs_with_escrow(jobs, blockchain_rpc_url)
-
-        state_counts: Counter = Counter()
-        payment_counts: Counter = Counter()
-        recent_jobs: list[dict[str, Any]] = []
-        for job in jobs:
-            if not isinstance(job, dict):
-                continue
-            state_counts[job.get("state", "UNKNOWN")] += 1
-            payment_counts[job.get("payment_status", "unknown")] += 1
-            requested_at = job.get("requested_at") or job.get("created_at")
-            created = str(requested_at)[:19] if requested_at else "N/A"
-            recent_jobs.append(
-                {
-                    "Job ID": job.get("job_id", job.get("id", "N/A")),
-                    "State": job.get("state", "N/A"),
-                    "Payment": job.get("payment_status", "N/A"),
-                    "Model": _model_for_job(job),
-                    "Created": created,
-                }
-            )
-
-        wallet_balances: list[dict[str, Any]] = []
-        try:
-            wallet_client = AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=10, api_key=config.wallet_api_key)
-            wallets_data = wallet_client.get_json("/v1/wallets") or {}
-            wallets = wallets_data.get("items", []) if isinstance(wallets_data, dict) else []
-            chain_id = ctx.obj.get("chain_id") or "ait-devnet"
-            for wallet in wallets[:wallet_limit]:
-                if not isinstance(wallet, dict):
-                    continue
-                wallet_id = wallet.get("wallet_id", "N/A")
-                address = wallet.get("address") or wallet.get("metadata", {}).get("address", "N/A")
-                canonical = to_canonical(address)
-                bal_info = _live_wallet_balance(wallet_client, wallet_id, address, chain_id, blockchain_rpc_url)
-                wallet_balances.append(
-                    {
-                        "Wallet": wallet_id,
-                        "Address": address,
-                        "Canonical": canonical,
-                        "Balance AIT": bal_info["balance_ait"],
-                    }
-                )
-        except NetworkError as e:
-            logger.warning("Wallet daemon unavailable: %s", e)
+        state_counts, payment_counts, recent_jobs = _customer_job_rows(jobs)
+        wallet_balances = _wallet_balance_rows(ctx, config, blockchain_rpc_url, wallet_limit)
 
         dashboard_data: dict[str, Any] = {
             "summary": {
@@ -417,198 +638,29 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
     try:
         config = ctx.obj["config"]
         blockchain_rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
-        if not miner_id:
-            miner_id = (
-                _miner_env().get("MINER_ID")
-                or os.environ.get("NODE_ID")
-                or socket.gethostname()
-                or getattr(config, "node_id", "")
-                or "unknown"
-            )
+        miner_id = _resolve_miner_id(miner_id, config)
 
-        # Miner-role headers for /v1/miners/* and /v1/monitoring* (ANY authenticated role).
-        miner_headers = _coord_headers(ctx)
-        if miner_headers is not None:
-            # The path miner_id comes from --miner-id/NODE_ID/hostname while
-            # _auth_headers only reads MINER_ID; the coordinator refuses a
-            # path/header mismatch (#804), so pin the header to the resolved id.
-            miner_headers = {**miner_headers, "X-Miner-ID": miner_id}
-        coord_url = _coordinator_base_url(ctx)
-        coord_client = AITBCHTTPClient(base_url=coord_url, timeout=15, headers=miner_headers)
-
+        coord_client, miner_headers = _shop_coord_client(ctx, miner_id)
         metrics = _safe_get(coord_client, "/v1/monitoring/metrics") or {}
-        jobs_metrics = metrics.get("jobs", {}) if isinstance(metrics, dict) else {}
-        miners_metrics = metrics.get("miners", {}) if isinstance(metrics, dict) else {}
+        jobs_metrics, miners_metrics = _monitoring_sections(metrics)
 
-        # Try to get local miner details if an ID is available. /v1/miners/*
-        # is MINER-level: a Bearer JWT (client/admin role) would only 403, so
-        # skip those calls unless a miner API key (X-Api-Key) is in play —
-        # the dashboard degrades to the shop-scoped endpoint set (#2140).
-        miner_jobs: list[dict[str, Any]] = []
-        miner_earnings: dict[str, Any] = {}
-        has_miner_auth = bool(miner_headers and miner_headers.get("X-Api-Key"))
-        if miner_id and has_miner_auth:
-            jobs_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/jobs", {"limit": limit})
-            if isinstance(jobs_resp, list):
-                miner_jobs = jobs_resp
-            elif jobs_resp:
-                miner_jobs = cast(list[dict[str, Any]], jobs_resp.get("jobs", jobs_resp.get("items", [])))
-            earnings_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/earnings")
-            if earnings_resp:
-                miner_earnings = earnings_resp if isinstance(earnings_resp, dict) else {}
+        miner_jobs, miner_earnings = _shop_miner_activity(coord_client, miner_headers, miner_id, limit, blockchain_rpc_url)
+        gpus = _shop_gpus(config, miner_id)
+        offer_rows = _shop_market_offers(ctx, config, miner_id, limit)
+        sla_data = _shop_sla_data(miner_id)
+        wallet_balances = _wallet_balance_rows(ctx, config, blockchain_rpc_url, 5)
 
-        _enrich_jobs_with_escrow(miner_jobs, blockchain_rpc_url)
-
-        # GPUs on this node. /v1/gpu/discover returns the nvidia-smi spec of the
-        # first local GPU as a flat dict ({} when none), not a {"gpus": [...]}
-        # wrapper; /v1/miners/{id}/gpus lists the GPUs this miner registered
-        # with the GPU service.
-        gpus: list[dict[str, Any]] = []
-        gpu_client = AITBCHTTPClient(base_url=config.gpu_service_url or "http://localhost:8101", timeout=10)
-        if miner_id:
-            registered = _safe_get(gpu_client, f"/v1/miners/{miner_id}/gpus")
-            if isinstance(registered, list):
-                gpus.extend(g for g in registered if isinstance(g, dict))
-        discovered = _safe_get(gpu_client, "/v1/gpu/discover") or {}
-        if isinstance(discovered, dict) and discovered.get("model"):
-            known = {(g.get("model"), g.get("memory_gb")) for g in gpus}
-            if (discovered.get("model"), discovered.get("memory_gb")) not in known:
-                gpus.append(discovered)
-
-        # Market offers published by this shop
-        offer_rows: list[dict[str, Any]] = []
-        try:
-            hub = config.hub_discovery_url or "hub.aitbc.invalid"
-            market_client = AITBCHTTPClient(
-                base_url=normalize_hub_base(hub) or hub,
-                timeout=10,
-                headers=_auth_headers(ctx),
-            )
-            offers_data = _safe_get(market_client, "/v1/market/offer", {"limit": limit}) or {}
-            offers = offers_data.get("offers", []) if isinstance(offers_data, dict) else []
-            shop_id = miner_id or config.node_id or ""
-            if shop_id:
-                offers = [o for o in offers if o.get("node_id") == shop_id or shop_id in str(o.get("provider_address", ""))]
-            for offer in offers:
-                offer_rows.append(
-                    {
-                        "Plugin ID": offer.get("plugin_id", "N/A"),
-                        "Model": offer.get("model", "N/A"),
-                        "Price": f"{offer.get('price', 0)} {offer.get('price_unit', 'units')}",
-                        "Status": offer.get("status", "unknown"),
-                        "Rating": f"{offer.get('avg_rating', 0):.1f} ({offer.get('rating_count', 0)})",
-                    }
-                )
-        except NetworkError as e:
-            logger.warning("Market service unavailable: %s", e)
-
-        # SLA standing from pool-hub. The resolved URL (POOL_HUB_URL /
-        # HUB_POOL_HUB_URL env, then the hub's /pool-hub path on shop/follower
-        # nodes, then localhost on the hub) is probed first; the local instance
-        # is only a fallback. Entirely optional: any failure leaves sla_data
-        # empty and the section renders as unavailable rather than breaking the
-        # dashboard.
-        sla_data: dict[str, Any] = {"status": "unavailable"}
-        try:
-            from .pool_hub import DEFAULT_POOL_HUB_URL, _default_pool_hub_url
-
-            pool_hub_urls = [_default_pool_hub_url()]
-            if DEFAULT_POOL_HUB_URL not in pool_hub_urls:
-                pool_hub_urls.append(DEFAULT_POOL_HUB_URL)
-            for pool_hub_url in pool_hub_urls:
-                sla_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=10)
-                # /sla/violations and /sla/metrics return lists, /sla/status an object.
-                sla_status = _safe_get(sla_client, "/v1/sla/status")
-                if not isinstance(sla_status, dict):
-                    continue
-                sla_data = dict(sla_status)
-                if miner_id:
-                    sla_violations = _safe_get(sla_client, "/v1/sla/violations", {"miner_id": miner_id, "resolved": "false"})
-                    if isinstance(sla_violations, list):
-                        sla_data["open_violations_for_miner"] = len(sla_violations)
-                    sla_metrics = _safe_get(sla_client, f"/v1/sla/metrics/{miner_id}", {"hours": 24})
-                    if isinstance(sla_metrics, list):
-                        latest: dict[str, Any] = {}
-                        for m in sla_metrics:
-                            if isinstance(m, dict) and m.get("metric_type") not in latest:
-                                latest[m["metric_type"]] = m.get("metric_value")
-                        sla_data["latest_metrics_24h"] = latest
-                sla_data["pool_hub_url"] = pool_hub_url
-                break
-        except Exception as e:
-            logger.warning("SLA section unavailable: %s", e)
-
-        # Shop wallet balances
-        wallet_balances: list[dict[str, Any]] = []
-        try:
-            wallet_client = AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=10, api_key=config.wallet_api_key)
-            wallets_data = wallet_client.get_json("/v1/wallets") or {}
-            wallets = wallets_data.get("items", []) if isinstance(wallets_data, dict) else []
-            chain_id = ctx.obj.get("chain_id") or "ait-devnet"
-            for wallet in wallets[:5]:
-                if not isinstance(wallet, dict):
-                    continue
-                wallet_id = wallet.get("wallet_id", "N/A")
-                address = wallet.get("address") or wallet.get("metadata", {}).get("address", "N/A")
-                canonical = to_canonical(address)
-                bal_info = _live_wallet_balance(wallet_client, wallet_id, address, chain_id, blockchain_rpc_url)
-                wallet_balances.append(
-                    {
-                        "Wallet": wallet_id,
-                        "Address": address,
-                        "Canonical": canonical,
-                        "Balance AIT": bal_info["balance_ait"],
-                    }
-                )
-        except NetworkError as e:
-            logger.warning("Wallet daemon unavailable: %s", e)
-
-        dashboard_data: dict[str, Any] = {
-            "summary": {
-                "miner_id": miner_id,
-                "network_jobs_total": jobs_metrics.get("total", 0),
-                "network_jobs_completed": jobs_metrics.get("completed", 0),
-                "network_jobs_pending": jobs_metrics.get("pending", 0),
-                "network_jobs_failed": jobs_metrics.get("failed", 0),
-                "miners_total": miners_metrics.get("total", 0),
-                "miners_online": miners_metrics.get("online", 0),
-                "gpus_found": len(gpus),
-                "offers_published": len(offer_rows),
-                "shop_assigned_jobs": len(miner_jobs),
-                "wallets": len(wallet_balances),
-            },
-            "assigned_jobs": [
-                {
-                    "Job ID": job.get("job_id", job.get("id", "N/A")),
-                    "State": job.get("state", "N/A"),
-                    "Payment": job.get("payment_status", "N/A"),
-                    "Model": (
-                        (job.get("result") or {}).get("model")
-                        or (job.get("payload") or {}).get("model")
-                        or ((job.get("result") or {}).get("result") or {}).get("model")
-                        or "N/A"
-                    ),
-                    "Created": str(job.get("requested_at") or job.get("created_at"))[:19],
-                }
-                for job in (miner_jobs if isinstance(miner_jobs, list) else [])
-            ],
-            "gpus": [
-                {
-                    "Model": g.get("model") or g.get("name") or "N/A",
-                    "Memory GB": g.get("memory_gb", "N/A"),
-                    "Status": g.get("status") or "detected",
-                }
-                for g in gpus
-            ],
-            "market_offers": offer_rows,
-            "sla": sla_data,
-            "wallets": wallet_balances,
-            "earnings": {
-                "total": miner_earnings.get("total_earnings", "N/A"),
-                "paid": miner_earnings.get("paid_earnings", "N/A"),
-                "pending": miner_earnings.get("pending_earnings", "N/A"),
-            },
-        }
+        dashboard_data = _shop_dashboard_data(
+            miner_id=miner_id,
+            jobs_metrics=jobs_metrics,
+            miners_metrics=miners_metrics,
+            miner_jobs=miner_jobs,
+            gpus=gpus,
+            offer_rows=offer_rows,
+            sla_data=sla_data,
+            wallet_balances=wallet_balances,
+            miner_earnings=miner_earnings,
+        )
 
         output(dashboard_data, ctx.obj.get("output_format", "table"), title="Shop Dashboard")
         success("Shop dashboard loaded")

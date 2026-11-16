@@ -159,6 +159,51 @@ def _account_balance(address: str, chain_id: str) -> int:
         return 0
 
 
+def _wallet_service_wallets() -> list[dict[str, Any]]:
+    """List wallets from the wallet service; empty on failure."""
+    try:
+        http_client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=5, api_key=get_config().wallet_api_key)
+        response = http_client.get("/v1/wallets")
+        return response.get("items", []) if response else []
+    except Exception as e:
+        logger.warning("Failed to get wallet from service: %s", e)
+        return []
+
+
+def _funded_wallet_address(wallets: list[dict[str, Any]]) -> str | None:
+    """First wallet that can pay the minimum listing fee."""
+    chain_id = get_chain_id()
+    for wallet in wallets:
+        address = _wallet_address(wallet)
+        if address and _account_balance(address, chain_id) >= 36:
+            return str(address)
+    return None
+
+
+def _first_wallet_address(wallets: list[dict[str, Any]]) -> str | None:
+    for wallet in wallets:
+        address = _wallet_address(wallet)
+        if address:
+            return str(address)
+    return None
+
+
+def _local_wallet_address() -> str | None:
+    """Address from the fallback local file wallet, if present."""
+    wallet_path = find_wallet_file("genesis")
+    if wallet_path is None or not wallet_path.exists():
+        return None
+    try:
+        with open(wallet_path) as f:
+            wallet = json.load(f)
+            address = wallet.get("address")
+            if address:
+                return str(address)
+    except Exception as e:
+        logger.warning("Failed to load local wallet: %s", e)
+    return None
+
+
 def get_wallet_address() -> str:
     """Get a funded provider address from the wallet service.
 
@@ -171,39 +216,16 @@ def get_wallet_address() -> str:
     if env_address:
         return env_address
 
-    # Try wallet service API first
-    wallets: list[dict[str, Any]] = []
-    try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=5, api_key=get_config().wallet_api_key)
-        response = http_client.get("/v1/wallets")
-        wallets = response.get("items", []) if response else []
-    except Exception as e:
-        logger.warning("Failed to get wallet from service: %s", e)
+    wallets = _wallet_service_wallets()
+    # Pick the first wallet that can pay the minimum listing fee,
+    # falling back to any wallet address.
+    address = _funded_wallet_address(wallets) or _first_wallet_address(wallets)
+    if address:
+        return address
 
-    if wallets:
-        chain_id = get_chain_id()
-        # Pick the first wallet that can pay the minimum listing fee.
-        for wallet in wallets:
-            address = _wallet_address(wallet)
-            if address and _account_balance(address, chain_id) >= 36:
-                return str(address)
-        # Fall back to a hard-coded shop wallet or the first wallet.
-        for wallet in wallets:
-            address = _wallet_address(wallet)
-            if address:
-                return str(address)
-
-    # Fallback to local file wallet in the standard directory.
-    wallet_path = find_wallet_file("genesis")
-    if wallet_path is not None and wallet_path.exists():
-        try:
-            with open(wallet_path) as f:
-                wallet = json.load(f)
-                address = wallet.get("address")
-                if address:
-                    return str(address)
-        except Exception as e:
-            logger.warning("Failed to load local wallet: %s", e)
+    local_address = _local_wallet_address()
+    if local_address:
+        return local_address
 
     # No wallet available
     error("No wallet address available. Ensure wallet service is running or wallet file exists.")

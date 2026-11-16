@@ -68,119 +68,138 @@ def create_island_command(ctx, island_id, island_name, chain_id):
         raise click.Abort() from e
 
 
+def _load_validator_public_key() -> str:
+    """Read the first validator public key from the keystore."""
+    keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
+    public_key_pem = None
+
+    if os.path.exists(keystore_path):
+        with open(keystore_path) as f:
+            keys = json.load(f)
+            # Get first key's public key
+            for _key_id, key_data in keys.items():
+                public_key_pem = key_data.get("public_key_pem")
+                break
+    else:
+        error(f"Keystore not found at {keystore_path}")
+        raise click.Abort()
+
+    if not public_key_pem:
+        error("No public key found in keystore")
+        raise click.Abort()
+    return str(public_key_pem)
+
+
+def _join_island_rpc(ctx, rpc_base: str, island_id, island_name, chain_id, is_hub) -> dict:
+    """POST /islands/join and return a validated success response."""
+    from aitbc_cli.config import get_config
+    from aitbc_cli.utils.chain_id import resolve_chain_id
+
+    config = get_config()
+    client = AITBCHTTPClient(base_url=rpc_base, timeout=10, api_key=config.blockchain_rpc_api_key)
+
+    payload_chain_id = chain_id or resolve_chain_id(ctx, rpc_base)
+    response = client.post(
+        "/islands/join" if rpc_base.endswith("/rpc") else "/rpc/islands/join",
+        json={
+            "island_id": island_id,
+            "island_name": island_name,
+            "chain_id": payload_chain_id,
+            "is_hub": is_hub,
+            "role": "compute-provider",
+        },
+    )
+
+    if not isinstance(response, dict) or not response.get("success"):
+        status = response.get("status", "unknown") if isinstance(response, dict) else "unknown"
+        message = response.get("message", "No response from hub") if isinstance(response, dict) else str(response)
+        error(f"Failed to join island - status={status}: {message}")
+        raise click.Abort()
+
+    # Reject malformed join responses before persisting credentials —
+    # a response with null island_id/credentials would otherwise clobber
+    # the stored credential file (#2096).
+    returned_island_id = response.get("island_id")
+    returned_credentials = response.get("credentials")
+    if not returned_island_id or not isinstance(returned_credentials, dict) or not returned_credentials:
+        error(f"Join response missing island_id/credentials — refusing to store: {response}")
+        raise click.Abort()
+    return response
+
+
+def _store_island_credentials(response: dict, credentials: dict) -> str:
+    """Persist island credentials 0o600; returns the credentials path."""
+    from datetime import datetime
+
+    credentials_path = "/var/lib/aitbc/island_credentials.json"
+    credentials_data = {
+        "island_id": response.get("island_id"),
+        "island_name": response.get("island_name"),
+        "island_chain_id": response.get("island_chain_id"),
+        "credentials": credentials,
+        "joined_at": datetime.now().isoformat(),
+    }
+
+    # Island credentials carry API secrets — create 0o600, no umask window.
+    fd = os.open(credentials_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    os.fchmod(fd, 0o600)
+    with os.fdopen(fd, "w") as f:
+        json.dump(credentials_data, f, indent=2)
+
+    # Ensure the runtime user can read its own island credentials.
+    try:
+        shutil.chown(credentials_path, user="aitbc", group="aitbc")
+    except (LookupError, OSError) as e:
+        warning(f"Could not chown {credentials_path} to aitbc:aitbc: {e}")
+    try:
+        os.chmod(credentials_path, stat.S_IRUSR | stat.S_IWUSR)
+    except OSError as e:
+        warning(f"Could not chmod {credentials_path}: {e}")
+    return credentials_path
+
+
+def _print_join_results(ctx, response: dict, island_name, credentials: dict, credentials_path: str) -> None:
+    """Display join info, member list, and stored credentials."""
+    join_info = {
+        "Island ID": response.get("island_id"),
+        "Island Name": response.get("island_name"),
+        "Chain ID": response.get("island_chain_id"),
+        "Member Count": len(response.get("members", [])),
+        "Credentials Stored": credentials_path,
+    }
+
+    output(join_info, ctx.obj.get("output_format", "table"), title=f"Joined Island: {island_name}")
+
+    # Display member list
+    members = response.get("members", [])
+    if members:
+        output(members, ctx.obj.get("output_format", "table"), title="Island Members")
+
+    # Display credentials
+    if credentials:
+        output(credentials, ctx.obj.get("output_format", "table"), title="Blockchain Credentials")
+
+    success(f"Successfully joined island {island_name}")
+
+
 def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub, *, rpc_url: str | None = None):
     """Join an existing island via the hub's HTTP RPC endpoint."""
     try:
-        from datetime import datetime
-
-        # Get public key from keystore
-        keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
-        public_key_pem = None
-
-        if os.path.exists(keystore_path):
-            with open(keystore_path) as f:
-                keys = json.load(f)
-                # Get first key's public key
-                for _key_id, key_data in keys.items():
-                    public_key_pem = key_data.get("public_key_pem")
-                    break
-        else:
-            error(f"Keystore not found at {keystore_path}")
-            raise click.Abort()
-
-        if not public_key_pem:
-            error("No public key found in keystore")
-            raise click.Abort()
+        _load_validator_public_key()
 
         # Resolve hub domain and build the RPC URL.
         rpc_base = _resolve_join_rpc_url(hub, rpc_url)
         click.echo(f"Connecting to hub {hub} (RPC {rpc_base})...")
 
-        from aitbc_cli.config import get_config
-        from aitbc_cli.utils.chain_id import resolve_chain_id
-
-        config = get_config()
-        client = AITBCHTTPClient(base_url=rpc_base, timeout=10, api_key=config.blockchain_rpc_api_key)
-
-        payload_chain_id = chain_id or resolve_chain_id(ctx, rpc_base)
-        response = client.post(
-            "/islands/join" if rpc_base.endswith("/rpc") else "/rpc/islands/join",
-            json={
-                "island_id": island_id,
-                "island_name": island_name,
-                "chain_id": payload_chain_id,
-                "is_hub": is_hub,
-                "role": "compute-provider",
-            },
-        )
-
-        if not isinstance(response, dict) or not response.get("success"):
-            status = response.get("status", "unknown") if isinstance(response, dict) else "unknown"
-            message = response.get("message", "No response from hub") if isinstance(response, dict) else str(response)
-            error(f"Failed to join island - status={status}: {message}")
-            raise click.Abort()
-
-        # Reject malformed join responses before persisting credentials —
-        # a response with null island_id/credentials would otherwise clobber
-        # the stored credential file (#2096).
-        returned_island_id = response.get("island_id")
-        returned_credentials = response.get("credentials")
-        if not returned_island_id or not isinstance(returned_credentials, dict) or not returned_credentials:
-            error(f"Join response missing island_id/credentials — refusing to store: {response}")
-            raise click.Abort()
+        response = _join_island_rpc(ctx, rpc_base, island_id, island_name, chain_id, is_hub)
 
         # Prefer RPC endpoint from response; fall back to the URL we used.
-        credentials = dict(returned_credentials)
+        credentials = dict(response["credentials"])
         if not credentials.get("rpc_endpoint"):
             credentials["rpc_endpoint"] = f"{rpc_base}/rpc" if not rpc_base.endswith("/rpc") else rpc_base
 
-        # Store credentials locally
-        credentials_path = "/var/lib/aitbc/island_credentials.json"
-        credentials_data = {
-            "island_id": response.get("island_id"),
-            "island_name": response.get("island_name"),
-            "island_chain_id": response.get("island_chain_id"),
-            "credentials": credentials,
-            "joined_at": datetime.now().isoformat(),
-        }
-
-        # Island credentials carry API secrets — create 0o600, no umask window.
-        fd = os.open(credentials_path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-        os.fchmod(fd, 0o600)
-        with os.fdopen(fd, "w") as f:
-            json.dump(credentials_data, f, indent=2)
-
-        # Ensure the runtime user can read its own island credentials.
-        try:
-            shutil.chown(credentials_path, user="aitbc", group="aitbc")
-        except (LookupError, OSError) as e:
-            warning(f"Could not chown {credentials_path} to aitbc:aitbc: {e}")
-        try:
-            os.chmod(credentials_path, stat.S_IRUSR | stat.S_IWUSR)
-        except OSError as e:
-            warning(f"Could not chmod {credentials_path}: {e}")
-
-        # Display join info
-        join_info = {
-            "Island ID": response.get("island_id"),
-            "Island Name": response.get("island_name"),
-            "Chain ID": response.get("island_chain_id"),
-            "Member Count": len(response.get("members", [])),
-            "Credentials Stored": credentials_path,
-        }
-
-        output(join_info, ctx.obj.get("output_format", "table"), title=f"Joined Island: {island_name}")
-
-        # Display member list
-        members = response.get("members", [])
-        if members:
-            output(members, ctx.obj.get("output_format", "table"), title="Island Members")
-
-        # Display credentials
-        if credentials:
-            output(credentials, ctx.obj.get("output_format", "table"), title="Blockchain Credentials")
-
-        success(f"Successfully joined island {island_name}")
+        credentials_path = _store_island_credentials(response, credentials)
+        _print_join_results(ctx, response, island_name, credentials, credentials_path)
 
         # If registering as hub
         if is_hub:

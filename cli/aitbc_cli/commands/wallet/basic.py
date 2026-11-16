@@ -1018,13 +1018,35 @@ def send(
         abort(ctx, f"Invalid recipient address: {to_address}")
         raise click.Abort()
 
-    # Resolve the RPC endpoint: --rpc-url wins, then a group-injected override
-    # (ctx.obj["rpc_url"], the convention _get_rpc_url in staking.py uses), then
-    # the configured node RPC. A local endpoint is submitted to as configured —
-    # the node relays locally submitted transactions to its mesh peers
-    # (_fanout_transaction_to_peers in rpc/transactions.py), so the hub's public
-    # URL is not needed. Rewriting a local URL to that public name also breaks
-    # on the hub itself, where its own FQDN does not resolve back to the host.
+    rpc_url = _resolve_send_rpc_endpoint(ctx, rpc_url)
+    chain_id = _send_chain_id(ctx, rpc_url)
+    actual_nonce = _send_nonce(rpc_url, sender_address)
+    private_key = _send_signing_key(ctx, wallet_data)
+
+    transaction = _build_send_transaction(
+        chain_id=chain_id,
+        sender_address=sender_address,
+        to_address=to_address,
+        amount=amount,
+        fee=fee,
+        nonce=actual_nonce,
+        private_key=private_key,
+    )
+
+    tx_hash = _submit_send_transaction(ctx, rpc_url, transaction)
+    receipt = _wait_send_seal(ctx, rpc_url, tx_hash, wait_seal)
+    _emit_send_result(ctx, tx_hash, sender_address, to_address, amount, fee, chain_id, receipt)
+    return 0
+
+
+def _resolve_send_rpc_endpoint(ctx, rpc_url: str | None) -> str:
+    """Resolve the RPC endpoint: --rpc-url wins, then a group-injected override
+    (ctx.obj["rpc_url"], the convention _get_rpc_url in staking.py uses), then
+    the configured node RPC. A local endpoint is submitted to as configured —
+    the node relays locally submitted transactions to its mesh peers
+    (_fanout_transaction_to_peers in rpc/transactions.py), so the hub's public
+    URL is not needed. Rewriting a local URL to that public name also breaks
+    on the hub itself, where its own FQDN does not resolve back to the host."""
     if not rpc_url:
         rpc_url = (ctx.obj or {}).get("rpc_url")
     if not rpc_url:
@@ -1032,11 +1054,14 @@ def send(
         if not rpc_url:
             abort(ctx, "No RPC endpoint configured. Pass --rpc-url or set blockchain_rpc_url in the CLI config")
             raise click.Abort()
+    return rpc_url
 
-    # Get chain_id: an explicit --chain-id or CHAIN_ID wins over the lookup;
-    # otherwise the RPC this transaction will be submitted to must advertise
-    # one. Never sign with a silent default — a wrong or empty chain id lands
-    # as an unrelated admission error only after the tx is already signed.
+
+def _send_chain_id(ctx, rpc_url: str) -> str:
+    """Get chain_id: an explicit --chain-id or CHAIN_ID wins over the lookup;
+    otherwise the RPC this transaction will be submitted to must advertise
+    one. Never sign with a silent default — a wrong or empty chain id lands
+    as an unrelated admission error only after the tx is already signed."""
     import os
 
     chain_id = (ctx.obj or {}).get("chain_id_explicit") or os.getenv("CHAIN_ID") or ""
@@ -1051,16 +1076,19 @@ def send(
                 "Pass --chain-id or set CHAIN_ID, or point --rpc-url at a serving node"
             )
             raise click.Abort() from e
+    return chain_id
 
-    # Get actual nonce from blockchain. A failed lookup must not mean nonce 0:
-    # the wrong nonce produces an already-signed transaction the chain refuses.
+
+def _send_nonce(rpc_url: str, sender_address: str) -> int:
+    """Get actual nonce from blockchain. A failed lookup must not mean nonce 0:
+    the wrong nonce produces an already-signed transaction the chain refuses."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
         account_data = http_client.get(f"/rpc/account/{sender_address}")
         nonce = account_data.get("nonce")
         if nonce is None:
             raise ValueError(f"/rpc/account/{sender_address} response carried no nonce")
-        actual_nonce = int(nonce)
+        return int(nonce)
     except Exception as e:
         error(
             f"Nonce lookup for {sender_address} via {rpc_url} failed: {e}. "
@@ -1068,7 +1096,9 @@ def send(
         )
         raise click.Abort() from e
 
-    # Get private key for signing
+
+def _send_signing_key(ctx, wallet_data: dict):
+    """Load the wallet's private key for signing."""
     try:
         from eth_keys import keys
 
@@ -1080,10 +1110,27 @@ def send(
         # Remove 0x prefix if present for eth_keys
         if private_key_hex.startswith("0x"):
             private_key_hex = private_key_hex[2:]
-        private_key = keys.PrivateKey(bytes.fromhex(private_key_hex))
+        return keys.PrivateKey(bytes.fromhex(private_key_hex))
     except Exception as e:
         abort(ctx, f"Error loading private key: {e}", from_exception=e)
         raise click.Abort() from e
+
+
+def _build_send_transaction(
+    *,
+    chain_id: str,
+    sender_address: str,
+    to_address: str,
+    amount: Decimal,
+    fee: Decimal,
+    nonce: int,
+    private_key,
+) -> dict:
+    """Build the transfer transaction and sign it (secp256k1, matching the
+    node verifier — see A1 wire format)."""
+    import json
+
+    from eth_utils import keccak
 
     # Create transaction with modern payload format
     # Convert AIT to seconds for blockchain
@@ -1096,7 +1143,7 @@ def send(
         "from": sender_address,
         "to": to_address,
         "amount": amount_seconds,
-        "nonce": actual_nonce,
+        "nonce": nonce,
         "fee": fee_seconds,
         # payload carries to/amount exactly as the node's TransactionRequest
         # validator canonicalizes them (#1669): the signed bytes must equal
@@ -1105,27 +1152,29 @@ def send(
         "payload": {"to": to_address, "amount": amount_seconds},
     }
 
-    # Sign transaction (secp256k1, matching the node verifier — see A1 wire format)
-    import json
-
-    from eth_utils import keccak
-
     # Sign over all transaction fields except the signature (chain_id included
     # for cross-chain replay protection; matches the node verifier exactly).
     signed_fields = {k: v for k, v in transaction.items() if k != "signature"}
     message = json.dumps(signed_fields, sort_keys=True, separators=(",", ":")).encode()
     signature = private_key.sign_msg_hash(keccak(message))
     transaction["signature"] = signature.to_bytes().hex()
+    return transaction
 
-    # Submit to blockchain
+
+def _submit_send_transaction(ctx, rpc_url: str, transaction: dict) -> str | None:
+    """Submit the signed transaction to the blockchain."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.post("/rpc/transaction", json=transaction)
-        tx_hash = result.get("transaction_hash")
+        tx_hash: str | None = result.get("transaction_hash")
+        return tx_hash
     except Exception as e:
         abort(ctx, f"Error submitting transaction: {e}", from_exception=e)
         raise click.Abort() from e
 
+
+def _wait_send_seal(ctx, rpc_url: str, tx_hash: str | None, wait_seal: bool):
+    """Optionally wait for the transaction to seal into a block."""
     receipt = None
     if wait_seal and tx_hash:
         from ...utils.gpu_onchain import wait_for_tx
@@ -1138,7 +1187,11 @@ def send(
                 f"check with 'aitbc transactions status {tx_hash}' before retrying (a retry reuses the nonce)"
             )
             raise click.Abort()
+    return receipt
 
+
+def _emit_send_result(ctx, tx_hash, sender_address, to_address, amount, fee, chain_id, receipt) -> None:
+    """Emit the submission/confirmation result in the requested format."""
     if receipt is not None:
         success(f"Transaction confirmed in block {receipt.get('block_height')}: {tx_hash}")
         output(
@@ -1171,7 +1224,6 @@ def send(
             },
             ctx.obj.get("output_format", "table"),
         )
-    return 0
 
 
 @wallet.command(
