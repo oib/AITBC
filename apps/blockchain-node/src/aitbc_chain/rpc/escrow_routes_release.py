@@ -117,7 +117,7 @@ async def _release_read_locked(
             )
     except _er.HTTPException:
         raise
-    except Exception as e:
+    except _er._DB_PROBE_ERRORS as e:
         _er._logger.warning("Failed to check escrow release state: %s", e)
 
     contract_id = await _er._find_contract_id(mgr, job_id)
@@ -144,7 +144,7 @@ async def _release_settle_locked(
     """
     try:
         return await _er._release_settle_locked_impl(mgr, job_id, request, requested_amount, plan, txn)
-    except Exception:
+    except Exception:  # noqa: BLE001 - settle must evict the cached contract on ANY failure before re-raising
         if plan.contract_id in mgr.escrow_contracts:
             mgr.evict_contract(plan.contract_id)
         raise
@@ -336,7 +336,7 @@ def _release_reinvest(
                         reinvest_amount,
                         pct,
                     )
-        except Exception as e:
+        except (ArithmeticError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
             _er._logger.warning("Failed to auto-reinvest for job %s: %s", job_id, e)
     return reinvest_stake_id, reinvest_amount
 
@@ -481,7 +481,7 @@ async def _release_settle_locked_impl(
                 )
 
         await txn.write(_write_released_row)
-    except Exception as e:
+    except _er._DB_PROBE_ERRORS as e:
         _er._logger.warning("Failed to update released_at/job_tx_hash in DB: %s", e)
     reinvest_stake_id, reinvest_amount = _release_reinvest(request, provider_addr, released_amount, job_id)
     _er._logger.info("Escrow released: contract_id=%s job_id=%s tx=%s", contract_id, job_id, tx_hash)

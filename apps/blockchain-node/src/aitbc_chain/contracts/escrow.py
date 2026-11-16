@@ -16,10 +16,26 @@ from typing import Any, TYPE_CHECKING
 if TYPE_CHECKING:
     from ..base_models import Escrow
 
+from sqlalchemy.exc import SQLAlchemyError
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.units import units_to_ait
 
 logger = get_logger(__name__)
+
+# Narrowed failure surfaces for the DB/chain reads below (#1860): SQLAlchemyError
+# covers session/driver failures; the builtins cover record-shape access and
+# Decimal/int conversions. Anything outside propagates rather than silently
+# reporting "no escrow".
+_ESCROW_DB_ERRORS = (
+    SQLAlchemyError,
+    ArithmeticError,
+    AttributeError,
+    KeyError,
+    OSError,
+    TypeError,
+    ValueError,
+)
 
 
 async def _aitbc_chain_session_scope():
@@ -343,7 +359,7 @@ def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | No
         from sqlmodel import select
 
         from ..base_models import Transaction
-    except Exception as e:
+    except ImportError as e:
         logger.warning("Could not import chain models for settlement lookup: %s", e)
         return None
 
@@ -370,7 +386,7 @@ def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | No
         }
         for tx in session.exec(stmt):
             _accumulate_settlement_leg(legs, tx)
-    except Exception as e:
+    except _ESCROW_DB_ERRORS as e:
         logger.warning("Failed to read settlement legs for job %s from chain: %s", job_id, e)
         return None
 
@@ -567,7 +583,7 @@ class EscrowManager:
         try:
             from ..database import session_scope
             from ..base_models import Escrow as EscrowRecord
-        except Exception as e:
+        except ImportError as e:
             logger.warning("Could not import DB for escrow loading: %s", e)
             return
         try:
@@ -626,7 +642,7 @@ class EscrowManager:
                     self.escrow_contracts[contract_id] = contract
                     self.active_contracts.add(contract_id)
                     logger.info("Loaded escrow contract %s for job %s from DB", contract_id, record.job_id)
-        except Exception as e:
+        except _ESCROW_DB_ERRORS as e:
             logger.warning("Failed to load escrow contracts from DB: %s", e)
 
     async def _reconstruct_escrow_from_chain(self, session, job_id: str) -> Escrow | None:
@@ -640,7 +656,7 @@ class EscrowManager:
             from ..base_models import Escrow, Transaction
             from aitbc.crypto.signature_recovery import canonical_address
             from sqlmodel import select
-        except Exception as e:
+        except ImportError as e:
             logger.warning("Could not import chain models for escrow reconstruction: %s", e)
             return None
 
@@ -665,7 +681,7 @@ class EscrowManager:
             try:
                 buyer = canonical_address(buyer)
                 provider = canonical_address(provider)
-            except Exception:
+            except (AttributeError, TypeError, ValueError):
                 logger.warning("Could not canonicalise addresses for job %s lock tx", job_id)
                 return None
 
@@ -712,7 +728,7 @@ class EscrowManager:
             session.commit()  # noqa: unawaited-async — sync Session, runs in a worker thread
             logger.info("Reconstructed escrow record for job %s from lock tx %s", job_id, lock_tx.tx_hash)
             return record
-        except Exception as e:
+        except _ESCROW_DB_ERRORS as e:
             logger.warning("Failed to reconstruct escrow for job %s from chain: %s", job_id, e)
             return None
 
@@ -780,7 +796,7 @@ class EscrowManager:
         try:
             from ..database import session_scope
             from ..base_models import Escrow as EscrowRecord
-        except Exception as e:
+        except ImportError as e:
             logger.warning("Could not import DB for escrow lookup: %s", e)
             return None
         try:
@@ -791,7 +807,7 @@ class EscrowManager:
                 if not record:
                     return None
                 return self._cache_contract_from_record(record)
-        except Exception as e:
+        except _ESCROW_DB_ERRORS as e:
             logger.warning("Failed to load escrow contract for job %s: %s", job_id, e)
         return None
 

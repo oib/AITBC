@@ -51,7 +51,7 @@ async def _refund_read_locked(
     row = _er._RefundRow(None, None, False, False)
     try:
         row = await _er.run_in_threadpool(_er._read_refund_row, job_id)
-    except Exception as e:
+    except _er._DB_PROBE_ERRORS as e:
         _er._logger.warning("Failed to check escrow refund state: %s", e)
     record, locked_units = row.record, row.locked_units
     if row.refunded:
@@ -195,7 +195,7 @@ async def _refund_settle_locked_impl(
                 record.refunded_amount = _er.ait_to_units(refund_amount)
 
         await txn.write(_write_refunded_row)
-    except Exception as e:
+    except _er._DB_PROBE_ERRORS as e:
         _er._logger.warning("Failed to update refunded_at for job %s: %s", job_id, e)
     _er._logger.info("Escrow refunded: contract_id=%s job_id=%s tx=%s", contract_id, job_id, tx_hash)
     return {

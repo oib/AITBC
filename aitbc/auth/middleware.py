@@ -267,7 +267,7 @@ class RateLimiter:
             self.redis_client = redis.from_url(self.redis_url, decode_responses=True)
             self.redis_client.ping()
             logger.info("RateLimiter connected to Redis")
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - fail-safe: any redis import/connect failure falls back to in-memory
             logger.warning("Redis unavailable, falling back to in-memory rate limiting: %s", e)
             self.redis_client = None
 
@@ -300,7 +300,7 @@ class RateLimiter:
                 else:
                     reset_time = current_time + window_seconds
                 return {"allowed": False, "remaining": 0, "reset_time": reset_time}
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - fail-safe: any redis op/shape failure falls back to in-memory
             logger.error("Redis rate limiting error, falling back to in-memory: %s", e)
             return await self._is_allowed_memory(user_id, user_role, current_time, max_requests, window_seconds)
 

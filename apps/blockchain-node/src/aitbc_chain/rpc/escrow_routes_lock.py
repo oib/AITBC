@@ -195,7 +195,7 @@ async def _verify_funding_lock(tx_hash: str, *, job_id: str, buyer: str, amount_
                     return verified
     except _er.HTTPException:
         raise
-    except Exception as e:
+    except _er._HTTP_PROBE_ERRORS as e:
         _er._logger.warning("mempool funding-lock probe failed for job_id=%s: %s", job_id, e)
     raise _er.HTTPException(
         status_code=425,

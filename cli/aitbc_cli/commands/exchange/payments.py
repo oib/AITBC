@@ -4,9 +4,25 @@ Payment-related exchange commands.
 
 from decimal import Decimal
 
+from aitbc.exceptions import AITBCError
+
 from aitbc_cli.utils import error, output, success
 from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError
 from ...utils.error_handling import abort
+
+# Expected failure surface for the exchange HTTP/Decimal helpers below:
+# filesystem + JSON/parse errors, data-shape builtins, runtime failures, and
+# the aitbc AITBCError hierarchy (NetworkError is handled separately above).
+_PAYMENT_ERRORS = (
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    AITBCError,
+)
 
 
 def create_payment_command(
@@ -55,7 +71,7 @@ def create_payment_command(
         output(payment, ctx.obj["output_format"])
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _PAYMENT_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -81,7 +97,7 @@ def payment_status_command(ctx, payment_id: str):
         output(status_data, ctx.obj["output_format"])
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _PAYMENT_ERRORS as e:
         abort(None, f"Error: {e}")
 
 
@@ -96,5 +112,5 @@ def market_stats_command(ctx):
         output(stats, ctx.obj["output_format"])
     except NetworkError as e:
         abort(None, f"Network error: {e}")
-    except Exception as e:
+    except _PAYMENT_ERRORS as e:
         abort(None, f"Error: {e}")

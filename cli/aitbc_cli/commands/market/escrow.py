@@ -10,6 +10,7 @@ from typing import Any, cast
 import click
 
 from aitbc.config.hub import normalize_hub_base
+from aitbc.exceptions import AITBCError
 from aitbc.utils.units import units_to_ait
 
 from ...auth import AuthManager
@@ -17,11 +18,26 @@ from ...utils.wallet_secret import wallet_password_options
 from ...config import get_config
 from ...utils import error, info, output, success, warning
 from ...utils.http_client import AITBCHTTPClient, get_logger, http_error_detail, http_response_status
-from ...utils.error_handling import abort
+from ...utils.error_handling import CLIError, abort
 from ...utils.money import DECIMAL
 
 # Initialize logger
 logger = get_logger(__name__)
+
+# Expected failure surface for the escrow CLI paths below (#1860): filesystem/JSON
+# and Decimal errors, data-shape builtins, runtime failures, and the aitbc/CLI
+# error hierarchies. click.Abort and click.ClickException keep their own handling.
+_ESCROW_CLI_ERRORS = (
+    OSError,
+    ArithmeticError,
+    ValueError,
+    KeyError,
+    TypeError,
+    AttributeError,
+    RuntimeError,
+    AITBCError,
+    CLIError,
+)
 
 
 # ---------------------------------------------------------------------------
@@ -141,7 +157,7 @@ def _post_escrow_rpc(config, path: str, payload: dict[str, Any], timeout: int = 
         try:
             result = _get_rpc_client(config, base, timeout=timeout).post(path, json=payload)
             return result, failures
-        except Exception as exc:
+        except _ESCROW_CLI_ERRORS as exc:
             logger.debug("Escrow RPC %s failed on %s", path, base, exc_info=True)
             failures.append(_describe_rpc_failure(base, exc))
     return None, failures
@@ -158,7 +174,7 @@ def _escrow_locked_amount(config, job_id: str, timeout: int = 10) -> str | None:
     for base in dict.fromkeys(b for b in (_get_blockchain_rpc_url(config), _hub_base_url(config)) if b):
         try:
             row = _get_rpc_client(config, base, timeout=timeout).get(f"/rpc/escrow/{job_id}")
-        except Exception:
+        except _ESCROW_CLI_ERRORS:
             logger.debug("Escrow GET %s failed on %s", job_id, base, exc_info=True)
             continue
         if isinstance(row, dict) and row.get("amount") is not None:
@@ -495,7 +511,7 @@ def _escrow_create(
             chain_id=get_chain_id(),
             node_wallet=node_wallet,
         )
-    except Exception as e:
+    except _ESCROW_CLI_ERRORS as e:
         error(f"Failed to build escrow lock transaction: {e}")
         raise click.Abort() from e
 
@@ -581,7 +597,7 @@ def _escrow_create_fallback(ctx, config, rpc_url: str, payload: dict, e: Excepti
     # endpoint (404) — fall through to the settlement-node retry.
     try:
         relayed = _coordinator_escrow_create(ctx, payload)
-    except Exception as relay_exc:
+    except _ESCROW_CLI_ERRORS as relay_exc:
         warning(f"Coordinator escrow relay failed ({relay_exc}) — trying direct node routes")
         relayed = None
     if relayed is not None:
@@ -618,7 +634,7 @@ def _escrow_settlement_retry(ctx, config, rpc_url: str, payload: dict, e: Except
         try:
             result = _get_rpc_client(config, settlement_url, timeout=10).post("/rpc/escrow/create", json=payload)
             return _report_escrow_created(result)
-        except Exception as e2:
+        except _ESCROW_CLI_ERRORS as e2:
             error(f"Escrow creation failed on the settlement node: {e2}")
             raise click.Abort() from e2
     error(f"Escrow creation refused: {detail}")
@@ -647,7 +663,7 @@ def escrow_release(ctx, job_id: str):
             raise click.Abort()
     except click.Abort:
         raise
-    except Exception as e:
+    except _ESCROW_CLI_ERRORS as e:
         error(f"Error releasing escrow: {e}")
         raise click.Abort() from e
 
@@ -699,7 +715,7 @@ def _coordinator_escrow_create(ctx, payload: dict[str, Any]) -> dict[str, Any] |
     )
     try:
         return client.post("/v1/escrow/relay", json=payload)
-    except Exception as exc:
+    except _ESCROW_CLI_ERRORS as exc:
         if http_response_status(exc) == 404:
             return None
         raise
@@ -723,7 +739,7 @@ def _coordinator_refund(ctx, job_id: str, reason: str) -> dict[str, Any] | None:
         if not payment_id:
             return None
         return client.post(f"/v1/payments/{payment_id}/refund", json={"job_id": job_id, "reason": reason})
-    except Exception:
+    except _ESCROW_CLI_ERRORS:
         logger.debug("Coordinator refund request failed", exc_info=True)
         return None
 
@@ -752,7 +768,7 @@ def refund_escrow(ctx: click.Context, job_id: str, reason: str) -> dict[str, Any
         raise click.Abort()
     except click.Abort:
         raise
-    except Exception as e:
+    except _ESCROW_CLI_ERRORS as e:
         error(f"Error refunding escrow: {e}")
         raise click.Abort() from e
 
@@ -797,7 +813,7 @@ def escrow_status(ctx, job_id: str):
                 result = http_client.get(f"/rpc/escrow/{job_id}")
                 if result:
                     break
-            except Exception as exc:
+            except _ESCROW_CLI_ERRORS as exc:
                 logger.debug("Escrow request failed", exc_info=True)
                 status = http_response_status(exc)
                 # 404 is a real answer — the job has no escrow row; the hub
@@ -815,7 +831,7 @@ def escrow_status(ctx, job_id: str):
             abort(None, f"Escrow status query failed for job {job_id}: " + "; ".join(failures))
         else:
             abort(None, f"No escrow found for job {job_id}")
-    except Exception as e:
+    except _ESCROW_CLI_ERRORS as e:
         error(f"Error checking escrow status: {e}")
         raise click.Abort() from e
 
@@ -898,5 +914,5 @@ def escrow_create_cmd(
         output(out, ctx.obj.get("output_format", "table"))
     except click.Abort:
         raise
-    except Exception as e:
+    except _ESCROW_CLI_ERRORS as e:
         abort(None, f"Error creating escrow: {e}")
