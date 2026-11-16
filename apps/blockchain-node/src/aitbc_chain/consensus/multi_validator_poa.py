@@ -183,6 +183,7 @@ class MultiValidatorPoA:
         # ``view_change_active`` is false and pruned below the current
         # sequence exactly like the F3-B commit locks.
         self._pbft_view_change: dict[int, dict[str, Any]] = {}
+        self._pbft_vc_corrupt = False
 
         # #1940 F4: optional session factory for chain-state reads
         # (_current_head_height / _chain_deactivated_addresses). The
@@ -1541,11 +1542,22 @@ class MultiValidatorPoA:
                 # prepared, commit-lock, proposal bodies). Same prune rule:
                 # heights below the persisted current sequence can never be
                 # voted on again.
-                self._pbft_view_change = {
-                    seq: rec
-                    for seq, rec in self._parse_view_change_records(getattr(row, "pbft_view_change_json", "") or "").items()
-                    if seq >= self._pbft_sequence
-                }
+                try:
+                    self._pbft_view_change = {
+                        seq: rec
+                        for seq, rec in self._parse_view_change_records(
+                            getattr(row, "pbft_view_change_json", "") or ""
+                        ).items()
+                        if seq >= self._pbft_sequence
+                    }
+                    self._pbft_vc_corrupt = False
+                except ValueError as exc:
+                    # Fail CLOSED (#2005 review): a corrupt record may have held
+                    # a floor or lock; forgetting it is restart amnesia, so every
+                    # VC-armed vote is refused until an operator repairs the row.
+                    logger.error("pbft_view_change_json corrupt (%s): VC-armed votes refused", exc)
+                    self._pbft_view_change = {}
+                    self._pbft_vc_corrupt = True
             if self._chain_slashing_armed():
                 self._report_slashing_divergence()
             return True
@@ -1668,6 +1680,8 @@ class MultiValidatorPoA:
         """
         import copy
 
+        if self._pbft_vc_corrupt:
+            return False
         pruned = {seq: self._pbft_view_change.pop(seq) for seq in [s for s in self._pbft_view_change if s < sequence]}
         had_previous = sequence in self._pbft_view_change
         previous = copy.deepcopy(self._pbft_view_change.get(sequence))
@@ -1717,21 +1731,31 @@ class MultiValidatorPoA:
 
         return self._pbft_vc_mutate(sequence, _arm)
 
-    def pbft_vc_commit_lock_arm(self, sequence: int, view: int, block_hash: str, commit: dict[str, Any]) -> bool:
-        """Persist this node's commit-lock ``{view, block_hash, commit}``.
+    def pbft_vc_commit_lock_arm(
+        self, sequence: int, view: int, block_hash: str, commit: dict[str, Any], proof: list[dict[str, Any]]
+    ) -> bool:
+        """Persist this node's commit-lock ``{view, block_hash, commit, proof}``.
 
-        ``commit`` is the node's OWN signed COMMIT dict — the proof carried
-        inside VIEW_CHANGE ``lock.commit_msgs`` that it really locked. First
+        ``proof`` is the PREPARE quorum certificate (#2005 Q1) carried inside
+        VIEW_CHANGE ``lock.msgs``; an empty proof is refused — a lock no peer
+        can verify must not be armed. ``commit`` is the node's own COMMIT. First
         lock wins: a different ``(view, block_hash)`` is refused (the floor
         + NEW_VIEW rules are what make a later same-hash commit legal, and
         the F3-B ``pbft_commit_lock_arm`` already guards emission).
         """
+        if not proof:
+            return False
         existing = self.pbft_vc_commit_lock(sequence)
         if existing is not None:
             return existing.get("view") == view and str(existing.get("block_hash", "")).lower() == block_hash.lower()
 
         def _arm(rec: dict[str, Any]) -> None:
-            rec["commit_lock"] = {"view": view, "block_hash": block_hash, "commit": dict(commit)}
+            rec["commit_lock"] = {
+                "view": view,
+                "block_hash": block_hash,
+                "commit": dict(commit),
+                "proof": [dict(m) for m in proof],
+            }
 
         return self._pbft_vc_mutate(sequence, _arm)
 
@@ -1760,14 +1784,37 @@ class MultiValidatorPoA:
         proposals = rec_existing.get("proposals") if rec_existing else None
         if isinstance(proposals, dict) and block_hash in proposals:
             return True  # already held — idempotent
-        if isinstance(proposals, dict) and len(proposals) >= MAX_PROPOSALS_PER_SEQUENCE:
-            return False
+        locked = (
+            {
+                str(r["block_hash"]).lower()
+                for r in (rec_existing.get("commit_lock"), rec_existing.get("prepared"))
+                if isinstance(r, dict) and r.get("block_hash")
+            }
+            if rec_existing
+            else set()
+        )
+
+        if (
+            isinstance(proposals, dict)
+            and len(proposals) >= MAX_PROPOSALS_PER_SEQUENCE
+            and all(str(h).lower() in locked for h in proposals)
+        ):
+            return False  # every held body is pinned by a lock — nothing evictable
 
         def _store(rec: dict[str, Any]) -> None:
             props = rec.get("proposals")
             if not isinstance(props, dict):
                 props = {}
                 rec["proposals"] = props
+            # Bounded by EVICTION, not refusal (#2005 review): refusing at the
+            # cap let a flood of junk proposals starve the legitimate one.
+            # Oldest first, never a body the commit-lock / prepared record
+            # still needs (Option R).
+            while len(props) >= MAX_PROPOSALS_PER_SEQUENCE:
+                victim = next((h for h in props if str(h).lower() not in locked), None)
+                if victim is None:
+                    return
+                del props[victim]
             props[block_hash] = dict(payload)
 
         return self._pbft_vc_mutate(sequence, _store)
@@ -1788,11 +1835,9 @@ class MultiValidatorPoA:
         try:
             data = json.loads(raw) if isinstance(raw, str) else raw
         except (TypeError, ValueError):
-            logger.error("pbft_view_change_json is not parseable JSON; VC state lost for this chain")
-            return {}
+            raise ValueError("pbft_view_change_json is not parseable JSON") from None
         if not isinstance(data, dict):
-            logger.error("pbft_view_change_json is not a JSON object; VC state lost for this chain")
-            return {}
+            raise ValueError("pbft_view_change_json is not a JSON object")
         records: dict[int, dict[str, Any]] = {}
         for key, value in data.items():
             try:
