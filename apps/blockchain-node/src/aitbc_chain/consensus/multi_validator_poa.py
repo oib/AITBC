@@ -1609,16 +1609,33 @@ class MultiValidatorPoA:
                 self.validators[v["address"]].is_active = True
         return True
 
-    def load_state(self) -> bool:
-        """Load consensus state from DB on node startup."""
+    def load_state(self, *, slashing: bool = True) -> bool:
+        """Load consensus state from DB on node startup.
+
+        ``slashing=False`` leaves the in-memory slashing history untouched and
+        never reads the ``slashing_events_json`` column (#2143): read-only RPC
+        routes that only need validators/view/epoch must not pay for a history
+        blob that reached 67 MB on hub. With ``slashing=True`` the parsed
+        history is cached by the row fingerprint, so repeat loads of an
+        unchanged row skip the JSON parse.
+        """
         import json
+
+        from sqlalchemy import func
+        from sqlalchemy.orm import defer
+        from sqlmodel import col
 
         from ..base_models import ConsensusState
         from ..database import session_scope
 
         try:
             with session_scope(self.chain_id) as session:
-                row = session.query(ConsensusState).filter_by(chain_id=self.chain_id).first()
+                row = (
+                    session.query(ConsensusState)
+                    .options(defer(ConsensusState.slashing_events_json))  # type: ignore[arg-type]
+                    .filter_by(chain_id=self.chain_id)
+                    .first()
+                )
                 if not row:
                     return self._load_validator_set_from_settings()
                 self._pbft_view = row.current_view
@@ -1641,13 +1658,13 @@ class MultiValidatorPoA:
                 # penalty was forgotten on restart. That reset get_validator_slash_count to
                 # zero, which reset the thresholds: a validator two strikes into a three-strike
                 # unavailability rule started over each time the node came back.
-                from .slashing import _max_events_per_height, cap_history_per_height
-
-                records, self._slashing_manager.pruned_summary = self._split_pruned_summary(
-                    json.loads(row.slashing_events_json) if row.slashing_events_json else []
-                )
-                loaded = self._parse_slashing_events(records)
-                self._slashing_manager.slashing_events = cap_history_per_height(loaded, _max_events_per_height())
+                if slashing:
+                    blob_len = (
+                        session.query(func.length(col(ConsensusState.slashing_events_json)))
+                        .filter(col(ConsensusState.chain_id) == self.chain_id)
+                        .scalar()
+                    )
+                    self._load_slashing_history(session, ConsensusState, (row.updated_at, blob_len))
                 # #1940 F3-B: restore this node's cross-view commit locks.
                 # Entries below the persisted current sequence can never be
                 # voted on again, so they are pruned on load as well as on arm.
@@ -1682,6 +1699,31 @@ class MultiValidatorPoA:
         except Exception as e:
             logger.error("Failed to load consensus state for %s: %s", self.chain_id, e)
             return self._load_validator_set_from_settings()
+
+    def _load_slashing_history(self, session: Any, model: Any, fingerprint: tuple[Any, Any]) -> None:
+        """Restore the persisted slashing history, parsing only when the row changed.
+
+        ``fingerprint`` is ``(updated_at, length(blob))``: ``save_state`` rewrites
+        ``updated_at`` on every write, so an equal fingerprint means the stored
+        blob is byte-for-byte the one parsed last time (#2143). The cache holds
+        the capped parse result; a hit hands the manager a fresh list copy.
+        """
+        import json
+
+        from .slashing import _max_events_per_height, cap_history_per_height
+
+        cap = _max_events_per_height()
+        cached = getattr(self, "_slashing_load_cache", None)
+        if cached is not None and cached[0] == (fingerprint, cap):
+            self._slashing_manager.slashing_events = list(cached[1])
+            self._slashing_manager.pruned_summary = dict(cached[2])
+            return
+        raw = session.query(model.slashing_events_json).filter(model.chain_id == self.chain_id).scalar()
+        records, summary = self._split_pruned_summary(json.loads(raw) if raw else [])
+        events = cap_history_per_height(self._parse_slashing_events(records), cap)
+        self._slashing_manager.pruned_summary = summary
+        self._slashing_manager.slashing_events = events
+        self._slashing_load_cache = ((fingerprint, cap), list(events), dict(summary))
 
     @staticmethod
     def _parse_commit_locks(raw: Any) -> dict[int, str]:

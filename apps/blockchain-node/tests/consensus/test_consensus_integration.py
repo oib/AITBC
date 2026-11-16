@@ -20,6 +20,29 @@ def _make_consensus(n_validators: int = 4, chain_id: str = "test-int-chain") -> 
     return consensus
 
 
+class _LoadQuery:
+    """Query stand-in for ``load_state``: #2143 defers the history column and
+    reads it (and its length) through separate column queries."""
+
+    def __init__(self, row):
+        self.row = row
+
+    def filter_by(self, **kwargs):
+        return self
+
+    def options(self, *args):
+        return self
+
+    def filter(self, *args):
+        return self
+
+    def scalar(self):
+        return self.row.slashing_events_json
+
+    def first(self):
+        return self.row
+
+
 def test_state_persistence_save_load():
     """save_state then load_state restores validators (mock the DB session)"""
     consensus = _make_consensus(3, chain_id="test-persist-chain")
@@ -77,18 +100,8 @@ def test_state_persistence_save_load():
     mock_row.current_sequence = 5
     mock_row.current_epoch = 1
 
-    class MockQueryLoad:
-        def __init__(self):
-            pass
-
-        def filter_by(self, **kwargs):
-            return self
-
-        def first(self):
-            return mock_row
-
     mock_session_load = Mock()
-    mock_session_load.query = Mock(return_value=MockQueryLoad())
+    mock_session_load.query = Mock(return_value=_LoadQuery(mock_row))
 
     @contextlib.contextmanager
     def mock_session_scope_load(chain_id=""):
