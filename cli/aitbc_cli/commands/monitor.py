@@ -9,9 +9,9 @@ from typing import Any
 import click
 from rich.console import Console
 
-from ..auth import AuthManager, ExpiredAdminToken  # noqa: F401 — AuthManager stays re-exported; tests patch it here
+from ..auth import AuthManager, ExpiredAdminToken, ExpiredClientToken  # noqa: F401 — AuthManager stays re-exported; tests patch it here
 from ..utils import output, success, warning
-from ..utils.error_handling import abort
+from ..utils.error_handling import LOGIN_HINT, LOGIN_REJECTED_HINT, abort, is_unauthorized
 from ..utils.http_client import (
     AITBCHTTPClient,
     auth_client_kwargs,
@@ -23,10 +23,34 @@ logger = get_logger(__name__)
 console = Console()
 
 
+def _login_hint(ctx) -> str:
+    """Pick the 401 hint: rejected-credential vs never-logged-in.
+
+    Same split as ``tee._login_hint`` (#2095): when the request actually
+    carried a credential (``--api-key``, stored ``client`` login, or
+    ``config.api_key`` — the same sources ``_monitoring_client`` resolves),
+    a 401 means the server refused it, so point at ``auth login`` as a
+    refresh (#2138).
+    """
+    obj = getattr(ctx, "obj", None) or {}
+    try:
+        config_key = obj["config"].api_key
+    except Exception:  # noqa: BLE001,S110 - hint fallback must not mask the 401
+        config_key = None
+    if auth_client_kwargs(explicit_key=obj.get("api_key"), config_key=config_key):
+        return LOGIN_REJECTED_HINT
+    return LOGIN_HINT
+
+
 def _monitoring_client(ctx: click.Context, timeout: int = 10) -> AITBCHTTPClient:
     """Build an HTTP client for the coordinator monitoring endpoints."""
     config = ctx.obj["config"]
     base_url = service_root_url(ctx.obj.get("url") or config.coordinator_api_url, "http://localhost:8203")
+    if not ctx.obj.get("api_key"):
+        # Fail fast on an expired stored client JWT instead of sending a
+        # credential the server will reject with a bare 401 (#2138). An
+        # explicit --api-key wins over the store, so it is not pre-checked.
+        AuthManager().get_client_token()
     return AITBCHTTPClient(
         base_url=base_url,
         timeout=timeout,
@@ -84,7 +108,10 @@ def dashboard(ctx, refresh: int, duration: int):
                 if metrics:
                     console.print(f"  Health: {metrics.get('health_percentage', 0):.1f}%")
             except Exception as e:
-                console.print(f"[red]Error fetching data: {e}[/red]")
+                if is_unauthorized(e):
+                    console.print(f"[red]{_login_hint(ctx)}[/red]")
+                else:
+                    console.print(f"[red]Error fetching data: {e}[/red]")
             console.print("\n[dim]Press Ctrl+C to exit[/dim]")
             time.sleep(refresh)
     except KeyboardInterrupt:
@@ -125,7 +152,12 @@ def metrics(ctx, period: str, export_path: str | None):
         metrics_data["jobs"] = data.get("jobs", metrics_data["jobs"])
         metrics_data["miners"] = data.get("miners", metrics_data["miners"])
     except Exception as e:
-        logger.error("Failed to collect metrics: %s", e)
+        if isinstance(e, ExpiredClientToken):
+            warning(str(e))
+        elif is_unauthorized(e):
+            warning(_login_hint(ctx))
+        else:
+            logger.error("Failed to collect metrics: %s", e)
         warning("Coordinator metrics unavailable — showing offline defaults")
 
     if export_path:
@@ -264,8 +296,13 @@ def history(ctx, period: str):
             "failed": failed,
             "success_rate": success_rate,
         }
-    except Exception:
-        analysis["summary"] = {"error": "Could not fetch job data"}
+    except Exception as e:
+        if isinstance(e, ExpiredClientToken):
+            analysis["summary"] = {"error": str(e)}
+        elif is_unauthorized(e):
+            analysis["summary"] = {"error": _login_hint(ctx)}
+        else:
+            analysis["summary"] = {"error": "Could not fetch job data"}
 
     output(analysis, ctx.obj["output_format"])
 
@@ -547,6 +584,8 @@ def sweepers(ctx, show_config: bool):
         abort(ctx, str(e))
         return
     except Exception as e:
+        if is_unauthorized(e):
+            abort(ctx, _login_hint(ctx))
         abort(ctx, f"Error fetching sweeper status: {e}", from_exception=e)
         return
 

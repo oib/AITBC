@@ -35,6 +35,10 @@ class ExpiredAdminToken(Exception):
     """Raised when the stored admin JWT has expired."""
 
 
+class ExpiredClientToken(Exception):
+    """Raised when the stored client JWT has expired."""
+
+
 _JWT_SEGMENT_SEPARATOR = "."
 
 
@@ -194,6 +198,19 @@ class AuthManager:
             raise ExpiredAdminToken("The stored admin credential has expired. Run `aitbc auth login` to refresh it.")
         return token
 
+    def get_client_token(self, environment: str = "default") -> str | None:
+        """Return the stored client credential, or None if absent.
+
+        Raises:
+            ExpiredClientToken: if the stored client JWT's ``exp`` claim has
+            passed, so callers can fail fast with a re-login hint instead of
+            sending a credential the server will reject with a bare 401 (#2138).
+        """
+        token = self.get_credential("client", environment, quiet=True)
+        if token and _is_token_expired(token):
+            raise ExpiredClientToken("The stored client credential has expired. Run `aitbc auth login` to refresh it.")
+        return token
+
     def delete_credential(self, name: str, environment: str = "default") -> bool:
         """Delete a stored API key. Returns True if one was removed."""
         key = self._key(name, environment)
@@ -247,4 +264,4 @@ class AuthManager:
         return self.store_credential(name, api_key)
 
 
-__all__ = ["AuthManager", "ExpiredAdminToken"]
+__all__ = ["AuthManager", "ExpiredAdminToken", "ExpiredClientToken"]
