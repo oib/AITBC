@@ -159,6 +159,13 @@ def get(ctx, key: str | None, global_config: bool):
         # env-only with no YAML at AITBC_CONFIG_FILE (#2105).
         effective = _effective_config_value(key)
         if effective is not None:
+            if isinstance(effective, str):
+                from .system import _field_value_shape_denied
+
+                if (shape := _field_value_shape_denied(effective)) is not None:
+                    error(f"Refusing to read secret-shaped config value ({shape}): {key}")
+                    ctx.exit(1)
+                    return
             output({"key": key, "value": effective, "source": "effective"}, resolve_output_format(ctx))
             return
         error(f"Config key not set: {key} ({config_file})")
