@@ -84,3 +84,23 @@ def test_grant_list_network_error_still_aborts(runner, monkeypatch):
     result = runner.invoke(grant, ["list"], obj={})
     assert result.exit_code != 0
     assert "Error listing grants" in result.output or "Network error" in result.output
+
+
+def test_get_client_uses_configured_coordinator_url(monkeypatch):
+    """#2108: grant commands must resolve coordinator_api_url from config,
+    not hardcode localhost:8203."""
+    captured = {}
+
+    class _C:
+        def __init__(self, *a, **kw):
+            captured["base_url"] = kw.get("base_url")
+
+    monkeypatch.setattr(grant_mod, "AITBCHTTPClient", _C)
+    monkeypatch.setattr(
+        grant_mod,
+        "get_config",
+        lambda: type("Cfg", (), {"coordinator_api_url": "https://hub.example/c/v1", "api_key": None})(),
+    )
+    monkeypatch.setattr(grant_mod, "auth_client_kwargs", lambda *a, **kw: {})
+    grant_mod._get_client()
+    assert captured["base_url"] == "https://hub.example/c"
