@@ -1933,6 +1933,332 @@
         }
       }
     },
+    "/v1/market/gpu/quote": {
+      "post": {
+        "tags": [
+          "market-gpu"
+        ],
+        "summary": "Quote Gpu",
+        "description": "Prepare an unsigned energy quote and a bound job for a fixed-duration GPU rental.\n\nThe returned quote is valid for a short window. The buyer funds it through\nPOST /market/gpu/purchase using the same job_id and energy_quote.",
+        "operationId": "quote_gpu_v1_market_gpu_quote_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GPUQuoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Quote Gpu V1 Market Gpu Quote Post"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "buyer_id does not match resolved address for agent {request.buyer_agent_id}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to sign energy quote",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Energy pricing oracle is not configured / Could not read energy inputs; refusing protected funding",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "buyer_id does not match authenticated buyer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "GPU {gpu_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "GPU {request.gpu_id} is not available for quoting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/payments/send": {
+      "post": {
+        "tags": [
+          "market-gpu"
+        ],
+        "summary": "Send Payment",
+        "description": "Record a real payment for a task or booking and return its actual status.",
+        "operationId": "send_payment_v1_payments_send_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/PaymentRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Send Payment V1 Payments Send Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Amount must be greater than zero / task_id or booking_id is required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Payment failed: {e} / Payment failed with status {payment.status}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/orders": {
+      "get": {
+        "tags": [
+          "market-gpu"
+        ],
+        "summary": "List Orders",
+        "description": "List orders (bookings).",
+        "operationId": "list_orders_v1_market_orders_get",
+        "parameters": [
+          {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Status"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 500,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response List Orders V1 Market Orders Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/market/pricing/{model}": {
+      "get": {
+        "tags": [
+          "market-gpu"
+        ],
+        "summary": "Get Pricing",
+        "description": "Get enhanced pricing information for a model with dynamic pricing.",
+        "operationId": "get_pricing_v1_market_pricing__model__get",
+        "parameters": [
+          {
+            "name": "model",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Model"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Pricing V1 Market Pricing  Model  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No GPUs found for model {model}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/market/gpu/register": {
       "post": {
         "tags": [
@@ -2253,240 +2579,6 @@
           },
           "409": {
             "description": "GPU {gpu_id} is currently booked. Use force=true to delete anyway. / GPU has an active booking with a live payment \u2014 resolve the payment (cancel or refund the bound job) before force-deleting",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/market/gpu/quote": {
-      "post": {
-        "tags": [
-          "market-gpu"
-        ],
-        "summary": "Quote Gpu",
-        "description": "Prepare an unsigned energy quote and a bound job for a fixed-duration GPU rental.\n\nThe returned quote is valid for a short window. The buyer funds it through\nPOST /market/gpu/purchase using the same job_id and energy_quote.",
-        "operationId": "quote_gpu_v1_market_gpu_quote_post",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GPUQuoteRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Quote Gpu V1 Market Gpu Quote Post"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "buyer_id does not match resolved address for agent {request.buyer_agent_id}",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Failed to sign energy quote",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Energy pricing oracle is not configured / Could not read energy inputs; refusing protected funding",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "buyer_id does not match authenticated buyer",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "GPU {gpu_id} not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "GPU {request.gpu_id} is not available for quoting",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/market/gpu/purchase": {
-      "post": {
-        "tags": [
-          "market-gpu"
-        ],
-        "summary": "Buy Gpu",
-        "description": "Buy GPU compute from market with blockchain payment and AI job scheduling.",
-        "operationId": "buy_gpu_v1_market_gpu_purchase_post",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/GPUBuyRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Buy Gpu V1 Market Gpu Purchase Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "Payment Required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "buyer_id does not match authenticated buyer",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "GPU {gpu_id} not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "409": {
-            "description": "GPU {gpu_id} is not available for purchase / GPU {request.gpu_id} is not available for purchase",
             "content": {
               "application/json": {
                 "schema": {
@@ -2955,88 +3047,6 @@
         }
       }
     },
-    "/v1/payments/send": {
-      "post": {
-        "tags": [
-          "market-gpu"
-        ],
-        "summary": "Send Payment",
-        "description": "Record a real payment for a task or booking and return its actual status.",
-        "operationId": "send_payment_v1_payments_send_post",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/PaymentRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "additionalProperties": true,
-                  "title": "Response Send Payment V1 Payments Send Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Amount must be greater than zero / task_id or booking_id is required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "402": {
-            "description": "Payment failed: {e} / Payment failed with status {payment.status}",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/market/gpu/{gpu_id}/reviews": {
       "get": {
         "tags": [
@@ -3203,18 +3213,18 @@
         }
       }
     },
-    "/v1/market/orders": {
-      "get": {
+    "/v1/market/gpu/purchase": {
+      "post": {
         "tags": [
           "market-gpu"
         ],
-        "summary": "List Orders",
-        "description": "List orders (bookings).",
-        "operationId": "list_orders_v1_market_orders_get",
+        "summary": "Buy Gpu",
+        "description": "Buy GPU compute from market with blockchain payment and AI job scheduling.",
+        "operationId": "buy_gpu_v1_market_gpu_purchase_post",
         "parameters": [
           {
-            "name": "status",
-            "in": "query",
+            "name": "Authorization",
+            "in": "header",
             "required": false,
             "schema": {
               "anyOf": [
@@ -3225,70 +3235,20 @@
                   "type": "null"
                 }
               ],
-              "title": "Status"
-            }
-          },
-          {
-            "name": "limit",
-            "in": "query",
-            "required": false,
-            "schema": {
-              "type": "integer",
-              "maximum": 500,
-              "minimum": 1,
-              "default": 100,
-              "title": "Limit"
+              "title": "Authorization"
             }
           }
         ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "array",
-                  "items": {
-                    "type": "object",
-                    "additionalProperties": true
-                  },
-                  "title": "Response List Orders V1 Market Orders Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GPUBuyRequest"
               }
             }
           }
-        }
-      }
-    },
-    "/v1/market/pricing/{model}": {
-      "get": {
-        "tags": [
-          "market-gpu"
-        ],
-        "summary": "Get Pricing",
-        "description": "Get enhanced pricing information for a model with dynamic pricing.",
-        "operationId": "get_pricing_v1_market_pricing__model__get",
-        "parameters": [
-          {
-            "name": "model",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Model"
-            }
-          }
-        ],
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3297,7 +3257,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Get Pricing V1 Market Pricing  Model  Get"
+                  "title": "Response Buy Gpu V1 Market Gpu Purchase Post"
                 }
               }
             }
@@ -3312,8 +3272,48 @@
               }
             }
           },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "402": {
+            "description": "Payment Required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "buyer_id does not match authenticated buyer",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
-            "description": "No GPUs found for model {model}",
+            "description": "GPU {gpu_id} not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "GPU {gpu_id} is not available for purchase / GPU {request.gpu_id} is not available for purchase",
             "content": {
               "application/json": {
                 "schema": {
