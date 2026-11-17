@@ -159,18 +159,6 @@ def _get_bridge_client(rpc_url: str) -> BridgeClient:
     return BridgeClient(BridgeConfig(rpc_url=rpc_url))
 
 
-@click.group(
-    epilog="""Examples:
-
-  aitbc bridge status
-
-  aitbc bridge lock --target-chain ait-side --sender 0x... --recipient 0x... --amount 100"""
-)
-def bridge():
-    """Manage cross-chain bridge transfers, validators, proofs, and block headers."""
-    pass
-
-
 def _load_private_key(wallet_name: str, password: str = "") -> str:
     """Load a wallet's private key (plaintext or encrypted)."""
     from ...utils.wallet_paths import find_wallet_file, is_service_wallet_path
