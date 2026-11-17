@@ -65,6 +65,7 @@ class MemoryStore:
 
     def __init__(self) -> None:
         self._store: dict[str, dict[str, Any]] = {}
+        self._total_bytes = 0
         self._master_key: str | None = settings.memory_master_key
         # Per-instance salt. For an in-memory service this is fine; persisted storage
         # would require storing the salt with each encrypted blob.
@@ -92,11 +93,16 @@ class MemoryStore:
         expires_at = record.get("expires_at")
         return expires_at is not None and now >= expires_at
 
+    def _drop(self, content_address: str) -> None:
+        """Remove a record and decrement the byte accounting."""
+        record = self._store.pop(content_address)
+        self._total_bytes -= record["size"]
+
     def _evict_expired(self, now: datetime) -> int:
         """Drop all TTL-expired records; returns the number evicted."""
         expired = [cid for cid, rec in self._store.items() if self._is_expired(rec, now)]
         for cid in expired:
-            del self._store[cid]
+            self._drop(cid)
         return len(expired)
 
     def _evict_lru(self) -> str | None:
@@ -104,24 +110,32 @@ class MemoryStore:
         if not self._store:
             return None
         victim = min(self._store, key=lambda cid: self._store[cid].get("last_accessed") or self._store[cid]["created_at"])
-        del self._store[victim]
+        self._drop(victim)
         return victim
 
-    def _make_room(self) -> None:
+    def _make_room(self, incoming_bytes: int) -> None:
         """Ensure capacity for one more blob: TTL sweep, then LRU eviction.
 
         MEMORY-RESIDUAL-1 (#1682): previously a full store raised
         StoreFullError on every write until restart — a self-inflicted DoS.
         Now expired entries are dropped first and the least-recently-used
-        live entry is evicted until there is room. StoreFullError remains
-        only for a degenerate max_blobs <= 0 configuration.
+        live entry is evicted until there is room under BOTH bounds — the
+        entry count (MEMORY_MAX_BLOBS) and the total logical bytes
+        (MEMORY_MAX_TOTAL_BYTES, #2177). StoreFullError remains only for a
+        single blob that can never fit or a degenerate <= 0 configuration.
         """
         now = datetime.now(UTC)
         self._evict_expired(now)
-        while len(self._store) >= settings.memory_max_blobs and self._store:
+        max_blobs = settings.memory_max_blobs
+        max_bytes = settings.memory_max_total_bytes
+        if incoming_bytes > max_bytes:
+            raise StoreFullError(f"blob of {incoming_bytes} bytes exceeds the {max_bytes}-byte store cap")
+        while self._store and (len(self._store) >= max_blobs or self._total_bytes + incoming_bytes > max_bytes):
             self._evict_lru()
-        if len(self._store) >= settings.memory_max_blobs:
-            raise StoreFullError(f"memory store is full ({settings.memory_max_blobs} blobs)")
+        if len(self._store) >= max_blobs or self._total_bytes + incoming_bytes > max_bytes:
+            raise StoreFullError(
+                f"memory store is full ({len(self._store)}/{max_blobs} blobs, {self._total_bytes}/{max_bytes} bytes)"
+            )
 
     def store_blob(self, owner: str, data: bytes, tags: dict[str, Any] | None = None) -> ContentAddressedBlob:
         """Store a blob and return its content-addressed descriptor.
@@ -140,7 +154,7 @@ class MemoryStore:
         if existing is not None:
             if self._is_expired(existing, now):
                 # TTL-expired records behave as absent: re-store fresh.
-                del self._store[content_address]
+                self._drop(content_address)
             else:
                 existing["owners"].add(owner)
                 existing["last_accessed"] = now
@@ -151,7 +165,7 @@ class MemoryStore:
                     tags=existing["tags"],
                     created_at=existing["created_at"],
                 )
-        self._make_room()
+        self._make_room(len(data))
         stored_data = data
         encrypted = self._fernet is not None
         if self._fernet:
@@ -169,6 +183,7 @@ class MemoryStore:
             "last_accessed": now,
             "expires_at": self._expires_at(created_at),
         }
+        self._total_bytes += len(data)
         return ContentAddressedBlob(
             content_address=content_address,
             owner=owner,
@@ -189,7 +204,7 @@ class MemoryStore:
             raise KeyError(f"Blob not found: {content_address}")
         now = datetime.now(UTC)
         if self._is_expired(record, now):
-            del self._store[content_address]
+            self._drop(content_address)
             raise KeyError(f"Blob not found: {content_address}")
         if owner is not None and owner not in record["owners"]:
             raise BlobPermissionError(f"caller is not an owner of {content_address}")
@@ -214,13 +229,14 @@ class MemoryStore:
     def delete_blob(self, content_address: str, owner: str) -> None:
         """Delete a blob; only an owner of the blob may delete it (#1682)."""
         self._get_record(content_address, owner)
-        del self._store[content_address]
+        self._drop(content_address)
 
     def health(self) -> dict[str, Any]:
         """Return a simple health/status payload."""
         return {
             "status": "healthy",
             "stored_blobs": len(self._store),
+            "stored_bytes": self._total_bytes,
             "encrypted_at_rest": self._fernet is not None,
         }
 
