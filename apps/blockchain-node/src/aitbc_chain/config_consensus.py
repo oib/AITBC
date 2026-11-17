@@ -204,6 +204,14 @@ class ConsensusConfig(BaseModel):
     # while None/unset/malformed: #2157 behaviour and R4 are byte-identical.
     # Arm on all four validators before the height (version-height rule).
     pbft_locked_cross_author_height: int | None = Field(default=None, ge=0)
+    # #2181: from this height (and only while ``pbft_view_change_height`` is also
+    # active) every proposal body — the author's own included — must recompute
+    # to its block hash over its tx list before it is stored or voted on.
+    # Without it a Byzantine author could get a hash committed and locked that
+    # no body matches (importers reject it, the height wedges). Dormant while
+    # None/unset/malformed: byte-identical. Arm on all four validators before
+    # the height (version-height rule).
+    pbft_body_hash_check_height: int | None = Field(default=None, ge=0)
     consensus_view_change_timeout_seconds: int = 30  # H6 — timeout before view change
     consensus_round_timeout_seconds: int = 10  # per-round timeout
     # v0.25.6: deterministic proposer rotation. When the scheduled proposer for
