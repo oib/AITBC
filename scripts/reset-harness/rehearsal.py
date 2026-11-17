@@ -722,7 +722,7 @@ def _block(inst: Instance, height: int) -> dict | None:
 
 def _post_json(url: str, body: dict) -> tuple[int, dict]:
     """POST JSON; returns (status, payload) — HTTP errors keep their code."""
-    req = urllib.request.Request(  # nosec B310
+    req = urllib.request.Request(
         url, data=json.dumps(body).encode(), headers={"Content-Type": "application/json"}, method="POST"
     )
     try:
@@ -2145,7 +2145,7 @@ def main() -> int:
     )
     # Scratch defaults to /tmp deliberately: per-rehearsal ephemeral tree,
     # deleted at teardown; the root is resolved and live-prefix-checked.
-    p.add_argument("--scratch", default="/tmp/bc2-rehearsal", help="scratch root (default /tmp/bc2-rehearsal)")  # nosec B108
+    p.add_argument("--scratch", default="/tmp/bc2-rehearsal", help="scratch root (default /tmp/bc2-rehearsal)")  # nosec
     p.add_argument("--python", default="/opt/aitbc/venv/bin/python", help="repo venv interpreter")
     p.add_argument("--height", type=int, default=6, help="target height for `wait`")
     p.add_argument("--timeout", type=int, default=600, help="seconds for waits")

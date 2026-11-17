@@ -16,7 +16,7 @@ def main():
         logger.info("Launching blockchain HTTP API")
         subprocess.run(
             # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
-            ["/opt/aitbc/venv/bin/python", "-m", "uvicorn", "aitbc_chain.app:app", "--host", "0.0.0.0", "--port", "8005"],  # nosec B104
+            ["/opt/aitbc/venv/bin/python", "-m", "uvicorn", "aitbc_chain.app:app", "--host", "0.0.0.0", "--port", "8005"],
             check=True,
         )
     except subprocess.CalledProcessError as e:

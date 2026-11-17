@@ -179,20 +179,20 @@ def update_deposit_status(deposit_id: str, status: str, *, expected_statuses: Co
     now = utc_now_iso()
     params: tuple[str, ...]
     if status == "verified":
-        query = "UPDATE eth_deposits SET status = ?, verified_at = ? WHERE id = ?"  # nosec
+        query = "UPDATE eth_deposits SET status = ?, verified_at = ? WHERE id = ?"
         params = (status, now, deposit_id)
     elif status == "completed":
-        query = "UPDATE eth_deposits SET status = ?, completed_at = ? WHERE id = ?"  # nosec
+        query = "UPDATE eth_deposits SET status = ?, completed_at = ? WHERE id = ?"
         params = (status, now, deposit_id)
     elif status == "pending":
-        query = "UPDATE eth_deposits SET status = ?, completed_at = NULL WHERE id = ?"  # nosec
+        query = "UPDATE eth_deposits SET status = ?, completed_at = NULL WHERE id = ?"
         params = (status, deposit_id)
     else:
-        query = "UPDATE eth_deposits SET status = ? WHERE id = ?"  # nosec
+        query = "UPDATE eth_deposits SET status = ? WHERE id = ?"
         params = (status, deposit_id)
     if expected_statuses:
         expected = tuple(expected_statuses)
-        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
+        query += f" AND status IN ({', '.join('?' for _ in expected)})"
         params = (*params, *expected)
     cursor.execute(query, params)
 
@@ -216,7 +216,7 @@ def update_deposit_tx_hash(deposit_id: str, ait_tx_hash: str, *, expected_status
     params: tuple = (ait_tx_hash, deposit_id)
     if expected_statuses:
         expected = tuple(expected_statuses)
-        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
+        query += f" AND status IN ({', '.join('?' for _ in expected)})"
         params = (*params, *expected)
     cursor.execute(query, params)
     conn.commit()

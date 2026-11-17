@@ -112,7 +112,7 @@ def real_http_get(url: str, timeout: int = 5) -> tuple[int, dict]:
 
 
 def real_http_post(url: str, body: dict, timeout: int = 8) -> tuple[int, dict]:
-    req = urllib.request.Request(  # nosec B310
+    req = urllib.request.Request(
         url,
         data=json.dumps(body).encode(),
         headers={"Content-Type": "application/json", "User-Agent": "aitbc-ops/1.0"},

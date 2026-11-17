@@ -195,7 +195,7 @@ async def get_block_transactions_batch(
         )
         WHERE _rn <= ?
         ORDER BY block_height, created_at, tx_hash
-    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+    """,  # nosec # WHERE fragments are internally generated clause strings; all values are bound parameters
         [*params, MAX_EMBEDDED_TXS_PER_BLOCK + 1],
     )
     grouped: dict[int, list[tuple[Any, ...]]] = {}
@@ -269,7 +269,7 @@ async def get_transaction(tx_hash: str, chain_id: str | None = None) -> dict[str
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status, value, fee, nonce
                     FROM "transaction"
                     WHERE {where}
-                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+                """,  # nosec # WHERE fragments are internally generated clause strings; all values are bound parameters
                     params,
                 )
 
@@ -329,7 +329,7 @@ async def get_block(height: int, chain_id: str | None = None) -> dict[str, Any]:
                     SELECT height, hash, proposer, timestamp, tx_count, state_root
                     FROM block
                     WHERE {block_where}
-                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+                """,  # nosec # WHERE fragments are internally generated clause strings; all values are bound parameters
                     block_params,
                 )
 
@@ -479,7 +479,7 @@ async def get_latest_blocks_page(
                     {where_clause}
                     ORDER BY height DESC
                     LIMIT ? OFFSET ?
-                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+                """,  # nosec # WHERE fragments are internally generated clause strings; all values are bound parameters
                     [*block_params, limit + 1, offset],
                 )
 

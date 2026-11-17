@@ -197,7 +197,6 @@ def query_api(path, method="GET", data=None):
     req = urllib.request.Request(url, method=method, headers=headers, data=data)
     try:
         # the scheme is checked against http/https above. B310 is a blacklist
-        # nosec B310
         # rule on the call itself and fires whatever guards precede it.
         with urllib.request.urlopen(req, timeout=30) as resp:  # nosec B310
             return json.load(resp)

@@ -85,7 +85,7 @@ def _source_columns(conn: sqlite3.Connection, table: str) -> list[str]:
 
 
 def _source_count(conn: sqlite3.Connection, table: str) -> int:
-    return int(conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0])  # nosec B608 — table names come from schema reflection, never user input
+    return int(conn.execute(f'SELECT COUNT(*) FROM "{table}"').fetchone()[0])  # nosec # table names come from schema reflection, never user input
 
 
 # ---------------------------------------------------------------------------
@@ -252,7 +252,7 @@ def _copy_table(
     inserted = 0
     skipped = 0
     batch: list[dict] = []
-    cursor = source_conn.execute(f'SELECT {", ".join(chr(34) + c + chr(34) for c in columns)} FROM "{table.name}"')  # nosec B608 — reflected column/table names only
+    cursor = source_conn.execute(f'SELECT {", ".join(chr(34) + c + chr(34) for c in columns)} FROM "{table.name}"')  # nosec # reflected column/table names only
     for row in cursor:
         pk = _canon_pk(row[i] for i in pk_idx)
         if pk in existing_pks:
@@ -334,7 +334,7 @@ def _refuse_nonempty_target(engine, args) -> None:
         if tname in _SKIP_TABLES or any(tname.startswith(p) for p in _SKIP_PREFIXES):
             continue
         with engine.connect() as conn:
-            count = int(conn.execute(sa.text(f'SELECT COUNT(*) FROM "{tname}"')).scalar_one())  # nosec B608 — reflected table names only
+            count = int(conn.execute(sa.text(f'SELECT COUNT(*) FROM "{tname}"')).scalar_one())  # nosec # reflected table names only
         if count:
             preexisting[tname] = count
     if preexisting and not args.allow_nonempty:
@@ -416,7 +416,7 @@ def main(argv: list[str] | None = None) -> int:
                 src_pks = {
                     _canon_pk(r)
                     for r in source_conn.execute(
-                        f'SELECT {", ".join(chr(34) + c + chr(34) for c in _pk_columns(table))} FROM "{name}"'  # nosec B608 — reflected names only
+                        f'SELECT {", ".join(chr(34) + c + chr(34) for c in _pk_columns(table))} FROM "{name}"'  # nosec # reflected names only
                     )
                 }
                 expected = src_pks | baseline_pks[name]

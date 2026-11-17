@@ -405,7 +405,7 @@ def update_exchange_settlement(
         # Both query variants end `WHERE id = ?`; the CAS clause appends
         # after it. Placeholders are literal '?' per expected value.
         expected = tuple(expected_statuses)
-        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
+        query += f" AND status IN ({', '.join('?' for _ in expected)})"
         params = (*params, *expected)
     cursor.execute(query, params)
     conn.commit()

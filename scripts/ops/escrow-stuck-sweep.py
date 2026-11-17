@@ -216,7 +216,7 @@ def locked_escrows(chain: Source) -> list[dict[str, Any]]:
     if cols is None:
         raise RuntimeError(f"cannot read escrow table in {chain.label()}")
     wanted = [c for c in _ESCROW_COLS if c in cols]
-    sql = f"SELECT {', '.join(wanted)} FROM escrow WHERE status = 'locked' AND released_at IS NULL AND refunded_at IS NULL"  # nosec B608 — column names filtered against PRAGMA table_info, never user input
+    sql = f"SELECT {', '.join(wanted)} FROM escrow WHERE status = 'locked' AND released_at IS NULL AND refunded_at IS NULL"  # nosec # column names filtered against PRAGMA table_info, never user input
     return chain.query(sql)
 
 
@@ -253,7 +253,7 @@ def job_states(db: Source | None, job_ids: list[str]) -> dict[str, str]:
     out: dict[str, str] = {}
     for jid in job_ids:
         try:
-            rows = db.query(f"SELECT {state_col} AS s FROM {table} WHERE {id_col} = ?", (jid,))  # nosec B608 — table/column names are whitelisted constants, not user input
+            rows = db.query(f"SELECT {state_col} AS s FROM {table} WHERE {id_col} = ?", (jid,))  # nosec # table/column names are whitelisted constants, not user input
         except Exception as e:
             raise RuntimeError(f"{db.label()}: job query failed: {e}") from e
         if rows and rows[0].get("s"):

@@ -547,7 +547,7 @@ def main() -> int:
         "phase",
         choices=["stage", "record", "cut", "abort", "trap", "freshstart", "teardown", "run"],
     )
-    p.add_argument("--scratch", default="/tmp/bc2-rollback", help="scratch root (default /tmp/bc2-rollback)")  # nosec B108
+    p.add_argument("--scratch", default="/tmp/bc2-rollback", help="scratch root (default /tmp/bc2-rollback)")  # nosec
     p.add_argument("--python", default="/opt/aitbc/venv/bin/python", help="node venv interpreter")
     p.add_argument("--max-load", type=float, default=24.0, help="1-min loadavg ceiling")
     p.add_argument("--min-avail-mib", type=int, default=4096, help="MemAvailable floor MiB")

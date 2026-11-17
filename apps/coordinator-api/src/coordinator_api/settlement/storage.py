@@ -97,7 +97,6 @@ class SettlementStorage:
         params.append(message_id)
 
         # every `updates` entry is a hardcoded "column = $N" literal
-        # nosec B608
         # (column names are compile-time constants above); actual values are bound
         # via `params`, never interpolated into the query text.
         query = f"""
@@ -195,7 +194,6 @@ class SettlementStorage:
         where_clause = "WHERE " + " AND ".join(conditions) if conditions else ""
 
         # every `conditions` entry is a hardcoded "column = $N" literal
-        # nosec B608
         # (column names are compile-time constants above); actual values are bound
         # via `params`, never interpolated into the query text.
         query = f"""

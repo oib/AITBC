@@ -77,7 +77,7 @@ async def api_non_empty_blocks(
             max_scope, max_scope_params = await chain_scope(conn, "block", cid)
             max_where, max_params = scoped_where("", max_scope, [], max_scope_params)
             max_clause = f"WHERE {max_where}" if max_where else ""
-            await db_cursor.execute(f"SELECT MAX(height) FROM block {max_clause}", max_params)  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+            await db_cursor.execute(f"SELECT MAX(height) FROM block {max_clause}", max_params)  # nosec B608 # WHERE fragments are internally generated clause strings; all values are bound parameters
             row = await db_cursor.fetchone()
             max_height = row[0] if row and row[0] is not None else 0
 
@@ -104,7 +104,7 @@ async def api_non_empty_blocks(
                 WHERE {where}
                 ORDER BY b.height DESC
                 LIMIT ? OFFSET ?
-            """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+            """,  # nosec # WHERE fragments are internally generated clause strings; all values are bound parameters
                 [*params, limit + 1, offset],
             )
 
@@ -178,7 +178,7 @@ async def _lookup_block_in_db(conn: Any, cid: str, clean_hash: str) -> dict[str,
         SELECT height, hash, proposer, timestamp, tx_count, state_root
         FROM block
         WHERE {where}
-    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+    """,  # nosec # WHERE fragments are internally generated clause strings; all values are bound parameters
         params,
     )
 
@@ -190,7 +190,7 @@ async def _lookup_block_in_db(conn: Any, cid: str, clean_hash: str) -> dict[str,
             SELECT height, hash, proposer, timestamp, tx_count, state_root
             FROM block
             WHERE {legacy_where}
-        """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+        """,  # nosec # WHERE fragments are internally generated clause strings; all values are bound parameters
             legacy_params,
         )
         result = await cursor.fetchone()
@@ -342,7 +342,7 @@ async def api_blocks_by_address(
                 WHERE {where}
                 ORDER BY b.height DESC
                 LIMIT ?
-            """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+            """,  # nosec # WHERE fragments are internally generated clause strings; all values are bound parameters
                 params,
             )
 

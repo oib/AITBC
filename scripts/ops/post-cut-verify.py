@@ -164,7 +164,7 @@ def real_http_get(url: str, timeout: int = 5) -> tuple[int, dict]:
 
 
 def real_http_post(url: str, body: dict, timeout: int = 5) -> tuple[int, dict]:
-    req = urllib.request.Request(  # nosec B310
+    req = urllib.request.Request(
         url,
         data=json.dumps(body).encode(),
         headers={"Content-Type": "application/json"},
@@ -215,7 +215,7 @@ _retry = _ops_http._retry
 # the injected ``Ctx.http_get``/``host_sh`` transport keep working exactly
 # as before; the fragment is not importable on its own.
 _checks_path = Path(__file__).resolve().with_name("post_cut_checks.py")
-exec(compile(_checks_path.read_text(encoding="utf-8"), str(_checks_path), "exec"), globals())  # nosec B102
+exec(compile(_checks_path.read_text(encoding="utf-8"), str(_checks_path), "exec"), globals())  # nosec
 
 
 if __name__ == "__main__":

@@ -673,7 +673,7 @@ def check_stores(ctx: Ctx, name: str, h: dict) -> list[Result]:
         out = sh(
             ctx,
             h,
-            f"[ -f {shlex.quote(db_path)} ] && sqlite3 -readonly 'file:{db_path}?mode=ro' \"{count_tables}\"",  # nosec B608 — constant query; only the file URI interpolates
+            f"[ -f {shlex.quote(db_path)} ] && sqlite3 -readonly 'file:{db_path}?mode=ro' \"{count_tables}\"",  # constant query; only the file URI interpolates
         )
         try:
             got = int((out or "").strip())

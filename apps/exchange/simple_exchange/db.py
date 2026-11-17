@@ -534,7 +534,7 @@ def _add_columns(cursor, table: str, column_defs: list) -> None:
     for column_def in column_defs:
         try:
             cursor.execute(f"ALTER TABLE {table} ADD COLUMN {column_def}")  # hardcoded lists only
-        except _OPS_ERRORS:  # nosec
+        except _OPS_ERRORS:
             _logger.debug("add-column skipped for %s: %s", table, column_def, exc_info=True)
 
 

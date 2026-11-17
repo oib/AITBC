@@ -347,7 +347,7 @@ DEFAULT_WALLET_DIR = "/var/lib/aitbc/wallets"
 # Root for agent-created scratch space on the live nodes. Callers may point
 # env/cwd only underneath it so a remote command cannot be redirected at
 # /etc, /var/lib/aitbc, or another user's home.
-SCRATCH_ROOT = "/var/tmp"  # nosec B108 — deliberate: env/cwd are restricted to underneath this root so remote commands cannot be redirected at /etc, /var/lib/aitbc or user homes.
+SCRATCH_ROOT = "/var/tmp"  # nosec B108 # deliberate: env/cwd are restricted to underneath this root so remote commands cannot be redirected at /etc, /var/lib/aitbc or user homes.
 
 # Environment names accepted through the generic CLI tools' ``env`` parameter:
 # ``HOME`` plus non-secret ``AITBC_*`` names. The use case is scratch-wallet

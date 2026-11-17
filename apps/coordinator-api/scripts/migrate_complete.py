@@ -85,7 +85,6 @@ def _migrate_table(sqlite_cursor, pg_cursor, table_name: str) -> None:
 
     # Build insert query
     # table_name validated against allowed_tables above; column_names
-    # nosec B608
     # come from PRAGMA table_info (the DB's own schema), never external input.
     insert_sql = f'INSERT INTO "{table_name}" ({", ".join(column_names)}) VALUES ({", ".join(["%s"] * len(column_names))})'  # nosec
 

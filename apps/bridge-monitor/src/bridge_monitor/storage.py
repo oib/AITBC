@@ -634,7 +634,7 @@ def get_stranded_deposits(cutoff_iso: str) -> list[dict[str, Any]]:
         cursor.execute(
             # excluded values are hardcoded literals bound as parameters;
             # identifiers come from the fixed _DEPOSIT_SELECT projection.
-            f"{_DEPOSIT_SELECT} WHERE (created_at IS NULL OR created_at < ?) "  # nosec
+            f"{_DEPOSIT_SELECT} WHERE (created_at IS NULL OR created_at < ?) "
             f"AND status NOT IN ({placeholders}) ORDER BY created_at ASC",
             (cutoff_iso, *excluded),
         )

@@ -181,7 +181,6 @@ def _dupes(cur: sqlite3.Cursor, spec: dict, chain_id: str) -> dict:
         w = "WHERE chain_id=?" if "chain_id" in names else ""
         args = (chain_id,) if w else ()
         # on next line: only schema-derived identifiers interpolate; values stay bound
-        # nosec
         q = f'SELECT {grp}, COUNT(*) c FROM "{table}" {w} GROUP BY {grp} HAVING c>1'  # nosec
         try:
             hits = [list(r) for r in cur.execute(q, args)]

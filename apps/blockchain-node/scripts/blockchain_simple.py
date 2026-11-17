@@ -27,7 +27,7 @@ def main():
 
             logger.info("Starting blockchain FastAPI app on port 8202")
             # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
-            uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BLOCKCHAIN_PORT", 8202)))  # nosec B104
+            uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BLOCKCHAIN_PORT", 8202)))
         except ImportError as e:
             logger.error("Failed to import blockchain app: %s", e)
             try:
@@ -90,7 +90,7 @@ def basic_blockchain_node():
         activity_thread.start()
         logger.info("Starting basic blockchain API on port 8202")
         # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
-        uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BLOCKCHAIN_PORT", 8202)))  # nosec B104
+        uvicorn.run(app, host="0.0.0.0", port=int(os.environ.get("BLOCKCHAIN_PORT", 8202)))
     except ImportError:
         logger.info("FastAPI not available, using simple blockchain node")
         while True:

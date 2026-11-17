@@ -155,7 +155,7 @@ def agent_db_granted_since(db_path: str, since_iso: str) -> int | None:
             conn.execute("PRAGMA busy_timeout=30000")
             total = conn.execute(
                 "SELECT COALESCE(SUM(amount), 0) FROM coin_requests WHERE status = 'APPROVED' "
-                "AND approval_mode = 'automatic' AND created_at >= ?",  # nosec B608 - static SQL, param tuple
+                "AND approval_mode = 'automatic' AND created_at >= ?",  # static SQL, param tuple
                 (since_iso,),
             ).fetchone()[0]
             conn.close()

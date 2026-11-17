@@ -139,7 +139,7 @@ def alembic_head(db: Path) -> str | None:
 
 def row_counts(db: Path, tables: list[str]) -> dict[str, int]:
     # Table names come from the operator-controlled baseline file only.
-    return {t: int(_sqlite(db, f"SELECT COUNT(*) FROM {t};") or 0) for t in tables}  # nosec B608
+    return {t: int(_sqlite(db, f"SELECT COUNT(*) FROM {t};") or 0) for t in tables}  # nosec
 
 
 _SET_TS = re.compile(r"(\d{8})_(\d{6})")

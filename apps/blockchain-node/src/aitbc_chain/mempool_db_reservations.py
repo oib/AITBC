@@ -419,7 +419,7 @@ class _DbReservationMixin:
                 if hashes:
                     marks = ",".join("?" for _ in hashes)
                     cur.execute(
-                        f"SELECT tx_hash, content FROM mempool WHERE chain_id=? AND tx_hash IN ({marks})",  # nosec B608 — marks is only '?' placeholders
+                        f"SELECT tx_hash, content FROM mempool WHERE chain_id=? AND tx_hash IN ({marks})",  # nosec # marks is only '?' placeholders
                         (chain_id, *hashes),
                     )
                     content_by_hash = {r[0]: r[1] for r in cur.fetchall()}
@@ -468,7 +468,7 @@ class _DbReservationMixin:
             params["owner_id"] = owner_id
         stmt = text(
             "UPDATE mempool_reservation SET state='released', release_reason=:reason, released_at=:now "
-            f"WHERE {' AND '.join(clauses)}"  # nosec B608 — clauses are static literals, values are bound params
+            f"WHERE {' AND '.join(clauses)}"  # nosec # clauses are static literals, values are bound params
         )
         if tx_hashes is not None:
             stmt = stmt.bindparams(bindparam("hashes", expanding=True))

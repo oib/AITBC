@@ -55,7 +55,7 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = None) -> dic
                     SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
                     FROM "transaction"
                     WHERE {where}
-                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+                """,  # nosec # WHERE fragments are internally generated clause strings; all values are bound parameters
                     params,
                 )
 
@@ -69,7 +69,7 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = None) -> dic
                         SELECT tx_hash, sender, recipient, payload, block_height, created_at, type, status
                         FROM "transaction"
                         WHERE {legacy_where}
-                    """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+                    """,  # nosec # WHERE fragments are internally generated clause strings; all values are bound parameters
                         legacy_params,
                     )
                     result = await cursor.fetchone()
@@ -146,7 +146,7 @@ async def api_search_transactions(
                     WHERE {where}
                     ORDER BY created_at DESC, tx_hash DESC
                     LIMIT ? OFFSET ?
-                """,  # nosec B608 - WHERE fragments are internally generated clause strings; all values are bound parameters
+                """,  # nosec # WHERE fragments are internally generated clause strings; all values are bound parameters
                     params,
                 )
 
