@@ -291,6 +291,71 @@ def test_admin_wallet_can_access_admin_route(client, monkeypatch):
         settings.admin_wallet_addresses = original
 
 
+def test_logout_revocation_shared_across_workers(client):
+    """#2180: a logout on one worker must reject the token on the other.
+
+    coordinator-api runs ``uvicorn --workers 2`` and the blocklist used to sit
+    in RedisStateManager's in-memory fallback, so ``POST /v1/logout`` revoked
+    the JWT only in the handling worker's memory — the other worker accepted
+    it until JWT expiry. Wiping the state manager's memory between logout and
+    the authenticated call simulates exactly that cross-worker split: the
+    sqlite blocklist must still reject the token, and an unrevoked token must
+    still pass.
+    """
+    from coordinator_api.contexts.infrastructure.services.redis_state import state_manager
+
+    logged_out = Account.create()
+    other = Account.create()
+
+    out_resp = _register_user(client, logged_out)
+    out_token = out_resp.json()["session_token"]
+    other_resp = _register_user(client, other)
+    other_token = other_resp.json()["session_token"]
+
+    logout_resp = client.post(f"/v1/logout?token={out_token}")
+    assert logout_resp.status_code == 200
+
+    # Simulate the second worker: it shares none of the first worker's memory.
+    state_manager._memory.clear()
+
+    denied = client.get(f"/v1/users/me?token={out_token}")
+    assert denied.status_code == 401
+
+    allowed = client.get(f"/v1/users/me?token={other_token}")
+    assert allowed.status_code == 200
+
+
+def test_blocklist_store_direct_revoke_and_expiry(client):
+    """#2180: the sqlite blocklist rejects a revoked token from any connection
+    and ignores entries whose ``expires_at`` has already passed (JWT expiry
+    bounds the blocklist naturally)."""
+    import time
+    from contextlib import closing
+
+    from aitbc.auth import create_access_token
+
+    from coordinator_api.contexts.infrastructure.routers.users import (
+        _connect_auth_db,
+        _is_token_revoked,
+        _revoke_token,
+    )
+
+    token = create_access_token("user-pin", "client")
+    assert _is_token_revoked(token) is False
+
+    _revoke_token(token)
+    # A brand-new connection stands in for the other worker's store view.
+    with closing(_connect_auth_db()) as conn:
+        row = conn.execute("SELECT expires_at FROM revoked_token WHERE token = ?", (token,)).fetchone()
+    assert row is not None
+    assert _is_token_revoked(token) is True
+
+    # Force the entry past expiry — the check must treat it as unrevoked.
+    with closing(_connect_auth_db()) as conn:
+        conn.execute("UPDATE revoked_token SET expires_at = ? WHERE token = ?", (time.time() - 1, token))
+    assert _is_token_revoked(token) is False
+
+
 def test_non_admin_wallet_is_denied_admin_route(client, monkeypatch):
     """A wallet not in the admin allowlist cannot reach admin routes."""
     from coordinator_api.config import settings

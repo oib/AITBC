@@ -24,7 +24,6 @@ from starlette.concurrency import run_in_threadpool
 
 from aitbc.auth import create_access_token, verify_access_token
 from aitbc.rate_limiting import rate_limit
-from coordinator_api.contexts.infrastructure.services.redis_state import RedisStateManager
 
 from ...infrastructure.domain import Transaction, User, Wallet
 from ....schemas import UserBalance, UserCreate, UserLogin, UserNonceRequest, UserNonceResponse, UserProfile
@@ -45,60 +44,68 @@ _OPS_ERRORS = (
     ImportError,
 )
 
-# Redis-backed state (falls back to in-memory if Redis unavailable)
-_state = RedisStateManager.get_instance_sync()
-_SESSION_NS = "sessions"
-_BLOCKLIST_NS = "token_blocklist"
-
 # Nonce lifetime in seconds
 _NONCE_TTL = 300
 
 # ------------------------------------------------------------------
-# Wallet login nonces — shared sqlite store (#2154)
+# Shared auth state — sqlite store under ``AITBC_DATA_DIR`` (#2154, #2180)
 #
-# These nonces used to live in ``_state.cache_*`` (RedisStateManager), which
-# falls back to per-process memory when Redis is disabled — and Redis cannot
-# even be enabled through the service env (``settings.redis.enabled`` has no
-# env mapping). coordinator-api runs ``uvicorn --workers 2``, so
-# ``POST /v1/auth/nonce`` landed on one worker and ``POST /v1/login`` on the
-# other a fraction of the time, returning "Invalid or expired nonce" for a
-# nonce issued seconds earlier — observed live against the ``default``
-# admin wallet on hub (#2154). Same bug class as #1771 (island swarm-key
-# nonces) and #1967 (provider-bond challenges); same cure — a small sqlite
-# file under ``AITBC_DATA_DIR`` shared by every worker and every restart.
+# Login nonces and the logout token blocklist used to live in
+# ``_state.cache_*`` (RedisStateManager), which falls back to per-process
+# memory when Redis is disabled — and Redis cannot even be enabled through
+# the service env (``settings.redis.enabled`` had no env mapping until
+# #2180). coordinator-api runs ``uvicorn --workers 2``, so state written by
+# one worker was invisible to the other: ``POST /v1/auth/nonce`` landed on
+# one worker and ``POST /v1/login`` on the other a fraction of the time,
+# returning "Invalid or expired nonce" for a nonce issued seconds earlier —
+# observed live against the ``default`` admin wallet on hub (#2154). The
+# same split meant ``POST /v1/logout`` revoked the JWT only in the handling
+# worker's memory while the other worker kept accepting it until JWT expiry
+# (#2180). Same bug class as #1771 (island swarm-key nonces) and #1967
+# (provider-bond challenges); same cure — a small sqlite file shared by
+# every worker and every restart. The file keeps the ``login-nonces.db``
+# name it was created with; it now also holds ``revoked_token``.
 # ------------------------------------------------------------------
 
 _LOGIN_NONCE_MAX_PENDING = 10_000
+_TOKEN_BLOCKLIST_MAX = 10_000
 
-_LOGIN_NONCE_SCHEMA = """
+_AUTH_DB_SCHEMA = """
 CREATE TABLE IF NOT EXISTS wallet_login_nonce (
     wallet_address TEXT PRIMARY KEY,
     nonce TEXT NOT NULL,
     expires_at REAL NOT NULL,
     created_at REAL NOT NULL
-)
+);
+CREATE TABLE IF NOT EXISTS revoked_token (
+    token TEXT PRIMARY KEY,
+    expires_at REAL NOT NULL,
+    revoked_at REAL NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_revoked_token_expires ON revoked_token(expires_at);
 """
 
 
-def _login_nonce_db_path() -> Path:
-    """Shared login-nonce store under ``AITBC_DATA_DIR``."""
+def _auth_db_path() -> Path:
+    """Shared auth-state store under ``AITBC_DATA_DIR``."""
     data_dir = Path(os.environ.get("AITBC_DATA_DIR", "/var/lib/aitbc/data"))
     return data_dir / "auth" / "login-nonces.db"
 
 
-def _connect_login_nonce_db() -> sqlite3.Connection:
-    """Open the shared nonce DB, creating schema on first use.
+def _connect_auth_db() -> sqlite3.Connection:
+    """Open the shared auth-state DB, creating schema on first use.
 
-    ``isolation_level=None`` gives explicit transaction control so issue and
-    consume can hold a write lock (``BEGIN IMMEDIATE``) — two workers cannot
-    interleave a consume with an issue for the same wallet.
+    ``isolation_level=None`` gives explicit transaction control so issue,
+    consume, revoke and check can hold a write lock (``BEGIN IMMEDIATE``) —
+    two workers cannot interleave a consume with an issue for the same
+    wallet, or a revoke-check with a logout.
     """
-    path = _login_nonce_db_path()
+    path = _auth_db_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     conn = sqlite3.connect(str(path), timeout=30, isolation_level=None)
     conn.execute("PRAGMA journal_mode=WAL")
     conn.execute("PRAGMA busy_timeout=30000")
-    conn.execute(_LOGIN_NONCE_SCHEMA)
+    conn.executescript(_AUTH_DB_SCHEMA)
     return conn
 
 
@@ -162,7 +169,7 @@ def _issue_nonce(wallet_address: str) -> str:
     expires_at = now + _NONCE_TTL
     nonce = secrets.token_urlsafe(16)
     wallet = wallet_address.lower()
-    with closing(_connect_login_nonce_db()) as conn:
+    with closing(_connect_auth_db()) as conn:
         conn.execute("BEGIN IMMEDIATE")
         try:
             conn.execute("DELETE FROM wallet_login_nonce WHERE expires_at <= ?", (now,))
@@ -201,7 +208,7 @@ def _consume_nonce(wallet_address: str, nonce: str) -> bool:
         return False
     now = time.time()
     wallet = wallet_address.lower()
-    with closing(_connect_login_nonce_db()) as conn:
+    with closing(_connect_auth_db()) as conn:
         conn.execute("BEGIN IMMEDIATE")
         try:
             row = conn.execute(
@@ -227,14 +234,28 @@ def _create_session(user_id: str, role: str) -> str:
     return create_access_token(user_id, role, extra_claims={"session_id": secrets.token_urlsafe(16)})
 
 
-async def _is_token_revoked(token: str) -> bool:
-    """Check whether a token has been logged out."""
-    revoked = await _state.cache_get(_BLOCKLIST_NS, token)
-    return revoked is not None
+def _is_token_revoked(token: str) -> bool:
+    """Check whether a token is on the shared revocation blocklist.
+
+    Reads the sqlite store directly so every uvicorn worker sees revocations
+    written by any other worker (#2180). Expired entries are ignored — JWT
+    expiry bounds the blocklist naturally, and ``_revoke_token`` sweeps them
+    on write.
+    """
+    now = time.time()
+    with closing(_connect_auth_db()) as conn:
+        row = conn.execute("SELECT expires_at FROM revoked_token WHERE token = ?", (token,)).fetchone()
+    return row is not None and now <= float(row[0])
 
 
-async def _revoke_token(token: str) -> None:
-    """Add a token to the revocation blocklist until its natural expiry."""
+def _revoke_token(token: str) -> None:
+    """Add a token to the shared revocation blocklist until its natural expiry.
+
+    Same semantics as the old ``cache_set`` path — block until the JWT's own
+    ``exp`` — but persisted in sqlite so the other uvicorn worker honours the
+    logout too. Runs under ``BEGIN IMMEDIATE`` with an expired-row sweep and
+    an oldest-evict cap, mirroring ``_issue_nonce``.
+    """
     try:
         payload = verify_access_token(token)
     except HTTPException:
@@ -244,8 +265,30 @@ async def _revoke_token(token: str) -> None:
     if not exp:
         return
 
-    ttl = max(int(exp) - int(time.time()), 60)
-    await _state.cache_set(_BLOCKLIST_NS, token, True, ttl=ttl)
+    now = time.time()
+    expires_at = float(exp)
+    with closing(_connect_auth_db()) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute("DELETE FROM revoked_token WHERE expires_at <= ?", (now,))
+            pending = conn.execute("SELECT COUNT(*) FROM revoked_token").fetchone()
+            if pending is not None and int(pending[0]) >= _TOKEN_BLOCKLIST_MAX:
+                # Evict the oldest revocation rather than fail logouts — an
+                # evicted token is still bounded by its own JWT expiry.
+                conn.execute(
+                    "DELETE FROM revoked_token WHERE token = (SELECT token FROM revoked_token ORDER BY revoked_at ASC LIMIT 1)"
+                )
+            conn.execute(
+                "INSERT OR REPLACE INTO revoked_token (token, expires_at, revoked_at) VALUES (?, ?, ?)",
+                (token, expires_at, now),
+            )
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+            raise
 
 
 def _extract_token(request: Request) -> str:
@@ -267,7 +310,7 @@ async def _get_current_user_payload(request: Request) -> dict[str, Any]:
     if not token:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing token")
 
-    if await _is_token_revoked(token):
+    if await run_in_threadpool(_is_token_revoked, token):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token")
 
     state_payload = cast(dict[str, Any] | None, getattr(request.state, "user", None))
@@ -475,7 +518,7 @@ async def logout_user(token: str, request: Request) -> dict[str, str]:
     # Accept token from explicit query parameter or Authorization header
     effective_token = token or _extract_token(request)
     if effective_token:
-        await _revoke_token(effective_token)
+        await run_in_threadpool(_revoke_token, effective_token)
 
     return {"message": "Logged out successfully"}
 
