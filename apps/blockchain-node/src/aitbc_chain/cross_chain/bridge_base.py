@@ -9,7 +9,7 @@ from typing import Any, Protocol
 from aitbc.bridge import ValidatorSetRegistry
 from sqlmodel import Session
 
-from ..models import BridgeBlockHeader
+from ..models import BridgeBlockHeader, CrossChainTransfer
 from .bridge_types import BridgeTransfer
 
 
@@ -38,3 +38,30 @@ class BridgeBase(Protocol):
     def _verify_block_header_signature(self, header: BridgeBlockHeader) -> bool: ...
     def _verify_merkle_proof(self, state_root: str, proof: dict[str, Any]) -> bool: ...
     def _check_finality_for_transfer(self, header: BridgeBlockHeader, amount: int) -> bool: ...
+
+    # BridgeTransfer* mixin cross-references — the transfer lifecycle is split
+    # across bridge_transfer_{intake,confirm,proof,finalizer}; each mixin may
+    # call methods owned by a sibling, so the shared surface is declared here.
+    def _generate_transfer_id(
+        self, source_chain: str, target_chain: str, sender: str, recipient: str, amount: int, timestamp: int
+    ) -> str: ...
+    def _ledger_register(self, record: CrossChainTransfer) -> None: ...
+    def _sign_bridge_credit(
+        self,
+        credit: dict[str, Any],
+        tx_hash: str,
+        payload: dict[str, Any] | None = None,
+        target_chain: str | None = None,
+    ) -> None: ...
+    def _chain_db_ready(self, chain_id: str) -> bool: ...
+    def _build_transfer_from_record(
+        self, record: CrossChainTransfer, proof: dict[str, Any] | None = None
+    ) -> BridgeTransfer: ...
+    def _validate_proof(
+        self, proof: dict[str, Any], record: CrossChainTransfer, require_leaf_binding: bool = False
+    ) -> bool: ...
+    def build_proof(
+        self, transfer_id: str, source_chain: str | None = None, block_height: int = 1, block_hash: str = ""
+    ) -> dict[str, Any]: ...
+    def confirm_transfer(self, transfer_id: str, proof: dict[str, Any]) -> BridgeTransfer: ...
+    def list_pending_transfers(self, chain_id: str | None = None) -> list[BridgeTransfer]: ...
