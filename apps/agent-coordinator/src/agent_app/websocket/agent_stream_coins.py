@@ -146,7 +146,7 @@ def _ensure_agent_db_columns(conn: sqlite3.Connection) -> None:
         return
     for name, decl in _AGENT_DB_COMPAT_COLUMNS.items():
         if name not in existing:
-            # nosec B608 - identifiers come from the static _AGENT_DB_COMPAT_COLUMNS map
+            # identifiers come from the static _AGENT_DB_COMPAT_COLUMNS map
             try:
                 conn.execute(f"ALTER TABLE coin_requests ADD COLUMN {name} {decl}")
             except sqlite3.OperationalError as e:
@@ -344,7 +344,7 @@ def _claim_budget_gate(conn, amount: int, hour_since: str, day_since: str) -> st
     def _spent(since_iso: str) -> int:
         row = conn.execute(
             "SELECT COALESCE(SUM(amount), 0) FROM coin_requests WHERE status = 'APPROVED' "
-            "AND approval_mode = 'automatic' AND created_at >= ?",  # nosec B608 - static SQL, param tuple
+            "AND approval_mode = 'automatic' AND created_at >= ?",  # static SQL, param tuple
             (since_iso,),
         ).fetchone()
         return int(row[0] or 0)

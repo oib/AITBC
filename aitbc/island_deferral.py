@@ -33,7 +33,7 @@ def defer_enabled() -> bool:
 def island_degraded(port: int = _DEFAULT_PORT, timeout: float = _TIMEOUT) -> bool:
     """True iff the local node reports island-degraded. Fail-open."""
     try:
-        with urllib.request.urlopen(  # nosec B310 — hardcoded loopback scheme+host; only the port varies
+        with urllib.request.urlopen(  # nosec B310 # hardcoded loopback scheme+host; only the port varies
             f"http://127.0.0.1:{port}/v1/island/health", timeout=timeout
         ) as resp:
             if resp.status != 200:
