@@ -45,6 +45,7 @@ def test_covered_set_includes_activation_pins() -> None:
         "state_transition_v4_height",
         "state_transition_v12_height",
         "state_transition_v25_height",
+        "state_transition_v26_height",
         "consensus_domain_separation_height",
         "consensus_legacy_attestation_until_height",
     ):

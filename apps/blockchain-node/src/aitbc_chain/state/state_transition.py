@@ -125,6 +125,8 @@ from .state_transition_txmeta import (
     get_recorded_block_version as get_recorded_block_version,
     get_block_version as get_block_version,
     get_block_version_for_height as get_block_version_for_height,
+    block_scoped_preregistered as block_scoped_preregistered,
+    block_scoped_preregistered_for_next_block as block_scoped_preregistered_for_next_block,
     use_account_nonce_override as use_account_nonce_override,
 )
 

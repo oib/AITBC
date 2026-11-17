@@ -35,6 +35,7 @@ from ..state.pure_state_transition import StateDelta, _determine_tx_type
 from ..state.state_transition import (
     _bridge_release_authority,
     _refund_lock_record,
+    block_scoped_preregistered,
     get_block_version_for_height,
     use_account_nonce_override,
 )
@@ -303,10 +304,7 @@ class _TxPipelineMixin(_PoaBaseMixin):
         """v0.24.2: apply block-scoped pre-registered credits
         (BRIDGE_RELEASE, BRIDGE_REFUND) now rather than earlier.
         Returns True when the tx is consumed."""
-        if not (
-            getattr(settings, "block_scoped_preregistered_transactions", True)
-            and tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"}
-        ):
+        if not (block_scoped_preregistered(ctx.block_version) and tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"}):
             return False
         state_transition = _poa.get_state_transition()
         tx_data_for_transition = tx.content.copy()
