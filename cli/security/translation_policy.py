@@ -231,7 +231,7 @@ class CLITranslationSecurityManager:
                 fallback_used=fallback_used if method_used == "external_fallback" else False,
             )
 
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - translation boundary: any failure must degrade to original text, never propagate
             logger.error("Translation failed: %s", e)
             warnings.append(f"Translation failed: {str(e)}")
 
@@ -280,7 +280,7 @@ class CLITranslationSecurityManager:
             # Try external translation first
             result = await self._external_translate(request, policy)
             return result, False
-        except Exception as e:
+        except Exception as e:  # noqa: BLE001 - external-API boundary: any failure falls back to local translation by design
             logger.warning("External translation failed, using local fallback: %s", e)
             result = await self._local_translate(request)
             return result, True

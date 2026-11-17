@@ -1,2 +1,0 @@
-      1 cli/config_data/__init__.py
-      2 cli/security/translation_policy.py
