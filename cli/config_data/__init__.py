@@ -84,7 +84,7 @@ class Config:
                 self.role = data.get("role", self.role)
                 self.blockchain_rpc_url = data.get("blockchain_rpc_url", self.blockchain_rpc_url)
                 self.wallet_url = data.get("wallet_url", self.wallet_url)
-            except Exception as e:
+            except Exception as e:  # noqa: BLE001 - config file load boundary: any parse/IO failure warns and falls back to defaults
                 click.echo(f"Warning: Could not load config file: {e}")
 
         # Validate and enforce localhost URLs after file loading
