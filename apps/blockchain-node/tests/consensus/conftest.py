@@ -55,6 +55,7 @@ def _isolate_persisted_vote_state():
                 "*/vote_journal.json*",
                 "*/attestation_round_locks.json*",
                 "*/abandon_ledger.json*",
+                "*/pbft_safety.json*",  # #2190
             ):
                 for stale in data_dir.glob(pattern):
                     stale.unlink(missing_ok=True)
