@@ -905,11 +905,13 @@ class _PoaBaseMixin:
                 self._attach_unlock_justification(next_height, metadata_dict)
                 block.block_metadata = json.dumps(metadata_dict)
 
-                self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp)
+                already_sealed = self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp) is False
                 _t5 = time.time()
                 self._propose_phase = "broadcast"
                 self._logger.debug("[PROPOSE:%s] phase=broadcast start", chain)
-                result = await self._broadcast_block(block, processed_txs)
+                # #2166: a duplicate of a block the import path already sealed is
+                # not re-broadcast; its txs are sealed all the same.
+                result = True if already_sealed else await self._broadcast_block(block, processed_txs)
                 self._logger.debug(
                     "[PROPOSE:%s] phase=broadcast done %.3fs total=%.3fs", chain, time.time() - _t5, time.time() - _t0
                 )
