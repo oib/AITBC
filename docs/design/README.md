@@ -9,6 +9,7 @@ designs themselves.
 | [consensus-valve-justification-barrier.md](consensus-valve-justification-barrier.md) | Draft for AD review — Phase-2 #1268 QC-barrier spec (verifiable unlock justification); propose-only, no implementation |
 | [consensus-valve-uc-implementation-plan.md](consensus-valve-uc-implementation-plan.md) | Draft for AD review — UC barrier implementation plan (components, tests, rollout); propose-only, no code |
 | [bridge-state-root-grandfathering.md](bridge-state-root-grandfathering.md) | Design + audit tooling on main; no consensus code |
+| [block-scoped-account-state.md](block-scoped-account-state.md) | Implemented as the v26 rung (#2186, dormant at `STATE_TRANSITION_V26_HEIGHT`); premise-check reference for arming |
 | [DESIGN_SYSTEM.md](DESIGN_SYSTEM.md) | Unvendored starter template — not wired to any gate |
 | [gossip-ws-chain-demux.md](gossip-ws-chain-demux.md) | Design only (RPC-GOSSIP-CHAIN-DEMUX-1); consensus-adjacent — megaplan sign-off required before implementation |
 | [escrow-anomaly-remedies.md](escrow-anomaly-remedies.md) | Options paper — nothing proposed for execution |
