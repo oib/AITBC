@@ -10,6 +10,35 @@ from __future__ import annotations
 from . import escrow_routes as _er
 
 
+def _lock_tx_payload(
+    job_id: str,
+    provider: str,
+    *,
+    energy_quote_id: str | None,
+    energy_quote_digest: str | None,
+    settlement_route: str | None,
+    settlement_asset: str | None,
+    settlement_unit_scale: int | None,
+) -> dict[str, _er.Any]:
+    """ESCROW_LOCK payload with the optional energy/settlement fields."""
+    payload: dict[str, _er.Any] = {
+        "action": "escrow_lock",
+        "job_id": job_id,
+        "provider": _er._to_canonical(provider),
+    }
+    if energy_quote_id:
+        payload["energy_quote_id"] = energy_quote_id
+    if energy_quote_digest:
+        payload["energy_quote_digest"] = energy_quote_digest
+    if settlement_route:
+        payload["settlement_route"] = settlement_route
+    if settlement_asset:
+        payload["settlement_asset"] = settlement_asset
+    if settlement_unit_scale is not None:
+        payload["settlement_unit_scale"] = settlement_unit_scale
+    return payload
+
+
 def _build_lock_tx(
     job_id: str,
     buyer: str,
@@ -36,21 +65,15 @@ def _build_lock_tx(
         raise ValueError("escrow provider cannot be the node wallet")
     if fee is None:
         fee = _er._fee_for(amount_units)
-    payload: dict[str, _er.Any] = {
-        "action": "escrow_lock",
-        "job_id": job_id,
-        "provider": _er._to_canonical(provider),
-    }
-    if energy_quote_id:
-        payload["energy_quote_id"] = energy_quote_id
-    if energy_quote_digest:
-        payload["energy_quote_digest"] = energy_quote_digest
-    if settlement_route:
-        payload["settlement_route"] = settlement_route
-    if settlement_asset:
-        payload["settlement_asset"] = settlement_asset
-    if settlement_unit_scale is not None:
-        payload["settlement_unit_scale"] = settlement_unit_scale
+    payload = _lock_tx_payload(
+        job_id,
+        provider,
+        energy_quote_id=energy_quote_id,
+        energy_quote_digest=energy_quote_digest,
+        settlement_route=settlement_route,
+        settlement_asset=settlement_asset,
+        settlement_unit_scale=settlement_unit_scale,
+    )
     tx: dict[str, _er.Any] = {
         "from": _er._to_canonical(buyer),
         "to": _er._to_canonical(_er._NODE_WALLET),

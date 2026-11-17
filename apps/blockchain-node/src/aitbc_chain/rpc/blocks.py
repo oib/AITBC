@@ -313,6 +313,34 @@ def get_blocks_range(
         return {"success": True, "blocks": result_blocks, "count": len(blocks)}
 
 
+def _existing_block_result(chain_id: str, block_height: int, block_hash: str) -> dict[str, Any] | None:
+    """Idempotent-import check: returns the existing-block result, raises 409
+    on a hash/height conflict, or None when the block is new."""
+    with session_scope(chain_id) as session:
+        existing_height_block = session.exec(
+            select(Block).where(Block.chain_id == chain_id).where(Block.height == block_height)
+        ).first()
+        if existing_height_block is not None:
+            if existing_height_block.hash == block_hash:
+                return {
+                    "success": True,
+                    "block_height": existing_height_block.height,
+                    "block_hash": existing_height_block.hash,
+                    "chain_id": chain_id,
+                }
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Block height {block_height} already exists with different hash",
+            )
+        existing_block = session.exec(select(Block).where(Block.chain_id == chain_id).where(Block.hash == block_hash)).first()
+        if existing_block is not None:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Block hash {block_hash} already exists at height {existing_block.height}",
+            )
+    return None
+
+
 @rate_limit(rate=50, per=60)
 async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str, Any]:
     """Import a block into the blockchain"""
@@ -343,34 +371,7 @@ async def import_block(request: Request, block_data: dict[str, Any]) -> dict[str
             except (KeyError, TypeError, ValueError) as exc:
                 raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid block height") from exc
 
-            def _check_existing() -> dict[str, Any] | None:
-                with session_scope(chain_id) as session:
-                    existing_height_block = session.exec(
-                        select(Block).where(Block.chain_id == chain_id).where(Block.height == block_height)
-                    ).first()
-                    if existing_height_block is not None:
-                        if existing_height_block.hash == block_hash:
-                            return {
-                                "success": True,
-                                "block_height": existing_height_block.height,
-                                "block_hash": existing_height_block.hash,
-                                "chain_id": chain_id,
-                            }
-                        raise HTTPException(
-                            status_code=status.HTTP_409_CONFLICT,
-                            detail=f"Block height {block_height} already exists with different hash",
-                        )
-                    existing_block = session.exec(
-                        select(Block).where(Block.chain_id == chain_id).where(Block.hash == block_hash)
-                    ).first()
-                    if existing_block is not None:
-                        raise HTTPException(
-                            status_code=status.HTTP_409_CONFLICT,
-                            detail=f"Block hash {block_hash} already exists at height {existing_block.height}",
-                        )
-                return None
-
-            existing = await run_in_threadpool(_check_existing)
+            existing = await run_in_threadpool(_existing_block_result, chain_id, block_height, block_hash)
             if existing is not None:
                 return existing
             # Route through the same validated import path as peer sync

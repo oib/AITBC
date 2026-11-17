@@ -98,6 +98,148 @@ AUTHORITY_OPEN_TX_TYPES = frozenset(
 )
 
 
+def _governance_execute_authority_error(
+    session: Session,
+    chain_id: str,
+    sender_addr: str,
+    payload: Any,
+    fee: int,
+    *,
+    block_version: int,
+    block_height: int | None,
+    tx_type: str,
+) -> str | None:
+    executors = _governance_executors(session, chain_id, block_height)
+    if executors is None:
+        # Fails closed from v5; below it the lenient rule keeps sealed history replayable.
+        if block_version >= 5:
+            return "GOVERNANCE_EXECUTE rejected: governance_executors chain parameter is not set"
+    elif sender_addr not in executors:
+        return f"GOVERNANCE_EXECUTE sender {sender_addr} is not an authorized executor"
+    # v12 (after the sender gates, matching validate_transaction's order):
+    # refuse a parameter_change whose authority-parameter value apply would
+    # refuse — same helper, same messages.
+    value_error = _authority_parameter_change_error(session, chain_id, payload, fee, block_version=block_version)
+    if value_error is not None:
+        return value_error
+    # v13 (after the v12 value check, matching validate_transaction's
+    # order): the payload must equal the sealed PROPOSE's stored payload.
+    # Below the sentinel this only counts v13_would_reject_* (shadow).
+    return _v13_shadow_observe(session, chain_id, tx_type, payload, block_version=block_version, block_height=block_height)
+
+
+def _escrow_obligation_bound_error(
+    session: Session,
+    chain_id: str,
+    tx_type: str,
+    job_id: str,
+    value: int,
+    *,
+    block_height: int | None,
+) -> str | None:
+    """v23 obligation bound shared by ESCROW_RELEASE/REFUND and FEE_SWEEP."""
+    obligation = _escrow_obligation_state(session, chain_id, job_id)
+    if obligation["remaining"] is None:
+        return f"{tx_type} for {job_id} has an unbounded obligation (unparseable lock/settlement value) — refusing"
+    if value > obligation["remaining"]:
+        return (
+            f"{tx_type} for {job_id} exceeds remaining obligation {obligation['remaining']} "
+            f"(locked {obligation['obligation']}, settled {obligation['settled']})"
+        )
+    return None
+
+
+def _escrow_settle_authority_error(
+    session: Session,
+    chain_id: str,
+    tx_type: str,
+    sender_addr: str,
+    payload: Any,
+    value: int,
+    *,
+    block_version: int,
+    block_height: int | None,
+) -> str | None:
+    authority = _escrow_settlement_authority(session, chain_id, block_height)
+    if authority is None:
+        if block_version >= 5:
+            return f"{tx_type} requires a settlement authority: set the escrow_settlement_authority chain parameter"
+    elif sender_addr != authority:
+        return f"{tx_type} must be signed by settlement authority {authority}, got {sender_addr}"
+    if block_version >= 23:
+        # v23 obligation bound — same rule, same order tail as
+        # validate_transaction (after the authority gate).
+        job_id = (payload or {}).get("job_id", "") if isinstance(payload, dict) else ""
+        if job_id:
+            return _escrow_obligation_bound_error(session, chain_id, tx_type, job_id, value, block_height=block_height)
+    return None
+
+
+def _escrow_custody_balance(
+    session: Session,
+    chain_id: str,
+    job_id: str,
+    *,
+    block_version: int,
+    block_height: int | None,
+) -> int:
+    if block_version >= 24:
+        # #1314 V1 admission mirror: same authoritative scalar
+        # custody read apply uses at v24.
+        _cbal, _cnonce, _cexists = read_current_account(session, chain_id, _escrow_address(job_id))
+        return _cbal if _cbal is not None else 0
+    escrow_account = session.get(Account, (chain_id, _escrow_address(job_id)))
+    return escrow_account.balance if escrow_account else 0
+
+
+def _escrow_fee_sweep_authority_error(
+    session: Session,
+    chain_id: str,
+    tx_type: str,
+    sender_addr: str,
+    recipient: str,
+    payload: Any,
+    value: int,
+    *,
+    block_version: int,
+    block_height: int | None,
+) -> str | None:
+    # Same checks, same order, same messages as validate_transaction's
+    # sweep branch — authority first, then the recipient pin. v11
+    # postdates v5, so an unset authority always fails closed.
+    authority = _escrow_settlement_authority(session, chain_id, block_height)
+    if authority is None:
+        return "ESCROW_FEE_SWEEP requires a settlement authority: set the escrow_settlement_authority chain parameter"
+    if sender_addr != authority:
+        return f"ESCROW_FEE_SWEEP must be signed by settlement authority {authority}, got {sender_addr}"
+    fee_recipient = _escrow_fee_recipient(session, chain_id, block_height)
+    if fee_recipient is None:
+        return "ESCROW_FEE_SWEEP requires a fee recipient: set the escrow_fee_recipient chain parameter"
+    if _to_ait_address(recipient or "") != fee_recipient:
+        return f"ESCROW_FEE_SWEEP must pay {fee_recipient}, got {_to_ait_address(recipient or '')}"
+    if block_version >= 23:
+        # v23 sweep bound (residue + governed fee allowance, #1261) —
+        # mirrors validate_transaction.
+        job_id = (payload or {}).get("job_id", "") if isinstance(payload, dict) else ""
+        if job_id:
+            obligation = _escrow_obligation_state(
+                session, chain_id, job_id, fee_cap_bps=_escrow_fee_cap_bps(session, chain_id, block_height)
+            )
+            if obligation["remaining"] is None:
+                return f"ESCROW_FEE_SWEEP for {job_id} has an unbounded obligation — refusing"
+            custody = _escrow_custody_balance(
+                session, chain_id, job_id, block_version=block_version, block_height=block_height
+            )
+            sweepable = escrow_sweep_ceiling(custody, obligation["remaining"], obligation["fee_allowance"])
+            if value > sweepable:
+                return (
+                    f"ESCROW_FEE_SWEEP for {job_id} exceeds sweepable {sweepable} "
+                    f"(custody {custody}, remaining obligation {obligation['remaining']}, "
+                    f"fee allowance {obligation['fee_allowance']})"
+                )
+    return None
+
+
 def sender_authority_error(
     session: Session,
     chain_id: str,
@@ -122,80 +264,37 @@ def sender_authority_error(
     """
     sender_addr = _to_ait_address(sender or "")
     if tx_type == "GOVERNANCE_EXECUTE":
-        executors = _governance_executors(session, chain_id, block_height)
-        if executors is None:
-            # Fails closed from v5; below it the lenient rule keeps sealed history replayable.
-            if block_version >= 5:
-                return "GOVERNANCE_EXECUTE rejected: governance_executors chain parameter is not set"
-        elif sender_addr not in executors:
-            return f"GOVERNANCE_EXECUTE sender {sender_addr} is not an authorized executor"
-        # v12 (after the sender gates, matching validate_transaction's order):
-        # refuse a parameter_change whose authority-parameter value apply would
-        # refuse — same helper, same messages.
-        value_error = _authority_parameter_change_error(session, chain_id, payload, fee, block_version=block_version)
-        if value_error is not None:
-            return value_error
-        # v13 (after the v12 value check, matching validate_transaction's
-        # order): the payload must equal the sealed PROPOSE's stored payload.
-        # Below the sentinel this only counts v13_would_reject_* (shadow).
-        return _v13_shadow_observe(session, chain_id, tx_type, payload, block_version=block_version, block_height=block_height)
-    elif tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND") and block_version >= 3:
-        authority = _escrow_settlement_authority(session, chain_id, block_height)
-        if authority is None:
-            if block_version >= 5:
-                return f"{tx_type} requires a settlement authority: set the escrow_settlement_authority chain parameter"
-        elif sender_addr != authority:
-            return f"{tx_type} must be signed by settlement authority {authority}, got {sender_addr}"
-        if block_version >= 23:
-            # v23 obligation bound — same rule, same order tail as
-            # validate_transaction (after the authority gate).
-            job_id = (payload or {}).get("job_id", "") if isinstance(payload, dict) else ""
-            if job_id:
-                obligation = _escrow_obligation_state(session, chain_id, job_id)
-                if obligation["remaining"] is None:
-                    return f"{tx_type} for {job_id} has an unbounded obligation (unparseable lock/settlement value) — refusing"
-                if value > obligation["remaining"]:
-                    return (
-                        f"{tx_type} for {job_id} exceeds remaining obligation {obligation['remaining']} "
-                        f"(locked {obligation['obligation']}, settled {obligation['settled']})"
-                    )
-    elif tx_type == "ESCROW_FEE_SWEEP" and block_version >= 11:
-        # Same checks, same order, same messages as validate_transaction's
-        # sweep branch — authority first, then the recipient pin. v11
-        # postdates v5, so an unset authority always fails closed.
-        authority = _escrow_settlement_authority(session, chain_id, block_height)
-        if authority is None:
-            return "ESCROW_FEE_SWEEP requires a settlement authority: set the escrow_settlement_authority chain parameter"
-        if sender_addr != authority:
-            return f"ESCROW_FEE_SWEEP must be signed by settlement authority {authority}, got {sender_addr}"
-        fee_recipient = _escrow_fee_recipient(session, chain_id, block_height)
-        if fee_recipient is None:
-            return "ESCROW_FEE_SWEEP requires a fee recipient: set the escrow_fee_recipient chain parameter"
-        if _to_ait_address(recipient or "") != fee_recipient:
-            return f"ESCROW_FEE_SWEEP must pay {fee_recipient}, got {_to_ait_address(recipient or '')}"
-        if block_version >= 23:
-            # v23 sweep bound (residue + governed fee allowance, #1261) —
-            # mirrors validate_transaction.
-            job_id = (payload or {}).get("job_id", "") if isinstance(payload, dict) else ""
-            if job_id:
-                obligation = _escrow_obligation_state(
-                    session, chain_id, job_id, fee_cap_bps=_escrow_fee_cap_bps(session, chain_id, block_height)
-                )
-                if obligation["remaining"] is None:
-                    return f"ESCROW_FEE_SWEEP for {job_id} has an unbounded obligation — refusing"
-                if block_version >= 24:
-                    # #1314 V1 admission mirror: same authoritative scalar
-                    # custody read apply uses at v24.
-                    _cbal, _cnonce, _cexists = read_current_account(session, chain_id, _escrow_address(job_id))
-                    custody = _cbal if _cbal is not None else 0
-                else:
-                    escrow_account = session.get(Account, (chain_id, _escrow_address(job_id)))
-                    custody = escrow_account.balance if escrow_account else 0
-                sweepable = escrow_sweep_ceiling(custody, obligation["remaining"], obligation["fee_allowance"])
-                if value > sweepable:
-                    return (
-                        f"ESCROW_FEE_SWEEP for {job_id} exceeds sweepable {sweepable} "
-                        f"(custody {custody}, remaining obligation {obligation['remaining']}, "
-                        f"fee allowance {obligation['fee_allowance']})"
-                    )
+        return _governance_execute_authority_error(
+            session,
+            chain_id,
+            sender_addr,
+            payload,
+            fee,
+            block_version=block_version,
+            block_height=block_height,
+            tx_type=tx_type,
+        )
+    if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND") and block_version >= 3:
+        return _escrow_settle_authority_error(
+            session,
+            chain_id,
+            tx_type,
+            sender_addr,
+            payload,
+            value,
+            block_version=block_version,
+            block_height=block_height,
+        )
+    if tx_type == "ESCROW_FEE_SWEEP" and block_version >= 11:
+        return _escrow_fee_sweep_authority_error(
+            session,
+            chain_id,
+            tx_type,
+            sender_addr,
+            recipient,
+            payload,
+            value,
+            block_version=block_version,
+            block_height=block_height,
+        )
     return None

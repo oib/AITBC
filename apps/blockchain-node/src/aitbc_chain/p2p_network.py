@@ -14,7 +14,7 @@ import asyncio
 import json
 import os
 from collections.abc import Callable
-from typing import Any
+from typing import Any, cast
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
@@ -160,7 +160,7 @@ class P2PNetworkService:
         for task in self._background_tasks:
             task.cancel()
         for writer in self.active_connections.values():
-            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
             try:
                 await writer.wait_closed()
             # intentional silent cleanup
@@ -203,6 +203,38 @@ class P2PNetworkService:
                 logger.error("Error in ping loop: %s", e)
             await asyncio.sleep(10)
 
+    def _collect_unseen_mempool_txs(self, mempool: Any) -> list[Any]:
+        """Pending tx contents not yet seen by ``self.seen_txs`` (marks them seen)."""
+        txs_to_broadcast = []
+        if hasattr(mempool, "_transactions"):
+            with mempool._lock:
+                for chain_id, chain_transactions in mempool._transactions.items():
+                    for tx_hash, pending_tx in chain_transactions.items():
+                        seen_key = (chain_id, tx_hash)
+                        if seen_key not in self.seen_txs:
+                            self.seen_txs.add(seen_key)
+                            txs_to_broadcast.append(pending_tx.content)
+        elif hasattr(mempool, "_conn"):
+            with mempool._lock:
+                cursor = mempool._conn.execute("SELECT chain_id, tx_hash, content FROM mempool")
+                for row in cursor.fetchall():
+                    chain_id = row[0]
+                    tx_hash = row[1]
+                    seen_key = (chain_id, tx_hash)
+                    if seen_key not in self.seen_txs:
+                        self.seen_txs.add(seen_key)
+                        import json
+
+                        txs_to_broadcast.append(json.loads(row[2]))
+        return txs_to_broadcast
+
+    async def _broadcast_mempool_txs(self, txs_to_broadcast: list[Any]) -> None:
+        for tx in txs_to_broadcast:
+            msg = {"type": "new_transaction", "tx": tx}
+            writers = list(self.active_connections.values())
+            for writer in writers:
+                await self._send_message(writer, msg)
+
     async def _mempool_sync_loop(self) -> None:
         """Periodically check local mempool and broadcast new transactions to peers"""
         self.seen_txs: set[tuple[str, str]] = set()
@@ -211,33 +243,9 @@ class P2PNetworkService:
                 from .mempool import get_mempool as get_mempool_instance
 
                 mempool = get_mempool_instance()
-                txs_to_broadcast = []
-                if hasattr(mempool, "_transactions"):
-                    with mempool._lock:
-                        for chain_id, chain_transactions in mempool._transactions.items():
-                            for tx_hash, pending_tx in chain_transactions.items():
-                                seen_key = (chain_id, tx_hash)
-                                if seen_key not in self.seen_txs:
-                                    self.seen_txs.add(seen_key)
-                                    txs_to_broadcast.append(pending_tx.content)
-                elif hasattr(mempool, "_conn"):
-                    with mempool._lock:
-                        cursor = mempool._conn.execute("SELECT chain_id, tx_hash, content FROM mempool")
-                        for row in cursor.fetchall():
-                            chain_id = row[0]
-                            tx_hash = row[1]
-                            seen_key = (chain_id, tx_hash)
-                            if seen_key not in self.seen_txs:
-                                self.seen_txs.add(seen_key)
-                                import json
-
-                                txs_to_broadcast.append(json.loads(row[2]))
+                txs_to_broadcast = self._collect_unseen_mempool_txs(mempool)
                 logger.debug("Mempool sync loop iteration. txs_to_broadcast: %s", len(txs_to_broadcast))
-                for tx in txs_to_broadcast:
-                    msg = {"type": "new_transaction", "tx": tx}
-                    writers = list(self.active_connections.values())
-                    for writer in writers:
-                        await self._send_message(writer, msg)
+                await self._broadcast_mempool_txs(txs_to_broadcast)
             except Exception as e:  # noqa: BLE001 - mempool backend is pluggable; loop must survive per-tick failures
                 logger.error("Error in mempool sync loop: %s", e)
             await asyncio.sleep(1)
@@ -342,7 +350,7 @@ class P2PNetworkService:
         ip = addr[0] if addr else ""
         if not self._inbound_capacity_ok(ip):
             logger.warning("Refusing inbound P2P connection from %s: connection cap reached", addr)
-            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
             return
         self._pending_inbound_by_ip[ip] = self._pending_inbound_by_ip.get(ip, 0) + 1
         try:
@@ -354,148 +362,485 @@ class P2PNetworkService:
             else:
                 self._pending_inbound_by_ip.pop(ip, None)
 
+    async def _read_inbound_handshake_message(
+        self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, addr: Any
+    ) -> dict[str, Any] | None:
+        """Read + decode the peer's first line; returns the handshake message
+        or None when the connection was already closed."""
+        data = await asyncio.wait_for(reader.readline(), timeout=5.0)
+        if not data:
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
+            return None
+        raw_data = data.decode()
+        if not raw_data.strip():
+            logger.warning("Received empty data from %s. Closing connection.", addr)
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
+            return None
+        try:
+            from .network.compression import decode_payload
+
+            message = decode_payload(raw_data)
+        except json.JSONDecodeError as e:
+            logger.warning("Received invalid JSON from %s: %s. Error: %s", addr, repr(raw_data[:100]), e)
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
+            return None
+        except ValueError as e:
+            logger.warning("Refused payload from %s: %s. Closing connection.", addr, e)
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
+            return None
+        if message.get("type") != "handshake":
+            logger.warning("Peer %s did not handshake first. Dropping.", addr)
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
+            return None
+        return cast(dict[str, Any], message)
+
+    def _parse_inbound_handshake(
+        self, message: dict[str, Any], addr: Any, writer: asyncio.StreamWriter
+    ) -> dict[str, Any] | None:
+        """Extract + validate handshake fields; returns the peer record or
+        None when the peer was rejected (connection closed)."""
+        peer_node_id = message.get("node_id")
+        peer_listen_port = message.get("listen_port", 7070)
+        peer_island_id = message.get("island_id", "")
+        peer_is_hub = message.get("is_hub", False)
+        peer_chain_id = message.get("chain_id", "")
+        peer_public_address = message.get("public_address")
+        peer_public_port = message.get("public_port")
+        peer_protocol_version = message.get("protocol_version", 1)  # default to v1 (legacy)
+        peer_block_height = message.get("block_height", 0)
+        peer_block_range = message.get("block_range", [0, peer_block_height])
+        if not peer_node_id or peer_node_id == self.node_id:
+            logger.warning("Peer %s provided invalid or self node_id: %s", addr, peer_node_id)
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
+            return None
+        if peer_chain_id and self.chain_id and (peer_chain_id != self.chain_id):
+            logger.warning("Peer %s chain_id mismatch: %s != %s. Rejecting connection.", addr, peer_chain_id, self.chain_id)
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
+            return None
+        if (
+            peer_island_id
+            and self.island_id
+            and (peer_island_id != self.island_id)
+            and (not peer_is_hub)
+            and (not self.is_hub)
+        ):
+            logger.warning(
+                "Peer %s island_id mismatch: %s != %s. Rejecting connection (neither is hub).",
+                addr,
+                peer_island_id,
+                self.island_id,
+            )
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
+            return None
+        logger.info("Peer %s from island %s (hub: %s)", peer_node_id, peer_island_id, peer_is_hub)
+        if peer_public_address and peer_public_port:
+            logger.info("Peer %s public endpoint: %s:%s", peer_node_id, peer_public_address, peer_public_port)
+        logger.info("Handshake accepted from node %s at %s", peer_node_id, addr)
+        return {
+            "node_id": peer_node_id,
+            "listen_port": peer_listen_port,
+            "island_id": peer_island_id,
+            "is_hub": peer_is_hub,
+            "chain_id": peer_chain_id,
+            "public_address": peer_public_address,
+            "public_port": peer_public_port,
+            "protocol_version": peer_protocol_version,
+            "block_height": peer_block_height,
+            "block_range": peer_block_range,
+        }
+
+    async def _register_inbound_peer(
+        self,
+        reader: asyncio.StreamReader,
+        writer: asyncio.StreamWriter,
+        addr: Any,
+        peer: dict[str, Any],
+    ) -> None:
+        """Register an accepted inbound peer and run its stream loop."""
+        peer_node_id = peer["node_id"]
+        peer_listen_port = peer["listen_port"]
+        peer_island_id = peer["island_id"]
+        peer_is_hub = peer["is_hub"]
+        peer_chain_id = peer["chain_id"]
+        peer_public_address = peer["public_address"]
+        peer_public_port = peer["public_port"]
+        peer_protocol_version = peer["protocol_version"]
+        peer_block_height = peer["block_height"]
+        peer_block_range = peer["block_range"]
+        # v0.6.2: Track legacy peers (protocol_version < 2)
+        if peer_protocol_version < self._protocol_version:
+            self._legacy_peers.add(peer_node_id)
+            logger.info(
+                "Peer %s using legacy protocol v%s (local v%s) — batching/prioritization disabled",
+                peer_node_id,
+                peer_protocol_version,
+                self._protocol_version,
+            )
+        if peer_block_height > 0:
+            logger.debug("Peer %s block_height=%s", peer_node_id, peer_block_height)
+        if peer_node_id in self.active_connections:
+            logger.info("Already connected to node %s. Dropping duplicate inbound.", peer_node_id)
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
+            return
+        self.active_connections[peer_node_id] = writer
+        remote_ip = addr[0]
+        self.connected_endpoints.add((remote_ip, peer_listen_port))
+        # v0.6.2: Register peer capability with the sync layer (if callback set)
+        if self._peer_capability_callback and peer_block_height > 0:
+            peer_address = peer_public_address or remote_ip
+            peer_port = peer_public_port or peer_listen_port
+            rpc_port = peer_port + getattr(settings, "p2p_to_rpc_port_offset", 2)
+            peer_rpc_url = f"http://{peer_address}:{rpc_port}"
+            self._peer_capability_callback(
+                peer_node_id,
+                peer_rpc_url,
+                tuple(peer_block_range),
+                chain_id=peer_chain_id or self.chain_id,
+                has_state=True,
+            )
+        if self.island_manager and peer_island_id:
+            self.island_manager.add_island_peer(peer_island_id, peer_node_id)
+        if self.hub_manager:
+            from .network.hub_manager import PeerInfo
+
+            self.hub_manager.register_peer(
+                PeerInfo(
+                    node_id=peer_node_id,
+                    address=remote_ip,
+                    port=peer_listen_port,
+                    island_id=peer_island_id,
+                    is_hub=peer_is_hub,
+                    public_address=peer_public_address,
+                    public_port=peer_public_port,
+                    last_seen=asyncio.get_event_loop().time(),
+                )
+            )
+        reply_handshake = {
+            "type": "handshake",
+            "node_id": self.node_id,
+            "listen_port": self.port,
+            "chain_id": self.chain_id,
+            "island_id": self.island_id,
+            "island_name": self.island_name,
+            "is_hub": self.is_hub,
+            "island_chain_id": self.island_chain_id,
+            "public_address": self.public_endpoint[0] if self.public_endpoint else None,
+            "public_port": self.public_endpoint[1] if self.public_endpoint else None,
+            "protocol_version": self._protocol_version,
+            "block_height": self._get_block_height(),
+            "block_range": [0, self._get_block_height()],  # [min_height, max_height]
+        }
+        await self._send_message(writer, reply_handshake)
+        await self._listen_to_stream(reader, writer, (remote_ip, peer_listen_port), outbound=False, peer_id=peer_node_id)
+
     async def _handle_inbound_connection_inner(
         self, reader: asyncio.StreamReader, writer: asyncio.StreamWriter, addr: Any
     ) -> None:
         logger.info("Incoming P2P connection from %s", addr)
         try:
-            data = await asyncio.wait_for(reader.readline(), timeout=5.0)
-            if not data:
-                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
+            message = await self._read_inbound_handshake_message(reader, writer, addr)
+            if message is None:
                 return
-            raw_data = data.decode()
-            if not raw_data.strip():
-                logger.warning("Received empty data from %s. Closing connection.", addr)
-                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
+            peer = self._parse_inbound_handshake(message, addr, writer)
+            if peer is None:
                 return
-            try:
-                from .network.compression import decode_payload
-
-                message = decode_payload(raw_data)
-            except json.JSONDecodeError as e:
-                logger.warning("Received invalid JSON from %s: %s. Error: %s", addr, repr(raw_data[:100]), e)
-                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
-                return
-            except ValueError as e:
-                logger.warning("Refused payload from %s: %s. Closing connection.", addr, e)
-                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
-                return
-            if message.get("type") != "handshake":
-                logger.warning("Peer %s did not handshake first. Dropping.", addr)
-                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
-                return
-            peer_node_id = message.get("node_id")
-            peer_listen_port = message.get("listen_port", 7070)
-            peer_island_id = message.get("island_id", "")
-            message.get("island_name", "")  # noqa: unawaited-async — dict.get() is synchronous
-            peer_is_hub = message.get("is_hub", False)
-            message.get("island_chain_id", "")  # noqa: unawaited-async — dict.get() is synchronous
-            peer_chain_id = message.get("chain_id", "")
-            peer_public_address = message.get("public_address")
-            peer_public_port = message.get("public_port")
-            peer_protocol_version = message.get("protocol_version", 1)  # default to v1 (legacy)
-            peer_block_height = message.get("block_height", 0)
-            peer_block_range = message.get("block_range", [0, peer_block_height])
-            if not peer_node_id or peer_node_id == self.node_id:
-                logger.warning("Peer %s provided invalid or self node_id: %s", addr, peer_node_id)
-                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
-                return
-            if peer_chain_id and self.chain_id and (peer_chain_id != self.chain_id):
-                logger.warning(
-                    "Peer %s chain_id mismatch: %s != %s. Rejecting connection.", addr, peer_chain_id, self.chain_id
-                )
-                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
-                return
-            if (
-                peer_island_id
-                and self.island_id
-                and (peer_island_id != self.island_id)
-                and (not peer_is_hub)
-                and (not self.is_hub)
-            ):
-                logger.warning(
-                    "Peer %s island_id mismatch: %s != %s. Rejecting connection (neither is hub).",
-                    addr,
-                    peer_island_id,
-                    self.island_id,
-                )
-                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
-                return
-            logger.info("Peer %s from island %s (hub: %s)", peer_node_id, peer_island_id, peer_is_hub)
-            if peer_public_address and peer_public_port:
-                logger.info("Peer %s public endpoint: %s:%s", peer_node_id, peer_public_address, peer_public_port)
-            logger.info("Handshake accepted from node %s at %s", peer_node_id, addr)
-            # v0.6.2: Track legacy peers (protocol_version < 2)
-            if peer_protocol_version < self._protocol_version:
-                self._legacy_peers.add(peer_node_id)
-                logger.info(
-                    "Peer %s using legacy protocol v%s (local v%s) — batching/prioritization disabled",
-                    peer_node_id,
-                    peer_protocol_version,
-                    self._protocol_version,
-                )
-            if peer_block_height > 0:
-                logger.debug("Peer %s block_height=%s", peer_node_id, peer_block_height)
-            if peer_node_id in self.active_connections:
-                logger.info("Already connected to node %s. Dropping duplicate inbound.", peer_node_id)
-                writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
-                return
-            self.active_connections[peer_node_id] = writer
-            remote_ip = addr[0]
-            self.connected_endpoints.add((remote_ip, peer_listen_port))
-            # v0.6.2: Register peer capability with the sync layer (if callback set)
-            if self._peer_capability_callback and peer_block_height > 0:
-                peer_address = peer_public_address or remote_ip
-                peer_port = peer_public_port or peer_listen_port
-                rpc_port = peer_port + getattr(settings, "p2p_to_rpc_port_offset", 2)
-                peer_rpc_url = f"http://{peer_address}:{rpc_port}"
-                self._peer_capability_callback(
-                    peer_node_id,
-                    peer_rpc_url,
-                    tuple(peer_block_range),
-                    chain_id=peer_chain_id or self.chain_id,
-                    has_state=True,
-                )
-            if self.island_manager and peer_island_id:
-                self.island_manager.add_island_peer(peer_island_id, peer_node_id)
-            if self.hub_manager:
-                from .network.hub_manager import PeerInfo
-
-                self.hub_manager.register_peer(
-                    PeerInfo(
-                        node_id=peer_node_id,
-                        address=remote_ip,
-                        port=peer_listen_port,
-                        island_id=peer_island_id,
-                        is_hub=peer_is_hub,
-                        public_address=peer_public_address,
-                        public_port=peer_public_port,
-                        last_seen=asyncio.get_event_loop().time(),
-                    )
-                )
-            reply_handshake = {
-                "type": "handshake",
-                "node_id": self.node_id,
-                "listen_port": self.port,
-                "chain_id": self.chain_id,
-                "island_id": self.island_id,
-                "island_name": self.island_name,
-                "is_hub": self.is_hub,
-                "island_chain_id": self.island_chain_id,
-                "public_address": self.public_endpoint[0] if self.public_endpoint else None,
-                "public_port": self.public_endpoint[1] if self.public_endpoint else None,
-                "protocol_version": self._protocol_version,
-                "block_height": self._get_block_height(),
-                "block_range": [0, self._get_block_height()],  # [min_height, max_height]
-            }
-            await self._send_message(writer, reply_handshake)
-            await self._listen_to_stream(reader, writer, (remote_ip, peer_listen_port), outbound=False, peer_id=peer_node_id)
+            await self._register_inbound_peer(reader, writer, addr, peer)
         except TimeoutError:
             logger.warning("Timeout waiting for handshake from %s", addr)
-            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
         except (OSError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
             logger.error("Error handling inbound connection from %s: %s", addr, e)
-            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
+            writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
+
+    async def _complete_outbound_handshake(
+        self,
+        message: dict[str, Any],
+        writer: asyncio.StreamWriter,
+        addr: tuple[str, int],
+    ) -> str | None:
+        """Validate + register an outbound handshake reply.
+
+        Returns the peer node_id on success, or None when the stream must
+        close (invalid reply, chain mismatch, or duplicate connection).
+        """
+        peer_id = cast(str, message.get("node_id"))
+        peer_island_id = message.get("island_id", "")
+        peer_is_hub = message.get("is_hub", False)
+        peer_chain_id = message.get("chain_id", "")
+        peer_protocol_version = message.get("protocol_version", 1)
+        peer_block_height = message.get("block_height", 0)
+        peer_block_range = message.get("block_range", [0, peer_block_height])
+        if not peer_id or peer_id == self.node_id:
+            logger.warning("Invalid handshake reply from %s. Closing.", addr)
+            return None
+        # v0.6.2: Track legacy peers
+        if peer_protocol_version < self._protocol_version:
+            self._legacy_peers.add(peer_id)
+            logger.info(
+                "Peer %s using legacy protocol v%s — batching/prioritization disabled",
+                peer_id,
+                peer_protocol_version,
+            )
+        if peer_chain_id and self.chain_id and (peer_chain_id != self.chain_id):
+            logger.warning(
+                "Peer %s chain_id mismatch: %s != %s. Closing connection.",
+                addr,
+                peer_chain_id,
+                self.chain_id,
+            )
+            return None
+        if peer_id in self.active_connections:
+            logger.info("Already connected to node %s. Closing duplicate outbound.", peer_id)
+            return None
+        self.active_connections[peer_id] = writer
+        self._register_outbound_peer(
+            peer_id, message, addr, peer_island_id, peer_is_hub, peer_chain_id, peer_block_height, peer_block_range
+        )
+        logger.info("Outbound handshake complete. Connected to node %s (island: %s)", peer_id, peer_island_id)
+        return peer_id
+
+    def _register_outbound_peer(
+        self,
+        peer_id: str,
+        message: dict[str, Any],
+        addr: tuple[str, int],
+        peer_island_id: str,
+        peer_is_hub: bool,
+        peer_chain_id: str,
+        peer_block_height: int,
+        peer_block_range: Any,
+    ) -> None:
+        """Capability callback + island/hub bookkeeping for a completed
+        outbound handshake."""
+        # v0.6.2: Register peer capability with the sync layer (if callback set)
+        if self._peer_capability_callback and peer_block_height > 0:
+            peer_public_address = message.get("public_address")
+            peer_public_port = message.get("public_port")
+            peer_listen_port = message.get("listen_port", addr[1])
+            peer_address = peer_public_address or addr[0]
+            peer_port = peer_public_port or peer_listen_port
+            rpc_port = peer_port + getattr(settings, "p2p_to_rpc_port_offset", 2)
+            peer_rpc_url = f"http://{peer_address}:{rpc_port}"
+            self._peer_capability_callback(
+                peer_id,
+                peer_rpc_url,
+                tuple(peer_block_range),
+                chain_id=peer_chain_id or self.chain_id,
+                has_state=True,
+            )
+        if self.island_manager and peer_island_id:
+            self.island_manager.add_island_peer(peer_island_id, peer_id)
+        if self.hub_manager:
+            from .network.hub_manager import PeerInfo
+
+            self.hub_manager.register_peer(
+                PeerInfo(
+                    node_id=peer_id,
+                    address=addr[0],
+                    port=addr[1],
+                    island_id=peer_island_id,
+                    is_hub=peer_is_hub,
+                    public_address=message.get("public_address"),
+                    public_port=message.get("public_port"),
+                    last_seen=asyncio.get_event_loop().time(),
+                )
+            )
+
+    async def _handle_join_request_message(
+        self, message: dict[str, Any], writer: asyncio.StreamWriter, peer_id: str | None
+    ) -> None:
+        if self.hub_manager:
+            logger.info("Received join_request from %s", peer_id)
+            response = await self.hub_manager.handle_join_request(message)
+            if response:
+                await self._send_message(writer, response)
+        else:
+            logger.warning("Received join_request but not a hub, ignoring")
+
+    async def _answer_gpu_provider_query(self, writer: asyncio.StreamWriter, peer_id: str | None) -> None:
+        logger.info("Received gpu_provider_query from %s", peer_id)
+        gpu_response = {
+            "type": "gpu_provider_response",
+            "node_id": self.node_id,
+            "gpu_available": self._get_gpu_count(),
+            "gpu_specs": self._get_gpu_specs(),
+        }
+        await self._send_message(writer, gpu_response)
+
+    async def _relay_p2p_transaction(self, tx_data: dict[str, Any], writer: asyncio.StreamWriter, peer_id: str | None) -> None:
+        """Normalize, admit and forward a relayed ``new_transaction`` message."""
+        from .rpc.utils import normalize_transaction_data
+
+        chain_id = tx_data.get("chain_id", settings.chain_id)
+        tx_data = normalize_transaction_data(tx_data, chain_id)
+        tx_hash = compute_tx_hash(tx_data)
+        if not hasattr(self, "seen_txs"):
+            self.seen_txs = set()
+        # The dedup cache only saves a mempool lookup —
+        # mempool.add dedups on tx_hash anyway — so a
+        # bounded clear is enough to keep it finite.
+        if len(self.seen_txs) >= 200_000:
+            self.seen_txs.clear()
+        seen_key = (chain_id, tx_hash)
+        if seen_key in self.seen_txs:
+            return
+        # The same account-level admission rules as
+        # REST/gossip: supported chain, funded
+        # sender, nonce inside the lookahead window.
+        from .mempool import get_mempool as get_mempool_instance
+        from .rpc.transactions import _validate_transaction_admission
+
+        mempool = get_mempool_instance()
+        _validate_transaction_admission(tx_data, mempool)
+        logger.info("Received new P2P transaction: %s", tx_hash)
+        mempool.add(tx_data, chain_id=chain_id)
+        # Mark seen only after a successful add: a
+        # transient rejection (e.g. mempool full)
+        # stays retryable on the next relay.
+        self.seen_txs.add(seen_key)
+        forward_msg = {"type": "new_transaction", "tx": tx_data}
+        writers = list(self.active_connections.values())
+        for w in writers:
+            if w != writer:
+                await self._send_message(w, forward_msg)
+
+    async def _handle_p2p_new_transaction(
+        self, message: dict[str, Any], writer: asyncio.StreamWriter, peer_id: str | None
+    ) -> None:
+        tx_data = message.get("tx")
+        if not tx_data:
+            return
+        try:
+            # This transport is unauthenticated: apply the
+            # same signature policy as REST/gossip mempool
+            # ingest before admitting or forwarding.
+            from .rpc.utils import gossip_transaction_drop_reason
+
+            drop_reason = gossip_transaction_drop_reason(tx_data)
+            if drop_reason is not None:
+                logger.warning(
+                    "Dropped P2P transaction from %s: %s (sender=%s)",
+                    peer_id,
+                    drop_reason,
+                    tx_data.get("from") if isinstance(tx_data, dict) else None,
+                )
+                return
+            await self._relay_p2p_transaction(tx_data, writer, peer_id)
+        except ValueError as e:
+            logger.debug("P2P tx rejected: %s", e)
+        except Exception as e:  # noqa: BLE001 - mempool.add backend is pluggable; isolate per-tx failures
+            logger.error("P2P tx handling error: %s", e)
+
+    @staticmethod
+    def _store_peer_message(store: dict[str, Any], peer_id: str | None, message: dict[str, Any], label: str) -> None:
+        logger.info("Received %s from %s", label, peer_id)
+        if peer_id:
+            store[peer_id] = message
+
+    def _consume_stream_token(
+        self,
+        peer_id: str | None,
+        addr: tuple[str, int],
+        rate: float,
+        msg_tokens: float,
+        msg_last: float,
+    ) -> tuple[float, float, bool]:
+        """Token-bucket rate limit (#1631). Returns (tokens, last, allowed)."""
+        now = asyncio.get_running_loop().time()
+        msg_tokens = min(rate, msg_tokens + (now - msg_last) * rate)
+        msg_last = now
+        msg_tokens -= 1.0
+        if msg_tokens < 0:
+            logger.warning("Peer %s exceeded %.1f msg/s rate limit; closing stream", peer_id or addr, rate)
+            return msg_tokens, msg_last, False
+        return msg_tokens, msg_last, True
+
+    async def _process_stream_frame(
+        self,
+        data: bytes,
+        writer: asyncio.StreamWriter,
+        addr: tuple[str, int],
+        outbound: bool,
+        peer_id: str | None,
+    ) -> tuple[str | None, bool]:
+        """Decode + dispatch one stream frame.
+
+        Returns ``(peer_id, stop_stream)`` — ``stop_stream`` is True when the
+        peer must be dropped (bad payload, refused handshake reply, or a
+        ValueError from dispatch).
+        """
+        try:
+            from .network.compression import decode_payload
+
+            message = decode_payload(data.decode().strip())
+        except json.JSONDecodeError:
+            logger.warning("Invalid JSON received from %s", addr)
+            return peer_id, False
+        except ValueError as e:
+            logger.warning("Refused payload from %s: %s. Closing stream.", addr, e)
+            return peer_id, True
+        msg_type = message.get("type")
+        if outbound and peer_id is None:
+            if msg_type == "handshake":
+                peer_id = await self._complete_outbound_handshake(message, writer, addr)
+                return peer_id, peer_id is None
+            logger.warning("Expected handshake reply from %s, got %s", addr, msg_type)
+            return peer_id, True
+        try:
+            await self._handle_stream_message(message, msg_type, writer, peer_id)
+        except ValueError as e:
+            logger.warning("Refused payload from %s: %s. Closing stream.", addr, e)
+            return peer_id, True
+        return peer_id, False
+
+    async def _close_stream(
+        self,
+        writer: asyncio.StreamWriter,
+        peer_id: str | None,
+        addr: tuple[str, int],
+        endpoint: tuple[str, int],
+    ) -> None:
+        """Tear down a stream: deregister the peer and close the writer."""
+        logger.info("Connection closed to %s", peer_id or addr)
+        if peer_id and peer_id in self.active_connections:
+            del self.active_connections[peer_id]
+        self._prune_peer_session_state(peer_id)
+        if endpoint in self.connected_endpoints:
+            self.connected_endpoints.remove(endpoint)
+        writer.close()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
+        try:
+            await writer.wait_closed()
+        # intentional silent cleanup
+        except Exception as e:  # noqa: BLE001,S110 - connection teardown  # nosec B110
+            logger.debug("p2p writer close failed: %s", type(e).__name__)
+
+    async def _handle_stream_message(
+        self,
+        message: dict[str, Any],
+        msg_type: Any,
+        writer: asyncio.StreamWriter,
+        peer_id: str | None,
+    ) -> None:
+        """Dispatch one decoded stream message by type."""
+        if msg_type == "ping":
+            logger.debug("Received ping from %s", peer_id)
+            await self._send_message(writer, {"type": "pong", "node_id": self.node_id})
+        elif msg_type == "pong":
+            logger.debug("Received pong from %s", peer_id)
+        elif msg_type == "handshake":
+            pass
+        elif msg_type == "join_request":
+            await self._handle_join_request_message(message, writer, peer_id)
+        elif msg_type == "join_response":
+            self._store_peer_message(self._join_response, peer_id, message, "join_response")
+        elif msg_type == "gpu_provider_query":
+            await self._answer_gpu_provider_query(writer, peer_id)
+        elif msg_type == "gpu_provider_response":
+            self._store_peer_message(self._gpu_provider_responses, peer_id, message, "gpu_provider_response")
+        elif msg_type == "new_transaction":
+            await self._handle_p2p_new_transaction(message, writer, peer_id)
+        else:
+            logger.info("Received %s from %s: %s", msg_type, peer_id, message)
 
     async def _listen_to_stream(
         self,
@@ -524,199 +869,18 @@ class P2PNetworkService:
                     break
                 if not data:
                     break
-                now = asyncio.get_running_loop().time()
-                msg_tokens = min(rate, msg_tokens + (now - msg_last) * rate)
-                msg_last = now
-                msg_tokens -= 1.0
-                if msg_tokens < 0:
-                    logger.warning("Peer %s exceeded %.1f msg/s rate limit; closing stream", peer_id or addr, rate)
+                msg_tokens, msg_last, allowed = self._consume_stream_token(peer_id, addr, rate, msg_tokens, msg_last)
+                if not allowed:
                     break
-                try:
-                    from .network.compression import decode_payload
-
-                    message = decode_payload(data.decode().strip())
-                    msg_type = message.get("type")
-                    if outbound and peer_id is None:
-                        if msg_type == "handshake":
-                            peer_id = message.get("node_id")
-                            peer_island_id = message.get("island_id", "")
-                            peer_is_hub = message.get("is_hub", False)
-                            peer_chain_id = message.get("chain_id", "")
-                            peer_protocol_version = message.get("protocol_version", 1)
-                            peer_block_height = message.get("block_height", 0)
-                            peer_block_range = message.get("block_range", [0, peer_block_height])
-                            if not peer_id or peer_id == self.node_id:
-                                logger.warning("Invalid handshake reply from %s. Closing.", addr)
-                                break
-                            # v0.6.2: Track legacy peers
-                            if peer_protocol_version < self._protocol_version:
-                                self._legacy_peers.add(peer_id)
-                                logger.info(
-                                    "Peer %s using legacy protocol v%s — batching/prioritization disabled",
-                                    peer_id,
-                                    peer_protocol_version,
-                                )
-                            if peer_chain_id and self.chain_id and (peer_chain_id != self.chain_id):
-                                logger.warning(
-                                    "Peer %s chain_id mismatch: %s != %s. Closing connection.",
-                                    addr,
-                                    peer_chain_id,
-                                    self.chain_id,
-                                )
-                                break
-                            if peer_id in self.active_connections:
-                                logger.info("Already connected to node %s. Closing duplicate outbound.", peer_id)
-                                break
-                            self.active_connections[peer_id] = writer
-                            # v0.6.2: Register peer capability with the sync layer (if callback set)
-                            if self._peer_capability_callback and peer_block_height > 0:
-                                peer_public_address = message.get("public_address")
-                                peer_public_port = message.get("public_port")
-                                peer_listen_port = message.get("listen_port", addr[1])
-                                peer_address = peer_public_address or addr[0]
-                                peer_port = peer_public_port or peer_listen_port
-                                rpc_port = peer_port + getattr(settings, "p2p_to_rpc_port_offset", 2)
-                                peer_rpc_url = f"http://{peer_address}:{rpc_port}"
-                                self._peer_capability_callback(
-                                    peer_id,
-                                    peer_rpc_url,
-                                    tuple(peer_block_range),
-                                    chain_id=peer_chain_id or self.chain_id,
-                                    has_state=True,
-                                )
-                            if self.island_manager and peer_island_id:
-                                self.island_manager.add_island_peer(peer_island_id, peer_id)
-                            if self.hub_manager:
-                                from .network.hub_manager import PeerInfo
-
-                                self.hub_manager.register_peer(
-                                    PeerInfo(
-                                        node_id=peer_id,
-                                        address=addr[0],
-                                        port=addr[1],
-                                        island_id=peer_island_id,
-                                        is_hub=peer_is_hub,
-                                        public_address=message.get("public_address"),
-                                        public_port=message.get("public_port"),
-                                        last_seen=asyncio.get_event_loop().time(),
-                                    )
-                                )
-                            logger.info(
-                                "Outbound handshake complete. Connected to node %s (island: %s)", peer_id, peer_island_id
-                            )
-                            continue
-                        else:
-                            logger.warning("Expected handshake reply from %s, got %s", addr, msg_type)
-                            break
-                    if msg_type == "ping":
-                        logger.debug("Received ping from %s", peer_id)
-                        await self._send_message(writer, {"type": "pong", "node_id": self.node_id})
-                    elif msg_type == "pong":
-                        logger.debug("Received pong from %s", peer_id)
-                    elif msg_type == "handshake":
-                        pass
-                    elif msg_type == "join_request":
-                        if self.hub_manager:
-                            logger.info("Received join_request from %s", peer_id)
-                            response = await self.hub_manager.handle_join_request(message)
-                            if response:
-                                await self._send_message(writer, response)
-                        else:
-                            logger.warning("Received join_request but not a hub, ignoring")
-                    elif msg_type == "join_response":
-                        logger.info("Received join_response from %s", peer_id)
-                        if peer_id:
-                            self._join_response[peer_id] = message
-                    elif msg_type == "gpu_provider_query":
-                        logger.info("Received gpu_provider_query from %s", peer_id)
-                        gpu_response = {
-                            "type": "gpu_provider_response",
-                            "node_id": self.node_id,
-                            "gpu_available": self._get_gpu_count(),
-                            "gpu_specs": self._get_gpu_specs(),
-                        }
-                        await self._send_message(writer, gpu_response)
-                    elif msg_type == "gpu_provider_response":
-                        logger.info("Received gpu_provider_response from %s", peer_id)
-                        if peer_id:
-                            self._gpu_provider_responses[peer_id] = message
-                    elif msg_type == "new_transaction":
-                        tx_data = message.get("tx")
-                        if tx_data:
-                            try:
-                                # This transport is unauthenticated: apply the
-                                # same signature policy as REST/gossip mempool
-                                # ingest before admitting or forwarding.
-                                from .rpc.transactions import _validate_transaction_admission
-                                from .rpc.utils import gossip_transaction_drop_reason, normalize_transaction_data
-
-                                drop_reason = gossip_transaction_drop_reason(tx_data)
-                                if drop_reason is not None:
-                                    logger.warning(
-                                        "Dropped P2P transaction from %s: %s (sender=%s)",
-                                        peer_id,
-                                        drop_reason,
-                                        tx_data.get("from") if isinstance(tx_data, dict) else None,
-                                    )
-                                    continue
-                                chain_id = tx_data.get("chain_id", settings.chain_id)
-                                tx_data = normalize_transaction_data(tx_data, chain_id)
-                                tx_hash = compute_tx_hash(tx_data)
-                                if not hasattr(self, "seen_txs"):
-                                    self.seen_txs = set()
-                                # The dedup cache only saves a mempool lookup —
-                                # mempool.add dedups on tx_hash anyway — so a
-                                # bounded clear is enough to keep it finite.
-                                if len(self.seen_txs) >= 200_000:
-                                    self.seen_txs.clear()
-                                seen_key = (chain_id, tx_hash)
-                                if seen_key not in self.seen_txs:
-                                    # The same account-level admission rules as
-                                    # REST/gossip: supported chain, funded
-                                    # sender, nonce inside the lookahead window.
-                                    from .mempool import get_mempool as get_mempool_instance
-
-                                    mempool = get_mempool_instance()
-                                    _validate_transaction_admission(tx_data, mempool)
-                                    logger.info("Received new P2P transaction: %s", tx_hash)
-                                    mempool.add(tx_data, chain_id=chain_id)
-                                    # Mark seen only after a successful add: a
-                                    # transient rejection (e.g. mempool full)
-                                    # stays retryable on the next relay.
-                                    self.seen_txs.add(seen_key)
-                                    forward_msg = {"type": "new_transaction", "tx": tx_data}
-                                    writers = list(self.active_connections.values())
-                                    for w in writers:
-                                        if w != writer:
-                                            await self._send_message(w, forward_msg)
-                            except ValueError as e:
-                                logger.debug("P2P tx rejected: %s", e)
-                            except Exception as e:  # noqa: BLE001 - mempool.add backend is pluggable; isolate per-tx failures
-                                logger.error("P2P tx handling error: %s", e)
-                    else:
-                        logger.info("Received %s from %s: %s", msg_type, peer_id, message)
-                except json.JSONDecodeError:
-                    logger.warning("Invalid JSON received from %s", addr)
-                except ValueError as e:
-                    logger.warning("Refused payload from %s: %s. Closing stream.", addr, e)
+                peer_id, stop_stream = await self._process_stream_frame(data, writer, addr, outbound, peer_id)
+                if stop_stream:
                     break
         except asyncio.CancelledError:
             pass
         except Exception as e:  # noqa: BLE001 - stream boundary must isolate any per-connection failure
             logger.error("Stream error with %s: %s", addr, e)
         finally:
-            logger.info("Connection closed to %s", peer_id or addr)
-            if peer_id and peer_id in self.active_connections:
-                del self.active_connections[peer_id]
-            self._prune_peer_session_state(peer_id)
-            if endpoint in self.connected_endpoints:
-                self.connected_endpoints.remove(endpoint)
-            writer.close()  # noqa: unawaited-async — asyncio.StreamWriter.close() is synchronous
-            try:
-                await writer.wait_closed()
-            # intentional silent cleanup
-            except Exception as e:  # noqa: BLE001,S110 - connection teardown  # nosec B110
-                logger.debug("p2p writer close failed: %s", type(e).__name__)
+            await self._close_stream(writer, peer_id, addr, endpoint)
 
     def _get_gpu_count(self) -> int:
         """Get the number of available GPUs on this node"""

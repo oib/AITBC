@@ -140,6 +140,104 @@ def _parse_dt(value: Any) -> datetime | None:
     return None
 
 
+def _check_aux_bounds(
+    tables: dict[str, list[dict[str, Any]]],
+    *,
+    max_rows_per_table: int | None,
+    max_payload_bytes: int | None,
+) -> None:
+    """Enforce the peer-payload bounds before any row is applied (#1628)."""
+    if max_payload_bytes is not None:
+        # The payload arrived already JSON-parsed, so measure its serialized
+        # size — the same bound decode_state_diff applies to the diff (#1627).
+        try:
+            payload_bytes = len(json.dumps(tables, default=str).encode("utf-8"))
+        except (TypeError, ValueError):
+            payload_bytes = max_payload_bytes + 1
+        if payload_bytes > max_payload_bytes:
+            raise ValueError(f"aux_state payload of {payload_bytes} bytes exceeds cap {max_payload_bytes}; refusing sync")
+    if max_rows_per_table is not None:
+        for name, spec_rows in tables.items():
+            if name in AUX_TABLES and isinstance(spec_rows, list) and len(spec_rows) > max_rows_per_table:
+                raise ValueError(
+                    f"aux_state table {name!r} has {len(spec_rows)} rows, exceeding cap {max_rows_per_table}; refusing sync"
+                )
+
+
+def _normalized_field(spec: _AuxSpec, row: dict[str, Any], f: str) -> Any:
+    """Read one serialized field, normalizing addresses and datetimes."""
+    v = row.get(f)
+    if f in spec.address_fields and isinstance(v, str) and v:
+        try:
+            v = _to_ait_address(v)
+        except (TypeError, ValueError):
+            pass
+    elif f in spec.datetime_fields:
+        v = _parse_dt(v)
+    return v
+
+
+def _aux_lookup_cond(spec: _AuxSpec, chain_id: str, key_values: dict[str, Any]) -> list[Any]:
+    cond = [spec.model.chain_id == chain_id]
+    for k, v in key_values.items():
+        column = getattr(spec.model, k)
+        if k in spec.address_fields and isinstance(v, str) and v:
+            # Case-insensitive match on address key fields: the fleet
+            # carries legacy lowercase rows next to canonical checksum
+            # spellings of the same address. An exact-equality lookup
+            # misses the lowercase row and INSERTs a second copy —
+            # the v0.25.8 governance-vote duplicates. lower() treats
+            # both spellings as one natural key; the stored row is
+            # still rewritten to canonical form by the update below.
+            cond.append(func.lower(column) == v.lower())
+        else:
+            cond.append(column == v)
+    return cond
+
+
+def _upsert_aux_row(
+    session: Any,
+    chain_id: str,
+    name: str,
+    spec: _AuxSpec,
+    row: dict[str, Any],
+) -> bool:
+    """Apply one shipped row; returns True when it counted as applied."""
+    key_values: dict[str, Any] = {}
+    for k in spec.key_fields:
+        v = row.get(k)
+        if k in spec.address_fields and isinstance(v, str) and v:
+            try:
+                v = _to_ait_address(v)
+            except (TypeError, ValueError):
+                pass
+        key_values[k] = v
+    if any(v is None or v == "" for v in key_values.values()):
+        logger.warning("Skipping %s row with missing key fields: %r", name, row)
+        return False
+    cond = _aux_lookup_cond(spec, chain_id, key_values)
+    existing = session.exec(select(spec.model).where(*cond)).first()
+    data: dict[str, Any] = {}
+    for f in spec.fields:
+        data[f] = _normalized_field(spec, row, f)
+    if existing is not None:
+        for f, v in data.items():
+            # A peer that omits a field (older version, or a
+            # legitimately null optional) must not null out a local
+            # value — these tables only ever transition None->value.
+            if v is None:
+                continue
+            setattr(existing, f, v)
+    else:
+        missing = [f for f in spec.fields if f in spec.datetime_fields and data[f] is None]
+        if "locked_until" in missing or "voting_starts" in missing or "voting_ends" in missing:
+            logger.warning("Skipping %s row missing required datetime fields: %r", name, missing)
+            return False
+        insert_data = {k: v for k, v in data.items() if v is not None or k in spec.key_fields}
+        session.add(spec.model(chain_id=chain_id, **insert_data))
+    return True
+
+
 def upsert_aux_rows(
     session: Any,
     chain_id: str,
@@ -163,79 +261,13 @@ def upsert_aux_rows(
     hostile aux payload. A violation raises ``ValueError`` — the caller's
     session rolls back, so neither accounts nor parameters commit either.
     """
-    if max_payload_bytes is not None:
-        # The payload arrived already JSON-parsed, so measure its serialized
-        # size — the same bound decode_state_diff applies to the diff (#1627).
-        try:
-            payload_bytes = len(json.dumps(tables, default=str).encode("utf-8"))
-        except (TypeError, ValueError):
-            payload_bytes = max_payload_bytes + 1
-        if payload_bytes > max_payload_bytes:
-            raise ValueError(f"aux_state payload of {payload_bytes} bytes exceeds cap {max_payload_bytes}; refusing sync")
-    if max_rows_per_table is not None:
-        for name, spec_rows in tables.items():
-            if name in AUX_TABLES and isinstance(spec_rows, list) and len(spec_rows) > max_rows_per_table:
-                raise ValueError(
-                    f"aux_state table {name!r} has {len(spec_rows)} rows, exceeding cap {max_rows_per_table}; refusing sync"
-                )
+    _check_aux_bounds(tables, max_rows_per_table=max_rows_per_table, max_payload_bytes=max_payload_bytes)
     counts: dict[str, int] = {}
     for name, spec in AUX_TABLES.items():
         rows = tables.get(name) or []
         applied = 0
         for row in rows:
-            key_values: dict[str, Any] = {}
-            for k in spec.key_fields:
-                v = row.get(k)
-                if k in spec.address_fields and isinstance(v, str) and v:
-                    try:
-                        v = _to_ait_address(v)
-                    except (TypeError, ValueError):
-                        pass
-                key_values[k] = v
-            if any(v is None or v == "" for v in key_values.values()):
-                logger.warning("Skipping %s row with missing key fields: %r", name, row)
-                continue
-            cond = [spec.model.chain_id == chain_id]
-            for k, v in key_values.items():
-                column = getattr(spec.model, k)
-                if k in spec.address_fields and isinstance(v, str) and v:
-                    # Case-insensitive match on address key fields: the fleet
-                    # carries legacy lowercase rows next to canonical checksum
-                    # spellings of the same address. An exact-equality lookup
-                    # misses the lowercase row and INSERTs a second copy —
-                    # the v0.25.8 governance-vote duplicates. lower() treats
-                    # both spellings as one natural key; the stored row is
-                    # still rewritten to canonical form by the update below.
-                    cond.append(func.lower(column) == v.lower())
-                else:
-                    cond.append(column == v)
-            existing = session.exec(select(spec.model).where(*cond)).first()
-            data: dict[str, Any] = {}
-            for f in spec.fields:
-                v = row.get(f)
-                if f in spec.address_fields and isinstance(v, str) and v:
-                    try:
-                        v = _to_ait_address(v)
-                    except (TypeError, ValueError):
-                        pass
-                elif f in spec.datetime_fields:
-                    v = _parse_dt(v)
-                data[f] = v
-            if existing is not None:
-                for f, v in data.items():
-                    # A peer that omits a field (older version, or a
-                    # legitimately null optional) must not null out a local
-                    # value — these tables only ever transition None->value.
-                    if v is None:
-                        continue
-                    setattr(existing, f, v)
-            else:
-                missing = [f for f in spec.fields if f in spec.datetime_fields and data[f] is None]
-                if "locked_until" in missing or "voting_starts" in missing or "voting_ends" in missing:
-                    logger.warning("Skipping %s row missing required datetime fields: %r", name, missing)
-                    continue
-                insert_data = {k: v for k, v in data.items() if v is not None or k in spec.key_fields}
-                session.add(spec.model(chain_id=chain_id, **insert_data))
-            applied += 1
+            if _upsert_aux_row(session, chain_id, name, spec, row):
+                applied += 1
         counts[name] = applied
     return counts
