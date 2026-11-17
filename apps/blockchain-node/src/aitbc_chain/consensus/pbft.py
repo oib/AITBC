@@ -55,6 +55,9 @@ from .pbft_view_change import (
 
 logger = get_logger(__name__)
 
+MAX_BODY_WANTED = 64  # #2171 bound on the fetch bookkeeping tables
+BODY_FETCH_WAIT_SECONDS = 5.0  # #2171 how long a proposer waits for a locked body
+
 
 class PBFTPhase(Enum):
     PRE_PREPARE = "pre_prepare"
@@ -178,6 +181,10 @@ class _PbftBaseMixin:
         self._vc_messages: dict[tuple[int, int], dict[str, dict[str, Any]]] = {}
         self._vc_last_resend: dict[tuple[int, int], float] = {}
         self._new_views: dict[tuple[int, int], dict[str, Any]] = {}
+        # #2171: locked bodies this node asked for (accepted only when solicited)
+        # and the last time it answered a request for one (rate limit).
+        self._body_wanted: dict[tuple[int, str], int] = {}
+        self._fetch_answered: dict[tuple[int, str], float] = {}
         # #1940 F3-B: this node's cross-view commit locks (sequence ->
         # committed block_hash), hydrated from the persisted ConsensusState
         # row. Consulted only while ``cross_view_commit_lock_active`` is
@@ -498,7 +505,21 @@ class _PbftBaseMixin:
     def _vc_prepared_arm(self, sequence: int, view: int, block_hash: str) -> bool:
         raise NotImplementedError
 
-    def _vc_proposal_store(self, sequence: int, block_hash: str, payload: dict[str, Any], sender: str) -> bool:
+    def _vc_proposal_store(
+        self, sequence: int, block_hash: str, payload: dict[str, Any], sender: str, view: int | None = None
+    ) -> bool:
+        raise NotImplementedError
+
+    def _vc_quorum(self, sequence: int) -> int:
+        raise NotImplementedError
+
+    def _body_hash_recomputes(self, body: Any, block_hash: str) -> bool:
+        raise NotImplementedError
+
+    async def _handle_proposal_fetch(self, data: dict[str, Any]) -> None:
+        raise NotImplementedError
+
+    def _handle_proposal_body(self, data: dict[str, Any]) -> None:
         raise NotImplementedError
 
     def _vc_proposal_get(self, sequence: int, block_hash: str) -> dict[str, Any] | None:
