@@ -104,6 +104,12 @@ class _StateMixin:
         # sequence exactly like the F3-B commit locks.
         self._pbft_view_change: dict[int, dict[str, Any]] = {}
         self._pbft_vc_corrupt = False
+        # #2190: durable-before-send writes of the two records above go to this
+        # file, never through save_state (a second chain.db writer deadlocks
+        # inside the proposer's open write transaction).
+        from .pbft_safety_store import PbftSafetyStore
+
+        self._pbft_safety_store = PbftSafetyStore(chain_id)
 
         # #1940 F4: optional session factory for chain-state reads
         # (_current_head_height / _chain_deactivated_addresses). The
@@ -279,6 +285,24 @@ class _StateMixin:
 
     # ─── B11: State Persistence ───────────────────────────────────
 
+    def _pbft_safety_blobs(self) -> tuple[str, str]:
+        """Canonical JSON for the commit locks and VC records."""
+        import json
+
+        # #1940 F3-B: str(seq) -> block_hash, keys in ascending int order so
+        # the persisted bytes are deterministic regardless of insertion order.
+        commit_locks_json = json.dumps({str(seq): self._pbft_commit_locks[seq] for seq in sorted(self._pbft_commit_locks)})
+        # #2005 F3-C: str(seq) -> VC record, keys in ascending int order.
+        view_change_json = json.dumps(
+            {str(seq): self._pbft_view_change[seq] for seq in sorted(self._pbft_view_change)},
+            sort_keys=True,
+        )
+        return commit_locks_json, view_change_json
+
+    def _pbft_safety_persist(self) -> bool:
+        """#2190: durable-before-send write that never touches chain.db."""
+        return self._pbft_safety_store.save(*self._pbft_safety_blobs())
+
     def save_state(self) -> bool:
         """Persist consensus state to DB (survives node restart).
 
@@ -318,15 +342,7 @@ class _StateMixin:
         ]
         if self._slashing_manager.pruned_summary:
             slashing_events.append({"_pruned_summary": self._slashing_manager.pruned_summary})
-        # #1940 F3-B: str(seq) -> block_hash, keys in ascending int order so
-        # the persisted bytes are deterministic regardless of insertion order.
-        commit_locks_json = json.dumps({str(seq): self._pbft_commit_locks[seq] for seq in sorted(self._pbft_commit_locks)})
-        # #2005 F3-C: str(seq) -> VC record, keys in ascending int order so
-        # the persisted bytes are deterministic regardless of insertion order.
-        view_change_json = json.dumps(
-            {str(seq): self._pbft_view_change[seq] for seq in sorted(self._pbft_view_change)},
-            sort_keys=True,
-        )
+        commit_locks_json, view_change_json = self._pbft_safety_blobs()
         try:
             with session_scope(self.chain_id) as session:
                 existing = session.query(ConsensusState).filter_by(chain_id=self.chain_id).first()
@@ -525,6 +541,48 @@ class _StateMixin:
                 self.validators[v["address"]].is_active = True
         return True
 
+    def _restore_pbft_safety(self, row: Any | None) -> None:
+        """Restore commit locks + VC records; ``row`` is None when chain.db has no
+        consensus_state row yet (the safety file may still hold floors, #2190)."""
+        # #2190: the safety store file (when present) is authoritative
+        # for the commit locks and VC records; the DB columns are the
+        # pre-F1 / graceful-shutdown mirror and the fallback.
+        locks_raw = (getattr(row, "pbft_commit_locks_json", "") or "") if row is not None else ""
+        vc_raw = (getattr(row, "pbft_view_change_json", "") or "") if row is not None else ""
+        store_error: str | None = None
+        try:
+            stored = self._pbft_safety_store.load()
+        except ValueError as exc:
+            stored = None
+            store_error = str(exc)
+        if stored is not None:
+            locks_raw = stored["commit_locks"]
+            vc_raw = stored["view_change"]
+        # #1940 F3-B: restore this node's cross-view commit locks.
+        # Entries below the persisted current sequence can never be
+        # voted on again, so they are pruned on load as well as on arm.
+        self._pbft_commit_locks = {
+            seq: block_hash for seq, block_hash in self._parse_commit_locks(locks_raw).items() if seq >= self._pbft_sequence
+        }
+        # #2005 F3-C: restore per-height VIEW_CHANGE state (floor,
+        # prepared, commit-lock, proposal bodies). Same prune rule:
+        # heights below the persisted current sequence can never be
+        # voted on again.
+        try:
+            if store_error is not None:
+                raise ValueError(store_error)
+            self._pbft_view_change = {
+                seq: rec for seq, rec in self._parse_view_change_records(vc_raw).items() if seq >= self._pbft_sequence
+            }
+            self._pbft_vc_corrupt = False
+        except ValueError as exc:
+            # Fail CLOSED (#2005 review): a corrupt record may have held
+            # a floor or lock; forgetting it is restart amnesia, so every
+            # VC-armed vote is refused until an operator repairs the row.
+            logger.error("pbft view-change state corrupt (%s): VC-armed votes refused", exc)
+            self._pbft_view_change = {}
+            self._pbft_vc_corrupt = True
+
     def load_state(self, *, slashing: bool = True) -> bool:
         """Load consensus state from DB on node startup.
 
@@ -553,6 +611,7 @@ class _StateMixin:
                     .first()
                 )
                 if not row:
+                    self._restore_pbft_safety(None)
                     return self._load_validator_set_from_settings()
                 self._pbft_view = row.current_view
                 self._pbft_sequence = row.current_sequence
@@ -581,34 +640,7 @@ class _StateMixin:
                         .scalar()
                     )
                     self._load_slashing_history(session, ConsensusState, (row.updated_at, blob_len))
-                # #1940 F3-B: restore this node's cross-view commit locks.
-                # Entries below the persisted current sequence can never be
-                # voted on again, so they are pruned on load as well as on arm.
-                self._pbft_commit_locks = {
-                    seq: block_hash
-                    for seq, block_hash in self._parse_commit_locks(getattr(row, "pbft_commit_locks_json", "") or "").items()
-                    if seq >= self._pbft_sequence
-                }
-                # #2005 F3-C: restore per-height VIEW_CHANGE state (floor,
-                # prepared, commit-lock, proposal bodies). Same prune rule:
-                # heights below the persisted current sequence can never be
-                # voted on again.
-                try:
-                    self._pbft_view_change = {
-                        seq: rec
-                        for seq, rec in self._parse_view_change_records(
-                            getattr(row, "pbft_view_change_json", "") or ""
-                        ).items()
-                        if seq >= self._pbft_sequence
-                    }
-                    self._pbft_vc_corrupt = False
-                except ValueError as exc:
-                    # Fail CLOSED (#2005 review): a corrupt record may have held
-                    # a floor or lock; forgetting it is restart amnesia, so every
-                    # VC-armed vote is refused until an operator repairs the row.
-                    logger.error("pbft_view_change_json corrupt (%s): VC-armed votes refused", exc)
-                    self._pbft_view_change = {}
-                    self._pbft_vc_corrupt = True
+                self._restore_pbft_safety(row)
             if self._chain_slashing_armed():
                 self._report_slashing_divergence()
             return True
@@ -702,7 +734,7 @@ class _StateMixin:
         previous = self._pbft_commit_locks.get(sequence)
         had_previous = sequence in self._pbft_commit_locks
         self._pbft_commit_locks[sequence] = block_hash
-        if self.save_state():
+        if self._pbft_safety_persist():
             return True
         self._pbft_commit_locks.update(pruned)
         if had_previous:
@@ -773,7 +805,7 @@ class _StateMixin:
         previous = copy.deepcopy(self._pbft_view_change.get(sequence))
         rec = self._pbft_vc_record(sequence)
         mutator(rec)
-        if self.save_state():
+        if self._pbft_safety_persist():
             return True
         self._pbft_view_change.update(pruned)
         if had_previous and previous is not None:
