@@ -162,6 +162,60 @@ def test_forged_signature_rejected(client):
     assert response.status_code == 401
 
 
+def test_login_nonce_independent_of_process_state(client):
+    """#2154: the login nonce must not live in per-process state.
+
+    coordinator-api runs ``uvicorn --workers 2`` and the nonce used to sit in
+    RedisStateManager's in-memory fallback, so the nonce POST and the login
+    POST landed on different workers and the login 401'd with "Invalid or
+    expired nonce". Wiping the state manager's memory between the two calls
+    simulates exactly that cross-worker split — login must still succeed.
+    """
+    from coordinator_api.contexts.infrastructure.services.redis_state import state_manager
+
+    account = Account.create()
+    wallet_address = account.address.lower()
+
+    nonce_resp = client.post("/v1/auth/nonce", json={"wallet_address": wallet_address})
+    assert nonce_resp.status_code == 200
+    nonce = nonce_resp.json()["nonce"]
+
+    # Simulate the second worker: it has none of the first worker's memory.
+    state_manager._memory.clear()
+
+    signature = _sign_login(wallet_address, nonce, account.key.hex())
+    response = client.post(
+        "/v1/login",
+        json={"wallet_address": wallet_address, "nonce": nonce, "signature": signature},
+    )
+    assert response.status_code == 200
+    assert "session_token" in response.json()
+
+
+def test_reissued_nonce_invalidates_previous(client):
+    """#2154: one pending nonce per wallet — a fresh issue replaces the old."""
+    account = Account.create()
+    wallet_address = account.address.lower()
+
+    first = client.post("/v1/auth/nonce", json={"wallet_address": wallet_address}).json()["nonce"]
+    second = client.post("/v1/auth/nonce", json={"wallet_address": wallet_address}).json()["nonce"]
+    assert first != second
+
+    stale_signature = _sign_login(wallet_address, first, account.key.hex())
+    stale = client.post(
+        "/v1/login",
+        json={"wallet_address": wallet_address, "nonce": first, "signature": stale_signature},
+    )
+    assert stale.status_code == 401
+
+    fresh_signature = _sign_login(wallet_address, second, account.key.hex())
+    fresh = client.post(
+        "/v1/login",
+        json={"wallet_address": wallet_address, "nonce": second, "signature": fresh_signature},
+    )
+    assert fresh.status_code == 200
+
+
 def test_replayed_nonce_rejected(client):
     """A nonce cannot be used more than once."""
     account = Account.create()

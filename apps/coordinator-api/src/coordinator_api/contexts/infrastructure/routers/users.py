@@ -6,12 +6,16 @@ tokens issued after a wallet-signed nonce challenge. Object-level ownership is
 enforced on balance and transaction routes.
 """
 
+import os
 import re
 import secrets
+import sqlite3
 import time
 import uuid
+from contextlib import closing
 from datetime import UTC, datetime
 from decimal import Decimal
+from pathlib import Path
 from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -44,11 +48,58 @@ _OPS_ERRORS = (
 # Redis-backed state (falls back to in-memory if Redis unavailable)
 _state = RedisStateManager.get_instance_sync()
 _SESSION_NS = "sessions"
-_NONCE_NS = "wallet_nonces"
 _BLOCKLIST_NS = "token_blocklist"
 
 # Nonce lifetime in seconds
 _NONCE_TTL = 300
+
+# ------------------------------------------------------------------
+# Wallet login nonces — shared sqlite store (#2154)
+#
+# These nonces used to live in ``_state.cache_*`` (RedisStateManager), which
+# falls back to per-process memory when Redis is disabled — and Redis cannot
+# even be enabled through the service env (``settings.redis.enabled`` has no
+# env mapping). coordinator-api runs ``uvicorn --workers 2``, so
+# ``POST /v1/auth/nonce`` landed on one worker and ``POST /v1/login`` on the
+# other a fraction of the time, returning "Invalid or expired nonce" for a
+# nonce issued seconds earlier — observed live against the ``default``
+# admin wallet on hub (#2154). Same bug class as #1771 (island swarm-key
+# nonces) and #1967 (provider-bond challenges); same cure — a small sqlite
+# file under ``AITBC_DATA_DIR`` shared by every worker and every restart.
+# ------------------------------------------------------------------
+
+_LOGIN_NONCE_MAX_PENDING = 10_000
+
+_LOGIN_NONCE_SCHEMA = """
+CREATE TABLE IF NOT EXISTS wallet_login_nonce (
+    wallet_address TEXT PRIMARY KEY,
+    nonce TEXT NOT NULL,
+    expires_at REAL NOT NULL,
+    created_at REAL NOT NULL
+)
+"""
+
+
+def _login_nonce_db_path() -> Path:
+    """Shared login-nonce store under ``AITBC_DATA_DIR``."""
+    data_dir = Path(os.environ.get("AITBC_DATA_DIR", "/var/lib/aitbc/data"))
+    return data_dir / "auth" / "login-nonces.db"
+
+
+def _connect_login_nonce_db() -> sqlite3.Connection:
+    """Open the shared nonce DB, creating schema on first use.
+
+    ``isolation_level=None`` gives explicit transaction control so issue and
+    consume can hold a write lock (``BEGIN IMMEDIATE``) — two workers cannot
+    interleave a consume with an issue for the same wallet.
+    """
+    path = _login_nonce_db_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(str(path), timeout=30, isolation_level=None)
+    conn.execute("PRAGMA journal_mode=WAL")
+    conn.execute("PRAGMA busy_timeout=30000")
+    conn.execute(_LOGIN_NONCE_SCHEMA)
+    return conn
 
 
 def _admin_wallet_addresses() -> set[str]:
@@ -99,25 +150,76 @@ def _verify_wallet_signature(wallet_address: str, signature: str, nonce: str) ->
     return bool(recovered.lower() == wallet_address.lower())
 
 
-async def _issue_nonce(wallet_address: str) -> str:
-    """Generate, store, and return a one-time login nonce."""
+def _issue_nonce(wallet_address: str) -> str:
+    """Generate, store, and return a one-time login nonce.
+
+    One pending nonce per wallet — issuing a new nonce replaces the old one,
+    matching the previous ``cache_set`` upsert semantics. Runs under
+    ``BEGIN IMMEDIATE`` so the expiry sweep, pending cap and upsert are
+    atomic across workers.
+    """
+    now = time.time()
+    expires_at = now + _NONCE_TTL
     nonce = secrets.token_urlsafe(16)
-    expires_at = int(time.time()) + _NONCE_TTL
-    await _state.cache_set(_NONCE_NS, wallet_address.lower(), {"nonce": nonce, "expires_at": expires_at}, ttl=_NONCE_TTL)
+    wallet = wallet_address.lower()
+    with closing(_connect_login_nonce_db()) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            conn.execute("DELETE FROM wallet_login_nonce WHERE expires_at <= ?", (now,))
+            pending = conn.execute("SELECT COUNT(*) FROM wallet_login_nonce").fetchone()
+            if pending is not None and int(pending[0]) >= _LOGIN_NONCE_MAX_PENDING:
+                # Evict the oldest pending nonce rather than fail logins.
+                conn.execute(
+                    "DELETE FROM wallet_login_nonce WHERE wallet_address = ("
+                    "SELECT wallet_address FROM wallet_login_nonce ORDER BY created_at ASC LIMIT 1)"
+                )
+            conn.execute(
+                "INSERT OR REPLACE INTO wallet_login_nonce"
+                " (wallet_address, nonce, expires_at, created_at) VALUES (?, ?, ?, ?)",
+                (wallet, nonce, expires_at, now),
+            )
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+            raise
     return nonce
 
 
-async def _consume_nonce(wallet_address: str, nonce: str) -> bool:
-    """Validate a nonce for a wallet address and delete it to prevent replay."""
-    key = wallet_address.lower()
-    record = await _state.cache_get(_NONCE_NS, key)
-    if not record or record.get("nonce") != nonce:
-        return False
-    if int(time.time()) > record.get("expires_at", 0):
-        return False
+def _consume_nonce(wallet_address: str, nonce: str) -> bool:
+    """Validate a nonce for a wallet address and delete it to prevent replay.
 
-    await _state.cache_delete(_NONCE_NS, key)
-    return True
+    The whole check-and-burn runs inside one ``BEGIN IMMEDIATE`` transaction,
+    so exactly one worker can consume a given nonce — the same
+    DELETE-on-success semantics the in-memory path had, now shared across
+    workers. A wrong or expired nonce leaves the stored row untouched,
+    matching the previous behaviour (the caller must request a fresh nonce).
+    """
+    if not nonce:
+        return False
+    now = time.time()
+    wallet = wallet_address.lower()
+    with closing(_connect_login_nonce_db()) as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        try:
+            row = conn.execute(
+                "SELECT nonce, expires_at FROM wallet_login_nonce WHERE wallet_address = ?",
+                (wallet,),
+            ).fetchone()
+            consumed = False
+            if row is not None and row[0] == nonce and now <= float(row[1]):
+                conn.execute("DELETE FROM wallet_login_nonce WHERE wallet_address = ?", (wallet,))
+                consumed = True
+            conn.execute("COMMIT")
+        except Exception:
+            try:
+                conn.execute("ROLLBACK")
+            except sqlite3.Error:
+                pass
+            raise
+    return consumed
 
 
 def _create_session(user_id: str, role: str) -> str:
@@ -198,7 +300,7 @@ async def get_login_nonce(
     if not _is_valid_wallet_address(wallet_address):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid wallet address")
 
-    nonce = await _issue_nonce(wallet_address)
+    nonce = await run_in_threadpool(_issue_nonce, wallet_address)
     return {
         "wallet_address": wallet_address,
         "nonce": nonce,
@@ -216,7 +318,7 @@ async def register_user(
     if not _is_valid_wallet_address(wallet_address):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid wallet address")
 
-    if not await _consume_nonce(wallet_address, user_data.nonce):
+    if not await run_in_threadpool(_consume_nonce, wallet_address, user_data.nonce):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired nonce")
 
     if not _verify_wallet_signature(wallet_address, user_data.signature, user_data.nonce):
@@ -272,7 +374,7 @@ async def login_user(
     if not _is_valid_wallet_address(wallet_address):
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid wallet address")
 
-    if not await _consume_nonce(wallet_address, login_data.nonce):
+    if not await run_in_threadpool(_consume_nonce, wallet_address, login_data.nonce):
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired nonce")
 
     if not _verify_wallet_signature(wallet_address, login_data.signature, login_data.nonce):
