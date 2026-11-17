@@ -62,9 +62,11 @@ class _CommitMixin(_PoaBaseMixin):
         """
         session.add(block)
         journal = BlockDeltaJournal.get(session)
-        if journal is not None:
-            journal.persist(session)
         try:
+            # persist() flushes, and that flush is what executes the pending block INSERT —
+            # a duplicate (#2166) surfaces here, not at commit(), so both live in the try.
+            if journal is not None:
+                journal.persist(session)
             session.commit()
         except (SQLAlchemyError, OSError) as exc:
             if self._rollback_if_already_sealed(session, block, exc):

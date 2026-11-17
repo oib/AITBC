@@ -101,6 +101,34 @@ def test_different_hash_at_the_same_height_still_raises(proposer, session):
     assert "poa_propose_already_sealed_total" not in metrics_registry._counters
 
 
+class _FlushingJournal:
+    """Stands in for BlockDeltaJournal: persist() flushes, executing the pending INSERT."""
+
+    def persist(self, session) -> None:
+        session.flush()
+
+
+def test_duplicate_raised_by_the_journal_flush_is_a_benign_skip(proposer, session, monkeypatch):
+    """Live shape on node2: the dup INSERT fails inside journal.persist()'s flush, before commit()."""
+    from aitbc_chain.state.block_deltas import BlockDeltaJournal
+
+    monkeypatch.setattr(BlockDeltaJournal, "get", staticmethod(lambda _s: _FlushingJournal()))
+    _import_first(session)
+    assert proposer._commit_and_record_block(session, _block(), "0xprop", None, NOW) is False
+    assert len(session.exec(select(Block)).all()) == 1
+    assert metrics_registry._counters["poa_propose_already_sealed_total"] == 1
+
+
+def test_fork_raised_by_the_journal_flush_still_raises(proposer, session, monkeypatch):
+    from aitbc_chain.state.block_deltas import BlockDeltaJournal
+
+    monkeypatch.setattr(BlockDeltaJournal, "get", staticmethod(lambda _s: _FlushingJournal()))
+    _import_first(session, height=10, h="0xaaa")
+    with pytest.raises(Exception, match="UNIQUE constraint failed"):
+        proposer._commit_and_record_block(session, _block(height=10, h="0xother"), "0xprop", None, NOW)
+    assert "poa_propose_already_sealed_total" not in metrics_registry._counters
+
+
 def test_normal_commit_still_returns_true(proposer, session):
     assert proposer._commit_and_record_block(session, _block(), "0xprop", None, NOW) is True
     assert len(session.exec(select(Block)).all()) == 1
