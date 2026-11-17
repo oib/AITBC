@@ -200,7 +200,7 @@ class TestCommitLockUnit:
         local = list(consensus.validators)[0]
         pbft = _pbft(consensus, local)
         peer = list(consensus.validators)[1]
-        monkeypatch.setattr(consensus, "save_state", lambda: False)
+        monkeypatch.setattr(consensus, "_pbft_safety_persist", lambda: False)  # #2190
 
         await pbft.commit_phase(local, _prepare_msg(pbft, peer, HASH_A, 0, HEIGHT))
 
@@ -269,13 +269,10 @@ class TestCommitLockPersistence:
         consensus.pbft_commit_lock_arm(HEIGHT + 2, HASH_B)
         consensus.pbft_commit_lock_arm(HEIGHT, HASH_A)
 
-        from aitbc_chain.base_models import ConsensusState
-        from aitbc_chain.database import session_scope
-
-        with session_scope(chain) as session:
-            row = session.query(ConsensusState).filter_by(chain_id=chain).first()
-            assert row is not None
-            raw = row.pbft_commit_locks_json
+        # #2190: the arm persists to the safety store file, not the DB column.
+        stored = consensus._pbft_safety_store.load()
+        assert stored is not None
+        raw = stored["commit_locks"]
         data = json.loads(raw)
         assert data == {str(HEIGHT): HASH_A, str(HEIGHT + 2): HASH_B}
         assert list(data.keys()) == [str(HEIGHT), str(HEIGHT + 2)]
