@@ -33380,7 +33380,7 @@
           "blockchain"
         ],
         "summary": "Blockchain Sync Status",
-        "description": "Get blockchain synchronization status.",
+        "description": "Get blockchain synchronization status.\n\nAn unreachable node is an honest 503 like ``/status`` and ``/supply`` \u2014\nnever a 200 ``{\"status\": \"error\"}`` body a caller cannot distinguish from\na real answer (#2172).",
         "operationId": "blockchain_sync_status_v1_sync_status_get",
         "responses": {
           "200": {
@@ -33391,6 +33391,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Blockchain Sync Status V1 Sync Status Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found on the blockchain node",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -33442,16 +33452,6 @@
           },
           "404": {
             "description": "Not found on the blockchain node",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Blockchain RPC unavailable",
             "content": {
               "application/json": {
                 "schema": {
@@ -33514,16 +33514,6 @@
                 }
               }
             }
-          },
-          "502": {
-            "description": "Blockchain RPC unavailable",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -33566,6 +33556,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found on the blockchain node",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -33614,6 +33614,16 @@
                 }
               }
             }
+          },
+          "404": {
+            "description": "Not found on the blockchain node",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -33635,6 +33645,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get Validators V1 Validators Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found on the blockchain node",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -33693,6 +33713,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Get State Dump V1 State Dump Get"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not found on the blockchain node",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }

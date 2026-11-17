@@ -28,7 +28,7 @@ _OPS_ERRORS = (
 )
 
 
-def _rpc_get(path: str, *, timeout: float = 5.0) -> dict[str, Any]:
+def _rpc_get(path: str, *, timeout: float = 5.0, unavailable_status: int = 502) -> dict[str, Any]:
     """GET ``path`` on the blockchain node and translate its failures into HTTP ones.
 
     Two things this fixes for the routes below. The config import is
@@ -42,6 +42,9 @@ def _rpc_get(path: str, *, timeout: float = 5.0) -> dict[str, Any]:
     "RPC connection failed" body used for a node that is down, and returned both
     with status 200 -- so a caller could not tell a missing block from a dead
     chain, and neither one looked like an error.
+    ``unavailable_status`` selects the code for a dead/unreachable node: 502
+    for the block routes (upstream bad gateway) or 503 for the read routes,
+    matching the ``/status`` and ``/supply`` convention (#2172).
     """
     from ....config import settings
 
@@ -56,7 +59,7 @@ def _rpc_get(path: str, *, timeout: float = 5.0) -> dict[str, Any]:
         if getattr(response, "status_code", None) == 404:
             raise HTTPException(status_code=404, detail="Not found on the blockchain node") from e
         logger.error("RPC request to %s failed: %s", path, e)
-        raise HTTPException(status_code=502, detail="Blockchain RPC unavailable") from e
+        raise HTTPException(status_code=unavailable_status, detail="Blockchain RPC unavailable") from e
 
 
 @router.get("/status")
@@ -90,26 +93,20 @@ def blockchain_status() -> dict[str, Any]:
 
 @router.get("/sync-status")
 def blockchain_sync_status() -> dict[str, Any]:
-    """Get blockchain synchronization status."""
-    try:
-        from ....config import settings
+    """Get blockchain synchronization status.
 
-        rpc_url = settings.blockchain_rpc_url.rstrip("/")
-        client = AITBCHTTPClient(timeout=5.0)
-        response = client.get(f"{rpc_url}/rpc/syncStatus")
-        if response.get("syncing", False):
-            return {
-                "status": "syncing",
-                "current_block": response.get("current_block", 0),
-                "highest_block": response.get("highest_block", 0),
-            }
-        else:
-            return {"status": "synced", "block": response.get("current_block", 0)}
-    except NetworkError as e:
-        logger.error("RPC connection failed: %s", e)
-        return {"status": "error", "error": "RPC connection failed"}
-    except _OPS_ERRORS:
-        return {"status": "error", "error": "Failed to get sync status"}
+    An unreachable node is an honest 503 like ``/status`` and ``/supply`` —
+    never a 200 ``{"status": "error"}`` body a caller cannot distinguish from
+    a real answer (#2172).
+    """
+    response = _rpc_get("/rpc/syncStatus", unavailable_status=503)
+    if response.get("syncing", False):
+        return {
+            "status": "syncing",
+            "current_block": response.get("current_block", 0),
+            "highest_block": response.get("highest_block", 0),
+        }
+    return {"status": "synced", "block": response.get("current_block", 0)}
 
 
 @router.get("/blocks/{height}")
@@ -127,50 +124,21 @@ def get_block_by_hash(block_hash: str) -> dict[str, Any]:
 @router.get("/transactions/{tx_hash}")
 def get_transaction(tx_hash: str) -> dict[str, Any]:
     """Get transaction by hash."""
-    try:
-        from ....config import settings
-
-        rpc_url = settings.blockchain_rpc_url.rstrip("/")
-        client = AITBCHTTPClient(timeout=5.0)
-        response = client.get(f"{rpc_url}/rpc/transaction/{tx_hash}")
-        return response
-    except NetworkError as e:
-        logger.error("RPC connection failed: %s", e)
-        return {"status": "error", "error": "RPC connection failed"}
+    return _rpc_get(f"/rpc/transaction/{tx_hash}", unavailable_status=503)
 
 
 @router.get("/accounts/{address}")
 def get_account(address: str) -> dict[str, Any]:
     """Get account balance and state."""
-    try:
-        from ....config import settings
-
-        rpc_url = settings.blockchain_rpc_url.rstrip("/")
-        client = AITBCHTTPClient(timeout=5.0)
-        response = client.get(f"{rpc_url}/rpc/accounts/{address}")
-        return response
-    except NetworkError as e:
-        logger.error("RPC connection failed: %s", e)
-        return {"status": "error", "error": "RPC connection failed"}
+    return _rpc_get(f"/rpc/accounts/{address}", unavailable_status=503)
 
 
 @router.get("/validators")
 def get_validators() -> dict[str, Any]:
     """List validators."""
-    try:
-        from ....config import settings
-
-        rpc_url = settings.blockchain_rpc_url.rstrip("/")
-        client = AITBCHTTPClient(timeout=5.0)
-        response = client.get(f"{rpc_url}/rpc/head")
-        proposer = response.get("proposer", "genesis")
-        return {"validators": [{"address": proposer, "status": "active"}], "total": 1}
-    except NetworkError as e:
-        logger.error("RPC connection failed: %s", e)
-        return {"status": "error", "error": "RPC connection failed"}
-    except _OPS_ERRORS as e:
-        logger.error("Failed to get validators: %s", e)
-        return {"status": "error", "error": str(e)}
+    response = _rpc_get("/rpc/head", unavailable_status=503)
+    proposer = response.get("proposer", "genesis")
+    return {"validators": [{"address": proposer, "status": "active"}], "total": 1}
 
 
 @router.get("/supply")
@@ -222,13 +190,5 @@ def get_supply() -> dict[str, Any]:
 @router.get("/state/dump")
 def get_state_dump() -> dict[str, Any]:
     """Get state dump."""
-    try:
-        from ....config import settings
-
-        rpc_url = settings.blockchain_rpc_url.rstrip("/")
-        client = AITBCHTTPClient(timeout=5.0)
-        response = client.get(f"{rpc_url}/rpc/blocks-range?start=0&end=10")
-        return {"state": response, "timestamp": response.get("timestamp", "")}
-    except NetworkError as e:
-        logger.error("RPC connection failed: %s", e)
-        return {"status": "error", "error": "RPC connection failed"}
+    response = _rpc_get("/rpc/blocks-range?start=0&end=10", unavailable_status=503)
+    return {"state": response, "timestamp": response.get("timestamp", "")}

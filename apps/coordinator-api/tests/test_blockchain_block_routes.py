@@ -272,6 +272,84 @@ class TestSupplyRoute:
 
 
 @pytest.mark.unit
+class TestSoftFailReads:
+    """#2172: the remaining read routes used to answer HTTP 200 with
+    ``{"status": "error"}`` when the node was down — indistinguishable from a
+    real answer. They now share the ``/status``/``/supply`` convention: 503
+    ``Blockchain RPC unavailable`` on RPC failure, 404 when the node itself
+    says the object does not exist."""
+
+    _SOFT_FAIL_ROUTES = (
+        "/v1/sync-status",
+        "/v1/transactions/0xdead",
+        "/v1/accounts/0xabc",
+        "/v1/validators",
+        "/v1/state/dump",
+    )
+
+    @pytest.mark.parametrize("path", _SOFT_FAIL_ROUTES)
+    @patch("coordinator_api.config.settings")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    def test_rpc_failure_is_an_honest_503(self, mock_client_class, mock_settings, path):
+        mock_settings.blockchain_rpc_url = "http://localhost:8202"
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+        mock_client.get.side_effect = NetworkError("Connection refused")
+
+        response = _client().get(path)
+
+        assert response.status_code == 503
+        assert response.json()["detail"] == "Blockchain RPC unavailable"
+
+    @pytest.mark.parametrize("path", _SOFT_FAIL_ROUTES)
+    @patch("coordinator_api.config.settings")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    def test_node_404_stays_a_404_not_a_200_error_body(self, mock_client_class, mock_settings, path):
+        """A missing object is an answer; it must not collapse into the
+        unreachable-node 503 or the old 200 error body."""
+        mock_settings.blockchain_rpc_url = "http://localhost:8202"
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+        mock_client.get.side_effect = _network_error_for_status(404)
+
+        response = _client().get(path)
+
+        assert response.status_code == 404
+
+    @patch("coordinator_api.config.settings")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    def test_sync_status_still_transforms_a_live_answer(self, mock_client_class, mock_settings):
+        mock_settings.blockchain_rpc_url = "http://localhost:8202"
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+        mock_client.get.return_value = {"syncing": False, "current_block": 29601}
+
+        response = _client().get("/v1/sync-status")
+
+        assert response.status_code == 200
+        assert response.json() == {"status": "synced", "block": 29601}
+
+    @patch("coordinator_api.config.settings")
+    @patch("coordinator_api.contexts.blockchain.routers.blockchain.AITBCHTTPClient")
+    def test_validators_and_state_dump_keep_their_success_shapes(self, mock_client_class, mock_settings):
+        mock_settings.blockchain_rpc_url = "http://localhost:8202"
+        mock_client = Mock()
+        mock_client_class.return_value = mock_client
+        mock_client.get.side_effect = lambda url: (
+            {"proposer": "0xprop", "height": 1} if url.endswith("/rpc/head") else {"blocks": [], "timestamp": "t"}
+        )
+
+        validators = _client().get("/v1/validators")
+        dump = _client().get("/v1/state/dump")
+
+        assert validators.status_code == 200
+        assert validators.json()["validators"] == [{"address": "0xprop", "status": "active"}]
+        assert dump.status_code == 200
+        assert dump.json()["state"] == {"blocks": [], "timestamp": "t"}
+        assert dump.json()["timestamp"] == "t"
+
+
+@pytest.mark.unit
 def test_every_relative_import_in_the_module_resolves():
     """The general form of the bug: a relative import at the wrong depth.
 
