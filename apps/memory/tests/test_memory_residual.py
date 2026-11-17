@@ -133,3 +133,55 @@ def test_api_key_gate_when_configured(monkeypatch: pytest.MonkeyPatch) -> None:
         )
     finally:
         monkeypatch.setattr(settings, "memory_api_key", None)
+
+
+@pytest.mark.unit
+def test_byte_cap_overflow_evicts_lru_instead_of_507(monkeypatch: pytest.MonkeyPatch) -> None:
+    """MEMORY_MAX_TOTAL_BYTES overflow evicts LRU, not StoreFullError (#2177).
+
+    The count cap alone left the heap unbounded (10k x 16 MiB blobs); the
+    byte cap applies the same expired-then-LRU policy. Runs last in this
+    file: with a tiny cap it legitimately evicts blobs earlier tests left
+    in the shared store.
+    """
+    client = TestClient(app)
+    monkeypatch.setattr(settings, "memory_max_total_bytes", 250)
+    first = _store(client, "b2177-owner-a", b"a" * 100)
+    cid_first = first["content_address"]
+    # Make the first blob deterministically the LRU victim.
+    api_module.store._store[cid_first]["last_accessed"] = datetime(2000, 1, 1, tzinfo=UTC)
+    second = _store(client, "b2177-owner-b", b"b" * 100)
+    assert second["content_address"] != cid_first
+    gone = client.get(f"/v1/retrieve/{cid_first}", params={"owner": "b2177-owner-a"})
+    assert gone.status_code == 404
+    ok = client.get(f"/v1/retrieve/{second['content_address']}", params={"owner": "b2177-owner-b"})
+    assert ok.status_code == 200
+    assert base64.b64decode(ok.json()["data"]) == b"b" * 100
+    assert api_module.store._total_bytes <= 250
+
+
+@pytest.mark.unit
+def test_byte_cap_still_507s_when_nothing_can_be_evicted(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A single blob larger than MEMORY_MAX_TOTAL_BYTES gets 507 (#2177)."""
+    client = TestClient(app)
+    monkeypatch.setattr(settings, "memory_max_total_bytes", 8)
+    monkeypatch.setattr(settings, "memory_max_blob_bytes", 1024)
+    resp = client.post(
+        "/v1/store",
+        json={"owner": "b2177-owner-c", "data": base64.b64encode(b"x" * 64).decode("ascii"), "tags": {}},
+    )
+    assert resp.status_code == 507
+
+
+@pytest.mark.unit
+def test_retrieve_owner_scoping_denies_foreign_and_allows_owner() -> None:
+    """#2177 pin: a foreign owner gets 403 (existence not leaked as 200);
+    the storing owner still retrieves the blob."""
+    client = TestClient(app)
+    body = _store(client, "b2177-owner-d", b"owner scoped blob")
+    cid = body["content_address"]
+    foreign = client.get(f"/v1/retrieve/{cid}", params={"owner": "b2177-intruder"})
+    assert foreign.status_code == 403
+    owner = client.get(f"/v1/retrieve/{cid}", params={"owner": "b2177-owner-d"})
+    assert owner.status_code == 200
+    assert base64.b64decode(owner.json()["data"]) == b"owner scoped blob"
