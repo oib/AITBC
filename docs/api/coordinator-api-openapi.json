@@ -9948,7 +9948,7 @@
           "confidential"
         ],
         "summary": "Create Confidential Transaction",
-        "description": "Create a new confidential transaction with optional encryption",
+        "description": "Create a new confidential transaction with optional encryption.\n\nDisabled: there is no confidential-transaction store, so the previous\nimplementation built an in-memory object, encrypted into locals and\npersisted nothing \u2014 every created transaction was silently orphaned\n(#2174).",
         "operationId": "create_confidential_transaction_v1_confidential_transactions_post",
         "parameters": [
           {
@@ -9999,8 +9999,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "Confidential transaction creation is not implemented: no confidential transaction store exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -10018,7 +10018,7 @@
           "confidential"
         ],
         "summary": "Get Confidential Transaction",
-        "description": "Get confidential transaction metadata (without decrypting sensitive data)",
+        "description": "Get confidential transaction metadata (without decrypting sensitive data).\n\nDisabled: with no confidential-transaction store every lookup is a lie\nby construction (#2174).",
         "operationId": "get_confidential_transaction_v1_confidential_transactions__transaction_id__get",
         "parameters": [
           {
@@ -10068,18 +10068,8 @@
               }
             }
           },
-          "404": {
-            "description": "Transaction not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "Confidential transaction reads are not implemented: no confidential transaction store exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -10097,7 +10087,7 @@
           "confidential"
         ],
         "summary": "Access Confidential Data",
-        "description": "Request access to decrypt confidential transaction data",
+        "description": "Request access to decrypt confidential transaction data.\n\nDisabled: with no confidential-transaction store there is no encrypted\npayload to authorize against \u2014 the previous implementation fabricated a\ntransaction and returned hardcoded 'decrypted' data (#2174).",
         "operationId": "access_confidential_data_v1_confidential_transactions__transaction_id__access_post",
         "parameters": [
           {
@@ -10158,7 +10148,7 @@
             }
           },
           "400": {
-            "description": "Transaction ID mismatch / Transaction is not confidential",
+            "description": "Transaction ID mismatch",
             "content": {
               "application/json": {
                 "schema": {
@@ -10168,7 +10158,7 @@
             }
           },
           "403": {
-            "description": "requester must match the authenticated principal / Access denied",
+            "description": "requester must match the authenticated principal",
             "content": {
               "application/json": {
                 "schema": {
@@ -10177,18 +10167,8 @@
               }
             }
           },
-          "404": {
-            "description": "No encrypted data found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "Confidential data access is not implemented: no confidential transaction store exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -10206,7 +10186,7 @@
           "confidential"
         ],
         "summary": "Audit Access Confidential Data",
-        "description": "Audit access to confidential transaction data",
+        "description": "Audit access to confidential transaction data.\n\nDisabled: with no confidential-transaction store there is no encrypted\npayload to audit-decrypt \u2014 the previous implementation always 404'd on\nits own fabricated empty transaction (#2174).",
         "operationId": "audit_access_confidential_data_v1_confidential_transactions__transaction_id__audit_post",
         "parameters": [
           {
@@ -10275,28 +10255,8 @@
               }
             }
           },
-          "400": {
-            "description": "Transaction is not confidential",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "No encrypted data found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "Confidential audit access is not implemented: no confidential transaction store exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -10505,7 +10465,7 @@
           "confidential"
         ],
         "summary": "Get Access Logs",
-        "description": "Get access logs for confidential transactions",
+        "description": "Get access logs for confidential transactions.\n\nDisabled: no access-log store exists, so the previous implementation\nalways returned an empty page that looked like \"no access yet\" (#2174).",
         "operationId": "get_access_logs_v1_confidential_access_logs_get",
         "parameters": [
           {
@@ -10648,8 +10608,8 @@
               }
             }
           },
-          "500": {
-            "description": "Internal server error",
+          "501": {
+            "description": "Confidential access logs are not implemented: no access-log store exists",
             "content": {
               "application/json": {
                 "schema": {
@@ -10667,7 +10627,7 @@
           "confidential"
         ],
         "summary": "Get Confidential Status",
-        "description": "Get status of confidential transaction system",
+        "description": "Get status of confidential transaction system.\n\nReports only real capabilities: key management and the encryption\nservice exist, but with no confidential-transaction store the system\ncannot serve transactions, so ``enabled`` is False and no\n``transactions_count`` is fabricated (#2174).",
         "operationId": "get_confidential_status_v1_confidential_status_get",
         "parameters": [
           {
