@@ -9,7 +9,8 @@
      1 apps/wallet/src/wallet_app/bridge/bridge_monitor.py
      1 apps/wallet/src/wallet_app/bridge/bridge_withdraw_monitor.py
      1 apps/wallet/src/wallet_app/spend_policy.py
-     2 cli/aitbc_cli/commands/ai.py
+     1 cli/aitbc_cli/commands/ai/pay.py
+     1 cli/aitbc_cli/commands/ai/refunds.py
      2 cli/aitbc_cli/commands/coin_requests.py
      1 cli/aitbc_cli/commands/cross_chain.py
      4 cli/aitbc_cli/commands/market/jobs.py
