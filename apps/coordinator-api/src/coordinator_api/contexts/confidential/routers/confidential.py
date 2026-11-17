@@ -21,27 +21,15 @@ from ....schemas import (
     ConfidentialAccessResponse,
     ConfidentialPaymentCreate,
     ConfidentialPaymentView,
-    ConfidentialTransaction,
     ConfidentialTransactionCreate,
     ConfidentialTransactionView,
     KeyRegistrationRequest,
     KeyRegistrationResponse,
 )
-from ...security.services.access_control import AccessController
-from ...security.services.encryption import EncryptedData, EncryptionError, EncryptionService
+from ...security.services.encryption import EncryptionService
 from ...security.services.key_management import KeyManagementError, KeyManager, validate_participant_id
 
 logger = get_logger(__name__)
-
-_OPS_ERRORS: tuple[type[BaseException], ...] = (
-    OSError,
-    ValueError,
-    KeyError,
-    TypeError,
-    AttributeError,
-    RuntimeError,
-    EncryptionError,
-)
 
 
 def _require_participant(principal: str, participant_id: str, role: str | None) -> None:
@@ -62,7 +50,6 @@ router = APIRouter(prefix="/confidential", tags=["confidential"])
 security = HTTPBearer()
 encryption_service: EncryptionService | None = None
 key_manager: KeyManager | None = None
-access_controller: AccessController | None = None
 
 
 def get_encryption_service() -> EncryptionService:
@@ -88,17 +75,6 @@ def get_key_manager() -> KeyManager:
     return key_manager
 
 
-def get_access_controller() -> AccessController:
-    """Get access controller instance"""
-    global access_controller
-    if access_controller is None:
-        from ....contexts.security.services.access_control import PolicyStore
-
-        policy_store = PolicyStore()
-        access_controller = AccessController(policy_store)
-    return access_controller
-
-
 @router.post("/transactions", response_model=ConfidentialTransactionView)
 @rate_limit(rate=20, per=60)
 def create_confidential_transaction(
@@ -106,55 +82,17 @@ def create_confidential_transaction(
     request: ConfidentialTransactionCreate,
     _user: AuthDep,
 ) -> ConfidentialTransactionView:
-    """Create a new confidential transaction with optional encryption"""
-    try:
-        transaction_id = f"ctx-{datetime.now(UTC).timestamp()}"
-        transaction = ConfidentialTransaction(
-            transaction_id=transaction_id,
-            job_id=request.job_id,
-            timestamp=datetime.now(UTC),
-            status="created",
-            amount=request.amount,
-            pricing=request.pricing,
-            settlement_details=request.settlement_details,
-            confidential=request.confidential,
-            participants=request.participants,
-            access_policies=request.access_policies,
-        )
-        if request.confidential and request.participants:
-            sensitive_data = {
-                "amount": request.amount,
-                "pricing": request.pricing,
-                "settlement_details": request.settlement_details,
-            }
-            sensitive_data = {k: v for k, v in sensitive_data.items() if v is not None}
-            if sensitive_data:
-                enc_service = get_encryption_service()
-                encrypted = enc_service.encrypt(data=sensitive_data, participants=request.participants, include_audit=True)
-                transaction.encrypted_data = encrypted.to_dict()["ciphertext"]
-                transaction.encrypted_keys = encrypted.to_dict()["encrypted_keys"]
-                transaction.algorithm = encrypted.algorithm
-                transaction.amount = None
-                transaction.pricing = None
-                transaction.settlement_details = None
-        logger.info("Created confidential transaction: %s", transaction_id)
-        return ConfidentialTransactionView(
-            transaction_id=transaction.transaction_id,
-            job_id=transaction.job_id,
-            timestamp=transaction.timestamp,
-            status=transaction.status,
-            amount=transaction.amount,
-            pricing=transaction.pricing,
-            settlement_details=transaction.settlement_details,
-            confidential=transaction.confidential,
-            participants=transaction.participants,
-            has_encrypted_data=transaction.encrypted_data is not None,
-        )
-    except Exception as e:
-        logger.error("Failed to create confidential transaction: %s", e)
-        logger.exception("Unhandled exception")
+    """Create a new confidential transaction with optional encryption.
 
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    Disabled: there is no confidential-transaction store, so the previous
+    implementation built an in-memory object, encrypted into locals and
+    persisted nothing — every created transaction was silently orphaned
+    (#2174).
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Confidential transaction creation is not implemented: no confidential transaction store exists",
+    )
 
 
 @router.get("/transactions/{transaction_id}", response_model=ConfidentialTransactionView)
@@ -164,16 +102,15 @@ def get_confidential_transaction(
     transaction_id: str,
     _user: AuthDep,
 ) -> ConfidentialTransactionView:
-    """Get confidential transaction metadata (without decrypting sensitive data)"""
-    try:
-        raise HTTPException(status_code=404, detail="Transaction not found")
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Failed to get transaction %s: %s", transaction_id, e)
-        logger.exception("Unhandled exception")
+    """Get confidential transaction metadata (without decrypting sensitive data).
 
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    Disabled: with no confidential-transaction store every lookup is a lie
+    by construction (#2174).
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Confidential transaction reads are not implemented: no confidential transaction store exists",
+    )
 
 
 @router.post("/transactions/{transaction_id}/access", response_model=ConfidentialAccessResponse)
@@ -184,61 +121,21 @@ def access_confidential_data(
     transaction_id: str,
     user: AuthDep,
 ) -> ConfidentialAccessResponse:
-    """Request access to decrypt confidential transaction data"""
-    try:
-        if request_data.transaction_id != transaction_id:
-            raise HTTPException(status_code=400, detail="Transaction ID mismatch")
-        principal = str(user.get("sub") or user.get("user_id") or "")
-        if request_data.requester != principal and user.get("role") != "admin":
-            raise HTTPException(status_code=403, detail="requester must match the authenticated principal")
-        transaction = ConfidentialTransaction(
-            transaction_id=transaction_id,
-            job_id="test-job",
-            timestamp=datetime.now(UTC),
-            status="completed",
-            confidential=True,
-            participants=["client-456", "miner-789"],
-        )
-        transaction.encrypted_data = "mock-ciphertext"
-        transaction.encrypted_keys = {"client-456": "mock-dek", "miner-789": "mock-dek", "audit": "mock-dek"}
-        if not transaction.confidential:
-            raise HTTPException(status_code=400, detail="Transaction is not confidential")
-        acc_controller = get_access_controller()
-        if not acc_controller.verify_access(request_data):
-            raise HTTPException(status_code=403, detail="Access denied")
-        if transaction.encrypted_data == "mock-ciphertext":
-            return ConfidentialAccessResponse(
-                success=True,
-                data={"amount": "1000", "pricing": {"rate": "0.1"}},
-                access_id=f"access-{datetime.now(UTC).timestamp()}",
-            )
-        enc_service = get_encryption_service()
-        if not transaction.encrypted_data or not transaction.encrypted_keys:
-            raise HTTPException(status_code=404, detail="No encrypted data found")
-        encrypted_data = EncryptedData.from_dict(
-            {
-                "ciphertext": transaction.encrypted_data,
-                "encrypted_keys": transaction.encrypted_keys,
-                "algorithm": transaction.algorithm or "AES-256-GCM+X25519",
-            }
-        )
-        try:
-            decrypted_data = enc_service.decrypt(
-                encrypted_data=encrypted_data, participant_id=request_data.requester, purpose=request_data.purpose
-            )
-            return ConfidentialAccessResponse(
-                success=True, data=decrypted_data, access_id=f"access-{datetime.now(UTC).timestamp()}"
-            )
-        except _OPS_ERRORS as e:
-            logger.error("Decryption failed: %s", e)
-            return ConfidentialAccessResponse(success=False, error=str(e))
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Failed to access confidential data: %s", e)
-        logger.exception("Unhandled exception")
+    """Request access to decrypt confidential transaction data.
 
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    Disabled: with no confidential-transaction store there is no encrypted
+    payload to authorize against — the previous implementation fabricated a
+    transaction and returned hardcoded 'decrypted' data (#2174).
+    """
+    if request_data.transaction_id != transaction_id:
+        raise HTTPException(status_code=400, detail="Transaction ID mismatch")
+    principal = str(user.get("sub") or user.get("user_id") or "")
+    if request_data.requester != principal and user.get("role") != "admin":
+        raise HTTPException(status_code=403, detail="requester must match the authenticated principal")
+    raise HTTPException(
+        status_code=501,
+        detail="Confidential data access is not implemented: no confidential transaction store exists",
+    )
 
 
 @router.post("/transactions/{transaction_id}/audit", response_model=ConfidentialAccessResponse)
@@ -250,44 +147,16 @@ def audit_access_confidential_data(
     _user: AuthDep,
     purpose: str = "audit",
 ) -> ConfidentialAccessResponse:
-    """Audit access to confidential transaction data"""
-    try:
-        transaction = ConfidentialTransaction(
-            transaction_id=transaction_id,
-            job_id="test-job",
-            timestamp=datetime.now(UTC),
-            status="completed",
-            confidential=True,
-        )
-        if not transaction.confidential:
-            raise HTTPException(status_code=400, detail="Transaction is not confidential")
-        enc_service = get_encryption_service()
-        if not transaction.encrypted_data or not transaction.encrypted_keys:
-            raise HTTPException(status_code=404, detail="No encrypted data found")
-        encrypted_data = EncryptedData.from_dict(
-            {
-                "ciphertext": transaction.encrypted_data,
-                "encrypted_keys": transaction.encrypted_keys,
-                "algorithm": transaction.algorithm or "AES-256-GCM+X25519",
-            }
-        )
-        try:
-            decrypted_data = enc_service.audit_decrypt(
-                encrypted_data=encrypted_data, audit_authorization=authorization, purpose=purpose or "audit"
-            )
-            return ConfidentialAccessResponse(
-                success=True, data=decrypted_data, access_id=f"audit-{datetime.now(UTC).timestamp()}"
-            )
-        except _OPS_ERRORS as e:
-            logger.error("Audit decryption failed: %s", e)
-            return ConfidentialAccessResponse(success=False, error=str(e))
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Failed audit access: %s", e)
-        logger.exception("Unhandled exception")
+    """Audit access to confidential transaction data.
 
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    Disabled: with no confidential-transaction store there is no encrypted
+    payload to audit-decrypt — the previous implementation always 404'd on
+    its own fabricated empty transaction (#2174).
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Confidential audit access is not implemented: no confidential transaction store exists",
+    )
 
 
 @router.post("/keys/register", response_model=KeyRegistrationResponse)
@@ -373,14 +242,15 @@ def get_access_logs(
     query: Annotated[AccessLogQuery, Depends()],
     _admin: AdminDep,
 ) -> AccessLogResponse:
-    """Get access logs for confidential transactions"""
-    try:
-        return AccessLogResponse(logs=[], total_count=0, has_more=False)
-    except Exception as e:
-        logger.error("Failed to get access logs: %s", e)
-        logger.exception("Unhandled exception")
+    """Get access logs for confidential transactions.
 
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+    Disabled: no access-log store exists, so the previous implementation
+    always returned an empty page that looked like "no access yet" (#2174).
+    """
+    raise HTTPException(
+        status_code=501,
+        detail="Confidential access logs are not implemented: no access-log store exists",
+    )
 
 
 @router.get("/status")
@@ -389,17 +259,23 @@ async def get_confidential_status(
     request: Request,
     _user: AuthDep,
 ) -> dict[str, Any]:
-    """Get status of confidential transaction system"""
+    """Get status of confidential transaction system.
+
+    Reports only real capabilities: key management and the encryption
+    service exist, but with no confidential-transaction store the system
+    cannot serve transactions, so ``enabled`` is False and no
+    ``transactions_count`` is fabricated (#2174).
+    """
     try:
         km = get_key_manager()
         get_encryption_service()
         participants = await km.list_participants()
         return {
-            "enabled": True,
+            "enabled": False,
+            "reason": "Confidential transaction storage is not implemented; encryption and key services are available",
             "algorithm": "AES-256-GCM+X25519",
             "participants_count": len(participants),
-            "transactions_count": 0,
-            "audit_enabled": True,
+            "audit_enabled": False,
         }
     except Exception as e:
         logger.error("Failed to get status: %s", e)

@@ -91,9 +91,30 @@ def test_confidential_transactions_requires_auth(client, client_token):
             "participants": [],
         },
     )
-    # The endpoint is a stub and may return 500 when it cannot initialize the
-    # encryption service, but it must not return 401 or 403 for a valid token.
-    assert resp.status_code in (200, 201, 500)
+    # #2174: no confidential-transaction store exists — the endpoint fails
+    # loud with 501 instead of fabricating an orphaned transaction.
+    assert resp.status_code == 501
+
+
+@pytest.mark.unit
+def test_confidential_transaction_get_is_honest_501(client, client_token):
+    """#2174: GET /transactions/{id} reports the missing store, not a fake 404."""
+    resp = client.get(
+        "/v1/confidential/transactions/ctx-1",
+        headers={"Authorization": f"Bearer {client_token}"},
+    )
+    assert resp.status_code == 501
+
+
+@pytest.mark.unit
+def test_confidential_audit_is_honest_501(client, client_token):
+    """#2174: POST /transactions/{id}/audit fails loud — no store to audit."""
+    resp = client.post(
+        "/v1/confidential/transactions/ctx-1/audit",
+        headers={"Authorization": f"Bearer {client_token}"},
+        params={"authorization": "audit-key", "purpose": "audit"},
+    )
+    assert resp.status_code == 501
 
 
 @pytest.mark.unit
@@ -192,12 +213,14 @@ def test_access_rejects_foreign_requester(client, client_token):
 
 @pytest.mark.unit
 def test_access_allows_self_requester(client, client_token):
-    """requester == token sub passes the binding (downstream policy may still deny)."""
+    """requester == token sub passes the binding, then hits the honest 501
+    (#2174: no store exists to serve decrypted data)."""
     resp = client.post(
         "/v1/confidential/transactions/ctx-1/access",
         headers={"Authorization": f"Bearer {client_token}"},
         json=_access_body("client1"),
     )
+    assert resp.status_code == 501
     assert "requester must match" not in resp.text
 
 
@@ -209,6 +232,7 @@ def test_access_admin_may_assert_requester(client, admin_token):
         headers={"Authorization": f"Bearer {admin_token}"},
         json=_access_body("any-participant"),
     )
+    assert resp.status_code == 501
     assert "requester must match" not in resp.text
 
 
@@ -247,11 +271,13 @@ def test_access_logs_rejects_client(client, client_token):
 
 @pytest.mark.unit
 def test_access_logs_allows_admin(client, admin_token):
+    """#2174: admin passes auth, then the endpoint reports the missing
+    access-log store as 501 instead of an empty page."""
     resp = client.get(
         "/v1/confidential/access/logs",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
-    assert resp.status_code == 200
+    assert resp.status_code == 501
 
 
 @pytest.mark.unit
@@ -263,11 +289,17 @@ def test_confidential_status_requires_auth(client):
 
 @pytest.mark.unit
 def test_confidential_status_allows_client(client, client_token):
+    """#2174: status stays 200 but reports only real capabilities — no
+    fabricated enabled=True / transactions_count."""
     resp = client.get(
         "/v1/confidential/status",
         headers={"Authorization": f"Bearer {client_token}"},
     )
     assert resp.status_code == 200
+    data = resp.json()
+    assert data["enabled"] is False
+    assert "transactions_count" not in data
+    assert data["audit_enabled"] is False
 
 
 # --- #1932 F1: participant_id path traversal ---
