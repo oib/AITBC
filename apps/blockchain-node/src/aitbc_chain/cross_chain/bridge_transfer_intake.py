@@ -12,6 +12,7 @@ from aitbc.utils.env import is_production
 from ..config import settings
 from ..logger import get_logger
 from ..models import Account, CrossChainTransfer, Transaction
+from ..state.state_transition import block_scoped_preregistered_for_next_block
 from ..state.bridge_credit import (
     BRIDGE_SIGNATURE_FIELD,
     bridge_credit_private_key,
@@ -271,7 +272,7 @@ class BridgeTransferIntakeMixin(BridgeBase):
             if sender_account.balance < total_deduction:
                 raise ValueError(f"Insufficient balance: {sender_account.balance} < {total_deduction}")
             lock_nonce = sender_account.nonce
-            block_scoped = getattr(settings, "block_scoped_preregistered_transactions", True)
+            block_scoped = block_scoped_preregistered_for_next_block(session, source_chain)
             self._maybe_debit_lock_account(session, sender_account, total_deduction, block_scoped)
 
             # v0.7.3: put the bridge lock in the mempool so the next block
