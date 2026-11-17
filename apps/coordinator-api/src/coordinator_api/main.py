@@ -715,6 +715,14 @@ def _add_middleware(app: FastAPI) -> None:
     # Enable route-level authentication in non-test environments.
     if settings.auth_enabled and not settings.test_mode:
         app.add_middleware(AuthMiddleware)
+        # #2183: the middleware verifies JWT signature/expiry only; wire the shared
+        # logout blocklist so a token revoked via POST /v1/logout is rejected on every
+        # authenticated route, not just the users router.
+        from aitbc.auth.middleware import set_token_revocation_check
+
+        from .contexts.infrastructure.routers.users import _is_token_revoked
+
+        set_token_revocation_check(_is_token_revoked)
         logger.info("Authentication middleware enabled")
     else:
         logger.info(
