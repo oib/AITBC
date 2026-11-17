@@ -19,6 +19,7 @@ from .output import info
 import re
 
 from .wallet_paths import (
+    WalletSearchResult,
     find_wallet_file,
     find_wallet_file_report,
     service_dir_wallet_note,
@@ -186,25 +187,7 @@ def load_wallet_for_payment(
         password = _resolve_password(name, password)
     if path is None:
         # If the file wallet is missing, try the wallet daemon
-        from ..config import get_config
-        from .dual_mode_wallet_adapter import DualModeWalletAdapter
-
-        config = get_config()
-        adapter = DualModeWalletAdapter(config, use_daemon=True)
-        info_doc = adapter.get_wallet_info(name)
-        if not info_doc:
-            abort(ctx, wallet_not_found_message(report))
-        info_doc = cast(dict, info_doc)
-        address = to_canonical(info_doc.get("address", ""))
-        if not address:
-            abort(ctx, f"Wallet '{name}' has no address")
-        if require_private_key:
-            abort(
-                ctx,
-                f"Wallet '{name}' exists only in the wallet daemon keystore; signing needs a "
-                f"file wallet — pass --wallet-path <file>.\n  {wallet_not_found_hint(report)}",
-            )
-        return address, None, name
+        return _load_wallet_from_daemon(ctx, name, report, require_private_key)
 
     # Load file wallet (encrypted if needed)
     from ..commands.wallet import _load_wallet
@@ -215,6 +198,48 @@ def load_wallet_for_payment(
         abort(ctx, f"Wallet '{name}' has no address")
     address = to_canonical(cast(str, raw_address))
 
+    private_key = _extract_private_key(ctx, name, wallet_data, password)
+
+    if require_private_key and (not isinstance(private_key, str) or not private_key):
+        abort(ctx, f"Wallet '{name}' has no usable private key for signing")
+
+    return address, cast(str | None, private_key if private_key else None), name
+
+
+def _load_wallet_from_daemon(
+    ctx,
+    name: str,
+    report: WalletSearchResult,
+    require_private_key: bool,
+) -> tuple[str, str | None, str]:
+    """Resolve the wallet through the wallet daemon keystore.
+
+    Signing still requires a file wallet — a daemon-only wallet can only
+    satisfy address lookups (``require_private_key=False``).
+    """
+    from ..config import get_config
+    from .dual_mode_wallet_adapter import DualModeWalletAdapter
+
+    config = get_config()
+    adapter = DualModeWalletAdapter(config, use_daemon=True)
+    info_doc = adapter.get_wallet_info(name)
+    if not info_doc:
+        abort(ctx, wallet_not_found_message(report))
+    info_doc = cast(dict, info_doc)
+    address = to_canonical(info_doc.get("address", ""))
+    if not address:
+        abort(ctx, f"Wallet '{name}' has no address")
+    if require_private_key:
+        abort(
+            ctx,
+            f"Wallet '{name}' exists only in the wallet daemon keystore; signing needs a "
+            f"file wallet — pass --wallet-path <file>.\n  {wallet_not_found_hint(report)}",
+        )
+    return address, None, name
+
+
+def _extract_private_key(ctx, name: str, wallet_data: dict, password: str | None) -> object:
+    """Return the wallet's private key, decrypting it when stored encrypted."""
     private_key = wallet_data.get("private_key")
     if isinstance(private_key, dict):
         # Encrypted private key but no password was provided or it did not decrypt.
@@ -228,7 +253,4 @@ def load_wallet_for_payment(
             private_key = decrypt_value(private_key, password)
         except ValueError as e:
             abort(ctx, f"Failed to decrypt wallet '{name}': {e}")
-    if require_private_key and (not isinstance(private_key, str) or not private_key):
-        abort(ctx, f"Wallet '{name}' has no usable private key for signing")
-
-    return address, cast(str | None, private_key if private_key else None), name
+    return private_key

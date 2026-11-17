@@ -299,37 +299,12 @@ class OfferSubscriptionClient:
                     async for event in self._iter_ws_messages(websocket):
                         yield event
             except ConnectionClosed:
-                logger.warning(
-                    "Offer subscription WebSocket closed for chain %s, reconnecting",
-                    chain_id,
-                )
-                async with self._lock:
-                    self._status[chain_id] = SubscriptionStatus.RECONNECTING
                 reconnect_attempts += 1
-                if self._reconnect_exhausted(chain_id, reconnect_attempts):
+                if not await self._handle_ws_close(chain_id, reconnect_attempts):
                     use_polling_fallback = True
                     break
-                await asyncio.sleep(self._reconnect_delay)
             except InvalidStatus as e:
-                # A rejected handshake is an HTTP response, not a WS close. 401/403
-                # mean the API key is missing or wrong — terminal, not transient —
-                # so surface it instead of dropping into a polling fallback that
-                # would fail identically and hide the misconfiguration.
-                if e.response.status_code in (401, 403):
-                    logger.error(
-                        "Offer subscription handshake rejected with HTTP %s for chain %s — check the trading API key",
-                        e.response.status_code,
-                        chain_id,
-                    )
-                    raise
-                logger.warning(
-                    "Offer subscription handshake rejected with HTTP %s for chain %s, falling back to polling",
-                    e.response.status_code,
-                    chain_id,
-                )
-                async with self._lock:
-                    self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
-                async for event in self._polling_fallback(chain_id, self._subscriptions[chain_id]):
+                async for event in self._handshake_fallback(chain_id, e):
                     yield event
                 return
             except (WebSocketException, ValueError, TypeError, RuntimeError, OSError, asyncio.TimeoutError) as e:
@@ -342,11 +317,56 @@ class OfferSubscriptionClient:
                 break
 
         if use_polling_fallback:
-            async with self._lock:
-                self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
-            # Polling fallback path.
-            async for event in self._polling_fallback(chain_id, self._subscriptions[chain_id]):
+            async for event in self._polling_fallback_stream(chain_id):
                 yield event
+
+    async def _handshake_fallback(self, chain_id: str, exc: InvalidStatus) -> AsyncIterator[OfferEvent]:
+        """Handle a rejected WebSocket handshake.
+
+        A rejected handshake is an HTTP response, not a WS close. 401/403
+        mean the API key is missing or wrong — terminal, not transient —
+        so surface it instead of dropping into a polling fallback that
+        would fail identically and hide the misconfiguration. Other status
+        codes fall back to polling.
+        """
+        if exc.response.status_code in (401, 403):
+            logger.error(
+                "Offer subscription handshake rejected with HTTP %s for chain %s — check the trading API key",
+                exc.response.status_code,
+                chain_id,
+            )
+            raise exc
+        logger.warning(
+            "Offer subscription handshake rejected with HTTP %s for chain %s, falling back to polling",
+            exc.response.status_code,
+            chain_id,
+        )
+        async for event in self._polling_fallback_stream(chain_id):
+            yield event
+
+    async def _handle_ws_close(self, chain_id: str, reconnect_attempts: int) -> bool:
+        """Handle a WebSocket close: mark RECONNECTING and wait to retry.
+
+        Returns False when reconnect attempts are exhausted and the caller
+        should switch to the polling fallback.
+        """
+        logger.warning(
+            "Offer subscription WebSocket closed for chain %s, reconnecting",
+            chain_id,
+        )
+        async with self._lock:
+            self._status[chain_id] = SubscriptionStatus.RECONNECTING
+        if self._reconnect_exhausted(chain_id, reconnect_attempts):
+            return False
+        await asyncio.sleep(self._reconnect_delay)
+        return True
+
+    async def _polling_fallback_stream(self, chain_id: str) -> AsyncIterator[OfferEvent]:
+        """Mark the chain as polling-fallback and yield its poll events."""
+        async with self._lock:
+            self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
+        async for event in self._polling_fallback(chain_id, self._subscriptions[chain_id]):
+            yield event
 
     async def _iter_ws_messages(self, websocket: Any) -> AsyncIterator[OfferEvent]:
         async for raw in websocket:
