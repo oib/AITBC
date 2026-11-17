@@ -8,10 +8,10 @@ import pytest
 # Password hashing moved out of aitbc.crypto into aitbc.auth.password, where the salted
 # tuple-returning pair is named *_pbkdf2 (PasswordManager.hash_password is bcrypt and
 # has a different signature).
+from aitbc.auth.api_key import APIKeyManager
 from aitbc.auth.password import hash_password_pbkdf2 as hash_password
 from aitbc.auth.password import verify_password_pbkdf2 as verify_password
 from aitbc.crypto import (
-    APIKeyManager,
     SecretManager,
     SessionManager,
     generate_api_key,
@@ -195,67 +195,79 @@ class TestSessionManager:
 
 
 class TestAPIKeyManager:
-    """Test APIKeyManager class"""
+    """Test APIKeyManager class (persistent JSON store, aitbc.auth.api_key)"""
 
-    def test_initialization(self):
+    @pytest.fixture
+    def manager(self, tmp_path):
+        """APIKeyManager backed by a tmp_path store, never the default /var/lib path."""
+        return APIKeyManager(storage_path=str(tmp_path / "api_keys.json"))
+
+    def test_initialization(self, manager):
         """Test APIKeyManager initialization"""
-        manager = APIKeyManager()
-        assert manager.keys == {}
+        assert manager.api_keys == {}
 
-    def test_create_api_key(self):
-        """Test create_api_key method"""
-        manager = APIKeyManager()
-        api_key = manager.create_api_key("user123", scopes=["read", "write"], name="Test Key")
-        assert api_key is not None
-        assert api_key in manager.keys
-        assert manager.keys[api_key]["user_id"] == "user123"
+    def test_generate_api_key(self, manager):
+        """Test generate_api_key method"""
+        result = manager.generate_api_key("user123", permissions=["read", "write"])
+        assert result["status"] == "success"
+        api_key = result["api_key"]
+        assert api_key
+        # plaintext key is never stored — only its sha256 digest is a key in api_keys
+        key_hash = APIKeyManager._hash_key(api_key)
+        assert api_key not in manager.api_keys
+        assert key_hash in manager.api_keys
+        assert manager.api_keys[key_hash]["user_id"] == "user123"
+        assert manager.api_keys[key_hash]["permissions"] == ["read", "write"]
 
-    def test_create_api_key_default_scopes(self):
-        """Test create_api_key with default scopes"""
-        manager = APIKeyManager()
-        api_key = manager.create_api_key("user123")
-        assert manager.keys[api_key]["scopes"] == ["read"]
+    def test_generate_api_key_default_permissions(self, manager):
+        """Test generate_api_key with default permissions"""
+        result = manager.generate_api_key("user123")
+        assert result["status"] == "success"
+        assert result["permissions"] == []
 
-    def test_validate_api_key(self):
+    def test_validate_api_key(self, manager):
         """Test validate_api_key method"""
-        manager = APIKeyManager()
-        api_key = manager.create_api_key("user123")
-        key_data = manager.validate_api_key(api_key)
-        assert key_data is not None
-        assert key_data["user_id"] == "user123"
+        result = manager.generate_api_key("user123")
+        api_key = result["api_key"]
+        validation = manager.validate_api_key(api_key)
+        assert validation["status"] == "success"
+        assert validation["valid"] is True
+        assert validation["user_id"] == "user123"
 
-    def test_validate_api_key_invalid(self):
+    def test_validate_api_key_invalid(self, manager):
         """Test validate_api_key with invalid key"""
-        manager = APIKeyManager()
-        key_data = manager.validate_api_key("invalid_key")
-        assert key_data is None
+        validation = manager.validate_api_key("invalid_key")
+        assert validation["status"] == "error"
+        assert validation["valid"] is False
 
-    def test_revoke_api_key(self):
+    def test_revoke_api_key(self, manager):
         """Test revoke_api_key method"""
-        manager = APIKeyManager()
-        api_key = manager.create_api_key("user123")
-        result = manager.revoke_api_key(api_key)
-        assert result is True
-        assert api_key not in manager.keys
+        result = manager.generate_api_key("user123")
+        api_key = result["api_key"]
+        key_hash = APIKeyManager._hash_key(api_key)
+        revoke_result = manager.revoke_api_key(api_key)
+        assert revoke_result["status"] == "success"
+        assert key_hash not in manager.api_keys
+        assert manager.validate_api_key(api_key)["valid"] is False
 
-    def test_revoke_api_key_nonexistent(self):
+    def test_revoke_api_key_nonexistent(self, manager):
         """Test revoke_api_key with nonexistent key"""
-        manager = APIKeyManager()
         result = manager.revoke_api_key("nonexistent")
-        assert result is False
+        assert result["status"] == "error"
 
-    def test_list_user_keys(self):
-        """Test list_user_keys method"""
-        manager = APIKeyManager()
-        key1 = manager.create_api_key("user123")
-        key2 = manager.create_api_key("user123")
-        key3 = manager.create_api_key("user456")
+    def test_list_user_keys(self, manager):
+        """Test listing keys for a user (no list_user_keys method; scan api_keys)"""
+        key1 = manager.generate_api_key("user123")["api_key"]
+        key2 = manager.generate_api_key("user123")["api_key"]
+        key3 = manager.generate_api_key("user456")["api_key"]
 
-        user_keys = manager.list_user_keys("user123")
+        user_hashes = {APIKeyManager._hash_key(k) for k in (key1, key2, key3)}
+        user_keys = [h for h, data in manager.api_keys.items() if data["user_id"] == "user123"]
         assert len(user_keys) == 2
-        assert key1 in user_keys
-        assert key2 in user_keys
-        assert key3 not in user_keys
+        assert APIKeyManager._hash_key(key1) in user_keys
+        assert APIKeyManager._hash_key(key2) in user_keys
+        assert APIKeyManager._hash_key(key3) not in user_keys
+        assert set(user_keys) <= user_hashes
 
 
 class TestSecretManager:
