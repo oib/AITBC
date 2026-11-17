@@ -440,7 +440,10 @@ def _register_trusted_api_key_hosts(config: "CLIConfig") -> "CLIConfig":
         if name == "url" or name.endswith("_url"):
             value = getattr(config, name, None)
             if isinstance(value, str) and value:
-                host = urlparse(value).hostname
+                # An operator may configure a bare ``host[:port][/path]`` (e.g.
+                # ``hub_discovery_url``): urlparse reads that as a path with no
+                # hostname, so the node's own public host stayed untrusted (#2117).
+                host = urlparse(value if "://" in value else f"//{value}").hostname
                 if host:
                     hosts.add(host)
     set_trusted_api_key_hosts(frozenset(hosts))

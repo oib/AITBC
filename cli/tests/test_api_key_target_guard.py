@@ -13,7 +13,7 @@ import warnings
 import pytest
 
 from aitbc.network.client import AITBCHTTPClient, AsyncAITBCHTTPClient, set_trusted_api_key_hosts
-from aitbc_cli.config import get_config
+from aitbc_cli.config import CLIConfig, _register_trusted_api_key_hosts, get_config
 
 
 @pytest.fixture(autouse=True)
@@ -193,3 +193,21 @@ def test_home_aitbc_yaml_does_not_warn(tmp_path, monkeypatch):
         warnings.simplefilter("always")
         get_config()
     assert not any("current directory" in str(w.message) for w in caught)
+
+
+def test_scheme_less_configured_host_is_trusted():
+    """#2117: a bare ``host`` in a ``*_url`` field (hub_discovery_url on the hub) is trusted."""
+    import aitbc.network.client as client_mod
+
+    _register_trusted_api_key_hosts(CLIConfig(hub_discovery_url="hub.example.test"))
+    assert "hub.example.test" in client_mod._trusted_api_key_hosts
+    _register_trusted_api_key_hosts(CLIConfig(hub_discovery_url="hub2.example.test:8443/path"))
+    assert "hub2.example.test" in client_mod._trusted_api_key_hosts
+
+
+def test_scheme_less_trust_does_not_widen_to_unconfigured_hosts():
+    """Only the configured host is added — a foreign host is still refused (#850 unchanged)."""
+    _register_trusted_api_key_hosts(CLIConfig(hub_discovery_url="hub.example.test"))
+    with pytest.raises(ValueError, match="unconfigured host"):
+        AITBCHTTPClient(base_url="https://evil.example.test", api_key="k")
+    assert AITBCHTTPClient(base_url="https://hub.example.test", api_key="k").headers["X-API-Key"] == "k"
