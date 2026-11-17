@@ -340,6 +340,69 @@ def unbond_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
     }
 
 
+def _complete_stake_prechecks(
+    session: Any, chain_id: str, record: Any, user: str, stake_id: str
+) -> tuple[dict[str, Any] | None, list[Any]]:
+    """Validate a STAKE_RELEASE completion request.
+
+    Returns ``(early_result, lock_txs)`` — ``early_result`` is the
+    idempotent-replay dict when the stake already completed (caller returns
+    it), or None when the release may proceed; ``lock_txs`` are the confirmed
+    STAKE_LOCK txs the release spends. Raises HTTPException on refusal.
+    """
+    if record.staker_address != user:
+        raise HTTPException(status_code=403, detail="user_address does not match the locked account")
+    guarded = _canonical_guard(session, chain_id, stake_id, "complete")
+    if guarded is not None:
+        return guarded, []
+    if record.status == "completed":
+        return {"success": True, "idempotent": True, "stake_id": record.stake_id, "status": record.status}, []
+    if record.status != "unbonding":
+        raise HTTPException(status_code=400, detail=f"Stake is not unbonding: {record.status}")
+    now = datetime.now(UTC)
+    locked_until = record.locked_until
+    if locked_until.tzinfo is None:
+        locked_until = locked_until.replace(tzinfo=UTC)
+    if now < locked_until:
+        raise HTTPException(status_code=400, detail="Lock period not expired")
+    # The escrow is shared across all stakers, so the full principal must
+    # be provably in it before any of it is released back.
+    lock_txs = confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", record.stake_id)
+    funded = sum(int(tx.value or 0) for tx in lock_txs)
+    if funded < record.amount:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Stake {record.stake_id} is not fully confirmed on-chain "
+                f"({funded} of {record.amount} locked); retry once the lock transactions are in a block"
+            ),
+        )
+    return None, lock_txs
+
+
+def _check_lock_maturity(session: Any, chain_id: str, lock_txs: list[Any]) -> None:
+    """Mirror the v4 consensus maturity window (height + lock_days*1440)
+    so a release that block apply would reject fails here instead of
+    after the record was already marked completed."""
+    current_height = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).first() or 0
+    if current_height < settings.state_transition_v4_height:
+        return
+    next_height = current_height + 1
+    for lock in lock_txs:
+        lock_days = (lock.payload or {}).get("lock_days")
+        if lock_days in (None, 0):
+            continue  # legacy / agent / auto-stake locks carry no window
+        try:
+            unlock_height = int(lock.block_height or 0) + int(str(lock_days)) * _STAKE_LOCK_BLOCKS_PER_DAY
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=400, detail=f"Lock {lock.tx_hash} has invalid lock_days") from None
+        if next_height < unlock_height:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Lock {lock.tx_hash} matures at height {unlock_height}; current {next_height}",
+            )
+
+
 @rate_limit(rate=20, per=60)
 def complete_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
@@ -359,55 +422,13 @@ def complete_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) 
         record = _get_stake(session, chain_id, stake_id)
         if not record:
             return _no_local_record(session, chain_id, stake_id, "complete")
-        if record.staker_address != user:
-            raise HTTPException(status_code=403, detail="user_address does not match the locked account")
-        guarded = _canonical_guard(session, chain_id, stake_id, "complete")
-        if guarded is not None:
-            return guarded
-        if record.status == "completed":
-            return {"success": True, "idempotent": True, "stake_id": record.stake_id, "status": record.status}
-        if record.status != "unbonding":
-            raise HTTPException(status_code=400, detail=f"Stake is not unbonding: {record.status}")
-        now = datetime.now(UTC)
-        locked_until = record.locked_until
-        if locked_until.tzinfo is None:
-            locked_until = locked_until.replace(tzinfo=UTC)
-        if now < locked_until:
-            raise HTTPException(status_code=400, detail="Lock period not expired")
-        # The escrow is shared across all stakers, so the full principal must
-        # be provably in it before any of it is released back.
-        lock_txs = confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", record.stake_id)
-        funded = sum(int(tx.value or 0) for tx in lock_txs)
-        if funded < record.amount:
-            raise HTTPException(
-                status_code=409,
-                detail=(
-                    f"Stake {record.stake_id} is not fully confirmed on-chain "
-                    f"({funded} of {record.amount} locked); retry once the lock transactions are in a block"
-                ),
-            )
-        # Mirror the v4 consensus maturity window (height + lock_days*1440)
-        # so a release that block apply would reject fails here instead of
-        # after the record was already marked completed.
-        current_height = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).first() or 0
-        if current_height >= settings.state_transition_v4_height:
-            next_height = current_height + 1
-            for lock in lock_txs:
-                lock_days = (lock.payload or {}).get("lock_days")
-                if lock_days in (None, 0):
-                    continue  # legacy / agent / auto-stake locks carry no window
-                try:
-                    unlock_height = int(lock.block_height or 0) + int(str(lock_days)) * _STAKE_LOCK_BLOCKS_PER_DAY
-                except (TypeError, ValueError):
-                    raise HTTPException(status_code=400, detail=f"Lock {lock.tx_hash} has invalid lock_days") from None
-                if next_height < unlock_height:
-                    raise HTTPException(
-                        status_code=400,
-                        detail=f"Lock {lock.tx_hash} matures at height {unlock_height}; current {next_height}",
-                    )
+        early, lock_txs = _complete_stake_prechecks(session, chain_id, record, user, stake_id)
+        if early is not None:
+            return early
+        _check_lock_maturity(session, chain_id, lock_txs)
         amount = record.amount
         record.status = "completed"
-        record.updated_at = now
+        record.updated_at = datetime.now(UTC)
         session.add(record)
         session.commit()
 

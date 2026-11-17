@@ -290,6 +290,38 @@ def recompute_release_proofs(
     return billed_total, billed_total - sealed_total
 
 
+def _accumulate_settlement_leg(legs: dict[str, Any], tx: Any) -> None:
+    """Fold one chain settlement txn into the ``legs`` aggregate."""
+    if tx.type == "ESCROW_LOCK":
+        # The lock is custody context, not a settlement leg — it feeds
+        # the fee-bound cap without affecting the "any settlement leg
+        # exists" gate below.
+        legs["locked_amount"] += tx.value or 0
+        return
+    # Floor gate (C18 F-A): every release/refund-TYPE leg feeds the
+    # height floor regardless of its payload action — the pass's
+    # type-based floor counts them all, so a pre-fork leg with an odd
+    # or missing action can't slip the retry's gate. NULL height
+    # fails closed.
+    h = tx.block_height
+    if h is None:
+        legs["null_settlement_height"] = True
+    elif legs["min_settlement_height"] is None or h < legs["min_settlement_height"]:
+        legs["min_settlement_height"] = h
+    action = (tx.payload or {}).get("action")
+    if action == "escrow_release":
+        legs["released_amount"] += tx.value or 0
+        legs["release_values"].append(tx.value or 0)
+        legs["release_legs"].append({"tx_hash": tx.tx_hash, "value": tx.value or 0})
+        legs["release_tx_hash"] = tx.tx_hash
+        legs["released_at"] = tx.created_at
+    elif action == "escrow_refund":
+        legs["refunded_amount"] += tx.value or 0
+        legs["refund_values"].append(tx.value or 0)
+        legs["refund_tx_hash"] = tx.tx_hash
+        legs["refunded_at"] = tx.created_at
+
+
 def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | None:
     """Aggregate a job's settled escrow legs from the canonical on-chain txns.
 
@@ -337,34 +369,7 @@ def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | No
             "null_settlement_height": False,
         }
         for tx in session.exec(stmt):
-            if tx.type == "ESCROW_LOCK":
-                # The lock is custody context, not a settlement leg — it feeds
-                # the fee-bound cap without affecting the "any settlement leg
-                # exists" gate below.
-                legs["locked_amount"] += tx.value or 0
-                continue
-            # Floor gate (C18 F-A): every release/refund-TYPE leg feeds the
-            # height floor regardless of its payload action — the pass's
-            # type-based floor counts them all, so a pre-fork leg with an odd
-            # or missing action can't slip the retry's gate. NULL height
-            # fails closed.
-            h = tx.block_height
-            if h is None:
-                legs["null_settlement_height"] = True
-            elif legs["min_settlement_height"] is None or h < legs["min_settlement_height"]:
-                legs["min_settlement_height"] = h
-            action = (tx.payload or {}).get("action")
-            if action == "escrow_release":
-                legs["released_amount"] += tx.value or 0
-                legs["release_values"].append(tx.value or 0)
-                legs["release_legs"].append({"tx_hash": tx.tx_hash, "value": tx.value or 0})
-                legs["release_tx_hash"] = tx.tx_hash
-                legs["released_at"] = tx.created_at
-            elif action == "escrow_refund":
-                legs["refunded_amount"] += tx.value or 0
-                legs["refund_values"].append(tx.value or 0)
-                legs["refund_tx_hash"] = tx.tx_hash
-                legs["refunded_at"] = tx.created_at
+            _accumulate_settlement_leg(legs, tx)
     except Exception as e:
         logger.warning("Failed to read settlement legs for job %s from chain: %s", job_id, e)
         return None
@@ -711,6 +716,62 @@ class EscrowManager:
             logger.warning("Failed to reconstruct escrow for job %s from chain: %s", job_id, e)
             return None
 
+    def _cache_contract_from_record(self, record: Any) -> EscrowContract:
+        """Build an EscrowContract from an escrow row and store it in the caches."""
+        contract_id = contract_id_for(record.buyer, record.provider, record.job_id)
+        amount = units_to_ait(record.amount)
+        state = EscrowState.FUNDED
+        if record.released_at:
+            state = EscrowState.RELEASED
+        elif record.refunded_at:
+            state = EscrowState.REFUNDED
+        fee_rate = self.default_fee_rate
+        if record.protected and record.energy_fee_basis_points is not None:
+            fee_rate = Decimal(record.energy_fee_basis_points) / Decimal(10000)
+        contract = EscrowContract(
+            contract_id=contract_id,
+            job_id=record.job_id,
+            client_address=record.buyer,
+            agent_address=record.provider,
+            amount=amount,
+            fee_rate=fee_rate,
+            created_at=record.created_at.timestamp(),
+            expires_at=record.created_at.timestamp() + self.max_contract_duration,
+            state=state,
+            milestones=[
+                {
+                    "milestone_id": "milestone_1",
+                    "description": "Complete job",
+                    "amount": amount,
+                    "completed": state == EscrowState.RELEASED,
+                }
+            ],
+            current_milestone=0,
+            dispute_reason=None,
+            dispute_evidence=[],
+            resolution=None,
+            released_amount=(
+                units_to_ait(record.released_amount)
+                if record.released_amount is not None
+                else (amount if record.released_at is not None else Decimal("0"))
+            ),
+            refunded_amount=(
+                units_to_ait(record.refunded_amount)
+                if record.refunded_amount is not None
+                else (amount if record.refunded_at is not None else Decimal("0"))
+            ),
+            protected=record.protected,
+            energy_quote_snapshot=record.energy_quote_snapshot,
+            energy_quote_id=record.energy_quote_id,
+            energy_net_floor_units=record.energy_net_floor_units,
+            energy_provider_credit_units=record.energy_provider_credit_units,
+            energy_fee_basis_points=record.energy_fee_basis_points,
+        )
+        self.escrow_contracts[contract_id] = contract
+        if state not in {EscrowState.RELEASED, EscrowState.REFUNDED}:
+            self.active_contracts.add(contract_id)
+        return contract
+
     async def get_or_load_contract(self, job_id: str) -> EscrowContract | None:
         """Find a contract by job_id, loading from DB if not in memory."""
         for contract in self.escrow_contracts.values():
@@ -729,59 +790,7 @@ class EscrowManager:
                     record = await self._reconstruct_escrow_from_chain(session, job_id)
                 if not record:
                     return None
-                contract_id = contract_id_for(record.buyer, record.provider, record.job_id)
-                amount = units_to_ait(record.amount)
-                state = EscrowState.FUNDED
-                if record.released_at:
-                    state = EscrowState.RELEASED
-                elif record.refunded_at:
-                    state = EscrowState.REFUNDED
-                fee_rate = self.default_fee_rate
-                if record.protected and record.energy_fee_basis_points is not None:
-                    fee_rate = Decimal(record.energy_fee_basis_points) / Decimal(10000)
-                contract = EscrowContract(
-                    contract_id=contract_id,
-                    job_id=record.job_id,
-                    client_address=record.buyer,
-                    agent_address=record.provider,
-                    amount=amount,
-                    fee_rate=fee_rate,
-                    created_at=record.created_at.timestamp(),
-                    expires_at=record.created_at.timestamp() + self.max_contract_duration,
-                    state=state,
-                    milestones=[
-                        {
-                            "milestone_id": "milestone_1",
-                            "description": "Complete job",
-                            "amount": amount,
-                            "completed": state == EscrowState.RELEASED,
-                        }
-                    ],
-                    current_milestone=0,
-                    dispute_reason=None,
-                    dispute_evidence=[],
-                    resolution=None,
-                    released_amount=(
-                        units_to_ait(record.released_amount)
-                        if record.released_amount is not None
-                        else (amount if record.released_at is not None else Decimal("0"))
-                    ),
-                    refunded_amount=(
-                        units_to_ait(record.refunded_amount)
-                        if record.refunded_amount is not None
-                        else (amount if record.refunded_at is not None else Decimal("0"))
-                    ),
-                    protected=record.protected,
-                    energy_quote_snapshot=record.energy_quote_snapshot,
-                    energy_quote_id=record.energy_quote_id,
-                    energy_net_floor_units=record.energy_net_floor_units,
-                    energy_provider_credit_units=record.energy_provider_credit_units,
-                    energy_fee_basis_points=record.energy_fee_basis_points,
-                )
-                self.escrow_contracts[contract_id] = contract
-                if state not in {EscrowState.RELEASED, EscrowState.REFUNDED}:
-                    self.active_contracts.add(contract_id)
-                return contract
+                return self._cache_contract_from_record(record)
         except Exception as e:
             logger.warning("Failed to load escrow contract for job %s: %s", job_id, e)
         return None
@@ -922,6 +931,20 @@ class EscrowManager:
         contract.released_amount += payment_amount
         log_info(f"Released {payment_amount} for milestone {milestone_id} in contract {contract_id}")
 
+    def _enforce_energy_floor(self, contract: EscrowContract, billable: Decimal) -> tuple[bool, str] | None:
+        """E1 floor check for protected escrows; returns the error result or None."""
+        if contract.protected and contract.energy_provider_credit_units is not None:
+            target_ait = units_to_ait(contract.energy_provider_credit_units)
+            if billable < target_ait:
+                return (False, "Protected escrow release would underpay the energy floor")
+            if contract.energy_net_floor_units is not None:
+                floor_ait = units_to_ait(contract.energy_net_floor_units)
+                if billable < floor_ait:
+                    return (False, "Protected escrow release would underpay the energy floor")
+            if contract.released_amount < target_ait:
+                contract.released_amount = target_ait
+        return None
+
     async def release_payment(self, contract_id: str, billed_amount: Decimal | None = None) -> tuple[bool, str]:
         """Release payment to the agent, billing at most the escrowed amount.
 
@@ -941,13 +964,14 @@ class EscrowManager:
         all_verified = all(ms.get("verified", False) for ms in contract.milestones)
         if not all_verified:
             return (False, "Not all milestones are verified")
-        total_milestone_amount = sum(Decimal(str(ms["amount"])) for ms in contract.milestones)
+        total_milestone_amount = Decimal(sum(Decimal(str(ms["amount"])) for ms in contract.milestones))
+        billable: Decimal
         if billed_amount is None:
             billable = total_milestone_amount
         elif billed_amount <= 0:
             return (False, "Release amount must be positive")
         else:
-            billable = min(billed_amount, total_milestone_amount)
+            billable = Decimal(min(billed_amount, total_milestone_amount))
         platform_fee_total = billable * contract.fee_rate
         remaining_payment = billable - contract.released_amount - platform_fee_total
         if remaining_payment > 0:
@@ -956,16 +980,9 @@ class EscrowManager:
         # E1: fixed-duration GPU rentals must pay the provider at least the frozen
         # energy floor. The locked gross must cover the signed provider credit,
         # otherwise the escrow is under-funded and cannot be released.
-        if contract.protected and contract.energy_provider_credit_units is not None:
-            target_ait = units_to_ait(contract.energy_provider_credit_units)
-            if billable < target_ait:
-                return (False, "Protected escrow release would underpay the energy floor")
-            if contract.energy_net_floor_units is not None:
-                floor_ait = units_to_ait(contract.energy_net_floor_units)
-                if billable < floor_ait:
-                    return (False, "Protected escrow release would underpay the energy floor")
-            if contract.released_amount < target_ait:
-                contract.released_amount = target_ait
+        floor_error = self._enforce_energy_floor(contract, billable)
+        if floor_error is not None:
+            return floor_error
 
         contract.state = EscrowState.RELEASED
         self.active_contracts.discard(contract_id)

@@ -19,6 +19,117 @@ from .._internal import (
 from .base import GossipBackend, TopicSubscription
 
 
+async def _run_broadcast_subscription(
+    url: str,
+    topic: str,
+    queue: asyncio.Queue[Any],
+    stop_event: asyncio.Event,
+    ready_event: asyncio.Event,
+    stats: dict[str, Any],
+) -> None:
+    from aitbc.aitbc_logging import get_logger
+
+    logger = get_logger(__name__)
+    logger.info("[BROKER SUB] Starting redis subscription for topic: %s", topic)
+    sub_redis: Any = None
+    pubsub: Any = None
+    try:
+        import redis.asyncio as aioredis
+
+        # Use a dedicated connection with a short read timeout for pubsub.
+        # A blocking listen() cannot be interrupted by task.cancel() until a
+        # message arrives, so we poll with get_message(timeout=0.5) instead.
+        # This makes shutdown responsive and prevents 60-90s systemd stop hangs.
+        sub_redis = aioredis.Redis.from_url(
+            url,
+            socket_timeout=None,
+            socket_connect_timeout=5,
+        )
+        pubsub = sub_redis.pubsub()
+        await pubsub.subscribe(topic)
+        ready_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
+        stats["ready"] = True
+        logger.info("[BROKER SUB] Successfully subscribed to redis topic: %s", topic)
+        while not stop_event.is_set():
+            try:
+                message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5)
+            except asyncio.CancelledError:
+                logger.info("[BROKER SUB] Subscription cancelled for topic: %s", topic)
+                break
+            if stop_event.is_set():
+                logger.info("[BROKER SUB] Stop event set for topic: %s", topic)
+                break
+            if message is None:
+                continue
+            if message["type"] != "message":
+                continue
+            # Per-message chatter duplicates gossip.telemetry metrics —
+            # DEBUG keeps the default journal readable (#1574).
+            logger.debug("[BROKER SUB] Received message from redis for topic %s", topic)
+            stats["frames"] += 1
+            try:
+                for decoded in _decode_batch(message["data"]):
+                    stats["items"] += 1
+                    await queue.put(decoded)
+                    _set_queue_gauge(topic, queue.qsize())
+            except asyncio.CancelledError:
+                logger.warning("[BROKER SUB] Decode/queue cancelled for topic: %s", topic)
+                break
+    except Exception as e:
+        stats["last_error"] = f"{type(e).__name__}: {e}"
+        logger.error("[BROKER SUB ERROR] Redis subscription error for topic %s: %s", topic, e)
+    finally:
+        await _finish_broadcast_subscription(pubsub, sub_redis, ready_event, stats)
+    logger.info("[BROKER SUB] Redis subscription ended for topic: %s", topic)
+
+
+async def _finish_broadcast_subscription(
+    pubsub: Any,
+    sub_redis: Any,
+    ready_event: asyncio.Event,
+    stats: dict[str, Any],
+) -> None:
+    """Mark the subscription ended and close its redis handles (best-effort)."""
+    stats["ended"] = True
+    ready_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
+    with suppress(Exception):  # best-effort teardown; each handle guarded independently
+        if pubsub is not None:
+            await pubsub.aclose()
+    with suppress(Exception):
+        if sub_redis is not None:
+            await sub_redis.aclose()
+
+
+async def _await_subscription_ready(topic: str, ready_event: asyncio.Event, ready_timeout: float) -> None:
+    """Wait for the redis SUBSCRIBE ack so a just-subscribed caller's publish
+    cannot race ahead of it (#1306)."""
+    from aitbc.aitbc_logging import get_logger
+
+    logger = get_logger(__name__)
+    started = time.monotonic()
+    try:
+        await asyncio.wait_for(ready_event.wait(), timeout=ready_timeout)
+    except asyncio.TimeoutError:
+        metrics_registry.increment("gossip_subscribe_ready_timeout_total")
+        logger.warning("[BROKER SUB] subscription for %s not live after %.1fs", topic, ready_timeout)
+    metrics_registry.observe("gossip_subscribe_ready_seconds", time.monotonic() - started)
+
+
+async def _stop_broadcast_subscription(
+    task: asyncio.Task[None],
+    stop_event: asyncio.Event,
+    lock: asyncio.Lock,
+    tasks: set[asyncio.Task[None]],
+) -> None:
+    stop_event.set()  # noqa: unawaited-async — StreamWriter.close/Event.set are synchronous
+    task.cancel()
+    with suppress(asyncio.CancelledError):
+        await task
+    async with lock:
+        tasks.discard(task)
+        metrics_registry.set_gauge("gossip_broadcast_subscribers_total", float(len(tasks)))
+
+
 class BroadcastGossipBackend(GossipBackend):
     """Redis pub/sub backend for cross-process gossip.
 
@@ -117,70 +228,10 @@ class BroadcastGossipBackend(GossipBackend):
         # #1998 H4: observational counters surfaced on the TopicSubscription.
         stats: dict[str, Any] = {"frames": 0, "items": 0, "ready": False, "ended": False, "last_error": None}
 
-        async def _run_subscription() -> None:
-            from aitbc.aitbc_logging import get_logger
-
-            logger = get_logger(__name__)
-            logger.info("[BROKER SUB] Starting redis subscription for topic: %s", topic)
-            sub_redis: Any = None
-            pubsub: Any = None
-            try:
-                import redis.asyncio as aioredis
-
-                # Use a dedicated connection with a short read timeout for pubsub.
-                # A blocking listen() cannot be interrupted by task.cancel() until a
-                # message arrives, so we poll with get_message(timeout=0.5) instead.
-                # This makes shutdown responsive and prevents 60-90s systemd stop hangs.
-                sub_redis = aioredis.Redis.from_url(
-                    self._url,
-                    socket_timeout=None,
-                    socket_connect_timeout=5,
-                )
-                pubsub = sub_redis.pubsub()
-                await pubsub.subscribe(topic)
-                ready_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
-                stats["ready"] = True
-                logger.info("[BROKER SUB] Successfully subscribed to redis topic: %s", topic)
-                while not stop_event.is_set():
-                    try:
-                        message = await pubsub.get_message(ignore_subscribe_messages=True, timeout=0.5)
-                    except asyncio.CancelledError:
-                        logger.info("[BROKER SUB] Subscription cancelled for topic: %s", topic)
-                        break
-                    if stop_event.is_set():
-                        logger.info("[BROKER SUB] Stop event set for topic: %s", topic)
-                        break
-                    if message is None:
-                        continue
-                    if message["type"] != "message":
-                        continue
-                    # Per-message chatter duplicates gossip.telemetry metrics —
-                    # DEBUG keeps the default journal readable (#1574).
-                    logger.debug("[BROKER SUB] Received message from redis for topic %s", topic)
-                    stats["frames"] += 1
-                    try:
-                        for decoded in _decode_batch(message["data"]):
-                            stats["items"] += 1
-                            await queue.put(decoded)
-                            _set_queue_gauge(topic, queue.qsize())
-                    except asyncio.CancelledError:
-                        logger.warning("[BROKER SUB] Decode/queue cancelled for topic: %s", topic)
-                        break
-            except Exception as e:
-                stats["last_error"] = f"{type(e).__name__}: {e}"
-                logger.error("[BROKER SUB ERROR] Redis subscription error for topic %s: %s", topic, e)
-            finally:
-                stats["ended"] = True
-                ready_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
-                with suppress(Exception):  # best-effort teardown; each handle guarded independently
-                    if pubsub is not None:
-                        await pubsub.aclose()
-                with suppress(Exception):
-                    if sub_redis is not None:
-                        await sub_redis.aclose()
-            logger.info("[BROKER SUB] Redis subscription ended for topic: %s", topic)
-
-        task = create_task_with_logging(_run_subscription(), name=f"broadcast-sub:{topic}")
+        task = create_task_with_logging(
+            _run_broadcast_subscription(self._url, topic, queue, stop_event, ready_event, stats),
+            name=f"broadcast-sub:{topic}",
+        )
         async with self._lock:
             self._tasks.add(task)
             metrics_registry.set_gauge("gossip_broadcast_subscribers_total", float(len(self._tasks)))
@@ -190,25 +241,13 @@ class BroadcastGossipBackend(GossipBackend):
             # SUBSCRIBE lands is lost. The task above only *schedules* the
             # subscription, so without this wait a request published right
             # after subscribe() can have its fast responses dropped (#1306).
-            started = time.monotonic()
-            try:
-                await asyncio.wait_for(ready_event.wait(), timeout=ready_timeout)
-            except asyncio.TimeoutError:
-                metrics_registry.increment("gossip_subscribe_ready_timeout_total")
-                logger.warning("[BROKER SUB] subscription for %s not live after %.1fs", topic, ready_timeout)
-            metrics_registry.observe("gossip_subscribe_ready_seconds", time.monotonic() - started)
+            await _await_subscription_ready(topic, ready_event, ready_timeout)
 
         def _unsubscribe() -> None:
-            async def _stop() -> None:
-                stop_event.set()  # noqa: unawaited-async — asyncio.Event.set() is synchronous
-                task.cancel()
-                with suppress(asyncio.CancelledError):
-                    await task
-                async with self._lock:
-                    self._tasks.discard(task)
-                    metrics_registry.set_gauge("gossip_broadcast_subscribers_total", float(len(self._tasks)))
-
-            create_task_with_logging(_stop(), name="broadcast_unsubscribe_stop")
+            create_task_with_logging(
+                _stop_broadcast_subscription(task, stop_event, self._lock, self._tasks),
+                name="broadcast_unsubscribe_stop",
+            )
 
         return TopicSubscription(topic=topic, queue=queue, _unsubscribe=_unsubscribe, stats=stats)
 

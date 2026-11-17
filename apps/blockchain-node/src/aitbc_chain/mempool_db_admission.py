@@ -67,101 +67,121 @@ class _DbAdmissionMixin:
 
         if tx_hash is None:
             tx_hash = compute_tx_hash(tx)
-        content = json.dumps(tx, sort_keys=True, separators=(",", ":"))
-        size_bytes = len(content.encode())
+        entry_content = json.dumps(tx, sort_keys=True, separators=(",", ":"))
+        size_bytes = len(entry_content.encode())
         if size_bytes > settings.mempool_max_tx_size_bytes:
             metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
             raise ValueError(f"transaction size {size_bytes} exceeds limit {settings.mempool_max_tx_size_bytes}")
 
         with self._lock:
             with Session(self._engine) as session:
-                # Check duplicate
-                existing = session.exec(
-                    select(MempoolEntry).where(MempoolEntry.chain_id == chain_id, MempoolEntry.tx_hash == tx_hash)
-                ).first()
-                if existing:
-                    if commit:
-                        session.commit()
-                    return tx_hash
-
-                # #1300 P2-v2.4 §4/F8: never re-pool a sealed tx — the
-                # on-chain check lives inside the admission critical
-                # section so every entry path (RPC, p2p, requeue, orphan)
-                # inherits it.
-                if self._sealed_on_chain_tx_hashes(chain_id, [tx_hash]):
-                    metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
-                    raise ValueError(f"transaction {tx_hash} is already sealed on chain {chain_id}")
-
-                # Signed transactions compete for their (sender, nonce) slot:
-                # a second occupant is admitted only as a strictly better bid,
-                # replacing the first.
-                slot = _tx_slot_key(tx)
-                if slot is not None:
-                    _slot_advisory_lock(session, chain_id, slot)
-                    occupant = session.exec(
-                        select(MempoolEntry).where(
-                            MempoolEntry.chain_id == chain_id,
-                            MempoolEntry.sender == slot[0],
-                            MempoolEntry.nonce == slot[1],
-                        )
-                    ).first()
-                    if occupant is not None and occupant.tx_hash != tx_hash:
-                        if fee <= occupant.fee:
-                            metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
-                            raise ValueError(
-                                f"nonce slot ({slot[0]}, {slot[1]}) already occupied by "
-                                f"{occupant.tx_hash} with fee {occupant.fee} >= {fee}"
-                            )
-                        session.delete(occupant)
-                        # #1300: the ONLY mid-flight release besides owner
-                        # release/TTL/sealed — recorded atomically here.
-                        self._release_update(session, chain_id, "outbid", tx_hashes=[occupant.tx_hash])
-                        metrics_registry.increment(f"mempool_tx_replaced_total_{chain_id}")
-
-                _reject_conflicting_stake_release(tx, _pending_tx_rows(session, chain_id))
-
-                # Evict if full — but only for a newcomer that outbids the
-                # floor, or a fee-floor flood could evict real transactions.
-                count = session.exec(
-                    select(func.count()).select_from(MempoolEntry).where(MempoolEntry.chain_id == chain_id)
-                ).one()
-                if count >= self._max_size:
-                    to_evict = session.exec(
-                        select(MempoolEntry)
-                        .where(MempoolEntry.chain_id == chain_id)
-                        .order_by(
-                            cast(Any, MempoolEntry.fee).asc(),
-                            cast(Any, MempoolEntry.received_at).asc(),
-                            cast(Any, MempoolEntry.tx_hash).asc(),
-                        )
-                        .limit(1)
-                    ).first()
-                    if to_evict is None or fee <= to_evict.fee:
-                        metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
-                        raise ValueError(
-                            f"mempool full ({self._max_size}): fee {fee} does not beat lowest pending fee "
-                            f"{to_evict.fee if to_evict is not None else 0}"
-                        )
-                    session.delete(to_evict)
-                    metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
-
-                entry = MempoolEntry(
-                    chain_id=chain_id,
-                    tx_hash=tx_hash,
-                    content=content,
-                    fee=fee,
-                    size_bytes=size_bytes,
-                    received_at=time.time(),
-                    sender=_tx_sender(tx) or None,
-                    nonce=_tx_nonce(tx),
-                    signed=_tx_slot_key(tx) is not None,
-                )
-                session.add(entry)
-                if commit:
-                    session.commit()
-                metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
+                self._add_tx_session(session, chain_id, tx, tx_hash, entry_content, size_bytes, fee, commit)
             self._update_gauge(chain_id)
         return tx_hash
+
+    def _evict_lowest_for_admission(self, session: Session, chain_id: str, fee: int) -> None:
+        """Make room in a full pool — only for a strictly better bid.
+
+        Raises ValueError when the pool is full and the newcomer does not
+        outbid the floor (a fee-floor flood must not evict real transactions).
+        """
+        to_evict = session.exec(
+            select(MempoolEntry)
+            .where(MempoolEntry.chain_id == chain_id)
+            .order_by(
+                cast(Any, MempoolEntry.fee).asc(),
+                cast(Any, MempoolEntry.received_at).asc(),
+                cast(Any, MempoolEntry.tx_hash).asc(),
+            )
+            .limit(1)
+        ).first()
+        if to_evict is None or fee <= to_evict.fee:
+            metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
+            raise ValueError(
+                f"mempool full ({self._max_size}): fee {fee} does not beat lowest pending fee "
+                f"{to_evict.fee if to_evict is not None else 0}"
+            )
+        session.delete(to_evict)
+        metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
+
+    def _add_tx_session(
+        self,
+        session: Session,
+        chain_id: str,
+        tx: dict[str, Any],
+        tx_hash: str,
+        content: str,
+        size_bytes: int,
+        fee: int,
+        commit: bool,
+    ) -> None:
+        """Admission critical section for ``add`` — runs inside ``self._lock``."""
+        # Check duplicate
+        existing = session.exec(
+            select(MempoolEntry).where(MempoolEntry.chain_id == chain_id, MempoolEntry.tx_hash == tx_hash)
+        ).first()
+        if existing:
+            if commit:
+                session.commit()
+            return
+
+        # #1300 P2-v2.4 §4/F8: never re-pool a sealed tx — the
+        # on-chain check lives inside the admission critical
+        # section so every entry path (RPC, p2p, requeue, orphan)
+        # inherits it.
+        if self._sealed_on_chain_tx_hashes(chain_id, [tx_hash]):
+            metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
+            raise ValueError(f"transaction {tx_hash} is already sealed on chain {chain_id}")
+
+        # Signed transactions compete for their (sender, nonce) slot:
+        # a second occupant is admitted only as a strictly better bid,
+        # replacing the first.
+        slot = _tx_slot_key(tx)
+        if slot is not None:
+            _slot_advisory_lock(session, chain_id, slot)
+            occupant = session.exec(
+                select(MempoolEntry).where(
+                    MempoolEntry.chain_id == chain_id,
+                    MempoolEntry.sender == slot[0],
+                    MempoolEntry.nonce == slot[1],
+                )
+            ).first()
+            if occupant is not None and occupant.tx_hash != tx_hash:
+                if fee <= occupant.fee:
+                    metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
+                    raise ValueError(
+                        f"nonce slot ({slot[0]}, {slot[1]}) already occupied by "
+                        f"{occupant.tx_hash} with fee {occupant.fee} >= {fee}"
+                    )
+                session.delete(occupant)
+                # #1300: the ONLY mid-flight release besides owner
+                # release/TTL/sealed — recorded atomically here.
+                self._release_update(session, chain_id, "outbid", tx_hashes=[occupant.tx_hash])
+                metrics_registry.increment(f"mempool_tx_replaced_total_{chain_id}")
+
+        _reject_conflicting_stake_release(tx, _pending_tx_rows(session, chain_id))
+
+        # Evict if full — but only for a newcomer that outbids the
+        # floor, or a fee-floor flood could evict real transactions.
+        count = session.exec(select(func.count()).select_from(MempoolEntry).where(MempoolEntry.chain_id == chain_id)).one()
+        if count >= self._max_size:
+            self._evict_lowest_for_admission(session, chain_id, fee)
+
+        entry = MempoolEntry(
+            chain_id=chain_id,
+            tx_hash=tx_hash,
+            content=content,
+            fee=fee,
+            size_bytes=size_bytes,
+            received_at=time.time(),
+            sender=_tx_sender(tx) or None,
+            nonce=_tx_nonce(tx),
+            signed=_tx_slot_key(tx) is not None,
+        )
+        session.add(entry)
+        if commit:
+            session.commit()
+        metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
 
     def batch_add(self, transactions: list[dict[str, Any]], chain_id: str | None = None) -> list[str]:
         """Add multiple transactions in a single session with a single commit."""
@@ -221,74 +241,105 @@ class _DbAdmissionMixin:
                 ):
                     _slot_advisory_lock_by_key(session, lock_key)
                 for tx, tx_hash in zip(transactions, tx_hashes, strict=True):
-                    # O(1) duplicate check using the pre-fetched set
-                    if tx_hash in existing_hashes or tx_hash in sealed_hashes:
-                        hashes.append(tx_hash)
-                        continue
-
-                    content = json.dumps(tx, sort_keys=True, separators=(",", ":"))
-                    size_bytes = len(content.encode())
-                    fee = tx.get("fee", 0)
-
-                    # Same nonce-slot rule as add(): a same-slot occupant is
-                    # displaced only by a strictly higher fee.
-                    slot = _tx_slot_key(tx)
-                    if slot is not None:
-                        occupant = session.exec(
-                            select(MempoolEntry).where(
-                                MempoolEntry.chain_id == chain_id,
-                                MempoolEntry.sender == slot[0],
-                                MempoolEntry.nonce == slot[1],
-                            )
-                        ).first()
-                        if occupant is not None and occupant.tx_hash != tx_hash:
-                            if fee <= occupant.fee:
-                                metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
-                                continue
-                            session.delete(occupant)
-                            self._release_update(session, chain_id, "outbid", tx_hashes=[occupant.tx_hash])
-                            current_count -= 1
-                            metrics_registry.increment(f"mempool_tx_replaced_total_{chain_id}")
-
-                    # Evict if full (use in-memory count, decrement on eviction)
-                    # — only when the newcomer outbids the floor.
-                    if current_count >= self._max_size:
-                        to_evict = session.exec(
-                            select(MempoolEntry)
-                            .where(MempoolEntry.chain_id == chain_id)
-                            .order_by(
-                                cast(Any, MempoolEntry.fee).asc(),
-                                cast(Any, MempoolEntry.received_at).asc(),
-                                cast(Any, MempoolEntry.tx_hash).asc(),
-                            )
-                            .limit(1)
-                        ).first()
-                        if to_evict is None or fee <= to_evict.fee:
-                            metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
-                            continue
-                        session.delete(to_evict)
-                        current_count -= 1
-                        metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
-
-                    entry = MempoolEntry(
-                        chain_id=chain_id,
-                        tx_hash=tx_hash,
-                        content=content,
-                        fee=fee,
-                        size_bytes=size_bytes,
-                        received_at=time.time(),
-                        sender=_tx_sender(tx) or None,
-                        nonce=_tx_nonce(tx),
-                        signed=_tx_slot_key(tx) is not None,
+                    recorded, current_count = self._batch_admit_one(
+                        session, chain_id, tx, tx_hash, existing_hashes, sealed_hashes, current_count
                     )
-                    session.add(entry)
-                    current_count += 1
-                    existing_hashes.add(tx_hash)
-                    hashes.append(tx_hash)
-                    metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
+                    if recorded:
+                        hashes.append(tx_hash)
                 session.commit()
             self._update_gauge(chain_id)
         return hashes
+
+    def _batch_evict_for_admission(self, session: Session, chain_id: str, fee: int, current_count: int) -> int | None:
+        """Make room in a full pool for a batch newcomer — only on a strictly
+        better bid. Returns the updated count, or None when refused."""
+        if current_count < self._max_size:
+            return current_count
+        to_evict = session.exec(
+            select(MempoolEntry)
+            .where(MempoolEntry.chain_id == chain_id)
+            .order_by(
+                cast(Any, MempoolEntry.fee).asc(),
+                cast(Any, MempoolEntry.received_at).asc(),
+                cast(Any, MempoolEntry.tx_hash).asc(),
+            )
+            .limit(1)
+        ).first()
+        if to_evict is None or fee <= to_evict.fee:
+            metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
+            return None
+        session.delete(to_evict)
+        current_count -= 1
+        metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
+        return current_count
+
+    def _batch_admit_one(
+        self,
+        session: Session,
+        chain_id: str,
+        tx: dict[str, Any],
+        tx_hash: str,
+        existing_hashes: set[str],
+        sealed_hashes: set[str],
+        current_count: int,
+    ) -> tuple[bool, int]:
+        """Admit one transaction inside ``batch_add``'s session.
+
+        Returns ``(recorded, current_count)`` — ``recorded`` is True when the
+        hash belongs in the result list (duplicate/sealed passthrough or a
+        successful insert), False when the tx was refused.
+        """
+        # O(1) duplicate check using the pre-fetched set
+        if tx_hash in existing_hashes or tx_hash in sealed_hashes:
+            return True, current_count
+
+        content = json.dumps(tx, sort_keys=True, separators=(",", ":"))
+        size_bytes = len(content.encode())
+        fee = tx.get("fee", 0)
+
+        # Same nonce-slot rule as add(): a same-slot occupant is
+        # displaced only by a strictly higher fee.
+        slot = _tx_slot_key(tx)
+        if slot is not None:
+            occupant = session.exec(
+                select(MempoolEntry).where(
+                    MempoolEntry.chain_id == chain_id,
+                    MempoolEntry.sender == slot[0],
+                    MempoolEntry.nonce == slot[1],
+                )
+            ).first()
+            if occupant is not None and occupant.tx_hash != tx_hash:
+                if fee <= occupant.fee:
+                    metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
+                    return False, current_count
+                session.delete(occupant)
+                self._release_update(session, chain_id, "outbid", tx_hashes=[occupant.tx_hash])
+                current_count -= 1
+                metrics_registry.increment(f"mempool_tx_replaced_total_{chain_id}")
+
+        # Evict if full (use in-memory count, decrement on eviction)
+        # — only when the newcomer outbids the floor.
+        new_count = self._batch_evict_for_admission(session, chain_id, fee, current_count)
+        if new_count is None:
+            return False, current_count
+        current_count = new_count
+
+        entry = MempoolEntry(
+            chain_id=chain_id,
+            tx_hash=tx_hash,
+            content=content,
+            fee=fee,
+            size_bytes=size_bytes,
+            received_at=time.time(),
+            sender=_tx_sender(tx) or None,
+            nonce=_tx_nonce(tx),
+            signed=_tx_slot_key(tx) is not None,
+        )
+        session.add(entry)
+        current_count += 1
+        existing_hashes.add(tx_hash)
+        metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
+        return True, current_count
 
     def list_transactions(self, chain_id: str | None = None) -> list[PendingTransaction]:
         from .config import settings

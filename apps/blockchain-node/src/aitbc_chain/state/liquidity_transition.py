@@ -236,73 +236,94 @@ def apply_liquidity_claim(
     return (True, f"Claimed {rewards} compute-units")
 
 
-def apply_liquidity_withdraw(
-    session: Session,
-    chain_id: str,
-    tx_data: dict[str, Any],
-    tx_hash: str,
-    cache: Any,
-    *,
-    block_version: int | None = None,
-    block_time: datetime | None = None,
-) -> tuple[bool, str]:
-    """Apply a LIQUIDITY_WITHDRAW transaction."""
-    sender = _to_ait_address(tx_data.get("from", ""))
-    payload = tx_data.get("payload") or {}
-    pool_id = payload.get("pool_id", "main")
-    stake_id = payload.get("stake_id", "")
-    fee = tx_data.get("fee", 0)
-
-    stake = session.get(LiquidityStake, (stake_id, chain_id))
-    if not stake:
-        return (False, f"Stake {stake_id} not found")
-    if stake.address != sender or stake.pool_id != pool_id:
-        return (False, "Stake does not belong to sender")
-    if stake.status != "active":
-        return (False, f"Stake is not active: {stake.status}")
+def _withdraw_lock_error(stake: LiquidityStake, now: datetime) -> str | None:
     # v18: the lock verdict compares the sealed header timestamp, not wall
     # clock — a withdraw at the lock boundary returns the same verdict on
     # every host.
-    now = _v18_apply_time(block_version, block_time) or datetime.now(UTC)
     if stake.locked_until and stake.locked_until.tzinfo is None:
         stake.locked_until = stake.locked_until.replace(tzinfo=UTC)
     if stake.locked_until and now < stake.locked_until:
-        return (False, f"Stake still locked until {stake.locked_until.isoformat()}")
+        return f"Stake still locked until {stake.locked_until.isoformat()}"
+    return None
+
+
+def _validate_liquidity_withdraw(
+    session: Session,
+    chain_id: str,
+    sender: str,
+    pool_id: str,
+    stake_id: str,
+    fee: int,
+    *,
+    block_version: int | None,
+    block_time: datetime | None,
+) -> tuple[LiquidityStake | None, Account | None, datetime | None, tuple[bool, str] | None]:
+    """Validate a LIQUIDITY_WITHDRAW request.
+
+    Returns ``(stake, sender_account, now, error)`` — ``error`` is the
+    ``(False, message)`` result to return when validation fails.
+    """
+    stake = session.get(LiquidityStake, (stake_id, chain_id))
+    if not stake:
+        return None, None, None, (False, f"Stake {stake_id} not found")
+    if stake.address != sender or stake.pool_id != pool_id:
+        return None, None, None, (False, "Stake does not belong to sender")
+    if stake.status != "active":
+        return None, None, None, (False, f"Stake is not active: {stake.status}")
+    now = _v18_apply_time(block_version, block_time) or datetime.now(UTC)
+    lock_error = _withdraw_lock_error(stake, now)
+    if lock_error is not None:
+        return None, None, None, (False, lock_error)
 
     sender_account = session.get(Account, (chain_id, sender))
     if not sender_account:
-        return (False, f"Sender account not found: {sender}")
+        return None, None, None, (False, f"Sender account not found: {sender}")
     if v24_rules_is_active():
         _sbal, _snonce, _sexists = read_current_account(session, chain_id, sender)
         sender_fee_balance = _sbal if _sbal is not None else 0
     else:
         sender_fee_balance = sender_account.balance
     if sender_fee_balance < fee:
-        return (False, f"Insufficient balance for fee: {sender_fee_balance} < {fee}")
+        return None, None, None, (False, f"Insufficient balance for fee: {sender_fee_balance} < {fee}")
+    return stake, sender_account, now, None
 
-    pool = _get_or_create_pool(session, chain_id, pool_id)
 
-    # Realize fixed APY and compute total rewards
-    _realize_fixed_apy(session, chain_id, pool, stake, now=now)
-    rewards = _pending_rewards(stake, pool)
-
-    accounts = _ensure_pool_accounts(session, chain_id)
-    main_account = accounts[pool_main_address()]
-    treasury_account = accounts[pool_treasury_address()]
-
-    total_return = stake.amount + rewards
+def _pool_pair_balances(
+    session: Session,
+    chain_id: str,
+    main_account: Account,
+    treasury_account: Account,
+) -> tuple[int, int]:
+    """(main reserves, treasury rewards) balances under the v24 read rule."""
     if v24_rules_is_active():
         _mbal, _mnonce, _mexists = read_current_account(session, chain_id, pool_main_address())
         main_balance = _mbal if _mbal is not None else 0
         _tbal2, _tnonce2, _texists2 = read_current_account(session, chain_id, pool_treasury_address())
         treasury_balance2 = _tbal2 if _tbal2 is not None else 0
-    else:
-        main_balance = main_account.balance
-        treasury_balance2 = treasury_account.balance
-    if main_balance < stake.amount:
-        return (False, f"Pool main reserves insufficient: {main_balance} < {stake.amount}")
-    if rewards > 0 and treasury_balance2 < rewards:
-        return (False, f"Pool treasury has insufficient rewards: {treasury_balance2} < {rewards}")
+        return main_balance, treasury_balance2
+    return main_account.balance, treasury_account.balance
+
+
+def _payout_liquidity_withdraw(
+    session: Session,
+    chain_id: str,
+    sender: str,
+    stake: LiquidityStake,
+    pool: Any,
+    rewards: int,
+    total_return: int,
+    fee: int,
+    now: datetime,
+    cache: Any,
+    tx_hash: str,
+) -> tuple[bool, str]:
+    """Settle a validated LIQUIDITY_WITHDRAW: fee debit, principal+rewards payout."""
+    sender_account = session.get(Account, (chain_id, sender))
+    if not sender_account:
+        return False, f"Sender account not found: {sender}"
+    accounts = _ensure_pool_accounts(session, chain_id)
+    main_account = accounts[pool_main_address()]
+    treasury_account = accounts[pool_treasury_address()]
 
     # Debit fee
     session.execute(
@@ -340,3 +361,48 @@ def apply_liquidity_withdraw(
         _invalidate_account_cache(chain_id, pool_treasury_address(), cache)
     logger.info("LIQUIDITY_WITHDRAW %s: %s withdrew %s + %s rewards", tx_hash, sender, stake.amount, rewards)
     return (True, f"Withdrew {total_return} compute-units")
+
+
+def apply_liquidity_withdraw(
+    session: Session,
+    chain_id: str,
+    tx_data: dict[str, Any],
+    tx_hash: str,
+    cache: Any,
+    *,
+    block_version: int | None = None,
+    block_time: datetime | None = None,
+) -> tuple[bool, str]:
+    """Apply a LIQUIDITY_WITHDRAW transaction."""
+    sender = _to_ait_address(tx_data.get("from", ""))
+    payload = tx_data.get("payload") or {}
+    pool_id = payload.get("pool_id", "main")
+    stake_id = payload.get("stake_id", "")
+    fee = tx_data.get("fee", 0)
+
+    stake, sender_account, now, error = _validate_liquidity_withdraw(
+        session, chain_id, sender, pool_id, stake_id, fee, block_version=block_version, block_time=block_time
+    )
+    if error is not None:
+        return error
+    if stake is None or sender_account is None or now is None:
+        return False, "Liquidity withdraw validation failed"
+
+    pool = _get_or_create_pool(session, chain_id, pool_id)
+
+    # Realize fixed APY and compute total rewards
+    _realize_fixed_apy(session, chain_id, pool, stake, now=now)
+    rewards = _pending_rewards(stake, pool)
+
+    accounts = _ensure_pool_accounts(session, chain_id)
+    main_account = accounts[pool_main_address()]
+    treasury_account = accounts[pool_treasury_address()]
+
+    total_return = stake.amount + rewards
+    main_balance, treasury_balance2 = _pool_pair_balances(session, chain_id, main_account, treasury_account)
+    if main_balance < stake.amount:
+        return (False, f"Pool main reserves insufficient: {main_balance} < {stake.amount}")
+    if rewards > 0 and treasury_balance2 < rewards:
+        return (False, f"Pool treasury has insufficient rewards: {treasury_balance2} < {rewards}")
+
+    return _payout_liquidity_withdraw(session, chain_id, sender, stake, pool, rewards, total_return, fee, now, cache, tx_hash)

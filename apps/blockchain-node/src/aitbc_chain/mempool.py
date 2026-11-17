@@ -136,42 +136,51 @@ class InMemoryMempool:
             raise ValueError(f"transaction size {size_bytes} exceeds limit {settings.mempool_max_tx_size_bytes}")
         entry = PendingTransaction(tx_hash=tx_hash, content=tx, received_at=time.time(), fee=fee, size_bytes=size_bytes)
         with self._lock:
-            chain_transactions = self._get_chain_transactions(chain_id)
-            if tx_hash in chain_transactions:
-                return tx_hash  # duplicate
-            slot = _tx_slot_key(tx)
-            if slot is not None:
-                slots = self._slots.setdefault(chain_id, {})
-                occupant_hash = slots.get(slot)
-                if occupant_hash is not None and occupant_hash != tx_hash:
-                    occupant = chain_transactions.get(occupant_hash)
-                    if occupant is not None:
-                        if fee <= occupant.fee:
-                            metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
-                            raise ValueError(
-                                f"nonce slot ({slot[0]}, {slot[1]}) already occupied by "
-                                f"{occupant_hash} with fee {occupant.fee} >= {fee}"
-                            )
-                        self._drop_entry(chain_id, occupant)
-                        metrics_registry.increment(f"mempool_tx_replaced_total_{chain_id}")
-            _reject_conflicting_stake_release(tx, ((e.tx_hash, e.content) for e in chain_transactions.values()))
-            if len(chain_transactions) >= self._max_size:
-                # A full pool only makes room for a strictly better bid —
-                # anything cheaper would let a fee-floor flood evict real
-                # transactions it cannot outbid.
-                lowest = min(chain_transactions.values(), key=lambda t: (t.fee, t.received_at, t.tx_hash))
-                if fee <= lowest.fee:
-                    metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
-                    raise ValueError(
-                        f"mempool full ({self._max_size}): fee {fee} does not beat lowest pending fee {lowest.fee}"
-                    )
-                self._drop_entry(chain_id, lowest)
-                metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
-            chain_transactions[tx_hash] = entry
-            if slot is not None:
-                self._slots[chain_id][slot] = tx_hash
-            self._update_gauge(chain_id)
-            metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
+            return self._admit_locked(chain_id, tx, tx_hash, fee, entry)
+
+    def _admit_locked(
+        self,
+        chain_id: str,
+        tx: dict[str, Any],
+        tx_hash: str,
+        fee: int,
+        entry: PendingTransaction,
+    ) -> str:
+        """Insert ``entry`` under ``self._lock`` with dedupe/slot/eviction rules."""
+        chain_transactions = self._get_chain_transactions(chain_id)
+        if tx_hash in chain_transactions:
+            return tx_hash  # duplicate
+        slot = _tx_slot_key(tx)
+        if slot is not None:
+            slots = self._slots.setdefault(chain_id, {})
+            occupant_hash = slots.get(slot)
+            if occupant_hash is not None and occupant_hash != tx_hash:
+                occupant = chain_transactions.get(occupant_hash)
+                if occupant is not None:
+                    if fee <= occupant.fee:
+                        metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
+                        raise ValueError(
+                            f"nonce slot ({slot[0]}, {slot[1]}) already occupied by "
+                            f"{occupant_hash} with fee {occupant.fee} >= {fee}"
+                        )
+                    self._drop_entry(chain_id, occupant)
+                    metrics_registry.increment(f"mempool_tx_replaced_total_{chain_id}")
+        _reject_conflicting_stake_release(tx, ((e.tx_hash, e.content) for e in chain_transactions.values()))
+        if len(chain_transactions) >= self._max_size:
+            # A full pool only makes room for a strictly better bid —
+            # anything cheaper would let a fee-floor flood evict real
+            # transactions it cannot outbid.
+            lowest = min(chain_transactions.values(), key=lambda t: (t.fee, t.received_at, t.tx_hash))
+            if fee <= lowest.fee:
+                metrics_registry.increment(f"mempool_tx_rejected_total_{chain_id}")
+                raise ValueError(f"mempool full ({self._max_size}): fee {fee} does not beat lowest pending fee {lowest.fee}")
+            self._drop_entry(chain_id, lowest)
+            metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
+        chain_transactions[tx_hash] = entry
+        if slot is not None:
+            self._slots[chain_id][slot] = tx_hash
+        self._update_gauge(chain_id)
+        metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
         return tx_hash
 
     def list_transactions(self, chain_id: str | None = None) -> list[PendingTransaction]:

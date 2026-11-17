@@ -96,6 +96,30 @@ class ChainSyncService:
             logger.warning("Failed to get import head height: %s", e)
         return -1
 
+    async def _broadcast_pending_blocks(self, last_broadcast_height: int) -> int:
+        """Fetch the remote head and broadcast any new local blocks.
+
+        Returns the updated broadcast baseline. Raises on non-200 responses
+        so the caller's retry loop handles backoff.
+        """
+        resp = await SharedHttpClient.get(
+            f"http://{self.source_host}:{self.source_port}/rpc/head", params={"chain_id": self.chain_id}
+        )
+        if resp.status_code == 200:
+            head_data = resp.json()
+            current_height: int = head_data.get("height", 0)
+            if current_height > last_broadcast_height:
+                for height in range(last_broadcast_height + 1, current_height + 1):
+                    block_data = await self._get_block_by_height(height)
+                    if block_data:
+                        await self._broadcast_block(block_data)
+                logger.info("Broadcasted blocks up to height %s", current_height)
+                return current_height
+            return last_broadcast_height
+        if resp.status_code == 429:
+            raise RuntimeError("rate_limit")
+        raise RuntimeError(f"RPC returned status {resp.status_code}")
+
     async def _broadcast_blocks(self) -> None:
         """Broadcast local blocks to other nodes"""
         last_broadcast_height = -1
@@ -107,24 +131,8 @@ class ChainSyncService:
                 if last_broadcast_height < 0:
                     last_broadcast_height = await self._get_import_head_height()
                     logger.info("Initialized sync baseline at height %s for node %s", last_broadcast_height, self.node_id)
-                resp = await SharedHttpClient.get(
-                    f"http://{self.source_host}:{self.source_port}/rpc/head", params={"chain_id": self.chain_id}
-                )
-                if resp.status_code == 200:
-                    head_data = resp.json()
-                    current_height = head_data.get("height", 0)
-                    retry_count = 0
-                    if current_height > last_broadcast_height:
-                        for height in range(last_broadcast_height + 1, current_height + 1):
-                            block_data = await self._get_block_by_height(height)
-                            if block_data:
-                                await self._broadcast_block(block_data)
-                        last_broadcast_height = current_height
-                        logger.info("Broadcasted blocks up to height %s", current_height)
-                elif resp.status_code == 429:
-                    raise RuntimeError("rate_limit")
-                else:
-                    raise RuntimeError(f"RPC returned status {resp.status_code}")
+                last_broadcast_height = await self._broadcast_pending_blocks(last_broadcast_height)
+                retry_count = 0
             except (httpx.HTTPError, RuntimeError, ValueError, TypeError, KeyError, AttributeError) as e:
                 retry_count += 1
                 if str(e) == "rate_limit":

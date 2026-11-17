@@ -621,6 +621,59 @@ def bridge_health(request: Request) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _validate_batch_confirmations(
+    confirmations: list[Any],
+) -> tuple[list[dict[str, Any]], list[tuple[int, dict[str, Any]]]]:
+    """Per-item confirmer signature check — the same check the single-confirm
+    route applies ({"transfer_id", "confirmer"}). The batch path must not be
+    a weaker-auth door for the same operation; failures land as per-item
+    results instead of rejecting the whole batch.
+
+    Returns ``(output, to_confirm)`` — ``output`` is pre-seeded with per-item
+    error results (and placeholders for admitted items), ``to_confirm`` maps
+    each admitted item's output index to its confirmation dict.
+    """
+    output: list[dict[str, Any]] = []
+    to_confirm: list[tuple[int, dict[str, Any]]] = []
+    for c in confirmations:
+        transfer_id = c.get("transfer_id")
+        proof = c.get("proof")
+        confirmer = c.get("confirmer") or c.get("recipient")
+        signature = c.get("signature")
+        if not transfer_id or not proof:
+            output.append({"success": False, "error": "missing required fields: transfer_id, proof"})
+            continue
+        if not confirmer or not signature:
+            output.append({"success": False, "error": "confirmer address and signature required"})
+            continue
+        sign_data = {"transfer_id": transfer_id, "confirmer": confirmer}
+        if not verify_request_signature(confirmer, signature, sign_data):
+            output.append({"success": False, "error": "invalid confirmer signature"})
+            continue
+        to_confirm.append((len(output), c))
+        output.append({})
+    return output, to_confirm
+
+
+def _apply_batch_confirm_results(
+    to_confirm: list[tuple[int, dict[str, Any]]],
+    results: list[Any],
+    output: list[dict[str, Any]],
+) -> None:
+    """Write bridge.batch_confirm results into the per-item output slots."""
+    for (idx, _), r in zip(to_confirm, results, strict=True):
+        if isinstance(r, dict):
+            output[idx] = {"success": False, **r}
+        else:
+            output[idx] = {
+                "success": True,
+                "transfer_id": r.transfer_id,
+                "status": r.status.value,
+                "target_tx_hash": r.target_tx_hash,
+                "confirm_time": r.confirm_time.isoformat() if r.confirm_time else None,
+            }
+
+
 @rate_limit(rate=20, per=60)
 def bridge_batch_confirm(request: Request, batch_data: dict[str, Any]) -> list[dict[str, Any]]:
     """Batch confirm multiple cross-chain transfers.
@@ -643,43 +696,10 @@ def bridge_batch_confirm(request: Request, batch_data: dict[str, Any]) -> list[d
         if len(confirmations) > max_batch:
             raise HTTPException(status_code=400, detail=f"Batch size {len(confirmations)} exceeds maximum {max_batch}")
 
-        # Per-item confirmer signature — the same check the single-confirm
-        # route applies ({"transfer_id", "confirmer"}). The batch path must
-        # not be a weaker-auth door for the same operation; failures land
-        # as per-item results instead of rejecting the whole batch.
-        output: list[dict[str, Any]] = []
-        to_confirm: list[tuple[int, dict[str, Any]]] = []
-        for c in confirmations:
-            transfer_id = c.get("transfer_id")
-            proof = c.get("proof")
-            confirmer = c.get("confirmer") or c.get("recipient")
-            signature = c.get("signature")
-            if not transfer_id or not proof:
-                output.append({"success": False, "error": "missing required fields: transfer_id, proof"})
-                continue
-            if not confirmer or not signature:
-                output.append({"success": False, "error": "confirmer address and signature required"})
-                continue
-            sign_data = {"transfer_id": transfer_id, "confirmer": confirmer}
-            if not verify_request_signature(confirmer, signature, sign_data):
-                output.append({"success": False, "error": "invalid confirmer signature"})
-                continue
-            to_confirm.append((len(output), c))
-            output.append({})
-
+        output, to_confirm = _validate_batch_confirmations(confirmations)
         if to_confirm:
             results = bridge.batch_confirm([c for _, c in to_confirm])
-            for (idx, _), r in zip(to_confirm, results, strict=True):
-                if isinstance(r, dict):
-                    output[idx] = {"success": False, **r}
-                else:
-                    output[idx] = {
-                        "success": True,
-                        "transfer_id": r.transfer_id,
-                        "status": r.status.value,
-                        "target_tx_hash": r.target_tx_hash,
-                        "confirm_time": r.confirm_time.isoformat() if r.confirm_time else None,
-                    }
+            _apply_batch_confirm_results(to_confirm, results, output)
         return output
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e

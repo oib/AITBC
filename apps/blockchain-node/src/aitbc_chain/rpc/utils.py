@@ -10,7 +10,7 @@ import time
 from collections.abc import Iterable
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 from fastapi import HTTPException
 
@@ -303,46 +303,17 @@ def get_chain_db(chain_id: str | None = None) -> Any:
     return get_engine(resolved_chain_id)
 
 
-def normalize_transaction_data(tx_data: dict[str, Any], chain_id: str) -> dict[str, Any]:
-    """Normalize and validate transaction data"""
-    sender = tx_data.get("from")
-    recipient = tx_data.get("to")
-    if not isinstance(sender, str) or not sender.strip():
-        raise ValueError("transaction.from is required")
-    if not isinstance(recipient, str) or not recipient.strip():
-        raise ValueError("transaction.to is required")
-
+def _parse_tx_int(raw: Any, label: str) -> int:
     try:
-        amount = int(tx_data["amount"])
-    except KeyError as exc:
-        raise ValueError("transaction.amount is required") from exc
+        return int(raw)
     except (TypeError, ValueError) as exc:
-        raise ValueError("transaction.amount must be an integer") from exc
+        raise ValueError(f"transaction.{label} must be an integer") from exc
 
-    try:
-        fee = int(tx_data.get("fee", 36))
-    except (TypeError, ValueError) as exc:
-        raise ValueError("transaction.fee must be an integer") from exc
 
-    try:
-        nonce = int(tx_data.get("nonce", 0))
-    except (TypeError, ValueError) as exc:
-        raise ValueError("transaction.nonce must be an integer") from exc
-
-    if amount < 0:
-        raise ValueError("transaction.amount must be non-negative")
-    if fee < 0:
-        raise ValueError("transaction.fee must be non-negative")
-    if nonce < 0:
-        raise ValueError("transaction.nonce must be non-negative")
-
-    payload = tx_data.get("payload", {})
+def _normalize_tx_payload(payload: Any) -> dict[str, Any]:
+    """Coerce a transaction payload to a dict (None/JSON-string/other → dict)."""
     if payload is None:
         payload = {}
-
-    tx_type = tx_data.get("type", "TRANSFER")
-    if tx_type:
-        tx_type = tx_type.upper()
 
     # Ensure payload is a dict
     if isinstance(payload, str):
@@ -355,6 +326,38 @@ def normalize_transaction_data(tx_data: dict[str, Any], chain_id: str) -> dict[s
 
     if not isinstance(payload, dict):
         payload = {}
+    return cast(dict[str, Any], payload)
+
+
+def normalize_transaction_data(tx_data: dict[str, Any], chain_id: str) -> dict[str, Any]:
+    """Normalize and validate transaction data"""
+    sender = tx_data.get("from")
+    recipient = tx_data.get("to")
+    if not isinstance(sender, str) or not sender.strip():
+        raise ValueError("transaction.from is required")
+    if not isinstance(recipient, str) or not recipient.strip():
+        raise ValueError("transaction.to is required")
+
+    try:
+        amount_raw = tx_data["amount"]
+    except KeyError as exc:
+        raise ValueError("transaction.amount is required") from exc
+    amount = _parse_tx_int(amount_raw, "amount")
+    fee = _parse_tx_int(tx_data.get("fee", 36), "fee")
+    nonce = _parse_tx_int(tx_data.get("nonce", 0), "nonce")
+
+    if amount < 0:
+        raise ValueError("transaction.amount must be non-negative")
+    if fee < 0:
+        raise ValueError("transaction.fee must be non-negative")
+    if nonce < 0:
+        raise ValueError("transaction.nonce must be non-negative")
+
+    payload = _normalize_tx_payload(tx_data.get("payload", {}))
+
+    tx_type = tx_data.get("type", "TRANSFER")
+    if tx_type:
+        tx_type = tx_type.upper()
 
     return {
         "chain_id": chain_id,

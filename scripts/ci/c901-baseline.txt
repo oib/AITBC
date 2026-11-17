@@ -7,26 +7,7 @@
       1 aitbc/oracles/price_oracle.py
       1 aitbc/sync/parallel_fetcher.py
       1 aitbc/trading/subscription_client.py
-      2 apps/blockchain-node/src/aitbc_chain/app.py
-      1 apps/blockchain-node/src/aitbc_chain/aux_state.py
-      1 apps/blockchain-node/src/aitbc_chain/chain_sync.py
-      3 apps/blockchain-node/src/aitbc_chain/contracts/escrow.py
       1 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py
-      1 apps/blockchain-node/src/aitbc_chain/database.py
-      2 apps/blockchain-node/src/aitbc_chain/gossip/backends/broadcast.py
-      1 apps/blockchain-node/src/aitbc_chain/mempool.py
-      2 apps/blockchain-node/src/aitbc_chain/mempool_db_admission.py
-      3 apps/blockchain-node/src/aitbc_chain/p2p_network.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/accounts.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/agent_staking.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/blocks.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/bridge.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes_lock.py
-      2 apps/blockchain-node/src/aitbc_chain/rpc/sync.py
-      1 apps/blockchain-node/src/aitbc_chain/rpc/utils.py
-      1 apps/blockchain-node/src/aitbc_chain/state/admission_authority.py
-      1 apps/blockchain-node/src/aitbc_chain/state/liquidity_transition.py
-      1 apps/blockchain-node/src/aitbc_chain/state/merkle_patricia_trie.py
       1 apps/blockchain-node/tests/consensus/test_pbft.py
       1 apps/blockchain-node/tests/test_gauge_wiring_review.py
       1 apps/blockchain-node/tests/test_parallel_performance.py

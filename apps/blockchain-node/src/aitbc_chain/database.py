@@ -1233,23 +1233,11 @@ def _warn_unset_authority_parameters(session: Session, chain_id: str) -> None:
         )
 
 
-def _rebuild_chain_parameters(session: Session, chain_id: str) -> bool:
-    """Replay sealed GOVERNANCE_EXECUTEs into parameter history + current rows.
+def _collect_latest_parameter_changes(session: Session, chain_id: str) -> tuple[dict[str, tuple[int, str, str | None]], bool]:
+    """Replay sealed GOVERNANCE_EXECUTEs into parameter history.
 
-    Shared by init-time backfill and the import-chain wipe/rebuild. Executes
-    order by ``(block_height, id)`` — insertion order equals apply order on
-    every node (each block's transactions are written in block order whether
-    applied live or bulk-imported), so two same-height executes on one
-    parameter resolve to the same last-write-wins value everywhere. ``id``
-    also makes the rebuild identical to what live apply recorded.
-
-    Current rows are only filled when missing — an existing row may
-    legitimately lead history (a fresh upsert or a newer unexecuted change)
-    and is never clobbered at startup. No commit: the caller owns the
-    transaction boundary (init commits at the end; import commits once for
-    wipe+import+rebuild).
-
-    Returns True when anything was written or replayed.
+    Returns ``(latest, had_executes)`` where ``latest`` maps parameter to
+    ``(block_height, value, proposal_id)`` of its newest recorded change.
     """
     executes = session.exec(
         select(Transaction)
@@ -1282,15 +1270,18 @@ def _rebuild_chain_parameters(session: Session, chain_id: str) -> bool:
             session, chain_id, parameter, value, payload.get("proposal_id"), execute_tx.block_height, overwrite=True
         )
         latest[parameter] = (execute_tx.block_height, value, payload.get("proposal_id"))
+    return latest, bool(executes)
 
-    # autoflush is off on these sessions — flush so the dedupe check in
-    # record_chain_parameter_history sees the rows just added above.
-    session.flush()
-    changed = bool(executes)
 
-    # Fill current rows that are missing entirely (e.g. after import-chain
-    # wiped the table): the latest recorded change is the value in force.
-    existing_params = set(session.exec(select(ChainParameter.parameter).where(ChainParameter.chain_id == chain_id)).all())
+def _fill_missing_current_params(
+    session: Session,
+    chain_id: str,
+    latest: dict[str, tuple[int, str, str | None]],
+    existing_params: set[Any],
+) -> bool:
+    """Fill current rows that are missing entirely (e.g. after import-chain
+    wiped the table): the latest recorded change is the value in force."""
+    changed = False
     for parameter, (height, value, proposal_id) in latest.items():
         if parameter in existing_params:
             continue
@@ -1307,38 +1298,45 @@ def _rebuild_chain_parameters(session: Session, chain_id: str) -> bool:
         logger.info(
             "Restored chain parameter %s=%s on %s from sealed execute at height %s", parameter, value, chain_id, height
         )
-    session.flush()
+    return changed
 
+
+def _resolve_applied_height(session: Session, chain_id: str, row: ChainParameter, latest: dict[str, Any]) -> int | None:
+    if row.parameter in latest:
+        return int(latest[row.parameter][0])
+    if row.proposal_id:
+        # No recorded parameter_change — fall back to the proposal's
+        # execution tx height (e.g. a row whose execute predates the
+        # execution_payload shape).
+        proposal = session.exec(
+            select(GovernanceProposal).where(
+                GovernanceProposal.chain_id == chain_id,
+                GovernanceProposal.proposal_id == row.proposal_id,
+            )
+        ).first()
+        tx_hash = proposal.execution_tx_hash if proposal else None
+        if tx_hash:
+            exec_tx = session.exec(
+                select(Transaction).where(
+                    Transaction.chain_id == chain_id,
+                    Transaction.tx_hash == tx_hash,
+                )
+            ).first()
+            if exec_tx and exec_tx.block_height is not None:
+                return int(exec_tx.block_height)
+    return None
+
+
+def _backfill_applied_heights(session: Session, chain_id: str, latest: dict[str, tuple[int, str, str | None]]) -> bool:
     rows = session.exec(
         select(ChainParameter).where(
             ChainParameter.chain_id == chain_id,
             ChainParameter.applied_height.is_(None),  # type: ignore[union-attr]
         )
     ).all()
+    changed = False
     for row in rows:
-        applied_h: int | None = None
-        if row.parameter in latest:
-            applied_h = latest[row.parameter][0]
-        elif row.proposal_id:
-            # No recorded parameter_change — fall back to the proposal's
-            # execution tx height (e.g. a row whose execute predates the
-            # execution_payload shape).
-            proposal = session.exec(
-                select(GovernanceProposal).where(
-                    GovernanceProposal.chain_id == chain_id,
-                    GovernanceProposal.proposal_id == row.proposal_id,
-                )
-            ).first()
-            tx_hash = proposal.execution_tx_hash if proposal else None
-            if tx_hash:
-                exec_tx = session.exec(
-                    select(Transaction).where(
-                        Transaction.chain_id == chain_id,
-                        Transaction.tx_hash == tx_hash,
-                    )
-                ).first()
-                if exec_tx and exec_tx.block_height is not None:
-                    applied_h = exec_tx.block_height
+        applied_h = _resolve_applied_height(session, chain_id, row, latest)
         if applied_h is None:
             continue
         row.applied_height = applied_h
@@ -1351,6 +1349,41 @@ def _rebuild_chain_parameters(session: Session, chain_id: str) -> bool:
             row.parameter,
             chain_id,
         )
+    return changed
+
+
+def _rebuild_chain_parameters(session: Session, chain_id: str) -> bool:
+    """Replay sealed GOVERNANCE_EXECUTEs into parameter history + current rows.
+
+    Shared by init-time backfill and the import-chain wipe/rebuild. Executes
+    order by ``(block_height, id)`` — insertion order equals apply order on
+    every node (each block's transactions are written in block order whether
+    applied live or bulk-imported), so two same-height executes on one
+    parameter resolve to the same last-write-wins value everywhere. ``id``
+    also makes the rebuild identical to what live apply recorded.
+
+    Current rows are only filled when missing — an existing row may
+    legitimately lead history (a fresh upsert or a newer unexecuted change)
+    and is never clobbered at startup. No commit: the caller owns the
+    transaction boundary (init commits at the end; import commits once for
+    wipe+import+rebuild).
+
+    Returns True when anything was written or replayed.
+    """
+    latest, had_executes = _collect_latest_parameter_changes(session, chain_id)
+
+    # autoflush is off on these sessions — flush so the dedupe check in
+    # record_chain_parameter_history sees the rows just added above.
+    session.flush()
+    changed = had_executes
+
+    existing_params = set(session.exec(select(ChainParameter.parameter).where(ChainParameter.chain_id == chain_id)).all())
+    if _fill_missing_current_params(session, chain_id, latest, existing_params):
+        changed = True
+    session.flush()
+
+    if _backfill_applied_heights(session, chain_id, latest):
+        changed = True
     return changed
 
 
