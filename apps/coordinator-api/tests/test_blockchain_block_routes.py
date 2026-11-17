@@ -335,15 +335,42 @@ class TestSoftFailReads:
         mock_settings.blockchain_rpc_url = "http://localhost:8202"
         mock_client = Mock()
         mock_client_class.return_value = mock_client
+        consensus_validators = {
+            "validators": [
+                {
+                    "address": "0xv1",
+                    "stake": "1000",
+                    "reputation": 1.0,
+                    "role": "proposer",
+                    "is_active": True,
+                    "last_proposed": 42,
+                },
+                {
+                    "address": "0xv2",
+                    "stake": "900",
+                    "reputation": 0.9,
+                    "role": "validator",
+                    "is_active": True,
+                    "last_proposed": 41,
+                },
+            ],
+            "chain_id": "ait-mainnet",
+            "multi_validator_enabled": True,
+        }
         mock_client.get.side_effect = lambda url: (
-            {"proposer": "0xprop", "height": 1} if url.endswith("/rpc/head") else {"blocks": [], "timestamp": "t"}
+            consensus_validators if url.endswith("/rpc/consensus/validators") else {"blocks": [], "timestamp": "t"}
         )
 
         validators = _client().get("/v1/validators")
         dump = _client().get("/v1/state/dump")
 
         assert validators.status_code == 200
-        assert validators.json()["validators"] == [{"address": "0xprop", "status": "active"}]
+        body = validators.json()
+        assert body["validators"] == consensus_validators["validators"]
+        assert body["total"] == 2
+        assert body["chain_id"] == "ait-mainnet"
+        assert body["multi_validator_enabled"] is True
+        assert "status" not in body["validators"][0]
         assert dump.status_code == 200
         assert dump.json()["state"] == {"blocks": [], "timestamp": "t"}
         assert dump.json()["timestamp"] == "t"
