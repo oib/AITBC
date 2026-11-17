@@ -402,7 +402,15 @@ class BlockchainNode:
         for chain_id in chains:
             proposer = self._proposers.get(chain_id)
             if proposer and proposer.pbft_consensus:
-                for phase in ("pre_prepare", "prepare", "commit", "view_change", "new_view"):
+                for phase in (
+                    "pre_prepare",
+                    "prepare",
+                    "commit",
+                    "view_change",
+                    "new_view",
+                    "proposal_fetch",
+                    "proposal_body",
+                ):
                     pbft_topic = f"pbft.{phase}.{chain_id}"
                     try:
                         pbft_sub = await gossip_broker.subscribe(pbft_topic)

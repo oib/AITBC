@@ -197,6 +197,13 @@ class ConsensusConfig(BaseModel):
     # unchanged and historical replay is byte-identical. Arming is deferred
     # fleet-wide (ruling 4C) — PBFT itself stays OFF regardless.
     pbft_view_change_height: int | None = Field(default=None, ge=0)
+    # #2171: height-armed cross-author re-proposal. From this height (and only
+    # while ``pbft_view_change_height`` is also active) the round's scheduled
+    # proposer re-proposes the commit-locked block even when someone else
+    # authored it, and followers accept that body under a locked NEW_VIEW. Dormant
+    # while None/unset/malformed: #2157 behaviour and R4 are byte-identical.
+    # Arm on all four validators before the height (version-height rule).
+    pbft_locked_cross_author_height: int | None = Field(default=None, ge=0)
     consensus_view_change_timeout_seconds: int = 30  # H6 — timeout before view change
     consensus_round_timeout_seconds: int = 10  # per-round timeout
     # v0.25.6: deterministic proposer rotation. When the scheduled proposer for

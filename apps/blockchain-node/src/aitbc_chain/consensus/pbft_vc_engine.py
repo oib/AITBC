@@ -24,6 +24,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from ..config import settings
 from ..metrics import metrics_registry
 from .pbft import PBFTMessage, _PbftBaseMixin, _int_key_seq, logger
+from .block_hash import compute_block_hash
 from .pbft_quorum import pbft_required_messages
 from .pbft_view_change import (
     MAX_LOCK_PROOF_MSGS,
@@ -33,6 +34,7 @@ from .pbft_view_change import (
     MAX_VC_SET_ENTRIES,
     NV_MESSAGE_TYPE,
     VC_MESSAGE_TYPE,
+    cross_author_reproposal_active,
     new_view_digest,
     nv_signed_message,
     proposal_body_bound,
@@ -139,10 +141,75 @@ class _VcEngineMixin(_PbftBaseMixin):
         except TypeError:
             return self.consensus.select_proposer(sequence)
 
-    def _vc_proposal_store(self, sequence: int, block_hash: str, payload: dict[str, Any], sender: str) -> bool:
+    def _body_hash_recomputes(self, body: Any, block_hash: str) -> bool:
+        """Whether the body's own fields reproduce ``block_hash`` (#2171 rework).
+
+        The proposer's header signature covers the hash label and roots, not
+        the transaction list, so a bound + signed body can still carry a
+        substituted tx set. Recompute the canonical block hash over the body;
+        fail closed on anything malformed.
+        """
+        if not isinstance(body, dict):
+            return False
+        txs = body.get("transactions")
+        if not isinstance(txs, list):
+            return False
+        tx_hashes: list[str] = []
+        for tx in txs:
+            tx_hash = tx.get("tx_hash") if isinstance(tx, dict) else None
+            if not isinstance(tx_hash, str) or not tx_hash:
+                return False
+            tx_hashes.append(tx_hash)
+        height, parent, proposer, timestamp = (body.get(k) for k in ("height", "parent_hash", "proposer", "timestamp"))
+        if (
+            body.get("chain_id") != self._chain_id
+            or not isinstance(height, int)
+            or not isinstance(parent, str)
+            or not isinstance(proposer, str)
+            or not isinstance(timestamp, str)
+        ):
+            return False
+        try:
+            computed = compute_block_hash(
+                self._chain_id,
+                height,
+                parent,
+                timestamp,
+                tx_hashes,
+                proposer,
+                body.get("state_root"),
+                body.get("bridge_state_root"),
+                body.get("aux_state_root"),
+            )
+        except (TypeError, ValueError):
+            return False
+        return computed.lower() == block_hash.lower()
+
+    def _cross_author_exempt(self, sequence: int, view: int | None, block_hash: str, sender: str) -> bool:
+        """#2171: R4 exemption for a locked re-proposal by the scheduled proposer.
+
+        Only under a verified locked NEW_VIEW at ``(sequence, view)`` whose
+        selected hash is exactly ``block_hash`` and whose sender is the
+        pre-prepare sender; the body's author signature is still checked by
+        the caller.
+        """
+        if view is None or not cross_author_reproposal_active(sequence):
+            return False
+        entry = self._new_views.get((sequence, view))
+        if entry is None or entry.get("kind") != "locked" or entry.get("selected") != block_hash:
+            return False
+        expected = self._vc_expected_proposer(sequence, view)
+        return canonical_address(str(expected or "")) == canonical_address(sender)
+
+    def _vc_proposal_store(
+        self, sequence: int, block_hash: str, payload: dict[str, Any], sender: str, view: int | None = None
+    ) -> bool:
         # #2133 R4: the body's self-declared proposer must be the authenticated
         # pre-prepare sender (itself checked against the schedule at intake).
-        if canonical_address(str(payload.get("proposer", ""))) != canonical_address(sender):
+        # #2171: except a locked re-proposal by the scheduled proposer.
+        if canonical_address(str(payload.get("proposer", ""))) != canonical_address(sender) and not (
+            self._cross_author_exempt(sequence, view, block_hash, sender) and self._body_hash_recomputes(payload, block_hash)
+        ):
             metrics_registry.increment("pbft_view_change_proposal_unsigned_total")
             logger.warning("PBFT refusing proposal body for seq %s: proposer is not the pre-prepare sender", sequence)
             return False
@@ -572,7 +639,7 @@ class _VcEngineMixin(_PbftBaseMixin):
         new_view_payload = entry["payload"] if entry is not None else None
         if new_view_payload is None:
             new_view_payload = await self._build_new_view(sequence, view)
-        if not self._vc_proposal_store(sequence, block_hash, block_payload, self._local_validator or ""):
+        if not self._vc_proposal_store(sequence, block_hash, block_payload, self._local_validator or "", view):
             metrics_registry.increment("pbft_view_change_persist_failed_total")
             logger.error("PBFT proposal body for seq %s could not be persisted; refusing pre-prepare", sequence)
             return None
@@ -592,7 +659,9 @@ class _VcEngineMixin(_PbftBaseMixin):
             return False
         if isinstance(pp_msg.block, dict) and proposal_body_bound(pp_msg.block, pp_msg.block_hash, sequence):
             if not pp_msg._proposal_persisted:
-                pp_msg._proposal_persisted = self._vc_proposal_store(sequence, pp_msg.block_hash, pp_msg.block, pp_msg.sender)
+                pp_msg._proposal_persisted = self._vc_proposal_store(
+                    sequence, pp_msg.block_hash, pp_msg.block, pp_msg.sender, view
+                )
         if not pp_msg._proposal_persisted:
             metrics_registry.increment("pbft_view_change_proposal_missing_total")
             logger.warning(
