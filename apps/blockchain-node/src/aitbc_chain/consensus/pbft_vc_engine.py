@@ -34,6 +34,7 @@ from .pbft_view_change import (
     MAX_VC_SET_ENTRIES,
     NV_MESSAGE_TYPE,
     VC_MESSAGE_TYPE,
+    body_hash_check_active,
     cross_author_reproposal_active,
     new_view_digest,
     nv_signed_message,
@@ -212,6 +213,12 @@ class _VcEngineMixin(_PbftBaseMixin):
         ):
             metrics_registry.increment("pbft_view_change_proposal_unsigned_total")
             logger.warning("PBFT refusing proposal body for seq %s: proposer is not the pre-prepare sender", sequence)
+            return False
+        # #2181: the header signature does not cover the tx list, so a body can be
+        # signed and bound yet not hash to ``block_hash``; refuse it before any vote.
+        if body_hash_check_active(sequence) and not self._body_hash_recomputes(payload, block_hash):
+            metrics_registry.increment("pbft_view_change_proposal_hash_mismatch_total")
+            logger.warning("PBFT refusing proposal body for seq %s: body does not recompute to its block hash", sequence)
             return False
         if not proposal_body_signed(payload):
             metrics_registry.increment("pbft_view_change_proposal_unsigned_total")
