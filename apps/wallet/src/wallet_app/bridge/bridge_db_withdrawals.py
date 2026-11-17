@@ -362,7 +362,7 @@ def update_withdrawal_status(
     params: tuple = (status, utc_now_iso(), eth_tx_hash, refund_tx_hash, error, release_nonce, ait_tx_hash)
     if expected_statuses:
         expected = tuple(expected_statuses)
-        query += f" AND status IN ({', '.join('?' for _ in expected)})"  # nosec
+        query += f" AND status IN ({', '.join('?' for _ in expected)})"
         params = (*params, *expected)
     cursor.execute(query, params)
     conn.commit()

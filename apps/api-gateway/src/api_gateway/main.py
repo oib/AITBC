@@ -97,7 +97,7 @@ def _exec_code_fragment(filename: str) -> None:
     """
     path = os.path.join(os.path.dirname(os.path.abspath(__file__)), filename)
     with open(path, encoding="utf-8") as fragment_file:
-        exec(compile(fragment_file.read(), path, "exec"), globals())  # nosec B102
+        exec(compile(fragment_file.read(), path, "exec"), globals())  # nosec
 
 
 security = HTTPBearer(auto_error=False)
@@ -588,7 +588,7 @@ if __name__ == "__main__":
     # client identity, so the rate limiter keys on the post-realip address.
     uvicorn.run(
         app,
-        host="0.0.0.0",  # nosec B104
+        host="0.0.0.0",
         port=8201,
         log_level="critical",
         access_log=False,

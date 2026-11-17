@@ -56,7 +56,7 @@ def _rebuild_sqlite(conn: sa.engine.Connection, types: dict[str, str]) -> None:
     cols = ", ".join(f"{name} {overrides.get(name, types[name])}" for name in types)
     names = ", ".join(types)
     conn.execute(text(f"CREATE TABLE mempool_new ({cols}, PRIMARY KEY (chain_id, tx_hash))"))
-    conn.execute(text(f"INSERT INTO mempool_new SELECT {names} FROM mempool"))  # nosec B608 — identifiers from PRAGMA/inspector, never user input
+    conn.execute(text(f"INSERT INTO mempool_new SELECT {names} FROM mempool"))  # nosec # identifiers from PRAGMA/inspector, never user input
     conn.execute(text("DROP TABLE mempool"))
     conn.execute(text("ALTER TABLE mempool_new RENAME TO mempool"))
     conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)"))
@@ -120,7 +120,7 @@ def downgrade() -> None:
         names = ", ".join(types)
         conn = bind
         conn.execute(text(f"CREATE TABLE mempool_old ({cols}, PRIMARY KEY (chain_id, tx_hash))"))
-        conn.execute(text(f"INSERT INTO mempool_old SELECT {names} FROM mempool"))  # nosec B608 — identifiers from PRAGMA/inspector, never user input
+        conn.execute(text(f"INSERT INTO mempool_old SELECT {names} FROM mempool"))  # nosec # identifiers from PRAGMA/inspector, never user input
         conn.execute(text("DROP TABLE mempool"))
         conn.execute(text("ALTER TABLE mempool_old RENAME TO mempool"))
         conn.execute(text("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)"))

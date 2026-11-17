@@ -125,7 +125,7 @@ async def _gossip_ws_close(websocket: WebSocket, code: int | None = None) -> Non
             await asyncio.wait_for(websocket.close(), timeout=_GOSSIP_WS_OP_TIMEOUT)
         else:
             await asyncio.wait_for(websocket.close(code=code), timeout=_GOSSIP_WS_OP_TIMEOUT)
-    except Exception as e:  # noqa: BLE001,S110 - close is best-effort during teardown  # nosec
+    except Exception as e:  # noqa: BLE001,S110 - close is best-effort during teardown
         logger.debug("gossip websocket close failed: %s", type(e).__name__)
 
 
@@ -1069,7 +1069,7 @@ async def _subscribe_heartbeat(websocket: WebSocket, node_id: str, chain_id: str
     except WebSocketDisconnect:  # expected disconnect
         pass
     # intentional silent cleanup
-    except Exception as e:  # noqa: BLE001,S110 - receive-loop teardown  # nosec B110
+    except Exception as e:  # noqa: BLE001,S110 - receive-loop teardown
         logger.debug("gossip receive loop cleanup failed: %s", type(e).__name__)
 
 
@@ -1143,6 +1143,6 @@ async def subscription_websocket(websocket: WebSocket) -> None:
             del _active_subscribers[node_id, chain_id]
         try:
             await _gossip_ws_close(websocket)
-        except Exception as e:  # noqa: BLE001,S110 - subscriber cleanup close is best-effort  # nosec
+        except Exception as e:  # noqa: BLE001,S110 - subscriber cleanup close is best-effort
             logger.debug("gossip websocket cleanup close failed: %s", type(e).__name__)
         logger.info("WebSocket subscriber cleanup complete: %s", node_id)

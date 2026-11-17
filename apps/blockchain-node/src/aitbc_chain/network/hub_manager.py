@@ -201,7 +201,7 @@ class HubManager:
             credentials["island_name"] = self.island_name
             rpc_host = self.local_address
             # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
-            if rpc_host in {"0.0.0.0", "127.0.0.1", "localhost", ""}:  # nosec B104
+            if rpc_host in {"0.0.0.0", "127.0.0.1", "localhost", ""}:
                 rpc_host = settings.hub_discovery_url or socket.gethostname()
             credentials["rpc_endpoint"] = f"http://{rpc_host}:8202"
             credentials["p2p_port"] = self.local_port

@@ -109,7 +109,7 @@ def _check_row_counts(problems: list[str], conn: Any, manifest: dict) -> None:
         problems.append("row_counts: missing or empty in manifest")
         return
     actual = {
-        name: conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]  # nosec - name from sqlite_master
+        name: conn.execute(f'SELECT COUNT(*) FROM "{name}"').fetchone()[0]  # nosec # name from sqlite_master
         for (name,) in conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'")
     }
     for table, expected in want_counts.items():

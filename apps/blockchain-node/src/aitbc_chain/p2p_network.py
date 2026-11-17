@@ -164,7 +164,7 @@ class P2PNetworkService:
             try:
                 await writer.wait_closed()
             # intentional silent cleanup
-            except Exception as e:  # noqa: BLE001,S110 - connection teardown  # nosec B110
+            except Exception as e:  # noqa: BLE001,S110 - connection teardown
                 logger.debug("p2p writer close failed: %s", type(e).__name__)
         self.active_connections.clear()
         self.connected_endpoints.clear()
@@ -811,7 +811,7 @@ class P2PNetworkService:
         try:
             await writer.wait_closed()
         # intentional silent cleanup
-        except Exception as e:  # noqa: BLE001,S110 - connection teardown  # nosec B110
+        except Exception as e:  # noqa: BLE001,S110 - connection teardown
             logger.debug("p2p writer close failed: %s", type(e).__name__)
 
     async def _handle_stream_message(
