@@ -19,7 +19,14 @@ from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
 from .pbft import PBFTMessage, PBFTMessageType, _PbftBaseMixin, logger
-from .pbft_view_change import NV_MESSAGE_TYPE, VC_MESSAGE_TYPE, proposal_body_bound, view_change_active
+from .pbft_view_change import (
+    NV_MESSAGE_TYPE,
+    PB_MESSAGE_TYPE,
+    PF_MESSAGE_TYPE,
+    VC_MESSAGE_TYPE,
+    proposal_body_bound,
+    view_change_active,
+)
 
 
 class _IntakeMixin(_PbftBaseMixin):
@@ -88,6 +95,12 @@ class _IntakeMixin(_PbftBaseMixin):
             return True
         if mtype == NV_MESSAGE_TYPE:
             await self._handle_new_view_payload(message_data)
+            return True
+        if mtype == PF_MESSAGE_TYPE:
+            await self._handle_proposal_fetch(message_data)
+            return True
+        if mtype == PB_MESSAGE_TYPE:
+            self._handle_proposal_body(message_data)
             return True
         return False
 
@@ -168,7 +181,7 @@ class _IntakeMixin(_PbftBaseMixin):
                 message.block, message.block_hash, message.sequence_number
             ):
                 message._proposal_persisted = self._vc_proposal_store(
-                    message.sequence_number, message.block_hash, message.block, message.sender
+                    message.sequence_number, message.block_hash, message.block, message.sender, message.view_number
                 )
             await self._ensure_view_change_sent(message.sequence_number, message.view_number)
         self.state.pre_prepare_messages[key] = message

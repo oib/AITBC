@@ -23,10 +23,25 @@ from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
 from ..metrics import metrics_registry
-from .pbft import PBFTMessage, PBFTMessageType, _PbftBaseMixin, logger
+from .pbft import (
+    BODY_FETCH_WAIT_SECONDS,
+    MAX_BODY_WANTED,
+    PBFTMessage,
+    PBFTMessageType,
+    _PbftBaseMixin,
+    logger,
+)
 from .pbft_certificate import strict_certificate_active, validate_commit_certificate
 from .pbft_cross_view import cross_view_commit_lock_active
-from .pbft_view_change import proposal_body_bound, view_change_active
+from .pbft_view_change import (
+    PB_MESSAGE_TYPE,
+    PF_MESSAGE_TYPE,
+    cross_author_reproposal_active,
+    proposal_body_bound,
+    proposal_body_signed,
+    select_forced_hash,
+    view_change_active,
+)
 
 
 class _PhasesMixin(_PbftBaseMixin):
@@ -124,26 +139,139 @@ class _PhasesMixin(_PbftBaseMixin):
         logger.warning("PBFT timed out waiting for sync on chain %s", self._chain_id)
         return False
 
-    def _locked_reproposal(self, sequence: int, fresh_hash: str) -> tuple[str, dict[str, Any]] | None:
+    def _forced_locked_hash(self, sequence: int, view: int) -> str | None:
+        """The hash a locked NEW_VIEW forces at ``(sequence, view)`` (#2171).
+
+        From the verified NEW_VIEW when held, else recomputed from the local
+        VIEW_CHANGE bucket once it reaches quorum (the scheduled proposer builds
+        its NEW_VIEW from that same set). ``None`` for a free selection or when
+        no quorum is visible yet.
+        """
+        entry = self._new_views.get((sequence, view))
+        if entry is not None:
+            selected = entry.get("selected")
+            return selected if entry.get("kind") == "locked" and isinstance(selected, str) and selected else None
+        bucket = self._vc_messages.get((sequence, view), {})
+        by_sender = {canonical_address(str(vc.get("sender", ""))): vc for vc in bucket.values()}
+        if len(by_sender) < self._vc_quorum(sequence):
+            return None
+        kind, selected = select_forced_hash(by_sender)
+        return selected if kind == "locked" and selected else None
+
+    def _locked_reproposal(self, sequence: int, fresh_hash: str, view: int | None = None) -> tuple[str, dict[str, Any]] | None:
         """The commit-locked ``(hash, body)`` this node must re-propose (#2157).
 
         Only while the view-change gate is armed at ``sequence``, a durable
         commit lock exists for a hash other than the fresh block's, the body
         is held, signed, bound to that hash, and this node is the body's own
         proposer (#2133 R4 requires body proposer == pre-prepare sender).
+
+        #2171: with ``pbft_locked_cross_author_height`` armed the hash comes
+        from the locked NEW_VIEW selection and the author check is dropped —
+        the narrow R4 exemption in ``_vc_proposal_store`` lets followers
+        accept the author-signed body from the scheduled proposer.
         """
         if not view_change_active(sequence):
             return None
-        lock = self._vc_commit_lock(sequence)
-        locked_hash = lock.get("block_hash") if isinstance(lock, dict) else None
+        forced = None
+        if view is not None and cross_author_reproposal_active(sequence):
+            forced = self._forced_locked_hash(sequence, view)
+        locked_hash: Any
+        if forced:
+            locked_hash = forced
+        else:
+            lock = self._vc_commit_lock(sequence)
+            locked_hash = lock.get("block_hash") if isinstance(lock, dict) else None
         if not isinstance(locked_hash, str) or not locked_hash or locked_hash == fresh_hash:
             return None
         body = self._vc_proposal_get(sequence, locked_hash)
         if body is None or not proposal_body_bound(body, locked_hash, sequence):
             return None
-        if canonical_address(str(body.get("proposer", ""))) != canonical_address(str(self._local_validator)):
+        if not forced and canonical_address(str(body.get("proposer", ""))) != canonical_address(str(self._local_validator)):
             return None
         return locked_hash, body
+
+    async def _ensure_locked_body(self, sequence: int, view: int) -> None:
+        """Fetch the locked body the NEW_VIEW forces when this node lacks it (#2171)."""
+        if not cross_author_reproposal_active(sequence) or self._gossip_backend is None:
+            return
+        locked_hash = self._forced_locked_hash(sequence, view)
+        if not locked_hash or self._vc_proposal_get(sequence, locked_hash) is not None:
+            return
+        if len(self._body_wanted) >= MAX_BODY_WANTED:
+            self._body_wanted.clear()
+        self._body_wanted[(sequence, locked_hash)] = view
+        request = {
+            "message_type": PF_MESSAGE_TYPE,
+            "sender": self._local_validator,
+            "sequence_number": sequence,
+            "view_number": view,
+            "block_hash": locked_hash,
+        }
+        deadline = time.time() + BODY_FETCH_WAIT_SECONDS
+        try:
+            while time.time() < deadline:
+                await self._gossip_backend.publish(f"pbft.{PF_MESSAGE_TYPE}.{self._chain_id}", request)
+                metrics_registry.increment("pbft_locked_body_fetch_requested_total")
+                for _ in range(4):
+                    if self._vc_proposal_get(sequence, locked_hash) is not None:
+                        return
+                    await asyncio.sleep(0.25)
+        finally:
+            self._body_wanted.pop((sequence, locked_hash), None)
+
+    async def _handle_proposal_fetch(self, data: dict[str, Any]) -> None:
+        """Answer a locked-body request from the proposal store (#2171)."""
+        seq, block_hash = data.get("sequence_number"), data.get("block_hash")
+        if not isinstance(seq, int) or isinstance(seq, bool) or not isinstance(block_hash, str):
+            return
+        if not cross_author_reproposal_active(seq) or self._gossip_backend is None:
+            return
+        view = data.get("view_number")
+        lock = self._vc_commit_lock(seq)
+        local_lock = lock.get("block_hash") if isinstance(lock, dict) else None
+        forced = self._forced_locked_hash(seq, view) if isinstance(view, int) and not isinstance(view, bool) else None
+        if block_hash not in (forced, local_lock):
+            return  # only ever serve the hash a lock or locked NEW_VIEW forces
+        body = self._vc_proposal_get(seq, block_hash)
+        if body is None or not proposal_body_bound(body, block_hash, seq):
+            return
+        now = time.time()
+        if now - self._fetch_answered.get((seq, block_hash), 0.0) < 2.0:
+            return
+        if len(self._fetch_answered) >= MAX_BODY_WANTED:
+            for stale in [k for k, t in self._fetch_answered.items() if now - t > 10.0]:
+                self._fetch_answered.pop(stale, None)
+            if len(self._fetch_answered) >= MAX_BODY_WANTED:
+                return  # table full of live entries: drop, never reset the limiter
+        self._fetch_answered[(seq, block_hash)] = now
+        response = {
+            "message_type": PB_MESSAGE_TYPE,
+            "sender": self._local_validator,
+            "sequence_number": seq,
+            "block_hash": block_hash,
+            "block": body,
+        }
+        await self._gossip_backend.publish(f"pbft.{PB_MESSAGE_TYPE}.{self._chain_id}", response)
+        metrics_registry.increment("pbft_locked_body_fetch_answered_total")
+
+    def _handle_proposal_body(self, data: dict[str, Any]) -> None:
+        """Store a fetched locked body: only when requested, bound and author-signed (#2171)."""
+        seq, block_hash, body = data.get("sequence_number"), data.get("block_hash"), data.get("block")
+        if not isinstance(seq, int) or isinstance(seq, bool) or not isinstance(block_hash, str):
+            return
+        if (seq, block_hash) not in self._body_wanted:
+            return  # unsolicited
+        if (
+            not proposal_body_bound(body, block_hash, seq)
+            or not proposal_body_signed(body)
+            or not self._body_hash_recomputes(body, block_hash)
+        ):
+            metrics_registry.increment("pbft_locked_body_fetch_refused_total")
+            return
+        fn = getattr(self.consensus, "pbft_vc_proposal_store", None)
+        if callable(fn) and fn(seq, block_hash, body):
+            metrics_registry.increment("pbft_locked_body_fetch_stored_total")
 
     async def propose_and_wait(
         self,
@@ -174,7 +302,8 @@ class _PhasesMixin(_PbftBaseMixin):
         # the locked hash (a locked NEW_VIEW permits nothing else), so a fresh
         # block here is refused by every follower and the chain stalls. When
         # this node authored the locked body, re-propose it as-is in this view.
-        locked = self._locked_reproposal(pre_prepare_sequence, block_hash)
+        await self._ensure_locked_body(pre_prepare_sequence, pre_prepare_view)
+        locked = self._locked_reproposal(pre_prepare_sequence, block_hash, pre_prepare_view)
         if locked is not None:
             block_hash, block_payload = locked
             logger.warning(

@@ -67,6 +67,8 @@ from .pbft_quorum import pbft_required_messages
 
 VC_MESSAGE_TYPE = "view_change"
 NV_MESSAGE_TYPE = "new_view"
+PF_MESSAGE_TYPE = "proposal_fetch"  # #2171: request a locked proposal body
+PB_MESSAGE_TYPE = "proposal_body"  # #2171: its answer
 
 # Flood bounds (#2005 §9 DoS row + design §8 test 8). All intake paths must
 # enforce these BEFORE signature work where possible.
@@ -107,6 +109,20 @@ def view_change_active(sequence: int | None) -> bool:
     if not _strict_int(threshold):
         return False
     if threshold < 0:
+        return False
+    return _strict_int(sequence) and sequence >= threshold
+
+
+def cross_author_reproposal_active(sequence: int | None) -> bool:
+    """Whether a locked block may be re-proposed by a non-author (#2171).
+
+    Armed by ``pbft_locked_cross_author_height`` on top of an active
+    view-change gate; same dormant shape as ``view_change_active``.
+    """
+    if not view_change_active(sequence):
+        return False
+    threshold = getattr(settings, "pbft_locked_cross_author_height", None)
+    if not _strict_int(threshold) or threshold < 0:
         return False
     return _strict_int(sequence) and sequence >= threshold
 
