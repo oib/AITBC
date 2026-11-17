@@ -47,7 +47,13 @@ class RedisConfig(BaseSettings):
     retry_on_timeout: bool = Field(default=True, description="Retry on Redis timeout")
     health_check_interval: int = Field(default=30, description="Health check interval in seconds")
 
-    model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
+    # ``env_prefix="REDIS_"`` (#2180): without it the nested model read bare
+    # field names from the environment, so ``REDIS_ENABLED``/``REDIS_URL``
+    # silently did nothing while the unrelated ``URL`` env var (the app's own
+    # database URL) leaked into ``redis.url``.
+    model_config = SettingsConfigDict(
+        env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow", env_prefix="REDIS_"
+    )
 
 
 class Settings(BaseAITBCConfig):
