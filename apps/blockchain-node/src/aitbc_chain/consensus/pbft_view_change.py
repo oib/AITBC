@@ -127,6 +127,20 @@ def cross_author_reproposal_active(sequence: int | None) -> bool:
     return _strict_int(sequence) and sequence >= threshold
 
 
+def body_hash_check_active(sequence: int | None) -> bool:
+    """Whether every proposal body must recompute to its hash (#2181).
+
+    Armed by ``pbft_body_hash_check_height`` on top of an active view-change
+    gate; same dormant shape as ``cross_author_reproposal_active``.
+    """
+    if not view_change_active(sequence):
+        return False
+    threshold = getattr(settings, "pbft_body_hash_check_height", None)
+    if not _strict_int(threshold) or threshold < 0:
+        return False
+    return _strict_int(sequence) and sequence >= threshold
+
+
 # ---------------------------------------------------------------------------
 # Digests — chain_id + domain tag bound into every new preimage (#2005 §2)
 # ---------------------------------------------------------------------------
