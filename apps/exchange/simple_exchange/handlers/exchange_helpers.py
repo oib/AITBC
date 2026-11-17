@@ -312,6 +312,18 @@ _band_cache: dict[str, tuple[Decimal, tuple[Decimal, Decimal]] | float] = {}
 BAND_CACHE_TTL_S = 60.0
 
 
+def get_db_path(*args, **kwargs):
+    """Late-bound ``..db.get_db_path`` for the exchange_* handler modules.
+
+    Tests patch ``handlers.exchange.get_db_path``; resolving through the
+    facade at call time keeps those patches effective for code that moved
+    out of ``exchange.py`` into sibling mixins.
+    """
+    from .exchange import get_db_path as _impl
+
+    return _impl(*args, **kwargs)
+
+
 def _row_to_order(row) -> dict:
     """Convert a database row to an order dict with Decimal monetary values."""
     return {
