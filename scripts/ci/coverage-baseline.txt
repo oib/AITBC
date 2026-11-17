@@ -48,7 +48,7 @@
 100 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_types.py
  73 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py
  30 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py
-  0 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py
+  95 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py
  69 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
 100 apps/blockchain-node/src/aitbc_chain/state/__init__.py
  76 apps/blockchain-node/src/aitbc_chain/state/admission_authority.py
@@ -58,8 +58,8 @@
  83 apps/blockchain-node/src/aitbc_chain/state/bridge_credit.py
  89 apps/blockchain-node/src/aitbc_chain/state/deactivation_evidence.py
  76 apps/blockchain-node/src/aitbc_chain/state/gpu_resources.py
- 22 apps/blockchain-node/src/aitbc_chain/state/liquidity.py
- 10 apps/blockchain-node/src/aitbc_chain/state/liquidity_transition.py
+ 95 apps/blockchain-node/src/aitbc_chain/state/liquidity.py
+ 95 apps/blockchain-node/src/aitbc_chain/state/liquidity_transition.py
  71 apps/blockchain-node/src/aitbc_chain/state/merkle_patricia_trie.py
  71 apps/blockchain-node/src/aitbc_chain/state/pure_state_transition.py
  70 apps/blockchain-node/src/aitbc_chain/state/side_root_shadow.py
