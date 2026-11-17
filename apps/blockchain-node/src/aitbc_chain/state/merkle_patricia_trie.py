@@ -92,36 +92,54 @@ class MerklePatriciaTrie:
         path = self._to_nibbles(key)
 
         for index, encoded_node in enumerate(proof):
-            if hashlib.sha256(encoded_node).digest() != expected_hash:
-                return False
-
-            node_type, node_path, node_value, child_hashes = self._decode_node(encoded_node)
-
-            if node_type == b"L":
-                return index == len(proof) - 1 and path == node_path and node_value == value
-
-            if node_type == b"E":
-                if not self._starts_with(path, node_path):
-                    return False
-                path = path[len(node_path) :]
-                if child_hashes[0] is None:
-                    return False
-                expected_hash = child_hashes[0]
-                continue
-
-            if node_type == b"B":
-                if not path:
-                    return index == len(proof) - 1 and node_value == value
-                next_hash = child_hashes[path[0]]
-                if next_hash is None:
-                    return False
-                expected_hash = next_hash
-                path = path[1:]
-                continue
-
-            return False
+            terminal, expected_hash, path = self._verify_proof_step(
+                expected_hash, encoded_node, index, len(proof), path, value
+            )
+            if terminal is not None:
+                return terminal
 
         return False
+
+    def _verify_proof_step(
+        self,
+        expected_hash: bytes,
+        encoded_node: bytes,
+        index: int,
+        proof_len: int,
+        path: tuple[int, ...],
+        value: bytes,
+    ) -> tuple[bool | None, bytes, tuple[int, ...]]:
+        """Process one proof element.
+
+        Returns ``(terminal, expected_hash, path)``: ``terminal`` is the proof
+        verdict when this element resolves it (True/False), or None to
+        continue with the next proof element.
+        """
+        if hashlib.sha256(encoded_node).digest() != expected_hash:
+            return False, expected_hash, path
+
+        node_type, node_path, node_value, child_hashes = self._decode_node(encoded_node)
+
+        if node_type == b"L":
+            return index == proof_len - 1 and path == node_path and node_value == value, expected_hash, path
+
+        if node_type == b"E":
+            if not self._starts_with(path, node_path):
+                return False, expected_hash, path
+            path = path[len(node_path) :]
+            if child_hashes[0] is None:
+                return False, expected_hash, path
+            return None, child_hashes[0], path
+
+        if node_type == b"B":
+            if not path:
+                return index == proof_len - 1 and node_value == value, expected_hash, path
+            next_hash = child_hashes[path[0]]
+            if next_hash is None:
+                return False, expected_hash, path
+            return None, next_hash, path[1:]
+
+        return False, expected_hash, path
 
     def get_proof(self, key: bytes) -> list[bytes]:
         proof: list[bytes] = []

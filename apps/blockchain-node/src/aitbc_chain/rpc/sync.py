@@ -213,6 +213,82 @@ def export_chain(request: Request, chain_id: str | None = None) -> Response:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _block_from_import_data(block_data: dict[str, Any], chain_id: str) -> Block:
+    for field in ("hash", "parent_hash", "proposer"):
+        if not block_data.get(field):
+            raise HTTPException(status_code=400, detail=f"Block {block_data.get('height')} missing {field}")
+    block_timestamp = _parse_datetime_value(block_data.get("timestamp"), "block timestamp") or datetime.now(UTC)
+    return Block(
+        chain_id=chain_id,
+        height=block_data["height"],
+        hash=block_data["hash"],
+        parent_hash=block_data["parent_hash"],
+        proposer=block_data["proposer"],
+        timestamp=block_timestamp,
+        state_root=block_data.get("state_root"),
+        tx_count=block_data.get("tx_count", 0),
+        aux_state_root=block_data.get("aux_state_root"),
+        block_metadata=block_data.get("block_metadata"),
+    )
+
+
+def _account_from_import_data(account_data: dict[str, Any], chain_id: str) -> Account:
+    account_chain_id = account_data.get("chain_id", chain_id)
+    if account_chain_id != chain_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Mismatched account chain_id '{account_chain_id}' for import chain '{chain_id}'",
+        )
+    try:
+        return Account(
+            chain_id=account_chain_id,
+            address=account_data["address"],
+            balance=account_data["balance"],
+            nonce=account_data["nonce"],
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=f"Account record missing field: {exc}") from exc
+
+
+def _transaction_from_import_data(tx_data: dict[str, Any], chain_id: str) -> Transaction:
+    tx_chain_id = tx_data.get("chain_id", chain_id)
+    if tx_chain_id != chain_id:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Mismatched transaction chain_id '{tx_chain_id}' for import chain '{chain_id}'",
+        )
+    try:
+        tx_payload = tx_data.get("payload") or {}
+        # ``type`` is a column every type-filtered consensus query relies on
+        # (GOVERNANCE_EXECUTE replay, BRIDGE_LOCK/ESCROW_LOCK lookups) —
+        # restore it with the same precedence _tx_type uses: explicit field,
+        # then payload.type, then TRANSFER.
+        tx_type = tx_data.get("type") or tx_payload.get("type") or "TRANSFER"
+        tx = Transaction(
+            id=tx_data.get("id"),
+            chain_id=tx_chain_id,
+            tx_hash=str(tx_data.get("tx_hash") or tx_data.get("id") or ""),
+            block_height=tx_data.get("block_height"),
+            sender=tx_data["sender"],
+            recipient=tx_data["recipient"],
+            type=tx_type,
+            payload=tx_payload,
+            envelope=tx_data.get("envelope"),
+            value=tx_data.get("value", 0),
+            fee=tx_data.get("fee", 0),
+            nonce=tx_data.get("nonce", 0),
+            timestamp=_serialize_optional_timestamp(tx_data.get("timestamp")),
+            status=tx_data.get("status", "pending"),
+            tx_metadata=tx_data.get("tx_metadata"),
+        )
+    except KeyError as exc:
+        raise HTTPException(status_code=400, detail=f"Transaction record missing field: {exc}") from exc
+    created_at = _parse_datetime_value(tx_data.get("created_at"), "transaction created_at")
+    if created_at is not None:
+        tx.created_at = created_at
+    return tx
+
+
 def _build_import_objects(
     unique_blocks: list[dict[str, Any]],
     accounts: list[dict[str, Any]],
@@ -224,83 +300,9 @@ def _build_import_objects(
     Raises HTTPException(400) on any malformed record *before* the caller
     touches the database, so a bad payload can never half-wipe a chain.
     """
-    new_blocks: list[Block] = []
-    for block_data in unique_blocks:
-        for field in ("hash", "parent_hash", "proposer"):
-            if not block_data.get(field):
-                raise HTTPException(status_code=400, detail=f"Block {block_data.get('height')} missing {field}")
-        block_timestamp = _parse_datetime_value(block_data.get("timestamp"), "block timestamp") or datetime.now(UTC)
-        new_blocks.append(
-            Block(
-                chain_id=chain_id,
-                height=block_data["height"],
-                hash=block_data["hash"],
-                parent_hash=block_data["parent_hash"],
-                proposer=block_data["proposer"],
-                timestamp=block_timestamp,
-                state_root=block_data.get("state_root"),
-                tx_count=block_data.get("tx_count", 0),
-                aux_state_root=block_data.get("aux_state_root"),
-                block_metadata=block_data.get("block_metadata"),
-            )
-        )
-    new_accounts: list[Account] = []
-    for account_data in accounts:
-        account_chain_id = account_data.get("chain_id", chain_id)
-        if account_chain_id != chain_id:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Mismatched account chain_id '{account_chain_id}' for import chain '{chain_id}'",
-            )
-        try:
-            new_accounts.append(
-                Account(
-                    chain_id=account_chain_id,
-                    address=account_data["address"],
-                    balance=account_data["balance"],
-                    nonce=account_data["nonce"],
-                )
-            )
-        except KeyError as exc:
-            raise HTTPException(status_code=400, detail=f"Account record missing field: {exc}") from exc
-    new_transactions: list[Transaction] = []
-    for tx_data in transactions:
-        tx_chain_id = tx_data.get("chain_id", chain_id)
-        if tx_chain_id != chain_id:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Mismatched transaction chain_id '{tx_chain_id}' for import chain '{chain_id}'",
-            )
-        try:
-            tx_payload = tx_data.get("payload") or {}
-            # ``type`` is a column every type-filtered consensus query relies on
-            # (GOVERNANCE_EXECUTE replay, BRIDGE_LOCK/ESCROW_LOCK lookups) —
-            # restore it with the same precedence _tx_type uses: explicit field,
-            # then payload.type, then TRANSFER.
-            tx_type = tx_data.get("type") or tx_payload.get("type") or "TRANSFER"
-            tx = Transaction(
-                id=tx_data.get("id"),
-                chain_id=tx_chain_id,
-                tx_hash=str(tx_data.get("tx_hash") or tx_data.get("id") or ""),
-                block_height=tx_data.get("block_height"),
-                sender=tx_data["sender"],
-                recipient=tx_data["recipient"],
-                type=tx_type,
-                payload=tx_payload,
-                envelope=tx_data.get("envelope"),
-                value=tx_data.get("value", 0),
-                fee=tx_data.get("fee", 0),
-                nonce=tx_data.get("nonce", 0),
-                timestamp=_serialize_optional_timestamp(tx_data.get("timestamp")),
-                status=tx_data.get("status", "pending"),
-                tx_metadata=tx_data.get("tx_metadata"),
-            )
-        except KeyError as exc:
-            raise HTTPException(status_code=400, detail=f"Transaction record missing field: {exc}") from exc
-        created_at = _parse_datetime_value(tx_data.get("created_at"), "transaction created_at")
-        if created_at is not None:
-            tx.created_at = created_at
-        new_transactions.append(tx)
+    new_blocks = [_block_from_import_data(block_data, chain_id) for block_data in unique_blocks]
+    new_accounts = [_account_from_import_data(account_data, chain_id) for account_data in accounts]
+    new_transactions = [_transaction_from_import_data(tx_data, chain_id) for tx_data in transactions]
     return new_blocks, new_accounts, new_transactions
 
 
@@ -422,6 +424,66 @@ def _address_is_forbidden(ip: Any) -> bool:
     return bool(ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified)
 
 
+async def _validate_force_sync_peer_url(peer_url: Any) -> None:
+    """SSRF guard for force_sync's admin-chosen peer.
+
+    Resolves the host and rejects loopback, link-local (cloud metadata),
+    reserved, multicast and unspecified addresses. Private/global addresses
+    stay allowed — fleet peers are internal-addressed (10.x) and sync over
+    the LAN.
+    """
+    if not peer_url:
+        raise HTTPException(status_code=400, detail="peer_url is required")
+    parsed = urlparse(peer_url)
+    if not parsed.scheme or parsed.scheme not in ["http", "https"]:
+        raise HTTPException(status_code=400, detail="Invalid URL scheme")
+    hostname = parsed.hostname
+    if not hostname:
+        raise HTTPException(status_code=400, detail="Invalid peer URL")
+    try:
+        port = parsed.port or (443 if parsed.scheme == "https" else 80)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail="Invalid peer URL port") from e
+    try:
+        infos = await asyncio.to_thread(socket.getaddrinfo, hostname, port)
+        resolved = {ip_address(info[4][0]) for info in infos}
+    except socket.gaierror as e:
+        raise HTTPException(status_code=400, detail=f"Cannot resolve peer host: {e}") from e
+    except ValueError as e:
+        # getaddrinfo can return scoped literals (e.g. "fe80::1%eth0")
+        # that ip_address() cannot parse — unparseable means forbidden.
+        raise HTTPException(status_code=400, detail="Peer URL resolves to a forbidden address") from e
+    if not resolved or any(_address_is_forbidden(ip) for ip in resolved):
+        raise HTTPException(status_code=400, detail="Peer URL resolves to a forbidden address")
+
+
+async def _fetch_peer_chain_export(peer_url: str) -> dict[str, Any]:
+    """GET ``{peer_url}/rpc/export-chain`` and return the parsed payload."""
+    import requests
+
+    # requests re-resolves the hostname at connect time, so DNS could in
+    # principle answer differently than the check above (TOCTOU). Accepted
+    # residual risk: the route requires an admin signature plus X-API-Key.
+    # Redirects stay off so a peer cannot bounce the request at an
+    # internal target after the URL check above.
+    # export-chain is peer-key authenticated (#1506): send this node's own
+    # RPC key so the peer can accept it via its PEERS list / issued keys.
+    export_headers = {}
+    local_rpc_key = os.getenv("BLOCKCHAIN_RPC_API_KEY", "")
+    if local_rpc_key:
+        export_headers["X-API-Key"] = local_rpc_key
+    response = await asyncio.to_thread(
+        requests.get,
+        f"{peer_url}/rpc/export-chain",
+        timeout=30,
+        allow_redirects=False,
+        headers=export_headers or None,
+    )
+    if response.status_code != 200:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch peer chain: {response.status_code}")
+    return cast(dict[str, Any], response.json())
+
+
 @rate_limit(rate=50, per=60)
 async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, Any]:
     """Force blockchain reorganization to sync with specified peer.
@@ -437,57 +499,8 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
         require_admin_signature(peer_data, peer_data.get("admin_address"), peer_data.get("admin_signature"))
         peer_url = peer_data.get("peer_url")
         target_height = peer_data.get("target_height")
-        if not peer_url:
-            raise HTTPException(status_code=400, detail="peer_url is required")
-        parsed = urlparse(peer_url)
-        if not parsed.scheme or parsed.scheme not in ["http", "https"]:
-            raise HTTPException(status_code=400, detail="Invalid URL scheme")
-        hostname = parsed.hostname
-        if not hostname:
-            raise HTTPException(status_code=400, detail="Invalid peer URL")
-        # SSRF guard: resolve the host and reject loopback, link-local
-        # (cloud metadata), reserved, multicast and unspecified addresses.
-        # Private/global addresses stay allowed — fleet peers are
-        # internal-addressed (10.x) and sync over the LAN.
-        try:
-            port = parsed.port or (443 if parsed.scheme == "https" else 80)
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail="Invalid peer URL port") from e
-        try:
-            infos = await asyncio.to_thread(socket.getaddrinfo, hostname, port)
-            resolved = {ip_address(info[4][0]) for info in infos}
-        except socket.gaierror as e:
-            raise HTTPException(status_code=400, detail=f"Cannot resolve peer host: {e}") from e
-        except ValueError as e:
-            # getaddrinfo can return scoped literals (e.g. "fe80::1%eth0")
-            # that ip_address() cannot parse — unparseable means forbidden.
-            raise HTTPException(status_code=400, detail="Peer URL resolves to a forbidden address") from e
-        if not resolved or any(_address_is_forbidden(ip) for ip in resolved):
-            raise HTTPException(status_code=400, detail="Peer URL resolves to a forbidden address")
-
-        import requests
-
-        # requests re-resolves the hostname at connect time, so DNS could in
-        # principle answer differently than the check above (TOCTOU). Accepted
-        # residual risk: the route requires an admin signature plus X-API-Key.
-        # Redirects stay off so a peer cannot bounce the request at an
-        # internal target after the URL check above.
-        # export-chain is peer-key authenticated (#1506): send this node's own
-        # RPC key so the peer can accept it via its PEERS list / issued keys.
-        export_headers = {}
-        local_rpc_key = os.getenv("BLOCKCHAIN_RPC_API_KEY", "")
-        if local_rpc_key:
-            export_headers["X-API-Key"] = local_rpc_key
-        response = await asyncio.to_thread(
-            requests.get,
-            f"{peer_url}/rpc/export-chain",
-            timeout=30,
-            allow_redirects=False,
-            headers=export_headers or None,
-        )
-        if response.status_code != 200:
-            raise HTTPException(status_code=400, detail=f"Failed to fetch peer chain: {response.status_code}")
-        peer_chain_data = response.json()
+        await _validate_force_sync_peer_url(peer_url)
+        peer_chain_data = await _fetch_peer_chain_export(cast(str, peer_url))
         peer_blocks = peer_chain_data["export_data"]["blocks"]
         if target_height and len(peer_blocks) < target_height:
             raise HTTPException(

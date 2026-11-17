@@ -339,6 +339,71 @@ def get_supply(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     }
 
 
+def _touched_addresses_in_range(session: Any, chain_id: str, from_height: int, to_height: int) -> set[str]:
+    """Sender/recipient addresses of txs sealed in (from_height, to_height]."""
+    touched_addresses: set[str] = set()
+    txs = session.exec(
+        select(Transaction).where(
+            Transaction.chain_id == chain_id,
+            Transaction.block_height > from_height,  # type: ignore[operator]
+            Transaction.block_height <= to_height,  # type: ignore[operator]
+        )
+    ).all()
+    for tx in txs:
+        if tx.sender:
+            touched_addresses.add(tx.sender)
+        if tx.recipient:
+            touched_addresses.add(tx.recipient)
+    return touched_addresses
+
+
+def _chain_parameter_payloads(session: Any, chain_id: str) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Current + history chain-parameter rows for a delta payload.
+
+    Consensus-relevant non-account state (chain_parameter holds
+    governance_executors / bond_slash_authority) is outside the account
+    state root, so it never appears in a diff — ship the current rows on
+    every delta response or followers silently diverge.
+    """
+    chain_parameters = [
+        {
+            "parameter": p.parameter,
+            "value": p.value,
+            "proposal_id": p.proposal_id,
+            "applied_height": p.applied_height,
+        }
+        for p in session.exec(select(ChainParameter).where(ChainParameter.chain_id == chain_id)).all()
+    ]
+    chain_parameter_history = [
+        {
+            "parameter": h.parameter,
+            "value": h.value,
+            "proposal_id": h.proposal_id,
+            "applied_height": h.applied_height,
+        }
+        for h in session.exec(select(ChainParameterHistory).where(ChainParameterHistory.chain_id == chain_id)).all()
+    ]
+    return chain_parameters, chain_parameter_history
+
+
+def _aux_payload_for_delta(session: Any, chain_id: str, from_block: Any) -> dict[str, Any]:
+    """Side-effect table rows touched inside the synced range.
+
+    Rows ship only when touched inside the synced range. The cutoff leans
+    back by sync_aux_lookback_seconds because rows are written at
+    RPC-submit time — before their tx seals — and to absorb clock skew.
+    Missing from-block ⇒ ship everything (upserts are idempotent). Over the
+    row cap ⇒ caller must fall back to a full snapshot rather than apply a
+    partial table.
+    """
+    from datetime import timedelta
+
+    aux_changed_since = None
+    if from_block is not None and from_block[2] is not None:
+        aux_changed_since = from_block[2] - timedelta(seconds=settings.sync_aux_lookback_seconds)
+    return serialize_aux_rows(session, chain_id, changed_since=aux_changed_since, max_rows=settings.sync_aux_max_rows)
+
+
 def get_state_delta(request: Request, from_height: int, to_height: int, chain_id: str | None = None) -> dict[str, Any]:
     """Return state delta (changed accounts) between two block heights.
 
@@ -381,56 +446,9 @@ def get_state_delta(request: Request, from_height: int, to_height: int, chain_id
         from_state_root = (from_block[1] if from_block else "") or ""
         to_state_root = to_block[1] or ""
 
-        # Find touched addresses by looking at transactions in the height range
-        touched_addresses: set[str] = set()
-        txs = session.exec(
-            select(Transaction).where(
-                Transaction.chain_id == chain_id,
-                Transaction.block_height > from_height,  # type: ignore[operator]
-                Transaction.block_height <= to_height,  # type: ignore[operator]
-            )
-        ).all()
-        for tx in txs:
-            if tx.sender:
-                touched_addresses.add(tx.sender)
-            if tx.recipient:
-                touched_addresses.add(tx.recipient)
-
-        # Consensus-relevant non-account state (chain_parameter holds
-        # governance_executors / bond_slash_authority) is outside the account
-        # state root, so it never appears in a diff — ship the current rows on
-        # every delta response or followers silently diverge.
-        chain_parameters = [
-            {
-                "parameter": p.parameter,
-                "value": p.value,
-                "proposal_id": p.proposal_id,
-                "applied_height": p.applied_height,
-            }
-            for p in session.exec(select(ChainParameter).where(ChainParameter.chain_id == chain_id)).all()
-        ]
-        chain_parameter_history = [
-            {
-                "parameter": h.parameter,
-                "value": h.value,
-                "proposal_id": h.proposal_id,
-                "applied_height": h.applied_height,
-            }
-            for h in session.exec(select(ChainParameterHistory).where(ChainParameterHistory.chain_id == chain_id)).all()
-        ]
-
-        # Side-effect tables ship only rows touched inside the synced range.
-        # The cutoff leans back by sync_aux_lookback_seconds because rows are
-        # written at RPC-submit time — before their tx seals — and to absorb
-        # clock skew. Missing from-block ⇒ ship everything (upserts are
-        # idempotent). Over the row cap ⇒ caller must fall back to a full
-        # snapshot rather than apply a partial table.
-        from datetime import timedelta
-
-        aux_changed_since = None
-        if from_block is not None and from_block[2] is not None:
-            aux_changed_since = from_block[2] - timedelta(seconds=settings.sync_aux_lookback_seconds)
-        aux = serialize_aux_rows(session, chain_id, changed_since=aux_changed_since, max_rows=settings.sync_aux_max_rows)
+        touched_addresses = _touched_addresses_in_range(session, chain_id, from_height, to_height)
+        chain_parameters, chain_parameter_history = _chain_parameter_payloads(session, chain_id)
+        aux = _aux_payload_for_delta(session, chain_id, from_block)
         if aux["truncated"]:
             return {
                 "error": "auxiliary state tables exceed sync_aux_max_rows — falling back",

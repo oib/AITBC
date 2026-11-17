@@ -480,25 +480,8 @@ def _start_mempool_sweeper() -> asyncio.Task[None] | None:
     return create_task_with_logging(_sweep_mempool_forever(), name="mempool-sweeper")
 
 
-@asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncIterator[None]:
-    # Sync handlers run on the anyio threadpool since the async->def
-    # conversion (#724) — the default 40-token limiter queues requests at
-    # ~40-way concurrency, reintroducing the serialization the conversion
-    # removed. Size it for the rpc burst profile.
-    to_thread.current_default_thread_limiter().total_tokens = 200
-    # Publish the main loop so sync REST handlers can schedule tx peer
-    # fan-out onto it (#1215) — threadpool workers have no running loop.
-    from .rpc.transactions import set_peer_fanout_loop
-
-    set_peer_fanout_loop(asyncio.get_running_loop())
-    # Resolve the chain id before any database file is opened: an unconfigured
-    # node must refuse to start rather than fall back to a hard-coded chain.
-    # CHAIN_ID (settings.chain_id) is the node's own chain and wins over the
-    # supported_chains list — that matches what init_db() did before, when it
-    # resolved settings.chain_id directly.
-    default_chain_id = settings.chain_id.strip() or settings.supported_chains.split(",")[0].strip() or resolve_chain_id()
-    init_db(default_chain_id)
+async def _init_escrow_mempool() -> None:
+    """Escrow manager load + mempool backend init + sealed reconcile."""
     from .contracts.escrow import create_escrow_manager
 
     escrow_manager = create_escrow_manager()
@@ -517,6 +500,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             _app_logger.info("Startup sealed-reconcile evicted %d already-sealed mempool entries", sealed_removed)
     except Exception as exc:  # noqa: BLE001 - startup reconcile is non-fatal; mempool backend is pluggable
         _app_logger.warning("Startup sealed-reconcile failed (non-fatal): %s", exc)
+
+
+async def _init_gossip_backend() -> None:
     _app_logger.info(
         "Initializing gossip backend: %s, url: %s",
         settings.gossip_backend,
@@ -530,6 +516,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     )
     await gossip_broker.set_backend(_backend)
 
+
+def _init_island_and_chain_manager(default_chain_id: str) -> None:
     try:
         node_id = os.getenv("NODE_ID", "unknown-node")
         default_island_id = os.getenv(
@@ -559,38 +547,42 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:  # noqa: BLE001 - multi-chain manager init is non-fatal at startup
         _app_logger.warning("Failed to initialize multi-chain manager: %s", e)
 
-    proposers = []
-    block_production_enabled = _effective_block_production_enabled()
 
-    if block_production_enabled and settings.proposer_id:
-        # Outside the try below: that block turns any failure into a warning and carries on,
-        # which is how a node with no usable key still went on to append unsigned blocks.
-        from .proposer_identity import assert_can_sign
+def _init_proposers(block_production_enabled: bool) -> list[Any]:
+    proposers: list[Any] = []
+    if not (block_production_enabled and settings.proposer_id):
+        return proposers
+    # Outside the try below: that block turns any failure into a warning and carries on,
+    # which is how a node with no usable key still went on to append unsigned blocks.
+    from .proposer_identity import assert_can_sign
 
-        assert_can_sign(settings.proposer_id, settings.proposer_key, settings.keystore_path)
+    assert_can_sign(settings.proposer_id, settings.proposer_key, settings.keystore_path)
 
-        try:
-            from .consensus import PoAProposer, ProposerConfig
+    try:
+        from .consensus import PoAProposer, ProposerConfig
 
-            supported_chains = [c.strip() for c in settings.supported_chains.split(",") if c.strip()]
-            if not supported_chains and settings.chain_id:
-                supported_chains = [settings.chain_id]
-            for chain_id in supported_chains:
-                proposer_config = ProposerConfig(
-                    chain_id=chain_id,
-                    proposer_id=settings.proposer_id,
-                    interval_seconds=settings.block_time_seconds,
-                    max_block_size_bytes=settings.max_block_size_bytes,
-                    max_txs_per_block=settings.max_txs_per_block,
-                    default_peer_rpc_url=settings.default_peer_rpc_url,
-                )
-                proposer = PoAProposer(config=proposer_config, session_factory=session_scope)
-                set_poa_proposer(proposer)
-                create_task_with_logging(proposer.start(), name="poa_proposer_start")
-                proposers.append(proposer)
-        except Exception as e:  # noqa: BLE001 - proposer init is non-fatal at startup
-            _app_logger.warning("Failed to initialize PoA proposer for mining: %s", e)
+        supported_chains = [c.strip() for c in settings.supported_chains.split(",") if c.strip()]
+        if not supported_chains and settings.chain_id:
+            supported_chains = [settings.chain_id]
+        for chain_id in supported_chains:
+            proposer_config = ProposerConfig(
+                chain_id=chain_id,
+                proposer_id=settings.proposer_id,
+                interval_seconds=settings.block_time_seconds,
+                max_block_size_bytes=settings.max_block_size_bytes,
+                max_txs_per_block=settings.max_txs_per_block,
+                default_peer_rpc_url=settings.default_peer_rpc_url,
+            )
+            proposer = PoAProposer(config=proposer_config, session_factory=session_scope)
+            set_poa_proposer(proposer)
+            create_task_with_logging(proposer.start(), name="poa_proposer_start")
+            proposers.append(proposer)
+    except Exception as e:  # noqa: BLE001 - proposer init is non-fatal at startup
+        _app_logger.warning("Failed to initialize PoA proposer for mining: %s", e)
+    return proposers
 
+
+def _init_balance_tracker() -> None:
     try:
         from .services.balance_tracker import init_balance_tracker
 
@@ -598,6 +590,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:  # noqa: BLE001 - balance tracker init is non-fatal at startup
         _app_logger.warning("Failed to initialize balance tracker: %s", e)
 
+
+def _init_cross_chain_bridge() -> None:
     # Initialize cross-chain bridge (enables /rpc/bridge/* endpoints)
     try:
         from .cross_chain.bridge import (
@@ -621,6 +615,107 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:  # noqa: BLE001 - bridge init is non-fatal at startup; safety errors re-raise above
         _app_logger.warning("Failed to initialize cross-chain bridge: %s", e)
 
+
+async def _start_lease_tracker() -> None:
+    try:
+        await lease_tracker.start()
+        node_type = "hub" if settings.blockchain_mode == "hub" else "follower"
+        _app_logger.info("Lease tracker started on %s node (RPC service)", node_type)
+    except Exception as e:  # noqa: BLE001 - lease tracker start is non-fatal in the RPC service
+        _app_logger.error("Failed to start lease tracker in RPC service: %s", e)
+
+
+def _start_sweepers() -> tuple[Any, Any, Any]:
+    """Per-host sweeper leadership (#832): under --workers N every worker runs
+    this lifespan, so exactly one leads via a flock beside chain.db and
+    starts the sweepers; the rest skip.
+
+    Returns ``(sweeper_leader_fd, mempool_sweeper, settlement_sweeper)``."""
+    from .rpc.sweeper_leader import try_acquire_sweeper_leadership
+    from .rpc.escrow_settlement_sweeper import start_settlement_sweeper
+
+    sweeper_leader_fd = try_acquire_sweeper_leadership()
+    if sweeper_leader_fd is None:
+        _app_logger.info("Sweeper leadership held by another RPC worker: mempool and settlement sweepers not started here")
+        return sweeper_leader_fd, None, None
+    return sweeper_leader_fd, _start_mempool_sweeper(), start_settlement_sweeper()
+
+
+async def _await_bounded(coro: Any, timeout: float, timeout_text: str, error_text: str) -> None:
+    try:
+        await asyncio.wait_for(coro, timeout=timeout)
+    except asyncio.TimeoutError:
+        _app_logger.warning(timeout_text)
+    except Exception as exc:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
+        _app_logger.warning(error_text, exc)
+
+
+async def _shutdown_node(proposers: list[Any], mempool_sweeper: Any, settlement_sweeper: Any, sweeper_leader_fd: Any) -> None:
+    from .rpc.sweeper_leader import release_sweeper_leadership
+
+    release_sweeper_leadership(sweeper_leader_fd)
+    for sweeper in (mempool_sweeper, settlement_sweeper):
+        if sweeper is not None:
+            sweeper.cancel()
+            try:
+                await asyncio.wait_for(sweeper, timeout=2.0)
+            except (asyncio.CancelledError, asyncio.TimeoutError):
+                pass
+    for proposer in proposers:
+        await _await_bounded(
+            proposer.stop(),
+            10.0,
+            "PoA proposer stop timed out during shutdown",
+            "Failed to stop PoA proposer during shutdown: %s",
+        )
+    await _await_bounded(
+        gossip_broker.shutdown(),
+        10.0,
+        "Gossip broker shutdown timed out during shutdown",
+        "Failed to shut down gossip broker: %s",
+    )
+    await _await_bounded(
+        shutdown_chain_brokers(timeout=4.0),
+        8.0,
+        "Per-chain gossip broker shutdown timed out during shutdown",
+        "Failed to shut down per-chain gossip brokers: %s",
+    )
+    await _await_bounded(
+        lease_tracker.stop(),
+        5.0,
+        "Lease tracker stop timed out during shutdown",
+        "Failed to stop lease tracker: %s",
+    )
+    _app_logger.info("Blockchain node stopped")
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI) -> AsyncIterator[None]:
+    # Sync handlers run on the anyio threadpool since the async->def
+    # conversion (#724) — the default 40-token limiter queues requests at
+    # ~40-way concurrency, reintroducing the serialization the conversion
+    # removed. Size it for the rpc burst profile.
+    to_thread.current_default_thread_limiter().total_tokens = 200
+    # Publish the main loop so sync REST handlers can schedule tx peer
+    # fan-out onto it (#1215) — threadpool workers have no running loop.
+    from .rpc.transactions import set_peer_fanout_loop
+
+    set_peer_fanout_loop(asyncio.get_running_loop())
+    # Resolve the chain id before any database file is opened: an unconfigured
+    # node must refuse to start rather than fall back to a hard-coded chain.
+    # CHAIN_ID (settings.chain_id) is the node's own chain and wins over the
+    # supported_chains list — that matches what init_db() did before, when it
+    # resolved settings.chain_id directly.
+    default_chain_id = settings.chain_id.strip() or settings.supported_chains.split(",")[0].strip() or resolve_chain_id()
+    init_db(default_chain_id)
+    await _init_escrow_mempool()
+    await _init_gossip_backend()
+    _init_island_and_chain_manager(default_chain_id)
+    block_production_enabled = _effective_block_production_enabled()
+    proposers = _init_proposers(block_production_enabled)
+    _init_balance_tracker()
+    _init_cross_chain_bridge()
+
     # Consolidated startup summary
     _app_logger.info(
         "Blockchain node started: chains=%s mode=%s role=%s hardware=%s block_prod=%s",
@@ -634,26 +729,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     # effective consensus pins against its peers without calling /health.
     _app_logger.info("Consensus config digest: %s", consensus_config_digest())
 
-    try:
-        await lease_tracker.start()
-        node_type = "hub" if settings.blockchain_mode == "hub" else "follower"
-        _app_logger.info("Lease tracker started on %s node (RPC service)", node_type)
-    except Exception as e:  # noqa: BLE001 - lease tracker start is non-fatal in the RPC service
-        _app_logger.error("Failed to start lease tracker in RPC service: %s", e)
+    await _start_lease_tracker()
 
-    # Per-host sweeper leadership (#832): under --workers N every worker runs
-    # this lifespan, so exactly one leads via a flock beside chain.db and
-    # starts the sweepers; the rest skip.
-    from .rpc.sweeper_leader import release_sweeper_leadership, try_acquire_sweeper_leadership
-    from .rpc.escrow_settlement_sweeper import start_settlement_sweeper
-
-    sweeper_leader_fd = try_acquire_sweeper_leadership()
-    if sweeper_leader_fd is None:
-        _app_logger.info("Sweeper leadership held by another RPC worker: mempool and settlement sweepers not started here")
-        mempool_sweeper = settlement_sweeper = None
-    else:
-        mempool_sweeper = _start_mempool_sweeper()
-        settlement_sweeper = start_settlement_sweeper()
+    sweeper_leader_fd, mempool_sweeper, settlement_sweeper = _start_sweepers()
 
     try:
         yield
@@ -661,44 +739,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # Bounded shutdown so systemd does not need the full 90s stop timeout.
         # The backends are responsible for fast cleanup; the waits here are a
         # safety net for any component that still blocks.
-        async def _shutdown() -> None:
-            release_sweeper_leadership(sweeper_leader_fd)
-            for sweeper in (mempool_sweeper, settlement_sweeper):
-                if sweeper is not None:
-                    sweeper.cancel()
-                    try:
-                        await asyncio.wait_for(sweeper, timeout=2.0)
-                    except (asyncio.CancelledError, asyncio.TimeoutError):
-                        pass
-            for proposer in proposers:
-                try:
-                    await asyncio.wait_for(proposer.stop(), timeout=10.0)
-                except asyncio.TimeoutError:
-                    _app_logger.warning("PoA proposer stop timed out during shutdown")
-                except Exception as exc:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
-                    _app_logger.warning("Failed to stop PoA proposer during shutdown: %s", exc)
-            try:
-                await asyncio.wait_for(gossip_broker.shutdown(), timeout=10.0)
-            except asyncio.TimeoutError:
-                _app_logger.warning("Gossip broker shutdown timed out during shutdown")
-            except Exception as exc:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
-                _app_logger.warning("Failed to shut down gossip broker: %s", exc)
-            try:
-                await asyncio.wait_for(shutdown_chain_brokers(timeout=4.0), timeout=8.0)
-            except asyncio.TimeoutError:
-                _app_logger.warning("Per-chain gossip broker shutdown timed out during shutdown")
-            except Exception as exc:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
-                _app_logger.warning("Failed to shut down per-chain gossip brokers: %s", exc)
-            try:
-                await asyncio.wait_for(lease_tracker.stop(), timeout=5.0)
-            except asyncio.TimeoutError:
-                _app_logger.warning("Lease tracker stop timed out during shutdown")
-            except Exception as exc:  # noqa: BLE001 - shutdown step must not abort remaining cleanup
-                _app_logger.warning("Failed to stop lease tracker: %s", exc)
-            _app_logger.info("Blockchain node stopped")
-
         try:
-            await asyncio.wait_for(_shutdown(), timeout=18.0)
+            await asyncio.wait_for(
+                _shutdown_node(proposers, mempool_sweeper, settlement_sweeper, sweeper_leader_fd), timeout=18.0
+            )
         except asyncio.TimeoutError:
             _app_logger.warning("Blockchain node shutdown did not complete within 18s; systemd will kill the process")
 
