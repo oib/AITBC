@@ -135,10 +135,18 @@ def get_account(address: str) -> dict[str, Any]:
 
 @router.get("/validators")
 def get_validators() -> dict[str, Any]:
-    """List validators."""
-    response = _rpc_get("/rpc/head", unavailable_status=503)
-    proposer = response.get("proposer", "genesis")
-    return {"validators": [{"address": proposer, "status": "active"}], "total": 1}
+    """List consensus validators.
+
+    Proxies the node's real ``/rpc/consensus/validators`` (address, stake,
+    reputation, role, is_active, last_proposed) — the previous shape invented
+    a single ``{"address": proposer, "status": "active"}`` entry from
+    ``/rpc/head``, which flatly misreported the PBFT validator set (#2175).
+    ``total`` is now the honest count of returned validators; the upstream
+    ``chain_id``/``multi_validator_enabled`` flags pass through.
+    """
+    response = _rpc_get("/rpc/consensus/validators", unavailable_status=503)
+    validators = response.get("validators") or []
+    return {**response, "validators": validators, "total": len(validators)}
 
 
 @router.get("/supply")
