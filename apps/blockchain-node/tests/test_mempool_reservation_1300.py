@@ -206,11 +206,14 @@ def _proposer_stub(chain: str):
 
 
 def _chain_session(tmp_path):
+    from sqlalchemy.pool import StaticPool
     from sqlmodel import Session, create_engine
 
     from aitbc_chain.metadata import chain_metadata
 
-    engine = create_engine(f"sqlite:///{tmp_path / 'chain.db'}")
+    # In-memory: the file-backed chain.db made create_all fsync one journal
+    # per table, which stalled past the test timeout on slow storage (#2187).
+    engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
     chain_metadata.create_all(engine)
     return Session(engine)
 
