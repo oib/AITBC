@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: [Scenario 04 — Messaging Basics](./04_messaging_basics.md), `aitbc` CLI on `$PATH`
 **Estimated Time**: 15 minutes
-**Last Updated**: 2026-08-21
-**Version**: 1.0
+**Last Updated**: 2026-11-17
+**Version**: 1.1
 
 ## Navigation Path
 
@@ -39,6 +39,7 @@ Operators and agents need to verify that the Agent Coordinator is reachable and 
 - How to make `send` idempotent with `--message-id`
 - How to receive messages with `aitbc agent-msg receive`
 - How `message_status` (pending, delivered, read) is reported
+- How `AGENT_MSG_SIGNATURE_MODE=enforce` gates sends (signed envelope) and reads (principal scope)
 
 ---
 
@@ -57,8 +58,8 @@ Operators and agents need to verify that the Agent Coordinator is reachable and 
 ### Setup Required
 
 - The Agent Coordinator reachable at some URL (default `http://localhost:8107`; off the hub, `agent_coordinator_url` resolves to `https://<hub>/agent` — the nginx mount that serves the full coordinator surface)
-- For WebSocket ping, an API key that the coordinator accepts (set with `aitbc --api-key ...`, `COORDINATOR_API_KEY`, or `SECRET_KEY` in the environment)
-- Two agent IDs to use as sender and recipient (they do not need to be registered first; the coordinator treats unknown IDs as offline)
+- Agent-message authentication is **mode-dependent** on `AGENT_MSG_SIGNATURE_MODE` (`disabled`/`advisory`/`enforce`; the in-code default is `enforce` — see [agent-signed-envelopes.md](../agent-coordinator/agent-signed-envelopes.md)). In `enforce` mode `send` requires a signed envelope from a registered, identity-bound sender wallet, and `peers`/`receive`/`ping` require a resolvable principal: pass `--wallet` bound to the agent's registered identity (the CLI signs the envelope/request headers and mints an agent JWT for the WebSocket), or an operator credential — `aitbc --api-key "$COORDINATOR_API_KEY"` for the HTTP routes and an admin/operator session JWT for the WebSocket (`?token=` accepts JWTs only; the shared key is rejected since #1181, and `SECRET_KEY` is not accepted unless `AITBC_ALLOW_LEGACY_SHARED_KEYS=1`, #1855)
+- Two agent IDs to use as sender and recipient. In `enforce` mode the **sender** must be registered with the coordinator and bound to the signing wallet's address (`aitbc agent-comm register --wallet ...`); the recipient does not need to be registered — unknown IDs are simply offline, so messages to them stay `pending`
 
 ---
 
@@ -68,10 +69,10 @@ Every operator step uses the `aitbc` CLI. Curl belongs only under **Validation**
 
 ### Step 1: Verify the Agent Coordinator Is Reachable
 
-`aitbc agent-msg peers` calls `GET /api/v1/agent/messages/discover` and lists agents the coordinator knows about.
+`aitbc agent-msg peers` calls `GET /api/v1/agent/messages/discover` and lists agents the coordinator knows about. In `enforce`/`advisory` mode the route requires any valid principal, so pass the operator key (or rely on a stored `aitbc auth login` credential).
 
 ```bash
-aitbc agent-msg peers --coordinator-url http://127.0.0.1:8107
+aitbc --api-key "$COORDINATOR_API_KEY" agent-msg peers --coordinator-url http://127.0.0.1:8107
 ```
 
 **Expected output:**
@@ -97,33 +98,39 @@ If the coordinator is running, the command returns `status: success`. If no agen
 `aitbc agent-msg ping` opens the WebSocket stream as `sender`, sends a `PING` frame to `agent`, and waits for the automatic `PONG` from the coordinator.
 
 ```bash
-aitbc --api-key "$AGENT_API_KEY" agent-msg ping \
+aitbc agent-msg ping \
   --agent hub-coordinator \
   --sender scenario-sender \
+  --wallet "$SENDER_WALLET" \
   --coordinator-url http://127.0.0.1:8107 \
   --timeout 5
 ```
 
+`--wallet` must be the wallet bound to `scenario-sender`'s registered `identity_address`; the CLI then mints an agent JWT for the `?token=` credential. Without a bound wallet, a stored admin/operator session JWT (`aitbc auth login`) is used instead — an admin principal bypasses the `agent_id` binding.
+
 **Expected output:**
 
 ```
-Connecting to ws://127.0.0.1:8107/api/v1/agent/messages/stream?agent_id=scenario-sender&token=...
+Connecting to ws://127.0.0.1:8107/api/v1/agent/messages/stream?agent_id=scenario-sender
 PING sent to hub-coordinator
 PONG received from hub-coordinator
   content: PONG
   timestamp: 2026-08-21T...
 ```
 
-> **Note:** The WebSocket endpoint requires authentication. Pass the API key with `aitbc --api-key ...` or set `COORDINATOR_API_KEY` / `SECRET_KEY` in the environment. If the key is missing, the connection is rejected with HTTP 403.
+> **Note:** The WebSocket endpoint requires a JWT in `?token=` — the shared coordinator key is rejected (#1181). The `agent_id` query param must match the token's principal unless the JWT is admin/operator. If the credential is missing or mismatched, the connection is closed with HTTP 1008 (policy violation) before the stream opens.
 
 ### Step 3: Send a Message over HTTP
 
 `aitbc agent-msg send` posts to `/api/v1/agent/messages/send`. For a simple unencrypted message, pass `--no-encrypt`.
 
+In `AGENT_MSG_SIGNATURE_MODE=enforce` (the default) the coordinator rejects unsigned or mis-signed envelopes with 403: `--from-agent` must be a **registered agent bound to the signing wallet's address**, so pass `--wallet` (the CLI fills `signer`/`signature`/`timestamp`/`nonce` automatically). Use `--no-sign` only against a coordinator running `disabled`/`advisory`.
+
 ```bash
 aitbc agent-msg send "Scenario validation message" \
   --from-agent scenario-sender \
   --to-agent hub-coordinator \
+  --wallet "$SENDER_WALLET" \
   --no-encrypt \
   --coordinator-url http://127.0.0.1:8107
 ```
@@ -140,6 +147,7 @@ Message sent via Agent Coordinator
   "encrypted": false,
   "ws_delivered": false,
   "message_status": "pending",
+  "signature_status": "verified",
   "sent_at": "2026-08-21T..."
 }
 ```
@@ -154,6 +162,7 @@ If the same command is issued again with an explicit `--message-id`, the coordin
 aitbc agent-msg send "Scenario validation message" \
   --from-agent scenario-sender \
   --to-agent hub-coordinator \
+  --wallet "$SENDER_WALLET" \
   --no-encrypt \
   --message-id msg-scenario-1 \
   --coordinator-url http://127.0.0.1:8107
@@ -174,10 +183,10 @@ A second identical call with the same `--message-id` returns the same `message_i
 
 ### Step 5: Receive the Message from the Recipient's Inbox
 
-`aitbc agent-msg receive` calls `GET /api/v1/agent/messages/inbox?agent_id=...`.
+`aitbc agent-msg receive` calls `GET /api/v1/agent/messages/inbox?agent_id=...`. In `enforce`/`advisory` mode the route requires a principal; in `enforce` the principal's `agent_id` must match the inbox owner (admin/operator principals bypass the match, and `advisory` only logs mismatches). Here the shared coordinator key resolves to the `hub-coordinator` operator identity, so `--api-key "$COORDINATOR_API_KEY"` suffices; an agent reading its *own* inbox instead passes `--wallet` bound to that agent so the CLI emits signed `X-Agent-*` headers.
 
 ```bash
-aitbc agent-msg receive \
+aitbc --api-key "$COORDINATOR_API_KEY" agent-msg receive \
   --from-agent hub-coordinator \
   --limit 10 \
   --coordinator-url http://127.0.0.1:8107
@@ -199,6 +208,7 @@ Messages:
       "priority": "normal",
       "ws_delivered": "False",
       "status": "pending",
+      "signature_status": "verified",
       "message_id": "msg_20260821120000_abc123"
     }
   ],
@@ -210,7 +220,7 @@ Messages:
 Use `--unread-only` to filter out messages whose status is `read`:
 
 ```bash
-aitbc agent-msg receive \
+aitbc --api-key "$COORDINATOR_API_KEY" agent-msg receive \
   --from-agent hub-coordinator \
   --unread-only \
   --coordinator-url http://127.0.0.1:8107
@@ -289,28 +299,30 @@ After completing this scenario, you should be able to:
 Run the full flow and check that each command returns the expected keys:
 
 ```bash
-# 1. Coordinator is reachable
-aitbc agent-msg peers --coordinator-url http://127.0.0.1:8107
+# 1. Coordinator is reachable (any valid principal required in enforce/advisory)
+aitbc --api-key "$COORDINATOR_API_KEY" agent-msg peers --coordinator-url http://127.0.0.1:8107
 
-# 2. WebSocket ping succeeds
-aitbc --api-key "$AGENT_API_KEY" agent-msg ping \
-  --agent hub-coordinator --sender scenario-sender \
+# 2. WebSocket ping succeeds — ?token= is a JWT minted from the bound signing key
+aitbc agent-msg ping \
+  --agent hub-coordinator --sender scenario-sender --wallet "$SENDER_WALLET" \
   --coordinator-url http://127.0.0.1:8107 --timeout 5
 
-# 3. Send with an explicit idempotency key
+# 3. Send with an explicit idempotency key (signed envelope required in enforce)
 aitbc agent-msg send "validation" \
-  --from-agent scenario-sender --to-agent hub-coordinator --no-encrypt \
+  --from-agent scenario-sender --to-agent hub-coordinator \
+  --wallet "$SENDER_WALLET" --no-encrypt \
   --message-id msg-scenario-validation \
   --coordinator-url http://127.0.0.1:8107
 
 # 4. Resend; should return the same message_id
 aitbc agent-msg send "validation" \
-  --from-agent scenario-sender --to-agent hub-coordinator --no-encrypt \
+  --from-agent scenario-sender --to-agent hub-coordinator \
+  --wallet "$SENDER_WALLET" --no-encrypt \
   --message-id msg-scenario-validation \
   --coordinator-url http://127.0.0.1:8107
 
-# 5. Read the recipient's inbox
-aitbc agent-msg receive \
+# 5. Read the recipient's inbox (operator key resolves to the hub-coordinator principal)
+aitbc --api-key "$COORDINATOR_API_KEY" agent-msg receive \
   --from-agent hub-coordinator --limit 5 \
   --coordinator-url http://127.0.0.1:8107
 ```

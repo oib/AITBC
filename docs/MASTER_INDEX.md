@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-15
+**Last Updated**: 2026-11-17
 
 ---
 
@@ -130,7 +130,7 @@ Inbound markdown links per document (top referrers).
 | [agent-coordinator/CLI.md](agent-coordinator/CLI.md) | [README.md](README.md) |
 | [agent-coordinator/OPERATOR_GUIDE.md](agent-coordinator/OPERATOR_GUIDE.md) | [README.md](README.md) |
 | [agent-coordinator/ROUTER_ARCHITECTURE.md](agent-coordinator/ROUTER_ARCHITECTURE.md) | [README.md](README.md) |
-| [agent-coordinator/agent-signed-envelopes.md](agent-coordinator/agent-signed-envelopes.md) | [README.md](README.md) |
+| [agent-coordinator/agent-signed-envelopes.md](agent-coordinator/agent-signed-envelopes.md) | [README.md](README.md), [scenarios/45_agent_msg_workflow.md](scenarios/45_agent_msg_workflow.md) |
 | [agent-coordinator/api-agent-management.md](agent-coordinator/api-agent-management.md) | [agent-coordinator/API.md](agent-coordinator/API.md), [agent-coordinator/api-message-management.md](agent-coordinator/api-message-management.md), [agent-coordinator/api-peer-management.md](agent-coordinator/api-peer-management.md), +2 more |
 | [agent-coordinator/api-message-management.md](agent-coordinator/api-message-management.md) | [agent-coordinator/API.md](agent-coordinator/API.md), [agent-coordinator/api-agent-management.md](agent-coordinator/api-agent-management.md), [agent-coordinator/api-peer-management.md](agent-coordinator/api-peer-management.md), +2 more |
 | [agent-coordinator/api-peer-management.md](agent-coordinator/api-peer-management.md) | [agent-coordinator/API.md](agent-coordinator/API.md), [agent-coordinator/api-agent-management.md](agent-coordinator/api-agent-management.md), [agent-coordinator/api-message-management.md](agent-coordinator/api-message-management.md), +2 more |
