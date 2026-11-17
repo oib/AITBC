@@ -94,10 +94,19 @@ class GenesisGenerator:
 
     def validate_genesis(self, genesis_block: GenesisBlock) -> "ValidationResult":
         """Validate a genesis block"""
-        errors = []
-        checks = {}
+        errors: list[str] = []
+        checks: dict[str, bool] = {}
 
-        # Check required fields
+        self._check_required_fields(genesis_block, errors, checks)
+        self._check_digests(genesis_block, errors, checks)
+        self._check_accounts_and_contracts(genesis_block, errors, checks)
+        self._check_consensus(genesis_block, errors, checks)
+
+        return ValidationResult(is_valid=len(errors) == 0, errors=errors, checks=checks)
+
+    @staticmethod
+    def _check_required_fields(genesis_block: GenesisBlock, errors: list[str], checks: dict[str, bool]) -> None:
+        """Check the required scalar fields of a genesis block."""
         checks["chain_id"] = bool(genesis_block.chain_id)
         if not genesis_block.chain_id:
             errors.append("Chain ID is required")
@@ -124,6 +133,8 @@ class GenesisGenerator:
         if not genesis_block.hash:
             errors.append("Genesis hash is required")
 
+    def _check_digests(self, genesis_block: GenesisBlock, errors: list[str], checks: dict[str, bool]) -> None:
+        """Validate the genesis hash and state root against recalculated values."""
         # Validate hash
         if genesis_block.hash:
             calculated_hash = self._calculate_genesis_hash_from_block(genesis_block, genesis_block.state_root)
@@ -138,6 +149,9 @@ class GenesisGenerator:
             if genesis_block.state_root != calculated_state_root:
                 errors.append("State root does not match calculated state root")
 
+    @staticmethod
+    def _check_accounts_and_contracts(genesis_block: GenesisBlock, errors: list[str], checks: dict[str, bool]) -> None:
+        """Validate that every account and contract carries its required fields."""
         # Validate accounts
         checks["accounts_valid"] = all(bool(account.address) and bool(account.balance) for account in genesis_block.accounts)
         if not checks["accounts_valid"]:
@@ -150,13 +164,13 @@ class GenesisGenerator:
         if not checks["contracts_valid"]:
             errors.append("All contracts must have name, address, and bytecode")
 
-        # Validate consensus
+    @staticmethod
+    def _check_consensus(genesis_block: GenesisBlock, errors: list[str], checks: dict[str, bool]) -> None:
+        """Validate the consensus algorithm when a consensus config is present."""
         if genesis_block.consensus:
             checks["consensus_algorithm"] = genesis_block.consensus.algorithm in ConsensusAlgorithm
             if genesis_block.consensus.algorithm not in ConsensusAlgorithm:
                 errors.append(f"Invalid consensus algorithm: {genesis_block.consensus.algorithm}")
-
-        return ValidationResult(is_valid=len(errors) == 0, errors=errors, checks=checks)
 
     def get_genesis_info(self, genesis_file: str) -> dict[str, Any]:
         """Get information about a genesis block file"""
@@ -365,7 +379,7 @@ class GenesisGenerator:
 class ValidationResult:
     """Genesis validation result"""
 
-    def __init__(self, is_valid: bool, errors: list, checks: dict):
+    def __init__(self, is_valid: bool, errors: list[str], checks: dict[str, bool]):
         self.is_valid = is_valid
         self.errors = errors
         self.checks = checks

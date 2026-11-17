@@ -76,10 +76,35 @@ class ChainManager:
         self, chain_type: ChainType | None = None, include_private: bool = False, sort_by: str = "id"
     ) -> list[ChainInfo]:
         """List all available chains"""
-        chains = []
-        errors = []
+        chains, errors = await self._collect_chains_from_nodes(include_private, chain_type)
 
-        # Get chains from all available nodes
+        # Remove duplicates (same chain on multiple nodes)
+        unique_chains = {}
+        for chain in chains:
+            if chain.id not in unique_chains:
+                unique_chains[chain.id] = chain
+
+        # Only an all-node failure is an error — a node returning zero
+        # chains is a legitimate response, not a failure.
+        if errors and not chains and len(errors) == len(self.config.nodes):
+            nid, exc = errors[-1]
+            raise RuntimeError(f"All nodes failed; last error from {nid}: {exc}") from exc
+
+        chains = list(unique_chains.values())
+        self._sort_chains(chains, sort_by)
+        return chains
+
+    async def _collect_chains_from_nodes(
+        self, include_private: bool, chain_type: ChainType | None
+    ) -> tuple[list[ChainInfo], list[tuple[str, Exception]]]:
+        """Fetch chains from every configured node, applying the filters.
+
+        Returns ``(chains, errors)`` — per-node failures are collected, not
+        raised, so one bad node does not hide the others' chains.
+        """
+        chains: list[ChainInfo] = []
+        errors: list[tuple[str, Exception]] = []
+
         for node_id, _node_config in self.config.nodes.items():
             try:
                 node_chains = await self._get_node_chains(node_id)
@@ -98,21 +123,11 @@ class ChainManager:
                 logger.error("Error getting chains from node %s: %s", node_id, e)
                 errors.append((node_id, e))
 
-        # Remove duplicates (same chain on multiple nodes)
-        unique_chains = {}
-        for chain in chains:
-            if chain.id not in unique_chains:
-                unique_chains[chain.id] = chain
+        return chains, errors
 
-        # Only an all-node failure is an error — a node returning zero
-        # chains is a legitimate response, not a failure.
-        if errors and not chains and len(errors) == len(self.config.nodes):
-            nid, exc = errors[-1]
-            raise RuntimeError(f"All nodes failed; last error from {nid}: {exc}") from exc
-
-        chains = list(unique_chains.values())
-
-        # Sort chains
+    @staticmethod
+    def _sort_chains(chains: list[ChainInfo], sort_by: str) -> None:
+        """Sort chains in place by the requested key."""
         if sort_by == "id":
             chains.sort(key=lambda x: x.id)
         elif sort_by == "size":
@@ -121,8 +136,6 @@ class ChainManager:
             chains.sort(key=lambda x: x.node_count, reverse=True)
         elif sort_by == "created":
             chains.sort(key=lambda x: x.created_at, reverse=True)
-
-        return chains
 
     async def get_chain_info(self, chain_id: str, detailed: bool = False, metrics: bool = False) -> ChainInfo:
         """Get detailed information about a chain"""
