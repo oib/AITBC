@@ -314,7 +314,7 @@ class TestAssertProductionConfig:
 
         monkeypatch.setenv("ENVIRONMENT", "prod")
         monkeypatch.setattr(main, "settings", self._settings(env="prod", test_mode=True))
-        with pytest.raises(AssertionError, match="test_mode"):
+        with pytest.raises(RuntimeError, match="test_mode"):
             main._assert_production_config()
 
     def test_settings_only_production_still_asserts(self, monkeypatch):
@@ -322,7 +322,7 @@ class TestAssertProductionConfig:
         from coordinator_api import main
 
         monkeypatch.setattr(main, "settings", self._settings(env="production", test_mode=True))
-        with pytest.raises(AssertionError, match="test_mode"):
+        with pytest.raises(RuntimeError, match="test_mode"):
             main._assert_production_config()
 
     def test_prod_spelling_honors_auth_enabled_and_test_mode(self, monkeypatch):
