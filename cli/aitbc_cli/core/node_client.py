@@ -106,62 +106,68 @@ class NodeClient:
                 logger.error("Failed to get node info for %s: %s", self.config.id, e)
                 raise
 
+    async def _get_supported_chains(self) -> list[str]:
+        """Return the node's ``supported_chains`` list.
+
+        Uses the /health endpoint (mapped from a /rpc endpoint). Raises
+        ``RuntimeError`` for a non-200 response so callers can apply their
+        dev-mock fallback uniformly.
+        """
+        health_url = f"{self.config.endpoint}/health"
+        if "/rpc" in self.config.endpoint:
+            health_url = self.config.endpoint.replace("/rpc", "/health")
+
+        response = await self._client.get(health_url)  # type: ignore[union-attr]
+        if response.status_code != 200:
+            raise RuntimeError(f"Health request failed: {response.status_code}")
+        health_data = response.json()
+        chains: list[str] = health_data.get("supported_chains", [os.getenv("CHAIN_ID", "")])
+        return chains
+
+    async def _fetch_block_height(self, chain_id: str) -> int:
+        """Fetch the current block height for a chain via the head endpoint."""
+        try:
+            head_url = f"{self.config.endpoint}/rpc/head?chain_id={chain_id}"
+            if "/rpc" in self.config.endpoint:
+                head_url = f"{self.config.endpoint}/head?chain_id={chain_id}"
+            head_resp = await self._client.get(head_url, timeout=2.0)  # type: ignore[union-attr]
+            if head_resp.status_code == 200:
+                head_data = head_resp.json()
+                return int(head_data.get("height", 0))
+        except _NODE_ERRORS:
+            logger.debug("Head endpoint unavailable for chain %s", chain_id, exc_info=True)
+        return 0
+
+    def _chain_info_from_id(self, cid: str, block_height: int) -> ChainInfo:
+        """Build the synthesized ChainInfo record for a supported chain id."""
+        return self._parse_chain_info(
+            {
+                "id": cid,
+                "name": f"AITBC {cid.split('-')[-1].capitalize()} Chain",
+                "type": "topic" if "health" in cid else "main",
+                "purpose": "specialized" if "health" in cid else "general",
+                "status": "active",
+                "size_mb": 50.5,
+                "nodes": 3,
+                "smart_contracts": 5,
+                "active_clients": 25,
+                "active_miners": 8,
+                "block_height": block_height,
+                "privacy": {"visibility": "public"},
+            }
+        )
+
     async def get_hosted_chains(self) -> list[ChainInfo]:
         """Get all chains hosted by this node"""
         if self._client is None:
             raise RuntimeError("Client not initialized")
         try:
-            health_url = f"{self.config.endpoint}/health"
-            if "/rpc" in self.config.endpoint:
-                health_url = self.config.endpoint.replace("/rpc", "/health")
-
-            response = await self._client.get(health_url)
-            if response.status_code == 200:
-                health_data = response.json()
-                chains = health_data.get("supported_chains", [os.getenv("CHAIN_ID", "")])
-
-                result = []
-                for cid in chains:
-                    # Try to fetch real block height
-                    block_height = 0
-                    try:
-                        head_url = f"{self.config.endpoint}/rpc/head?chain_id={cid}"
-                        if "/rpc" in self.config.endpoint:
-                            head_url = f"{self.config.endpoint}/head?chain_id={cid}"
-                        head_resp = await self._client.get(head_url, timeout=2.0)
-                        if head_resp.status_code == 200:
-                            head_data = head_resp.json()
-                            block_height = head_data.get("height", 0)
-                    except _NODE_ERRORS:
-                        logger.debug("Head endpoint unavailable for chain %s", cid, exc_info=True)
-                        pass
-
-                    result.append(
-                        self._parse_chain_info(
-                            {
-                                "id": cid,
-                                "name": f"AITBC {cid.split('-')[-1].capitalize()} Chain",
-                                "type": "topic" if "health" in cid else "main",
-                                "purpose": "specialized" if "health" in cid else "general",
-                                "status": "active",
-                                "size_mb": 50.5,
-                                "nodes": 3,
-                                "smart_contracts": 5,
-                                "active_clients": 25,
-                                "active_miners": 8,
-                                "block_height": block_height,
-                                "privacy": {"visibility": "public"},
-                            }
-                        )
-                    )
-                return result
-            else:
-                if not self._dev_mocks_enabled:
-                    raise RuntimeError(f"Health request failed: {response.status_code}")
-                logger.warning(
-                    "[DEV_MODE] Using mock chains for %s (health endpoint returned %s)", self.config.id, response.status_code
-                )
-                return self._get_mock_chains()
+            chains = await self._get_supported_chains()
+            result: list[ChainInfo] = []
+            for cid in chains:
+                block_height = await self._fetch_block_height(cid)
+                result.append(self._chain_info_from_id(cid, block_height))
+            return result
         except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
                 logger.error("Failed to get hosted chains for %s: %s", self.config.id, e)
@@ -174,53 +180,22 @@ class NodeClient:
         if self._client is None:
             raise RuntimeError("Client not initialized")
         try:
-            # Re-use the health endpoint logic
-            health_url = f"{self.config.endpoint}/health"
-            if "/rpc" in self.config.endpoint:
-                health_url = self.config.endpoint.replace("/rpc", "/health")
-
-            response = await self._client.get(health_url)
-            if response.status_code == 200:
-                health_data = response.json()
-                chains = health_data.get("supported_chains", [os.getenv("CHAIN_ID", "")])
-                if chain_id in chains:
-                    block_height = 0
-                    try:
-                        head_url = f"{self.config.endpoint}/rpc/head?chain_id={chain_id}"
-                        if "/rpc" in self.config.endpoint:
-                            head_url = f"{self.config.endpoint}/head?chain_id={chain_id}"
-                        head_resp = await self._client.get(head_url, timeout=2.0)
-                        if head_resp.status_code == 200:
-                            head_data = head_resp.json()
-                            block_height = head_data.get("height", 0)
-                    except _NODE_ERRORS:
-                        logger.debug("Head endpoint unavailable for chain %s", chain_id, exc_info=True)
-                        pass
-
-                    return self._parse_chain_info(
-                        {
-                            "id": chain_id,
-                            "name": f"AITBC {chain_id.split('-')[-1].capitalize()} Chain",
-                            "type": "topic" if "health" in chain_id else "main",
-                            "purpose": "specialized" if "health" in chain_id else "general",
-                            "status": "active",
-                            "size_mb": 50.5,
-                            "nodes": 3,
-                            "smart_contracts": 5,
-                            "active_clients": 25,
-                            "active_miners": 8,
-                            "block_height": block_height,
-                            "privacy": {"visibility": "public"},
-                        }
-                    )
+            try:
+                chains = await self._get_supported_chains()
+            except RuntimeError:
+                # Non-200 health response — the chain is simply unknown here.
+                return None
+            if chain_id in chains:
+                block_height = await self._fetch_block_height(chain_id)
+                return self._chain_info_from_id(chain_id, block_height)
             return None
         except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
                 logger.error("Failed to get chain info for %s on %s: %s", chain_id, self.config.id, e)
                 raise
             # Fallback to pure mock
-            chains = self._get_mock_chains()
-            for chain in chains:
+            mock_chains = self._get_mock_chains()
+            for chain in mock_chains:
                 if chain.id == chain_id:
                     return chain
             return None

@@ -38,29 +38,46 @@ def _split_sections(text: str) -> tuple[str, str, str, str]:
         while i < len(lines) and not lines[i].strip():
             i += 1
         # collect description
-        desc_lines = []
-        while i < len(lines):
-            line = lines[i]
-            if not line.strip():
-                break
-            if line.startswith("  "):
-                # skip section headers that look like "  Examples:"
-                if re.match(r"^\s+[A-Z][a-zA-Z ]*:$", line):
-                    break
-                desc_lines.append(line.strip())
-            else:
-                break
-            i += 1
-        description = " ".join(desc_lines)
+        description, i = _collect_description(lines, i)
 
         # split the rest by sections
-        rest = "\n".join(lines[i:])
-        if "\nOptions:" in rest:
-            options = rest.split("\nOptions:", 1)[1].split("\n\n", 1)[0]
-        if "\nCommands:" in rest:
-            commands = rest.split("\nCommands:", 1)[1].split("\n\n", 1)[0]
+        options, commands = _split_tail_sections(lines, i)
 
     return usage, description, options, commands
+
+
+def _collect_description(lines: list[str], i: int) -> tuple[str, int]:
+    """Collect the description paragraph starting at line index ``i``.
+
+    Returns ``(description, next_i)`` where ``next_i`` is the index of the
+    first line after the paragraph (a blank line or a section header).
+    """
+    desc_lines = []
+    while i < len(lines):
+        line = lines[i]
+        if not line.strip():
+            break
+        if line.startswith("  "):
+            # skip section headers that look like "  Examples:"
+            if re.match(r"^\s+[A-Z][a-zA-Z ]*:$", line):
+                break
+            desc_lines.append(line.strip())
+        else:
+            break
+        i += 1
+    return " ".join(desc_lines), i
+
+
+def _split_tail_sections(lines: list[str], i: int) -> tuple[str, str]:
+    """Split the remaining lines into (options, commands) blocks."""
+    rest = "\n".join(lines[i:])
+    options = ""
+    commands = ""
+    if "\nOptions:" in rest:
+        options = rest.split("\nOptions:", 1)[1].split("\n\n", 1)[0]
+    if "\nCommands:" in rest:
+        commands = rest.split("\nCommands:", 1)[1].split("\n\n", 1)[0]
+    return options, commands
 
 
 def get_description(text: str) -> str:

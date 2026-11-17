@@ -76,21 +76,20 @@ _VALIDATION_KEYWORDS = ("valid", "missing", "required", "invalid", "must be", "n
 _API_KEYWORDS = ("api", "http", "response", "status code", "endpoint returned", "request failed")
 
 
-def _categorize(message: str, from_exception: Exception | None) -> type[CLIError]:
-    """Pick the right CLIError subclass based on message keywords / exception type."""
-    msg_lower = message.lower()
+def _categorize_from_exception(from_exception: Exception) -> type[CLIError] | None:
+    """Return the CLIError subclass matching the exception type, if any."""
+    exc_name = type(from_exception).__name__
+    if exc_name == "NetworkError" or "Connection" in exc_name or "Timeout" in exc_name:
+        return NetworkError
+    if "Config" in exc_name or "Settings" in exc_name:
+        return ConfigurationError
+    if "Validation" in exc_name or "ValueError" in exc_name:
+        return ValidationError
+    return None
 
-    # Check exception type first
-    if from_exception is not None:
-        exc_name = type(from_exception).__name__
-        if exc_name == "NetworkError" or "Connection" in exc_name or "Timeout" in exc_name:
-            return NetworkError
-        if "Config" in exc_name or "Settings" in exc_name:
-            return ConfigurationError
-        if "Validation" in exc_name or "ValueError" in exc_name:
-            return ValidationError
 
-    # Keyword matching on message
+def _categorize_by_keywords(msg_lower: str) -> type[CLIError]:
+    """Return the CLIError subclass whose keywords appear in the message."""
     for kw in _NETWORK_KEYWORDS:
         if kw in msg_lower:
             return NetworkError
@@ -103,8 +102,19 @@ def _categorize(message: str, from_exception: Exception | None) -> type[CLIError
     for kw in _API_KEYWORDS:
         if kw in msg_lower:
             return APIError
-
     return CLIError
+
+
+def _categorize(message: str, from_exception: Exception | None) -> type[CLIError]:
+    """Pick the right CLIError subclass based on message keywords / exception type."""
+    # Check exception type first
+    if from_exception is not None:
+        from_type = _categorize_from_exception(from_exception)
+        if from_type is not None:
+            return from_type
+
+    # Keyword matching on message
+    return _categorize_by_keywords(message.lower())
 
 
 # Canonical "log in first" message — printed when a command needs a
