@@ -1,1146 +1,43 @@
 from __future__ import annotations
 
 import os
-import uuid
-from decimal import Decimal
+import uuid as uuid
+from decimal import Decimal as Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any as Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel as BaseModel, Field as Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
-# Re-exported from aitbc.constants rather than spelled out again. This module used to hold its
-# own `Path("/var/lib/aitbc")`, which is the same value the shared constant already resolves
-# to -- except that the shared one honours `AITBC_DATA_DIR` and this copy did not. That is how
-# the test suite came to create `chain-a/` and `chain-sig/`, named after test-only chain IDs,
-# inside the deployed data directory: nothing the tests could set moved this path (V23-73).
 from aitbc.constants import DATA_DIR
 
-KEYSTORE_DIR = DATA_DIR / "keystore"
-
-# AITBC_CHAIN_ENV_FILE lets tests (and alternate deployments) override the env file
-# the chain settings are loaded from. Set it to "" to load no env file.
-_chain_env_raw = os.environ.get("AITBC_CHAIN_ENV_FILE")
-if _chain_env_raw is None:
-    _CHAIN_ENV_FILES: list[str] = ["/etc/aitbc/blockchain.env"]
-elif _chain_env_raw:
-    _CHAIN_ENV_FILES = [p for p in _chain_env_raw.split(",") if p]
-else:
-    _CHAIN_ENV_FILES = []
-
-
-class ProposerConfig(BaseModel):
-    chain_id: str
-    proposer_id: str
-    interval_seconds: int
-    max_block_size_bytes: int
-    max_txs_per_block: int
-    default_peer_rpc_url: str | None = None
-
-
-# Default island ID for new installations
-DEFAULT_ISLAND_ID = str(uuid.uuid4())
-
-# Deliberately unreachable sentinel for the ``state_transition_v*_height``
-# thresholds: the chain can never produce block 2**62, so a threshold set to
-# it parks that version's rules as dead code (the STOP-rule "cancel the
-# activation" path moves both v13 and v14 here).
-V13_HEIGHT_NOT_ARMED = 2**62
-
-# Shared ACT-1 activation height (H). From H: v13 binds GOVERNANCE_EXECUTE to
-# the sealed GOVERNANCE_PROPOSE's stored execution_payload (V-2); v14 commits
-# the 13-table side-table root into the block header as aux_state_root (V-3)
-# and turns the bridge-lock missing-data guard from dry-run counting into a
-# refusal (V-4). Operator decision 12 Oct: "tomorrow" — about 18:00 UTC on
-# 13 Oct at ~68 s per block (head was 44,827 at 18:11 UTC). Environment
-# overrides STATE_TRANSITION_V13_HEIGHT / STATE_TRANSITION_V14_HEIGHT keep the
-# heights movable (the STOP-rule "move H" path sets BOTH on every host).
-SHARED_ACTIVATION_HEIGHT = 46100
-
-
-UC_TIMING_MARGIN_SECONDS = 5.0  # slack on top of evidence + collect for signing/propagation
-
-# Flags that only take effect with the vote-journal master on (#1281/#1301/#1306).
-_JOURNAL_DEPENDENT_FLAGS = (
-    "vote_journal_justification_enabled",
-    "vote_journal_abandon_enabled",
-    "vote_journal_sealed_rival_pull",
-    "unavail_nonblocking_persist_enabled",
-    "vote_journal_liveness_enabled",
+from .config_bridge import BridgeConfig
+from .config_chain import SyncConfig
+from .config_consensus import (
+    _JOURNAL_DEPENDENT_FLAGS as _JOURNAL_DEPENDENT_FLAGS,
+    ConsensusConfig,
+    _abandon_gap_findings as _abandon_gap_findings,
+    uc_combo_findings,
 )
+from .config_env import (
+    _CHAIN_ENV_FILES,
+    _chain_env_raw as _chain_env_raw,
+    DEFAULT_ISLAND_ID as DEFAULT_ISLAND_ID,
+    KEYSTORE_DIR as KEYSTORE_DIR,
+    ProposerConfig as ProposerConfig,
+    SHARED_ACTIVATION_HEIGHT,
+    UC_TIMING_MARGIN_SECONDS as UC_TIMING_MARGIN_SECONDS,
+    V13_HEIGHT_NOT_ARMED as V13_HEIGHT_NOT_ARMED,
+)
+from .config_infra import InfraConfig
+from .config_node import NodeConfig
 
 
-def _abandon_gap_findings(s: Any, journal: bool) -> list[str]:
-    """#1985 (bc-2 halt at h28508, 15 Nov): a journal without proposer abandon.
-
-    With no abandon, a proposal that misses quorum leaves every voter pinned to
-    its hash until the unlock valve (and UC) opens, staggered per validator --
-    measured as a 2 h stall. The liveness flag re-announces abandons, so it is
-    inert without them.
-    """
-    if not journal or s.vote_journal_abandon_enabled:
-        return []
-    out = [
-        "vote_journal_enabled without vote_journal_abandon_enabled: a proposal that misses quorum pins "
-        "every voter to its hash until the unlock valve opens (bc-2 h28508 stall, #1985)"
-    ]
-    if s.vote_journal_liveness_enabled:
-        out.append("vote_journal_liveness_enabled needs vote_journal_abandon_enabled; its abandon re-announce is inert")
-    return out
-
-
-def uc_combo_findings(s: Any) -> tuple[list[str], list[str]]:
-    """(errors, warnings) for UC flag combinations that freeze or silently disable liveness.
-
-    Errors are the combinations measured to stall the chain (an armed UC whose evidence +
-    collect window outlives the header/cert freshness bound); warnings are inert or
-    degenerate settings. #1722; see ``_guard_unsafe_uc_flag_combinations`` for removal.
-    """
-    errors: list[str] = []
-    warnings: list[str] = []
-    journal = bool(s.vote_journal_enabled)
-    for name in _JOURNAL_DEPENDENT_FLAGS:
-        if getattr(s, name) and not journal:
-            warnings.append(f"{name} is set but vote_journal_enabled is off, so it has no effect")
-    warnings.extend(_abandon_gap_findings(s, journal))
-    if (
-        journal
-        and s.vote_journal_justification_enabled
-        and not s.attestation_round_lock_enabled
-        and s.consensus_domain_separation_height is None
-    ):
-        # #1940: UC excuses only apply to ROUND_BOUND_CROSS_ROUND pairs.
-        # With neither round-lock nor domain separation, every attestation
-        # is legacy-format → every equivocation pair classifies LEGACY →
-        # justified_unlock can never fire and UC-released votes mint
-        # unexcusable slashable evidence. Fail closed at startup.
-        errors.append(
-            "vote_journal_justification_enabled requires attestation_round_lock_enabled "
-            "or consensus_domain_separation_height: without round-bound attestations "
-            "UC-excused equivocations classify LEGACY and stay slashable"
-        )
-    if journal and s.vote_journal_justification_enabled:
-        window = float(s.unavail_evidence_seconds) + float(s.unavail_collect_seconds) + UC_TIMING_MARGIN_SECONDS
-        header_max = float(s.attestation_header_max_age_seconds)
-        cert_max = float(s.unavail_cert_max_age_seconds)
-        if 0 < header_max <= window:
-            errors.append(
-                f"unavail_evidence_seconds + unavail_collect_seconds + {UC_TIMING_MARGIN_SECONDS:g}s = {window:g}s "
-                f"is not below attestation_header_max_age_seconds={header_max:g}s; the header goes stale before "
-                "the UC wait ends and every attestation is refused as stale_header"
-            )
-        if 0 < cert_max <= window:
-            errors.append(
-                f"unavail_evidence_seconds + unavail_collect_seconds + {UC_TIMING_MARGIN_SECONDS:g}s = {window:g}s "
-                f"is not below unavail_cert_max_age_seconds={cert_max:g}s; a certificate expires before it can be used"
-            )
-    if s.proposer_same_hash_retry_enabled:
-        header = float(s.attestation_header_max_age_seconds)
-        bound = (
-            min(float(s.consensus_proposer_round_seconds), header) if header > 0 else float(s.consensus_proposer_round_seconds)
-        )
-        reserved = float(s.multi_validator_attestation_timeout_seconds) + float(s.proposer_same_hash_retry_margin_seconds)
-        if bound - reserved <= 0:
-            warnings.append(
-                "proposer_same_hash_retry_enabled is on but the retry horizon is 0 "
-                f"(min(round, header max age)={bound:g}s <= collect + margin={reserved:g}s), so retries never reuse a header"
-            )
-    return errors, warnings
-
-
-class ChainSettings(BaseSettings):
+class ChainSettings(ConsensusConfig, InfraConfig, BridgeConfig, SyncConfig, NodeConfig, BaseSettings):
     model_config = SettingsConfigDict(
         env_file=_CHAIN_ENV_FILES, env_file_encoding="utf-8", case_sensitive=False, extra="ignore"
     )
 
-    # Node profiles (set during setup.sh)
-    blockchain_mode: str = "follower"  # follower or hub
-    market_role: str = "customer"  # customer or shop
-    hardware_profile: str = "nogpu"  # gpu or nogpu
-
-    chain_id: str = ""
-    supported_chains: str = ""  # Comma-separated list of supported chain IDs (defaults to chain_id if empty)
-    db_path: Path = DATA_DIR / "data" / "chain.db"
-    db_encryption_enabled: bool = False  # Phase 2: SQLCipher database encryption flag (applies to the configured chain)
-    db_encryption_key_path: Path = Path("/etc/aitbc/secrets/db_encryption.key")  # Phase 2: Encryption key file path
-    # Hold one idle SQLite connection per chain for the life of the process. Every session opens its
-    # own connection (NullPool), so whenever none is open the closing one is the *last*, and SQLite
-    # checkpoints and deletes the WAL under an EXCLUSIVE lock while it syncs the disk. On btrfs over
-    # spinning disks (fsync median ~220 ms, outliers over 1.7 s) that lock was held for seconds, and
-    # every connection opened meanwhile failed after a 5 s wait with "database is locked". With a
-    # keeper nobody is last: the WAL stays on disk and is only checkpointed passively. Off by default.
-    # While it is on, copy chain.db with `sqlite3 .backup` or with the node stopped, never with a bare
-    # `cp`, and only open a `.backup` copy with immutable=1: a live file's recent commits sit in the WAL.
-    db_keeper_connection: bool = False
-    # #1265: verify chain.db via PRAGMA quick_check at init_db() (fail-fast)
-    # and periodically during runtime (alert-and-quarantine: a corrupt chain
-    # refuses block import, block proposal, and attestation signing).
-    db_integrity_check_enabled: bool = True
-    db_integrity_check_interval_seconds: float = 60.0
-    # #1615 CHAINDB-FK-ENFORCE-1: enforce declared FOREIGN KEY constraints on
-    # every chain.db connection (PRAGMA foreign_keys=ON in _set_sqlite_pragmas).
-    # Default OFF pending the escrow write-path audit: the Escrow row is
-    # persisted when the lock is admitted — before the provider's Account row
-    # exists (provider accounts are materialized at block apply for v2+ locks,
-    # and only then) — so blanket enforcement would fail escrow creation for
-    # first-time providers. A PRAGMA foreign_key_check scan of the live bc-2
-    # store found zero violations, so existing data is clean; the risk is
-    # write ordering, not data.
-    db_foreign_keys_enabled: bool = False
-    # #1616 CHAINDB-VACUUM-1: bounded freelist reclaim, run once per db
-    # integrity sweep per chain. Only databases created after this change
-    # carry auto_vacuum=INCREMENTAL (set in _set_sqlite_pragmas before
-    # create_all); existing stores keep auto_vacuum=NONE, where
-    # incremental_vacuum is a no-op — reclaiming those needs a one-time
-    # offline VACUUM. The pass also publishes chain_db_page_count /
-    # chain_db_freelist_pages gauges so growth stays visible. 0 disables the
-    # vacuum (the gauges still run).
-    db_incremental_vacuum_max_pages: int = 500
-
-    # Connection pooling (v0.6.0). Pool size for PostgreSQL/QueuePool-backed
-    # engines. SQLite uses StaticPool (single writer) so this only applies when
-    # a DATABASE_URL pointing at PostgreSQL is configured. Env var:
-    # DB_CONNECTION_POOL_SIZE (default 20).
-    db_connection_pool_size: int = 20
-
-    # Auto-resync configuration for Phase 1.3
-    auto_resync_enabled: bool = True  # Enable automatic re-sync on rejection threshold
-    auto_resync_after_rejections: int = 3  # Trigger re-sync after N consecutive rejections
-    auto_resync_source_url: str | None = None  # Trusted peer URL for auto re-sync (fallback to default_peer_rpc_url)
-
-    # Divergence reporting (V23-90). Divergence is not auto-resolved: pulling cannot fix it, since
-    # the peer is behind us, and discarding accepted local history is an operator's decision.
-    divergence_after_rejections: int = 3  # Report after N consecutive divergent pushed blocks
-    divergence_report_interval: int = 300  # Seconds between repeated reports for the same chain
-
-    def get_db_path(self, chain_id: str = "") -> Path:
-        """Get database path for a specific chain.
-
-        Args:
-            chain_id: Chain ID to get path for. If empty, uses self.chain_id or default.
-
-        Returns:
-            Path to chain-specific database file.
-        """
-        # Resolve chain_id: parameter > settings > environment > empty
-        resolved_chain_id = chain_id or self.chain_id or os.getenv("CHAIN_ID", "")
-
-        # The "legacy path" fallback that used to sit here was `Path("/var/lib/aitbc/data") /
-        # chain_id / "chain.db"` -- byte for byte what this expression produced, since DATA_DIR
-        # was that literal. It could never be reached. Now that DATA_DIR follows
-        # AITBC_DATA_DIR, keeping it would have been worse than dead: a run pointed at a
-        # temporary directory would have fallen back to the deployed one (V23-73).
-        return DATA_DIR / "data" / resolved_chain_id / "chain.db"
-
-    @model_validator(mode="after")
-    def _default_supported_chains(self) -> ChainSettings:
-        """Default supported_chains to chain_id when empty.
-
-        Without this, when SUPPORTED_CHAINS is unset the island ID is
-        constructed as ``"-island"`` (empty string + suffix). Defaulting
-        to ``chain_id`` produces a valid island ID like
-        ``"ait-localnet-island"``.
-        """
-        if not self.supported_chains.strip():
-            self.supported_chains = self.chain_id
-        return self
-
-    @model_validator(mode="after")
-    def _pin_block_scoped_preregistered_transactions(self) -> ChainSettings:
-        """Refuse ``BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=false`` at startup.
-
-        The non-block-scoped bridge path writes committed tables (``account``,
-        ``transaction``) directly, outside block apply — the pre-v14 behaviour
-        the flag replaced. An env flip on a live node silently re-opens that
-        committed-write escape with no check able to see it, so it is refused
-        here rather than warned. The legacy path survives only as a test
-        mode: tests patch the attribute post-construction (no
-        ``validate_assignment``), never via env.
-        """
-        if not self.block_scoped_preregistered_transactions:
-            raise ValueError(
-                "block_scoped_preregistered_transactions=false is refused: the "
-                "non-block-scoped bridge path mutates committed tables outside "
-                "block apply (test-only via monkeypatched settings)"
-            )
-        return self
-
-    # CORS configuration
-    cors_origins: list[str] = (
-        os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
-        if os.getenv("CORS_ORIGINS")
-        else ["http://localhost:3000"]
-    )
-
-    # Loopback by default (#1871): the RPC surface is reached through nginx
-    # or co-located services; a deployment that deliberately exposes it
-    # sets RPC_BIND_HOST in its env file.
-    rpc_bind_host: str = "127.0.0.1"
-    rpc_bind_port: int = 8202
-
-    # Loopback by default as well: the only live consumer is the
-    # hub-internal gossip relay (its wrapper already defaults 127.0.0.1,
-    # #1065) and the advertised-endpoint calc treats loopback like
-    # bind-all. The dormant TCP mesh (p2p_network.py) can widen via env if
-    # it is ever re-enabled.
-    p2p_bind_host: str = "127.0.0.1"
-    p2p_bind_port: int = 8200
-    p2p_node_id: str = ""
-    # Dormant TCP-mesh hardening bounds (#1630/#1631). p2p_network.py is not
-    # deployed (aitbc-blockchain-p2p runs gossip.relay), but its docstring
-    # requires admission parity if it is ever re-enabled — these caps bound
-    # inbound connections (total + per source IP), the post-handshake read
-    # loop (silence timeout = dead-peer reap), and per-peer message rate.
-    p2p_max_connections: int = 64
-    p2p_max_connections_per_ip: int = 8
-    p2p_stream_read_timeout_seconds: float = 300.0
-    p2p_peer_messages_per_second: float = 100.0
-
-    contact_email: str = os.getenv("CONTACT_EMAIL", "operator@aitbc.invalid")
-
-    proposer_id: str = ""
-    proposer_key: str | None = None
-
-    # Treasury key (legacy GENESIS_* env names) used for governance execution,
-    # fee subsidies, and other chain-level operations. Preferably loaded from node.env / secrets.
-    genesis_private_key: str | None = None
-    genesis_address: str | None = None
-
-    mint_per_unit: int = 0  # No new minting after genesis for production
-    coordinator_ratio: float = 0.05
-
-    block_time_seconds: int = 10
-
-    # Block production toggle (set false on followers)
-    enable_block_production: bool = True
-    block_production_chains: str = ""  # Comma-separated list of chains to produce blocks for (empty = all supported chains)
-
-    # Block production limits
-    max_block_size_bytes: int = 1_000_000  # 1 MB
-    max_txs_per_block: int = 500
-
-    # Only propose blocks if mempool is not empty (prevents empty blocks)
-    propose_only_if_mempool_not_empty: bool = False  # Deprecated: use block_generation_mode
-
-    # Hybrid block generation settings
-    block_generation_mode: str = "hybrid"  # "always", "mempool-only", "hybrid"
-    max_empty_block_interval: int = 60  # seconds before forcing empty block (heartbeat)
-
-    # Monitoring interval (in seconds)
-    blockchain_monitoring_interval_seconds: int = 60
-    min_fee: int = 0  # Minimum fee to accept into mempool
-
-    # Mempool settings
-    mempool_backend: str = "database"  # "database" or "memory" (database recommended for persistence)
-    mempool_db_url: str = ""  # PostgreSQL URL for mempool (set via MEMPOOL_DB_URL env var - no hardcoded credentials)
-    mempool_max_size: int = 10_000
-    mempool_eviction_interval: int = 60  # seconds between staleness sweeps
-    # How long an entry may sit unmined before the sweeper drops it. A follower
-    # never proposes, so nothing drains its mempool; a transaction submitted
-    # there whose peer fan-out failed would otherwise sit forever, and the
-    # sqlite backend means it survives restarts. Generous by design -- this is a
-    # garbage collector for stranded entries, not a fee-pressure mechanism.
-    mempool_entry_ttl: int = 3600  # seconds; 0 disables the sweeper
-    # Per-transaction body cap at intake. Anything larger can never fit a block
-    # (max_block_size_bytes) and would only squat in the pool until expiry.
-    mempool_max_tx_size_bytes: int = 131072  # 128 KiB
-    # Seconds between settlement-mark sweeps (demote-only lite reconciler).
-    # 0 disables it.
-    escrow_settlement_sweep_interval: int = 60
-    # Periodic fee-residue pass (Task A4): runs inside the settlement-mark
-    # sweeper's tick, so it shares escrow_settlement_sweep_interval. A job is
-    # only a candidate when its newest sealed settlement leg is older than
-    # the grace period, so a metered multi-leg settle is never interrupted.
-    escrow_fee_sweep_pass_grace_seconds: int = 300
-    # Ignore any job with a settlement leg below this height. Defaults to the
-    # v11 activation: sweeps have no consensus meaning below it, and the
-    # pre-v11 custody census is an operator decision the pass must not take.
-    escrow_fee_sweep_pass_min_height: int = 35400
-    # Bounded work per pass: at most this many settled rows are inspected.
-    escrow_fee_sweep_pass_max_jobs: int = 50
-    # How many nonces ahead of the account nonce a pending transaction may sit.
-    # Admission rejects beyond this so one sender cannot queue an unbounded
-    # pipeline of not-yet-executable transactions.
-    mempool_nonce_lookahead: int = 16
-    # #1300 P2-v2.4: PostgreSQL lock/statement timeout (ms) applied via
-    # SET LOCAL inside mempool admission transactions before advisory-lock
-    # acquisition. A hashtext collision or stuck lock surfaces as a typed
-    # MempoolAdmissionTimeout, never a raw OperationalError.
-    mempool_admission_lock_timeout_ms: int = 5000
-    # #1300 P2-v2.4: owner/epoch reservation drain (peek_reserve). OFF by
-    # default — the legacy delete-on-read drain() stays authoritative until
-    # an operator arms this after the S3 parity legs.
-    mempool_reservation_enabled: bool = False
-    # Reservation TTL is derived by the caller from attempt-time config
-    # (collect deadline + apply budget + gate timeouts + commit bound +
-    # broadcast reconcile bound); this is only the fallback when a caller
-    # does not supply one.
-    mempool_reservation_ttl_seconds: int = 120
-
-    # Circuit breaker
-    circuit_breaker_threshold: int = 5  # failures before opening
-    circuit_breaker_timeout: int = 30  # seconds before half-open
-
-    # Sync settings
-    trusted_proposers: str = ""  # comma-separated list of trusted proposer IDs
-
-    @classmethod
-    def get_genesis_candidates(cls, chain_id: str) -> list[str]:
-        """Get genesis file candidates for a specific chain ID"""
-        return [
-            str(DATA_DIR / "data" / "genesis.json"),
-            f"{DATA_DIR}/data/{chain_id}/genesis.json",
-            f"{DATA_DIR}/data/{os.getenv('CHAIN_ID', '')}/genesis.json",
-        ]
-
-    @field_validator("chain_configs", mode="before")
-    @classmethod
-    def parse_chain_configs(cls, v: dict[str, str] | str) -> dict[str, str]:
-        """Validate chain_configs dict. Values are raw config strings
-        parsed later by ChainConfigParser at point of use."""
-        if not v:
-            return {}
-        if isinstance(v, str):
-            import json
-
-            try:
-                parsed = json.loads(v)
-            except json.JSONDecodeError:
-                raise ValueError(f"chain_configs must be a dict or JSON string, got: {v}") from None
-            if not isinstance(parsed, dict):
-                raise ValueError(f"chain_configs must parse to a dict, got: {type(parsed)}") from None
-            v = parsed
-        # Validate each value is a non-empty string
-        from aitbc.utils.chain_config import ChainConfigParser
-
-        for chain_id, config_str in v.items():
-            if not isinstance(config_str, str):
-                raise ValueError(f"chain_configs['{chain_id}'] must be a string, got: {type(config_str)}")
-            if config_str.strip():
-                ChainConfigParser.parse(config_str)
-        return v
-
-    @field_validator("chain_sync_sources")
-    @classmethod
-    def validate_chain_sync_sources(cls, v: str) -> str:
-        """Fail fast on malformed CHAIN_SYNC_SOURCES at startup (v0.6.3)."""
-        if not v or not v.strip():
-            return v
-        seen: set[str] = set()
-        for pair in v.split(","):
-            pair = pair.strip()
-            if not pair:
-                continue
-            parts = pair.split(":", 1)
-            if len(parts) != 2:
-                raise ValueError(f"Invalid CHAIN_SYNC_SOURCES entry: '{pair}'. Expected 'chain_id:url'")
-            chain_id, url = parts[0].strip(), parts[1].strip()
-            if not chain_id or not url:
-                raise ValueError(f"Invalid CHAIN_SYNC_SOURCES entry: '{pair}'. Empty chain_id or url")
-            if chain_id in seen:
-                raise ValueError(f"Duplicate chain_id in CHAIN_SYNC_SOURCES: '{chain_id}'")
-            seen.add(chain_id)
-        return v
-
-    @field_validator("island_registry")
-    @classmethod
-    def validate_island_registry(cls, v: str) -> str:
-        """Fail fast on malformed ISLAND_REGISTRY at startup (v0.6.3)."""
-        if not v or not v.strip():
-            return v
-        seen: set[str] = set()
-        for entry in v.split(","):
-            entry = entry.strip()
-            if not entry:
-                continue
-            parts = entry.split(":")
-            if len(parts) < 3:
-                raise ValueError(f"Invalid ISLAND_REGISTRY entry: '{entry}'. Expected 'island_id:chain_id:hub_url'")
-            island_id = parts[0].strip()
-            if not island_id:
-                raise ValueError(f"Invalid ISLAND_REGISTRY entry: '{entry}'. Empty island_id")
-            if island_id in seen:
-                raise ValueError(f"Duplicate island_id in ISLAND_REGISTRY: '{island_id}'")
-            seen.add(island_id)
-        return v
-
-    @field_validator("gossip_backends")
-    @classmethod
-    def validate_gossip_backends(cls, v: str) -> str:
-        """Fail fast on malformed GOSSIP_BACKENDS at startup (v0.6.3)."""
-        if not v or not v.strip():
-            return v
-        seen: set[str] = set()
-        for entry in v.split(","):
-            entry = entry.strip()
-            if not entry:
-                continue
-            parts = entry.split(":", 1)
-            if len(parts) != 2:
-                raise ValueError(f"Invalid GOSSIP_BACKENDS entry: '{entry}'. Expected 'chain_id:redis://url'")
-            chain_id = parts[0].strip()
-            if not chain_id:
-                raise ValueError(f"Invalid GOSSIP_BACKENDS entry: '{entry}'. Empty chain_id")
-            if chain_id in seen:
-                raise ValueError(f"Duplicate chain_id in GOSSIP_BACKENDS: '{chain_id}'")
-            seen.add(chain_id)
-        return v
-
-    @field_validator("bridge_islands")
-    @classmethod
-    def validate_bridge_islands(cls, v: str) -> str:
-        """Validate bridge_islands CSV format: UUIDs only, no spaces, no empty entries (v0.6.3)."""
-        if not v or not v.strip():
-            return v
-        islands = [i.strip() for i in v.split(",") if i.strip()]
-        if len(islands) != len(set(islands)):
-            raise ValueError(f"Duplicate island_id in bridge_islands: '{v}'")
-        for island_id in islands:
-            if " " in island_id:
-                raise ValueError(f"Invalid bridge_islands entry: '{island_id}'. No spaces allowed (use UUID format)")
-        return v
-
-    max_reorg_depth: int = 10  # max blocks to reorg on conflict
-    # eth_getLogs budgets (RPC-GETLOGS-UNBOUNDED-1): the route is public, so the
-    # scan is bounded whatever the request holds — span in blocks, receipt rows
-    # bound in SQL, returned log entries. Deeper windows paginate by range.
-    getlogs_max_block_span: int = 2000
-    getlogs_max_receipts: int = 5000
-    getlogs_max_logs: int = 1000
-    # /rpc/blocks-range span budget: the route feeds peer bulk sync (batches
-    # are <= max_bulk_sync_batch_size) but is otherwise public — an
-    # unbounded start/end used to serialize the entire chain plus every
-    # transaction envelope in one response. Wider windows paginate.
-    blocks_range_max_span: int = 10_000
-    # /rpc/transactions/market/match and /rpc/market/listings scan confirmed
-    # GPU_MARKET rows to derive listings; bound the candidate window to the
-    # newest N rows so cost cannot grow with total market history (#1511).
-    # A cancel/replaces older than the window can no longer hide an in-window
-    # listing — accepted trade-off, the window is generous.
-    market_scan_max_rows: int = 10_000
-    sync_validate_signatures: bool = True  # validate proposer signatures on import
-    # ISO-8601 timestamp; if in the future, signature validation is temporarily disabled.
-    sync_validate_signatures_skip_until: str = ""
-    sync_state_root_validation_enabled: bool = True  # validate state roots on push/gossip block import
-    # #1325 option (e): from this height on, a block that arrives without a state_root is
-    # refused at import instead of skipping the root comparison. None = off (legacy:
-    # an empty root bypasses the check). Apply-time rule: arm it fleet-wide at a height
-    # every validator already runs, never mid-history.
-    sync_require_state_root_height: int | None = None
-
-    # SyncManager settings (v0.11.0)
-    # #1814: refuse to start when a bond escrow/burn account the env names is missing from a chain that
-    # already has blocks (env disagrees with the chain). False = log + metric only.
-    startup_account_check_strict: bool = True
-    sync_manager_enabled: bool = True  # master kill switch; when False no SyncManager is started
-    sync_manager_use_gossip: bool = True
-    sync_manager_use_subscription: bool = True
-    sync_manager_poll_interval: float = 15.0
-    sync_manager_block_dedup_ttl: float = 300.0
-    sync_manager_block_dedup_max_size: int = 10000
-    sync_manager_synced_poll_interval: float = 30.0
-    sync_manager_state_sync_interval: float = 300.0
-    sync_manager_max_proposal_gap: int = 2  # PBFT/PoA will not propose while gap is larger
-    sync_manager_proposal_sync_timeout: int = 30  # seconds to wait for catch-up before skipping proposal
-    sync_manager_http_enabled: bool = False  # optional in-process /sync/status HTTP server
-    sync_manager_http_port: int = 8204
-    sync_manager_http_host: str = "0.0.0.0"
-    sync_parallel_peers: str = ""  # "url1,url2" or "chain_id:url1,..."
-    state_sync_max_gap: int = 10
-    # TEST-ONLY when false — construction refuses env-bound False (see the
-    # validator above); the non-block-scoped path mutates committed tables
-    # outside block apply and exists only for tests patching the attribute.
-    block_scoped_preregistered_transactions: bool = (
-        True  # apply pre-registered credit (BRIDGE_*) Account changes only at block time
-    )
-
-    # Automatic bulk sync settings
-    auto_sync_enabled: bool = True  # enable automatic bulk sync when gap detected
-    auto_sync_threshold: int = 10  # blocks gap threshold to trigger bulk sync
-    auto_sync_max_retries: int = 3  # max retry attempts for automatic bulk sync
-    min_bulk_sync_interval: int = 60  # minimum seconds between bulk sync attempts
-    min_bulk_sync_batch_size: int = 20  # minimum batch size for dynamic bulk sync
-    max_bulk_sync_batch_size: int = 200  # maximum batch size for dynamic bulk sync
-
-    # Periodic pull sync settings (for followers)
-    periodic_sync_enabled: bool = True  # enable periodic pull sync from default peer
-    periodic_sync_interval: int = 30  # seconds between periodic sync attempts
-
-    # Lease-based subscription settings (for followers)
-    subscription_enabled: bool = True  # enable lease-based block subscription from hub
-    subscription_transport: str = "websocket"  # transport: websocket, http, redis
-    lease_duration: int = 3600  # lease duration in seconds (1 hour)
-    # Upper bound for a client-requested lease duration on /rpc/subscribe and
-    # /rpc/heartbeat (#1703): without it a peer-key holder could pin an
-    # effectively eternal lease (or 500 the route with a non-numeric value).
-    subscription_max_lease_duration: int = 86400  # 24 hours
-    lease_renewal_threshold: int = 300  # renew lease N seconds before expiry
-    heartbeat_interval: int = 60  # heartbeat interval in seconds to extend lease
-
-    # Adaptive sync settings
-    initial_sync_threshold: int = 10000  # blocks gap threshold for initial sync mode
-    initial_sync_max_batch_size: int = 1000  # max batch size during initial sync
-    initial_sync_poll_interval: float = 2.0  # poll interval during initial sync (seconds)
-    initial_sync_bulk_interval: int = 10  # min seconds between bulk sync during initial sync
-    large_gap_threshold: int = 1000  # blocks gap threshold for large gap mode
-    large_gap_max_batch_size: int = 500  # max batch size during large gap sync
-    large_gap_poll_interval: float = 3.0  # poll interval during large gap sync (seconds)
-    large_gap_bulk_interval: int = 30  # min seconds between bulk sync during large gap
-
-    gossip_backend: str = "memory"
-    gossip_broadcast_url: str | None = os.getenv("GOSSIP_BROADCAST_URL", "redis://127.0.0.1:6379")
-    gossip_websocket_url: str | None = None  # wss://host/rpc/gossip/ws for WebsocketGossipBackend
-    # Mesh gossip (GOSSIP_BACKEND=mesh): comma-separated wss://<peer>/rpc/gossip/ws
-    # URLs of every *other* validator. The local bus is gossip_broadcast_url.
-    # Leave empty on RPC processes; only the node process should dial peers.
-    gossip_mesh_peer_urls: str = ""
-    # #1701 (default OFF): dedup mesh messages per subscription instead of
-    # backend-wide, so a second subscriber to the same topic (the persistent
-    # attest_response observer armed by vote_journal_justification_enabled)
-    # cannot swallow the messages another subscriber (the collector) needs.
-    gossip_mesh_dedup_per_subscription: bool = False
-    # #1711: node-engine readiness heartbeat. The consensus engine
-    # (aitbc_chain.main) has no HTTP surface, so it writes this JSON file on
-    # an interval; the RPC /ready probe fails while the file is missing,
-    # stale, or reports a non-ready component. Empty disables both sides.
-    node_engine_ready_file: str = ""
-    node_engine_ready_interval_seconds: float = 15.0
-    node_engine_ready_max_age_seconds: float = 45.0
-    default_peer_rpc_url: str | None = None  # HTTP RPC URL of default peer for bulk sync
-
-    # Cross-site synchronization settings
-    cross_site_sync_enabled: bool = True
-    cross_site_remote_endpoints: list[str] = (
-        os.getenv("CROSS_SITE_REMOTE_ENDPOINTS", "").split(",") if os.getenv("CROSS_SITE_REMOTE_ENDPOINTS") else []
-    )
-    cross_site_poll_interval: int = 10
-
-    # NAT Traversal (STUN/TURN)
-    stun_servers: str = ""  # Comma-separated STUN server addresses (e.g., "stun.l.google.com:19302,jitsi.example.com:3478")
-    turn_server: str | None = None  # TURN server address (future support)
-    turn_username: str | None = None  # TURN username (future support)
-    turn_password: str | None = None  # TURN password (future support)
-
-    # Island Configuration (Federated Mesh)
-    island_id: str = DEFAULT_ISLAND_ID  # UUID-based island identifier
-    island_name: str = "default"  # Human-readable island name
-    is_hub: bool = False  # This node acts as a hub
-    island_chain_id: str = ""  # Separate chain_id per island (empty = use default chain_id)
-    hub_discovery_url: str = "hub.aitbc.invalid"  # Hub discovery DNS
-    bridge_islands: str = ""  # Comma-separated list of islands to bridge (optional)
-
-    # Multi-island sync sources (v0.6.3). Per-chain hub URL mapping.
-    # Format: "chain_id:url,chain_id:url,..."
-    # Chains not in this mapping fall back to default_peer_rpc_url.
-    # Env var: CHAIN_SYNC_SOURCES
-    chain_sync_sources: str = ""
-
-    # Island registry (v0.6.3). Maps island_id to chain_id and hub_url.
-    # Format: "island_id:chain_id:hub_url,island_id:chain_id:hub_url,..."
-    # Optional 4th field: island_name (defaults to island_id).
-    # Env var: ISLAND_REGISTRY
-    island_registry: str = ""
-
-    # Per-chain gossip backends (v0.6.3). Optional.
-    # Format: "chain_id:redis://url,chain_id:redis://url,..."
-    # If empty, all chains use the shared gossip_backend/gossip_broadcast_url.
-    # Env var: GOSSIP_BACKENDS
-    gossip_backends: str = ""
-
-    # Island manager background tasks (v0.6.3). When enabled, the island
-    # manager starts bridge request monitoring and island health checks.
-    # Default off for safety — enable with ISLAND_TASKS_ENABLED=true.
-    island_tasks_enabled: bool = False
-
-    # Island health check interval in seconds (v0.6.3).
-    island_health_check_interval: int = 30
-
-    # Bridge request monitor interval in seconds (v0.6.3).
-    bridge_request_monitor_interval: int = 60
-
-    # Error retry interval for island background tasks (v0.6.3).
-    island_task_error_retry_interval: int = 10
-
-    # Bridge request expiry in seconds (v0.6.3).
-    bridge_request_expiry: int = 3600
-
-    # Island inactive threshold in seconds (v0.6.3).
-    island_inactive_threshold: int = 600
-
-    # Gossip topic migration (v0.6.3).
-    gossip_tx_topic_v1: str = "transactions"
-    gossip_tx_topic_v2_template: str = "transactions.{chain_id}"
-    gossip_migration_days: int = 30
-    gossip_log_v1_warnings: bool = True
-
-    # Gossip websocket authentication and rate limiting (v0.7.6).
-    gossip_auth_enabled: bool = os.getenv("GOSSIP_AUTH_ENABLED", "true").lower() in ("1", "true", "yes", "on")
-    gossip_auth_timeout: float = float(os.getenv("GOSSIP_AUTH_TIMEOUT", "5.0"))
-    gossip_auth_challenge_ttl: float = float(os.getenv("GOSSIP_AUTH_CHALLENGE_TTL", "60.0"))
-    # Scoped (payload-bound) gossip signatures (#1128). Off while the fleet
-    # rolls out: unscoped signatures are still accepted so old and new nodes
-    # keep gossiping mid-restart. Flip on only after every host is on the new
-    # build — per the issue, the flip is a separate planned step.
-    gossip_auth_require_scope: bool = os.getenv("GOSSIP_AUTH_REQUIRE_SCOPE", "false").lower() in ("1", "true", "yes")
-    # Chain-bound gossip scopes (#1159): channel_scope always includes the
-    # resolved chain_id; while this is off, signatures made against the
-    # legacy chain-less scope are still accepted so old and new nodes keep
-    # gossiping mid-rollout. Flip on only after every dialer signs the
-    # chain-bound scope — the flip is a separate planned step (Phase B gate).
-    gossip_auth_require_chain_scope: bool = os.getenv("GOSSIP_AUTH_REQUIRE_CHAIN_SCOPE", "false").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
-    # Per-chain validator membership guard (#1259, D2 option P). The validator
-    # set is process-global (``VALIDATOR_SET``), so on a process that connectably
-    # serves a NON-default chain a validator of the default chain could pass the
-    # membership check on that chain. While this flag is off the situation is
-    # only counted (``gossip_auth_membership_unconfigured_total``); on, such
-    # connections are refused (1008, reason ``chain_membership_unconfigured``)
-    # unless the chain is listed in ``GOSSIP_SHARED_VALIDATOR_CHAINS``.
-    # Single-chain hosts are unaffected either way. Counter-first rollout.
-    gossip_auth_require_chain_membership: bool = os.getenv("GOSSIP_AUTH_REQUIRE_CHAIN_MEMBERSHIP", "false").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
-    gossip_shared_validator_chains: str = os.getenv("GOSSIP_SHARED_VALIDATOR_CHAINS", "")
-    # Dialer side of the same rollout (#1255, #1159 design v2 D1): what THIS
-    # node signs when it dials a peer. Split from ``..._require_chain_scope``
-    # (server strictness) so the flip is staged: sign=on fleet-wide first
-    # (servers still accept both), watch ``gossip_auth_legacy_scope_accepted_total``
-    # stay at 0, then require=on. A host with require=on always signs the
-    # chain-bound scope too (see ``WebsocketGossipBackend._auth_scope``) -
-    # signing legacy to require-on peers would only get rejected.
-    gossip_auth_sign_chain_scope: bool = os.getenv("GOSSIP_AUTH_SIGN_CHAIN_SCOPE", "false").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
-    gossip_max_message_size: int = int(os.getenv("GOSSIP_MAX_MESSAGE_SIZE", "1048576"))
-    # #1874: public gossip topics (transactions/status/mempool) are
-    # subscribe-open but publish-gated — a peer_auth frame carrying the
-    # node's BLOCKCHAIN_RPC_API_KEY (fleet key, configured peer key, or
-    # issued join key) is required before a publish is bridged to the
-    # broker. Only meaningful while gossip_auth_enabled is on; off restores
-    # the pre-#1874 open-publish behaviour as an escape hatch.
-    gossip_public_publish_require_key: bool = os.getenv("GOSSIP_PUBLIC_PUBLISH_REQUIRE_KEY", "true").lower() in (
-        "1",
-        "true",
-        "yes",
-        "on",
-    )
-    # #1306: make broadcast-backend subscribe() wait until the redis SUBSCRIBE is live,
-    # so a request published right after subscribing cannot lose fast responses.
-    gossip_subscribe_wait_ready_enabled: bool = False
-    gossip_subscribe_ready_timeout_seconds: float = 2.0
-    # #1764: mesh-backend subscribe() can wait until peer websocket legs are
-    # attached, so a round that publishes right after subscribing does not miss
-    # fast attest_response messages while _retry_attach is in backoff.
-    gossip_mesh_subscribe_wait_peers_enabled: bool = os.getenv("GOSSIP_MESH_SUBSCRIBE_WAIT_PEERS", "false").lower() in (
-        "1",
-        "true",
-        "yes",
-    )
-    gossip_mesh_subscribe_wait_peers_timeout_seconds: float = float(
-        os.getenv("GOSSIP_MESH_SUBSCRIBE_WAIT_PEERS_TIMEOUT", "2.0")
-    )
-    # #2109: restrict the #1764 wait to topics starting with one of these
-    # comma-separated prefixes (e.g. "consensus.attest_response."), so a trial
-    # does not delay every other subscribe. Empty (default) = the flag applies
-    # to all topics, as before. Has no effect unless the flag above is on.
-    gossip_mesh_subscribe_wait_peers_topics: str = os.getenv("GOSSIP_MESH_SUBSCRIBE_WAIT_PEERS_TOPICS", "")
-    gossip_max_messages_per_minute: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE", "2000"))
-    # Body-size cap for POST /gossip on the standalone relay unit
-    # (aitbc-blockchain-p2p, aitbc_chain.gossip.relay) — #1591. The ws gossip
-    # path caps each message at gossip_max_message_size; the HTTP publish
-    # path had no bound at all. 4 MiB covers a max-size block/message plus
-    # auth fields with headroom.
-    gossip_relay_max_body_bytes: int = int(os.getenv("GOSSIP_RELAY_MAX_BODY_BYTES", "4194304"))
-    gossip_max_concurrent_connections_per_ip: int = int(os.getenv("GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP", "32"))
-    # Aggregate per-source-IP ceilings ACROSS every chain this host serves
-    # (#1257, #1159 design v2 D3). The per-chain limits above multiply with the
-    # number of served chains (K x 32 connections, K x 5 x 2000 msg/min per IP);
-    # these cap the sum. 0 = disabled (default), so a single-chain host behaves
-    # exactly as before.
-    gossip_max_connections_per_ip_total: int = int(os.getenv("GOSSIP_MAX_CONNECTIONS_PER_IP_TOTAL", "0"))
-    gossip_max_messages_per_minute_total: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE_TOTAL", "0"))
-    # Per-source-IP cap on /rpc/subscribe/ws block-push connections (#1587):
-    # the endpoint accepted unlimited sockets per IP, each holding a broker
-    # subscription and two forwarder tasks. 8 covers a follower running
-    # several chains plus reconnect overlap.
-    subscribe_ws_max_connections_per_ip: int = int(os.getenv("SUBSCRIBE_WS_MAX_CONNECTIONS_PER_IP", "8"))
-
-    # Multi-chain per island (v0.6.4). Chains hosted on this island.
-    # Comma-separated list of chain_ids. If empty, defaults to [chain_id]
-    # for backward compat with single-chain config.
-    # Env var: ISLAND_CHAINS
-    island_chains: str = ""
-
-    # Per-chain configuration overrides (v0.6.4).
-    # Parsed via ChainConfigParser (aitbc.utils.chain_config).
-    # Env vars: CHAIN_CONFIG_<chain_id>="block_time_seconds:2,max_txs_per_block:500"
-    # Stored as dict[str, str] by pydantic, parsed by field_validator.
-    chain_configs: dict[str, str] = {}
-
-    # Per-chain port offsets (v0.6.4). Offset from base RPC/P2P ports.
-    # Format: "chain_id:offset,chain_id:offset,..."
-    # Env var: CHAIN_PORT_OFFSETS
-    chain_port_offsets: str = ""
-
-    # Multi-chain startup retry config (v0.6.4).
-    # Main chain fails fast; secondary chains retry with exponential backoff.
-    multi_chain_start_max_retries: int = 3
-    multi_chain_start_base_delay: float = 2.0
-    multi_chain_start_max_delay: float = 30.0
-    multi_chain_start_backoff_multiplier: float = 2.0
-
-    # Multi-chain health monitoring (v0.6.4).
-    multi_chain_health_interval: int = 60
-
-    # Chain shutdown timeout (v0.6.4). Graceful stop wait in seconds.
-    chain_shutdown_timeout: int = 10
-
-    # Cross-chain bridge release fence (v0.5.16 → v0.7.2 UNFENCED).
-    # The bridge release path (confirm_transfer / /bridge/confirm) now uses
-    # full cryptographic verification: Merkle proof verification against
-    # stored block headers (v0.7.2 §B3), block header signature verification
-    # against the v0.7.1 validator set (v0.7.2 §B4), finality tracking
-    # (v0.7.2 §B5), and multi-sig threshold signatures (v0.7.1 §B6).
-    # v0.10.16: fail-closed by default. The release path must be explicitly
-    # enabled in production configuration after Merkle proof verification and
-    # validator-set admission control are operational. Production fleet:
-    # BRIDGE_RELEASE_ENABLED=true.
-    bridge_release_enabled: bool = False
-
-    # Operator pause switch for NEW bridge locks (BRIDGE_LOCKS_PAUSED). While
-    # set, every lock-request surface — POST /bridge/lock,
-    # /swap and /cross-chain/bridge, plus the initiate_transfer chokepoint
-    # itself — refuses new locks with HTTP 503; refunds, status reads and the
-    # confirm path are untouched. In place pending the attestation-based
-    # bridge validator set (the multisig confirm threshold is unreachable
-    # while block headers carry only the proposer signature). A lock already
-    # in the mempool still seals — gating admission would strand its funds
-    # (BRIDGE_REFUND binds a *sealed* lock from v6).
-    bridge_locks_paused: bool = False
-
-    # SEC-REPLAY-1: when set (BRIDGE_LOCK_REQUIRE_REPLAY_GUARD), POST
-    # /bridge/lock refuses old-form signatures — the six-field dict has no
-    # nonce/expiry, so a captured signed body replays as a new transfer. New-form
-    # locks (issued_at + nonce in the signed dict) are always replay-checked,
-    # flag or not. Default off for deployed-CLI compatibility; enabling is a
-    # deliberate operator step after clients are updated.
-    bridge_lock_require_replay_guard: bool = False
-
-    # SEC-REPLAY-2: when set (CROSS_CHAIN_REQUIRE_REPLAY_GUARD), the
-    # /cross-chain/bridge and /swap lock paths refuse old-form signatures —
-    # same scheme as BRIDGE_LOCK_REQUIRE_REPLAY_GUARD, on the shared
-    # _lock_transfer helper. New-form bodies (issued_at + nonce signed) are
-    # always replay-checked, flag or not. Default off for client compat.
-    cross_chain_require_replay_guard: bool = False
-
-    # Bridge configuration (v0.7.0). Operational parameters for the cross-chain
-    # bridge. Defaults mirror the constants in aitbc/constants.py
-    # (BRIDGE_TIMEOUT_SECONDS, BRIDGE_RETRY_LIMIT, etc.) so they can be tuned
-    # per-deployment via env vars without code changes.
-    bridge_timeout: int = 300  # Seconds before a transfer is considered stale
-    bridge_retry_limit: int = 3  # Retry attempts for failed bridge operations
-    bridge_fee_basis_points: int = 10  # Bridge fee in basis points (10 = 0.1%)
-    bridge_supported_chains: str = ""  # Comma-separated list of chain IDs the bridge serves
-    bridge_batch_size: int = 10  # Max transfers per batch operation
-    bridge_monitor_interval: int = 60  # Seconds between bridge health checks
-    bridge_header_sync_batch: int = 500  # Max block headers mirrored into the bridge table per finalizer pass
-    # #1305: heights below the mirror head re-verified against the canonical
-    # block table each pass — a fork heal leaves stale mirror rows the
-    # resume-at-last_stored sync never revisits.
-    bridge_header_verify_window: int = 128
-    bridge_header_commit_batch: int = (
-        50  # Headers stored per sqlite commit in the finalizer backfill (one commit per N, not per header)
-    )
-    # Opt-in to installing this chain's validator set under a FOREIGN
-    # bridge-supported chain id on an empty table. Off by default: the
-    # local set only stands in for a chain that genuinely shares
-    # validator identities; anything else is a phantom set (Refs #659).
-    bridge_backfill_foreign_validators: bool = False
-    # Seconds a single chain's finalizer pass may occupy the worker thread
-    # before the loop abandons it and moves on (the abandoned thread keeps
-    # running; a new pass for that chain is skipped until it returns). Guards
-    # the finalizer loop against a silently wedged sqlite call starving the
-    # other chains' phases.
-    bridge_finalizer_pass_timeout: int = 900
-    # Seconds before a chain whose bridge store failed the readiness probe is
-    # re-probed. A transient failure (store file not yet created, sqlite lock
-    # during startup) must not silence the chain for the process's lifetime.
-    bridge_chain_unavailable_retry_seconds: int = 300
-    # #1290: total budget for retrying a bridge header store that hits
-    # "database is locked" past the per-connection busy_timeout. Every
-    # app-lifespan process (RPC workers, island RPC) mirrors the same headers
-    # into the same chain.db; the single-writer flock serializes them, and
-    # this budget covers a foreign long write transaction (observed 36-126 s
-    # on node1). 0 disables the retry (single attempt, pre-#1290 behaviour).
-    bridge_header_lock_retry_seconds: int = 120
-    bridge_stuck_transfer_timeout: int = 3600  # Seconds before a pending transfer is flagged as stuck
-    bridge_refund_delay_seconds: int = 0  # Minimum seconds after lock_time before a refund is allowed (0 = no delay)
-    # Maximum per-lock amount in compute units. 0 = unlimited in
-    # development only: production nodes refuse locks when this is unset
-    # (fail-closed, see BridgeTransferMixin._enforce_lock_cap). The
-    # production fleet sets BRIDGE_MAX_LOCK_AMOUNT=36000000000 (1,000 AIT).
-    bridge_max_lock_amount: int = 0
-    # GAP-47: in-process relayer. When True the bridge finalizer loop also
-    # mirrors locally produced/synced block headers into bridge_block_header
-    # and confirms pending transfers whose lock has reached finality (the
-    # normal /rpc/bridge/confirm path — Merkle proof, header signature,
-    # finality, multisig checks all still apply). It is AND-gated on
-    # bridge_release_enabled in the finalizer loop, so this flag alone cannot
-    # move value; disabling it turns the loop back into finalize-only.
-    bridge_relayer_enabled: bool = True
-    # Shared transfer ledger (issue #696): base URL of the rpc hosting the
-    # /rpc/bridge/ledger/* surface (hub's rpc in production). Unset = the
-    # relayer keeps its local status='pending' scan — byte-for-byte today's
-    # behaviour; intake does no write-through register.
-    bridge_ledger_url: str = ""
-
-    # GAP-47: cross-chain swap quote table. Comma-separated
-    # "from_chain::to_chain=rate" or "chain:token::chain:token=rate" entries
-    # the operator configures; swaps over pairs with no configured rate are
-    # rejected unless both assets are identical (parity settlement at 1.0).
-    # There is no cross-chain AMM to derive a price from, so the endpoint
-    # refuses rather than inventing one.
-    cross_chain_swap_rates: str = ""
-
-    # Bridge multi-sig configuration (v0.7.1). Security layer for the
-    # cross-chain bridge: M-of-N validators must sign each proof before
-    # funds can be released. Defaults match aitbc/constants.py. The release
-    # fence (bridge_release_enabled) stays in place until v0.7.2 completes
-    # Merkle proof verification — multi-sig is an additional layer, not a
-    # replacement for the fence.
-    bridge_multisig_enabled: bool = False  # require multi-sig for confirm (production fleet: true)
-    bridge_multisig_threshold: int = 3  # M-of-N minimum signatures (production fleet: 2)
-    bridge_multisig_validators: int = 5  # N total validators (production fleet: 2)
-    bridge_multisig_timeout: int = 3600  # seconds to collect signatures
-    bridge_validator_set_grace_period: int = 7200  # seconds — old epoch valid during rotation
-    bridge_block_signature_required: bool = True  # require block header signatures
-    # Max seconds build_proof spends asking remote validators to attest the
-    # sealed block's canonical header when the sealed metadata attestation set
-    # alone is below bridge_multisig_threshold (issue #670). Remote answers only
-    # ever arrive while the sealed block is still at/near a peer's tip (v9
-    # parent-binding), so this is a short best-effort window, not a retry.
-    bridge_proof_attestation_timeout_seconds: float = 2.0
-    # v0.10.16: comma-separated list of Ethereum addresses authorized to register
-    # bridge validators and ingest remote block headers. Empty means no admin is
-    # configured, so validator/header admission is denied when the release fence
-    # is enabled (fail-closed).
-    bridge_admin_addresses: str = ""
-
-    # Bridge verification configuration (v0.7.2). Replaces the trivially
-    # forgeable field-equality proof validation with cryptographic Merkle
-    # proof verification against stored block headers. The release fence
-    # (bridge_release_enabled) is unfenced after this verification is
-    # operational and tested.
-    bridge_verification_mode: str = "in_process"  # "in_process" | "oracle"
-    bridge_min_confirmations: int = 3  # minimum confirmations for any transfer
-    bridge_finality_blocks: int = 6  # full finality threshold
-    # Confirmations stop being counted at this depth (never below bridge_finality_blocks or
-    # bridge_min_confirmations). Every new header used to bump every earlier header's count, a full
-    # rewrite of bridge_block_header per block (22k rows, 12.5 MiB, ~3,200 WAL frames per block per node
-    # on 2026-10-01, growing with chain height). Nothing decides on a count above the deepest requirement.
-    bridge_confirmation_count_cap: int = 100
-    # Whole AIT, converted to compute-units (1 AIT = 36,000,000) at the
-    # comparison: a transfer whose amount >= this threshold requires full
-    # finality (bridge_finality_blocks); below it, bridge_min_confirmations.
-    bridge_large_transfer_threshold: int = 10000
-    # Production hardening: when True, _validate_proof REJECTS any proof that
-    # does not carry a Merkle inclusion proof (merkle_proof + lock_event). The
-    # default is False to preserve the v0.7.2 "field + signature" verification
-    # mode used by isolated/dev networks; set BRIDGE_REQUIRE_MERKLE_PROOF=true
-    # before enabling the release path on networks that move real value.
-    # Production fleet: BRIDGE_REQUIRE_MERKLE_PROOF=true.
-    bridge_require_merkle_proof: bool = False
-
-    # External oracle configuration (v0.7.4). When bridge_verification_mode
-    # is "oracle", bridge proof verification calls an external oracle service
-    # instead of the in-process verifier. The in-process verifier remains as
-    # a fallback when oracle endpoints are unreachable.
-    bridge_oracle_endpoints: list[str] = []  # External oracle endpoints (e.g. ["http://oracle-1:9000"])
-    bridge_oracle_health_check_interval: int = 60  # seconds between oracle health checks
-    bridge_oracle_timeout: int = 30  # seconds before an oracle request times out
-
-    # Network compression (v0.6.0). When enabled, gossip/Redis/P2P payloads are
-    # gzip-compressed before transmission and decompressed on receive. Env var:
-    # NETWORK_COMPRESSION_ENABLED (default true).
-    network_compression_enabled: bool = True
-
-    # Parallel processing (v0.6.1). Feature flag for parallel transaction
-    # validation via dependency analysis. Default off for safety — enable with
-    # PARALLEL_TX_VALIDATION=true. PARALLEL_WORKERS sets the thread pool size
-    # for parallel tx validation (default: CPU count, capped at 16). CONFLICT_THRESHOLD is the fraction
-    # of conflicting transactions above which the proposer falls back to
-    # sequential validation (default 0.5 = 50%).
-    parallel_tx_validation: bool = False  # Feature flag — default off for safety
-    parallel_workers: int = max(2, min(16, os.cpu_count() or 4))  # Thread pool size for parallel tx validation
-    conflict_threshold: float = 0.5  # Fall back to sequential if >50% of txs conflict
-
-    # Gossip protocol (v0.6.2). Protocol version advertises the message
-    # format capabilities of this node. v1 = legacy (pre-v0.6.2, no
-    # priority/batching). v2 = optimized (priority queue + batching).
-    # GOSSIP_BACKWARD_COMPAT=true keeps accepting v1 peers (with a
-    # deprecation log) for one release cycle. GOSSIP_LEGACY_PEER_TIMEOUT
-    # is the seconds before disconnecting a v1 peer that never upgrades.
-    # GOSSIP_MESSAGE_BATCH_SIZE is the max messages per batched gossip
-    # frame (1 = no batching). GOSSIP_PRIORITY_ENABLED toggles the
-    # PriorityMessageQueue routing in the broker (default off).
-    gossip_protocol_version: int = 2  # Protocol version (1=legacy, 2=optimized)
-    gossip_backward_compat: bool = True  # Accept v1 peers with deprecation
-    gossip_legacy_peer_timeout: int = 3600  # Seconds before disconnecting v1 peers
-    gossip_message_batch_size: int = 10  # Max messages per batched gossip frame
-    gossip_priority_enabled: bool = True  # Enable message prioritization (v0.6.2) — enabled per v0.10.1
-
-    # Parallel sync (v0.6.2). Feature flag for parallel block fetching
-    # from multiple peers. Default off for safety — enable with
-    # SYNC_PARALLEL_ENABLED=true. SYNC_PARALLEL_MAX_PEERS caps the number
-    # of peers used concurrently for block range requests.
-    # SYNC_PARALLEL_TIMEOUT is the per-peer request timeout in seconds.
-    sync_parallel_enabled: bool = True  # Feature flag — enabled per v0.10.1 changelog
-    sync_parallel_max_peers: int = 4  # Max peers for parallel block fetching
-    sync_parallel_timeout: float = 30.0  # Timeout per peer request (seconds)
-
-    # Delta sync (v0.6.2). Feature flag for delta-based state sync —
-    # only the accounts that changed between two heights are
-    # transferred, instead of the full state snapshot. Default off for
-    # safety — enable with SYNC_DELTA_ENABLED=true.
-    # SYNC_DELTA_THRESHOLD is the fraction of full-state size above
-    # which delta sync falls back to full sync (default 0.5 = 50%).
-    # SYNC_DELTA_MAX_BLOCKS caps the gap size eligible for delta sync
-    # (above this, full sync is used to bound diff computation cost).
-    sync_delta_enabled: bool = True  # Feature flag — enabled per v0.10.1 changelog
-    sync_delta_threshold: float = 0.5  # Fall back to full sync if delta > 50% of state
-    sync_delta_max_blocks: int = 100  # Max blocks for delta sync (use full sync above this)
-    # Side-effect tables (stake, bond, governance_*) ride on state sync but are
-    # written at RPC-submit time, before their tx seals — the delta cutoff
-    # looks this far back from the range start so submit→seal lag and minor
-    # clock skew cannot drop a row. SYNC_AUX_MAX_ROWS caps per-table rows in a
-    # delta response; above it the peer falls back to a full snapshot.
-    # SYNC_AUX_MAX_PAYLOAD_BYTES bounds the serialized size of the whole
-    # aux_state object a sync SOURCE ships us (#1628): aux tables sit outside
-    # the account state root, so ingest-side caps are the only pre-commit
-    # bound on a hostile or broken peer payload. 64 MiB matches
-    # sync_state_diff_max_bytes — far above any legitimate aux payload.
-    sync_aux_lookback_seconds: int = 900
-    sync_aux_max_rows: int = 5000
-    # Row cap for the peer-supplied chain_parameters / chain_parameter_history
-    # lists on both sync paths (#1628): like aux_state they sit outside the
-    # account state root, so ingest-side bounds are the only pre-commit
-    # limit. Legitimate lists are governance keys plus one history row per
-    # change — 10k per list is far above any real chain.
-    sync_params_max_rows: int = 10_000
-    sync_aux_max_payload_bytes: int = 67_108_864
-    # Decompressed-size cap for a peer-supplied state diff (#1627): the delta
-    # endpoint's payload is decoded before the state-root check runs, so the
-    # bound has to live at decompress time or a compressed bomb OOMs first.
-    # 64 MiB is ~650k account changes at the ~100-byte/change estimate — far
-    # above any legitimate delta (threshold already falls back at 50% of state).
-    sync_state_diff_max_bytes: int = 67_108_864
-    # Decompressed-size cap for the whole JSON body of a peer-supplied
-    # /rpc/state/snapshot or /rpc/state/delta response (#1627 remainder):
-    # httpx buffers and transparently decodes the body, so the cap has to
-    # live at streamed-read time. 256 MiB covers the largest legitimate
-    # payload — a full snapshot (all accounts + aux_state up to
-    # sync_aux_max_payload_bytes) or a delta (base64 diff up to ~90 MiB +
-    # params + aux) — while still bounding a hostile peer's memory cost.
-    sync_state_response_max_bytes: int = 268_435_456
-    # Account-row cap for peer-supplied snapshot lists and delta change sets
-    # (#1594): ``sync_state_response_max_bytes`` bounds wire size, but a dense
-    # JSON array can still enumerate millions of tiny rows — refuse before any
-    # ORM object is materialized. Set far above any production chain.
-    sync_state_max_accounts: int = 2_000_000
-    # Decompressed-size cap for /rpc/blocks-range bodies the bulk-sync client
-    # reads (#1594): the serve-side span is clamped, but a buggy peer can still
-    # ship an oversized payload; stream-read before ``json`` parse.
-    sync_blocks_range_response_max_bytes: int = 536_870_912
-
-    # V-4 seal-path missing-data guard, dry-run mode (design
-    # docs/design/bridge-state-root-grandfathering.md). Classifies every
-    # BRIDGE_LOCK the seal path commits — payload first, envelope fallback —
-    # and logs/counts what the real guard WOULD refuse at or above the
-    # boundary. Never rejects and never alters the block. Default OFF —
-    # enable with BRIDGE_LOCK_GUARD_DRYRUN_ENABLED=true.
-    bridge_lock_guard_dryrun_enabled: bool = False
-    # Operator-chosen activation boundary (2026-10-08): below it an
-    # underivable lock is grandfathered; at/above it is a would-refuse.
-    bridge_lock_guard_boundary: int = 30000
-    # Follower-side bridge_state_root shadow check (BRIDGE-ROOT-FOLLOW-1):
-    # when a P2P/bulk block carries a bridge_state_root, re-derive it from the
-    # sealed BRIDGE_LOCK transactions (payload → envelope, never the local
-    # CrossChainTransfer table) and log/count mismatches. Compare-only — never
-    # rejects, never stores a different root; blocks below the V-4 boundary
-    # are skipped. Default OFF — enable with BRIDGE_ROOT_SHADOW_CHECK=true.
-    bridge_root_shadow_check: bool = False
-    # F1: from this source-chain height the bridge_state_root leaf also commits
-    # to the recipient — ``lock:<transfer_id>:<amount>:<target_chain>:<recipient>``
-    # instead of ``lock:<transfer_id>:<amount>:<target_chain>``. It changes the
-    # root the proposer seals, so every producer must run a build that knows it
-    # before the height, and the same value must be set on every host
-    # (BRIDGE_LOCK_LEAF_V2_HEIGHT). None (the default) keeps the old leaf for
-    # every block. Until it is armed, a confirm whose lock is not on this node
-    # cannot prove its recipient and is refused.
-    bridge_lock_leaf_v2_height: int | None = None
-
-    # V-3 side-table root shadow (design docs/design/v3-side-table-root-shadow.md).
-    # Compare-only soak phase: after each sealed block compute the 13-table
-    # committed fingerprint, store it in the node-local shadow_side_root
-    # table, log it and bump counters. Never touches the block header, hash,
-    # validation or apply. Default OFF for safety — enable with
-    # SIDE_ROOT_SHADOW_ENABLED=true.
-    side_root_shadow_enabled: bool = False
-    # Cost/lifetime knobs while the shadow is soaking: shadow only heights
-    # that are multiples of SIDE_ROOT_SHADOW_INTERVAL (default 1 = every
-    # block, identical to today), and keep only the newest
-    # SIDE_ROOT_SHADOW_RETENTION shadow_side_root rows (default 10_000;
-    # <= 0 disables pruning).
-    side_root_shadow_interval: int = 1
-    side_root_shadow_retention: int = 10_000
-
-    # P2P-to-RPC port offset (v0.6.2). The RPC HTTP port is derived from the
-    # P2P listen port by adding this offset (P2P 8200 -> RPC 8202). Used by
-    # the peer capability exchange to construct a peer's RPC URL from the
-    # address/port advertised in the P2P handshake. Env var:
-    # P2P_TO_RPC_PORT_OFFSET (default 2).
-    p2p_to_rpc_port_offset: int = 2  # RPC port = P2P port + offset (8200 -> 8202)
-
-    # Redis Configuration (Hub persistence)
-    redis_url: str = "redis://localhost:6379"  # Redis connection URL
-
-    # Keystore for proposer private key (future block signing)
-    keystore_path: Path = KEYSTORE_DIR
-    keystore_password_file: Path = KEYSTORE_DIR / ".password"
-
-    # Multi-validator consensus (v0.7.5). Master toggle for activating
-    # MultiValidatorPoA + PBFT. When False, single-validator PoA remains
-    # active. The RuntimeError guards in multi_validator_poa.py and pbft.py
-    # read this setting.
-    # v0.10.16 / G6: fail-closed by default. The single-proposer hub deployment must
-    # not report itself as multi-validator. Enable only after explicit security review
-    # and a validator_set has been configured.
-    multi_validator_consensus_enabled: bool = False
-    # Validator set: JSON list of {"address": "...", "stake": "1000"} objects.
-    # Used by MultiValidatorPoA to select proposers and validate attestations.
-    validator_set: str = ""
-    # DEAD-ISLAND-GOSSIP-1 (#393): the island hub's proposer id.
-    # Empty disables the island liveness monitor (detection-only default).
-    island_hub_proposer_id: str = ""
-    # Validator keys controlled by this node: JSON mapping address -> private key.
-    # May be set in blockchain-secrets.env. The mapping is used to sign blocks and
-    # produce attestations. Keep this value out of the repository.
-    validator_keys: str = ""
-    # Minimum number of attestations required in block_metadata for a multi-validator
-    # block to be accepted during sync (in addition to the proposer signature).
-    # G6: require at least 2 validator attestations when multi-validator is active.
-    # TRAP: this default is *nonzero*. Setting it explicitly to 0 or 1 LOWERS the
-    # quorum bar below the shipped default — 0 does not mean "extra safe", it means
-    # "no attestation certificate required". Do not set it without understanding
-    # that larger is stricter, smaller is weaker.
-    multi_validator_min_attestations: int = 2
     # v0.25.7: historical state-transition rule changes are gated by block version.
     # New blocks set state_transition_version=2 in their metadata. Blocks that
     # lack the version key are treated as v1 if their height is below this value
@@ -1391,396 +288,174 @@ class ChainSettings(BaseSettings):
     # the activation height they require the proposal domain regardless of
     # this setting.
     consensus_legacy_attestation_until_height: int | None = None
-    # Comma-separated ``gpu_id``s that GPU_REGISTER and GPU_ALLOCATE may not name (env ``GPU_RETIRED_IDS``). Empty
-    # (the default) refuses nothing. Admission only: it is a door check on this node's REST, gossip and p2p intake,
-    # not a consensus rule, so a block from a validator that does not set it still applies such a transaction. Its
-    # purpose is to keep the ids retired on 2 Oct 2026 (scripts/ops/gpu-registry-sweep.py lists them) from being
-    # registered again by anyone; it does not change what a replay of sealed history produces.
-    gpu_retired_ids: str = ""
-    # S-4: address allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3+.
-    # The on-chain escrow_settlement_authority chain parameter takes precedence;
-    # this setting (or ESCROW_RELEASE_ADDRESS) is the fallback for chains that
-    # never set it. Below v5 an unset authority disables the check (legacy);
-    # from state_transition_v5_height the transition fails closed instead.
-    escrow_settlement_authority: str = ""
-    # v11: ESCROW_FEE_SWEEP must pay this recipient — the treasury account that
-    # collects the residue v3 custody strands in each per-escrow account.
-    # The on-chain escrow_fee_recipient chain parameter takes precedence; this
-    # setting (or ESCROW_FEE_RECIPIENT env) is the fallback for chains that
-    # never set it. Unset fails closed: the sweep is refused, never misdirected.
-    escrow_fee_recipient: str = ""
-    # v5: BRIDGE_RELEASE/BRIDGE_REFUND must carry a secp256k1 signature over
-    # the credit's semantic fields that recovers to this authority. The
-    # on-chain bridge_release_authority chain parameter takes precedence; this
-    # setting (or BRIDGE_RELEASE_AUTHORITY env) is the fallback, then the
-    # escrow settlement authority — the bridge service signs credits with the
-    # same operator settlement key unless told otherwise.
-    bridge_release_authority: str = ""
-    # Optional dedicated key (BRIDGE_RELEASE_PRIVATE_KEY env) used by the
-    # bridge service to sign issued credits. Falls back to
-    # ESCROW_RELEASE_PRIVATE_KEY, which the RPC process already holds.
-    bridge_release_private_key: str = ""
-    # Seconds to wait for remote attestation responses over gossip when this node is the proposer.
-    multi_validator_attestation_timeout_seconds: float = 1.0
-    # After the attestation quorum is reached, keep collecting this many extra
-    # seconds so slower-but-valid validators still land in the block instead of
-    # losing the first-to-min_count race every round. 0 keeps the old
-    # seal-as-soon-as-quorum behaviour. Bounded by the timeout above.
-    attestation_post_quorum_linger_seconds: float = 0.0
-    # v0.18.0: reject unsigned PBFT messages by default; test harnesses must
-    # set this to False explicitly.
-    pbft_require_signatures: bool = True
-    # v0.7.6 PBFT master toggle. When True, block production runs the full
-    # pre-prepare / prepare / commit phases before a block is committed.
-    # Fail-closed by default; requires at least 4 validators for f=1 BFT.
-    pbft_consensus_enabled: bool = False
-    # View-change timeout used by PBFT consensus (seconds).
-    pbft_view_change_timeout: int = 30
-    # #1940 F3: first block height at which PBFT commit certificates must
-    # satisfy the strict contract in consensus/pbft_certificate.py — one
-    # coherent (sequence, view) quorum verified identically at producer and
-    # importer. None/unset keeps the legacy union-count verifier.
-    pbft_certificate_strict_height: int | None = Field(default=None, ge=0)
-    # #1940 F3-A: first sequence/height at which a validator's COMMIT votes
-    # for different block hashes at the same height but different PBFT views
-    # are recorded as cross-view equivocation evidence (slashing kind
-    # ``pbft_cross_view_vote_equivocation``). Detection/evidence only — it does
-    # NOT change which votes are legal (that is the F3-B commit lock, still
-    # gated separately and unarmed). None/unset/malformed keeps detection
-    # dormant and behavior byte-identical.
-    pbft_cross_view_commit_lock_height: int | None = Field(default=None, ge=0)
-    # #1940 F3-B: first height at which importers pin a strict-era PBFT
-    # commit certificate's view to the timestamp-derived proposer round —
-    # the same round the producer signs commits under — instead of accepting
-    # any coherent view. Independent of the commit-lock gate: the lock gates
-    # which votes a validator may EMIT, this gates which certificate view a
-    # block may CARRY. None/unset/malformed keeps the unpinned strict check.
-    pbft_certificate_view_binding_height: int | None = Field(default=None, ge=0)
-    # #2005 F3-C: first sequence/height at which the signed
-    # VIEW_CHANGE/NEW_VIEW protocol is live — VC intake/quorum, floor rule,
-    # forced value selection, proposal-body persistence in pre-prepares, and
-    # the importer certificate-view pin to the derived round. Everything is
-    # dormant while None/unset/malformed: messages are ignored, votes are
-    # unchanged and historical replay is byte-identical. Arming is deferred
-    # fleet-wide (ruling 4C) — PBFT itself stays OFF regardless.
-    pbft_view_change_height: int | None = Field(default=None, ge=0)
-    consensus_view_change_timeout_seconds: int = 30  # H6 — timeout before view change
-    consensus_round_timeout_seconds: int = 10  # per-round timeout
-    # v0.25.6: deterministic proposer rotation. When the scheduled proposer for
-    # a height does not produce a block, the round derived from the parent
-    # block's timestamp advances and the next validator in the round-robin
-    # takes the slot. Every node derives the same round from on-chain
-    # timestamps, so an unavailable proposer is routed around without any
-    # view-change message exchange. Set it comfortably larger than the largest
-    # gap the network produces when it is healthy. A smaller value is still
-    # safe, because the proposer derives the round from the same timestamp its
-    # validators will, but the slot then rotates on ordinary blocks instead of
-    # only when a proposer is missing. The default aligns with the heartbeat
-    # interval so a silent proposer is skipped within one heartbeat cycle.
-    # Left unset, this is derived from ``max_empty_block_interval`` -- see
-    # ``_scale_the_proposer_round_to_the_heartbeat``. An explicit value wins.
-    consensus_proposer_round_seconds: int = 60
-    # v0.25.x attester lock: a validator that signs (attests) a peer's block
-    # at height h will not propose — or re-attest — a different block at h
-    # for one proposer round. Instead it tries to fetch the attested block
-    # from a mesh peer and pull it. The lock expires after one round window
-    # so an attested block that never materialises cannot stall production.
-    attestation_lock_enabled: bool = True
-    # #1242 staged rollout: re-key the attester lock to (height, round), bind
-    # the round into the signed attestation payload, add the tip-height /
-    # canonical-parent check before signing, and persist signed
-    # (height, round, hash) records so a restart cannot forget an
-    # equivocation decision. Off preserves the legacy height-only lock and
-    # the version-gated v9 parent check exactly. Sandbox evaluation only —
-    # production merge stays gated on independent review.
-    attestation_round_lock_enabled: bool = False
-    # #1198 staged rollout: when armed, slash-driven validator deactivation is
-    # read from canonical chain state (validator_deactivation markers written
-    # by VALIDATOR_DEACTIVATE transactions) instead of node-local
-    # ConsensusState mutation, and local Byzantine detection becomes
-    # advisory-only (metrics/evidence, never is_active). Off preserves the
-    # legacy local-persistence behavior exactly. Arming order per the
-    # approved migration plan: draft markers from slashing_events_json →
-    # operator signs → VALIDATOR_DEACTIVATE txs seal → confirm marker heights
-    # → arm this flag fleet-wide.
-    consensus_chain_slashing_enabled: bool = False
-    # #1206: draft_deactivation_txs only cites slashing evidence sealed at
-    # least this many blocks deep, so a reorg cannot invalidate the
-    # justification an evidence_hash commits to. Defaults to max_reorg_depth's
-    # value — evidence deeper than the deepest possible reorg is safe to cite.
-    consensus_slashing_evidence_finality_depth: int = 10
-    # #2118: max recorded slashing events per (validator, condition, height).
-    # A flood of distinct forged hash pairs at one height grew hub's persisted
-    # history to 67 MB (30,245 events at one height) and stalled the RPC
-    # worker. Bounded by default since #2169 (0 = unbounded, the legacy opt-out); the
-    # cap applies on record and when a persisted history is loaded.
-    slashing_max_events_per_height: int = 8
-    # #2130: verify equivocation evidence before it is recorded or levied. When
-    # armed, an equivocation claim is admitted only if its two signatures verify
-    # against the accused (same height/round, differing hashes, signer == accused),
-    # the accused still has stake, and no signed or levied record already stands at
-    # that (validator, condition, height). Dormant (False) = legacy behaviour.
-    equivocation_verify_before_record: bool = False
-    # #2131: bound the persisted slashing history per validator. Keeps the newest N
-    # events per validator (levied events are never dropped — they are the audit
-    # trail of a deducted penalty — then signed evidence, then advisory records) and
-    # persists a pruned count + digest per validator instead of the dropped events.
-    # Bounded by default since #2169 (0 = unbounded, the legacy opt-out). An existing
-    # oversized blob is compacted on the first persist after the bound applies;
-    # nothing is pruned while this is 0.
-    slashing_history_persist_max_per_validator: int = 1000
-    # U2 failure-evidence window for cross-round signing: after observing a
-    # later-round attest_request at the same height, the locked round's
-    # gates window must fully elapse before a rival hash may be signed.
-    # 0 derives it from the attestation timeout (+1s margin, +PBFT view
-    # timeout when PBFT is armed).
-    attestation_round_unlock_window_seconds: float = 0.0
-    # #1245: freshness bound on the SIGNED HEADER timestamp (not on request
-    # arrival time, which a replayer controls). An attester refuses a request
-    # whose header timestamp is older than this many seconds, so a captured
-    # request cannot be re-fed to refresh or re-arm the attester lock after
-    # a restart (the header timestamp is hash-bound at v9, so it cannot be
-    # rewritten). 60 s is 3.75x the proposer's longest collection window
-    # (15 s timeout + 0.5 s per missing attestation) -- see the #1245 ledger.
-    # 0 or less disables the check.
-    attestation_header_max_age_seconds: float = 60.0
-    # #1245: how far in the FUTURE a header timestamp may sit relative to this
-    # node's clock before the request is refused. Absorbs honest clock
-    # disagreement between validators; a header from further ahead would
-    # otherwise stay "fresh" for longer than the bound above.
-    attestation_header_future_skew_seconds: float = 10.0
-    # #1298 FRESHHASH-RETRY-1: when a proposal fails its gates, the next
-    # retry at the same height reuses the failed block's timestamp (and thus
-    # its hash) while it is still inside the attestation-lock / header-age
-    # windows, instead of re-assembling with datetime.now() and producing a
-    # fresh hash every round. Attesters that already signed the first hash
-    # treat the retry as an idempotent re-publish inside the lock window;
-    # after the horizon the retry falls back to a fresh timestamp/hash, so a
-    # lapsed lock still forces the fresh-round path (never a timer-only
-    # unlock). Proposer-local retry policy: the sealed block, its hash and
-    # signature are identical either way, so replayed verdicts do not
-    # change. Default OFF per operator ruling: same-hash retry is enabled
-    # per-deployment via env until the AD design review clears default-on.
-    # False restores the old fresh-timestamp-per-retry behaviour.
-    proposer_same_hash_retry_enabled: bool = False
-    # Slack reserved on top of one collect window when computing the same-hash
-    # retry horizon: the pinned timestamp must leave room for a final gate
-    # cycle (attestation collect ≈ multi_validator_attestation_timeout_seconds)
-    # plus propagation/signing slack before the header hits
-    # attestation_header_max_age_seconds and goes stale at attesters. The
-    # horizon is min(round_seconds, header_max_age) - (timeout + this).
-    proposer_same_hash_retry_margin_seconds: float = 12.0
-    # #1268 Phase 1 (dual-seal prevention) -- every switch below defaults OFF;
-    # off is byte-identical to the pre-#1268 behavior.
-    #
-    # Durable per-height vote journal. A validator records every vote it casts
-    # (attestation signature, or its own proposal) in ``vote_journal.json``
-    # BEFORE the signature leaves the process, and keeps the entry until the
-    # height is below the local tip. While an entry for a DIFFERENT hash is
-    # live, the validator refuses to attest a rival at that height and refuses
-    # to propose at it -- across restarts, and without a wall-clock expiry
-    # (the legacy 60 s lock and its restart amnesia are the G1/G3 gaps).
-    vote_journal_enabled: bool = False
-    # Liveness valve: a journal entry blocks a rival only until it is this old
-    # AND the voted block could not be fetched from the proposer or any mesh
-    # peer (fetch-before-unlock). Far longer than the 60 s legacy window on
-    # purpose. Every use of the valve is counted and recorded as #1198
-    # equivocation evidence.
-    vote_journal_unlock_seconds: float = 300.0
-    # #1310: run the attest-listener v9 tx check in a worker thread instead of
-    # on the event loop (default OFF; the check is timed either way).
-    attest_v9_check_offload_enabled: bool = False
-    # #1295 ATTEST-LAG-WAIT-1 (optional hardening, default OFF): when the
-    # local tip sits 1..attest_lag_wait_max_blocks behind the attestation
-    # request's parent, the v9 check waits up to attest_lag_wait_seconds
-    # for the import to catch up before refusing not_at_parent — absorbs
-    # transient import stalls (e.g. sqlite lock windows) without weakening
-    # fork protection: a tip ahead of, or on a rival at, the parent height
-    # still refuses immediately. Enabling implies the check runs off the
-    # event loop (the wait sleeps).
-    attest_lag_wait_enabled: bool = False
-    attest_lag_wait_seconds: float = 10.0
-    attest_lag_wait_max_blocks: int = 2
-    # #1940 F4: dormant post-state attestation gate. At/above the configured
-    # height every attest request's transactions are re-executed on a
-    # consistent SQLite snapshot of local parent state inside the v9 check;
-    # the claimed state/aux roots must reproduce under the real importer
-    # rules and the carried bridge root is bound to the authenticated
-    # header/stored row (the legacy importer trusts it — deterministic
-    # bridge-root enforcement is F5 scope) or the attestation is refused.
-    # None disables the probe entirely — no activation value is chosen
-    # here; rollout requires a uniform configured height.
-    attestation_post_state_height: int | None = Field(default=None, ge=0)
-    # Node-local budget for one probe (snapshot + apply). Expiry refuses the
-    # attestation; it is never a consensus verdict and never extends the
-    # request's own deadline semantics.
-    attestation_post_state_timeout_seconds: float = Field(default=10.0, gt=0, allow_inf_nan=False)
-    # #2003 (ATTEST-POSTSTATE-PROBE-ARMING-1) F2: pre-flight bound on the
-    # source chain.db size (main file plus -wal) the probe copies into an
-    # in-memory snapshot. A database larger than this refuses
-    # "post_state_db_too_large" before the backup runs — on multi-GB files
-    # the copy alone can exceed the probe timeout, turning every probe into
-    # post_state_timeout and silently stalling attestations. 0 disables the
-    # guard; the default 1 GiB is sized so the snapshot fits comfortably
-    # inside attestation_post_state_timeout_seconds on fleet hardware.
-    attestation_post_state_max_db_bytes: int = Field(default=1073741824, ge=0)
-    # #1306: unlock_justification waits inside the serial attest-request
-    # listener are timed; waits at or above this many seconds increment
-    # attest_listener_unlock_stall_total (instrumentation only, no behavior).
-    attest_listener_stall_seconds: float = 5.0
-    # #1301 L2: a proposer that missed attestation quorum signs and publishes
-    # an abandon statement; voters whose journal holds an attest vote for that
-    # exact hash from that proposer release the entry. Needs vote_journal_enabled.
-    vote_journal_abandon_enabled: bool = False
-    # #1985 liveness hardening for the abandon path (dormant, default OFF;
-    # needs vote_journal_enabled + vote_journal_abandon_enabled). Gossip is not
-    # durable: a voter that restarted or lost the one abandon publish stays
-    # pinned to a hash nobody will seal (bc-2 h28508). Armed: (1) a proposer
-    # re-signs and re-publishes its abandons while the height is undecided,
-    # at most once per ``vote_journal_abandon_reannounce_seconds`` per hash, owed from
-    # the moment of the drop (even if the first send fails), persisted in
-    # ``abandon_ledger.json`` next to the journal so a proposer restart keeps it, and
-    # checked on every proposer-loop iteration, not only in its own slots;
-    # (2) on start it abandons and retracts its own journal proposals above
-    # the tip (the block died with the process); (3) the attestation lock is
-    # minted only after the journal accepts the vote, so a refused rival no
-    # longer leaves a lock for a hash this validator never signed.
-    vote_journal_liveness_enabled: bool = False
-    vote_journal_abandon_reannounce_seconds: float = 30.0
-    # #1311: replicate signature-bearing attestation-equivocation evidence over
-    # the restricted ``consensus.equivocation.<chain>`` topic. Default OFF:
-    # nothing is published, subscribed or stored. Advisory only — ingest never
-    # slashes; it records into the same advisory event list local detection uses.
-    equivocation_replication_enabled: bool = False
-    # #2119: max prior hashes a newly signed hash is paired with when recording
-    # attestation equivocation (the pairing was all-priors: n hashes -> n(n-1)/2
-    # events). 0 = every prior (legacy, dormant until armed).
-    equivocation_max_pairs_per_signature: int = 0
-    equivocation_replication_ring_cap: int = 10000  # records per chain, FIFO eviction
-    equivocation_replication_max_record_bytes: int = 4096
-    equivocation_replication_max_hashes_per_slot: int = 4  # distinct hashes per (validator, height, round)
-    equivocation_replication_rate_per_minute: int = 20  # per reporting validator, sliding window
-    equivocation_replication_max_publishes: int = 3  # per record, per process lifetime
-    # #1280 VALVE-P15-1: a peer serving a DIFFERENT block at the voted height
-    # is positive contention evidence. While such a sighting is fresh it
-    # suppresses the re-vote path (delay only — never a signature outside the
-    # journal/UC path), capped at ``vote_journal_contended_max_seconds`` from
-    # the first observation so a stuck peer cannot hold a height forever.
-    vote_journal_contention_fresh_seconds: float = 60.0
-    # On sealed-rival contention, pull the rival block: sealed material is
-    # canonical, importing it passes the height and ends the stall. Unsealed
-    # rivals are never pulled (would import a fork block).
-    vote_journal_sealed_rival_pull: bool = False
-    # #1281 Phase 2 (verifiable-justification barrier) -- dormant default-OFF,
-    # requires vote_journal_enabled. When armed, the liveness valve no longer
-    # releases a rival vote on age+miss alone: the unlock needs an
-    # UnavailabilityCertificate (>= MIN_ATTESTATIONS validator-signed
-    # absence statements), a clean GossipObservationIndex window for the
-    # voted hash, and T_evidence seconds of continuous unfetchability —
-    # independently verifiable protocol evidence per the #1274 ruling.
-    vote_journal_justification_enabled: bool = False
-    # #1306 nonblocking persist -- dormant default-OFF, requires the UC barrier
-    # (vote_journal_enabled + vote_journal_justification_enabled). The attest-
-    # request listener's leg-1 ``unfetchable_persists`` otherwise polls inside
-    # the serial listener for the whole unavail_evidence_seconds window per
-    # rival hash, answering no attest requests meanwhile (driver11: 40 s
-    # stalls, frozen height). Armed, the listener starts/joins the shared
-    # sampler and reads its current verdict instead of waiting; the rival is
-    # refused now and re-evaluated on the next attest retry. No release can
-    # happen before T_evidence has matured -- only the waiting moves. The
-    # proposer path always blocks, unchanged.
-    unavail_nonblocking_persist_enabled: bool = False
-    # UC collection window and certificate freshness bound.
-    unavail_collect_seconds: float = 15.0
-    unavail_cert_max_age_seconds: float = 120.0
-    # Observation-index quiet window (T_evidence) and fetch-miss sampling
-    # cadence. unavail_min_responses <= 0 derives from
-    # multi_validator_min_attestations (quorum-intersection threshold).
-    unavail_evidence_seconds: float = 90.0
-    unavail_sample_seconds: float = 10.0
-    # Mesh-visibility window for the observation index (coarser than
-    # T_evidence — reachability signal, not quiet-window evidence).
-    unavail_visibility_seconds: float = 300.0
-    unavail_min_responses: int = 0
-    # #1281 respin: negative-result backoff after a failed UC collection —
-    # the probe is single-flight per (chain, height, hash), and a failed
-    # collection suppresses re-probes for at least this long (floored at
-    # 2x unavail_collect_seconds) so gate retries cannot storm the topic.
-    unavail_collect_backoff_seconds: float = 30.0
-    # Re-publish a sealed-but-unconfirmed block on the gossip topic until a
-    # child block exists or a mesh peer serves it, so one failed publish no
-    # longer leaves the seal visible only on its proposer.
-    seal_republish_enabled: bool = False
-    seal_republish_interval_seconds: float = 10.0
-    seal_republish_max_seconds: float = 120.0
-    # Additive ``confirmations`` / ``finalized`` / ``finalized_height`` fields on
-    # /head and the block and transaction reads. ``finalized`` means at least
-    # ``rpc_finality_depth`` blocks sit on top (N=3, the
-    # BRIDGE_WITHDRAW_SEAL_DEPTH convention). Existing fields never change.
-    rpc_finality_fields_enabled: bool = False
-    rpc_finality_depth: int = 3
-    # Delta-journal undo for non-empty losing fork segments
-    # (``state/block_deltas.py``). While False the resolvers escalate a
-    # non-empty segment to the operator exactly as before the journal
-    # existed — the journal still records, but nothing is reverted. Default
-    # on: the journal is fail-closed (any capture gap stamps an ``incomplete``
-    # sentinel and revert refuses the block) and per-family differential
-    # tests prove apply+revert restores every chain table. The ancestor
-    # state-root check remains as a second net for the ``account`` table.
-    sync_fork_undo_enabled: bool = True
-    # #1322: before a winning peer segment displaces ours, apply it in a
-    # tentative reorg (revert + apply inside one transaction, always rolled
-    # back). An unappliable segment is vetoed; an inconclusive probe defers.
-    sync_fork_apply_probe_enabled: bool = False
-    # Drop a pre-prepare whose sender is not the scheduled proposer for the
-    # block's height and round. Setting this False restores the pre-v0.25.6
-    # behaviour, where any validator's proposal was prepared.
-    consensus_enforce_proposer_schedule: bool = True
-    # Refuse attest_requests that carry no proposer_signature: the schedule
-    # check proves the claimed name, not authorship, so an unsigned request
-    # naming the scheduled proposer squats the attestation lock (#1240).
-    # Default on. Proposers sign requests since #1058/#1156 (a build older
-    # than #1156 sends them unsigned), so during a rolling upgrade from such
-    # a build set CONSENSUS_REQUIRE_SIGNED_ATTEST_REQUEST=false until every
-    # validator is upgraded, then drop the override. The live fleet has
-    # carried an explicit =true since 5 Nov 2026.
-    consensus_require_signed_attest_request: bool = True
-    # Pre-proposal freshness gate: before building a block, compare the local
-    # head with every GOSSIP_MESH_PEER_URLS peer's /rpc/head. A peer ahead (or
-    # disagreeing at our height) blocks the proposal; per-peer query timeout
-    # bounds the added latency and unreachable peers degrade to UNVERIFIED
-    # (propose anyway, metric recorded) rather than halting the chain.
-    proposal_freshness_check_enabled: bool = True
-    proposal_freshness_peer_timeout_seconds: float = 2.0
-    # A cached freshness verdict is only valid this long — far below the round
-    # window, so a "fresh" verdict can never survive into a later round after a
-    # network blip. UNVERIFIED results are never cached at all.
-    proposal_freshness_cache_ttl_seconds: float = 5.0
-    # An ahead peer whose bulk pull finishes without moving our head is dropped
-    # from the ahead check for this long (~10 round windows): its taller fork
-    # would otherwise silence us forever. Hash votes are unaffected.
-    proposal_freshness_peer_quarantine_seconds: float = 600.0
-    # consensus_validator_set_epoch_blocks was removed (#848): validator-set
-    # epoch rotation was never invoked and has been deleted; the env var is now
-    # ignored (pydantic extra="ignore").
-    consensus_slashing_enabled: bool = True  # C2 — enable slashing
-    consensus_slashing_amount: Decimal = Decimal("100.0")  # stake to slash per offense
-    consensus_byzantine_threshold: int = 3  # slash count before deactivation
 
-    # Cross-chain settlement (v0.9.0). Atomic settlement uses HTLCs to
-    # ensure either both chains settle or both refund. Settlement RPC
-    # endpoints and CrossChainSettlementService are now active; B4 (HTLC
-    # contract integration) is complete. Enabled by default for the homebrew
-    # network — operators can still disable explicitly if they run a private
-    # deployment before a security review.
-    escrow_enabled: bool = True
-    escrow_atomic_settlement: bool = True  # use HTLC (vs manual admin refund)
-    escrow_timeout_default: int = 3600  # 1 hour default timeout
-    escrow_timeout_large: int = 86400  # 24 hours for large trades
-    escrow_timeout_extension_max: int = 604800  # 7 days max extension
-    escrow_htlc_enabled: bool = True  # use HTLC contract for escrow
-    escrow_htlc_contract_address: str = ""  # deployed CrossChainAtomicSwap.sol
-    escrow_large_trade_threshold: int = 10000  # trades above this use large timeout
+    def get_db_path(self, chain_id: str = "") -> Path:
+        """Get database path for a specific chain.
+
+        Args:
+            chain_id: Chain ID to get path for. If empty, uses self.chain_id or default.
+
+        Returns:
+            Path to chain-specific database file.
+        """
+        # Resolve chain_id: parameter > settings > environment > empty
+        resolved_chain_id = chain_id or self.chain_id or os.getenv("CHAIN_ID", "")
+
+        # The "legacy path" fallback that used to sit here was `Path("/var/lib/aitbc/data") /
+        # chain_id / "chain.db"` -- byte for byte what this expression produced, since DATA_DIR
+        # was that literal. It could never be reached. Now that DATA_DIR follows
+        # AITBC_DATA_DIR, keeping it would have been worse than dead: a run pointed at a
+        # temporary directory would have fallen back to the deployed one (V23-73).
+        return DATA_DIR / "data" / resolved_chain_id / "chain.db"
+
+    @model_validator(mode="after")
+    def _default_supported_chains(self) -> ChainSettings:
+        """Default supported_chains to chain_id when empty.
+
+        Without this, when SUPPORTED_CHAINS is unset the island ID is
+        constructed as ``"-island"`` (empty string + suffix). Defaulting
+        to ``chain_id`` produces a valid island ID like
+        ``"ait-localnet-island"``.
+        """
+        if not self.supported_chains.strip():
+            self.supported_chains = self.chain_id
+        return self
+
+    @model_validator(mode="after")
+    def _pin_block_scoped_preregistered_transactions(self) -> ChainSettings:
+        """Refuse ``BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=false`` at startup.
+
+        The non-block-scoped bridge path writes committed tables (``account``,
+        ``transaction``) directly, outside block apply — the pre-v14 behaviour
+        the flag replaced. An env flip on a live node silently re-opens that
+        committed-write escape with no check able to see it, so it is refused
+        here rather than warned. The legacy path survives only as a test
+        mode: tests patch the attribute post-construction (no
+        ``validate_assignment``), never via env.
+        """
+        if not self.block_scoped_preregistered_transactions:
+            raise ValueError(
+                "block_scoped_preregistered_transactions=false is refused: the "
+                "non-block-scoped bridge path mutates committed tables outside "
+                "block apply (test-only via monkeypatched settings)"
+            )
+        return self
+
+    @classmethod
+    def get_genesis_candidates(cls, chain_id: str) -> list[str]:
+        """Get genesis file candidates for a specific chain ID"""
+        return [
+            str(DATA_DIR / "data" / "genesis.json"),
+            f"{DATA_DIR}/data/{chain_id}/genesis.json",
+            f"{DATA_DIR}/data/{os.getenv('CHAIN_ID', '')}/genesis.json",
+        ]
+
+    @field_validator("chain_configs", mode="before")
+    @classmethod
+    def parse_chain_configs(cls, v: dict[str, str] | str) -> dict[str, str]:
+        """Validate chain_configs dict. Values are raw config strings
+        parsed later by ChainConfigParser at point of use."""
+        if not v:
+            return {}
+        if isinstance(v, str):
+            import json
+
+            try:
+                parsed = json.loads(v)
+            except json.JSONDecodeError:
+                raise ValueError(f"chain_configs must be a dict or JSON string, got: {v}") from None
+            if not isinstance(parsed, dict):
+                raise ValueError(f"chain_configs must parse to a dict, got: {type(parsed)}") from None
+            v = parsed
+        # Validate each value is a non-empty string
+        from aitbc.utils.chain_config import ChainConfigParser
+
+        for chain_id, config_str in v.items():
+            if not isinstance(config_str, str):
+                raise ValueError(f"chain_configs['{chain_id}'] must be a string, got: {type(config_str)}")
+            if config_str.strip():
+                ChainConfigParser.parse(config_str)
+        return v
+
+    @field_validator("chain_sync_sources")
+    @classmethod
+    def validate_chain_sync_sources(cls, v: str) -> str:
+        """Fail fast on malformed CHAIN_SYNC_SOURCES at startup (v0.6.3)."""
+        if not v or not v.strip():
+            return v
+        seen: set[str] = set()
+        for pair in v.split(","):
+            pair = pair.strip()
+            if not pair:
+                continue
+            parts = pair.split(":", 1)
+            if len(parts) != 2:
+                raise ValueError(f"Invalid CHAIN_SYNC_SOURCES entry: '{pair}'. Expected 'chain_id:url'")
+            chain_id, url = parts[0].strip(), parts[1].strip()
+            if not chain_id or not url:
+                raise ValueError(f"Invalid CHAIN_SYNC_SOURCES entry: '{pair}'. Empty chain_id or url")
+            if chain_id in seen:
+                raise ValueError(f"Duplicate chain_id in CHAIN_SYNC_SOURCES: '{chain_id}'")
+            seen.add(chain_id)
+        return v
+
+    @field_validator("island_registry")
+    @classmethod
+    def validate_island_registry(cls, v: str) -> str:
+        """Fail fast on malformed ISLAND_REGISTRY at startup (v0.6.3)."""
+        if not v or not v.strip():
+            return v
+        seen: set[str] = set()
+        for entry in v.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            parts = entry.split(":")
+            if len(parts) < 3:
+                raise ValueError(f"Invalid ISLAND_REGISTRY entry: '{entry}'. Expected 'island_id:chain_id:hub_url'")
+            island_id = parts[0].strip()
+            if not island_id:
+                raise ValueError(f"Invalid ISLAND_REGISTRY entry: '{entry}'. Empty island_id")
+            if island_id in seen:
+                raise ValueError(f"Duplicate island_id in ISLAND_REGISTRY: '{island_id}'")
+            seen.add(island_id)
+        return v
+
+    @field_validator("gossip_backends")
+    @classmethod
+    def validate_gossip_backends(cls, v: str) -> str:
+        """Fail fast on malformed GOSSIP_BACKENDS at startup (v0.6.3)."""
+        if not v or not v.strip():
+            return v
+        seen: set[str] = set()
+        for entry in v.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            parts = entry.split(":", 1)
+            if len(parts) != 2:
+                raise ValueError(f"Invalid GOSSIP_BACKENDS entry: '{entry}'. Expected 'chain_id:redis://url'")
+            chain_id = parts[0].strip()
+            if not chain_id:
+                raise ValueError(f"Invalid GOSSIP_BACKENDS entry: '{entry}'. Empty chain_id")
+            if chain_id in seen:
+                raise ValueError(f"Duplicate chain_id in GOSSIP_BACKENDS: '{chain_id}'")
+            seen.add(chain_id)
+        return v
+
+    @field_validator("bridge_islands")
+    @classmethod
+    def validate_bridge_islands(cls, v: str) -> str:
+        """Validate bridge_islands CSV format: UUIDs only, no spaces, no empty entries (v0.6.3)."""
+        if not v or not v.strip():
+            return v
+        islands = [i.strip() for i in v.split(",") if i.strip()]
+        if len(islands) != len(set(islands)):
+            raise ValueError(f"Duplicate island_id in bridge_islands: '{v}'")
+        for island_id in islands:
+            if " " in island_id:
+                raise ValueError(f"Invalid bridge_islands entry: '{island_id}'. No spaces allowed (use UUID format)")
+        return v
 
     @model_validator(mode="after")
     def _scale_the_proposer_round_to_the_heartbeat(self) -> ChainSettings:
