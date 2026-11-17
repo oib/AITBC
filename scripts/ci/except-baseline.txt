@@ -38,7 +38,10 @@
       2 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation_round_lock.py
       9 apps/blockchain-node/src/aitbc_chain/contracts/escrow.py
       2 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_finality.py
-      8 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer.py
+      1 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer_confirm.py
+      1 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer_finalizer.py
+      1 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer_intake.py
+      5 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_transfer_proof.py
       3 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge_validator.py
       4 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement_coordinator.py
       1 apps/blockchain-node/src/aitbc_chain/cross_chain/settlement.py

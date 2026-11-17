@@ -475,7 +475,8 @@ class TestAdmissionCoverage:
             "state/block_deltas.py": (1, "door"),  # orphan re-admission
             "protocol_escrow.py": (1, "internal protocol types; payload built in-code"),
             "rpc/staking.py": (1, "GOVERNANCE_EXECUTE; internally signed, aitbc_msg unreachable"),
-            "cross_chain/bridge_transfer.py": (3, "credit types; verified issuance only"),
+            "cross_chain/bridge_transfer_intake.py": (1, "credit types; verified issuance only"),
+            "cross_chain/bridge_transfer_confirm.py": (2, "credit types; verified issuance only"),
         }
         assert site_counts == {k: v[0] for k, v in expected.items()}, (
             "mempool.add call-site set changed — classify the new path "
