@@ -23,6 +23,7 @@ from typing import Annotated, Any, TypeVar, cast
 
 from fastapi import Depends, HTTPException, Request, Response, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from starlette.concurrency import run_in_threadpool
 from starlette.types import ASGIApp, Receive, Scope, Send
 
 from aitbc.aitbc_logging import get_logger
@@ -66,6 +67,37 @@ class AuthenticationError(Exception):
     """Custom authentication error."""
 
     pass
+
+
+# Optional revocation check consulted by ``AuthMiddleware`` for every verified
+# Bearer token (#2183). ``None`` (the default) means no revocation store is
+# wired — services that never register behave exactly as before. coordinator-api
+# registers its shared sqlite logout blocklist so ``POST /v1/logout`` revokes the
+# token on every authenticated route, not only the users router.
+_token_revocation_check: Callable[[str], bool] | None = None
+
+
+def set_token_revocation_check(check: Callable[[str], bool] | None) -> None:
+    """Register (or clear with ``None``) the ``token -> is_revoked`` store lookup."""
+    global _token_revocation_check
+    _token_revocation_check = check
+
+
+async def _token_is_revoked(token: str) -> bool:
+    """Whether the registered store says ``token`` was revoked; False when none is wired.
+
+    The lookup is a blocking store read, so it runs off the event loop. A failing
+    store fails closed: a token that cannot be proven un-revoked is rejected and the
+    failure is logged loudly rather than silently reverting to accept-until-expiry.
+    """
+    check = _token_revocation_check
+    if check is None:
+        return False
+    try:
+        return bool(await run_in_threadpool(check, token))
+    except Exception as exc:  # noqa: BLE001 - fail closed on any store failure (see docstring)
+        logger.error("Token revocation store unavailable, rejecting token: %s", exc)
+        return True
 
 
 # ---------------------------------------------------------------------------
@@ -145,6 +177,11 @@ class AuthMiddleware:
             from .jwt import verify_access_token
 
             payload = verify_access_token(token)
+            if await _token_is_revoked(token):
+                await self._deny_auth(
+                    scope, receive, send, status.HTTP_401_UNAUTHORIZED, "Invalid token", www_authenticate="Bearer"
+                )
+                return True
             user_role = payload.get("role")
             if not check_role_match(auth_level, user_role):
                 await self._deny_auth(scope, receive, send, status.HTTP_403_FORBIDDEN, "Forbidden")
@@ -586,4 +623,5 @@ __all__ = [
     "require_permissions",
     "require_role",
     "security_headers",
+    "set_token_revocation_check",
 ]
