@@ -112,6 +112,22 @@ def bridge_admin_ops_not_public(client: httpx.Client) -> ProbeResult:
     return ProbeResult("bridge_admin_ops_not_public", "PASS", f"{resp.status_code}")
 
 
+def market_gpu_list_public(client: httpx.Client) -> ProbeResult:
+    """``/v1/market/gpu/list`` is a public coordinator-api route (#2155):
+    the edge must route the ``/v1/market/(gpu|providers|bonds|…)`` family
+    to coordinator :8203, not marketplace :8102 which has no such route.
+    A 404 here means the live vhost dropped the coordinator-family regex
+    location that ``examples/nginx/nginx-aitbc.conf.example`` carries."""
+    resp = _get(client, "/v1/market/gpu/list")
+    if resp.status_code != 200:
+        return ProbeResult(
+            "market_gpu_list_public",
+            "FAIL",
+            f"{resp.status_code} — /v1/market/gpu/* not reaching coordinator-api",
+        )
+    return ProbeResult("market_gpu_list_public", "PASS", "200")
+
+
 # --- gateway auth gate (#1189-adjacent) ---
 
 
@@ -172,6 +188,7 @@ PROBES: list[Callable[[httpx.Client], ProbeResult]] = [
     wallet_admin_direct_gated,
     exchange_public_alias_alive,
     bridge_admin_ops_not_public,
+    market_gpu_list_public,
     gateway_missing_credentials_401,
     gateway_wrong_key_403,
     rate_limit_bucket_and_xff,
