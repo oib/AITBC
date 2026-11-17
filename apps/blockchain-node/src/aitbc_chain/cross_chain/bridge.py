@@ -32,6 +32,54 @@ class BridgeProductionSafetyError(RuntimeError):
     pass
 
 
+def _bridge_safety_fail(message: str) -> None:
+    logger.error("Bridge production safety: %s", message)
+    raise BridgeProductionSafetyError(message)
+
+
+def _validate_bridge_release_flags() -> None:
+    for attr, requirement in (
+        ("bridge_multisig_enabled", "bridge_release_enabled=True requires bridge_multisig_enabled=True"),
+        ("bridge_require_merkle_proof", "bridge_release_enabled=True requires bridge_require_merkle_proof=True"),
+        (
+            "bridge_block_signature_required",
+            "bridge_release_enabled=True requires bridge_block_signature_required=True",
+        ),
+    ):
+        if not getattr(settings, attr, False):
+            _bridge_safety_fail(requirement)
+
+
+def _validate_bridge_admin_config() -> None:
+    admin_addresses = getattr(settings, "bridge_admin_addresses", "")
+    if not admin_addresses or not admin_addresses.strip():
+        _bridge_safety_fail("bridge_release_enabled=True requires bridge_admin_addresses to be configured")
+
+    supported_chains = getattr(settings, "bridge_supported_chains", "")
+    if not supported_chains or not supported_chains.strip():
+        _bridge_safety_fail("bridge_release_enabled=True requires bridge_supported_chains to be configured")
+
+
+def _validate_bridge_multisig_threshold() -> None:
+    threshold = int(getattr(settings, "bridge_multisig_threshold", 0))
+    validators = int(getattr(settings, "bridge_multisig_validators", 0))
+    if threshold <= 1:
+        _bridge_safety_fail("bridge_multisig_threshold must be > 1 when bridge_release_enabled=True")
+    if validators < threshold:
+        _bridge_safety_fail(f"bridge_multisig_validators ({validators}) must be >= threshold ({threshold})")
+
+
+def _validate_bridge_verification_mode() -> None:
+    verification_mode = getattr(settings, "bridge_verification_mode", "in_process")
+    if verification_mode not in {"in_process", "oracle"}:
+        _bridge_safety_fail("bridge_verification_mode must be 'in_process' or 'oracle'")
+
+    if verification_mode == "oracle":
+        endpoints = getattr(settings, "bridge_oracle_endpoints", [])
+        if not endpoints:
+            _bridge_safety_fail("bridge_verification_mode='oracle' requires bridge_oracle_endpoints")
+
+
 def _validate_bridge_production_safety() -> None:
     """Fail-closed guard for the cross-chain bridge release path.
 
@@ -52,42 +100,10 @@ def _validate_bridge_production_safety() -> None:
     if not getattr(settings, "bridge_release_enabled", False):
         return
 
-    def _fail(message: str) -> None:
-        logger.error("Bridge production safety: %s", message)
-        raise BridgeProductionSafetyError(message)
-
-    if not getattr(settings, "bridge_multisig_enabled", False):
-        _fail("bridge_release_enabled=True requires bridge_multisig_enabled=True")
-
-    if not getattr(settings, "bridge_require_merkle_proof", False):
-        _fail("bridge_release_enabled=True requires bridge_require_merkle_proof=True")
-
-    if not getattr(settings, "bridge_block_signature_required", False):
-        _fail("bridge_release_enabled=True requires bridge_block_signature_required=True")
-
-    admin_addresses = getattr(settings, "bridge_admin_addresses", "")
-    if not admin_addresses or not admin_addresses.strip():
-        _fail("bridge_release_enabled=True requires bridge_admin_addresses to be configured")
-
-    supported_chains = getattr(settings, "bridge_supported_chains", "")
-    if not supported_chains or not supported_chains.strip():
-        _fail("bridge_release_enabled=True requires bridge_supported_chains to be configured")
-
-    threshold = int(getattr(settings, "bridge_multisig_threshold", 0))
-    validators = int(getattr(settings, "bridge_multisig_validators", 0))
-    if threshold <= 1:
-        _fail("bridge_multisig_threshold must be > 1 when bridge_release_enabled=True")
-    if validators < threshold:
-        _fail(f"bridge_multisig_validators ({validators}) must be >= threshold ({threshold})")
-
-    verification_mode = getattr(settings, "bridge_verification_mode", "in_process")
-    if verification_mode not in {"in_process", "oracle"}:
-        _fail("bridge_verification_mode must be 'in_process' or 'oracle'")
-
-    if verification_mode == "oracle":
-        endpoints = getattr(settings, "bridge_oracle_endpoints", [])
-        if not endpoints:
-            _fail("bridge_verification_mode='oracle' requires bridge_oracle_endpoints")
+    _validate_bridge_release_flags()
+    _validate_bridge_admin_config()
+    _validate_bridge_multisig_threshold()
+    _validate_bridge_verification_mode()
 
 
 class CrossChainBridge(BridgeTransferMixin, BridgeValidatorMixin, BridgeFinalityMixin):
