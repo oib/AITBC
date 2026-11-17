@@ -40,27 +40,16 @@ class CLIContractClient:
         if hasattr(self.config, "staking_contract") and self.config.staking_contract:
             self.contracts["staking_contract"] = self.config.staking_contract
 
-    async def send_transaction(self, contract_name: str, method_name: str, *args, **kwargs) -> str:
-        """Send transaction via CLI"""
-        contract_address = self.contracts.get(contract_name)
-        if not contract_address:
-            raise ValueError(f"Contract {contract_name} not found")
+    @staticmethod
+    def _serialize_param(arg) -> str:
+        if isinstance(arg, bytes):
+            return f"0x{arg.hex()}"
+        if isinstance(arg, (int, str)):
+            return str(arg)
+        return json.dumps(arg)
 
-        # Convert args to JSON params
-        params_list = []
-        for arg in args:
-            if isinstance(arg, bytes):
-                params_list.append(f"0x{arg.hex()}")
-            elif isinstance(arg, int):
-                params_list.append(str(arg))
-            elif isinstance(arg, str):
-                params_list.append(arg)
-            else:
-                params_list.append(json.dumps(arg))
-
-        params_json = "[" + ", ".join(params_list) + "]"
-
-        # Build CLI command
+    @staticmethod
+    def _build_cli_command(contract_address: str, method_name: str, params_json: str) -> list[str]:
         cmd = [
             "python3",
             "/opt/aitbc/cli/unified_cli.py",
@@ -78,6 +67,16 @@ class CLIContractClient:
         password_file = "/var/lib/aitbc/keystore/.genesis_password"
         if os.path.exists(password_file):
             cmd.extend(["--password-file", password_file])
+        return cmd
+
+    async def send_transaction(self, contract_name: str, method_name: str, *args, **kwargs) -> str:
+        """Send transaction via CLI"""
+        contract_address = self.contracts.get(contract_name)
+        if not contract_address:
+            raise ValueError(f"Contract {contract_name} not found")
+
+        params_json = "[" + ", ".join(self._serialize_param(arg) for arg in args) + "]"
+        cmd = self._build_cli_command(contract_address, method_name, params_json)
 
         try:
             if logger:

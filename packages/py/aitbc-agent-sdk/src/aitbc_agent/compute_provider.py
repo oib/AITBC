@@ -360,10 +360,62 @@ class ComputeProvider(Agent):
             logger.error("Error updating market offer: %s", e)
             raise
 
+    @staticmethod
+    def _query_gpu_lines() -> list[str] | None:
+        """Return nvidia-smi GPU lines, or None when the probe reports failure."""
+        import subprocess
+
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=memory.total,name,compute_cap", "--format=csv,noheader"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode != 0:
+            return None
+        return result.stdout.strip().split("\n")
+
+    @staticmethod
+    def _gpu_tier(total_memory: int) -> tuple[float, list[str]]:
+        """Map total GPU memory (MiB) to a performance score and supported models."""
+        if total_memory >= 24000:
+            return 0.95, ["llama3.2", "mistral", "deepseek", "gpt-j", "bloom"]
+        if total_memory >= 16000:
+            return 0.85, ["llama3.2", "mistral", "deepseek"]
+        if total_memory >= 8000:
+            return 0.75, ["llama3.2", "mistral"]
+        return 0.65, ["llama3.2"]
+
+    @classmethod
+    def _apply_gpu_capabilities(cls, capabilities: dict[str, Any], gpu_lines: list[str]) -> None:
+        import re
+
+        total_memory = 0
+        for line in gpu_lines:
+            parts = line.split(", ")
+            if len(parts) >= 3:
+                # Parse memory (e.g., "8192 MiB")
+                memory_match = re.search(r"(\d+)", parts[0].strip())
+                if memory_match:
+                    total_memory += int(memory_match.group(1))
+
+                # Get compute capability
+                capabilities["compute_capability"] = parts[2].strip()
+
+        capabilities["gpu_count"] = len(gpu_lines)
+        capabilities["gpu_memory"] = total_memory
+        capabilities["max_concurrent_jobs"] = min(len(gpu_lines), 4)
+        capabilities["performance_score"], capabilities["supported_models"] = cls._gpu_tier(total_memory)
+
+    @staticmethod
+    def _apply_cpu_fallback(capabilities: dict[str, Any]) -> None:
+        capabilities["supported_models"] = ["llama3.2-quantized"]
+        capabilities["performance_score"] = 0.3
+        capabilities["max_concurrent_jobs"] = 1
+
     @classmethod
     def assess_capabilities(cls) -> dict[str, Any]:
         """Assess available computational capabilities"""
-        import re
         import subprocess
 
         capabilities = {
@@ -377,70 +429,20 @@ class ComputeProvider(Agent):
 
         try:
             # Try to detect GPU using nvidia-smi
-            result = subprocess.run(
-                ["nvidia-smi", "--query-gpu=memory.total,name,compute_cap", "--format=csv,noheader"],
-                capture_output=True,
-                text=True,
-                timeout=5,
-            )
-
-            if result.returncode == 0:
-                gpu_lines = result.stdout.strip().split("\n")
-                capabilities["gpu_count"] = len(gpu_lines)
-
-                total_memory = 0
-                for line in gpu_lines:
-                    parts = line.split(", ")
-                    if len(parts) >= 3:
-                        # Parse memory (e.g., "8192 MiB")
-                        memory_str = parts[0].strip()
-                        memory_match = re.search(r"(\d+)", memory_str)
-                        if memory_match:
-                            total_memory += int(memory_match.group(1))
-
-                        # Get compute capability
-                        capabilities["compute_capability"] = parts[2].strip()
-
-                capabilities["gpu_memory"] = total_memory
-                capabilities["max_concurrent_jobs"] = min(len(gpu_lines), 4)
-
-                # Estimate performance score based on GPU memory and compute capability
-                if total_memory >= 24000:
-                    capabilities["performance_score"] = 0.95
-                elif total_memory >= 16000:
-                    capabilities["performance_score"] = 0.85
-                elif total_memory >= 8000:
-                    capabilities["performance_score"] = 0.75
-                else:
-                    capabilities["performance_score"] = 0.65
-
-                # Determine supported models based on GPU memory
-                if total_memory >= 24000:
-                    capabilities["supported_models"] = ["llama3.2", "mistral", "deepseek", "gpt-j", "bloom"]
-                elif total_memory >= 16000:
-                    capabilities["supported_models"] = ["llama3.2", "mistral", "deepseek"]
-                elif total_memory >= 8000:
-                    capabilities["supported_models"] = ["llama3.2", "mistral"]
-                else:
-                    capabilities["supported_models"] = ["llama3.2"]
-
-                logger.info("GPU capabilities detected: %s", capabilities)
-            else:
+            gpu_lines = cls._query_gpu_lines()
+            if gpu_lines is None:
                 logger.warning("nvidia-smi not available, using CPU-only capabilities")
-                capabilities["supported_models"] = ["llama3.2-quantized"]
-                capabilities["performance_score"] = 0.3
-                capabilities["max_concurrent_jobs"] = 1
+                cls._apply_cpu_fallback(capabilities)
+            else:
+                cls._apply_gpu_capabilities(capabilities, gpu_lines)
+                logger.info("GPU capabilities detected: %s", capabilities)
 
         except (subprocess.TimeoutExpired, FileNotFoundError) as e:
             logger.warning("GPU detection failed: %s, using CPU-only capabilities", e)
-            capabilities["supported_models"] = ["llama3.2-quantized"]
-            capabilities["performance_score"] = 0.3
-            capabilities["max_concurrent_jobs"] = 1
+            cls._apply_cpu_fallback(capabilities)
         except (subprocess.SubprocessError, OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError) as e:
             logger.error("Error assessing capabilities: %s", e)
-            capabilities["supported_models"] = ["llama3.2-quantized"]
-            capabilities["performance_score"] = 0.3
-            capabilities["max_concurrent_jobs"] = 1
+            cls._apply_cpu_fallback(capabilities)
 
         return capabilities
 

@@ -1,3 +1,0 @@
-      1 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py
-      1 packages/py/aitbc-agent-sdk/src/aitbc_agent/cli_contract_client.py
-      1 packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_provider.py
