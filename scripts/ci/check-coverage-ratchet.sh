@@ -9,33 +9,51 @@
 #
 #   scripts/ci/check-coverage-ratchet.sh --update
 #
-# WHAT IS MEASURED (derived selection — do not hand-list test files):
+# WHAT IS MEASURED (full app suites — do NOT reintroduce a -k name filter):
 #
-#   Run A — the blockchain-node critical paths. The -k expression selects every
-#   test whose name mentions a money/consensus concern; pytest's own pythonpath
-#   config (pyproject.toml [tool.pytest.ini_options]) puts
-#   apps/blockchain-node/src on sys.path, and the explicit PYTHONPATH below
-#   repeats it plus the editable-package src dirs so the script also works when
-#   invoked outside the repo's pytest config resolution:
+#   Run A — ALL of apps/blockchain-node/tests against the blockchain-node
+#   critical-path packages:
 #
-#     PYTHONPATH=apps/blockchain-node/src:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src #       $PYTHON -m pytest apps/blockchain-node/tests #       -k "consensus or cross_chain or bridge or settlement or state_transition or escrow or attestation or poa or slashing" #       --cov=aitbc_chain.consensus --cov=aitbc_chain.cross_chain #       --cov=aitbc_chain.state --cov=aitbc_chain.contracts.escrow #       --cov=aitbc_chain.rpc.escrow_routes
+#     PYTHONPATH=apps/blockchain-node/src:packages/py/aitbc-sdk/src:packages/py/aitbc-crypto/src:apps/coordinator-api/src \
+#       $PYTHON -m pytest apps/blockchain-node/tests \
+#       --cov=aitbc_chain.consensus --cov=aitbc_chain.cross_chain \
+#       --cov=aitbc_chain.state --cov=aitbc_chain.contracts.escrow \
+#       --cov=aitbc_chain.rpc.escrow_routes -q
 #
-#   Run B — the coordinator payments context, appended onto Run A's .coverage
-#   data so the JSON report is the UNION of both runs (pytest-cov --cov-append):
+#   Run B — ALL of apps/coordinator-api/tests, appended onto Run A's
+#   .coverage data so the JSON report is the UNION of both runs
+#   (pytest-cov --cov-append):
 #
-#     PYTHONPATH=<same> #       $PYTHON -m pytest apps/coordinator-api/tests -k "payment or escrow" #       --cov=aitbc_chain.consensus --cov=aitbc_chain.cross_chain #       --cov=aitbc_chain.state --cov=aitbc_chain.contracts.escrow #       --cov=aitbc_chain.rpc.escrow_routes --cov=coordinator_api.contexts.payments #       --cov-append --cov-report=json:<tmp>/coverage.json
+#     $PYTHON -m pytest apps/coordinator-api/tests \
+#       --cov=aitbc_chain.consensus --cov=aitbc_chain.cross_chain \
+#       --cov=aitbc_chain.state --cov=aitbc_chain.contracts.escrow \
+#       --cov=aitbc_chain.rpc.escrow_routes --cov=coordinator_api.contexts.payments \
+#       --cov-append --cov-report=json:<tmp>/coverage.json -q
 #
-#   Runtime is ~10-12 min on a dev node (Run A alone was ~8.5 min / 2781 tests
-#   on node2). That is why this is wired into run-suite-manual.sh / ci.yml as a
+#   WHY NO -k: the floors in coverage-baseline.txt were measured on the full
+#   app suites. A -k name filter silently deselects dedicated tests whose
+#   module names lack the tokens — test_liquidity*.py, test_pbft*.py,
+#   test_apply_parity.py on the node side; test_provider_binding.py,
+#   test_settlement_reconciler.py, test_zk_refund_sweeper.py on the
+#   coordinator side — so measured coverage fell far below floors that the
+#   same code legitimately holds when its tests actually run. Any test in
+#   the suite can touch the measured packages, so the derived selection is
+#   the whole suite, not a hand-maintained keyword list.
+#
+#   pytest's own pythonpath config (pyproject.toml
+#   [tool.pytest.ini_options]) puts the app src dirs on sys.path; the
+#   explicit PYTHONPATH below repeats them plus the editable-package src
+#   dirs so the script also works when invoked outside the repo's pytest
+#   config resolution.
+#
+#   Runtime is well above the old filtered run (the -k selection was
+#   ~8.5 min / 2781 tests on node2; the full suite is several times that).
+#   That is why this is wired into run-suite-manual.sh / ci.yml as a
 #   check, NOT into pre-commit.
 #
 # A nonzero pytest exit does NOT by itself fail this gate — test redness is
 # gated by the suite runs; coverage floors are the delta this ratchet owns.
 # But if pytest dies before writing the JSON report the script fails closed.
-#
-# Known gap (documented, accepted): settlement_coordinator.py measures 0% —
-# no test in the selection imports it. Its floor is 0 until coverage lands;
-# --update will then raise it automatically.
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$REPO_ROOT"
@@ -68,19 +86,18 @@ export PYTHONPATH="apps/blockchain-node/src:packages/py/aitbc-sdk/src:packages/p
 
 node_rc=0
 "$PYTHON" -m pytest apps/blockchain-node/tests \
-  -k "consensus or cross_chain or bridge or settlement or state_transition or escrow or attestation or poa or slashing" \
   "${COV_ARGS[@]}" -q || node_rc=$?
 
 coord_rc=0
-"$PYTHON" -m pytest apps/coordinator-api/tests -k "payment or escrow" \
+"$PYTHON" -m pytest apps/coordinator-api/tests \
   "${COV_ARGS[@]}" --cov=coordinator_api.contexts.payments \
   --cov-append --cov-report=json:"$REPORT" -q || coord_rc=$?
 
 if [ "$coord_rc" -ne 0 ]; then
-  echo "coverage ratchet: coordinator payments pytest exited $coord_rc — see output above." >&2
+  echo "coverage ratchet: coordinator-api pytest exited $coord_rc — see output above." >&2
 fi
 if [ "$node_rc" -ne 0 ]; then
-  echo "coverage ratchet: WARNING — blockchain-node selection exited $node_rc (flaky or red tests still produce coverage data; redness is gated by the suite runs)." >&2
+  echo "coverage ratchet: WARNING — blockchain-node suite exited $node_rc (flaky or red tests still produce coverage data; redness is gated by the suite runs)." >&2
 fi
 if [ ! -s "$REPORT" ]; then
   echo "coverage ratchet: no coverage JSON produced — the measurement did not run; this is not a pass." >&2
