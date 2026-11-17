@@ -13,6 +13,7 @@ from sqlmodel import select
 
 
 from ..config import settings
+from ..state.state_transition import block_scoped_preregistered_for_next_block
 from ..logger import get_logger
 from ..models import Account, CrossChainTransfer, Transaction
 from .bridge_base import BridgeBase, _OPS_ERRORS
@@ -293,7 +294,7 @@ class BridgeTransferConfirmMixin(BridgeBase):
             # GAP-47: cross-chain swaps may release a converted amount that
             # differs from the locked amount; plain bridges release `amount`.
             release_amount = record.release_amount if record.release_amount is not None else record.amount
-            block_scoped = getattr(settings, "block_scoped_preregistered_transactions", True)
+            block_scoped = block_scoped_preregistered_for_next_block(session, target_chain)
             release_nonce = self._release_nonce_for_mode(session, record, release_amount, block_scoped)
             target_tx_hash = hashlib.sha256(f"{transfer_id}:{record.target_chain}:{int(time.time())}".encode()).hexdigest()
             self._apply_legacy_release_row(
@@ -521,7 +522,7 @@ class BridgeTransferConfirmMixin(BridgeBase):
             self._check_refund_delay(record)
 
             # Return the locked amount to the sender (fee was already deducted at lock time)
-            block_scoped = getattr(settings, "block_scoped_preregistered_transactions", True)
+            block_scoped = block_scoped_preregistered_for_next_block(session, record.source_chain)
             refund_nonce = self._refund_credit_legacy_nonce(session, record, block_scoped)
 
             # Create a BRIDGE_REFUND transaction record

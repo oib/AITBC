@@ -671,3 +671,96 @@ class TestLockTransferReplayGuard:
         second = self._new_form_bridge(sender_account, amount=1_001, nonce="n-2")
         assert client.post("/cross-chain/bridge", json=first).status_code == 200
         assert client.post("/cross-chain/bridge", json=second).status_code == 200
+
+
+class TestV26RungCallSites2186:
+    """#2186: the three bridge mutation sites follow the block version, not the setting.
+
+    The autouse fixture pins ``block_scoped_preregistered_transactions`` False (legacy
+    RPC-time mutation). With ``state_transition_v26_height`` unarmed that stays true;
+    armed so that head+1 reaches the rung, each site defers to block apply instead.
+    """
+
+    @staticmethod
+    def _arm(monkeypatch, armed: bool) -> None:
+        from aitbc_chain import mempool as mempool_mod
+        from aitbc_chain.config import settings
+
+        monkeypatch.setattr(settings, "state_transition_v26_height", 1 if armed else None)
+        monkeypatch.setattr(mempool_mod, "_MEMPOOL", None)
+        mempool_mod.init_mempool(backend="memory")
+
+    @staticmethod
+    def _seed_transfer(engine, status: str = "pending") -> tuple[str, str]:
+        sender = "0x" + "22" * 20
+        transfer_id = "0x" + "55" * 32
+        with Session(engine) as session:
+            session.add(
+                CrossChainTransfer(
+                    transfer_id=transfer_id,
+                    source_chain="chain-a",
+                    target_chain="chain-b",
+                    sender=sender,
+                    recipient="0x" + "33" * 20,
+                    amount=1_000,
+                    asset="native",
+                    status=status,
+                    source_tx_hash=transfer_id,
+                    lock_time=datetime.now(UTC),
+                )
+            )
+            session.commit()
+        return transfer_id, sender
+
+    @pytest.mark.parametrize(("armed", "debited"), [(True, False), (False, True)])
+    def test_initiate_site(self, engine, bridge: CrossChainBridge, monkeypatch, armed, debited) -> None:
+        self._arm(monkeypatch, armed)
+        sender = "0x" + "22" * 20
+        _fund(engine, "chain-a", sender, 10_000)
+        bridge.initiate_transfer(
+            source_chain="chain-a", target_chain="chain-b", sender=sender, recipient="0x" + "33" * 20, amount=1_000
+        )
+        with Session(engine) as session:
+            balance = session.get(Account, ("chain-a", sender)).balance
+        assert (balance < 10_000) is debited
+
+    @pytest.mark.parametrize(("armed", "queued"), [(True, True), (False, False)])
+    def test_confirm_site(self, engine, bridge: CrossChainBridge, monkeypatch, armed, queued) -> None:
+        from aitbc_chain import mempool as mempool_mod
+
+        self._arm(monkeypatch, armed)
+        transfer_id, sender = self._seed_transfer(engine)
+        proof = {
+            "source_chain": "chain-a",
+            "target_chain": "chain-b",
+            "lock_tx_hash": transfer_id,
+            "amount": 1_000,
+            "sender": sender,
+            "recipient": "0x" + "33" * 20,
+        }
+        monkeypatch.setattr(bridge, "_validate_proof", lambda *a, **k: True)
+        monkeypatch.setattr(bridge, "_target_chain_from_proof", lambda *a, **k: "chain-b")
+        bridge.confirm_transfer(transfer_id, proof)
+        assert bool(mempool_mod.get_mempool().list_transactions("chain-b")) is queued
+
+    @pytest.mark.parametrize(("armed", "queued"), [(True, True), (False, False)])
+    def test_refund_site(self, engine, bridge: CrossChainBridge, monkeypatch, armed, queued) -> None:
+        from aitbc_chain import mempool as mempool_mod
+        from aitbc_chain.models import Transaction
+
+        self._arm(monkeypatch, armed)
+        transfer_id, sender = self._seed_transfer(engine)
+        with Session(engine) as session:
+            session.add(
+                Transaction(
+                    chain_id="chain-a",
+                    tx_hash=transfer_id,
+                    block_height=1,
+                    sender=sender,
+                    recipient="bridge_lock",
+                    payload={"type": "BRIDGE_LOCK", "amount": 1_000},
+                )
+            )
+            session.commit()
+        bridge.refund_transfer(transfer_id, sender)
+        assert bool(mempool_mod.get_mempool().list_transactions("chain-a")) is queued

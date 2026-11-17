@@ -11,13 +11,13 @@ import json
 from decimal import Decimal
 from typing import Any
 
-from sqlmodel import Session
+from sqlmodel import Session, col, func, select
 
 from ..base_models import _to_ait_address
 from ..config import settings
 from ..logger import get_logger
 from ..metrics import metrics_registry
-from ..models import Account, Transaction
+from ..models import Account, Block, Transaction
 from .agent_spend import AGENT_SESSION_TX_TYPES
 
 # Keep the historical logger name: these helpers moved out of
@@ -167,7 +167,7 @@ def get_block_version_for_height(height: int) -> int:
     # v9+ thresholds treat any configured value as active; v3-v8 additionally
     # require a positive threshold (their getattr default is 0). v2 inverts:
     # heights *below* its threshold run v1 rules.
-    for version in range(25, 2, -1):
+    for version in range(26, 2, -1):
         threshold = getattr(settings, f"state_transition_v{version}_height", None)
         if not threshold:
             continue
@@ -180,6 +180,34 @@ def get_block_version_for_height(height: int) -> int:
     if v2_threshold > 0 and height < v2_threshold:
         return 1
     return 2
+
+
+BLOCK_SCOPED_PREREGISTERED_RUNG = 26
+
+
+def block_scoped_preregistered(block_version: int) -> bool:
+    """Whether pre-registered bridge mutations are deferred to block apply.
+
+    ``block_version >= 26`` (#2186) makes the deferral unconditional; below it
+    the node-local ``block_scoped_preregistered_transactions`` setting decides,
+    exactly as before the rung (default true; env-false refused at startup).
+    """
+    if block_version >= BLOCK_SCOPED_PREREGISTERED_RUNG:
+        return True
+    return bool(getattr(settings, "block_scoped_preregistered_transactions", True))
+
+
+def block_scoped_preregistered_for_next_block(session: Session, chain_id: str) -> bool:
+    """RPC-side decision matching what the sealing block will do (#2186).
+
+    Resolves the version of the block at ``head + 1`` so an RPC handler defers
+    its mutation exactly when apply will. Dormant rung (v26 unset): returns the
+    setting without touching the database, byte-identical to the pre-rung path.
+    """
+    if not getattr(settings, f"state_transition_v{BLOCK_SCOPED_PREREGISTERED_RUNG}_height", None):
+        return block_scoped_preregistered(0)
+    head = session.exec(select(func.max(Block.height)).where(col(Block.chain_id) == chain_id)).first()
+    return block_scoped_preregistered(get_block_version_for_height((head or 0) + 1))
 
 
 def use_account_nonce_override(tx_data: dict[str, Any], block_version: int) -> bool:

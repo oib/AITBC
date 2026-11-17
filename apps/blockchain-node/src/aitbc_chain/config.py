@@ -265,6 +265,16 @@ class ChainSettings(ConsensusConfig, InfraConfig, BridgeConfig, SyncConfig, Node
     # bound would diverge replay of any historical block carrying an
     # out-of-range price.
     state_transition_v25_height: int | None = None
+    # v26 (#2186 DEV3-BLOCK-SCOPED-RUNG-1): at or above this height the
+    # pre-registered bridge mutations (BRIDGE_LOCK debit, BRIDGE_RELEASE /
+    # BRIDGE_REFUND credit) are deferred to block apply *unconditionally* —
+    # the rule becomes a property of the block version instead of the
+    # process-local ``block_scoped_preregistered_transactions`` setting.
+    # ``None`` (the default) leaves the setting in charge at every height, so
+    # this is byte-identical to pre-rung behaviour (the fleet runs the setting
+    # true and construction refuses env-false). Activation is a separate
+    # operator pin set fleet-wide with a restart wave.
+    state_transition_v26_height: int | None = None
     # #1298 I3b domain separation: at or above this height, block-proposal
     # and block-attestation signatures use domain-separated preimages
     # (aitbc-consensus-v1:block_proposal / :block_attestation) so a signature
