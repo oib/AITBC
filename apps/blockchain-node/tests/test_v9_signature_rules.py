@@ -597,10 +597,16 @@ class TestV9Policy:
             | {AI_JOB_TX_TYPE, "TRANSFER"}
         )
         for mod in (st, pst):
-            text = Path(mod.__file__).read_text()
-            recognized |= set(re.findall(r'tx_type\s*==\s*"([A-Z_]+)"', text))
-            for group in re.findall(r"tx_type\s+in\s*[\{\(]([^\}\)]*)", text):
-                recognized |= set(re.findall(r'"([A-Z_]+)"', group))
+            # Both modules are facades over <name>_* siblings (state_transition
+            # already is; pure_state_transition once its pending split lands) —
+            # glob the package dir so tx_type literals that move out of the
+            # facade stay in the scan.
+            stem = Path(mod.__file__).resolve().stem
+            texts = [p.read_text() for p in sorted(Path(mod.__file__).resolve().parent.glob(f"{stem}*.py"))]
+            for text in texts:
+                recognized |= set(re.findall(r'tx_type\s*==\s*"([A-Z_]+)"', text))
+                for group in re.findall(r"tx_type\s+in\s*[\{\(]([^\}\)]*)", text):
+                    recognized |= set(re.findall(r'"([A-Z_]+)"', group))
         # Record-only types (issue #688): a signed record+fee anchor such as
         # EXCHANGE never reaches an apply-path comparison — nothing dispatches
         # on it — so the grep above cannot see it. Catch them at the emission
