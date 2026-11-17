@@ -19,7 +19,7 @@ from ..models import Block, CrossChainTransfer
 from ..state import side_root_shadow
 from ..state.block_deltas import BlockDeltaJournal
 from ..state.state_transition import get_block_version
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlmodel import Session, select
 
 
@@ -52,8 +52,14 @@ class _CommitMixin(_PoaBaseMixin):
         proposer: str,
         interval_seconds: float | None,
         timestamp: datetime,
-    ) -> None:
-        """Commit the signed block and update caches, metrics and proposer state."""
+    ) -> bool:
+        """Commit the signed block and update caches, metrics and proposer state.
+
+        Returns ``False`` when the same block (chain, hash, height) was already
+        sealed by another path while this round was in flight — the gossip/sync
+        importer got there first (#2166); nothing was written and the caller must
+        not broadcast. ``True`` for a normal commit.
+        """
         session.add(block)
         journal = BlockDeltaJournal.get(session)
         if journal is not None:
@@ -61,6 +67,8 @@ class _CommitMixin(_PoaBaseMixin):
         try:
             session.commit()
         except (SQLAlchemyError, OSError) as exc:
+            if self._rollback_if_already_sealed(session, block, exc):
+                return False
             # #1740: a disk-full/I/O-error commit leaves quick_check green —
             # quarantine on the error shape so import/propose/attest all
             # refuse instead of the proposer retrying into a dead disk.
@@ -95,6 +103,31 @@ class _CommitMixin(_PoaBaseMixin):
         self._last_block_timestamp = timestamp
         block_height.set(block.height)
         self._logger.info("Proposed block", extra={"height": block.height, "hash": block.hash, "proposer": block.proposer})
+        return True
+
+    def _rollback_if_already_sealed(self, session: Session, block: Block, exc: BaseException) -> bool:
+        """True when ``exc`` is the duplicate-insert of a block already in the chain (#2166).
+
+        The PBFT certificate fixes the hash, so the block this proposer just
+        finished sealing can already have been imported from a peer. The second
+        insert then trips ``UNIQUE(chain_id, hash)`` — benign, the block is
+        committed. Only that exact shape qualifies: the same hash at the same
+        height. A different hash at the same height (a real fork) or any other
+        integrity error is not swallowed.
+        """
+        if not isinstance(exc, IntegrityError) or "block.chain_id, block.hash" not in str(exc):
+            return False
+        session.rollback()
+        existing = session.exec(select(Block).where(Block.chain_id == block.chain_id, Block.hash == block.hash)).first()
+        if existing is None or existing.height != block.height:
+            return False
+        metrics_registry.increment("poa_propose_already_sealed_total")
+        self._logger.info(
+            "[PROPOSE] block %s (%s) was already sealed by the import path; skipping the duplicate insert",
+            block.height,
+            block.hash,
+        )
+        return True
 
     def _compute_bridge_state_root(
         self, session: Session, processed_txs: list[Any], chain_id: str, height: int | None = None
