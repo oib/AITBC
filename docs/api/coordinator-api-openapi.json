@@ -33594,7 +33594,7 @@
           "blockchain"
         ],
         "summary": "Get Validators",
-        "description": "List validators.",
+        "description": "List consensus validators.\n\nProxies the node's real ``/rpc/consensus/validators`` (address, stake,\nreputation, role, is_active, last_proposed) \u2014 the previous shape invented\na single ``{\"address\": proposer, \"status\": \"active\"}`` entry from\n``/rpc/head``, which flatly misreported the PBFT validator set (#2175).\n``total`` is now the honest count of returned validators; the upstream\n``chain_id``/``multi_validator_enabled`` flags pass through.",
         "operationId": "get_validators_v1_validators_get",
         "responses": {
           "200": {
