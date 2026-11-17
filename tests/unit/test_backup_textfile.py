@@ -89,7 +89,7 @@ def test_every_metric_the_rules_use_is_emitted():
     emitted = set(
         re.findall(
             r"\baitbc_backup_[a-z_]+",
-            exporter.render(1, 1, 1, 1, now=1, failed=["x"]),
+            exporter.render(1, 1, 1, 1, now=1, failed=["x"], misc_skip=(0, 0)),
         )
     )
     assert used <= emitted, f"rules use series the exporter never emits: {used - emitted}"
@@ -190,3 +190,39 @@ def test_main_no_chain_id_marks_good_chain_failed(tmp_path, monkeypatch):
     text = (out / exporter.OUTPUT_NAME).read_text()
     assert "aitbc_backup_last_good_generation_timestamp_seconds 0" in text
     assert 'aitbc_backup_scrape_success{source="good_chain"} 0' in text
+
+
+# ── #2189 BACKUP-MISC-CAP-ALERT-1: misc-cap skip manifest → metrics ──────────
+
+
+def test_misc_cap_skips_counts_manifest(tmp_path):
+    gen = tmp_path / "20261117_010000"
+    gen.mkdir()
+    (gen / "varlib-state.skipped.txt").write_text("73400320\t./ipfs/repo/datastore\n2048\t./data/blob.bin\n")
+    assert exporter.misc_cap_skips(gen) == (2, 73400320 + 2048)
+
+
+def test_misc_cap_skips_absent_manifest_is_zero(tmp_path):
+    """Clean runs and pre-#2189 generations carry no manifest — that is 0
+    skips, not blindness."""
+    gen = tmp_path / "20261117_010000"
+    gen.mkdir()
+    assert exporter.misc_cap_skips(gen) == (0, 0)
+
+
+def test_misc_cap_skips_unreadable_manifest_is_none(tmp_path):
+    gen = tmp_path / "20261117_010000"
+    gen.mkdir()
+    manifest = gen / "varlib-state.skipped.txt"
+    manifest.write_text("10\t./x\n")
+    manifest.chmod(0o000)
+    try:
+        assert exporter.misc_cap_skips(gen) is None
+    finally:
+        manifest.chmod(0o644)
+
+
+def test_render_emits_misc_skip_metrics():
+    text = exporter.render(1, 1, 1, 1, now=1, failed=[], misc_skip=(3, 4096))
+    assert "aitbc_backup_misc_skipped_files 3" in text
+    assert "aitbc_backup_misc_skipped_bytes 4096" in text

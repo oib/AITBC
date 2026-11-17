@@ -1409,6 +1409,23 @@ tests:
           - labels: 'ALERTS{alertname="BackupSizeCollapse", alertstate="firing", instance="node1:9100", job="node", severity="warning"}'
             value: 1
 
+  # BackupMiscCapSkip: skipped_files > 0 for 15m -> warning; 0 stays silent.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_backup_misc_skipped_files{instance="node1:9100", job="node"}'
+        values: '2x40'
+      - series: 'aitbc_backup_misc_skipped_files{instance="node2:9100", job="node"}'
+        values: '0x40'
+    promql_expr_test:
+      - expr: ALERTS{alertname="BackupMiscCapSkip", alertstate="firing"}
+        eval_time: 14m
+        exp_samples: []
+      - expr: ALERTS{alertname="BackupMiscCapSkip", alertstate="firing"}
+        eval_time: 16m
+        exp_samples:
+          - labels: 'ALERTS{alertname="BackupMiscCapSkip", alertstate="firing", instance="node1:9100", job="node", severity="warning"}'
+            value: 1
+
   # OffsitePullStale: IDE-pull success timestamp frozen at t=0 -> >36h fires
   # after for:30m. No absent() arm (the IDE host may legitimately be off).
   - interval: 1m

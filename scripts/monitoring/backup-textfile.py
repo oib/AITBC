@@ -22,6 +22,10 @@ scrapable:
     aitbc_backup_last_run_success                    1 when the last
                                                      aitbc-backup.service
                                                      run ended Result=success
+    aitbc_backup_misc_skipped_files                  non-DB files the misc
+                                                     size cap skipped in the
+                                                     newest generation
+    aitbc_backup_misc_skipped_bytes                  their total size
     aitbc_backup_scrape_success{source=...}          per-source read health
     aitbc_backup_exporter_timestamp_seconds          when this run finished
 
@@ -62,14 +66,56 @@ def _label(value: str) -> str:
     return value.replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
 
 
-def scan(base: Path) -> tuple[int, int, int]:
-    """(newest generation mtime, its summed bytes, generation count)."""
+def newest_generation(base: Path) -> Path:
     gens = [d for d in base.iterdir() if d.is_dir() and GENERATION_RE.match(d.name)]
     if not gens:
         raise FileNotFoundError(f"no generation dirs under {base}")
-    newest = max(gens, key=lambda d: d.stat().st_mtime)
+    return max(gens, key=lambda d: d.stat().st_mtime)
+
+
+def scan(base: Path) -> tuple[int, int, int]:
+    """(newest generation mtime, its summed bytes, generation count)."""
+    gens = [d for d in base.iterdir() if d.is_dir() and GENERATION_RE.match(d.name)]
+    newest = newest_generation(base)
     total = sum(f.stat().st_size for f in newest.rglob("*") if f.is_file())
     return int(newest.stat().st_mtime), total, len(gens)
+
+
+def _misc_skip_probe(base: Path, failed: list[str]) -> tuple[int, int] | None:
+    """Collect-probe wrapper: an unreadable newest generation or manifest
+    marks the misc_skips source failed instead of aborting the run."""
+    try:
+        result = misc_cap_skips(newest_generation(base))
+    except Exception:  # noqa: BLE001 - collect probe — an unreadable source counts as failed
+        failed.append("misc_skips")
+        return None
+    if result is None:
+        failed.append("misc_skips")
+    return result
+
+
+def misc_cap_skips(gen: Path) -> tuple[int, int] | None:
+    """(skipped-file count, skipped bytes) from the generation's
+    varlib-state.skipped.txt manifest written by aitbc-backup.sh (#2189).
+    (0, 0) when the manifest is absent — clean runs and pre-#2189
+    generations carry none. None when present but unreadable."""
+    manifest = gen / "varlib-state.skipped.txt"
+    if not manifest.is_file():
+        return (0, 0)
+    try:
+        files = nbytes = 0
+        for line in manifest.read_text().splitlines():
+            if not line.strip():
+                continue
+            size_s, _, _ = line.partition("\t")
+            files += 1
+            try:
+                nbytes += int(size_s)
+            except ValueError:
+                pass
+        return files, nbytes
+    except OSError:
+        return None
 
 
 def _resolve_chain_id(blockchain_env: Path) -> str | None:
@@ -131,6 +177,7 @@ def render(
     now: float,
     failed: list[str],
     good_ts: int | None = None,
+    misc_skip: tuple[int, int] | None = None,
 ) -> str:
     lines = [
         "# HELP aitbc_backup_last_generation_timestamp_seconds Mtime of the newest backup generation dir.",
@@ -162,7 +209,16 @@ def render(
     ]
     if run_ok is not None:
         lines.append(f"aitbc_backup_last_run_success {run_ok}")
-    for source in ("backups_dir", "unit_result", "good_chain"):
+    if misc_skip is not None:
+        lines += [
+            "# HELP aitbc_backup_misc_skipped_files Non-DB files skipped by the misc backup size cap in the newest generation.",
+            "# TYPE aitbc_backup_misc_skipped_files gauge",
+            f"aitbc_backup_misc_skipped_files {misc_skip[0]}",
+            "# HELP aitbc_backup_misc_skipped_bytes Total bytes of files skipped by the misc backup size cap in the newest generation.",
+            "# TYPE aitbc_backup_misc_skipped_bytes gauge",
+            f"aitbc_backup_misc_skipped_bytes {misc_skip[1]}",
+        ]
+    for source in ("backups_dir", "unit_result", "good_chain", "misc_skips"):
         lines += [f'aitbc_backup_scrape_success{{source="{_label(source)}"}} {0 if source in failed else 1}']
     lines += [
         "# HELP aitbc_backup_exporter_timestamp_seconds Unix time the last exporter run finished.",
@@ -208,11 +264,14 @@ def main() -> int:
     now = time.time()
 
     newest_ts = newest_bytes = gen_count = run_ok = good_ts = None
+    misc_skip = None
     failed: list[str] = []
     try:
         newest_ts, newest_bytes, gen_count = scan(base)
     except Exception:  # noqa: BLE001 - collect probe — an unreadable source counts as failed
         failed.append("backups_dir")
+    else:
+        misc_skip = _misc_skip_probe(base, failed)
     try:
         run_ok = last_run_success(unit)
     except Exception:  # noqa: BLE001 - collect probe — an unreadable unit result counts as failed
@@ -231,7 +290,10 @@ def main() -> int:
             good_ts = 0
 
     try:
-        write_atomic(directory, render(newest_ts, newest_bytes, gen_count, run_ok, now, failed, good_ts))
+        write_atomic(
+            directory,
+            render(newest_ts, newest_bytes, gen_count, run_ok, now, failed, good_ts, misc_skip),
+        )
     except OSError:
         try:
             write_atomic(directory, _failure_render(now))

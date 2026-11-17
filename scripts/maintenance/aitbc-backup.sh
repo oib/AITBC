@@ -353,8 +353,15 @@ if [ -d "$SVC_DB_DIR" ]; then
         -size +"${BACKUP_MISC_MAX_KB}"k -print ) 2>/dev/null > "$_misc_skip_list" || true
 fi
 if [ -s "$_misc_skip_list" ]; then
+    # Persist the skips in the generation so backup-textfile.py can export
+    # them — a journal WARN alone left oversized non-DB files invisible to
+    # alerting (#2189). Format: "<bytes>\t<relpath>", one per line.
+    _skip_manifest="${BACKUP_DIR}/varlib-state.skipped.txt"
+    : > "$_skip_manifest"
     while IFS= read -r _big; do
         warn "varlib-state: skipping ${_big} (>${BACKUP_MISC_MAX_KB}K; raise BACKUP_MISC_MAX_KB to include)"
+        _skip_bytes=$(stat -c %s "${SVC_DB_DIR}/${_big#./}" 2>/dev/null || echo 0)
+        printf '%s\t%s\n' "$_skip_bytes" "$_big" >> "$_skip_manifest"
     done < "$_misc_skip_list"
 fi
 if [ -s "$_MISC_LIST" ]; then

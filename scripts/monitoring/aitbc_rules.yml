@@ -664,6 +664,19 @@ groups:
         a good dump of the active chain id — its prune step is skipping entirely and
         no restorable chain artifact exists. Check the run journal for 'pruning skipped
         entirely' and verify the chain artifact name matches CHAIN_ID.
+  - alert: BackupMiscCapSkip
+    expr: aitbc_backup_misc_skipped_files > 0
+    for: 15m
+    labels:
+      severity: warning
+    annotations:
+      summary: Backup skipped {{ $value }} oversized non-DB file(s) on {{ $labels.instance
+        }}
+      description: The newest backup generation on {{ $labels.instance }} skipped
+        {{ $value }} file(s) larger than BACKUP_MISC_MAX_KB — they are absent from
+        varlib-state.tar.gz. See varlib-state.skipped.txt in the generation and
+        journalctl -u aitbc-backup.service; raise the cap or accept the gap
+        deliberately.
   - alert: OffsitePullStale
     expr: time() - aitbc_offsite_pull_last_success_timestamp_seconds > 36 * 3600
     for: 30m
