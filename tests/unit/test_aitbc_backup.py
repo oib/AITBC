@@ -731,3 +731,34 @@ def test_generation_dirs_group_traversable_files_stay_private(env):
     assert other_files
     for f in other_files:
         assert f.stat().st_mode & 0o077 == 0, f"{f}: group/other-readable backup artifact"
+
+
+def test_misc_cap_skip_writes_manifest(env):
+    """#2189: an oversized non-DB file is still skipped (never truncated) AND
+    recorded in varlib-state.skipped.txt inside the generation so
+    backup-textfile.py can alert on it."""
+    svcdir = env.tmp / "svcdir"
+    svcdir.mkdir()
+    (svcdir / "small.json").write_text("{}")
+    (svcdir / "huge.bin").write_bytes(b"x" * 4096)
+    r = _run(env, SVC_DB_DIR=str(svcdir), BACKUP_MISC_MAX_KB="1")
+    assert r.returncode == 0
+    gens = [d for d in env.base.iterdir() if d.is_dir()]
+    assert len(gens) == 1
+    manifest = gens[0] / "varlib-state.skipped.txt"
+    assert manifest.is_file()
+    lines = manifest.read_text().splitlines()
+    assert any(line.endswith("\t./huge.bin") for line in lines), lines
+    assert "skipping ./huge.bin" in _log(env)
+
+
+def test_misc_cap_clean_run_writes_no_manifest(env):
+    """No oversized files -> no manifest -> exporter reads 0 skips."""
+    svcdir = env.tmp / "svcdir"
+    svcdir.mkdir()
+    (svcdir / "small.json").write_text("{}")
+    r = _run(env, SVC_DB_DIR=str(svcdir), BACKUP_MISC_MAX_KB="65536")
+    assert r.returncode == 0
+    gens = [d for d in env.base.iterdir() if d.is_dir()]
+    assert len(gens) == 1
+    assert not (gens[0] / "varlib-state.skipped.txt").exists()
