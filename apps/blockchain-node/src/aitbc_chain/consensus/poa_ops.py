@@ -6,7 +6,7 @@ directly."""
 
 from __future__ import annotations
 
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from . import poa as _poa
 from .pbft_certificate import strict_certificate_active, validate_commit_certificate
@@ -27,6 +27,14 @@ import time
 
 
 class _OpsMixin(_PoaBaseMixin):
+    if TYPE_CHECKING:
+
+        async def _collect_attestations(self, *args: Any, **kwargs: Any) -> Any: ...
+        def _consensus_participants_anomaly_checked(self, *args: Any, **kwargs: Any) -> Any: ...
+        def _empty_bridge_root(self, *args: Any, **kwargs: Any) -> Any: ...
+        async def _publish_abandon(self, *args: Any, **kwargs: Any) -> Any: ...
+        def _remote_validators_configured(self, *args: Any, **kwargs: Any) -> Any: ...
+
     async def _broadcast_block(self, block: Block, processed_txs: list[Any]) -> bool:
         """Publish a committed block to the gossip broker.
 
