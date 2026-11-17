@@ -40,6 +40,15 @@ class Settings(ServiceSettings):
     # of refusing the write.
     memory_blob_ttl_seconds: int = 7 * 24 * 3600
 
+    # MEMORYSTORE-EVICTION-OWNER-1 (#2177): the count cap bounds entries but
+    # not bytes — 10k blobs at the 16 MiB per-blob cap is ~160 GiB of heap.
+    # This bounds the sum of logical blob sizes (plaintext length, not the
+    # larger Fernet ciphertext); on overflow the store evicts expired then
+    # LRU entries exactly as it does for the count cap, and StoreFullError
+    # remains only for a single blob larger than the cap or a degenerate
+    # <= 0 configuration.
+    memory_max_total_bytes: int = 1024**3
+
     # Optional shared-secret gate (#1682): when set, /store, /retrieve and
     # DELETE require the X-API-Key header (constant-time compare). Unset
     # keeps the previous open behavior — deployments that expose the port
