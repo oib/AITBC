@@ -86,7 +86,7 @@ class TestPoolHubCommands:
 
         monkeypatch.delenv("HUB_POOL_HUB_URL", raising=False)
         monkeypatch.delenv("POOL_HUB_URL", raising=False)
-        monkeypatch.setattr("aitbc.config.hub.hub_discovery_host", lambda: None)
+        monkeypatch.setattr("aitbc.config.hub.hub_edge_origin", lambda: None)
         assert _default_pool_hub_url() == "http://localhost:8210"
 
     def test_default_pool_hub_url_uses_explicit_env(self, monkeypatch):
@@ -221,6 +221,37 @@ class TestPoolHubCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.get_json.assert_called_once_with("/v1/sla/violations", params={"resolved": "true", "miner_id": "miner-1"})
+
+
+    def _follower_env(self, monkeypatch):
+        """Isolate _default_pool_hub_url to a follower with no env files."""
+        monkeypatch.delenv("HUB_POOL_HUB_URL", raising=False)
+        monkeypatch.delenv("POOL_HUB_URL", raising=False)
+        monkeypatch.delenv("NODE_ROLE", raising=False)
+        for name in ("BLOCKCHAIN_MODE", "NODE_ID", "AITBC_HOSTNAME", "P2P_NODE_ID"):
+            monkeypatch.delenv(name, raising=False)
+        monkeypatch.setattr("aitbc.config.hub._env_files", lambda: ())
+        monkeypatch.setattr("aitbc_cli.commands.pool_hub._is_hub_node", lambda: False)
+
+    def test_default_pool_hub_url_drops_rpc_service_port(self, monkeypatch):
+        """#2239: HUB_RPC_URL=http://<hub>:8202 is the RPC service port, not the
+        TLS edge - the resolved URL must be https://<hub>/pool-hub, not
+        https://<hub>:8202/pool-hub (WRONG_VERSION_NUMBER)."""
+        from aitbc_cli.commands.pool_hub import _default_pool_hub_url
+
+        self._follower_env(monkeypatch)
+        for name in ("HUB_DISCOVERY_URL", "HUB_P2P_HOST", "HUB_LOCAL_URL"):
+            monkeypatch.delenv(name, raising=False)
+        monkeypatch.setenv("HUB_RPC_URL", "http://10.103.5.113:8202")
+        assert _default_pool_hub_url() == "https://10.103.5.113/pool-hub"
+
+    def test_default_pool_hub_url_explicit_pool_hub_url_wins_over_rpc(self, monkeypatch):
+        from aitbc_cli.commands.pool_hub import _default_pool_hub_url
+
+        self._follower_env(monkeypatch)
+        monkeypatch.setenv("HUB_RPC_URL", "http://10.103.5.113:8202")
+        monkeypatch.setenv("POOL_HUB_URL", "https://pool.example.net/custom")
+        assert _default_pool_hub_url() == "https://pool.example.net/custom"
 
 
 if __name__ == "__main__":

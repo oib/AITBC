@@ -162,6 +162,40 @@ def normalize_hub_base(raw: str | None) -> str | None:
     return f"{scheme}://{host}"
 
 
+def _strip_port(host: str) -> str:
+    """Drop a trailing ``:port`` from a host[:port] string (IPv6-safe)."""
+    if host.startswith("["):
+        return host.split("]", 1)[0] + "]"
+    head, sep, tail = host.rpartition(":")
+    if sep and tail.isdigit():
+        return head
+    return host
+
+
+def hub_edge_origin() -> str | None:
+    """Base origin for hub-fronted HTTP services (``/pool-hub`` etc.).
+
+    Unlike :func:`hub_origin`, which keeps whatever ``:port`` the discovery
+    source carried: ``HUB_RPC_URL``/``HUB_P2P_HOST`` ports are *service*
+    ports (plaintext RPC, p2p), not the TLS edge that mounts the public
+    paths — ``https://<hub>:8202/pool-hub`` is a guaranteed WRONG_VERSION_NUMBER.
+    For those sources the port is dropped so :func:`normalize_hub_base` picks
+    the edge default. An explicit port in ``HUB_DISCOVERY_URL`` is kept —
+    that variable is the operator-set public URL.
+    """
+    for name in ("HUB_DISCOVERY_URL", "HUB_P2P_HOST", "HUB_RPC_URL"):
+        raw = _raw_env_value(name)
+        if not raw:
+            continue
+        if name == "HUB_DISCOVERY_URL":
+            return normalize_hub_base(raw)
+        host = _host_from(raw)
+        if not host:
+            return None
+        return normalize_hub_base(_strip_port(host))
+    return None
+
+
 def hub_origin() -> str | None:
     """The hub's base origin, or None when no hub host is configured.
 
