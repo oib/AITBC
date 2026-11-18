@@ -7,7 +7,7 @@ fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
 """
 
 import base64
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -224,6 +224,34 @@ class TestAICommands:
         )
 
         assert result.exit_code != 0
+
+    @patch("aitbc_cli.commands.ai.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.ai.get_config")
+    def test_ai_submit_http_error_not_labeled_network_error(self, mock_get_config, mock_http_class, runner, mock_config):
+        """#2216: a coordinator 422 must surface as a server rejection, not 'Network error'."""
+        from aitbc_cli.commands.ai import ai
+        from aitbc_cli.utils.http_client import NetworkError
+
+        mock_get_config.return_value = mock_config
+        mock_client = mock_http_class.return_value
+        response = MagicMock()
+        response.status_code = 422
+        response.json.return_value = {"detail": "payment_currency must be one of: ['AITBC', 'ETH', 'USDT']"}
+        cause = RuntimeError("Client error '422 Unprocessable Content'")
+        cause.response = response
+        err = NetworkError("wrapped http error")
+        err.__cause__ = cause
+        mock_client.post.side_effect = err
+
+        result = runner.invoke(
+            ai,
+            ["submit", "--coordinator-url", "http://coordinator:8006", "--prompt", "x"],
+        )
+
+        assert result.exit_code != 0
+        assert "Server rejected the request (HTTP 422)" in result.output
+        assert "payment_currency must be one of" in result.output
+        assert "Network error" not in result.output
 
     @patch("aitbc_cli.commands.ai.AITBCHTTPClient")
     @patch("aitbc_cli.commands.ai.get_config")
