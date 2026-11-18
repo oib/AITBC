@@ -15,6 +15,7 @@ aitbc wallet liquidity-claim [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--stake-id` | text | — | yes | Stake ID. |
+| `--pool` | text | `main` | no | Liquidity pool name (must match the stake's pool) |
 | `--fee` | decimal | `0.01` | no | Transaction fee in AIT |
 | `--allow-high-fee` | flag | `false` | no | Override the 10.00 AIT sanity ceiling on --fee |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
