@@ -170,17 +170,41 @@ def _map_agent_type(agent_type: str) -> str:
     return _AGENT_TYPE_MAP.get(agent_type, agent_type)
 
 
-def _load_agent_config(agent_id: str) -> dict[str, Any] | None:
-    """Find and parse the stored config for ``agent_id``; None when absent."""
+def _load_agent_config(agent_ref: str) -> dict[str, Any] | None:
+    """Find and parse the stored config for ``agent_ref``; None when absent.
+
+    ``agent_ref`` resolves against the internal ``agent_id``, the agent
+    ``name``, or the config filename stem — ``agent list`` shows the name and
+    file, not the opaque id, so users naturally pass those (#2223). An exact
+    ``agent_id`` match wins; a name/file that matches several different configs
+    is ambiguous and raises ValueError.
+    """
     config_dir = get_agent_config_dir()
-    for f in config_dir.glob("*.json"):
+    id_matches: list[dict[str, Any]] = []
+    name_matches: list[dict[str, Any]] = []
+    for f in sorted(config_dir.glob("*.json")):
         try:
             with open(f) as fp:
-                data: dict[str, Any] = json.load(fp)
-            if data.get("agent_id") == agent_id:
-                return data
+                data = json.load(fp)
         except _OPS_ERRORS:
             continue
+        if not isinstance(data, dict):
+            continue
+        if data.get("agent_id") == agent_ref:
+            id_matches.append(data)
+        elif data.get("name") == agent_ref or f.stem == agent_ref:
+            name_matches.append(data)
+    if len(id_matches) == 1:
+        return id_matches[0]
+    if len(id_matches) > 1:
+        raise ValueError(f"Agent id {agent_ref!r} matches multiple local agent configs")
+    if len(name_matches) == 1:
+        return name_matches[0]
+    if len(name_matches) > 1:
+        raise ValueError(
+            f"Agent name/file {agent_ref!r} matches multiple local agent configs — "
+            "pass the agent_id shown by `aitbc agent list`"
+        )
     return None
 
 
@@ -266,9 +290,17 @@ async def register_agent(
     try:
         agent_data = _load_agent_config(agent_id)
         if agent_data is None:
-            return {"error": f"Agent configuration not found for id: {agent_id}"}
+            return {
+                "error": (
+                    f"Agent configuration not found for id, name, or file: {agent_id} — "
+                    "run `aitbc agent list` to see local agents"
+                )
+            }
 
-        request_body = _build_register_request(agent_id, agent_data)
+        # The caller may have passed the name or config filename; the registry
+        # id is the config's internal agent_id (#2223).
+        resolved_id = str(agent_data.get("agent_id") or agent_id)
+        request_body = _build_register_request(resolved_id, agent_data)
 
         client = AITBCHTTPClient(
             base_url=coordinator_url,
@@ -281,7 +313,7 @@ async def register_agent(
             request_body.update(
                 identity_attestation_fields(
                     client,
-                    agent_id,
+                    resolved_id,
                     identity_address,
                     str(chain_id) if chain_id is not None else None,
                     private_key,
@@ -292,14 +324,14 @@ async def register_agent(
         result["coordinator_url"] = coordinator_url
         return {
             "success": True,
-            "agent_id": agent_id,
+            "agent_id": resolved_id,
             "registered": True,
             "coordinator_url": coordinator_url,
             "message": result.get("message", "Agent registered successfully"),
         }
     except NetworkError as e:
         logger.warning("Agent SDK registration failed: %s", e)
-        return {"error": f"Failed to register agent with coordinator: {e}"}
+        return {"error": _coordinator_request_error(e, coordinator_url)}
     except _OPS_ERRORS as e:
         logger.warning("Agent SDK operation failed: %s", e, exc_info=True)
         return {"error": str(e)}
@@ -392,8 +424,7 @@ def _coordinator_request_error(e: Exception, coordinator_url: str) -> str:
     (e.g. ``/c`` is the coordinator-api, not the agent-coordinator), not a
     stopped service.
     """
-    response = getattr(e, "response", None)
-    status = getattr(response, "status_code", None)
+    status = _http_status_code(e)
     if status is None:
         return (
             f"Cannot reach the agent coordinator at {coordinator_url}: {e}. {_coordinator_unreachable_hint(coordinator_url)}"
@@ -412,6 +443,12 @@ def _coordinator_request_error(e: Exception, coordinator_url: str) -> str:
 def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None) -> bool:
     """Probe the agent coordinator. If it is not reachable, print a helpful message and exit cleanly."""
     base_url = resolve_coordinator_url(coordinator_url)
+    config = get_config()
+    # True when the URL is the bare localhost fallback — nothing configured it
+    # (no --coordinator-url, no agent_coordinator_url, no HUB_AGENT_URL). On
+    # customer/follower nodes the agent-coordinator is not deployed locally at
+    # all, so "start the service" is the wrong advice there (#2223).
+    local_default = base_url == _LOCAL_COORDINATOR_URL and not str(getattr(config, "agent_coordinator_url", "") or "")
     try:
         # Not "/health": the coordinator serves it, but nginx mounts nothing at
         # /agent/health, so probing it reported every remote coordinator as down.
@@ -421,7 +458,7 @@ def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None
         client = AITBCHTTPClient(
             base_url=base_url,
             timeout=2,
-            **auth_client_kwargs(explicit, get_config().api_key),
+            **auth_client_kwargs(explicit, config.api_key),
         )
         client.get("/v1/tasks/status")
         return True
@@ -436,6 +473,17 @@ def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None
             )
         elif status is not None:
             message = f"Agent coordinator at {base_url} returned HTTP {status}: {e}"
+        elif local_default:
+            message = (
+                f"Cannot reach the agent coordinator: no URL is configured, so the "
+                f"command defaulted to {_LOCAL_COORDINATOR_URL} and nothing answered "
+                f"({e}). The agent-coordinator is a hub-side service — customer and "
+                "follower nodes do not run it locally. Point the CLI at the hub: "
+                "set agent_coordinator_url in ~/.aitbc.yaml, export "
+                "HUB_AGENT_URL/HUB_DISCOVERY_URL, or pass --coordinator-url with "
+                "the hub's /agent mount. On a hub host itself, start it with "
+                "`sudo systemctl start aitbc-agent-coordinator`."
+            )
         else:
             message = (
                 f"Cannot reach the agent coordinator at {base_url}: {e}. "
@@ -739,7 +787,12 @@ try:
 
   aitbc agent register --agent-id shop-agent --coordinator-url http://hub.example.net:8107"""
     )
-    @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
+    @click.option(
+        "--agent-id",
+        "agent_id",
+        required=True,
+        help="Agent id, name, or config file name (see `aitbc agent list`)",
+    )
     @click.option(
         "--coordinator-url",
         default=None,
@@ -812,15 +865,10 @@ try:
 
             chain_id = resolve_chain_id(ctx, rpc_url)
 
-            # Load agent config to get capabilities
-            config_dir = get_agent_config_dir()
-            config_file = config_dir / f"{agent_id}.json"
-            capabilities = {}
-
-            if config_file.exists():
-                with open(config_file) as f:
-                    agent_config = json.load(f)
-                capabilities = agent_config.get("capabilities", {})
+            # Load agent config to get capabilities — resolves by agent_id,
+            # name, or config filename like `agent register` (#2223)
+            agent_config = _load_agent_config(agent_id) or {}
+            capabilities = agent_config.get("capabilities", {})
 
             hex_address = canonical_address(agent_address)
             if not validate_address(hex_address):

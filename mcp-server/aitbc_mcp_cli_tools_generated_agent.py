@@ -550,7 +550,7 @@ def aitbc_agent_list(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_register(
-    agent_id: Annotated[str, Field(description="The Agent id.")],
+    agent_id: Annotated[str, Field(description="Agent id, name, or config file name (see `aitbc agent list`)")],
     coordinator_url: Annotated[
         str | None, Field(description="Coordinator URL (default: config agent_coordinator_url)")
     ] = None,

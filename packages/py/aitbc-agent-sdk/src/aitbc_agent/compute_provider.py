@@ -15,7 +15,7 @@ from cryptography.hazmat.primitives.asymmetric import rsa
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import AITBCError, NetworkError
 
-from .agent import Agent, AgentCapabilities, AgentIdentity
+from .agent import Agent, AgentCapabilities, AgentIdentity, generate_agent_address
 
 logger = get_logger(__name__)
 
@@ -87,7 +87,7 @@ class ComputeProvider(Agent):
         identity = AgentIdentity(
             id=str(uuid.uuid4()),
             name=name,
-            address=f"0x{uuid.uuid4().hex[:40]}",
+            address=generate_agent_address(),
             public_key=public_key_pem,
             private_key=private_key_pem,
         )
