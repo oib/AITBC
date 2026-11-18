@@ -31,6 +31,7 @@ from .pbft import (
     _PbftBaseMixin,
     logger,
 )
+from . import pbft_trace
 from .pbft_certificate import strict_certificate_active, validate_commit_certificate
 from .pbft_cross_view import cross_view_commit_lock_active
 from .pbft_view_change import (
@@ -302,7 +303,11 @@ class _PhasesMixin(_PbftBaseMixin):
         # the locked hash (a locked NEW_VIEW permits nothing else), so a fresh
         # block here is refused by every follower and the chain stalls. When
         # this node authored the locked body, re-propose it as-is in this view.
+        t_body = time.time()
         await self._ensure_locked_body(pre_prepare_sequence, pre_prepare_view)
+        pbft_trace.trace(
+            "propose.locked_body", hr=key, dur=f"{time.time() - t_body:.3f}", since_start=f"{time.time() - started_at:.3f}"
+        )
         locked = self._locked_reproposal(pre_prepare_sequence, block_hash, pre_prepare_view)
         if locked is not None:
             block_hash, block_payload = locked
@@ -319,6 +324,7 @@ class _PhasesMixin(_PbftBaseMixin):
             pre_prepare_view,
             block_payload=block_payload,
         )
+        pbft_trace.trace("propose.pre_prepare_out", hr=key, since_start=f"{time.time() - started_at:.3f}")
         pre_prepare_msg = self.state.pre_prepare_messages.get(key)
         if not pre_prepare_msg:
             logger.warning("PBFT propose_and_wait aborted: missing pre-prepare for seq %s", pre_prepare_sequence)
@@ -326,6 +332,7 @@ class _PhasesMixin(_PbftBaseMixin):
 
         # Send our own prepare; it will trigger a local commit once a prepare quorum forms
         await self.prepare_phase(self._local_validator, pre_prepare_msg)
+        pbft_trace.trace("propose.own_prepare", hr=key, since_start=f"{time.time() - started_at:.3f}")
 
         # Wait for enough prepares (other validators respond via handle_incoming_message)
         deadline = time.time() + timeout if timeout else None
@@ -333,6 +340,7 @@ class _PhasesMixin(_PbftBaseMixin):
             key, self.state.prepared_messages, "prepare", deadline, started_at, pre_prepare_sequence, pre_prepare_view
         ):
             return False
+        pbft_trace.trace("propose.prepare_quorum", hr=key, since_start=f"{time.time() - started_at:.3f}")
 
         # Wait for enough commits
         if not await self._wait_for_quorum(
@@ -340,6 +348,7 @@ class _PhasesMixin(_PbftBaseMixin):
         ):
             return False
 
+        pbft_trace.trace("propose.commit_quorum", hr=key, since_start=f"{time.time() - started_at:.3f}")
         duration = time.time() - started_at
         logger.info(
             "PBFT round completed for key %s (proposer=%s, block_hash=%s, "
@@ -379,12 +388,13 @@ class _PhasesMixin(_PbftBaseMixin):
             if deadline and time.time() > deadline:
                 duration = time.time() - started_at
                 logger.warning(
-                    "PBFT %s quorum timeout for key %s (required=%s, have=%s, duration=%.3fs)",
+                    "PBFT %s quorum timeout for key %s (required=%s, have=%s, duration=%.3fs) %s",
                     phase,
                     key,
                     self.required_messages,
                     len(messages.get(key, [])),
                     duration,
+                    pbft_trace.describe_quorum_gap(list(self.consensus.get_consensus_participants()), messages.get(key, [])),
                 )
                 return False
             self._message_event.clear()
@@ -482,6 +492,9 @@ class _PhasesMixin(_PbftBaseMixin):
                     view,
                     prepared_view,
                 )
+                pbft_trace.trace(
+                    "refuse.prepare", hr=f"{height}:{view}", reason="already_prepared_later_round", prepared_view=prepared_view
+                )
                 return False
             if view == prepared_view and prepared_hash != pre_prepare_msg.block_hash:
                 logger.warning(
@@ -491,6 +504,7 @@ class _PhasesMixin(_PbftBaseMixin):
                     prepared_hash,
                     pre_prepare_msg.block_hash,
                 )
+                pbft_trace.trace("refuse.prepare", hr=f"{height}:{view}", reason="second_block_same_round")
                 return False
         if key in self._local_prepared:
             return len(self.state.prepared_messages.get(key, [])) >= self.required_messages
@@ -499,10 +513,12 @@ class _PhasesMixin(_PbftBaseMixin):
         # permits — and only after its proposal body is persisted
         # (Option R). Both checks are dormant while the gate is unset.
         if not await self._view_change_prepare_allows(height, view, pre_prepare_msg):
+            pbft_trace.trace("refuse.prepare", hr=f"{height}:{view}", reason="view_change_not_allowed")
             return False
         # The durable prepared record persists BEFORE the prepare is
         # broadcast — a restart must not forget this vote (design §7).
         if view_change_active(height) and not self._vc_prepared_arm(height, view, pre_prepare_msg.block_hash):
+            pbft_trace.trace("refuse.prepare", hr=f"{height}:{view}", reason="vc_prepared_arm_failed")
             return False
         self._local_prepared.add(key)
         self._prepared_heights[height] = (view, pre_prepare_msg.block_hash)
