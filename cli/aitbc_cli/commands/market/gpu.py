@@ -31,7 +31,7 @@ from ...utils.energy_quote import (
     verify_quote,
 )
 from ...utils.escrow import create_signed_escrow_lock
-from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ...utils.http_client import AITBCHTTPClient, NetworkError, auth_headers, get_logger
 from ...utils.wallet_loader import load_wallet_for_payment
 from ._signing import signed_job_request_fields
 
@@ -702,12 +702,10 @@ def refund(ctx, job_id, wallet, wallet_path, password, password_file, password_s
 
 
 def _auth_headers(ctx) -> dict[str, str]:
-    """Return Authorization header from --api-key or the stored client credential."""
-    token = ctx.obj.get("api_key") if ctx.obj else None
-    if not token:
-        from ...auth import AuthManager
+    """Auth headers for coordinator calls (#2246).
 
-        token = AuthManager().get_credential("client")
-    if token:
-        return {"Authorization": f"Bearer {token}"}
-    return {}
+    Precedence: explicit ``--api-key`` > stored ``auth login`` credential >
+    ``config.api_key``; a JWT goes out as ``Authorization: Bearer``, any
+    other key as ``X-API-Key``.
+    """
+    return auth_headers(ctx.obj.get("api_key") if ctx.obj else None, getattr(get_config(), "api_key", None))

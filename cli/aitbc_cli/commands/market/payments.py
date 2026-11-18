@@ -6,7 +6,7 @@ from ...utils import error, output
 from ...utils.http_client import AITBCHTTPClient, http_error_detail, http_response_status
 
 from ._group import market
-from .escrow import _client_token, _coordinator_base_url
+from .escrow import _client_auth_kwargs, _coordinator_base_url
 from ...utils.error_handling import abort
 
 
@@ -30,14 +30,14 @@ def payment(ctx, job_id: str | None, payment_id: str | None):
     """
     if bool(job_id) == bool(payment_id):
         raise click.ClickException("Pass exactly one of --job-id or --payment-id")
-    token = _client_token(ctx)
-    if not token:
+    auth_kwargs = _client_auth_kwargs(ctx)
+    if not auth_kwargs:
         error("No client token — run `aitbc auth login --wallet <name>` first (admin or the job's client).")
         raise click.Abort()
     client = AITBCHTTPClient(
         base_url=_coordinator_base_url(ctx),
         timeout=15,
-        headers={"Authorization": f"Bearer {token}"},
+        **auth_kwargs,
     )
     path = f"/v1/jobs/{job_id}/payment" if job_id else f"/v1/payments/{payment_id}"
     try:

@@ -100,7 +100,11 @@ def _wire(monkeypatch, relay_cls=None, rpc_cls=None, token="tok"):
     rpc.get_exc = None
     monkeypatch.setattr(esc_mod, "AITBCHTTPClient", relay)
     monkeypatch.setattr(esc_mod, "_get_rpc_client", lambda config, base_url, timeout=10: rpc(base_url))
-    monkeypatch.setattr(esc_mod, "_client_token", lambda ctx: token)
+    monkeypatch.setattr(
+        esc_mod,
+        "_client_auth_kwargs",
+        lambda ctx: {} if token is None else {"headers": {"Authorization": f"Bearer {token}"}},
+    )
     monkeypatch.setattr(esc_mod, "_coordinator_base_url", lambda ctx: "http://coord")
     return relay, rpc
 
@@ -440,7 +444,7 @@ def _real_relay_client_with_session(monkeypatch):
 
     sent: list[str] = []
     monkeypatch.setattr(esc_mod, "AITBCHTTPClient", _RealClient)
-    monkeypatch.setattr(esc_mod, "_client_token", lambda ctx: "tok")
+    monkeypatch.setattr(esc_mod, "_client_auth_kwargs", lambda ctx: {"headers": {"Authorization": "Bearer tok"}})
     monkeypatch.setattr(esc_mod, "_coordinator_base_url", lambda ctx: "http://coord")
 
     def _install(responder):

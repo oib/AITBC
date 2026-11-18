@@ -11,7 +11,7 @@ from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils import output
 from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, service_root_url
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, service_root_url
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -33,18 +33,23 @@ _OPS_ERRORS = (
 )
 
 
-def _api_client() -> AITBCHTTPClient | None:
+def _api_client(explicit_key: str | None = None) -> AITBCHTTPClient | None:
     """Return a client for the coordinator API if a URL is configured.
 
     Endpoints below carry absolute ``/v1/...`` paths, so normalize the
     configured URL to the service root — a configured ``.../v1`` value
     (e.g. the public ``/c/v1`` mount) must not double the version prefix.
+
+    #2246: credentials resolve explicit ``--api-key`` > stored ``auth
+    login`` credential > ``config.api_key`` via ``auth_client_kwargs``.
     """
     config = get_config()
     url = config.coordinator_api_url or os.getenv("COORDINATOR_API_URL", "")
     if not url:
         return None
-    return AITBCHTTPClient(base_url=service_root_url(url), timeout=config.timeout, api_key=config.api_key or "")
+    return AITBCHTTPClient(
+        base_url=service_root_url(url), timeout=config.timeout, **auth_client_kwargs(explicit_key, config.api_key)
+    )
 
 
 @click.group(
@@ -127,7 +132,7 @@ def market(ctx):
 @click.pass_context
 def propose(ctx, parameter, current, proposed, unit, proposer_id):
     """Submit an OpenClaw DAO economic parameter proposal."""
-    client = _api_client()
+    client = _api_client(ctx.obj.get("api_key") if ctx.obj else None)
     try:
         if client is None:
             result = {
@@ -169,7 +174,7 @@ def propose(ctx, parameter, current, proposed, unit, proposer_id):
 @click.pass_context
 def vote(ctx, proposal_id, vote, voting_power):
     """Vote for, against, or abstain on an OpenClaw DAO economic parameter proposal."""
-    client = _api_client()
+    client = _api_client(ctx.obj.get("api_key") if ctx.obj else None)
     try:
         if client is None:
             result = {"action": "economic_vote", "proposal_id": proposal_id, "vote": vote, "status": "simulated"}
@@ -196,7 +201,7 @@ def vote(ctx, proposal_id, vote, voting_power):
 @click.pass_context
 def status(ctx, proposal_id):
     """Show the status of an OpenClaw DAO economic parameter proposal by proposal ID."""
-    client = _api_client()
+    client = _api_client(ctx.obj.get("api_key") if ctx.obj else None)
     try:
         if client is None:
             result = {

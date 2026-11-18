@@ -20,7 +20,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from ...config import get_config
 from ...utils import OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
-from ...utils.http_client import AITBCHTTPClient, get_logger, http_error_detail, http_response_status
+from ...utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, http_error_detail, http_response_status
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -42,8 +42,6 @@ _JOBS_ERRORS = (
 # the orphan-refund swallow must still catch so it never masks the primary
 # job error (#1860).
 _REFUND_ERRORS = _JOBS_ERRORS + (click.Abort, click.ClickException)
-
-from ...auth import AuthManager
 
 from ._group import market
 from . import get_chain_id, get_market_wallet, get_next_nonce
@@ -277,18 +275,12 @@ def _track_coordinator_job(
     """Create a lightweight coordinator job record for a direct market-run job."""
     if not ctx.obj:
         return None
-    token = ctx.obj.get("api_key")
-    if not token:
-        try:
-            token = AuthManager().get_credential("client")
-        except Exception as e:  # noqa: BLE001 - credential store backends vary; tracking is optional
-            logger.debug("client credential lookup failed: %s", type(e).__name__)
-            token = None
-    if not token:
+    config = get_config()
+    # #2246: explicit --api-key > stored `auth login` credential > config.api_key.
+    auth_kwargs = auth_client_kwargs(ctx.obj.get("api_key"), getattr(config, "api_key", None))
+    if not auth_kwargs:
         warning("Job tracking skipped: no client token. Run `aitbc auth login --wallet <name>` first.")
         return None
-
-    config = get_config()
     coord_url = config.coordinator_api_url or "http://localhost:8203"
     if coord_url.endswith("/v1"):
         coord_url = coord_url[:-3]
@@ -316,7 +308,7 @@ def _track_coordinator_job(
     }
 
     try:
-        client = AITBCHTTPClient(base_url=coord_url, timeout=10, headers={"Authorization": f"Bearer {token}"})
+        client = AITBCHTTPClient(base_url=coord_url, timeout=10, **auth_kwargs)
         result = client.post("/v1/jobs", json=job_data)
         info(f"Tracked market-run job with coordinator: {result.get('job_id')}")
         return result
