@@ -17,11 +17,17 @@ emits, per watched var:
 
 Watched vars come from AITBC_ENV_WATCH, a space-separated list of
 
-    service=VAR:file[,file...]
+    service[@unit]=VAR:file[,file...]
 
 entries, e.g.::
 
-    aitbc-coordinator-api=RECEIPT_SIGNING_KEY_HEX:/etc/aitbc/aitbc-coordinator-api.env,/etc/aitbc/aitbc-coordinator-api-override.env
+    aitbc-coordinator-api@aitbc-coordinator-api.service=RECEIPT_SIGNING_KEY_HEX:/etc/aitbc/aitbc-coordinator-api.env,/etc/aitbc/aitbc-coordinator-api-override.env
+
+The optional ``@unit`` suffix scopes the watch to hosts that actually
+deploy the service: the ``aitbc_env_var_present`` series is only emitted
+where the named systemd unit file exists, so a fleet-wide env scan does
+not page for a service a host never runs (#2233). Entries without ``@``
+emit unconditionally, as before.
 
 Only variable NAMES are matched against ``^VAR=``; values are never read,
 printed, or exported. A run that cannot read a file still writes the
@@ -30,9 +36,12 @@ sees blindness rather than stale health. Run by aitbc-env-watch.timer;
 stdlib only.
 
 Environment:
-    AITBC_ENV_WATCH      watch spec as above (empty spec writes a
-                         minimal failure file)
-    AITBC_TEXTFILE_DIR   default /var/lib/prometheus/node-exporter
+    AITBC_ENV_WATCH            watch spec as above (empty spec writes a
+                               minimal failure file)
+    AITBC_TEXTFILE_DIR         default /var/lib/prometheus/node-exporter
+    AITBC_ENV_WATCH_UNIT_DIRS  colon-separated systemd unit dirs used by
+                               the ``@unit`` presence check (default: the
+                               standard /etc, /run, /usr/lib, /lib set)
 """
 
 from __future__ import annotations
@@ -53,22 +62,50 @@ def _label(value: str) -> str:
     return _LABEL_SAFE.sub("_", value)
 
 
-def parse_spec(spec: str) -> list[tuple[str, str, list[str]]]:
-    """Parse AITBC_ENV_WATCH into (service, var, [files]) entries.
+def parse_spec(spec: str) -> list[tuple[str, str, list[str], str | None]]:
+    """Parse AITBC_ENV_WATCH into (service, var, [files], unit) entries.
 
-    Malformed tokens are skipped — a bad entry must not blind the watch on
-    the good ones.
+    ``unit`` is the optional ``@unit`` suffix on the service name — when
+    set, the presence series is emitted only where that systemd unit is
+    installed. Malformed tokens are skipped — a bad entry must not blind
+    the watch on the good ones.
     """
     entries = []
     for token in spec.split():
-        service, sep, rest = token.partition("=")
+        service_part, sep, rest = token.partition("=")
         var, sep2, files = rest.partition(":")
-        if not (sep and sep2 and service and var and files):
+        if not (sep and sep2 and service_part and var and files):
             continue
+        service, at, unit = service_part.partition("@")
         paths = [p for p in files.split(",") if p]
         if paths:
-            entries.append((service, var, paths))
+            entries.append((service, var, paths, unit or None))
     return entries
+
+
+_DEFAULT_UNIT_DIRS = (
+    "/etc/systemd/system",
+    "/run/systemd/system",
+    "/usr/lib/systemd/system",
+    "/lib/systemd/system",
+)
+
+
+def _unit_dirs() -> list[str]:
+    raw = os.environ.get("AITBC_ENV_WATCH_UNIT_DIRS", "")
+    if raw:
+        return [d for d in raw.split(":") if d]
+    return list(_DEFAULT_UNIT_DIRS)
+
+
+def unit_present(unit: str) -> bool:
+    """True when ``unit`` is installed on this host.
+
+    A unit symlinked into any standard systemd dir counts; a masked unit
+    (symlink to /dev/null) still exists and counts as deployed — its env
+    files should stay correct regardless.
+    """
+    return any(os.path.exists(os.path.join(d, unit)) for d in _unit_dirs())
 
 
 def _assign_value(line: str, var: str) -> str | None:
@@ -79,13 +116,20 @@ def _assign_value(line: str, var: str) -> str | None:
     return stripped[len(var) + 1 :].strip()
 
 
-def scan_entries(entries: list[tuple[str, str, list[str]]]) -> tuple[dict[tuple[str, str], int], dict[str, int]]:
+WatchEntry = tuple[str, str, list[str], str | None]
+
+
+def scan_entries(entries: list[WatchEntry]) -> tuple[dict[tuple[str, str], int], dict[str, int]]:
     """Return ({(service,var): present}, {file_basename: readable}).
 
     systemd EnvironmentFile stacking: the LAST file that assigns the var
     wins, and an empty assignment (``VAR=``) counts as unset — a
     presence gauge that reports 1 for a blanked variable misreads the
     unit's real environment (#923).
+
+    Entries with an ``@unit`` suffix emit no ``present`` series at all
+    when the unit is not installed on this host — the alert's ``== 0``
+    cannot fire on a series that does not exist (#2233).
     """
     present: dict[tuple[str, str], int] = {}
     file_ok: dict[str, int] = {}
@@ -100,7 +144,7 @@ def scan_entries(entries: list[tuple[str, str, list[str]]]) -> tuple[dict[tuple[
                 path_cache[path] = None
         return path_cache[path]
 
-    for service, var, paths in entries:
+    for service, var, paths, unit in entries:
         last_value: str | None = None
         for path in paths:
             lines = lines_of(path)
@@ -110,11 +154,13 @@ def scan_entries(entries: list[tuple[str, str, list[str]]]) -> tuple[dict[tuple[
                     value = _assign_value(line, var)
                     if value is not None:
                         last_value = value
+        if unit is not None and not unit_present(unit):
+            continue
         present[(service, var)] = 1 if last_value else 0
     return present, file_ok
 
 
-def render(entries: list[tuple[str, str, list[str]]], now: float) -> str:
+def render(entries: list[WatchEntry], now: float) -> str:
     present, file_ok = scan_entries(entries)
     lines = [
         "# HELP aitbc_env_var_present 1 when ^VAR= appears in any of the service's env files.",

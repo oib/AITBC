@@ -13,7 +13,7 @@ spec.loader.exec_module(envw)
 def _scan(tmp_path, files):
     for name, body in files.items():
         (tmp_path / name).write_text(body)
-    return envw.scan_entries([("svc", "VAR", [str(tmp_path / n) for n in files])])[0]
+    return envw.scan_entries([("svc", "VAR", [str(tmp_path / n) for n in files], None)])[0]
 
 
 def test_empty_value_reports_0(tmp_path):

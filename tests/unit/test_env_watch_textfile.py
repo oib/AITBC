@@ -16,10 +16,12 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPT = REPO_ROOT / "scripts" / "monitoring" / "env-watch-textfile.py"
 
 
-def run_exporter(tmp_path: Path, spec: str) -> tuple[int, str]:
+def run_exporter(tmp_path: Path, spec: str, unit_dirs: Path | None = None) -> tuple[int, str]:
     textfile_dir = tmp_path / "textfile"
     textfile_dir.mkdir(exist_ok=True)
     env = dict(os.environ, AITBC_ENV_WATCH=spec, AITBC_TEXTFILE_DIR=str(textfile_dir))
+    if unit_dirs is not None:
+        env["AITBC_ENV_WATCH_UNIT_DIRS"] = str(unit_dirs)
     result = subprocess.run([sys.executable, str(SCRIPT)], env=env, capture_output=True, text=True)
     out = textfile_dir / "aitbc_env_watch.prom"
     return result.returncode, out.read_text() if out.exists() else ""
@@ -87,3 +89,43 @@ def test_malformed_tokens_are_skipped_not_fatal(tmp_path):
     rc, prom = run_exporter(tmp_path, f"garbage-token no-colon mysvc=OK:{env_file}")
     assert rc == 0
     assert 'aitbc_env_var_present{service="mysvc",var="OK"} 1' in prom
+
+
+def test_at_unit_gate_emits_when_unit_installed(tmp_path):
+    """#2233: service@unit emits the series where the unit file exists."""
+    unit_dirs = tmp_path / "systemd"
+    unit_dirs.mkdir()
+    (unit_dirs / "mysvc.service").write_text("[Service]\n")
+    env_file = tmp_path / "svc.env"
+    env_file.write_text("OTHER=1\n")
+    spec = f"mysvc@mysvc.service=VAR:{env_file}"
+    rc, prom = run_exporter(tmp_path, spec, unit_dirs=unit_dirs)
+    assert rc == 0
+    assert 'aitbc_env_var_present{service="mysvc",var="VAR"} 0' in prom
+
+
+def test_at_unit_gate_silent_when_unit_absent(tmp_path):
+    """#2233: no unit file on the host -> no series -> the == 0 alert stays quiet."""
+    unit_dirs = tmp_path / "systemd"
+    unit_dirs.mkdir()
+    env_file = tmp_path / "svc.env"
+    env_file.write_text("OTHER=1\n")
+    spec = f"mysvc@mysvc.service=VAR:{env_file}"
+    rc, prom = run_exporter(tmp_path, spec, unit_dirs=unit_dirs)
+    assert rc == 0
+    assert 'aitbc_env_var_present{service="mysvc"' not in prom
+    # File readability is still reported — only the gated series is skipped.
+    assert 'aitbc_env_watch_scrape_success{file="svc.env"} 1' in prom
+    assert "aitbc_env_watch_timestamp_seconds" in prom
+
+
+def test_at_unit_gate_present_value_still_exported(tmp_path):
+    unit_dirs = tmp_path / "systemd"
+    unit_dirs.mkdir()
+    (unit_dirs / "mysvc.service").write_text("[Service]\n")
+    env_file = tmp_path / "svc.env"
+    env_file.write_text("VAR=x\n")
+    spec = f"mysvc@mysvc.service=VAR:{env_file}"
+    rc, prom = run_exporter(tmp_path, spec, unit_dirs=unit_dirs)
+    assert rc == 0
+    assert 'aitbc_env_var_present{service="mysvc",var="VAR"} 1' in prom
