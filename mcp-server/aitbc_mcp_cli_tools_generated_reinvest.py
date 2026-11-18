@@ -37,7 +37,7 @@ def aitbc_reinvest_policy(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Record a reinvestment policy for an agent (persisted locally)."""
+    """Show or record a reinvestment policy for an agent (persisted locally)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

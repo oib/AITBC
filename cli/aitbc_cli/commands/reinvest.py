@@ -59,6 +59,20 @@ def reinvest():
     pass
 
 
+_DEFAULT_STAKING_PCT = "60"
+_DEFAULT_RESERVE_PCT = "40"
+_DEFAULT_MIN_REINVEST = "0.01"
+
+
+def _effective_policy(saved: dict) -> dict:
+    """Merge a stored policy dict over the engine defaults."""
+    return {
+        "staking_pct": saved.get("staking_pct", _DEFAULT_STAKING_PCT),
+        "reserve_pct": saved.get("reserve_pct", _DEFAULT_RESERVE_PCT),
+        "min_reinvest": saved.get("min_reinvest", _DEFAULT_MIN_REINVEST),
+    }
+
+
 @reinvest.command(
     epilog="""Examples:
 
@@ -67,25 +81,51 @@ def reinvest():
   aitbc reinvest policy --agent-id agent-1 --staking-pct 50 --reserve-pct 30"""
 )
 @click.option("--agent-id", "agent_id", required=True, help="The Agent-id.")
-@click.option("--staking-pct", default="60", help="Percentage of reinvested funds directed to staking")
-@click.option("--reserve-pct", default="40", help="Percentage of reinvested funds kept as capacity reserve")
-@click.option("--min-reinvest", default="0.01", help="Minimum amount to reinvest")
+@click.option("--staking-pct", default=None, help="Percentage of reinvested funds directed to staking")
+@click.option("--reserve-pct", default=None, help="Percentage of reinvested funds kept as capacity reserve")
+@click.option("--min-reinvest", default=None, help="Minimum amount to reinvest")
 @click.pass_context
-def policy(ctx, agent_id: str, staking_pct: str, reserve_pct: str, min_reinvest: str):
-    """Record a reinvestment policy for an agent (persisted locally)."""
+def policy(ctx, agent_id: str, staking_pct: str | None, reserve_pct: str | None, min_reinvest: str | None):
+    """Show or record a reinvestment policy for an agent (persisted locally).
+
+    With no policy options this is a read-back of the stored policy and
+    never writes; providing any option records the merged policy.
+    """
     try:
-        staking, reserve = Decimal(staking_pct), Decimal(reserve_pct)
+        saved = _policy_params(agent_id) or {}
+        if staking_pct is None and reserve_pct is None and min_reinvest is None:
+            result = {
+                **_effective_policy(saved),
+                "agent_id": agent_id,
+                "policy_source": "saved" if saved else "default",
+                "status": "loaded",
+            }
+            output(result, ctx.obj.get("output_format", "table"), title="Reinvestment Policy")
+            return
+        effective = _effective_policy(saved)
+        effective.update(
+            {
+                k: v
+                for k, v in {
+                    "staking_pct": staking_pct,
+                    "reserve_pct": reserve_pct,
+                    "min_reinvest": min_reinvest,
+                }.items()
+                if v is not None
+            }
+        )
+        staking, reserve = Decimal(effective["staking_pct"]), Decimal(effective["reserve_pct"])
+        Decimal(effective["min_reinvest"])
         if staking + reserve != Decimal("100"):
-            abort(ctx, f"staking-pct + reserve-pct must equal 100 (got {staking_pct}+{reserve_pct})")
+            abort(
+                ctx,
+                f"staking-pct + reserve-pct must equal 100 (got {effective['staking_pct']}+{effective['reserve_pct']})",
+            )
             return
         policies = _load_policies()
-        policies[agent_id] = {
-            "staking_pct": staking_pct,
-            "reserve_pct": reserve_pct,
-            "min_reinvest": min_reinvest,
-        }
+        policies[agent_id] = effective
         _save_policies(policies)
-        result = {**policies[agent_id], "agent_id": agent_id, "status": "saved"}
+        result = {**effective, "agent_id": agent_id, "status": "saved"}
         output(result, ctx.obj.get("output_format", "table"), title="Reinvestment Policy")
     except (ArithmeticError, OSError, ValueError, TypeError) as e:
         abort(ctx, f"Error recording reinvestment policy: {e}", from_exception=e)
@@ -126,8 +166,9 @@ def simulate(
     try:
         ReinvestmentEngine, ReinvestmentPolicy, Budget = _load_miner_app()
         saved = _policy_params(agent_id) or {}
-        staking = Decimal(staking_pct if staking_pct is not None else saved.get("staking_pct", "60"))
-        reserve = Decimal(reserve_pct if reserve_pct is not None else saved.get("reserve_pct", "40"))
+        effective = _effective_policy(saved)
+        staking = Decimal(staking_pct if staking_pct is not None else effective["staking_pct"])
+        reserve = Decimal(reserve_pct if reserve_pct is not None else effective["reserve_pct"])
         if staking + reserve != Decimal("100"):
             abort(ctx, f"staking-pct + reserve-pct must equal 100 (got {staking}+{reserve})")
             return
@@ -135,7 +176,7 @@ def simulate(
         policy = ReinvestmentPolicy(
             staking_pct=staking,
             capacity_reserve_pct=reserve,
-            min_reinvest_amount=Decimal(min_reinvest if min_reinvest is not None else saved.get("min_reinvest", "0.01")),
+            min_reinvest_amount=Decimal(min_reinvest if min_reinvest is not None else effective["min_reinvest"]),
             staking_contract=staking_contract,
             reserve_address=reserve_address,
         )
