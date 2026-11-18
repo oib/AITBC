@@ -906,3 +906,53 @@ class TestCoordinatorCredentialPropagation:
         assert result.exit_code == 0, result.output
         m.assert_called()
         assert client_cls.call_args.kwargs.get("api_key") == "explicit-key"
+
+
+class TestRegisterAgentAuth:
+    """#2209: `agent register` sent no credential — POST /v1/agents/register 401'd."""
+
+    def test_register_agent_sends_credentials(self):
+        import asyncio
+
+        from aitbc_cli.commands import agent_sdk
+
+        agent_data = {"agent_id": "a1", "agent_type": "provider", "capabilities": {}}
+        with (
+            patch.object(agent_sdk, "_load_agent_config", return_value=agent_data),
+            patch.object(agent_sdk, "get_config", return_value=MagicMock(api_key="cfg-key")),
+            patch.object(agent_sdk, "auth_client_kwargs", return_value={"api_key": "explicit-key"}) as m,
+            patch.object(agent_sdk, "AITBCHTTPClient") as client_cls,
+        ):
+            client_cls.return_value.post.return_value = {"message": "ok"}
+            result = asyncio.run(agent_sdk.register_agent("a1", "http://c", api_key="explicit-key"))
+        assert result["registered"] is True
+        m.assert_called_once_with("explicit-key", "cfg-key")
+        assert client_cls.call_args.kwargs["api_key"] == "explicit-key"
+
+
+class TestCoordinatorErrorMessages:
+    """#2209: coordinator failures must say unreachable vs auth vs wrong mount."""
+
+    def test_http_403_names_credential_and_mount_not_service(self):
+        import requests
+
+        from aitbc_cli.commands import agent_sdk
+
+        resp = MagicMock()
+        resp.status_code = 403
+        e = requests.exceptions.HTTPError("403 Client Error")
+        e.response = resp
+        msg = agent_sdk._coordinator_request_error(e, "https://hub.example/c")
+        assert "HTTP 403" in msg
+        assert "/c" in msg and "/agent" in msg
+        assert "not running" not in msg
+
+    def test_connection_error_says_unreachable(self):
+        import requests
+
+        from aitbc_cli.commands import agent_sdk
+
+        e = requests.exceptions.ConnectionError("connection refused")
+        msg = agent_sdk._coordinator_request_error(e, "http://x:8107")
+        assert "Cannot reach the agent coordinator" in msg
+        assert "127.0.0.1:8107" in msg

@@ -21,7 +21,7 @@ from aitbc.utils.validation import validate_address
 
 from ..config import get_config
 from ..utils.wallet_secret import wallet_password_options
-from ..utils import error, info, output, resolve_output_format, success
+from ..utils import info, output, resolve_output_format, success
 from ..utils.agent_signing import identity_attestation_fields, load_signing_wallet, signed_request_headers
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, auth_headers, get_logger
@@ -250,12 +250,17 @@ async def register_agent(
     agent_id: str,
     coordinator_url: str | None = None,
     signing: tuple[str, str] | None = None,
+    api_key: str | None = None,
 ) -> dict:
     """Register an agent with the coordinator.
 
     ``signing`` is ``(wallet_address, private_key)``; when given, the request
     carries the identity attestation the coordinator requires in enforce mode
-    (nonce + proof binding the agent to the wallet)."""
+    (nonce + proof binding the agent to the wallet). ``api_key`` is the
+    explicit ``--api-key`` value; the stored ``auth login`` credential and the
+    configured key are resolved by ``auth_client_kwargs`` (#2209 — the
+    register POST was the one coordinator call that sent no credential, so it
+    401'd against any auth-enforcing coordinator)."""
     coordinator_url = resolve_coordinator_url(coordinator_url)
 
     try:
@@ -265,7 +270,11 @@ async def register_agent(
 
         request_body = _build_register_request(agent_id, agent_data)
 
-        client = AITBCHTTPClient(base_url=coordinator_url, timeout=10)
+        client = AITBCHTTPClient(
+            base_url=coordinator_url,
+            timeout=10,
+            **auth_client_kwargs(api_key, get_config().api_key),
+        )
         if signing is not None:
             identity_address, private_key = signing
             chain_id = request_body.get("chain_id")
@@ -349,8 +358,60 @@ def _resolve_agent_id(ctx, agent_id: str | None) -> str:
     return ""
 
 
+def _http_status_code(exc: BaseException) -> int | None:
+    """First HTTP status found on ``exc`` or its cause/context chain, else None.
+
+    ``AITBCHTTPClient`` wraps ``requests`` errors in ``aitbc.exceptions.
+    NetworkError``; the status lives on the wrapped ``response`` (#2209).
+    """
+    seen: BaseException | None = exc
+    while seen is not None:
+        status = getattr(getattr(seen, "response", None), "status_code", None)
+        if status is not None:
+            return int(status)
+        seen = seen.__cause__ or seen.__context__
+    return None
+
+
+def _coordinator_unreachable_hint(coordinator_url: str) -> str:
+    """Shared tail for 'nothing answered' coordinator errors (#2209)."""
+    return (
+        "The service may be down, or the URL may not expose the agent surface — "
+        "agent-coordinator binds loopback (127.0.0.1:8107) on hub deployments and "
+        "is only reachable remotely through the nginx /agent mount "
+        "(agent_coordinator_url / HUB_AGENT_URL)."
+    )
+
+
+def _coordinator_request_error(e: Exception, coordinator_url: str) -> str:
+    """Honest error text for a failed agent-coordinator request (#2209).
+
+    Distinguishes 'nothing answered' (connection refused/timeout/DNS — the
+    service may genuinely be down or the mount may not exist) from 'something
+    answered with an HTTP status' — a 401/403 means auth or a wrong mount
+    (e.g. ``/c`` is the coordinator-api, not the agent-coordinator), not a
+    stopped service.
+    """
+    response = getattr(e, "response", None)
+    status = getattr(response, "status_code", None)
+    if status is None:
+        return (
+            f"Cannot reach the agent coordinator at {coordinator_url}: {e}. {_coordinator_unreachable_hint(coordinator_url)}"
+        )
+    if status in (401, 403):
+        return (
+            f"Agent coordinator at {coordinator_url} rejected the request "
+            f"(HTTP {status}): {e}. Check the credential (--api-key / "
+            "`aitbc auth login`) and that the URL mounts the agent surface — "
+            "/c is the coordinator-api mount, not the agent-coordinator "
+            "(use the /agent mount or a direct :8107 URL)."
+        )
+    return f"Agent coordinator at {coordinator_url} returned HTTP {status}: {e}"
+
+
 def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None) -> bool:
     """Probe the agent coordinator. If it is not reachable, print a helpful message and exit cleanly."""
+    base_url = resolve_coordinator_url(coordinator_url)
     try:
         # Not "/health": the coordinator serves it, but nginx mounts nothing at
         # /agent/health, so probing it reported every remote coordinator as down.
@@ -358,19 +419,32 @@ def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None
         # and a direct localhost coordinator.
         explicit = ctx.obj.get("api_key") if ctx is not None and ctx.obj else None
         client = AITBCHTTPClient(
-            base_url=resolve_coordinator_url(coordinator_url),
+            base_url=base_url,
             timeout=2,
             **auth_client_kwargs(explicit, get_config().api_key),
         )
         client.get("/v1/tasks/status")
         return True
-    except _OPS_ERRORS:
-        if ctx is not None:
-            abort(
-                ctx,
-                "The agent-coordinator service is not running. Start it with: `sudo systemctl start aitbc-agent-coordinator`",
+    except _OPS_ERRORS as e:
+        status = _http_status_code(e)
+        if status in (401, 403):
+            message = (
+                f"Agent coordinator at {base_url} answered but rejected the probe "
+                f"(HTTP {status}) — check the credential (--api-key / "
+                "`aitbc auth login`) and that the URL mounts the agent surface "
+                "(/agent, not /c)."
             )
-        info("The agent-coordinator service is not running. Start it with: `sudo systemctl start aitbc-agent-coordinator`")
+        elif status is not None:
+            message = f"Agent coordinator at {base_url} returned HTTP {status}: {e}"
+        else:
+            message = (
+                f"Cannot reach the agent coordinator at {base_url}: {e}. "
+                "Start it locally with `sudo systemctl start aitbc-agent-coordinator`, "
+                f"or point --coordinator-url at a reachable mount. {_coordinator_unreachable_hint(base_url)}"
+            )
+        if ctx is not None:
+            abort(ctx, message, from_exception=e)
+        info(message)
         return False
 
 
@@ -559,7 +633,7 @@ def export_agent_config(name: str, output_path: str) -> dict:
 try:
     import click
 
-    from ..utils import error, info, output, success
+    from ..utils import info, output, success
 
     @click.group(
         epilog="""Examples:
@@ -686,7 +760,14 @@ try:
             signing = load_signing_wallet(
                 ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
             )
-            result = asyncio.run(register_agent(agent_id, coordinator_url, signing=signing))
+            result = asyncio.run(
+                register_agent(
+                    agent_id,
+                    coordinator_url,
+                    signing=signing,
+                    api_key=ctx.obj.get("api_key") if ctx.obj else None,
+                )
+            )
 
             if "error" in result:
                 abort(ctx, f"Failed to register agent: {result['error']}")
@@ -1117,8 +1198,7 @@ try:
                 title="Discovered Agents",
             )
         except requests.exceptions.RequestException as e:
-            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
+            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
         except _OPS_ERRORS as e:
             abort(ctx, f"Error discovering agents: {e}", from_exception=e)
 
@@ -1163,8 +1243,7 @@ try:
             result = response.json()
             output(result, resolve_output_format(ctx, format), title=f"Inbox for {agent_id}")
         except requests.exceptions.RequestException as e:
-            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
+            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
         except _OPS_ERRORS as e:
             abort(ctx, f"Error getting inbox: {e}", from_exception=e)
 
@@ -1212,8 +1291,7 @@ try:
         except json.JSONDecodeError as e:
             abort(ctx, f"Invalid JSON in filter: {e}", from_exception=e)
         except requests.exceptions.RequestException as e:
-            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
+            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
         except _OPS_ERRORS as e:
             abort(ctx, f"Error subscribing to topic: {e}", from_exception=e)
 
@@ -1266,8 +1344,7 @@ try:
         except json.JSONDecodeError as e:
             abort(ctx, f"Invalid JSON in steps file: {e}", from_exception=e)
         except requests.exceptions.RequestException as e:
-            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
+            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
         except _OPS_ERRORS as e:
             abort(ctx, f"Error creating workflow: {e}", from_exception=e)
 
@@ -1310,8 +1387,7 @@ try:
         except json.JSONDecodeError as e:
             abort(ctx, f"Invalid JSON in input file: {e}", from_exception=e)
         except requests.exceptions.RequestException as e:
-            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
+            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
         except _OPS_ERRORS as e:
             abort(ctx, f"Error executing workflow: {e}", from_exception=e)
 
@@ -1341,8 +1417,7 @@ try:
             result = response.json()
             output(result, resolve_output_format(ctx, format), title=f"Workflow Status: {workflow_id}")
         except requests.exceptions.RequestException as e:
-            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
+            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
         except _OPS_ERRORS as e:
             abort(ctx, f"Error getting workflow status: {e}", from_exception=e)
 
@@ -1369,8 +1444,7 @@ try:
             result = response.json()
             output(result, resolve_output_format(ctx, format), title="Workflows")
         except requests.exceptions.RequestException as e:
-            error(f"Error connecting to agent coordinator at {coordinator_url}: {e}")
-            abort(ctx, "Make sure the agent-coordinator service is running", from_exception=e)
+            abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
         except _OPS_ERRORS as e:
             abort(ctx, f"Error listing workflows: {e}", from_exception=e)
 
