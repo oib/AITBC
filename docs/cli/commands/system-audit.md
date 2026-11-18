@@ -2,7 +2,7 @@
 
 # `aitbc system audit`
 
-Run a system audit and report compliance status.
+Run a system audit and report compliance status (static — no live checks).
 
 ## Usage
 

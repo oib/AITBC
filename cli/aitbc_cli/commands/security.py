@@ -27,10 +27,16 @@ def security():
 )
 @click.pass_context
 def audit(ctx):
-    """Run a security audit and report the score."""
+    """Run a security audit and report the score (simulated — static placeholder, no live scan)."""
     try:
-        result = {"security_score": "A+", "vulnerabilities": 0, "recommendations": []}
-        output(result, ctx.obj.get("output_format", "table"), title="Security Audit")
+        result = {
+            "security_score": "A+",
+            "vulnerabilities": 0,
+            "recommendations": [],
+            "status": "simulated",
+            "note": "Static placeholder — no live security backend is queried.",
+        }
+        output(result, ctx.obj.get("output_format", "table"), title="Security Audit (Simulated)")
     except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         abort(ctx, f"Error running security audit: {e}", from_exception=e)
 
@@ -44,10 +50,15 @@ def audit(ctx):
 )
 @click.pass_context
 def scan(ctx):
-    """Run a security scan and report issues."""
+    """Run a security scan and report issues (simulated — static placeholder, no live scan)."""
     try:
-        result = {"action": "security_scan", "status": "completed", "issues_found": 0}
-        output(result, ctx.obj.get("output_format", "table"), title="Security Scan")
+        result = {
+            "action": "security_scan",
+            "status": "simulated",
+            "issues_found": 0,
+            "note": "Static placeholder — no live security backend is queried.",
+        }
+        output(result, ctx.obj.get("output_format", "table"), title="Security Scan (Simulated)")
     except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         abort(ctx, f"Error running security scan: {e}", from_exception=e)
 
@@ -61,9 +72,13 @@ def scan(ctx):
 )
 @click.pass_context
 def patch(ctx):
-    """Apply all available security patches to the system."""
+    """Apply all available security patches to the system (simulated — no live patch backend)."""
     try:
-        result = {"action": "security_patch", "status": "completed"}
-        output(result, ctx.obj.get("output_format", "table"), title="Security Patch")
+        result = {
+            "action": "security_patch",
+            "status": "simulated",
+            "note": "Static placeholder — no patches were applied; no live patch backend exists.",
+        }
+        output(result, ctx.obj.get("output_format", "table"), title="Security Patch (Simulated)")
     except (OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
         abort(ctx, f"Error applying security patches: {e}", from_exception=e)

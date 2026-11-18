@@ -675,9 +675,9 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 ## `security`
 
-- [`aitbc security audit`](security-audit.md) — Run a security audit and report the score.
-- [`aitbc security patch`](security-patch.md) — Apply all available security patches to the system.
-- [`aitbc security scan`](security-scan.md) — Run a security scan and report issues.
+- [`aitbc security audit`](security-audit.md) — Run a security audit and report the score (simulated — static placeholder, no live scan).
+- [`aitbc security patch`](security-patch.md) — Apply all available security patches to the system (simulated — no live patch backend).
+- [`aitbc security scan`](security-scan.md) — Run a security scan and report issues (simulated — static placeholder, no live scan).
 
 ## `service`
 
@@ -713,8 +713,8 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 ## `system`
 
-- [`aitbc system architect`](system-architect.md) — Display a summary of the AITBC system architecture.
-- [`aitbc system audit`](system-audit.md) — Run a system audit and report compliance status.
+- [`aitbc system architect`](system-architect.md) — Display a summary of the AITBC system architecture (static — no live checks).
+- [`aitbc system audit`](system-audit.md) — Run a system audit and report compliance status (static — no live checks).
 - [`aitbc system cat`](system-cat.md) — Display the systemd unit file for a service.
 - [`aitbc system check`](system-check.md) — Check AITBC systemd service health and active wallet balance.
 - [`aitbc system config`](system-config.md) — Display AITBC system configuration from /etc/aitbc/blockchain.env.

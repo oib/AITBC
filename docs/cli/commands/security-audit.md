@@ -2,7 +2,7 @@
 
 # `aitbc security audit`
 
-Run a security audit and report the score.
+Run a security audit and report the score (simulated — static placeholder, no live scan).
 
 ## Usage
 

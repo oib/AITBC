@@ -8,6 +8,7 @@ import click
 import httpx
 
 from aitbc.exceptions import AITBCError
+from aitbc.utils import format_ait
 from ..core.analytics import ChainAnalytics
 from ..core.config import load_multichain_config
 from ..utils import output, resolve_output_format, success, warning
@@ -90,7 +91,14 @@ def summary(ctx, chain_id, hours, format):
                 {"Metric": "Active Alerts", "Value": summary["active_alerts"]},
                 {"Metric": "Avg TPS", "Value": f"{summary['statistics']['tps']['avg']:.2f}"},
                 {"Metric": "Avg Block Time", "Value": f"{summary['statistics']['block_time']['avg']:.2f}s"},
-                {"Metric": "Avg Gas Price", "Value": f"{summary['statistics']['gas_price']['avg']:,} wei"},
+                # gas_price is a raw chain integer — the chain's base unit is
+                # compute-units (1 AIT = 36,000,000), not wei (#2220, same
+                # units convention as #2197).
+                {"Metric": "Avg Gas Price", "Value": format_ait(summary["statistics"]["gas_price"]["avg"])},
+                # Provenance matters as much as the numbers: synthetic rows
+                # come from the local-RPC fallback, not a node metrics
+                # endpoint (#2219/#2220).
+                {"Metric": "Data Source", "Value": summary.get("data_source", "unknown")},
             ]
 
             output(summary_data, fmt, title=f"Chain Summary: {chain_id}")

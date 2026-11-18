@@ -94,6 +94,39 @@ class TestAnalyticsCommands:
         assert result.exit_code == 0, result.output
         mock_analytics.get_chain_performance_summary.assert_called_once_with("chain-1", 24)
 
+    @patch("aitbc_cli.commands.analytics.ChainAnalytics")
+    @patch("aitbc_cli.commands.analytics.load_multichain_config")
+    def test_analytics_summary_gas_price_shows_ait_not_wei(self, mock_load_config, mock_analytics_class, runner):
+        """#2220: gas_price is raw compute-units — an AIT dashboard must not
+        print 'wei' (the units convention from #2197)."""
+        mock_analytics = mock_analytics_class.return_value
+        mock_analytics.collect_all_metrics = AsyncMock(return_value={})
+        mock_analytics.get_chain_performance_summary.return_value = {
+            "chain_id": "chain-1",
+            "time_range_hours": 24,
+            "data_points": 100,
+            "health_score": 85.0,
+            "active_alerts": 0,
+            "statistics": {
+                "tps": {"avg": 10.5},
+                "block_time": {"avg": 2.0},
+                "gas_price": {"avg": 20_000_000_000},
+            },
+            "data_source": "synthetic",
+        }
+
+        from aitbc_cli.commands.analytics import analytics
+
+        result = runner.invoke(analytics, ["summary", "--chain-id", "chain-1"])
+
+        assert result.exit_code == 0, result.output
+        assert "wei" not in result.output
+        assert "AIT" in result.output
+        # Provenance is displayed so synthetic fallback rows are not
+        # mistaken for live node metrics (#2219/#2220).
+        assert "Data Source" in result.output
+        assert "synthetic" in result.output
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

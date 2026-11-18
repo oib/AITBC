@@ -9,6 +9,7 @@ import httpx
 from click import echo
 
 from aitbc.exceptions import AITBCError
+from aitbc.utils import format_ait
 from ..core.chain_manager import ChainManager, ChainNotFoundError
 from ..core.config import NodeConfig, load_multichain_config
 from ..models.chain import ChainType
@@ -267,7 +268,9 @@ def status(ctx, chain_id, detailed, node_urls, use_local):
                     {  # not-money: ratio, threshold or configuration default — not an amount of money
                         "Consensus": chain_info.consensus_algorithm.value,
                         "TPS": f"{chain_info.tps:.1f}",
-                        "Gas Price": f"{chain_info.gas_price / 1e9:.1f} gwei",
+                        # gas_price is raw compute-units — the chain has no
+                        # wei/gwei; display AIT per the units convention (#2220).
+                        "Gas Price": format_ait(chain_info.gas_price),
                         "Memory Usage": f"{chain_info.memory_usage_mb:.1f}MB",
                     }
                 )
@@ -384,7 +387,9 @@ def info(ctx, chain_id, detailed, metrics, use_local, node_urls):
                 "TPS": f"{chain_info.tps:.1f}",
                 "Avg Block Time": f"{chain_info.avg_block_time:.1f}s",
                 "Avg Gas Used": f"{chain_info.avg_gas_used:,}",
-                "Gas Price": f"{chain_info.gas_price / 1e9:.1f} gwei",
+                # gas_price is raw compute-units — the chain has no
+                # wei/gwei; display AIT per the units convention (#2220).
+                "Gas Price": format_ait(chain_info.gas_price),
                 "Growth Rate": f"{chain_info.growth_rate_mb_per_day:.1f}MB/day",
                 "Memory Usage": f"{chain_info.memory_usage_mb:.1f}MB",
                 "Disk Usage": f"{chain_info.disk_usage_mb:.1f}MB",
@@ -758,7 +763,7 @@ def monitor(ctx, chain_id, realtime, export, interval):
                         ["Block Height", str(chain_info.block_height)],
                         ["TPS", f"{chain_info.tps:.1f}"],
                         ["Active Nodes", str(chain_info.active_nodes)],
-                        ["Gas Price", f"{chain_info.gas_price / 1e9:.1f} gwei"],
+                        ["Gas Price", format_ait(chain_info.gas_price)],
                         ["Memory Usage", f"{chain_info.memory_usage_mb:.1f}MB"],
                         ["Disk Usage", f"{chain_info.disk_usage_mb:.1f}MB"],
                     ]
@@ -790,7 +795,7 @@ def monitor(ctx, chain_id, realtime, export, interval):
                 {"Metric": "Block Height", "Value": str(chain_info.block_height)},
                 {"Metric": "TPS", "Value": f"{chain_info.tps:.1f}"},
                 {"Metric": "Active Nodes", "Value": str(chain_info.active_nodes)},
-                {"Metric": "Gas Price", "Value": f"{chain_info.gas_price / 1e9:.1f} gwei"},
+                {"Metric": "Gas Price", "Value": format_ait(chain_info.gas_price)},
                 {"Metric": "Memory Usage", "Value": f"{chain_info.memory_usage_mb:.1f}MB"},
                 {"Metric": "Disk Usage", "Value": f"{chain_info.disk_usage_mb:.1f}MB"},
             ]

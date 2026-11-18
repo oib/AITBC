@@ -286,7 +286,7 @@ def list_offers(
         # Format output for market offers (blockchain data)
         blockchain_data: list[dict[str, Any]] = []
         for tx in transactions:
-            row = _chain_offer_row(tx, status, provider, mine, my_address, my_node_id)
+            row = _chain_offer_row(tx, status, provider, service_type, mine, my_address, my_node_id)
             if row is not None:
                 blockchain_data.append(row)
 
@@ -519,8 +519,15 @@ def _tx_payload(tx: dict[str, Any]) -> dict[str, Any] | None:
     return None
 
 
-def _chain_offer_row(tx, status, provider, mine, my_address, my_node_id) -> dict[str, Any] | None:
-    """Build one output row from a chain tx, or None when filtered out."""
+def _chain_offer_row(tx, status, provider, service_type, mine, my_address, my_node_id) -> dict[str, Any] | None:
+    """Build one output row from a chain tx, or None when filtered out.
+
+    ``service_type`` filters on the ``software_offer`` payload field — the
+    same field the "Type" column renders — matching the market-API path's
+    ``--service-type`` semantics (#2220). Comparison is case-insensitive
+    because payloads store the lowercase choice value while users may type
+    either case; a row with no service_type cannot satisfy the filter.
+    """
     if not isinstance(tx, dict):
         return None
     payload = _tx_payload(tx)
@@ -533,6 +540,8 @@ def _chain_offer_row(tx, status, provider, mine, my_address, my_node_id) -> dict
     if status and payload.get("status") != status:
         return None
     if provider and payload.get("provider_address") != provider:
+        return None
+    if service_type and str(payload.get("service_type") or "").lower() != service_type.lower():
         return None
     if mine:
         if payload.get("provider_address") != my_address and payload.get("provider_node_id") != my_node_id:
