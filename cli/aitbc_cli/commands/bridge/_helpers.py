@@ -22,7 +22,7 @@ from eth_keys.exceptions import BadSignature
 from eth_utils.exceptions import ValidationError as EthValidationError
 
 from ...utils import info
-from ...utils.error_handling import CLIError
+from ...utils.error_handling import CLIError, abort
 
 # Expected failure surface for the bridge command handlers: filesystem/JSON,
 # subprocess, data-shape, runtime, httpx transport/HTTP errors and both error
@@ -152,6 +152,41 @@ def _systemctl(action: str) -> tuple[bool, str]:
         return result.returncode == 0, (result.stdout + result.stderr).strip()
     except _OPS_ERRORS as e:
         return False, str(e)
+
+
+def _response_error_detail(exc: BaseException) -> str | None:
+    """Best-effort server error detail from an httpx response on ``exc``.
+
+    ``BridgeClient`` lets ``httpx.HTTPStatusError`` propagate; its ``str()``
+    is only the status line, while the node's JSON body (``detail`` —
+    string or FastAPI 422 list — or ``message``/``error``) carries the
+    actual validation failure (#2214).
+    """
+    response = getattr(exc, "response", None)
+    if response is None:
+        return None
+    try:
+        body = response.json()
+    except (AttributeError, TypeError, ValueError):
+        return None
+    if not isinstance(body, dict):
+        return None
+    detail = body.get("detail")
+    if detail is None:
+        detail = body.get("message") or body.get("error")
+    if isinstance(detail, list):
+        parts = [str(item.get("msg") or item) if isinstance(item, dict) else str(item) for item in detail]
+        return "; ".join(part for part in parts if part) or None
+    if isinstance(detail, str) and detail:
+        return detail
+    return None
+
+
+def _abort_ops(ctx: click.Context, prefix: str, exc: Exception) -> None:
+    """Abort with ``prefix: <error>`` plus the server's detail when one exists."""
+    detail = _response_error_detail(exc)
+    suffix = f" — server: {detail}" if detail else ""
+    abort(ctx, f"{prefix}: {exc}{suffix}", from_exception=exc)
 
 
 def _get_bridge_client(rpc_url: str) -> BridgeClient:
