@@ -33,9 +33,10 @@ def mock_credentials_file(tmp_path):
     original_path = ic_module.CREDENTIALS_PATH
     ic_module.CREDENTIALS_PATH = str(tmp_path / "island_credentials.json")
 
-    # Write credentials to temp file
+    # Write credentials to temp file (mode 0600 — loader rejects looser modes)
     with open(ic_module.CREDENTIALS_PATH, "w") as f:
         json.dump(credentials, f)
+    os.chmod(ic_module.CREDENTIALS_PATH, 0o600)
 
     yield credentials
 
@@ -122,6 +123,174 @@ def test_exchange_sell_invalid_currency(mock_credentials_file, runner):
     result = runner.invoke(exchange_island, ["sell", "--ait-amount", "100", "--quote-currency", "INVALID"], obj={})
 
     assert result.exit_code != 0
+
+
+# --- #2204 regression tests: simulated markers, fixed-decimal prices,
+# --- hollow-credentials rejection ---
+
+
+def _live_book_rows():
+    """Live-like EXCHANGE rows with sub-1e-4 float prices (the hub case)."""
+    return [
+        {
+            "side": "buy",
+            "max_price": 1.26e-05,
+            "amount": 500.0,
+            "order_id": "b1",
+            "pair": "AIT/ETH",
+            "status": "open",
+            "user_id": "0xu",
+            "created_at": "2026-01-01T00:00:00",
+        },
+        {
+            "side": "sell",
+            "min_price": 1.3e-05,
+            "amount": 300.0,
+            "order_id": "s1",
+            "pair": "AIT/ETH",
+            "status": "open",
+            "user_id": "0xu",
+            "created_at": "2026-01-01T00:00:00",
+        },
+    ]
+
+
+class _FakeHTTPClient:
+    """AITBCHTTPClient stand-in returning canned /transactions rows."""
+
+    rows = _live_book_rows()
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def get_json(self, *args, **kwargs):
+        return list(_FakeHTTPClient.rows)
+
+
+class _DeadHTTPClient:
+    """AITBCHTTPClient stand-in that always fails like an unreachable RPC."""
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def get_json(self, *args, **kwargs):
+        from aitbc_cli.utils.http_client import NetworkError
+
+        raise NetworkError("connection refused")
+
+
+def test_exchange_rates_marks_simulated_on_network_error(mock_credentials_file, runner):
+    """rates must label simulated fallback — silent fake data was #2204."""
+    from aitbc_cli.commands.exchange_island import exchange_island
+
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient", _DeadHTTPClient):
+        result = runner.invoke(exchange_island, ["rates"], obj={"output_format": "table"})
+
+    assert result.exit_code == 0
+    assert "SIMULATED" in result.output
+    assert "(Simulated)" in result.output
+
+
+def test_exchange_orderbook_marks_simulated_on_network_error(mock_credentials_file, runner):
+    from aitbc_cli.commands.exchange_island import exchange_island
+
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient", _DeadHTTPClient):
+        result = runner.invoke(exchange_island, ["orderbook", "--pair", "AIT/ETH"], obj={"output_format": "table"})
+
+    assert result.exit_code == 0
+    assert "SIMULATED" in result.output
+    assert "(Simulated)" in result.output
+
+
+def test_exchange_orders_marks_simulated_on_network_error(mock_credentials_file, runner):
+    from aitbc_cli.commands.exchange_island import exchange_island
+
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient", _DeadHTTPClient):
+        result = runner.invoke(exchange_island, ["orders"], obj={"output_format": "table"})
+
+    assert result.exit_code == 0
+    assert "SIMULATED" in result.output
+    assert "(Simulated)" in result.output
+
+
+def test_exchange_rates_live_output_has_no_simulated_marker(mock_credentials_file, runner):
+    from aitbc_cli.commands.exchange_island import exchange_island
+
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient", _FakeHTTPClient):
+        result = runner.invoke(exchange_island, ["rates"], obj={"output_format": "table"})
+
+    assert result.exit_code == 0
+    assert "Simulated" not in result.output
+
+
+def test_exchange_rates_table_uses_fixed_decimal_not_scientific(mock_credentials_file, runner):
+    """tabulate must not re-parse pre-formatted price strings as floats (#2204)."""
+    from aitbc_cli.commands.exchange_island import exchange_island
+
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient", _FakeHTTPClient):
+        result = runner.invoke(exchange_island, ["rates"], obj={"output_format": "table"})
+
+    assert result.exit_code == 0
+    assert "0.00001260" in result.output
+    assert "e-05" not in result.output
+
+
+def test_exchange_orderbook_table_uses_fixed_decimal_not_scientific(mock_credentials_file, runner):
+    from aitbc_cli.commands.exchange_island import exchange_island
+
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient", _FakeHTTPClient):
+        result = runner.invoke(exchange_island, ["orderbook", "--pair", "AIT/ETH"], obj={"output_format": "table"})
+
+    assert result.exit_code == 0
+    assert "0.00001260" in result.output
+    assert "e-05" not in result.output
+
+
+def test_load_island_credentials_rejects_null_required_fields(tmp_path):
+    """Hollow credentials (null island_id etc.) must fail at load time (#2204)."""
+    import aitbc_cli.utils.island_credentials as ic_module
+    from aitbc_cli.utils.island_credentials import load_island_credentials
+
+    hollow = {
+        "island_id": None,
+        "island_name": None,
+        "island_chain_id": None,
+        "credentials": {"rpc_endpoint": "http://localhost:8202/rpc"},
+    }
+    cred_path = tmp_path / "island_credentials.json"
+    cred_path.write_text(json.dumps(hollow))
+    cred_path.chmod(0o600)
+
+    original = ic_module.CREDENTIALS_PATH
+    ic_module.CREDENTIALS_PATH = str(cred_path)
+    try:
+        with pytest.raises(ValueError, match="island_id"):
+            load_island_credentials()
+    finally:
+        ic_module.CREDENTIALS_PATH = original
+
+
+def test_load_island_credentials_rejects_empty_string_fields(tmp_path):
+    import aitbc_cli.utils.island_credentials as ic_module
+    from aitbc_cli.utils.island_credentials import load_island_credentials
+
+    hollow = {
+        "island_id": "",
+        "island_name": "n",
+        "island_chain_id": "c",
+        "credentials": {},
+    }
+    cred_path = tmp_path / "island_credentials.json"
+    cred_path.write_text(json.dumps(hollow))
+    cred_path.chmod(0o600)
+
+    original = ic_module.CREDENTIALS_PATH
+    ic_module.CREDENTIALS_PATH = str(cred_path)
+    try:
+        with pytest.raises(ValueError, match="island_id"):
+            load_island_credentials()
+    finally:
+        ic_module.CREDENTIALS_PATH = original
 
 
 if __name__ == "__main__":

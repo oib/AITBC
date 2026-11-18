@@ -54,7 +54,7 @@ def _render_csv(rows: list[dict[str, Any]], headers: list[str]) -> str:
     return buf.getvalue().rstrip("\n")
 
 
-def _render(message: Any, format: str) -> str:
+def _render(message: Any, format: str, disable_numparse: bool = False) -> str:
     """Serialize structured data in the requested format.
 
     Until 2026-09-15 this function had a single branch for every format: the
@@ -97,7 +97,7 @@ def _render(message: Any, format: str) -> str:
         return json.dumps(message, indent=2, default=str)
 
     body = [[row.get(h, "") for h in headers] for row in rows]
-    return tabulate(body, headers=headers, tablefmt="grid")
+    return tabulate(body, headers=headers, tablefmt="grid", disable_numparse=disable_numparse)
 
 
 def _status_stderr() -> bool:
@@ -125,10 +125,17 @@ def _status_stderr() -> bool:
     return False
 
 
-def output(message, format=None, title=None, **kwargs):
-    """Print a regular output message (handles strings and structured data)"""
+def output(message, format=None, title=None, *, disable_numparse: bool = False, **kwargs):
+    """Print a regular output message (handles strings and structured data)
+
+    ``disable_numparse`` keeps numeric-looking strings verbatim in table
+    output — tabulate otherwise re-parses them as floats and small decimals
+    render in scientific notation (e.g. ``1.26e-05`` instead of
+    ``0.00001260``). Use it for pre-formatted fixed-decimal price/amount
+    columns (#2204).
+    """
     if not isinstance(message, str):
-        message = _render(message, format or "table")
+        message = _render(message, format or "table", disable_numparse=disable_numparse)
     # JSON/YAML/CSV output is meant to be machine-readable; do not wrap it in a title.
     if title and format not in ("json", "yaml", "csv"):
         echo(f"\n{title}")
