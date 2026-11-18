@@ -161,6 +161,12 @@ DEFAULT_SOFTWARE_OFFERS = [
     },
 ]
 OFFER_PUBLISH_INTERVAL = 300
+# Minimum seconds between pool-hub re-register attempts after a heartbeat 401
+# (#2240): a miner that booted while the pool hub was down must re-register
+# once the hub returns, without hammering /v1/miners/register every heartbeat.
+POOL_HUB_REREGISTER_INTERVAL = 300.0
+# time.time() deadline before which another re-register is not attempted.
+_pool_hub_reregister_not_before = 0.0
 # Default offers whose backing service must answer /health before the offer is
 # published (#2099/#1549): the units are not deployed on every shop node, and
 # an active offer with no backend sells a job that can never run.
@@ -572,22 +578,36 @@ def register_pool_hub():
         return False
 
 
-def send_pool_hub_heartbeat():
-    """Send heartbeat to the pool hub."""
+def send_pool_hub_heartbeat() -> str:
+    """Send heartbeat to the pool hub.
+
+    Returns ``"ok"`` on success, ``"unauthorized"`` on HTTP 401 (the pool hub
+    does not know this miner's api key — it was never registered, e.g. the
+    hub was down at miner boot, #2240), or ``"error"`` for anything else.
+    Uses ``requests`` directly — like ``poll_for_jobs`` — so the status code
+    is inspectable; ``AITBCHTTPClient`` wraps every failure in ``NetworkError``
+    and loses it.
+    """
     heartbeat_data = build_pool_hub_heartbeat_data()
     headers = {
         "Authorization": f"Bearer {AUTH_TOKEN}",
         "Content-Type": "application/json",
     }
     try:
-        client = AITBCHTTPClient(base_url=POOL_HUB_URL, headers=headers, timeout=5)
-        response = client.post("/v1/miners/heartbeat", json=heartbeat_data)
-        if response:
-            logger.info("Pool hub heartbeat sent")
-        else:
-            logger.error("Pool hub heartbeat failed")
-    except NetworkError as e:
+        response = requests.post(
+            f"{POOL_HUB_URL.rstrip('/')}/v1/miners/heartbeat", json=heartbeat_data, headers=headers, timeout=5
+        )
+    except _OPS_ERRORS as e:
         logger.error("Pool hub heartbeat error: %s", e)
+        return "error"
+    if response.status_code == 401:
+        logger.error("Pool hub heartbeat rejected (401): miner is not registered with the pool hub")
+        return "unauthorized"
+    if response.ok:
+        logger.info("Pool hub heartbeat sent")
+        return "ok"
+    logger.error("Pool hub heartbeat failed: HTTP %s", response.status_code)
+    return "error"
 
 
 def build_tee_quote(job, output=""):
@@ -861,12 +881,20 @@ async def _periodic_heartbeats(
 ) -> tuple[float, float, float]:
     """Fire whichever heartbeat/publish interval has elapsed; returns the
     updated last-fired timestamps."""
+    global _pool_hub_reregister_not_before
     if current_time - last_heartbeat >= HEARTBEAT_INTERVAL:
         send_heartbeat()
         last_heartbeat = current_time
     if current_time - last_pool_hub_heartbeat >= HEARTBEAT_INTERVAL:
-        send_pool_hub_heartbeat()
+        pool_hub_status = send_pool_hub_heartbeat()
         last_pool_hub_heartbeat = current_time
+        # #2240: a 401 means the pool hub has no row for this miner's api key
+        # (registration failed at boot, or the hub lost its state). Re-register
+        # — throttled by POOL_HUB_REREGISTER_INTERVAL — so the miner becomes
+        # visible again without a manual restart.
+        if pool_hub_status == "unauthorized" and current_time >= _pool_hub_reregister_not_before:
+            _pool_hub_reregister_not_before = current_time + POOL_HUB_REREGISTER_INTERVAL
+            await asyncio.to_thread(register_pool_hub)
     if current_time - last_offer_publish >= OFFER_PUBLISH_INTERVAL:
         await offer_publish_cycle(models)
         last_offer_publish = current_time

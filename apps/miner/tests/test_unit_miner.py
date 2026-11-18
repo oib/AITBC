@@ -268,6 +268,73 @@ def test_build_pool_hub_heartbeat_data_reports_current_jobs(mock_latency, mock_g
 
 
 @pytest.mark.unit
+@patch("production_miner.get_gpu_info", return_value=None)
+@patch("production_miner.measure_coordinator_latency", return_value=5.0)
+@patch("production_miner.requests.post")
+def test_send_pool_hub_heartbeat_ok(mock_post, mock_latency, mock_gpu):
+    """send_pool_hub_heartbeat returns 'ok' on a 2xx pool-hub response."""
+    mock_post.return_value = Mock(status_code=200, ok=True)
+    assert production_miner.send_pool_hub_heartbeat() == "ok"
+
+
+@pytest.mark.unit
+@patch("production_miner.get_gpu_info", return_value=None)
+@patch("production_miner.measure_coordinator_latency", return_value=5.0)
+@patch("production_miner.requests.post")
+def test_send_pool_hub_heartbeat_unauthorized_on_401(mock_post, mock_latency, mock_gpu):
+    """A pool-hub 401 (miner never registered) maps to 'unauthorized' (#2240)."""
+    mock_post.return_value = Mock(status_code=401, ok=False)
+    assert production_miner.send_pool_hub_heartbeat() == "unauthorized"
+
+
+@pytest.mark.unit
+@patch("production_miner.get_gpu_info", return_value=None)
+@patch("production_miner.measure_coordinator_latency", return_value=5.0)
+@patch("production_miner.requests.post")
+def test_send_pool_hub_heartbeat_error_on_transport_failure(mock_post, mock_latency, mock_gpu):
+    """A transport failure maps to 'error', not 'unauthorized'."""
+    mock_post.side_effect = production_miner.requests.exceptions.ConnectionError("refused")
+    assert production_miner.send_pool_hub_heartbeat() == "error"
+
+
+@pytest.mark.unit
+async def test_periodic_heartbeats_reregisters_pool_hub_on_401(monkeypatch):
+    """Heartbeat 401 triggers a throttled register_pool_hub retry (#2240)."""
+    monkeypatch.setattr(production_miner, "_pool_hub_reregister_not_before", 0.0)
+    monkeypatch.setattr(production_miner, "send_heartbeat", lambda: None)
+    monkeypatch.setattr(production_miner, "send_pool_hub_heartbeat", lambda: "unauthorized")
+    register = Mock(return_value=True)
+    monkeypatch.setattr(production_miner, "register_pool_hub", register)
+
+    # current_time=1000 -> both heartbeat intervals elapsed; offer publish is
+    # not due (last_offer_publish == current_time).
+    await production_miner._periodic_heartbeats(1000.0, 0.0, 0.0, 1000.0, [])
+    register.assert_called_once_with()
+
+    # A second 401 inside the cooldown window must not re-register again.
+    await production_miner._periodic_heartbeats(1010.0, 999.0, 999.0, 1000.0, [])
+    register.assert_called_once_with()
+
+    # After the cooldown expires the next 401 re-registers again.
+    await production_miner._periodic_heartbeats(
+        1000.0 + production_miner.POOL_HUB_REREGISTER_INTERVAL + 1, 0.0, 0.0, 2000.0, []
+    )
+    assert register.call_count == 2
+
+
+@pytest.mark.unit
+async def test_periodic_heartbeats_skips_reregister_on_ok(monkeypatch):
+    """A healthy heartbeat does not attempt re-registration."""
+    monkeypatch.setattr(production_miner, "send_heartbeat", lambda: None)
+    monkeypatch.setattr(production_miner, "send_pool_hub_heartbeat", lambda: "ok")
+    register = Mock(return_value=True)
+    monkeypatch.setattr(production_miner, "register_pool_hub", register)
+
+    await production_miner._periodic_heartbeats(1000.0, 0.0, 0.0, 1000.0, [])
+    register.assert_not_called()
+
+
+@pytest.mark.unit
 def test_download_media_decodes_data_uri(tmp_path):
     """_download_media decodes a base64 data: URI and writes it to disk."""
     import base64
