@@ -403,6 +403,37 @@ class TestImports:
             assert hasattr(aitbc_agent, name), f"Missing export: {name}"
 
 
+class TestAgentAddress:
+    """#2223: agent identities must mint valid EVM addresses.
+
+    ``register-identity`` validates with ``aitbc.utils.validation.
+    validate_address`` — 0x + 40 hex with a valid EIP-55 checksum. The old
+    ``0x{uuid4().hex[:40]}`` minted only 32 hex chars and was always rejected.
+    """
+
+    def test_generate_agent_address_is_checksummed_evm(self):
+        from aitbc.utils.validation import validate_address
+        from aitbc_agent.agent import generate_agent_address
+
+        for _ in range(5):
+            addr = generate_agent_address()
+            assert addr.startswith("0x") and len(addr) == 42
+            assert validate_address(addr)
+
+    def test_all_factories_mint_valid_addresses(self):
+        from aitbc.utils.validation import validate_address
+
+        caps = {"compute_type": "inference"}
+        addresses = [
+            Agent.create(name="a", agent_type="general", capabilities=caps).identity.address,
+            ComputeProvider.create_provider(name="p", capabilities=caps, pricing_model={}).identity.address,
+            ComputeConsumer.create(name="c", agent_type="consumer", capabilities=caps).identity.address,
+        ]
+        assert len({a.lower() for a in addresses}) == 3  # unique per agent
+        for addr in addresses:
+            assert validate_address(addr), addr
+
+
 class TestAgentMessaging:
     """SDK message send uses the Agent Coordinator /api/v1/agent/messages/send route."""
 

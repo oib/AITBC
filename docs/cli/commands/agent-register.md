@@ -14,7 +14,7 @@ aitbc agent register [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--agent-id` | text | — | yes | The Agent id. |
+| `--agent-id` | text | — | yes | Agent id, name, or config file name (see `aitbc agent list`) |
 | `--coordinator-url` | text | — | no | Coordinator URL (default: config agent_coordinator_url) |
 | `--wallet` | text | — | no | Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); required in enforce mode |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
