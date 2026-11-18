@@ -57,11 +57,34 @@ class _AttestMixin(_PoaBaseMixin):
             return any(canonical_address(addr) != proposer_c for addr in self._multi_validator.validators)
         return False
 
+    def _cap_wait_when_certified(self, timeout: float, effective_min: int, certificate_commits: int, height: int) -> float:
+        """Shorten the remote attestation wait once the PBFT certificate covers the minimum (#2232).
+
+        Attestations are redundant for validity when the commit certificate
+        already meets the minimum; waiting the full timeout only delays the
+        next block. Unset flag, ``effective_min == 0`` or a short certificate
+        leave ``timeout`` untouched.
+        """
+        bound = getattr(settings, "attestation_wait_when_certificate_covers_seconds", None)
+        if bound is None or effective_min <= 0 or certificate_commits < effective_min:
+            return timeout
+        capped = min(timeout, float(bound))
+        if capped < timeout:
+            self._logger.info(
+                "Block %s: PBFT certificate has %d commit(s) >= min %d; bounding attestation wait to %.2fs (#2232)",
+                height,
+                certificate_commits,
+                effective_min,
+                capped,
+            )
+        return capped
+
     async def _collect_attestations(
         self,
         block: Block,
         transactions: list[dict[str, Any]] | None = None,
         round_number: int | None = None,
+        certificate_commits: int = 0,
     ) -> list[dict[str, str]]:
         """Collect canonical header signatures from local and remote validators.
 
@@ -76,6 +99,11 @@ class _AttestMixin(_PoaBaseMixin):
         payload unconditionally (round_lock does not gate it), so local
         attestations must bind it exactly like remote ones or every importer
         rejects them.
+
+        ``certificate_commits`` is the number of PBFT commits already held for
+        this block; when it covers the effective minimum and
+        ``attestation_wait_when_certificate_covers_seconds`` is set, the remote
+        wait is capped (#2232).
         """
         attestations: list[dict[str, str]] = []
         seen: set[str] = set()
@@ -97,6 +125,7 @@ class _AttestMixin(_PoaBaseMixin):
                 # Give slow validators more time when more responses are needed.
                 base_timeout = getattr(settings, "multi_validator_attestation_timeout_seconds", 1.0)
                 timeout = max(float(base_timeout), 0.5 * min_remote + float(base_timeout))
+                timeout = self._cap_wait_when_certified(timeout, effective_min, certificate_commits, block.height)
                 try:
                     remote = await self._remote_attestation.collect_attestations(
                         block,
