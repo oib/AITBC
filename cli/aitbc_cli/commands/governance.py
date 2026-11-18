@@ -28,7 +28,7 @@ from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils import output, resolve_output_format
 from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError, http_error_detail, http_response_status
 from ..utils.wallet_secret import wallet_password_options
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
@@ -70,6 +70,26 @@ def _get_governance_account(http_client: AITBCHTTPClient, address: str, chain_id
     except Exception as e:  # noqa: BLE001 - account lookup failure degrades to empty record
         logger.debug("governance account lookup failed for %s: %s", address, type(e).__name__)
         return {}
+
+
+def _abort_sealed_proposal_fetch(ctx: click.Context, proposal_id: str, exc: NetworkError) -> None:
+    """Abort honestly for a failed sealed-proposal fetch (#2213).
+
+    ``AITBCHTTPClient`` wraps transport failures and HTTP error statuses in
+    the same ``NetworkError``. When the chain RPC actually answered — any
+    status is reachable through the wrapped ``requests.HTTPError`` — report
+    the status and the body's detail (e.g. the definitive 404 ``No sealed
+    GOVERNANCE_PROPOSE`` for a service-recorded-but-unsealed proposal)
+    instead of mislabeling it a network outage. ``abort`` always raises.
+    """
+    status = http_response_status(exc)
+    if status is not None:
+        detail = http_error_detail(exc)
+        message = f"cannot fetch sealed proposal {proposal_id}: HTTP {status}"
+        if detail:
+            message = f"{message} — {detail}"
+        abort(ctx, message, from_exception=exc)
+    abort(ctx, f"Network error: {exc}", from_exception=exc)
 
 
 def _get_sealed_execution_payload(http_client: AITBCHTTPClient, proposal_id: str, chain_id: str) -> dict:
@@ -732,7 +752,7 @@ def proposal_show(ctx, proposal_id: str, format: str):
         result = client.get(f"/rpc/governance/sealed-proposal/{proposal_id}", params={"chain_id": chain_id})
         output(result, resolve_output_format(ctx, format))
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        _abort_sealed_proposal_fetch(ctx, proposal_id, e)
     except _OPS_ERRORS as e:
         abort(ctx, f"Error getting sealed proposal: {e}", from_exception=e)
 
