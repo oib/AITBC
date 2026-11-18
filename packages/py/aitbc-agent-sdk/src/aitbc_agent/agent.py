@@ -6,6 +6,7 @@ from decimal import Decimal
 import asyncio
 import json
 import os
+import secrets
 import uuid
 from collections.abc import Coroutine
 from dataclasses import dataclass
@@ -27,6 +28,26 @@ from aitbc_agent.contract_integration import (
 )
 
 logger = get_logger(__name__)
+
+
+def generate_agent_address() -> str:
+    """Mint a fresh agent address: 20 random bytes as an EIP-55 ``0x`` address.
+
+    On-chain identity registration (``agent register-identity`` →
+    ``aitbc.utils.validation.validate_address``) accepts only ``0x`` + 40 hex
+    with a valid EIP-55 checksum. The previous ``0x{uuid4().hex[:40]}``
+    produced just 32 hex chars and no checksum, so every minted address was
+    rejected (#2223). The address is a unique identifier for the agent — it
+    is not derived from the RSA signing key, which serves message envelopes,
+    not EVM transactions. When ``eth_utils`` is unavailable the lowercase
+    form is returned; the validators' own no-eth_utils fallback accepts it.
+    """
+    raw = "0x" + secrets.token_hex(20)
+    try:
+        from eth_utils import to_checksum_address
+    except ImportError:
+        return raw
+    return to_checksum_address(raw)
 
 
 @dataclass
@@ -171,7 +192,7 @@ class Agent:
 
         # Generate agent identity
         agent_id = f"agent_{uuid.uuid4().hex[:8]}"
-        address = f"0x{uuid.uuid4().hex[:40]}"
+        address = generate_agent_address()
 
         identity = AgentIdentity(
             id=agent_id,
