@@ -51,6 +51,8 @@ class TestSystemArchitectCommands:
 
         assert result.exit_code == 0, result.output
         assert "System Architecture Audit" in result.output
+        # #2220: static placeholder must say so — the old ✅ lines read as verified state.
+        assert "static" in result.output.lower()
 
     def test_system_architect_paths_command(self, runner):
         """``system-architect paths`` outputs the architecture paths."""

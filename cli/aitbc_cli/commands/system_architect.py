@@ -14,12 +14,13 @@ def system_architect():
 
 @system_architect.command()
 def audit():
-    """Audit system architecture compliance"""
+    """Audit system architecture compliance (static — no live checks)."""
     click.echo("=== AITBC System Architecture Audit ===")
-    click.echo("✅ Data: /var/lib/aitbc/data")
-    click.echo("✅ Config: /etc/aitbc")
-    click.echo("✅ Logs: /var/log/aitbc")
-    click.echo("✅ Repository: Clean")
+    click.echo("NOTE: static placeholder output — nothing was verified (#2220)")
+    click.echo("Data: /var/lib/aitbc/data")
+    click.echo("Config: /etc/aitbc")
+    click.echo("Logs: /var/log/aitbc")
+    click.echo("Repository: not checked (static)")
 
 
 @system_architect.command()

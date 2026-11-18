@@ -2,7 +2,7 @@
 
 # `aitbc security scan`
 
-Run a security scan and report issues.
+Run a security scan and report issues (simulated — static placeholder, no live scan).
 
 ## Usage
 

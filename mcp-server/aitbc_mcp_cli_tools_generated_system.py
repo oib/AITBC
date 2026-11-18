@@ -31,7 +31,7 @@ def aitbc_system_architect(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Display a summary of the AITBC system architecture."""
+    """Display a summary of the AITBC system architecture (static — no live checks)."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -51,7 +51,7 @@ def aitbc_system_audit(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Run a system audit and report compliance status."""
+    """Run a system audit and report compliance status (static — no live checks)."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
