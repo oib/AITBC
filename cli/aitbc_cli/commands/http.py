@@ -25,6 +25,7 @@ from ..utils.http_client import (
     get_logger,
     http_error_detail,
     http_response_status,
+    origin_base_url,
 )
 from ..utils.output import resolve_output_format
 
@@ -251,6 +252,8 @@ def _auth_client(
 
   aitbc http call blockchain-rpc height
 
+  aitbc http call blockchain-rpc /health    # leading "/" escapes the /rpc mount to the service root
+
   aitbc http call market v1/offers --params '{"limit": "5"}'
 
   aitbc http call wallet v1/wallets --method POST --body '{"wallet_id": "genesis"}'""",
@@ -318,6 +321,14 @@ def call_http(
         base_url = _SERVICE_BASES.get(service)
         if not base_url:
             raise click.ClickException(f"Unknown service: {service}. Use --url or one of: {', '.join(sorted(_SERVICE_BASES))}")
+
+    # #2217: alias bases may carry a mount prefix (blockchain-rpc is mounted
+    # at /rpc so bare RPC paths like `height` resolve under it). A PATH with a
+    # leading "/" instead names a path on the service *origin*, letting
+    # `aitbc http call blockchain-rpc /health` reach the root /health endpoint
+    # instead of the nonexistent /rpc/health. --url bases are used verbatim.
+    if not url and path.startswith("/"):
+        base_url = origin_base_url(base_url)
 
     query_params = _json_option(params, "params")
     request_body = _json_option(body, "body")
