@@ -295,8 +295,11 @@ def list_offers(
             return
 
         if any_answered:
-            # A real empty answer: print an empty list, not an error.
-            output([], fmt)
+            # A real empty answer: print an honest empty-state message
+            # instead of a bare ``[]`` that reads like a broken command
+            # (#2225). Machine-readable formats still get a parseable
+            # empty list on stdout.
+            _report_no_offers(fmt, provider, status, service_type, mine)
             return
 
         abort(
@@ -311,6 +314,28 @@ def list_offers(
     except Exception as e:
         error(f"Error listing GPU market: {str(e)}")
         raise click.Abort() from e
+
+
+def _report_no_offers(fmt: str, provider: str | None, status: str | None, service_type: str | None, mine: bool) -> None:
+    """Print an honest empty result for `market list` (#2225).
+
+    Table output gets a plain-language line; machine-readable formats keep
+    a parseable empty list on stdout while the message goes to stderr via
+    ``info`` (see ``_status_stderr``).
+    """
+    filters = []
+    if service_type:
+        filters.append(f"service_type={service_type}")
+    if provider:
+        filters.append(f"provider={provider}")
+    if status:
+        filters.append(f"status={status}")
+    if mine:
+        filters.append("published by the local wallet/node")
+    suffix = f" ({', '.join(filters)})" if filters else ""
+    info(f"No market offers found{suffix}.")
+    if fmt != "table":
+        output([], fmt)
 
 
 def _offer_row(offer: dict[str, Any]) -> dict[str, Any]:
@@ -348,6 +373,20 @@ def _filter_offers(offers, provider, status, service_type, mine, my_address, my_
     return offers
 
 
+def _log_market_base_failure(index: int, base: str, kind: str, exc: BaseException) -> None:
+    """Log a failed market-API base: warn on the primary, debug on fallbacks.
+
+    Fallback bases (e.g. the local market service at 127.0.0.1:8102, absent
+    on customer nodes) are opportunistic — a warning per dead fallback used
+    to be the only output of an otherwise successful empty list (#2225).
+    If every source fails, abort() reports it.
+    """
+    if index == 0:
+        logger.warning("%s at %s: %s", kind, base, exc)
+    else:
+        logger.debug("%s fallback at %s: %s", kind, base, exc)
+
+
 def _list_offers_via_market_api(
     bases, config, fmt, provider, status, service_type, sort, mine, my_address, my_node_id
 ) -> list[dict[str, Any]] | None:
@@ -360,7 +399,7 @@ def _list_offers_via_market_api(
     actually responded.
     """
     answered = False
-    for base in bases:
+    for index, base in enumerate(bases):
         try:
             http_client = AITBCHTTPClient(base_url=base, timeout=15)
 
@@ -394,9 +433,9 @@ def _list_offers_via_market_api(
             success(f"Found {len(offers)} market offers")
             return offers
         except NetworkError as e:
-            logger.warning("Market service not available at %s: %s", base, e)
+            _log_market_base_failure(index, base, "Market service not available", e)
         except _OFFERS_ERRORS as e:
-            logger.warning("Error querying market service at %s: %s", base, e)
+            _log_market_base_failure(index, base, "Error querying market service", e)
     return [] if answered else None
 
 
@@ -432,7 +471,9 @@ def _collect_market_txs(hub_url: str, config) -> tuple[list[dict[str, Any]], boo
                 transactions = [tx for tx in mempool["transactions"] if tx.get("type") == "GPU_MARKET"]
                 logger.debug("Found %s GPU_MARKET transactions in hub mempool", len(transactions))
     except NetworkError as e:
-        logger.error("Network error querying hub: %s", e)
+        # Warning, not error: this is a best-effort probe with a local-RPC
+        # fallback, and the abort() path reports when nothing answers.
+        logger.warning("Network error querying hub: %s", e)
         # Fallback to local blockchain RPC
         try:
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
