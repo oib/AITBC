@@ -10,6 +10,7 @@ from aitbc.config.hub import (
     hub_agent_url,
     hub_coordinator_url,
     hub_discovery_host,
+    hub_edge_origin,
     hub_exchange_url,
     hub_origin,
     hub_service_url,
@@ -230,3 +231,50 @@ def test_hub_local_url_ignored_on_followers(isolated_env: Path, monkeypatch: pyt
     monkeypatch.setenv("HUB_LOCAL_URL", "http://127.0.0.1:8002")
 
     assert hub_origin() == "https://hub.example.net"
+
+
+def test_edge_origin_drops_rpc_service_port(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#2239: HUB_RPC_URL carries the RPC *service* port (8202), not the TLS
+    edge - keeping it produced https://<hub>:8202/pool-hub -> WRONG_VERSION_NUMBER."""
+    monkeypatch.setenv("HUB_RPC_URL", "http://10.103.5.113:8202")
+
+    assert hub_edge_origin() == "https://10.103.5.113"
+
+
+def test_edge_origin_drops_p2p_service_port(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HUB_P2P_HOST", "10.103.5.113:30303")
+
+    assert hub_edge_origin() == "https://10.103.5.113"
+
+
+def test_edge_origin_keeps_discovery_port_and_scheme(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """HUB_DISCOVERY_URL is the operator-set public URL - its port/scheme are
+    authoritative and kept verbatim."""
+    monkeypatch.setenv("HUB_DISCOVERY_URL", "http://hub.example:8080")
+
+    assert hub_edge_origin() == "http://hub.example:8080"
+
+
+def test_edge_origin_rpc_localhost_gets_http(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+
+    assert hub_edge_origin() == "http://localhost"
+
+
+def test_edge_origin_rpc_url_from_env_file(isolated_env: Path) -> None:
+    """Followers carry HUB_RPC_URL in /etc/aitbc env files, not process env."""
+    (isolated_env / "node.env").write_text("HUB_RPC_URL=http://10.103.5.113:8202\n")
+
+    assert hub_edge_origin() == "https://10.103.5.113"
+
+
+def test_edge_origin_none_when_nothing_configured(isolated_env: Path) -> None:
+    assert hub_edge_origin() is None
+
+
+def test_edge_origin_discovery_beats_rpc_url(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """HUB_DISCOVERY_URL outranks HUB_RPC_URL, matching hub_discovery_host()."""
+    monkeypatch.setenv("HUB_DISCOVERY_URL", "hub.example.net")
+    monkeypatch.setenv("HUB_RPC_URL", "http://10.103.5.113:8202")
+
+    assert hub_edge_origin() == "https://hub.example.net"
