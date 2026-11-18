@@ -48,7 +48,7 @@ class _IntakeMixin(_PbftBaseMixin):
             return
         message = self._pbft_message_from_dict(message_data)
         if message is None:
-            pbft_trace.intake_drop("malformed", message_data)
+            pbft_trace.intake_drop("malformed", message_data, **pbft_trace.payload_shape(message_data))
             return  # malformed message — drop
         pbft_trace.stamp_rx(message)
 
