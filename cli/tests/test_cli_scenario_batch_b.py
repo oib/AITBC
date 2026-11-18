@@ -67,6 +67,121 @@ def test_reinvest_policy_rejects_bad_split(runner, tmp_path, monkeypatch):
     assert r.exit_code != 0
 
 
+# --- #2234 reinvest policy read-back must not clobber the saved policy --------
+
+
+def _reinvest_policy_json(result):
+    return json.loads(result.output[result.output.index("{") :])
+
+
+def test_reinvest_policy_readback_preserves_saved(runner, tmp_path, monkeypatch):
+    """Bare ``reinvest policy`` is a read-back: it must not rewrite defaults (#2234)."""
+    from aitbc_cli.commands import reinvest
+    from aitbc_cli.commands.reinvest import policy
+
+    store = tmp_path / "reinvest_policies.json"
+    monkeypatch.setattr(reinvest, "_POLICY_STORE", store)
+
+    r1 = runner.invoke(
+        policy,
+        ["--agent-id", "agent-1", "--staking-pct", "30", "--reserve-pct", "70", "--min-reinvest", "1.0"],
+        obj={"output_format": "json"},
+    )
+    assert r1.exit_code == 0, r1.output
+
+    r2 = runner.invoke(policy, ["--agent-id", "agent-1"], obj={"output_format": "json"})
+    assert r2.exit_code == 0, r2.output
+    body = _reinvest_policy_json(r2)
+    assert body["staking_pct"] == "30"
+    assert body["reserve_pct"] == "70"
+    assert body["min_reinvest"] == "1.0"
+    assert body["policy_source"] == "saved"
+    assert json.loads(store.read_text())["agent-1"]["staking_pct"] == "30"
+
+
+def test_reinvest_policy_readback_defaults_when_unset(runner, tmp_path, monkeypatch):
+    from aitbc_cli.commands import reinvest
+    from aitbc_cli.commands.reinvest import policy
+
+    store = tmp_path / "reinvest_policies.json"
+    monkeypatch.setattr(reinvest, "_POLICY_STORE", store)
+
+    r = runner.invoke(policy, ["--agent-id", "agent-1"], obj={"output_format": "json"})
+    assert r.exit_code == 0, r.output
+    body = _reinvest_policy_json(r)
+    assert body["staking_pct"] == "60"
+    assert body["reserve_pct"] == "40"
+    assert body["min_reinvest"] == "0.01"
+    assert body["policy_source"] == "default"
+    assert not store.exists()
+
+
+def test_reinvest_partial_set_merges_with_saved(runner, tmp_path, monkeypatch):
+    """Setting only ``--min-reinvest`` keeps the stored split (#2234)."""
+    from aitbc_cli.commands import reinvest
+    from aitbc_cli.commands.reinvest import policy
+
+    store = tmp_path / "reinvest_policies.json"
+    monkeypatch.setattr(reinvest, "_POLICY_STORE", store)
+
+    r1 = runner.invoke(
+        policy,
+        ["--agent-id", "a", "--staking-pct", "30", "--reserve-pct", "70", "--min-reinvest", "1.0"],
+        obj={"output_format": "json"},
+    )
+    assert r1.exit_code == 0, r1.output
+    r2 = runner.invoke(policy, ["--agent-id", "a", "--min-reinvest", "2.5"], obj={"output_format": "json"})
+    assert r2.exit_code == 0, r2.output
+    saved = json.loads(store.read_text())["a"]
+    assert saved == {"staking_pct": "30", "reserve_pct": "70", "min_reinvest": "2.5"}
+
+
+def test_reinvest_simulate_and_policy_share_one_store(runner, tmp_path, monkeypatch):
+    """``policy`` read-back and ``simulate`` must resolve the same saved policy (#2234)."""
+    from aitbc_cli.commands import reinvest
+    from aitbc_cli.commands.reinvest import policy, simulate
+
+    store = tmp_path / "reinvest_policies.json"
+    monkeypatch.setattr(reinvest, "_POLICY_STORE", store)
+
+    r1 = runner.invoke(
+        policy,
+        ["--agent-id", "agent-1", "--staking-pct", "30", "--reserve-pct", "70", "--min-reinvest", "1.0"],
+        obj={"output_format": "json"},
+    )
+    assert r1.exit_code == 0, r1.output
+    r2 = runner.invoke(policy, ["--agent-id", "agent-1"], obj={"output_format": "json"})
+    shown = _reinvest_policy_json(r2)
+
+    captured = {}
+
+    class FakeEngine:
+        def __init__(self, budget, pol):
+            captured["policy"] = pol
+
+        def apply(self, amount, agent_id):
+            return []
+
+    class FakePolicy:
+        def __init__(self, **kw):
+            captured["policy_kwargs"] = kw
+
+    class FakeBudget:
+        def __init__(self, **kw):
+            pass
+
+    with patch.object(reinvest, "_load_miner_app", return_value=(FakeEngine, FakePolicy, FakeBudget)):
+        r3 = runner.invoke(simulate, ["--agent-id", "agent-1", "--earnings", "100"], obj={"output_format": "json"})
+    assert r3.exit_code == 0, r3.output
+    from decimal import Decimal
+
+    assert captured["policy_kwargs"]["staking_pct"] == Decimal(shown["staking_pct"])
+    assert captured["policy_kwargs"]["capacity_reserve_pct"] == Decimal(shown["reserve_pct"])
+    assert captured["policy_kwargs"]["min_reinvest_amount"] == Decimal(shown["min_reinvest"])
+    sim_body = _reinvest_policy_json(r3)
+    assert sim_body["policy_source"] == "saved"
+
+
 # --- #2103 coin-requests DB path resolution ---------------------------------
 
 
