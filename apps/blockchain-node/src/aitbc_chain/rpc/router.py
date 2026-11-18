@@ -8,9 +8,13 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.security import HTTPAuthorizationCredentials
 from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
 
+from ..base_models import MinerRegistry
+from ..chain_id import resolve_chain_id
+from ..database import session_scope
 from ..logger import get_logger
 from ..mempool import get_mempool as get_mempool_instance
 from .auth import get_authenticated_address, security
@@ -186,6 +190,36 @@ _last_import_time = 0
 _import_lock = asyncio.Lock()
 
 
+# #2211: the chain is PBFT/PoA — there is no proof-of-work mining, so these
+# endpoints are admin bookkeeping stubs (no hashrate, blocks, or rewards).
+# Miner state lives in the chain.db ``miner_registry`` table so every RPC
+# worker agrees; it previously lived in a per-process function attribute and
+# the read paths preferred the unrelated coordinator-api ``/v1/miners``
+# AI-job registry, so start/stop/status/list could never agree.
+_MINING_SIMULATED_NOTE = (
+    "simulated bookkeeping only: this is a PBFT/PoA chain with no proof-of-work "
+    "mining — no hashrate, blocks mined, or rewards are produced"
+)
+
+
+def _miner_public(row: MinerRegistry) -> dict[str, Any]:
+    return {
+        "address": row.miner_address,
+        "threads": row.threads,
+        "enabled": row.enabled,
+        "started_at": row.started_at.isoformat() if row.started_at else None,
+        "stopped_at": row.stopped_at.isoformat() if row.stopped_at else None,
+        "authorized_by": row.authorized_by,
+    }
+
+
+def _registry_rows(chain_id: str) -> list[dict[str, Any]]:
+    """All miner_registry rows for the chain, serialized inside the session."""
+    with session_scope(chain_id) as session:
+        rows = session.exec(select(MinerRegistry).where(MinerRegistry.chain_id == chain_id)).all()
+        return [_miner_public(row) for row in rows]
+
+
 @router.post("/mining/start", summary="Start mining")
 @rate_limit(rate=10, per=60)
 def start_mining_route(
@@ -193,23 +227,54 @@ def start_mining_route(
     mining_data: dict,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
 ) -> dict[str, Any]:
-    """Start mining with specified wallet (requires admin authentication)"""
+    """Record a miner as started (requires admin authentication).
+
+    Bookkeeping stub only — PBFT/PoA has no proof-of-work mining (#2211).
+    """
     # Bug 9: Add admin authentication to mining endpoints
     admin_address = get_authenticated_address(request, credentials)
     miner_address = mining_data.get("miner_address")
     threads = mining_data.get("threads", 1)
-    if not miner_address:
+    if not miner_address or not isinstance(miner_address, str):
         raise HTTPException(status_code=400, detail="miner_address is required")
-    if not hasattr(start_mining_route, "miners"):
-        start_mining_route.miners = {}  # type: ignore[attr-defined]
-    start_mining_route.miners[miner_address] = {  # type: ignore[attr-defined]
-        "address": miner_address,
+    if not isinstance(threads, int) or isinstance(threads, bool) or threads < 1:
+        raise HTTPException(status_code=400, detail="threads must be a positive integer")
+
+    chain_id = resolve_chain_id()
+    with session_scope(chain_id) as session:
+        row = session.exec(
+            select(MinerRegistry).where(
+                MinerRegistry.chain_id == chain_id,
+                MinerRegistry.miner_address == miner_address,
+            )
+        ).first()
+        now = datetime.now(UTC)
+        if row is None:
+            session.add(
+                MinerRegistry(
+                    chain_id=chain_id,
+                    miner_address=miner_address,
+                    threads=threads,
+                    enabled=True,
+                    authorized_by=admin_address,
+                    started_at=now,
+                )
+            )
+        else:
+            row.threads = threads
+            row.enabled = True
+            row.authorized_by = admin_address
+            row.started_at = now
+            row.stopped_at = None
+        session.commit()
+    return {
+        "status": "started",
+        "miner_address": miner_address,
         "threads": threads,
-        "enabled": True,
-        "started_at": datetime.now(UTC).isoformat(),
-        "authorized_by": admin_address,
+        "simulated": True,
+        "note": _MINING_SIMULATED_NOTE,
+        "message": "Mining started successfully",
     }
-    return {"status": "started", "miner_address": miner_address, "threads": threads, "message": "Mining started successfully"}
 
 
 @router.post("/mining/stop", summary="Stop mining")
@@ -218,101 +283,77 @@ def stop_mining_route(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
 ) -> dict[str, Any]:
-    """Stop all mining operations (requires admin authentication)"""
-    # Bug 9: Add admin authentication to mining endpoints
-    get_authenticated_address(request, credentials)
-    if hasattr(start_mining_route, "miners"):
-        for miner in start_mining_route.miners.values():
-            miner["enabled"] = False
-            miner["stopped_at"] = datetime.now(UTC).isoformat()
-    return {"status": "stopped", "message": "Mining stopped successfully"}
+    """Disable all recorded miners (requires admin authentication).
 
-
-@router.get("/mining/status", summary="Get mining status")
-@rate_limit(rate=100, per=60)
-async def get_mining_status_route(
-    request: Request,
-    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
-) -> dict[str, Any]:
-    """Get current mining status (requires admin authentication).
-
-    v0.6.7: Aggregates status from coordinator-api miner registry. Falls back
-    to local in-memory miners if coordinator-api is unavailable.
+    Bookkeeping stub only — PBFT/PoA has no proof-of-work mining (#2211).
     """
     # Bug 9: Add admin authentication to mining endpoints
     get_authenticated_address(request, credentials)
 
-    # v0.6.7: Query coordinator-api for registered miners
-    import os
+    chain_id = resolve_chain_id()
+    with session_scope(chain_id) as session:
+        rows = session.exec(select(MinerRegistry).where(MinerRegistry.chain_id == chain_id)).all()
+        now = datetime.now(UTC)
+        for row in rows:
+            row.enabled = False
+            row.stopped_at = now
+        session.commit()
+    return {
+        "status": "stopped",
+        "simulated": True,
+        "note": _MINING_SIMULATED_NOTE,
+        "message": "Mining stopped successfully",
+    }
 
-    import httpx
 
-    coordinator_url = os.getenv("COORDINATOR_API_URL", "http://localhost:8203")
-    coordinator_miners: list[dict[str, Any]] = []
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"{coordinator_url}/v1/miners")
-            if resp.status_code == 200:
-                data = resp.json()
-                coordinator_miners = data.get("miners", []) if isinstance(data, dict) else data
-    except (httpx.HTTPError, ValueError):
-        pass  # Fall back to local miners
+@router.get("/mining/status", summary="Get mining status")
+@rate_limit(rate=100, per=60)
+def get_mining_status_route(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
+) -> dict[str, Any]:
+    """Get current mining bookkeeping status (requires admin authentication).
 
-    if coordinator_miners:
-        active = [m for m in coordinator_miners if m.get("status") == "active"]
-        return {
-            "status": "mining" if active else "idle",
-            "miners": coordinator_miners,
-            "active_count": len(active),
-            "source": "coordinator-api",
-        }
+    Reads the shared chain.db ``miner_registry`` table so every RPC worker
+    agrees (#2211). Bookkeeping stub only — PBFT/PoA has no PoW mining.
+    """
+    # Bug 9: Add admin authentication to mining endpoints
+    get_authenticated_address(request, credentials)
 
-    # Fallback: local in-memory miners
-    if not hasattr(start_mining_route, "miners"):
-        return {"status": "idle", "miners": [], "active_count": 0, "source": "local"}
-    active_miners = [m for m in start_mining_route.miners.values() if m.get("enabled", False)]
+    miners = _registry_rows(resolve_chain_id())
+    active_miners = [m for m in miners if m["enabled"]]
     return {
         "status": "mining" if active_miners else "idle",
-        "miners": list(start_mining_route.miners.values()),
+        "miners": miners,
         "active_count": len(active_miners),
-        "source": "local",
+        "source": "chain.db",
+        "simulated": True,
+        "note": _MINING_SIMULATED_NOTE,
     }
 
 
 @router.get("/mining/miners", summary="List active miners")
 @rate_limit(rate=100, per=60)
-async def list_miners_route(
+def list_miners_route(
     request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
 ) -> dict[str, Any]:
-    """List all registered miners (requires admin authentication).
+    """List recorded miners (requires admin authentication).
 
-    v0.6.7: Queries coordinator-api miner registry. Falls back to local
-    in-memory miners if coordinator-api is unavailable.
+    Reads the shared chain.db ``miner_registry`` table so every RPC worker
+    agrees (#2211). Bookkeeping stub only — PBFT/PoA has no PoW mining.
     """
     # Bug 9: Add admin authentication to mining endpoints (this endpoint was previously unauthenticated)
     get_authenticated_address(request, credentials)
 
-    # v0.6.7: Query coordinator-api for registered miners
-    import os
-
-    import httpx
-
-    coordinator_url = os.getenv("COORDINATOR_API_URL", "http://localhost:8203")
-    try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            resp = await client.get(f"{coordinator_url}/v1/miners")
-            if resp.status_code == 200:
-                data = resp.json()
-                miners = data.get("miners", []) if isinstance(data, dict) else data
-                return {"miners": miners, "count": len(miners), "source": "coordinator-api"}
-    except (httpx.HTTPError, ValueError):
-        pass  # Fall back to local miners
-
-    # Fallback: local in-memory miners
-    if not hasattr(start_mining_route, "miners"):
-        return {"miners": [], "count": 0, "source": "local"}
-    return {"miners": list(start_mining_route.miners.values()), "count": len(start_mining_route.miners), "source": "local"}
+    miners = _registry_rows(resolve_chain_id())
+    return {
+        "miners": miners,
+        "count": len(miners),
+        "source": "chain.db",
+        "simulated": True,
+        "note": _MINING_SIMULATED_NOTE,
+    }
 
 
 @router.get("/pending", summary="Get pending transactions")

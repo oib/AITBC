@@ -216,7 +216,9 @@ aitbc script list [--script-dir /opt/aitbc/scripts]
 
 ### 11. mining
 
-Mining lifecycle.
+Mining lifecycle. **Bookkeeping stubs only** — AITBC is PBFT/PoA with no
+proof-of-work mining; `/rpc/mining/*` records admin intent in the node's
+chain.db `miner_registry` table (#2211). No hashrate, blocks, or rewards.
 
 ```bash
 # Start mining (--wallet-name required)

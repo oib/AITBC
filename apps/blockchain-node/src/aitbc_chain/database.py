@@ -45,6 +45,7 @@ from .base_models import (  # noqa: F401
     LiquidityPool,
     LiquidityStake,
     LiquidityDistribution,
+    MinerRegistry,
     ChainParameter,
     record_chain_parameter_history,
     _to_ait_address,
