@@ -11,7 +11,7 @@ from typing import Any
 import click
 import httpx
 
-from ..utils import error, genesis_reset, output, success
+from ..utils import error, genesis_reset, output, success, warning
 from ..utils.wallet_secret import resolve_new_wallet_password, wallet_password_options
 
 # Expected failure surface for the genesis handlers below: filesystem/JSON,
@@ -147,8 +147,14 @@ def init(
   aitbc genesis verify --chain-id ait-mainnet --output json"""
 )
 @click.option("--chain-id", default=None, help="Chain ID to verify (auto-detected from config if not provided)")
+@click.option(
+    "--data-dir",
+    default="/var/lib/aitbc/data",
+    show_default=True,
+    help="Data directory holding <chain_id>/genesis.json and chain.db",
+)
 @click.pass_context
-def verify(ctx, chain_id: str):
+def verify(ctx, chain_id: str, data_dir: str):
     """Verify the genesis block and configuration for a chain."""
     # Auto-detect chain_id from config if not provided
     if not chain_id:
@@ -157,20 +163,20 @@ def verify(ctx, chain_id: str):
         config = get_config()
         chain_id = getattr(config, "chain_id", os.getenv("CHAIN_ID", ""))
 
-    verified = _verify_genesis_config(ctx, chain_id)
-    verified = _verify_genesis_db(ctx, chain_id) and verified
+    verified = _verify_genesis_config(ctx, chain_id, data_dir)
+    verified = _verify_genesis_db(ctx, chain_id, data_dir) and verified
     verified = _verify_treasury_wallet(ctx) and verified
 
     if not verified:
         ctx.exit(1)
 
 
-def _verify_genesis_config(ctx, chain_id: str) -> bool:
+def _verify_genesis_config(ctx, chain_id: str, data_dir: str = "/var/lib/aitbc/data") -> bool:
     """Check the genesis config file; exits the command on hard failures."""
     import json
 
     # Check genesis config file
-    genesis_path = Path(f"/var/lib/aitbc/data/{chain_id}/genesis.json")
+    genesis_path = Path(data_dir) / chain_id / "genesis.json"
     if not genesis_path.exists():
         error(f"Genesis config not found: {genesis_path}")
         ctx.exit(1)
@@ -180,11 +186,16 @@ def _verify_genesis_config(ctx, chain_id: str) -> bool:
             genesis_data = json.load(f)
 
         success(f"✓ Genesis config found: {genesis_path}")
+        # The canonical genesis document carries ``genesis_hash`` at top
+        # level and has no ``block`` record — the old ``block.*`` lookups
+        # always rendered empty (#2200). ``block.*`` stays as a fallback for
+        # legacy documents that did embed one.
+        block = genesis_data.get("block") or {}
         output(
             {
                 "chain_id": genesis_data.get("chain_id"),
-                "genesis_hash": genesis_data.get("block", {}).get("hash"),
-                "proposer": genesis_data.get("block", {}).get("proposer"),
+                "genesis_hash": genesis_data.get("genesis_hash") or block.get("hash"),
+                "proposer": genesis_data.get("proposer") or block.get("proposer"),
                 "allocations_count": len(genesis_data.get("allocations", [])),
             },
             ctx.obj.get("output_format", "table"),
@@ -195,15 +206,15 @@ def _verify_genesis_config(ctx, chain_id: str) -> bool:
     return True
 
 
-def _verify_genesis_db(ctx, chain_id: str) -> bool:
+def _verify_genesis_db(ctx, chain_id: str, data_dir: str = "/var/lib/aitbc/data") -> bool:
     """Check the genesis block and accounts in the chain database."""
     import sqlite3
 
     # Check database (chain-specific path)
-    db_path = Path(f"/var/lib/aitbc/data/{chain_id}/chain.db")
+    db_path = Path(data_dir) / chain_id / "chain.db"
     if not db_path.exists():
         # Fallback to legacy path
-        db_path = Path("/var/lib/aitbc/data/chain.db")
+        db_path = Path(data_dir) / "chain.db"
         if not db_path.exists():
             error("Database not found at chain-specific or legacy path")
             ctx.exit(1)
@@ -213,14 +224,20 @@ def _verify_genesis_db(ctx, chain_id: str) -> bool:
         conn = sqlite3.connect(str(db_path))
         cursor = conn.cursor()
 
-        # Check genesis block
-        cursor.execute("SELECT * FROM block WHERE height=0 AND chain_id=?", (chain_id,))
+        # Check genesis block — named columns: the block schema is
+        # id, chain_id, height, hash, parent_hash, proposer, ... and the old
+        # positional SELECT * indices printed chain_id/height/parent_hash
+        # under the height/hash/proposer labels (#2200).
+        cursor.execute(
+            "SELECT height, hash, proposer FROM block WHERE height=0 AND chain_id=?",
+            (chain_id,),
+        )
         genesis_block = cursor.fetchone()
 
         if genesis_block:
             success("✓ Genesis block found in database")
             output(
-                {"height": genesis_block[1], "hash": genesis_block[2], "proposer": genesis_block[4]},
+                {"height": genesis_block[0], "hash": genesis_block[1], "proposer": genesis_block[2]},
                 ctx.obj.get("output_format", "table"),
             )
         else:
@@ -266,8 +283,10 @@ def _verify_treasury_wallet(ctx) -> bool:
             error(f"Failed to read the treasury (genesis) wallet: {e}")
             verified = False
     else:
-        error(f"Treasury (genesis) wallet not found: {wallet_path}")
-        verified = False
+        # A missing treasury wallet is normal on follower/customer nodes —
+        # only the genesis issuer holds it. Verify's job is chain-state
+        # integrity, so absence is a warning, not a failure (#2200).
+        warning(f"Treasury (genesis) wallet not found: {wallet_path} (expected only on the genesis-issuer node)")
     return verified
 
 

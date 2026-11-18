@@ -15,6 +15,7 @@ aitbc genesis verify [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--chain-id` | text | — | no | Chain ID to verify (auto-detected from config if not provided) |
+| `--data-dir` | text | `/var/lib/aitbc/data` | no | Data directory holding <chain_id>/genesis.json and chain.db |
 
 ## Examples
 
