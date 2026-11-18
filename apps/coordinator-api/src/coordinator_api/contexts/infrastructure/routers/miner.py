@@ -649,6 +649,58 @@ async def _finalize_result_response(
     return {"status": "ok", "receipt": receipt}
 
 
+async def _submit_failed_result(
+    session: Session,
+    job: Job,
+    job_id: str,
+    miner_sub: str,
+    req: JobResultSubmit,
+    miner_service: MinerService,
+) -> dict[str, Any]:
+    """Route a miner-reported execution failure submitted via /result (#2242).
+
+    ``production_miner._submit_failure`` posts ``result.status="failed"`` to
+    this endpoint instead of ``/miners/{job_id}/fail``, so the result handler
+    must branch on it. Mirrors ``submit_failure``: the job goes FAILED with
+    the miner's error, a bonded provider is slashed BAD_RESULT, reputation
+    records a failure, and the miner slot is released — but no receipt is
+    issued, no settlement is attempted, and ``job.result`` stays unset so the
+    escrowed payment remains refundable by the customer (``refund_payment``
+    treats an undelivered escrowed payment as refundable, and the escrow
+    refund relay accepts FAILED as a terminal-unpaid state).
+    """
+    metrics = req.metrics.model_dump(mode="json", exclude_none=True)
+    duration_ms = _resolve_duration_ms(req, metrics, job, job_id)
+    error_message = req.result.error or "miner reported job failure"
+    job.state = JobState.failed
+    job.error = error_message
+    session.add(job)
+    session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+    await _maybe_slash_bond(session, job, "bad_result", error_message)
+    try:
+        from ....contexts.reputation.services.reputation_service import ReputationService
+
+        reputation_service = ReputationService(session)
+        await reputation_service.record_job_completion(
+            agent_id=miner_sub,
+            job_id=job_id,
+            success=False,
+            response_time=float(duration_ms or 0),
+            earnings=Decimal("0"),
+        )
+    except _OPS_ERRORS as rep_err:
+        logger.warning("Failed to record reputation for failed job %s: %s", job_id, rep_err)
+    await run_in_threadpool(
+        miner_service.release,
+        miner_sub,
+        success=False,
+        duration_ms=duration_ms,
+        receipt_id=None,
+    )
+    logger.info("Job %s marked FAILED from miner-reported result status", job_id)
+    return {"status": "ok", "receipt": None, "job_state": JobState.failed.value}
+
+
 @router.post("/miners/{job_id}/result", summary="Submit job result")
 @rate_limit(rate=50, per=60)
 async def submit_result(
@@ -682,6 +734,13 @@ async def submit_result(
             if held is not None and held.status == "escrowed":
                 return await _retry_completed_settlement(session, job)
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"job is {job.state}, not running")
+    # #2242: a miner may report execution failure through this endpoint too
+    # (production_miner._submit_failure posts result.status="failed" here
+    # rather than calling /fail). Route it to the failure path — a failed
+    # result must never mark the job COMPLETED, issue a receipt, or hold the
+    # escrow in pending_acceptance.
+    if (req.result.status or "").strip().lower() == "failed":
+        return await _submit_failed_result(session, job, job_id, user["sub"], req, miner_service)
     payment = await run_in_threadpool(session.get, JobPayment, job.payment_id) if job.payment_id else None
     payment_amount = payment.amount if payment else None
     is_shadow = _is_shadow_mode(job)
