@@ -420,10 +420,12 @@ class _RaBaseMixin:
             return None
         try:
             with self._session_factory() as session:
-                row = session.exec(
+                # A single-column select yields the bare value, not a row: indexing it returned
+                # the first character of the hash (#2232).
+                found = session.exec(
                     select(Block.hash).where(Block.chain_id == self._chain_id).where(Block.height == height)
                 ).first()
-                return str(row[0]) if row is not None else None
+                return str(found) if found is not None else None
         except Exception as e:  # noqa: BLE001 - optional consensus helper, None means unavailable
             logger.debug("consensus helper failed: %s", type(e).__name__)
             return None
