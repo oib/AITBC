@@ -45,6 +45,22 @@ def short_hash(value: Any) -> str:
     return text[:14]
 
 
+def payload_shape(data: Any) -> dict[str, Any]:
+    """Key names (capped) and short discriminator values of a payload — never other values.
+
+    For a ``malformed`` drop, so the log says what kind of payload reached the PBFT intake.
+    """
+    if not isinstance(data, dict):
+        return {"payload": type(data).__name__}
+    keys = sorted(str(k) for k in data)
+    shape: dict[str, Any] = {"payload": "dict", "nkeys": len(keys), "keys": ",".join(keys[:12])}
+    for name in ("type", "kind", "event", "topic", "msg_type", "message_type"):
+        value = data.get(name)
+        if isinstance(value, str):
+            shape[f"d_{name}"] = value[:24]
+    return shape
+
+
 def intake_drop(reason: str, message: Any = None, **extra: Any) -> None:
     """Count (always) and trace (flag) a message the intake dropped."""
     metrics_registry.increment("pbft_intake_drop_total")
