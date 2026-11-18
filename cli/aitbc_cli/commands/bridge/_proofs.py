@@ -82,6 +82,9 @@ def sign_proof(ctx, proof_file, private_key, output_path):
     except _OPS_ERRORS as e:
         _abort_ops(ctx, "Failed to read proof file", e)
 
+    if not isinstance(proof, dict):
+        abort(ctx, f"Proof file must contain a JSON object, got {type(proof).__name__}")
+
     if not private_key:
         abort(ctx, "At least one --private-key is required")
 
@@ -127,6 +130,14 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
         proof = json.loads(Path(proof_file).read_text())
     except _OPS_ERRORS as e:
         _abort_ops(ctx, "Failed to read proof file", e)
+
+    # Validate before touching fields — a minimal/hand-written fixture must
+    # abort cleanly instead of raising an unhandled KeyError (#2236).
+    if not isinstance(proof, dict):
+        abort(ctx, f"Proof file must contain a JSON object, got {type(proof).__name__}")
+    missing = [field for field in ("chain_id", "block_height", "block_hash", "state_root") if not proof.get(field)]
+    if missing:
+        abort(ctx, f"Proof file missing required field(s): {', '.join(missing)}")
 
     proposer = _derive_address(admin_private_key) if not admin_address else admin_address
     header_fields = {
