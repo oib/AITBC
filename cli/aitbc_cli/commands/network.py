@@ -14,7 +14,7 @@ from aitbc.exceptions import AITBCError
 
 from ..utils import output
 from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_error_detail
 
 logger = get_logger(__name__)
 
@@ -237,7 +237,11 @@ def force_sync(ctx, rpc_url, peer_url, admin_private_key, admin_address):
 )
 @click.option("--chain-id", help="Chain ID to subscribe to (default: from SUPPORTED_CHAINS in /etc/aitbc/node.env)")
 @click.option("--duration", type=int, default=300, help="Lease duration in seconds (default: 300)")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option(
+    "--rpc-url",
+    default=None,
+    help="Blockchain RPC URL (default: the hub RPC — leases live in the hub's lease store)",
+)
 @click.pass_context
 def subscribe(ctx, node_id, transport, chain_id, duration, rpc_url):
     """Register this node as a follower for block subscription."""
@@ -254,7 +258,9 @@ def subscribe(ctx, node_id, transport, chain_id, duration, rpc_url):
     try:
         from ..config import get_config
 
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10, api_key=get_config().blockchain_rpc_api_key)
+        http_client = AITBCHTTPClient(
+            base_url=rpc_url or _hub_rpc_url(), timeout=10, api_key=get_config().blockchain_rpc_api_key
+        )
         subscription_data = {"node_id": node_id, "transport": transport, "chain_id": chain_id, "duration": duration}
         result = http_client.post("/rpc/subscribe", json=subscription_data)
         output(result, ctx.obj.get("output_format", "table"), title="Subscription Registered")
@@ -273,7 +279,11 @@ def subscribe(ctx, node_id, transport, chain_id, duration, rpc_url):
 )
 @click.option("--node-id", help="Subscriber node ID (default: from NODE_ID in /etc/aitbc/node.env)")
 @click.option("--duration", type=int, help="Additional lease duration in seconds")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option(
+    "--rpc-url",
+    default=None,
+    help="Blockchain RPC URL (default: the hub RPC — the lease being extended lives in the hub's lease store)",
+)
 @click.pass_context
 def heartbeat(ctx, node_id, duration, rpc_url):
     """Send a heartbeat to extend a subscription lease."""
@@ -285,12 +295,14 @@ def heartbeat(ctx, node_id, duration, rpc_url):
     try:
         from ..config import get_config
 
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10, api_key=get_config().blockchain_rpc_api_key)
+        http_client = AITBCHTTPClient(
+            base_url=rpc_url or _hub_rpc_url(), timeout=10, api_key=get_config().blockchain_rpc_api_key
+        )
         heartbeat_data = {"node_id": node_id, "duration": duration}
         result = http_client.post("/rpc/heartbeat", json=heartbeat_data)
         output(result, ctx.obj.get("output_format", "table"), title="Lease Extended")
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        abort(ctx, f"Network error: {http_error_detail(e) or e}", from_exception=e)
     except _NETWORK_ERRORS as e:
         abort(ctx, f"Error extending lease: {e}", from_exception=e)
 

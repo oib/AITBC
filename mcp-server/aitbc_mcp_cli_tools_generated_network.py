@@ -132,7 +132,12 @@ def aitbc_network_heartbeat(
         str | None, Field(description="Subscriber node ID (default: from NODE_ID in /etc/aitbc/node.env)")
     ] = None,
     duration: Annotated[int | None, Field(description="Additional lease duration in seconds")] = None,
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    rpc_url: Annotated[
+        str | None,
+        Field(
+            description="Blockchain RPC URL (default: the hub RPC — the lease being extended lives in the hub's lease store)"
+        ),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -345,7 +350,9 @@ def aitbc_network_subscribe(
         str | None, Field(description="Chain ID to subscribe to (default: from SUPPORTED_CHAINS in /etc/aitbc/node.env)")
     ] = None,
     duration: Annotated[int | None, Field(description="Lease duration in seconds (default: 300)")] = None,
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
+    rpc_url: Annotated[
+        str | None, Field(description="Blockchain RPC URL (default: the hub RPC — leases live in the hub's lease store)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
