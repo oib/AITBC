@@ -23,6 +23,7 @@ aitbc dispute arbitrator authorize [OPTIONS] ARBITRATOR_ADDRESS
 | `--revoke` | flag | `false` | no | Revoke authorization instead of granting it. |
 | `--signature` | text | — | no | Owner signature authorising the change; required by nodes that enforce it. |
 | `--node-url` | text | — | no | Blockchain node RPC URL |
+| `--wallet` | text | — | no | Wallet name whose address authenticates this write (sends X-Wallet-Address). |
 | `--format` | choice | — | no | Output format |
 
 ## Examples
