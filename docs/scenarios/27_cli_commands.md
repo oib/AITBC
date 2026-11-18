@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 26 GPU Market N+1 Query Fix](./26_gpu_nplus1_query.md)
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-08-21
-**Version**: 1.4
+**Last Updated**: 2026-11-18
+**Version**: 1.5
 
 ## Navigation Path
 
@@ -26,7 +26,7 @@ breadcrumb: Home > Scenarios > CLI Commands Verification
 
 > **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
 
-> **Live vs. simulated:** This scenario exercises several CLI groups. `aitbc messaging` and any `aitbc simulate` commands can produce `(Simulated)` output. Other groups (`aitbc agent`, `aitbc pool-hub`, `aitbc mining`, `aitbc gpu`) are live when their services are running.
+> **Live vs. simulated:** This scenario exercises several CLI groups. `aitbc simulate` commands produce deterministic output; `aitbc messaging send` is a dry run by default (nothing signed or sent). Other groups (`aitbc agent`, `aitbc pool-hub`, `aitbc mining`, `aitbc gpu`) are live when their services are running.
 
 Smoke-test the CLI groups that used to crash or hit the wrong port (A2 agent list, A7 pool-hub, A8 mining status, A3 edge/GPU port). Also re-check deterministic `simulate` and `messaging` fallbacks.
 
@@ -96,13 +96,21 @@ aitbc simulate blockchain --blocks 2 --transactions 1 --delay 0 --seed 123 --out
 diff /tmp/sim1.json /tmp/sim2.json && echo DETERMINISTIC
 ```
 
-### Step 6: Deterministic messaging fallback
+### Step 6: Deterministic messaging dry run
 
 ```bash
-aitbc messaging send --wallet my-wallet --message "hello" --topic broadcast   # or: aitbc agent-msg send "hello" --to-agent alice
+aitbc messaging send --wallet <existing-wallet> --message "hello" --topic broadcast
 ```
 
-**Expected output:** `Message Posted (Simulated)` with a stable `message_id` across two runs.
+**Expected output:** `aitbc messaging send` is a **dry run by default** — it prints `DRY RUN — nothing signed, nothing sent. Re-run with --confirm to sign and submit once:` on stderr, then a `Message dry run` payload with `wallet`, `sender`, `topic`, `kind`, `parent`, `body_bytes` and `fee_ait`. Nothing is signed or submitted, so there is **no `message_id`**: the on-chain message id is the transaction hash, which only exists after `--confirm` (a live, permanent post — needs the operator's line, not played here). `--wallet` must name an existing wallet file (the sender address is read from its metadata; no password is needed for the dry run). The dry-run payload is deterministic — two runs with the same wallet and arguments produce identical JSON:
+
+```bash
+aitbc --output json messaging send --wallet <existing-wallet> --message "hello" --topic broadcast 2>/dev/null > /tmp/msg1.json
+aitbc --output json messaging send --wallet <existing-wallet> --message "hello" --topic broadcast 2>/dev/null > /tmp/msg2.json
+diff /tmp/msg1.json /tmp/msg2.json && echo DETERMINISTIC
+```
+
+(`--output` is a global `aitbc` option and goes before the group.) `aitbc agent-msg send "hello" --to-agent alice` is the live agent-coordinator path — it posts a real message through the coordinator and is not part of this deterministic check.
 
 ---
 
@@ -149,7 +157,7 @@ aitbc resource optimize --agent-id agent-001 --target-metric latency
 aitbc http call blockchain-rpc /health
 ```
 
-**Expected output:** the service's `/health` JSON. Non-GET `--method` values and paths that mutate state are not played, needs the operator's line.
+**Expected output:** the service's `/health` JSON. The leading `/` resolves the path against the service origin, so this reaches the root `/health` endpoint even though the `blockchain-rpc` alias is mounted at `/rpc` (a bare `health` path would resolve to `/rpc/health` and 404). Non-GET `--method` values and paths that mutate state are not played, needs the operator's line.
 
 ---
 
@@ -158,7 +166,7 @@ aitbc http call blockchain-rpc /health
 After completing this scenario, you should be able to:
 
 - Run `agent list`, `pool-hub status`, `mining status`, and `gpu list-gpus` without the old crash/404/wrong-port failures
-- Prove simulate and messaging fallbacks are deterministic
+- Prove simulate output and the messaging dry run are deterministic
 
 ---
 
@@ -200,5 +208,5 @@ Scenarios choose the live group: `market` for GPU offers and `governance` for pr
 
 ---
 
-*Last updated: 2026-08-21*
-*Version: 1.4*
+*Last updated: 2026-11-18*
+*Version: 1.5*
