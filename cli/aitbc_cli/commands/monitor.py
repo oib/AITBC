@@ -226,6 +226,11 @@ def _alerts_add(
     if not name or not alert_type:
         abort(ctx, "Alert name and type required (--name, --type)")
         return
+    # Names are the alert identity: upsert so re-adding replaces every
+    # same-name row instead of accumulating duplicates (#2221). This also
+    # garbage-collects legacy duplicate rows on the next add.
+    replaced = any(a.get("name") == name for a in existing)
+    existing = [a for a in existing if a.get("name") != name]
     alert = {
         "name": name,
         "type": alert_type,
@@ -236,7 +241,7 @@ def _alerts_add(
     }
     existing.append(alert)
     _save_json_list(alerts_file, existing)
-    success(f"Alert '{name}' added")
+    success(f"Alert '{name}' {'updated' if replaced else 'added'}")
     output(alert, ctx.obj["output_format"])
 
 
@@ -366,6 +371,9 @@ def _webhooks_add(ctx, existing, name: str | None, url: str | None, events: str 
     if not name or not url:
         abort(ctx, "Webhook name and URL required (--name, --url)")
         return
+    # Same name-keyed upsert as alerts (#2221) — names are the identity.
+    replaced = any(w.get("name") == name for w in existing)
+    existing = [w for w in existing if w.get("name") != name]
     webhook = {
         "name": name,
         "url": url,
@@ -375,7 +383,7 @@ def _webhooks_add(ctx, existing, name: str | None, url: str | None, events: str 
     }
     existing.append(webhook)
     _save_json_list(webhooks_file, existing)
-    success(f"Webhook '{name}' added")
+    success(f"Webhook '{name}' {'updated' if replaced else 'added'}")
     output(webhook, ctx.obj["output_format"])
 
 
