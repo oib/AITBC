@@ -32,6 +32,42 @@ class TestAdminNonceConcurrentClaim:
         assert results.count(False) == 1  # exactly one first-timer
         assert results.count(True) == 9
 
+    def test_concurrent_nonce_race_no_operational_error(self, tmp_path, monkeypatch):
+        """#2201: racing callers on a cold DB must not die on the WAL pragma.
+
+        The pre-fix shape let ``PRAGMA journal_mode=WAL`` race ahead of
+        ``busy_timeout`` and losers got ``database is locked`` — the
+        exception escaped the thread (PytestUnhandledThreadExceptionWarning)
+        rather than failing the assert, so capture it explicitly here.
+        """
+        import sqlite3
+
+        monkeypatch.setattr(rpc_utils, "_nonce_db_path", lambda: tmp_path / "admin_nonces.db")
+        errors: list[BaseException] = []
+        results: list[bool] = []
+        lock = threading.Lock()
+
+        def claim(i: int) -> None:
+            try:
+                r = rpc_utils._nonce_seen(f"0xnonce{i}")
+            except sqlite3.OperationalError as e:
+                with lock:
+                    errors.append(e)
+                return
+            with lock:
+                results.append(r)
+
+        # Five cold-ish rounds: each round re-opens the shared DB file.
+        for round_no in range(5):
+            threads = [threading.Thread(target=claim, args=(round_no * 10 + i,)) for i in range(10)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+
+        assert errors == []
+        assert results == [False] * 50  # every nonce is fresh → all first-timers
+
 
 class TestImportAdvisoryLock:
     """#3: acquire/release is a no-op on non-postgresql dialects (sqlite
