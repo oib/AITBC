@@ -52,6 +52,7 @@ def cross_chain_db(client, monkeypatch):
         yield engine
     finally:
         app.dependency_overrides.pop(get_session, None)
+        engine.dispose()
 
 
 def _auth_header(admin_token):

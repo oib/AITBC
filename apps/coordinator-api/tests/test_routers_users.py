@@ -39,6 +39,7 @@ def _override_db_session(client):
         yield
     finally:
         app.dependency_overrides.pop(get_session, None)
+        engine.dispose()
 
 
 def _sign_login(wallet_address: str, nonce: str, private_key: str) -> str:
