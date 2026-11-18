@@ -135,21 +135,32 @@ def test_ai_jobs_500_keeps_network_error(runner, monkeypatch):
     assert "Network error" in result.output
 
 
-def test_zk_health_makes_no_credential_store_call(monkeypatch):
-    """zk's _auth_headers reads ctx.obj only — no AuthManager store access."""
+def test_zk_auth_kwargs_use_stored_jwt(monkeypatch):
+    """#2228: zk resolves credentials via auth_client_kwargs — the stored
+    ``auth login`` JWT is the fallback when --api-key is absent (previously
+    zk read only ctx.obj["api_key"] and every call 401'd)."""
     import aitbc_cli.commands.zk as zk_mod
-    from aitbc_cli import auth as auth_pkg
+    from types import SimpleNamespace
+
+    _stub_stored_token(monkeypatch, "eyJhbGciOi.fake.token")
+    monkeypatch.setattr(zk_mod, "get_config", lambda: SimpleNamespace(api_key=None))
+
+    assert zk_mod._zk_auth_kwargs(_Ctx({})) == {"headers": {"Authorization": "Bearer eyJhbGciOi.fake.token"}}
+
+
+def test_zk_auth_kwargs_explicit_key_skips_store(monkeypatch):
+    """An explicit --api-key wins and the credential store is never read."""
+    import aitbc_cli.commands.zk as zk_mod
+    from types import SimpleNamespace
 
     class _Exploding:
         def get_credential(self, *a, **kw):
             raise AssertionError("store must not be read")
 
     monkeypatch.setattr(auth_pkg, "AuthManager", _Exploding)
+    monkeypatch.setattr(zk_mod, "get_config", lambda: SimpleNamespace(api_key=None))
 
-    class _Ctx:
-        obj = {"api_key": None}
-
-    assert zk_mod._auth_headers(_Ctx()) is None
+    assert zk_mod._zk_auth_kwargs(_Ctx({"api_key": "k"})) == {"api_key": "k"}
 
 
 # --- tee.py: same rejected-vs-missing split (#2095 follow-up) -----------------

@@ -16,7 +16,7 @@ from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils import output
 from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, service_root_url
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, service_root_url
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -38,18 +38,26 @@ _OPS_ERRORS = (
 )
 
 
-def _api_client() -> AITBCHTTPClient | None:
+def _api_client(explicit_key: str | None = None) -> AITBCHTTPClient | None:
     """Return a client for the coordinator API if a URL is configured.
 
     Endpoints below carry absolute ``/v1/...`` paths, so normalize the
     configured URL to the service root — a configured ``.../v1`` value
     (e.g. the public ``/c/v1`` mount) must not double the version prefix.
+
+    Credentials resolve through ``auth_client_kwargs``: an explicit
+    ``--api-key`` wins, then the ``auth login`` stored JWT, then the
+    configured API key (#2227 — the audit endpoints are authenticated).
     """
     config = get_config()
     url = config.coordinator_api_url or os.getenv("COORDINATOR_API_URL", "")
     if not url:
         return None
-    return AITBCHTTPClient(base_url=service_root_url(url), timeout=config.timeout, api_key=config.api_key or "")
+    return AITBCHTTPClient(
+        base_url=service_root_url(url),
+        timeout=config.timeout,
+        **auth_client_kwargs(explicit_key, config.api_key),
+    )
 
 
 @click.group(
@@ -135,7 +143,7 @@ def classify(ctx, label: str):
 def export_audit(ctx, output_file: str):
     """Export a simulated compliance audit trail to a JSON file."""
     try:
-        client = _api_client()
+        client = _api_client(ctx.obj.get("api_key") if ctx.obj else None)
         records: list[dict[str, Any]] | dict[str, Any]
         if client is None:
             records = [
