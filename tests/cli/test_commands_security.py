@@ -6,6 +6,8 @@ Converted from skipped stubs to functional tests using the shared CLI mock
 fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
 """
 
+import json
+
 import pytest
 
 
@@ -69,6 +71,38 @@ class TestSecurityCommands:
 
         assert result.exit_code == 0, result.output
         assert "security_patch" in result.output or "Security Patch" in result.output
+
+    def test_security_patch_reports_simulated_not_completed(self, runner):
+        """#2220: the patch stub must say simulated — 'completed' implied
+        patches were really applied."""
+        from aitbc_cli.commands.security import security
+
+        result = runner.invoke(security, ["patch"], obj={"output_format": "json"})
+
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.stdout)
+        assert data["status"] == "simulated"
+        assert data["status"] != "completed"
+
+    def test_security_scan_reports_simulated(self, runner):
+        """#2220: scan is a static stub — label it simulated like compliance check."""
+        from aitbc_cli.commands.security import security
+
+        result = runner.invoke(security, ["scan"], obj={"output_format": "json"})
+
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.stdout)
+        assert data["status"] == "simulated"
+
+    def test_security_audit_reports_simulated(self, runner):
+        """#2220: audit returns a hardcoded score — label it simulated."""
+        from aitbc_cli.commands.security import security
+
+        result = runner.invoke(security, ["audit"], obj={"output_format": "json"})
+
+        assert result.exit_code == 0, result.output
+        data = json.loads(result.stdout)
+        assert data["status"] == "simulated"
 
 
 if __name__ == "__main__":

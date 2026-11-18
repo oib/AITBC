@@ -2,7 +2,7 @@
 
 # `aitbc system architect`
 
-Display a summary of the AITBC system architecture.
+Display a summary of the AITBC system architecture (static — no live checks).
 
 ## Usage
 

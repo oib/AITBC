@@ -104,12 +104,13 @@ def system():
   aitbc system architect"""
 )
 def architect():
-    """Display a summary of the AITBC system architecture."""
+    """Display a summary of the AITBC system architecture (static — no live checks)."""
     click.echo("=== AITBC System Architecture ===")
-    click.echo("✅ Data: /var/lib/aitbc/data")
-    click.echo("✅ Config: /etc/aitbc")
-    click.echo("✅ Logs: /var/log/aitbc")
-    click.echo("✅ Repository: Clean")
+    click.echo("NOTE: static placeholder output — paths are documented conventions, not verified state (#2220)")
+    click.echo("Data:     /var/lib/aitbc/data")
+    click.echo("Config:   /etc/aitbc")
+    click.echo("Logs:     /var/log/aitbc")
+    click.echo("Repository: /opt/aitbc (code only)")
 
 
 @system.command(
@@ -118,11 +119,12 @@ def architect():
   aitbc system audit"""
 )
 def audit():
-    """Run a system audit and report compliance status."""
+    """Run a system audit and report compliance status (static — no live checks)."""
     click.echo("=== System Audit ===")
-    click.echo("FHS Compliance: ✅")
-    click.echo("Repository Clean: ✅")
-    click.echo("Service Health: ✅")
+    click.echo("NOTE: static placeholder output — no live checks were performed (#2220)")
+    click.echo("FHS Compliance: not checked (static)")
+    click.echo("Repository Clean: not checked (static)")
+    click.echo("Service Health: not checked (static)")
 
 
 def _service_is_active(service: str) -> bool:

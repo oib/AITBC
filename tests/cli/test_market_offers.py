@@ -138,6 +138,79 @@ class TestMarketListFallback:
         assert "sw_offer_chain" in result.output
 
 
+_OLLAMA_OFFER_TX = {
+    "payload": {
+        "action": "software_offer",
+        "offer_id": "sw_offer_ollama",
+        "service_type": "ollama",
+        "model": "llama3",
+        "gpu_name": "RTX 4090",
+        "deployment_type": "local",
+        "price": 0.1,
+        "price_unit": "per_1k_tokens",
+        "status": "active",
+        "provider_address": "0xProviderAddress",
+        "description": "ollama listing",
+        "created_at": "2026-10-17T00:00:00",
+    }
+}
+
+
+class TestMarketListServiceTypeChainFallback:
+    """#2220: `market list --service-type` must filter the chain-tx fallback
+    too — the market-API path sent the filter but `_chain_offer_row` ignored
+    it, so a whisper query returned every software offer on chain."""
+
+    @pytest.fixture
+    def config(self):
+        return SimpleNamespace(
+            hub_discovery_url="hub.aitbc.invalid",
+            market_service_url="http://127.0.0.1:8102",
+            coordinator_api_url="",
+            blockchain_rpc_url="http://127.0.0.1:8202",
+        )
+
+    def _patch_chain_only(self, monkeypatch, offers_mod, config, txs):
+        class _Client:
+            def __init__(self, base_url="", timeout=0, **_kw):
+                self.base_url = base_url
+
+            def get(self, path, params=None, **_kw):
+                raise NetworkError("market api down")
+
+            def get_json(self, path, params=None, **_kw):
+                if "hub.aitbc.invalid" in self.base_url:
+                    raise NetworkError("edge unreachable")
+                if path == "/rpc/transactions":
+                    return list(txs)
+                return []
+
+        monkeypatch.setattr(offers_mod, "AITBCHTTPClient", _Client)
+        monkeypatch.setattr(offers_mod, "get_config", lambda: config)
+
+    def test_service_type_filters_chain_rows(self, monkeypatch, config):
+        from aitbc_cli.commands.market import offers as offers_mod
+
+        self._patch_chain_only(monkeypatch, offers_mod, config, [_SOFTWARE_OFFER_TX, _OLLAMA_OFFER_TX])
+
+        result = CliRunner().invoke(market, ["list", "--service-type", "whisper"], obj={})
+        assert result.exit_code == 0, result.output
+        assert "sw_offer_chain" in result.output
+        assert "sw_offer_ollama" not in result.output
+
+    def test_service_type_filtering_everything_is_honest_empty(self, monkeypatch, config):
+        from aitbc_cli.commands.market import offers as offers_mod
+
+        self._patch_chain_only(monkeypatch, offers_mod, config, [_SOFTWARE_OFFER_TX, _OLLAMA_OFFER_TX])
+
+        result = CliRunner().invoke(market, ["list", "--service-type", "ffmpeg"], obj={})
+        assert result.exit_code == 0, result.output
+        assert "No market offers found" in result.output
+        assert "service_type=ffmpeg" in result.output
+        assert "sw_offer_chain" not in result.output
+        assert "sw_offer_ollama" not in result.output
+
+
 class TestMarketListEmpty:
     """#2225: an empty `market list` must say so, and dead fallback bases
     must not shout warnings that become the only output."""

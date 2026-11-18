@@ -2,7 +2,7 @@
 
 # `aitbc security patch`
 
-Apply all available security patches to the system.
+Apply all available security patches to the system (simulated — no live patch backend).
 
 ## Usage
 

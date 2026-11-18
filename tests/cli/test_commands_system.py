@@ -65,6 +65,8 @@ class TestSystemCommands:
 
         assert result.exit_code == 0, result.output
         assert "System Architecture" in result.output
+        # #2220: static placeholder must say so — the old ✅ lines read as verified state.
+        assert "static" in result.output.lower()
 
     def test_system_audit_command(self, runner):
         """``system audit`` outputs the system audit report."""
@@ -74,6 +76,8 @@ class TestSystemCommands:
 
         assert result.exit_code == 0, result.output
         assert "System Audit" in result.output
+        # #2220: static placeholder must say so — the old ✅ lines read as verified state.
+        assert "static" in result.output.lower()
 
     def test_system_check_command(self, runner):
         """``system check`` checks service configuration."""
