@@ -23,6 +23,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
 from ..metrics import metrics_registry
+from . import pbft_trace
 from .pbft import PBFTMessage, _PbftBaseMixin, _int_key_seq, logger
 from .block_hash import compute_block_hash
 from .pbft_quorum import pbft_required_messages
@@ -690,18 +691,71 @@ class _VcEngineMixin(_PbftBaseMixin):
         """
         floor = self._vc_floor(sequence)
         if floor is None:
+            pbft_trace.trace(
+                "permit",
+                outcome="no_floor",
+                hr=f"{sequence}:{view}",
+                hash=pbft_trace.short_hash(block_hash),
+            )
             return True
         if view < floor:
             metrics_registry.increment("pbft_view_change_floor_refused_total")
-            logger.warning("PBFT refusing vote at seq %s view %s: floor is %s", sequence, view, floor)
-            return False
+            return self._permit_refuse("below_floor", sequence, view, block_hash, floor=floor)
         entry = self._new_views.get((sequence, view))
         if entry is None:
-            return False
-        if entry.get("kind") == "free":
+            return self._permit_refuse("no_new_view", sequence, view, block_hash)
+        kind = entry.get("kind")
+        if kind == "free":
+            pbft_trace.trace(
+                "permit",
+                outcome="free",
+                hr=f"{sequence}:{view}",
+                hash=pbft_trace.short_hash(block_hash),
+            )
             return True
-        if entry.get("kind") == "locked":
-            return entry.get("selected") == block_hash
+        if kind == "locked":
+            selected = entry.get("selected")
+            if selected == block_hash:
+                pbft_trace.trace(
+                    "permit",
+                    outcome="locked_match",
+                    hr=f"{sequence}:{view}",
+                    hash=pbft_trace.short_hash(block_hash),
+                )
+                return True
+            return self._permit_refuse(
+                "locked_hash_mismatch",
+                sequence,
+                view,
+                block_hash,
+                selected=pbft_trace.short_hash(selected),
+            )
+        return self._permit_refuse("new_view_kind_unknown", sequence, view, block_hash, kind=str(kind))
+
+    def _permit_refuse(self, reason: str, sequence: int, view: int, block_hash: str, **extra: Any) -> bool:
+        """Count + warn + trace a refused vote with the failing clause (#2205).
+
+        The permit used to collapse every refusal into ``return False``, so a
+        drill could not tell a missing NEW_VIEW (ordering race) from a floor
+        refusal or a locked-hash mismatch. Metrics are always on; the trace
+        line stays behind ``pbft_vote_trace_enabled``.
+        """
+        metrics_registry.increment("pbft_view_change_permit_refused_total")
+        metrics_registry.increment(f"pbft_view_change_permit_refused_{reason}_total")
+        logger.warning(
+            "PBFT refusing vote at seq %s view %s: %s (hash %s)",
+            sequence,
+            view,
+            reason,
+            pbft_trace.short_hash(block_hash),
+        )
+        pbft_trace.trace(
+            "permit_refuse",
+            reason=reason,
+            hr=f"{sequence}:{view}",
+            hash=pbft_trace.short_hash(block_hash),
+            **extra,
+        )
         return False
 
     def _view_change_commit_allows(self, sequence: int, view: int, block_hash: str) -> bool:
