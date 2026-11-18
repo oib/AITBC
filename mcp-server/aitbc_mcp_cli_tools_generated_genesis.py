@@ -181,6 +181,7 @@ def aitbc_genesis_verify(
     chain_id: Annotated[
         str | None, Field(description="Chain ID to verify (auto-detected from config if not provided)")
     ] = None,
+    data_dir: Annotated[str | None, Field(description="Data directory holding <chain_id>/genesis.json and chain.db")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -191,7 +192,7 @@ def aitbc_genesis_verify(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"chain_id": "chain-id"},
+        values={"chain_id": "chain-id", "data_dir": "data-dir"},
     )
     args = None
     target = _host_for_role(role, host)
