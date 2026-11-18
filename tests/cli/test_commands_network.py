@@ -199,6 +199,22 @@ class TestNetworkCommands:
         assert kwargs["json"]["node_id"] == "test-node"
         assert kwargs["json"]["chain_id"] == "test-chain"
 
+    @patch("aitbc_cli.commands.network._hub_rpc_url", return_value="https://hub.test")
+    @patch("aitbc_cli.commands.network.AITBCHTTPClient")
+    def test_network_heartbeat_defaults_to_hub_rpc(self, mock_http_class, _mock_hub, runner):
+        """#2229: heartbeat must hit the same lease store lease-status reads (the hub)."""
+        mock_client = mock_http_class.return_value
+        mock_client.post.return_value = {"node_id": "node0", "expiry": 1.0}
+
+        from aitbc_cli.commands.network import network
+
+        result = runner.invoke(network, ["heartbeat", "--node-id", "node0"])
+
+        assert result.exit_code == 0, result.output
+        assert mock_http_class.call_args.kwargs["base_url"] == "https://hub.test"
+        mock_client.post.assert_called_once()
+        assert "/rpc/heartbeat" in mock_client.post.call_args[0][0]
+
     def test_network_set_sync_source_updates_env(self, runner, tmp_path):
         """`set-sync-source` updates the env file with derived URLs."""
         from aitbc_cli.commands.network import network
