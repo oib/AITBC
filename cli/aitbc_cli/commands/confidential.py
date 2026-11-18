@@ -23,7 +23,7 @@ from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils import output
 from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -45,15 +45,13 @@ _OPS_ERRORS = (
 )
 
 
-def _api_client() -> AITBCHTTPClient | None:
+def _api_client(explicit_key: str | None = None) -> AITBCHTTPClient | None:
     """Return a client for the coordinator API if a URL is configured.
 
     The coordinator API may be configured with a trailing ``/v1`` path
     (e.g. ``https://hub/c/v1``). Since the endpoints below already start
     with ``/v1/``, strip any trailing ``/v1`` to avoid doubling it.
     """
-    from ..auth import AuthManager
-
     config = get_config()
     url = config.coordinator_api_url or os.getenv("COORDINATOR_API_URL", "")
     if not url:
@@ -63,20 +61,13 @@ def _api_client() -> AITBCHTTPClient | None:
         url = url[:-3]
 
     # /v1/confidential/payments is authenticated as a client/admin route, not a
-    # miner API-key route, so a JWT client credential is required.
-    token = config.api_key or ""
-    if not token:
-        token = AuthManager().get_credential("client") or ""
-    if not token:
+    # miner API-key route, so a JWT client credential is required. #2246:
+    # explicit --api-key > stored `auth login` credential > config.api_key.
+    auth_kwargs = auth_client_kwargs(explicit_key, config.api_key)
+    if not auth_kwargs:
         return None
 
-    headers = {"Authorization": f"Bearer {token}"} if _looks_like_jwt(token) else {"X-Api-Key": token}
-    return AITBCHTTPClient(base_url=url, timeout=config.timeout, headers=headers)
-
-
-def _looks_like_jwt(token: str) -> bool:
-    """A JWT is three base64url segments separated by dots."""
-    return token.startswith("ey") and token.count(".") == 2
+    return AITBCHTTPClient(base_url=url, timeout=config.timeout, **auth_kwargs)
 
 
 def _signing_key() -> bytes:
@@ -125,7 +116,7 @@ def send(ctx, wallet_id: str, recipient_id: str, amount: str):
         )
         validate_payment(payment)
         receipt = settle_payment(payment)
-        client = _api_client()
+        client = _api_client(ctx.obj.get("api_key") if ctx.obj else None)
         simulated_result = {
             "tx_id": tx.tx_id,
             "sender_id": tx.sender_id,
