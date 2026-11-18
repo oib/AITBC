@@ -67,12 +67,18 @@ def reject_bridge_command(ctx, request_id, reason):
     raise click.Abort()
 
 
+def _bridge_rpc_url(rpc_url: str) -> str:
+    """BridgeClient paths are relative to the ``/rpc`` mount (#2230)."""
+    base = rpc_url.rstrip("/")
+    return base if base.endswith("/rpc") else f"{base}/rpc"
+
+
 def list_bridges_command(ctx):
     """List bridge connections — shows cross-chain bridge health status"""
     rpc_url = _get_rpc_url(ctx)
 
     async def _health():
-        client = BridgeClient(BridgeConfig(rpc_url=rpc_url))
+        client = BridgeClient(BridgeConfig(rpc_url=_bridge_rpc_url(rpc_url)))
         async with client:
             return await client.health()
 

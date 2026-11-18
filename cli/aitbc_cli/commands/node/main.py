@@ -100,20 +100,34 @@ def node_info(ctx, node_id):
                 return await client.get_node_info()
 
         node_info = asyncio.run(get_node_info())
+        _print_node_info(ctx, node_id, node_config.endpoint, node_info)
 
-        # Basic node information
-        basic_info = {
-            "Node ID": node_info["node_id"],
-            "Node Type": node_info["type"],
-            "Status": node_info["status"],
-            "Version": node_info["version"],
-            "Uptime": f"{node_info['uptime_days']} days, {node_info['uptime_hours']} hours",
-            "Endpoint": node_config.endpoint,
-        }
+    except Exception as e:
+        error(f"Error getting node info: {str(e)}")
+        raise click.Abort() from e
 
-        output(basic_info, ctx.obj.get("output", "table"), title=f"Node Information: {node_id}")
 
-        # Performance metrics
+def _print_node_info(ctx, node_id: str, endpoint: str, node_info: dict[str, Any]) -> None:
+    """Render node info — only fields the node actually reports (#2230)."""
+    basic_info: dict[str, Any] = {
+        "Node ID": node_info.get("node_id", node_id),
+        "Status": node_info.get("status", "unknown"),
+        "Endpoint": endpoint,
+    }
+    for label, key in (("Node Type", "type"), ("Version", "version")):
+        if node_info.get(key):
+            basic_info[label] = node_info[key]
+    if node_info.get("uptime_days") is not None:
+        basic_info["Uptime"] = f"{node_info['uptime_days']} days, {node_info['uptime_hours']} hours"
+    if node_info.get("proposer_id"):
+        basic_info["Proposer ID"] = node_info["proposer_id"]
+    if node_info.get("node_wallet"):
+        basic_info["Node Wallet"] = node_info["node_wallet"]
+
+    output(basic_info, ctx.obj.get("output", "table"), title=f"Node Information: {node_id}")
+
+    # Performance metrics — only when the node publishes them (admin API).
+    if node_info.get("cpu_usage") is not None:
         metrics = {
             "CPU Usage": f"{node_info['cpu_usage']}%",
             "Memory Usage": f"{node_info['memory_usage_mb']:.1f}MB",
@@ -121,21 +135,19 @@ def node_info(ctx, node_id):
             "Network In": f"{node_info['network_in_mb']:.1f}MB/s",
             "Network Out": f"{node_info['network_out_mb']:.1f}MB/s",
         }
-
         output(metrics, ctx.obj.get("output", "table"), title="Performance Metrics")
 
-        # Hosted chains
-        if node_info.get("hosted_chains"):
-            chains_data = [
-                {"Chain ID": chain_id, "Type": chain.get("type", "unknown"), "Status": chain.get("status", "unknown")}
-                for chain_id, chain in node_info["hosted_chains"].items()
-            ]
-
-            output(chains_data, ctx.obj.get("output", "table"), title="Hosted Chains")
-
-    except Exception as e:
-        error(f"Error getting node info: {str(e)}")
-        raise click.Abort() from e
+    if node_info.get("hosted_chains"):
+        chains_data = [
+            {
+                "Chain ID": chain_id,
+                "Type": chain.get("type", "unknown"),
+                "Status": chain.get("status", "unknown"),
+                "Block Height": chain.get("block_height", 0),
+            }
+            for chain_id, chain in node_info["hosted_chains"].items()
+        ]
+        output(chains_data, ctx.obj.get("output", "table"), title="Hosted Chains")
 
 
 @node.command(
