@@ -394,6 +394,8 @@ class _PoaBaseMixin:
         def _collect_proposal_txs(self, *args: Any, **kwargs: Any) -> Any: ...
         def _ensure_genesis_block(self, *args: Any, **kwargs: Any) -> Any: ...
         def _evict_mempool_txs(self, *args: Any, **kwargs: Any) -> Any: ...
+        def _gate_release_plan(self, *args: Any, **kwargs: Any) -> Any: ...
+        async def _run_gates_released(self, *args: Any, **kwargs: Any) -> Any: ...
         def _honor_prior_votes(self, *args: Any, **kwargs: Any) -> Any: ...
         def _note_same_hash_retry(self, *args: Any, **kwargs: Any) -> Any: ...
         def _own_addresses(self, *args: Any, **kwargs: Any) -> Any: ...
@@ -834,6 +836,8 @@ class _PoaBaseMixin:
                 # so the submitter's hash query surfaces a terminal outcome instead
                 # of the record vanishing with the mempool entry.
                 rejected_txs: list[tuple[Any, str]] = []
+                # #2193 F2: pre-apply copies for the post-gates re-apply (None = flag off).
+                release_plan = self._gate_release_plan(pending_txs, account_map, existing_tx_map)
                 processed_txs, changed_addresses, ok = self._process_proposal_txs(
                     session, pending_txs, account_map, existing_tx_map, next_height, timestamp, rejected_txs
                 )
@@ -875,7 +879,10 @@ class _PoaBaseMixin:
                 self._logger.info(
                     "[PROPOSE:%s] phase=consensus_gates start height=%s round=%s", chain, next_height, round_number
                 )
-                if not await self._run_journaled_gates(
+                # #2193 F2: gates with the write lock released and a post-gates re-apply.
+                # "ok" with the flag off (plain gates), "sealed" when the import path already
+                # sealed this exact block, "gates_failed"/"abort" end the round.
+                verdict = await self._run_gates_released(
                     session,
                     block,
                     block_hash,
@@ -884,7 +891,13 @@ class _PoaBaseMixin:
                     next_height,
                     metadata_dict,
                     transactions=[{**(tx.content or {}), "tx_hash": tx.tx_hash} for tx in processed_txs],
-                ):
+                    release_plan=release_plan,
+                    parent_hash=parent_hash,
+                    timestamp=timestamp,
+                    processed_txs=processed_txs,
+                    rejected_txs=rejected_txs,
+                )
+                if verdict in ("gates_failed", "abort"):
                     self._logger.warning("[PROPOSE:%s] phase=consensus_gates failed %.3fs", chain, time.time() - _t4)
                     ledger.release_hashes((tx.tx_hash for tx, _ in rejected_txs), "apply_rejected")
                     ledger.release_hashes((tx.tx_hash for tx in pending_txs), "gate_abort")
@@ -905,7 +918,9 @@ class _PoaBaseMixin:
                 self._attach_unlock_justification(next_height, metadata_dict)
                 block.block_metadata = json.dumps(metadata_dict)
 
-                already_sealed = self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp) is False
+                already_sealed = verdict == "sealed" or (
+                    self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp) is False
+                )
                 _t5 = time.time()
                 self._propose_phase = "broadcast"
                 self._logger.debug("[PROPOSE:%s] phase=broadcast start", chain)
@@ -951,6 +966,7 @@ class _PoaBaseMixin:
 
 
 from .poa_ops import _OpsMixin
+from .poa_gate_release import _GateReleaseMixin
 from .poa_proposal_gates import _ProposalGatesMixin
 from .poa_tx_pipeline import _TxPipelineMixin
 from .poa_attest import _AttestMixin
@@ -960,7 +976,14 @@ from .poa_lifecycle import _LifecycleMixin
 
 
 class PoAProposer(
-    _ProposalGatesMixin, _TxPipelineMixin, _OpsMixin, _LifecycleMixin, _AttestMixin, _JournalMixin, _CommitMixin
+    _GateReleaseMixin,
+    _ProposalGatesMixin,
+    _TxPipelineMixin,
+    _OpsMixin,
+    _LifecycleMixin,
+    _AttestMixin,
+    _JournalMixin,
+    _CommitMixin,
 ):
     """Proof-of-Authority block proposer.
 

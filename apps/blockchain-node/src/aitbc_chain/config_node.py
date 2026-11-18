@@ -175,6 +175,11 @@ class NodeConfig(BaseModel):
     # default — the legacy delete-on-read drain() stays authoritative until
     # an operator arms this after the S3 parity legs.
     mempool_reservation_enabled: bool = False
+    # #2193 F2: release chain.db's write lock while the proposer waits for the
+    # PBFT/attestation gates, then re-apply and require a byte-identical block
+    # hash before committing. Local scheduling only (the sealed block is
+    # unchanged), so no consensus height gate. OFF by default; armed per host.
+    proposer_release_write_lock_during_gates: bool = False
     # Reservation TTL is derived by the caller from attempt-time config
     # (collect deadline + apply budget + gate timeouts + commit bound +
     # broadcast reconcile bound); this is only the fallback when a caller
