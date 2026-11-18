@@ -310,8 +310,8 @@ def test_escrow_create_no_token_skips_relay(monkeypatch):
     _RelayClient.instances = []
     monkeypatch.setattr(esc_mod, "_get_rpc_client", lambda config, base_url, timeout=10: _RefuseLocal(base_url))
     monkeypatch.setattr(esc_mod, "AITBCHTTPClient", _RelayClient)
-    # No stored client credential either — _client_token must return None.
-    monkeypatch.setattr(esc_mod, "AuthManager", lambda: SimpleNamespace(get_credential=lambda name: None))
+    # No credential from any source — _client_auth_kwargs must return {}.
+    monkeypatch.setattr(esc_mod, "_client_auth_kwargs", lambda ctx: {})
     monkeypatch.setattr(esc_mod, "_get_blockchain_rpc_url", lambda config: "http://127.0.0.1:8202")
     _patch_lock_signing(monkeypatch)
 

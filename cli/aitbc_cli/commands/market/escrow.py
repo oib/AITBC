@@ -13,11 +13,10 @@ from aitbc.config.hub import normalize_hub_base
 from aitbc.exceptions import AITBCError
 from aitbc.utils.units import units_to_ait
 
-from ...auth import AuthManager
 from ...utils.wallet_secret import wallet_password_options
 from ...config import get_config
 from ...utils import error, info, output, success, warning
-from ...utils.http_client import AITBCHTTPClient, get_logger, http_error_detail, http_response_status
+from ...utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, http_error_detail, http_response_status
 from ...utils.error_handling import CLIError, abort
 from ...utils.money import DECIMAL
 
@@ -277,16 +276,17 @@ def _classify_relay_error(exc: BaseException, job_id: str) -> tuple[None, str | 
 
 def _relay_request(
     ctx, config, job_id: str, amount: Any, job_tx_hash: str | None
-) -> tuple[str | None, dict[str, Any], str | None]:
+) -> tuple[dict[str, Any], dict[str, Any], str | None]:
     """Resolve credential + body for the release relay.
 
-    Returns ``(token, body, skip_reason)`` — ``skip_reason`` set means the
-    caller should use the rpc path instead of the relay.
+    Returns ``(auth_kwargs, body, skip_reason)`` — ``skip_reason`` set means
+    the caller should use the rpc path instead of the relay; ``auth_kwargs``
+    is ``{}`` on every skip path.
     """
-    token = _client_token(ctx)
-    if not token:
+    auth_kwargs = _client_auth_kwargs(ctx)
+    if not auth_kwargs:
         return (
-            None,
+            {},
             {},
             (
                 "no stored client credential for the coordinator release relay "
@@ -299,13 +299,13 @@ def _relay_request(
     # without a pointless relay round-trip.
     amount_str, skip = _resolve_release_amount(config, job_id, amount)
     if skip is not None:
-        return None, {}, skip
+        return {}, {}, skip
     body: dict[str, Any] = {"job_id": job_id}
     if amount_str is not None:
         body["amount"] = amount_str
     if job_tx_hash:
         body["job_tx_hash"] = job_tx_hash
-    return token, body, None
+    return auth_kwargs, body, None
 
 
 def _release_via_relay(
@@ -347,7 +347,7 @@ def _release_via_relay(
     would 425 identically and a customer node cannot authenticate it),
     but it is not reported as a business refusal.
     """
-    token, body, skip = _relay_request(ctx, config, job_id, amount, job_tx_hash)
+    auth_kwargs, body, skip = _relay_request(ctx, config, job_id, amount, job_tx_hash)
     if skip is not None:
         return None, None, skip
     # The relay is the only JWT-authed release path, so its calls must never
@@ -358,7 +358,7 @@ def _release_via_relay(
     client = AITBCHTTPClient(
         base_url=_coordinator_base_url(ctx),
         timeout=timeout,
-        headers={"Authorization": f"Bearer {token}"},
+        **auth_kwargs,
         enable_circuit_breaker=False,
     )
     result: Any = None
@@ -679,12 +679,15 @@ def _coordinator_base_url(ctx) -> str:
     return cast(str, url)
 
 
-def _client_token(ctx) -> str | None:
-    """Return API key from --api-key, then the stored client credential."""
-    token = ctx.obj.get("api_key")
-    if not token:
-        token = AuthManager().get_credential("client")
-    return cast(str | None, token)
+def _client_auth_kwargs(ctx) -> dict[str, Any]:
+    """Auth kwargs for coordinator calls (#2246).
+
+    Precedence: explicit ``--api-key`` > stored ``auth login`` credential >
+    ``config.api_key``. A JWT-shaped token goes out as ``Authorization:
+    Bearer``; any other key is sent via the client's ``api_key`` kwarg
+    (``X-API-Key``). Returns ``{}`` when no credential exists.
+    """
+    return auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, getattr(get_config(), "api_key", None))
 
 
 def _coordinator_escrow_create(ctx, payload: dict[str, Any]) -> dict[str, Any] | None:
@@ -701,8 +704,8 @@ def _coordinator_escrow_create(ctx, payload: dict[str, Any]) -> dict[str, Any] |
     endpoint yet (HTTP 404). Other failures propagate so the caller can
     warn and fall back to direct node routes.
     """
-    token = _client_token(ctx)
-    if not token:
+    auth_kwargs = _client_auth_kwargs(ctx)
+    if not auth_kwargs:
         return None
     base_url = _coordinator_base_url(ctx)
     # Same opt-out as the release relay: a JWT-authed escrow call must not be
@@ -710,7 +713,7 @@ def _coordinator_escrow_create(ctx, payload: dict[str, Any]) -> dict[str, Any] |
     client = AITBCHTTPClient(
         base_url=base_url,
         timeout=30,
-        headers={"Authorization": f"Bearer {token}"},
+        **auth_kwargs,
         enable_circuit_breaker=False,
     )
     try:
@@ -723,15 +726,15 @@ def _coordinator_escrow_create(ctx, payload: dict[str, Any]) -> dict[str, Any] |
 
 def _coordinator_refund(ctx, job_id: str, reason: str) -> dict[str, Any] | None:
     """Ask the coordinator to refund the payment (which also refunds the on-chain escrow)."""
-    token = _client_token(ctx)
-    if not token:
+    auth_kwargs = _client_auth_kwargs(ctx)
+    if not auth_kwargs:
         return None
     base_url = _coordinator_base_url(ctx)
     try:
         client = AITBCHTTPClient(
             base_url=base_url,
             timeout=30,
-            headers={"Authorization": f"Bearer {token}"},
+            **auth_kwargs,
             enable_circuit_breaker=False,
         )
         job = client.get(f"/v1/jobs/{job_id}")

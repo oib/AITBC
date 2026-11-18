@@ -23,11 +23,11 @@ import click
 import httpx
 
 from aitbc.exceptions import AITBCError
-from ..auth import AuthManager, ExpiredAdminToken
+from ..auth import ExpiredAdminToken
 from ..config import get_config
 from ..utils import output, resolve_output_format
 from ..utils.error_handling import CLIError, abort, is_unauthorized
-from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs
 from ..utils.wallet_paths import find_wallet_file
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
@@ -50,11 +50,6 @@ _OPS_ERRORS = (
 )
 
 
-def _looks_like_jwt(token: str) -> bool:
-    """A JWT is three base64url segments separated by dots."""
-    return token.startswith("ey") and token.count(".") == 2
-
-
 def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
     """Return the coordinator base URL without a trailing /v1 path."""
     config = get_config()
@@ -74,17 +69,19 @@ def _coordinator_client(ctx, coordinator_url: str | None = None, timeout: int | 
     if not url:
         abort(ctx, "Coordinator URL not configured")
 
-    token = ctx.obj.get("api_key") or config.api_key or ""
-    if not token:
-        token = AuthManager().get_admin_token() or ""
-
-    client_kwargs: dict[str, Any] = {"base_url": url, "timeout": timeout or config.timeout or 30, "headers": None}
-    if token and _looks_like_jwt(token):
-        client_kwargs["headers"] = {"Authorization": f"Bearer {token}"}
-    elif token:
-        client_kwargs["api_key"] = token
-
-    return AITBCHTTPClient(**client_kwargs)
+    # #2246: explicit --api-key > stored `auth login` credential (admin slot,
+    # falling back to client) > config.api_key. The admin dispute routes are
+    # JWT-gated; get_admin_token raises ExpiredAdminToken on an expired stored
+    # JWT, which the command handlers already catch and abort on.
+    return AITBCHTTPClient(
+        base_url=url,
+        timeout=timeout or config.timeout or 30,
+        **auth_client_kwargs(
+            ctx.obj.get("api_key") if ctx.obj else None,
+            getattr(config, "api_key", None),
+            credential="admin",
+        ),
+    )
 
 
 def _is_not_found(network_error: NetworkError) -> bool:

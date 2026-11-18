@@ -97,7 +97,7 @@ def _new_idempotency_key(prefix: str) -> str:
 
 
 def _auth_headers(ctx) -> dict[str, str] | None:
-    """Return auth headers from --api-key or the stored credential.
+    """Return auth headers from --api-key, the stored credential, or config.api_key.
 
     A JWT-shaped token goes in ``Authorization: Bearer``; anything else is
     an API key and goes in ``X-API-Key`` (same split as confidential.py and
@@ -108,6 +108,10 @@ def _auth_headers(ctx) -> dict[str, str] | None:
         from ...auth import AuthManager
 
         token = AuthManager().get_credential("client", quiet=True)
+    if not token:
+        # #2246: last resort is the configured API key — same tail as
+        # ``auth_client_kwargs``' explicit > store > config precedence.
+        token = getattr(get_config(), "api_key", None)
     if not token:
         return None
     if looks_like_jwt(token):
