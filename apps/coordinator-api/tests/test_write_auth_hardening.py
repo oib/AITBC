@@ -188,6 +188,65 @@ class TestRefundAuthorization:
         funded_chain.post.assert_not_called()
         assert db_session.get(JobPayment, "pay-r2").status == "escrowed"
 
+    @pytest.mark.parametrize(
+        "job_state",
+        ["FAILED", "COMPLETED"],
+        ids=["failed-state", "completed-state-pre-2242-routing"],
+    )
+    def test_client_refunds_failed_result_payload(self, db_session, funded_chain, job_state):
+        """#2244: a stored ``{"status": "failed", "error": ...}`` result is not
+        delivery — the miner produced no usable output, so the escrowed payment
+        stays refundable by the client. COMPLETED covers the pre-#2242 routing
+        where a failed result still marked the job completed."""
+        _make_escrowed(db_session, f"job-{job_state}", f"pay-{job_state}", job_state=job_state)
+        job = db_session.get(Job, f"job-{job_state}")
+        job.result = {"status": "failed", "error": "No models available in Ollama"}
+        db_session.add(job)
+        db_session.commit()
+
+        result = asyncio.run(
+            PaymentService(db_session).refund_payment("client-1", f"job-{job_state}", f"pay-{job_state}", "no output")
+        )
+        assert result is True
+        assert db_session.get(JobPayment, f"pay-{job_state}").status == "refunded"
+
+    def test_client_refunds_error_only_result_payload(self, db_session, funded_chain):
+        """#2244: an ``{"error": ...}`` payload with no output fields and no
+        status marker is still not delivery."""
+        _make_escrowed(db_session, "job-erronly", "pay-erronly", job_state="FAILED")
+        job = db_session.get(Job, "job-erronly")
+        job.result = {"error": "worker crashed"}
+        db_session.add(job)
+        db_session.commit()
+
+        result = asyncio.run(PaymentService(db_session).refund_payment("client-1", "job-erronly", "pay-erronly", "oops"))
+        assert result is True
+        assert db_session.get(JobPayment, "pay-erronly").status == "refunded"
+
+    def test_client_cannot_refund_partial_result_with_output(self, db_session, funded_chain):
+        """#2244: a failure marker that rode along with real output is a partial
+        delivery — the anti-double-spend gate still blocks the client refund."""
+        _make_escrowed(db_session, "job-partial", "pay-partial", job_state="COMPLETED")
+        job = db_session.get(Job, "job-partial")
+        job.result = {"status": "failed", "error": "truncated", "output": "partial answer"}
+        db_session.add(job)
+        db_session.commit()
+
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(PaymentService(db_session).refund_payment("client-1", "job-partial", "pay-partial", "gimme"))
+        assert exc.value.status_code == 403
+        funded_chain.post.assert_not_called()
+        assert db_session.get(JobPayment, "pay-partial").status == "escrowed"
+
+    def test_client_cannot_refund_completed_without_result(self, db_session, funded_chain):
+        """A COMPLETED job with no stored result keeps the conservative block:
+        the state says the work finished even if the payload is missing."""
+        _make_escrowed(db_session, "job-noresult", "pay-noresult", job_state="COMPLETED")
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(PaymentService(db_session).refund_payment("client-1", "job-noresult", "pay-noresult", "gimme"))
+        assert exc.value.status_code == 403
+        funded_chain.post.assert_not_called()
+
     @pytest.mark.parametrize("status_", ["pending_acceptance", "disputed", "settlement_failed"])
     def test_client_cannot_refund_held_or_failed_states(self, db_session, funded_chain, status_):
         _make_escrowed(db_session, f"job-{status_}", f"pay-{status_}", job_state="COMPLETED", payment_status=status_)
