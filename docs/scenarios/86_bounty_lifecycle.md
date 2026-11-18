@@ -37,7 +37,9 @@ at/after the pin. Unsigned `payload`-less bodies are rejected outright —
 the emissions seal only carrying a verified operator signature
 (`BOUNTY_PAYOUT`/`BOUNTY_REFUND` were unsealable unsigned under v9–v16;
 strict-xfail pins in `test_v9_type_coverage_replay.py` document that
-defect).
+defect). The operator-signature check runs **before** the armed-check, so
+an unsigned body always answers **403 "Operator signature required"** —
+the 410 only surfaces on a *signed* body while unarmed.
 
 ### Prerequisites
 
@@ -76,8 +78,11 @@ RPC=http://hub:8202   # node RPC on hub
 curl -s -o /dev/null -w '%{http_code}\n' -X POST "$RPC/v1/bounty/deploy" -H 'content-type: application/json' -d '{}'
 ```
 
-**Expected:** `410` while unarmed (next height < pin); a non-410
-validation/signature error once armed. Do not proceed on 410.
+**Expected:** `403` "Operator signature required" for this unsigned
+probe — the signature gate fires before the armed-check, so 410 is no
+longer observable with an unsigned body. Once armed, a *signed* body
+with a bad/absent signature still answers 403/400; do not proceed until
+a properly signed request succeeds.
 
 ### Step 2: Deploy a bounty → `BOUNTY_LOCK`
 
