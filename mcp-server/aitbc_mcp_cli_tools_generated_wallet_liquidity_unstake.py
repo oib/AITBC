@@ -27,6 +27,7 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_liquidity_unstake(
     stake_id: Annotated[str, Field(description="Stake ID.")],
+    pool: Annotated[str | None, Field(description="Liquidity pool name (must match the stake's pool)")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee in AIT")] = None,
     allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     password_file: Annotated[
@@ -58,6 +59,7 @@ def aitbc_wallet_liquidity_unstake(
         flags={"allow_high_fee": "allow-high-fee"},
         values={
             "stake_id": "stake-id",
+            "pool": "pool",
             "fee": "fee",
             "password_file": "password-file",
             "wallet_name_override": "wallet-name",

@@ -16,6 +16,7 @@ from aitbc_cli.utils import error, success
 from aitbc_cli.utils.wallet_daemon_client import WalletDaemonClient
 
 from aitbc.crypto import derive_ethereum_address, generate_ethereum_private_key
+from aitbc.utils.units import units_to_ait
 
 from aitbc_cli.utils.wallet_paths import find_wallet_file, wallet_dir, wallet_search_dirs
 
@@ -399,7 +400,7 @@ class DualModeWalletAdapter:
             error(f"Failed to connect to blockchain RPC: {e}")
             raise
 
-        if Decimal(str(chain_balance)) < amount:
+        if units_to_ait(int(chain_balance)) < amount:
             error(f"Insufficient blockchain balance. Available: {chain_balance}, Required: {amount}")
             raise RuntimeError("Insufficient balance")
 
@@ -438,7 +439,10 @@ class DualModeWalletAdapter:
             wallet_data["transactions"] = []
 
         wallet_data["transactions"].append(transaction)
-        wallet_data["balance"] = chain_balance - amount
+        # /rpc/account balance is compute-units; the wallet file's balance
+        # field is AIT — store the difference in AIT or every later reader
+        # (stats/info) displays a unit-scaled phantom balance (#2196).
+        wallet_data["balance"] = str(units_to_ait(int(chain_balance)) - amount)
 
         # Save wallet - CRITICAL SECURITY FIX: Always use password if wallet is encrypted
         if wallet_data.get("encrypted") and not password:
