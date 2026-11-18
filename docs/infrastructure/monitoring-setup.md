@@ -174,11 +174,11 @@ A single logged error keeps the count non-zero until it slides out of the 15-min
 
 `aitbc-env-watch.timer` (every 15 min) runs `scripts/monitoring/env-watch-textfile.py`, which greps declared env files for `^VAR=` assignment lines and writes `/var/lib/prometheus/node-exporter/aitbc_env_watch.prom`. It exists because a var dropped from an env file is invisible until the service restarts — the running process keeps its old environment (`RECEIPT_SIGNING_KEY_HEX` sat missing from the coordinator env for days in Oct 2026; signing broke only at the eventual restart). The coordinator also self-reports at every boot: production startup logs `Receipt signing: enabled`, or an ERROR the journal collector pages on when the key is unset.
 
-- `aitbc_env_var_present{service,var}` — 1 when the var is assigned in any of the service's env files (OR across files, matching `EnvironmentFile=` stacking); `AITBCReceiptSigningKeyAbsent` fires when it is 0 for 15 min
+- `aitbc_env_var_present{service,var}` — 1 when the var is assigned in any of the service's env files (OR across files, matching `EnvironmentFile=` stacking); `AITBCReceiptSigningKeyAbsent` fires when it is 0 for 15 min. Entries written `service@unit=VAR:files` only emit this series where the named systemd unit is installed, so hosts that never deploy the service (e.g. hub1, which has no `aitbc-coordinator-api` unit) cannot page the alert (#2233)
 - `aitbc_env_watch_scrape_success{file}` / `aitbc_env_watch_timestamp_seconds` — collector health; `AITBCEnvWatchStale` fires on a 45-min-old timestamp
 - Only variable names are matched — values are never read, printed, or exported
 
-The watch list is `AITBC_ENV_WATCH` in the unit (`service=VAR:file[,file...]` entries; the coordinator receipt key ships as the default). Deploy on the host whose env files are watched — today the hub:
+The watch list is `AITBC_ENV_WATCH` in the unit (`service[@unit]=VAR:file[,file...]` entries; the coordinator receipt key ships as the default, gated on `aitbc-coordinator-api.service` being installed). Install on every monitored host — the `@unit` gate keeps hosts that never deploy a watched service quiet:
 
 ```bash
 sudo ln -sfn /opt/aitbc/scripts/monitoring/aitbc-env-watch.{service,timer} /etc/systemd/system/
