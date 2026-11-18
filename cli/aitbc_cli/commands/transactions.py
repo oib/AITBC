@@ -2,6 +2,7 @@
 Transaction commands for AITBC CLI
 """
 
+import hashlib
 import json
 import os
 from decimal import Decimal
@@ -51,6 +52,51 @@ _TRANSACTION_ERRORS = (
     AttributeError,
     RuntimeError,
 )
+
+
+def _pending_tx_hash(tx: dict[str, Any]) -> str:
+    """Recompute a mempool entry's tx hash with the node's canonicalization.
+
+    Mirrors ``aitbc_chain.mempool_common.compute_tx_hash`` (sha256 of the
+    canonical JSON) — the node package is not a CLI dependency, so the three
+    lines are duplicated. ``/rpc/pending`` entries do not carry their hash
+    on the wire (#2197).
+    """
+    canonical = json.dumps(tx, sort_keys=True, separators=(",", ":")).encode()
+    return f"0x{hashlib.sha256(canonical).hexdigest()}"
+
+
+def _format_pending_amount(tx: dict[str, Any]) -> str:
+    """Render a pending tx's amount in AIT.
+
+    Mempool entries carry raw compute-units; printing them with an ``AIT``
+    suffix overstated values by UNITS_PER_AIT (36,000,000x) (#2197).
+    """
+    raw = tx.get("amount", tx.get("value", 0))
+    try:
+        return format_ait(int(raw))
+    except (TypeError, ValueError):
+        return str(raw)
+
+
+def _find_pending_tx(http_client: AITBCHTTPClient, tx_hash: str) -> dict[str, Any] | None:
+    """Return the mempool entry for ``tx_hash`` decorated with
+    ``status: "pending"``, or None when the tx is neither sealed nor pending.
+
+    Best-effort: any lookup failure returns None so the caller still reports
+    the original not-found (#2197).
+    """
+    try:
+        data = http_client.get("/rpc/pending")
+        transactions = data.get("transactions", []) if isinstance(data, dict) else []
+    except _TRANSACTION_ERRORS:
+        return None
+    wanted = tx_hash.lower()
+    for tx in transactions:
+        if isinstance(tx, dict) and _pending_tx_hash(tx).lower() == wanted:
+            return {**tx, "tx_hash": tx_hash, "status": "pending"}
+    return None
+
 
 # Transaction types whose apply path rejects any nonzero value — mirrors
 # aitbc_chain.state.state_transition._ZERO_VALUE_TX_TYPES (the node package
@@ -671,6 +717,17 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
             success(f"Transaction status for {tx_hash}")
             click.echo(json.dumps(result, indent=2))
         except NetworkError as e:
+            if http_response_status(e) == 404:
+                pending_tx = _find_pending_tx(http_client, tx_hash)
+                if pending_tx is not None:
+                    success(f"Transaction status for {tx_hash}")
+                    click.echo(json.dumps(pending_tx, indent=2))
+                    return
+                abort(
+                    None,
+                    f"Transaction {tx_hash} not found (not sealed and not in the mempool)",
+                    from_exception=e,
+                )
             abort(None, f"Error getting transaction status: {e}", from_exception=e)
         except _TRANSACTION_ERRORS as e:
             abort(None, f"Error: {e}", from_exception=e)
@@ -701,12 +758,12 @@ def pending(ctx, rpc_url: str | None):
         for tx in transactions:
             tx_hash = tx.get("hash") or tx.get("tx_hash") or tx.get("id")
             tx_type = tx.get("type", "TRANSFER")
-            amount = tx.get("amount", tx.get("value", 0))
+            amount = _format_pending_amount(tx)
             sender = tx.get("from", "?")
             if tx_hash:
-                click.echo(f"  - {tx_hash}: {amount} AIT ({tx_type})")
+                click.echo(f"  - {tx_hash}: {amount} ({tx_type})")
             else:
-                click.echo(f"  - {tx_type} {amount} AIT from {sender[:16]}...")
+                click.echo(f"  - {tx_type} {amount} from {sender[:16]}...")
     except NetworkError as e:
         abort(None, f"Error getting pending transactions: {e}")
     except _TRANSACTION_ERRORS as e:
