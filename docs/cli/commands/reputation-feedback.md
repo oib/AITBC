@@ -15,7 +15,8 @@ aitbc reputation feedback [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--agent-id` | text | — | yes | The Agent id. |
-| `--reviewer-id` | text | — | yes | The Reviewer id. |
+| `--reviewer-id` | text | — | no | Ignored by the server: the reviewer is always the authenticated caller. |
+| `--job-id` | text | — | no | Completed job this feedback is anchored to (required for non-admin callers) |
 | `--overall` | float | `3.0` | no | Overall rating (1-5) |
 | `--performance` | float | `3.0` | no | Performance rating (1-5) |
 | `--communication` | float | `3.0` | no | Communication rating (1-5) |
@@ -27,7 +28,7 @@ aitbc reputation feedback [OPTIONS]
 ## Examples
 
 ```bash
-aitbc reputation feedback --agent-id <agent_id> --reviewer-id <reviewer_id>
+aitbc reputation feedback --agent-id <agent_id>
 ```
 
 ## Related
