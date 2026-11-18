@@ -10,7 +10,7 @@ import click
 import httpx
 
 from ._group import _get_bridge_client, bridge
-from ._helpers import _OPS_ERRORS, _derive_address, _fetch_block_header, _sign_dict, _sign_header
+from ._helpers import _OPS_ERRORS, _abort_ops, _derive_address, _fetch_block_header, _sign_dict, _sign_header
 from ...utils import output
 from ...utils.error_handling import abort
 
@@ -55,7 +55,7 @@ def get_proof(ctx, transfer_id, source_chain, block_height, block_hash, output_p
             title="Bridge Proof",
         )
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to build bridge proof: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to build bridge proof", e)
 
 
 @bridge.command(
@@ -80,7 +80,7 @@ def sign_proof(ctx, proof_file, private_key, output_path):
     try:
         proof = json.loads(Path(proof_file).read_text())
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to read proof file: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to read proof file", e)
 
     if not private_key:
         abort(ctx, "At least one --private-key is required")
@@ -99,7 +99,7 @@ def sign_proof(ctx, proof_file, private_key, output_path):
     try:
         Path(out_file).write_text(json.dumps(proof, indent=2, sort_keys=True))
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to write signed proof: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to write signed proof", e)
 
     output(
         {"success": True, "proof_file": out_file, "signatures": len(signatures)},
@@ -126,7 +126,7 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
     try:
         proof = json.loads(Path(proof_file).read_text())
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to read proof file: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to read proof file", e)
 
     proposer = _derive_address(admin_private_key) if not admin_address else admin_address
     header_fields = {
@@ -172,7 +172,7 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
         result = asyncio.run(_store())
         output(result, ctx.obj.get("output_format", "table"), title="Stored Block Header")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to store block header: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to store block header", e)
 
 
 @bridge.command(
@@ -220,7 +220,7 @@ def ingest_header(ctx, source_rpc, target_rpc, height, chain_id, re_sign, privat
         result = asyncio.run(_ingest())
         output(result, ctx.obj.get("output_format", "table"), title="Ingested Block Header")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to ingest block header: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to ingest block header", e)
 
 
 @bridge.command(
@@ -281,4 +281,4 @@ def attest(ctx, header_file, source_rpc, height, chain_id, private_key, proposer
         result = asyncio.run(_attest())
         output(result, ctx.obj.get("output_format", "table"), title="Attested Block Header")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to attest block header: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to attest block header", e)

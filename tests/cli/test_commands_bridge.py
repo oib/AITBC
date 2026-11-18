@@ -6,6 +6,9 @@ Converted from skipped stubs to functional tests using the shared CLI mock
 fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
 """
 
+from unittest.mock import patch
+
+import httpx
 import pytest
 from click.testing import CliRunner
 
@@ -36,6 +39,55 @@ class TestBridgeCommands:
         from aitbc_cli.commands.bridge import bridge
 
         assert "status" in bridge.commands
+
+
+class TestBridgeErrorDetail:
+    """#2214: bridge RPC failures must surface the server's JSON error detail."""
+
+    @staticmethod
+    def _http_error(status: int, body: dict) -> httpx.HTTPStatusError:
+        request = httpx.Request("POST", "http://node:8202/rpc/bridge/lock")
+        response = httpx.Response(status, json=body, request=request)
+        return httpx.HTTPStatusError(f"Client error '{status}' for url", request=request, response=response)
+
+    def test_detail_string_extracted(self):
+        from aitbc_cli.commands.bridge._helpers import _response_error_detail
+
+        err = self._http_error(422, {"detail": "amount must be greater than 0"})
+        assert _response_error_detail(err) == "amount must be greater than 0"
+
+    def test_detail_fastapi_list_extracted(self):
+        from aitbc_cli.commands.bridge._helpers import _response_error_detail
+
+        err = self._http_error(422, {"detail": [{"loc": ["body", "amount"], "msg": "value is not a valid integer"}]})
+        assert _response_error_detail(err) == "value is not a valid integer"
+
+    def test_no_response_returns_none(self):
+        from aitbc_cli.commands.bridge._helpers import _response_error_detail
+
+        assert _response_error_detail(RuntimeError("boom")) is None
+
+    def test_pending_command_surfaces_server_detail(self, runner):
+        from aitbc_cli.commands.bridge import bridge
+
+        class _FakeClient:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                return False
+
+            async def list_pending(self, chain_id=None):
+                raise self._err
+
+        fake = _FakeClient()
+        fake._err = self._http_error(422, {"detail": "chain_id filter is not a valid chain"})
+        with patch("aitbc_cli.commands.bridge._get_bridge_client", return_value=fake):
+            result = runner.invoke(bridge, ["pending"])
+
+        assert result.exit_code != 0
+        assert "chain_id filter is not a valid chain" in result.output
+        assert "Client error '422'" in result.output
 
 
 if __name__ == "__main__":
