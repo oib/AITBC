@@ -80,6 +80,16 @@ def aitbc_agent_comm_discover(
     chain_id: Annotated[str, Field(description="The Chain id.")],
     capabilities: Annotated[str | None, Field(description="Required capabilities (comma-separated)")] = None,
     output_format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet signing the read request headers (default: $AITBC_DEFAULT_WALLET)")
+    ] = None,
+    signing_agent_id: Annotated[
+        str | None,
+        Field(description="Registered agent ID the wallet is bound to (default: $AGENT_ID); required with --wallet"),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -88,7 +98,14 @@ def aitbc_agent_comm_discover(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"chain_id": "chain-id", "capabilities": "capabilities", "output_format": "format"},
+        values={
+            "chain_id": "chain-id",
+            "capabilities": "capabilities",
+            "output_format": "format",
+            "password_file": "password-file",
+            "wallet_name": "wallet",
+            "signing_agent_id": "signing-agent-id",
+        },
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -108,6 +125,16 @@ def aitbc_agent_comm_list(
     status: Annotated[Literal["active", "inactive", "busy", "offline"] | None, Field(description="Filter by status")] = None,
     capabilities: Annotated[str | None, Field(description="Filter by capabilities (comma-separated)")] = None,
     output_format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet signing the read request headers (default: $AITBC_DEFAULT_WALLET)")
+    ] = None,
+    signing_agent_id: Annotated[
+        str | None,
+        Field(description="Registered agent ID the wallet is bound to (default: $AGENT_ID); required with --wallet"),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -116,7 +143,15 @@ def aitbc_agent_comm_list(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"chain_id": "chain-id", "status": "status", "capabilities": "capabilities", "output_format": "format"},
+        values={
+            "chain_id": "chain-id",
+            "status": "status",
+            "capabilities": "capabilities",
+            "output_format": "format",
+            "password_file": "password-file",
+            "wallet_name": "wallet",
+            "signing_agent_id": "signing-agent-id",
+        },
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -159,6 +194,16 @@ def aitbc_agent_comm_monitor(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_agent_comm_network(
     output_format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet signing the read request headers (default: $AITBC_DEFAULT_WALLET)")
+    ] = None,
+    signing_agent_id: Annotated[
+        str | None,
+        Field(description="Registered agent ID the wallet is bound to (default: $AGENT_ID); required with --wallet"),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -167,7 +212,12 @@ def aitbc_agent_comm_network(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"output_format": "format"},
+        values={
+            "output_format": "format",
+            "password_file": "password-file",
+            "wallet_name": "wallet",
+            "signing_agent_id": "signing-agent-id",
+        },
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -447,6 +497,16 @@ def aitbc_agent_comm_send(
 def aitbc_agent_comm_status(
     agent_id: Annotated[str, Field(description="The Agent id.")],
     output_format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet signing the read request headers (default: $AITBC_DEFAULT_WALLET)")
+    ] = None,
+    signing_agent_id: Annotated[
+        str | None,
+        Field(description="Registered agent ID the wallet is bound to (default: $AGENT_ID); required with --wallet"),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -455,7 +515,13 @@ def aitbc_agent_comm_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"agent_id": "agent-id", "output_format": "format"},
+        values={
+            "agent_id": "agent-id",
+            "output_format": "format",
+            "password_file": "password-file",
+            "wallet_name": "wallet",
+            "signing_agent_id": "signing-agent-id",
+        },
     )
     args = None
     return _aitbc_cli_read_tool(

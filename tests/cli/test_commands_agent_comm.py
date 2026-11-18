@@ -111,6 +111,41 @@ class TestAgentCommCommands:
         mock_client.get.assert_called_once()
         assert "/v1/agents/agent-001" == mock_client.get.call_args[0][0]
 
+    @patch("aitbc_cli.commands.agent_comm.signed_request_headers", return_value={"X-Agent-Id": "agent-001"})
+    @patch("aitbc_cli.commands.agent_comm.load_signing_wallet", return_value=("0xabc", "0xkey"))
+    @patch("aitbc_cli.commands.agent_comm.AITBCHTTPClient")
+    def test_agent_comm_status_signed_read_headers(self, mock_http_class, _mock_wallet, _mock_headers, runner, mock_config):
+        """#2212: --wallet signs read requests with X-Agent-* headers."""
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {"agent": {"agent_id": "agent-001"}}
+
+        from aitbc_cli.commands.agent_comm import agent_comm
+
+        obj = make_cli_obj()
+        obj["config"] = mock_config
+        result = runner.invoke(
+            agent_comm,
+            ["status", "--agent-id", "agent-001", "--wallet", "w1", "--signing-agent-id", "agent-001"],
+            obj=obj,
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_client.get.call_args.kwargs["headers"] == {"X-Agent-Id": "agent-001"}
+
+    @patch("aitbc_cli.commands.agent_comm.load_signing_wallet", return_value=("0xabc", "0xkey"))
+    @patch("aitbc_cli.commands.agent_comm.AITBCHTTPClient")
+    def test_agent_comm_list_wallet_requires_signing_agent_id(self, mock_http_class, _mock_wallet, runner, mock_config):
+        """#2212: --wallet without a signing identity fails loudly, not unsigned."""
+        from aitbc_cli.commands.agent_comm import agent_comm
+
+        obj = make_cli_obj()
+        obj["config"] = mock_config
+        result = runner.invoke(agent_comm, ["list", "--wallet", "w1"], obj=obj, env={"AGENT_ID": ""})
+
+        assert result.exit_code != 0
+        assert "signing-agent-id" in result.output
+        mock_http_class.return_value.post.assert_not_called()
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
