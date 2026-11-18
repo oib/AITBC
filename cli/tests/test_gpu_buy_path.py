@@ -223,3 +223,57 @@ def test_quote_accepts_wallet_buyer_on_native(runner):
         result = _invoke(runner, ["gpu", "quote", "--gpu-id", "g1", "--buyer-id", ACCOUNT])
     assert result.exit_code == 0, result.output
     client.post.assert_called_once()
+
+
+def test_buy_missing_energy_quote_file_aborts_cleanly(runner, tmp_path):
+    """A nonexistent --energy-quote path must be a clean error, not a traceback.
+
+    Regression for #2237: ``open()`` raised a raw FileNotFoundError, so the
+    documented scenario play ended in an unhandled traceback.
+    """
+    missing = tmp_path / "no-such-quote.json"
+    result = _invoke(
+        runner,
+        [
+            "gpu",
+            "buy",
+            "--gpu-id",
+            "g1",
+            "--buyer-id",
+            ACCOUNT,
+            "--job-id",
+            "job-1",
+            "--duration-hours",
+            "1",
+            "--energy-quote",
+            str(missing),
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Cannot read --energy-quote" in result.output
+    assert "Traceback" not in result.output
+
+
+def test_buy_invalid_energy_quote_json_aborts_cleanly(runner, tmp_path):
+    """Malformed JSON in --energy-quote is a clean error too."""
+    bad = tmp_path / "bad-quote.json"
+    bad.write_text("{not json")
+    result = _invoke(
+        runner,
+        [
+            "gpu",
+            "buy",
+            "--gpu-id",
+            "g1",
+            "--buyer-id",
+            ACCOUNT,
+            "--job-id",
+            "job-1",
+            "--duration-hours",
+            "1",
+            "--energy-quote",
+            str(bad),
+        ],
+    )
+    assert result.exit_code != 0
+    assert "Invalid JSON in --energy-quote" in result.output
