@@ -86,9 +86,19 @@ class NodeClient:
                 raise
 
     async def get_node_info(self) -> dict[str, Any]:
-        """Get node information"""
+        """Get node information.
+
+        The ``/api/*`` admin surface only exists on nodes that expose the
+        management API; a plain chain-rpc endpoint answers with the public
+        routes instead. For those, compose the report from ``/health``,
+        ``/proposer`` and per-chain ``/head`` so callers see real fields
+        only — host telemetry (cpu/mem/disk/net/uptime) is not published by
+        the chain RPC and is simply absent rather than fabricated (#2230).
+        """
         if self._client is None:
             raise RuntimeError("Client not initialized")
+        if not _endpoint_has_api_surface(self.config.endpoint):
+            return await self._get_rpc_node_info()
         try:
             response = await self._client.get(f"{self.config.endpoint}/api/node/info")
             if response.status_code == 200:
@@ -106,6 +116,34 @@ class NodeClient:
             else:
                 logger.error("Failed to get node info for %s: %s", self.config.id, e)
                 raise
+
+    async def _get_rpc_node_info(self) -> dict[str, Any]:
+        """Compose node info from the public chain-rpc routes."""
+        base = self.config.endpoint.rstrip("/")
+        if base.endswith("/rpc"):
+            base = base[: -len("/rpc")]
+        response = await self._client.get(f"{base}/health")  # type: ignore[union-attr]
+        if response.status_code != 200:
+            raise RuntimeError(f"Node info request failed: {response.status_code}")
+        health = response.json()
+
+        hosted_chains: dict[str, Any] = {}
+        for cid in health.get("supported_chains") or []:
+            hosted_chains[cid] = {
+                "type": "main",
+                "status": "active",
+                "block_height": await self._fetch_block_height(cid),
+            }
+
+        return {
+            "node_id": self.config.id,
+            "endpoint": self.config.endpoint,
+            "status": health.get("status", "unknown"),
+            "proposer_id": health.get("proposer_id") or "",
+            "node_wallet": health.get("node_wallet") or "",
+            "supported_chains": health.get("supported_chains") or [],
+            "hosted_chains": hosted_chains,
+        }
 
     async def _get_supported_chains(self) -> list[str]:
         """Return the node's ``supported_chains`` list.
