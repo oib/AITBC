@@ -49,11 +49,18 @@ def load_island_credentials() -> dict[str, Any]:
     with open(credentials_path) as f:
         credentials: dict[str, Any] = json.load(f)
 
-    # Validate required fields
-    required_fields = ["island_id", "island_name", "island_chain_id", "credentials"]
+    # Validate required fields — presence alone is not enough: a file with
+    # null island_id/island_chain_id and a bare {"rpc_endpoint": ...} credentials
+    # dict passes the old check and then fails downstream in every consumer
+    # (#2204). Reject null/empty values up front so the error names the file.
+    # ``credentials`` must be an object but may be empty — get_rpc_endpoint()
+    # falls back to the configured RPC URL when it carries no endpoint.
+    required_fields = ["island_id", "island_name", "island_chain_id"]
     for field in required_fields:
-        if field not in credentials:
-            raise ValueError(f"Invalid credentials: missing required field '{field}'")
+        if not credentials.get(field):
+            raise ValueError(f"Invalid credentials: missing or empty required field '{field}'")
+    if not isinstance(credentials.get("credentials"), dict):
+        raise ValueError("Invalid credentials: 'credentials' must be an object")
 
     return credentials
 

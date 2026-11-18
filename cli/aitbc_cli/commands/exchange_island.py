@@ -15,7 +15,7 @@ import httpx
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from aitbc.exceptions import AITBCError
-from ..utils import DECIMAL, error, info, output, success
+from ..utils import DECIMAL, error, info, output, success, warning
 from ..utils.wallet_secret import wallet_password_options
 from ..utils.error_handling import CLIError, abort
 from ..utils.wallet_loader import load_wallet_for_payment
@@ -484,8 +484,23 @@ def _order_payload(order: dict[str, Any]) -> dict[str, Any]:
     return order.get("payload") or order
 
 
-def _orderbook_transactions(rpc_endpoint: str, island_id: str, pair: str, limit: int) -> list[Any]:
-    """Query open exchange orders; simulated fallback when the RPC is down."""
+def _simulated_notice(what: str, simulated: bool) -> str:
+    """Warn and return the " (Simulated)" title suffix for fallback data.
+
+    Simulated rows must never be mistakable for live exchange state (#2204).
+    """
+    if not simulated:
+        return ""
+    warning(f"Exchange RPC unreachable — showing SIMULATED {what} data, not live state")
+    return " (Simulated)"
+
+
+def _orderbook_transactions(rpc_endpoint: str, island_id: str, pair: str, limit: int) -> tuple[list[Any], bool]:
+    """Query open exchange orders; simulated fallback when the RPC is down.
+
+    Returns ``(transactions, simulated)`` — callers MUST surface the flag so
+    simulated rows are never mistaken for live order-book state (#2204).
+    """
     params = {
         "transaction_type": "EXCHANGE",
         "island_id": island_id,
@@ -495,12 +510,14 @@ def _orderbook_transactions(rpc_endpoint: str, island_id: str, pair: str, limit:
     }
 
     http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+    simulated = False
     try:
         transactions = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
     except NetworkError:
         transactions = _simulated_orderbook_transactions(pair, limit)
+        simulated = True
     transactions, _book_cancelled = _apply_cancels(transactions)
-    return [t for t in transactions if ((t.get("payload") or t).get("order_id") not in _book_cancelled)]
+    return [t for t in transactions if ((t.get("payload") or t).get("order_id") not in _book_cancelled)], simulated
 
 
 def _split_sorted_orders(transactions) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
@@ -541,7 +558,7 @@ def _print_orderbook_side(ctx, orders, pair: str, limit: int, *, price_key: str,
         return
     quote_symbol = pair.split("/")[1]
     rows = [_orderbook_row(order, price_key, quote_symbol) for order in orders[:limit]]
-    output(rows, ctx.obj.get("output_format", "table"), title=title)
+    output(rows, ctx.obj.get("output_format", "table"), title=title, disable_numparse=True)
 
 
 def _print_orderbook_spread(pair: str, sell_orders, buy_orders) -> None:
@@ -579,7 +596,8 @@ def orderbook(ctx, pair: str, limit: int):
         rpc_endpoint = get_rpc_endpoint()
         island_id = get_island_id()
 
-        transactions = _orderbook_transactions(rpc_endpoint, island_id, pair, limit)
+        transactions, simulated = _orderbook_transactions(rpc_endpoint, island_id, pair, limit)
+        marker = _simulated_notice("order book", simulated)
         buy_orders, sell_orders = _split_sorted_orders(transactions)
 
         if not buy_orders and not sell_orders:
@@ -587,9 +605,11 @@ def orderbook(ctx, pair: str, limit: int):
             return
 
         # Display sell orders (asks)
-        _print_orderbook_side(ctx, sell_orders, pair, limit, price_key="min_price", title=f"Sell Orders (Asks) - {pair}")
+        _print_orderbook_side(
+            ctx, sell_orders, pair, limit, price_key="min_price", title=f"Sell Orders (Asks) - {pair}{marker}"
+        )
         # Display buy orders (bids)
-        _print_orderbook_side(ctx, buy_orders, pair, limit, price_key="max_price", title=f"Buy Orders (Bids) - {pair}")
+        _print_orderbook_side(ctx, buy_orders, pair, limit, price_key="max_price", title=f"Buy Orders (Bids) - {pair}{marker}")
 
         # Calculate spread if both exist
         _print_orderbook_spread(pair, sell_orders, buy_orders)
@@ -617,6 +637,7 @@ def rates(ctx):
 
         # Query blockchain for exchange orders to calculate rates
         rates_data = []
+        any_simulated = False
 
         for pair in SUPPORTED_PAIRS:
             params = {"transaction_type": "EXCHANGE", "island_id": island_id, "pair": pair, "status": "open", "limit": 100}
@@ -628,6 +649,7 @@ def rates(ctx):
                 orders = [o for o in orders if ((o.get("payload") or o).get("order_id") not in _rates_cancelled)]
             except NetworkError:
                 orders = _simulated_orders_for_pair(pair, 100)
+                any_simulated = True
 
             # Calculate rates from order book
             buy_orders = [o.get("payload", o) for o in orders if (o.get("payload") or o).get("side") == "buy"]
@@ -651,7 +673,12 @@ def rates(ctx):
                 }
             )
 
-        output(rates_data, ctx.obj.get("output_format", "table"), title="Exchange Rates")
+        output(
+            rates_data,
+            ctx.obj.get("output_format", "table"),
+            title=f"Exchange Rates{_simulated_notice('rates', any_simulated)}",
+            disable_numparse=True,
+        )
 
     except _OPS_ERRORS as e:
         abort(ctx, f"Error viewing exchange rates: {str(e)}", from_exception=e)
@@ -688,10 +715,12 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
             params["pair"] = pair
 
         http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+        simulated = False
         try:
             orders = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
         except NetworkError:
             orders = _simulated_order_list(user, status, pair, island_id)
+            simulated = True
 
         orders, _cancelled_ids = _apply_cancels(orders)
         if status:
@@ -720,7 +749,12 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
                 }
             )
 
-        output(orders_data, ctx.obj.get("output_format", "table"), title=f"Exchange Orders ({island_id[:16]}...)")
+        output(
+            orders_data,
+            ctx.obj.get("output_format", "table"),
+            title=f"Exchange Orders ({island_id[:16]}...){_simulated_notice('orders', simulated)}",
+            disable_numparse=True,
+        )
 
     except _OPS_ERRORS as e:
         abort(ctx, f"Error listing orders: {str(e)}", from_exception=e)
