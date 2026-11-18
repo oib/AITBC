@@ -25,11 +25,20 @@ breadcrumb: Home > Scenarios > Mining Setup
 
 ## Scenario Overview
 
-This scenario walks an AI agent through starting, monitoring, and stopping a blockchain miner using the `aitbc mining` CLI group. Mining secures the chain and pays block rewards to the miner's wallet address. The CLI talks to the blockchain RPC (default `http://localhost:8202`) and reads the miner's address from the local keystore wallet created in Scenario 01.
+This scenario walks an AI agent through the `aitbc mining` CLI group — start, status, list, stop — against the blockchain RPC (default `http://localhost:8202`).
+
+> **Reality check (#2211):** AITBC is a **PBFT/PoA** chain — there is **no
+> proof-of-work mining**. No hashrate, blocks, or rewards are produced, and
+> the `/rpc/mining/*` endpoints are **admin bookkeeping stubs**: `start`/`stop`
+> record intent in the node's chain.db `miner_registry` table and `status`/`list`
+> report it. They exist for operator bookkeeping and CLI compatibility, not to
+> secure the chain — block production is done by the PBFT validator set.
+
+The CLI reads the miner's address from the local keystore wallet created in Scenario 01.
 
 ### Use Case
 
-A node-operating agent wants to dedicate spare compute to securing the network and earning block rewards. It starts mining into an existing wallet, periodically checks status, lists active miners on the node, and cleanly stops mining when the compute is needed elsewhere.
+A node-operating agent wants to exercise the mining bookkeeping surface — record a miner as started, periodically check status, list recorded miners on the node, and cleanly stop. (On this PBFT/PoA chain nothing is actually mined; see the reality check above.)
 
 ### What You'll Learn
 
@@ -67,7 +76,7 @@ All commands below are grounded in `cli/aitbc_cli/commands/mining.py`. The defau
 
 ### Step 1: Start mining into a wallet
 
-`aitbc mining start --wallet-name <wallet_name>` loads `<wallet_name>.json` from the keystore, reads its `address`, and posts `{miner_address, threads, enabled: true}` to `POST /rpc/mining/start`. Options: `--threads` (default `1`), `--rpc-url`.
+`aitbc mining start --wallet-name <wallet_name>` loads `<wallet_name>.json` from the keystore, reads its `address`, and posts `{miner_address, threads, enabled: true}` to `POST /rpc/mining/start`, which upserts a row in the node's chain.db `miner_registry` table. Options: `--threads` (default `1`), `--rpc-url`.
 
 ```bash
 aitbc mining start --wallet-name miner-wallet --threads 4
@@ -96,18 +105,29 @@ aitbc mining start --wallet-name miner-wallet --threads 4 --rpc-url http://node-
 aitbc mining status
 ```
 
-**Expected output:**
+**Expected output** (real shape — bookkeeping only, `simulated: true` because no PoW mining exists):
 
 ```json
 {
-  "enabled": true,
-  "miner_address": "0x1a2b3c4d5e6f...",
-  "threads": 4,
-  "blocks_mined": 12,
-  "hashrate": 18432,
-  "status": "running"
+  "status": "mining",
+  "miners": [
+    {
+      "address": "0x1a2b3c4d5e6f...",
+      "threads": 4,
+      "enabled": true,
+      "started_at": "2026-11-18T12:00:00+00:00",
+      "stopped_at": null,
+      "authorized_by": "0x..."
+    }
+  ],
+  "active_count": 1,
+  "source": "chain.db",
+  "simulated": true,
+  "note": "simulated bookkeeping only: this is a PBFT/PoA chain with no proof-of-work mining — no hashrate, blocks mined, or rewards are produced"
 }
 ```
+
+There are no `hashrate` or `blocks_mined` fields — nothing is actually mined.
 
 ### Step 3: List active miners on the node
 
@@ -117,7 +137,7 @@ aitbc mining status
 aitbc mining list
 ```
 
-**Expected output:**
+**Expected output** (same `miner_registry` rows as `status`):
 
 ```json
 {
@@ -125,11 +145,16 @@ aitbc mining list
     {
       "address": "0x1a2b3c4d5e6f...",
       "threads": 4,
-      "status": "running",
-      "blocks_mined": 12
+      "enabled": true,
+      "started_at": "2026-11-18T12:00:00+00:00",
+      "stopped_at": null,
+      "authorized_by": "0x..."
     }
   ],
-  "count": 1
+  "count": 1,
+  "source": "chain.db",
+  "simulated": true,
+  "note": "simulated bookkeeping only: ..."
 }
 ```
 
@@ -156,10 +181,25 @@ aitbc mining status
 
 ```json
 {
-  "enabled": false,
-  "status": "stopped"
+  "status": "idle",
+  "miners": [
+    {
+      "address": "0x1a2b3c4d5e6f...",
+      "threads": 4,
+      "enabled": false,
+      "started_at": "2026-11-18T12:00:00+00:00",
+      "stopped_at": "2026-11-18T12:30:00+00:00",
+      "authorized_by": "0x..."
+    }
+  ],
+  "active_count": 0,
+  "source": "chain.db",
+  "simulated": true,
+  "note": "simulated bookkeeping only: ..."
 }
 ```
+
+The row stays in the registry with `enabled: false` — `stop` disables, it does not delete.
 
 ---
 
@@ -215,9 +255,9 @@ print(status)
 
 After completing this scenario, you should be able to:
 
-- Start mining into a named keystore wallet with a configurable thread count
-- Read mining status and list active miners on the node
-- Cleanly stop mining
+- Record a mining start/stop against a named keystore wallet with a configurable thread count
+- Read mining bookkeeping status and list recorded miners on the node
+- Understand that these endpoints are simulated stubs — PBFT/PoA has no PoW mining
 - Drive the same RPC endpoints programmatically from an agent
 
 ---

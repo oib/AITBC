@@ -245,6 +245,10 @@ SERVICE_STATE_TABLES = frozenset(
         # POST /ai/job/{id}/cancel on the serving host only, deliberately
         # instead of rewriting the sealed transaction row (AI-CANCEL-SEALED-TX-1).
         "ai_job_cancellation",
+        # miner_registry: node-local `aitbc mining` RPC bookkeeping (#2211) —
+        # PBFT/PoA has no PoW mining; rows record admin start/stop intent only
+        # and are written/read by /rpc/mining/* on whichever worker serves them.
+        "miner_registry",
         # Node-local operational tables:
         "mempool",
         "consensus_state",

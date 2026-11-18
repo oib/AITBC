@@ -631,6 +631,30 @@ class AIJobCancellation(ChainBase, table=True):
     cancelled_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
+class MinerRegistry(ChainBase, table=True):
+    """Node-local bookkeeping for the ``aitbc mining`` RPC stub (#2211).
+
+    The chain is PBFT/PoA — there is no proof-of-work mining, so these rows
+    record only admin start/stop intent for ``/rpc/mining/*``; no hashrate,
+    blocks, or rewards exist. The table lives in chain.db (shared by every
+    RPC worker on the node) so all four endpoints agree, replacing the old
+    per-process ``start_mining_route.miners`` function attribute and the
+    unrelated coordinator-api ``/v1/miners`` AI-job registry the read paths
+    used to prefer. It is in ``SERVICE_STATE_TABLES`` — per-node divergence
+    is legitimate service state, never apply or aux-sync state.
+    """
+
+    __tablename__ = "miner_registry"
+
+    chain_id: str = Field(primary_key=True)
+    miner_address: str = Field(primary_key=True, max_length=128)
+    threads: int = Field(default=1)
+    enabled: bool = Field(default=True)
+    authorized_by: str = Field(default="", max_length=128)
+    started_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    stopped_at: datetime | None = Field(default=None)
+
+
 class AgentSpendSession(ChainBase, table=True):
     """On-chain agent spend session credential (AGENT-SPEND-B-1, #1142).
 

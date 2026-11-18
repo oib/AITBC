@@ -12096,7 +12096,7 @@
           "rpc"
         ],
         "summary": "Start mining",
-        "description": "Start mining with specified wallet (requires admin authentication)",
+        "description": "Record a miner as started (requires admin authentication).\n\nBookkeeping stub only \u2014 PBFT/PoA has no proof-of-work mining (#2211).",
         "operationId": "start_mining_route_rpc_mining_start_post",
         "requestBody": {
           "content": {
@@ -12134,7 +12134,7 @@
             }
           },
           "400": {
-            "description": "miner_address is required",
+            "description": "miner_address is required / threads must be a positive integer",
             "content": {
               "application/json": {
                 "schema": {
@@ -12157,7 +12157,7 @@
           "rpc"
         ],
         "summary": "Stop mining",
-        "description": "Stop all mining operations (requires admin authentication)",
+        "description": "Disable all recorded miners (requires admin authentication).\n\nBookkeeping stub only \u2014 PBFT/PoA has no proof-of-work mining (#2211).",
         "operationId": "stop_mining_route_rpc_mining_stop_post",
         "responses": {
           "200": {
@@ -12186,7 +12186,7 @@
           "rpc"
         ],
         "summary": "Get mining status",
-        "description": "Get current mining status (requires admin authentication).\n\nv0.6.7: Aggregates status from coordinator-api miner registry. Falls back\nto local in-memory miners if coordinator-api is unavailable.",
+        "description": "Get current mining bookkeeping status (requires admin authentication).\n\nReads the shared chain.db ``miner_registry`` table so every RPC worker\nagrees (#2211). Bookkeeping stub only \u2014 PBFT/PoA has no PoW mining.",
         "operationId": "get_mining_status_route_rpc_mining_status_get",
         "responses": {
           "200": {
@@ -12215,7 +12215,7 @@
           "rpc"
         ],
         "summary": "List active miners",
-        "description": "List all registered miners (requires admin authentication).\n\nv0.6.7: Queries coordinator-api miner registry. Falls back to local\nin-memory miners if coordinator-api is unavailable.",
+        "description": "List recorded miners (requires admin authentication).\n\nReads the shared chain.db ``miner_registry`` table so every RPC worker\nagrees (#2211). Bookkeeping stub only \u2014 PBFT/PoA has no PoW mining.",
         "operationId": "list_miners_route_rpc_mining_miners_get",
         "responses": {
           "200": {
@@ -24391,7 +24391,7 @@
           "v1"
         ],
         "summary": "Start mining",
-        "description": "Start mining with specified wallet (requires admin authentication)",
+        "description": "Record a miner as started (requires admin authentication).\n\nBookkeeping stub only \u2014 PBFT/PoA has no proof-of-work mining (#2211).",
         "operationId": "start_mining_route_v1_mining_start_post",
         "requestBody": {
           "content": {
@@ -24429,7 +24429,7 @@
             }
           },
           "400": {
-            "description": "miner_address is required",
+            "description": "miner_address is required / threads must be a positive integer",
             "content": {
               "application/json": {
                 "schema": {
@@ -24452,7 +24452,7 @@
           "v1"
         ],
         "summary": "Stop mining",
-        "description": "Stop all mining operations (requires admin authentication)",
+        "description": "Disable all recorded miners (requires admin authentication).\n\nBookkeeping stub only \u2014 PBFT/PoA has no proof-of-work mining (#2211).",
         "operationId": "stop_mining_route_v1_mining_stop_post",
         "responses": {
           "200": {
@@ -24481,7 +24481,7 @@
           "v1"
         ],
         "summary": "Get mining status",
-        "description": "Get current mining status (requires admin authentication).\n\nv0.6.7: Aggregates status from coordinator-api miner registry. Falls back\nto local in-memory miners if coordinator-api is unavailable.",
+        "description": "Get current mining bookkeeping status (requires admin authentication).\n\nReads the shared chain.db ``miner_registry`` table so every RPC worker\nagrees (#2211). Bookkeeping stub only \u2014 PBFT/PoA has no PoW mining.",
         "operationId": "get_mining_status_route_v1_mining_status_get",
         "responses": {
           "200": {
@@ -24510,7 +24510,7 @@
           "v1"
         ],
         "summary": "List active miners",
-        "description": "List all registered miners (requires admin authentication).\n\nv0.6.7: Queries coordinator-api miner registry. Falls back to local\nin-memory miners if coordinator-api is unavailable.",
+        "description": "List recorded miners (requires admin authentication).\n\nReads the shared chain.db ``miner_registry`` table so every RPC worker\nagrees (#2211). Bookkeeping stub only \u2014 PBFT/PoA has no PoW mining.",
         "operationId": "list_miners_route_v1_mining_miners_get",
         "responses": {
           "200": {
