@@ -34,6 +34,48 @@ from .payments_core import PaymentCoreMixin
 
 logger = get_logger(__name__)
 
+# Result payload ``status`` values that report the job produced no usable
+# output. The miner posts ``{"status": "failed", "error": ...}`` through the
+# /result endpoint; storing that payload must not count as delivery for the
+# refund gate (#2244).
+_FAILED_RESULT_STATUSES = frozenset({"failed", "failure", "error"})
+
+# Keys of the miner result body (``JobSubmitResultBody``) that carry usable
+# client output. A failure marker alongside one of these is a partial result
+# and still counts as delivered.
+_RESULT_OUTPUT_KEYS = ("output", "result", "response", "text", "transcription", "stdout")
+
+
+def _is_failure_result(result: dict) -> bool:
+    """True when a stored result payload reports failure with no usable output."""
+    has_output = any(result.get(key) for key in _RESULT_OUTPUT_KEYS)
+    if has_output:
+        return False
+    status_value = result.get("status")
+    if isinstance(status_value, str) and status_value.strip().lower() in _FAILED_RESULT_STATUSES:
+        return True
+    # An error-only report (``{"error": ...}`` with no status field) carries no
+    # output the client can use either.
+    return bool(result.get("error"))
+
+
+def _result_is_delivered(job: Job) -> bool:
+    """Whether the job's stored result counts as delivered output.
+
+    A miner-reported failure is stored as ``{"status": "failed", "error": ...}``
+    and delivers nothing the client can use; treating any truthy
+    ``job.result`` as delivery blocked the customer's own refund on exactly
+    those jobs (#2244). A failure marker that rode along with real output
+    (partial result) still counts as delivered — the anti-double-spend gate
+    errs toward blocking.
+    """
+    result = job.result
+    if isinstance(result, dict) and _is_failure_result(result):
+        return False
+    if result:
+        return True
+    return job.state == JobState.completed
+
 
 def _upstream_error_detail(status_error: httpx.HTTPStatusError) -> str | None:
     """Best-effort extraction of the node's ``detail`` message."""
@@ -242,12 +284,15 @@ class PaymentRefundMixin(PaymentCoreMixin):
         elif payment.escrowed_at is None or payment.status not in REFUNDABLE_STATES:
             return False
         # A client's refund window ends at delivery: while the payment is held
-        # and no result exists the client may still pull out, but once output
-        # is delivered (pending_acceptance), contested (disputed) or a release
-        # has been attempted (settlement_failed), refunding is an arbiter call.
+        # and no usable result exists the client may still pull out, but once
+        # output is delivered (pending_acceptance), contested (disputed) or a
+        # release has been attempted (settlement_failed), refunding is an
+        # arbiter call. A stored failure payload (``{"status": "failed",
+        # "error": ...}``) is not delivery — the client received nothing of
+        # value and keeps the self-serve refund (#2244).
         # Without this gate a client could collect the result and refund the
         # escrow afterwards — keeping the work and the money.
-        delivered = bool(job.result) or job.state == JobState.completed
+        delivered = _result_is_delivered(job)
         if not is_admin and payment.status != "refunded" and (payment.status != "escrowed" or delivered):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
