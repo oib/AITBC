@@ -64,6 +64,15 @@ def _reputation_endpoint(path: str) -> str:
     return f"/reputation{path}"
 
 
+def _abort_network(ctx: click.Context, e: NetworkError) -> None:
+    """Abort honestly: an HTTP status means the server answered; None means unreachable."""
+    status = http_response_status(e)
+    detail = http_error_detail(e) or str(e)
+    if status is not None:
+        abort(ctx, f"Request failed (HTTP {status}): {detail}", from_exception=e)
+    abort(ctx, f"Network error: {detail}", from_exception=e)
+
+
 def _reputation_level(score: float) -> str:
     if score >= 900:
         return "legendary"
@@ -237,7 +246,7 @@ def get_profile(ctx, agent_id: str, format: str):
         click.echo(f"Jobs Failed: {data.get('jobs_failed', 0)}")
     except NetworkError as e:
         # Safety net for unexpected network failures.
-        abort(ctx, f"Network error: {http_error_detail(e) or e}")
+        _abort_network(ctx, e)
     except _REPUTATION_ERRORS as e:
         abort(ctx, f"Error getting reputation profile: {e}", from_exception=e)
 
@@ -286,7 +295,7 @@ def trust_score(ctx, agent_id: str, format: str):
         click.echo(f"Reputation Level: {data.get('reputation_level', 'unknown')}")
         click.echo(f"Calculated At: {data.get('calculated_at', 'unknown')}")
     except NetworkError as e:
-        abort(ctx, f"Network error: {http_error_detail(e) or e}")
+        _abort_network(ctx, e)
     except _REPUTATION_ERRORS as e:
         abort(ctx, f"Error getting trust score: {e}", from_exception=e)
 
@@ -349,7 +358,7 @@ def leaderboard(ctx, category: str, limit: int, region: str | None, format: str)
                 f"{entry.get('transaction_count', 0):<12}"
             )
     except NetworkError as e:
-        abort(ctx, f"Network error: {http_error_detail(e) or e}")
+        _abort_network(ctx, e)
     except _REPUTATION_ERRORS as e:
         abort(ctx, f"Error getting leaderboard: {e}", from_exception=e)
 
@@ -400,7 +409,7 @@ def metrics(ctx, format: str):
         click.echo(f"  Events: {recent.get('events_last_24h', recent.get('events', 0))}")
         click.echo(f"  Active Agents: {recent.get('active_agents', 0)}")
     except NetworkError as e:
-        abort(ctx, f"Network error: {http_error_detail(e) or e}")
+        _abort_network(ctx, e)
     except _REPUTATION_ERRORS as e:
         abort(ctx, f"Error getting metrics: {e}", from_exception=e)
 
@@ -426,7 +435,7 @@ def create_profile(ctx, agent_id: str):
         click.echo(f"Reputation Level: {data.get('reputation_level', 'unknown')}")
         click.echo(f"Created At: {data.get('created_at', 'unknown')}")
     except NetworkError as e:
-        abort(ctx, f"Network error: {http_error_detail(e) or e}")
+        _abort_network(ctx, e)
     except _REPUTATION_ERRORS as e:
         abort(ctx, f"Error creating profile: {e}", from_exception=e)
 
@@ -435,12 +444,23 @@ def create_profile(ctx, agent_id: str):
     "feedback",
     epilog="""Examples:
 
-  aitbc reputation feedback --agent-id agent-1 --reviewer-id reviewer-1
+  aitbc reputation feedback --agent-id agent-1 --job-id job-1
 
-  aitbc reputation feedback --agent-id agent-1 --reviewer-id reviewer-1 --overall 5 --text 'great work'""",
+  aitbc reputation feedback --agent-id agent-1 --job-id job-1 --overall 5 --text 'great work'""",
 )
 @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
-@click.option("--reviewer-id", "reviewer_id", required=True, help="The Reviewer id.")
+@click.option(
+    "--reviewer-id",
+    "reviewer_id",
+    required=False,
+    help="Ignored by the server: the reviewer is always the authenticated caller.",
+)
+@click.option(
+    "--job-id",
+    "job_id",
+    default=None,
+    help="Completed job this feedback is anchored to (required for non-admin callers)",
+)
 @click.option("--overall", type=float, default=3.0, help="Overall rating (1-5)")
 @click.option("--performance", type=float, default=3.0, help="Performance rating (1-5)")
 @click.option("--communication", type=float, default=3.0, help="Communication rating (1-5)")
@@ -452,7 +472,8 @@ def create_profile(ctx, agent_id: str):
 def add_feedback(
     ctx,
     agent_id: str,
-    reviewer_id: str,
+    reviewer_id: str | None,
+    job_id: str | None,
     overall: float,
     performance: float,
     communication: float,
@@ -471,12 +492,14 @@ def add_feedback(
             "value": value,
         }
 
-        payload = {
-            "reviewer_id": reviewer_id,
+        payload: dict[str, Any] = {
             "ratings": ratings,
             "feedback_text": text,
             "tags": list(tag),
+            "job_id": job_id,
         }
+        if reviewer_id:
+            payload["reviewer_id"] = reviewer_id
 
         http_client = _coordinator_client(ctx)
         resp = http_client.post(_reputation_endpoint(f"/feedback/{agent_id}"), json=payload)
@@ -487,6 +510,6 @@ def add_feedback(
         click.echo(f"Overall Rating: {data.get('overall_rating', overall)}/5.0")
         click.echo(f"Moderation Status: {data.get('moderation_status', 'pending')}")
     except NetworkError as e:
-        abort(ctx, f"Network error: {http_error_detail(e) or e}")
+        _abort_network(ctx, e)
     except _REPUTATION_ERRORS as e:
         abort(ctx, f"Error adding feedback: {e}", from_exception=e)

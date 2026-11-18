@@ -78,7 +78,12 @@ def aitbc_reputation_create_profile(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_reputation_feedback(
     agent_id: Annotated[str, Field(description="The Agent id.")],
-    reviewer_id: Annotated[str, Field(description="The Reviewer id.")],
+    reviewer_id: Annotated[
+        str | None, Field(description="Ignored by the server: the reviewer is always the authenticated caller.")
+    ] = None,
+    job_id: Annotated[
+        str | None, Field(description="Completed job this feedback is anchored to (required for non-admin callers)")
+    ] = None,
     overall: Annotated[float | None, Field(description="Overall rating (1-5)")] = None,
     performance: Annotated[float | None, Field(description="Performance rating (1-5)")] = None,
     communication: Annotated[float | None, Field(description="Communication rating (1-5)")] = None,
@@ -99,6 +104,7 @@ def aitbc_reputation_feedback(
         values={
             "agent_id": "agent-id",
             "reviewer_id": "reviewer-id",
+            "job_id": "job-id",
             "overall": "overall",
             "performance": "performance",
             "communication": "communication",
