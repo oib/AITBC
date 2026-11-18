@@ -110,6 +110,16 @@ class TestJobReads:
         resp = client.get(f"{BASE}/jobs/{job['job_id']}/result", headers=_headers())
         assert resp.status_code == 425
 
+    def test_result_409_for_terminal_job_without_result(self, client: TestClient) -> None:
+        # A canceled job can never produce a result — the endpoint must answer
+        # a clean terminal 409, not a retryable 425 "too early" (#2207).
+        job = _submit(client)
+        cancel = client.post(f"{BASE}/jobs/{job['job_id']}/cancel", headers=_headers())
+        assert cancel.status_code == 200
+        resp = client.get(f"{BASE}/jobs/{job['job_id']}/result", headers=_headers())
+        assert resp.status_code == 409
+        assert "CANCELED" in resp.json()["detail"]
+
     def test_receipt_404_when_absent(self, client: TestClient) -> None:
         job = _submit(client)
         assert client.get(f"{BASE}/jobs/{job['job_id']}/receipt", headers=_headers()).status_code == 404

@@ -91,7 +91,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc ai service list`](ai-service-list.md) — List available AI services registered with the coordinator.
 - [`aitbc ai service service-status`](ai-service-service-status.md) — Show the status of a named AI service.
 - [`aitbc ai service test`](ai-service-test.md) — Test an AI service endpoint by service name.
-- [`aitbc ai stats`](ai-stats.md) — Show aggregate AI service statistics from the coordinator.
+- [`aitbc ai stats`](ai-stats.md) — Show aggregate AI service statistics (admin-only).
 - [`aitbc ai status`](ai-status.md) — Show the current status of an AI job by job ID.
 - [`aitbc ai submit`](ai-submit.md) — Submit a new AI job to the coordinator with a prompt and optional model.
 
