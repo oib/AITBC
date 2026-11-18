@@ -177,6 +177,37 @@ class TestComplianceExportAudit:
         written = len(json.loads(target.read_text())["records"])
         assert f'"record_count": {written}' in result.output
 
+    def test_export_audit_uses_stored_jwt_when_no_api_key(self, runner, tmp_path, monkeypatch):
+        """#2227: export-audit resolves credentials via auth_client_kwargs —
+        the stored ``auth login`` JWT is the fallback when --api-key is absent."""
+        from aitbc_cli import auth as auth_pkg
+        from aitbc_cli.commands.compliance import compliance
+
+        monkeypatch.setattr(
+            auth_pkg.AuthManager, "get_credential", lambda self, *a, **kw: "eyJhbGciOi.fake.token"
+        )
+        config = MagicMock(coordinator_api_url="http://node.test", timeout=30, api_key=None)
+        client = MagicMock()
+        client.get.return_value = [{"action": "access"}]
+        target = tmp_path / "audit.json"
+        with (
+            patch("aitbc_cli.commands.compliance.get_config", return_value=config),
+            patch("aitbc_cli.commands.compliance.AITBCHTTPClient", return_value=client) as ctor,
+        ):
+            # make_cli_obj() injects api_key="test-api-key"; null it so the
+            # stored-JWT fallback is what resolves.
+            result = runner.invoke(
+                compliance,
+                ["export-audit", "--output-file", str(target)],
+                obj={"output_format": "json", "api_key": None},
+            )
+
+        assert result.exit_code == 0, result.output
+        assert ctor.call_args.kwargs["headers"] == {
+            "Authorization": "Bearer eyJhbGciOi.fake.token"
+        }
+        client.get.assert_called_once_with("/v1/compliance/audit-logs")
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
