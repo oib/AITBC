@@ -302,3 +302,23 @@ def test_signed_proposal_replay_refused(client: TestClient) -> None:
     assert client.post("/v1/governance/proposals", json=body).status_code == 200
     replay = client.post("/v1/governance/proposals", json=body)
     assert replay.status_code == 403
+
+
+def test_vote_response_labels_onchain_submission(client: TestClient, proposal_id: str) -> None:
+    """#2213: the vote record must say whether a GOVERNANCE_VOTE tx exists —
+    empty tx_hash/signature next to a counted tally read as "vote did not
+    count". vote_weight must agree with the weight the tally applied."""
+    voter = keys.PrivateKey(b"\x0e" * 32)
+    body = {
+        "proposal_id": proposal_id,
+        "voter_address": voter.public_key.to_checksum_address(),
+        "vote_type": "for",
+        "timestamp": time.time(),
+    }
+    body["signature"] = _sign(voter, body)
+    r = client.post("/v1/governance/votes", json=body)
+    assert r.status_code == 200, r.text
+    data = r.json()
+    assert data["onchain_submission"] == "not_submitted"
+    assert data["onchain_submission_enabled"] is False
+    assert float(data["vote_weight"]) == float(data["voting_power_used"])

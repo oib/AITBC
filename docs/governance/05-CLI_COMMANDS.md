@@ -30,6 +30,7 @@ aitbc governance propose --title <title> --description <desc> --proposer-id <id>
 - `--proposer-address` (optional): Proposer wallet address (for on-chain submission)
 - `--params` (optional): JSON-encoded parameters for parameter_change proposals
 - `--voting-days` (optional): Voting period in days (default: 7)
+- `--wallet` (optional): Wallet that signs the on-chain `GOVERNANCE_PROPOSE` tx (client-signed submission, GAP-50)
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
@@ -68,6 +69,7 @@ aitbc governance vote --proposal-id <id> --voter-id <id> --vote <option>
 - `--voter-address` (optional): Voter wallet address (for on-chain voting power)
 - `--voting-power` (optional): Voting power to use (default: 0; auto-calculated from on-chain balance if enabled)
 - `--reason` (optional): Vote reason
+- `--wallet` (optional): Wallet that signs the on-chain `GOVERNANCE_VOTE` tx (client-signed submission)
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
@@ -166,18 +168,19 @@ aitbc governance status --format json
 Close a governance proposal and tally the final votes.
 
 ```bash
-aitbc governance close --proposal-id <id>
+aitbc governance close --proposal-id <id> --wallet <name>
 ```
 
 **Options:**
 
 - `--proposal-id` (required): Proposal ID to close
+- `--wallet` (required by the service): Wallet that signs the close request — a bare invocation gets `403 caller signature required` (#1178)
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
 
 ```bash
-aitbc governance close --proposal-id prop_1a2b3c4d
+aitbc governance close --proposal-id prop_1a2b3c4d --wallet mywallet
 ```
 
 ### execute
@@ -185,19 +188,20 @@ aitbc governance close --proposal-id prop_1a2b3c4d
 Execute a passed proposal.
 
 ```bash
-aitbc governance execute --proposal-id <id>
+aitbc governance execute --proposal-id <id> --wallet <name>
 ```
 
 **Options:**
 
 - `--proposal-id` (required): Proposal ID to execute
 - `--executor-address` (optional): Executor wallet address (for on-chain execution)
+- `--wallet` (required by the service): Wallet that signs the execute request — a bare invocation gets `403 caller signature required` (#1178); with `--wallet` the CLI also signs the on-chain `GOVERNANCE_EXECUTE` tx
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
 
 ```bash
-aitbc governance execute --proposal-id prop_1a2b3c4d
+aitbc governance execute --proposal-id prop_1a2b3c4d --wallet mywallet
 ```
 
 **Response:**
@@ -220,19 +224,20 @@ aitbc governance execute --proposal-id prop_1a2b3c4d
 Propagate a proposal to target chains.
 
 ```bash
-aitbc governance propagate --proposal-id <id> --target-chains <chain1,chain2>
+aitbc governance propagate --proposal-id <id> --target-chains <chain1,chain2> --wallet <name>
 ```
 
 **Options:**
 
 - `--proposal-id` (required): Proposal ID to propagate
 - `--target-chains` (required): Comma-separated list of target chain IDs
+- `--wallet` (required by the service): Wallet that signs the call — must be the proposal's `proposer_address` (service-enforced, #1178)
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
 
 ```bash
-aitbc governance propagate --proposal-id prop_1a2b3c4d --target-chains ait-side-1,ait-side-2
+aitbc governance propagate --proposal-id prop_1a2b3c4d --target-chains ait-side-1,ait-side-2 --wallet mywallet
 ```
 
 ### aggregate-votes
@@ -240,18 +245,19 @@ aitbc governance propagate --proposal-id prop_1a2b3c4d --target-chains ait-side-
 Aggregate and tally cross-chain votes for a proposal.
 
 ```bash
-aitbc governance aggregate-votes --proposal-id <id>
+aitbc governance aggregate-votes --proposal-id <id> --wallet <name>
 ```
 
 **Options:**
 
 - `--proposal-id` (required): Proposal ID
+- `--wallet` (required by the service): Wallet that signs the call (service-enforced caller signature, #1178)
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
 
 ```bash
-aitbc governance aggregate-votes --proposal-id prop_1a2b3c4d
+aitbc governance aggregate-votes --proposal-id prop_1a2b3c4d --wallet mywallet
 ```
 
 ### execute-cross-chain
@@ -259,18 +265,19 @@ aitbc governance aggregate-votes --proposal-id prop_1a2b3c4d
 Execute a governance proposal across target chains.
 
 ```bash
-aitbc governance execute-cross-chain --proposal-id <id>
+aitbc governance execute-cross-chain --proposal-id <id> --wallet <name>
 ```
 
 **Options:**
 
 - `--proposal-id` (required): Proposal ID
+- `--wallet` (required by the service): Wallet that signs the call — must be the proposal's `proposer_address` (service-enforced, #1178)
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
 
 ```bash
-aitbc governance execute-cross-chain --proposal-id prop_1a2b3c4d
+aitbc governance execute-cross-chain --proposal-id prop_1a2b3c4d --wallet mywallet
 ```
 
 ## Configuration
@@ -283,7 +290,12 @@ environment, `.aitbc.yaml`, or `~/.aitbc/credentials.env`) and defaults to
 ## Profiles and Wallet Addresses
 
 Commands identify actors by profile ID (`--proposer-id`, `--voter-id`), not by
-wallet name — this group takes no `--wallet` flag. Optional
+wallet name. Several commands also take `--wallet` for client-signed
+submission: `propose`/`vote`/`execute` use it optionally for the on-chain
+`GOVERNANCE_*` tx, while `close`, `propagate`, `aggregate-votes`, and
+`execute-cross-chain` require it — the service enforces a caller signature
+on those writes (#1178) and answers a bare `403 caller signature required`
+without one. Optional
 `--proposer-address`, `--voter-address`, and `--executor-address` fields carry
 wallet addresses used for on-chain submission and voting power. To look up an
 address:
@@ -341,24 +353,24 @@ aitbc governance vote --proposal-id prop_1a2b3c4d --voter-id voter-1 --vote for
 # Check proposal details
 aitbc governance get --proposal-id prop_1a2b3c4d
 
-# Close voting and tally
-aitbc governance close --proposal-id prop_1a2b3c4d
+# Close voting and tally (caller-signed: --wallet required)
+aitbc governance close --proposal-id prop_1a2b3c4d --wallet mywallet
 
-# Execute proposal (after it passes)
-aitbc governance execute --proposal-id prop_1a2b3c4d
+# Execute proposal (after it passes; --wallet required)
+aitbc governance execute --proposal-id prop_1a2b3c4d --wallet mywallet
 ```
 
 ### Cross-Chain Workflow
 
 ```bash
-# Propagate to target chains
-aitbc governance propagate --proposal-id prop_1a2b3c4d --target-chains ait-side-1,ait-side-2
+# Propagate to target chains (--wallet must be the proposer_address)
+aitbc governance propagate --proposal-id prop_1a2b3c4d --target-chains ait-side-1,ait-side-2 --wallet mywallet
 
-# Tally cross-chain votes
-aitbc governance aggregate-votes --proposal-id prop_1a2b3c4d
+# Tally cross-chain votes (--wallet required)
+aitbc governance aggregate-votes --proposal-id prop_1a2b3c4d --wallet mywallet
 
-# Execute across chains
-aitbc governance execute-cross-chain --proposal-id prop_1a2b3c4d
+# Execute across chains (--wallet must be the proposer_address)
+aitbc governance execute-cross-chain --proposal-id prop_1a2b3c4d --wallet mywallet
 ```
 
 ## Help

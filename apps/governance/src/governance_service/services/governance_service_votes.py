@@ -182,6 +182,11 @@ class _VotesMixin:
         # Use the on-chain balance snapshot (or zero if the chain query failed) as
         # the authoritative voting_power_used.
         vote.voting_power_used = vote.voting_power
+        # #2213: vote_weight is the "calculated weight" the record claims was
+        # applied — it was write-never and serialized as 0 next to a nonzero
+        # voting_power_used, reading as "the vote did not count" when the
+        # tally had already counted it.
+        vote.vote_weight = vote.voting_power_used
 
         await self._persist_vote(vote, voter_id, vote_proposal_id)
         await self.session.refresh(vote)
