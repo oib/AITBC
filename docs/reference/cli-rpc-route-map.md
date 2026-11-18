@@ -21,6 +21,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | *(unattributed — cli/aitbc_cli/commands/node/island.py)* | `/rpc/islands/{island_id}` | — | —
 | *(unattributed — cli/aitbc_cli/commands/node/island.py)* | `/rpc/islands` | — | —
 | *(unattributed — cli/aitbc_cli/core/analytics.py)* | `/rpc/info` | — | —
+| *(unattributed — cli/aitbc_cli/core/node_client.py)* | `/rpc/info` | — | —
 | *(unattributed — cli/aitbc_cli/utils/blockchain.py)* | `/rpc/genesis_allocations` | — | —
 | *(unattributed — cli/aitbc_cli/utils/blockchain.py)* | `/rpc/head` | — | —
 | *(unattributed — cli/aitbc_cli/utils/chain_id.py)* | `/rpc/proposer` | — | —
@@ -208,6 +209,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc network status` | `/rpc/network-info` | `get_network_info_route` (core.py) | —
 | `aitbc network subscribe` | `/rpc/subscribe` | `register_subscription_route` (subscription.py) | —
 | `aitbc network subscribers` | `/rpc/subscribers` | `subscribers_route` (subscription.py) | —
+| `aitbc node list` | `/rpc/network-info` | `get_network_info_route` (core.py) | —
 | `aitbc operations agent message` | `/rpc/account/` | — | —
 | `aitbc operations agent message` | `/rpc/account/{sender_address}` | `get_account_route` (core.py) | —
 | `aitbc operations agent message` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —

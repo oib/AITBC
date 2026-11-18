@@ -2,7 +2,7 @@
 
 # `aitbc node list`
 
-List all configured nodes and their connection settings.
+List all configured nodes and their connection settings. The multichain registry is static config, not live mesh state: each endpoint is probed and unreachable entries are flagged, and a warning is printed when nothing answers (#2219).
 
 ## Usage
 
@@ -15,6 +15,7 @@ aitbc node list [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--format` | choice | — | no | Output format |
+| `--no-probe` | flag | `false` | no | Skip endpoint reachability checks |
 
 ## Examples
 
