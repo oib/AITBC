@@ -169,3 +169,49 @@ class TestHttpCallIdempotencyKey:
 
         assert result.exit_code == 0
         assert client.post.call_args.kwargs["idempotency_key"] is None
+
+
+class TestHttpCallMountPrefixEscape:
+    """#2217: alias bases may carry a mount prefix (blockchain-rpc -> /rpc).
+    A PATH with a leading "/" addresses the service origin so root endpoints
+    like /health stay reachable; bare paths stay prefix-relative."""
+
+    @patch("aitbc_cli.commands.http.auth_client_kwargs", return_value={})
+    @patch("aitbc_cli.commands.http.AITBCHTTPClient")
+    def test_leading_slash_path_escapes_mount_prefix(self, mock_http_class, _mock_auth, runner):
+        from aitbc_cli.commands.http import http
+
+        client = mock_http_class.return_value
+        client.get_json.return_value = {"status": "ok"}
+
+        result = runner.invoke(http, ["call", "blockchain-rpc", "/health"])
+
+        assert result.exit_code == 0
+        assert mock_http_class.call_args.kwargs["base_url"] == "http://127.0.0.1:8202"
+
+    @patch("aitbc_cli.commands.http.auth_client_kwargs", return_value={})
+    @patch("aitbc_cli.commands.http.AITBCHTTPClient")
+    def test_bare_path_keeps_mount_prefix(self, mock_http_class, _mock_auth, runner):
+        from aitbc_cli.commands.http import http
+
+        client = mock_http_class.return_value
+        client.get_json.return_value = {"height": 1}
+
+        result = runner.invoke(http, ["call", "blockchain-rpc", "height"])
+
+        assert result.exit_code == 0
+        assert mock_http_class.call_args.kwargs["base_url"] == "http://127.0.0.1:8202/rpc"
+
+    @patch("aitbc_cli.commands.http.auth_client_kwargs", return_value={})
+    @patch("aitbc_cli.commands.http.AITBCHTTPClient")
+    def test_url_override_used_verbatim(self, mock_http_class, _mock_auth, runner):
+        """--url replaces the whole base URL; the mount-prefix escape does not apply."""
+        from aitbc_cli.commands.http import http
+
+        client = mock_http_class.return_value
+        client.get_json.return_value = {"status": "ok"}
+
+        result = runner.invoke(http, ["call", "blockchain-rpc", "/health", "--url", "http://10.0.0.9:8202/rpc"])
+
+        assert result.exit_code == 0
+        assert mock_http_class.call_args.kwargs["base_url"] == "http://10.0.0.9:8202/rpc"
