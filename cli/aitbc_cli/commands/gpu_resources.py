@@ -12,7 +12,7 @@ from ..utils import DECIMAL, error, output, resolve_output_format, success
 from ..utils.wallet_secret import wallet_password_options
 from ..utils.chain_id import resolve_chain_id
 from ..utils.error_handling import CLIError
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, loopback_service_hint
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
 
@@ -41,11 +41,6 @@ def _hub_rpc_url(config, rpc_url: str) -> str:
 def gpu():
     """Register, query, allocate, deregister, and list GPU resources on the blockchain."""
     pass
-
-
-def _gpu_hint() -> str:
-    """Loopback hint suffix for GPU-service failures (CLI-LOOPBACK-1)."""
-    return loopback_service_hint(getattr(get_config(), "gpu_service_url", ""), "GPU")
 
 
 @gpu.command(
@@ -132,7 +127,7 @@ def register_onchain(
     except click.Abort:
         raise
     except NetworkError as e:
-        error(f"Network error: {e}{_gpu_hint()}")
+        error(f"Network error: {e}")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error registering GPU on-chain: {e}")
@@ -177,7 +172,7 @@ def query_gpu(ctx, gpu_id: str, format: str):
     except click.Abort:
         raise
     except NetworkError as e:
-        error(f"Network error: {e}{_gpu_hint()}")
+        error(f"Network error: {e}")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error querying GPU: {e}")
@@ -247,7 +242,7 @@ def deregister_gpu(
     except click.Abort:
         raise
     except NetworkError as e:
-        error(f"Network error: {e}{_gpu_hint()}")
+        error(f"Network error: {e}")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error deregistering GPU on-chain: {e}")
@@ -330,7 +325,7 @@ def allocate_gpu(
     except click.Abort:
         raise
     except NetworkError as e:
-        error(f"Network error: {e}{_gpu_hint()}")
+        error(f"Network error: {e}")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error allocating GPU on-chain: {e}")
@@ -375,7 +370,7 @@ def get_allocations(ctx, gpu_id: str, format: str):
     except click.Abort:
         raise
     except NetworkError as e:
-        error(f"Network error: {e}{_gpu_hint()}")
+        error(f"Network error: {e}")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error querying GPU allocations: {e}")
@@ -423,7 +418,7 @@ def list_gpus(ctx, status: str | None, format: str):
     except click.Abort:
         raise
     except NetworkError as e:
-        error(f"Network error: {e}{_gpu_hint()}")
+        error(f"Network error: {e}")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error listing GPUs: {e}")

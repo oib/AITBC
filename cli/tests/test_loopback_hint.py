@@ -55,3 +55,38 @@ def test_gpu_discover_loopback_names_fix(monkeypatch):
     assert result.exit_code != 0
     assert "loopback" in result.output
     assert "localhost:8101" in result.output
+
+
+def test_gpu_onchain_error_has_no_local_service_hint(monkeypatch):
+    """#2208: gpu-onchain talks to the chain RPC, never the local GPU
+    service — a refused chain RPC must not append the localhost:8101 hint."""
+    import aitbc_cli.commands.gpu_resources as gr
+    from unittest.mock import patch
+
+    class _Cfg:
+        blockchain_rpc_url = "http://localhost:8202"
+        blockchain_rpc_api_key = None
+        hub_discovery_url = ""
+        gpu_service_url = "http://localhost:8101"
+
+    class _Refused:
+        def __init__(self, **kw):
+            pass
+
+        def get(self, *a, **k):
+            raise NetworkError("GET request failed: connection refused")
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr(gr, "get_config", lambda: _Cfg())
+    with (
+        patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient", _Refused),
+        patch("aitbc_cli.commands.gpu_resources.resolve_chain_id", return_value="ait-test"),
+    ):
+        result = CliRunner().invoke(gr.gpu, ["query", "--gpu-id", "gpu-x"], obj={"output_format": "table"})
+
+    assert result.exit_code != 0
+    assert "Network error" in result.output
+    assert "loopback" not in result.output
+    assert "8101" not in result.output
