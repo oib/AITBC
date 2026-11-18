@@ -8,6 +8,8 @@
 
 > **⚠️ DEPRECATION NOTICE (v0.4.7)**: The GPU-only market with bidding was deprecated in v0.4.7. This scenario describes on-chain GPU resource registration which is still valid, but the market bidding functionality referenced in prerequisites is no longer available. The current market focuses on hardware+software bundles with fixed pricing.
 
+> **Deployment note (#2208):** the local `aitbc gpu` commands (`discover`, `register`, `list-gpus`, `update`, `unregister`) talk to the GPU service (`gpu_service_url`, default `http://localhost:8101`). **No GPU service unit is deployed on the current fleet** (#1549) — those steps fail with connection-refused until a node runs the service. The `aitbc gpu-onchain` steps work against the chain RPC on any node with island credentials.
+
 ## Navigation Path
 
 [Documentation Home](../README.md) > [Agent Scenarios](./README.md) > *You are here*
@@ -348,10 +350,10 @@ asyncio.run(main())
 
 Registers a GPU on the on-chain registry so it can be rented.
 
-Cost: gas only; --price-per-hour is in units (3_600_000 = 0.1 AIT at UNITS_PER_AIT = 36_000_000).
+Cost: gas only; `--price-per-hour` takes a decimal **in AIT** (same unit as Step 4's `0.075`) — `0.1` = 0.1 AIT/hour, *not* base units. Passing `3600000` would register the GPU at 3,600,000 AIT/hour.
 
 ```bash
-aitbc gpu-onchain register --gpu-id gpu-01 --miner-id 0xMiner --model rtx-4090 --memory-gb 24 --price-per-hour 3600000 --wallet my-agent-wallet
+aitbc gpu-onchain register --gpu-id gpu-01 --miner-id 0xMiner --model rtx-4090 --memory-gb 24 --price-per-hour 0.1 --wallet my-agent-wallet
 ```
 
 ### Step 10: Deregister a GPU
