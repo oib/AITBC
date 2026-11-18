@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 22 Bridge RPC Input Validation](./22_bridge_rpc_validation.md)
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-08-21
-**Version**: 1.3
+**Last Updated**: 2026-11-10
+**Version**: 1.4
 
 ## Navigation Path
 
@@ -66,9 +66,15 @@ aitbc transactions pending
 
 Use a test wallet that can sign. Prefer tiny amounts on a non-production wallet.
 
+> **Units:** `--amount` and `--fee` are decimal **AIT**, not base units —
+> the CLI converts them via `ait_to_units` before signing. `--fee 1` is
+> one whole AIT of fee, which on a ~0.001 AIT transfer would burn far
+> more than the amount. Use small AIT fees that keep the ordering test:
+> the higher fee must still be strictly larger than the lower one.
+
 ```bash
-aitbc transactions send --from <wallet> --to <addr> --amount 0.001 --fee 1
-aitbc transactions send --from <wallet> --to <addr> --amount 0.001 --fee 2
+aitbc transactions send --from <wallet> --to <addr> --amount 0.001 --fee 0.02
+aitbc transactions send --from <wallet> --to <addr> --amount 0.001 --fee 0.04
 aitbc transactions pending
 aitbc transactions status --tx-hash <tx-hash>
 ```
@@ -126,5 +132,5 @@ print('PASS: B15 eviction order verified')
 
 ---
 
-*Last updated: 2026-08-21*
-*Version: 1.3*
+*Last updated: 2026-11-10*
+*Version: 1.4*
