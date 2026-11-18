@@ -459,6 +459,40 @@ def import_advisory_release(held) -> None:
         ctx.__exit__(None, None, None)
 
 
+def _connect_admin_nonce_db() -> sqlite3.Connection:
+    """Open the admin-nonce DB with WAL + busy_timeout, race-safe.
+
+    ``PRAGMA journal_mode=WAL`` does not honor ``busy_timeout`` — N
+    concurrent callers on a cold DB race the mode switch and losers get
+    ``sqlite3.OperationalError: database is locked`` (#2201, seen 1/5 in
+    test_concurrent_same_nonce_single_winner). Mitigations, in order:
+
+    1. ``busy_timeout`` is set BEFORE the journal pragma so every
+       subsequent statement on this connection can wait out a writer.
+    2. The current mode is read first (a lock-light pragma) and the WAL
+       switch only runs when the DB is not already WAL — in steady state
+       no caller takes the exclusive lock at all.
+    3. A bounded retry covers the genuine cold-start race.
+    """
+    db_path = _nonce_db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
+    last_err: sqlite3.OperationalError | None = None
+    for attempt in range(3):
+        conn = sqlite3.connect(db_path, timeout=30)
+        conn.execute("PRAGMA busy_timeout=30000")
+        try:
+            mode = conn.execute("PRAGMA journal_mode").fetchone()
+            if mode is None or mode[0] != "wal":
+                conn.execute("PRAGMA journal_mode=WAL")
+            return conn
+        except sqlite3.OperationalError as e:
+            conn.close()
+            last_err = e
+            if attempt < 2:
+                time.sleep(0.05 * (attempt + 1))
+    raise last_err  # type: ignore[misc]
+
+
 def _nonce_seen(nonce: str) -> bool:
     """Register ``nonce`` in the shared store; True when already used.
 
@@ -467,14 +501,8 @@ def _nonce_seen(nonce: str) -> bool:
     its own cache and let one captured request replay once per worker. The
     file also survives service restarts, which an in-memory cache does not.
     """
-    db_path = _nonce_db_path()
-    db_path.parent.mkdir(parents=True, exist_ok=True)
     now = time.time()
-    conn = sqlite3.connect(db_path, timeout=30)
-    # #1560: WAL + busy_timeout on the admin-nonce DB (raised from the 5s
-    # default so a busy writer does not fail closed on a live route).
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA busy_timeout=30000")
+    conn = _connect_admin_nonce_db()
     try:
         conn.execute("CREATE TABLE IF NOT EXISTS admin_nonce (nonce TEXT PRIMARY KEY, expires_at REAL NOT NULL)")
         conn.execute("DELETE FROM admin_nonce WHERE expires_at <= ?", (now,))
