@@ -704,9 +704,10 @@ def liquidity_stake(
     name="liquidity-claim",
     epilog="""Examples:
 
-  aitbc wallet liquidity-claim --stake-id lstake-5678""",
+  aitbc wallet liquidity-claim --stake-id lstake-5678 --pool main""",
 )
 @click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
+@click.option("--pool", default="main", help="Liquidity pool name (must match the stake's pool)")
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
 @ALLOW_HIGH_FEE_OPTION
 @click.pass_context
@@ -715,6 +716,7 @@ def liquidity_stake(
 def liquidity_claim(
     ctx,
     stake_id: str,
+    pool: str,
     fee: Decimal,
     allow_high_fee: bool,
     password: str | None,
@@ -756,7 +758,7 @@ def liquidity_claim(
         "amount": 0,
         "fee": fee_seconds,
         "payload": {
-            "pool_id": "main",
+            "pool_id": pool,
             "stake_id": stake_id,
             "to": hex_address,
             "amount": 0,
@@ -788,9 +790,10 @@ def liquidity_claim(
     name="liquidity-unstake",
     epilog="""Examples:
 
-  aitbc wallet liquidity-unstake --stake-id lstake-5678""",
+  aitbc wallet liquidity-unstake --stake-id lstake-5678 --pool main""",
 )
 @click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
+@click.option("--pool", default="main", help="Liquidity pool name (must match the stake's pool)")
 @click.option("--fee", type=DECIMAL, default=DEFAULT_TX_FEE_AIT, help="Transaction fee in AIT")
 @ALLOW_HIGH_FEE_OPTION
 @click.pass_context
@@ -799,6 +802,7 @@ def liquidity_claim(
 def liquidity_unstake(
     ctx,
     stake_id: str,
+    pool: str,
     fee: Decimal,
     allow_high_fee: bool,
     password: str | None,
@@ -840,7 +844,7 @@ def liquidity_unstake(
         "amount": 0,
         "fee": fee_seconds,
         "payload": {
-            "pool_id": "main",
+            "pool_id": pool,
             "stake_id": stake_id,
             "to": hex_address,
             "amount": 0,
