@@ -645,7 +645,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 ## `reinvest`
 
-- [`aitbc reinvest policy`](reinvest-policy.md) — Record a reinvestment policy for an agent (persisted locally).
+- [`aitbc reinvest policy`](reinvest-policy.md) — Show or record a reinvestment policy for an agent (persisted locally).
 - [`aitbc reinvest simulate`](reinvest-simulate.md) — Simulate reinvestment actions for a given earnings amount.
 
 ## `reputation`

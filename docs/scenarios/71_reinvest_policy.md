@@ -60,14 +60,23 @@ earning amount and check the reserve floor.
 
 ### 1. Show or set the policy
 
+Percent units: `--staking-pct` and `--reserve-pct` must sum to 100.
+
 ```bash
 aitbc reinvest policy --agent-id agent-1 \
-    --staking-pct 0.30 --reserve-pct 0.10 --min-reinvest 1.0
+    --staking-pct 30 --reserve-pct 70 --min-reinvest 1.0
 ```
 
-**Expected output:** the resulting policy — share of earnings restaked,
-share held in reserve, and the minimum earning that triggers a reinvest.
-Setting the policy is a local/agent config write, not a chain transaction.
+Read the stored policy back (no options — this never overwrites it):
+
+```bash
+aitbc reinvest policy --agent-id agent-1
+```
+
+**Expected output:** the resulting policy — share of the reinvested
+amount directed to staking, share kept as capacity reserve, and the
+minimum earning that triggers a reinvest. Setting the policy is a
+local/agent config write, not a chain transaction.
 
 ### 2. Simulate a split
 
@@ -93,8 +102,11 @@ policy — labelled a simulation; no funds move.
 ## Verification
 
 - Re-running `simulate` with the same inputs gives the same split.
-- The projected staking amount equals `earnings × staking_pct` (within
-  rounding).
+- The engine reinvests a fixed 50% of earnings (`reinvest_pct`, not
+  exposed by the CLI) and splits *that* amount: projected staking equals
+  `earnings × 0.5 × staking_pct / 100`. With earnings 100 and
+  `staking-pct 30` that is stake 15 / reserve 35; the remaining 50 of
+  earnings stays spendable.
 
 ## Troubleshooting
 
