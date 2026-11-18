@@ -41,6 +41,13 @@ def results(ctx, job_id, coordinator_url, format):
         _ai.output(result, _ai.resolve_output_format(ctx, format), title=f"Job Results: {job_id}")
 
     except _ai.NetworkError as e:
+        # Surface the server's detail for client-side answers (404 unknown job,
+        # 409 terminal job with no result, 425 still running) instead of the
+        # raw NetworkError blob; 401 keeps the login hint (#2207).
+        detail = _ai.http_error_detail(e)
+        status = _ai.http_response_status(e)
+        if not _ai.is_unauthorized(e) and detail and status is not None and 400 <= status < 500:
+            _ai.abort(ctx, f"Job {job_id}: {detail}", from_exception=e)
         _ai._abort_for_network(ctx, e)
     except _ai._OPS_ERRORS as e:
         _ai.abort(ctx, f"Error getting job results: {e}", from_exception=e)

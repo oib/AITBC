@@ -342,7 +342,13 @@ def get_job_result(
     if job.state not in {JobState.completed, JobState.failed, JobState.canceled, JobState.expired}:
         raise HTTPException(status_code=status.HTTP_425_TOO_EARLY, detail="job not ready") from None
     if job.result is None and job.receipt is None:
-        raise HTTPException(status_code=status.HTTP_425_TOO_EARLY, detail="job not ready") from None
+        # A terminal job without a result or receipt will never produce one —
+        # 425 ("retry later") would be a lie. 409 names the terminal state so
+        # callers stop polling instead of treating it as transient (#2207).
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"job {job.state} has no result",
+        ) from None
     return service.to_result(job)  # type: ignore[no-any-return]
 
 
