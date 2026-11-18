@@ -70,10 +70,15 @@ aitbc --output json ai submit \
   --prompt "B12 payment-failure probe" \
   --payment 1.0 \
   --currency INVALID_CURRENCY \
+  --provider-address <provider-address> \
   --coordinator-url http://127.0.0.1:8203
 ```
 
-**Expected output:** HTTP 422 — the CLI reports the validation detail (`payment_currency must be one of: ['AITBC', 'ETH', 'USDT']`). No `job_id` is returned and nothing is queued.
+`--provider-address` (or `--provider-agent-id`/`--offer-id`) is required for
+paid submits — without it the CLI's own validation rejects the request before
+it reaches the coordinator.
+
+**Expected output:** HTTP 422 — the CLI reports the validation detail (`payment_currency must be one of: ['AITBC', 'ETH', 'USDT']`) as a server rejection, not a network error. No `job_id` is returned and nothing is queued.
 
 ### Step 2: Confirm nothing was queued
 

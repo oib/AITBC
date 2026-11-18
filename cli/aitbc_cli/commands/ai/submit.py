@@ -30,6 +30,22 @@ def _is_transient_error(e: _ai.NetworkError) -> bool:
     return status is None or status >= 500 or status in _TRANSIENT_STATUSES
 
 
+def _abort_network_error(ctx, e: _ai.NetworkError) -> None:
+    """Label submit failures honestly: server answered vs unreachable.
+
+    A 4xx/5xx means the coordinator evaluated and rejected the request —
+    reporting that as "Network error" misleads operators into checking
+    connectivity for what is a client-input problem (#2216).
+    """
+    if _ai.is_unauthorized(e):
+        _ai.abort(ctx, _ai._login_hint(ctx))
+    status = _ai.http_response_status(e)
+    detail = _ai.http_error_detail(e)
+    if status is not None:
+        _ai.abort(ctx, f"Server rejected the request (HTTP {status}): {detail or e}", from_exception=e)
+    _ai.abort(ctx, f"Network error: {detail or e}", from_exception=e)
+
+
 def _try_auto_accept(http_client: _ai.AITBCHTTPClient, job_id: str, accept_key: str) -> bool:
     """Attempt one idempotent accept; returns True if no retry is wanted."""
     try:
@@ -675,7 +691,6 @@ def submit(
         )
 
     except _ai.NetworkError as e:
-        detail = _ai.http_error_detail(e)
-        _ai.abort(ctx, f"Network error: {detail or e}", from_exception=e)
+        _abort_network_error(ctx, e)
     except _ai._OPS_ERRORS as e:
         _ai.abort(ctx, f"Error submitting job: {e}", from_exception=e)
