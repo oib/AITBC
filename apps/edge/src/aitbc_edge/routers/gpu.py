@@ -2,6 +2,7 @@
 
 from typing import Annotated, Any
 
+import httpx
 from fastapi import APIRouter, Depends, HTTPException
 
 from aitbc.auth import AdminDep, AuthDep
@@ -60,7 +61,18 @@ async def remove_gpu_listing(
 @router.post("/scan")
 async def scan_gpus(_admin: AdminDep, request: ScanGPUsRequest, svc: Annotated[GPUService, Depends(get_gpu_service)]) -> Any:
     """Scan GPUs for a miner"""
-    result = await svc.scan_gpus(request.miner_id)
+    try:
+        result = await svc.scan_gpus(request.miner_id)
+    except httpx.HTTPStatusError as exc:
+        # #2238: the gpu service gates scan behind X-Api-Key; an upstream
+        # client error (401/403/…) is an edge/gpu misconfiguration, not an
+        # edge-internal fault — surface it as the same 4xx instead of the
+        # global handler's blanket 500. Upstream 5xx maps to 502.
+        upstream = exc.response.status_code
+        raise HTTPException(
+            status_code=upstream if 400 <= upstream < 500 else 502,
+            detail=f"GPU service scan failed (HTTP {upstream})",
+        ) from exc
     return result
 
 
