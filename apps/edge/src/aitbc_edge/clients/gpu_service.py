@@ -10,9 +10,15 @@ from ..config import settings
 class GPUServiceClient:
     """Client for GPU service communication"""
 
-    def __init__(self) -> None:
+    def __init__(self, api_key: str | None = None) -> None:
         self.base_url = f"http://{settings.gpu_service_host}:{settings.gpu_service_port}"
-        self.client = httpx.AsyncClient(timeout=30.0)
+        # The gpu service's APIKeyAuthenticator (auth_enabled=true by default)
+        # 401s gated endpoints without X-Api-Key — #2238. The header rides on
+        # the shared client, so every method authenticates; endpoints that do
+        # not check it ignore it.
+        self._api_key = api_key or settings.gpu_service_api_key
+        headers = {"X-Api-Key": self._api_key} if self._api_key else None
+        self.client = httpx.AsyncClient(timeout=30.0, headers=headers)
 
     # V23-46: annotated. Without a return type on __aenter__, `async with Client() as c`
     # binds `c` as Any, and every method result off it is Any too -- which is where all
