@@ -2,7 +2,7 @@
 
 # `aitbc workflow run`
 
-Run a workflow by name with optional configuration.
+Run a workflow by name with optional configuration (admin-only).
 
 ## Usage
 

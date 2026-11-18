@@ -2,7 +2,7 @@
 
 # `aitbc workflow stop`
 
-Stop a running workflow by its execution ID.
+Stop a running workflow by its execution ID (admin-only).
 
 ## Usage
 
