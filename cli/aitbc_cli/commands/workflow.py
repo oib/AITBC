@@ -10,6 +10,7 @@ import click
 import httpx
 import yaml
 
+from ..auth import ExpiredAdminToken
 from ..config import get_config
 from ..utils import resolve_output_format, success
 from ..utils.error_handling import CLIError, abort
@@ -35,9 +36,30 @@ def _coordinator_url(config_obj) -> str:
     return service_root_url(getattr(config_obj, "coordinator_api_url", None), "http://localhost:8203")
 
 
-def _coordinator_headers(config_obj) -> dict[str, str]:
-    """Stored ``auth login`` JWT as Bearer, else the configured key as X-API-Key."""
-    return auth_headers(config_key=getattr(config_obj, "coordinator_api_key", None) or os.environ.get("COORDINATOR_API_KEY"))
+# All /v1/agents/workflows/* and /v1/agents/executions/* endpoints are
+# AdminDep-gated server-side (coordinator-api agent_router.py). A plain
+# `auth login` client JWT gets 403 "Role required" — these commands resolve
+# the `admin` credential slot first and surface the gate explicitly (#2231).
+_ADMIN_REQUIRED_HINT = (
+    "requires an admin-role credential. Store an admin login with "
+    "`aitbc auth login --credential-name admin`, pass --api-key, or set "
+    "COORDINATOR_API_KEY to an admin JWT."
+)
+
+
+def _coordinator_headers(config_obj, ctx=None) -> dict[str, str]:
+    """Stored ``auth login`` admin/client JWT as Bearer, else the configured key as X-API-Key."""
+    explicit = (ctx.obj or {}).get("api_key") if ctx is not None else None
+    return auth_headers(
+        explicit_key=explicit,
+        config_key=getattr(config_obj, "coordinator_api_key", None) or os.environ.get("COORDINATOR_API_KEY"),
+        credential="admin",
+    )
+
+
+def _abort_403(command: str, body: str) -> None:
+    """Abort on a 403 with the credential the endpoint actually demands."""
+    abort(None, f"{command} {_ADMIN_REQUIRED_HINT} (HTTP 403 — {body[:200]})")
 
 
 @click.group(
@@ -62,8 +84,9 @@ def workflow():
 @click.option("--workflow-name", "workflow_name", required=True, help="The Workflow name.")
 @click.option("--config", help="Workflow configuration file")
 @click.option("--dry-run", is_flag=True, help="Dry run without executing")
-def run(workflow_name: str, config: str | None, dry_run: bool):
-    """Run a workflow by name with optional configuration."""
+@click.pass_context
+def run(ctx, workflow_name: str, config: str | None, dry_run: bool):
+    """Run a workflow by name with optional configuration (admin-only)."""
     try:
         import httpx
 
@@ -74,7 +97,7 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
 
         config_obj = get_config()
         coordinator_url = _coordinator_url(config_obj)
-        headers = _coordinator_headers(config_obj)
+        headers = _coordinator_headers(config_obj, ctx)
 
         # Load config if provided
         workflow_config: dict[str, Any] = {}
@@ -90,6 +113,8 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
             headers=headers,
         )
 
+        if response.status_code == 403:
+            _abort_403(f"workflow run {workflow_name}", response.text)
         if response.status_code != 200:
             abort(None, f"Failed to start workflow: {response.text}")
 
@@ -105,6 +130,8 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
 
     except FileNotFoundError:
         abort(None, f"Config file not found: {config}")
+    except ExpiredAdminToken as e:
+        abort(None, str(e))
     except CLIError:
         raise
     except _WORKFLOW_ERRORS as e:
@@ -121,11 +148,14 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def list(ctx, format: str):
-    """List all available workflows from the coordinator."""
+    """List all available workflows from the coordinator (admin-only)."""
     fmt = resolve_output_format(ctx, format)
     config_obj = get_config()
     coordinator_url = _coordinator_url(config_obj)
-    headers = _coordinator_headers(config_obj)
+    try:
+        headers = _coordinator_headers(config_obj, ctx)
+    except ExpiredAdminToken as e:
+        abort(None, str(e))
 
     try:
         import httpx
@@ -134,6 +164,8 @@ def list(ctx, format: str):
     except Exception as e:  # noqa: BLE001 - surface any transport/config failure to the caller
         abort(None, f"Error listing workflows: {e}")
 
+    if response.status_code == 403:
+        _abort_403("workflow list", response.text)
     if response.status_code != 200:
         abort(None, f"Failed to list workflows: HTTP {response.status_code} — {response.text[:200]}")
 
@@ -171,20 +203,23 @@ def list(ctx, format: str):
   aitbc workflow status --workflow-name gpu-market"""
 )
 @click.option("--workflow-name", "workflow_name", required=True, help="The Workflow name.")
-def status(workflow_name: str):
-    """Get the execution status of a workflow by name."""
+@click.pass_context
+def status(ctx, workflow_name: str):
+    """Get the execution status of a workflow by name (admin-only)."""
     try:
         import httpx
 
         config_obj = get_config()
         coordinator_url = _coordinator_url(config_obj)
-        headers = _coordinator_headers(config_obj)
+        headers = _coordinator_headers(config_obj, ctx)
 
         response = httpx.get(
             f"{coordinator_url}/v1/agents/executions/{workflow_name}/status",
             headers=headers,
         )
 
+        if response.status_code == 403:
+            _abort_403(f"workflow status {workflow_name}", response.text)
         if response.status_code != 200:
             abort(None, f"Failed to get execution status: {response.text}")
 
@@ -197,6 +232,8 @@ def status(workflow_name: str):
         if result.get("error_message"):
             click.echo(f"Error: {result['error_message']}")
 
+    except ExpiredAdminToken as e:
+        abort(None, str(e))
     except CLIError:
         raise
     except _WORKFLOW_ERRORS as e:
@@ -209,14 +246,15 @@ def status(workflow_name: str):
   aitbc workflow stop --workflow-name exec-123"""
 )
 @click.option("--workflow-name", "workflow_name", required=True, help="The Workflow name.")
-def stop(workflow_name: str):
-    """Stop a running workflow by its execution ID."""
+@click.pass_context
+def stop(ctx, workflow_name: str):
+    """Stop a running workflow by its execution ID (admin-only)."""
     try:
         import httpx
 
         config_obj = get_config()
         coordinator_url = _coordinator_url(config_obj)
-        headers = _coordinator_headers(config_obj)
+        headers = _coordinator_headers(config_obj, ctx)
 
         response = httpx.post(
             f"{coordinator_url}/v1/agents/workflows/{workflow_name}/cancel",
@@ -224,12 +262,16 @@ def stop(workflow_name: str):
             params={"execution_id": workflow_name},
         )
 
+        if response.status_code == 403:
+            _abort_403(f"workflow stop {workflow_name}", response.text)
         if response.status_code != 200:
             abort(None, f"Failed to cancel workflow: {response.text}")
 
         success(f"Cancel workflow {workflow_name}")
         click.echo("Status: Cancelled")
 
+    except ExpiredAdminToken as e:
+        abort(None, str(e))
     except CLIError:
         raise
     except _WORKFLOW_ERRORS as e:
