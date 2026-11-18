@@ -2,7 +2,7 @@
 
 # `aitbc cluster sync`
 
-Trigger or report the cluster synchronization status.
+Not implemented — no cluster service is deployed.
 
 ## Usage
 
