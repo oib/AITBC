@@ -17,6 +17,11 @@ aitbc agent-comm discover [OPTIONS]
 | `--chain-id` | text | — | yes | The Chain id. |
 | `--capabilities` | text | — | no | Required capabilities (comma-separated) |
 | `--format` | choice | — | no | Output format |
+| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
+| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
+| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
+| `--wallet` | text | — | no | Wallet signing the read request headers (default: $AITBC_DEFAULT_WALLET) |
+| `--signing-agent-id` | text | — | no | Registered agent ID the wallet is bound to (default: $AGENT_ID); required with --wallet |
 
 ## Examples
 

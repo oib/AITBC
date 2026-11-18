@@ -67,7 +67,7 @@ Register an agent on the cross-chain network. The `register` subcommand takes re
 
 ```bash
 # Register an inference agent on the bc-2 chain
-aitbc agent-comm register --agent-id agent_infer_01 --name "Inference Agent" --chain-id bc-2 --endpoint http://localhost:8107 \
+aitbc agent-comm register --agent-id agent_infer_01 --name "Inference Agent" --chain-id bc-2 --endpoint http://node0.aitbc.bubuit.net:8107 \
     --capabilities "inference,gpu_compute,model_serving" \
     --reputation 0.7 \
     --version 1.2.0
@@ -84,13 +84,15 @@ Chain ID      bc-2
 Status        active
 Capabilities  inference, gpu_compute, model_serving
 Reputation    0.70
-Endpoint      http://localhost:8107
+Endpoint      http://node0.aitbc.bubuit.net:8107
 Version       1.2.0
 ```
 
 ### Step 2: List Registered Agents
 
 List all agents known to the coordinator network. You can filter by chain ID, status, or capabilities, and choose between table or JSON output.
+
+> **Authenticated deployments:** the coordinator's `/v1/agents/*` read routes require an authenticated principal. A `aitbc auth login` JWT issued for another service does not resolve here — sign the read with a registered agent's wallet instead: `aitbc agent-comm list --wallet <name> --signing-agent-id <registered-agent-id>` (the same `X-Agent-*` signed headers `agent-comm receive` uses). `--signing-agent-id` defaults to `$AGENT_ID`.
 
 ```bash
 # List all agents in table format
@@ -126,7 +128,7 @@ aitbc agent-comm discover --chain-id bc-2 --capabilities "inference,gpu_compute"
 ```
 Agents on Chain bc-2
 Agent ID          Name             Status    Reputation   Capabilities                       Endpoint              Version
-agent_infer_01    Inference Agent  active    0.70         inference, gpu_compute, model...   http://localhost:8107 1.2.0
+agent_infer_01    Inference Agent  active    0.70         inference, gpu_compute, model...   http://node0.aitbc.bubuit.net:8107 1.2.0
 agent_train_02    Training Agent   active    0.65         training, gpu_compute              http://localhost:9002 1.0.0
 ```
 
@@ -153,7 +155,7 @@ Capabilities             inference, gpu_compute, model_serving
 Message Queue Size       0
 Active Collaborations    0
 Last Seen                2026-06-25 10:16:00
-Endpoint                 http://localhost:8107
+Endpoint                 http://node0.aitbc.bubuit.net:8107
 Version                  1.2.0
 ```
 
