@@ -205,10 +205,13 @@ def status(ctx, bounty_id, chain_id, rpc_url, limit, as_json):
     for tx_type in ("BOUNTY_LOCK", "BOUNTY_PAYOUT", "BOUNTY_REFUND"):
         params = {"transaction_type": tx_type, "chain_id": chain_id, "limit": limit}
         try:
-            rows: Any = client.get("/rpc/transactions", params={k: v for k, v in params.items() if v is not None})
+            # /rpc/transactions answers a bare JSON array; get_json() accepts
+            # either shape and a {"transactions": [...]} envelope is tolerated
+            # so a peer returning one does not crash the lookup (#2241).
+            rows: Any = client.get_json("/rpc/transactions", params={k: v for k, v in params.items() if v is not None})
         except _OPS_ERRORS as e:
             abort(ctx, f"/rpc/transactions lookup failed: {e}", from_exception=e)
-        txs: list[dict[str, Any]] = rows if isinstance(rows, list) else []
+        txs: list[dict[str, Any]] = (rows.get("transactions", []) if isinstance(rows, dict) else rows) or []
         matches = [tx for tx in txs if str((tx.get("payload") or {}).get("bounty_id")) == bounty_id]
         if matches:
             found[tx_type] = matches
