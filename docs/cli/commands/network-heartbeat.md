@@ -16,7 +16,7 @@ aitbc network heartbeat [OPTIONS]
 |---|---|---|---|---|
 | `--node-id` | text | — | no | Subscriber node ID (default: from NODE_ID in /etc/aitbc/node.env) |
 | `--duration` | integer | — | no | Additional lease duration in seconds |
-| `--rpc-url` | text | `http://localhost:8202` | no | Blockchain RPC URL <!-- check-ports: ignore --> |
+| `--rpc-url` | text | — | no | Blockchain RPC URL (default: the hub RPC — the lease being extended lives in the hub's lease store) |
 
 ## Examples
 
