@@ -138,6 +138,122 @@ class TestMarketListFallback:
         assert "sw_offer_chain" in result.output
 
 
+class TestMarketListEmpty:
+    """#2225: an empty `market list` must say so, and dead fallback bases
+    must not shout warnings that become the only output."""
+
+    @pytest.fixture
+    def config(self):
+        return SimpleNamespace(
+            hub_discovery_url="hub.aitbc.invalid",
+            market_service_url="http://127.0.0.1:8102",
+            coordinator_api_url="",
+            blockchain_rpc_url="http://127.0.0.1:8202",
+        )
+
+    def _patch_clients(self, monkeypatch, offers_mod, config, market_payload, local_fails=True):
+        seen_params: list[dict] = []
+
+        class _Client:
+            def __init__(self, base_url="", timeout=0, **_kw):
+                self.base_url = base_url
+
+            def get(self, path, params=None, **_kw):
+                if path == "/v1/market/offer":
+                    if "hub.aitbc.invalid" in self.base_url:
+                        seen_params.append(params or {})
+                        return market_payload
+                    if local_fails:
+                        raise NetworkError("connection refused")
+                    return market_payload
+                raise NetworkError("unexpected path")
+
+            def get_json(self, path, params=None, **_kw):
+                raise NetworkError("unreachable")
+
+        monkeypatch.setattr(offers_mod, "AITBCHTTPClient", _Client)
+        monkeypatch.setattr(offers_mod, "get_config", lambda: config)
+        return seen_params
+
+    def test_empty_result_prints_honest_message_and_sends_filter(self, monkeypatch, config, caplog):
+        import logging
+
+        from aitbc_cli.commands.market import offers as offers_mod
+
+        seen_params = self._patch_clients(monkeypatch, offers_mod, config, {"offers": []})
+
+        with caplog.at_level(logging.DEBUG, logger="aitbc_cli.commands.market.offers"):
+            result = CliRunner().invoke(market, ["list", "--service-type", "whisper"], obj={})
+        assert result.exit_code == 0, result.output
+        assert "No market offers found" in result.output
+        assert "service_type=whisper" in result.output
+        # The dead local fallback must not warn — that warning was the only
+        # output in #2225.
+        assert "Market service not available" not in result.output
+        assert not [
+            r
+            for r in caplog.records
+            if r.levelno >= logging.WARNING and "127.0.0.1:8102" in r.getMessage()
+        ]
+        # The filter still reaches the API as a query param.
+        assert seen_params and seen_params[0].get("service_type") == "whisper"
+
+    def test_empty_result_json_keeps_parseable_stdout(self, monkeypatch, config):
+        import json
+
+        from aitbc_cli.commands.market import offers as offers_mod
+
+        self._patch_clients(monkeypatch, offers_mod, config, {"offers": []})
+
+        result = CliRunner().invoke(market, ["list", "--service-type", "nosuchtype99", "--output", "json"], obj={})
+        assert result.exit_code == 0, result.output
+        assert json.loads(result.stdout) == []
+        assert "No market offers found" in result.stderr
+        assert "service_type=nosuchtype99" in result.stderr
+
+    def test_filtered_to_empty_is_still_an_honest_empty(self, monkeypatch, config):
+        """Hub answers offers of another type; --service-type filters them
+        all out client-side — still 'no offers', not silence."""
+        from aitbc_cli.commands.market import offers as offers_mod
+
+        self._patch_clients(monkeypatch, offers_mod, config, {"offers": [_OFFER]})
+
+        result = CliRunner().invoke(market, ["list", "--service-type", "whisper"], obj={})
+        assert result.exit_code == 0, result.output
+        assert "No market offers found" in result.output
+        assert "ollama-llama3" not in result.output
+
+    def test_all_sources_fail_is_an_error_not_empty(self, monkeypatch, config, caplog):
+        import logging
+
+        from aitbc_cli.commands.market import offers as offers_mod
+
+        class _DeadClient:
+            def __init__(self, base_url="", timeout=0, **_kw):
+                pass
+
+            def get(self, path, params=None, **_kw):
+                raise NetworkError("connection refused")
+
+            def get_json(self, path, params=None, **_kw):
+                raise NetworkError("unreachable")
+
+        monkeypatch.setattr(offers_mod, "AITBCHTTPClient", _DeadClient)
+        monkeypatch.setattr(offers_mod, "get_config", lambda: config)
+
+        with caplog.at_level(logging.DEBUG, logger="aitbc_cli.commands.market.offers"):
+            result = CliRunner().invoke(market, ["list"], obj={})
+        assert result.exit_code != 0
+        assert "No market data source answered" in result.output
+        # Only the primary base warns; the local fallback is debug-level.
+        warnings = [r for r in caplog.records if r.levelno >= logging.WARNING]
+        market_warnings = [r for r in warnings if "Market service" in r.getMessage()]
+        assert len(market_warnings) == 1
+        assert "hub.aitbc.invalid" in market_warnings[0].getMessage()
+        # The demoted fallback failure is still recorded at debug level.
+        assert any("127.0.0.1:8102" in r.getMessage() for r in caplog.records if r.levelno == logging.DEBUG)
+
+
 class TestSortOffers:
     """Test deterministic sorting of market offers."""
 

@@ -398,9 +398,11 @@ Client Error: Unauthorized for url: …/c/v1/market/gpu/status/job-mo1`
 | drift exit 1 | `offer-list` `--service-type`/`--status`/`--output`/`--format` — hub `/v1/market/offers` returns a bare JSON array (`get_json()` shape drift, same class as the trade arrays; registered separately) |
 | 🔒 by design | `market`/`gpu buy`/`gpu refund` `--password`, `--password-file`, `--password-stdin`, exchange `--password-*` — never placed in docs |
 
-**Noise noted (not drift):** `market list --provider/--status/--sort`
-warns `Market service not available at http://127.0.0.1:8102` on a node
-without a local market service before falling back to the chain listing;
+**Noise noted (not drift):** `market list` used to warn `Market service
+not available at http://127.0.0.1:8102` on a node without a local market
+service before falling back to the chain listing — fixed in #2225
+(fallback-base failures are now debug-level, and an empty result prints
+`No market offers found (...)` instead of a bare `[]`);
 `gpu refund --wallet-path` demands a password before checking that the
 path exists; `gpu status` needs a coordinator client credential even for
 a read.

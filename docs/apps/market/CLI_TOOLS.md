@@ -48,6 +48,9 @@ aitbc market list --service-type ollama --status active
 aitbc market list --provider 0x…
 aitbc market list --sort reputation        # also: price | availability | default
 aitbc market list --mine                   # only offers from the local wallet/node
+# An empty result prints "No market offers found (...)" — a real answer from a
+# reachable source, not an error. It exits non-zero only when every data source
+# (market API, hub RPC, blockchain RPC) is unreachable.
 
 # List software offers published by this provider
 aitbc market offer-list
