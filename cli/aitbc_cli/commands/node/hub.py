@@ -228,6 +228,50 @@ def unregister_hub_command(ctx, redis_url, hub_discovery_url, redis_password=Non
         raise click.Abort() from e
 
 
+def _decode_redis_key(key) -> str:
+    return key.decode() if isinstance(key, bytes) else str(key)
+
+
+def _hub_info_to_row(hub_info, fallback_id: str) -> dict | None:
+    """Normalize one stored hub record to an output row; None when unparsable."""
+    try:
+        info = json.loads(hub_info) if isinstance(hub_info, (str, bytes)) else hub_info
+    except (json.JSONDecodeError, TypeError):
+        return None
+    if not isinstance(info, dict):
+        return None
+    return {
+        "Hub ID": info.get("node_id") or fallback_id,
+        "Island ID": info.get("island_id"),
+        "Island Name": info.get("island_name"),
+        "Address": info.get("public_address") or info.get("address"),
+        "Port": info.get("public_port") or info.get("port"),
+    }
+
+
+async def _collect_hub_key_rows(client) -> list[dict]:
+    """Rows from the ``hub:<node_id>`` keys HubManager._persist_hub_registration writes."""
+    rows = []
+    async for key in client.scan_iter("hub:*"):
+        raw = await client.get(key)
+        if raw is None:
+            continue
+        row = _hub_info_to_row(raw, _decode_redis_key(key).removeprefix("hub:"))
+        if row is not None:
+            rows.append(row)
+    return rows
+
+
+async def _collect_hub_hash_rows(client) -> list[dict]:
+    """Rows from the legacy ``hubs`` hash."""
+    rows = []
+    for hub_id, hub_info_str in (await client.hgetall("hubs")).items():
+        row = _hub_info_to_row(hub_info_str, _decode_redis_key(hub_id))
+        if row is not None:
+            rows.append(row)
+    return rows
+
+
 def list_hubs_command(ctx, redis_url, redis_password=None):
     """List registered hubs from Redis.
 
@@ -246,47 +290,7 @@ def list_hubs_command(ctx, redis_url, redis_password=None):
     async def get_hubs():
         client = redis.from_url(redis_url)
         try:
-            hubs_data = []
-            # Primary source: hub:<node_id> keys written by HubManager._persist_hub_registration
-            async for key in client.scan_iter("hub:*"):
-                raw = await client.get(key)
-                if raw is None:
-                    continue
-                try:
-                    hub_info = json.loads(raw)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-                if not isinstance(hub_info, dict):
-                    continue
-                key_str = key.decode() if isinstance(key, bytes) else str(key)
-                hubs_data.append(
-                    {
-                        "Hub ID": hub_info.get("node_id") or key_str.removeprefix("hub:"),
-                        "Island ID": hub_info.get("island_id"),
-                        "Island Name": hub_info.get("island_name"),
-                        "Address": hub_info.get("public_address") or hub_info.get("address"),
-                        "Port": hub_info.get("public_port") or hub_info.get("port"),
-                    }
-                )
-            # Fallback: legacy "hubs" hash
-            hubs = await client.hgetall("hubs")
-            for hub_id, hub_info_str in hubs.items():
-                try:
-                    hub_info = json.loads(hub_info_str)
-                except (json.JSONDecodeError, TypeError):
-                    continue
-                if not isinstance(hub_info, dict):
-                    continue
-                hubs_data.append(
-                    {
-                        "Hub ID": hub_id.decode() if isinstance(hub_id, bytes) else str(hub_id),
-                        "Island ID": hub_info.get("island_id"),
-                        "Island Name": hub_info.get("island_name"),
-                        "Address": hub_info.get("public_address") or hub_info.get("address"),
-                        "Port": hub_info.get("public_port") or hub_info.get("port"),
-                    }
-                )
-            return hubs_data
+            return await _collect_hub_key_rows(client) + await _collect_hub_hash_rows(client)
         finally:
             await client.close()
 
