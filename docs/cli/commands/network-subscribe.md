@@ -18,7 +18,7 @@ aitbc network subscribe [OPTIONS]
 | `--transport` | choice | `websocket` | no | Transport method for block delivery |
 | `--chain-id` | text | — | no | Chain ID to subscribe to (default: from SUPPORTED_CHAINS in /etc/aitbc/node.env) |
 | `--duration` | integer | `300` | no | Lease duration in seconds (default: 300) |
-| `--rpc-url` | text | `http://localhost:8202` | no | Blockchain RPC URL <!-- check-ports: ignore --> |
+| `--rpc-url` | text | — | no | Blockchain RPC URL (default: the hub RPC — leases live in the hub's lease store) |
 
 ## Examples
 
