@@ -2,6 +2,7 @@
 Node client for multi-chain operations
 """
 
+import asyncio
 import os
 from typing import Any
 
@@ -451,3 +452,57 @@ class NodeClient:
             "agent_count": 12,
             "last_block_time": "2024-03-02T10:00:00Z",
         }
+
+
+def _probe_urls(endpoint: str) -> list[str]:
+    """Liveness-probe candidate URLs for a node endpoint.
+
+    Mirrors the URL mapping ``NodeClient`` already uses: the health route
+    (with ``/rpc`` rewritten to ``/health``), the chain ``/rpc/info`` route,
+    and the admin ``/api/node/info`` route for api-surface endpoints.
+    """
+    endpoint = endpoint.rstrip("/")
+    health_url = f"{endpoint}/health"
+    if "/rpc" in endpoint:
+        health_url = endpoint.replace("/rpc", "/health")
+    info_base = endpoint[:-4] if endpoint.endswith("/rpc") else endpoint
+    api_base = endpoint[:-4] if endpoint.endswith("/api") else endpoint
+    urls = [health_url, f"{info_base}/rpc/info", f"{api_base}/api/node/info"]
+    # De-duplicate while preserving order (endpoints ending in /rpc or /api
+    # collapse two of the candidates onto the same URL).
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for u in urls:
+        if u not in seen:
+            seen.add(u)
+            deduped.append(u)
+    return deduped
+
+
+async def probe_node(node_config: NodeConfig, timeout: float = 3.0) -> bool:
+    """True when the node endpoint answers any liveness probe.
+
+    Any HTTP response — even a 4xx — counts as reachable: the point is to
+    distinguish a dead/stale endpoint (connection refused, DNS failure,
+    timeout) from a live host, not to validate the AITBC API surface. Used
+    by ``aitbc node list`` to flag stale multichain-registry entries
+    (ANALYTICS-NODECFG-STALE-1, #2219) instead of presenting dead
+    endpoints as live nodes.
+    """
+    try:
+        async with httpx.AsyncClient(timeout=timeout) as client:
+            for url in _probe_urls(node_config.endpoint):
+                try:
+                    await client.get(url)
+                    return True
+                except Exception:  # noqa: BLE001 - a malformed endpoint must read as unreachable, not crash `node list`
+                    continue
+    except Exception:  # noqa: BLE001 - probe is best-effort liveness, never fatal
+        return False
+    return False
+
+
+async def probe_nodes(nodes: dict[str, NodeConfig], timeout: float = 3.0) -> dict[str, bool]:
+    """Probe every configured node concurrently; ``{node_id: reachable}``."""
+    results = await asyncio.gather(*(probe_node(nc, timeout) for nc in nodes.values()))
+    return {nid: ok for (nid, _nc), ok in zip(nodes.items(), results, strict=True)}

@@ -52,6 +52,10 @@ class ChainMetrics:
     agent_count: int
     network_in_mb: float
     network_out_mb: float
+    # True when the row comes from the synthetic local-RPC fallback rather
+    # than a real node metrics endpoint — synthetic rows must never feed
+    # alerts, health scores, predictions, or recommendations (#2219).
+    synthetic: bool = False
 
 
 @dataclass
@@ -89,6 +93,12 @@ class ChainAnalytics:
         self.predictions: dict[str, list[ChainPrediction]] = defaultdict(list)
         self.health_scores: dict[str, float] = {}
         self.performance_benchmarks: dict[str, dict[str, float]] = {}
+        # Per-node outcome of the last collect_all_metrics() pass:
+        # "reachable" when the node answered get_hosted_chains, "unreachable"
+        # when it did not. Read by `analytics alerts` to report "no sources"
+        # honestly instead of "No alerts found" against dead endpoints (#2219).
+        self.node_status: dict[str, str] = {}
+        self.rpc_fallback_used = False
 
         # Alert thresholds
         self.thresholds = {
@@ -165,6 +175,7 @@ class ChainAnalytics:
         except _COLLECT_ERRORS as e:
             logger.warning("Failed to collect metrics from blockchain RPC: %s", e)
             return []
+        self.rpc_fallback_used = True
 
         chain_id = info.get("chain_id") or os.environ.get("CHAIN_ID") or "unconfigured"
         block_height = info.get("height", 0)
@@ -196,13 +207,16 @@ class ChainAnalytics:
                     agent_count=8,
                     network_in_mb=10.5 + noise,
                     network_out_mb=8.2 + noise,
+                    synthetic=True,
                 )
             )
 
+        # Synthetic rows carry no alerts or health score: deriving either
+        # from invented tps/block-time values would fabricate alerts the
+        # operator cannot act on (#2219). They exist only so summary/monitor
+        # can still show that *something* answered.
         for m in metrics:
             self.metrics_history[chain_id].append(m)
-            await self._check_alerts(m)
-            self._calculate_health_score(chain_id)
 
         return metrics
 
@@ -226,18 +240,19 @@ class ChainAnalytics:
                 try:
                     async with NodeClient(config) as client:
                         chains = await client.get_hosted_chains()
-                        node_metrics = []
-
-                        for chain in chains:
-                            try:
-                                metrics = await self.collect_metrics(chain.id, nid)
-                                node_metrics.append(metrics)
-                            except _COLLECT_ERRORS as e:
-                                logger.error("Error getting metrics for chain %s: %s", chain.id, e)
-                        return node_metrics
                 except _COLLECT_ERRORS as e:
+                    self.node_status[nid] = "unreachable"
                     logger.error("Error getting chains from node %s: %s", nid, e)
                     return []
+                self.node_status[nid] = "reachable"
+                node_metrics = []
+                for chain in chains:
+                    try:
+                        metrics = await self.collect_metrics(chain.id, nid)
+                        node_metrics.append(metrics)
+                    except _COLLECT_ERRORS as e:
+                        logger.error("Error getting metrics for chain %s: %s", chain.id, e)
+                return node_metrics
 
             tasks.append(get_node_metrics(node_id))
 
@@ -253,6 +268,14 @@ class ChainAnalytics:
             await self._collect_from_rpc_fallback()
 
         return all_metrics
+
+    def _chain_has_live_metrics(self, chain_id: str) -> bool:
+        """True when the chain has at least one non-synthetic metrics row."""
+        return any(not m.synthetic for m in self.metrics_history.get(chain_id, ()))
+
+    def has_live_metrics(self) -> bool:
+        """True when any chain has real (non-synthetic) metrics rows."""
+        return any(self._chain_has_live_metrics(cid) for cid in self.metrics_history)
 
     def get_chain_performance_summary(self, chain_id: str, hours: int = 24) -> dict[str, Any]:
         """Get performance summary for a chain"""
@@ -300,6 +323,9 @@ class ChainAnalytics:
             },
             "health_score": self.health_scores.get(chain_id, 0.0),
             "active_alerts": len([a for a in self.alerts if a.chain_id == chain_id]),
+            # Honest provenance: "synthetic" rows come from the local-RPC
+            # fallback window, not a node metrics endpoint (#2219).
+            "data_source": "synthetic" if recent_metrics[-1].synthetic else "live",
         }
 
         return summary
@@ -307,22 +333,10 @@ class ChainAnalytics:
     def get_cross_chain_analysis(self) -> dict[str, Any]:
         """Analyze performance across all chains"""
         if not self.metrics_history:
-            # Return mock data for testing
-            return {
-                "total_chains": 1,
-                "active_chains": 1,
-                "chains_by_type": {os.environ.get("CHAIN_ID") or "unconfigured": 1},
-                "performance_comparison": {
-                    os.environ.get("CHAIN_ID") or "unconfigured": {"tps": 2.5, "block_time": 8.5, "health_score": 85.0},
-                },
-                "resource_usage": {
-                    "total_memory_mb": 2048.0,
-                    "total_disk_mb": 10240.0,
-                    "total_clients": 25,
-                    "total_agents": 8,
-                },
-                "alerts_summary": {"total_alerts": 2, "critical_alerts": 0, "warning_alerts": 2},
-            }
+            # No data is not fabricated data: return empty so callers abort
+            # with "No analytics data available" instead of printing invented
+            # fleet totals (#2219, same class as the #2222 cluster fix).
+            return {}
 
         analysis: dict[str, Any] = {
             "total_chains": len(self.metrics_history),
@@ -376,6 +390,9 @@ class ChainAnalytics:
             return []
         chain_id = resolved
         if len(self.metrics_history[chain_id]) < 10:
+            return []
+        if not self._chain_has_live_metrics(chain_id):
+            # Synthetic fallback rows would produce invented predictions.
             return []
 
         metrics = list(self.metrics_history[chain_id])
@@ -448,7 +465,8 @@ class ChainAnalytics:
         chain_id = resolved
 
         metrics = list(self.metrics_history[chain_id])
-        if not metrics:
+        if not metrics or not self._chain_has_live_metrics(chain_id):
+            # Recommendations from synthetic fallback rows would be invented.
             return recommendations
 
         latest = metrics[-1]
