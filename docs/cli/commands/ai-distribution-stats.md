@@ -2,7 +2,7 @@
 
 # `aitbc ai distribution-stats`
 
-Show task distribution statistics from the agent coordinator.
+Show task distribution statistics from the agent coordinator. /api/v1/agent/messages/load-balancer/stats is admin-gated in the agent-coordinator's own auth realm: the `aitbc auth login` coordinator-api JWT is a different issuer/secret and is rejected with 401. Pass an agent-coordinator admin credential via --api-key (the operator COORDINATOR_API_KEY when the service has one configured).
 
 ## Usage
 

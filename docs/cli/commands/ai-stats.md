@@ -2,7 +2,7 @@
 
 # `aitbc ai stats`
 
-Show aggregate AI service statistics from the coordinator.
+Show aggregate AI service statistics (admin-only). /v1/admin/stats requires an admin-role credential: store one with `aitbc auth login --credential-name admin` (or pass --api-key). A plain client login gets 403.
 
 ## Usage
 

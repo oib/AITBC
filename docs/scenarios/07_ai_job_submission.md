@@ -189,10 +189,10 @@ Before submitting, an agent can inspect which AI services the coordinator expose
 aitbc ai service list --coordinator-url http://localhost:8203
 
 # Check one service's status
-aitbc ai service service-status --name llm-inference --format json
+aitbc ai service service-status --name llm_inference --format json
 
 # Ping a service endpoint
-aitbc ai service test --name llm-inference
+aitbc ai service test --name llm_inference
 ```
 
 ---
@@ -319,6 +319,8 @@ asyncio.run(main())
 ### Step 6: Show AI job statistics
 
 Prints aggregate counters for AI jobs submitted through the coordinator.
+Admin-only: requires an admin credential (`aitbc auth login --credential-name admin`
+or `--api-key`); a plain client login gets 403.
 
 ```bash
 aitbc ai stats
@@ -326,7 +328,10 @@ aitbc ai stats
 
 ### Step 7: Show reward distribution stats
 
-Reads how job rewards are distributed across providers.
+Reads how job rewards are distributed across providers. Admin-gated on the
+agent-coordinator's own auth realm — the `aitbc auth login` coordinator-api JWT
+is rejected with 401; pass an agent-coordinator admin credential via `--api-key`
+(e.g. the operator `COORDINATOR_API_KEY` when configured).
 
 ```bash
 aitbc ai distribution-stats
