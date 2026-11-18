@@ -54,7 +54,7 @@ def deploy(ctx, contract_name, rpc_url):
     """Deploy a named smart contract to the blockchain."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        result = http_client.post("/rpc/contracts/deploy", json={"contract_name": contract_name})
+        result = http_client.post("/rpc/contracts/deploy", json={"name": contract_name})
         output(result, ctx.obj.get("output_format", "table"), title="Contract Deployed")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
@@ -80,9 +80,11 @@ def call(ctx, contract_address, method, args, rpc_url):
         import json
 
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        payload = {"contract_address": contract_address, "method": method}
+        # The RPC handler reads ``address``/``method``/``params`` — sending
+        # ``contract_address``/``args`` made every call fail "address is required".
+        payload: dict = {"address": contract_address, "method": method}
         if args:
-            payload["args"] = json.loads(args)
+            payload["params"] = json.loads(args)
         result = http_client.post("/rpc/contracts/call", json=payload)
         output(result, ctx.obj.get("output_format", "table"), title="Contract Call")
     except NetworkError as e:
