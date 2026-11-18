@@ -362,6 +362,51 @@ def _service_reconstructs(model, body: dict) -> dict:
     return {k: v for k, v in model(**body).model_dump(mode="json").items() if k != "signature"}
 
 
+def _http_answered_network_error(status: int, detail: str | None) -> NetworkError:
+    """A ``NetworkError`` wrapping a ``requests.HTTPError`` carrying a
+    response — the shape ``AITBCHTTPClient`` produces for a definitive HTTP
+    answer (as opposed to a transport failure with no response)."""
+    import requests
+
+    response = MagicMock()
+    response.status_code = status
+    response.json.return_value = {"detail": detail} if detail else {}
+    http_error = requests.HTTPError(f"{status} Client Error")
+    http_error.response = response
+    exc = NetworkError(f"GET request failed: {http_error}")
+    exc.__cause__ = http_error
+    return exc
+
+
+def test_proposal_show_surfaces_chain_404_honestly() -> None:
+    """#2213: a service-recorded-but-unsealed proposal gets a definitive
+    chain-RPC 404 — that is the node's answer, not a network outage."""
+    client = MagicMock()
+    client.get = MagicMock(side_effect=_http_answered_network_error(404, "No sealed GOVERNANCE_PROPOSE for prop_unsealed"))
+    with (
+        patch("aitbc_cli.commands.governance._governance_rpc", return_value=(client, "c")),
+        patch("aitbc_cli.commands.governance.output"),
+    ):
+        result = CliRunner().invoke(governance, ["proposal", "show", "--proposal-id", "prop_unsealed"])
+    assert result.exit_code != 0
+    assert "HTTP 404" in result.output
+    assert "No sealed GOVERNANCE_PROPOSE" in result.output
+    assert "Network error" not in result.output
+
+
+def test_proposal_show_transport_failure_stays_network_error() -> None:
+    """#2213 counterpart: no response object → still a genuine network error."""
+    client = MagicMock()
+    client.get = MagicMock(side_effect=NetworkError("connection refused"))
+    with (
+        patch("aitbc_cli.commands.governance._governance_rpc", return_value=(client, "c")),
+        patch("aitbc_cli.commands.governance.output"),
+    ):
+        result = CliRunner().invoke(governance, ["proposal", "show", "--proposal-id", "prop_x"])
+    assert result.exit_code != 0
+    assert "Network error" in result.output
+
+
 def test_ops_stake_signed_body_survives_service_reconstruction() -> None:
     """The signature must verify over the dict the service re-dumps from its
     pydantic model — where Decimal('1000') is the string '1000' (#1133)."""

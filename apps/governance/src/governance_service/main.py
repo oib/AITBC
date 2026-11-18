@@ -14,6 +14,7 @@ from typing import Annotated, Any
 import json
 
 from fastapi import Body, Depends, FastAPI, HTTPException, Query, Request
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import delete, text
@@ -367,7 +368,16 @@ async def create_vote(vote_data: dict[str, Any], svc: Annotated[GovernanceServic
     vote_data = unsigned_vote
     vote_data["voter_id"] = actor
     try:
-        return await svc.create_vote(vote_data)
+        vote = await svc.create_vote(vote_data)
+        # #2213: the best-effort GOVERNANCE_VOTE relay leaves tx_hash empty
+        # whenever it does not land (and the caller signature is auth-only,
+        # never persisted) — while the advisory tally already counted
+        # voting_power_used. Label the on-chain outcome explicitly so the
+        # record does not read as "the vote did not count".
+        payload = jsonable_encoder(vote)
+        payload["onchain_submission"] = "submitted" if vote.tx_hash else "not_submitted"
+        payload["onchain_submission_enabled"] = settings.enable_onchain_submission
+        return payload
     except ValueError as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
 

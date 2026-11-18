@@ -256,10 +256,10 @@ Status              delegated
 
 ### Step 7: Close the Proposal and Tally Votes
 
-After the voting period ends (or quorum and approval are reached early), close the proposal so it transitions to `succeeded` or `defeated`:
+After the voting period ends (or quorum and approval are reached early), close the proposal so it transitions to `succeeded` or `defeated`. `close` is a caller-signed write — `--wallet` is required (the service answers a bare `403 caller signature required` without it, #1178):
 
 ```bash
-aitbc governance close --proposal-id prop-001
+aitbc governance close --proposal-id prop-001 --wallet mywallet
 ```
 
 **Expected output:**
@@ -282,10 +282,10 @@ voting window is **not** an execute gate (an executor may execute an
 unpopular or still-open proposal — record note at Step 3).
 
 ```bash
-aitbc governance execute --proposal-id prop-001
+aitbc governance execute --proposal-id prop-001 --wallet mywallet
 ```
 
-With `--wallet mywallet` the CLI signs a `GOVERNANCE_EXECUTE` tx and the service relays it on-chain; the executor address must be in the chain's governance-executor allowlist (consensus-enforced). `--executor-address` still works as before.
+`execute` is also caller-signed — `--wallet` is required (bare invocations get `403 caller signature required`). The CLI signs a `GOVERNANCE_EXECUTE` tx and the service relays it on-chain; the executor address must be in the chain's governance-executor allowlist (consensus-enforced). `--executor-address` still works as before.
 
 > **Known limitation (bc-2 live sweep, 28 Oct):** `GOVERNANCE_EXECUTE` is authority-gated on bc-2 — no `governance_executors` key exists in any fleet store; proposals seal but cannot execute; custody resolves at the post-reset chain (the reset-harness custody gate).
 >
@@ -415,7 +415,7 @@ if wait_for_proposal_pass("prop-002"):
 
 ### Step 9: Show a proposal
 
-Prints one proposal's metadata, votes, and state.
+Prints one proposal's sealed on-chain record — a read-only chain RPC lookup, so no `--wallet` is needed. A service-recorded-but-unsealed proposal (every CLI `propose` without a sealing signer — see the Step 1 limitation) answers a definitive `HTTP 404 — No sealed GOVERNANCE_PROPOSE`; use `aitbc governance get` for the service-side record instead.
 
 ```bash
 aitbc governance proposal show --proposal-id 1
@@ -423,25 +423,25 @@ aitbc governance proposal show --proposal-id 1
 
 ### Step 10: Aggregate votes
 
-Aggregates votes on a proposal across chains.
+Aggregates votes on a proposal across chains. Caller-signed like `close` — `--wallet` is required (the wallet must be able to sign for the caller; `403 caller signature required` without it, #1178):
 
 ```bash
-aitbc governance aggregate-votes --proposal-id 1
+aitbc governance aggregate-votes --proposal-id 1 --wallet mywallet
 ```
 
 ### Step 11: Propagate a proposal
 
-Pushes a proposal to target chains for local voting.
+Pushes a proposal to target chains for local voting. Caller-signed — `--wallet` is required and must be the proposal's `proposer_address` (service-enforced, #1178):
 
 Cost: 0 units — replication only.
 
 ```bash
-aitbc governance propagate --proposal-id 1 --target-chains ait-sidechain
+aitbc governance propagate --proposal-id 1 --target-chains ait-sidechain --wallet mywallet
 ```
 
 ### Step 12: Execute a cross-chain proposal
 
-`aitbc governance execute-cross-chain --proposal-id 1` is executes a passed proposal on target chains — irreversible governance execution; not played, needs the operator's line.
+`aitbc governance execute-cross-chain --proposal-id 1 --wallet mywallet` executes a passed proposal on target chains — irreversible governance execution; not played, needs the operator's line. Like `propagate`, the signing wallet must be the proposal's `proposer_address` (service-enforced, #1178).
 
 ---
 
