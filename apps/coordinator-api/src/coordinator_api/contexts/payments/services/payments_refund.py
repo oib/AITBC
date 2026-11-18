@@ -25,6 +25,7 @@ from ..acceptance import (
 
 from .payments_helpers import (
     _OPS_ERRORS,
+    _find_http_status_error,
     _lookup_chain_lock,
     _lookup_chain_refund,
 )
@@ -32,6 +33,19 @@ from .payments_helpers import (
 from .payments_core import PaymentCoreMixin
 
 logger = get_logger(__name__)
+
+
+def _upstream_error_detail(status_error: httpx.HTTPStatusError) -> str | None:
+    """Best-effort extraction of the node's ``detail`` message."""
+    try:
+        body = status_error.response.json()
+    except ValueError:
+        return None
+    if isinstance(body, dict):
+        detail = body.get("detail")
+        if isinstance(detail, str) and detail:
+            return detail[:300]
+    return None
 
 
 class PaymentRefundMixin(PaymentCoreMixin):
@@ -179,6 +193,22 @@ class PaymentRefundMixin(PaymentCoreMixin):
                 logger.info("Refunded payment %s for job %s", payment_id, job_id)
             return marked
         except NetworkError as e:
+            # #2198: an upstream refusal must reach the client as a refusal,
+            # not an unhandled 500. 425 = the escrow lock is not sealed yet —
+            # retryable, so propagate the status and the node's detail.
+            status_error = _find_http_status_error(e)
+            if status_error is not None:
+                code = status_error.response.status_code
+                detail = _upstream_error_detail(status_error) or "escrow settlement refused the refund"
+                if code == 425:
+                    logger.info("Escrow refund for job %s refused: lock not yet sealed (HTTP 425)", job_id)
+                    raise HTTPException(status_code=425, detail=detail) from e
+                if 400 <= code < 500:
+                    raise HTTPException(status_code=code, detail=detail) from e
+                raise HTTPException(
+                    status_code=status.HTTP_502_BAD_GATEWAY,
+                    detail="escrow settlement upstream error; the refund can be retried",
+                ) from e
             logger.error("Failed to submit refund transaction: %s", e)
             raise
 

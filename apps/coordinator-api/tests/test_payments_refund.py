@@ -395,3 +395,82 @@ class TestPaymentServiceRefundPropagation:
         service = PaymentService(payment_session)
         with pytest.raises(NetworkError, match="POST request failed"):
             asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
+
+
+@pytest.mark.unit
+class TestRefundUpstreamRefusalMapping:
+    """#2198: an upstream escrow refusal must surface as an HTTP refusal,
+    not an unhandled 500 — 425 (lock not yet sealed) stays retryable."""
+
+    @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+    def test_refund_425_maps_to_http_425(self, mock_client_cls, payment_session):
+        import httpx
+        from fastapi import HTTPException
+
+        job_id = "job-refund-425"
+        payment_id = "pay-refund-425"
+        _make_job_and_payment(payment_session, job_id, payment_id)
+
+        response = httpx.Response(
+            425,
+            json={"detail": "escrow lock not yet sealed; retry after the ESCROW_LOCK lands"},
+            request=httpx.Request("POST", "http://node/rpc/escrow/x/refund"),
+        )
+        status_exc = httpx.HTTPStatusError("425 Too Early", request=response.request, response=response)
+        exc = NetworkError("POST request failed: 425 Too Early")
+        exc.__cause__ = status_exc
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = {"state": "funded"}
+        mock_client.post.side_effect = exc
+        mock_client_cls.return_value = mock_client
+
+        service = PaymentService(payment_session)
+        with pytest.raises(HTTPException) as ei:
+            asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
+        assert ei.value.status_code == 425
+        assert "not yet sealed" in ei.value.detail
+
+    @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+    def test_refund_upstream_5xx_maps_to_502(self, mock_client_cls, payment_session):
+        import httpx
+        from fastapi import HTTPException
+
+        job_id = "job-refund-5xx"
+        payment_id = "pay-refund-5xx"
+        _make_job_and_payment(payment_session, job_id, payment_id)
+
+        response = httpx.Response(
+            503,
+            json={"detail": "upstream boom"},
+            request=httpx.Request("POST", "http://node/rpc/escrow/x/refund"),
+        )
+        status_exc = httpx.HTTPStatusError("503", request=response.request, response=response)
+        exc = NetworkError("POST request failed: 503")
+        exc.__cause__ = status_exc
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = {"state": "funded"}
+        mock_client.post.side_effect = exc
+        mock_client_cls.return_value = mock_client
+
+        service = PaymentService(payment_session)
+        with pytest.raises(HTTPException) as ei:
+            asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
+        assert ei.value.status_code == 502
+
+    @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+    def test_refund_transport_error_still_raises(self, mock_client_cls, payment_session):
+        """No HTTP status in the chain (timeout/DNS) keeps propagating."""
+        job_id = "job-refund-transport"
+        payment_id = "pay-refund-transport"
+        _make_job_and_payment(payment_session, job_id, payment_id)
+
+        mock_client = AsyncMock()
+        mock_client.get.return_value = {"state": "funded"}
+        mock_client.post.side_effect = NetworkError("connect timeout")
+        mock_client_cls.return_value = mock_client
+
+        service = PaymentService(payment_session)
+        with pytest.raises(NetworkError):
+            asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
