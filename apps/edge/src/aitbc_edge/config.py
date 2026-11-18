@@ -1,6 +1,6 @@
 """Configuration for Edge API Service"""
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import SettingsConfigDict
 
 from aitbc_shared import DatabaseConfig, ServiceSettings
@@ -47,6 +47,16 @@ class Settings(ServiceSettings):
     # GPU service settings
     gpu_service_host: str = "localhost"
     gpu_service_port: int = 8101
+    # API key presented to the gpu service as X-Api-Key (#2238). Its
+    # APIKeyAuthenticator gates state-changing endpoints (edge-gpu scan,
+    # gpu queue) whenever auth_enabled=true and a key is configured —
+    # the service default. GPU_SERVICE_API_KEY is the edge-specific name;
+    # GPU_API_KEY is the same variable aitbc-gpu reads, so a shared env
+    # file or a copied value authenticates edge -> gpu with no extra key.
+    gpu_service_api_key: str | None = Field(
+        default=None,
+        validation_alias=AliasChoices("GPU_SERVICE_API_KEY", "GPU_API_KEY"),
+    )
 
     # v0.6.6: Market integration — edge advertises capabilities to market
     market_url: str = Field(
