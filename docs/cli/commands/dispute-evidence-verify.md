@@ -18,6 +18,7 @@ aitbc dispute evidence verify [OPTIONS]
 | `--evidence-id` | integer | — | yes | Evidence entry to rule on. |
 | `--reject` | flag | `false` | no | Mark the evidence as not verified instead of verified. |
 | `--node-url` | text | — | no | Blockchain node RPC URL |
+| `--wallet` | text | — | no | Wallet name whose address authenticates this write (sends X-Wallet-Address). |
 | `--format` | choice | — | no | Output format |
 
 ## Examples

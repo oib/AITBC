@@ -20,6 +20,7 @@ aitbc dispute file [OPTIONS]
 | `--reason` | text | — | yes | Why the dispute is being filed. |
 | `--evidence-hash` | text | — | yes | Hash of the supporting evidence. |
 | `--node-url` | text | — | no | Blockchain node RPC URL |
+| `--wallet` | text | — | no | Wallet name whose address authenticates this write (sends X-Wallet-Address). |
 | `--format` | choice | — | no | Output format |
 
 ## Examples

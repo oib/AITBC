@@ -18,6 +18,7 @@ aitbc dispute vote [OPTIONS]
 | `--vote` | choice | — | yes | Which side the vote favours. |
 | `--reasoning` | text | — | yes | Why the arbitrator ruled this way; recorded with the vote. |
 | `--node-url` | text | — | no | Blockchain node RPC URL |
+| `--wallet` | text | — | no | Wallet name whose address authenticates this write (sends X-Wallet-Address). |
 | `--format` | choice | — | no | Output format |
 
 ## Examples
