@@ -6,6 +6,7 @@ Hierarchical configuration with validation
 from .hub import (
     hub_agent_url,
     hub_discovery_host,
+    hub_edge_origin,
     hub_exchange_url,
     hub_origin,
     hub_service_url,
@@ -36,6 +37,7 @@ __all__ = [
     "create_config_template",
     "hub_agent_url",
     "hub_discovery_host",
+    "hub_edge_origin",
     "hub_exchange_url",
     "hub_origin",
     "hub_service_url",

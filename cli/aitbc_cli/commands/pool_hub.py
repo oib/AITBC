@@ -48,11 +48,11 @@ def _default_pool_hub_url() -> str:
         return DEFAULT_POOL_HUB_URL
 
     try:
-        from aitbc.config.hub import hub_discovery_host, normalize_hub_base
+        from aitbc.config.hub import hub_edge_origin
 
-        host = hub_discovery_host()
-        if host:
-            return f"{normalize_hub_base(host)}/pool-hub"
+        origin = hub_edge_origin()
+        if origin:
+            return f"{origin}/pool-hub"
     except Exception as e:  # noqa: BLE001 - discovery is best-effort; falls back to default URL
         logger.debug("hub discovery failed, using default pool-hub URL: %s", type(e).__name__)
 
