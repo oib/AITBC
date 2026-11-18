@@ -33,15 +33,33 @@ def _fetch_node_info(node_config):
     return asyncio.run(get_node_stats())
 
 
+_METRIC_FIELDS = (
+    ("CPU Usage", "cpu_usage", "{}%"),
+    ("Memory Usage", "memory_usage_mb", "{:.1f}MB"),
+    ("Disk Usage", "disk_usage_mb", "{:.1f}MB"),
+    ("Network In", "network_in_mb", "{:.1f}MB/s"),
+    ("Network Out", "network_out_mb", "{:.1f}MB/s"),
+)
+
+
+def _monitor_metric_rows(node_info):
+    """Rows for whichever telemetry fields the node actually publishes (#2230)."""
+    rows = []
+    for label, key, fmt in _METRIC_FIELDS:
+        value = node_info.get(key)
+        if value is not None:
+            rows.append([label, fmt.format(value)])
+    uptime_days = node_info.get("uptime_days")
+    if uptime_days is not None:
+        rows.append(["Uptime", f"{uptime_days}d {node_info.get('uptime_hours', 0)}h"])
+    if not rows:
+        rows.append(["Status", str(node_info.get("status", "unknown"))])
+        rows.append(["Hosted Chains", str(len(node_info.get("hosted_chains") or {}))])
+    return rows
+
+
 def _monitor_metrics_table(node_info):
-    return [
-        ["CPU Usage", f"{node_info['cpu_usage']}%"],
-        ["Memory Usage", f"{node_info['memory_usage_mb']:.1f}MB"],
-        ["Disk Usage", f"{node_info['disk_usage_mb']:.1f}MB"],
-        ["Network In", f"{node_info['network_in_mb']:.1f}MB/s"],
-        ["Network Out", f"{node_info['network_out_mb']:.1f}MB/s"],
-        ["Uptime", f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"],
-    ]
+    return _monitor_metric_rows(node_info)
 
 
 def _monitor_chains_text(node_info):
@@ -60,7 +78,7 @@ def _build_monitor_layout(node_id, node_info):
     layout = Layout()
     layout.split_column(Layout(name="header", size=3), Layout(name="metrics"), Layout(name="chains", size=10))
 
-    layout["header"].update(f"Node Monitor: {node_id} - {node_info['status'].upper()}")
+    layout["header"].update(f"Node Monitor: {node_id} - {str(node_info.get('status', 'unknown')).upper()}")
     layout["metrics"].update(str(_monitor_metrics_table(node_info)))
     layout["chains"].update(_monitor_chains_text(node_info))
 
@@ -78,14 +96,7 @@ def _monitor_layout_or_error(node_id, node_config):
 
 
 def _snapshot_stats_rows(node_info):
-    return [
-        {"Metric": "CPU Usage", "Value": f"{node_info['cpu_usage']}%"},
-        {"Metric": "Memory Usage", "Value": f"{node_info['memory_usage_mb']:.1f}MB"},
-        {"Metric": "Disk Usage", "Value": f"{node_info['disk_usage_mb']:.1f}MB"},
-        {"Metric": "Network In", "Value": f"{node_info['network_in_mb']:.1f}MB/s"},
-        {"Metric": "Network Out", "Value": f"{node_info['network_out_mb']:.1f}MB/s"},
-        {"Metric": "Uptime", "Value": f"{node_info['uptime_days']}d {node_info['uptime_hours']}h"},
-    ]
+    return [{"Metric": label, "Value": value} for label, value in _monitor_metric_rows(node_info)]
 
 
 def monitor_command(ctx, node_id, realtime, interval):
@@ -161,12 +172,24 @@ def test_command(ctx, node_id):
                 "Status": "PASS" if node_info.get("status") else "FAIL",
                 "Details": node_info.get("status", "N/A"),
             },
-            {
-                "Test": "Version",
-                "Status": "PASS" if node_info.get("version") else "FAIL",
-                "Details": node_info.get("version", "N/A"),
-            },
         ]
+        # Version/telemetry only exist on nodes exposing the admin API.
+        if node_info.get("version"):
+            test_results.append(
+                {
+                    "Test": "Version",
+                    "Status": "PASS",
+                    "Details": node_info["version"],
+                }
+            )
+        else:
+            test_results.append(
+                {
+                    "Test": "Chain RPC",
+                    "Status": "PASS" if node_info.get("supported_chains") is not None else "FAIL",
+                    "Details": f"{len(node_info.get('supported_chains') or [])} supported chain(s)",
+                }
+            )
 
         output(test_results, ctx.obj.get("output", "table"), title=f"Node Test Results: {node_id}")
 
