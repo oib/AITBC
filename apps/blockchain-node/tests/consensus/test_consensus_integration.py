@@ -124,6 +124,121 @@ def test_state_persistence_save_load():
     assert fresh_consensus._current_epoch == 1
 
 
+def _lock_operational_error():
+    import sqlite3
+
+    from sqlalchemy.exc import OperationalError
+
+    return OperationalError("UPDATE consensus_state ...", {}, sqlite3.OperationalError("database is locked"))
+
+
+def test_save_state_retries_sqlite_lock(monkeypatch):
+    """#2192: a 'database is locked' commit failure retries the transaction on
+    a fresh session instead of failing every gated persist immediately."""
+    import contextlib
+    import time as time_mod
+    from unittest.mock import patch
+
+    consensus = _make_consensus(3, chain_id="test-busy-retry-chain")
+    mock_session = Mock()
+    mock_session.commit.side_effect = [_lock_operational_error(), _lock_operational_error(), None]
+
+    class MockQuery:
+        def filter_by(self, **kwargs):
+            return self
+
+        def first(self):
+            return None
+
+    mock_session.query = Mock(return_value=MockQuery())
+
+    calls = []
+
+    @contextlib.contextmanager
+    def flaky_scope(chain_id=""):
+        calls.append(1)
+        yield mock_session
+
+    sleeps = []
+    monkeypatch.setattr(time_mod, "sleep", lambda s: sleeps.append(s))
+
+    with patch("aitbc_chain.database.session_scope", flaky_scope):
+        assert consensus.save_state() is True
+
+    assert len(calls) == 3
+    assert mock_session.commit.call_count == 3
+    assert sleeps == [0.5, 1.0]
+
+
+def test_save_state_non_lock_error_fails_immediately(monkeypatch):
+    """#2192: non-lock persistence errors keep the old fail-fast contract —
+    no retry, single attempt, False returned."""
+    import contextlib
+    from unittest.mock import patch
+
+    from sqlalchemy.exc import OperationalError
+
+    consensus = _make_consensus(3, chain_id="test-nonlock-chain")
+    mock_session = Mock()
+    mock_session.commit.side_effect = OperationalError("INSERT ...", {}, Exception("disk I/O error"))
+
+    class MockQuery:
+        def filter_by(self, **kwargs):
+            return self
+
+        def first(self):
+            return None
+
+    mock_session.query = Mock(return_value=MockQuery())
+
+    calls = []
+
+    @contextlib.contextmanager
+    def flaky_scope(chain_id=""):
+        calls.append(1)
+        yield mock_session
+
+    with patch("aitbc_chain.database.session_scope", flaky_scope):
+        assert consensus.save_state() is False
+
+    assert len(calls) == 1
+
+
+def test_save_state_lock_retry_exhaustion_fails_closed(monkeypatch):
+    """#2192: after the retry budget is spent the fail-closed contract holds —
+    save_state returns False so callers still refuse to emit gated messages."""
+    import contextlib
+    import time as time_mod
+    from unittest.mock import patch
+
+    consensus = _make_consensus(3, chain_id="test-busy-exhaust-chain")
+    mock_session = Mock()
+    mock_session.commit.side_effect = _lock_operational_error()
+
+    class MockQuery:
+        def filter_by(self, **kwargs):
+            return self
+
+        def first(self):
+            return None
+
+    mock_session.query = Mock(return_value=MockQuery())
+
+    calls = []
+
+    @contextlib.contextmanager
+    def flaky_scope(chain_id=""):
+        calls.append(1)
+        yield mock_session
+
+    monkeypatch.setattr(time_mod, "sleep", lambda s: None)
+
+    with patch("aitbc_chain.database.session_scope", flaky_scope):
+        assert consensus.save_state() is False
+
+    assert len(calls) == 4  # 1 initial + 3 retries
+
+
 def test_deactivate_absent_from_marks_env_dropped_validators_inactive():
     """A validator dropped from VALIDATOR_SET leaves the rotation but stays
     in the table as inactive — env is the membership source of truth."""

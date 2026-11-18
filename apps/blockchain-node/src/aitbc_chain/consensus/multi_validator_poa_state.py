@@ -11,6 +11,7 @@ importable from the facade module.
 
 from __future__ import annotations
 
+import time
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from decimal import Decimal
@@ -32,6 +33,20 @@ if TYPE_CHECKING:
     logger: logging.Logger
 else:
     logger = _mvpoa.logger
+
+
+# #2192: bounded retry budget for sqlite lock conflicts on save_state. The
+# per-connection busy_timeout (60s) covers lock *waiting*; these retries
+# cover conflicts that surface as an immediate OperationalError instead.
+_SAVE_STATE_BUSY_RETRIES = 3
+_SAVE_STATE_BUSY_BACKOFF_S = 0.5
+
+
+def _is_sqlite_lock_error(exc: BaseException) -> bool:
+    """True when ``exc`` wraps a sqlite 'database (table) is locked' error."""
+    orig = getattr(exc, "orig", exc)
+    text = str(orig)
+    return "database is locked" in text or "database table is locked" in text
 
 
 class _StateMixin:
@@ -343,39 +358,59 @@ class _StateMixin:
         if self._slashing_manager.pruned_summary:
             slashing_events.append({"_pruned_summary": self._slashing_manager.pruned_summary})
         commit_locks_json, view_change_json = self._pbft_safety_blobs()
-        try:
-            with session_scope(self.chain_id) as session:
-                existing = session.query(ConsensusState).filter_by(chain_id=self.chain_id).first()
-                if existing:
-                    existing.current_view = self._pbft_view
-                    existing.current_sequence = self._pbft_sequence
-                    existing.current_epoch = self._current_epoch
-                    existing.validator_set_json = json.dumps(validator_set)
-                    existing.slashing_events_json = json.dumps(slashing_events)
-                    existing.pbft_commit_locks_json = commit_locks_json
-                    existing.pbft_view_change_json = view_change_json
-                    existing.updated_at = datetime.now(UTC)
-                else:
-                    session.add(
-                        ConsensusState(
-                            chain_id=self.chain_id,
-                            current_view=self._pbft_view,
-                            current_sequence=self._pbft_sequence,
-                            current_epoch=self._current_epoch,
-                            validator_set_json=json.dumps(validator_set),
-                            slashing_events_json=json.dumps(slashing_events),
-                            pbft_commit_locks_json=commit_locks_json,
-                            pbft_view_change_json=view_change_json,
+        # #2192: post-#2190 the gated persists (VC floor, commit lock,
+        # proposal body) no longer come through here — they write
+        # pbft_safety.json. save_state still runs at init, shutdown, and
+        # validator-set mutations, where a briefly-held chain.db write lock
+        # can fail the whole-row persist. Retry the transaction on a fresh
+        # NullPool connection before failing; the in-memory state is only
+        # mutated by callers' fail-closed wrappers, never here.
+        for attempt in range(_SAVE_STATE_BUSY_RETRIES + 1):
+            try:
+                with session_scope(self.chain_id) as session:
+                    existing = session.query(ConsensusState).filter_by(chain_id=self.chain_id).first()
+                    if existing:
+                        existing.current_view = self._pbft_view
+                        existing.current_sequence = self._pbft_sequence
+                        existing.current_epoch = self._current_epoch
+                        existing.validator_set_json = json.dumps(validator_set)
+                        existing.slashing_events_json = json.dumps(slashing_events)
+                        existing.pbft_commit_locks_json = commit_locks_json
+                        existing.pbft_view_change_json = view_change_json
+                        existing.updated_at = datetime.now(UTC)
+                    else:
+                        session.add(
+                            ConsensusState(
+                                chain_id=self.chain_id,
+                                current_view=self._pbft_view,
+                                current_sequence=self._pbft_sequence,
+                                current_epoch=self._current_epoch,
+                                validator_set_json=json.dumps(validator_set),
+                                slashing_events_json=json.dumps(slashing_events),
+                                pbft_commit_locks_json=commit_locks_json,
+                                pbft_view_change_json=view_change_json,
+                            )
                         )
-                    )
-                # session_scope closes without committing — without this the
-                # write above was silently rolled back on every call and
-                # consensus_state stayed empty fleet-wide.
-                session.commit()
-            return True
-        except (SQLAlchemyError, ArithmeticError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
-            logger.error("Failed to save consensus state for %s: %s", self.chain_id, e)
-            return False
+                    # session_scope closes without committing — without this the
+                    # write above was silently rolled back on every call and
+                    # consensus_state stayed empty fleet-wide.
+                    session.commit()
+                return True
+            except (
+                SQLAlchemyError,
+                ArithmeticError,
+                OSError,
+                RuntimeError,
+                ValueError,
+                TypeError,
+                AttributeError,
+                KeyError,
+            ) as e:
+                if not _is_sqlite_lock_error(e) or attempt >= _SAVE_STATE_BUSY_RETRIES:
+                    logger.error("Failed to save consensus state for %s: %s", self.chain_id, e)
+                    return False
+                time.sleep(_SAVE_STATE_BUSY_BACKOFF_S * (attempt + 1))
+        return False
 
     @staticmethod
     def _split_pruned_summary(records: list[Any]) -> tuple[list[Any], dict[str, dict]]:
