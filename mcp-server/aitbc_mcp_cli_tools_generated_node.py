@@ -463,7 +463,12 @@ def aitbc_node_chains(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_node_hub_list_hubs(
-    redis_url: Annotated[str | None, Field(description="Redis URL for persistence")] = None,
+    redis_url: Annotated[
+        str | None,
+        Field(
+            description="Redis URL for persistence (default: redis_url config / REDIS_URL env, else redis://localhost:6379)"
+        ),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -513,7 +518,12 @@ def aitbc_node_hub_list_hubs(
 def aitbc_node_hub_register(
     public_address: Annotated[str | None, Field(description="Public IP address")] = None,
     public_port: Annotated[int | None, Field(description="Public port")] = None,
-    redis_url: Annotated[str | None, Field(description="Redis URL for persistence")] = None,
+    redis_url: Annotated[
+        str | None,
+        Field(
+            description="Redis URL for persistence (default: redis_url config / REDIS_URL env, else redis://localhost:6379)"
+        ),
+    ] = None,
     hub_discovery_url: Annotated[str | None, Field(description="DNS hub discovery URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -567,7 +577,12 @@ def aitbc_node_hub_register(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_node_hub_unregister(
-    redis_url: Annotated[str | None, Field(description="Redis URL for persistence")] = None,
+    redis_url: Annotated[
+        str | None,
+        Field(
+            description="Redis URL for persistence (default: redis_url config / REDIS_URL env, else redis://localhost:6379)"
+        ),
+    ] = None,
     hub_discovery_url: Annotated[str | None, Field(description="DNS hub discovery URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -644,17 +659,18 @@ def aitbc_node_island_create(
     island_id: Annotated[str | None, Field(description="Island ID (UUID), generates new if not provided")] = None,
     island_name: Annotated[str | None, Field(description="Human-readable island name")] = None,
     chain_id: Annotated[str | None, Field(description="Chain ID for this island")] = None,
+    node_url: Annotated[str | None, Field(description="Local node RPC URL the island is registered on")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create a new island with optional ID, name, and chain."""
+    """Create a new island on the local node (registered as its hub)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"island_id": "island-id", "island_name": "island-name", "chain_id": "chain-id"},
+        values={"island_id": "island-id", "island_name": "island-name", "chain_id": "chain-id", "node_url": "node-url"},
     )
     args = None
     target = _host_for_role(role, host)

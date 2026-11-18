@@ -576,7 +576,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc node hub register`](node-hub-register.md) — Register this node as a hub.
 - [`aitbc node hub unregister`](node-hub-unregister.md) — Unregister this node as a hub.
 - [`aitbc node info`](node-info.md) — Get detailed information about a configured node.
-- [`aitbc node island create`](node-island-create.md) — Create a new island with optional ID, name, and chain.
+- [`aitbc node island create`](node-island-create.md) — Create a new island on the local node (registered as its hub).
 - [`aitbc node island health`](node-island-health.md) — Show health status of connected islands.
 - [`aitbc node island island-info`](node-island-island-info.md) — Get detailed information for an island.
 - [`aitbc node island join`](node-island-join.md) — Join an existing island by ID, name, and chain.

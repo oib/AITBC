@@ -2,7 +2,7 @@
 
 # `aitbc node island create`
 
-Create a new island with optional ID, name, and chain.
+Create a new island on the local node (registered as its hub).
 
 ## Usage
 
@@ -17,6 +17,7 @@ aitbc node island create [OPTIONS]
 | `--island-id` | text | — | no | Island ID (UUID), generates new if not provided |
 | `--island-name` | text | `default` | no | Human-readable island name |
 | `--chain-id` | text | — | no | Chain ID for this island |
+| `--node-url` | text | `http://127.0.0.1:8202` | no | Local node RPC URL the island is registered on <!-- check-ports: ignore --> |
 
 ## Examples
 
