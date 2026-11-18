@@ -83,6 +83,34 @@ def test_zk_verify_from_job_receipt(runner, mock_client):
     assert payload["public_signals"] == ["sig1"]
 
 
+def test_zk_health_uses_stored_jwt_when_no_api_key(runner, mock_client, monkeypatch):
+    """#2228: without --api-key the stored `auth login` JWT goes out as Bearer."""
+    from aitbc_cli import auth as auth_pkg
+    from aitbc_cli.commands.zk import zk
+
+    monkeypatch.setattr(auth_pkg.AuthManager, "get_credential", lambda self, *a, **kw: "eyJhbGciOi.fake.token")
+    with patch("aitbc_cli.commands.zk.AITBCHTTPClient", return_value=mock_client) as ctor:
+        result = runner.invoke(zk, ["health"], obj={"output_format": "table"})
+    assert result.exit_code == 0, result.output
+    assert ctor.call_args.kwargs["headers"] == {"Authorization": "Bearer eyJhbGciOi.fake.token"}
+
+
+def test_zk_health_explicit_api_key_wins_over_stored_jwt(runner, mock_client, monkeypatch):
+    """#2228: an explicit --api-key takes precedence and skips the store."""
+    from aitbc_cli import auth as auth_pkg
+    from aitbc_cli.commands.zk import zk
+
+    def _explode(self, *a, **kw):
+        raise AssertionError("store must not be read when --api-key is given")
+
+    monkeypatch.setattr(auth_pkg.AuthManager, "get_credential", _explode)
+    with patch("aitbc_cli.commands.zk.AITBCHTTPClient", return_value=mock_client) as ctor:
+        result = runner.invoke(zk, ["health"], obj={"output_format": "table", "api_key": "explicit-key"})
+    assert result.exit_code == 0, result.output
+    assert ctor.call_args.kwargs["api_key"] == "explicit-key"
+    assert "headers" not in ctor.call_args.kwargs
+
+
 def test_zk_verify_from_args(runner, mock_client):
     from aitbc_cli.commands.zk import zk
 

@@ -15,7 +15,7 @@ from aitbc.exceptions import AITBCError
 from ..config import get_config
 from ..utils import output, resolve_output_format
 from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs
 
 # Expected failure surface for the ZK fallbacks below (#1860): aitbc/CLI error
 # hierarchies plus filesystem, JSON-parse and data-shape builtins.
@@ -44,12 +44,15 @@ def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
     return url
 
 
-def _auth_headers(ctx) -> dict[str, str] | None:
-    """Return Authorization header from --api-key."""
-    token = ctx.obj.get("api_key")
-    if token:
-        return {"Authorization": f"Bearer {token}"}
-    return None
+def _zk_auth_kwargs(ctx) -> dict[str, Any]:
+    """Credential kwargs for the ZK endpoints: ``--api-key`` > stored ``auth login`` JWT > config key.
+
+    The coordinator's ZK routes require auth; resolving through the shared
+    ``auth_client_kwargs`` keeps the stored-JWT fallback every other
+    authenticated command already has (#2228).
+    """
+    explicit = ctx.obj.get("api_key") if ctx.obj else None
+    return auth_client_kwargs(explicit, get_config().api_key)
 
 
 def _load_json_or_file(value: str) -> Any:
@@ -102,8 +105,7 @@ def circuits(ctx, coordinator_url: str | None, format: str):
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
-        headers = _auth_headers(ctx)
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, **_zk_auth_kwargs(ctx))
         result = http_client.get("/v1/zk/info")
         output(result, resolve_output_format(ctx, format), title="ZK Circuits")
     except NetworkError as e:
@@ -145,8 +147,7 @@ def verify(
         if not job_id and not (proof and public_signals):
             abort(ctx, "Either --job-id or both --proof and --public-signals are required")
 
-        headers = _auth_headers(ctx)
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=60, headers=headers)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=60, **_zk_auth_kwargs(ctx))
 
         if job_id:
             receipt = http_client.get(f"/v1/jobs/{job_id}/result")
@@ -195,8 +196,7 @@ def health(ctx, coordinator_url: str | None, format: str):
         if not coord_url:
             abort(ctx, "Coordinator URL not configured")
 
-        headers = _auth_headers(ctx)
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, **_zk_auth_kwargs(ctx))
         result = http_client.get("/v1/zk/health")
         output(result, resolve_output_format(ctx, format), title="ZK Service Health")
     except NetworkError as e:
