@@ -6,6 +6,7 @@ import asyncio
 from typing import Any
 
 import click
+import httpx
 
 try:
     from aitbc_cli.core.config import (
@@ -15,8 +16,8 @@ try:
         remove_node_config,
         save_multichain_config,
     )
-    from aitbc_cli.core.node_client import NodeClient
-    from aitbc_cli.utils import error, info, output, resolve_output_format, success
+    from aitbc_cli.core.node_client import NodeClient, probe_nodes
+    from aitbc_cli.utils import error, info, output, resolve_output_format, success, warning
 except ImportError:
     from aitbc_cli.core.config import (
         add_node_config,
@@ -25,8 +26,8 @@ except ImportError:
         remove_node_config,
         save_multichain_config,
     )
-    from aitbc_cli.core.node_client import NodeClient
-    from aitbc_cli.utils import error, output, resolve_output_format, success
+    from aitbc_cli.core.node_client import NodeClient, probe_nodes
+    from aitbc_cli.utils import error, output, resolve_output_format, success, warning
 
     def info(message: str, **kwargs: Any):
         click.echo(message)
@@ -42,6 +43,36 @@ except ImportError:
 def node():
     """Manage nodes, islands, hubs, bridges, and chains in the federated mesh."""
     pass
+
+
+def _live_local_node() -> dict[str, Any] | None:
+    """Live identity of this host's own blockchain RPC, if it answers.
+
+    ``~/.aitbc/multichain_config.yaml`` is a static registry that goes stale
+    (ANALYTICS-NODECFG-STALE-1, #2219); ``/rpc/network-info`` on the
+    configured ``blockchain_rpc_url`` is the live source of truth for the
+    local node. Returns None when the RPC does not answer.
+    """
+    try:
+        from aitbc_cli.config import get_config
+
+        rpc = (getattr(get_config(), "blockchain_rpc_url", "") or "").rstrip("/")
+        if not rpc:
+            return None
+        base = rpc[:-4] if rpc.endswith("/rpc") else rpc
+        resp = httpx.get(f"{base}/rpc/network-info", timeout=3.0)
+        if resp.status_code != 200:
+            return None
+        info = resp.json()
+        return {
+            "node_id": info.get("node_id"),
+            "role": info.get("role"),
+            "chain_id": info.get("chain_id"),
+            "island_id": info.get("island_id"),
+            "endpoint": f"{base}/rpc",
+        }
+    except Exception:  # noqa: BLE001 - live probe is best-effort; registry view still prints
+        return None
 
 
 @node.command(
@@ -185,11 +216,18 @@ def chains(ctx, show_private, node_id):
   aitbc node list --output json"""
 )
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+@click.option("--no-probe", is_flag=True, help="Skip endpoint reachability checks")
 @click.pass_context
-def list(ctx, format):
-    """List all configured nodes and their connection settings."""
+def list(ctx, format, no_probe):
+    """List all configured nodes and their connection settings.
+
+    The multichain registry is static config, not live mesh state: each
+    endpoint is probed and unreachable entries are flagged, and a warning is
+    printed when nothing answers (#2219).
+    """
     try:
         config = load_multichain_config()
+        live = _live_local_node()
 
         if not config.nodes:
             fmt = resolve_output_format(ctx, format)
@@ -197,24 +235,53 @@ def list(ctx, format):
                 output([], fmt)
             else:
                 info("No nodes configured")
+            _print_live_local_node(live)
             return
 
-        nodes_data = [
-            {
+        statuses = {} if no_probe else asyncio.run(probe_nodes(config.nodes))
+
+        nodes_data = []
+        for node_id, node_config in config.nodes.items():
+            row = {
                 "Node ID": node_id,
                 "Endpoint": node_config.endpoint,
                 "Timeout": f"{node_config.timeout}s",
                 "Max Connections": node_config.max_connections,
                 "Retry Count": node_config.retry_count,
             }
-            for node_id, node_config in config.nodes.items()
-        ]
+            if statuses:
+                row["Status"] = "reachable" if statuses.get(node_id) else "unreachable"
+            nodes_data.append(row)
 
         output(nodes_data, resolve_output_format(ctx, format), title="Configured Nodes")
+
+        if statuses and not any(statuses.values()):
+            warning(
+                "No configured node answered — the registry may be stale. "
+                "Live mesh state: `aitbc network status` / `aitbc network peers`."
+            )
+        elif statuses and not all(statuses.values()):
+            warning("Some configured nodes are unreachable — the registry may be stale.")
+        _print_live_local_node(live)
 
     except Exception as e:
         error(f"Error listing nodes: {str(e)}")
         raise click.Abort() from e
+
+
+def _print_live_local_node(live: dict[str, Any] | None) -> None:
+    """Show the live local-node identity alongside the static registry."""
+    if not live:
+        return
+    parts = [live["node_id"] or "unknown"]
+    if live.get("role"):
+        parts.append(f"role={live['role']}")
+    if live.get("chain_id"):
+        parts.append(f"chain={live['chain_id']}")
+    if live.get("island_id"):
+        parts.append(f"island={live['island_id']}")
+    parts.append(live["endpoint"])
+    info(f"Live local node: {' '.join(parts)}")
 
 
 @node.command(

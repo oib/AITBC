@@ -10,7 +10,7 @@ import httpx
 from aitbc.exceptions import AITBCError
 from ..core.analytics import ChainAnalytics
 from ..core.config import load_multichain_config
-from ..utils import output, resolve_output_format, success
+from ..utils import output, resolve_output_format, success, warning
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import get_logger
 
@@ -177,7 +177,7 @@ def _single_chain_row(table, cid: str, summary: dict[str, Any]) -> None:
 
 def _all_chains_rows(table, analytics: ChainAnalytics) -> None:
     analysis = analytics.get_cross_chain_analysis()
-    for chain_id, data in analysis["performance_comparison"].items():
+    for chain_id, data in analysis.get("performance_comparison", {}).items():
         health_color = _health_color(data["health_score"])
         table.add_row(
             chain_id,
@@ -266,6 +266,8 @@ def _snapshot_monitor(ctx: click.Context, analytics: ChainAnalytics, chain_id: s
         output(_single_chain_monitor_rows(summary), fmt, title=f"Chain Monitor: {chain_id}")
     else:
         analysis = analytics.get_cross_chain_analysis()
+        if not analysis:
+            abort(ctx, "No analytics data available")
         output(_all_chains_monitor_rows(analysis), fmt, title="System Monitor")
 
 
@@ -341,7 +343,7 @@ def predict(ctx, chain_id, hours, format):
             analysis = analytics.get_cross_chain_analysis()
             all_predictions = {}
 
-            for chain_id in analysis["performance_comparison"].keys():
+            for chain_id in analysis.get("performance_comparison", {}):
                 predictions = asyncio.run(analytics.predict_chain_performance(chain_id, hours))
                 if predictions:
                     all_predictions[chain_id] = predictions
@@ -416,7 +418,7 @@ def optimize(ctx, chain_id, format):
             analysis = analytics.get_cross_chain_analysis()
             all_recommendations = {}
 
-            for chain_id in analysis["performance_comparison"].keys():
+            for chain_id in analysis.get("performance_comparison", {}):
                 recommendations = analytics.get_optimization_recommendations(chain_id)
                 if recommendations:
                     all_recommendations[chain_id] = recommendations
@@ -460,7 +462,11 @@ def optimize(ctx, chain_id, format):
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def alerts(ctx, severity, hours, format):
-    """View performance alerts filtered by severity and time range."""
+    """View performance alerts filtered by severity and time range.
+
+    Alerts come only from live node metrics; when no configured node
+    answers, the command reports that no sources were reachable instead of
+    printing a misleading "No alerts found" (#2219)."""
     try:
         config = load_multichain_config()
         analytics = ChainAnalytics(config)
@@ -476,7 +482,18 @@ def alerts(ctx, severity, hours, format):
             filtered_alerts = [a for a in filtered_alerts if a.severity == severity]
 
         if not filtered_alerts:
-            success("No alerts found")
+            if not analytics.has_live_metrics():
+                # Every configured node failed and only the synthetic
+                # local-RPC fallback (or nothing) produced rows — "No alerts
+                # found" would falsely imply the sources were checked (#2219).
+                unreachable = sorted(nid for nid, ok in analytics.node_status.items() if ok != "reachable")
+                detail = f"; unreachable: {', '.join(unreachable)}" if unreachable else ""
+                warning(
+                    f"No alerts evaluated — no reachable node sources{detail}. "
+                    "Check `aitbc node list` and the multichain registry."
+                )
+            else:
+                success("No alerts found")
             return
 
         alert_data = [

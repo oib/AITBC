@@ -2,7 +2,7 @@
 
 # `aitbc analytics alerts`
 
-View performance alerts filtered by severity and time range.
+View performance alerts filtered by severity and time range. Alerts come only from live node metrics; when no configured node answers, the command reports that no sources were reachable instead of printing a misleading "No alerts found" (#2219).
 
 ## Usage
 
