@@ -240,12 +240,12 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc wallet bridge sell lock` | `/rpc/account/{from_address}` | `get_account_route` (core.py) | —
 | `aitbc wallet bridge sell lock` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
 | `aitbc wallet bridge withdraw` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
-| `aitbc wallet info` | `/rpc/account/` | — | —
-| `aitbc wallet info` | `/rpc/account/{canonical}` | `get_account_route` (core.py) | —
 | `aitbc wallet liquidity-claim` | `/rpc/chain` | — | —
 | `aitbc wallet liquidity-claim` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
 | `aitbc wallet liquidity-stake` | `/rpc/account/` | — | —
 | `aitbc wallet liquidity-stake` | `/rpc/account/{hex_address}` | `get_account_route` (core.py) | —
+| `aitbc wallet multisig-propose` | `/rpc/account/` | — | —
+| `aitbc wallet multisig-propose` | `/rpc/account/{address}` | `get_account_route` (core.py) | —
 | `aitbc wallet rewards` | `/rpc/liquidity/stakes/` | — | —
 | `aitbc wallet send` | `/rpc/account/` | — | —
 | `aitbc wallet send` | `/rpc/account/{sender_address}` | `get_account_route` (core.py) | —
@@ -253,5 +253,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc wallet stake` | `/rpc/account/` | — | —
 | `aitbc wallet stake` | `/rpc/staking/stake` | `stake_tokens_route` (staking.py) | —
 | `aitbc wallet staking-info` | `/rpc/staking/` | — | —
+| `aitbc wallet stats` | `/rpc/account/` | — | —
+| `aitbc wallet stats` | `/rpc/account/{canonical}` | `get_account_route` (core.py) | —
 | `aitbc wallet unstake` | `/rpc/staking/` | — | —
 | `aitbc wallet unstake` | `/rpc/staking/unstake` | `unstake_tokens_route` (staking.py) | —
