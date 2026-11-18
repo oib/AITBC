@@ -3861,7 +3861,7 @@
             }
           },
           "409": {
-            "description": "bond {bond_id} is already bound to provider {claimed.provider_id} / bond {bond_id} is already bound to another provider",
+            "description": "bond {bond_id} is already bound to provider {claimed.provider_id} / bond {bond_id} is liquidated for provider {provider_id}; the same on-chain bond cannot reactivate it \u2014 submit a new BOND_LOCK under a new bond_id or resolve the slash appeal via governance / bond {bond_id} is already bound to another provider",
             "content": {
               "application/json": {
                 "schema": {
@@ -4165,6 +4165,16 @@
                 }
               }
             }
+          },
+          "409": {
+            "description": "provider {provider_id} bond is {bond.status}; {action} cannot reactivate a terminal bond \u2014 create a new on-chain bond first",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       }
@@ -4227,6 +4237,16 @@
           },
           "403": {
             "description": "not the provider owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "provider {provider_id} bond is {bond.status}; {action} cannot reactivate a terminal bond \u2014 create a new on-chain bond first",
             "content": {
               "application/json": {
                 "schema": {
