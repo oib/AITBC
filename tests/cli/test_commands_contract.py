@@ -54,9 +54,11 @@ class TestContractCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
-        # Verify the deploy endpoint and contract name are in the request.
-        called_path = mock_client.post.call_args[0][0]
+        # The deploy handler reads ``name``/``type``/``deployer`` — sending
+        # ``contract_name`` was silently rejected as "name is required".
+        called_path, called_kwargs = mock_client.post.call_args[0][0], mock_client.post.call_args[1]
         assert "/rpc/contracts/deploy" in called_path
+        assert called_kwargs["json"] == {"name": "MyContract"}
 
     @patch("aitbc_cli.commands.contract.AITBCHTTPClient")
     def test_contract_call_command(self, mock_http_class, runner, mock_blockchain_rpc):
@@ -82,7 +84,41 @@ class TestContractCommands:
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
         called_path = mock_client.post.call_args[0][0]
+        called_json = mock_client.post.call_args[1]["json"]
         assert "/rpc/contracts/call" in called_path
+        # The call handler reads ``address``/``method``/``params`` —
+        # ``contract_address``/``args`` were rejected as missing fields.
+        assert called_json["address"] == "0xA1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4"
+        assert called_json["method"] == "balanceOf"
+        assert called_json["params"] == ["0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"]
+        assert "contract_address" not in called_json
+        assert "args" not in called_json
+
+    @patch("aitbc_cli.commands.contract.AITBCHTTPClient")
+    def test_contract_call_command_no_args(self, mock_http_class, runner, mock_blockchain_rpc):
+        """``contract call`` without ``--args`` sends no ``params`` key."""
+        mock_client = mock_http_class.return_value
+        mock_client.post.return_value = {"result": "0x", "status": "success"}
+
+        from aitbc_cli.commands.contract import contract
+
+        result = runner.invoke(
+            contract,
+            [
+                "call",
+                "--contract-address",
+                "0xA1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4",
+                "--method",
+                "totalSupply",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
+        called_json = mock_client.post.call_args[1]["json"]
+        assert called_json == {
+            "address": "0xA1B2C3D4E5F60718293A4B5C6D7E8F90A1B2C3D4",
+            "method": "totalSupply",
+        }
 
     @patch("aitbc_cli.commands.contract.AITBCHTTPClient")
     def test_contract_deploy_network_error_aborts(self, mock_http_class, runner):
