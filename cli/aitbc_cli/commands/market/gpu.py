@@ -174,6 +174,25 @@ def quote(ctx, gpu_id, buyer_id, buyer_agent_id, duration_hours, gpu_count, max_
     info(f"Buyer charge:  {result.get('buyer_charge_ait', 'N/A')} AIT")
 
 
+def _load_energy_quote_file(path: str | None) -> dict[str, Any]:
+    """Read and unwrap the operator energy-quote JSON; aborts on bad input."""
+    if not path:
+        error("--energy-quote is required (path to JSON file)")
+        sys.exit(1)
+    try:
+        with open(path) as f:
+            quote_dict: dict[str, Any] = json.load(f)
+    except OSError as e:
+        error(f"Cannot read --energy-quote file {path}: {e.strerror or e}")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        error(f"Invalid JSON in --energy-quote file {path}: {e}")
+        sys.exit(1)
+    # The quote endpoint may return a wrapper object; unwrap the energy_quote.
+    unwrapped = quote_dict.get("energy_quote", quote_dict)
+    return unwrapped if isinstance(unwrapped, dict) else quote_dict
+
+
 @gpu.command()
 @click.option("--gpu-id", required=True, help="GPU registry ID")
 @click.option("--buyer-id", required=True, help="Buyer client ID from the quote (must match authenticated client on purchase)")
@@ -215,15 +234,7 @@ def buy(
     json_output,
 ):
     """Fund a quoted GPU rental (native escrow or EVM contract)."""
-    # Load the energy quote from file or stdin.
-    if energy_quote:
-        with open(energy_quote) as f:
-            quote_dict = json.load(f)
-        # The quote endpoint may return a wrapper object; unwrap the energy_quote.
-        quote_dict = quote_dict.get("energy_quote", quote_dict)
-    else:
-        error("--energy-quote is required (path to JSON file)")
-        sys.exit(1)
+    quote_dict = _load_energy_quote_file(energy_quote)
 
     config = get_config()
 
