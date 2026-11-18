@@ -66,7 +66,7 @@ AI agents participating in federated compute need to organize into islands — s
 
 ### Step 1: Create a New Island
 
-The `create` command generates a new island with a UUID and chain ID. If no island ID is provided, one is generated automatically. The default island name is `default`.
+The `create` command generates a new island ID and chain ID, then registers the island on the **local node** (`--node-url`, default `http://127.0.0.1:8202`) through the node's island manager with this node as the island hub. The blockchain node must be running and its RPC must accept the configured `BLOCKCHAIN_RPC_API_KEY`. If no island ID is provided, one is generated automatically. The default island name is `default`.
 
 ```bash
 # Create an island with auto-generated UUID and chain ID
@@ -76,13 +76,18 @@ aitbc node island create --island-name "federated-compute"
 **Expected output:**
 
 ```
-New Island Created
-Island ID     550e8400-e29b-41d4-a716-446655440000
-Island Name   federated-compute
-Chain ID      ait-550e8400
-Created       Now
-Island federated-compute (550e8400-e29b-41d4-a716-446655440000) created successfully
+Registering island on node http://127.0.0.1:8202...
+Created Island: federated-compute
+Island ID           550e8400-e29b-41d4-a716-446655440000
+Island Name         federated-compute
+Chain ID            ait-550e8400
+Status              joined
+Is Hub              Yes
+Credentials Stored  /var/lib/aitbc/island_credentials.json
+Island federated-compute (550e8400-e29b-41d4-a716-446655440000) created and registered on http://127.0.0.1:8202
 ```
+
+The created island appears in `aitbc node island list-islands` while the node is running (island memberships are held by the node's island manager; like `join`, persistence across restarts comes from the node's `ISLAND_REGISTRY`/`BRIDGE_ISLANDS` configuration, not the CLI).
 
 Specify a custom island ID and chain ID:
 
@@ -206,6 +211,8 @@ aitbc node hub register \
   --public-address 203.0.113.50 \
   --public-port 26656
 ```
+
+Hub commands read Redis credentials from `--redis-url` (which may embed `user:password@`), the `redis_url` config key / `REDIS_URL` env var (the fleet ships a credentialed URL in `/etc/aitbc/blockchain-secrets.env`), or `--redis-password` / `REDIS_PASSWORD`.
 
 List registered hubs:
 
@@ -360,7 +367,7 @@ Verify that island operations completed successfully:
 # List known islands — should show your created/joined island
 aitbc node island list-islands
 
-# Inspect your island
+# Inspect your island (Joined At renders as an ISO timestamp)
 aitbc node island island-info --island-id <your_island_id>
 
 # Verify island credentials were stored

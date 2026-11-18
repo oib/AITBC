@@ -78,10 +78,11 @@ def island():
 @click.option("--island-id", help="Island ID (UUID), generates new if not provided")
 @click.option("--island-name", default="default", help="Human-readable island name")
 @click.option("--chain-id", help="Chain ID for this island")
+@click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL the island is registered on")
 @click.pass_context
-def create(ctx, island_id, island_name, chain_id):
-    """Create a new island with optional ID, name, and chain."""
-    create_island_command(ctx, island_id, island_name, chain_id)
+def create(ctx, island_id, island_name, chain_id, node_url):
+    """Create a new island on the local node (registered as its hub)."""
+    create_island_command(ctx, island_id, island_name, chain_id, node_url=node_url)
 
 
 @island.command(
@@ -197,12 +198,17 @@ def hub():
 )
 @click.option("--public-address", help="Public IP address")
 @click.option("--public-port", type=int, help="Public port")
-@click.option("--redis-url", default="redis://localhost:6379", help="Redis URL for persistence")
+@click.option(
+    "--redis-url",
+    default=None,
+    help="Redis URL for persistence (default: redis_url config / REDIS_URL env, else redis://localhost:6379)",
+)
+@click.option("--redis-password", default=None, help="Redis password (or REDIS_PASSWORD env) if the URL has none")
 @click.option("--hub-discovery-url", default="hub.aitbc.invalid", help="DNS hub discovery URL")
 @click.pass_context
-def register(ctx, public_address, public_port, redis_url, hub_discovery_url):
+def register(ctx, public_address, public_port, redis_url, redis_password, hub_discovery_url):
     """Register this node as a hub."""
-    register_hub_command(ctx, public_address, public_port, redis_url, hub_discovery_url)
+    register_hub_command(ctx, public_address, public_port, redis_url, hub_discovery_url, redis_password)
 
 
 @hub.command(
@@ -212,12 +218,17 @@ def register(ctx, public_address, public_port, redis_url, hub_discovery_url):
 
   aitbc node hub unregister --redis-url redis://localhost:6379"""
 )
-@click.option("--redis-url", default="redis://localhost:6379", help="Redis URL for persistence")
+@click.option(
+    "--redis-url",
+    default=None,
+    help="Redis URL for persistence (default: redis_url config / REDIS_URL env, else redis://localhost:6379)",
+)
+@click.option("--redis-password", default=None, help="Redis password (or REDIS_PASSWORD env) if the URL has none")
 @click.option("--hub-discovery-url", default="hub.aitbc.invalid", help="DNS hub discovery URL")
 @click.pass_context
-def unregister(ctx, redis_url, hub_discovery_url):
+def unregister(ctx, redis_url, redis_password, hub_discovery_url):
     """Unregister this node as a hub."""
-    unregister_hub_command(ctx, redis_url, hub_discovery_url)
+    unregister_hub_command(ctx, redis_url, hub_discovery_url, redis_password)
 
 
 @hub.command(
@@ -227,11 +238,16 @@ def unregister(ctx, redis_url, hub_discovery_url):
 
   aitbc node hub list-hubs --redis-url redis://localhost:6379"""
 )
-@click.option("--redis-url", default="redis://localhost:6379", help="Redis URL for persistence")
+@click.option(
+    "--redis-url",
+    default=None,
+    help="Redis URL for persistence (default: redis_url config / REDIS_URL env, else redis://localhost:6379)",
+)
+@click.option("--redis-password", default=None, help="Redis password (or REDIS_PASSWORD env) if the URL has none")
 @click.pass_context
-def list_hubs(ctx, redis_url):
+def list_hubs(ctx, redis_url, redis_password):
     """List all registered hubs from Redis."""
-    list_hubs_command(ctx, redis_url)
+    list_hubs_command(ctx, redis_url, redis_password)
 
 
 # Bridge group

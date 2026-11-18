@@ -41,6 +41,7 @@ CONFIG_FILE_KEYS: dict[str, str] = {
     "wallet_url": "wallet_daemon_url",  # historical spelling feeds wallet_daemon_url (get_config did this before)
     "wallet_api_key": "WALLET_API_KEY",
     "wallet_address": "WALLET_ADDRESS",
+    "redis_url": "redis_url",
     "coordinator_api_key": "COORDINATOR_API_KEY",
     "blockchain_rpc_api_key": "BLOCKCHAIN_RPC_API_KEY",
     "blockchain_rpc_settlement_api_key": "BLOCKCHAIN_RPC_SETTLEMENT_API_KEY",
@@ -145,6 +146,13 @@ class CLIConfig(BaseAITBCConfig):
     )
     prometheus_url: str = Field(default="http://127.0.0.1:9090", description="Prometheus base URL for CLI queries")
     explorer_api_url: str = Field(default="http://localhost:8100", description="Blockchain Explorer API URL")
+    redis_url: str | None = Field(
+        default=None,
+        description=(
+            "Redis URL for hub registration/listing (REDIS_URL env var or /etc/aitbc env files; "
+            "the fleet ships a credentialed URL in blockchain-secrets.env)"
+        ),
+    )
 
     # Chain configuration
     chain_id: str = Field(

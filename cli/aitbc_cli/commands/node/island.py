@@ -8,6 +8,7 @@ import shutil
 import socket
 import stat
 import uuid
+from datetime import datetime, UTC
 
 import click
 
@@ -49,8 +50,34 @@ def _resolve_join_rpc_url(hub: str, rpc_url: str | None) -> str:
     return normalize_hub_base(hub) or hub
 
 
-def create_island_command(ctx, island_id, island_name, chain_id):
-    """Create a new island"""
+def _format_joined_at(value) -> str:
+    """Render an island ``joined_at`` value as an ISO timestamp.
+
+    The node RPC returns a float epoch (``IslandMembership.joined_at``);
+    ISO strings pass through unchanged and anything unparseable is shown
+    verbatim rather than crashing the table.
+    """
+    if value is None or value == "":
+        return "N/A"
+    try:
+        epoch = float(value)
+    except (TypeError, ValueError):
+        return str(value)
+    try:
+        return datetime.fromtimestamp(epoch, tz=UTC).isoformat()
+    except (OverflowError, OSError, ValueError):
+        return str(value)
+
+
+def create_island_command(ctx, island_id, island_name, chain_id, node_url="http://127.0.0.1:8202"):
+    """Create a new island on the local node.
+
+    The node's island manager has no separate "create" endpoint — island
+    registration goes through ``POST /rpc/islands/join`` with ``is_hub``
+    set, which records the node as the island's hub member. Without this
+    RPC call the command only printed identifiers and ``list-islands``
+    never showed the island (#2203).
+    """
     try:
         if not island_id:
             island_id = str(uuid.uuid4())
@@ -58,11 +85,40 @@ def create_island_command(ctx, island_id, island_name, chain_id):
         if not chain_id:
             chain_id = f"ait-{island_id[:8]}"
 
-        island_info = {"Island ID": island_id, "Island Name": island_name, "Chain ID": chain_id, "Created": "Now"}
+        rpc_base = node_url.rstrip("/")
+        click.echo(f"Registering island on node {node_url}...")
 
-        output(island_info, ctx.obj.get("output_format", "table"), title="New Island Created")
-        success(f"Island {island_name} ({island_id}) created successfully")
+        response = _join_island_rpc(ctx, rpc_base, island_id, island_name, chain_id, True, role="hub")
 
+        # Prefer RPC endpoint from response; fall back to the URL we used.
+        credentials = dict(response["credentials"])
+        if not credentials.get("rpc_endpoint"):
+            credentials["rpc_endpoint"] = f"{rpc_base}/rpc" if not rpc_base.endswith("/rpc") else rpc_base
+
+        credentials_path = _store_island_credentials(response, credentials)
+
+        fmt = ctx.obj.get("output_format", "table") if ctx and ctx.obj else "table"
+        island_info = {
+            "Island ID": response.get("island_id", island_id),
+            "Island Name": response.get("island_name", island_name),
+            "Chain ID": response.get("island_chain_id", chain_id),
+            "Status": response.get("status", "created"),
+            "Is Hub": "Yes",
+            "Credentials Stored": credentials_path,
+        }
+        output(island_info, fmt, title=f"Created Island: {island_name}")
+
+        members = response.get("members", [])
+        if members:
+            output(members, fmt, title="Island Members")
+
+        success(f"Island {island_name} ({island_id}) created and registered on {node_url}")
+
+    except (CLIError, click.Abort):
+        raise
+    except NetworkError as e:
+        error(f"Cannot reach node at {node_url}: {e}")
+        raise click.Abort() from e
     except Exception as e:
         error(f"Error creating island: {str(e)}")
         raise click.Abort() from e
@@ -90,7 +146,7 @@ def _load_validator_public_key() -> str:
     return str(public_key_pem)
 
 
-def _join_island_rpc(ctx, rpc_base: str, island_id, island_name, chain_id, is_hub) -> dict:
+def _join_island_rpc(ctx, rpc_base: str, island_id, island_name, chain_id, is_hub, *, role: str = "compute-provider") -> dict:
     """POST /islands/join and return a validated success response."""
     from aitbc_cli.config import get_config
     from aitbc_cli.utils.chain_id import resolve_chain_id
@@ -106,7 +162,7 @@ def _join_island_rpc(ctx, rpc_base: str, island_id, island_name, chain_id, is_hu
             "island_name": island_name,
             "chain_id": payload_chain_id,
             "is_hub": is_hub,
-            "role": "compute-provider",
+            "role": role,
         },
     )
 
@@ -129,8 +185,6 @@ def _join_island_rpc(ctx, rpc_base: str, island_id, island_name, chain_id, is_hu
 
 def _store_island_credentials(response: dict, credentials: dict) -> str:
     """Persist island credentials 0o600; returns the credentials path."""
-    from datetime import datetime
-
     credentials_path = "/var/lib/aitbc/island_credentials.json"
     credentials_data = {
         "island_id": response.get("island_id"),
@@ -317,7 +371,7 @@ def island_info_command(ctx, island_id, node_url="http://127.0.0.1:8202"):
         "Role": result.get("role", "N/A"),
         "Peer Count": str(result.get("peer_count", 0)),
         "Is Hub": str(result.get("is_hub", False)),
-        "Joined At": str(result.get("joined_at", "N/A")),
+        "Joined At": _format_joined_at(result.get("joined_at")),
     }
 
     output(island_data, ctx.obj.get("output_format", "table"), title=f"Island Information: {island_id}")
@@ -363,7 +417,7 @@ def health_command(ctx, node_url="http://127.0.0.1:8202", show_all=False):
             "Status": str(island.get("status", "N/A")).upper(),
             "Peers": str(island.get("peer_count", 0)),
             "Hub": "Yes" if island.get("is_hub") else "No",
-            "Joined": str(island.get("joined_at", "N/A")),
+            "Joined": _format_joined_at(island.get("joined_at")),
         }
         for island in islands
     ]
