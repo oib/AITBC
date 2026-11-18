@@ -324,7 +324,12 @@ class _PhasesMixin(_PbftBaseMixin):
             pre_prepare_view,
             block_payload=block_payload,
         )
-        pbft_trace.trace("propose.pre_prepare_out", hr=key, since_start=f"{time.time() - started_at:.3f}")
+        pbft_trace.trace(
+            "propose.pre_prepare_out",
+            hr=key,
+            hash=pbft_trace.short_hash(block_hash),
+            since_start=f"{time.time() - started_at:.3f}",
+        )
         pre_prepare_msg = self.state.pre_prepare_messages.get(key)
         if not pre_prepare_msg:
             logger.warning("PBFT propose_and_wait aborted: missing pre-prepare for seq %s", pre_prepare_sequence)
@@ -332,7 +337,12 @@ class _PhasesMixin(_PbftBaseMixin):
 
         # Send our own prepare; it will trigger a local commit once a prepare quorum forms
         await self.prepare_phase(self._local_validator, pre_prepare_msg)
-        pbft_trace.trace("propose.own_prepare", hr=key, since_start=f"{time.time() - started_at:.3f}")
+        pbft_trace.trace(
+            "propose.own_prepare",
+            hr=key,
+            hash=pbft_trace.short_hash(block_hash),
+            since_start=f"{time.time() - started_at:.3f}",
+        )
 
         # Wait for enough prepares (other validators respond via handle_incoming_message)
         deadline = time.time() + timeout if timeout else None
@@ -340,7 +350,12 @@ class _PhasesMixin(_PbftBaseMixin):
             key, self.state.prepared_messages, "prepare", deadline, started_at, pre_prepare_sequence, pre_prepare_view
         ):
             return False
-        pbft_trace.trace("propose.prepare_quorum", hr=key, since_start=f"{time.time() - started_at:.3f}")
+        pbft_trace.trace(
+            "propose.prepare_quorum",
+            hr=key,
+            hash=pbft_trace.short_hash(block_hash),
+            since_start=f"{time.time() - started_at:.3f}",
+        )
 
         # Wait for enough commits
         if not await self._wait_for_quorum(
@@ -348,7 +363,12 @@ class _PhasesMixin(_PbftBaseMixin):
         ):
             return False
 
-        pbft_trace.trace("propose.commit_quorum", hr=key, since_start=f"{time.time() - started_at:.3f}")
+        pbft_trace.trace(
+            "propose.commit_quorum",
+            hr=key,
+            hash=pbft_trace.short_hash(block_hash),
+            since_start=f"{time.time() - started_at:.3f}",
+        )
         duration = time.time() - started_at
         logger.info(
             "PBFT round completed for key %s (proposer=%s, block_hash=%s, "
@@ -493,7 +513,11 @@ class _PhasesMixin(_PbftBaseMixin):
                     prepared_view,
                 )
                 pbft_trace.trace(
-                    "refuse.prepare", hr=f"{height}:{view}", reason="already_prepared_later_round", prepared_view=prepared_view
+                    "refuse.prepare",
+                    hr=f"{height}:{view}",
+                    reason="already_prepared_later_round",
+                    prepared_view=prepared_view,
+                    hash=pbft_trace.short_hash(pre_prepare_msg.block_hash),
                 )
                 return False
             if view == prepared_view and prepared_hash != pre_prepare_msg.block_hash:
@@ -504,7 +528,12 @@ class _PhasesMixin(_PbftBaseMixin):
                     prepared_hash,
                     pre_prepare_msg.block_hash,
                 )
-                pbft_trace.trace("refuse.prepare", hr=f"{height}:{view}", reason="second_block_same_round")
+                pbft_trace.trace(
+                    "refuse.prepare",
+                    hr=f"{height}:{view}",
+                    reason="second_block_same_round",
+                    hash=pbft_trace.short_hash(pre_prepare_msg.block_hash),
+                )
                 return False
         if key in self._local_prepared:
             return len(self.state.prepared_messages.get(key, [])) >= self.required_messages
@@ -513,12 +542,22 @@ class _PhasesMixin(_PbftBaseMixin):
         # permits — and only after its proposal body is persisted
         # (Option R). Both checks are dormant while the gate is unset.
         if not await self._view_change_prepare_allows(height, view, pre_prepare_msg):
-            pbft_trace.trace("refuse.prepare", hr=f"{height}:{view}", reason="view_change_not_allowed")
+            pbft_trace.trace(
+                "refuse.prepare",
+                hr=f"{height}:{view}",
+                reason="view_change_not_allowed",
+                hash=pbft_trace.short_hash(pre_prepare_msg.block_hash),
+            )
             return False
         # The durable prepared record persists BEFORE the prepare is
         # broadcast — a restart must not forget this vote (design §7).
         if view_change_active(height) and not self._vc_prepared_arm(height, view, pre_prepare_msg.block_hash):
-            pbft_trace.trace("refuse.prepare", hr=f"{height}:{view}", reason="vc_prepared_arm_failed")
+            pbft_trace.trace(
+                "refuse.prepare",
+                hr=f"{height}:{view}",
+                reason="vc_prepared_arm_failed",
+                hash=pbft_trace.short_hash(pre_prepare_msg.block_hash),
+            )
             return False
         self._local_prepared.add(key)
         self._prepared_heights[height] = (view, pre_prepare_msg.block_hash)
@@ -910,6 +949,17 @@ class _PhasesMixin(_PbftBaseMixin):
         if pp_digest is None:
             return False  # no local pre-prepare to bind to
         if self._digest_count(prepared, pp_digest) < self.required_messages:
+            if len(prepared) >= self.required_messages:
+                # #2194: enough prepares by count but not by digest — the retry carries a different block
+                pp = self.state.pre_prepare_messages.get(key)
+                pbft_trace.trace(
+                    "commit.digest_mismatch",
+                    hr=key,
+                    prepares=len(prepared),
+                    matching=self._digest_count(prepared, pp_digest),
+                    pp_hash=pbft_trace.short_hash(getattr(pp, "block_hash", None)),
+                    prepare_hashes=",".join(sorted({pbft_trace.short_hash(m.block_hash) for m in prepared})),
+                )
             return False
         if key in self._local_committed:
             return True

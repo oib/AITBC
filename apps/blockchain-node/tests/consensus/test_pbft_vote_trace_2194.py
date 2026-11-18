@@ -80,6 +80,8 @@ async def test_trace_flag_on_logs_votes_and_phases(caplog, monkeypatch):
         "propose.commit_quorum",
     ):
         assert needle in text, needle
+    # E-1b: every vote/phase line names the block, so a retry with a different body is visible
+    assert "hash=0x" in text
 
 
 @pytest.mark.asyncio
@@ -96,3 +98,14 @@ async def test_intake_drop_counted_with_reason(caplog, monkeypatch):
     assert _counter("pbft_intake_drop_total") == before_total + 1
     assert _counter("pbft_intake_drop_digest_mismatch_total") == before_reason + 1
     assert any("PBFT-TRACE drop" in r.getMessage() and "reason=digest_mismatch" in r.getMessage() for r in caplog.records)
+
+
+@pytest.mark.asyncio
+async def test_malformed_drop_names_type_and_hash(caplog, monkeypatch):
+    monkeypatch.setattr(settings, "pbft_vote_trace_enabled", True, raising=False)
+    keypairs, shared, _p = _partitioned_fixture("test-pbft-2194-mal")
+    node = PBFTConsensus(shared, private_key="", chain_id="test-pbft-2194-mal", local_validator=keypairs[0][0])
+    with caplog.at_level(logging.INFO):
+        await node.handle_incoming_message({"message_type": "bogus", "block_hash": "0x" + "ab" * 32})
+    lines = [r.getMessage() for r in caplog.records if "reason=malformed" in r.getMessage()]
+    assert lines and "type=bogus" in lines[0] and "hash=0xabababababab" in lines[0]
