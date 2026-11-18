@@ -46,3 +46,4 @@ def test_grant_developer_lifecycle() -> None:
         final = grant_service.disburse(resolved.id, amount="100.5")
         assert final.status.value == "completed"
         assert float(final.disbursed_amount) == 100.5
+    engine.dispose()

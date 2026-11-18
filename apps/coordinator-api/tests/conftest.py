@@ -73,7 +73,12 @@ def db_engine(tmp_path):
         connect_args={"check_same_thread": False},
     )
     SQLModel.metadata.create_all(engine)
-    return engine
+    yield engine
+    # Autouse-adjacent via db_session -> _seed_client_refs, so this runs for
+    # nearly every test. Without dispose() each engine's QueuePool keeps its
+    # sqlite file handles open until cyclic GC; hundreds of tests per run
+    # exhausted RLIMIT_NOFILE under coverage.
+    engine.dispose()
 
 
 @pytest.fixture
@@ -109,5 +114,7 @@ def client(db_session):
         yield db_session
 
     app.dependency_overrides[get_session] = override_get_session
+    # NB: not ``with TestClient(app)`` — entering the context runs the app
+    # lifespan (sweepers, redis, DB init) which this suite deliberately skips.
     yield TestClient(app)
     app.dependency_overrides.pop(get_session, None)

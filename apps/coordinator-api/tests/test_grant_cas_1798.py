@@ -120,6 +120,7 @@ def test_disburse_persists_across_sessions(tmp_path):
         row = s2.get(GrantProposal, grant.id)
         assert Decimal(str(row.disbursed_amount)) == Decimal("40")
         assert row.status == GrantStatus.ACTIVE
+    engine.dispose()
 
 
 @pytest.mark.unit
