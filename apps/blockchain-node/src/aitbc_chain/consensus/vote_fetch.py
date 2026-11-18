@@ -83,14 +83,22 @@ def _rival_sealed(block: dict[str, Any]) -> bool:
             return False
     if not isinstance(meta, dict):
         return False
-    attestations = meta.get("attestations")
-    if not isinstance(attestations, list):
-        return False
     try:
         required = int(getattr(settings, "multi_validator_min_attestations", 2) or 2)
     except (TypeError, ValueError):
         required = 2
-    return len(attestations) >= required
+    attestations = meta.get("attestations")
+    if isinstance(attestations, list) and len(attestations) >= required:
+        return True
+    # #2232: a post-seal attestation round is discarded, so a sealed rival may
+    # carry only its PBFT commit certificate; distinct committers count too.
+    certificate = meta.get("pbft_certificate")
+    if not isinstance(certificate, list):
+        return False
+    committers = {
+        c.get("sender") for c in certificate if isinstance(c, dict) and c.get("message_type") == "commit" and c.get("sender")
+    }
+    return len(committers) >= required
 
 
 def _note_contention(chain_id: str, height: int, rival_hash: str, sealed: bool, base: str | None, peers: int) -> None:

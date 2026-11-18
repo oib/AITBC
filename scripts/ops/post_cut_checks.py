@@ -104,18 +104,25 @@ def check_quorum(ctx: Ctx) -> list[Result]:
         proposers.add(body.get("proposer"))
         meta = body.get("block_metadata") or "{}"
         try:
-            atts = json.loads(meta).get("attestations") or []
+            parsed = json.loads(meta)
+            atts = parsed.get("attestations") or []
+            cert = parsed.get("pbft_certificate") or []
         except (RecursionError, ValueError, TypeError, AttributeError):
-            atts = []
-        if len(atts) < 2:
-            bad_heights.append(f"{hgt}:atts={len(atts)}")
+            atts, cert = [], []
+        # #2232: the PBFT commit certificate is the evidence of record; a block
+        # sealed before its attestations arrived still carries >=2 commits.
+        committers = {
+            c.get("sender") for c in cert if isinstance(c, dict) and c.get("message_type") == "commit" and c.get("sender")
+        }
+        if len(atts) < 2 and len(committers) < 2:
+            bad_heights.append(f"{hgt}:atts={len(atts)},commits={len(committers)}")
     rows = [
         Result(
             "quorum-sweep",
             "fleet",
             "STOP",
             not bad_heights,
-            ">=2 attestations on every produced block",
+            ">=2 attestations or PBFT commits on every produced block",
             f"bad={bad_heights or 'none'} (1..{top})",
         )
     ]

@@ -538,7 +538,19 @@ class _OpsMixin(_PoaBaseMixin):
                 metadata_dict["pbft_certificate"] = pbft_certificate
 
         if self._multi_validator:
-            attestations = await self._collect_attestations(block, transactions=transactions, round_number=round_number)
+            certificate_commits = (
+                self._certificate_commit_count(
+                    pbft_certificate, block_hash, self._multi_validator.get_consensus_participants()
+                )
+                if pbft_certificate
+                else 0
+            )
+            attestations = await self._collect_attestations(
+                block,
+                transactions=transactions,
+                round_number=round_number,
+                certificate_commits=certificate_commits,
+            )
             configured_min = getattr(settings, "multi_validator_min_attestations", 0)
             # _collect_attestations already ran the #693 anomaly re-read, so the
             # participants here are the post-recovery view.

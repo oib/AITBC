@@ -160,6 +160,12 @@ class ConsensusConfig(BaseModel):
     # losing the first-to-min_count race every round. 0 keeps the old
     # seal-as-soon-as-quorum behaviour. Bounded by the timeout above.
     attestation_post_quorum_linger_seconds: float = 0.0
+    # #2232 (c-light): when the PBFT commit certificate already covers the
+    # effective min_attestations, wait at most this many seconds for remote
+    # attestations (they are redundant for validity; the certificate is the
+    # evidence of record). None keeps the full wait. Env:
+    # ATTESTATION_WAIT_WHEN_CERTIFICATE_COVERS_SECONDS.
+    attestation_wait_when_certificate_covers_seconds: float | None = Field(default=None, ge=0)
     # v0.18.0: reject unsigned PBFT messages by default; test harnesses must
     # set this to False explicitly.
     pbft_require_signatures: bool = True

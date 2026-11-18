@@ -45,7 +45,7 @@ def _quorum_miss_proposer(prop: str, prop_key: str, round_number_seen: list):
     """A stub proposer that fails the attestation minimum through the REAL
     ``_collect_and_gate_attestations`` / ``_publish_abandon`` code."""
 
-    async def _collect(block, transactions=None, round_number=None):
+    async def _collect(block, transactions=None, round_number=None, **_kw):
         round_number_seen.append(round_number)
         return []
 

@@ -157,6 +157,7 @@ VALIDATOR_KEYS='{"0x<address>":"<private key>"}'            # in validator-secre
 MULTI_VALIDATOR_MIN_ATTESTATIONS=2        # attestation quorum on MV-PoA blocks
 MULTI_VALIDATOR_ATTESTATION_TIMEOUT_SECONDS=1.0
 ATTESTATION_POST_QUORUM_LINGER_SECONDS=0.0 # extra collection time after quorum; 0 = seal at quorum
+ATTESTATION_WAIT_WHEN_CERTIFICATE_COVERS_SECONDS= # unset = full wait; seconds cap on the remote attestation wait once the PBFT commit certificate already covers min attestations (#2232)
 # CONSENSUS_VALIDATOR_SET_EPOCH_BLOCKS removed (#848) — validator-set epoch rotation no longer exists
 CONSENSUS_ENFORCE_PROPOSER_SCHEDULE=true  # drop pre-prepares from off-schedule proposers
 

@@ -79,6 +79,10 @@ class ArrivalStats(NamedTuple):
     short_blocks: int
     missed_blocks: dict[str, int]
     consecutive_missed: dict[str, int]
+    # #2232: distinct PBFT committers per block (the certificate survives when
+    # post-seal attestations are discarded). Window minimum over non-genesis blocks.
+    certificate_commits_min: int = 0
+    certificate_blocks: int = 0
 
 
 def is_island_chain_db(path: str) -> bool:
@@ -139,6 +143,18 @@ def _attesting_validators(block_metadata: object) -> set[str]:
     return out
 
 
+def _certificate_committers(block_metadata: object) -> set[str]:
+    """Distinct commit senders in ``pbft_certificate``; malformed -> empty."""
+    try:
+        meta = json.loads(str(block_metadata))
+    except (json.JSONDecodeError, TypeError, ValueError):
+        return set()
+    cert = meta.get("pbft_certificate") if isinstance(meta, dict) else None
+    if not isinstance(cert, list):
+        return set()
+    return {str(c["sender"]) for c in cert if isinstance(c, dict) and c.get("message_type") == "commit" and c.get("sender")}
+
+
 def _consecutive_missed(blocks: list[tuple[str, set[str]]], validator: str) -> int:
     """Miss streak counting back from the head over blocks the validator should
     have attested; blocks it proposed are skipped, not streak-breaking."""
@@ -190,6 +206,9 @@ def arrival_stats(con: sqlite3.Connection, window: int, validators: list[str] | 
         owe_blocks.append((proposer, arrived))
 
     consecutive = {v: _consecutive_missed(owe_blocks, v) for v in vlist}
+    commit_counts = [
+        len(_certificate_committers(m)) for (_, p, _), (_, _, m) in zip(parsed, rows, strict=False) if p != GENESIS_PROPOSER
+    ]
     share = arrived_total / expected_total if expected_total else 1.0
     return ArrivalStats(
         window_blocks=len(parsed),
@@ -201,6 +220,8 @@ def arrival_stats(con: sqlite3.Connection, window: int, validators: list[str] | 
         short_blocks=short_blocks,
         missed_blocks=missed,
         consecutive_missed=consecutive,
+        certificate_commits_min=min(commit_counts) if commit_counts else 0,
+        certificate_blocks=sum(1 for n in commit_counts if n),
     )
 
 
@@ -233,6 +254,8 @@ def _render_db(lines: list[str], db: str, s: ArrivalStats) -> None:
     lines.append(f"aitbc_attestation_arrived_remote_total{d} {s.arrived_remote_total}")
     lines.append(f"aitbc_attestation_arrival_share{d} {_fmt_share(s.arrival_share)}")
     lines.append(f"aitbc_attestation_short_blocks{d} {s.short_blocks}")
+    lines.append(f"aitbc_block_certificate_commits_min{d} {s.certificate_commits_min}")
+    lines.append(f"aitbc_block_certificate_blocks{d} {s.certificate_blocks}")
     for v in s.validators:
         labels = f'{{db="{_label(db)}",validator="{_label(v)}"}}'
         lines.append(f"aitbc_attestation_missed_blocks{labels} {s.missed_blocks.get(v, 0)}")
@@ -256,6 +279,10 @@ def render(results: dict[str, ArrivalStats | None], now: float) -> str:
         "# TYPE aitbc_attestation_arrival_share gauge",
         "# HELP aitbc_attestation_short_blocks Blocks missing at least one remote attestation.",
         "# TYPE aitbc_attestation_short_blocks gauge",
+        "# HELP aitbc_block_certificate_commits_min Minimum distinct PBFT commit senders on any block in the window.",
+        "# TYPE aitbc_block_certificate_commits_min gauge",
+        "# HELP aitbc_block_certificate_blocks Blocks in the window that carry a PBFT commit certificate.",
+        "# TYPE aitbc_block_certificate_blocks gauge",
         "# HELP aitbc_attestation_missed_blocks Blocks a validator owed a remote attestation and missed.",
         "# TYPE aitbc_attestation_missed_blocks gauge",
         "# HELP aitbc_attestation_consecutive_missed Consecutive owed-but-missed blocks counting back from the head.",

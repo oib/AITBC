@@ -350,3 +350,21 @@ def test_genesis_only_chain_still_reports(tmp_path):
     assert s.validators == ()
     assert s.expected_remote_total == 0
     assert s.arrival_share == 1.0
+
+
+def test_certificate_commit_series_2232(tmp_path):
+    """Blocks sealed with a certificate but no attestations still report their commits (#2232)."""
+    db = tmp_path / "chain.db"
+    con = sqlite3.connect(db)
+    con.execute("CREATE TABLE block (height INTEGER PRIMARY KEY, proposer TEXT, timestamp TEXT, block_metadata TEXT)")
+    cert = [{"message_type": "commit", "sender": s} for s in (A, B, C)]
+    for h, extra in ((1, 3), (2, 2)):
+        meta = json.dumps({"pbft_certificate": cert[:extra]})
+        con.execute("INSERT INTO block VALUES (?,?,?,?)", (h, A, "2026-09-01 00:00:00", meta))
+    con.commit()
+    stats = exporter.arrival_stats(con, 10, [A, B, C])
+    con.close()
+    assert stats.certificate_commits_min == 2
+    assert stats.certificate_blocks == 2
+    out = exporter.render({str(db): stats}, NOW)
+    assert "aitbc_block_certificate_commits_min" in out and "aitbc_block_certificate_blocks" in out

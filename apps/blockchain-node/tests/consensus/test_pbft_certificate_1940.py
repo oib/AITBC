@@ -428,7 +428,7 @@ class TestPoaCertificateGate:
         metadata: dict[str, Any] = {}
         attest_calls: list[int] = []
 
-        async def _fake_collect(block, transactions=None, round_number=None):
+        async def _fake_collect(block, transactions=None, round_number=None, **_kw):
             attest_calls.append(1)
             return [{"validator": ADDR2, "signature": "0x00"}] * 5
 
