@@ -19,6 +19,7 @@ def test_workflow_failed_start_prints_once(monkeypatch, tmp_path):
     cfg.write_text("k: v\n")
     resp = types.SimpleNamespace(status_code=500, text="boom", json=lambda: {})
     monkeypatch.setattr(wf_mod, "get_config", lambda: object())
+    monkeypatch.setattr(wf_mod, "auth_headers", lambda *a, **kw: {})
     import httpx
 
     monkeypatch.setattr(httpx, "post", lambda *a, **kw: resp)

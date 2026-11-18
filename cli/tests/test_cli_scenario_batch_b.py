@@ -110,6 +110,7 @@ def test_workflow_list_queries_coordinator(runner):
 
     with (
         patch("aitbc_cli.commands.workflow.get_config", return_value=config),
+        patch("aitbc_cli.commands.workflow.auth_headers", return_value={"Authorization": "Bearer t"}),
         patch("httpx.get", return_value=resp) as get,
     ):
         result = runner.invoke(list_cmd, ["--format", "json"], obj={"output_format": "json"})
@@ -134,12 +135,105 @@ def test_workflow_list_surfaces_api_error(runner):
 
     with (
         patch("aitbc_cli.commands.workflow.get_config", return_value=config),
+        patch("aitbc_cli.commands.workflow.auth_headers", return_value={}),
         patch("httpx.get", return_value=resp),
     ):
         result = runner.invoke(list_cmd, [], obj={"output_format": "table"})
 
     assert result.exit_code != 0
     assert "403" in result.output
+
+
+# --- #2231 workflow commands route the admin credential + name the gate ------
+
+
+def test_workflow_list_requests_admin_credential(runner):
+    from aitbc_cli.commands.workflow import list as list_cmd
+
+    config = MagicMock()
+    config.coordinator_api_url = "http://coord.example:8203"
+    config.coordinator_api_key = "k"
+
+    resp = MagicMock()
+    resp.status_code = 200
+    resp.json.return_value = []
+
+    with (
+        patch("aitbc_cli.commands.workflow.get_config", return_value=config),
+        patch("aitbc_cli.commands.workflow.auth_headers", return_value={}) as headers,
+        patch("httpx.get", return_value=resp),
+    ):
+        result = runner.invoke(list_cmd, [], obj={"output_format": "table", "api_key": "explicit-jwt"})
+
+    assert result.exit_code == 0, result.output
+    assert headers.call_args.kwargs["credential"] == "admin"
+    assert headers.call_args.kwargs["explicit_key"] == "explicit-jwt"
+
+
+def test_workflow_list_403_names_admin_gate(runner):
+    from aitbc_cli.commands.workflow import list as list_cmd
+
+    config = MagicMock()
+    config.coordinator_api_url = "http://coord.example:8203"
+    config.coordinator_api_key = "k"
+
+    resp = MagicMock()
+    resp.status_code = 403
+    resp.text = '{"detail":"Role required"}'
+
+    with (
+        patch("aitbc_cli.commands.workflow.get_config", return_value=config),
+        patch("aitbc_cli.commands.workflow.auth_headers", return_value={}),
+        patch("httpx.get", return_value=resp),
+    ):
+        result = runner.invoke(list_cmd, [], obj={"output_format": "table"})
+
+    assert result.exit_code != 0
+    assert "admin-role credential" in result.output
+    assert "auth login --credential-name admin" in result.output
+
+
+def test_workflow_status_403_names_admin_gate(runner):
+    from aitbc_cli.commands.workflow import status as status_cmd
+
+    config = MagicMock()
+    config.coordinator_api_url = "http://coord.example:8203"
+    config.coordinator_api_key = "k"
+
+    resp = MagicMock()
+    resp.status_code = 403
+    resp.text = '{"detail":"Role required"}'
+
+    with (
+        patch("aitbc_cli.commands.workflow.get_config", return_value=config),
+        patch("aitbc_cli.commands.workflow.auth_headers", return_value={}),
+        patch("httpx.get", return_value=resp),
+    ):
+        result = runner.invoke(status_cmd, ["--workflow-name", "gpu-market"], obj={"output_format": "table"})
+
+    assert result.exit_code != 0
+    assert "admin-role credential" in result.output
+
+
+def test_workflow_run_expired_admin_token_surfaces_relogin(runner):
+    from aitbc_cli.commands.workflow import run as run_cmd
+    from aitbc_cli.auth import ExpiredAdminToken
+
+    config = MagicMock()
+    config.coordinator_api_url = "http://coord.example:8203"
+    config.coordinator_api_key = "k"
+
+    with (
+        patch("aitbc_cli.commands.workflow.get_config", return_value=config),
+        patch(
+            "aitbc_cli.commands.workflow.auth_headers",
+            side_effect=ExpiredAdminToken("The stored admin credential has expired. Run `aitbc auth login` to refresh it."),
+        ),
+    ):
+        result = runner.invoke(run_cmd, ["--workflow-name", "gpu-market"], obj={"output_format": "table"})
+
+    assert result.exit_code != 0
+    assert "auth login" in result.output
 
 
 # --- #2096 island join rejects malformed response ---------------------------

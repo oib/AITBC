@@ -2,7 +2,7 @@
 
 # `aitbc workflow list`
 
-List all available workflows from the coordinator.
+List all available workflows from the coordinator (admin-only).
 
 ## Usage
 

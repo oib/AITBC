@@ -3,7 +3,7 @@
 **Level**: Intermediate
 **Prerequisites**: Scenario 10 Agent SDK Identity, Scenario 34 Hub↔Customer Node End-to-End
 **Estimated Time**: 15 minutes
-**Last Updated**: 2026-10-25
+**Last Updated**: 2026-11-18
 **Version**: 1.0
 
 ## Navigation Path
@@ -50,8 +50,15 @@ needed, stops the execution.
 
 ## Prerequisites
 
-- Coordinator reachable and a stored credential (`aitbc auth login --wallet
-  <name>`) for the workflow endpoints
+- Coordinator reachable and an **admin-role** credential. Every
+  `/v1/agents/workflows/*` and `/v1/agents/executions/*` endpoint is
+  `AdminDep`-gated server-side, so a plain `aitbc auth login` client JWT
+  gets `HTTP 403 {"detail":"Role required"}` on `list`, `status`, `run`,
+  and `stop` alike. Store an admin login with
+  `aitbc auth login --credential-name admin` (the CLI prefers the `admin`
+  slot and falls back to `client`), pass `--api-key`, or set
+  `COORDINATOR_API_KEY` to an admin JWT. The CLI names this gate
+  explicitly on a 403 instead of surfacing the bare server detail.
 - A workflow name known to the coordinator (see `workflow list`)
 
 ---
@@ -123,3 +130,6 @@ a write; not played on a workflow the operator did not start.
 
 - `Failed to start workflow: …` — auth headers missing (`aitbc auth
   login`) or the workflow name is not registered on this coordinator.
+- `… requires an admin-role credential … (HTTP 403 — {"detail":"Role
+  required"})` — the stored credential is a client JWT; store an admin
+  login (`aitbc auth login --credential-name admin`) or pass `--api-key`.

@@ -2,7 +2,7 @@
 
 # `aitbc workflow status`
 
-Get the execution status of a workflow by name.
+Get the execution status of a workflow by name (admin-only).
 
 ## Usage
 

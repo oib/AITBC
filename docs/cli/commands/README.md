@@ -827,10 +827,10 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 ## `workflow`
 
-- [`aitbc workflow list`](workflow-list.md) — List all available workflows from the coordinator.
-- [`aitbc workflow run`](workflow-run.md) — Run a workflow by name with optional configuration.
-- [`aitbc workflow status`](workflow-status.md) — Get the execution status of a workflow by name.
-- [`aitbc workflow stop`](workflow-stop.md) — Stop a running workflow by its execution ID.
+- [`aitbc workflow list`](workflow-list.md) — List all available workflows from the coordinator (admin-only).
+- [`aitbc workflow run`](workflow-run.md) — Run a workflow by name with optional configuration (admin-only).
+- [`aitbc workflow status`](workflow-status.md) — Get the execution status of a workflow by name (admin-only).
+- [`aitbc workflow stop`](workflow-stop.md) — Stop a running workflow by its execution ID (admin-only).
 
 ## `zk`
 
