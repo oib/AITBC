@@ -10,7 +10,15 @@ import click
 import httpx
 
 from ._group import _get_bridge_client, bridge
-from ._helpers import _OPS_ERRORS, _SERVICE_NAME, _derive_address, _event_bridge_status, _sign_dict, _systemctl
+from ._helpers import (
+    _OPS_ERRORS,
+    _SERVICE_NAME,
+    _abort_ops,
+    _derive_address,
+    _event_bridge_status,
+    _sign_dict,
+    _systemctl,
+)
 from ...utils import output
 from ...utils.error_handling import abort
 
@@ -76,7 +84,7 @@ def health(ctx, rpc_url):
         result = asyncio.run(_health())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Health")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Bridge health check failed: {e}", from_exception=e)
+        _abort_ops(ctx, "Bridge health check failed", e)
 
 
 @bridge.command(
@@ -101,7 +109,7 @@ def security_status(ctx, rpc_url):
         result = asyncio.run(_security_status())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Security Status")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to get bridge security status: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to get bridge security status", e)
 
 
 @bridge.command(
@@ -190,7 +198,7 @@ def register_validator(ctx, chain_id, address, public_key, private_key, admin_pr
         result = asyncio.run(_register())
         output(result, ctx.obj.get("output_format", "table"), title="Validator Registration")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Validator registration failed: {e}", from_exception=e)
+        _abort_ops(ctx, "Validator registration failed", e)
 
 
 @bridge.command(
@@ -215,4 +223,4 @@ def oracle_status(ctx, rpc_url):
         result = asyncio.run(_oracle_status())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Oracle Status")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to get bridge oracle status: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to get bridge oracle status", e)

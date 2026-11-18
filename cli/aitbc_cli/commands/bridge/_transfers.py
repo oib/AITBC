@@ -9,9 +9,15 @@ from pathlib import Path
 import click
 
 from ._group import _get_bridge_client, _resolve_node_chain_id, bridge
-from ._helpers import _OPS_ERRORS, _derive_address, _event_bridge_status, _load_private_key, _sign_dict
+from ._helpers import (
+    _OPS_ERRORS,
+    _abort_ops,
+    _derive_address,
+    _event_bridge_status,
+    _load_private_key,
+    _sign_dict,
+)
 from ...utils import output, warning
-from ...utils.error_handling import abort
 
 
 @bridge.command(
@@ -126,7 +132,7 @@ def lock(
         result = asyncio.run(_lock())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Lock")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Bridge lock failed: {e}", from_exception=e)
+        _abort_ops(ctx, "Bridge lock failed", e)
 
 
 @bridge.command(
@@ -148,7 +154,7 @@ def confirm(ctx, transfer_id, confirmer, signature, confirmer_private_key, proof
     try:
         proof = json.loads(Path(proof_file).read_text())
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to read proof file: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to read proof file", e)
 
     if confirmer_private_key:
         sign_data = {"transfer_id": transfer_id, "confirmer": confirmer}
@@ -168,7 +174,7 @@ def confirm(ctx, transfer_id, confirmer, signature, confirmer_private_key, proof
         result = asyncio.run(_confirm())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Confirm")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Bridge confirm failed: {e}", from_exception=e)
+        _abort_ops(ctx, "Bridge confirm failed", e)
 
 
 @bridge.command(
@@ -213,7 +219,7 @@ def unlock(ctx, transfer_id, sender, signature, wallet_name, wallet_password, rp
         result = asyncio.run(_unlock())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Unlock")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Bridge unlock failed: {e}", from_exception=e)
+        _abort_ops(ctx, "Bridge unlock failed", e)
 
 
 @bridge.command(
@@ -242,7 +248,7 @@ def status(ctx, transfer_id, rpc_url):
         result = asyncio.run(_status())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Transfer Status")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to get bridge status: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to get bridge status", e)
 
 
 @bridge.command(
@@ -267,7 +273,7 @@ def pending(ctx, chain_id, rpc_url):
         result = asyncio.run(_pending())
         output(result, ctx.obj.get("output_format", "table"), title="Pending Bridge Transfers")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to list pending transfers: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to list pending transfers", e)
 
 
 @bridge.command(
@@ -292,4 +298,4 @@ def balance(ctx, chain_id, rpc_url):
         result = asyncio.run(_balance())
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Balance")
     except _OPS_ERRORS as e:
-        abort(ctx, f"Failed to get bridge balance: {e}", from_exception=e)
+        _abort_ops(ctx, "Failed to get bridge balance", e)
