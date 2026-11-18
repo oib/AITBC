@@ -109,3 +109,16 @@ async def test_malformed_drop_names_type_and_hash(caplog, monkeypatch):
         await node.handle_incoming_message({"message_type": "bogus", "block_hash": "0x" + "ab" * 32})
     lines = [r.getMessage() for r in caplog.records if "reason=malformed" in r.getMessage()]
     assert lines and "type=bogus" in lines[0] and "hash=0xabababababab" in lines[0]
+
+
+@pytest.mark.asyncio
+async def test_malformed_drop_names_payload_keys(caplog, monkeypatch):
+    monkeypatch.setattr(settings, "pbft_vote_trace_enabled", True, raising=False)
+    keypairs, shared, _p = _partitioned_fixture("test-pbft-2194-keys")
+    node = PBFTConsensus(shared, private_key="", chain_id="test-pbft-2194-keys", local_validator=keypairs[0][0])
+    with caplog.at_level(logging.INFO):
+        await node.handle_incoming_message({"kind": "heartbeat", "height": 5, "secret_field": "do-not-log"})
+    lines = [r.getMessage() for r in caplog.records if "reason=malformed" in r.getMessage()]
+    assert lines
+    assert "keys=height,kind,secret_field" in lines[0] and "d_kind=heartbeat" in lines[0]
+    assert "do-not-log" not in lines[0]
