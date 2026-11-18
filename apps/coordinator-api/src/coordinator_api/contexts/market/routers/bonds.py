@@ -106,6 +106,20 @@ def _require_provider_access(session: Session, user: dict[str, Any], provider_id
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not the provider owner")
 
 
+def _reject_liquidated_rebind(session: Session, provider_id: str, bond_id: str) -> None:
+    """#2245: refuse re-binding a provider's liquidated bond_id."""
+    prior = session.exec(select(ProviderBond).where(ProviderBond.provider_id == provider_id)).all()
+    if any(b.status == ProviderBondStatus.LIQUIDATED.value and b.bond_id == bond_id for b in prior):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"bond {bond_id} is liquidated for provider {provider_id}; the same "
+                "on-chain bond cannot reactivate it — submit a new BOND_LOCK under a "
+                "new bond_id or resolve the slash appeal via governance"
+            ),
+        )
+
+
 def _to_decimal(value: str | float | int | Decimal | None) -> Decimal:
     if value is None:
         return Decimal("0.0")
@@ -189,6 +203,12 @@ def create_bond(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"bond {bond_id} is already bound to provider {claimed.provider_id}",
         )
+    # #2245: a liquidated bond must not resurrect by re-verifying the same
+    # on-chain binding — the slashed BOND_LOCK is terminal. Recovery is a
+    # genuinely new lock (a different ``bond_id``) or governance resolution
+    # of the slash appeal; re-POSTing the same ``bond_id`` would otherwise
+    # overwrite the liquidation with no new on-chain lock.
+    _reject_liquidated_rebind(session, provider_id, bond_id)
     try:
         chain = BlockchainService().list_provider_bonds(wallet)
     except AITBCError as e:
@@ -325,6 +345,25 @@ def get_bond_by_id(
     return _bond_response(bond)
 
 
+# #2245: terminal bond states must not re-enter the active lifecycle through
+# the local lock/release bookkeeping endpoints — those carry no chain
+# verification, so a liquidated/released bond could be flipped back to
+# ACTIVE (lock then release) without any new on-chain lock.
+_TERMINAL_BOND_STATUSES = frozenset({ProviderBondStatus.LIQUIDATED.value, ProviderBondStatus.RELEASED.value})
+
+
+def _reject_terminal_bond_transition(session: Session, provider_id: str, action: str) -> None:
+    bond = session.exec(select(ProviderBond).where(ProviderBond.provider_id == provider_id)).first()
+    if bond is not None and bond.status in _TERMINAL_BOND_STATUSES:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=(
+                f"provider {provider_id} bond is {bond.status}; {action} cannot "
+                "reactivate a terminal bond — create a new on-chain bond first"
+            ),
+        )
+
+
 @router.post("/providers/{provider_id}/bonds/lock", summary="Lock a provider bond")
 @rate_limit(rate=20, per=60)
 def lock_bond(
@@ -335,6 +374,7 @@ def lock_bond(
 ) -> BondResponse:
     """Lock a provider's bond while a high-value job is in flight."""
     _require_provider_access(session, user, provider_id)
+    _reject_terminal_bond_transition(session, provider_id, "lock")
     bond = set_provider_bond_status(session, provider_id, ProviderBondStatus.LOCKED)
     return _bond_response(bond)
 
@@ -349,6 +389,7 @@ def release_bond(
 ) -> BondResponse:
     """Release a locked bond back to active status."""
     _require_provider_access(session, user, provider_id)
+    _reject_terminal_bond_transition(session, provider_id, "release")
     bond = set_provider_bond_status(session, provider_id, ProviderBondStatus.ACTIVE)
     return _bond_response(bond)
 

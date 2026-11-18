@@ -335,3 +335,63 @@ class TestEligibilityChainReverify:
         assert reconcile_provider_bond(db_session, "p1") is not None
         assert reconcile_provider_bond(db_session, "p1") is not None
         assert calls["n"] == 1
+
+
+class TestLiquidatedBondReactivation:
+    """#2245: a liquidated bond must not resurrect without a new on-chain lock.
+
+    Re-POSTing the same ``bond_id`` only re-verifies the old chain record —
+    it must 409. A *different* ``bond_id`` is a genuinely new BOND_LOCK and
+    is the legitimate recovery path. The local lock/release bookkeeping
+    endpoints carry no chain verification, so they must refuse terminal
+    states outright.
+    """
+
+    def _liquidated(self, client: TestClient, _chain_bonds, provider_id: str = "p1", bond_id: str = "cb-liq") -> None:
+        _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, bond_id, "5")
+        assert _create_bond(client, provider_id, {"bond_id": bond_id}).status_code == 200
+        resp = client.post(f"{BASE}/providers/{provider_id}/bonds/slash", json={"reason": "sla"}, headers=_headers())
+        assert resp.json()["status"] == "liquidated"
+
+    def test_topup_same_bond_id_status_unchanged(self, client: TestClient, _chain_bonds, db_session) -> None:
+        from sqlmodel import select
+
+        from coordinator_api.contexts.market.domain.provider_bond import ProviderBond
+
+        self._liquidated(client, _chain_bonds)
+        resp = _create_bond(client, "p1", {"bond_id": "cb-liq", "required_amount": "0.5"})
+        assert resp.status_code == 409
+        rows = db_session.exec(select(ProviderBond).where(ProviderBond.provider_id == "p1")).all()
+        assert len(rows) == 1
+        assert rows[0].status == "liquidated"
+        assert rows[0].bond_id == "cb-liq"
+
+    def test_new_bond_id_is_legitimate_recovery(self, client: TestClient, _chain_bonds, db_session) -> None:
+        from sqlmodel import select
+
+        from coordinator_api.contexts.market.domain.provider_bond import ProviderBond
+
+        self._liquidated(client, _chain_bonds)
+        _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-new", "7")
+        resp = _create_bond(client, "p1", {"bond_id": "cb-new", "required_amount": "1"})
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["status"] == "active"
+        row = db_session.exec(select(ProviderBond).where(ProviderBond.provider_id == "p1")).first()
+        assert row.bond_id == "cb-new"
+        assert row.status == "active"
+
+    def test_lock_and_release_refuse_liquidated(self, client: TestClient, _chain_bonds) -> None:
+        self._liquidated(client, _chain_bonds)
+        locked = client.post(f"{BASE}/providers/p1/bonds/lock", headers=_headers())
+        assert locked.status_code == 409
+        released = client.post(f"{BASE}/providers/p1/bonds/release", headers=_headers())
+        assert released.status_code == 409
+
+    def test_release_refuses_released_bond(self, client: TestClient, _chain_bonds, db_session) -> None:
+        from coordinator_api.contexts.market.domain.provider_bond import ProviderBondStatus, set_provider_bond_status
+
+        _seed_chain_bond(_chain_bonds, PROVIDER_WALLET, "cb-rel2", "5")
+        assert _create_bond(client, "p2", {"bond_id": "cb-rel2"}).status_code == 200
+        set_provider_bond_status(db_session, "p2", ProviderBondStatus.RELEASED, bond_id="cb-rel2")
+        resp = client.post(f"{BASE}/providers/p2/bonds/release", headers=_headers())
+        assert resp.status_code == 409
