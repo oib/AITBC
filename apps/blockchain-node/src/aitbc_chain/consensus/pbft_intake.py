@@ -18,6 +18,7 @@ from typing import Any
 from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
+from . import pbft_trace
 from .pbft import PBFTMessage, PBFTMessageType, _PbftBaseMixin, logger
 from .pbft_view_change import (
     NV_MESSAGE_TYPE,
@@ -47,22 +48,29 @@ class _IntakeMixin(_PbftBaseMixin):
             return
         message = self._pbft_message_from_dict(message_data)
         if message is None:
+            pbft_trace.intake_drop("malformed", message_data)
             return  # malformed message — drop
+        pbft_trace.stamp_rx(message)
 
         # B6: verify the signature before processing
         if not self._verify_message_signature(message):
+            pbft_trace.intake_drop("bad_signature", message)
             return
 
         # Intake bounds (#1060): sequence/view must coerce to non-negative ints
         # within a window of the local position — a poisoned key used to crash
         # _cleanup_messages/handle_view_change and a far-future one lingered.
         if not self._message_intake_ok(message):
+            pbft_trace.intake_drop(
+                "out_of_bounds", message, cur_seq=self.state.current_sequence, cur_view=self.state.current_view
+            )
             return
 
         # The signed digest must recompute from the (unsigned) block_hash +
         # bounded fields — otherwise block_hash rides unsigned and a swapped
         # hash still verifies (#1059).
         if message.digest != self.get_message_digest(message.block_hash, message.sequence_number, message.view_number):
+            pbft_trace.intake_drop("digest_mismatch", message)
             return
 
         # Membership gate: a prepare or commit only carries weight when its
@@ -73,6 +81,7 @@ class _IntakeMixin(_PbftBaseMixin):
         # not-yet-configured deployments are unaffected (same policy as
         # _is_scheduled_proposer).
         if not self._consensus_membership_ok(message):
+            pbft_trace.intake_drop("not_participant", message)
             return
 
         key = f"{message.sequence_number}:{message.view_number}"
@@ -90,6 +99,13 @@ class _IntakeMixin(_PbftBaseMixin):
         if not isinstance(message_data, dict):
             return False
         mtype = message_data.get("message_type")
+        if mtype in (VC_MESSAGE_TYPE, NV_MESSAGE_TYPE):
+            pbft_trace.trace(
+                "accept_vc",
+                type=mtype,
+                sender=pbft_trace._short(message_data.get("sender")),
+                hr=f"{message_data.get('sequence_number')}:{message_data.get('view_number')}",
+            )
         if mtype == VC_MESSAGE_TYPE:
             await self._handle_view_change_payload(message_data)
             return True
@@ -164,6 +180,7 @@ class _IntakeMixin(_PbftBaseMixin):
                 message.view_number,
                 message.sender,
             )
+            pbft_trace.intake_drop("not_scheduled_proposer", message)
             return
         # Follow the rotation the proposer's round implies. Every node
         # derives the same round from the same on-chain timestamps, so a
@@ -184,6 +201,7 @@ class _IntakeMixin(_PbftBaseMixin):
                     message.sequence_number, message.block_hash, message.block, message.sender, message.view_number
                 )
             await self._ensure_view_change_sent(message.sequence_number, message.view_number)
+        pbft_trace.accepted(message)
         self.state.pre_prepare_messages[key] = message
         self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
         # As a validator, respond with a prepare for this pre-prepare
@@ -199,7 +217,9 @@ class _IntakeMixin(_PbftBaseMixin):
         if key not in self.state.prepared_messages:
             self.state.prepared_messages[key] = []
         if any(m.sender == message.sender for m in self.state.prepared_messages[key]):
+            pbft_trace.intake_drop("duplicate_prepare", message)
             return  # ignore duplicate prepare from same sender
+        pbft_trace.accepted(message)
         self.state.prepared_messages[key].append(message)
         self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
         if self._local_validator:
@@ -214,7 +234,9 @@ class _IntakeMixin(_PbftBaseMixin):
         if key not in self.state.committed_messages:
             self.state.committed_messages[key] = []
         if any(m.sender == message.sender for m in self.state.committed_messages[key]):
+            pbft_trace.intake_drop("duplicate_commit", message)
             return  # ignore duplicate commit from same sender
+        pbft_trace.accepted(message)
         self.state.committed_messages[key].append(message)
         self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
         pp_digest = self._pre_prepare_digest(key)

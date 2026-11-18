@@ -169,6 +169,10 @@ class ConsensusConfig(BaseModel):
     pbft_consensus_enabled: bool = False
     # View-change timeout used by PBFT consensus (seconds).
     pbft_view_change_timeout: int = 30
+    # #2194: emit PBFT-TRACE log lines (accepted votes with receive lag, intake
+    # drops and refusals with reasons, proposer phase timings). Local diagnostics
+    # only — no consensus rule, default off.
+    pbft_vote_trace_enabled: bool = False
     # #1940 F3: first block height at which PBFT commit certificates must
     # satisfy the strict contract in consensus/pbft_certificate.py — one
     # coherent (sequence, view) quorum verified identically at producer and
