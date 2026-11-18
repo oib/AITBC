@@ -4,7 +4,7 @@ import click
 import httpx
 
 from aitbc.exceptions import AITBCError
-from ..utils import output
+from ..utils import output, warning
 from ..utils.error_handling import CLIError, abort
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
@@ -48,10 +48,23 @@ def cluster():
 )
 @click.pass_context
 def status(ctx):
-    """Get the current cluster health and active node count."""
+    """Report cluster status scope — static placeholder; no live cluster backend exists."""
     try:
-        result = {"cluster_health": "healthy", "nodes": 3, "active_nodes": 3}
-        output(result, ctx.obj.get("output_format", "table"), title="Cluster Status")
+        # #2222: there is no cluster/swarm backend — the coordinator's
+        # /v1/swarm/* mock routes were deliberately removed. The old
+        # hardcoded {"healthy", nodes: 3} read as live fleet truth.
+        # Report the honest scope instead of fabricated counts.
+        warning("No cluster service is deployed — this is a static placeholder, not live fleet state")
+        result = {
+            "cluster_health": "unknown",
+            "scope": "static-placeholder",
+            "live_fleet_membership": False,
+            "detail": (
+                "aitbc cluster has no live backend. For this node's real peer "
+                "view use 'aitbc network status' / 'aitbc network peers'."
+            ),
+        }
+        output(result, ctx.obj.get("output_format", "table"), title="Cluster Status (Static — No Live Backend)")
     except _OPS_ERRORS as e:
         abort(ctx, f"Error getting cluster status: {e}", from_exception=e)
 
@@ -65,12 +78,10 @@ def status(ctx):
 )
 @click.pass_context
 def sync(ctx):
-    """Trigger or report the cluster synchronization status."""
-    try:
-        result = {"action": "cluster_sync", "status": "completed"}
-        output(result, ctx.obj.get("output_format", "table"), title="Cluster Sync")
-    except _OPS_ERRORS as e:
-        abort(ctx, f"Error in cluster sync: {e}", from_exception=e)
+    """Not implemented — no cluster service is deployed."""
+    # #2222: no cluster backend exists — reporting a fabricated
+    # "completed" for an action that never ran is worse than failing.
+    abort(ctx, "Cluster sync is not implemented: no cluster service is deployed")
 
 
 @cluster.command(
@@ -82,9 +93,7 @@ def sync(ctx):
 )
 @click.pass_context
 def balance(ctx):
-    """Trigger or report the cluster rebalancing status."""
-    try:
-        result = {"action": "cluster_balance", "status": "completed"}
-        output(result, ctx.obj.get("output_format", "table"), title="Cluster Balance")
-    except _OPS_ERRORS as e:
-        abort(ctx, f"Error in cluster balance: {e}", from_exception=e)
+    """Not implemented — no cluster service is deployed."""
+    # #2222: no cluster backend exists — reporting a fabricated
+    # "completed" for an action that never ran is worse than failing.
+    abort(ctx, "Cluster balance is not implemented: no cluster service is deployed")

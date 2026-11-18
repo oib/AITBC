@@ -185,9 +185,9 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 ## `cluster`
 
-- [`aitbc cluster balance`](cluster-balance.md) — Trigger or report the cluster rebalancing status.
-- [`aitbc cluster status`](cluster-status.md) — Get the current cluster health and active node count.
-- [`aitbc cluster sync`](cluster-sync.md) — Trigger or report the cluster synchronization status.
+- [`aitbc cluster balance`](cluster-balance.md) — Not implemented — no cluster service is deployed.
+- [`aitbc cluster status`](cluster-status.md) — Report cluster status scope — static placeholder; no live cluster backend exists.
+- [`aitbc cluster sync`](cluster-sync.md) — Not implemented — no cluster service is deployed.
 
 ## `coin-requests`
 

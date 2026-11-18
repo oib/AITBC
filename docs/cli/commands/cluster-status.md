@@ -2,7 +2,7 @@
 
 # `aitbc cluster status`
 
-Get the current cluster health and active node count.
+Report cluster status scope — static placeholder; no live cluster backend exists.
 
 ## Usage
 

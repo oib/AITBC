@@ -2,7 +2,7 @@
 
 # `aitbc cluster balance`
 
-Trigger or report the cluster rebalancing status.
+Not implemented — no cluster service is deployed.
 
 ## Usage
 
