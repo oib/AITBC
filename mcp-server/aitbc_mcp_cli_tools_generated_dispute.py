@@ -59,6 +59,9 @@ def aitbc_dispute_arbitrator_authorize(
         str | None, Field(description="Owner signature authorising the change; required by nodes that enforce it.")
     ] = None,
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet name whose address authenticates this write (sends X-Wallet-Address).")
+    ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -70,7 +73,7 @@ def aitbc_dispute_arbitrator_authorize(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"revoke": "revoke"},
-        values={"owner_signature": "signature", "node_url": "node-url", "format": "format"},
+        values={"owner_signature": "signature", "node_url": "node-url", "wallet_name": "wallet", "format": "format"},
     )
     args = [arbitrator_address] if arbitrator_address is not None else []
     target = _host_for_role(role, host)
@@ -238,6 +241,9 @@ def aitbc_dispute_evidence_add(
     evidence_type: Annotated[str, Field(description="Evidence category, e.g. transcript or receipt.")],
     description: Annotated[str, Field(description="What the evidence shows.")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet name whose address authenticates this write (sends X-Wallet-Address).")
+    ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -255,6 +261,7 @@ def aitbc_dispute_evidence_add(
             "evidence_type": "evidence-type",
             "description": "description",
             "node_url": "node-url",
+            "wallet_name": "wallet",
             "format": "format",
         },
     )
@@ -324,6 +331,9 @@ def aitbc_dispute_evidence_verify(
     evidence_id: Annotated[int, Field(description="Evidence entry to rule on.")],
     reject: Annotated[bool | None, Field(description="Mark the evidence as not verified instead of verified.")] = None,
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet name whose address authenticates this write (sends X-Wallet-Address).")
+    ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -335,7 +345,13 @@ def aitbc_dispute_evidence_verify(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"reject": "reject"},
-        values={"dispute_id": "dispute-id", "evidence_id": "evidence-id", "node_url": "node-url", "format": "format"},
+        values={
+            "dispute_id": "dispute-id",
+            "evidence_id": "evidence-id",
+            "node_url": "node-url",
+            "wallet_name": "wallet",
+            "format": "format",
+        },
     )
     args = None
     target = _host_for_role(role, host)
@@ -378,6 +394,9 @@ def aitbc_dispute_file(
     reason: Annotated[str, Field(description="Why the dispute is being filed.")],
     evidence_hash: Annotated[str, Field(description="Hash of the supporting evidence.")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet name whose address authenticates this write (sends X-Wallet-Address).")
+    ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -396,6 +415,7 @@ def aitbc_dispute_file(
             "reason": "reason",
             "evidence_hash": "evidence-hash",
             "node_url": "node-url",
+            "wallet_name": "wallet",
             "format": "format",
         },
     )
@@ -571,6 +591,9 @@ def aitbc_dispute_vote(
     vote: Annotated[Literal["plaintiff", "defendant"], Field(description="Which side the vote favours.")],
     reasoning: Annotated[str, Field(description="Why the arbitrator ruled this way; recorded with the vote.")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")] = None,
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet name whose address authenticates this write (sends X-Wallet-Address).")
+    ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -587,6 +610,7 @@ def aitbc_dispute_vote(
             "vote": "vote",
             "reasoning": "reasoning",
             "node_url": "node-url",
+            "wallet_name": "wallet",
             "format": "format",
         },
     )

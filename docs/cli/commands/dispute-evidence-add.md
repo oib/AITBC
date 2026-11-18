@@ -19,6 +19,7 @@ aitbc dispute evidence add [OPTIONS]
 | `--evidence-type` | text | — | yes | Evidence category, e.g. transcript or receipt. |
 | `--description` | text | — | yes | What the evidence shows. |
 | `--node-url` | text | — | no | Blockchain node RPC URL |
+| `--wallet` | text | — | no | Wallet name whose address authenticates this write (sends X-Wallet-Address). |
 | `--format` | choice | — | no | Output format |
 
 ## Examples

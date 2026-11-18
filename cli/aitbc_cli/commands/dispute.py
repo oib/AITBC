@@ -15,6 +15,7 @@ else talks to the chain.
 
 from __future__ import annotations
 
+import json
 import os
 from typing import Any
 
@@ -25,8 +26,9 @@ from aitbc.exceptions import AITBCError
 from ..auth import AuthManager, ExpiredAdminToken
 from ..config import get_config
 from ..utils import output, resolve_output_format
-from ..utils.error_handling import CLIError, abort
+from ..utils.error_handling import CLIError, abort, is_unauthorized
 from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.wallet_paths import find_wallet_file
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -95,11 +97,18 @@ def _is_not_found(network_error: NetworkError) -> bool:
     return getattr(response, "status_code", None) == 404
 
 
-def _chain_client(ctx, node_url: str | None = None, timeout: int | None = None) -> AITBCHTTPClient:
+def _chain_client(
+    ctx,
+    node_url: str | None = None,
+    timeout: int | None = None,
+    wallet_address: str | None = None,
+) -> AITBCHTTPClient:
     """Return an HTTP client for the blockchain node RPC.
 
-    The read routes are open; filing, evidence and votes are authenticated, so
-    the RPC API key is attached whenever one is configured.
+    The read routes are open; filing, evidence and votes are authenticated.
+    The node's only credential for them is ``X-Wallet-Address`` — trusted
+    verbatim, but only when the node sets ``TRUST_X_WALLET_ADDRESS=true``
+    *and* sees a loopback client (run on the node or via SSH tunnel).
     """
     config = get_config()
     url = (node_url or config.blockchain_rpc_url or "http://127.0.0.1:8202").rstrip("/")
@@ -107,10 +116,55 @@ def _chain_client(ctx, node_url: str | None = None, timeout: int | None = None) 
     key = config.blockchain_rpc_api_key or ""
     if key:
         client_kwargs["api_key"] = key
+    if wallet_address:
+        client_kwargs["headers"] = {"X-Wallet-Address": wallet_address}
     return AITBCHTTPClient(**client_kwargs)
 
 
+def _load_wallet_address(wallet_name: str) -> str:
+    """Read the ``address`` field from a named keystore JSON."""
+    path = find_wallet_file(wallet_name)
+    if path is None:
+        raise CLIError(f"Wallet '{wallet_name}' not found in the keystore search path")
+    try:
+        data = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as e:
+        raise CLIError(f"Cannot read wallet '{wallet_name}' at {path}: {e}") from e
+    address = data.get("address") if isinstance(data, dict) else None
+    if not address:
+        raise CLIError(f"Wallet '{wallet_name}' at {path} has no 'address' field")
+    return str(address)
+
+
+def _resolve_wallet_address(wallet_name: str | None) -> str | None:
+    """Address for ``X-Wallet-Address``: --wallet, AITBC_DEFAULT_WALLET, or config."""
+    name = wallet_name or os.getenv("AITBC_DEFAULT_WALLET")
+    if name:
+        return _load_wallet_address(name)
+    return get_config().wallet_address or None
+
+
+def _chain_error(ctx, e: NetworkError) -> None:
+    """Abort on a chain-RPC failure, with the auth hint on 401."""
+    if is_unauthorized(e):
+        abort(
+            ctx,
+            "Authentication failed (401). Pass --wallet <name> (or set "
+            "AITBC_DEFAULT_WALLET) and ensure the node runs with "
+            "TRUST_X_WALLET_ADDRESS=true and sees a loopback client — i.e. "
+            "run on the node itself or through an SSH tunnel.",
+            from_exception=e,
+        )
+    abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
+
+
 NODE_URL_OPTION = click.option("--node-url", "node_url", default=None, help="Blockchain node RPC URL")
+WALLET_OPTION = click.option(
+    "--wallet",
+    "wallet_name",
+    default=None,
+    help="Wallet name whose address authenticates this write (sends X-Wallet-Address).",
+)
 COORDINATOR_URL_OPTION = click.option("--coordinator-url", "coordinator_url", default=None, help="Coordinator URL")
 FORMAT_OPTION = click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 
@@ -147,9 +201,10 @@ def dispute():
 @click.option("--reason", required=True, help="Why the dispute is being filed.")
 @click.option("--evidence-hash", "evidence_hash", required=True, help="Hash of the supporting evidence.")
 @NODE_URL_OPTION
+@WALLET_OPTION
 @FORMAT_OPTION
 @click.pass_context
-def file_dispute(ctx, agreement_id, respondent, dispute_type, reason, evidence_hash, node_url, format):
+def file_dispute(ctx, agreement_id, respondent, dispute_type, reason, evidence_hash, node_url, wallet_name, format):
     """File a new dispute against an agreement."""
     payload = {
         "agreement_id": agreement_id,
@@ -159,11 +214,11 @@ def file_dispute(ctx, agreement_id, respondent, dispute_type, reason, evidence_h
         "evidence_hash": evidence_hash,
     }
     try:
-        client = _chain_client(ctx, node_url)
+        client = _chain_client(ctx, node_url, wallet_address=_resolve_wallet_address(wallet_name))
         result = client.post("/rpc/disputes/file", json=payload)
         output(result, resolve_output_format(ctx, format), title="Dispute Filed")
     except NetworkError as e:
-        abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
+        _chain_error(ctx, e)
     except _OPS_ERRORS as e:
         abort(ctx, f"Error filing dispute against agreement {agreement_id}: {e}", from_exception=e)
 
@@ -272,17 +327,18 @@ def votes(ctx, dispute_id, node_url, format):
 @click.option("--vote", type=click.Choice(["plaintiff", "defendant"]), required=True, help="Which side the vote favours.")
 @click.option("--reasoning", required=True, help="Why the arbitrator ruled this way; recorded with the vote.")
 @NODE_URL_OPTION
+@WALLET_OPTION
 @FORMAT_OPTION
 @click.pass_context
-def vote(ctx, dispute_id, vote, reasoning, node_url, format):
+def vote(ctx, dispute_id, vote, reasoning, node_url, wallet_name, format):
     """Cast an arbitration vote on a dispute (arbitrators only)."""
     payload = {"dispute_id": dispute_id, "vote": vote, "reasoning": reasoning}
     try:
-        client = _chain_client(ctx, node_url)
+        client = _chain_client(ctx, node_url, wallet_address=_resolve_wallet_address(wallet_name))
         result = client.post("/rpc/disputes/vote", json=payload)
         output(result, resolve_output_format(ctx, format), title="Vote Submitted")
     except NetworkError as e:
-        abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
+        _chain_error(ctx, e)
     except _OPS_ERRORS as e:
         abort(ctx, f"Error voting on dispute {dispute_id}: {e}", from_exception=e)
 
@@ -318,9 +374,10 @@ def evidence():
 @click.option("--evidence-type", "evidence_type", required=True, help="Evidence category, e.g. transcript or receipt.")
 @click.option("--description", required=True, help="What the evidence shows.")
 @NODE_URL_OPTION
+@WALLET_OPTION
 @FORMAT_OPTION
 @click.pass_context
-def evidence_add(ctx, dispute_id, evidence_hash, evidence_type, description, node_url, format):
+def evidence_add(ctx, dispute_id, evidence_hash, evidence_type, description, node_url, wallet_name, format):
     """Submit evidence for a dispute."""
     payload = {
         "dispute_id": dispute_id,
@@ -329,11 +386,11 @@ def evidence_add(ctx, dispute_id, evidence_hash, evidence_type, description, nod
         "description": description,
     }
     try:
-        client = _chain_client(ctx, node_url)
+        client = _chain_client(ctx, node_url, wallet_address=_resolve_wallet_address(wallet_name))
         result = client.post("/rpc/disputes/evidence", json=payload)
         output(result, resolve_output_format(ctx, format), title="Evidence Submitted")
     except NetworkError as e:
-        abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
+        _chain_error(ctx, e)
     except _OPS_ERRORS as e:
         abort(ctx, f"Error submitting evidence for dispute {dispute_id}: {e}", from_exception=e)
 
@@ -377,17 +434,18 @@ def evidence_list(ctx, dispute_id, node_url, format):
 @click.option("--evidence-id", "evidence_id", type=int, required=True, help="Evidence entry to rule on.")
 @click.option("--reject", "reject", is_flag=True, default=False, help="Mark the evidence as not verified instead of verified.")
 @NODE_URL_OPTION
+@WALLET_OPTION
 @FORMAT_OPTION
 @click.pass_context
-def evidence_verify(ctx, dispute_id, evidence_id, reject, node_url, format):
+def evidence_verify(ctx, dispute_id, evidence_id, reject, node_url, wallet_name, format):
     """Verify or reject a piece of evidence (arbitrators only)."""
     payload = {"dispute_id": dispute_id, "evidence_id": evidence_id, "verified": not reject}
     try:
-        client = _chain_client(ctx, node_url)
+        client = _chain_client(ctx, node_url, wallet_address=_resolve_wallet_address(wallet_name))
         result = client.post("/rpc/disputes/verify-evidence", json=payload)
         output(result, resolve_output_format(ctx, format), title="Evidence Verification")
     except NetworkError as e:
-        abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
+        _chain_error(ctx, e)
     except _OPS_ERRORS as e:
         abort(ctx, f"Error verifying evidence {evidence_id}: {e}", from_exception=e)
 
@@ -470,20 +528,21 @@ def arbitrator_queue(ctx, arbitrator_address, node_url, format):
     help="Owner signature authorising the change; required by nodes that enforce it.",
 )
 @NODE_URL_OPTION
+@WALLET_OPTION
 @FORMAT_OPTION
 @click.pass_context
-def arbitrator_authorize(ctx, arbitrator_address, revoke, owner_signature, node_url, format):
+def arbitrator_authorize(ctx, arbitrator_address, revoke, owner_signature, node_url, wallet_name, format):
     """Grant or revoke arbitrator rights for an address (admin only)."""
     payload: dict[str, Any] = {"arbitrator_address": arbitrator_address, "authorized": not revoke}
     if owner_signature:
         payload["owner_signature"] = owner_signature
     action = "Revoked" if revoke else "Authorized"
     try:
-        client = _chain_client(ctx, node_url)
+        client = _chain_client(ctx, node_url, wallet_address=_resolve_wallet_address(wallet_name))
         result = client.post("/rpc/disputes/arbitrators/authorize", json=payload)
         output(result, resolve_output_format(ctx, format), title=f"Arbitrator {action}")
     except NetworkError as e:
-        abort(ctx, f"Blockchain RPC error: {e}", from_exception=e)
+        _chain_error(ctx, e)
     except _OPS_ERRORS as e:
         abort(ctx, f"Error updating arbitrator {arbitrator_address}: {e}", from_exception=e)
 
