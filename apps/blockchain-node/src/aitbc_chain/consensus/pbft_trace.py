@@ -39,6 +39,12 @@ def _short(addr: Any) -> str:
     return text[:10] if len(text) > 10 else text
 
 
+def short_hash(value: Any) -> str:
+    """First 14 chars of a block hash (``0x`` + 12 hex) — enough to tell blocks apart in a log."""
+    text = str(value) if value else "none"
+    return text[:14]
+
+
 def intake_drop(reason: str, message: Any = None, **extra: Any) -> None:
     """Count (always) and trace (flag) a message the intake dropped."""
     metrics_registry.increment("pbft_intake_drop_total")
@@ -53,10 +59,14 @@ def intake_drop(reason: str, message: Any = None, **extra: Any) -> None:
             sender = message.get("sender")
             seq = message.get("sequence_number")
             view = message.get("view_number")
+            extra.setdefault("hash", short_hash(message.get("block_hash")))
         else:
             sender = getattr(message, "sender", None)
             seq = getattr(message, "sequence_number", None)
             view = getattr(message, "view_number", None)
+            extra.setdefault("hash", short_hash(getattr(message, "block_hash", None)))
+            if mtype is None:
+                mtype = type(message).__name__
         fields.update(type=mtype, hr=f"{seq}:{view}", sender=_short(sender))
     fields.update(extra)
     trace("drop", **fields)
@@ -82,6 +92,7 @@ def accepted(message: Any) -> None:
         type=getattr(message.message_type, "value", message.message_type),
         hr=f"{message.sequence_number}:{message.view_number}",
         sender=_short(message.sender),
+        hash=short_hash(getattr(message, "block_hash", None)),
         msg_ts=ts,
         rx_ts=rx,
         lag=lag,
