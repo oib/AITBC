@@ -854,6 +854,7 @@ def earn(
             "amount": format_ait(ait_to_units(amount)),
             "job_id": job_id,
             "new_balance": format_ait(ait_to_units(wallet_data["balance"])),
+            "balance_source": "local ledger (off-chain record; the on-chain balance is authoritative — see 'aitbc wallet balance')",
         },
         ctx.obj.get("output_format", "table"),
     )
@@ -916,6 +917,7 @@ def spend(ctx, amount: Decimal, description: str, password: str | None, password
             "amount": format_ait(ait_to_units(amount)),
             "description": description,
             "new_balance": format_ait(ait_to_units(wallet_data["balance"])),
+            "balance_source": "local ledger (off-chain record; the on-chain balance is authoritative — see 'aitbc wallet balance')",
         },
         ctx.obj.get("output_format", "table"),
     )
@@ -1339,11 +1341,19 @@ def stats(ctx, password: str | None, password_file: str | None, password_stdin: 
     total_spent = sum((abs(a) for tx, a in amounts if tx["type"] in ["spend", "send"] and a < 0), Decimal("0"))
     jobs_completed = len([tx for tx in transactions if tx["type"] == "earn"])
 
+    # ``balance`` in the wallet file is local bookkeeping written by
+    # earn/spend — it is NOT the chain balance and diverges from it (#2196).
+    # Show the chain figure as current_balance (same preference as `info`),
+    # and keep the local ledger visible under its own label.
+    local_balance = _wallet_amount(wallet_data.get("balance", 0))
+    live = _fetch_chain_balance(wallet_data["address"])
     output(
         {
             "wallet": wallet_name,
             "address": wallet_data["address"],
-            "current_balance": format_ait(ait_to_units(wallet_data.get("balance", 0))),
+            "current_balance": live if live is not None else format_ait(ait_to_units(local_balance)),
+            "balance_source": "chain" if live is not None else "local ledger (not on-chain; may be stale)",
+            "local_ledger_balance": format_ait(ait_to_units(local_balance)),
             "total_earned": format_ait(ait_to_units(total_earned)),
             "total_spent": format_ait(ait_to_units(total_spent)),
             "jobs_completed": jobs_completed,

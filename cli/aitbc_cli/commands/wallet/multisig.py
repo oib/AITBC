@@ -8,12 +8,31 @@ from decimal import Decimal
 import click
 from eth_utils import to_checksum_address
 
+from ...config import get_config
 from ...utils import DECIMAL, error, output, success
 from ...utils.error_handling import abort
-from ...utils.money import wallet_amount as _wallet_amount
+from ...utils.http_client import AITBCHTTPClient
 from ...utils.wallet_loader import validate_wallet_name, write_json_0600
 from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
+from aitbc.utils.units import units_to_ait
 from . import wallet
+
+
+def _multisig_chain_balance(address: str) -> Decimal | None:
+    """Live on-chain balance (AIT) for the multisig address.
+
+    None when the account lookup fails — a failed lookup must not read as
+    zero OR as the stale local figure; callers abort instead (#2196).
+    """
+    try:
+        config = get_config()
+        rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
+        account = AITBCHTTPClient(base_url=rpc_url, timeout=10).get(f"/rpc/account/{address}")
+        if account.get("balance") is None:
+            return None
+        return units_to_ait(int(account["balance"]))
+    except Exception:  # noqa: BLE001 - any transport/parse failure means "unknown"
+        return None
 
 
 @wallet.command(
@@ -99,8 +118,18 @@ def multisig_propose(ctx, wallet_name: str, to_address: str, amount: Decimal, de
     with open(multisig_path) as f:
         ms_data = json.load(f)
 
-    if _wallet_amount(ms_data.get("balance", 0)) < amount:
-        error(f"Insufficient balance. Available: {ms_data['balance']}, Required: {amount}")
+    # The stored ``balance`` is a creation-time 0 that nothing ever updates —
+    # sufficiency must come from the chain, same rule as the token wallets
+    # (#2196). A failed lookup aborts rather than proposing against an
+    # unknown balance.
+    chain_balance = _multisig_chain_balance(ms_data["address"])
+    if chain_balance is None:
+        abort(None, f"Cannot verify multisig balance on-chain for {ms_data['address']} — check --rpc-url / node reachability")
+        return
+    ms_data["balance"] = str(chain_balance)
+    write_json_0600(multisig_path, ms_data)
+    if chain_balance < amount:
+        error(f"Insufficient balance. Available: {chain_balance} AIT, Required: {amount} AIT")
         ctx.exit(1)
         return
 
@@ -182,30 +211,38 @@ def multisig_sign(ctx, wallet_name: str, tx_id: str, signer: str):
     # Check if threshold met
     if len(tx["signatures"]) >= ms_data["threshold"]:
         tx["status"] = "approved"
-        # Execute the transaction
-        ms_data["balance"] = ms_data.get("balance", 0) - tx["amount"]
+        # There is no on-chain multisig primitive: "execution" records the
+        # approval for manual follow-up and must NOT fake a balance move —
+        # the old local debit read as a settlement that never happened
+        # (#2196).
         ms_data["transactions"].append(
             {
-                "type": "multisig_send",
-                "amount": -tx["amount"],
+                "type": "multisig_approved",
+                "amount": tx["amount"],
                 "to": tx["to"],
                 "tx_id": tx["tx_id"],
                 "signatures": tx["signatures"],
                 "timestamp": datetime.now().isoformat(),
             }
         )
-        success(f"Transaction {tx_id} approved and executed!")
+        success(f"Transaction {tx_id} approved ({len(tx['signatures'])}/{ms_data['threshold']} signatures)")
+        warning = (
+            "Approved locally only — no on-chain transaction was broadcast. "
+            "Multisig execution is not supported on-chain; settle via 'aitbc wallet send' "
+            "from an authorized key or an escrow flow."
+        )
     else:
         success(f"Signed. {len(tx['signatures'])}/{ms_data['threshold']} signatures collected")
+        warning = None
 
     write_json_0600(multisig_path, ms_data)
 
-    output(
-        {
-            "tx_id": tx_id,
-            "signatures": tx["signatures"],
-            "threshold": ms_data["threshold"],
-            "status": tx["status"],
-        },
-        ctx.obj.get("output_format", "table"),
-    )
+    result = {
+        "tx_id": tx_id,
+        "signatures": tx["signatures"],
+        "threshold": ms_data["threshold"],
+        "status": tx["status"],
+    }
+    if warning:
+        result["warning"] = warning
+    output(result, ctx.obj.get("output_format", "table"))
