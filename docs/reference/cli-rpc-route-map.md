@@ -232,6 +232,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc transactions send` | `/rpc/account/` | — | —
 | `aitbc transactions send` | `/rpc/account/{sender_address}` | `get_account_route` (core.py) | —
 | `aitbc transactions send` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
+| `aitbc transactions status` | `/rpc/pending` | `get_pending_transactions_route` (router.py) | —
 | `aitbc transactions status` | `/rpc/transaction/` | `submit_transaction_route` (core.py) | —
 | `aitbc transactions status` | `/rpc/transaction/{tx_hash}` | `get_transaction_route` (core.py) | —
 | `aitbc wallet balance` | `/rpc/account/` | — | —
