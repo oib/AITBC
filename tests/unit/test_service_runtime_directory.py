@@ -43,3 +43,24 @@ def test_oneshot_units_do_not_declare_runtime_directory() -> None:
         if "Type=oneshot" in text and re.search(r"(?m)^RuntimeDirectory=", text):
             offenders.append(str(path.relative_to(REPO_ROOT)))
     assert not offenders, f"oneshot units must not own RuntimeDirectory (removed on exit): {offenders}"
+
+
+def test_runtime_directory_units_preserve_dir() -> None:
+    """Units owning ``RuntimeDirectory=aitbc`` must also set
+    ``RuntimeDirectoryPreserve=yes`` (#2282).
+
+    Without Preserve, systemd removes ``/run/aitbc`` when the last unit
+    using it stops — a restart or reinstall then starts with an empty
+    runtime dir, silently regressing the live-config fix that keeps the
+    SQLite lock/state files in place across restarts (#2261).
+    """
+    missing = []
+    for path in _service_files():
+        text = path.read_text()
+        if "Type=oneshot" in text:
+            continue
+        if re.search(r"(?m)^RuntimeDirectory=aitbc\s*$", text) and not re.search(
+            r"(?m)^RuntimeDirectoryPreserve=yes\s*$", text
+        ):
+            missing.append(str(path.relative_to(REPO_ROOT)))
+    assert not missing, f"units with RuntimeDirectory=aitbc without RuntimeDirectoryPreserve=yes: {missing}"

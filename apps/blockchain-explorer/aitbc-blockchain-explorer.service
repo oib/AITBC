@@ -18,6 +18,7 @@ EnvironmentFile=-/etc/aitbc/node.env
 # EXPLORER_BIND_HOST in /etc/aitbc/node.env with the private interface address.
 Environment=EXPLORER_BIND_HOST=127.0.0.1
 RuntimeDirectory=aitbc
+RuntimeDirectoryPreserve=yes
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/blockchain-explorer/main.py
 Restart=on-failure
 RestartSec=10
