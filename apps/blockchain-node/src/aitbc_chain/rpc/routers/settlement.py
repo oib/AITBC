@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from aitbc.rate_limiting import rate_limit
 
 from ...config import settings
+from ...database import ChainDbMissingError
 from ...logger import get_logger
 from ..escrow_routes import verify_rpc_api_key
 
@@ -50,6 +51,10 @@ async def create_escrow_route(request: Request, escrow_data: dict[str, Any]) -> 
         raise HTTPException(status_code=400, detail=str(e)) from e
     except HTTPException:
         raise
+    except ChainDbMissingError as e:
+        # #2269: an unprovisioned source/dest chain.db is a client-input
+        # problem, not a server fault — name the chain, don't 500.
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Create escrow failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -70,6 +75,10 @@ async def lock_escrow_route(request: Request, escrow_id: str) -> dict[str, Any]:
         return await service.lock_escrow(escrow_id)
     except HTTPException:
         raise
+    except ChainDbMissingError as e:
+        # #2269: an unprovisioned source/dest chain.db is a client-input
+        # problem, not a server fault — name the chain, don't 500.
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Lock escrow failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -90,6 +99,10 @@ async def verify_lock_route(request: Request, escrow_id: str) -> dict[str, Any]:
         return await service.verify_lock(escrow_id)
     except HTTPException:
         raise
+    except ChainDbMissingError as e:
+        # #2269: an unprovisioned source/dest chain.db is a client-input
+        # problem, not a server fault — name the chain, don't 500.
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Verify lock failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -110,6 +123,10 @@ async def execute_trade_route(request: Request, escrow_id: str) -> dict[str, Any
         return await service.execute_trade(escrow_id)
     except HTTPException:
         raise
+    except ChainDbMissingError as e:
+        # #2269: an unprovisioned source/dest chain.db is a client-input
+        # problem, not a server fault — name the chain, don't 500.
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Execute trade failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -136,6 +153,10 @@ async def settle_escrow_route(request: Request, escrow_id: str, body: dict[str, 
         return await service.settle(escrow_id, secret)
     except HTTPException:
         raise
+    except ChainDbMissingError as e:
+        # #2269: an unprovisioned source/dest chain.db is a client-input
+        # problem, not a server fault — name the chain, don't 500.
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Settle escrow failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -163,6 +184,10 @@ async def refund_escrow_route(request: Request, escrow_id: str) -> dict[str, Any
         detail = str(e)
         code = 404 if "not found" in detail else 409
         raise HTTPException(status_code=code, detail=detail) from e
+    except ChainDbMissingError as e:
+        # #2269: an unprovisioned source/dest chain.db is a client-input
+        # problem, not a server fault — name the chain, don't 500.
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Refund escrow failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -186,6 +211,10 @@ async def get_escrow_route(request: Request, escrow_id: str) -> dict[str, Any]: 
         return result
     except HTTPException:
         raise
+    except ChainDbMissingError as e:
+        # #2269: an unprovisioned source/dest chain.db is a client-input
+        # problem, not a server fault — name the chain, don't 500.
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Get escrow failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -209,6 +238,10 @@ async def get_escrow_status_route(request: Request, escrow_id: str) -> dict[str,
         raise
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e
+    except ChainDbMissingError as e:
+        # #2269: an unprovisioned source/dest chain.db is a client-input
+        # problem, not a server fault — name the chain, don't 500.
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Get escrow status failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -230,6 +263,10 @@ async def get_proof_chain_route(request: Request, escrow_id: str) -> dict[str, A
         return {"escrow_id": escrow_id, "proofs": proofs}
     except HTTPException:
         raise
+    except ChainDbMissingError as e:
+        # #2269: an unprovisioned source/dest chain.db is a client-input
+        # problem, not a server fault — name the chain, don't 500.
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Get proof chain failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -256,6 +293,10 @@ async def extend_timeout_route(request: Request, escrow_id: str, body: dict[str,
         return await service.extend_timeout(escrow_id, int(extension_seconds))
     except HTTPException:
         raise
+    except ChainDbMissingError as e:
+        # #2269: an unprovisioned source/dest chain.db is a client-input
+        # problem, not a server fault — name the chain, don't 500.
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Extend timeout failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -288,6 +329,10 @@ def file_escrow_dispute_route(request: Request, escrow_id: str, body: dict[str, 
         return {"escrow_id": escrow_id, "status": "disputed", "reason": reason, "evidence": evidence}
     except HTTPException:
         raise
+    except ChainDbMissingError as e:
+        # #2269: an unprovisioned source/dest chain.db is a client-input
+        # problem, not a server fault — name the chain, don't 500.
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("File dispute failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -325,6 +370,10 @@ def resolve_escrow_dispute_route(request: Request, escrow_id: str, body: dict[st
         return {"escrow_id": escrow_id, "status": final_status, "resolution": resolution}
     except HTTPException:
         raise
+    except ChainDbMissingError as e:
+        # #2269: an unprovisioned source/dest chain.db is a client-input
+        # problem, not a server fault — name the chain, don't 500.
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Resolve dispute failed: %s", e)
         _logger.exception("Unhandled exception")
