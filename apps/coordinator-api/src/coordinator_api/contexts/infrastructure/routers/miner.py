@@ -662,12 +662,15 @@ async def _submit_failed_result(
     ``production_miner._submit_failure`` posts ``result.status="failed"`` to
     this endpoint instead of ``/miners/{job_id}/fail``, so the result handler
     must branch on it. Mirrors ``submit_failure``: the job goes FAILED with
-    the miner's error, a bonded provider is slashed BAD_RESULT, reputation
-    records a failure, and the miner slot is released — but no receipt is
-    issued, no settlement is attempted, and ``job.result`` stays unset so the
-    escrowed payment remains refundable by the customer (``refund_payment``
-    treats an undelivered escrowed payment as refundable, and the escrow
-    refund relay accepts FAILED as a terminal-unpaid state).
+    the miner's error, reputation records a failure, and the miner slot is
+    released — but no receipt is issued, no settlement is attempted, and
+    ``job.result`` stays unset so the escrowed payment remains refundable by
+    the customer (``refund_payment`` treats an undelivered escrowed payment as
+    refundable, and the escrow refund relay accepts FAILED as a terminal-unpaid
+    state). A self-reported failure never slashes the bond (#2278): it proves
+    nothing about the provider and the customer picks the input that made it
+    fail. Bond slashes stay on verified faults — FRAUD on an operator-ruled
+    refund, the ZK/TEE gates, and the downtime sweeper.
     """
     metrics = req.metrics.model_dump(mode="json", exclude_none=True)
     duration_ms = _resolve_duration_ms(req, metrics, job, job_id)
@@ -676,7 +679,6 @@ async def _submit_failed_result(
     job.error = error_message
     session.add(job)
     session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
-    await _maybe_slash_bond(session, job, "bad_result", error_message)
     try:
         from ....contexts.reputation.services.reputation_service import ReputationService
 
@@ -795,13 +797,13 @@ async def submit_failure(
 ) -> dict[str, str]:
     try:
         service = JobService(session)
-        job = await run_in_threadpool(service.fail_job, job_id, user["sub"], req.error_message)
+        await run_in_threadpool(service.fail_job, job_id, user["sub"], req.error_message)
 
-        # G5: a bonded provider that reports a failure has delivered a bad result.
-        from ...market.services.bond_slashing import BondSlashingService, SlashingCondition
-
-        if job.constraints and job.constraints.get("bond_required"):
-            await BondSlashingService(session).slash(job, SlashingCondition.BAD_RESULT, req.error_message)
+        # #2278: no bond slash here. A miner-reported failure is unverified and
+        # the customer chooses the input, so slashing on it let a customer burn
+        # a provider's bond for free (the escrow stays refundable). Verified
+        # faults still slash: FRAUD on an operator-ruled refund, the ZK/TEE
+        # gates and the downtime sweeper.
 
         # Record the failure in the reputation service.
         try:
