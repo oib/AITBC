@@ -82,6 +82,22 @@ _PARALLEL_V2V8_ENABLED: bool = False
 _SEQUENTIAL_ONLY_TX_TYPES = SEQUENTIAL_ONLY_TX_TYPES
 
 
+# #2261 SYNC-IMPORT-DB-BUSY-1: WAL snapshot conflicts (SQLITE_BUSY_SNAPSHOT)
+# bypass the per-connection busy_timeout — the append loses the race against
+# a concurrent writer (e.g. the rpc bridge-release finalizer) and fails
+# immediately instead of waiting. Retry the whole append on a fresh NullPool
+# session with linear backoff before taking the generic failure path.
+_BUSY_APPEND_RETRIES = 3
+_BUSY_APPEND_BACKOFF_S = 0.5
+
+
+def _is_sqlite_lock_error(exc: BaseException) -> bool:
+    """True for sqlite 'database is locked' through SQLAlchemy wrapping."""
+    orig = getattr(exc, "orig", None) or exc
+    text = f"{orig} {exc}".lower()
+    return "database is locked" in text or "database table is locked" in text
+
+
 @dataclass
 class _AppendContext:
     """Shared stage parameters for ``BlockImportMixin._append_block``.
@@ -410,6 +426,12 @@ class BlockImportMixin(
                     block_hash=block_hash,
                     reason=f"chain.db unrecoverable error — quarantined: {quarantined}",
                 )
+            if _is_sqlite_lock_error(append_exc):
+                # #2261: busy_timeout cannot cover WAL snapshot conflicts —
+                # retry on fresh sessions before failing the import.
+                return self._append_with_busy_retry(
+                    block_data, transactions, skip_state_root_validation, height, block_hash, start
+                )
             reason = str(append_exc).lower()
             if "unique" in reason and "constraint" in reason:
                 return self._handle_append_unique_conflict(
@@ -422,6 +444,88 @@ class BlockImportMixin(
                 block_hash=block_hash,
                 reason=f"Append block failed: {append_exc}",
             )
+
+    def _append_with_busy_retry(
+        self,
+        block_data: dict[str, Any],
+        transactions: list[dict[str, Any]],
+        skip_state_root_validation: bool,
+        height: int,
+        block_hash: str,
+        start: float,
+    ) -> ImportResult:
+        """Retry ``_append_block`` on fresh sessions after a sqlite lock error.
+
+        #2261: the failed session's read snapshot is poisoned
+        (SQLITE_BUSY_SNAPSHOT bypasses busy_timeout), so each attempt opens a
+        new NullPool session and re-verifies the append preconditions — no
+        duplicate hash, height still next, parent still our tip — before
+        re-appending. If the chain moved meanwhile the block is routed
+        through the normal at-or-below-head / gap classification instead of
+        blind-appending onto a moved tip.
+        """
+        parent_hash = str(block_data.get("parent_hash") or "")
+        last_exc: BaseException | None = None
+        for attempt in range(_BUSY_APPEND_RETRIES):
+            time.sleep(_BUSY_APPEND_BACKOFF_S * (attempt + 1))
+            metrics_registry.increment("sync_import_busy_retry_total")
+            try:
+                with self._session_factory() as session:
+                    existing = session.exec(
+                        select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == block_hash)
+                    ).first()
+                    if existing is not None:
+                        metrics_registry.increment("sync_blocks_duplicate_total")
+                        return self._make_import_result(
+                            accepted=False,
+                            height=height,
+                            block_hash=block_hash,
+                            reason="Block already exists (concurrent import during lock retry)",
+                        )
+                    head = session.exec(
+                        select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC")).limit(1)
+                    ).first()
+                    our_height = head.height if head else -1
+                    if height == our_height + 1:
+                        parent_is_head = (height == 0 and parent_hash == "0x00") or (
+                            head is not None and head.hash == parent_hash
+                        )
+                        if not parent_is_head:
+                            metrics_registry.increment("sync_divergence_rejected_total")
+                            our_hash = head.hash if head else ""
+                            return self._make_import_result(
+                                accepted=False,
+                                height=height,
+                                block_hash=block_hash,
+                                reason=(
+                                    f"Divergent chain: next block parent {parent_hash[:16]}... "
+                                    f"is not our head {our_hash[:16]}... at height {our_height}"
+                                ),
+                                diverged=True,
+                            )
+                        result = self._append_block(session, block_data, transactions, skip_state_root_validation)
+                        duration = time.perf_counter() - start
+                        metrics_registry.observe("sync_import_duration_seconds", duration)
+                        block_processing_duration.observe(duration)
+                        return result
+                    if height <= our_height:
+                        return self._import_at_or_below_head(
+                            session, block_data, transactions, head, height, block_hash, our_height
+                        )
+                    metrics_registry.increment("sync_blocks_gap_total")
+                    return self._make_import_result(
+                        accepted=False,
+                        height=height,
+                        block_hash=block_hash,
+                        reason=f"Gap detected (our height: {our_height}, received: {height})",
+                    )
+            except Exception as retry_exc:  # noqa: BLE001 - classify lock vs terminal before deciding
+                last_exc = retry_exc
+                if not _is_sqlite_lock_error(retry_exc) or attempt == _BUSY_APPEND_RETRIES - 1:
+                    break
+        reason = f"Append block failed after {_BUSY_APPEND_RETRIES} lock retries: {last_exc}"
+        logger.error("Append block failed for height %s: %s", height, last_exc)
+        return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason=reason)
 
     def _handle_append_unique_conflict(
         self,
