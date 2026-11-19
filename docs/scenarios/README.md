@@ -1,6 +1,6 @@
 # AITBC Agent Scenarios
 
-**Levels**: Beginner (scenarios 01–20), Intermediate (scenarios 21–36)
+**Levels**: Beginner (01–20), Intermediate (21–36), Advanced/operator (40–89)
 **Prerequisites**: AITBC CLI (`aitbc`) installed and on `$PATH`
 **Estimated Time**: 10–30 minutes per scenario
 **Last Updated**: 2026-11-15
@@ -35,6 +35,7 @@ The closed economic loop these plays sit on (tokens → job → GPU → escrow �
 | 05 | [Island Creation](./05_island_creation.md) | Create and join blockchain islands | `aitbc node island` |
 | 06 | [Basic Trading](./06_basic_trading.md) | Buy/sell on the island exchange | `aitbc exchange-island` |
 | 07 | [AI Job Submission](./07_ai_job_submission.md) | Submit and monitor AI jobs | `aitbc ai` |
+| 08 | [Market Chain-Listing](../archive/scenarios/08_market_bidding.md) *(retired — archived)* | Market bidding on-chain | `aitbc market` (removed group) |
 | 09 | [GPU Listing](./09_gpu_listing.md) | Register local GPUs; on-chain GPU records | `aitbc gpu`, `aitbc gpu-onchain` |
 | 10 | [Agent SDK Identity](./10_agent_sdk_identity.md) | Create and configure agents | `aitbc agent` |
 | 11 | [IPFS Storage](./11_ipfs_storage.md) | Store and retrieve content-addressed artifacts | `aitbc ipfs`, `aitbc oracle` |
@@ -77,7 +78,7 @@ These are operator hardening plays (21–35). The A/B task ids in each play are 
 
 ## How to Use These Scenarios
 
-1. **Install the AITBC CLI** — `aitbc` on `$PATH` (entry point: `aitbc_cli.core.main:main`). Version on the live nodes is `0.10.18`.
+1. **Install the AITBC CLI** — `aitbc` on `$PATH` (entry point: `aitbc_cli.core.main:main`). Version on the live nodes is `0.25.9`.
 2. **Prefer CLI over HTTP.** If a step cannot be done with `aitbc`, that is a CLI gap: fix the CLI, then keep the scenario in sync.
 3. **Know which node you are on.** Hub services (coordinator 8203, exchange 8106, agent-coordinator 8107) often bind `127.0.0.1`. Shop/customer CLIs reach them through nginx (`https://hub.example.net/…`) or an SSH tunnel, not raw LAN ports. See scenario 34.
 4. **Run a node** — blockchain RPC `8202`, coordinator `8203`, wallet `8108`. Authoritative ports: [Service Ports Reference](../reference/SERVICE_PORTS.md).

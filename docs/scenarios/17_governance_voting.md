@@ -227,7 +227,7 @@ Lock Period Days    60
 Stake tokens on-chain to increase your voting power (stakes feed `governance vote` power, which derives from active `Stake` rows). The lock period must be at least 30 days. The deprecated `operations governance stake` recorded a service-side row only — use the canonical `aitbc stake`:
 
 ```bash
-aitbc stake --amount 2000 --duration 90 --wallet-name <wallet>
+aitbc stake --amount 2 --duration 90 --wallet-name <wallet>
 ```
 
 **Expected output:** a queued `STAKE_LOCK` transaction hash; the stake lands when the transaction seals into a block. `aitbc wallet staking-info` shows it as active once confirmed.
@@ -242,6 +242,8 @@ aitbc operations governance delegate \
     --delegate 0xdelegate789... \
     --amount 1000
 ```
+
+> `--amount` here is integer service-side token units on the deprecated `operations` path — not AIT decimals.
 
 **Expected output:**
 
@@ -441,7 +443,7 @@ aitbc governance propagate --proposal-id 1 --target-chains ait-sidechain --walle
 
 ### Step 12: Execute a cross-chain proposal
 
-`aitbc governance execute-cross-chain --proposal-id 1 --wallet mywallet` executes a passed proposal on target chains — irreversible governance execution; not played, needs the operator's line. Like `propagate`, the signing wallet must be the proposal's `proposer_address` (service-enforced, #1178).
+`aitbc governance execute-cross-chain --proposal-id 1 --wallet mywallet` executes a passed proposal on target chains — irreversible governance execution. Like `propagate`, the signing wallet must be the proposal's `proposer_address` (service-enforced, #1178).
 
 ---
 

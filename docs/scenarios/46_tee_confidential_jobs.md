@@ -141,15 +141,15 @@ aitbc tee verify --job-id job-001
 
 ## Step 6: Generate TEE keys
 
-`aitbc tee keygen --key-file /tmp/tee-key.pem` is writes enclave key material — a key operation; not played, needs the operator's line.
+`aitbc tee keygen --key-file /tmp/tee-key.pem` is writes enclave key material — a key operation.
 
 ## Step 7: Launch an enclave
 
-`aitbc tee launch --enclave-id enc-001` is launches a TEE enclave — needs the operator's enclave provisioning; not played, needs the operator's line.
+`aitbc tee launch --enclave-id enc-001` is launches a TEE enclave — needs the operator's enclave provisioning.
 
 ## Step 8: Attest an enclave
 
-`aitbc tee attest --enclave-id enc-001` is produces an enclave attestation — needs the operator's enclave provisioning; not played, needs the operator's line.
+`aitbc tee attest --enclave-id enc-001` is produces an enclave attestation — needs the operator's enclave provisioning.
 
 ---
 

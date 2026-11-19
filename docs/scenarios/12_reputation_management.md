@@ -329,16 +329,6 @@ To move reputation to PostgreSQL:
 Migration of existing SQLite reputation data is not yet automated; do it with
 `pg_dump`/`sqlite3` or a small script if you need historical scores.
 
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `<hub-node>` ↔ shop `<node2>`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
-
 ## Related Resources
 
 - [Reputation CLI source](../../cli/aitbc_cli/commands/reputation.py)

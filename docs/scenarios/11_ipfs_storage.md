@@ -197,10 +197,10 @@ asyncio.run(main())
 
 Subscribes the wallet to an island's IPFS storage tier.
 
-Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000).
+Cost: 1 AIT (`--amount` takes AIT decimals, not raw units).
 
 ```bash
-aitbc ipfs island subscribe --wallet my-agent-wallet --to 0xIsland --island-id isle-1 --amount 36000000
+aitbc ipfs island subscribe --wallet my-agent-wallet --to 0xIsland --island-id isle-1 --amount 1
 ```
 
 ### Step 6: Unpin a CID
@@ -215,7 +215,7 @@ aitbc ipfs unpin --cid QmExampleCid
 
 ### Step 7: Fetch an island swarm key
 
-`aitbc ipfs island swarm-key --wallet my-agent-wallet --island-id isle-1` is returns the island's IPFS swarm key — key material; not played, needs the operator's line.
+`aitbc ipfs island swarm-key --wallet my-agent-wallet --island-id isle-1` is returns the island's IPFS swarm key — key material.
 
 ---
 

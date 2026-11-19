@@ -77,7 +77,7 @@ aitbc version
 aitbc explorer chain-head
 ```
 
-**Expected output (live):** hostname `hub.example.net`, CLI `0.10.18`, a chain height that the shop will match.
+**Expected output (live):** hostname `hub.example.net`, CLI `0.25.9`, a chain height that the shop will match.
 
 ### Step 2: Know the bind / public path
 

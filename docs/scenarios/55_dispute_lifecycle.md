@@ -137,15 +137,15 @@ aitbc dispute arbitrator queue 0xArbitrator
 
 ### 8. Authorize an arbitrator
 
-`aitbc dispute arbitrator authorize 0xArbitrator` is grants arbitration rights — an operator/signature-gated action; not played, needs the operator's line.
+`aitbc dispute arbitrator authorize 0xArbitrator` is grants arbitration rights — an operator/signature-gated action.
 
 ### 9. Verify dispute evidence
 
-`aitbc dispute evidence verify --dispute-id 42 --evidence-id 1` is rules on evidence validity — arbitrator credentials required; not played, needs the operator's line.
+`aitbc dispute evidence verify --dispute-id 42 --evidence-id 1` is rules on evidence validity — arbitrator credentials required.
 
 ### 10. Auto-adjudicate open disputes
 
-`aitbc dispute auto-adjudicate --yes` is executes rulings on open disputes — irreversible, operator action; not played, needs the operator's line.
+`aitbc dispute auto-adjudicate --yes` is executes rulings on open disputes — irreversible, operator action.
 
 ---
 

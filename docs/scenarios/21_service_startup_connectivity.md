@@ -181,7 +181,7 @@ aitbc system show --service aitbc-coordinator-api
 
 ### Step 14: Dump a service env file
 
-`aitbc system cat --service aitbc-coordinator-api` is prints the raw env file including secrets — env/key material; not played, needs the operator's line.
+`aitbc system cat --service aitbc-coordinator-api` is prints the raw env file including secrets — env/key material.
 
 <!-- COVERAGE-LEFT-1: remaining top-level control/health leaves (issue #445) -->
 
@@ -203,7 +203,7 @@ aitbc health --host localhost
 aitbc update --check
 ```
 
-**Expected output:** current commit, upstream commit, ahead/behind counts. `aitbc update` without `--check` runs `scripts/deployment/update.sh` (git pull + deploy) — env mutation; not played, needs the operator's line.
+**Expected output:** current commit, upstream commit, ahead/behind counts. `aitbc update` without `--check` runs `scripts/deployment/update.sh` (git pull + deploy) — env mutation.
 
 ### Step 14c: Stop / restart dry-run
 
@@ -214,7 +214,7 @@ aitbc stop --role shop --dry-run
 aitbc restart --role shop --dry-run
 ```
 
-**Expected output:** the unit list for the role, no systemctl action. `aitbc stop` / `aitbc restart` without `--dry-run` stop or restart live services — service control; not played, needs the operator's line.
+**Expected output:** the unit list for the role, no systemctl action. `aitbc stop` / `aitbc restart` without `--dry-run` stop or restart live services — service control.
 
 ### Step 14d: Service harden dry-run
 
@@ -224,23 +224,23 @@ aitbc restart --role shop --dry-run
 aitbc service harden --service aitbc-coordinator-api --dry-run
 ```
 
-**Expected output:** a preview of the hardening changes. `aitbc service harden` without `--dry-run` rewrites systemd units and restarts services — env mutation + service control; not played, needs the operator's line.
+**Expected output:** a preview of the hardening changes. `aitbc service harden` without `--dry-run` rewrites systemd units and restarts services — env mutation + service control.
 
 ### Step 15: Set service env vars
 
-`aitbc system env-set aitbc-coordinator-api KEY=VALUE` is rewrites a service env file — env mutation; not played, needs the operator's line.
+`aitbc system env-set aitbc-coordinator-api KEY=VALUE` is rewrites a service env file — env mutation.
 
 ### Step 16: Run a script on a service
 
-`aitbc system run-script --path /tmp/script.sh` is executes an arbitrary script — service control; not played, needs the operator's line.
+`aitbc system run-script --path /tmp/script.sh` is executes an arbitrary script — service control.
 
 ### Step 17: Start a service
 
-`aitbc system start --service aitbc-coordinator-api` is starts a systemd unit — service control; not played, needs the operator's line.
+`aitbc system start --service aitbc-coordinator-api` is starts a systemd unit — service control.
 
 ### Step 18: Stop a service
 
-`aitbc system stop --service aitbc-coordinator-api` is stops a systemd unit — service control; not played, needs the operator's line.
+`aitbc system stop --service aitbc-coordinator-api` is stops a systemd unit — service control.
 
 ---
 

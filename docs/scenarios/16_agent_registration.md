@@ -67,7 +67,7 @@ Register an agent on the cross-chain network. The `register` subcommand takes re
 
 ```bash
 # Register an inference agent on the bc-2 chain
-aitbc agent-comm register --agent-id agent_infer_01 --name "Inference Agent" --chain-id bc-2 --endpoint http://node0.aitbc.bubuit.net:8107 \
+aitbc agent-comm register --agent-id agent_infer_01 --name "Inference Agent" --chain-id bc-2 --endpoint http://<agent-node>:8107 \
     --capabilities "inference,gpu_compute,model_serving" \
     --reputation 0.7 \
     --version 1.2.0
@@ -84,7 +84,7 @@ Chain ID      bc-2
 Status        active
 Capabilities  inference, gpu_compute, model_serving
 Reputation    0.70
-Endpoint      http://node0.aitbc.bubuit.net:8107
+Endpoint      http://<agent-node>:8107
 Version       1.2.0
 ```
 
@@ -128,7 +128,7 @@ aitbc agent-comm discover --chain-id bc-2 --capabilities "inference,gpu_compute"
 ```
 Agents on Chain bc-2
 Agent ID          Name             Status    Reputation   Capabilities                       Endpoint              Version
-agent_infer_01    Inference Agent  active    0.70         inference, gpu_compute, model...   http://node0.aitbc.bubuit.net:8107 1.2.0
+agent_infer_01    Inference Agent  active    0.70         inference, gpu_compute, model...   http://<agent-node>:8107 1.2.0
 agent_train_02    Training Agent   active    0.65         training, gpu_compute              http://localhost:9002 1.0.0
 ```
 
@@ -155,7 +155,7 @@ Capabilities             inference, gpu_compute, model_serving
 Message Queue Size       0
 Active Collaborations    0
 Last Seen                2026-06-25 10:16:00
-Endpoint                 http://node0.aitbc.bubuit.net:8107
+Endpoint                 http://<agent-node>:8107
 Version                  1.2.0
 ```
 
@@ -312,16 +312,6 @@ aitbc agent-comm network
 ```
 
 ---
-
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `<hub-node>` ↔ shop `<node2>`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
 
 ## Related Resources
 

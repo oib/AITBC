@@ -451,10 +451,10 @@ aitbc agent-wallet rebalance --agent-id agent-001 --reinvest-pct 50
 
 Stakes agent wallet funds.
 
-Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) locked.
+Cost: 100 (free-form `--amount`; the epilog example uses `100` — confirm the unit on the target staking contract before replay).
 
 ```bash
-aitbc agent-wallet stake --agent-id agent-001 --amount 36000000
+aitbc agent-wallet stake --agent-id agent-001 --amount 100
 ```
 
 ---
@@ -491,16 +491,6 @@ cat ~/.aitbc/agents/my-provider.json
 ```
 
 ---
-
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `<hub-node>` ↔ shop `<node2>`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
 
 ## Related Resources
 

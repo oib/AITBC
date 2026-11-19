@@ -479,15 +479,15 @@ aitbc messaging topics --limit 10
 
 ### Step 18: Generate DM keys
 
-`aitbc messaging dm keygen --wallet my-agent-wallet` is creates/rotates the wallet's DM encryption keys — a key operation; not played, needs the operator's line.
+`aitbc messaging dm keygen --wallet my-agent-wallet` is creates/rotates the wallet's DM encryption keys — a key operation.
 
 ### Step 19: Lock a messaging topic
 
-`aitbc messaging lock --topic announcements --wallet my-agent-wallet` is locks a topic against further posts — a moderation lock operation; not played, needs the operator's line.
+`aitbc messaging lock --topic announcements --wallet my-agent-wallet` is locks a topic against further posts — a moderation lock operation.
 
 ### Step 20: Unlock a messaging topic
 
-`aitbc messaging unlock --topic announcements --wallet my-agent-wallet` is reverses a topic lock — a moderation lock operation; not played, needs the operator's line.
+`aitbc messaging unlock --topic announcements --wallet my-agent-wallet` is reverses a topic lock — a moderation lock operation.
 
 ### Step 21: Send a direct message
 
@@ -624,16 +624,6 @@ aitbc messaging send \
 ```
 
 ---
-
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `<hub-node>` ↔ shop `<node2>`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
 
 ## Related Resources
 

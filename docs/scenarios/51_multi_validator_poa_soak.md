@@ -213,11 +213,11 @@ aitbc sync bulk --source http://hub.example:8100
 
 ### Step 14: Force sync from a peer
 
-`aitbc network force-sync --peer-url http://node1.example:8100 --admin-private-key 0xK` is forces resync via the admin key — key operation; not played, needs the operator's line.
+`aitbc network force-sync --peer-url http://node1.example:8100 --admin-private-key 0xK` is forces resync via the admin key — key operation.
 
 ### Step 15: Set the sync source
 
-`aitbc network set-sync-source --url http://hub.example:8100` is rewrites the node's sync-source env and restarts — env/service control; not played, needs the operator's line.
+`aitbc network set-sync-source --url http://hub.example:8100` is rewrites the node's sync-source env and restarts — env/service control.
 
 ---
 

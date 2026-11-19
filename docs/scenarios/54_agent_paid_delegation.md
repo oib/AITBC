@@ -1,5 +1,11 @@
 # Scenario 54: Paid agent-to-agent task delegation
 
+> **Fleet note (#1549):** `aitbc-whisper` (:8110) and `aitbc-ffmpeg` (:8230)
+> units are **not deployed** on the public island — the `--service-type whisper`
+> leg below and the whisper/ffmpeg preconditions are not reproducible there.
+> Use an Ollama/`aitbc ai submit`-capable provider or a shop node where those
+> units exist; payment/escrow mechanics are unaffected.
+
 ## Goal
 
 A buyer agent hires a provider agent for a paid task without going through the

@@ -109,9 +109,9 @@ aitbc operations governance voting-power --address 0x<addr>    # played in 17 vi
 aitbc operations governance proposal --proposal-id prop-2 --title 'Param change' \
     --description '…' --category general --wallet default --voting-days 7
 aitbc operations governance vote   --proposal-id prop-1 --vote for --wallet default --voting-power 1
-aitbc operations governance stake  --address 0x<addr> --amount 36000000 --lock-days 30
+aitbc operations governance stake  --address 0x<addr> --amount 36000000 --lock-days 30   # integer token units on the deprecated ops path
 aitbc operations governance execute --proposal-id prop-1
-aitbc operations governance delegate --delegator 0x<a> --delegate 0x<b> --amount 36000000
+aitbc operations governance delegate --delegator 0x<a> --delegate 0x<b> --amount 36000000   # integer token units
 ```
 
 `stake` locks real tokens, `execute` applies a passed proposal — both
