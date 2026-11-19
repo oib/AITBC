@@ -181,6 +181,16 @@ class _PbftBaseMixin:
         self._vc_messages: dict[tuple[int, int], dict[str, dict[str, Any]]] = {}
         self._vc_last_resend: dict[tuple[int, int], float] = {}
         self._new_views: dict[tuple[int, int], dict[str, Any]] = {}
+        # #2281: (sequence, view) -> (block_hash, block_payload) this node has
+        # already broadcast a pre-prepare for. A same-view retry MUST reuse the
+        # emitted hash — the caller rebuilds a fresh block on every retry (new
+        # timestamp -> new hash), and a second hash in one view is equivocation:
+        # followers refuse it (second_block_same_round) and split prepare
+        # quorums end in commit.digest_mismatch freezes. In-memory only: a
+        # proposer restart mid-view keeps the pre-existing liveness hole,
+        # never a safety one (followers' durable prepared record still
+        # refuses the second hash).
+        self._emitted_preprepare: dict[tuple[int, int], tuple[str, dict[str, Any] | None]] = {}
         # #2171: locked bodies this node asked for (accepted only when solicited)
         # and the last time it answered a request for one (rate limit).
         self._body_wanted: dict[tuple[int, str], int] = {}
