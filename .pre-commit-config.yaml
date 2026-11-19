@@ -191,7 +191,10 @@ repos:
         entry: python3 scripts/lint/no_float_money.py
         language: system
         pass_filenames: false
-        always_run: true
+        # The check walks tracked *.py only — a commit touching no Python
+        # file cannot introduce a float-money violation, so skip the ~5s
+        # whole-tree scan on docs/config-only commits.
+        files: \.py$
         stages: [pre-commit]
 
       # V23-102 deleted one unreachable module and left 21 more behind it. This is the half
