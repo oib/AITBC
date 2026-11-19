@@ -247,9 +247,17 @@ class PaymentRefundMixin(PaymentCoreMixin):
                     raise HTTPException(status_code=425, detail=detail) from e
                 if 400 <= code < 500:
                     raise HTTPException(status_code=code, detail=detail) from e
+                # #2270: a 5xx refusal still carries the node's reason (e.g. the
+                # settlement authority's float cannot cover the refund) — surface
+                # it instead of the generic retry hint alone.
+                upstream_detail = _upstream_error_detail(status_error)
                 raise HTTPException(
                     status_code=status.HTTP_502_BAD_GATEWAY,
-                    detail="escrow settlement upstream error; the refund can be retried",
+                    detail=(
+                        f"escrow settlement upstream error: {upstream_detail}; the refund can be retried"
+                        if upstream_detail
+                        else "escrow settlement upstream error; the refund can be retried"
+                    ),
                 ) from e
             logger.error("Failed to submit refund transaction: %s", e)
             raise
