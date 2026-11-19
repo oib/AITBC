@@ -10,7 +10,7 @@ import httpx
 
 from aitbc.exceptions import AITBCError
 from ..config import get_config
-from ..utils import output, resolve_output_format
+from ..utils import DECIMAL, output, resolve_output_format
 from ..auth import AuthManager, ExpiredAdminToken
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError
@@ -355,6 +355,83 @@ def lock(ctx, provider_id, coordinator_url, format):
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except _OPS_ERRORS as e:
         abort(ctx, f"Error locking bond for {provider_id}: {e}", from_exception=e)
+
+
+@bond.command(
+    epilog="""Examples:
+
+  aitbc bond lock-onchain --bond-id bond-1 --escrow-address 0xEscrow... --amount 10 --wallet provider-1
+
+  aitbc bond lock-onchain --bond-id bond-1 --escrow-address 0xEscrow... --amount 10 --wallet provider-1 --lock-days 90"""
+)
+@click.option("--bond-id", "bond_id", required=True, help="Bond identifier recorded in the BOND_LOCK payload")
+@click.option(
+    "--escrow-address",
+    "escrow_address",
+    required=True,
+    help="Node BOND_ESCROW_ADDRESS — chain env config, not exposed via RPC",
+)
+@click.option("--amount", required=True, type=DECIMAL, help="AIT amount to lock into the bond escrow")
+@click.option("--lock-days", type=int, default=30, show_default=True, help="Lock duration in days (1-3650)")
+@click.option("--wallet", "wallet_name", required=True, help="Provider wallet — payload.provider must equal the signer")
+@wallet_password_options
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL (default: resolved like transactions send)")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+@click.pass_context
+def lock_onchain(
+    ctx, bond_id, escrow_address, amount, lock_days, wallet_name, password, password_file, password_stdin, rpc_url, format
+):
+    """Submit the on-chain BOND_LOCK escrow transaction for a provider bond.
+
+    ``bond create``/``top-up`` record the bond coordinator-side but require a
+    prior chain-verified ``BOND_LOCK``; this command is that missing leg. The
+    tx pays ``--escrow-address`` (the node's ``BOND_ESCROW_ADDRESS``) with
+    payload ``{bond_id, provider, lock_days}`` where ``provider`` is the
+    signing wallet's own address — the chain refuses any other signer.
+    """
+    import json
+
+    from aitbc.utils.units import DEFAULT_TX_FEE_AIT
+    from ..utils.wallet_paths import find_wallet_file
+    from .transactions import _send_transaction_impl
+
+    wallet_file = find_wallet_file(wallet_name)
+    if wallet_file is None:
+        abort(ctx, f"Wallet '{wallet_name}' not found — pass a file wallet that exists on this host")
+        raise click.Abort()  # unreachable — abort() raises; narrows Path | None for mypy
+    try:
+        provider_address = json.loads(wallet_file.read_text()).get("address")
+    except (OSError, ValueError) as e:
+        abort(ctx, f"Could not read wallet '{wallet_name}': {e}", from_exception=e)
+    if not provider_address:
+        abort(ctx, f"Wallet '{wallet_name}' has no 'address' field")
+
+    resolved_password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        ctx=ctx,
+    )
+    payload = {"bond_id": bond_id, "provider": provider_address, "lock_days": lock_days}
+    tx_hash = _send_transaction_impl(
+        wallet_name,
+        escrow_address,
+        amount,
+        DEFAULT_TX_FEE_AIT,
+        resolved_password,
+        rpc_url=rpc_url,
+        tx_type="BOND_LOCK",
+        payload=payload,
+    )
+    if not tx_hash:
+        abort(ctx, "BOND_LOCK submission failed — see the error above")
+    output(
+        {"tx_hash": tx_hash, "bond_id": bond_id, "provider": provider_address, "amount": str(amount)},
+        resolve_output_format(ctx, format),
+        title="BOND_LOCK submitted",
+    )
 
 
 @bond.command(

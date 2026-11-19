@@ -137,3 +137,66 @@ def test_bond_lock_and_release(runner, mock_client):
     )
     assert result.exit_code == 0, result.output
     assert mock_client.post.call_args[0][0] == "/v1/market/providers/aitbc-miner-1/bonds/release"
+
+
+def test_bond_lock_onchain_submits_bond_lock(runner, tmp_path):
+    """lock-onchain wraps transactions send with the BOND_LOCK payload schema."""
+    import json
+
+    wallet = tmp_path / "provider-1.json"
+    wallet.write_text(json.dumps({"address": "0xProvider", "type": "private"}))
+
+    from aitbc_cli.commands.bond import bond
+
+    with patch("aitbc_cli.utils.wallet_paths.wallet_search_dirs", return_value=[tmp_path]):
+        with patch("aitbc_cli.commands.bond.resolve_wallet_password", return_value=""):
+            with patch("aitbc_cli.commands.transactions._send_transaction_impl", return_value="0xTxHash") as m:
+                result = runner.invoke(
+                    bond,
+                    [
+                        "lock-onchain",
+                        "--bond-id",
+                        "bond-1",
+                        "--escrow-address",
+                        "0xEscrow",
+                        "--amount",
+                        "10",
+                        "--lock-days",
+                        "90",
+                        "--wallet",
+                        "provider-1",
+                        "--rpc-url",
+                        "http://rpc:8202",
+                    ],
+                    obj={"output_format": "json"},
+                )
+    assert result.exit_code == 0, result.output
+    kwargs = m.call_args.kwargs
+    assert kwargs["tx_type"] == "BOND_LOCK"
+    assert kwargs["to_address"] if "to_address" in kwargs else m.call_args.args[1] == "0xEscrow"
+    payload = kwargs["payload"]
+    assert payload == {"bond_id": "bond-1", "provider": "0xProvider", "lock_days": 90}
+    assert '"0xTxHash"' in result.output
+
+
+def test_bond_lock_onchain_missing_wallet_aborts(runner):
+    from aitbc_cli.commands.bond import bond
+
+    with patch("aitbc_cli.utils.wallet_paths.wallet_search_dirs", return_value=[]):
+        result = runner.invoke(
+            bond,
+            [
+                "lock-onchain",
+                "--bond-id",
+                "bond-1",
+                "--escrow-address",
+                "0xEscrow",
+                "--amount",
+                "10",
+                "--wallet",
+                "no-such-wallet",
+            ],
+            obj={"output_format": "table"},
+        )
+    assert result.exit_code != 0
+    assert "not found" in result.output
