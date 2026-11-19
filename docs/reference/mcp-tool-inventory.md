@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**814 tools** across 140 modules.
+**815 tools** across 140 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 132 |
-| generated | 560 |
+| generated | 561 |
 | other | 7 |
 | rpc | 115 |
 
@@ -27,7 +27,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_analytics.py | 4 |
 | mcp-server/aitbc_mcp_cli_tools_generated_auth.py | 3 |
 | mcp-server/aitbc_mcp_cli_tools_generated_blockchain.py | 18 |
-| mcp-server/aitbc_mcp_cli_tools_generated_bond.py | 8 |
+| mcp-server/aitbc_mcp_cli_tools_generated_bond.py | 9 |
 | mcp-server/aitbc_mcp_cli_tools_generated_bootstrap.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_bounty.py | 6 |
 | mcp-server/aitbc_mcp_cli_tools_generated_brand.py | 2 |
@@ -360,6 +360,7 @@
 | `aitbc_bond_challenge` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond challenge` |
 | `aitbc_bond_create` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond create` |
 | `aitbc_bond_lock` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond lock` |
+| `aitbc_bond_lock_onchain` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond lock-onchain` |
 | `aitbc_bond_release` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond release` |
 | `aitbc_bond_slash` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond slash` |
 | `aitbc_bond_status` | mcp-server/aitbc_mcp_cli_tools_generated_bond.py | generated | `aitbc bond status` |

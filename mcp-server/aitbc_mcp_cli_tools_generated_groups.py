@@ -343,6 +343,7 @@ GENERATED_DESTRUCTIVE_AITBC_PATHS = frozenset(
         "bond challenge",
         "bond create",
         "bond lock",
+        "bond lock-onchain",
         "bond release",
         "bond slash",
         "bond top-up",

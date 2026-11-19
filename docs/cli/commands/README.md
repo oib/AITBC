@@ -139,6 +139,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc bond challenge`](bond-challenge.md) — Fetch the wallet-ownership challenge for a provider bond (#1967).
 - [`aitbc bond create`](bond-create.md) — Create or top-up a provider's performance bond.
 - [`aitbc bond lock`](bond-lock.md) — Lock a provider's bond while a high-value job is in flight.
+- [`aitbc bond lock-onchain`](bond-lock-onchain.md) — Submit the on-chain BOND_LOCK escrow transaction for a provider bond.
 - [`aitbc bond release`](bond-release.md) — Release a previously locked provider bond.
 - [`aitbc bond slash`](bond-slash.md) — Slash a provider's bond with an optional reason.
 - [`aitbc bond status`](bond-status.md) — Show a provider's bond eligibility status.
