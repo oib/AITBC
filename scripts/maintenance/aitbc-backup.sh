@@ -335,6 +335,9 @@ done
 # their .db or deliberately stale by name. keystore/ and wallets/ are excluded
 # only at top level -- they already have their own legs; a nested data/keystore
 # on a follower is not covered anywhere else and stays in scope.
+# Regenerable caches and vendored runtimes are excluded outright: model
+# weights re-download, ffmpeg cache rebuilds, hermes/node is a Node.js
+# install — backing them up daily would be pure weight (MON-BACKUP-MISC-CAP).
 BACKUP_MISC_MAX_KB="${BACKUP_MISC_MAX_KB:-65536}"
 _MISC_LIST="$(mktemp)"
 _misc_skip_list="$(mktemp)"
@@ -344,12 +347,16 @@ if [ -d "$SVC_DB_DIR" ]; then
         -not -name "*.bak*" -not -name "*.pre-*" -not -path "./.pre-*" \
         -not -path "./keystore/*" -not -path "./wallets/*" \
         -not -path "./backups/*" -not -path "./fork-export/*" \
+        -not -path "./cache/*" -not -path "./whisper-cache/*" \
+        -not -path "./ffmpeg-cache/*" -not -path "./hermes/node/*" \
         -size -"${BACKUP_MISC_MAX_KB}"k -print0 ) > "$_MISC_LIST" 2>/dev/null || true
     ( cd "$SVC_DB_DIR" && find . -type f \
         -not -name "*.db" -not -name "*.db-*" -not -name "*.db.*" \
         -not -name "*.bak*" -not -name "*.pre-*" -not -path "./.pre-*" \
         -not -path "./keystore/*" -not -path "./wallets/*" \
         -not -path "./backups/*" -not -path "./fork-export/*" \
+        -not -path "./cache/*" -not -path "./whisper-cache/*" \
+        -not -path "./ffmpeg-cache/*" -not -path "./hermes/node/*" \
         -size +"${BACKUP_MISC_MAX_KB}"k -print ) 2>/dev/null > "$_misc_skip_list" || true
 fi
 if [ -s "$_misc_skip_list" ]; then

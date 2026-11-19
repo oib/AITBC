@@ -12,6 +12,7 @@ import gzip
 import os
 import shutil
 import subprocess
+import tarfile
 import time
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -767,3 +768,25 @@ def test_misc_cap_clean_run_writes_no_manifest(env):
     gens = [d for d in env.base.iterdir() if d.is_dir()]
     assert len(gens) == 1
     assert not (gens[0] / "varlib-state.skipped.txt").exists()
+
+
+def test_misc_cap_excludes_regenerable_caches(env):
+    """Oversized files under regenerable cache/runtime dirs are excluded
+    outright: not archived and not counted as cap skips, so no manifest and
+    no BackupMiscCapSkip signal."""
+    svcdir = env.tmp / "svcdir"
+    for d in ("cache/whisper", "whisper-cache/hub", "ffmpeg-cache", "hermes/node/bin"):
+        (svcdir / d).mkdir(parents=True)
+    (svcdir / "small.json").write_text("{}")
+    for d in ("cache/whisper", "whisper-cache/hub", "ffmpeg-cache", "hermes/node/bin"):
+        (svcdir / d / "big.bin").write_bytes(b"x" * 8192)
+    r = _run(env, SVC_DB_DIR=str(svcdir), BACKUP_MISC_MAX_KB="2")
+    assert r.returncode == 0
+    gens = [d for d in env.base.iterdir() if d.is_dir()]
+    assert len(gens) == 1
+    assert not (gens[0] / "varlib-state.skipped.txt").exists()
+    assert "varlib-state: skipping" not in _log(env)
+    with tarfile.open(gens[0] / "varlib-state.tar.gz") as tf:
+        names = tf.getnames()
+    assert any(n.endswith("small.json") for n in names)
+    assert not any("big.bin" in n for n in names)
