@@ -388,6 +388,25 @@ class BridgeValidatorMixin(BridgeBase):
         logger.debug("Threshold met: %d/%d valid signers for chain %s", count, vset.total, source_chain)
         return True
 
+    def _pbft_commit_signers(self, proof: dict[str, Any], header: Any, source_chain: str) -> list[str]:
+        """#2249: validator addresses proven by the proof's PBFT commit votes.
+
+        Empty unless the height gate is armed and the proof carries
+        ``pbft_commits``; legacy proofs and unarmed nodes behave exactly as before.
+        """
+        from .bridge_pbft_commits import commit_proof_active, verified_commit_signers
+
+        commits = proof.get("pbft_commits")
+        if not commits or not isinstance(commits, list) or not commit_proof_active(getattr(header, "height", None)):
+            return []
+        try:
+            vset = self.get_validator_set(source_chain)
+        except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError):
+            return []
+        if vset is None:
+            return []
+        return verified_commit_signers(commits, header.hash, source_chain, vset.addresses)
+
     def _verify_header_threshold_signatures(self, proof: dict[str, Any], header: Any, multisig_enabled: bool) -> bool:
         """Verify block header signatures against the canonical header message.
 
@@ -418,6 +437,7 @@ class BridgeValidatorMixin(BridgeBase):
         if not source_chain:
             logger.warning("Block header missing chain_id")
             return False
+        signers += self._pbft_commit_signers(proof, header, source_chain)
 
         if not multisig_enabled:
             # Single-sig: at least one recovered signer must match the proposer.
