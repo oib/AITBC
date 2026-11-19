@@ -394,11 +394,21 @@ class BridgeValidatorMixin(BridgeBase):
         Empty unless the height gate is armed and the proof carries
         ``pbft_commits``; legacy proofs and unarmed nodes behave exactly as before.
         """
-        from .bridge_pbft_commits import commit_proof_active, verified_commit_signers
+        from .bridge_pbft_commits import (
+            commit_proof_active,
+            commits_at_height,
+            header_binds_preimage,
+            verified_commit_signers,
+        )
 
         commits = proof.get("pbft_commits")
         if not commits or not isinstance(commits, list) or not commit_proof_active(getattr(header, "height", None)):
             return []
+        # #2275: the commits certify header.hash only — bind it to the header roots first.
+        if not header_binds_preimage(header, proof.get("pbft_preimage")):
+            logger.warning("PBFT commit proof rejected: header hash not reproduced by preimage at h=%s", header.height)
+            return []
+        commits = commits_at_height(commits, header.height)
         try:
             vset = self.get_validator_set(source_chain)
         except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError):
