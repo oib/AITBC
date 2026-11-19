@@ -507,6 +507,8 @@ def test_env_names_process_value_allowed_names(runner, tmp_path, monkeypatch, al
     [
         # URL carrying user:password
         "postgres://aitbc:hunter2@db.internal/aitbc",
+        # empty user — the fleet's Redis form (#2274)
+        "redis://:hunter2@127.0.0.1:6379/0",
         # 0x + 64 hex — private-key shape
         "0x" + "ab" * 32,
         # bare 64-hex run
