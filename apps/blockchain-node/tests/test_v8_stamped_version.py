@@ -3,9 +3,11 @@
 Below ``state_transition_v8_height`` a block's recorded
 ``state_transition_version`` is proposer-controlled and trusted (pre-v8
 semantics). At or above it the stamp is advisory: ``get_block_version``
-always uses the height-derived version, and a mismatched or missing stamp is
-logged and counted (``block_version_stamp_mismatch_total``) — never obeyed
-and never rejected. ``block_metadata`` is covered by neither the block hash
+always uses the height-derived version, and a *mismatched* stamp is logged
+and counted (``block_version_stamp_mismatch_total``) — never obeyed and never
+rejected. An absent stamp is expected above v8 (the proposer stamps late and
+the VC re-seal republishes the pre-stamp body), so it is debug-level only and
+not counted (#2279). ``block_metadata`` is covered by neither the block hash
 nor the proposer signature, so the stamp cannot be allowed to pick the rules
 a block is validated under.
 """
@@ -149,6 +151,17 @@ def test_mismatch_logs_and_counts(v8_active, caplog):
         assert get_block_version(_stamped(7), height=10) == 8
     assert metrics_registry._counters.get("block_version_stamp_mismatch_total") == 1
     assert any("state_transition_version=7" in r.message and "height requires 8" in r.message for r in caplog.records)
+
+
+def test_absent_stamp_is_debug_not_mismatch(v8_active, caplog):
+    """#2279: an absent advisory stamp above v8 is expected (re-seal bodies
+    predate the late stamp) — debug log only, no WARNING, no metric."""
+    metrics_registry.reset()
+    with caplog.at_level(logging.DEBUG, logger="aitbc_chain.state.state_transition"):
+        assert get_block_version({}, height=10) == 8
+        assert get_block_version({"block_metadata": "{bad json"}, height=10) == 8
+    assert metrics_registry._counters.get("block_version_stamp_mismatch_total") is None
+    assert not [r for r in caplog.records if r.levelno >= logging.WARNING]
 
 
 def test_matching_stamp_no_warning(v8_active, caplog):
