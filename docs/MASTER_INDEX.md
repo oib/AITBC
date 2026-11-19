@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-11-17
+**Last Updated**: 2026-11-19
 
 ---
 
@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1525
+- **Markdown files under docs/**: 1526
 
 | Directory | Files | Description |
 |---|---|---|
@@ -73,7 +73,7 @@ docs/
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
-| [cli](cli/) | 598 | Command-line interface reference |
+| [cli](cli/) | 599 | Command-line interface reference |
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
@@ -614,6 +614,7 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/market-exchange-status.md](cli/commands/market-exchange-status.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/market-exchange-withdraw-eth.md](cli/commands/market-exchange-withdraw-eth.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/market-gpu-buy.md](cli/commands/market-gpu-buy.md) | [cli/commands/README.md](cli/commands/README.md) |
+| [cli/commands/market-gpu-list.md](cli/commands/market-gpu-list.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/market-gpu-quote.md](cli/commands/market-gpu-quote.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/market-gpu-refund.md](cli/commands/market-gpu-refund.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/market-gpu-release.md](cli/commands/market-gpu-release.md) | [cli/commands/README.md](cli/commands/README.md) |
@@ -967,7 +968,7 @@ Inbound markdown links per document (top referrers).
 | [features/11-cli.md](features/11-cli.md) | [FEATURES.md](FEATURES.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) |
 | [features/12-infrastructure.md](features/12-infrastructure.md) | [FEATURES.md](FEATURES.md), [cli/commands/start.md](cli/commands/start.md), [cli/commands/system-architect.md](cli/commands/system-architect.md), +17 more |
 | [features/2-bridge-cross-chain.md](features/2-bridge-cross-chain.md) | [FEATURES.md](FEATURES.md), [agent/guides/open-island-joining-guide.md](agent/guides/open-island-joining-guide.md), [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), +36 more |
-| [features/3-market.md](features/3-market.md) | [FEATURES.md](FEATURES.md), [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), +36 more |
+| [features/3-market.md](features/3-market.md) | [FEATURES.md](FEATURES.md), [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), +37 more |
 | [features/4-governance.md](features/4-governance.md) | [FEATURES.md](FEATURES.md), [cli/commands/economics-distributed.md](cli/commands/economics-distributed.md), [cli/commands/economics-market.md](cli/commands/economics-market.md), +21 more |
 | [features/5-mining-pool-hub.md](features/5-mining-pool-hub.md) | [FEATURES.md](FEATURES.md), [cli/commands/mining-list.md](cli/commands/mining-list.md), [cli/commands/mining-start.md](cli/commands/mining-start.md), +5 more |
 | [features/6-agent-coordination.md](features/6-agent-coordination.md) | [FEATURES.md](FEATURES.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +38 more |
@@ -989,16 +990,16 @@ Inbound markdown links per document (top referrers).
 | [features/compute-result-cache.md](features/compute-result-cache.md) | [cli/commands/ai-accept.md](cli/commands/ai-accept.md), [cli/commands/ai-cancel.md](cli/commands/ai-cancel.md), [cli/commands/ai-distribution-stats.md](cli/commands/ai-distribution-stats.md), +14 more |
 | [features/coordinator-heartbeat.md](features/coordinator-heartbeat.md) | [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), [cli/commands/agent-comm-discover.md](cli/commands/agent-comm-discover.md), [cli/commands/agent-comm-list.md](cli/commands/agent-comm-list.md), +10 more |
 | [features/create-knowledge-graph.md](features/create-knowledge-graph.md) | [features/3-market.md](features/3-market.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) |
-| [features/create-payment.md](features/create-payment.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +37 more |
+| [features/create-payment.md](features/create-payment.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +38 more |
 | [features/create-pool.md](features/create-pool.md) | [cli/commands/pool-hub-sla.md](cli/commands/pool-hub-sla.md), [cli/commands/pool-hub-status.md](cli/commands/pool-hub-status.md), [features/5-mining-pool-hub.md](features/5-mining-pool-hub.md), +1 more |
 | [features/delete-pool.md](features/delete-pool.md) | [cli/commands/pool-hub-sla.md](cli/commands/pool-hub-sla.md), [cli/commands/pool-hub-status.md](cli/commands/pool-hub-status.md), [features/5-mining-pool-hub.md](features/5-mining-pool-hub.md), +1 more |
 | [features/deploy-contract.md](features/deploy-contract.md) | [cli/commands/contract-call.md](cli/commands/contract-call.md), [cli/commands/contract-deploy.md](cli/commands/contract-deploy.md), [cli/commands/contract-list.md](cli/commands/contract-list.md), +9 more |
-| [features/dynamic-pricing.md](features/dynamic-pricing.md) | [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), [cli/commands/market-escrow-create.md](cli/commands/market-escrow-create.md), +35 more |
+| [features/dynamic-pricing.md](features/dynamic-pricing.md) | [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), [cli/commands/market-escrow-create.md](cli/commands/market-escrow-create.md), +36 more |
 | [features/edge-advertise.md](features/edge-advertise.md) | [cli/commands/edge-balance.md](cli/commands/edge-balance.md), [cli/commands/edge-database-delete-db.md](cli/commands/edge-database-delete-db.md), [cli/commands/edge-database-get-db.md](cli/commands/edge-database-get-db.md), +26 more |
 | [features/edge-health.md](features/edge-health.md) | [cli/commands/edge-balance.md](cli/commands/edge-balance.md), [cli/commands/edge-database-delete-db.md](cli/commands/edge-database-delete-db.md), [cli/commands/edge-database-get-db.md](cli/commands/edge-database-get-db.md), +27 more |
 | [features/edge-node-query.md](features/edge-node-query.md) | [cli/commands/edge-balance.md](cli/commands/edge-balance.md), [cli/commands/edge-database-delete-db.md](cli/commands/edge-database-delete-db.md), [cli/commands/edge-database-get-db.md](cli/commands/edge-database-get-db.md), +26 more |
 | [features/edge-node-registration.md](features/edge-node-registration.md) | [cli/commands/edge-balance.md](cli/commands/edge-balance.md), [cli/commands/edge-database-delete-db.md](cli/commands/edge-database-delete-db.md), [cli/commands/edge-database-get-db.md](cli/commands/edge-database-get-db.md), +26 more |
-| [features/escrow-verification.md](features/escrow-verification.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +36 more |
+| [features/escrow-verification.md](features/escrow-verification.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +37 more |
 | [features/exchange-rates.md](features/exchange-rates.md) | [cli/commands/exchange-add-liquidity.md](cli/commands/exchange-add-liquidity.md), [cli/commands/exchange-create-pair.md](cli/commands/exchange-create-pair.md), [cli/commands/exchange-island-buy.md](cli/commands/exchange-island-buy.md), +24 more |
 | [features/file-dispute.md](features/file-dispute.md) | [cli/commands/dispute-active.md](cli/commands/dispute-active.md), [cli/commands/dispute-arbitrator-authorize.md](cli/commands/dispute-arbitrator-authorize.md), [cli/commands/dispute-arbitrator-list.md](cli/commands/dispute-arbitrator-list.md), +13 more |
 | [features/forum-topics.md](features/forum-topics.md) | [cli/commands/agent-msg-peers.md](cli/commands/agent-msg-peers.md), [cli/commands/agent-msg-ping.md](cli/commands/agent-msg-ping.md), [cli/commands/agent-msg-receive.md](cli/commands/agent-msg-receive.md), +28 more |
@@ -1026,20 +1027,20 @@ Inbound markdown links per document (top referrers).
 | [features/list-plugins.md](features/list-plugins.md) | [cli/commands/plugin-create.md](cli/commands/plugin-create.md), [cli/commands/plugin-list.md](cli/commands/plugin-list.md), [cli/commands/plugin-load.md](cli/commands/plugin-load.md), +2 more |
 | [features/list-pools.md](features/list-pools.md) | [cli/commands/pool-hub-sla.md](cli/commands/pool-hub-sla.md), [cli/commands/pool-hub-status.md](cli/commands/pool-hub-status.md), [features/5-mining-pool-hub.md](features/5-mining-pool-hub.md), +1 more |
 | [features/market-analytics.md](features/market-analytics.md) | [cli/commands/analytics-alerts.md](cli/commands/analytics-alerts.md), [cli/commands/analytics-dashboard.md](cli/commands/analytics-dashboard.md), [cli/commands/analytics-monitor.md](cli/commands/analytics-monitor.md), +5 more |
-| [features/market-stats.md](features/market-stats.md) | [cli/commands/analytics-alerts.md](cli/commands/analytics-alerts.md), [cli/commands/analytics-dashboard.md](cli/commands/analytics-dashboard.md), [cli/commands/analytics-monitor.md](cli/commands/analytics-monitor.md), +40 more |
-| [features/match-request.md](features/match-request.md) | [cli/commands/ai-accept.md](cli/commands/ai-accept.md), [cli/commands/ai-cancel.md](cli/commands/ai-cancel.md), [cli/commands/ai-distribution-stats.md](cli/commands/ai-distribution-stats.md), +49 more |
+| [features/market-stats.md](features/market-stats.md) | [cli/commands/analytics-alerts.md](cli/commands/analytics-alerts.md), [cli/commands/analytics-dashboard.md](cli/commands/analytics-dashboard.md), [cli/commands/analytics-monitor.md](cli/commands/analytics-monitor.md), +41 more |
+| [features/match-request.md](features/match-request.md) | [cli/commands/ai-accept.md](cli/commands/ai-accept.md), [cli/commands/ai-cancel.md](cli/commands/ai-cancel.md), [cli/commands/ai-distribution-stats.md](cli/commands/ai-distribution-stats.md), +50 more |
 | [features/message-moderation.md](features/message-moderation.md) | [cli/commands/agent-msg-peers.md](cli/commands/agent-msg-peers.md), [cli/commands/agent-msg-ping.md](cli/commands/agent-msg-ping.md), [cli/commands/agent-msg-receive.md](cli/commands/agent-msg-receive.md), +28 more |
 | [features/messaging-contracts.md](features/messaging-contracts.md) | [cli/commands/agent-msg-peers.md](cli/commands/agent-msg-peers.md), [cli/commands/agent-msg-ping.md](cli/commands/agent-msg-ping.md), [cli/commands/agent-msg-receive.md](cli/commands/agent-msg-receive.md), +29 more |
 | [features/messaging-spam-economics.md](features/messaging-spam-economics.md) | [README.md](README.md), [cli/commands/agent-msg-peers.md](cli/commands/agent-msg-peers.md), [cli/commands/agent-msg-ping.md](cli/commands/agent-msg-ping.md), +27 more |
-| [features/offer-history.md](features/offer-history.md) | [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), [cli/commands/market-escrow-create.md](cli/commands/market-escrow-create.md), +34 more |
+| [features/offer-history.md](features/offer-history.md) | [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), [cli/commands/market-escrow-create.md](cli/commands/market-escrow-create.md), +35 more |
 | [features/payment-status.md](features/payment-status.md) | [cli/commands/market-escrow-create.md](cli/commands/market-escrow-create.md), [cli/commands/market-escrow-refund.md](cli/commands/market-escrow-refund.md), [cli/commands/market-escrow-release.md](cli/commands/market-escrow-release.md), +9 more |
 | [features/performance-logging.md](features/performance-logging.md) | [cli/commands/performance-benchmark.md](cli/commands/performance-benchmark.md), [cli/commands/performance-optimize.md](cli/commands/performance-optimize.md), [cli/commands/performance-tune.md](cli/commands/performance-tune.md), +2 more |
-| [features/plugin-offers.md](features/plugin-offers.md) | [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), [cli/commands/market-escrow-create.md](cli/commands/market-escrow-create.md), +37 more |
+| [features/plugin-offers.md](features/plugin-offers.md) | [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), [cli/commands/market-escrow-create.md](cli/commands/market-escrow-create.md), +38 more |
 | [features/pool-miners.md](features/pool-miners.md) | [cli/commands/pool-hub-sla.md](cli/commands/pool-hub-sla.md), [cli/commands/pool-hub-status.md](cli/commands/pool-hub-status.md), [features/5-mining-pool-hub.md](features/5-mining-pool-hub.md), +1 more |
 | [features/pool-stats.md](features/pool-stats.md) | [cli/commands/pool-hub-sla.md](cli/commands/pool-hub-sla.md), [cli/commands/pool-hub-status.md](cli/commands/pool-hub-status.md), [features/5-mining-pool-hub.md](features/5-mining-pool-hub.md), +1 more |
 | [features/prometheus-metrics.md](features/prometheus-metrics.md) | [cli/commands/monitor-alerts.md](cli/commands/monitor-alerts.md), [cli/commands/monitor-campaign-stats.md](cli/commands/monitor-campaign-stats.md), [cli/commands/monitor-campaigns.md](cli/commands/monitor-campaigns.md), +15 more |
 | [features/query-disputes.md](features/query-disputes.md) | [cli/commands/dispute-active.md](cli/commands/dispute-active.md), [cli/commands/dispute-arbitrator-authorize.md](cli/commands/dispute-arbitrator-authorize.md), [cli/commands/dispute-arbitrator-list.md](cli/commands/dispute-arbitrator-list.md), +13 more |
-| [features/rate-offer.md](features/rate-offer.md) | [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), [cli/commands/market-escrow-create.md](cli/commands/market-escrow-create.md), +40 more |
+| [features/rate-offer.md](features/rate-offer.md) | [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), [cli/commands/market-escrow-create.md](cli/commands/market-escrow-create.md), +41 more |
 | [features/readiness-checks.md](features/readiness-checks.md) | [cli/commands/health.md](cli/commands/health.md), [cli/commands/system-architect.md](cli/commands/system-architect.md), [cli/commands/system-audit.md](cli/commands/system-audit.md), +17 more |
 | [features/register-agent-identity.md](features/register-agent-identity.md) | [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), [cli/commands/agent-comm-discover.md](cli/commands/agent-comm-discover.md), +29 more |
 | [features/register-subscription.md](features/register-subscription.md) | [cli/commands/ipfs-download.md](cli/commands/ipfs-download.md), [cli/commands/ipfs-island-subscribe.md](cli/commands/ipfs-island-subscribe.md), [cli/commands/ipfs-island-swarm-key.md](cli/commands/ipfs-island-swarm-key.md), +7 more |
@@ -1196,7 +1197,7 @@ Inbound markdown links per document (top referrers).
 | [reference/backend.md](reference/backend.md) | [README.md](README.md) |
 | [reference/cli-rpc-route-map.md](reference/cli-rpc-route-map.md) | [reference/README.md](reference/README.md) |
 | [reference/faq.md](reference/faq.md) | [blockchain/governance/openclaw-dao-governance.md](blockchain/governance/openclaw-dao-governance.md) |
-| [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) | [cli/commands/README.md](cli/commands/README.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +481 more |
+| [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) | [cli/commands/README.md](cli/commands/README.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +482 more |
 | [reference/mcp-tool-inventory.md](reference/mcp-tool-inventory.md) | [reference/README.md](reference/README.md) |
 | [reference/packages.md](reference/packages.md) | [README.md](README.md) |
 | [reference/record-types.md](reference/record-types.md) | [README.md](README.md), [reference/README.md](reference/README.md) |
@@ -1519,7 +1520,7 @@ Inbound markdown links per document (top referrers).
 | [scenarios/04_messaging_basics.md](scenarios/04_messaging_basics.md) | [cli/commands/agent-msg-peers.md](cli/commands/agent-msg-peers.md), [cli/commands/agent-msg-ping.md](cli/commands/agent-msg-ping.md), [cli/commands/agent-msg-receive.md](cli/commands/agent-msg-receive.md), +31 more |
 | [scenarios/05_island_creation.md](scenarios/05_island_creation.md) | [scenarios/04_messaging_basics.md](scenarios/04_messaging_basics.md), [scenarios/06_basic_trading.md](scenarios/06_basic_trading.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/06_basic_trading.md](scenarios/06_basic_trading.md) | [scenarios/05_island_creation.md](scenarios/05_island_creation.md), [scenarios/07_ai_job_submission.md](scenarios/07_ai_job_submission.md), [scenarios/33_exchange_financial_correctness.md](scenarios/33_exchange_financial_correctness.md), +1 more |
-| [scenarios/07_ai_job_submission.md](scenarios/07_ai_job_submission.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +41 more |
+| [scenarios/07_ai_job_submission.md](scenarios/07_ai_job_submission.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +42 more |
 | [scenarios/09_gpu_listing.md](scenarios/09_gpu_listing.md) | [cli/commands/gpu-onchain-allocate.md](cli/commands/gpu-onchain-allocate.md), [cli/commands/gpu-onchain-allocations.md](cli/commands/gpu-onchain-allocations.md), [cli/commands/gpu-onchain-deregister.md](cli/commands/gpu-onchain-deregister.md), +7 more |
 | [scenarios/10_agent_sdk_identity.md](scenarios/10_agent_sdk_identity.md) | [scenarios/09_gpu_listing.md](scenarios/09_gpu_listing.md), [scenarios/11_ipfs_storage.md](scenarios/11_ipfs_storage.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/11_ipfs_storage.md](scenarios/11_ipfs_storage.md) | [cli/commands/ipfs-download.md](cli/commands/ipfs-download.md), [cli/commands/ipfs-island-subscribe.md](cli/commands/ipfs-island-subscribe.md), [cli/commands/ipfs-island-swarm-key.md](cli/commands/ipfs-island-swarm-key.md), +9 more |
@@ -1544,7 +1545,7 @@ Inbound markdown links per document (top referrers).
 | [scenarios/31_async_http_client.md](scenarios/31_async_http_client.md) | [scenarios/30_secret_manager_thread_safety.md](scenarios/30_secret_manager_thread_safety.md), [scenarios/32_hardcoded_secrets_failfast.md](scenarios/32_hardcoded_secrets_failfast.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/32_hardcoded_secrets_failfast.md](scenarios/32_hardcoded_secrets_failfast.md) | [scenarios/31_async_http_client.md](scenarios/31_async_http_client.md), [scenarios/33_exchange_financial_correctness.md](scenarios/33_exchange_financial_correctness.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/33_exchange_financial_correctness.md](scenarios/33_exchange_financial_correctness.md) | [releases/v0.10/v0.10.3_AGENTS.md](releases/v0.10/v0.10.3_AGENTS.md), [scenarios/32_hardcoded_secrets_failfast.md](scenarios/32_hardcoded_secrets_failfast.md), [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), +1 more |
-| [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md) | [architecture/1_system-flow.md](architecture/1_system-flow.md), [archive/apps-clients/README.md](archive/apps-clients/README.md), [cli/commands/ai-submit.md](cli/commands/ai-submit.md), +45 more |
+| [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md) | [architecture/1_system-flow.md](architecture/1_system-flow.md), [archive/apps-clients/README.md](archive/apps-clients/README.md), [cli/commands/ai-submit.md](cli/commands/ai-submit.md), +46 more |
 | [scenarios/35_fire_and_forget_logging_b10_b11.md](scenarios/35_fire_and_forget_logging_b10_b11.md) | [scenarios/24_task_error_logging.md](scenarios/24_task_error_logging.md), [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), [scenarios/36_pool_hub_sla_e2e.md](scenarios/36_pool_hub_sla_e2e.md), +1 more |
 | [scenarios/36_pool_hub_sla_e2e.md](scenarios/36_pool_hub_sla_e2e.md) | [scenarios/35_fire_and_forget_logging_b10_b11.md](scenarios/35_fire_and_forget_logging_b10_b11.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/41_whisper_ffmpeg_shop_offers.md](scenarios/41_whisper_ffmpeg_shop_offers.md) | [cli/commands/market-offer.md](cli/commands/market-offer.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), [reference/record-types.md](reference/record-types.md), +1 more |
@@ -1558,7 +1559,7 @@ Inbound markdown links per document (top referrers).
 | [scenarios/51_multi_validator_poa_soak.md](scenarios/51_multi_validator_poa_soak.md) | [DESIGN_CYCLE.md](DESIGN_CYCLE.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/52_wallet_key_mismatch.md](scenarios/52_wallet_key_mismatch.md) | [DESIGN_CYCLE.md](DESIGN_CYCLE.md), [scenarios/53_dashboards.md](scenarios/53_dashboards.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/53_dashboards.md](scenarios/53_dashboards.md) | [scenarios/README.md](scenarios/README.md) |
-| [scenarios/54_agent_paid_delegation.md](scenarios/54_agent_paid_delegation.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +37 more |
+| [scenarios/54_agent_paid_delegation.md](scenarios/54_agent_paid_delegation.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +38 more |
 | [scenarios/55_dispute_lifecycle.md](scenarios/55_dispute_lifecycle.md) | [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), [scenarios/56_energy_pricing.md](scenarios/56_energy_pricing.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/56_energy_pricing.md](scenarios/56_energy_pricing.md) | [scenarios/55_dispute_lifecycle.md](scenarios/55_dispute_lifecycle.md), [scenarios/57_coin_requests.md](scenarios/57_coin_requests.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/57_coin_requests.md](scenarios/57_coin_requests.md) | [scenarios/56_energy_pricing.md](scenarios/56_energy_pricing.md), [scenarios/58_economics_dao.md](scenarios/58_economics_dao.md), [scenarios/README.md](scenarios/README.md) |
@@ -1579,7 +1580,7 @@ Inbound markdown links per document (top referrers).
 | [scenarios/72_developer_registry.md](scenarios/72_developer_registry.md) | [scenarios/71_reinvest_policy.md](scenarios/71_reinvest_policy.md), [scenarios/73_contract_deploy_call.md](scenarios/73_contract_deploy_call.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/73_contract_deploy_call.md](scenarios/73_contract_deploy_call.md) | [scenarios/72_developer_registry.md](scenarios/72_developer_registry.md), [scenarios/74_confidential_payments.md](scenarios/74_confidential_payments.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/74_confidential_payments.md](scenarios/74_confidential_payments.md) | [scenarios/73_contract_deploy_call.md](scenarios/73_contract_deploy_call.md), [scenarios/README.md](scenarios/README.md) |
-| [scenarios/75_market_escrow_jobs_options.md](scenarios/75_market_escrow_jobs_options.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +38 more |
+| [scenarios/75_market_escrow_jobs_options.md](scenarios/75_market_escrow_jobs_options.md) | [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), [cli/commands/market-download.md](cli/commands/market-download.md), +39 more |
 | [scenarios/76_bridge_options.md](scenarios/76_bridge_options.md) | [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), [cli/commands/bridge-balance.md](cli/commands/bridge-balance.md), [cli/commands/bridge-confirm.md](cli/commands/bridge-confirm.md), +28 more |
 | [scenarios/77_trade_options.md](scenarios/77_trade_options.md) | [scenarios/README.md](scenarios/README.md) |
 | [scenarios/78_market_options.md](scenarios/78_market_options.md) | [scenarios/README.md](scenarios/README.md) |
