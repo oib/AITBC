@@ -6,8 +6,11 @@ signal is the proposer's journal ("Attestation arrival:" INFO lines in
 aitbc_chain/consensus/remote_attestation.py). This exporter measures the
 sealed outcome instead: each block's ``block_metadata.attestations`` list
 holds ONLY the remote attestations that arrived before sealing (the
-proposer's own is implicit and never listed), so a validator absent from
-the list was too late or never arrived.
+proposer's own is implicit and never listed). Since #2232 a validator also
+counts as present when it is a commit sender in ``pbft_certificate``: the
+VIEW_CHANGE-gated seal path stores the certificate and drops the proposer's
+late attestation round, so attestations alone read as silence on a healthy
+fleet. A validator absent from both was too late or never took part.
 
 Reads the last ``AITBC_ATTESTATION_WINDOW_BLOCKS`` blocks of every production
 chain.db found under ``AITBC_DATA_DIR`` (or the explicit ``AITBC_CHAIN_DB``),
@@ -128,18 +131,28 @@ def find_chain_dbs(data_dir: str) -> list[str]:
 
 
 def _attesting_validators(block_metadata: object) -> set[str]:
-    """Distinct validator addresses in the attestation list; malformed -> empty."""
+    """Distinct validators that took part in sealing the block; malformed -> empty.
+
+    Union of ``attestations[].validator`` and the commit senders of
+    ``pbft_certificate``. With the VIEW_CHANGE gate the block is sealed from
+    the PBFT certificate before the proposer's attestation round finishes, and
+    the proposer's own copy (carrying the attestations) is dropped as a
+    duplicate, so the certificate is the evidence of record and the
+    attestations list is usually empty (#2232).
+    """
     try:
         meta = json.loads(str(block_metadata))
     except (json.JSONDecodeError, TypeError, ValueError):
         return set()
-    attestations = meta.get("attestations") if isinstance(meta, dict) else None
-    if not isinstance(attestations, list):
+    if not isinstance(meta, dict):
         return set()
     out = set()
-    for entry in attestations:
-        if isinstance(entry, dict) and entry.get("validator"):
-            out.add(str(entry["validator"]))
+    attestations = meta.get("attestations")
+    if isinstance(attestations, list):
+        for entry in attestations:
+            if isinstance(entry, dict) and entry.get("validator"):
+                out.add(str(entry["validator"]))
+    out |= _certificate_committers(block_metadata)
     return out
 
 

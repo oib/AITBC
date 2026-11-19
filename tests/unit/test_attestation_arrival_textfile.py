@@ -368,3 +368,29 @@ def test_certificate_commit_series_2232(tmp_path):
     assert stats.certificate_blocks == 2
     out = exporter.render({str(db): stats}, NOW)
     assert "aitbc_block_certificate_commits_min" in out and "aitbc_block_certificate_blocks" in out
+
+
+def test_certificate_commit_senders_count_as_present_2232(tmp_path):
+    """Certificate-only blocks (attestations dropped by the dup-skip) read as participation, not silence."""
+    db = tmp_path / "chain.db"
+    con = sqlite3.connect(db)
+    con.execute("CREATE TABLE block (height INTEGER PRIMARY KEY, proposer TEXT, timestamp TEXT, block_metadata TEXT)")
+    cert = [{"message_type": "commit", "sender": s} for s in (B, C)]  # D never commits
+    for h in range(1, 6):
+        con.execute(
+            "INSERT INTO block VALUES (?,?,?,?)",
+            (h, A, "2026-09-01 00:00:00", json.dumps({"attestations": [], "pbft_certificate": cert})),
+        )
+    con.commit()
+    stats = exporter.arrival_stats(con, 10, [A, B, C, D])
+    con.close()
+    assert stats.consecutive_missed[B] == 0 and stats.consecutive_missed[C] == 0
+    assert stats.consecutive_missed[D] == 5
+    assert stats.missed_blocks[D] == 5 and stats.missed_blocks[B] == 0
+    # a prepare-typed or senderless entry is not participation
+    assert (
+        exporter._attesting_validators(json.dumps({"pbft_certificate": [{"message_type": "prepare", "sender": B}]})) == set()
+    )
+    # attestations and certificate union without double counting
+    both = json.dumps({"attestations": [{"validator": B}], "pbft_certificate": cert})
+    assert exporter._attesting_validators(both) == {B, C}

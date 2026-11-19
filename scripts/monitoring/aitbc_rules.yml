@@ -568,7 +568,8 @@ groups:
         {{ $value }})
       description: aitbc_attestation_arrival_share for {{ $labels.db }} is below 0.97
         over the last window — a remote validator's attestations are arriving too
-        late to seal (or not at all). On a 4-validator set, one validator missing
+        late to seal (or not at all). A validator counts as present when it is in
+        block_metadata.attestations OR a pbft_certificate commit sender (#2232). On a 4-validator set, one validator missing
         ~10% of its owed blocks lands the share near 0.967; the V-9 baseline is ~0.9967.
         aitbc_attestation_missed_blocks{validator=...} names who is missing; check
         that validator's connectivity and the proposer journal 'Attestation arrival:'
@@ -582,8 +583,8 @@ groups:
       summary: Validator {{ $labels.validator }} silent for {{ $value }} consecutive
         owed blocks ({{ $labels.instance }})
       description: aitbc_attestation_consecutive_missed shows {{ $labels.validator
-        }} missed every remote attestation it owed for >=20 blocks back from the head
-        on {{ $labels.db }} — likely down or partitioned. Check that validator's node
+        }} missed every remote attestation it owed and appeared in no pbft_certificate for
+        >=20 blocks back from the head on {{ $labels.db }} — likely down or partitioned. Check that validator's node
         and its attestation signer.
   - alert: AttestationArrivalCheckStale
     expr: time() - aitbc_attestation_scrape_timestamp_seconds > 3600
