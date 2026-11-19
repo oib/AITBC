@@ -147,6 +147,7 @@ class BridgeTransferProofMixin(BridgeBase):
                 "lock_event": lock_value.decode(),
                 "proposer_signature": block.signature,
                 "validator_signatures": validator_signatures,
+                **self._proof_pbft_commit_field(block),
             }
 
     @staticmethod
@@ -377,7 +378,18 @@ class BridgeTransferProofMixin(BridgeBase):
             "lock_event": lock_value.decode(),
             "proposer_signature": block.signature,
             "validator_signatures": validator_signatures,
+            **self._proof_pbft_commit_field(block),
         }
+
+    @staticmethod
+    def _proof_pbft_commit_field(block: Block) -> dict[str, Any]:
+        """#2249: ``pbft_commits`` for the proof when the gate is armed at this height."""
+        from .bridge_pbft_commits import commit_proof_active, commits_from_metadata
+
+        if not commit_proof_active(getattr(block, "height", None)):
+            return {}
+        commits = commits_from_metadata(block.block_metadata)
+        return {"pbft_commits": commits} if commits else {}
 
     def _proof_validator_signatures(self, block: Block, source_chain: str) -> list[str]:
         """Sealed + threshold-top-up validator signatures for a proof."""
@@ -486,6 +498,14 @@ class BridgeTransferProofMixin(BridgeBase):
             logger.warning("Failed to parse VALIDATOR_SET for proof augmentation: %s", e)
             return None
 
+    def _pbft_commit_signers_for_block(self, block: Block, source_chain: str, vset: Any) -> list[str]:
+        """#2249: committers the proof will carry, so top-up does not chase signatures already covered."""
+        from .bridge_pbft_commits import commit_proof_active, commits_from_metadata, verified_commit_signers
+
+        if not commit_proof_active(getattr(block, "height", None)):
+            return []
+        return verified_commit_signers(commits_from_metadata(block.block_metadata), block.hash, source_chain, vset.addresses)
+
     def _augment_proof_validator_signatures(
         self,
         block: Block,
@@ -544,6 +564,7 @@ class BridgeTransferProofMixin(BridgeBase):
         attester_domains = bridge_header_signature_domains(height, "attestation")
         signers = recover_all_signers(message, [proposer_sig] if proposer_sig else [], proposer_domains)
         signers += recover_all_signers(message, validator_signatures, attester_domains)
+        signers += self._pbft_commit_signers_for_block(block, source_chain, vset)
         meets, count, deduped = check_threshold(signers, vset, threshold)
         if meets:
             # Cheap path: sealed attestations + proposer already satisfy the
