@@ -294,8 +294,8 @@ def _get_client(ctx: click.Context | None = None, url: str | None = None) -> AIT
             base_url = config.governance_service_url
     # Mutating routes require X-Api-Key since #1873; send the service key
     # when the operator has provisioned one (GOVERNANCE_API_KEY), else the
-    # generic configured key.
-    api_key = os.getenv("GOVERNANCE_API_KEY")
+    # generic configured key. An explicit --api-key flag wins over both.
+    api_key = (ctx.obj.get("api_key") if ctx is not None and ctx.obj else None) or os.getenv("GOVERNANCE_API_KEY")
     if not api_key:
         cfg = (ctx.obj.get("config") if ctx is not None and ctx.obj else None) or get_config()
         api_key = getattr(cfg, "api_key", None)
