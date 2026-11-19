@@ -58,8 +58,74 @@ def test_ignored_structural_noise_messages():
             "_SYSTEMD_UNIT": "aitbc-blockchain-rpc.service",
             "_TRANSPORT": "stdout",
         },
+        # #2254 steady-state exclusions
+        {
+            "__CURSOR": "c-st",
+            "PRIORITY": "6",
+            "MESSAGE": "[WARNING] [aitbc_chain.state.state_transition] Block at height 31300 records state_transition_version=None; height requires 23 — using the height-derived version",
+            "_SYSTEMD_UNIT": "aitbc-blockchain-node.service",
+            "_TRANSPORT": "stdout",
+        },
+        {
+            "__CURSOR": "c-pbft",
+            "PRIORITY": "6",
+            "MESSAGE": "[WARNING] [aitbc_chain.consensus.pbft] PBFT refusing vote at seq 31300 view 7: no_new_view (hash 0xabc)",
+            "_SYSTEMD_UNIT": "aitbc-blockchain-node.service",
+            "_TRANSPORT": "stdout",
+        },
+        {
+            "__CURSOR": "c-gossip",
+            "PRIORITY": "6",
+            "MESSAGE": "[WARNING] [aitbc_chain.gossip.telemetry] gossip_evt event=publish_failed peer=node1.aitbc topic=blocks.bc-2 id=blocks.bc-2:0x1 attempts=3 outcome=ack_timeout attempt_age_ms=12.3",
+            "_SYSTEMD_UNIT": "aitbc-blockchain-node.service",
+            "_TRANSPORT": "stdout",
+        },
+        {
+            "__CURSOR": "c-propose",
+            "PRIORITY": "6",
+            "MESSAGE": "[WARNING] [aitbc_chain.consensus.poa] [PROPOSE] Height 31300 has gone 3 round(s) without a block; this round belongs to 0x2aD5",
+            "_SYSTEMD_UNIT": "aitbc-blockchain-node.service",
+            "_TRANSPORT": "stdout",
+        },
+        {
+            "__CURSOR": "c-lease",
+            "PRIORITY": "6",
+            "MESSAGE": "[WARNING] [aitbc_chain.subscription_client] Lease expiring soon, renewing",
+            "_SYSTEMD_UNIT": "aitbc-blockchain-node.service",
+            "_TRANSPORT": "stdout",
+        },
+        {
+            "__CURSOR": "c-merkle",
+            "PRIORITY": "6",
+            "MESSAGE": "[WARNING] [aitbc_chain.cross_chain.bridge_transfer_proof] Proof has no merkle_proof and release/production enforcement enabled — rejecting (height=1)",
+            "_SYSTEMD_UNIT": "aitbc-blockchain-rpc-island.service",
+            "_TRANSPORT": "stdout",
+        },
     ]
     assert _count(iter(noise)) == Counter()
+
+
+def test_journal_noise_exclusions_keep_near_misses_visible():
+    """#2254: the new patterns are anchored — other refuse reasons, other
+    publish outcomes, and other proof rejections must still count."""
+    records = [
+        {
+            "__CURSOR": f"c-{i}",
+            "PRIORITY": "6",
+            "MESSAGE": msg,
+            "_SYSTEMD_UNIT": "aitbc-blockchain-node.service",
+            "_TRANSPORT": "stdout",
+        }
+        for i, msg in enumerate(
+            [
+                "[WARNING] PBFT refusing vote at seq 31300 view 7: bad_signature (hash 0xabc)",
+                "[WARNING] gossip_evt event=publish_failed peer=node1 topic=blocks.bc-2 id=x attempts=3 outcome=error",
+                "[WARNING] Bridge proof rejected: signer below multisig threshold",
+                "[WARNING] Block at height 31300 records state_transition_version=22; height requires 23",
+            ]
+        )
+    ]
+    assert _count(iter(records)) == Counter({(0, "aitbc-blockchain-node.service"): 4})
 
 
 def test_render_emits_zero_anchor_when_no_unit_has_errors():

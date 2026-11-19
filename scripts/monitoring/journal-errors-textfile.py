@@ -61,11 +61,27 @@ TEXT_LEVEL_RE = re.compile("^" + TEXT_LEVEL_PATTERN)
 
 # Structural noise (#1639): exclude from counters so warning/error alerts
 # reflect incidents, not steady-state PoA notices, gossip reconnect retries,
-# or localhost escrow API-key probe 403s (#1664).
+# or localhost escrow API-key probe 403s (#1664). The #2254 additions are
+# steady-state chatter verified flat pre/post-change in the 19 Nov alert
+# sweep; each pattern is anchored to the exact message shape so other
+# refusal/failure reasons in the same subsystems stay visible.
 _JOURNAL_NOISE_PATTERNS: tuple[re.Pattern[str], ...] = (
     re.compile(r"min_attestations", re.IGNORECASE),
     re.compile(r"WebSocket gossip reconnect", re.IGNORECASE),
     re.compile(r"missing or invalid X-API-Key", re.IGNORECASE),
+    # height-derived state_transition_version fallback on old blocks
+    re.compile(r"records state_transition_version=None", re.IGNORECASE),
+    # single-proposer vote skip; other refuse reasons stay counted
+    re.compile(r"PBFT refusing vote at seq \d+ view \d+: no_new_view", re.IGNORECASE),
+    # gossip telemetry ack_timeout on publish_failed (blocks/attest topics)
+    re.compile(r"gossip_evt event=publish_failed\b.*\boutcome=ack_timeout\b"),
+    # node2 round-robin proposer skip notice
+    re.compile(r"\[PROPOSE\] Height \d+ has gone \d+ round\(s\) without a block"),
+    # subscription_client routine lease renewal
+    re.compile(r"Lease expiring soon, renewing", re.IGNORECASE),
+    # rpc-island: invalid-proof submissions (external scanners + retries of
+    # unsealable locks) rejected by the no-merkle-proof enforcement check
+    re.compile(r"Proof has no merkle_proof and release/production enforcement enabled", re.IGNORECASE),
 )
 
 _LABEL_SAFE = re.compile(r"[^a-zA-Z0-9_.-]")
