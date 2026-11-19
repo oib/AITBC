@@ -24,6 +24,29 @@ groups:
       description: The proposer is publishing bc-2 blocks to the gossip mesh but no
         peer push succeeds — peers cannot hear this proposer and are falling back
         to pull-sync.
+  # #2259: per-peer terminal publish failures were invisible once #2254
+  # excluded the journal publish_failed/ack_timeout chatter. Steady-state
+  # churn exists by design (~15-20% worst pair on blocks.bc-2), so this is a
+  # ratio alert, not an absolute count: >50% of a pair's publishes failing
+  # terminally over 15m, with a >=4 volume floor so a single failed publish
+  # on a quiet pair cannot fire it.
+  - alert: GossipPeerPublishFailures
+    expr: "(\n  sum by (instance, node, peer, topic_class) (increase(blockchain_gossip_peer_publish_terminal_total{outcome=\"failed\"}[15m]))\n\
+      \  /\n  sum by (instance, node, peer, topic_class) (increase(blockchain_gossip_peer_publish_terminal_total[15m]))\n\
+      \  > 0.5)\n  and on(instance, node, peer, topic_class)\n  (\n  sum by (instance, node, peer, topic_class)\
+      \ (increase(blockchain_gossip_peer_publish_terminal_total[15m])) >= 4\n  )\n"
+    for: 10m
+    labels:
+      severity: warning
+    annotations:
+      summary: Gossip publishes to {{ $labels.peer }} failing on {{ $labels.node }} ({{ $labels.topic_class }})
+      description: Over half of this node's terminal gossip publishes to
+        {{ $labels.peer }} on {{ $labels.topic_class }} failed over the last 15
+        minutes — sustained peer-side delivery degradation (flapping peer,
+        auth/epoch mismatch, or mesh partition), not the steady-state
+        ack_timeout churn excluded under issue 2254. Cross-check
+        GossipBlockDeliveryFailing for whole-mesh failure and the node journal
+        for reconnect patterns.
   - alert: BroadcastSkipped
     expr: increase(blockchain_poa_broadcast_skipped_total{chain_id!~".*island.*"}[5m])
       > 0

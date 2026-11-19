@@ -2189,3 +2189,53 @@ tests:
       - eval_time: 30m
         alertname: IncusPoolFillCritical
         exp_alerts: []
+
+  # #2259 GossipPeerPublishFailures: ratio alert on terminal publish
+  # failures per (node, peer, topic_class). Steady-state churn is ~15-20%
+  # worst pair, so only a >50% sustained ratio with real volume fires.
+  - interval: 30s
+    input_series:
+      # Case A (fires): 4 fails + 1 ack per interval -> ~80% failure ratio,
+      # volume far above the floor.
+      - series: 'blockchain_gossip_peer_publish_terminal_total{instance="127.0.0.1:9009", job="remote-write", node="node9", peer="bad.example.com", topic_class="blocks.bc-2", outcome="failed"}'
+        values: '0+4x60'
+      - series: 'blockchain_gossip_peer_publish_terminal_total{instance="127.0.0.1:9009", job="remote-write", node="node9", peer="bad.example.com", topic_class="blocks.bc-2", outcome="acked"}'
+        values: '0+1x60'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: GossipPeerPublishFailures
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: "127.0.0.1:9009"
+              node: "node9"
+              peer: "bad.example.com"
+              topic_class: "blocks.bc-2"
+            exp_annotations:
+              summary: "Gossip publishes to bad.example.com failing on node9 (blocks.bc-2)"
+              description: "Over half of this node's terminal gossip publishes to bad.example.com on blocks.bc-2 failed over the last 15 minutes — sustained peer-side delivery degradation (flapping peer, auth/epoch mismatch, or mesh partition), not the steady-state ack_timeout churn excluded under issue 2254. Cross-check GossipBlockDeliveryFailing for whole-mesh failure and the node journal for reconnect patterns."
+
+  # Case B (silent): steady-state churn ratio (~20% failures) must not fire.
+  - interval: 30s
+    input_series:
+      - series: 'blockchain_gossip_peer_publish_terminal_total{instance="127.0.0.1:9009", job="remote-write", node="node8", peer="flaky.example.com", topic_class="blocks.bc-2", outcome="failed"}'
+        values: '0+1x60'
+      - series: 'blockchain_gossip_peer_publish_terminal_total{instance="127.0.0.1:9009", job="remote-write", node="node8", peer="flaky.example.com", topic_class="blocks.bc-2", outcome="acked"}'
+        values: '0+4x60'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: GossipPeerPublishFailures
+        exp_alerts: []
+
+  # Case C (silent): a single failed publish on a quiet pair — ratio is 1.0
+  # but volume is below the >=4 floor.
+  - interval: 30s
+    input_series:
+      - series: 'blockchain_gossip_peer_publish_terminal_total{instance="127.0.0.1:9009", job="remote-write", node="node7", peer="quiet.example.com", topic_class="consensus.attest_response.bc-2", outcome="failed"}'
+        values: '0x20 1x10'
+      - series: 'blockchain_gossip_peer_publish_terminal_total{instance="127.0.0.1:9009", job="remote-write", node="node7", peer="quiet.example.com", topic_class="consensus.attest_response.bc-2", outcome="acked"}'
+        values: '0x30'
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: GossipPeerPublishFailures
+        exp_alerts: []
