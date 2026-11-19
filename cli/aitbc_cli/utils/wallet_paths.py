@@ -185,7 +185,8 @@ def ambiguous_wallet_note(report: WalletSearchResult) -> str | None:
     """
     if len(report.matches) < 2 or report.path is None:
         return None
-    return f"wallet '{report.name}' found in multiple directories; using {report.path}"
+    others = ", ".join(str(p) for p in report.matches if p != report.path)
+    return f"wallet '{report.name}' found in multiple directories; using {report.path} (also present at: {others})"
 
 
 def wallet_not_found_message(report: WalletSearchResult) -> str:
