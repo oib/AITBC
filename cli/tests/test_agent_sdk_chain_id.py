@@ -130,3 +130,31 @@ def test_get_identity_sends_chain_id_when_probed(runner):
         result = _invoke_agent(runner, ["get-identity", "--agent-id", "a1"])
     assert result.exit_code == 0, result.output
     assert client.get.call_args.args[0] == "/rpc/identity/a1?chain_id=ait-probed"
+
+
+# --- #2262: identity commands must send the blockchain RPC API key ---
+
+
+def test_identity_commands_send_blockchain_rpc_api_key(runner, monkeypatch):
+    """register/get/verify-identity must pass api_key or key-required nodes 403."""
+    monkeypatch.setenv("CHAIN_ID", "env-chain")
+    config = MagicMock()
+    config.blockchain_rpc_url = "http://rpc:8202"
+    config.blockchain_rpc_api_key = "rpc-key-123"
+    client = MagicMock()
+    client.post.return_value = {}
+    client.get.return_value = {}
+    with (
+        patch("aitbc_cli.commands.agent_sdk.get_config", return_value=config),
+        patch("aitbc_cli.commands.agent_sdk.AITBCHTTPClient", return_value=client) as client_cls,
+        _failing_probe(),
+    ):
+        r1 = _invoke_agent(runner, ["register-identity", "--agent-id", "a1", "--agent-address", ACCOUNT])
+        r2 = _invoke_agent(runner, ["verify-identity", "--agent-id", "a1", "--verifier-address", PROVIDER])
+        r3 = _invoke_agent(runner, ["get-identity", "--agent-id", "a1"])
+    assert r1.exit_code == 0, r1.output
+    assert r2.exit_code == 0, r2.output
+    assert r3.exit_code == 0, r3.output
+    assert client_cls.call_count == 3
+    for call in client_cls.call_args_list:
+        assert call.kwargs["api_key"] == "rpc-key-123"

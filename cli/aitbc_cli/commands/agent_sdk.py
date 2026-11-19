@@ -876,7 +876,11 @@ try:
                 return
 
             # Submit identity registration to blockchain RPC
-            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            http_client = AITBCHTTPClient(
+                base_url=rpc_url,
+                timeout=30,
+                api_key=(ctx.obj or {}).get("api_key") or getattr(config, "blockchain_rpc_api_key", None),
+            )
             identity_data = {
                 "agent_id": agent_id,
                 "agent_address": hex_address,
@@ -929,7 +933,11 @@ try:
             chain_id = resolve_chain_id(ctx, rpc_url, required=False)
 
             # Query identity from blockchain RPC
-            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            http_client = AITBCHTTPClient(
+                base_url=rpc_url,
+                timeout=30,
+                api_key=(ctx.obj or {}).get("api_key") or getattr(config, "blockchain_rpc_api_key", None),
+            )
             query = f"?chain_id={chain_id}" if chain_id else ""
             result = http_client.get(f"/rpc/identity/{agent_id}{query}")
 
@@ -965,7 +973,11 @@ try:
             chain_id = resolve_chain_id(ctx, rpc_url)
 
             # Submit verification to blockchain RPC
-            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+            http_client = AITBCHTTPClient(
+                base_url=rpc_url,
+                timeout=30,
+                api_key=(ctx.obj or {}).get("api_key") or getattr(config, "blockchain_rpc_api_key", None),
+            )
             verification_data = {"agent_id": agent_id, "verifier_address": verifier_address, "chain_id": chain_id}
             result = http_client.post("/rpc/identity/verify", json=verification_data)
 
