@@ -1262,6 +1262,8 @@ tests:
     input_series:
       - series: 'aitbc_attestation_arrival_share{instance="node1:9100", db="/data/chain.db"}'
         values: '0.95x40'
+      - series: 'aitbc_block_certificate_commits_min{instance="node1:9100", db="/data/chain.db"}'
+        values: '2x40'
     promql_expr_test:
       - expr: ALERTS{alertname="AttestationArrivalDegraded", alertstate="firing"}
         eval_time: 29m
@@ -1271,6 +1273,20 @@ tests:
         exp_samples:
           - labels: 'ALERTS{alertname="AttestationArrivalDegraded", alertstate="firing", instance="node1:9100", db="/data/chain.db", severity="warning"}'
             value: 1
+
+  # #2232: low attestation share with a quorum-sized certificate on every block
+  # is the VIEW_CHANGE-gated healthy shape (attestations dropped, certificate
+  # holds): never fires.
+  - interval: 1m
+    input_series:
+      - series: 'aitbc_attestation_arrival_share{instance="node1:9100", db="/data/chain.db"}'
+        values: '0.77x40'
+      - series: 'aitbc_block_certificate_commits_min{instance="node1:9100", db="/data/chain.db"}'
+        values: '3x40'
+    promql_expr_test:
+      - expr: ALERTS{alertname="AttestationArrivalDegraded"}
+        eval_time: 40m
+        exp_samples: []
 
   # Healthy share 0.995: never fires.
   - interval: 1m

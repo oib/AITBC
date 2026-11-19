@@ -559,7 +559,9 @@ groups:
 - name: aitbc-attestation-arrival
   rules:
   - alert: AttestationArrivalDegraded
-    expr: aitbc_attestation_arrival_share{db!~".*island.*"} < 0.97
+    expr: >-
+      aitbc_attestation_arrival_share{db!~".*island.*"} < 0.97
+      and on(instance, db) aitbc_block_certificate_commits_min < 3
     for: 30m
     labels:
       severity: warning
@@ -569,7 +571,10 @@ groups:
       description: aitbc_attestation_arrival_share for {{ $labels.db }} is below 0.97
         over the last window — a remote validator's attestations are arriving too
         late to seal (or not at all). A validator counts as present when it is in
-        block_metadata.attestations OR a pbft_certificate commit sender (#2232). On a 4-validator set, one validator missing
+        block_metadata.attestations OR a pbft_certificate commit sender, and the
+        alert only fires while some block in the window carries fewer than 3 certificate
+        commits (the n=4 PBFT quorum), since a quorum-sized certificate omits one validator by
+        design, so the share alone sits near 0.77 on a healthy fleet (#2232). On a 4-validator set, one validator missing
         ~10% of its owed blocks lands the share near 0.967; the V-9 baseline is ~0.9967.
         aitbc_attestation_missed_blocks{validator=...} names who is missing; check
         that validator's connectivity and the proposer journal 'Attestation arrival:'
