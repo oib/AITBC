@@ -52,7 +52,7 @@ from aitbc.utils.chain_config import ChainConfigParser
 from ..base_models import CrossChainEscrowRecord, EscrowProofRecord
 from ..config import settings
 from ..contracts.htlc_contract import HTLCContract
-from ..database import session_scope
+from ..database import ChainDbMissingError, session_scope
 from ..logger import get_logger
 
 logger = get_logger(__name__)
@@ -293,8 +293,17 @@ class CrossChainSettlementService:
         # is what converts between them.
         source_block_time = _get_chain_block_time_seconds(source_chain)
         dest_block_time = _get_chain_block_time_seconds(dest_chain)
-        source_current_height = _get_chain_height(source_chain)
-        dest_current_height = _get_chain_height(dest_chain)
+        try:
+            source_current_height = _get_chain_height(source_chain)
+            dest_current_height = _get_chain_height(dest_chain)
+        except ChainDbMissingError as exc:
+            # #2265: an unprovisioned chain must refuse cleanly (4xx via the
+            # route's ValueError mapping), not surface as an unhandled 500.
+            raise ValueError(f"cannot create escrow: chain database not provisioned on this node ({exc})") from exc
+        except RuntimeError as exc:
+            # _get_chain_head raises RuntimeError when the chain has no blocks
+            # locally — same unprovisioned-chain refusal class.
+            raise ValueError(f"cannot create escrow: {exc}") from exc
         source_timelock = calculate_source_timelock(
             current_block_height=source_current_height,
             timeout_seconds=timeout_seconds,
