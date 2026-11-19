@@ -109,10 +109,28 @@ def _hub_market_client(timeout: int = 15) -> AITBCHTTPClient:
 
 def _daemon_available(ipfs_api: str = IPFS_API) -> bool:
     try:
-        requests.post(f"{ipfs_api}/api/v0/id", timeout=2)
-        return True
+        response = requests.post(f"{ipfs_api}/api/v0/id", timeout=2)
+        return response.status_code == 200
     except requests.RequestException:
         return False
+
+
+def resolve_ipfs_api() -> str | None:
+    """First reachable Kubo API endpoint, or None when no daemon answers.
+
+    ``IPFS_API_URL`` wins outright; otherwise probe the stock Kubo port
+    (``IPFS_API``, :5001) then the island daemon port (:5002) — the same
+    coverage ``market host`` uses, so content uploaded here is visible to
+    the daemon the market commands pin against (#2263).
+    """
+    candidates = [IPFS_API]
+    island_api = "http://127.0.0.1:5002"
+    if IPFS_API != island_api:
+        candidates.append(island_api)
+    for candidate in candidates:
+        if _daemon_available(candidate):
+            return candidate
+    return None
 
 
 def _api_post(path: str, **kwargs: Any) -> requests.Response:
@@ -265,13 +283,15 @@ def upload(ctx, file: str, pin: bool, name: str | None):
     data = file_path.read_bytes()
     _ensure_ipfs_dir()
 
-    if _daemon_available():
+    ipfs_api = resolve_ipfs_api()
+    if ipfs_api:
         try:
             response = _api_post(
                 "/api/v0/add",
                 params={"pin": "true" if pin else "false", "wrap-with-directory": "false"},
                 files={"file": (file_path.name, data)},
                 timeout=120,
+                ipfs_api=ipfs_api,
             )
             response.raise_for_status()
             result = response.json()
@@ -348,9 +368,9 @@ def download(
         error("Provide a CID")
         raise click.Abort()
 
-    ipfs_api = os.environ.get("IPFS_API_URL") or IPFS_API
+    ipfs_api = resolve_ipfs_api()
 
-    if _daemon_available(ipfs_api):
+    if ipfs_api:
         try:
             data = _fetch_via_daemon(cid, wait, ipfs_api)
         except requests.RequestException:
@@ -409,9 +429,10 @@ def _write_download(data: bytes, output_path: str | None) -> str:
 @click.pass_context
 def pin(ctx, cid: str):
     """Pin content by CID on the local Kubo daemon or filesystem index."""
-    if _daemon_available():
+    ipfs_api = resolve_ipfs_api()
+    if ipfs_api:
         try:
-            response = _api_post("/api/v0/pin/add", params={"arg": cid})
+            response = _api_post("/api/v0/pin/add", params={"arg": cid}, ipfs_api=ipfs_api)
             response.raise_for_status()
             click.echo(json.dumps({"success": True, "data": {"pinned": True, "cid": cid}}))
             return
@@ -457,8 +478,9 @@ def pin(ctx, cid: str):
 @click.pass_context
 def unpin(ctx, cid: str):
     """Unpin content by CID on the local Kubo daemon or filesystem index."""
-    if _daemon_available():
-        if _ipfs_unpin_cid(IPFS_API, cid):
+    ipfs_api = resolve_ipfs_api()
+    if ipfs_api:
+        if _ipfs_unpin_cid(ipfs_api, cid):
             click.echo(json.dumps({"success": True, "data": {"pinned": False, "cid": cid}}))
             return
         click.echo(json.dumps({"success": False, "warning": "Kubo unpin failed; using filesystem index"}), err=True)
@@ -489,9 +511,10 @@ def unpin(ctx, cid: str):
 @click.pass_context
 def list_items(ctx):
     """List uploaded and pinned IPFS items."""
-    if _daemon_available():
+    ipfs_api = resolve_ipfs_api()
+    if ipfs_api:
         try:
-            response = _api_post("/api/v0/pin/ls", params={"stream": "true"}, stream=True)
+            response = _api_post("/api/v0/pin/ls", params={"stream": "true"}, stream=True, ipfs_api=ipfs_api)
             response.raise_for_status()
             items = []
             for line in response.iter_lines():
