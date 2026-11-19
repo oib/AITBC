@@ -167,7 +167,7 @@ def get_block_version_for_height(height: int) -> int:
     # v9+ thresholds treat any configured value as active; v3-v8 additionally
     # require a positive threshold (their getattr default is 0). v2 inverts:
     # heights *below* its threshold run v1 rules.
-    for version in range(26, 2, -1):
+    for version in range(27, 2, -1):
         threshold = getattr(settings, f"state_transition_v{version}_height", None)
         if not threshold:
             continue
@@ -210,6 +210,19 @@ def block_scoped_preregistered_for_next_block(session: Session, chain_id: str) -
     return block_scoped_preregistered(get_block_version_for_height((head or 0) + 1))
 
 
+BRIDGE_SIGNED_NONCE_RUNG = 27
+
+
+def _carries_bridge_signature(tx_data: dict[str, Any]) -> bool:
+    """True when the tx carries the bridge authority's ``bridge_signature``
+    (flat envelope field or inside ``payload``). Such a signature binds the
+    envelope nonce, so v27+ must verify it against that nonce (#2252)."""
+    if tx_data.get("bridge_signature"):
+        return True
+    payload = tx_data.get("payload")
+    return isinstance(payload, dict) and bool(payload.get("bridge_signature"))
+
+
 def use_account_nonce_override(tx_data: dict[str, Any], block_version: int) -> bool:
     """Whether apply-time code must substitute the account's live nonce for the
     tx's recorded nonce before validation.
@@ -224,10 +237,16 @@ def use_account_nonce_override(tx_data: dict[str, Any], block_version: int) -> b
       operator-relayed records) carry no signed nonce to enforce; the check
       must not run on a meaningless stored value.
 
+    From v27 (#2252) a tx carrying a ``bridge_signature`` also keeps its
+    envelope nonce: the authority signature binds it, and rewriting it made
+    a lock sharing a nonce with an earlier sealed lock fail verification.
+
     For signed transactions at v7+ the envelope nonce is authoritative: the
     signature covers it, and the nonce check enforces it for real instead of
     being a tautology behind the rewrite.
     """
     if block_version < 7:
         return True
+    if block_version >= BRIDGE_SIGNED_NONCE_RUNG and _carries_bridge_signature(tx_data):
+        return False
     return not (tx_data.get("signature") or tx_data.get("sig"))
