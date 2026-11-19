@@ -219,6 +219,23 @@ class TestSettlementService:
 
     # -- create_escrow -----------------------------------------------------
 
+    @pytest.mark.asyncio
+    async def test_create_escrow_unprovisioned_chain_refuses_4xx_class(self, mock_session):
+        """#2265: a dest chain with no local head must refuse with ValueError
+        (route maps to 400), not an unhandled 500."""
+        from aitbc_chain.cross_chain.settlement import CrossChainSettlementService
+
+        svc = CrossChainSettlementService(chain_id="ait-hub")
+        with pytest.raises(ValueError, match="cannot create escrow"):
+            await svc.create_escrow(
+                trade_id="trade_x",
+                source_chain="ait-hub",
+                dest_chain="ait-unprovisioned",
+                sender="alice",
+                recipient="bob",
+                amount=100,
+            )
+
     # -- lock_escrow -------------------------------------------------------
 
     # -- verify_lock -------------------------------------------------------

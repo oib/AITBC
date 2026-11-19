@@ -44,6 +44,10 @@ async def create_escrow_route(request: Request, escrow_data: dict[str, Any]) -> 
         return result
     except KeyError as e:
         raise HTTPException(status_code=400, detail=f"Missing required field: {e.args[0]}") from e
+    except ValueError as e:
+        # #2265: unprovisioned chain / unsafe timelocks / bad params are
+        # caller-visible refusals, not server faults.
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except HTTPException:
         raise
     except Exception as e:
