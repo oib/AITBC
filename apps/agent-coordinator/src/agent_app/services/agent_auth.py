@@ -361,7 +361,13 @@ def authorize_agent_scope(principal: AgentPrincipal | None, agent_id: str, actio
     if principal.is_admin or principal.agent_id == agent_id:
         return
     if mode == "enforce":
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="agent_mismatch")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=(
+                f"agent_mismatch: principal '{principal.agent_id}' may not act on agent '{agent_id}' "
+                "(check --from-agent/--wallet binding)"
+            ),
+        )
     logger.warning(
         "agent_authz_mismatch action=%s agent_id=%s principal=%s auth_type=%s mode=%s",
         action,

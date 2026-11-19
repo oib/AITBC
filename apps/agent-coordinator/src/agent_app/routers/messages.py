@@ -81,7 +81,13 @@ def _authorize_message_party(principal: AgentPrincipal | None, message: dict[str
         allowed = principal.agent_id == receiver
     if not allowed:
         if mode == "enforce":
-            raise HTTPException(status_code=403, detail="agent_mismatch")
+            raise HTTPException(
+                status_code=403,
+                detail=(
+                    f"agent_mismatch: principal '{principal.agent_id}' is not a party to this message "
+                    f"(sender={sender}, receiver={receiver})"
+                ),
+            )
         logger.warning(
             "agent_authz_mismatch action=%s principal=%s sender=%s receiver=%s mode=%s",
             action,
