@@ -23,19 +23,20 @@ from sqlmodel import Session, create_engine, select
 from aitbc.crypto.consensus_signing import sign_consensus_message
 from aitbc_chain.consensus.pbft_vote_signature import pbft_vote_preimage
 from aitbc_chain.cross_chain.bridge import CrossChainBridge
+from aitbc_chain.consensus.block_hash import compute_block_hash
 from aitbc_chain.cross_chain.bridge_pbft_commits import (
     commit_proof_active,
     commits_from_metadata,
     verified_commit_signers,
 )
 from aitbc_chain.metadata import chain_metadata
-from aitbc_chain.models import Block
+from aitbc_chain.models import Block, BridgeBlockHeader
 
 _tests_dir = str(Path(__file__).resolve().parent)
 if _tests_dir not in sys.path:
     sys.path.insert(0, _tests_dir)
 
-from test_bridge_proof_signature_augmentation import HEIGHT, SOURCE, TARGET, THRESHOLD, _lock, _seal
+from test_bridge_proof_signature_augmentation import HEIGHT, SOURCE, TARGET, THRESHOLD, _lock, _seal, sign_block_hash_local
 
 BLOCK_HASH = "0x" + "ab" * 32
 
@@ -189,12 +190,23 @@ def _settings():
 
 def _seal_cert_only(bridge: CrossChainBridge, engine: Any, proposer: EthAccount, committers: list[EthAccount], **kw: Any):
     tid = _lock(bridge, engine)
-    block = _seal(bridge, engine, proposer, [tid], attestations=[])
-    certificate = [_commit(a, block_hash=block.hash, **kw) for a in committers]
+    _seal(bridge, engine, proposer, [tid], attestations=[])
+    kw.setdefault("seq", HEIGHT)  # PBFT sequence == block height (#2275)
     with Session(engine) as session:
         row = session.exec(select(Block).where(Block.chain_id == SOURCE, Block.height == HEIGHT)).one()
+        # #2275: seal with the real hash preimage so the root binding can be checked.
+        row.hash = compute_block_hash(
+            SOURCE, HEIGHT, row.parent_hash, row.timestamp, [tid], row.proposer, row.state_root, row.bridge_state_root
+        )
+        row.signature = sign_block_hash_local(row, proposer.key.hex())
+        certificate = [_commit(a, block_hash=row.hash, **kw) for a in committers]
         row.block_metadata = json.dumps({"attestations": [], "pbft_certificate": certificate})
         session.add(row)
+        hdr = session.exec(
+            select(BridgeBlockHeader).where(BridgeBlockHeader.chain_id == SOURCE, BridgeBlockHeader.height == HEIGHT)
+        ).one()
+        hdr.hash, hdr.signature = row.hash, row.signature
+        session.add(hdr)
         session.commit()
     return tid
 
@@ -253,3 +265,60 @@ class TestEndToEnd:
         a["signature"], b["signature"] = b["signature"], a["signature"]  # both now invalid for their sender
         header = bridge._get_block_header(SOURCE, HEIGHT)
         assert not bridge._verify_threshold_signatures(proof, header=header)
+
+
+class TestRootBinding2275:
+    """#2275: commits certify only the block hash — header roots must reproduce it."""
+
+    def _register(self, bridge, proposer, others):
+        for a in [proposer, *others]:
+            bridge.register_validator(SOURCE, a.address.lower(), "0x", 0)
+
+    def _armed_proof(self, bridge, engine, accts):
+        proposer, v1, v2, _ = accts
+        self._register(bridge, proposer, [v1, v2])
+        tid = _seal_cert_only(bridge, engine, proposer, [v1, v2])
+        proof = bridge.build_proof(tid, source_chain=SOURCE)
+        header = bridge._get_block_header(SOURCE, HEIGHT)
+        assert header is not None
+        return proof, header
+
+    def test_honest_proof_carries_preimage_and_verifies(self, bridge, engine, accts):
+        proof, header = self._armed_proof(bridge, engine, accts)
+        assert set(proof["pbft_preimage"]) == {"timestamp", "tx_hashes", "aux_state_root"}
+        assert bridge._verify_threshold_signatures(proof, header=header)
+
+    def test_forged_bridge_state_root_in_header_rejected(self, bridge, engine, accts):
+        proof, header = self._armed_proof(bridge, engine, accts)
+        header.bridge_state_root = "0x" + "11" * 32  # real certified hash, forged root
+        assert not bridge._verify_threshold_signatures(proof, header=header)
+
+    def test_forged_state_root_in_header_rejected(self, bridge, engine, accts):
+        proof, header = self._armed_proof(bridge, engine, accts)
+        header.state_root = "0x" + "22" * 32
+        assert not bridge._verify_threshold_signatures(proof, header=header)
+
+    def test_missing_or_tampered_preimage_rejected(self, bridge, engine, accts):
+        proof, header = self._armed_proof(bridge, engine, accts)
+        stripped = {k: v for k, v in proof.items() if k != "pbft_preimage"}
+        assert not bridge._verify_threshold_signatures(stripped, header=header)
+        bad_tx = {**proof, "pbft_preimage": {**proof["pbft_preimage"], "tx_hashes": ["0x" + "33" * 32]}}
+        assert not bridge._verify_threshold_signatures(bad_tx, header=header)
+        bad_aux = {**proof, "pbft_preimage": {**proof["pbft_preimage"], "aux_state_root": "0x" + "44" * 32}}
+        assert not bridge._verify_threshold_signatures(bad_aux, header=header)
+        junk = {**proof, "pbft_preimage": {"tx_hashes": "nope", "timestamp": 5}}
+        assert not bridge._verify_threshold_signatures(junk, header=header)
+
+    def test_commits_for_other_sequence_rejected(self, bridge, engine, accts):
+        proposer, v1, v2, _ = accts
+        self._register(bridge, proposer, [v1, v2])
+        tid = _seal_cert_only(bridge, engine, proposer, [v1, v2], seq=HEIGHT + 1)
+        proof = bridge.build_proof(tid, source_chain=SOURCE)
+        header = bridge._get_block_header(SOURCE, HEIGHT)
+        assert "pbft_commits" not in proof
+        assert not bridge._verify_threshold_signatures(proof, header=header)
+
+    def test_oversized_preimage_rejected(self, bridge, engine, accts):
+        proof, header = self._armed_proof(bridge, engine, accts)
+        huge = {**proof["pbft_preimage"], "tx_hashes": ["0x00"] * 20001}
+        assert not bridge._verify_threshold_signatures({**proof, "pbft_preimage": huge}, header=header)

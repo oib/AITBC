@@ -8,6 +8,15 @@ the proof as their own channel (``pbft_commits``) and are verified here under
 the same rules the importing node applies to a stored certificate:
 ``digest == sha256(block_hash:seq:view)``, sender in the validator set, valid
 vote signature (chain-bound preimage first, legacy second).
+
+#2275 root binding: a commit only certifies the block *hash*. The stored
+``BridgeBlockHeader`` carries ``state_root``/``bridge_state_root`` but not the
+tx set, timestamp or ``aux_state_root`` the hash also commits to, so a valid
+certificate for a real hash could be paired with forged header roots. The proof
+therefore carries ``pbft_preimage`` (timestamp, tx hashes, aux root) and the
+verifier recomputes ``compute_block_hash`` from the header's own fields plus
+that preimage; commits count only when it reproduces ``header.hash`` and each
+commit's sequence is the header height (PBFT sequence == next height).
 """
 
 from __future__ import annotations
@@ -24,6 +33,8 @@ from ..config import settings
 _COMMIT_FIELDS = ("message_type", "sender", "signature", "view_number", "sequence_number", "digest", "block_hash")
 # Upper bound on commits a proof may carry/we will verify (n validators, one commit each).
 _MAX_COMMITS = 64
+# Upper bound on tx hashes in a carried preimage (bounds proof size / verifier work).
+_MAX_PREIMAGE_TXS = 20000
 
 
 def commit_proof_active(height: int | None) -> bool:
@@ -123,3 +134,61 @@ def verified_commit_signers(
         return []
     best = max(groups.values(), key=len)
     return sorted(best.values())
+
+
+def preimage_for_block(block: Any, tx_hashes: Iterable[str]) -> dict[str, Any]:
+    """#2275: the block-hash preimage terms the stored header does not hold."""
+    from ..consensus.block_hash import _hash_timestamp
+
+    return {
+        "timestamp": _hash_timestamp(block.timestamp),
+        "tx_hashes": sorted(str(h) for h in tx_hashes),
+        "aux_state_root": getattr(block, "aux_state_root", None) or "",
+    }
+
+
+def header_binds_preimage(header: Any, preimage: Any) -> bool:
+    """True when ``compute_block_hash`` over the header's own fields and the
+    carried ``preimage`` reproduces ``header.hash`` (fails closed on any defect)."""
+    from ..consensus.block_hash import compute_block_hash
+
+    if not isinstance(preimage, dict):
+        return False
+    tx_hashes, timestamp, aux = preimage.get("tx_hashes"), preimage.get("timestamp"), preimage.get("aux_state_root", "")
+    if not isinstance(tx_hashes, list) or len(tx_hashes) > _MAX_PREIMAGE_TXS:
+        return False
+    if not all(isinstance(h, str) for h in tx_hashes) or not isinstance(timestamp, str) or not isinstance(aux, str):
+        return False
+    try:
+        recomputed = compute_block_hash(
+            str(header.chain_id),
+            int(header.height),
+            str(header.parent_hash),
+            timestamp,
+            tx_hashes,
+            str(header.proposer),
+            header.state_root or "",
+            header.bridge_state_root or "",
+            aux,
+        )
+    except (TypeError, ValueError, AttributeError):
+        return False
+    return recomputed == str(header.hash)
+
+
+def commits_at_height(commits: Iterable[Any], height: Any) -> list[Any]:
+    """#2275: PBFT sequence == block height; drop commits for any other sequence."""
+    try:
+        want = int(height)
+    except (TypeError, ValueError):
+        return []
+    out = []
+    for c in commits:
+        if not isinstance(c, dict):
+            continue
+        try:
+            if int(str(c.get("sequence_number"))) == want:
+                out.append(c)
+        except ValueError:
+            continue
+    return out
