@@ -112,6 +112,9 @@ def test_find_wallet_file_configured_dir_wins(two_wallet_dirs):
     assert len(report.matches) == 2
     note = ambiguous_wallet_note(report)
     assert note and str(configured / "dup.json") in note
+    # #2271: the note must name every candidate, not just the winner —
+    # "which is authoritative" was unanswerable from the old text.
+    assert str(service / "dup.json") in note
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root bypasses permission bits — dir stays readable")
