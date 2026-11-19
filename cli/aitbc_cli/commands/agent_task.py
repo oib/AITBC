@@ -35,6 +35,7 @@ from ..utils.wallet_secret import wallet_password_options
 from ..utils import error, info, output, success, warning
 from ..utils.agent_signing import (
     check_registry_binding,
+    find_agent_by_identity,
     load_signing_wallet,
     sign_send_envelope,
     signed_request_headers,
@@ -82,9 +83,33 @@ def _coordinator_url(ctx, coordinator_url: str | None) -> str:
     return origin_base_url(url, DEFAULT_COORDINATOR_URL)
 
 
-def _buyer_agent_id(from_agent: str | None) -> str:
-    agent_id = from_agent or os.environ.get("AGENT_ID") or f"buyer-{os.uname().nodename}"
-    return agent_id
+def _explicit_buyer_agent(from_agent: str | None) -> str | None:
+    """The operator-chosen buyer agent id, or ``None`` when unset."""
+    return from_agent or os.environ.get("AGENT_ID") or None
+
+
+def _resolve_buyer_agent(
+    client: AITBCHTTPClient,
+    from_agent: str | None,
+    wallet_address: str | None,
+) -> str:
+    """Buyer agent id for inbox polls and negotiation envelopes.
+
+    Explicit ``--from-agent``/``$AGENT_ID`` wins. Otherwise, when a signing
+    wallet is loaded, prefer the agent bound to that wallet's identity
+    address: the hostname default (``buyer-<host>``) mismatches the
+    wallet-bound principal under ``AGENT_MSG_SIGNATURE_MODE=enforce`` and
+    produced the round-3 ``agent_mismatch`` inbox-poll failure (#2271).
+    Registry lookup failures fall back to the hostname default.
+    """
+    explicit = _explicit_buyer_agent(from_agent)
+    if explicit:
+        return explicit
+    if wallet_address:
+        bound = find_agent_by_identity(client, wallet_address)
+        if bound:
+            return bound
+    return f"buyer-{os.uname().nodename}"
 
 
 def _send_task_message(
@@ -249,19 +274,21 @@ def _settlement_wallet(client: AITBCHTTPClient, config, ctx, rpc_url: str) -> st
 def _buyer_signing(
     ctx,
     client: AITBCHTTPClient,
-    buyer_agent: str,
+    buyer_agent: str | None,
     wallet_name: str | None,
     password: str | None,
     password_file: str | None,
     password_stdin: bool,
     sign: bool,
-) -> tuple[str, str, tuple[str, str] | None, str | None]:
+) -> tuple[str, str, tuple[str, str] | None, str | None, str]:
     """Load the buyer wallet and derive the signing material for this hire.
 
-    Returns (buyer_address, private_key, signing, signing_key). The same wallet
-    signs every negotiation envelope (doc §4) and the X-Agent-* inbox-poll
-    headers. ``--no-sign`` keeps the unsigned behaviour for coordinators still
-    running with AGENT_MSG_SIGNATURE_MODE=disabled.
+    Returns (buyer_address, private_key, signing, signing_key, buyer_agent).
+    ``buyer_agent=None`` resolves the agent bound to the signing wallet (see
+    :func:`_resolve_buyer_agent`). The same wallet signs every negotiation
+    envelope (doc §4) and the X-Agent-* inbox-poll headers. ``--no-sign``
+    keeps the unsigned behaviour for coordinators still running with
+    AGENT_MSG_SIGNATURE_MODE=disabled.
     """
     buyer_address, private_key, _ = load_wallet_for_payment(
         ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
@@ -272,13 +299,14 @@ def _buyer_signing(
 
     signing = (buyer_address, private_key) if sign else None
     signing_key = private_key if sign else None
+    buyer_agent = _resolve_buyer_agent(client, buyer_agent, buyer_address)
     if signing is not None:
         # Soft check only: the coordinator still accepts while advisory, and a
         # registry lookup failure must not block the escrowed hire.
         binding_note = check_registry_binding(client, buyer_agent, buyer_address)
         if binding_note:
             warning(f"{binding_note} — signed envelopes may be rejected once the coordinator enforces")
-    return buyer_address, private_key, signing, signing_key
+    return buyer_address, private_key, signing, signing_key, buyer_agent
 
 
 def _submit_task(
@@ -509,7 +537,6 @@ def hire(
         timeout=30,
         **auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, get_config().api_key),
     )
-    buyer_agent = _buyer_agent_id(from_agent)
     max_price_ait = _parse_max_price(max_price)
 
     # 1. Payload → CID on the buyer's island daemon.
@@ -532,8 +559,8 @@ def hire(
         raise click.Abort()
 
     # 4. Buyer wallet + signing material for the escrow lock and envelopes.
-    buyer_address, private_key, signing, signing_key = _buyer_signing(
-        ctx, client, buyer_agent, wallet_name, password, password_file, password_stdin, sign
+    buyer_address, private_key, signing, signing_key, buyer_agent = _buyer_signing(
+        ctx, client, _explicit_buyer_agent(from_agent), wallet_name, password, password_file, password_stdin, sign
     )
 
     task_id = f"atask_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
@@ -613,14 +640,15 @@ def status(
         timeout=15,
         **auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, get_config().api_key),
     )
-    buyer_agent = _buyer_agent_id(from_agent)
-
     signing_key = None
+    wallet_address = None
     if sign:
         wallet = load_signing_wallet(
             ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
         )
-        signing_key = wallet[1] if wallet else None
+        if wallet:
+            wallet_address, signing_key = wallet
+    buyer_agent = _resolve_buyer_agent(client, from_agent, wallet_address)
 
     escrow: dict[str, Any] | None = None
     try:
@@ -669,14 +697,15 @@ def result(
         timeout=15,
         **auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, get_config().api_key),
     )
-    buyer_agent = _buyer_agent_id(from_agent)
-
     signing_key = None
+    wallet_address = None
     if sign:
         wallet = load_signing_wallet(
             ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
         )
-        signing_key = wallet[1] if wallet else None
+        if wallet:
+            wallet_address, signing_key = wallet
+    buyer_agent = _resolve_buyer_agent(client, from_agent, wallet_address)
 
     found = _find_task_messages(_inbox(client, buyer_agent, signing_key=signing_key), task_id)
     task_result = found.get("task_result")

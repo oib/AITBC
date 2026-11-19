@@ -271,3 +271,73 @@ def test_settlement_wallet_coordinator_wins():
     config = SimpleNamespace(hub_proposer_id="0xPROP")
     with patch("aitbc_cli.utils.escrow.get_node_wallet", side_effect=AssertionError("must not be called")):
         assert _settlement_wallet(client, config, SimpleNamespace(), "http://rpc:8202") == "0xCOORD"
+
+
+def _discover_client(bound_agent_id):
+    """Client whose /v1/agents/discover scan returns one wallet-bound agent."""
+    client = MagicMock()
+    client.post.return_value = {"agents": [{"agent_id": bound_agent_id, "identity_address": "0xBound"}]}
+    return client
+
+
+def test_resolve_buyer_agent_explicit_wins():
+    """--from-agent beats wallet binding and $AGENT_ID."""
+    from aitbc_cli.commands.agent_task import _resolve_buyer_agent
+
+    client = _discover_client("bound-agent")
+    with patch.dict("os.environ", {"AGENT_ID": "env-agent"}):
+        assert _resolve_buyer_agent(client, "flag-agent", "0xBound") == "flag-agent"
+    client.post.assert_not_called()
+
+
+def test_resolve_buyer_agent_env_wins_over_wallet():
+    from aitbc_cli.commands.agent_task import _resolve_buyer_agent
+
+    client = _discover_client("bound-agent")
+    with patch.dict("os.environ", {"AGENT_ID": "env-agent"}):
+        assert _resolve_buyer_agent(client, None, "0xBound") == "env-agent"
+    client.post.assert_not_called()
+
+
+def test_resolve_buyer_agent_wallet_binding_used():
+    """No explicit agent: the wallet-bound agent replaces buyer-<hostname>."""
+    import os
+
+    from aitbc_cli.commands import agent_task as mod
+
+    client = _discover_client("scenario-agent")
+    # find_agent_by_identity canonicalizes addresses; match whatever the
+    # registry scan returns by agent_id regardless of address compare —
+    # patch the helper to isolate resolution order.
+    with patch.object(mod, "find_agent_by_identity", return_value="scenario-agent") as m:
+        with patch.dict("os.environ", {}, clear=False):
+            os.environ.pop("AGENT_ID", None)
+            assert mod._resolve_buyer_agent(client, None, "0xWALLET") == "scenario-agent"
+    m.assert_called_once_with(client, "0xWALLET")
+
+
+def test_resolve_buyer_agent_hostname_fallback():
+    """No explicit agent and no wallet binding: buyer-<hostname> as before."""
+    import os
+
+    from aitbc_cli.commands import agent_task as mod
+
+    client = MagicMock()
+    client.post.side_effect = Exception("registry down")
+    with patch.dict("os.environ", {}, clear=False):
+        os.environ.pop("AGENT_ID", None)
+        result = mod._resolve_buyer_agent(client, None, "0xWALLET")
+    assert result == f"buyer-{os.uname().nodename}"
+
+
+def test_resolve_buyer_agent_no_wallet_hostname_fallback():
+    """--no-sign path: no wallet address, so no registry lookup at all."""
+    from aitbc_cli.commands import agent_task as mod
+
+    client = MagicMock()
+    with patch.object(mod, "find_agent_by_identity", side_effect=AssertionError("must not scan")):
+        with patch.dict("os.environ", {}, clear=False):
+            import os
+
+            os.environ.pop("AGENT_ID", None)
+            assert mod._resolve_buyer_agent(client, None, None) == f"buyer-{os.uname().nodename}"
