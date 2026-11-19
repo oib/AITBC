@@ -722,9 +722,11 @@ def test_generation_dirs_group_traversable_files_stay_private(env):
         assert mode & 0o007 == 0, f"{d}: mode {mode:o} world-accessible"
     all_files = [Path(dp) / f for dp, _, fns in os.walk(newest) for f in fns]
     chain_dumps = [f for f in all_files if f.name.startswith("chain_") and f.name.endswith("_chain.db.gz")]
-    other_files = [f for f in all_files if f not in chain_dumps]
+    # #2253: the skip manifest is read by the User=aitbc exporter probe too.
+    group_read = chain_dumps + [f for f in all_files if f.name == "varlib-state.skipped.txt"]
+    other_files = [f for f in all_files if f not in group_read]
     assert chain_dumps, "run produced no chain_*_chain.db.gz artifact"
-    for f in chain_dumps:
+    for f in group_read:
         mode = f.stat().st_mode & 0o777
         assert mode & 0o007 == 0, f"{f}: world-accessible chain dump"
         assert mode & 0o040 == 0o040, f"{f}: chain dump not group-readable (gzip -t probe needs it)"
@@ -750,6 +752,9 @@ def test_misc_cap_skip_writes_manifest(env):
     lines = manifest.read_text().splitlines()
     assert any(line.endswith("\t./huge.bin") for line in lines), lines
     assert "skipping ./huge.bin" in _log(env)
+    # #2253: the User=aitbc exporter reads this manifest — it must be
+    # group-readable like the chain dumps, not blanket-600.
+    assert manifest.stat().st_mode & 0o777 == 0o640
 
 
 def test_misc_cap_clean_run_writes_no_manifest(env):
