@@ -195,6 +195,7 @@ GENERATED_READ_ONLY_AITBC_PATHS = frozenset(
         "market exchange list-deposits",
         "market exchange price",
         "market exchange status",
+        "market gpu list",
         "market jobs",
         "market list",
         "market match",
