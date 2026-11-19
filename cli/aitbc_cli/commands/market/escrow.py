@@ -575,7 +575,7 @@ def _post_escrow_create(config, rpc_url: str, payload: dict):
 def _report_escrow_created(result) -> str | None:
     contract_id = result.get("contract_id") if isinstance(result, dict) else None
     if contract_id:
-        success(f"Escrow created: contract_id={contract_id}")
+        success(f"Escrow created: contract_id={contract_id} (informational — escrow commands take the job_id)")
     return contract_id
 
 

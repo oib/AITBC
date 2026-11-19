@@ -40,7 +40,7 @@ from ._group import market
 from ._signing import signed_job_request_fields
 from . import get_chain_id, get_market_wallet
 from .escrow import _escrow_create, _post_escrow_release, _post_escrow_rpc
-from .jobs import _resolve_offer, _track_coordinator_job
+from .jobs import _refund_orphaned_escrow, _resolve_offer, _track_coordinator_job
 
 logger = get_logger(__name__)
 
@@ -279,30 +279,6 @@ def _release_and_track(
     return release_result
 
 
-def _refund_orphaned_escrow(job_id: str, contract_id: str | None) -> None:
-    """Best-effort refund of an escrow whose market job was never registered.
-
-    IPFS-PIN-LEAK-1 (#1687): aborts between ``_escrow_create`` and
-    ``_track_market_job`` leave a locked escrow with no job row — no sweeper
-    can ever find it. The on-chain escrow is keyed by ``job_id``, so the same
-    refund RPC ``market cancel`` uses applies here. Failure is only warned:
-    the operator can still refund once the lock is visible on-chain.
-    """
-    refund_result, refund_failures = _post_escrow_rpc(
-        get_config(),
-        f"/rpc/escrow/{job_id}/refund",
-        {"reason": "ipfs_hosting_aborted"},
-        timeout=20,
-    )
-    if refund_result is None:
-        warning(
-            f"Escrow refund failed ({'; '.join(refund_failures) or 'no endpoint reachable'}); "
-            f"escrow {contract_id or job_id} stays locked — refund it manually."
-        )
-    else:
-        warning(f"Aborted IPFS hosting; escrow refund submitted for {contract_id or job_id}: {refund_result}")
-
-
 def _pin_hosting_cid(ipfs_api: str, cid: str) -> tuple[bool, bool]:
     """Pin ``cid`` for hosting; return ``(pinned, pin_created)``.
 
@@ -316,6 +292,7 @@ def _pin_hosting_cid(ipfs_api: str, cid: str) -> tuple[bool, bool]:
 
 
 def _register_ipfs_market_job(
+    ctx: click.Context,
     job_data: dict[str, Any],
     *,
     ipfs_api: str,
@@ -334,12 +311,12 @@ def _register_ipfs_market_job(
     except Exception:
         if pin_created:
             _ipfs_unpin_cid(ipfs_api, cid)
-        _refund_orphaned_escrow(job_id, contract_id)
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
         raise
     if not market_result:
         if pin_created:
             _ipfs_unpin_cid(ipfs_api, cid)
-        _refund_orphaned_escrow(job_id, contract_id)
+        _refund_orphaned_escrow(ctx, job_id, contract_id)
         error("Failed to register market job; pin and escrow cleaned up (best-effort).")
         raise click.Abort()
     return market_result
@@ -413,8 +390,11 @@ def _run_ipfs_hosting(
             # The escrow is already locked and no market job record exists
             # yet, so nothing would ever refund it — attempt the refund
             # here instead of stranding buyer funds (#1687).
-            _refund_orphaned_escrow(job_id, contract_id)
-            error(f"Failed to pin CID {cid} on {ipfs_api}. Escrow {contract_id} refund attempted.")
+            _refund_orphaned_escrow(ctx, job_id, contract_id)
+            error(
+                f"Failed to pin CID {cid} on {ipfs_api}. "
+                f"Refund attempted for market job {job_id} (escrow contract_id {contract_id} is informational only)."
+            )
             raise click.Abort()
 
     if content_size is None:
@@ -472,6 +452,7 @@ def _run_ipfs_hosting(
     }
 
     market_result = _register_ipfs_market_job(
+        ctx,
         job_data,
         ipfs_api=ipfs_api,
         cid=cid,
@@ -496,7 +477,10 @@ def _run_ipfs_hosting(
     output_record["access_key"] = access_key
     output_record["access_secret"] = access_secret
 
-    success(f"Hosted {cid} for {days} day(s); cost {total_cost:.4f} AIT; market job {job_id}; escrow {contract_id}")
+    success(
+        f"Hosted {cid} for {days} day(s); cost {total_cost:.4f} AIT; market job {job_id} "
+        f"(escrow contract_id {contract_id} — informational only; escrow commands take the job_id)"
+    )
     output(output_record, output_format, title="IPFS Market Job")
     return output_record
 

@@ -92,10 +92,10 @@ class TestIpfsHostingAbortCleanup:
         assert aborted
         mocks["_ipfs_unpin_cid"].assert_called_once()
         assert mocks["_ipfs_unpin_cid"].call_args[0][1] == self.CID
-        # refund helper is called with (job_id, contract_id); job_id is generated
+        # refund helper is called with (ctx, job_id, contract_id); job_id is generated
         args = mocks["_refund_orphaned_escrow"].call_args[0]
-        assert args[1] == "contract-1"
-        assert args[0].startswith("sw_job_ipfs_")
+        assert args[2] == "contract-1"
+        assert args[1].startswith("sw_job_ipfs_")
 
     def test_preexisting_pin_is_not_removed_on_abort(self):
         mocks, aborted = self._run(self._patches(pin_ok=True, market_ok=False, was_pinned=True))

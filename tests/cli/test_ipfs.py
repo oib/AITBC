@@ -48,3 +48,21 @@ def test_download_falls_back_when_daemon_down(runner, tmp_path):
     output = json.loads(result.output)
     assert output["success"] is True
     assert output["data"]["size"] == 13
+
+
+def test_resolve_ipfs_api_probes_island_port(runner, monkeypatch):
+    """#2263: island Kubo on :5002 must be found when :5001 is down, so uploads
+    land in the same daemon market host pins against."""
+    from aitbc_cli.commands import ipfs as ipfs_mod
+
+    monkeypatch.delenv("IPFS_API_URL", raising=False)
+    with patch.object(ipfs_mod, "_daemon_available", side_effect=lambda url: url.endswith("5002")):
+        assert ipfs_mod.resolve_ipfs_api() == "http://127.0.0.1:5002"
+
+
+def test_resolve_ipfs_api_none_when_no_daemon(monkeypatch):
+    from aitbc_cli.commands import ipfs as ipfs_mod
+
+    monkeypatch.delenv("IPFS_API_URL", raising=False)
+    with patch.object(ipfs_mod, "_daemon_available", return_value=False):
+        assert ipfs_mod.resolve_ipfs_api() is None
