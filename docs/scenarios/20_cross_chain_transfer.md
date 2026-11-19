@@ -547,16 +547,6 @@ aitbc crosschain pools
 
 ---
 
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `<hub-node>` ↔ shop `<node2>`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
-
 ## Related Resources
 
 - [Cross-Chain Documentation](../blockchain/7_multichain.md)

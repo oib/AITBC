@@ -149,10 +149,10 @@ aitbc bond appeal --bond-id <bond-id> --reason "dispute"
 
 Adds funds to an existing provider bond.
 
-Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) locked.
+Cost: 10 AIT locked (`--amount` is a free-form decimal string, AIT-denominated).
 
 ```bash
-aitbc bond top-up --provider-id 0xProvider --amount 36000000
+aitbc bond top-up --provider-id 0xProvider --amount 10
 ```
 
 ---
