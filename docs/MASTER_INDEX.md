@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1526
+- **Markdown files under docs/**: 1527
 
 | Directory | Files | Description |
 |---|---|---|
@@ -73,7 +73,7 @@ docs/
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
-| [cli](cli/) | 599 | Command-line interface reference |
+| [cli](cli/) | 600 | Command-line interface reference |
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
@@ -373,11 +373,12 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/bond-appeal.md](cli/commands/bond-appeal.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/bond-challenge.md](cli/commands/bond-challenge.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/bond-create.md](cli/commands/bond-create.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/bond-lock-onchain.md](cli/commands/bond-lock-onchain.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/bond-lock.md](cli/commands/bond-lock.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/bond-release.md](cli/commands/bond-release.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/bond-slash.md](cli/commands/bond-slash.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/bond-status.md](cli/commands/bond-status.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
-| [cli/commands/bond-top-up.md](cli/commands/bond-top-up.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/bond-top-up.md](cli/commands/bond-top-up.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/bootstrap-bootstrap-env.md](cli/commands/bootstrap-bootstrap-env.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/bounty-deploy.md](cli/commands/bounty-deploy.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/bounty-dispute.md](cli/commands/bounty-dispute.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
@@ -1197,7 +1198,7 @@ Inbound markdown links per document (top referrers).
 | [reference/backend.md](reference/backend.md) | [README.md](README.md) |
 | [reference/cli-rpc-route-map.md](reference/cli-rpc-route-map.md) | [reference/README.md](reference/README.md) |
 | [reference/faq.md](reference/faq.md) | [blockchain/governance/openclaw-dao-governance.md](blockchain/governance/openclaw-dao-governance.md) |
-| [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) | [cli/commands/README.md](cli/commands/README.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +482 more |
+| [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) | [cli/commands/README.md](cli/commands/README.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +483 more |
 | [reference/mcp-tool-inventory.md](reference/mcp-tool-inventory.md) | [reference/README.md](reference/README.md) |
 | [reference/packages.md](reference/packages.md) | [README.md](README.md) |
 | [reference/record-types.md](reference/record-types.md) | [README.md](README.md), [reference/README.md](reference/README.md) |
@@ -1554,7 +1555,7 @@ Inbound markdown links per document (top referrers).
 | [scenarios/45_agent_msg_workflow.md](scenarios/45_agent_msg_workflow.md) | [cli/commands/agent-msg-peers.md](cli/commands/agent-msg-peers.md), [cli/commands/agent-msg-ping.md](cli/commands/agent-msg-ping.md), [cli/commands/agent-msg-receive.md](cli/commands/agent-msg-receive.md), +28 more |
 | [scenarios/46_tee_confidential_jobs.md](scenarios/46_tee_confidential_jobs.md) | [scenarios/44_stuck_tee_refund.md](scenarios/44_stuck_tee_refund.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/47_zk_high_value_jobs.md](scenarios/47_zk_high_value_jobs.md) | [scenarios/34_hub_customer_node_e2e.md](scenarios/34_hub_customer_node_e2e.md), [scenarios/README.md](scenarios/README.md) |
-| [scenarios/48_performance_bonds_high_value.md](scenarios/48_performance_bonds_high_value.md) | [cli/commands/bond-appeal.md](cli/commands/bond-appeal.md), [cli/commands/bond-challenge.md](cli/commands/bond-challenge.md), [cli/commands/bond-create.md](cli/commands/bond-create.md), +8 more |
+| [scenarios/48_performance_bonds_high_value.md](scenarios/48_performance_bonds_high_value.md) | [cli/commands/bond-appeal.md](cli/commands/bond-appeal.md), [cli/commands/bond-challenge.md](cli/commands/bond-challenge.md), [cli/commands/bond-create.md](cli/commands/bond-create.md), +9 more |
 | [scenarios/50_default_shop_offers.md](scenarios/50_default_shop_offers.md) | [cli/commands/market-offer.md](cli/commands/market-offer.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), [reference/record-types.md](reference/record-types.md), +1 more |
 | [scenarios/51_multi_validator_poa_soak.md](scenarios/51_multi_validator_poa_soak.md) | [DESIGN_CYCLE.md](DESIGN_CYCLE.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/52_wallet_key_mismatch.md](scenarios/52_wallet_key_mismatch.md) | [DESIGN_CYCLE.md](DESIGN_CYCLE.md), [scenarios/53_dashboards.md](scenarios/53_dashboards.md), [scenarios/README.md](scenarios/README.md) |

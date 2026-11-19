@@ -12,7 +12,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `ai` — AI job submission and inspection. Subcommands: `accept`, `cancel`, `distribution-stats`, `jobs`, `pay`, `refund`, `refund-sweep`, `results`, `service`, `stats`, `status`, `submit`
 - `analytics` — Chain analytics and monitoring commands. Subcommands: `alerts`, `dashboard`, `monitor`, `optimize`, `predict`, `summary`
 - `blockchain` — Multi-chain management commands. Subcommands: `add`, `backup`, `block`, `consensus`, `create`, `delete`, `height`, `info`, `instances`, `list`, `migrate`, `monitor`, `remove`, `restore`, `start`, `status`, `stop`, `sync-status`
-- `bond` — Provider performance bond lifecycle commands.. Subcommands: `appeal`, `challenge`, `create`, `lock`, `release`, `slash`, `status`, `top-up`
+- `bond` — Provider performance bond lifecycle commands.. Subcommands: `appeal`, `challenge`, `create`, `lock`, `lock-onchain`, `release`, `slash`, `status`, `top-up`
 - `bootstrap` — Bootstrap local development and configuration files.. Subcommands: `bootstrap-env`
 - `brand` — Show and manage white-label brand settings.. Subcommands: `list`, `show`
 - `bridge` — Cross-chain bridge management. Subcommands: `attest`, `balance`, `confirm`, `deposits`, `health`, `ingest-header`, `lock`, `oracle-status`, `pending`, `proof`, `register-validator`, `security-status`, `sign-proof`, `start`, `status`, `stop`, `store-header`, `unlock`
