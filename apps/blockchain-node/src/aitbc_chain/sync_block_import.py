@@ -503,6 +503,11 @@ class BlockImportMixin(
                                 ),
                                 diverged=True,
                             )
+                        # #2276: a lock error at commit leaves the failed
+                        # attempt's tx hashes in the process-global processed
+                        # cache; without a reset the retry re-validates them as
+                        # replays and the block can commit with the tx failed.
+                        get_state_transition().reset_processed_cache()
                         result = self._append_block(session, block_data, transactions, skip_state_root_validation)
                         duration = time.perf_counter() - start
                         metrics_registry.observe("sync_import_duration_seconds", duration)
