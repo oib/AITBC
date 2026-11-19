@@ -23,6 +23,7 @@ from sqlmodel import Session, select
 from starlette.concurrency import run_in_threadpool
 
 from aitbc.auth import create_access_token, verify_access_token
+from aitbc.auth.jwt import canonical_token
 from aitbc.rate_limiting import rate_limit
 
 from ...infrastructure.domain import Transaction, User, Wallet
@@ -243,9 +244,14 @@ def _is_token_revoked(token: str) -> bool:
     on write.
     """
     now = time.time()
+    # #2273: PyJWT verifies several spellings of one token (last signature
+    # character's unused bits, padding, stray characters), so the lookup keys
+    # on the canonical spelling. The raw string is matched too, so rows written
+    # by the pre-#2273 code stay revoked across the upgrade.
+    canonical = canonical_token(token)
     with closing(_connect_auth_db()) as conn:
-        row = conn.execute("SELECT expires_at FROM revoked_token WHERE token = ?", (token,)).fetchone()
-    return row is not None and now <= float(row[0])
+        rows = conn.execute("SELECT expires_at FROM revoked_token WHERE token IN (?, ?)", (canonical, token)).fetchall()
+    return any(now <= float(row[0]) for row in rows)
 
 
 def _revoke_token(token: str) -> None:
@@ -280,7 +286,7 @@ def _revoke_token(token: str) -> None:
                 )
             conn.execute(
                 "INSERT OR REPLACE INTO revoked_token (token, expires_at, revoked_at) VALUES (?, ?, ?)",
-                (token, expires_at, now),
+                (canonical_token(token), expires_at, now),
             )
             conn.execute("COMMIT")
         except Exception:

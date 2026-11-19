@@ -357,6 +357,81 @@ def test_blocklist_store_direct_revoke_and_expiry(client):
     assert _is_token_revoked(token) is False
 
 
+def _equivalent_spellings(token: str) -> list[str]:
+    """Other spellings of ``token`` whose signature segment decodes to the same bytes (#2273).
+
+    Built from the signature bytes, not from what the installed PyJWT happens to
+    verify: PyJWT <= 2.13 accepts these as the same token, 2.15 rejects them,
+    and the blocklist must not depend on which one is installed.
+    """
+    from jwt.utils import base64url_decode
+
+    head, _, signature = token.rpartition(".")
+    expected = base64url_decode(signature)
+    alphabet = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_"
+    candidates = [signature[:-1] + c for c in alphabet] + [signature + "=", signature + "=="]
+    return [f"{head}.{c}" for c in candidates if c != signature and base64url_decode(c) == expected]
+
+
+def test_blocklist_covers_equivalent_signature_spellings_2273(client):
+    """#2273: the blocklist matched the raw token string, so it only held while
+    PyJWT rejected every other spelling of the signature (the unused low bits of
+    the last base64url character, trailing padding). Every equivalent spelling
+    must be revoked together with the original."""
+    from aitbc.auth import create_access_token
+
+    from coordinator_api.contexts.infrastructure.routers.users import _is_token_revoked, _revoke_token
+
+    token = create_access_token("user-2273", "client")
+    spellings = _equivalent_spellings(token)
+    # 32-byte HMAC signature: 4 last characters share the same data bits, plus
+    # the padded forms. Guards the test against going vacuous.
+    assert len(spellings) >= 5
+    assert not any(_is_token_revoked(s) for s in spellings)
+
+    _revoke_token(token)
+
+    assert _is_token_revoked(token) is True
+    assert all(_is_token_revoked(s) for s in spellings)
+
+
+def test_blocklist_keeps_rows_written_before_2273(client):
+    """A row stored under the raw string by the pre-#2273 code still revokes."""
+    import time
+    from contextlib import closing
+
+    from aitbc.auth import create_access_token
+
+    from coordinator_api.contexts.infrastructure.routers.users import _connect_auth_db, _is_token_revoked
+
+    token = create_access_token("user-2273c", "client")
+    with closing(_connect_auth_db()) as conn:
+        conn.execute(
+            "INSERT OR REPLACE INTO revoked_token (token, expires_at, revoked_at) VALUES (?, ?, ?)",
+            (token, time.time() + 3600, time.time()),
+        )
+    assert _is_token_revoked(token) is True
+
+
+def test_canonical_token_normalises_only_the_signature_2273():
+    from aitbc.auth import create_access_token
+    from aitbc.auth.jwt import canonical_token
+
+    token = create_access_token("user-2273d", "client")
+    assert canonical_token(token) == token
+    spellings = _equivalent_spellings(token)
+    assert spellings
+    for variant in spellings:
+        assert canonical_token(variant) == token
+    # header and payload are covered by the signature input: never respelled
+    header, payload, signature = token.split(".")
+    assert canonical_token(f"{header}x.{payload}.{signature}") == f"{header}x.{payload}.{signature}"
+    # not a three-part token: returned unchanged, never raises
+    assert canonical_token("not-a-jwt") == "not-a-jwt"
+    assert canonical_token("a.b.c.d") == "a.b.c.d"
+    assert canonical_token("") == ""
+
+
 def test_non_admin_wallet_is_denied_admin_route(client, monkeypatch):
     """A wallet not in the admin allowlist cannot reach admin routes."""
     from coordinator_api.config import settings
