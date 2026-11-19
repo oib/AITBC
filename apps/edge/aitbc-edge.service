@@ -28,6 +28,7 @@ EnvironmentFile=/etc/aitbc/blockchain-secrets.env
 # Peers reach this node via EDGE_ADVERTISE_HOST, not this address.
 Environment=APP_HOST=127.0.0.1
 RuntimeDirectory=aitbc
+RuntimeDirectoryPreserve=yes
 # Schema before service: run alembic on every start so a required migration can
 # never be skipped (same pattern as aitbc-coordinator-api.service). init_db's
 # create_all adds missing tables but never ALTERs — without this, a long-lived
