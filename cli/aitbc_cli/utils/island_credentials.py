@@ -69,10 +69,20 @@ def get_rpc_endpoint() -> str:
     """
     Get the RPC endpoint from island credentials.
 
-    Falls back to the hub blockchain RPC base (/rpc) when the island
-    credentials file does not yet contain an explicit RPC endpoint.
+    Falls back to the configured ``blockchain_rpc_url`` (hub base + /rpc)
+    when the island credentials file is absent, unreadable, or carries no
+    explicit RPC endpoint — customer nodes without island membership still
+    have a configured chain RPC (#2258).
     """
-    credentials = load_island_credentials()
+    credentials: dict[str, Any] = {}
+    try:
+        credentials = load_island_credentials()
+    except FileNotFoundError:
+        logger.debug("Island credentials missing; using configured blockchain_rpc_url", exc_info=True)
+    except PermissionError:
+        logger.warning("Island credentials at %s unreadable; using configured blockchain_rpc_url", CREDENTIALS_PATH)
+    except ValueError:
+        logger.debug("Island credentials invalid; using configured blockchain_rpc_url", exc_info=True)
     rpc_endpoint = credentials.get("credentials", {}).get("rpc_endpoint")
 
     if not rpc_endpoint:
