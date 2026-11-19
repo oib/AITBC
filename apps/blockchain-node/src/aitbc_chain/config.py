@@ -275,6 +275,17 @@ class ChainSettings(ConsensusConfig, InfraConfig, BridgeConfig, SyncConfig, Node
     # true and construction refuses env-false). Activation is a separate
     # operator pin set fleet-wide with a restart wave.
     state_transition_v26_height: int | None = None
+    # v27 (#2252 BRIDGE-SIG-NONCE-OVERRIDE-1): at or above this height a tx
+    # carrying a ``bridge_signature`` (BRIDGE_LOCK) keeps its signed envelope
+    # nonce at apply instead of having it rewritten to the account's live
+    # nonce — the authority signature binds that nonce, so the rewrite made a
+    # second lock sharing a nonce (block-scoped preregistration) fail
+    # verification after the first sealed. ``None`` (the default) keeps the
+    # rewrite at every height: byte-identical to pre-rung behaviour and to
+    # historical replay. Activation is a separate operator pin set fleet-wide
+    # only after every validator runs the code — a mixed set would apply
+    # different rules and fork.
+    state_transition_v27_height: int | None = None
     # #1298 I3b domain separation: at or above this height, block-proposal
     # and block-attestation signatures use domain-separated preimages
     # (aitbc-consensus-v1:block_proposal / :block_attestation) so a signature
