@@ -280,6 +280,35 @@ class CrossChainSettlementService:
         if timeout_seconds is None:
             timeout_seconds = settings.escrow_timeout_default
 
+        # #2266: a retried create for the same trade leg must not mint a
+        # second pending record — return the existing one (its secret is
+        # stored locally, so the response is identical to the first call).
+        with session_scope(self.chain_id) as session:
+            existing = (
+                session.execute(
+                    select(CrossChainEscrowRecord).where(
+                        CrossChainEscrowRecord.trade_id == trade_id,
+                        CrossChainEscrowRecord.source_chain == source_chain,
+                        CrossChainEscrowRecord.dest_chain == dest_chain,
+                        CrossChainEscrowRecord.sender == sender,
+                        CrossChainEscrowRecord.recipient == recipient,
+                        CrossChainEscrowRecord.amount == amount,
+                        CrossChainEscrowRecord.status == EscrowStatus.PENDING.value,
+                    )
+                )
+                .scalars()
+                .first()
+            )
+            if existing is not None:
+                logger.info(
+                    "Escrow create deduped: returning pending %s for trade %s (%s→%s)",
+                    existing.escrow_id,
+                    trade_id,
+                    source_chain,
+                    dest_chain,
+                )
+                return _escrow_to_dict(existing, include_secret=True)
+
         # Generate HTLC secret and hashlock
         secret = generate_secret()
         secret_hash = compute_hashlock(secret)

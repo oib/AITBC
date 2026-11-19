@@ -130,6 +130,10 @@ class MockSession:
                 rows = [r for r in rows if r.escrow_id == filters["escrow_id"]]
             if "status" in filters:
                 rows = [r for r in rows if r.status in filters["status"]]
+            # #2266 dedupe lookup filters on the full request tuple
+            for key in ("trade_id", "source_chain", "dest_chain", "sender", "recipient", "amount"):
+                if key in filters:
+                    rows = [r for r in rows if getattr(r, key) == filters[key]]
         elif table_name == "block":
             chain_id = filters.get("chain_id")
             height = self.block_heights.get(chain_id) if chain_id else None
@@ -235,6 +239,46 @@ class TestSettlementService:
                 recipient="bob",
                 amount=100,
             )
+
+    @pytest.mark.asyncio
+    async def test_create_escrow_replay_returns_pending_record(self, mock_session):
+        """#2266: a retried create for the same trade leg dedupes to the
+        existing pending record instead of minting a duplicate."""
+        from aitbc_chain.cross_chain.settlement import CrossChainSettlementService
+
+        svc = CrossChainSettlementService(chain_id="ait-hub")
+        kwargs = {
+            "trade_id": "trade_1",
+            "source_chain": "ait-hub",
+            "dest_chain": "ait-island-1",
+            "sender": "alice",
+            "recipient": "bob",
+            "amount": 1000,
+        }
+        first = await svc.create_escrow(**kwargs)
+        second = await svc.create_escrow(**kwargs)
+        assert second["escrow_id"] == first["escrow_id"]
+        assert second["secret"] == first["secret"]
+        assert len(mock_session.escrows) == 1
+
+    @pytest.mark.asyncio
+    async def test_create_escrow_different_amount_mints_new(self, mock_session):
+        """#2266: a genuinely different request (different amount) is not
+        deduped — only the identical trade leg replays."""
+        from aitbc_chain.cross_chain.settlement import CrossChainSettlementService
+
+        svc = CrossChainSettlementService(chain_id="ait-hub")
+        kwargs = {
+            "trade_id": "trade_1",
+            "source_chain": "ait-hub",
+            "dest_chain": "ait-island-1",
+            "sender": "alice",
+            "recipient": "bob",
+        }
+        first = await svc.create_escrow(**{**kwargs, "amount": 1000})
+        second = await svc.create_escrow(**{**kwargs, "amount": 2000})
+        assert second["escrow_id"] != first["escrow_id"]
+        assert len(mock_session.escrows) == 2
 
     # -- lock_escrow -------------------------------------------------------
 
