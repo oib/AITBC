@@ -1883,7 +1883,7 @@
             }
           },
           "403": {
-            "description": "agent_mismatch",
+            "description": "agent_mismatch: principal '{principal.agent_id}' is not a party to this message (sender={sender}, receiver={receiver})",
             "content": {
               "application/json": {
                 "schema": {
@@ -1978,7 +1978,7 @@
             }
           },
           "403": {
-            "description": "agent_mismatch",
+            "description": "agent_mismatch: principal '{principal.agent_id}' is not a party to this message (sender={sender}, receiver={receiver})",
             "content": {
               "application/json": {
                 "schema": {
