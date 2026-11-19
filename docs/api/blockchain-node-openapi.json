@@ -27067,11 +27067,22 @@
           },
           "vote": {
             "type": "string",
+            "enum": [
+              "plaintiff",
+              "defendant"
+            ],
             "title": "Vote"
           },
           "reasoning": {
             "type": "string",
             "title": "Reasoning"
+          },
+          "confidence": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 0.0,
+            "title": "Confidence",
+            "default": 100
           }
         },
         "type": "object",
