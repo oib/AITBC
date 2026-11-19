@@ -387,16 +387,16 @@ aitbc wallet stats
 
 ### Step 15: Export wallet key material
 
-`aitbc wallet export --destination /tmp/wallet-export.json` is exports private-key material to a file — a key operation; not played, needs the operator's line.
+`aitbc wallet export --destination /tmp/wallet-export.json` is exports private-key material to a file — a key operation.
 
 ### Step 16: Record job earnings
 
 Records an earnings entry for a completed job against the active wallet.
 
-Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000).
+Cost: 1 AIT (`--amount` takes AIT decimals, not raw units).
 
 ```bash
-aitbc wallet earn --amount 36000000 --job-id job-001 --desc "scenario earnings"
+aitbc wallet earn --amount 1 --job-id job-001 --desc "scenario earnings"
 ```
 
 ### Step 17: Claim a liquidity reward
@@ -413,10 +413,10 @@ aitbc wallet liquidity-claim --stake-id 1
 
 Locks funds into a liquidity pool.
 
-Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000).
+Cost: 1 AIT (`--amount` takes AIT decimals, not raw units).
 
 ```bash
-aitbc wallet liquidity-stake --amount 36000000 --pool default
+aitbc wallet liquidity-stake --amount 1 --pool default
 ```
 
 ### Step 19: Withdraw a liquidity stake
@@ -443,10 +443,10 @@ aitbc wallet multisig-create --signers 0xSignerA,0xSignerB,0xSignerC --threshold
 
 Creates a pending multisig transaction other signers can approve.
 
-Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) once approved.
+Cost: 1 AIT once approved (`--amount` takes AIT decimals).
 
 ```bash
-aitbc wallet multisig-propose --wallet ops-multisig --to-address 0xRecipient --amount 36000000 --description "scenario payout"
+aitbc wallet multisig-propose --wallet ops-multisig --to-address 0xRecipient --amount 1 --description "scenario payout"
 ```
 
 ### Step 22: Sign a multisig proposal
@@ -463,30 +463,30 @@ aitbc wallet multisig-sign --wallet ops-multisig --tx-id 1 --signer my-agent-wal
 
 Creates a payment request addressed to the payer wallet.
 
-Cost: requests 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) — the payer spends, not the requester.
+Cost: requests 1 AIT — the payer spends, not the requester.
 
 ```bash
-aitbc wallet request-payment --to-address 0xPayer --amount 36000000 --description "scenario invoice"
+aitbc wallet request-payment --to-address 0xPayer --amount 1 --description "scenario invoice"
 ```
 
 ### Step 24: Send AIT to a second wallet
 
 Transfers funds from the active wallet.
 
-Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) plus fee.
+Cost: 1 AIT plus fee.
 
 ```bash
-aitbc wallet send --to-address 0xRecipient --amount 36000000
+aitbc wallet send --to-address 0xRecipient --amount 1
 ```
 
 ### Step 25: Record a discretionary spend
 
 Books a spend against the active wallet.
 
-Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000).
+Cost: 1 AIT (`--amount` takes AIT decimals, not raw units).
 
 ```bash
-aitbc wallet spend --amount 36000000 --description "scenario test spend"
+aitbc wallet spend --amount 1 --description "scenario test spend"
 ```
 
 ### Step 26: Stake AIT
@@ -530,7 +530,7 @@ stake is releasable the next day.
 
 ### Step 27a: Top-level staking aliases
 
-`aitbc unstake --stake-id <id>` and `aitbc liquidity-stake --amount <units>` are top-level shortcuts that delegate to the same wallet-signed implementations as `aitbc wallet unstake` / `aitbc wallet liquidity-stake` — fund-moving operations; not played, needs the operator's line.
+`aitbc unstake --stake-id <id>` and `aitbc liquidity-stake --amount <AIT>` are top-level shortcuts that delegate to the same wallet-signed implementations as `aitbc wallet unstake` / `aitbc wallet liquidity-stake` — fund-moving operations.
 
 ### Step 28: Send a small ETH transfer
 
@@ -575,16 +575,6 @@ aitbc wallet list
 ```
 
 ---
-
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `<hub-node>` ↔ shop `<node2>`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, **0 xfails**.
-
 
 ## Related Resources
 

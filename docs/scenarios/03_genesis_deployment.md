@@ -300,7 +300,7 @@ asyncio.run(main())
 
 ### Step 6: Reset genesis state
 
-`aitbc genesis reset --chain-id ait-testnet --yes` is wipes the local chain database and regenerates genesis state — destructive; not played, needs the operator's line.
+`aitbc genesis reset --chain-id ait-testnet --yes` is wipes the local chain database and regenerates genesis state — destructive.
 
 ---
 
@@ -338,16 +338,6 @@ curl -fsS http://localhost:8202/health | python3 -m json.tool
 ```
 
 ---
-
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `<hub-node>` ↔ shop `<node2>`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
 
 ## Related Resources
 

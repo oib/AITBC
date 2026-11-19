@@ -563,35 +563,35 @@ aitbc prometheus targets
 
 ### Step 39: Add a node to a chain
 
-`aitbc blockchain add --chain-id ait-mainnet --node-id node-9` is adds a node to chain membership — a validator/fleet operation; not played, needs the operator's line.
+`aitbc blockchain add --chain-id ait-mainnet --node-id node-9` is adds a node to chain membership — a validator/fleet operation.
 
 ### Step 40: Create a new chain
 
-`aitbc blockchain create --config-file chain.yaml` is spins up a new chain instance — a fleet/validator operation; not played, needs the operator's line.
+`aitbc blockchain create --config-file chain.yaml` is spins up a new chain instance — a fleet/validator operation.
 
 ### Step 41: Delete a chain
 
-`aitbc blockchain delete --chain-id ait-testnet --force` is deletes chain data — destructive; not played, needs the operator's line.
+`aitbc blockchain delete --chain-id ait-testnet --force` is deletes chain data — destructive.
 
 ### Step 42: Migrate a chain between nodes
 
-`aitbc blockchain migrate --chain-id ait-mainnet --from-node node-a --to-node node-b` is moves a chain instance between nodes — a fleet operation; not played, needs the operator's line.
+`aitbc blockchain migrate --chain-id ait-mainnet --from-node node-a --to-node node-b` is moves a chain instance between nodes — a fleet operation.
 
 ### Step 43: Remove a node from a chain
 
-`aitbc blockchain remove --chain-id ait-mainnet --node-id node-9` is removes a node from chain membership — a validator/fleet operation; not played, needs the operator's line.
+`aitbc blockchain remove --chain-id ait-mainnet --node-id node-9` is removes a node from chain membership — a validator/fleet operation.
 
 ### Step 44: Restore a chain backup
 
-`aitbc blockchain restore --backup-file /tmp/chain-backup` is overwrites local chain state from a backup — destructive; not played, needs the operator's line.
+`aitbc blockchain restore --backup-file /tmp/chain-backup` is overwrites local chain state from a backup — destructive.
 
 ### Step 45: Start a chain instance
 
-`aitbc blockchain start --chain-id ait-mainnet` is starts a stopped chain instance — service control; not played, needs the operator's line.
+`aitbc blockchain start --chain-id ait-mainnet` is starts a stopped chain instance — service control.
 
 ### Step 46: Stop a chain instance
 
-`aitbc blockchain stop --chain-id ait-mainnet` is stops a running chain instance — service control; not played, needs the operator's line.
+`aitbc blockchain stop --chain-id ait-mainnet` is stops a running chain instance — service control.
 
 ---
 
@@ -626,16 +626,6 @@ aitbc explorer non-empty-blocks --limit 2
 ```
 
 ---
-
-## Megaplan Status
-
-This scenario has been refreshed to reflect the current codebase megaplan (hub `<hub-node>` ↔ shop `<node2>`).
-
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
 
 ## Related Resources
 

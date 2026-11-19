@@ -157,7 +157,7 @@ aitbc resource optimize --agent-id agent-001 --target-metric latency
 aitbc http call blockchain-rpc /health
 ```
 
-**Expected output:** the service's `/health` JSON. The leading `/` resolves the path against the service origin, so this reaches the root `/health` endpoint even though the `blockchain-rpc` alias is mounted at `/rpc` (a bare `health` path would resolve to `/rpc/health` and 404). Non-GET `--method` values and paths that mutate state are not played, needs the operator's line.
+**Expected output:** the service's `/health` JSON. The leading `/` resolves the path against the service origin, so this reaches the root `/health` endpoint even though the `blockchain-rpc` alias is mounted at `/rpc` (a bare `health` path would resolve to `/rpc/health` and 404). Non-GET `--method` values and paths that mutate state are documented for coverage only.
 
 ---
 

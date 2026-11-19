@@ -58,6 +58,21 @@ breadcrumb: Home > Scenarios > [Scenario Name]
 
 ---
 
+## Amount units — check before every money flag
+
+AITBC mixes three amount conventions; **verify the flag's `--help` text
+before writing an amount into a play** — the docs have shipped both
+wrong readings before (#2280):
+
+| Convention | `--help` signature | Example commands |
+|---|---|---|
+| AIT decimal | `type=DECIMAL`, "Amount of AIT" | `wallet send/stake/liquidity-stake/earn/request-payment/spend/multisig-propose`, `exchange add-liquidity`, `ipfs island subscribe`, `stake`/`unstake`, `market exchange deposit-eth/withdraw-eth` |
+| Raw compute units | `type=int`, "compute-units" | `bridge lock --amount`, `trade create --amount`, `crosschain` amounts (`UNITS_PER_AIT = 36_000_000`) |
+| Free-form / service-side | `type=TEXT`/`INTEGER` | `bond create/top-up`, `agent-wallet stake`, `operations governance stake/delegate` (deprecated path) |
+
+Never copy a `36_000_000`-style raw-unit literal into an AIT-decimal flag —
+it attempts a 36-million-AIT spend.
+
 ## Step-by-Step Workflow
 
 Every operator step uses the `aitbc` CLI. Curl, `journalctl`, and `pytest` belong only under **Validation**.

@@ -137,7 +137,7 @@ aitbc market exchange list-deposits
 
 ### 7. Fund-moving and state-changing market calls
 
-Documented for coverage; each moves funds or mutates market/service state — not played, needs the operator's line.
+Documented for coverage; each moves funds or mutates market/service state.
 
 - `aitbc market cancel --job-id <job-id>` — cancels a market job.
 - `aitbc market escrow create --job-id <job-id> --buyer <addr> --provider <addr>` — locks buyer funds in escrow.
@@ -145,9 +145,9 @@ Documented for coverage; each moves funds or mutates market/service state — no
 - `aitbc market gpu buy --gpu-id <id> --buyer-id <id> --job-id <id> --duration-hours <n>` — paid GPU purchase.
 - `aitbc market gpu refund --job-id <job-id>` — refunds a GPU job payment.
 - `aitbc market gpu release --job-id <job-id>` — releases a GPU job payment.
-- `aitbc market exchange deposit-eth --amount <units>` — deposits ETH into the exchange.
+- `aitbc market exchange deposit-eth --amount <AIT>` — deposits ETH into the exchange (`--amount` is AIT-denominated per `--help`).
 - `aitbc market exchange mint-ait --deposit-id <id>` — mints AIT against a deposit.
-- `aitbc market exchange withdraw-eth --amount <units> --address <addr>` — withdraws ETH from the exchange.
+- `aitbc market exchange withdraw-eth --amount <AIT> --address <addr>` — withdraws ETH from the exchange (`--amount` is AIT-denominated per `--help`).
 - `aitbc market hermes --offer-id-or-plugin-id <id> --prompt <text>` — paid Hermes job (unit not deployed on pub island; documented for coverage only).
 - `aitbc market offer-cancel --order-ids <ids>` — cancels published offers.
 - `aitbc market offer-disable --plugin-id <id>` — disables an offer plugin.

@@ -311,16 +311,16 @@ aitbc exchange verify
 
 ### Step 14: Register an external exchange
 
-`aitbc exchange register --name ext --api-key REDACTED` is stores external exchange API credentials — a key/secret operation; not played, needs the operator's line.
+`aitbc exchange register --name ext --api-key REDACTED` is stores external exchange API credentials — a key/secret operation.
 
 ### Step 15: Add liquidity to a pair
 
 Adds liquidity to an exchange pair.
 
-Cost: 36_000_000 units (1 AIT at UNITS_PER_AIT = 36_000_000) locked in the pool.
+Cost: 1 AIT locked in the pool (`--amount` takes AIT decimals, not raw units).
 
 ```bash
-aitbc exchange add-liquidity --pair AIT/USDC --amount 36000000 --side both
+aitbc exchange add-liquidity --pair AIT/USDC --amount 1 --side both
 ```
 
 ### Step 16: Create a trading pair
