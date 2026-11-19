@@ -380,6 +380,10 @@ class TestInboxAuthorization:
         _register_bound(client, "agent-1", ACCOUNT)
         resp = client.get("/api/v1/agent/messages/inbox?agent_id=agent-2", headers=_signed_headers("agent-1", ACCOUNT))
         assert resp.status_code == 403
+        # #2271: the detail must name both ids so a --from-agent/wallet
+        # binding mistake is diagnosable from the error alone.
+        detail = resp.json().get("detail", "")
+        assert "agent-1" in detail and "agent-2" in detail
 
     def test_enforce_cross_agent_inbox_via_jwt_403(self, client, monkeypatch):
         from agent_app.config import settings
