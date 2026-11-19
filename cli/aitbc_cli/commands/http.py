@@ -225,7 +225,12 @@ def _auth_client(
             timeout=timeout,
             headers={"X-Trading-Api-Key": trading_token},
         )
-    kwargs = {} if suppress_stored else auth_client_kwargs(api_key, resolved_key)
+    # Service-key kinds name a fleet credential, not the caller's identity:
+    # a stored `aitbc auth login` token must not shadow BLOCKCHAIN_RPC_API_KEY
+    # / the miner key — the key-gated routes only accept X-API-Key, so the
+    # Bearer/API-key store value just produced a 403 (#2271 parity sweep).
+    use_store = auth_kind not in {"miner", "rpc"}
+    kwargs = {} if suppress_stored else auth_client_kwargs(api_key, resolved_key, use_store=use_store)
     headers = dict(kwargs.pop("headers", {}) or {})
     # The settlement credential is stored config like the RPC key: it only
     # rides to the configured service base, never to a --url retarget —
