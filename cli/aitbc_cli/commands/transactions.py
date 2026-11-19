@@ -234,6 +234,8 @@ def _send_transaction_impl(
     if not _validate_send_amount(tx_type, amount):
         return None
 
+    _warn_if_session_grant_never_expires(tx_type, payload)
+
     # Get sender wallet info. An explicit keystore_dir wins outright; otherwise
     # the shared search order applies (configured wallet dir, then the service
     # wallet dir — a wallet that only exists under /var/lib/aitbc/wallets is
@@ -273,6 +275,22 @@ def _send_transaction_impl(
 
     # Submit to blockchain
     return _submit_signed_transaction(rpc_url, transaction, from_wallet, to_address)
+
+
+def _warn_if_session_grant_never_expires(tx_type: str, payload: dict[str, Any] | None) -> None:
+    """#2277: AGENT_SESSION_GRANT without ``expires_at_height`` grants a spend
+    session that never expires — the chain accepts it silently
+    (agent_spend._grant_verdict treats a missing expiry as unbounded), so the
+    CLI must say so out loud. Covers ``send`` and batch entries alike."""
+    if tx_type.upper() != "AGENT_SESSION_GRANT":
+        return
+    if payload is not None and payload.get("expires_at_height") is not None:
+        return
+    warning(
+        "AGENT_SESSION_GRANT payload has no expires_at_height — the spend "
+        'session will never expire. Pass "expires_at_height": <future block '
+        "height> in --payload to bound it."
+    )
 
 
 def _validate_send_amount(tx_type: str, amount: Decimal) -> bool:
