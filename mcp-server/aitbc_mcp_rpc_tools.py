@@ -192,6 +192,31 @@ def get_governance_proposal(
     return _http_read_tool(role, host, "blockchain-rpc", f"governance/proposal/{proposal_id}", params)
 
 
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_governance_service_proposal(
+    proposal_id: Annotated[
+        str,
+        Field(description="Governance proposal ID."),
+    ],
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get a proposal record from the governance service.
+
+    Complements ``get_governance_proposal`` (which reads the chain-sealed
+    copy on blockchain-rpc): the governance service also holds
+    service-recorded proposals that never sealed on-chain, e.g. probe or
+    expired proposals (#2213/#2271 parity gap).
+    """
+    return _http_read_tool(role, host, "governance", f"v1/governance/proposals/{proposal_id}")
+
+
 # ---------------------------------------------------------------------------
 # GPU resources (continued)
 # ---------------------------------------------------------------------------

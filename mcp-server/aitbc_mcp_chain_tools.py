@@ -485,7 +485,7 @@ def get_escrow_state(
     ] = None,
 ) -> str:
     """Get the escrow state for a job."""
-    return _http_read_tool(role, host, "blockchain-rpc", f"escrow/{job_id}")
+    return _http_read_tool(role, host, "blockchain-rpc", f"escrow/{job_id}", auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))

@@ -2,14 +2,14 @@
 
 # MCP tool inventory
 
-**815 tools** across 140 modules.
+**816 tools** across 140 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 132 |
 | generated | 561 |
 | other | 7 |
-| rpc | 115 |
+| rpc | 116 |
 
 | File | Tools |
 |---|---|
@@ -150,7 +150,7 @@
 | mcp-server/aitbc_mcp_mutating_tools.py | 9 |
 | mcp-server/aitbc_mcp_node_tools.py | 8 |
 | mcp-server/aitbc_mcp_ops_tools.py | 6 |
-| mcp-server/aitbc_mcp_rpc_tools.py | 53 |
+| mcp-server/aitbc_mcp_rpc_tools.py | 54 |
 | mcp-server/aitbc_mcp_rpc_tools_bridge.py | 18 |
 | mcp-server/aitbc_mcp_zk_tools.py | 5 |
 
@@ -924,6 +924,7 @@
 | `get_edge_info` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/edge/info/{node_id}` |
 | `get_forum_topics` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/contracts/messaging/topics` |
 | `get_governance_proposal` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/governance/proposal/{proposal_id}` |
+| `get_governance_service_proposal` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET governance:v1/governance/proposals/{proposal_id}` |
 | `get_gpu_allocations` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/gpu/allocations/{gpu_id}` |
 | `get_ipfs_rental_token` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET market:v1/market/ipfs/rental/{access_key}` |
 | `get_lease_status` | mcp-server/aitbc_mcp_rpc_tools.py | rpc | `GET /rpc/lease/{node_id}` |
