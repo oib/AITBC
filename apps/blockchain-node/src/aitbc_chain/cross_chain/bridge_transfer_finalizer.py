@@ -693,6 +693,8 @@ class BridgeTransferFinalizerMixin(BridgeBase):
                     logger.info("Finalized %s bridge transfers on chain %s", count, chain_id)
             except _OPS_ERRORS:
                 logger.exception("Bridge finalizer failed for chain %s", chain_id)
+        if not _expired():
+            self._reconcile_phase(chain_id, deadline)  # type: ignore[attr-defined]
 
     def _build_transfer_from_record(self, record: CrossChainTransfer, proof: dict[str, Any] | None = None) -> BridgeTransfer:
         """Build BridgeTransfer from database record."""

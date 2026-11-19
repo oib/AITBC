@@ -286,6 +286,13 @@ class ChainSettings(ConsensusConfig, InfraConfig, BridgeConfig, SyncConfig, Node
     # only after every validator runs the code — a mixed set would apply
     # different rules and fork.
     state_transition_v27_height: int | None = None
+    # #2257: node-local reconciler for stale ``pending`` bridge transfer rows.
+    # Bookkeeping only (no tx, no consensus effect). Off by default; with
+    # ``dry_run`` on (default) it only logs what it would change.
+    bridge_reconcile_enabled: bool = False
+    bridge_reconcile_dry_run: bool = True
+    bridge_reconcile_grace_seconds: int = 600
+    bridge_reconcile_unsealed_horizon_seconds: int = 7200
     # #1298 I3b domain separation: at or above this height, block-proposal
     # and block-attestation signatures use domain-separated preimages
     # (aitbc-consensus-v1:block_proposal / :block_attestation) so a signature

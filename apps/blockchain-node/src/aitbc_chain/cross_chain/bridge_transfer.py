@@ -18,6 +18,7 @@ from .bridge_transfer_finalizer import (
 )
 from .bridge_transfer_finalizer import BridgeTransferFinalizerMixin as BridgeTransferFinalizerMixin
 from .bridge_transfer_intake import BridgeTransferIntakeMixin as BridgeTransferIntakeMixin
+from .bridge_transfer_reconcile import BridgeTransferReconcileMixin as BridgeTransferReconcileMixin
 from .bridge_transfer_proof import BridgeTransferProofMixin as BridgeTransferProofMixin
 
 
@@ -25,6 +26,7 @@ class BridgeTransferMixin(
     BridgeTransferIntakeMixin,
     BridgeTransferConfirmMixin,
     BridgeTransferProofMixin,
+    BridgeTransferReconcileMixin,
     BridgeTransferFinalizerMixin,
 ):
     """Cross-chain transfer lock/confirm/refund and batch operations."""
