@@ -1,6 +1,7 @@
 """CLI commands for protected fixed-duration GPU rentals (energy floor).
 
 Commands:
+  aitbc market gpu list     - List GPUs in the coordinator registry
   aitbc market gpu quote    - Request an operator-signed energy quote
   aitbc market gpu buy      - Fund a quoted rental (native or EVM)
   aitbc market gpu status   - Check rental/escrow status
@@ -88,6 +89,73 @@ def _print_quote(quote_dict: dict[str, Any], breakdown: dict[str, Any] | None = 
 @click.group()
 def gpu():
     """Protected fixed-duration GPU rental commands (energy floor)."""
+
+
+def _gpu_list_params(
+    status_filter: str | None,
+    # Opaque passthrough to the coordinator's price_max query param — a filter
+    # bound, not a settled amount, so it is forwarded verbatim (no float money).
+    price_max: Any,
+    region: str | None,
+    model: str | None,
+    limit: int,
+) -> dict[str, Any]:
+    """Build the query params for GET /v1/market/gpu/list."""
+    params: dict[str, Any] = {"limit": min(limit, 500)}
+    if status_filter == "available":
+        params["available"] = "true"
+    elif status_filter == "booked":
+        params["available"] = "false"
+    if price_max is not None:
+        params["price_max"] = price_max
+    if region:
+        params["region"] = region
+    if model:
+        params["model"] = model
+    return params
+
+
+@gpu.command("list")
+@click.option(
+    "--status",
+    "status_filter",
+    type=click.Choice(["available", "booked", "all"]),
+    default=None,
+    help="Filter by GPU status (default: all)",
+)
+@click.option("--price-max", "price_max", type=float, default=None, help="Maximum price_per_hour")
+@click.option("--region", default=None, help="Filter by region (case-insensitive)")
+@click.option("--model", default=None, help="Filter by model substring")
+@click.option("--limit", type=int, default=100, help="Max rows (server cap 500)")
+@click.option("--json-output", is_flag=True, help="Output raw JSON")
+@click.pass_context
+def list_gpus(ctx, status_filter, price_max, region, model, limit, json_output):
+    """List GPUs in the coordinator registry (GET /v1/market/gpu/list)."""
+    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
+    params = _gpu_list_params(status_filter, price_max, region, model, limit)
+    try:
+        gpus = client.get_json("/v1/market/gpu/list", params=params)
+    except NetworkError as e:
+        error(f"Failed to list GPUs: {e}")
+        raise click.Abort() from e
+    if not isinstance(gpus, list):
+        error(f"Unexpected response shape from /market/gpu/list: {type(gpus).__name__}")
+        raise click.Abort()
+    if json_output:
+        output(gpus, "json")
+        return
+    if not gpus:
+        info("No GPUs in the coordinator registry")
+        return
+    for g in gpus:
+        if not isinstance(g, dict):
+            continue
+        info(
+            f"{g.get('id', '?')}  {g.get('model', '?')}  "
+            f"{g.get('price_per_hour', '?')}/h  status={g.get('status', '?')}  "
+            f"region={g.get('region', '-')}  mem={g.get('memory_gb', '?')}GB"
+        )
+    success(f"{len(gpus)} GPU(s) listed")
 
 
 @gpu.command()

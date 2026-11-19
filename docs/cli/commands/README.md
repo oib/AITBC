@@ -481,6 +481,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc market exchange status`](market-exchange-status.md) — Get the current bridge service status.
 - [`aitbc market exchange withdraw-eth`](market-exchange-withdraw-eth.md) — Withdraw ETH from the bridge wallet (admin only).
 - [`aitbc market gpu buy`](market-gpu-buy.md) — Fund a quoted GPU rental (native escrow or EVM contract).
+- [`aitbc market gpu list`](market-gpu-list.md) — List GPUs in the coordinator registry (GET /v1/market/gpu/list).
 - [`aitbc market gpu quote`](market-gpu-quote.md) — Request an operator-signed energy quote for a GPU rental.
 - [`aitbc market gpu refund`](market-gpu-refund.md) — Request a refund for a GPU rental.
 - [`aitbc market gpu release`](market-gpu-release.md) — Release escrow funds to the provider after rental completion.
