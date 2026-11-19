@@ -732,6 +732,11 @@ class _ProposalGatesMixin(_PoaBaseMixin):
             return None
         return proposer, round_number
 
+    def _fail_rejected_lock_transfer(self, session: Session, tx: Any, tx_type: str | None) -> None:
+        """#2251: a rejected BRIDGE_LOCK closes its pending bridge transfer."""
+        if (tx_type or "").upper() == "BRIDGE_LOCK":
+            bridge_lock_guard.fail_pending_lock_transfer(session, self._config.chain_id, tx.tx_hash)
+
     def _persist_rejected_txs(
         self,
         session: Session,
@@ -776,6 +781,7 @@ class _ProposalGatesMixin(_PoaBaseMixin):
                     existing.status = "rejected"
                     existing.tx_metadata = _rejection_metadata(reason, next_height, timestamp)
                     session.add(existing)
+                    self._fail_rejected_lock_transfer(session, tx, existing.type)
                     continue
                 tx_data = tx.content or {}
                 session.add(
@@ -796,6 +802,7 @@ class _ProposalGatesMixin(_PoaBaseMixin):
                         tx_metadata=_rejection_metadata(reason, next_height, timestamp),
                     )
                 )
+                self._fail_rejected_lock_transfer(session, tx, (tx_data.get("type") or "").upper())
             except (SQLAlchemyError, OSError, RuntimeError, ValueError, TypeError, AttributeError, KeyError) as exc:
                 self._logger.warning("[PROPOSE] Failed to record rejection for tx %s: %s", tx.tx_hash, exc)
         if commit:
