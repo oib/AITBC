@@ -141,12 +141,24 @@ def submit_arbitration_vote(
         if arbitrator_address == "0x0000000000000000000000000000000000000000":
             _logger.error("Vote submission attempted with zero address - rejected")
             raise HTTPException(status_code=401, detail="Zero address is not allowed for arbitration operations")
-        return SubmitArbitrationVoteResponse(
-            success=True,
-            vote_id=0,
-            status="Submitted",
-            message=f"Vote submitted successfully for dispute {request.dispute_id}",
+        # "plaintiff" is the dispute initiator (the filer); "defendant" the respondent.
+        vote_in_favor_of_initiator = request.vote == "plaintiff"
+        result = dispute_resolution_service.submit_arbitration_vote(
+            dispute_id=request.dispute_id,
+            vote_in_favor_of_initiator=vote_in_favor_of_initiator,
+            confidence=request.confidence,
+            reasoning=request.reasoning,
+            arbitrator_address=arbitrator_address,
         )
+        if not result.get("success"):
+            detail = result.get("error", "Failed to submit arbitration vote")
+            lowered = str(detail).lower()
+            if "not found" in lowered:
+                raise HTTPException(status_code=404, detail=detail)
+            if "arbitrator" in lowered:
+                raise HTTPException(status_code=403, detail=detail)
+            raise HTTPException(status_code=500, detail=detail)
+        return SubmitArbitrationVoteResponse(status=result.get("status", "Submitted"), vote_id=result.get("vote_id", 0))
     except HTTPException:
         raise
     except Exception as e:

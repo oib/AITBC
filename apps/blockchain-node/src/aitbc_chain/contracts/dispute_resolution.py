@@ -196,11 +196,17 @@ class DisputeResolutionContract:
             reasoning=reasoning,
             vote_time=int(time.time()),
         )
+        vote_id = len(self.votes[dispute_id])
         self.votes[dispute_id].append(vote)
         self.disputes[dispute_id].arbitrator_count += 1
         self.disputes[dispute_id].status = DisputeStatus.ARBITRATION_IN_PROGRESS
         logger.info("Submitted vote for dispute %s by %s", dispute_id, arbitrator_address)
-        return {"success": True, "status": "Submitted", "message": "Vote submitted successfully"}
+        return {
+            "success": True,
+            "status": "Submitted",
+            "vote_id": vote_id,
+            "message": "Vote submitted successfully",
+        }
 
     def authorize_arbitrator(
         self, arbitrator_address: str, reputation_score: int, owner_address: str, owner_signature: str | None = None

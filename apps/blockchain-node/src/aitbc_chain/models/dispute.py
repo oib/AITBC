@@ -1,8 +1,8 @@
 """Dispute-related Pydantic models for RPC endpoints."""
 
-from typing import Any
+from typing import Any, Literal
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class FileDisputeRequest(BaseModel):
@@ -43,8 +43,9 @@ class VerifyEvidenceResponse(BaseModel):
 
 class SubmitArbitrationVoteRequest(BaseModel):
     dispute_id: int
-    vote: str  # "plaintiff" or "defendant"
+    vote: Literal["plaintiff", "defendant"]  # which side the vote favours
     reasoning: str
+    confidence: int = Field(default=100, ge=0, le=100)
 
 
 class SubmitArbitrationVoteResponse(BaseModel):
