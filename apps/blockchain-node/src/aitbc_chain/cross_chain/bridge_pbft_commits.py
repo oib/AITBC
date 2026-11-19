@@ -51,6 +51,52 @@ def commits_from_metadata(block_metadata: Any) -> list[dict[str, Any]]:
     return commits[:_MAX_COMMITS]
 
 
+def _commit_fields(commit: Any) -> tuple[Any, Any, Any, Any, Any] | None:
+    """``(sender, signature, seq, view, digest)`` for a structurally complete commit."""
+    if not isinstance(commit, dict) or commit.get("message_type") != "commit":
+        return None
+    sender, signature = commit.get("sender"), commit.get("signature")
+    seq, view, digest = commit.get("sequence_number"), commit.get("view_number"), commit.get("digest")
+    if not sender or not signature or seq is None or view is None or not digest:
+        return None
+    return sender, signature, seq, view, digest
+
+
+def _commit_binding_ok(commit: dict[str, Any], block_hash: str, seq: Any, view: Any, digest: Any) -> bool:
+    """The vote must bind to this block: optional ``block_hash`` match plus the
+    ``sha256(block_hash:seq:view)`` digest — the same rule the importer applies."""
+    if commit.get("block_hash") and commit["block_hash"] != block_hash:
+        return False
+    expected = hashlib.sha256(f"{block_hash}:{seq}:{view}".encode()).hexdigest()
+    return str(digest).lower() == expected
+
+
+def _commit_signer(
+    commit: Any,
+    block_hash: str,
+    members: set[str],
+    chain_id: str | None,
+) -> tuple[tuple[Any, Any], str] | None:
+    """``((seq, view), canonical_sender)`` for a fully valid commit, else None."""
+    from ..consensus.pbft_vote_signature import verify_pbft_vote_signature
+
+    fields = _commit_fields(commit)
+    if fields is None:
+        return None
+    sender, signature, seq, view, digest = fields
+    if not _commit_binding_ok(commit, block_hash, seq, view, digest):
+        return None
+    try:
+        sender_c = canonical_address(str(sender))
+    except (TypeError, ValueError):
+        return None
+    if sender_c.lower() not in members:
+        return None
+    if not verify_pbft_vote_signature(commit, str(signature), str(sender), chain_id):
+        return None
+    return (seq, view), sender_c
+
+
 def verified_commit_signers(
     commits: Iterable[Any],
     block_hash: str,
@@ -63,32 +109,15 @@ def verified_commit_signers(
     counts, so mixed rounds or an equivocating committer cannot be unioned
     into a quorum.
     """
-    from ..consensus.pbft_vote_signature import verify_pbft_vote_signature
-
     members = {canonical_address(a).lower() for a in member_addrs}
     groups: dict[tuple[Any, Any], dict[str, str]] = {}
     for i, commit in enumerate(commits):
         if i >= _MAX_COMMITS:
             break
-        if not isinstance(commit, dict) or commit.get("message_type") != "commit":
+        signer = _commit_signer(commit, block_hash, members, chain_id)
+        if signer is None:
             continue
-        sender, signature = commit.get("sender"), commit.get("signature")
-        view, seq, digest = commit.get("view_number"), commit.get("sequence_number"), commit.get("digest")
-        if not sender or not signature or view is None or seq is None or not digest:
-            continue
-        if commit.get("block_hash") and commit["block_hash"] != block_hash:
-            continue
-        expected = hashlib.sha256(f"{block_hash}:{seq}:{view}".encode()).hexdigest()
-        if str(digest).lower() != expected:
-            continue
-        try:
-            sender_c = canonical_address(str(sender))
-        except (TypeError, ValueError):
-            continue
-        if sender_c.lower() not in members:
-            continue
-        if not verify_pbft_vote_signature(commit, str(signature), str(sender), chain_id):
-            continue
+        (seq, view), sender_c = signer
         groups.setdefault((seq, view), {})[sender_c.lower()] = sender_c
     if not groups:
         return []
