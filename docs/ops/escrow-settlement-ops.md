@@ -216,6 +216,41 @@ host** — a rows-only census misses it, which is why the account set must
 be derived from transactions. Re-checking is one read-only query: list
 `ESCROW_LOCK` payloads' `job_id`, derive each address, sum balances.
 
+### 1.9 Settlement-authority float
+
+`ESCROW_RELEASE`/`ESCROW_REFUND` are signed by the settlement authority
+(`ESCROW_RELEASE_ADDRESS`, chain parameter `escrow_settlement_authority`).
+Two different balance checks apply and only one of them is obvious:
+
+- **Apply-time (v3 locks):** the leg's *value* is debited from the job's
+  keyless custody account; the authority pays only the tx fee (§1.4). A
+  custody account that cannot cover the leg fails the delta.
+- **Admission-time (all locks):** `_check_admission_account`
+  (`rpc/transactions.py`) still requires the *sender's* balance to cover
+  `amount + fee + pending` for every transaction type, escrow legs
+  included. The check does not exempt custody-funded legs — it is
+  conservative, not a bug — but it means a v3 refund of 10 AIT needs the
+  authority to hold ≥10 AIT + fee of headroom even though apply will only
+  charge it the fee. Pending submissions queue against the same balance.
+
+**Symptom of an under-floated authority:** the chain rejects the
+`ESCROW_REFUND`/`ESCROW_RELEASE` submission with `insufficient balance for
+sender '0x…'`; the escrow mutation is rolled back (the cached contract is
+evicted so it cannot show a settlement the chain never saw), and since
+#2270 the route answers **HTTP 503** carrying that detail instead of a
+silent `success:false`. Upstream, the coordinator maps it to **HTTP 502**
+with the same reason in `detail` — no more bare "Failed to refund
+payment". The buyer stays unpaid and the payment's `payment_status` sits
+at `escrowed`/`failed` until someone tops up `ESCROW_RELEASE_ADDRESS` and
+retries; nothing retries the money leg on its own.
+
+**Runbook:** on an insufficient-balance refund/release, check the
+authority's balance on the settlement chain, top it up to cover pending
+refund amounts + fee, then re-POST the route — it is idempotent
+(`_find_existing_refund`/`_find_existing_release` short-circuit an
+already-sealed leg). Float-vs-obligations coverage alerting is tracked
+separately (#2264).
+
 ## 2. Alert response
 
 Severity and expressions below are the repo's `scripts/monitoring/aitbc_rules.yml`.
