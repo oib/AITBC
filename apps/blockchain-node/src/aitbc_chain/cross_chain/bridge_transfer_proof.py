@@ -147,7 +147,7 @@ class BridgeTransferProofMixin(BridgeBase):
                 "lock_event": lock_value.decode(),
                 "proposer_signature": block.signature,
                 "validator_signatures": validator_signatures,
-                **self._proof_pbft_commit_field(block),
+                **self._proof_pbft_commit_field(session, block),
             }
 
     @staticmethod
@@ -378,18 +378,43 @@ class BridgeTransferProofMixin(BridgeBase):
             "lock_event": lock_value.decode(),
             "proposer_signature": block.signature,
             "validator_signatures": validator_signatures,
-            **self._proof_pbft_commit_field(block),
+            **self._proof_pbft_commit_field(session, block),
         }
 
     @staticmethod
-    def _proof_pbft_commit_field(block: Block) -> dict[str, Any]:
-        """#2249: ``pbft_commits`` for the proof when the gate is armed at this height."""
-        from .bridge_pbft_commits import commit_proof_active, commits_from_metadata
+    def _block_tx_hashes(session: Any, block: Block) -> list[str]:
+        """Tx hashes sealed in ``block`` — the tx term of the block-hash preimage."""
+        rows = session.exec(
+            select(Transaction.tx_hash).where(Transaction.chain_id == block.chain_id, Transaction.block_height == block.height)
+        ).all()
+        return [str(h) for h in rows]
+
+    @classmethod
+    def _proof_pbft_commit_field(cls, session: Any, block: Block) -> dict[str, Any]:
+        """#2249/#2275: ``pbft_commits`` + ``pbft_preimage`` when armed at this height.
+
+        The preimage lets the verifier recompute the block hash the commits
+        certify from the header roots. A block whose own preimage does not
+        reproduce its hash could never verify, so no commits are attached.
+        """
+        from .bridge_pbft_commits import (
+            commit_proof_active,
+            commits_at_height,
+            commits_from_metadata,
+            header_binds_preimage,
+            preimage_for_block,
+        )
 
         if not commit_proof_active(getattr(block, "height", None)):
             return {}
-        commits = commits_from_metadata(block.block_metadata)
-        return {"pbft_commits": commits} if commits else {}
+        commits = commits_at_height(commits_from_metadata(block.block_metadata), block.height)
+        if not commits:
+            return {}
+        preimage = preimage_for_block(block, cls._block_tx_hashes(session, block))
+        if not header_binds_preimage(block, preimage):
+            logger.warning("PBFT commit proof omitted: block %s hash not reproduced from its own fields", block.height)
+            return {}
+        return {"pbft_commits": commits, "pbft_preimage": preimage}
 
     def _proof_validator_signatures(self, block: Block, source_chain: str) -> list[str]:
         """Sealed + threshold-top-up validator signatures for a proof."""
@@ -500,11 +525,13 @@ class BridgeTransferProofMixin(BridgeBase):
 
     def _pbft_commit_signers_for_block(self, block: Block, source_chain: str, vset: Any) -> list[str]:
         """#2249: committers the proof will carry, so top-up does not chase signatures already covered."""
-        from .bridge_pbft_commits import commit_proof_active, commits_from_metadata, verified_commit_signers
+        from .bridge_pbft_commits import commit_proof_active, verified_commit_signers
 
         if not commit_proof_active(getattr(block, "height", None)):
             return []
-        return verified_commit_signers(commits_from_metadata(block.block_metadata), block.hash, source_chain, vset.addresses)
+        with self._session_for(source_chain) as session:
+            carried = self._proof_pbft_commit_field(session, block).get("pbft_commits", [])
+        return verified_commit_signers(carried, block.hash, source_chain, vset.addresses)
 
     def _augment_proof_validator_signatures(
         self,
