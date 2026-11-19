@@ -10,6 +10,19 @@ from __future__ import annotations
 from . import escrow_routes as _er
 
 
+def _upstream_error_detail(resp: _er.Any) -> str:
+    """Best-effort detail from a rejected chain submission response."""
+    try:
+        body = resp.json()
+    except (TypeError, ValueError):
+        body = None
+    if isinstance(body, dict):
+        detail = body.get("detail")
+        if isinstance(detail, str) and detail:
+            return detail[:300]
+    return (resp.text or "")[:300]
+
+
 async def _submit_payment_tx(buyer: str, provider: str, amount: _er.Decimal, job_id: str, contract_id: str) -> str | None:
     """Submit an ESCROW_RELEASE transaction to the blockchain so payment is on-chain."""
     if amount <= 0:
@@ -204,6 +217,14 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: _er.Decimal, job_
             buyer,
             resp.text[:200],
         )
+        # #2270: a chain-side rejection (e.g. the settlement authority's float
+        # cannot cover amount+fee at admission) must reach the caller, not
+        # collapse into a generic success:false the coordinator reports as
+        # "Failed to refund payment".
+        raise _er.HTTPException(
+            status_code=503,
+            detail=(f"ESCROW_REFUND transaction rejected by the chain for job_id={job_id}: {_upstream_error_detail(resp)}"),
+        )
     except Exception as e:
         _er._logger.error(
             "ESCROW_REFUND TX submission failed for job_id=%s (buyer %s was NOT refunded on-chain): %s",
@@ -212,7 +233,6 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: _er.Decimal, job_
             e,
         )
         raise
-    return None
 
 
 async def _escrow_custody_balance(job_id: str) -> int | None:

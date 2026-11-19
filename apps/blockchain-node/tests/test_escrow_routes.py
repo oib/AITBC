@@ -481,6 +481,50 @@ async def test_submit_refund_tx_refuses_unresolvable_buyer(release_key, monkeypa
     assert tx_hash is None
 
 
+@pytest.mark.asyncio
+async def test_submit_refund_tx_rejection_surfaces_503_detail(release_key, monkeypatch):
+    """#2270: a chain-side rejection (settlement-authority float short of
+    amount+fee) must surface its detail as HTTP 503 — returning None collapsed
+    it into a generic success:false and a bare 'Failed to refund payment' 400
+    at the coordinator."""
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("NODE_WALLET_ADDRESS", NODE_WALLET)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+
+    refused = MagicMock()
+    refused.status_code = 400
+    refused.json.return_value = {
+        "detail": "insufficient balance for sender '0x1563915e194dcfbA1943570603f7606a3115508' on chain 'test-chain': has 6800000, needs 10100000 plus 0 already pending"
+    }
+    refused.text = refused.json.return_value["detail"]
+
+    with (
+        patch.object(escrow_routes, "_find_existing_refund", new_callable=AsyncMock, return_value=None),
+        patch.object(
+            escrow_routes,
+            "_resolve_chain_account",
+            new_callable=MagicMock,
+            return_value="0x3333333333333333333333333333333333333333",
+        ),
+        patch.object(escrow_routes, "_settlement_signing_nonce", new_callable=AsyncMock, return_value=5),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=refused),
+    ):
+        with pytest.raises(HTTPException) as ei:
+            await escrow_routes._submit_refund_tx(
+                buyer="0x4444444444444444444444444444444444444444",
+                provider="0x2222222222222222222222222222222222222222",
+                amount=Decimal("10.0"),
+                job_id="job-123",
+                contract_id="contract-123",
+            )
+
+    assert ei.value.status_code == 503
+    assert "insufficient balance" in ei.value.detail
+    assert "job-123" in ei.value.detail
+
+
 # --- v11: ESCROW_FEE_SWEEP post-settlement leg --------------------------------
 
 # Obviously synthetic recipient — the real treasury address is designated at
