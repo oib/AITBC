@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class BridgeConfig(BaseModel):
@@ -129,6 +129,14 @@ class BridgeConfig(BaseModel):
     # ever arrive while the sealed block is still at/near a peer's tip (v9
     # parent-binding), so this is a short best-effort window, not a retry.
     bridge_proof_attestation_timeout_seconds: float = 2.0
+    # #2249: at/above this source-chain height a bridge proof carries the
+    # block's PBFT commit certificate (``pbft_commits``) and the verifier counts
+    # distinct validator-set committers as signers, in addition to the header
+    # signatures. VIEW_CHANGE-gated blocks are sealed from the certificate and
+    # their attestations are dropped, so header signatures alone can never reach
+    # bridge_multisig_threshold on them. None (default) = legacy proofs only.
+    # Must be set identically on the building and the verifying node.
+    bridge_pbft_commit_proof_height: int | None = Field(default=None, ge=0)
     # v0.10.16: comma-separated list of Ethereum addresses authorized to register
     # bridge validators and ingest remote block headers. Empty means no admin is
     # configured, so validator/header admission is denied when the release fence
