@@ -87,6 +87,26 @@ class TestVerifiedCommitSigners:
         forged["signature"] = _commit(accts[0])["signature"]
         assert verified_commit_signers([outsider, other_block, bad_digest, forged], BLOCK_HASH, SOURCE, members) == []
 
+    def test_digest_binding_is_the_block_hash_binding(self, accts):
+        """#2249 pin: a validly signed commit for block A replayed into block B.
+
+        The vote preimage covers the digest, not block_hash, so the digest
+        check is the sole binding between a commit and the proof's header.
+        The commit below is self-consistent (right seq/view, member, valid
+        signature over its own digest) but its digest is over a different
+        block hash; with ``block_hash`` omitted or relabelled to this block
+        it must still be rejected.
+        """
+        other_hash = "0x" + "cd" * 32
+        members = [a.address for a in accts]
+        replay_omitted = _commit(accts[0], block_hash=other_hash)
+        replay_omitted.pop("block_hash")
+        replay_relabelled = _commit(accts[1], block_hash=other_hash)
+        replay_relabelled["block_hash"] = BLOCK_HASH
+        assert verified_commit_signers([replay_omitted, replay_relabelled], BLOCK_HASH, SOURCE, members) == []
+        # control: the same commits are accepted against the block they were signed for
+        assert len(verified_commit_signers([replay_omitted], other_hash, SOURCE, members)) == 1
+
     def test_duplicate_sender_counts_once(self, accts):
         c = _commit(accts[0])
         assert len(verified_commit_signers([c, dict(c)], BLOCK_HASH, SOURCE, [accts[0].address])) == 1
