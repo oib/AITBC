@@ -26,6 +26,7 @@ Environment="IPFS_TELEMETRY=off"
 EnvironmentFile=-/etc/aitbc/%N.env
 WorkingDirectory=/opt/aitbc/apps/ipfs
 RuntimeDirectory=aitbc
+RuntimeDirectoryPreserve=yes
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/ipfs/island_ipfs_daemon.py
 Restart=on-failure
 RestartSec=10
