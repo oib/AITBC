@@ -113,6 +113,49 @@ def test_get_effective_secret_shaped_value_refused(runner, tmp_path, monkeypatch
     assert "secret-shaped" in result.output
 
 
+@pytest.mark.parametrize(
+    "url",
+    [
+        "redis://:s3cr3tpass@127.0.0.1:6379/0",
+        "rediss://:s3cr3tpass@redis.example:6380/1",
+        "redis://default:s3cr3tpass@redis.example:6379/0",
+    ],
+)
+def test_get_effective_redis_url_with_password_refused(runner, tmp_path, monkeypatch, url):
+    """#2274: the fleet's credentialed Redis URL has an EMPTY user (``redis://:PW@host``);
+    the secret-shape rule required a non-empty user, so ``config get redis_url`` printed
+    the password (and the MCP config-get tool with it)."""
+    f = tmp_path / "aitbc.yaml"
+    f.write_text("timeout: 60\n")
+    monkeypatch.setenv("AITBC_CONFIG_FILE", str(f))
+
+    effective = type("C", (), {"redis_url": url})()
+    monkeypatch.setattr(config_mod, "get_config", lambda: effective)
+
+    result = runner.invoke(config, obj={"output_format": "json"}, args=["get", "redis_url"])
+    assert result.exit_code != 0
+    assert "s3cr3tpass" not in result.output
+    assert "secret-shaped" in result.output
+
+
+@pytest.mark.parametrize(
+    "url",
+    ["redis://127.0.0.1:6379/0", "redis://redis.example:6379", "http://hub.example:8201/path"],
+)
+def test_get_effective_url_without_credentials_still_prints(runner, tmp_path, monkeypatch, url):
+    """#2274: widening the rule to an empty user must not refuse host:port URLs."""
+    f = tmp_path / "aitbc.yaml"
+    f.write_text("timeout: 60\n")
+    monkeypatch.setenv("AITBC_CONFIG_FILE", str(f))
+
+    effective = type("C", (), {"redis_url": url})()
+    monkeypatch.setattr(config_mod, "get_config", lambda: effective)
+
+    result = runner.invoke(config, obj={"output_format": "json"}, args=["get", "redis_url"])
+    assert result.exit_code == 0, result.output
+    assert url in result.output
+
+
 def test_get_effective_empty_is_not_set(runner, tmp_path, monkeypatch):
     f = tmp_path / "aitbc.yaml"
     f.write_text("timeout: 60\n")

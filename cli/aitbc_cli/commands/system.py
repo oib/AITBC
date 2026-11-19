@@ -896,7 +896,9 @@ _CAMEL_BOUNDARY = re.compile(r"(?<=[a-z0-9])(?=[A-Z])")
 # applied to --value env values and --field string scalars. Each entry is
 # (pattern, rule name); the refusal names the rule, never the value.
 _FIELD_SECRET_VALUE_PATTERNS = (
-    (re.compile(r"://[^/\s:@]+:[^/\s@]+@"), "URL carrying user:password"),
+    # The user part may be empty: the fleet's documented Redis form is
+    # ``redis://:PASSWORD@host`` (#2274), so ``[^/\s@]*`` not ``+``.
+    (re.compile(r"://[^/\s@]*:[^/\s@]+@"), "URL carrying user:password"),
     (re.compile(r"^0x[0-9a-fA-F]{64}$"), "0x+64-hex private-key shape"),
     # Bare runs only — a 0x-prefixed 40-hex address (PROPOSER_ID et al.) is
     # the address shape, not a secret; 0x+64-hex is refused by the rule above.
