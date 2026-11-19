@@ -2285,3 +2285,52 @@ class TestLockedReproposal2157:
 
 async def _true() -> bool:
     return True
+
+
+class TestEmittedPreprepareReuse2281:
+    """#2281: once a pre-prepare for (sequence, view) is broadcast, every
+    same-view retry MUST reuse the emitted hash and body. The retry path
+    rebuilds a fresh block (new timestamp -> new hash); emitting it is
+    equivocation — followers refuse ``second_block_same_round`` and split
+    prepare quorums end in ``commit.digest_mismatch`` freezes."""
+
+    @pytest.fixture(autouse=True)
+    def _iso(self, _fresh_chain):
+        return _fresh_chain
+
+    @pytest.mark.asyncio
+    async def test_retry_reuses_emitted_hash_and_body(self, vc_armed):
+        consensus = _make_consensus()
+        proposer = _proposer(SEQ, VIEW)
+        pbft = _pbft(consensus, proposer, KEYS[proposer])
+        gossip = _FakeGossip()
+        pbft.set_gossip_backend(gossip)
+        key = f"{SEQ}:{VIEW}"
+
+        assert await pbft.pre_prepare_phase(proposer, HA, SEQ, VIEW, block_payload=_proposal_body(proposer, HA))
+        assert pbft.state.pre_prepare_messages[key].block_hash == HA
+
+        # Same-view retry carrying a freshly built block (new hash, new body).
+        assert await pbft.pre_prepare_phase(proposer, HB, SEQ, VIEW, block_payload=_proposal_body(proposer, HB))
+        second = pbft.state.pre_prepare_messages[key]
+        assert second.block_hash == HA
+        assert second.block is not None and second.block["hash"] == HA
+
+        emitted = [p for t, p in gossip.published if t == f"pbft.pre_prepare.{_CID}"]
+        assert [p["block_hash"] for p in emitted] == [HA, HA]
+
+    @pytest.mark.asyncio
+    async def test_new_view_allows_a_new_hash(self, vc_armed):
+        """The reuse is scoped to (sequence, view): the next view proposes fresh."""
+        consensus = _make_consensus()
+        proposer = _proposer(SEQ, VIEW)
+        pbft = _pbft(consensus, proposer, KEYS[proposer])
+        pbft.set_gossip_backend(_FakeGossip())
+
+        assert await pbft.pre_prepare_phase(proposer, HA, SEQ, VIEW, block_payload=_proposal_body(proposer, HA))
+        proposer2 = _proposer(SEQ, VIEW + 1)
+        pbft2 = _pbft(consensus, proposer2, KEYS[proposer2])
+        pbft2.set_gossip_backend(_FakeGossip())
+        pbft2._emitted_preprepare = pbft._emitted_preprepare  # same node, next view
+        assert await pbft2.pre_prepare_phase(proposer2, HB, SEQ, VIEW + 1, block_payload=_proposal_body(proposer2, HB))
+        assert pbft2.state.pre_prepare_messages[f"{SEQ}:{VIEW + 1}"].block_hash == HB

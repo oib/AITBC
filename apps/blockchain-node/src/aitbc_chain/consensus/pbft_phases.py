@@ -75,6 +75,31 @@ class _PhasesMixin(_PbftBaseMixin):
         # result, no other node was told, and the proposer that had actually
         # gone dark was never running a timer in the first place.
         self._adopt_round_as_view(view)
+        # #2281: once a pre-prepare for (sequence, view) has been broadcast,
+        # every retry MUST reuse the emitted hash and body — a second hash in
+        # the same view is equivocation that followers refuse
+        # (second_block_same_round) and that splits commit quorums into
+        # digest_mismatch freezes. The substitution sits at the single
+        # broadcast point so every caller (propose_and_wait retries,
+        # locked re-proposals, direct pre_prepare_phase calls) is covered.
+        emitted = self._emitted_preprepare.get((sequence, view))
+        if emitted is not None:
+            emitted_hash, emitted_payload = emitted
+            if emitted_hash != block_hash or emitted_payload != block_payload:
+                logger.warning(
+                    "PBFT reusing emitted pre-prepare %s at seq %s view %s; discarding retry block %s",
+                    pbft_trace.short_hash(emitted_hash),
+                    sequence,
+                    view,
+                    pbft_trace.short_hash(block_hash),
+                )
+                pbft_trace.trace(
+                    "propose.hash_reuse",
+                    hr=f"{sequence}:{view}",
+                    emitted=pbft_trace.short_hash(emitted_hash),
+                    offered=pbft_trace.short_hash(block_hash),
+                )
+            block_hash, block_payload = emitted_hash, emitted_payload
         # #2005 F3-C: while the VIEW_CHANGE gate is armed the pre-prepare
         # MUST carry the full signed block (ruling 2A / Option R) and, once
         # the protocol has engaged for this height, the NEW_VIEW proof.
@@ -113,6 +138,12 @@ class _PhasesMixin(_PbftBaseMixin):
 
         # Broadcast to all validators
         await self._broadcast_message(message)
+
+        # #2281: record the emitted (hash, body) so a same-view retry reuses
+        # it — see the substitution above. Prune heights already committed.
+        for stale in [k for k in self._emitted_preprepare if k[0] < sequence]:
+            self._emitted_preprepare.pop(stale, None)
+        self._emitted_preprepare[(sequence, view)] = (block_hash, block_payload)
 
         self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous
         return True
