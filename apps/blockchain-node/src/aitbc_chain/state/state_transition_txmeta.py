@@ -213,10 +213,17 @@ def block_scoped_preregistered_for_next_block(session: Session, chain_id: str) -
 BRIDGE_SIGNED_NONCE_RUNG = 27
 
 
-def _carries_bridge_signature(tx_data: dict[str, Any]) -> bool:
-    """True when the tx carries the bridge authority's ``bridge_signature``
-    (flat envelope field or inside ``payload``). Such a signature binds the
-    envelope nonce, so v27+ must verify it against that nonce (#2252)."""
+def _is_signed_bridge_lock(tx_data: dict[str, Any]) -> bool:
+    """True for a ``BRIDGE_LOCK`` carrying the bridge authority's
+    ``bridge_signature`` (flat envelope field or inside ``payload``).
+
+    The lock's signature binds the envelope nonce, so v27+ must verify it
+    against that nonce (#2252). The type is checked explicitly (resolved the
+    way apply resolves it): a non-lock tx that merely carries the field must
+    not take this nonce path.
+    """
+    if _tx_type(tx_data) != "BRIDGE_LOCK":
+        return False
     if tx_data.get("bridge_signature"):
         return True
     payload = tx_data.get("payload")
@@ -237,9 +244,11 @@ def use_account_nonce_override(tx_data: dict[str, Any], block_version: int) -> b
       operator-relayed records) carry no signed nonce to enforce; the check
       must not run on a meaningless stored value.
 
-    From v27 (#2252) a tx carrying a ``bridge_signature`` also keeps its
-    envelope nonce: the authority signature binds it, and rewriting it made
-    a lock sharing a nonce with an earlier sealed lock fail verification.
+    From v27 (#2252) a ``BRIDGE_LOCK`` carrying a ``bridge_signature`` also
+    keeps its envelope nonce: the authority signature binds it, and rewriting
+    it made a lock sharing a nonce with an earlier sealed lock fail
+    verification. Other tx types keep the existing rule, whatever fields
+    they carry.
 
     For signed transactions at v7+ the envelope nonce is authoritative: the
     signature covers it, and the nonce check enforces it for real instead of
@@ -247,6 +256,6 @@ def use_account_nonce_override(tx_data: dict[str, Any], block_version: int) -> b
     """
     if block_version < 7:
         return True
-    if block_version >= BRIDGE_SIGNED_NONCE_RUNG and _carries_bridge_signature(tx_data):
+    if block_version >= BRIDGE_SIGNED_NONCE_RUNG and _is_signed_bridge_lock(tx_data):
         return False
     return not (tx_data.get("signature") or tx_data.get("sig"))

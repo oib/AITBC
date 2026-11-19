@@ -60,16 +60,24 @@ class TestOverrideHelper:
     @pytest.mark.parametrize(
         ("version", "tx", "expected"),
         [
-            (PRE, {"bridge_signature": "0x1"}, True),
-            (RUNG, {"bridge_signature": "0x1"}, False),
-            (RUNG, {"payload": {"bridge_signature": "0x1"}}, False),
-            (RUNG + 1, {"bridge_signature": "0x1"}, False),
-            (RUNG, {}, True),
-            (RUNG, {"payload": {}}, True),
-            (RUNG, {"payload": "not-a-dict"}, True),
-            (RUNG, {"bridge_signature": ""}, True),
+            (PRE, {"type": "BRIDGE_LOCK", "bridge_signature": "0x1"}, True),
+            (RUNG, {"type": "BRIDGE_LOCK", "bridge_signature": "0x1"}, False),
+            (RUNG, {"type": "bridge_lock", "bridge_signature": "0x1"}, False),
+            (RUNG, {"type": "BRIDGE_LOCK", "payload": {"bridge_signature": "0x1"}}, False),
+            (RUNG, {"payload": {"type": "BRIDGE_LOCK", "bridge_signature": "0x1"}}, False),
+            (RUNG + 1, {"type": "BRIDGE_LOCK", "bridge_signature": "0x1"}, False),
+            (RUNG, {"type": "BRIDGE_LOCK"}, True),
+            (RUNG, {"type": "BRIDGE_LOCK", "payload": {}}, True),
+            (RUNG, {"type": "BRIDGE_LOCK", "payload": "not-a-dict"}, True),
+            (RUNG, {"type": "BRIDGE_LOCK", "bridge_signature": ""}, True),
             (RUNG, {"signature": "0x1"}, False),
-            (6, {"bridge_signature": "0x1"}, True),
+            (6, {"type": "BRIDGE_LOCK", "bridge_signature": "0x1"}, True),
+            # #2252 ruling: field presence alone must not take the lock nonce path
+            (RUNG, {"bridge_signature": "0x1"}, True),
+            (RUNG, {"type": "TRANSFER", "bridge_signature": "0x1"}, True),
+            (RUNG, {"type": "BRIDGE_RELEASE", "bridge_signature": "0x1"}, True),
+            (RUNG, {"type": "BRIDGE_REFUND", "payload": {"bridge_signature": "0x1"}}, True),
+            (RUNG, {"type": "MESSAGE", "bridge_signature": "0x1"}, True),
         ],
     )
     def test_table(self, version, tx, expected):
