@@ -249,3 +249,33 @@ def run_guard_dryrun_dicts(
     except Exception as exc:  # noqa: BLE001 - dry-run guard never raises into the seal path
         _note_error(height=height, chain_id=chain_id, log=log, exc=exc)
         return None
+
+
+def fail_pending_lock_transfer(session: Any, chain_id: str, tx_hash: str) -> bool:
+    """Mark the pending bridge transfer for a rejected BRIDGE_LOCK ``failed`` (#2251).
+
+    Intake writes the ``CrossChainTransfer`` row ``pending`` before the lock tx
+    is applied; when apply refuses the lock nothing else ever closes it, so it
+    sat pending (and in the pending-count alert) forever. Only a row still
+    ``pending`` for this source chain and tx hash is touched; the lock was
+    never applied, so no debit or escrow needs unwinding. The row is
+    node-local bridge-store state, not part of any consensus root. Caller
+    commits. Returns True when a row changed.
+    """
+    from sqlmodel import select
+
+    from ..base_models_aux import CrossChainTransfer
+
+    row = session.exec(
+        select(CrossChainTransfer).where(
+            CrossChainTransfer.source_chain == chain_id,
+            CrossChainTransfer.transfer_id == tx_hash,
+            CrossChainTransfer.status == "pending",
+        )
+    ).first()
+    if row is None:
+        return False
+    row.status = "failed"
+    session.add(row)
+    logger.info("bridge transfer %s marked failed: its BRIDGE_LOCK was rejected at apply", tx_hash[:18])
+    return True
