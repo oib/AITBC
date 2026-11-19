@@ -1,7 +1,9 @@
 # Gate-semantics table — RESET-VECTORS-2
 
 Every height/activation setting that shapes consensus or admission behavior,
-its code default, its deployed (live `ait-hub.aitbc.bubuit.net`) value, the
+its code default, its deployed value on the pre-reset `ait-hub` chain (the `deployed` golden
+profile, `DEPLOYED_PINS`; historical), its **bc-2 live** value (env read from all five hosts on
+19 Nov 2026), the
 comparison the code applies, the value that turns the rule **on from the first
 produced block** of a `bc-2`-style chain, and what `0` actually does.
 
@@ -10,7 +12,7 @@ genesis" for most gates.** The version-resolution code treats `0`/falsy
 thresholds as *inactive* — the rule never activates. Only the `>=`-style
 non-version gates (`bridge_lock_leaf_v2_height`, `escrow_fee_sweep_pass_min_height`)
 treat `0` as "on". The uniform bc-2 value is therefore **`1`**: every produced
-block (heights >= 1) resolves to the newest armed ruleset — v21 on this
+block (heights >= 1) resolves to the newest armed ruleset — v27 on this
 build — on both the producer and the replay path. Proven empirically by the
 `gates1` profile.
 
@@ -19,34 +21,34 @@ Env names are the pydantic field names uppercased (`STATE_TRANSITION_V9_HEIGHT`,
 
 ## Version-resolution gates (consensus apply)
 
-| setting | default | deployed | compare | on from block 1 | `0` does | source |
-|---|---|---|---|---|---|---|
-| `state_transition_v2_height` | 0 | 0 | `> 0 and h >= t` | 1 | v2 inactive — replay falls to v1, producer still emits v2 (its tail is `if t > 0 and h < t: return 1; return 2`) | `state_transition.py:952-954, 1001-1004`; default `config.py:769` |
-| `state_transition_v3_height` | 0 | 5470 | `> 0 and h >= t` | 1 | v3 inactive (no custody escrow) | `state_transition.py:949-951, 998-1000`; default `config.py:773` |
-| `state_transition_v4_height` | 11000 | 11000 | `> 0 and h >= t` | 1 | v4 inactive | `state_transition.py:946-948, 995-997`; default `config.py:779` |
-| `state_transition_v5_height` | 24000 | 24000 | `> 0 and h >= t` | 1 | v5 inactive — lenient authorities (no fail-closed) | `state_transition.py:943-945, 992-994`; default `config.py:787` |
-| `state_transition_v6_height` | 0 | 0 | `> 0 and h >= t` | 1 | v6 inactive — bridge refunds unbound | `state_transition.py:940-942, 989-991`; default `config.py:794` |
-| `state_transition_v7_height` | 24650 | 24650 | `> 0 and h >= t` | 1 | v7 inactive | `state_transition.py:937-939, 986-988`; default `config.py:802` |
-| `state_transition_v8_height` | 24800 | 24800 | `> 0 and h >= t` | 1 | v8 inactive — and below it the unauthenticated `block_metadata.state_transition_version` stamp **wins** (any relay picks the rules); at/above it the stamp is advisory | `state_transition.py:923-936, 983-985`; default `config.py:817` |
-| `state_transition_v9_height` | 30400 | 30400 | truthy `and h >= t` | 1 | v9 inactive — signatures not enforced | `state_transition.py:980-982`; default `config.py:832` |
-| `state_transition_v10_height` | 32100 | 32100 | truthy `and h >= t` | 1 | v10 inactive | `state_transition.py:977-979`; default `config.py:843` |
-| `state_transition_v11_height` | 35400 | 35400 | truthy `and h >= t` | 1 | v11 inactive | `state_transition.py:974-976`; default `config.py:858` |
-| `state_transition_v12_height` | 37500 | 37500 | truthy `and h >= t` | 1 | v12 inactive | `state_transition.py:971-973`; default `config.py:873` |
-| `state_transition_v13_height` | 46100 (`SHARED_ACTIVATION_HEIGHT`, `config.py:57`; `V13_HEIGHT_NOT_ARMED=2**62` parks it, `config.py:47`) | 46100 | truthy `and h >= t` | 1 | v13 inactive — executes unbound to proposals | `state_transition.py:968-970`; default `config.py:881` |
-| `state_transition_v14_height` | 46100 | 46100 | truthy `and h >= t` | 1 | v14 inactive — no aux-state-root commit/check, unreadable bridge leaves grandfathered | `state_transition.py:965-967`; default `config.py:890` |
-| `state_transition_v15_height` | None (`config.py:898`; unset = unarmed) | 0 — never set on the corpus chain (bc-2 carries 1732) | truthy `and h >= t` | — | v15 inactive — `edge_node_registration` stays committed | `state_transition.py:965-966`; default `config.py:898` |
-| `state_transition_v16_height` | unset | 6500 on all five bc-2 hosts (verified 19 Nov) | truthy `and h >= t` | 1 | v16 inactive — GPU_ALLOCATE keeps minting `alloc_<uuid4>` when `allocation_id` is omitted; missing `gpu_id` dies at apply | `state_transition.py` cascade; field `config.py` ~L906 (GPU-ADMISSION-1 #384) |
-| `state_transition_v17_height` | 8900 (code-pinned, `config.py:946`) | — | truthy `and h >= t` | 1 | v17 inactive — unsigned `STAKE_LOCK`/`STAKE_RELEASE`/`BOUNTY_*` stay rejected as `missing_signature` even with `payload.auth`; HTLC/AUTO_STAKE rejected at every version | `state_transition.py` cascade; field `config.py:946` (BNT-1 revival) |
-| `state_transition_v18_height` | 9600 (code-pinned, `config.py:958`) | 9600 — armed fleet-wide 2026-10-28, live on bc-2 | truthy `and h >= t` | 1 | v18 inactive — apply stays nondeterministic: `secrets.token_hex` liquidity stake ids and `datetime.now(UTC)` on the apply path (locked_until, accrual, bond verdict) instead of tx-hash-derived ids and the sealed header timestamp | `state_transition.py` cascade top (`:967-969`); field `config.py:958` (v14-aux-root-nondeterminism remediation) |
-| `state_transition_v19_height` | None (`config.py:994`; unset = unarmed) | 0 — not set on the fleet (no `STATE_TRANSITION_V19_HEIGHT` in the hub's node env files, 2 Nov) | truthy `and h >= t` | 1 | v19 inactive — a `BOND_LOCK` top-up on a bond whose row is not `status=active` is still admitted and raises `amount` while the row keeps its terminal status (the stranded-funds bug, BOND-LOCK-TOPUP-SLASHED-1 #782) | `state_transition.py:972-973`; refusal `state_transition.py:1842-1857` (`block_version >= 19`), admission `rpc/transactions.py:243-261`; field `config.py:994` |
-| `state_transition_v20_height` | None (unset = unarmed) | 18200 — armed fleet-wide, live on bc-2 | truthy `and h >= t` | 1 | v20 inactive — unsigned `value` may diverge from signed `amount` (#1066) and a `BOND_LOCK` signer need not be the payload provider nor bounded lock_days (#1067) | `state_transition.py:1384-1391`, `:1853-1868` (`block_version >= 20`); field `config.py` after v19 |
-| `state_transition_v21_height` | None (unset = unarmed) | 22000 on all five bc-2 hosts (verified 19 Nov) | truthy `and h >= t` | 1 | v21 inactive — `AGENT_SESSION_*` replay as generic transfers; session-bound `TRANSFER`/`ESCROW_LOCK` need no `payload.session_id`; no `agent_spend_ledger` charge (AGENT-SPEND-B-1 #1142) | `state_transition.py` cascade top, validate tail + apply tail (`block_version >= 21`), admission `rpc/transactions.py`; `agent_spend.py`; field `config.py` after v20 |
-| `state_transition_v22_height` | None (unset = unarmed) | 20100 on all five bc-2 hosts (verified 19 Nov) | truthy `and h >= t` | 1 | v22 inactive — `BOND_RELEASE`/`BOND_LOCK` keep pre-fix semantics: payload.provider need not equal the signer or persisted `bond.provider` (BOND-RELEASE-001 #1166), top-ups on others' bonds and indefinite lock extension via repeated top-ups (BOND-LOCK-TOPUP-PROVIDER-MISMATCH #1167), NULL `locked_until` stays immediately releasable | `state_transition.py` cascade top (`get_block_version_for_height`), shared `bond_tx_verdict` + validate tail (`block_version >= 22`), `_handle_bond_transaction` defense (`block_version >= 22`), admission `rpc/transactions.py`; `PROTOCOL_MAX_LOCK_DURATION` compile-time constant; field `config.py` after v21 |
-| `state_transition_v23_height` | None (unset = unarmed) | 21570 on all five bc-2 hosts (verified 19 Nov; island unpinned) | truthy `and h >= t` | 1 | v23 inactive — `ESCROW_RELEASE`/`ESCROW_REFUND`/`ESCROW_FEE_SWEEP` keep custody-balance semantics: third-party tips raise payout entitlement beyond the job obligation (#1232), fee sweep can drain locked custody (#1230) | `state_transition.py` cascade top (`get_block_version_for_height`), `_escrow_obligation_state`/`_escrow_lock_beneficiaries` + validate tail (`block_version >= 23`), `build_escrow_context` obligation fields + sequential fallback, `pure_state_transition.py` deltas (`block_version >= 23`), admission `admission_authority.py` + `rpc/transactions.py`; field `config.py` after v22 |
-| `state_transition_v24_height`| None (unset = unarmed) | no own pin on the bc-2 hosts (19 Nov); the v24 rules apply from the v26 pin because the cascade returns v26 and the gate is `block_version >= 24` | truthy `and h >= t` | 1 | v24 inactive — no identity-map invalidation after raw-SQL writes, no authoritative scalar reads at V1/V5 sites, no per-tx Transaction-row flush on the proposer (#1314) | `state_transition.py` cascade top (`get_block_version_for_height`), `v24_rules.py`, `database.py` `ParitySession`, `authoritative_reads.py`, V1/V5 sites (`block_version >= 24`), `poa.py` R2 flush sites, `sync_block_import.py` nonce mirror; field `config.py` after v23 |
-| `state_transition_v25_height`| None (unset = unarmed) | no own pin on the bc-2 hosts (19 Nov); the v25 rules apply from the v26 pin (`block_version >= 25`) | truthy `and h >= t` | 1 | v25 inactive — GPU_REGISTER `price_per_hour` stays parse-only: negative/NaN/Infinity/oversized prices still apply exactly as sealed history recorded them | `state_transition.py` cascade top (`get_block_version_for_height`), GPU_REGISTER validate tail + `handle_gpu_registration` (`block_version >= 25`, `_gpu_price_per_hour_in_range`); field `config.py` after v24 |
-| `state_transition_v26_height`| None (unset = unarmed) | 31800 on all five bc-2 hosts (verified 19 Nov) | truthy `and h >= t` | 1 | v26 inactive — pre-registered bridge mutations stay governed by the node-local `block_scoped_preregistered_transactions` setting (fleet true, env-false refused at construction); no behaviour change on the corpus | `state_transition_txmeta.py` `get_block_version_for_height` + `block_scoped_preregistered(_for_next_block)`; poa gate `poa_tx_pipeline._seq_block_scoped_credit`; RPC sites `bridge_transfer_intake`/`bridge_transfer_confirm`; field `config.py` after v25 |
-| `state_transition_v27_height`| None (unset = unarmed) | 33000 on all five bc-2 hosts (armed 19 Nov, #2252; island unarmed); inert until the chain reaches 33000 | truthy `and h >= t` | 1 | v27 inactive — a tx carrying `bridge_signature` still has its nonce rewritten to the account's live nonce at apply (a second same-nonce BRIDGE_LOCK fails signature verification); no behaviour change on the corpus | `state_transition_txmeta.py` `get_block_version_for_height` + `use_account_nonce_override` (`_is_signed_bridge_lock`: BRIDGE_LOCK with a bridge_signature); callers `poa_tx_pipeline._seq_apply_and_record`, `sync_block_import*`, `poa._`; field `config.py` after v26 |
+| setting | default | deployed | bc-2 live (hub/hub1/node1/node2/node0 env, read 19 Nov) | compare | on from block 1 | `0` does | source |
+|---|---|---|---|---|---|---|---|
+| `state_transition_v2_height` | 0 | 0 | 1 (env) | `> 0 and h >= t` | 1 | v2 inactive — replay falls to v1, producer still emits v2 (its tail is `if t > 0 and h < t: return 1; return 2`) | `state_transition.py:952-954, 1001-1004`; default `config.py:769` |
+| `state_transition_v3_height` | 0 | 5470 | 1 (env) | `> 0 and h >= t` | 1 | v3 inactive (no custody escrow) | `state_transition.py:949-951, 998-1000`; default `config.py:773` |
+| `state_transition_v4_height` | 11000 | 11000 | 1 (env) | `> 0 and h >= t` | 1 | v4 inactive | `state_transition.py:946-948, 995-997`; default `config.py:779` |
+| `state_transition_v5_height` | 24000 | 24000 | 1 (env) | `> 0 and h >= t` | 1 | v5 inactive — lenient authorities (no fail-closed) | `state_transition.py:943-945, 992-994`; default `config.py:787` |
+| `state_transition_v6_height` | 0 | 0 | 1 (env) | `> 0 and h >= t` | 1 | v6 inactive — bridge refunds unbound | `state_transition.py:940-942, 989-991`; default `config.py:794` |
+| `state_transition_v7_height` | 24650 | 24650 | 1 (env) | `> 0 and h >= t` | 1 | v7 inactive | `state_transition.py:937-939, 986-988`; default `config.py:802` |
+| `state_transition_v8_height` | 24800 | 24800 | 1 (env) | `> 0 and h >= t` | 1 | v8 inactive — and below it the unauthenticated `block_metadata.state_transition_version` stamp **wins** (any relay picks the rules); at/above it the stamp is advisory | `state_transition.py:923-936, 983-985`; default `config.py:817` |
+| `state_transition_v9_height` | 30400 | 30400 | 1 (env) | truthy `and h >= t` | 1 | v9 inactive — signatures not enforced | `state_transition.py:980-982`; default `config.py:832` |
+| `state_transition_v10_height` | 32100 | 32100 | 1 (env) | truthy `and h >= t` | 1 | v10 inactive | `state_transition.py:977-979`; default `config.py:843` |
+| `state_transition_v11_height` | 35400 | 35400 | 1 (env) | truthy `and h >= t` | 1 | v11 inactive | `state_transition.py:974-976`; default `config.py:858` |
+| `state_transition_v12_height` | 37500 | 37500 | 1 (env) | truthy `and h >= t` | 1 | v12 inactive | `state_transition.py:971-973`; default `config.py:873` |
+| `state_transition_v13_height` | 46100 (`SHARED_ACTIVATION_HEIGHT`, `config.py:57`; `V13_HEIGHT_NOT_ARMED=2**62` parks it, `config.py:47`) | 46100 | 1 (env) | truthy `and h >= t` | 1 | v13 inactive — executes unbound to proposals | `state_transition.py:968-970`; default `config.py:881` |
+| `state_transition_v14_height` | 46100 | 46100 | 1 (env) | truthy `and h >= t` | 1 | v14 inactive — no aux-state-root commit/check, unreadable bridge leaves grandfathered | `state_transition.py:965-967`; default `config.py:890` |
+| `state_transition_v15_height` | None (`config.py:898`; unset = unarmed) | 0 — never set on the corpus chain (bc-2 carries 1732) | 1732 (env) | truthy `and h >= t` | — | v15 inactive — `edge_node_registration` stays committed | `state_transition.py:965-966`; default `config.py:898` |
+| `state_transition_v16_height` | unset | — (unpinned) | 6500 (env) | truthy `and h >= t` | 1 | v16 inactive — GPU_ALLOCATE keeps minting `alloc_<uuid4>` when `allocation_id` is omitted; missing `gpu_id` dies at apply | `state_transition.py` cascade; field `config.py` ~L906 (GPU-ADMISSION-1 #384) |
+| `state_transition_v17_height` | 8900 (code-pinned, `config.py:946`) | — | code-pinned 8900 (no env) | truthy `and h >= t` | 1 | v17 inactive — unsigned `STAKE_LOCK`/`STAKE_RELEASE`/`BOUNTY_*` stay rejected as `missing_signature` even with `payload.auth`; HTLC/AUTO_STAKE rejected at every version | `state_transition.py` cascade; field `config.py:946` (BNT-1 revival) |
+| `state_transition_v18_height` | 9600 (code-pinned, `config.py:958`) | 9600 — armed fleet-wide 2026-10-28, live on bc-2 | 9600 (env) | truthy `and h >= t` | 1 | v18 inactive — apply stays nondeterministic: `secrets.token_hex` liquidity stake ids and `datetime.now(UTC)` on the apply path (locked_until, accrual, bond verdict) instead of tx-hash-derived ids and the sealed header timestamp | `state_transition.py` cascade top (`:967-969`); field `config.py:958` (v14-aux-root-nondeterminism remediation) |
+| `state_transition_v19_height` | None (`config.py:994`; unset = unarmed) | 0 — not set on the pre-reset `ait-hub` fleet (no `STATE_TRANSITION_V19_HEIGHT` in the hub's node env files, 2 Nov) | unset (no env; rules apply via the v26 cascade) | truthy `and h >= t` | 1 | v19 inactive — a `BOND_LOCK` top-up on a bond whose row is not `status=active` is still admitted and raises `amount` while the row keeps its terminal status (the stranded-funds bug, BOND-LOCK-TOPUP-SLASHED-1 #782) | `state_transition.py:972-973`; refusal `state_transition.py:1842-1857` (`block_version >= 19`), admission `rpc/transactions.py:243-261`; field `config.py:994` |
+| `state_transition_v20_height` | None (unset = unarmed) | 18200 — armed fleet-wide, live on bc-2 | 18200 (env) | truthy `and h >= t` | 1 | v20 inactive — unsigned `value` may diverge from signed `amount` (#1066) and a `BOND_LOCK` signer need not be the payload provider nor bounded lock_days (#1067) | `state_transition.py:1384-1391`, `:1853-1868` (`block_version >= 20`); field `config.py` after v19 |
+| `state_transition_v21_height` | None (unset = unarmed) | 0 — not set on the pre-reset `ait-hub` fleet; operator pin 22000 named on #1142 for the bc-2 restart wave | 22000 (env) | truthy `and h >= t` | 1 | v21 inactive — `AGENT_SESSION_*` replay as generic transfers; session-bound `TRANSFER`/`ESCROW_LOCK` need no `payload.session_id`; no `agent_spend_ledger` charge (AGENT-SPEND-B-1 #1142) | `state_transition.py` cascade top, validate tail + apply tail (`block_version >= 21`), admission `rpc/transactions.py`; `agent_spend.py`; field `config.py` after v20 |
+| `state_transition_v22_height` | None (unset = unarmed) | 0 — not set on the pre-reset `ait-hub` fleet; activation is a separate operator pin with the validator restart wave | 20100 (env) | truthy `and h >= t` | 1 | v22 inactive — `BOND_RELEASE`/`BOND_LOCK` keep pre-fix semantics: payload.provider need not equal the signer or persisted `bond.provider` (BOND-RELEASE-001 #1166), top-ups on others' bonds and indefinite lock extension via repeated top-ups (BOND-LOCK-TOPUP-PROVIDER-MISMATCH #1167), NULL `locked_until` stays immediately releasable | `state_transition.py` cascade top (`get_block_version_for_height`), shared `bond_tx_verdict` + validate tail (`block_version >= 22`), `_handle_bond_transaction` defense (`block_version >= 22`), admission `rpc/transactions.py`; `PROTOCOL_MAX_LOCK_DURATION` compile-time constant; field `config.py` after v21 |
+| `state_transition_v23_height` | None (unset = unarmed) | 0 — not set on the pre-reset `ait-hub` fleet; activation is a separate operator pin in the post-#752-legs restart wave | 21570 (env) | truthy `and h >= t` | 1 | v23 inactive — `ESCROW_RELEASE`/`ESCROW_REFUND`/`ESCROW_FEE_SWEEP` keep custody-balance semantics: third-party tips raise payout entitlement beyond the job obligation (#1232), fee sweep can drain locked custody (#1230) | `state_transition.py` cascade top (`get_block_version_for_height`), `_escrow_obligation_state`/`_escrow_lock_beneficiaries` + validate tail (`block_version >= 23`), `build_escrow_context` obligation fields + sequential fallback, `pure_state_transition.py` deltas (`block_version >= 23`), admission `admission_authority.py` + `rpc/transactions.py`; field `config.py` after v22 |
+| `state_transition_v24_height`| None (unset = unarmed) | 0 — not set on the pre-reset `ait-hub` fleet; activation is a separate operator pin (#1314 R1/R2 wave) | unset (applies via the v26 cascade) | truthy `and h >= t` | 1 | v24 inactive — no identity-map invalidation after raw-SQL writes, no authoritative scalar reads at V1/V5 sites, no per-tx Transaction-row flush on the proposer (#1314) | `state_transition.py` cascade top (`get_block_version_for_height`), `v24_rules.py`, `database.py` `ParitySession`, `authoritative_reads.py`, V1/V5 sites (`block_version >= 24`), `poa.py` R2 flush sites, `sync_block_import.py` nonce mirror; field `config.py` after v23 |
+| `state_transition_v25_height`| None (unset = unarmed) | 0 — not set on the pre-reset `ait-hub` fleet; activation is a separate operator pin (#1566 wave) | unset (applies via the v26 cascade) | truthy `and h >= t` | 1 | v25 inactive — GPU_REGISTER `price_per_hour` stays parse-only: negative/NaN/Infinity/oversized prices still apply exactly as sealed history recorded them | `state_transition.py` cascade top (`get_block_version_for_height`), GPU_REGISTER validate tail + `handle_gpu_registration` (`block_version >= 25`, `_gpu_price_per_hour_in_range`); field `config.py` after v24 |
+| `state_transition_v26_height`| None (unset = unarmed) | 0 — not set on the pre-reset `ait-hub` fleet; activation is a separate operator pin (#2186 wave) | 31800 (env) | truthy `and h >= t` | 1 | v26 inactive — pre-registered bridge mutations stay governed by the node-local `block_scoped_preregistered_transactions` setting (fleet true, env-false refused at construction); no behaviour change on the corpus | `state_transition_txmeta.py` `get_block_version_for_height` + `block_scoped_preregistered(_for_next_block)`; poa gate `poa_tx_pipeline._seq_block_scoped_credit`; RPC sites `bridge_transfer_intake`/`bridge_transfer_confirm`; field `config.py` after v25 |
+| `state_transition_v27_height`| None (unset = unarmed) | 0 — not set on the pre-reset `ait-hub` fleet; activation is a separate operator pin after every validator runs the code (#2252) | 33000 (env; armed 19 Nov, #2252) | truthy `and h >= t` | 1 | v27 inactive — a tx carrying `bridge_signature` still has its nonce rewritten to the account's live nonce at apply (a second same-nonce BRIDGE_LOCK fails signature verification); no behaviour change on the corpus | `state_transition_txmeta.py` `get_block_version_for_height` + `use_account_nonce_override` (`_is_signed_bridge_lock`: BRIDGE_LOCK with a bridge_signature); callers `poa_tx_pipeline._seq_apply_and_record`, `sync_block_import*`, `poa._`; field `config.py` after v26 |
 
 Replay-path readers: `get_block_version` (`state_transition.py:906-955`)
 checks the v8 switch first (`:923-924`), then walks v7..v2 with `> 0 and
@@ -57,13 +59,13 @@ Producer-path readers: `get_block_version_for_height`
 return 2` — with t=0 the `return 2` always hits). The two tails disagree
 under all-zero: replay v1, producer v2 — a produced block would not replay
 under the rules it was built with. `gates1` removes the divergence: both
-paths resolve **1** at height 0 and **21** at every height >= 1.
+paths resolve **1** at height 0 and **27** at every height >= 1.
 
 ### Producer-side stamp
 
 - `poa.py:786` — new blocks stamp
   `block_metadata.state_transition_version = get_block_version_for_height(next_height)`;
-  under `gates1` every produced block (h >= 1) stamps **21**.
+  under `gates1` every produced block (h >= 1) stamps **27**.
 - `poa.py:1153, 1265, 2126` — block building uses the same function; the
   `>= 14` at `:1265` gates aux-root production.
 - `remote_attestation.py:183` — `>= 9` check on produced heights.
@@ -73,10 +75,10 @@ paths resolve **1** at height 0 and **21** at every height >= 1.
 
 ## Non-version `>=` gates
 
-| setting | default | deployed | compare | on from block 1 | `0` does | source |
-|---|---|---|---|---|---|---|
-| `bridge_lock_leaf_v2_height` | `None` | 51000 | `threshold is not None and height >= threshold` | 1 | **active from every nonnegative height** (opposite trap: 0 turns it ON, not off); `None` disables | `cross_chain/bridge_leaf.py:19-24`; read at `bridge_root_shadow.py:61,67`; default `config.py:710` |
-| `escrow_fee_sweep_pass_min_height` | 35400 | 35400 | `min_height < setting` ⇒ RPC refuses | 1 | sweep pass allowed from height 0 — same "on" direction as 1 for first-block purposes; RPC/sweeper side only, never consulted by apply/replay | `rpc/escrow_routes.py:1103-1109`; `rpc/escrow_settlement_sweeper.py:304,617,628,931`; default `config.py:208` |
+| setting | default | deployed | bc-2 live (hub/hub1/node1/node2/node0 env, read 19 Nov) | compare | on from block 1 | `0` does | source |
+|---|---|---|---|---|---|---|---|
+| `bridge_lock_leaf_v2_height` | `None` | 51000 | 1 (env) | `threshold is not None and height >= threshold` | 1 | **active from every nonnegative height** (opposite trap: 0 turns it ON, not off); `None` disables | `cross_chain/bridge_leaf.py:19-24`; read at `bridge_root_shadow.py:61,67`; default `config.py:710` |
+| `escrow_fee_sweep_pass_min_height` | 35400 | 35400 | 1 (env) | `min_height < setting` ⇒ RPC refuses | 1 | sweep pass allowed from height 0 — same "on" direction as 1 for first-block purposes; RPC/sweeper side only, never consulted by apply/replay | `rpc/escrow_routes.py:1103-1109`; `rpc/escrow_settlement_sweeper.py:304,617,628,931`; default `config.py:208` |
 
 ## RPC / admission-side height reads (not apply-path)
 
@@ -116,6 +118,27 @@ The sync/gossip flag family (`sync_*_enabled`, `gossip_auth_enabled`,
 `auto_resync_enabled`, `periodic_sync_enabled`, `subscription_enabled`,
 `cross_site_sync_enabled` — `config.py:92-404`) is operational plumbing, not
 consensus: inherit live values unless the release decides otherwise.
+
+## Armed features on bc-2 (live env, read 19 Nov 2026)
+
+Not height gates in the table above; each is a deliberate env setting. Code defaults are dormant.
+
+| setting | code default | bc-2 live | note |
+|---|---|---|---|
+| `mempool_reservation_enabled` | false | **true** (`blockchain.env` on hub, hub1, node1, node2; not node0) | #1300 reservation drain |
+| `attestation_wait_when_certificate_covers_seconds` | None | **2.0** (`node.env` on hub, hub1, node1, node2; also `node-island.env` on hub1, node1; not node0) | #2232 bounded wait when a PBFT certificate already covers the minimum |
+| `attestation_post_quorum_linger_seconds` | 0.0 | **2.0** (`node.env` on hub, hub1, node1, node2; node0 via `aitbc-blockchain-node.env`) | |
+| `attestation_round_lock_enabled` | false | **true** (`blockchain.env` on hub, hub1, node1, node2; not node0) | |
+| `block_scoped_preregistered_transactions` | see v26 | **true** (env) | v26 row |
+| `bridge_reconcile_enabled` / `bridge_reconcile_dry_run` | false / true | **true / true** on all five hosts since 19 Nov (#2257) | node-local bookkeeping reconciler, dry-run only; the live flip is a separate operator go |
+| `bridge_pbft_commit_proof_height` | None | **31300** in `blockchain-island.env` on hub1 and node1 only (19 Nov); not in `blockchain.env` anywhere | #2249; island-side arm — partial vs the bc-2 hosts, see #2249 spec |
+| `consensus_domain_separation_height` | None | unset | #1298 stays dormant |
+| `sync_fork_apply_probe_enabled` | false | unset | #1322 stays dormant |
+
+The `deployed` golden profile and `DEPLOYED_PINS` still carry the pre-reset
+`ait-hub` pins (v3=5470, v4=11000 ... leaf_v2=51000) and v16-v27 at 0 — they
+are a historical regression baseline, not the bc-2 fleet. A bc-2 profile is a
+separate decision.
 
 ## Proven answers (gates1 profile, 67-case synthetic + 389-block real stream)
 
