@@ -31,6 +31,7 @@ from typing import Any
 
 import jwt
 from fastapi import HTTPException, status
+from jwt.utils import base64url_decode, base64url_encode
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import ConfigurationError
@@ -507,6 +508,30 @@ def verify_access_token(token: str, required_role: str | None = None) -> dict[st
     return get_jwt_auth().verify_token(token, required_role)
 
 
+def canonical_token(token: str) -> str:
+    """Return the canonical spelling of a compact JWS token (#2273).
+
+    PyJWT decodes the signature segment leniently: the last base64url
+    character of a 32-byte HMAC signature carries two unused low bits,
+    trailing ``=`` padding is tolerated and characters outside the
+    alphabet are discarded. Several spellings of the same token therefore
+    verify, so a blocklist keyed on the raw string misses all but one of
+    them. Header and payload segments are covered by the signature input
+    as raw bytes and cannot be respelled, so only the signature segment is
+    re-encoded here (decode, then encode without padding — what PyJWT
+    emits). A value that is not a three-part token is returned unchanged.
+    """
+    parts = token.split(".")
+    if len(parts) != 3:
+        return token
+    try:
+        signature = base64url_decode(parts[2])
+    except (ValueError, TypeError):
+        return token
+    parts[2] = base64url_encode(signature).decode("ascii")
+    return ".".join(parts)
+
+
 # ---------------------------------------------------------------------------
 # Dict-style API (agent-coordinator compatible)
 # ---------------------------------------------------------------------------
@@ -675,6 +700,7 @@ __all__ = [
     "AuthenticationError",
     "JWTAuth",
     "JWTHandler",
+    "canonical_token",
     "create_access_token",
     "get_jwt_auth",
     "get_jwt_handler",
