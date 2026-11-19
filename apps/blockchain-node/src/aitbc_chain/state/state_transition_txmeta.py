@@ -105,6 +105,31 @@ def get_recorded_block_version(block_data_or_block: dict[str, Any] | object) -> 
     return None
 
 
+def _log_advisory_stamp(recorded: int | None, height: int, expected: int) -> None:
+    """Audit-log the advisory stamp's relation to the height-derived version.
+
+    An absent stamp is expected above v8 — the proposer stamps late and the VC
+    re-seal republishes the pre-stamp body — so it logs at debug and is not
+    counted as a mismatch (#2279). A present-but-wrong stamp keeps the
+    WARNING + ``block_version_stamp_mismatch_total`` — that disagreement is
+    the signal the check exists for.
+    """
+    if recorded is None:
+        logger.debug(
+            "Block at height %s carries no state_transition_version stamp; using the height-derived version %s",
+            height,
+            expected,
+        )
+    elif recorded != expected:
+        metrics_registry.increment("block_version_stamp_mismatch_total")
+        logger.warning(
+            "Block at height %s records state_transition_version=%s; height requires %s — using the height-derived version",
+            height,
+            recorded,
+            expected,
+        )
+
+
 def get_block_version(block_data_or_block: dict[str, Any] | object, height: int = 0) -> int:
     """Return the state-transition rule version that should be used for a block.
 
@@ -118,21 +143,16 @@ def get_block_version(block_data_or_block: dict[str, Any] | object, height: int 
     nor the proposer's signature, so trusting the stamp would let any relay
     pick the rules a block is validated under; ignoring it removes the
     dependency on the unauthenticated field entirely. A recorded version that
-    disagrees with the height — or is absent — is logged and counted, never
-    obeyed.
+    disagrees with the height is logged and counted, never obeyed. An absent
+    stamp is expected above v8 — the proposer stamps late and the VC re-seal
+    republishes the pre-stamp body — so it logs at debug and is not counted
+    as a mismatch (#2279).
     """
     recorded = get_recorded_block_version(block_data_or_block)
     v8_threshold = getattr(settings, "state_transition_v8_height", 0)
     if v8_threshold > 0 and height >= v8_threshold:
         expected = get_block_version_for_height(height)
-        if recorded != expected:
-            metrics_registry.increment("block_version_stamp_mismatch_total")
-            logger.warning(
-                "Block at height %s records state_transition_version=%s; height requires %s — using the height-derived version",
-                height,
-                recorded,
-                expected,
-            )
+        _log_advisory_stamp(recorded, height, expected)
         return expected
     if recorded is not None:
         return recorded
