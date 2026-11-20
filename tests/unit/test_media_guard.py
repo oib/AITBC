@@ -95,6 +95,9 @@ def test_whisper_probe_opens_with_the_guard_and_the_endpoint_refuses_an_unprobea
 
     class _Container:
         duration = 2_000_000
+        # _probe_duration now also refuses containers with no audio track
+        # (#2319); the fake must look like a real audio-bearing container.
+        streams = types.SimpleNamespace(audio=[object()])
 
         def __enter__(self):
             return self
