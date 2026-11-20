@@ -585,6 +585,12 @@ def _route_patches(er, *, mgr, scope, lock_tx):
         patch.object(er, "session_scope", scope),
         patch.object(er, "backfill_settlement_legs"),
         patch.object(er, "_find_contract_id", new_callable=AsyncMock, return_value="c1"),
+        patch.object(
+            er,
+            "_find_existing_lock_tx_status",
+            new_callable=AsyncMock,
+            return_value=(lock_tx, True),
+        ),
         patch.object(er, "_find_existing_lock", new_callable=AsyncMock, return_value=(lock_tx or {}).get("tx_hash")),
         patch.object(er, "_find_existing_lock_tx", new_callable=AsyncMock, return_value=lock_tx),
         patch.object(er, "_find_existing_release", new_callable=AsyncMock, return_value=None),

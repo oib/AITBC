@@ -131,7 +131,12 @@ def _patches(er, *, mgr, scope, lock_hash):
         patch.object(er, "session_scope", scope),
         patch.object(er, "backfill_settlement_legs"),
         patch.object(er, "_find_contract_id", new_callable=AsyncMock, return_value="c1"),
-        patch.object(er, "_find_existing_lock", new_callable=AsyncMock, return_value=lock_hash),
+        patch.object(
+            er,
+            "_find_existing_lock_tx_status",
+            new_callable=AsyncMock,
+            return_value=({"tx_hash": lock_hash} if lock_hash else None, True),
+        ),
         patch.object(er, "_find_existing_release", new_callable=AsyncMock, return_value=None),
         patch.object(er, "_find_existing_refund", new_callable=AsyncMock, return_value=None),
         patch.object(er, "_submit_payment_tx", new_callable=AsyncMock, return_value="0xreleasehash"),
@@ -463,7 +468,12 @@ async def test_already_released_row_short_circuits_before_the_gate(monkeypatch):
         patches[1],
         patches[2],
         patches[3],
-        patch.object(er, "_find_existing_lock", new_callable=AsyncMock, return_value=None) as find_lock,
+        patch.object(
+            er,
+            "_find_existing_lock_tx_status",
+            new_callable=AsyncMock,
+            return_value=(None, True),
+        ) as find_lock,
         patch.object(er, "_find_existing_release", new_callable=AsyncMock, return_value="0xdead"),
         patches[6],
         patches[7],
@@ -480,8 +490,10 @@ async def test_already_released_row_short_circuits_before_the_gate(monkeypatch):
 async def test_gate_fails_closed_when_the_lock_probe_errors(monkeypatch):
     """An unreachable transactions lookup must defer, never mint a settlement.
 
-    ``_find_existing_lock`` swallows its own errors to ``None``; the gate reads
-    that as "not sealed" and defers — the safe direction for a custody call.
+    ``_find_existing_lock_tx_status`` reports the probe as failed; the gate
+    answers 503 — "unknown", not "absent" — so the coordinator's bounded
+    425-deferral budget is not spent on an RPC outage (#2295). Still no
+    settlement is minted either way.
     """
     _env(monkeypatch)
     er = _reload_routes()
@@ -498,14 +510,14 @@ async def test_gate_fails_closed_when_the_lock_probe_errors(monkeypatch):
     ):
         with pytest.raises(HTTPException) as excinfo:
             await er.release_escrow("job-1", {})
-    assert excinfo.value.status_code == 425
+    assert excinfo.value.status_code == 503
     submit_pay.assert_not_awaited()
     assert record.released_at is None
 
 
 @pytest.mark.asyncio
 async def test_refund_gate_fails_closed_when_the_lock_probe_errors(monkeypatch):
-    """The refund leg fails closed the same way: probe error -> 425, no refund."""
+    """The refund leg fails closed the same way: probe error -> 503, no refund."""
     _env(monkeypatch)
     er = _reload_routes()
     record = _record()
@@ -521,7 +533,7 @@ async def test_refund_gate_fails_closed_when_the_lock_probe_errors(monkeypatch):
     ):
         with pytest.raises(HTTPException) as excinfo:
             await er.refund_escrow("job-1", {"reason": "test"})
-    assert excinfo.value.status_code == 425
+    assert excinfo.value.status_code == 503
     submit_refund.assert_not_awaited()
     assert record.refunded_at is None
 
@@ -749,3 +761,57 @@ async def test_release_below_the_energy_floor_evicts_the_cache_and_settles_nothi
     mgr.evict_contract.assert_called_once_with("c1")
     submit_pay.assert_not_awaited()
     assert record.released_at is None
+
+
+# ---- #2295: the sealed-lock probe distinguishes "absent" from "lookup failed" ----
+
+
+def _probe_response(status_code, payload):
+    return SimpleNamespace(status_code=status_code, json=lambda: payload)
+
+
+@pytest.mark.asyncio
+async def test_lock_probe_status_distinguishes_absent_from_failed(monkeypatch):
+    """``_find_existing_lock_tx_status``: (row, True) on a hit, (None, True) on a
+    confirmed-empty 200, (None, False) on non-200 or a probe error — the gate
+    maps the last to 503 instead of a false "not yet sealed" 425 (#2295)."""
+    _env(monkeypatch)
+    _reload_routes()
+    helpers = importlib.import_module("aitbc_chain.rpc.escrow_routes_helpers")
+    lock_row = {"tx_hash": "0xlock", "payload": {"job_id": "job-1"}}
+
+    with patch.object(
+        helpers._er.SharedHttpClient,
+        "get",
+        new_callable=AsyncMock,
+        return_value=_probe_response(200, [lock_row]),
+    ):
+        row, ok = await helpers._find_existing_lock_tx_status("job-1")
+    assert (row, ok) == (lock_row, True)
+
+    with patch.object(
+        helpers._er.SharedHttpClient,
+        "get",
+        new_callable=AsyncMock,
+        return_value=_probe_response(200, []),
+    ):
+        row, ok = await helpers._find_existing_lock_tx_status("job-1")
+    assert (row, ok) == (None, True)
+
+    with patch.object(
+        helpers._er.SharedHttpClient,
+        "get",
+        new_callable=AsyncMock,
+        return_value=_probe_response(503, []),
+    ):
+        row, ok = await helpers._find_existing_lock_tx_status("job-1")
+    assert (row, ok) == (None, False)
+
+    with patch.object(
+        helpers._er.SharedHttpClient,
+        "get",
+        new_callable=AsyncMock,
+        side_effect=RuntimeError("RPC down"),
+    ):
+        row, ok = await helpers._find_existing_lock_tx_status("job-1")
+    assert (row, ok) == (None, False)

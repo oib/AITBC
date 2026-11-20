@@ -380,20 +380,37 @@ def _fee_for(amount: int) -> int:
     return max(36, amount // 100)
 
 
-async def _find_existing_lock_tx(job_id: str) -> dict[str, _er.Any] | None:
-    """Return the sealed ESCROW_LOCK transaction row for ``job_id``, if any."""
+async def _find_existing_lock_tx_status(job_id: str) -> tuple[dict[str, _er.Any] | None, bool]:
+    """Return ``(row, probe_ok)`` for the sealed ESCROW_LOCK lookup.
+
+    ``probe_ok`` is False when the lookup itself failed (non-200 or a probe
+    error) — distinct from a successful empty answer. Callers that gate on
+    "the lock is absent" must not treat a failed probe as absence
+    (ESCROW-ACCEPT-UNSEALED-1, #2295): during an RPC outage the old shape
+    reported "lock not yet sealed" (425) for a lock that was in fact
+    confirmed, and the coordinator burned its 425-deferral budget against
+    what was really an unavailable lookup.
+    """
     try:
         r = await _er.SharedHttpClient.get(
             f"{_er._HUB_RPC_URL}/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit={_er._RELEASE_LOOKUP_LIMIT}"
         )
         if r.status_code != 200:
-            return None
+            _er._logger.warning("ESCROW_LOCK: settled-lock lookup for job_id=%s returned HTTP %s", job_id, r.status_code)
+            return None, False
         for tx in r.json() or []:
             if isinstance(tx, dict) and (tx.get("payload") or {}).get("job_id") == job_id:
-                return tx
+                return tx, True
+        return None, True
     except _er._HTTP_PROBE_ERRORS as e:
         _er._logger.warning("ESCROW_LOCK: settled-lock lookup failed for job_id=%s: %s", job_id, e)
-    return None
+    return None, False
+
+
+async def _find_existing_lock_tx(job_id: str) -> dict[str, _er.Any] | None:
+    """Return the sealed ESCROW_LOCK transaction row for ``job_id``, if any."""
+    row, _probe_ok = await _find_existing_lock_tx_status(job_id)
+    return row
 
 
 async def _find_existing_lock(job_id: str) -> str | None:
