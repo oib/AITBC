@@ -698,6 +698,21 @@ EnvironmentFile=-/etc/aitbc/validator-secrets.env
 - **aitbc-agent-coordinator.service:** Loads `blockchain.env`, `node.env`, `blockchain-secrets.env`, `aitbc-agent-coordinator.env`
 - **aitbc-hermes-agent.service:** Loads `hermes.env` (optional)
 
+### Shop gate services
+
+The paid-job gate services (`aitbc-whisper`, `aitbc-ffmpeg`, `aitbc-ollama-gate`, `aitbc-hermes-agent`) verify `X-Access-Key`/`X-Access-Secret` tokens against the market service via `aitbc/shop_gate.py` (`MARKET_VERIFY_URL`, default `http://127.0.0.1:8102`). On shop nodes there is no local market service, so each unit loads an optional per-host env file that must carry the market endpoint:
+
+| Service | Env file |
+|---|---|
+| `aitbc-whisper.service` | `-/etc/aitbc/whisper.env` |
+| `aitbc-ffmpeg.service` | `-/etc/aitbc/ffmpeg.env` (plus `blockchain.env`, `node.env`, `blockchain-secrets.env`) |
+| `aitbc-ollama-gate.service` | `-/etc/aitbc/ollama-gate.env` (plus `blockchain.env`, `node.env`) |
+| `aitbc-hermes-agent.service` | `-/etc/aitbc/hermes.env` (optional) |
+
+| Variable | Purpose |
+|---|---|
+| `MARKET_VERIFY_URL` | Base URL of the market service used to verify paid-job access tokens (e.g. `https://<market-host>:8102`). Unset falls back to `http://127.0.0.1:8102`, which is only correct on hosts running `aitbc-market`; `shop_gate` logs a startup warning when the default is in effect, and each service's `/health` reports the effective value as `market_verify_url` (#2318). |
+
 ### Wallet Service
 
 - **aitbc-wallet.service:** Loads `blockchain.env`, `blockchain-secrets.env`, `node.env`, `exchange.env`, `aitbc-wallet.env` (optional `-` prefix — wallet auth, spend policy, DB URL, etc.)

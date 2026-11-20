@@ -23,7 +23,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.media_guard import pyav_open_options  # noqa: E402
-from aitbc.shop_gate import require_job_access  # noqa: E402
+from aitbc.shop_gate import MARKET_VERIFY_URL, require_job_access  # noqa: E402
 
 configure_logging(level="INFO", service_name="whisper", to_file=True)
 logger = get_logger(__name__)
@@ -51,6 +51,13 @@ _MAX_BEAM_SIZE = int(os.getenv("WHISPER_MAX_BEAM_SIZE", "10"))
 # plus the ~730M resident model already exceed the unit's MemoryMax=3G, so the
 # default admits exactly one transcription at a time; raise it only together
 # with MemoryMax.
+# #2318 trade-off, recorded deliberately: with the bound at 1, two parallel
+# paid transcribe jobs 503-busy each other ("Transcription service busy;
+# retry later") instead of running concurrently. That serialization is the
+# point — slots serialize on the model and each extra concurrent decode adds
+# ~1G of transient allocation per 10 minutes of audio, so raising the bound
+# without raising MemoryMax just moves the failure from a clean 503 to a
+# cgroup OOM kill. The client-visible cost is queueing, not correctness.
 _MAX_CONCURRENT = int(os.getenv("WHISPER_MAX_CONCURRENT", "1"))
 # Plain counter, not asyncio.Semaphore: the check-and-increment below has no
 # await between it and the increment, so it is atomic on the event loop, and
@@ -141,6 +148,9 @@ async def health():
         model=_model_name,
         device=_device,
         ready=_model is not None,
+        # Effective paid-job verify target (#2318) — surfaces a misconfigured
+        # shop node that would otherwise only fail on the first gated call.
+        market_verify_url=MARKET_VERIFY_URL,
     )
 
 
