@@ -377,6 +377,20 @@ class BridgeTransferConfirmMixin(BridgeBase):
             if elapsed < refund_delay:
                 raise ValueError(f"Refund not allowed yet: {elapsed:.0f}s since lock, minimum delay is {refund_delay}s")
 
+    def _check_refund_postfinality_age(self, record: CrossChainTransfer) -> None:
+        """Enforce ``bridge_refund_postfinality_min_age_seconds`` on confirmed transfers (#2289)."""
+        min_age = int(getattr(settings, "bridge_refund_postfinality_min_age_seconds", 3600))
+        if min_age <= 0:
+            return
+        confirmed_at = record.confirm_time or record.lock_time or datetime.now(UTC)
+        if confirmed_at.tzinfo is None:
+            confirmed_at = confirmed_at.replace(tzinfo=UTC)
+        elapsed = (datetime.now(UTC) - confirmed_at).total_seconds()
+        if elapsed < min_age:
+            raise ValueError(
+                f"Transfer confirmed too recently to refund: {elapsed:.0f}s since confirm, minimum age is {min_age}s"
+            )
+
     def _refund_credit_legacy_nonce(self, session: Any, record: CrossChainTransfer, block_scoped: bool) -> int:
         """Return the locked amount to the sender on the legacy path.
 
@@ -499,8 +513,11 @@ class BridgeTransferConfirmMixin(BridgeBase):
     def refund_transfer(self, transfer_id: str, sender: str, chain_id: str | None = None) -> BridgeTransfer:
         """Refund a pending bridge transfer — return locked funds to sender.
 
-        Only transfers in 'pending' or 'locked' status can be refunded.
-        Completed/confirmed/refunded transfers cannot be refunded.
+        Only transfers in 'pending', 'locked' or 'confirmed' status can be
+        refunded; a confirmed transfer must also outlive
+        ``bridge_refund_postfinality_min_age_seconds`` so a sender cannot
+        refund out from under an in-flight release. All other statuses
+        (completed/refunded/failed/...) cannot be refunded.
 
         v0.7.0 §B2: Added as the backend for the ``POST /bridge/unlock`` endpoint.
         The refund returns the locked amount (minus the fee already deducted at
@@ -513,13 +530,15 @@ class BridgeTransferConfirmMixin(BridgeBase):
             record = session.get(CrossChainTransfer, transfer_id)
             if not record:
                 raise ValueError(f"Transfer not found: {transfer_id}")
-            if record.status not in ("pending", "locked"):
+            if record.status not in ("pending", "locked", "confirmed"):
                 raise ValueError(f"Transfer cannot be refunded in status '{record.status}'")
             if record.sender != sender:
                 raise ValueError("Only the original sender can refund this transfer")
 
             self._check_refund_lock_sealed(session, record, transfer_id)
             self._check_refund_delay(record)
+            if record.status == "confirmed":
+                self._check_refund_postfinality_age(record)
 
             # Return the locked amount to the sender (fee was already deducted at lock time)
             block_scoped = block_scoped_preregistered_for_next_block(session, record.source_chain)

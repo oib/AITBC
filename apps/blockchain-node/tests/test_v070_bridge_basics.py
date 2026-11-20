@@ -263,9 +263,63 @@ class TestBridgeUnlock:
         with patch("aitbc_chain.config.settings.bridge_block_signature_required", False):
             bridge.confirm_transfer(transfer.transfer_id, proof)
 
+        # A sealed release moves the record to 'completed' — terminal, never refundable.
+        with Session(engine) as session:
+            record = session.get(CrossChainTransfer, transfer.transfer_id)
+            assert record is not None
+            record.status = "completed"
+            session.add(record)
+            session.commit()
+
         # Attempt to refund a completed transfer should fail
         with pytest.raises(ValueError, match="cannot be refunded"):
             bridge.refund_transfer(transfer.transfer_id, sender)
+
+    def _confirmed_transfer_record(self, bridge: CrossChainBridge, engine, sender: str, age_seconds: int) -> str:
+        """Lock a transfer, seal the lock tx, and mark the record 'confirmed' ``age_seconds`` old."""
+        transfer = bridge.initiate_transfer(
+            source_chain="chain-a",
+            target_chain="chain-b",
+            sender=sender,
+            recipient="0xrecipient",
+            amount=3000,
+        )
+        stamped = datetime.now(UTC) - timedelta(seconds=age_seconds)
+        with Session(engine) as session:
+            tx = session.exec(select(Transaction).where(Transaction.tx_hash == transfer.transfer_id)).one()
+            tx.block_height = 1
+            record = session.get(CrossChainTransfer, transfer.transfer_id)
+            assert record is not None
+            record.status = "confirmed"
+            record.lock_time = stamped
+            record.confirm_time = stamped
+            session.add(tx)
+            session.add(record)
+            session.commit()
+        return transfer.transfer_id
+
+    def test_bridge_unlock_confirmed_too_recent_rejected(self, bridge: CrossChainBridge, engine) -> None:
+        """#2289: a confirmed transfer younger than the min age cannot be refunded."""
+        sender = "0xconfirmedyoung"
+        _seed_sender(engine, "chain-a", sender, 12000)
+        transfer_id = self._confirmed_transfer_record(bridge, engine, sender, age_seconds=10)
+
+        with pytest.raises(ValueError, match="too recently"):
+            bridge.refund_transfer(transfer_id, sender)
+
+    def test_bridge_unlock_confirmed_after_min_age(self, bridge: CrossChainBridge, engine) -> None:
+        """#2289: a confirmed transfer older than the min age refunds like pending/locked."""
+        sender = "0xconfirmedold"
+        _seed_sender(engine, "chain-a", sender, 12000)
+        transfer_id = self._confirmed_transfer_record(bridge, engine, sender, age_seconds=7200)
+
+        refunded = bridge.refund_transfer(transfer_id, sender)
+        assert refunded.status == BridgeStatus.refunded
+
+        with Session(engine) as session:
+            record = session.get(CrossChainTransfer, transfer_id)
+            assert record is not None
+            assert record.status == "refunded"
 
     def test_bridge_unlock_wrong_sender_rejected(self, bridge: CrossChainBridge, engine) -> None:
         """Only the original sender can unlock."""
