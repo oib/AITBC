@@ -61,8 +61,8 @@ def _is_auth_secret_var(name: str) -> bool:
 
 
 def _is_jwt_primary_name(name: str) -> bool:
-    """A JWT signing secret (not a rotation overlap entry)."""
-    return name.startswith("JWT_SECRET") and not name.endswith(("_NEW", "_PREVIOUS"))
+    """A JWT signing secret (not a rotation overlap or verify-only entry)."""
+    return name.startswith("JWT_SECRET") and not name.endswith(("_NEW", "_PREVIOUS", "_VERIFY_EXTRA"))
 
 
 _DEFAULT_ENV_FILES = ("/etc/aitbc/blockchain-secrets.env",)
