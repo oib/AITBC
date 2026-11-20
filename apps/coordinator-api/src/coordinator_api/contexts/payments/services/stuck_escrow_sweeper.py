@@ -35,7 +35,12 @@ from ....config import settings
 from ....storage.db import get_engine
 from ...infrastructure.domain.job import Job
 from ..acceptance import DISPUTED, HELD_STATES, META_DISPUTED_AT, REFUNDABLE_STATES, SETTLEMENT_FAILED
-from .payments import PaymentService, _find_http_status_error, _lookup_chain_lock
+from .escrow_relay_metrics import (
+    STUCK_ESCROW_REASON_REFUND_ERROR,
+    STUCK_ESCROW_REASON_UNDERFUNDED,
+    record_stuck_escrow_refund_failure,
+)
+from .payments import PaymentService, _find_http_status_error, _is_settlement_underfunded, _lookup_chain_lock
 
 logger = get_logger(__name__)
 
@@ -70,6 +75,12 @@ _OPS_ERRORS = (
 META_UNSEALED_SINCE = "unsealed_since"
 META_REFUND_SKIPPED = "refund_skipped"
 REFUND_SKIPPED_NEVER_SEALED = "escrow_lock_never_sealed"
+
+# Last time the underfunded-settlement-wallet WARNING fired for this payment.
+# The chain refuses every refund while the wallet is short (#2329), so the
+# warning repeats at most once per alert window per payment instead of once
+# per sweep; the Prometheus counter still ticks on every refusal.
+META_SETTLEMENT_UNDERFUNDED_AT = "settlement_wallet_underfunded_at"
 
 # How many pending transactions the mempool probe asks for. A full page means
 # the lock could sit beyond it, so the probe cannot call the lock absent.
@@ -137,6 +148,7 @@ class StuckEscrowSweeper:
         batch_size: int | None = None,
         session_factory: Callable[[], Any] | None = None,
         unsealed_giveup_seconds: int | None = None,
+        underfund_alert_seconds: int | None = None,
     ) -> None:
         self.interval_seconds = interval_seconds or _env_int("COORDINATOR_STUCK_ESCROW_SWEEP_INTERVAL_SECONDS", 300)
         # Give the normal cancel/fail/expire handlers time to settle on their own.
@@ -150,6 +162,10 @@ class StuckEscrowSweeper:
         # sweeper checks whether the lock exists at all.
         self.unsealed_giveup_seconds = unsealed_giveup_seconds or _env_int(
             "COORDINATOR_STUCK_ESCROW_UNSEALED_GIVEUP_SECONDS", 3600
+        )
+        # Minimum spacing between underfunded-wallet WARNINGs for one payment.
+        self.underfund_alert_seconds = underfund_alert_seconds or _env_int(
+            "COORDINATOR_STUCK_ESCROW_UNDERFUNDED_ALERT_SECONDS", 3600
         )
         self.dry_run = os.getenv("COORDINATOR_STUCK_ESCROW_SWEEP_DRY_RUN", "").strip().lower() in ("1", "true", "yes", "on")
         self._session_factory = session_factory or (lambda: Session(get_engine()))
@@ -236,7 +252,11 @@ class StuckEscrowSweeper:
                         counts[await self._handle_unsealed_lock(session, job, _payment.id)] += 1
                         continue
                     counts["failed"] += 1
-                    logger.error("Stuck escrow sweep raised for job %s: %s", job.id, e)
+                    if _is_settlement_underfunded(e):
+                        self._note_settlement_underfunded(session, job, _payment.id)
+                    else:
+                        record_stuck_escrow_refund_failure(STUCK_ESCROW_REASON_REFUND_ERROR)
+                        logger.error("Stuck escrow sweep raised for job %s: %s", job.id, e)
                     continue
                 if refunded:
                     counts[self._apply_refunded_result(session, job, _payment.id, reason)] += 1
@@ -362,6 +382,43 @@ class StuckEscrowSweeper:
             payment_id,
         )
         return "demoted"
+
+    def _note_settlement_underfunded(self, session: Any, job: Job, payment_id: str) -> None:
+        """Tag, count and dedup the underfunded-settlement-wallet refusal (#2329).
+
+        The refund still counts as a sweep failure and is retried every sweep
+        -- a wallet top-up self-heals with no operator action. What changes is
+        the signal: every refusal ticks the
+        ``aitbc_stuck_escrow_refund_failures_total{reason="settlement_wallet_underfunded"}``
+        counter, while the WARNING carrying that same stable tag repeats at
+        most once per ``underfund_alert_seconds`` per payment (stamped in
+        ``meta_data``, the same idiom as ``META_UNSEALED_SINCE``).
+        """
+        record_stuck_escrow_refund_failure(STUCK_ESCROW_REASON_UNDERFUNDED)
+        payment = session.get(JobPayment, payment_id, populate_existing=True)
+        now = datetime.now(UTC)
+        last_alert = _parse_utc((payment.meta_data or {}).get(META_SETTLEMENT_UNDERFUNDED_AT)) if payment is not None else None
+        if last_alert is not None and (now - last_alert).total_seconds() < self.underfund_alert_seconds:
+            logger.debug(
+                "Refund for job %s still refused: %s",
+                job.id,
+                STUCK_ESCROW_REASON_UNDERFUNDED,
+            )
+            return
+        if payment is not None and payment.status in REFUNDABLE_STATES:
+            meta = dict(payment.meta_data or {})
+            meta[META_SETTLEMENT_UNDERFUNDED_AT] = now.isoformat()
+            payment.meta_data = meta
+            session.add(payment)
+            session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
+        logger.warning(
+            "%s: refund for job %s payment %s refused -- the escrow settlement wallet "
+            "cannot cover the payout; top it up, the sweep retries every %ss",
+            STUCK_ESCROW_REASON_UNDERFUNDED,
+            job.id,
+            payment_id,
+            self.interval_seconds,
+        )
 
     def _demote_never_sealed(self, session: Any, job: Job, payment_id: str, meta: dict[str, Any], now: datetime) -> bool:
         """Mark the payment failed, but only while it is still held.

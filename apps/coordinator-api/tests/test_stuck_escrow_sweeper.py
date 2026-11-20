@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
@@ -11,6 +12,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import httpx
 import pytest
+from fastapi import HTTPException
 from sqlmodel import Session, select
 
 from aitbc.exceptions import NetworkError
@@ -22,6 +24,7 @@ from coordinator_api.contexts.payments.services.stuck_escrow_sweeper import (
     LOCK_IN_MEMPOOL,
     LOCK_SEALED,
     META_REFUND_SKIPPED,
+    META_SETTLEMENT_UNDERFUNDED_AT,
     META_UNSEALED_SINCE,
     REFUND_SKIPPED_NEVER_SEALED,
     StuckEscrowSweeper,
@@ -506,3 +509,124 @@ class TestLockPresenceProbe:
     def test_unusable_mempool_answer_raises(self, mempool):
         with pytest.raises((RuntimeError, NetworkError)):
             self._probe(_probe_client(mempool))
+
+
+def _underfund_refusal() -> HTTPException:
+    """The 502 ``refund_payment`` raises when the settlement wallet is short (#2329)."""
+    return HTTPException(
+        status_code=502,
+        detail=(
+            "escrow settlement upstream error: insufficient balance for sender "
+            "'0x1563915e194dcfbA1943570603f7606a3115508': has 6800000, needs 10100000; "
+            "the refund can be retried"
+        ),
+    )
+
+
+def _other_upstream_502() -> HTTPException:
+    """A 502 without the underfunded signature must keep the generic path."""
+    return HTTPException(
+        status_code=502,
+        detail="escrow settlement upstream error: settlement node timeout; the refund can be retried",
+    )
+
+
+@pytest.mark.unit
+class TestSettlementWalletUnderfunded:
+    """A 502 'insufficient balance for sender' is tagged, counted and deduped (#2329)."""
+
+    @patch(f"{_SWEEPER}.PaymentService")
+    def test_underfunded_refund_warns_once_and_keeps_retrying(self, mock_service_cls, sweep_session, caplog):
+        _make_job_and_payment(sweep_session, "job-under-1", "pay-under-1", state="EXPIRED")
+        service = _refund_raising(_underfund_refusal())
+        mock_service_cls.return_value = service
+        sweeper = StuckEscrowSweeper(session_factory=lambda: sweep_session)
+
+        with caplog.at_level(logging.WARNING, logger=_SWEEPER):
+            first = asyncio.run(sweeper.run_once())
+            second = asyncio.run(sweeper.run_once())
+
+        # Still a failure, still retried every sweep -- a top-up self-heals.
+        assert first["failed"] == 1
+        assert second["failed"] == 1
+        assert service.refund_payment.await_count == 2
+
+        tagged = [r for r in caplog.records if "settlement_wallet_underfunded" in r.getMessage()]
+        assert len(tagged) == 1
+        assert tagged[0].levelno == logging.WARNING
+
+        sweep_session.expire_all()
+        payment = sweep_session.get(JobPayment, "pay-under-1")
+        assert payment.status == "escrowed"
+        assert META_SETTLEMENT_UNDERFUNDED_AT in payment.meta_data
+
+    @patch(f"{_SWEEPER}.PaymentService")
+    def test_underfunded_warning_fires_again_after_the_window(self, mock_service_cls, sweep_session, caplog):
+        stale = (datetime.now(UTC) - timedelta(seconds=7200)).isoformat()
+        _make_job_and_payment(
+            sweep_session,
+            "job-under-2",
+            "pay-under-2",
+            state="EXPIRED",
+            meta_data={META_SETTLEMENT_UNDERFUNDED_AT: stale},
+        )
+        mock_service_cls.return_value = _refund_raising(_underfund_refusal())
+        sweeper = StuckEscrowSweeper(session_factory=lambda: sweep_session, underfund_alert_seconds=3600)
+
+        with caplog.at_level(logging.WARNING, logger=_SWEEPER):
+            counts = asyncio.run(sweeper.run_once())
+
+        assert counts["failed"] == 1
+        tagged = [r for r in caplog.records if "settlement_wallet_underfunded" in r.getMessage()]
+        assert len(tagged) == 1
+
+        sweep_session.expire_all()
+        stamp = datetime.fromisoformat(sweep_session.get(JobPayment, "pay-under-2").meta_data[META_SETTLEMENT_UNDERFUNDED_AT])
+        assert stamp > datetime.now(UTC) - timedelta(seconds=60)
+
+    @patch(f"{_SWEEPER}.PaymentService")
+    def test_other_502_still_logs_the_generic_error_every_sweep(self, mock_service_cls, sweep_session, caplog):
+        _make_job_and_payment(sweep_session, "job-under-3", "pay-under-3", state="EXPIRED")
+        service = _refund_raising(_other_upstream_502())
+        mock_service_cls.return_value = service
+        sweeper = StuckEscrowSweeper(session_factory=lambda: sweep_session)
+
+        with caplog.at_level(logging.WARNING, logger=_SWEEPER):
+            first = asyncio.run(sweeper.run_once())
+            second = asyncio.run(sweeper.run_once())
+
+        assert first["failed"] == 1
+        assert second["failed"] == 1
+        assert service.refund_payment.await_count == 2
+        generic = [r for r in caplog.records if "Stuck escrow sweep raised" in r.getMessage()]
+        assert len(generic) == 2
+        assert all(r.levelno == logging.ERROR for r in generic)
+
+        sweep_session.expire_all()
+        payment = sweep_session.get(JobPayment, "pay-under-3")
+        assert payment.status == "escrowed"
+        assert META_SETTLEMENT_UNDERFUNDED_AT not in payment.meta_data
+
+    @patch(f"{_SWEEPER}.PaymentService")
+    def test_underfunded_signature_in_the_httpx_chain_is_classified(self, mock_service_cls, sweep_session, caplog):
+        """A raw httpx 502 carrying the node's detail classifies the same way."""
+        request = httpx.Request("POST", "http://rpc.test/rpc/escrow/job/refund")
+        response = httpx.Response(
+            502,
+            request=request,
+            json={"detail": "insufficient balance for sender '0xabc': has 1, needs 2"},
+        )
+        status_error = httpx.HTTPStatusError("HTTP 502", request=request, response=response)
+        error = NetworkError("HTTP 502")
+        error.__cause__ = status_error
+
+        _make_job_and_payment(sweep_session, "job-under-4", "pay-under-4", state="EXPIRED")
+        mock_service_cls.return_value = _refund_raising(error)
+        sweeper = StuckEscrowSweeper(session_factory=lambda: sweep_session)
+
+        with caplog.at_level(logging.WARNING, logger=_SWEEPER):
+            counts = asyncio.run(sweeper.run_once())
+
+        assert counts["failed"] == 1
+        tagged = [r for r in caplog.records if "settlement_wallet_underfunded" in r.getMessage()]
+        assert len(tagged) == 1

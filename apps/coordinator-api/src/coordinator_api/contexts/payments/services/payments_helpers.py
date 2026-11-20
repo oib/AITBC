@@ -227,6 +227,53 @@ def _find_http_status_error(exc: BaseException) -> httpx.HTTPStatusError | None:
     return None
 
 
+# The settlement node refuses ESCROW_REFUND/ESCROW_RELEASE with a 502 whose
+# upstream detail names the payer: "insufficient balance for sender '0x…'"
+# (#2327 ran ~2h unnoticed because it logged as a generic sweep error). Both
+# fragments are required so a bare "insufficient balance" about the escrow
+# itself is not misread as a settlement-wallet top-up signal.
+_UNDERFUNDED_BALANCE_MARKERS = ("insufficient balance", "for sender")
+
+
+def _exception_texts(exc: BaseException) -> list[str]:
+    """Collect the human-readable texts along an exception's cause chain.
+
+    Covers ``str(exc)``, an HTTPException's ``detail``, and the ``detail``
+    field of a JSON body on any httpx.HTTPStatusError in the chain -- the
+    three shapes the settlement refusal reaches callers in.
+    """
+    texts: list[str] = []
+    seen: set[int] = set()
+    cur: BaseException | None = exc
+    while cur is not None and id(cur) not in seen:
+        seen.add(id(cur))
+        rendered = str(cur)
+        if rendered:
+            texts.append(rendered)
+        detail = getattr(cur, "detail", None)
+        if isinstance(detail, str) and detail:
+            texts.append(detail)
+        if isinstance(cur, httpx.HTTPStatusError):
+            try:
+                body = cur.response.json()
+            except ValueError:
+                body = None
+            if isinstance(body, dict) and isinstance(body.get("detail"), str):
+                texts.append(body["detail"])
+        cur = cur.__cause__ or cur.__context__
+    return texts
+
+
+def _is_settlement_underfunded(exc: BaseException) -> bool:
+    """True when the refusal is the settlement wallet lacking funds to pay.
+
+    Matches the node's ``insufficient balance for sender '0x…'`` signature in
+    whichever layer carries it: the service's HTTPException detail, a raw
+    httpx status error under a NetworkError, or the wrapped message text.
+    """
+    return any(all(marker in text.lower() for marker in _UNDERFUNDED_BALANCE_MARKERS) for text in _exception_texts(exc))
+
+
 def _escrow_failure_reason(exc: BaseException) -> tuple[str, str]:
     """Classify an escrow-POST failure and return (kind, buyer-safe detail).
 
