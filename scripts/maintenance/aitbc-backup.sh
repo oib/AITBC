@@ -384,8 +384,31 @@ if [ -s "$_MISC_LIST" ]; then
     # when the archive is actually readable — a truncated/corrupt archive
     # (e.g. disk full) fails `tar -tzf` and stays fatal.
     if [ "$_varlib_tar_rc" -ne 0 ]; then
-        if tar -tzf "${BACKUP_DIR}/varlib-state.tar.gz" >/dev/null 2>&1; then
+        # tar -tzf proves the archive parses, NOT that it is complete: a
+        # member find listed that vanished before tar stat'ed it is silently
+        # omitted (rc>=2, its "Cannot stat" went to /dev/null with the rest
+        # of tar's stderr) — readable but missing state (#2323). Diff the
+        # archive listing against _MISC_LIST and WARN the omissions by
+        # name. Warn, not fatal: the vanished file is already gone from
+        # disk so failing the run cannot recover it, and tolerating live
+        # churn is the whole point of the rc>=2 accept path
+        # (BACKUP-VARLIB-TAR-RC2-1) — same warn-not-fail precedent as rc=1
+        # (#1157). A snapshot of what exists beats no snapshot.
+        _archived_rc=0
+        _archived_members="$(tar -tzf "${BACKUP_DIR}/varlib-state.tar.gz" 2>/dev/null)" || _archived_rc=$?
+        if [ "$_archived_rc" -eq 0 ]; then
+            _expected_members="$(mktemp)"
+            _archived_names="$(mktemp)"
+            _expected_count=$(tr '\0' '\n' < "$_MISC_LIST" | sed 's|^\./||; s|/$||' | LC_ALL=C sort -u | tee "$_expected_members" | wc -l)
+            _archived_count=$(printf '%s\n' "$_archived_members" | sed 's|^\./||; s|/$||; /^$/d' | LC_ALL=C sort -u | tee "$_archived_names" | wc -l)
+            _missing_members="$(comm -23 "$_expected_members" "$_archived_names")"
+            rm -f "$_expected_members" "$_archived_names"
             warn "varlib-state: tar rc=${_varlib_tar_rc} during archive (live churn); accepting readable snapshot"
+            if [ -n "$_missing_members" ]; then
+                _missing_count=$(printf '%s\n' "$_missing_members" | grep -c .)
+                _missing_preview=$(printf '%s\n' "$_missing_members" | sed -n '1,20p' | tr '\n' ' ')
+                warn "varlib-state: INCOMPLETE snapshot — ${_missing_count} of ${_expected_count} expected members absent from archive (${_archived_count} archived): ${_missing_preview}"
+            fi
             _varlib_tar_rc=0
         fi
     fi
