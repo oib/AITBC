@@ -49,7 +49,7 @@ pyyaml==6.0.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14
 regex==2026.4.4 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 requests==2.34.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 rich==15.0.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
-rlp==4.1.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+rlp==5.0.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 tabulate==0.10.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 toolz==1.1.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15" and (implementation_name == "pypy" or implementation_name == "cpython")
 typing-inspection==0.4.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
