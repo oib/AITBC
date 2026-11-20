@@ -52,7 +52,7 @@ aitbc --help
 | `health` | Probe remote AITBC service health endpoints. |  |
 | `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `island`, `list`, `pin`, `unpin`, `upload` |
 | `list` | Legacy wallet list alias |  |
-| `market` | GPU and software offers published by shop miners | `cancel`, `download`, `escrow`, `exchange`, `gpu`, `hermes`, `host`, `jobs`, `list`, `match`, `offer`, `offer-cancel`, `offer-disable`, `offer-list`, `payment`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
+| `market` | GPU and software offers published by shop miners | `cancel`, `download`, `escrow`, `exchange`, `gpu`, `hermes`, `host`, `jobs`, `list`, `match`, `offer`, `offer-cancel`, `offer-disable`, `offer-list`, `payment`, `process`, `provider-pin`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
 | `messaging` | On-chain forum messaging (signed MESSAGE txs) | `dm`, `hide`, `list`, `lock`, `mod-grant`, `mod-revoke`, `moderators`, `pin`, `reputation`, `send`, `show`, `state`, `stats`, `subscribe`, `topic`, `topics`, `unhide`, `unlock`, `unpin`, `vote` |
 | `mining` | Mining operations commands | `list`, `start`, `status`, `stop` |
 | `monitor` | Monitoring, metrics, and alerting commands | `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `sweepers`, `webhooks` |

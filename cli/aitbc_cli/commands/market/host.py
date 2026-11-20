@@ -9,7 +9,7 @@ import uuid
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 import requests
@@ -1011,6 +1011,190 @@ def cancel(
     except NetworkError:
         final = result
     output(final or result, output_format, title="Canceled Market Job")
+
+
+def _provider_pin_attestation(
+    ctx: click.Context,
+    job_id: str,
+    cid: str,
+    size: int | None,
+    wallet_address: str,
+    private_key: str,
+) -> dict[str, Any]:
+    """POST the signed ``provider_confirmed`` pin-confirm for ``job_id``.
+
+    The signature binds the route, the wallet, the chain id, a freshness
+    timestamp and the ``{"cid", "size"}`` binding — the market verifies it
+    against the job's stored CID and reported size (#1922).
+    """
+    chain_id = get_chain_id()
+    issued_at = int(time.time())
+    binding = {"cid": cid, "size": size}
+    route = f"/v1/market/jobs/{job_id}/pin-confirm"
+    message = jobs_request_message(wallet_address, chain_id, issued_at, route, binding=binding)
+    signature = sign_transaction_data(message, private_key)
+    return _market_client().post(
+        route,
+        json={
+            "size": size,
+            "provider_confirmed": True,
+            "binding": binding,
+            "signer_address": wallet_address,
+            "chain_id": chain_id,
+            "issued_at": issued_at,
+            "signature": signature,
+        },
+    )
+
+
+def _register_ipfs_rental_token(
+    job: dict[str, Any],
+    job_id: str,
+    cid: str,
+    size: int | None,
+    ipfs_api: str,
+) -> dict[str, Any] | None:
+    """Register the IpfsRentalToken that puts the escrow on the rental rail.
+
+    The token sweeper releases the escrow to the provider at expiry (or
+    refunds a flagged/undelivered rental); without it the market job's
+    expiry would refund the buyer even after delivery. Settlement fields
+    are service-owned — the market derives ``expires_at`` from the job.
+    """
+    payload = job.get("payload") or {}
+    constraints = job.get("constraints") or {}
+    token_data = {
+        "access_key": payload.get("access_key"),
+        "access_secret": payload.get("access_secret"),
+        "rental_id": job_id,
+        "offer_id": job.get("offer_id"),
+        "cid": cid,
+        "buyer_address": job.get("buyer_address"),
+        "provider_address": job.get("provider_address"),
+        "ipfs_api": ipfs_api,
+        "public_endpoint": payload.get("public_endpoint"),
+        "disk_quota_mb": constraints.get("disk_quota_mb"),
+        "size": size,
+        "pinned": True,
+    }
+    if not token_data["access_key"] or not token_data["access_secret"]:
+        warning("Job payload carries no access_key/access_secret — rental token not registered")
+        return None
+    try:
+        return _market_client().post("/v1/market/ipfs/rental-token", json=token_data)
+    except NetworkError as e:
+        warning(f"Could not register IPFS rental token: {e}")
+        return None
+
+
+def _provider_pin_fetch_job(job_id: str) -> dict[str, Any]:
+    """GET the market job and enforce the provider-pin preconditions."""
+    try:
+        job = _market_client().get(f"/v1/market/jobs/{job_id}")
+    except NetworkError as e:
+        error(f"Could not fetch market job {job_id}: {e}")
+        raise click.Abort() from e
+    if not isinstance(job, dict) or job.get("error"):
+        error(f"Market job not found: {job_id}")
+        raise click.Abort()
+    if job.get("service_type") != "ipfs":
+        error(f"Job {job_id} is not an IPFS rental (service_type={job.get('service_type')})")
+        raise click.Abort()
+    if job.get("state") not in {"QUEUED", "RUNNING"}:
+        error(f"Job {job_id} is {job.get('state')}; only QUEUED/RUNNING rentals can be pinned")
+        raise click.Abort()
+    return job
+
+
+def _provider_pin_cid(job: dict[str, Any], job_id: str) -> str:
+    cid = (job.get("payload") or {}).get("cid")
+    if not cid:
+        error(f"Job {job_id} has no CID in its payload")
+        raise click.Abort()
+    return str(cid)
+
+
+def _provider_pin_wallet(ctx: click.Context, job: dict[str, Any]) -> tuple[str, str]:
+    """Resolve the provider wallet and prove it owns this job's provider_address."""
+    provider = to_canonical(job.get("provider_address") or "")
+    wallet_address, private_key, _wallet_name = get_market_wallet(ctx, require_private_key=True)
+    if not provider or to_canonical(wallet_address) != provider:
+        error(
+            f"Wallet {wallet_address} is not this job's provider ({provider or 'unset'}) — "
+            "run provider-pin with --wallet selecting the provider wallet"
+        )
+        raise click.Abort()
+    return wallet_address, cast(str, private_key)
+
+
+def _provider_pin_size(ipfs_api: str, cid: str, payload: dict[str, Any]) -> int | None:
+    size = _ipfs_object_size(ipfs_api, cid)
+    if size is not None:
+        return size
+    raw = payload.get("size")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
+@market.command(
+    name="provider-pin",
+    epilog="""Examples:
+
+  aitbc market provider-pin --job-id sw_job_ipfs_20261120210000_ab12cd34
+
+Runs on the PROVIDER node: pins the rental CID on the local island daemon
+(fetched over the private swarm from the buyer's pin), registers the
+rental token that owns escrow settlement, and submits the signed
+provider_confirmed pin-confirm that moves the job to RUNNING.""",
+)
+@click.option("--job-id", "job_id", required=True, help="Market job ID of the IPFS rental to pin and attest")
+@OUTPUT_FORMAT_OPTION
+@click.pass_context
+def provider_pin(
+    ctx: click.Context,
+    job_id: str,
+    output_format: str,
+):
+    """Provider side of a paid IPFS rental: pin the CID locally and attest delivery."""
+    output_format = _resolve_output_format(ctx, output_format)
+
+    job = _provider_pin_fetch_job(job_id)
+    cid = _provider_pin_cid(job, job_id)
+    wallet_address, private_key = _provider_pin_wallet(ctx, job)
+
+    # The pin runs on the PROVIDER's local daemon — the private-swarm
+    # island daemon fetches the CID from the buyer's pin over bitswap.
+    ipfs_api = _resolve_ipfs_api({})
+    if not _daemon_available(ipfs_api):
+        error(f"No reachable IPFS daemon at {ipfs_api} — the provider pin needs the local island daemon")
+        raise click.Abort()
+    if not _ipfs_pin_cid(ipfs_api, cid):
+        error(f"Failed to pin CID {cid} on {ipfs_api} — is the buyer's daemon reachable on the swarm?")
+        raise click.Abort()
+    success(f"Pinned {cid} on {ipfs_api}")
+
+    size = _provider_pin_size(ipfs_api, cid, job.get("payload") or {})
+    token_result = _register_ipfs_rental_token(job, job_id, cid, size, ipfs_api)
+
+    try:
+        result = _provider_pin_attestation(ctx, job_id, cid, size, wallet_address, private_key)
+    except NetworkError as e:
+        error(f"Pin-confirm attestation failed: {e}")
+        raise click.Abort() from e
+    if isinstance(result, dict) and result.get("error"):
+        error(f"Pin-confirm rejected: {result}")
+        raise click.Abort()
+
+    success(f"Provider pin attested for job {job_id} (state -> RUNNING); rental token registered")
+    record = result if isinstance(result, dict) else {}
+    record["cid"] = cid
+    record["size"] = size
+    record["rental_token"] = token_result
+    output(record, output_format, title="Provider Pin")
 
 
 @market.command(

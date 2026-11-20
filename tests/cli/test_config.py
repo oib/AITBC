@@ -675,3 +675,27 @@ class TestConfigFileLoading:
 
         config_obj = get_config(str(cfg))
         assert config_obj.coordinator_api_url == "http://legacy:8203"
+
+    def test_get_config_null_yaml_value_does_not_shadow_env(self, tmp_path, monkeypatch):
+        """#2348: ``key:`` (null) or ``key: ""`` in .aitbc.yaml is unset, not a
+        value — it must not clobber the environment credential. A stray null
+        settlement key once stripped the env key and 403'd escrow release on
+        follower nodes."""
+        from aitbc_cli.config import get_config
+
+        monkeypatch.delenv("AITBC_CONFIG_FILE", raising=False)
+        monkeypatch.setenv("BLOCKCHAIN_RPC_SETTLEMENT_API_KEY", "env-settlement-key")
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            yaml.dump(
+                {
+                    "blockchain_rpc_api_key": None,
+                    "blockchain_rpc_settlement_api_key": "",
+                    "market_service_url": "http://market:8102",
+                }
+            )
+        )
+
+        config_obj = get_config(str(cfg))
+        assert config_obj.blockchain_rpc_settlement_api_key == "env-settlement-key"
+        assert config_obj.market_service_url == "http://market:8102"

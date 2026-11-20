@@ -148,17 +148,36 @@ def _post_escrow_rpc(config, path: str, payload: dict[str, Any], timeout: int = 
     refused and why, so callers surface a real error instead of silently
     returning None (a 403 API-key refusal used to read exactly like a
     missing escrow).
+
+    #2348: a settlement-incapable node answers 503 with ``"the settlement
+    node is at <url>"`` in the detail. That URL is queued as an extra
+    candidate (deduped, allowlist-gated by :func:`_settlement_url_allowed`)
+    so release/refund reach the settlement-capable RPC instead of stopping
+    after local+hub — the same retry ``_escrow_create`` already does.
     """
     failures: list[str] = []
     rpc_url = _get_blockchain_rpc_url(config)
     hub_url = _hub_base_url(config)
-    for base in dict.fromkeys(b for b in (rpc_url, hub_url) if b):
+    bases = list(dict.fromkeys(b for b in (rpc_url, hub_url) if b))
+    tried: set[str] = set()
+    idx = 0
+    while idx < len(bases):
+        base = bases[idx]
+        idx += 1
+        if base in tried:
+            continue
+        tried.add(base)
         try:
             result = _get_rpc_client(config, base, timeout=timeout).post(path, json=payload)
             return result, failures
         except _ESCROW_CLI_ERRORS as exc:
             logger.debug("Escrow RPC %s failed on %s", path, base, exc_info=True)
             failures.append(_describe_rpc_failure(base, exc))
+            detail = _http_503_detail(exc)
+            if detail:
+                settlement = _settlement_node_url(detail)
+                if settlement and settlement not in tried and _settlement_url_allowed(settlement, config):
+                    bases.append(settlement)
     return None, failures
 
 

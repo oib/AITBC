@@ -17,13 +17,16 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+from sqlalchemy import or_
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.market import OfferStatus
 
-from ...domain.market import MarketOffer, SoftwareService
+from ...domain.market import IpfsRentalToken, MarketOffer, SoftwareService
 from ...domain.offer_status import try_to_offer_status
 
 
@@ -590,3 +593,80 @@ def _local_offer_dict(s: "SoftwareService") -> dict[str, Any]:
         "tx_hash": s.tx_hash,
         "confirmed": bool(s.block_height),  # Consider confirmed if it has block info
     }
+
+
+# On-chain escrow states where funds are actually locked. Whitelist, not
+# blacklist: created-but-unfunded, settlement_failed and terminal states
+# must never satisfy an escrow proof (#1564). Shared by the pin-confirm
+# flip and the sweeper's pending-payment adoption (#2348) so the two
+# paths cannot drift apart.
+ESCROW_LOCKED_STATES = frozenset({"funded", "locked", "job_started", "job_completed", "disputed", "resolved"})
+
+
+def escrow_addresses_match(left: Any, right: Any) -> bool:
+    """Best-effort address equality: canonical EIP-55 when both parse,
+    case-insensitive string compare otherwise."""
+    if not left or not right:
+        return False
+    try:
+        return canonical_address(str(left)) == canonical_address(str(right))
+    except _OPS_ERRORS:
+        return str(left).strip().lower() == str(right).strip().lower()
+
+
+def locked_escrow_matches(
+    escrow: dict[str, Any],
+    *,
+    amount: Any,
+    buyer_address: Any,
+    provider_address: Any,
+) -> bool:
+    """Bool form of the market escrow proof, shared by every caller.
+
+    ``escrow`` is the ``GET /rpc/escrow/{key}`` row; the checks mirror
+    ``_require_locked_escrow``: locked-state whitelist, locked amount equal
+    to the payment amount (skipped when the row carries no amount), and
+    buyer/provider party binding where both sides name them. A mismatch
+    denies (False) rather than raising, for read-only verify paths.
+    """
+    state = str(escrow.get("state") or "").lower()
+    if state not in ESCROW_LOCKED_STATES:
+        return False
+    raw_amount = escrow.get("amount")
+    if raw_amount is not None:
+        try:
+            locked = Decimal(str(raw_amount))
+            expected = Decimal(str(amount))
+        except (ArithmeticError, ValueError):
+            return False
+        if not locked.is_finite() or not expected.is_finite() or locked != expected:
+            return False
+    for field, expected_addr in (("buyer", buyer_address), ("provider", provider_address)):
+        actual = escrow.get(field)
+        if actual and expected_addr and not escrow_addresses_match(actual, expected_addr):
+            return False
+    return True
+
+
+async def active_rental_token_covers(session: Any, job_id: str) -> bool:
+    """#2348: does an active IpfsRentalToken own this job's escrow?
+
+    ``market provider-pin`` registers a token keyed by the market job id;
+    the IpfsRentalSweeper then settles the same on-chain escrow at token
+    expiry (release to provider, or refund when flagged). While that token
+    is active the job sweeper must not expire-refund the job's payment —
+    the token rail owns the settlement. Shared by MarketJobSweeper and the
+    lazy access-token expiry so both apply the same coverage rule.
+    """
+    stmt = (
+        select(col(IpfsRentalToken.access_key))
+        .where(
+            or_(
+                col(IpfsRentalToken.rental_id) == job_id,
+                col(IpfsRentalToken.escrow_contract_id) == job_id,
+            ),
+            col(IpfsRentalToken.status) == "active",
+        )
+        .limit(1)
+    )
+    return (await session.execute(stmt)).scalar_one_or_none() is not None
