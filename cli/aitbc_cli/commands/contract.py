@@ -40,6 +40,36 @@ def contract():
     pass
 
 
+def _resolve_rpc_api_key(api_key: str | None) -> str:
+    """Resolve the blockchain RPC API key for gated contract routes (#2350).
+
+    Order: explicit ``--api-key`` → CLI config / ``BLOCKCHAIN_RPC_API_KEY``
+    env. The fleet's ``verify_rpc_api_key`` dependency 403s POSTs without
+    it; fail with a clear message rather than a bare 403. Mirrors
+    ``trade._resolve_rpc_api_key``.
+    """
+    from ..config import get_config
+
+    key = api_key or get_config().blockchain_rpc_api_key
+    if not key:
+        raise click.UsageError(
+            "Blockchain RPC API key required: pass --api-key or set BLOCKCHAIN_RPC_API_KEY (or config blockchain_rpc_api_key)"
+        )
+    return key
+
+
+def _rpc_client(rpc_url: str, api_key: str) -> AITBCHTTPClient:
+    return AITBCHTTPClient(base_url=rpc_url, timeout=10, api_key=api_key)
+
+
+_API_KEY_OPTION = click.option(
+    "--api-key",
+    "api_key",
+    default=None,
+    help="Blockchain RPC API key (default: BLOCKCHAIN_RPC_API_KEY env / config blockchain_rpc_api_key)",
+)
+
+
 @contract.command(
     epilog="""Examples:
 
@@ -49,12 +79,13 @@ def contract():
 )
 @click.option("--contract-name", required=True, help="Contract name")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@_API_KEY_OPTION
 @click.pass_context
-def deploy(ctx, contract_name, rpc_url):
+def deploy(ctx, contract_name, rpc_url, api_key):
     """Deploy a named smart contract to the blockchain."""
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        result = http_client.post("/rpc/contracts/deploy", json={"name": contract_name})
+        key = _resolve_rpc_api_key(api_key)
+        result = _rpc_client(rpc_url, key).post("/rpc/contracts/deploy", json={"name": contract_name})
         output(result, ctx.obj.get("output_format", "table"), title="Contract Deployed")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
@@ -73,13 +104,15 @@ def deploy(ctx, contract_name, rpc_url):
 @click.option("--method", required=True, help="Method to call")
 @click.option("--args", help="Method arguments (JSON array)")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@_API_KEY_OPTION
 @click.pass_context
-def call(ctx, contract_address, method, args, rpc_url):
+def call(ctx, contract_address, method, args, rpc_url, api_key):
     """Call a method on a deployed smart contract with optional arguments."""
     try:
         import json
 
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        key = _resolve_rpc_api_key(api_key)
+        http_client = _rpc_client(rpc_url, key)
         # The RPC handler reads ``address``/``method``/``params`` — sending
         # ``contract_address``/``args`` made every call fail "address is required".
         payload: dict = {"address": contract_address, "method": method}
@@ -131,8 +164,9 @@ def list_contracts(ctx, rpc_url):
 @click.option("--proof", required=True, help="ZK proof data (JSON string, or @path to a JSON file)")
 @click.option("--chain-id", "chain_id", default=None, help="Chain ID the contract is deployed on")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@_API_KEY_OPTION
 @click.pass_context
-def verify(ctx, contract_address, proof, chain_id, rpc_url):
+def verify(ctx, contract_address, proof, chain_id, rpc_url, api_key):
     """Verify a ZK proof against a deployed contract."""
     import json
     from pathlib import Path
@@ -148,8 +182,8 @@ def verify(ctx, contract_address, proof, chain_id, rpc_url):
     if chain_id:
         payload["chain_id"] = chain_id
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        result = http_client.post("/rpc/contracts/verify", json=payload)
+        key = _resolve_rpc_api_key(api_key)
+        result = _rpc_client(rpc_url, key).post("/rpc/contracts/verify", json=payload)
         output(result, ctx.obj.get("output_format", "table"), title="Contract Verify")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
