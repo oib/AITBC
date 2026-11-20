@@ -278,6 +278,7 @@ DESTRUCTIVE_AITBC_SUBCOMMANDS = {
 # mutating commands like ``aitbc start`` whose subcommand list is empty and
 # so can never match a token.
 DESTRUCTIVE_AITBC_PATHS = {
+    "bond lock-onchain",
     "ai service test",
     "contract verify",
     "crosschain bridge",
