@@ -2,7 +2,7 @@
 
 # `aitbc transactions send`
 
-Send a transaction from one wallet to another.
+Send a transaction from one wallet to another. The sender key comes from either --from (a wallet-service keystore, unlocked with the wallet password options) or --key-env NAME (an environment variable holding a raw private key — for service-held keys like FAUCET_PRIVATE_KEY that have no wallet entry). Env-key sends support the same --type/--payload options and always show the derived sender address; they prompt for confirmation unless --yes is given.
 
 ## Usage
 
@@ -14,7 +14,9 @@ aitbc transactions send [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--from` | text | — | yes | From wallet name |
+| `--from` | text | — | no | From wallet name (mutually exclusive with --key-env) |
+| `--key-env` | text | — | no | Environment variable NAME holding the sender's private key (hex, optional 0x) — e.g. FAUCET_PRIVATE_KEY. Only the variable NAME is passed, never key material. The sender address is derived from the key and shown before sending. Mutually exclusive with --from; requires confirmation or --yes. |
+| `--yes` | flag | `false` | no | Skip the --key-env send confirmation prompt |
 | `--to` | text | — | yes | To address |
 | `--amount` | decimal | — | yes | Amount to send |
 | `--fee` | decimal | `0.01` | no | Transaction fee (standard chain fee) |
@@ -31,9 +33,9 @@ aitbc transactions send [OPTIONS]
 ## Examples
 
 ```bash
-aitbc transactions send --from <from_wallet> --to <to_address> --amount <amount>
+aitbc transactions send --to <to_address> --amount <amount>
 RPC_URL=http://127.0.0.1:8202/rpc
-aitbc transactions send --from <from_wallet> --to <to_address> --amount <amount> --rpc-url "$RPC_URL"
+aitbc transactions send --to <to_address> --amount <amount> --rpc-url "$RPC_URL"
 ```
 
 ## Related
