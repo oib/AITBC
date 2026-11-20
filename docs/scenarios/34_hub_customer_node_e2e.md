@@ -61,6 +61,7 @@ Prove tokens → job → GPU → `ESCROW_RELEASE` → market offer on the live t
 
 - Hub: coordinator, wallet, exchange, explorer
 - Shop: miner, GPU, Ollama `llama3.2:3b`, funded provider wallet (e.g. `test-wallet-3`)
+- `--provider-address` must be the **live** shop provider wallet — on this fleet the miner's wallet is `0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2` (verify with the providers/match listing before submitting). A stale provider address leaves the job QUEUED until TTL expiry and the escrow only returns via refund (#2327).
 - Buyer: genesis or another funded wallet
 
 ---
@@ -159,7 +160,7 @@ aitbc ai submit --prompt "Cross-node paid job test" \
   --payment 1.0 \
   --wallet default \
   --buyer-address <customer-0x-address> \
-  --provider-address 0xA54B82312beb65D0E90c21717ea372396991Fa36 \
+  --provider-address 0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2 \
   --wait --timeout 180
 ```
 
@@ -189,7 +190,7 @@ On the shop (or any CLI that talks to the hub wallet/RPC):
 ```bash
 aitbc wallet balance --name test-wallet-3
 aitbc wallet transactions --name test-wallet-3
-aitbc account get --address 0xA54B82312beb65D0E90c21717ea372396991Fa36
+aitbc account get --address 0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2
 ```
 
 `aitbc account list` on the same RPC is a read-only counterpart that lists the accounts the node knows:
@@ -248,7 +249,7 @@ On the hub:
 aitbc ai submit --prompt "High-value ZK test" \
   --payment 15 \
   --wallet default \
-  --provider-address 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F \
+  --provider-address 0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2 \
   --model linear-1 \
   --zk-proof-required \
   --wait --timeout 300
