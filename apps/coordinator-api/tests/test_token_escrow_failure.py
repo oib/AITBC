@@ -216,18 +216,85 @@ def test_node_refusal_without_detail_falls_back_to_generic(mock_client_cls, paym
 
 @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
 def test_successful_escrow_still_escrows(mock_client_cls, payment_session):
-    """Sanity: the happy path is unchanged — escrowed payment + escrow row."""
+    """Sanity: the happy path is unchanged — escrowed payment + escrow row.
+
+    The create 2xx is now followed by a seal probe: the lock must appear in
+    the sealed transaction table before the payment may be marked escrowed.
+    """
     job = _make_job(payment_session, "job-ok")
     mock_client = MagicMock()
     mock_client.post = AsyncMock(return_value={"contract_id": "0xescrow123"})
+    mock_client.get_json = AsyncMock(return_value=_chain_lock_txs("0xlock-ok", job_id=job.id))
     mock_client_cls.return_value = mock_client
 
     payment = _create(payment_session, job.id, _payment_data(job.id))
 
     assert payment.status == "escrowed"
     assert payment.escrow_address == "0xescrow123"
+    assert payment.meta_data["escrow_lock_tx_hash"] == "0xlock-ok"
     escrows = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).all()
     assert len(escrows) == 1
+
+
+@patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+def test_create_2xx_without_sealed_lock_marks_failed(mock_client_cls, payment_session, monkeypatch):
+    """#2297: a 2xx that never seals (evicted/unfundable lock) must not escrow.
+
+    Regression for job 1b3c6f2b…: the payment was stamped escrowed on a
+    mempool-accept alone, the job completed, and the "escrow" had no chain
+    lock behind it.
+    """
+    monkeypatch.setenv("ESCROW_LOCK_SEAL_WAIT_SECONDS", "0.05")
+    monkeypatch.setenv("ESCROW_LOCK_SEAL_POLL_SECONDS", "0.01")
+    job = _make_job(payment_session, "job-unsealed")
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(return_value={"contract_id": "0xescrowU"})
+    mock_client.get_json = AsyncMock(return_value=[])
+    mock_client_cls.return_value = mock_client
+
+    payment = _create(payment_session, job.id, _payment_data(job.id))
+
+    assert payment.status == "failed"
+    assert payment.meta_data["escrow_error_kind"] == "unsealed"
+    assert "did not seal" in payment.meta_data["escrow_error"]
+    escrows = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).all()
+    assert escrows == []
+
+
+@patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+def test_seal_probe_error_is_fail_closed(mock_client_cls, payment_session, monkeypatch):
+    """A probe that keeps failing is treated as unsealed — never as escrowed."""
+    monkeypatch.setenv("ESCROW_LOCK_SEAL_WAIT_SECONDS", "0.05")
+    monkeypatch.setenv("ESCROW_LOCK_SEAL_POLL_SECONDS", "0.01")
+    job = _make_job(payment_session, "job-probe-down")
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(return_value={"contract_id": "0xescrowP"})
+    mock_client.get_json = AsyncMock(side_effect=NetworkError("GET request failed: connect timeout"))
+    mock_client_cls.return_value = mock_client
+
+    payment = _create(payment_session, job.id, _payment_data(job.id))
+
+    assert payment.status == "failed"
+    assert payment.meta_data["escrow_error_kind"] == "unsealed"
+    escrows = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).all()
+    assert escrows == []
+
+
+@patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+def test_lock_sealing_on_second_poll_still_escrows(mock_client_cls, payment_session, monkeypatch):
+    """The poll tolerates a first-miss: seal on a later poll → escrowed."""
+    monkeypatch.setenv("ESCROW_LOCK_SEAL_WAIT_SECONDS", "5")
+    monkeypatch.setenv("ESCROW_LOCK_SEAL_POLL_SECONDS", "0.01")
+    job = _make_job(payment_session, "job-late-seal")
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(return_value={"contract_id": "0xescrowL"})
+    mock_client.get_json = AsyncMock(side_effect=[[], _chain_lock_txs("0xlock-late", job_id=job.id)])
+    mock_client_cls.return_value = mock_client
+
+    payment = _create(payment_session, job.id, _payment_data(job.id))
+
+    assert payment.status == "escrowed"
+    assert payment.meta_data["escrow_lock_tx_hash"] == "0xlock-late"
 
 
 @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
