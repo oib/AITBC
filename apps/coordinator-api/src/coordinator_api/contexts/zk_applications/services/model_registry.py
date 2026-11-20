@@ -34,6 +34,7 @@ __all__ = [
     "MODEL_CIRCUITS",
     "ModelCircuit",
     "compute_public_inputs",
+    "expected_output_values",
     "expected_public_signals",
     "float_to_field",
     "get_model",
@@ -118,21 +119,33 @@ def resolve_model_id(job: Any, result: Any) -> str | None:
     return None
 
 
+def _job_input_text(job: Any) -> str:
+    """The prompt/input text a job asks the model to run on."""
+    if job and job.payload:
+        return str(job.payload.get("prompt", job.payload.get("input", "")))
+    return ""
+
+
+def expected_output_values(job: Any, model: ModelCircuit) -> list[int]:
+    """Deterministic field-element output the coordinator expects for ``job``.
+
+    This is the same computation the receipt_model proof commits to in its
+    public ``output_hash``. Comparing the miner-reported ``result.output``
+    against it is the pure-code half of the #2331 output binding: the proof
+    alone cannot see what the miner returned, because the witness is built
+    from the coordinator-computed output either way.
+    """
+    input_values = text_to_field_array(_job_input_text(job), model.input_len)
+    return model.compute_output(input_values)
+
+
 def compute_public_inputs(
     job: Any,
     result: Any,
     model: ModelCircuit,
 ) -> dict[str, Any]:
     """Return the public inputs and private witness for a receipt_model proof."""
-    input_text = ""
-    if job and job.payload:
-        input_text = str(job.payload.get("prompt", job.payload.get("input", "")))
-    if isinstance(result, dict):
-        str(result.get("output") or result.get("result") or "")
-    elif result is not None:
-        str(result)
-
-    input_values = text_to_field_array(input_text, model.input_len)
+    input_values = text_to_field_array(_job_input_text(job), model.input_len)
     output_values = model.compute_output(input_values)
 
     input_hash = _poseidon(input_values)
