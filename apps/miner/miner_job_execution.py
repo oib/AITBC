@@ -137,6 +137,22 @@ def _ffmpeg_max_output_bytes() -> int:
         return _FFMPEG_DEFAULT_MAX_OUTPUT_BYTES
 
 
+# Inference read timeout (#2294): 180s was fine for warm GPU ollama but CPU-only
+# nodes cold-load the model and serialize concurrent jobs, so a single generate
+# call can legitimately exceed it — the miner then reports FAILURE and the
+# buyer's escrow has to be swept. Env-tunable; 600s bounds a wedged ollama
+# without failing slow-but-healthy CPU inference.
+_OLLAMA_TIMEOUT_ENV = "MINER_OLLAMA_TIMEOUT_SECONDS"
+_OLLAMA_DEFAULT_TIMEOUT_SECONDS = 600
+
+
+def _ollama_timeout_seconds() -> int:
+    try:
+        return max(1, int(os.environ.get(_OLLAMA_TIMEOUT_ENV, _OLLAMA_DEFAULT_TIMEOUT_SECONDS)))
+    except ValueError:
+        return _OLLAMA_DEFAULT_TIMEOUT_SECONDS
+
+
 def _check_media_url(url: str) -> urllib.parse.ParseResult:
     """Refuse http(s) URLs whose host resolves to any non-public address —
     loopback, private, link-local, metadata, multicast. Called per hop, so a
@@ -317,7 +333,7 @@ def _execute_inference(job, available_models):
     constraints = job.get("constraints") or {}
     deterministic = constraints.get("deterministic_decoding", False)
     decode_seed = constraints.get("decode_seed") if deterministic else None
-    ollama_client = AITBCHTTPClient(base_url="http://localhost:11434", timeout=180)
+    ollama_client = AITBCHTTPClient(base_url="http://localhost:11434", timeout=_ollama_timeout_seconds())
     options: dict[str, Any] = {"num_predict": 24, "temperature": 0.7}
     if deterministic:
         options["temperature"] = 0
