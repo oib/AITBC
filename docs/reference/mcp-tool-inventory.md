@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**818 tools** across 140 modules.
+**825 tools** across 140 modules.
 
 | Kind | Tools |
 |---|---|
-| cli | 133 |
-| generated | 562 |
+| cli | 136 |
+| generated | 566 |
 | other | 7 |
 | rpc | 116 |
 
@@ -51,7 +51,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_exchange_island.py | 6 |
 | mcp-server/aitbc_mcp_cli_tools_generated_explorer.py | 10 |
 | mcp-server/aitbc_mcp_cli_tools_generated_genesis.py | 4 |
-| mcp-server/aitbc_mcp_cli_tools_generated_governance.py | 9 |
+| mcp-server/aitbc_mcp_cli_tools_generated_governance.py | 13 |
 | mcp-server/aitbc_mcp_cli_tools_generated_gpu.py | 5 |
 | mcp-server/aitbc_mcp_cli_tools_generated_gpu_onchain.py | 6 |
 | mcp-server/aitbc_mcp_cli_tools_generated_grant.py | 4 |
@@ -147,7 +147,7 @@
 | mcp-server/aitbc_mcp_control_tools.py | 5 |
 | mcp-server/aitbc_mcp_http_tools.py | 10 |
 | mcp-server/aitbc_mcp_liquidity_tools.py | 6 |
-| mcp-server/aitbc_mcp_mutating_tools.py | 10 |
+| mcp-server/aitbc_mcp_mutating_tools.py | 13 |
 | mcp-server/aitbc_mcp_node_tools.py | 8 |
 | mcp-server/aitbc_mcp_ops_tools.py | 6 |
 | mcp-server/aitbc_mcp_rpc_tools.py | 54 |
@@ -543,6 +543,10 @@
 | `aitbc_governance_execute` | mcp-server/aitbc_mcp_cli_tools_generated_governance.py | generated | `aitbc governance execute` |
 | `aitbc_governance_execute_cross_chain` | mcp-server/aitbc_mcp_cli_tools_generated_governance.py | generated | `aitbc governance execute-cross-chain` |
 | `aitbc_governance_get` | mcp-server/aitbc_mcp_cli_tools_generated_governance.py | generated | `aitbc governance get` |
+| `aitbc_governance_profile_delegate` | mcp-server/aitbc_mcp_cli_tools_generated_governance.py | generated | `aitbc governance profile delegate` |
+| `aitbc_governance_profile_init` | mcp-server/aitbc_mcp_cli_tools_generated_governance.py | generated | `aitbc governance profile init` |
+| `aitbc_governance_profile_power` | mcp-server/aitbc_mcp_cli_tools_generated_governance.py | generated | `aitbc governance profile power` |
+| `aitbc_governance_profile_show` | mcp-server/aitbc_mcp_cli_tools_generated_governance.py | generated | `aitbc governance profile show` |
 | `aitbc_governance_propagate` | mcp-server/aitbc_mcp_cli_tools_generated_governance.py | generated | `aitbc governance propagate` |
 | `aitbc_governance_proposal_show` | mcp-server/aitbc_mcp_cli_tools_generated_governance.py | generated | `aitbc governance proposal show` |
 | `aitbc_governance_propose` | mcp-server/aitbc_mcp_cli_tools_generated_governance.py | generated | `aitbc governance propose` |
@@ -874,12 +878,15 @@
 | `get_liquidity_stakes` | mcp-server/aitbc_mcp_liquidity_tools.py | rpc | `blockchain-rpc:<dynamic>` |
 | `list_liquidity_pools` | mcp-server/aitbc_mcp_liquidity_tools.py | rpc | `GET /rpc/liquidity/pools` |
 | `create_performance_bond` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc bond create` |
+| `delegate_governance_votes` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc governance profile delegate` |
 | `get_zk_refund_sweep_candidates` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai refund-sweep` |
+| `init_governance_profile` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc governance profile init` |
 | `manage_ai_job` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai <dynamic>` |
 | `pay_for_ai_job` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai pay` |
 | `run_zk_refund_sweep` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai refund-sweep` |
 | `send_aitbc_from_env_key` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc transactions send` |
 | `send_aitbc_transaction` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc transactions send` |
+| `set_governance_voting_power` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc governance profile power` |
 | `stake_aitbc` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc wallet stake` |
 | `submit_ai_job` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai submit` |
 | `unstake_aitbc` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc wallet unstake` |
