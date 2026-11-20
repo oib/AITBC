@@ -160,6 +160,19 @@ def get_chain_id(rpc_url: str, override: str | None = None, timeout: int = 5, *,
     return get_chain_id_from_health(rpc_url, timeout, strict=strict)
 
 
+def agent_registry_chain_id(chain: str | None) -> int:
+    """Map a chain id/name to the integer id the agent-identity resolve API expects.
+
+    Mirrors the coordinator's ``default_resolve_chain_id``: a numeric chain
+    id is used verbatim; a named chain (e.g. ``bc-2``) falls back to the
+    native registry id ``1``.
+    """
+    try:
+        return int(str(chain).strip())
+    except (TypeError, ValueError):
+        return 1
+
+
 def resolve_chain_id(ctx, rpc_url: str, *, required: bool = True) -> str:
     """Resolve the chain id for the node this command actually talks to.
 
