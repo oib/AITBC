@@ -443,6 +443,22 @@ class PollRequest(BaseModel):
     max_wait_seconds: int = 15
 
 
+class AssignedGpuCompute(BaseModel):
+    """#2317: rental-window fields for a gpu_compute job in dispatch shape.
+
+    ``started_at`` is when the job entered RUNNING (epoch seconds);
+    ``duration_seconds`` the purchased rental; ``rental_deadline`` the
+    coordinator's hard cutoff (``started_at + duration + slack``). A restarted
+    miner holds only ``started_at + duration_seconds - now`` instead of the
+    full duration again. All None-able for rows claimed before started_at
+    existed — the miner then falls back to ``expires_at``.
+    """
+
+    started_at: float | None = None
+    duration_seconds: float | None = None
+    rental_deadline: float | None = None
+
+
 class AssignedJob(BaseModel):
     job_id: str
     payload: dict[str, Any]
@@ -450,6 +466,10 @@ class AssignedJob(BaseModel):
     expires_at: float | None = Field(
         default=None,
         description="The job's deadline as Unix epoch seconds; a miner stops holding a long-running job once it passes.",
+    )
+    gpu_compute: AssignedGpuCompute | None = Field(
+        default=None,
+        description="gpu_compute rental window (started_at/duration/rental_deadline); None for other job types.",
     )
 
 

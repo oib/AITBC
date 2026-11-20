@@ -34,6 +34,7 @@ from aitbc.aitbc_logging import get_logger
 
 from ....storage.db import get_engine
 from ..domain import Job, Miner
+from .jobs import _gpu_compute_rental_deadline
 from starlette.concurrency import run_in_threadpool
 
 logger = get_logger(__name__)
@@ -74,6 +75,27 @@ def _to_utc(dt: datetime | None) -> datetime | None:
     if dt.tzinfo is None:
         return dt.replace(tzinfo=UTC)
     return dt.astimezone(UTC)
+
+
+def _gpu_rental_window_open(job: Job, now: datetime) -> bool:
+    """#2317: a RUNNING gpu_compute job inside its purchased rental window.
+
+    ``expires_at`` is only the queue/submission deadline — it can pass while
+    the rental (``started_at + duration + slack``) is still live, e.g. after a
+    miner restart re-dispatched the job. Such rows must not be expired by
+    either sweep; once the rental deadline itself passes the job is genuinely
+    dead and normal expiry applies. Post-filtered in Python: the payload
+    duration lives in JSON and the window math is dialect-portable only here.
+    """
+    if job.state != "RUNNING":
+        return False
+    payload = job.payload or {}
+    if payload.get("type") != "gpu_compute":
+        return False
+    deadline = _gpu_compute_rental_deadline(job)
+    # ``deadline`` is already tz-aware (built from ``started_at`` via
+    # ``_to_utc``); comparing it to the aware ``now`` needs no second pass.
+    return deadline is not None and deadline > now
 
 
 class StaleJobReaper:
@@ -143,7 +165,12 @@ class StaleJobReaper:
         return True
 
     def _sweep_ttl_expired(self, session: Any, counts: dict[str, int], seen: set[str]) -> None:
+        now = datetime.now(UTC)
         for job in self._find_ttl_expired(session):
+            if _gpu_rental_window_open(job, now):
+                # #2317: expires_at passed but the purchased rental window is
+                # still open — leave it RUNNING for the reconcile/submit path.
+                continue
             seen.add(job.id)
             try:
                 if self.dry_run:
@@ -163,8 +190,13 @@ class StaleJobReaper:
                 logger.error("Failed to expire job %s: %s", job.id, e)
 
     def _sweep_miner_dead(self, session: Any, counts: dict[str, int], seen: set[str]) -> None:
+        now = datetime.now(UTC)
         for job in self._find_miner_dead(session):
             if job.id in seen:
+                continue
+            if _gpu_rental_window_open(job, now):
+                # #2317: same protection as the TTL sweep — a live rental is
+                # not abandoned just because its miner heartbeat went stale.
                 continue
             try:
                 if self.dry_run:
