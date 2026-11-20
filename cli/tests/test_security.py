@@ -126,3 +126,39 @@ def test_credentials_file_permission_checked(isolated_home):
 
     _json(_run(["patch"]))
     assert stat.S_IMODE(creds.stat().st_mode) == 0o600
+
+
+def test_patch_never_chmods_outside_aitbc_roots(isolated_home, tmp_path):
+    """#2341 respin: pin the containment boundary — a ``~/.aitbc`` symlink
+    resolving outside the aitbc data dirs must be skipped, and the outside
+    file's mode must stay untouched."""
+    outside_dir = tmp_path / "outside"
+    outside_dir.mkdir()
+    outside_file = outside_dir / "secret.json"
+    outside_file.write_text("{}")
+    os.chmod(outside_file, 0o644)
+
+    wallets = isolated_home / ".aitbc" / "wallets"
+    wallets.mkdir(parents=True, exist_ok=True)
+    link = wallets / "evil.json"
+    link.symlink_to(outside_file)
+
+    data = _json(_run(["patch"]))
+    rows = [r for r in data["results"] if r["target"] == str(link)]
+    assert rows, f"expected a result row for {link}: {data['results']}"
+    assert rows[0]["action"] == "skipped"
+    assert rows[0]["detail"] == "outside aitbc data dirs"
+    assert stat.S_IMODE(outside_file.stat().st_mode) == 0o644
+
+
+def test_chmod_result_skips_plain_outside_path(tmp_path):
+    """Direct unit pin: ``_chmod_result`` refuses any path that does not
+    resolve under ``~/.aitbc`` or ``/var/lib/aitbc``."""
+    outside = tmp_path / "plain.json"
+    outside.write_text("{}")
+    os.chmod(outside, 0o644)
+
+    action, before, after, detail = security_mod._chmod_result(outside, 0o600)
+    assert action == "skipped"
+    assert detail == "outside aitbc data dirs"
+    assert stat.S_IMODE(outside.stat().st_mode) == 0o644

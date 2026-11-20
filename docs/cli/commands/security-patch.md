@@ -2,7 +2,7 @@
 
 # `aitbc security patch`
 
-Apply all available security patches to the system (simulated — no live patch backend).
+Apply safe permission fixes under the aitbc data directories. chmod 0600 on wallet/credential/audit files and chmod 0700 on aitbc directories that grant group/other access. Missing targets are skipped, chmod failures are reported per-target (never fatal), and nothing outside ``~/.aitbc`` / ``/var/lib/aitbc`` is modified.
 
 ## Usage
 
