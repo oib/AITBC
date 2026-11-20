@@ -3,7 +3,7 @@
 **Level**: Beginner
 **Prerequisites**: [Scenario 19 Security Setup](./19_security_setup.md)
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-11-19
+**Last Updated**: 2026-11-20
 **Version**: 1.4
 
 ## Navigation Path
@@ -239,6 +239,11 @@ Source Tx Hash    0x9f2c...
 
 Track bridge with: aitbc crosschain bridge-status --bridge-id 0x9f2c...
 ```
+
+> **Fleet affordability (20 Nov 2026):** the 500 AIT leg exceeds every
+> fleet wallet balance — node0's `default` wallet holds ~105 AIT — so
+> this leg is infeasible without a top-up. The 100 AIT swap in Step 2
+> fits marginally.
 
 ### Step 6: Check Bridge Transaction Status
 
@@ -557,5 +562,5 @@ aitbc crosschain pools
 
 ---
 
-*Last updated: 2026-11-19*
+*Last updated: 2026-11-20*
 *Version: 1.4 — GAP-47: swap/bridge now submit signed real BRIDGE_LOCK transactions; statuses come from the genuine bridge lifecycle (`pending`/`locked`/`confirmed`/`completed`/`failed`/`refunded`), `--wait` polls real status, and `crosschain confirm` relays a pending transfer with its Merkle proof. v1.4: examples moved off the impossible same-chain bc-2→bc-2 pair to the verified bc-2→bc-2-island-1 lane (CLI refuses identical chains).*

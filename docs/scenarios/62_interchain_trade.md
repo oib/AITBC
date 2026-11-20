@@ -3,7 +3,7 @@
 **Level**: Intermediate
 **Prerequisites**: Scenario 06 Basic Trading, Scenario 20 Cross-Chain Transfer
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-10-25
+**Last Updated**: 2026-11-20
 **Version**: 1.0
 
 ## Navigation Path
@@ -53,6 +53,10 @@ secret — or refunds it when the counterparty stalls.
 - Trading service reachable (the CLI reports `Network error` otherwise)
 - For writes: sender/recipient addresses on both chains and funds on the
   source chain (integer units; `UNITS_PER_AIT = 36_000_000`)
+- A real second participant — self-trade is prohibited. `lock-escrow`
+  requires the destination chain to have a provisioned `chain.db`
+  (#2269), and escrow records are non-idempotent (#2268) — a retried
+  `lock-escrow` creates a duplicate record.
 
 ---
 
@@ -62,7 +66,7 @@ secret — or refunds it when the counterparty stalls.
 
 ```bash
 aitbc trade chains
-aitbc trade health --chain-id ait-mainnet
+aitbc trade health --chain-id bc-2
 aitbc trade settlement-status --trade-id <trade-id>
 ```
 
@@ -75,19 +79,19 @@ operator's line.
 ```bash
 aitbc trade sync-status
 aitbc trade subscription-status
-aitbc trade discover --source-chain ait-mainnet --dest-chain ait-side --service-type gpu \
+aitbc trade discover --source-chain bc-2 --dest-chain bc-2-island-1 --service-type gpu \
     --min-price 0 --max-price 100 --limit 20
-aitbc trade search --query gpu --chain-id ait-mainnet --limit 20
+aitbc trade search --query gpu --chain-id bc-2 --limit 20
 ```
 
 `aitbc trade sync` forces the offer index to refresh — a service-side write;
 
 ```bash
-aitbc trade sync --chain-id ait-mainnet --service-type gpu        # operator line
+aitbc trade sync --chain-id bc-2 --service-type gpu              # operator line
 aitbc trade sync --force
 ```
 
-`aitbc trade watch --chain-id ait-mainnet --service-type gpu` opens a
+`aitbc trade watch --chain-id bc-2 --service-type gpu` opens a
 long-lived subscription stream of matching offers — safe to run but blocks
 until interrupted.
 
@@ -95,16 +99,16 @@ until interrupted.
 
 ```bash
 aitbc trade list
-aitbc trade list --status pending --source-chain ait-mainnet
+aitbc trade list --status pending --source-chain bc-2
 aitbc trade get    <trade-id>
 aitbc trade status --trade-id <trade-id>
-aitbc trade history --source-chain ait-mainnet --limit 20
+aitbc trade history --source-chain bc-2 --limit 20
 ```
 
 **Writes — need the operator's line on a live island:**
 
 ```bash
-aitbc trade create --source-chain ait-mainnet --dest-chain ait-side \
+aitbc trade create --source-chain bc-2 --dest-chain bc-2-island-1 \
     --sender 0x<src> --recipient 0x<dst> --amount 36000000 \
     --offer-id <offer-id> --price 1.0 --quantity 1
 aitbc trade match     <trade-id>

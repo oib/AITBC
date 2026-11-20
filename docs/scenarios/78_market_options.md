@@ -3,7 +3,7 @@
 **Level**: Advanced
 **Prerequisites**: Scenario 07 AI Job Submission, Scenario 75 Market Escrow & Jobs Options
 **Estimated Time**: 15 minutes
-**Last Updated**: 2026-10-26
+**Last Updated**: 2026-11-20
 **Version**: 1.0
 
 ## Navigation Path
@@ -386,6 +386,52 @@ aitbc market gpu status --job-id job-mo1 --json-output
 Client Error: Unauthorized for url: …/c/v1/market/gpu/status/job-mo1`
 (exit 1 — the hub coordinator wants a client credential for the read).
 
+### Step 9a: Successful protected GPU rental (paid, round-4 recipe)
+
+Everything above is a free refusal. The real paid rail — proven
+end-to-end on 20 Nov 2026 (quote → buy → `ESCROW_LOCK` → job `RUNNING`
+on node2 `aitbc-miner-1`) — is:
+
+1. `gpu quote` first. `--buyer-id` is the **coordinator client UUID**,
+   not the wallet address — agent binding resolves the wallet from it:
+
+   ```bash
+   aitbc market gpu quote --gpu-id <id> --buyer-id <client-uuid> \
+       --buyer-agent-id <agent> --duration-hours 1 --settlement native
+   ```
+
+   Save the operator-signed energy-quote JSON the response returns.
+
+2. `gpu buy` with that quote — signature and caps are verified before
+   any funding:
+
+   ```bash
+   aitbc market gpu buy --gpu-id <id> --buyer-id <uuid> \
+       --job-id <id> --duration-hours 1 --settlement native \
+       --wallet <name> --energy-quote <file> --max-ait <cap> --yes
+   ```
+
+3. Verify the `ESCROW_LOCK` is **sealed on-chain** before watching the
+   job. Post-#2297 a 2xx create is mempool admission only — the
+   coordinator polls the sealed-tx table
+   (`ESCROW_LOCK_SEAL_WAIT_SECONDS`, 180 s on hub) and only then marks
+   the payment `escrowed`.
+
+4. Watch the job `RUNNING` → completion → acceptance window →
+   `ESCROW_RELEASE`.
+
+Known open defects as of 2026-11-20 — a buy that *looks* failed may
+have committed, so check job/payment state before retrying:
+
+- **#2304** — purchase returns 422 **after** the commit landed.
+- **#2305** — miner poll-loop stall after coordinator 502 bursts; a
+  miner restart resets its region to `localhost`, which silently
+  stalls protected-resource dispatch (the live DB was corrected to
+  `node2`).
+- **#2306** — the job's `expires_at` can expire mid-rental: the
+  sweeper refunds the buyer (`ESCROW_REFUND`) and the provider goes
+  unpaid — observed on the 20 Nov run; the re-run is owed.
+
 ---
 
 ## Exit-class summary
@@ -413,6 +459,9 @@ a read.
 object. Use get_json()…` on every invocation, same shape class as the
 `market jobs`/`trade` array drift.
 
+**Paid legs:** Step 9a is the only successful paid path in this
+scenario; every other command here is a free refusal by design.
+
 ---
 
 ## See Also
@@ -423,5 +472,5 @@ object. Use get_json()…` on every invocation, same shape class as the
 
 ---
 
-*Last updated: 2026-10-26 (MARKET-OPTS-1 option coverage)*
+*Last updated: 2026-11-20 (round-4/5 additions: Step 9a paid GPU rental recipe + #2297 seal-gate note)*
 *Version: 1.0*
