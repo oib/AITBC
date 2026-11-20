@@ -48,6 +48,7 @@ import ipfs_pinning_sweeper
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.units import ait_to_units
+from aitbc.zk_model_circuits import get_model, text_to_field_array
 
 # Service endpoints, health map, IPFS/content helpers and the whisper/ffmpeg/
 # ipfs service handlers live in agent_task_services (#1860); every moved name
@@ -669,6 +670,15 @@ def _exec_ollama(req: dict[str, Any], payload: bytes) -> bytes:
     except (TypeError, ValueError):
         requested = _OLLAMA_MAX_NUM_PREDICT
     num_predict = max(1, min(requested, _OLLAMA_MAX_NUM_PREDICT))
+    # #2330: a registered ZK circuit model (e.g. linear-1) is not an Ollama
+    # model — run the deterministic circuit locally instead of failing the
+    # availability check. Same result shape as the job path: the field-array
+    # output as JSON bytes.
+    circuit = get_model(model)
+    if circuit is not None:
+        input_values = text_to_field_array(prompt, circuit.input_len)
+        output_values = circuit.compute_output(input_values)
+        return json.dumps({"model": circuit.name, "output": output_values}).encode()
     if not _ollama_model_available(model):
         raise ValueError(f"ollama model '{model}' is not available on this miner")
     resp = requests.post(
