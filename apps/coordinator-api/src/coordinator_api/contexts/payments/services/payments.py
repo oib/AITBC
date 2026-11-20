@@ -26,6 +26,7 @@ from .payments_helpers import (
     _escrow_record_is_settled as _escrow_record_is_settled,
     _fail_evm_payment as _fail_evm_payment,
     _find_http_status_error as _find_http_status_error,
+    _is_settlement_underfunded as _is_settlement_underfunded,
     _lookup_chain_lock as _lookup_chain_lock,
     _lookup_chain_refund as _lookup_chain_refund,
     _lookup_escrow_record as _lookup_escrow_record,
