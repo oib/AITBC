@@ -228,6 +228,20 @@ class WorkflowOrchestrator:
             logger.warning("Redis not available, workflow orchestrator running in memory-only mode")
             return
         self.redis_client = redis_client.from_url(self.redis_url)
+        try:
+            await self.redis_client.ping()
+        except _OPS_ERRORS as e:
+            # #2014: an unreachable Redis must degrade explicitly — every
+            # persistence call would otherwise 500 per request. Memory-only
+            # mode at least keeps the API shape honest about the warning.
+            logger.warning(
+                "Redis unreachable at %s (%s) — workflow orchestrator running without persistence",
+                self.redis_url,
+                e,
+            )
+            await self.redis_client.aclose()
+            self.redis_client = None
+            return
         await self._load_active_executions()
         logger.info("Workflow orchestrator started")
 
@@ -477,9 +491,9 @@ class WorkflowOrchestrator:
 _orchestrator: WorkflowOrchestrator | None = None
 
 
-def get_orchestrator() -> WorkflowOrchestrator:
+def get_orchestrator(redis_url: str | None = None) -> WorkflowOrchestrator:
     """Get global orchestrator instance"""
     global _orchestrator
     if _orchestrator is None:
-        _orchestrator = WorkflowOrchestrator()
+        _orchestrator = WorkflowOrchestrator(redis_url=redis_url or "redis://localhost:6379/1")
     return _orchestrator
