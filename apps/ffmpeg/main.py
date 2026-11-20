@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.media_guard import ffmpeg_input_guard  # noqa: E402
-from aitbc.shop_gate import require_job_access  # noqa: E402
+from aitbc.shop_gate import MARKET_VERIFY_URL, require_job_access  # noqa: E402
 from aitbc.utils.env import subprocess_env  # noqa: E402
 
 configure_logging(level="INFO", service_name="ffmpeg", to_file=True)
@@ -295,6 +295,8 @@ async def health():
             gpu_device=_device,
             hw_accel=_hw_accel,
             ready=result.returncode == 0,
+            # Effective paid-job verify target (#2318).
+            market_verify_url=MARKET_VERIFY_URL,
         )
     except _OPS_ERRORS as e:
         return create_simple_health_response(
@@ -302,6 +304,7 @@ async def health():
             status="error",
             error=str(e),
             ready=False,
+            market_verify_url=MARKET_VERIFY_URL,
         )
 
 

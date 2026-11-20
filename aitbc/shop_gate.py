@@ -28,6 +28,7 @@ module never binds it to an event loop.
 
 from __future__ import annotations
 
+import logging
 import os
 import re
 from typing import TYPE_CHECKING, Any
@@ -38,7 +39,25 @@ from fastapi import HTTPException, Request, status
 if TYPE_CHECKING:
     import httpx
 
-MARKET_VERIFY_URL = os.environ.get("MARKET_VERIFY_URL", "http://127.0.0.1:8102")
+logger = logging.getLogger(__name__)
+
+_MARKET_VERIFY_DEFAULT = "http://127.0.0.1:8102"
+MARKET_VERIFY_URL = os.environ.get("MARKET_VERIFY_URL", _MARKET_VERIFY_DEFAULT)
+if "MARKET_VERIFY_URL" not in os.environ:
+    # #2318: the implicit default assumes a market service on this host.
+    # Shop nodes (whisper/ffmpeg/ollama-gate/hermes-agent) have none — every
+    # gated call then fails 503 on connection-refused. This is a warning, not
+    # an error: the market service itself legitimately uses the default.
+    # Fix per host by setting MARKET_VERIFY_URL in the service env file
+    # (e.g. /etc/aitbc/whisper.env) to the market endpoint.
+    logger.warning(
+        "MARKET_VERIFY_URL is unset; paid-job access-token verification uses the "
+        "implicit default %s, which is only correct on hosts running the market "
+        "service. On shop nodes set MARKET_VERIFY_URL in the service env file "
+        "(e.g. /etc/aitbc/<service>.env) to the market endpoint or every gated "
+        "call fails 503.",
+        _MARKET_VERIFY_DEFAULT,
+    )
 VERIFY_TIMEOUT = float(os.environ.get("MARKET_VERIFY_TIMEOUT", "10"))
 
 # Access keys are token_urlsafe output — a single safe path segment only.
