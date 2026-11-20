@@ -1,25 +1,50 @@
 """Model registry and public-input helpers for the receipt_model ZK circuit.
 
 The receipt_model circuit proves a deterministic model execution.
+
+The pure-Python registry (``ModelCircuit``, ``MODEL_CIRCUITS``, ``get_model``,
+field encoding) lives in ``aitbc.zk_model_circuits`` so the miner can execute
+registered circuit models locally (#2330); this module re-exports those names
+and keeps the coordinator-only Poseidon/snarkjs helpers.
 """
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import subprocess
 import tempfile
-from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.env import subprocess_env
+from aitbc.zk_model_circuits import (
+    LINEAR_MODEL,
+    MODEL_CIRCUITS,
+    ModelCircuit,
+    float_to_field,
+    get_model,
+    hash_to_field,
+    text_to_field_array,
+)
+
+__all__ = [
+    "LINEAR_MODEL",
+    "MODEL_CIRCUITS",
+    "ModelCircuit",
+    "compute_public_inputs",
+    "expected_public_signals",
+    "float_to_field",
+    "get_model",
+    "get_model_hash",
+    "hash_to_field",
+    "resolve_model_id",
+    "text_to_field_array",
+]
 
 logger = get_logger(__name__)
 
-_BN128_FQ = 21888242871839275222246405745257275088696311157297823662689037894645226208583
 # Default derived relative to this file rather than hardcoded to /opt/aitbc: the
 # CI runner checks the repo out to its own ephemeral workspace, not /opt/aitbc.
 _REPO_ROOT = Path(__file__).resolve().parents[7]
@@ -62,87 +87,13 @@ def _poseidon(inputs: list[int]) -> int:
         os.unlink(script_file)
 
 
-def hash_to_field(value: Any) -> int:
-    """Deterministically map an arbitrary value to a bn128 field element."""
-    raw = str(value) if value is not None else "0"
-    return int(hashlib.sha256(raw.encode()).hexdigest()[:32], 16)
+def get_model_hash(model: ModelCircuit) -> int:
+    """Compute the Poseidon hash of a circuit model's weights.
 
-
-def text_to_field_array(text: Any, n: int) -> list[int]:
-    """Map a string to ``n`` field elements."""
-    if not isinstance(text, str):
-        text = str(text)
-    out: list[int] = []
-    chunk_size = max(1, len(text) // n + 1)
-    for i in range(n):
-        chunk = text[i * chunk_size : (i + 1) * chunk_size]
-        if not chunk:
-            chunk = f"pad-{i}"
-        out.append(hash_to_field(chunk))
-    return out
-
-
-def float_to_field(value: Any) -> int:
-    """Encode a scalar as a field element."""
-    if not isinstance(value, int | float):
-        value = float(str(value))
-    scaled = int(round(value * 1_000_000))
-    return scaled % _BN128_FQ
-
-
-@dataclass(frozen=True)
-class ModelCircuit:
-    """A deterministic model that has a receipt_model circuit."""
-
-    name: str
-    model_id: int
-    input_len: int
-    output_len: int
-    weight_len: int
-    weights: list[int]
-    scope: str = ""
-
-    def compute_output(self, input_values: list[int]) -> list[int]:
-        """Compute the deterministic output for this model."""
-        if len(input_values) != self.output_len:
-            raise ValueError(f"input length {len(input_values)} != expected {self.output_len}")
-        weight = self.weights[0]
-        bias = self.weights[1]
-        return [(in_val * weight + bias) % _BN128_FQ for in_val in input_values]
-
-    def get_model_hash(self) -> int:
-        """Compute/return the Poseidon hash of the model weights."""
-        return _poseidon(self.weights)
-
-
-_LINEAR_WEIGHT = float_to_field(2.0)
-_LINEAR_BIAS = float_to_field(1.0)
-LINEAR_MODEL = ModelCircuit(
-    name="linear-1",
-    model_id=0,
-    input_len=4,
-    output_len=4,
-    weight_len=2,
-    weights=[_LINEAR_WEIGHT, _LINEAR_BIAS],
-    scope="simple element-wise linear model",
-)
-
-MODEL_CIRCUITS: dict[str, ModelCircuit] = {
-    LINEAR_MODEL.name: LINEAR_MODEL,
-}
-
-
-def get_model(model_id: str | int | None) -> ModelCircuit | None:
-    """Look up a registered model by name or integer model_id."""
-    if model_id is None:
-        return None
-    model_id = str(model_id)
-    if model_id in MODEL_CIRCUITS:
-        return MODEL_CIRCUITS[model_id]
-    for m in MODEL_CIRCUITS.values():
-        if str(m.model_id) == model_id:
-            return m
-    return None
+    Coordinator-side: needs the node/poseidon-lite toolchain, so it cannot
+    live in the shared ``aitbc.zk_model_circuits`` module the miner imports.
+    """
+    return _poseidon(model.weights)
 
 
 def resolve_model_id(job: Any, result: Any) -> str | None:
@@ -185,7 +136,7 @@ def compute_public_inputs(
     output_values = model.compute_output(input_values)
 
     input_hash = _poseidon(input_values)
-    model_hash = model.get_model_hash()
+    model_hash = get_model_hash(model)
     output_hash = _poseidon(output_values)
 
     return {
