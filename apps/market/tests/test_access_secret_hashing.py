@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import sys
 from collections.abc import AsyncIterator
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -18,7 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from market_service.domain.market import IpfsRentalToken, MarketJob, SoftwareService
+from market_service.domain.market import IpfsRentalToken, MarketJob, MarketJobPayment, SoftwareService
 from market_service.services.market_service import (
     MarketService,
     hash_access_secret,
@@ -119,6 +120,7 @@ async def test_job_payload_secret_hashed(session: AsyncSession) -> None:
                 "access_key": jak,
                 "access_secret": "job-secret",
             },
+            "payment": {"amount": "1.0"},
         }
     )
     job_id = job["job_id"]
@@ -128,6 +130,19 @@ async def test_job_payload_secret_hashed(session: AsyncSession) -> None:
     assert is_hashed_secret(row.payload["access_secret"])
     assert "job-secret" not in row.payload["access_secret"]
 
+    # #2322: the token only verifies while the job's escrow is locked —
+    # stub the on-chain read for this hashing-focused test.
+    class _LockedEscrow:
+        async def verify_escrow(self, job_id: str):
+            return {
+                "job_id": job_id,
+                "state": "locked",
+                "amount": "1.0",
+                "buyer": "0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76",
+                "provider": "0x241D3e44d42b6d4c270d0231780913f14386d90C",
+            }
+
+    svc._rpc_client = _LockedEscrow()  # type: ignore[assignment]
     assert await svc.get_market_job_access_token(jak, "job-secret") is not None
     assert await svc.get_market_job_access_token(jak, "nope") is None
 
@@ -151,6 +166,17 @@ async def test_migrate_access_secrets_upgrades_plaintext_rows(session: AsyncSess
         payload={"cid": "QmX", "access_key": jakm, "access_secret": "old-job-secret"},
     )
     session.add(job)
+    await session.flush()
+    # #2322: the access-token check requires a payment row in a verified
+    # escrowed state — seed one so the migrated secret can still verify.
+    payment = MarketJobPayment(
+        job_id=job.id,
+        amount=Decimal("1.0"),
+        status="escrowed",
+    )
+    session.add(payment)
+    await session.flush()
+    job.payment_id = payment.id
     await session.commit()
 
     await storage._migrate_access_secrets()  # noqa: SLF001

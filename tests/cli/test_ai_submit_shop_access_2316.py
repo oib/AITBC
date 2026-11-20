@@ -86,16 +86,22 @@ def test_transcribe_submit_embeds_shop_access_triple(mock_config, mock_http_clie
     assert result.exit_code == 0, result.output
     payload = mock_http_client["post"][0][2]["json"]["payload"]
     assert payload["type"] == "transcribe"
-    assert payload["access_key"] == "ak_testkey123"
-    assert payload["access_secret"] == "as_testsecret456"
+    # #2322: the CLI mints the creds itself (they must be in the payload
+    # before submit); the market job row is registered afterwards.
+    access_key = payload["access_key"]
+    access_secret = payload["access_secret"]
+    assert access_key and access_secret
     market_job_id = payload["market_job_id"]
     assert market_job_id.startswith("ai_job_")
     # The market job id is a token record, never the coordinator job id —
-    # an alias would let pin-confirm resolve the coordinator escrow.
+    # an alias would let pin-confirm resolve the coordinator escrow; the
+    # real escrow key travels as escrow_job_id instead.
     assert market_job_id != "coord-job-1"
-    _, kwargs = mock_register.call_args
     assert mock_register.call_args.args[1] == market_job_id
     assert mock_register.call_args.args[5] == "whisper"
+    assert mock_register.call_args.kwargs["access_key"] == access_key
+    assert mock_register.call_args.kwargs["access_secret"] == access_secret
+    assert mock_register.call_args.kwargs["escrow_job_id"] == "coord-job-1"
 
 
 @pytest.mark.unit
@@ -111,8 +117,11 @@ def test_offer_bound_transcribe_submit_embeds_shop_access(mock_config, mock_http
     assert result.exit_code == 0, result.output
     mock_register.assert_called_once()
     payload = mock_http_client["post"][0][2]["json"]["payload"]
-    assert payload["access_key"] == "ak_testkey123"
-    assert payload["access_secret"] == "as_testsecret456"
+    # #2322: creds are minted locally pre-submit; the mock's return value is
+    # not embedded — registration is deferred and carries them by kwargs.
+    assert payload["access_key"]
+    assert payload["access_secret"]
+    assert payload["access_key"] != "ak_testkey123"
 
 
 @pytest.mark.unit
@@ -133,7 +142,13 @@ def test_unpaid_transcribe_submit_mints_no_shop_access(mock_config, mock_http_cl
 
 @pytest.mark.unit
 def test_transcribe_submit_without_registration_still_submits(mock_config, mock_http_client):
-    """Market-service outage degrades to today's behavior (shop 401), not a submit failure."""
+    """Market-service outage degrades to an unverifiable token (shop 401), not a submit failure.
+
+    #2322: creds are embedded pre-submit regardless — registration is
+    # deferred until the coordinator job id is known, so a dead market
+    # service can no longer strip them from the payload; the token simply
+    # never verifies.
+    """
     with patch(
         "aitbc_cli.commands.market.jobs._register_paid_market_job",
         return_value=None,
@@ -142,8 +157,8 @@ def test_transcribe_submit_without_registration_still_submits(mock_config, mock_
 
     assert result.exit_code == 0, result.output
     payload = mock_http_client["post"][0][2]["json"]["payload"]
-    assert "access_key" not in payload
-    assert "market_job_id" not in payload
+    assert payload["access_key"]
+    assert payload["market_job_id"]
 
 
 @pytest.mark.unit

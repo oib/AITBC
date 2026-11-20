@@ -181,6 +181,75 @@ class _JobsSettlementMixin(_JobsMixin):
             if actual and expected and not self._addresses_match(actual, expected):
                 raise ValueError(f"On-chain escrow {field} does not match job {job.id}")
 
+    async def _job_token_escrow_verified(self, job: MarketJob, payment: MarketJobPayment | None) -> bool:
+        """#2322 MARKET-TOKEN-ESCROW-BIND-1: does this job have locked escrow?
+
+        Shop access tokens (``GET /v1/market/access/{key}``) authorize paid
+        shop work, so lifecycle state (QUEUED/RUNNING + TTL) is not enough —
+        the escrow must be locked. ``payment.status == "escrowed"`` is itself
+        only ever written after ``_require_locked_escrow``'s on-chain proof,
+        so it passes directly. Every other status — above all ``pending``,
+        which is what ``create_market_job`` writes and what the paid
+        whisper/ffmpeg/ollama and ``ai submit`` flows keep for the life of
+        the token (their escrow lives on-chain but nothing flips the DB row)
+        — falls through to a live ``GET /rpc/escrow/{key}`` read applying the
+        same locked-state whitelist, amount and party binding as the
+        pin-confirm flip. The escrow is keyed by the market job id for the
+        ``aitbc market run``/IPFS flows; ``ai submit`` transcribe registers
+        its token record under a distinct ``ai_job_*`` id (so the market
+        sweeper can never alias the coordinator escrow) and binds the real
+        escrow via ``payload["escrow_job_id"]`` instead — the amount/party
+        match still binds that proof to this job's declared terms.
+
+        Fails closed: no payment row, an absent/unreadable escrow, a
+        non-locked state, or an RPC error all deny the token.
+        """
+        if payment is None:
+            return False
+        if payment.status == "escrowed":
+            return True
+        escrow_key = str((job.payload or {}).get("escrow_job_id") or job.id)
+        try:
+            escrow = await self._rpc_client.verify_escrow(escrow_key)
+        except Exception as e:  # noqa: BLE001 - unverifiable escrow must deny, not 500
+            logger.warning("Access-token escrow check failed for job %s: %s", job.id, e)
+            return False
+        if not escrow:
+            return False
+        return self._locked_escrow_matches(escrow, job, payment)
+
+    def _locked_escrow_matches(self, escrow: dict, job: MarketJob, payment: MarketJobPayment) -> bool:
+        """Bool form of ``_require_locked_escrow``'s checks for the token path.
+
+        Same locked-state whitelist, amount and party binding — but a mismatch
+        denies the token (False) instead of raising, since this runs inside a
+        read-only verify endpoint.
+        """
+        state = str(escrow.get("state") or "").lower()
+        if state not in {"funded", "locked", "job_started", "job_completed", "disputed", "resolved"}:
+            return False
+        if not self._escrow_amount_matches(escrow, payment):
+            return False
+        return self._escrow_parties_match(escrow, job)
+
+    @staticmethod
+    def _escrow_amount_matches(escrow: dict, payment: MarketJobPayment) -> bool:
+        amount = escrow.get("amount")
+        if amount is None:
+            return True
+        try:
+            locked = Decimal(str(amount))
+        except (ArithmeticError, ValueError):
+            return False
+        return locked.is_finite() and locked == payment.amount
+
+    def _escrow_parties_match(self, escrow: dict, job: MarketJob) -> bool:
+        for field, expected in (("buyer", job.buyer_address), ("provider", job.provider_address)):
+            actual = escrow.get(field)
+            if actual and expected and not self._addresses_match(actual, expected):
+                return False
+        return True
+
     async def confirm_market_job_pin(
         self,
         job_id: str,
