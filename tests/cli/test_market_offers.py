@@ -211,6 +211,38 @@ class TestMarketListServiceTypeChainFallback:
         assert "sw_offer_ollama" not in result.output
 
 
+    def test_hub_query_filters_by_tx_type_server_side(self, monkeypatch, config):
+        """#2307: the hub /rpc/transactions call must pass transaction_type —
+        an unfiltered newest-500 window drops old-but-active GPU_MARKET
+        offers (whisper's tx_8) once the chain outgrows it."""
+        from aitbc_cli.commands.market import offers as offers_mod
+
+        seen_params: list[dict] = []
+
+        class _Client:
+            def __init__(self, base_url="", timeout=0, **_kw):
+                self.base_url = base_url
+
+            def get(self, path, params=None, **_kw):
+                raise NetworkError("market api down")
+
+            def get_json(self, path, params=None, **_kw):
+                if "hub.aitbc.invalid" in self.base_url:
+                    if path == "/rpc/transactions":
+                        seen_params.append(params or {})
+                        return [_SOFTWARE_OFFER_TX]
+                    return {"transactions": []}
+                raise NetworkError("edge unreachable")
+
+        monkeypatch.setattr(offers_mod, "AITBCHTTPClient", _Client)
+        monkeypatch.setattr(offers_mod, "get_config", lambda: config)
+
+        result = CliRunner().invoke(market, ["list"], obj={})
+        assert result.exit_code == 0, result.output
+        assert seen_params and seen_params[0].get("transaction_type") == "GPU_MARKET"
+        assert "sw_offer_chain" in result.output
+
+
 class TestMarketListEmpty:
     """#2225: an empty `market list` must say so, and dead fallback bases
     must not shout warnings that become the only output."""
