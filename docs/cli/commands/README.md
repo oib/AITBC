@@ -485,6 +485,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc market gpu list`](market-gpu-list.md) — List GPUs in the coordinator registry (GET /v1/market/gpu/list).
 - [`aitbc market gpu quote`](market-gpu-quote.md) — Request an operator-signed energy quote for a GPU rental.
 - [`aitbc market gpu refund`](market-gpu-refund.md) — Request a refund for a GPU rental.
+- [`aitbc market gpu register`](market-gpu-register.md) — Register a GPU in the coordinator registry (POST /v1/market/gpu/register).
 - [`aitbc market gpu release`](market-gpu-release.md) — Release escrow funds to the provider after rental completion.
 - [`aitbc market gpu status`](market-gpu-status.md) — Check the status of a GPU rental and its escrow.
 - [`aitbc market hermes`](market-hermes.md) — Run a one-shot Hermes Agent prompt via a software offer and pay metered escrow.

@@ -456,6 +456,40 @@ def register_miner():
         return None
 
 
+def register_market_gpu() -> str | None:
+    """Opt-in (#2291): list this miner's GPU in the coordinator market registry.
+
+    Off unless ``MINER_REGISTER_GPU=1``. The route is idempotent per
+    (miner, model, resource), so calling it on every start is safe. Failure
+    is non-fatal: the miner still serves jobs without a marketplace row.
+    """
+    if os.environ.get("MINER_REGISTER_GPU", "").strip() != "1":
+        return None
+    gpu_info = get_gpu_info()
+    if not gpu_info:
+        logger.warning("MINER_REGISTER_GPU=1 but no GPU detected; skipping market GPU registration")
+        return None
+    specs = {
+        "name": gpu_info["name"],
+        "memory_gb": max(1, int(gpu_info["memory_total"]) // 1024),
+        "price_per_hour": os.environ.get("MINER_GPU_PRICE_PER_HOUR", "0.05"),
+        "region": os.environ.get("MINER_GPU_REGION", "localhost"),
+    }
+    resource_id = os.environ.get("MINER_GPU_RESOURCE_ID")
+    if resource_id:
+        specs["resource_id"] = resource_id
+    headers = {"X-Api-Key": AUTH_TOKEN, "X-Miner-ID": MINER_ID, "Content-Type": "application/json"}
+    try:
+        client = AITBCHTTPClient(base_url=COORDINATOR_URL, headers=headers, timeout=10)
+        response = client.post("/v1/market/gpu/register", json={"gpu": specs})
+    except NetworkError as e:
+        logger.warning("Market GPU registration failed: %s", e)
+        return None
+    gpu_id = response.get("gpu_id") if isinstance(response, dict) else None
+    logger.info("Market GPU registered: %s", gpu_id)
+    return gpu_id
+
+
 def send_heartbeat():
     """Send heartbeat to coordinator with real GPU stats"""
     gpu_info = get_gpu_info()
@@ -860,6 +894,7 @@ async def _initialize() -> tuple[list, int] | None:
         logger.error("Failed to register, exiting")
         return None
     logger.info("Miner registered successfully, starting main loop...")
+    register_market_gpu()
 
     # Pool hub registration is best-effort: the miner still serves jobs if the
     # pool hub is unreachable, but visibility is required for discovery.

@@ -2,6 +2,7 @@
 
 Commands:
   aitbc market gpu list     - List GPUs in the coordinator registry
+  aitbc market gpu register - Register a GPU in the coordinator registry (miner credential)
   aitbc market gpu quote    - Request an operator-signed energy quote
   aitbc market gpu buy      - Fund a quoted rental (native or EVM)
   aitbc market gpu status   - Check rental/escrow status
@@ -13,6 +14,7 @@ from __future__ import annotations
 
 import json
 import sys
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 import click
@@ -113,6 +115,61 @@ def _gpu_list_params(
     if model:
         params["model"] = model
     return params
+
+
+@gpu.command("register")
+@click.option("--name", required=True, help="GPU model name, e.g. 'RTX 4060 Ti'")
+@click.option("--memory-gb", type=int, required=True, help="GPU memory in GB")
+@click.option("--price-per-hour", required=True, help="Listing price per hour, in AIT (decimal string)")
+@click.option("--compute-capability", default="", help="CUDA compute capability, e.g. 8.9")
+@click.option("--region", default="localhost", help="Region label")
+@click.option("--resource-id", default=None, help="Energy-floor resource id (enables protected rentals)")
+@click.option("--model-id", default=None, help="Model id for the quote")
+@click.option("--protected", is_flag=True, help="Mark as a protected (energy-floor) resource")
+@click.option("--json-output", is_flag=True, help="Output raw JSON")
+@click.pass_context
+def register_gpu_cmd(
+    ctx, name, memory_gb, price_per_hour, compute_capability, region, resource_id, model_id, protected, json_output
+):
+    """Register a GPU in the coordinator registry (POST /v1/market/gpu/register).
+
+    Needs a miner credential (``aitbc auth login`` or ``--api-key``).
+    Idempotent: registering the same name/resource again returns the same id.
+    """
+    try:
+        price = Decimal(price_per_hour)
+    except InvalidOperation:
+        error(f"Invalid --price-per-hour: {price_per_hour!r}")
+        raise click.Abort() from None
+    if not price.is_finite() or price < 0:
+        error("--price-per-hour must be a finite non-negative AIT amount")
+        raise click.Abort()
+    specs: dict[str, Any] = {
+        "name": name,
+        "memory_gb": memory_gb,
+        "price_per_hour": str(price),
+        "compute_capability": compute_capability,
+        "region": region,
+        "protected": protected,
+    }
+    if resource_id:
+        specs["resource_id"] = resource_id
+    if model_id:
+        specs["model_id"] = model_id
+    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
+    try:
+        result = client.post("/v1/market/gpu/register", json={"gpu": specs})
+    except NetworkError as e:
+        error(f"Failed to register GPU: {e}")
+        raise click.Abort() from e
+    if json_output:
+        output(result, "json")
+        return
+    gpu_id = result.get("gpu_id", "?") if isinstance(result, dict) else "?"
+    if isinstance(result, dict) and result.get("already_registered"):
+        success(f"GPU already registered: {gpu_id} (price updated)")
+    else:
+        success(f"GPU registered: {gpu_id}")
 
 
 @gpu.command("list")
