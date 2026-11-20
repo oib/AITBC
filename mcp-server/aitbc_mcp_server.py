@@ -14,7 +14,9 @@ Environment variables
 ---------------------
 AITBC_MCP_HOSTS         JSON string with role/host mapping.
 AITBC_MCP_HOSTS_FILE    Path to a JSON/YAML hosts config file.
-AITBC_MCP_SSH_USER      SSH user for remote hosts (default: current user).
+AITBC_MCP_SSH_USER      Documentary default SSH user for list_nodes; does not
+                        override ssh-config aliases unless also set as ssh_user
+                        in the hosts map file/JSON (Refs #2292).
 AITBC_MCP_DEFAULT_HOST  Fallback host when no role is given.
 AITBC_MCP_LOG_LEVEL     Server log level (default: INFO).
 
@@ -90,6 +92,8 @@ def _parse_hosts_file(path: Path) -> dict[str, Any] | None:
                     raise ValueError(f"invalid YAML in {path}: {e}") from e
             else:
                 data = json.load(f)
+        if isinstance(data, dict):
+            data["_ssh_user_explicit"] = "ssh_user" in data
         return data if data else None
     except (OSError, ValueError, TypeError) as e:
         sys.stderr.write(f"warning: could not load MCP hosts config from {path}: {e}\n")
@@ -104,7 +108,10 @@ def _hosts_config_from_env_or_paths() -> dict[str, Any]:
             loaded = json.loads(env_hosts)
         except json.JSONDecodeError as e:
             raise ValueError(f"AITBC_MCP_HOSTS is not valid JSON: {e}") from e
-        return loaded if isinstance(loaded, dict) else {}
+        if isinstance(loaded, dict):
+            loaded["_ssh_user_explicit"] = "ssh_user" in loaded
+            return loaded
+        return {}
     for path in _HOSTS_CONFIG_PATHS:
         data = _parse_hosts_file(path)
         if data:
@@ -115,7 +122,9 @@ def _hosts_config_from_env_or_paths() -> dict[str, Any]:
 def _finalize_hosts_config(config: dict[str, Any]) -> dict[str, Any]:
     config.setdefault("roles", {})
     config.setdefault("default_host", os.getenv("AITBC_MCP_DEFAULT_HOST", ""))
-    config.setdefault("ssh_user", os.getenv("AITBC_MCP_SSH_USER", ""))
+    if "ssh_user" not in config:
+        config["ssh_user"] = os.getenv("AITBC_MCP_SSH_USER", "")
+    config.setdefault("_ssh_user_explicit", False)
     return config
 
 
@@ -439,9 +448,18 @@ def _host_for_role(role: str | None, host: str | None = None) -> str:
 
 
 def _ssh_target(host: str) -> str:
-    """Prefix host with SSH user if configured and not already present."""
-    user = _ssh_user()
-    if "@" not in host and user:
+    """Return the SSH destination for ``host``.
+
+    A ``user@host`` argument overrides the ``User`` directive from ssh-config,
+    which breaks fleet aliases that jump as ``root``. Only prefix when
+    ``ssh_user`` is set in the hosts map file/``AITBC_MCP_HOSTS`` JSON, not
+    when it is supplied only via ``AITBC_MCP_SSH_USER`` (Refs #2292).
+    """
+    if "@" in host:
+        return host
+    config = _load_hosts_config()
+    user = config.get("ssh_user", "")
+    if user and config.get("_ssh_user_explicit"):
         return f"{user}@{host}"
     return host
 
