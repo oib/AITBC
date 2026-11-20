@@ -56,6 +56,21 @@ def oracle(ctx):
     ctx.ensure_object(dict)
 
 
+def _cid_exists(cid: str) -> bool:
+    """Check CID presence on the same backend ``aitbc ipfs`` resolved.
+
+    ``ipfs upload`` prefers a live Kubo daemon and only falls back to the
+    filesystem store — checking only ``IPFS_DIR`` refused every
+    daemon-uploaded CID (ORACLE-IPFS-BACKEND-SPLIT-1, #2339).
+    """
+    from .ipfs import _ipfs_object_size, resolve_ipfs_api
+
+    ipfs_api = resolve_ipfs_api()
+    if ipfs_api is not None:
+        return _ipfs_object_size(ipfs_api, cid) is not None
+    return (IPFS_DIR / cid).exists()
+
+
 @oracle.command(
     epilog="""Examples:
 
@@ -69,7 +84,7 @@ def oracle(ctx):
 @click.pass_context
 def store(ctx, cid: str, price: str, description: str):
     """Announce a CID for sale on the local data oracle."""
-    if not (IPFS_DIR / cid).exists():
+    if not _cid_exists(cid):
         result = {"success": False, "error": f"CID not found in local IPFS store: {cid}"}
         click.echo(json.dumps(result))
         raise click.Abort()
