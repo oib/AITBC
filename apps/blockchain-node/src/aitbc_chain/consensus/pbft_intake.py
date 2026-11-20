@@ -200,7 +200,7 @@ class _IntakeMixin(_PbftBaseMixin):
                 message._proposal_persisted = self._vc_proposal_store(
                     message.sequence_number, message.block_hash, message.block, message.sender, message.view_number
                 )
-            await self._ensure_view_change_sent(message.sequence_number, message.view_number)
+            await self._ensure_view_change_sent(message.sequence_number, message.view_number, message.block_hash)
         pbft_trace.accepted(message)
         self.state.pre_prepare_messages[key] = message
         self._message_event.set()  # noqa: unawaited-async - asyncio.Event.set is synchronous

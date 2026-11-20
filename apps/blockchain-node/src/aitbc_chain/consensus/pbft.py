@@ -481,7 +481,7 @@ class _PbftBaseMixin:
     async def _handle_new_view_payload(self, data: dict[str, Any]) -> None:
         raise NotImplementedError
 
-    async def _ensure_view_change_sent(self, sequence: int, view: int) -> bool:
+    async def _ensure_view_change_sent(self, sequence: int, view: int, block_hash: str) -> bool:
         raise NotImplementedError
 
     async def _resend_view_change_if_due(self, sequence: int, view: int) -> None:

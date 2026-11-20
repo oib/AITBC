@@ -367,18 +367,80 @@ class _VcEngineMixin(_PbftBaseMixin):
         metrics_registry.increment("pbft_view_change_resent_total")
         await self._gossip_backend.publish(f"pbft.{VC_MESSAGE_TYPE}.{self._chain_id}", own)
 
-    async def _ensure_view_change_sent(self, sequence: int, view: int) -> bool:
+    def _vc_engagement_evidence(self, sequence: int, view: int, block_hash: str) -> bool:
+        """Local evidence that ``sequence`` is already in progress differently.
+
+        #2286: the design costs "~n small VC messages, only on a round change"
+        (design §7) — the floor must NOT engage on every first pre-prepare
+        sight at an armed height, or every healthy block pays a full
+        VC→NEW_VIEW→retry round (~1 `no_new_view` refusal per block per
+        validator, ~90 s/block observed on bc-2). A clean first sight has no
+        local records for the height and returns False, leaving the floor
+        untouched so the permit free-votes (pre-protocol behavior).
+
+        Evidence means: the VC/NEW_VIEW protocol is already engaged for this
+        height (a peer's bucket exists), this node holds a prepared/commit
+        record or F3-B lock for the height at a DIFFERENT view or hash
+        (rotation/equivocation), or a same-view record names a different
+        hash. Records that merely MATCH the incoming (view, hash) — a
+        consistent retry — are not evidence.
+        """
+        for bucket in (self._vc_messages, self._new_views):
+            if any(key[0] == sequence for key in bucket):
+                return True
+        prepared = self._prepared_heights.get(sequence)
+        if prepared is not None and prepared != (view, block_hash):
+            return True
+        durable = self._durable_prepared(sequence)
+        if durable is not None and durable != (view, block_hash):
+            return True
+        locked = getattr(self, "_locked_commit_hash", None)
+        if callable(locked):
+            locked_hash = locked(sequence)
+            if isinstance(locked_hash, str) and locked_hash != block_hash:
+                return True
+        return self._vc_record_store_conflict(sequence, view, block_hash)
+
+    def _vc_record_store_conflict(self, sequence: int, view: int, block_hash: str) -> bool:
+        """Vote-record evidence for ``sequence`` contradicting ``(view, block_hash)``.
+
+        Any ``{seq}:{view}`` record at another view, or at this view naming a
+        different hash, means the height was already worked differently —
+        rotation or equivocation evidence. Records matching the incoming
+        (view, hash) exactly are consistent retries, not evidence.
+        """
+        same_key = f"{sequence}:{view}"
+        for key, pp in self.state.pre_prepare_messages.items():
+            if _int_key_seq(key) != sequence:
+                continue
+            if key != same_key or getattr(pp, "block_hash", None) != block_hash:
+                return True
+        for store in (self.state.prepared_messages, self.state.committed_messages):
+            for key, msgs in store.items():
+                if _int_key_seq(key) != sequence:
+                    continue
+                if key != same_key:
+                    return True
+                if any(getattr(m, "block_hash", None) != block_hash for m in msgs):
+                    return True
+        return False
+
+    async def _ensure_view_change_sent(self, sequence: int, view: int, block_hash: str) -> bool:
         """Raise the floor to ``view`` when the round has reached it.
 
         True when the floor already covers ``view``, a commit certificate
-        for the height is known (no view change needed), or the VC was
-        persisted+broadcast. False on persistence/signing failure — callers
-        must then refuse the vote (fail closed).
+        for the height is known (no view change needed), the height shows
+        no local failure/rotation evidence (#2286 — clean first sights do
+        not engage the protocol), or the VC was persisted+broadcast. False
+        on persistence/signing failure — callers must then refuse the vote
+        (fail closed).
         """
         floor = self._vc_floor(sequence)
         if floor is not None and view <= floor:
             return True
         if self._commit_certificate_known(sequence):
+            return True
+        if not self._vc_engagement_evidence(sequence, view, block_hash):
             return True
         return await self._send_view_change(sequence, view)
 
@@ -641,7 +703,7 @@ class _VcEngineMixin(_PbftBaseMixin):
         if not proposal_body_bound(block_payload, block_hash, sequence):
             logger.error("PBFT proposal body for seq %s is not bound to hash %s; refusing pre-prepare", sequence, block_hash)
             return None
-        if not await self._ensure_view_change_sent(sequence, view):
+        if not await self._ensure_view_change_sent(sequence, view, block_hash):
             return None
         entry = self._new_views.get((sequence, view))
         new_view_payload = entry["payload"] if entry is not None else None
@@ -663,7 +725,7 @@ class _VcEngineMixin(_PbftBaseMixin):
         """
         if not view_change_active(sequence):
             return True
-        if not await self._ensure_view_change_sent(sequence, view):
+        if not await self._ensure_view_change_sent(sequence, view, pp_msg.block_hash):
             return False
         if isinstance(pp_msg.block, dict) and proposal_body_bound(pp_msg.block, pp_msg.block_hash, sequence):
             if not pp_msg._proposal_persisted:
