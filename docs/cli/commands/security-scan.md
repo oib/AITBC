@@ -2,7 +2,7 @@
 
 # `aitbc security scan`
 
-Run a security scan and report issues (simulated — static placeholder, no live scan).
+Run a live local security scan and list issues. Each finding is reported as a row with the check name, target, expected and actual permission/integrity state, and severity.
 
 ## Usage
 
