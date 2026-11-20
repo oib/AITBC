@@ -59,7 +59,17 @@ def file_dispute(
             sender_address=sender_address,
         )
         if not result.get("success"):
-            raise HTTPException(status_code=500, detail=result.get("error", "Failed to file dispute"))
+            detail = result.get("error", "Failed to file dispute")
+            lowered = str(detail).lower()
+            # A bad dispute_type surfaces from the contract as a ValueError
+            # ("... is not a valid DisputeType") — a client error, not a 500
+            # (#2288). The request model already rejects unknown types with
+            # 422; this covers any path that reaches the service unvalidated.
+            if "not a valid" in lowered or "invalid dispute" in lowered:
+                raise HTTPException(status_code=400, detail=detail)
+            if "not found" in lowered:
+                raise HTTPException(status_code=404, detail=detail)
+            raise HTTPException(status_code=500, detail=detail)
         return FileDisputeResponse(
             success=True, dispute_id=result["dispute_id"], status=result["status"], message=result["message"], timestamp=""
         )

@@ -26288,6 +26288,7 @@
         "properties": {
           "agreement_id": {
             "type": "integer",
+            "minimum": 0.0,
             "title": "Agreement Id"
           },
           "respondent": {
