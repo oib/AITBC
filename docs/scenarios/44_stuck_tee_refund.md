@@ -1,9 +1,9 @@
 # Scenario 44 — Refund a failed TEE job escrow
 
 **Level**: Intermediate
-**Prerequisites**: Scenario 39 (TEE attestation), a failed TEE job with `payment_status=escrowed`
+**Prerequisites**: Scenario 46 (TEE confidential jobs), a failed TEE job with `payment_status=escrowed`
 **Estimated Time**: 5 minutes
-**Last Updated**: 2026-08-21
+**Last Updated**: 2026-11-20
 **Version**: 1.0
 
 ## Navigation Path
@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > Refund a failed TEE job escrow
 
 ## See Also
 
-- **Previous Scenario**: [39 TEE Attestation](./46_tee_confidential_jobs.md)
+- **Previous Scenario**: [46 TEE Confidential Jobs](./46_tee_confidential_jobs.md)
 - **Next Scenario**: [43 Compliance, Plugins and White-Label](./43_compliance_plugins_white_label.md)
 - **Design Cycle**: [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)
 - **Live Validation**: LIVE_VALIDATION_SUMMARY.md (IDE-local)
@@ -43,7 +43,7 @@ A customer submits a TEE job and escrow is created. The shop/miner executes the 
 
 ### Knowledge Required
 
-- How TEE attestation affects escrow release (Scenario 39)
+- How TEE attestation affects escrow release (Scenario 46)
 - How `aitbc ai submit` creates and funds an escrow (Scenario 34)
 
 ### Tools Required
@@ -57,6 +57,10 @@ A customer submits a TEE job and escrow is created. The shop/miner executes the 
   - `state = COMPLETED`
   - `payment_status = escrowed`
   - `error` containing `TEE attestation required before escrow release (status: attestation_rejected)`
+
+> **Held (20 Nov 2026):** no failed-TEE escrowed job exists fleet-wide —
+> there is no enclave infra, so Scenario 46 cannot produce one. This
+> scenario stays held until real TEE hardware exists.
 
 ---
 
@@ -173,11 +177,11 @@ SELECT id, status, refund_transaction_hash, refunded_at FROM job_payments WHERE 
 ## Related Resources
 
 - LIVE_VALIDATION_SUMMARY.md (IDE-local)
-- [Scenario 39 — TEE Attestation](./46_tee_confidential_jobs.md)
+- [Scenario 46 — Confidential AI job with TEE attestation](./46_tee_confidential_jobs.md)
 - [Scenario 34 — Hub Customer Node E2E](./34_hub_customer_node_e2e.md)
 - [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)
 
 ---
 
-*Last updated: 2026-08-21*
+*Last updated: 2026-11-20*
 *Version: 1.0*

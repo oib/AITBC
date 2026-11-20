@@ -3,7 +3,7 @@
 **Level**: Intermediate
 **Prerequisites**: Scenario 08 Market Bidding (an on-chain agreement to dispute)
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-09-16
+**Last Updated**: 2026-11-20
 **Version**: 1.0
 
 ## Navigation Path
@@ -55,6 +55,11 @@ customer opens a dispute instead of accepting the escrow release.
   Scenario 06 (escrowed trade)
 - Arbitrator/operator credentials are required for `vote`, `evidence verify`,
   and `resolve` — filing and reading disputes need none.
+- The arbitrator identities in the examples (`0xArbitrator`) are
+  placeholders: `aitbc dispute arbitrator authorize` is operator-gated
+  and no real arbitrators exist on the fleet yet. The vote RPC stub was
+  fixed in `691500900`, so the vote path is live once real arbitrators
+  are authorized.
 
 ---
 
