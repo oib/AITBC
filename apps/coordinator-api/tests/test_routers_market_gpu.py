@@ -14,6 +14,7 @@ from decimal import Decimal
 from unittest.mock import AsyncMock
 
 import pytest
+from sqlmodel import select
 from aitbc.auth import create_access_token
 from aitbc.market.energy_pricing import FIXED_POINT_SCALE
 
@@ -133,6 +134,35 @@ def test_register_gpu_allows_explicit_region(client, miner_token, db_session):
     gpu_id = _register_gpu(client, miner_token, region="eu-west")
     gpu = db_session.get(GPURegistry, gpu_id)
     assert gpu.region == "eu-west"
+
+
+@pytest.mark.unit
+def test_register_gpu_is_idempotent_per_miner_model_resource(client, miner_token, db_session):
+    """#2291: re-registering the same GPU returns the same id and updates the price."""
+    first = _register_gpu(client, miner_token)
+    second = _register_gpu(client, miner_token, price_per_hour="0.07")
+    assert first == second
+    gpu = db_session.get(GPURegistry, first)
+    assert str(gpu.price_per_hour).startswith("0.07")
+    rows = db_session.execute(select(GPURegistry)).scalars().all()
+    assert len(rows) == 1
+
+
+@pytest.mark.unit
+def test_register_gpu_distinct_resources_get_distinct_rows(client, miner_token, db_session):
+    first = _register_gpu(client, miner_token, resource_id="gpu-0")
+    second = _register_gpu(client, miner_token, resource_id="gpu-1")
+    assert first != second
+
+
+@pytest.mark.unit
+def test_register_gpu_other_miner_cannot_take_over_row(client, miner_token, miner_b_token, db_session):
+    """The match key includes the authenticated miner; miner B gets its own row."""
+    first = _register_gpu(client, miner_token)
+    other = _register_gpu(client, miner_b_token, price_per_hour="9")
+    assert first != other
+    assert db_session.get(GPURegistry, first).miner_id == "gpu_miner"
+    assert db_session.get(GPURegistry, other).miner_id == "miner_B"
 
 
 @pytest.mark.unit
@@ -1467,7 +1497,7 @@ def test_purchase_sibling_bookings_do_not_share_payment(
 
     _seed_energy(db_session)
     gpu_a = _register_gpu(client, miner_token)
-    gpu_b = _register_gpu(client, miner_token)
+    gpu_b = _register_gpu(client, miner_token, resource_id="gpu-b")
 
     quote_resp = client.post(
         "/v1/market/gpu/quote",
