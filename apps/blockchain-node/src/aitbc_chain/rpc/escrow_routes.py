@@ -39,7 +39,13 @@ from eth_utils import keccak as keccak
 
 from ..chain_id import resolve_chain_id as resolve_chain_id
 from ..config import settings as settings
-from ..contracts.escrow import EscrowState, backfill_settlement_legs, get_escrow_manager, serialise_milestones
+from ..contracts.escrow import (
+    EscrowState,
+    backfill_settlement_legs,
+    get_escrow_manager,
+    promote_settled_row_from_chain,
+    serialise_milestones,
+)
 from ..contracts.escrow_txn import EscrowBusy, EscrowMutation as EscrowMutation, escrow_mutation
 from ..database import session_scope
 from ..logger import get_logger
@@ -891,6 +897,10 @@ async def get_escrow(job_id: str) -> dict[str, Any]:
                     # A row rebuilt on a node that did not serve the release knows the
                     # escrow settled but not what it moved; take that from the chain.
                     backfill_settlement_legs(session, db_record)
+                    # A row built before the settlement sealed still reads
+                    # locked/funded on this host; the settlement txns are on the
+                    # shared chain, so promote the row from them (#2287).
+                    promote_settled_row_from_chain(session, db_record)
 
         await run_in_threadpool(_read_escrow_row)
     except _DB_PROBE_ERRORS as e:

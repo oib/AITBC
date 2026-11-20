@@ -459,6 +459,52 @@ def _apply_backfilled_legs(session: Any, record: Escrow, legs: dict[str, Any]) -
     return True
 
 
+def promote_settled_row_from_chain(session: Any, record: Escrow) -> bool:
+    """Promote a still-non-terminal escrow row whose settlement sealed on-chain.
+
+    Only the node that serves a release/refund writes the settlement columns;
+    every other node keeps the row state it was built with. A follower that
+    created or reconstructed the row while the escrow was still locked
+    therefore reports ``locked``/``funded`` forever, even though the
+    ESCROW_RELEASE/ESCROW_REFUND txns are sealed on the shared chain.
+    ``settlement_legs_from_chain`` already derives the terminal state from
+    those canonical txns, so promote the row when they exist — the read path
+    then agrees on every host without shipping bookkeeping through consensus.
+
+    Returns True when the row was changed.
+    """
+    from .escrow_txn import escrow_row_lock
+
+    with escrow_row_lock(session, record.job_id) as locked:
+        if not locked:
+            return False
+        session.refresh(record)
+        if record.released_at is not None or record.refunded_at is not None:
+            # Already terminal locally; amounts are backfill's job.
+            return False
+        legs = settlement_legs_from_chain(session, record.job_id)
+        if legs is None:
+            return False
+        record.status = legs["status"]
+        record.released_at = legs["released_at"]
+        record.refunded_at = legs["refunded_at"]
+        record.state = row_state_for(record.released_at, record.refunded_at)
+        record.released_amount = legs["released_amount"]
+        record.refunded_amount = legs["refunded_amount"]
+        if legs["release_tx_hash"]:
+            record.release_tx_hash = legs["release_tx_hash"]
+        if legs["refund_tx_hash"]:
+            record.refund_tx_hash = legs["refund_tx_hash"]
+        session.add(record)
+        session.commit()
+        logger.info(
+            "Promoted escrow row for job %s to %s from chain settlement legs",
+            record.job_id,
+            record.status,
+        )
+        return True
+
+
 class EscrowManager:
     """Manages escrow contracts for AI job market"""
 
