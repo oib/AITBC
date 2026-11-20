@@ -11,7 +11,7 @@ from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import or_, update
-from sqlmodel import col
+from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
@@ -21,7 +21,7 @@ from aitbc.utils.units import units_to_ait
 from ...config import settings
 from ...domain.market import MarketJob, MarketJobPayment
 
-from .shared import _OPS_ERRORS
+from .shared import _ACCESS_TOKEN_ACTIVE_STATES, _OPS_ERRORS
 from .jobs import _JobsMixin
 
 
@@ -187,8 +187,10 @@ class _JobsSettlementMixin(_JobsMixin):
         Shop access tokens (``GET /v1/market/access/{key}``) authorize paid
         shop work, so lifecycle state (QUEUED/RUNNING + TTL) is not enough —
         the escrow must be locked. ``payment.status == "escrowed"`` is itself
-        only ever written after ``_require_locked_escrow``'s on-chain proof,
-        so it passes directly. Every other status — above all ``pending``,
+        only ever written after ``_require_locked_escrow``'s on-chain proof of
+        the escrow keyed by ``job.id``, so it passes directly for
+        self-bound jobs (an ``escrow_job_id`` alias record never proved that
+        key — it takes the live verify). Every other status — above all ``pending``,
         which is what ``create_market_job`` writes and what the paid
         whisper/ffmpeg/ollama and ``ai submit`` flows keep for the life of
         the token (their escrow lives on-chain but nothing flips the DB row)
@@ -203,12 +205,24 @@ class _JobsSettlementMixin(_JobsMixin):
 
         Fails closed: no payment row, an absent/unreadable escrow, a
         non-locked state, or an RPC error all deny the token.
+
+        #2325 MARKET-ESCROW-ALIAS-1: the escrow key is resolved BEFORE the
+        escrowed fast-path because ``payment.status == "escrowed"`` only ever
+        proved the escrow keyed by ``job.id`` — for an ``escrow_job_id``
+        alias record that is the wrong escrow, so alias jobs always take the
+        live verify below. And the key must be exclusively claimed by this
+        job (``_escrow_key_claimed_by_this_job``): the on-chain record
+        carries no market-job reference and every compared field is
+        caller-supplied, so uniqueness is the only binding this layer can
+        enforce against one escrow authorizing unlimited tokens.
         """
         if payment is None:
             return False
-        if payment.status == "escrowed":
-            return True
         escrow_key = str((job.payload or {}).get("escrow_job_id") or job.id)
+        if not await self._escrow_key_claimed_by_this_job(job, escrow_key):
+            return False
+        if payment.status == "escrowed" and escrow_key == job.id:
+            return True
         try:
             escrow = await self._rpc_client.verify_escrow(escrow_key)
         except Exception as e:  # noqa: BLE001 - unverifiable escrow must deny, not 500
@@ -217,6 +231,41 @@ class _JobsSettlementMixin(_JobsMixin):
         if not escrow:
             return False
         return self._locked_escrow_matches(escrow, job, payment)
+
+    async def _escrow_key_claimed_by_this_job(self, job: MarketJob, escrow_key: str) -> bool:
+        """#2325 MARKET-ESCROW-ALIAS-1: is ``job`` the earliest active claimant of ``escrow_key``?
+
+        The on-chain escrow record carries no market-job reference — its
+        ``job_id`` IS the lookup key — so the market layer cannot prove a
+        declared ``payload["escrow_job_id"]`` (or a caller-chosen job id that
+        names a foreign escrow) belongs to this job: every field the escrow
+        check compares (amount, buyer, provider) is caller-supplied at
+        ``POST /v1/market/jobs``. One locked escrow could therefore authorize
+        unlimited shop tokens. The enforceable binding in this layer is
+        uniqueness: one locked escrow may back at most one live market-job
+        token. A job claims a key by id (the ``aitbc market run`` convention
+        keys the escrow by the market job id itself) or by
+        ``payload["escrow_job_id"]`` (the ``ai submit`` coordinator-escrow
+        binding). Among active claimants the earliest-created wins, so a
+        later alias never mints a second token off the same escrow and
+        registering an alias cannot strip the legitimate job's token; when
+        the winner's job expires the key is released for the next claimant,
+        bounding any squatting alias by its own TTL.
+        """
+        stmt = (
+            select(col(MarketJob.id))
+            .where(
+                col(MarketJob.state).in_(_ACCESS_TOKEN_ACTIVE_STATES),
+                or_(
+                    col(MarketJob.id) == escrow_key,
+                    col(MarketJob.payload)["escrow_job_id"].as_string() == escrow_key,
+                ),
+            )
+            .order_by(col(MarketJob.created_at), col(MarketJob.id))
+            .limit(1)
+        )
+        earliest = (await self.session.execute(stmt)).scalar_one_or_none()
+        return earliest == job.id
 
     def _locked_escrow_matches(self, escrow: dict, job: MarketJob, payment: MarketJobPayment) -> bool:
         """Bool form of ``_require_locked_escrow``'s checks for the token path.
