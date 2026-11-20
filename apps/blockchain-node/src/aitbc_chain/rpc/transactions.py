@@ -864,8 +864,9 @@ def _payload_filter_clauses(
     pair: str | None,
     status: str | None,
     order_id: str | None,
+    user_id: str | None = None,
 ) -> list[Any]:
-    """SQL predicates for the island_id/pair/status/order_id payload filters."""
+    """SQL predicates for the island_id/pair/status/order_id/user_id payload filters."""
     clauses: list[Any] = []
     if island_id:
         clauses.append(_payload_field_clause(session, "island_id", island_id))
@@ -873,6 +874,8 @@ def _payload_filter_clauses(
         clauses.append(_payload_field_clause(session, "pair", pair))
     if status:
         clauses.append(_payload_field_clause(session, "status", status))
+    if user_id:
+        clauses.append(_payload_field_clause(session, "user_id", user_id))
     if order_id:
         clauses.append(or_(*(_payload_field_clause(session, f, order_id) for f in _ORDER_ID_PAYLOAD_FIELDS)))
     return clauses
@@ -892,7 +895,8 @@ def _transaction_query(
     pair: str | None,
     status: str | None,
     order_id: str | None,
-    limit: int | None,
+    user_id: str | None = None,
+    limit: int | None = None,
 ) -> Any:
     """Build the filtered, bounded newest-first transaction query."""
     # Newest first. `limit` is applied after the payload filters below, so with the
@@ -938,7 +942,7 @@ def _transaction_query(
     # so the limit composes with the filters exactly like the column
     # filters above. The Python checks stay: they are the exact-match
     # guard for payload values whose JSON type is not a plain string.
-    for clause in _payload_filter_clauses(session, island_id, pair, status, order_id):
+    for clause in _payload_filter_clauses(session, island_id, pair, status, order_id, user_id):
         query = query.where(clause)
 
     # Bind the limit in SQL unconditionally — every filter above is now a
@@ -974,6 +978,7 @@ def _tx_matches_payload_filters(
     pair: str | None,
     status: str | None,
     order_id: str | None,
+    user_id: str | None = None,
 ) -> bool:
     """Python-side exact-match guard for the payload filters."""
     # Filter by island_id in payload
@@ -986,6 +991,10 @@ def _tx_matches_payload_filters(
 
     # Filter by status in payload
     if status and tx.payload.get("status") != status:
+        return False
+
+    # Filter by user_id in payload (#2349 — exchange-island orders --user)
+    if user_id and tx.payload.get("user_id") != user_id:
         return False
 
     # Filter by order_id in payload
@@ -1036,6 +1045,7 @@ def query_transactions(
     pair: str | None = None,
     status: str | None = None,
     order_id: str | None = None,
+    user_id: str | None = None,
     limit: int | None = 100,
     chain_id: str | None = None,
     address: str | None = None,
@@ -1065,6 +1075,7 @@ def query_transactions(
             pair=pair,
             status=status,
             order_id=order_id,
+            user_id=user_id,
             limit=limit,
         )
 
@@ -1082,7 +1093,7 @@ def query_transactions(
 
         results = []
         for tx in transactions:
-            if not _tx_matches_payload_filters(tx, island_id, pair, status, order_id):
+            if not _tx_matches_payload_filters(tx, island_id, pair, status, order_id, user_id):
                 continue
             results.append(_tx_result_row(tx, block_map, finality_on, head_for_finality))
 
