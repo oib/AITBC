@@ -32,9 +32,12 @@ HermesRunRequest = hermes.HermesRunRequest
 
 def _patch_hermes(monkeypatch: pytest.MonkeyPatch, fake: Path) -> None:
     monkeypatch.setattr(hermes, "_HERMES_PATH", str(fake))
-    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_MODEL", "")
-    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_PROVIDER", "")
-    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_TOOLSETS", "")
+    # Non-empty shop defaults so _validated_allowlists() (#1804) resolves a
+    # non-empty allow set — an empty default + empty allowlist is a 503 by
+    # design, and these tests exercise the post-spawn process paths.
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_MODEL", "test-model")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_PROVIDER", "test-provider")
+    monkeypatch.setattr(hermes, "_HERMES_DEFAULT_TOOLSETS", "core")
     monkeypatch.setattr(hermes, "_HERMES_ALLOWED_MODELS", [])
     monkeypatch.setattr(hermes, "_HERMES_ALLOWED_PROVIDERS", [])
     monkeypatch.setattr(hermes, "_HERMES_ALLOWED_TOOLSETS", [])
