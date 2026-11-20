@@ -228,7 +228,9 @@ aitbc market list --service-type ollama
 
 ### Step 10: Dashboard validation
 
-Customer view (after `aitbc auth login --wallet default` on the hub):
+> **Wallet/host scoping (20 Nov 2026, #2334):** `dashboard customer` is scoped to the wallet that owns the stored `client` JWT **on the host where the CLI runs** — jobs are filtered by `client_id == user.sub`, and wallet balances come from the *local* wallet daemon. The buyer in this play is **node0's** `default` wallet, so the customer view must run **on node0** (after `aitbc auth login --wallet default` there). Running it on the hub shows only the hub wallet's jobs — legitimately empty for this play, not an error.
+
+Customer view (on `<node0>` as `aitbc`, after `aitbc auth login --wallet default`):
 
 ```bash
 aitbc dashboard customer
@@ -240,7 +242,7 @@ Shop view (on `<node2>` as `aitbc`):
 aitbc dashboard shop
 ```
 
-**Expected output:** customer summary shows jobs, payment statuses and wallet balances; shop summary shows market offers, wallet addresses, and network job/miner counts. The dashboard uses the stored client/miner JWT; the customer view needs `role: client` and the shop view needs `role: miner`.
+**Expected output:** customer summary shows the buyer's jobs (e.g. the Step 11 `linear-1` job `COMPLETED`/`released`), payment statuses and node0 wallet balances; shop summary shows market offers, wallet addresses, and network job/miner counts. The dashboard uses the stored client/miner JWT; the customer view needs `role: client` and the shop view needs `role: miner`.
 
 ### Step 11: High-value ZK receipt proof
 
