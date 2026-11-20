@@ -221,6 +221,7 @@ DESTRUCTIVE_AITBC_SUBCOMMANDS = {
     "ping",
     "pin",
     "policy",
+    "power",
     "process-video",
     "proof",
     "propagate",
