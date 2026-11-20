@@ -103,9 +103,158 @@ class TestIpfsHostingAbortCleanup:
         mocks["_ipfs_unpin_cid"].assert_not_called()
         mocks["_refund_orphaned_escrow"].assert_called_once()
 
-    def test_pin_failure_refunds_without_unpin(self):
+    def test_pin_failure_aborts_before_escrow(self):
+        """#2340: pin now runs BEFORE the escrow lock — a pin failure aborts
+        with nothing locked, so no refund is needed or attempted."""
         mocks, aborted = self._run(self._patches(pin_ok=False))
         assert aborted
         mocks["_ipfs_unpin_cid"].assert_not_called()
-        mocks["_refund_orphaned_escrow"].assert_called_once()
+        mocks["_escrow_create"].assert_not_called()
+        mocks["_refund_orphaned_escrow"].assert_not_called()
         mocks["_track_market_job"].assert_not_called()
+
+
+class TestCoordinatorHostEscrow:
+    """#2340: market host locks escrow through the coordinator payment rail so
+    JobPayment/PaymentEscrow rows exist and StuckEscrowSweeper covers the lock."""
+
+    CID = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi"
+
+    class _FakeClient:
+        def __init__(self, responses):
+            self.responses = responses
+            self.calls = []
+
+        def post(self, path, json=None, **kw):
+            self.calls.append((path, json))
+            return self.responses[path]
+
+    def _escrow_kwargs(self):
+        from decimal import Decimal
+
+        return dict(
+            job_id="sw_job_ipfs_test",
+            buyer="0xBuyer",
+            provider="0xProvider",
+            total_cost=Decimal("1.5"),
+            config=object(),
+            private_key="pk",
+            node_wallet="0xNode",
+            offer={"offer_id": "offer-1", "model": "m"},
+            days=3,
+        )
+
+    def _patches(self, client):
+        import aitbc_cli.utils.escrow as utils_escrow
+
+        return {
+            "_coordinator_payment_client": patch.object(
+                host_module, "_coordinator_payment_client", return_value=client
+            ),
+            "_resolve_escrow_node_wallet": patch.object(
+                host_module, "_resolve_escrow_node_wallet", return_value="0xNode"
+            ),
+            "_get_blockchain_rpc_url": patch.object(
+                host_module, "_get_blockchain_rpc_url", return_value="http://rpc"
+            ),
+            "create_signed_escrow_lock": patch.object(
+                utils_escrow,
+                "create_signed_escrow_lock",
+                return_value=(
+                    {"from": "0xBuyer", "nonce": 7, "fee": 100, "payload": {"provider": "0xProvider"}},
+                    "0xsig",
+                ),
+            ),
+            "get_chain_id": patch.object(host_module, "get_chain_id", return_value="testnet"),
+        }
+
+    def test_happy_path_posts_job_then_signed_payment(self):
+        client = self._FakeClient(
+            {
+                "/v1/jobs": {"job_id": "coord-job-1", "payment_status": "pending"},
+                "/v1/payments": {
+                    "payment_id": "pay-1",
+                    "status": "escrowed",
+                    "escrow_address": "contract-9",
+                },
+            }
+        )
+        from contextlib import ExitStack
+
+        with ExitStack() as stack:
+            mocks = {n: stack.enter_context(p) for n, p in self._patches(client).items()}
+            result = host_module._create_coordinator_host_escrow(None, **self._escrow_kwargs())
+
+        assert result == {
+            "escrow_job_id": "coord-job-1",
+            "contract_id": "contract-9",
+            "payment_id": "pay-1",
+            "tracked": True,
+        }
+        paths = [c[0] for c in client.calls]
+        assert paths == ["/v1/jobs", "/v1/payments"]
+        job_body = client.calls[0][1]
+        assert job_body["payment_amount"] == "1.5"
+        pay_body = client.calls[1][1]
+        assert pay_body["job_id"] == "coord-job-1"
+        assert pay_body["buyer_lock_signature"] == "0xsig"
+        assert pay_body["buyer_lock_nonce"] == 7
+        assert pay_body["buyer_lock_fee"] == 100
+        assert pay_body["offer_quantity"] == "3"
+
+    def test_no_client_returns_none_for_fallback(self):
+        with patch.object(host_module, "_coordinator_payment_client", return_value=None):
+            assert host_module._create_coordinator_host_escrow(None, **self._escrow_kwargs()) is None
+
+    def test_job_create_failure_returns_none(self):
+        client = self._FakeClient({"/v1/jobs": {"error": "boom"}})
+        # no job_id in response -> safe fallback
+        with patch.object(host_module, "_coordinator_payment_client", return_value=client):
+            assert host_module._create_coordinator_host_escrow(None, **self._escrow_kwargs()) is None
+        assert [c[0] for c in client.calls] == ["/v1/jobs"]
+
+    def test_payment_not_escrowed_aborts(self):
+        import click
+
+        client = self._FakeClient(
+            {
+                "/v1/jobs": {"job_id": "coord-job-1"},
+                "/v1/payments": {"payment_id": "pay-1", "status": "failed"},
+            }
+        )
+        from contextlib import ExitStack
+
+        aborted = False
+        with ExitStack() as stack:
+            for p in self._patches(client).values():
+                stack.enter_context(p)
+            try:
+                host_module._create_coordinator_host_escrow(None, **self._escrow_kwargs())
+            except click.Abort:
+                aborted = True
+        assert aborted
+
+    def test_lock_host_escrow_falls_back_to_direct_lock(self):
+        with patch.object(host_module, "_coordinator_payment_client", return_value=None), patch.object(
+            host_module, "_escrow_create", return_value="contract-1"
+        ) as escrow_create:
+            result = host_module._lock_host_escrow(None, **self._escrow_kwargs())
+        assert result["tracked"] is False
+        assert result["escrow_job_id"] == "sw_job_ipfs_test"
+        escrow_create.assert_called_once()
+
+    def test_refund_host_escrow_tracked_uses_coordinator_job_id(self):
+        with patch.object(host_module, "refund_escrow") as refund:
+            host_module._refund_host_escrow(
+                None, {"escrow_job_id": "coord-job-1", "tracked": True}, "sw_job_ipfs_test"
+            )
+        refund.assert_called_once_with(None, "coord-job-1", reason="job_failed")
+
+    def test_refund_host_escrow_legacy_uses_orphan_refund(self):
+        with patch.object(host_module, "_refund_orphaned_escrow") as orphan:
+            host_module._refund_host_escrow(
+                None,
+                {"escrow_job_id": "sw_job_ipfs_test", "contract_id": "c-1", "tracked": False},
+                "sw_job_ipfs_test",
+            )
+        orphan.assert_called_once_with(None, "sw_job_ipfs_test", "c-1")

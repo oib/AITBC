@@ -17,7 +17,7 @@ aitbc market host [OPTIONS]
 | `--offer-id-or-plugin-id` | text | — | yes | The Offer id or plugin id. |
 | `--cid-or-file` | text | — | yes | The Cid or local file path. |
 | `--days` | integer | `1` | no | Rental duration in days |
-| `--pin`, `--no-pin` | flag | `true` | no | Pin the CID after paying the rental |
+| `--pin`, `--no-pin` | flag | `true` | no | Pin the CID before locking escrow (unreachable content aborts unpaid) |
 | `--proposer-id` | text | — | no | Override the escrow node-wallet address (defaults to the node wallet advertised at /health) |
 | `--output` | choice | — | no | Output format (alias for --format) |
 | `--format` | choice | — | no | Output format |

@@ -39,7 +39,16 @@ from ..ipfs import (
 from ._group import market
 from ._signing import signed_job_request_fields
 from . import get_chain_id, get_market_wallet
-from .escrow import _escrow_create, _post_escrow_release, _post_escrow_rpc
+from .escrow import (
+    _client_auth_kwargs,
+    _coordinator_base_url,
+    _escrow_create,
+    _get_blockchain_rpc_url,
+    _post_escrow_release,
+    _post_escrow_rpc,
+    _resolve_escrow_node_wallet,
+    refund_escrow,
+)
 from .jobs import _refund_orphaned_escrow, _resolve_offer, _track_coordinator_job
 
 logger = get_logger(__name__)
@@ -58,6 +67,11 @@ _MARKET_HOST_ERRORS = (
     RuntimeError,
     requests.RequestException,
 )
+
+# refund_escrow signals failure with click.Abort/ClickException on top of the
+# operational surface — the orphan-refund swallow must catch those too so a
+# failed refund never masks the primary job error (#2340).
+_HOST_REFUND_ERRORS = _MARKET_HOST_ERRORS + (click.ClickException,)
 
 
 def _resolve_ipfs_api(offer: dict[str, Any]) -> str:
@@ -113,10 +127,21 @@ def _confirm_market_pin(job_id: str, size: int | None = None) -> dict[str, Any] 
         return None
 
 
-def _release_market_payment(ctx: click.Context, job_id: str) -> dict[str, Any] | None:
-    """Release escrow for a completed job via the customer blockchain (hub fallback), then sync the market record."""
+def _release_market_payment(
+    ctx: click.Context,
+    escrow_job_id: str,
+    market_job_id: str | None = None,
+) -> dict[str, Any] | None:
+    """Release escrow for a completed job via the customer blockchain (hub fallback), then sync the market record.
+
+    ``escrow_job_id`` is the on-chain escrow key — the coordinator job id on
+    the durable path (#2340), the ``sw_job_*`` id on the legacy path.
+    ``market_job_id`` is the market-service record to sync; defaults to
+    ``escrow_job_id`` for legacy callers.
+    """
+    market_job_id = market_job_id or escrow_job_id
     config = get_config()
-    release_result, failures = _post_escrow_release(ctx, config, job_id, timeout=20)
+    release_result, failures = _post_escrow_release(ctx, config, escrow_job_id, timeout=20)
     if release_result is None:
         warning(f"Escrow release failed ({'; '.join(failures)}) — the escrow stays locked")
     tx_hash = release_result.get("tx_hash") if isinstance(release_result, dict) else None
@@ -127,11 +152,11 @@ def _release_market_payment(ctx: click.Context, job_id: str) -> dict[str, Any] |
     # #1907: the release route is party-gated (#1893) — sign as a job party
     # when the market wallet key resolves, else the server requires the
     # operator credential.
-    payload.update(signed_job_request_fields(ctx, f"/v1/market/jobs/{job_id}/release"))
+    payload.update(signed_job_request_fields(ctx, f"/v1/market/jobs/{market_job_id}/release"))
     try:
         client = _market_client()
         return client.post(
-            f"/v1/market/jobs/{job_id}/release",
+            f"/v1/market/jobs/{market_job_id}/release",
             json=payload,
         )
     except NetworkError as e:
@@ -244,7 +269,8 @@ def _upload_hosting_file(
 
 def _release_and_track(
     ctx: click.Context,
-    job_id: str,
+    escrow: dict[str, Any],
+    market_job_id: str,
     cid: str,
     release_immediately: bool,
     track: bool,
@@ -255,20 +281,25 @@ def _release_and_track(
 ) -> dict[str, Any] | None:
     """Release escrow when asked and mirror the job to the coordinator when tracking.
 
+    ``escrow`` is the record from :func:`_lock_host_escrow`. On the durable
+    path the coordinator job already exists (it carries the payment), so
+    ``track`` is a no-op there — a second ``/v1/jobs`` row would duplicate
+    the record the sweeper watches.
+
     Returns the release result (None unless ``release_immediately`` was set).
     """
     release_result: dict[str, Any] | None = None
     if release_immediately:
-        release_result = _release_market_payment(ctx, job_id)
+        release_result = _release_market_payment(ctx, escrow["escrow_job_id"], market_job_id=market_job_id)
         if release_result and not release_result.get("error"):
             success(f"Released {total_cost:.4f} AIT to provider")
         else:
             warning(f"Could not release payment immediately: {release_result}")
 
-    if track:
+    if track and not escrow.get("tracked"):
         _track_coordinator_job(
             ctx,
-            job_id,
+            market_job_id,
             offer,
             buyer,
             provider,
@@ -291,6 +322,221 @@ def _pin_hosting_cid(ipfs_api: str, cid: str) -> tuple[bool, bool]:
     return pinned, bool(pinned and not was_pinned)
 
 
+def _coordinator_payment_client(ctx: click.Context) -> AITBCHTTPClient | None:
+    """Coordinator client for the durable host-escrow path (#2340).
+
+    Returns ``None`` when no client credential exists — the caller then
+    falls back to the legacy direct lock, which leaves no ``job_payments``
+    row for StuckEscrowSweeper.
+    """
+    if ctx is None or not getattr(ctx, "obj", None):
+        return None
+    auth_kwargs = _client_auth_kwargs(ctx)
+    if not auth_kwargs:
+        return None
+    return AITBCHTTPClient(
+        base_url=_coordinator_base_url(ctx),
+        timeout=30,
+        **auth_kwargs,
+        enable_circuit_breaker=False,
+    )
+
+
+def _create_coordinator_host_escrow(
+    ctx: click.Context,
+    job_id: str,
+    buyer: str,
+    provider: str,
+    total_cost: Decimal,
+    config: Any,
+    private_key: str | None,
+    node_wallet: str | None,
+    offer: dict[str, Any],
+    days: int,
+) -> dict[str, Any] | None:
+    """Lock the host escrow through the coordinator payment rail (#2340).
+
+    ``POST /v1/jobs`` (unpriced row) then ``POST /v1/payments`` with a
+    locally-signed ESCROW_LOCK — the JobPayment/PaymentEscrow rows put the
+    lock inside StuckEscrowSweeper's view and route refunds through
+    ``/v1/payments/{id}/refund``. The on-chain escrow is keyed by the
+    coordinator job id, not the ``sw_job_*`` market id.
+
+    Returns ``None`` only for failures before any chain write (no client,
+    job-create failure, lock-signing failure) — safe for the caller to fall
+    back to the legacy path. Once ``/v1/payments`` has been posted the
+    outcome is coordinator-owned: a failure aborts rather than risk a
+    second lock.
+    """
+    from ...utils.escrow import create_signed_escrow_lock
+    from aitbc.utils.units import units_to_ait
+
+    client = _coordinator_payment_client(ctx)
+    if client is None or not private_key:
+        return None
+
+    job_data = {
+        "payload": {
+            "type": "ipfs",
+            "model": offer.get("model", ""),
+            "source": "market_host",
+            "market_job_id": job_id,
+            "offer_id": offer.get("offer_id", ""),
+            "buyer_address": buyer,
+            "provider_address": provider,
+            "actual_cost_ait": str(round(total_cost, 6)),
+        },
+        "constraints": {},
+        "ttl_seconds": 86400,
+        "payment_amount": str(total_cost),
+        "payment_currency": "AITBC",
+        "buyer_address": buyer,
+        "provider_address": provider,
+    }
+    try:
+        job_result = client.post("/v1/jobs", json=job_data)
+    except _MARKET_HOST_ERRORS as e:
+        warning(f"Coordinator job create failed ({type(e).__name__}: {e}) — no escrow locked")
+        return None
+    coord_job_id = job_result.get("job_id") if isinstance(job_result, dict) else None
+    if not coord_job_id:
+        warning(f"Coordinator job create returned no job_id: {job_result}")
+        return None
+
+    # Same minimum-lock rounding as _escrow_create: below one compute-unit
+    # the chain refuses the lock.
+    amount = total_cost
+    min_escrow_ait = units_to_ait(1)
+    if amount < min_escrow_ait:
+        amount = min_escrow_ait
+
+    try:
+        node_wallet = _resolve_escrow_node_wallet(ctx, config, node_wallet)
+        lock_tx, signature = create_signed_escrow_lock(
+            ctx,
+            _get_blockchain_rpc_url(config),
+            coord_job_id,
+            buyer,
+            provider,
+            amount,
+            private_key,
+            chain_id=get_chain_id(),
+            node_wallet=node_wallet,
+        )
+    except _MARKET_HOST_ERRORS as e:
+        warning(f"Escrow lock signing failed before submit ({type(e).__name__}: {e}) — no escrow locked")
+        return None
+
+    payment_payload = {
+        "job_id": coord_job_id,
+        "amount": str(amount),
+        "currency": "AITBC",
+        "payment_method": "aitbc_token",
+        "buyer_address": lock_tx["from"],
+        "provider_address": lock_tx["payload"]["provider"],
+        "buyer_lock_signature": signature,
+        "buyer_lock_nonce": lock_tx["nonce"],
+        "buyer_lock_fee": lock_tx["fee"],
+        "escrow_timeout_seconds": 3600,
+        "offer_id": offer.get("offer_id", ""),
+        "offer_quantity": str(days),
+    }
+    try:
+        payment = client.post("/v1/payments", json=payment_payload)
+    except _MARKET_HOST_ERRORS as e:
+        error(
+            f"Coordinator payment submit failed for job {coord_job_id} ({type(e).__name__}: {e}). "
+            "The lock may still have landed — check `aitbc ai jobs --job-id "
+            f"{coord_job_id}` / the coordinator payment before retrying; do NOT rerun market host."
+        )
+        raise click.Abort() from e
+    status = payment.get("status") if isinstance(payment, dict) else None
+    if status != "escrowed":
+        error(
+            f"Coordinator escrow for job {coord_job_id} did not reach escrowed state "
+            f"(status={status!r}: {payment}). The payment row exists server-side — "
+            "StuckEscrowSweeper covers it; do NOT rerun market host."
+        )
+        raise click.Abort()
+    info(f"Coordinator escrow secured: job {coord_job_id} payment {payment.get('payment_id')}")
+    return {
+        "escrow_job_id": coord_job_id,
+        "contract_id": payment.get("escrow_address") or coord_job_id,
+        "payment_id": payment.get("payment_id"),
+        "tracked": True,
+    }
+
+
+def _lock_host_escrow(
+    ctx: click.Context,
+    job_id: str,
+    buyer: str,
+    provider: str,
+    total_cost: Decimal,
+    config: Any,
+    private_key: str | None,
+    node_wallet: str | None,
+    offer: dict[str, Any],
+    days: int,
+) -> dict[str, Any]:
+    """Lock the host escrow, preferring the coordinator payment rail (#2340).
+
+    The coordinator path writes the JobPayment/PaymentEscrow rows that put
+    the lock inside StuckEscrowSweeper's view. When no client credential is
+    available it falls back to the legacy direct ``_escrow_create`` — that
+    lock has no payment row and no sweeper coverage, so the fallback is
+    warned loudly and flagged ``tracked=False``.
+    """
+    tracked = _create_coordinator_host_escrow(
+        ctx, job_id, buyer, provider, total_cost, config, private_key, node_wallet, offer, days
+    )
+    if tracked is not None:
+        return tracked
+    warning(
+        "Coordinator payment rail unavailable — falling back to a direct escrow lock. "
+        "This lock has NO job_payments row: StuckEscrowSweeper cannot see or refund it "
+        "(#2340). Run `aitbc auth login` and retry for durable coverage."
+    )
+    contract_id = _escrow_create(
+        ctx,
+        job_id,
+        buyer,
+        provider,
+        total_cost,
+        config,
+        private_key=private_key,
+        node_wallet=node_wallet,
+    )
+    if not contract_id:
+        error("Escrow creation failed; aborting IPFS job")
+        raise click.Abort()
+    return {
+        "escrow_job_id": job_id,
+        "contract_id": contract_id,
+        "payment_id": None,
+        "tracked": False,
+    }
+
+
+def _refund_host_escrow(ctx: click.Context, escrow: dict[str, Any], market_job_id: str) -> None:
+    """Best-effort refund for a failed host job, durable path first (#2340).
+
+    On the coordinator path the escrow is keyed by the coordinator job id
+    and ``refund_escrow`` resolves the payment row server-side; on the
+    legacy path it is the ``sw_job_*`` orphan refund.
+    """
+    if escrow.get("tracked"):
+        try:
+            refund_escrow(ctx, escrow["escrow_job_id"], reason="job_failed")
+        except _HOST_REFUND_ERRORS:
+            warning(
+                f"Coordinator refund failed for job {escrow['escrow_job_id']} — the escrow stays locked; "
+                f"retry manually with `aitbc market escrow refund --job-id {escrow['escrow_job_id']} --reason job_failed`"
+            )
+        return
+    _refund_orphaned_escrow(ctx, market_job_id, escrow.get("contract_id"))
+
+
 def _register_ipfs_market_job(
     ctx: click.Context,
     job_data: dict[str, Any],
@@ -299,24 +545,26 @@ def _register_ipfs_market_job(
     cid: str,
     pin_created: bool,
     job_id: str,
-    contract_id: str,
+    escrow: dict[str, Any],
 ) -> dict[str, Any]:
     """Register the market job, undoing pin+escrow on any failure (#1687).
 
     An abort after a successful pin used to leave the pin in place AND the
-    escrow locked with no market job record for any sweeper to find.
+    escrow locked with no market job record for any sweeper to find. On the
+    coordinator path (#2340) the refund goes through the payment row, so a
+    stranded lock is also visible to StuckEscrowSweeper.
     """
     try:
         market_result = _track_market_job(job_data)
     except Exception:
         if pin_created:
             _ipfs_unpin_cid(ipfs_api, cid)
-        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        _refund_host_escrow(ctx, escrow, job_id)
         raise
     if not market_result:
         if pin_created:
             _ipfs_unpin_cid(ipfs_api, cid)
-        _refund_orphaned_escrow(ctx, job_id, contract_id)
+        _refund_host_escrow(ctx, escrow, job_id)
         error("Failed to register market job; pin and escrow cleaned up (best-effort).")
         raise click.Abort()
     return market_result
@@ -366,36 +614,37 @@ def _run_ipfs_hosting(
     if public_endpoint and not public_endpoint.startswith(("http://", "https://")):
         _ipfs_swarm_connect(ipfs_api, public_endpoint)
 
+    # Pin BEFORE any escrow lock (#2340): the incident shape was lock-then-pin-
+    # fail, which stranded the escrow. Pinning first means unreachable content
+    # aborts with nothing locked; a later failure still refunds via
+    # _refund_host_escrow and unpins only a pin this run created.
+    pinned = False
+    pin_created = False
+    if pin:
+        pinned, pin_created = _pin_hosting_cid(ipfs_api, cid)
+        if not pinned:
+            error(
+                f"Failed to pin CID {cid} on {ipfs_api} — aborting before the escrow lock. "
+                "The content must be reachable/pinnable on this node's daemon first."
+            )
+            raise click.Abort()
+
     job_id = f"sw_job_ipfs_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
 
-    contract_id = _escrow_create(
+    escrow = _lock_host_escrow(
         ctx,
         job_id,
         buyer,
         provider,
         total_cost,
         get_config(),
-        private_key=private_key,
-        node_wallet=node_wallet,
+        private_key,
+        node_wallet,
+        offer,
+        days,
     )
-    if not contract_id:
-        error("Escrow creation failed; aborting IPFS job")
-        raise click.Abort()
-
-    pinned = False
-    pin_created = False
-    if pin:
-        pinned, pin_created = _pin_hosting_cid(ipfs_api, cid)
-        if not pinned:
-            # The escrow is already locked and no market job record exists
-            # yet, so nothing would ever refund it — attempt the refund
-            # here instead of stranding buyer funds (#1687).
-            _refund_orphaned_escrow(ctx, job_id, contract_id)
-            error(
-                f"Failed to pin CID {cid} on {ipfs_api}. "
-                f"Refund attempted for market job {job_id} (escrow contract_id {contract_id} is informational only)."
-            )
-            raise click.Abort()
+    escrow_job_id = escrow["escrow_job_id"]
+    contract_id = escrow["contract_id"]
 
     if content_size is None:
         content_size = _ipfs_object_size(ipfs_api, cid)
@@ -458,13 +707,15 @@ def _run_ipfs_hosting(
         cid=cid,
         pin_created=pin_created,
         job_id=job_id,
-        contract_id=contract_id,
+        escrow=escrow,
     )
 
     # Confirm pin so the job transitions to RUNNING.
     _confirm_market_pin(job_id, content_size)
 
-    release_result = _release_and_track(ctx, job_id, cid, release_immediately, track, offer, buyer, provider, total_cost)
+    release_result = _release_and_track(
+        ctx, escrow, job_id, cid, release_immediately, track, offer, buyer, provider, total_cost
+    )
 
     output_record = (
         release_result
@@ -474,12 +725,15 @@ def _run_ipfs_hosting(
     output_record["cid"] = cid
     output_record["days"] = days
     output_record["escrow_contract_id"] = contract_id
+    output_record["escrow_job_id"] = escrow_job_id
+    output_record["payment_id"] = escrow.get("payment_id")
+    output_record["escrow_tracked"] = bool(escrow.get("tracked"))
     output_record["access_key"] = access_key
     output_record["access_secret"] = access_secret
 
     success(
         f"Hosted {cid} for {days} day(s); cost {total_cost:.4f} AIT; market job {job_id} "
-        f"(escrow contract_id {contract_id} — informational only; escrow commands take the job_id)"
+        f"(escrow job {escrow_job_id} — informational only; escrow commands take the job_id)"
     )
     output(output_record, output_format, title="IPFS Market Job")
     return output_record
@@ -496,7 +750,7 @@ def _run_ipfs_hosting(
 @click.option("--offer-id-or-plugin-id", "offer_id_or_plugin_id", required=True, help="The Offer id or plugin id.")
 @click.option("--cid-or-file", "cid_or_file", required=True, help="The Cid or local file path.")
 @click.option("--days", type=int, default=1, help="Rental duration in days")
-@click.option("--pin/--no-pin", default=True, help="Pin the CID after paying the rental")
+@click.option("--pin/--no-pin", default=True, help="Pin the CID before locking escrow (unreachable content aborts unpaid)")
 @click.option(
     "--proposer-id",
     "proposer_id",

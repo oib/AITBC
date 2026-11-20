@@ -29,7 +29,9 @@ def aitbc_market_host(
     offer_id_or_plugin_id: Annotated[str, Field(description="The Offer id or plugin id.")],
     cid_or_file: Annotated[str, Field(description="The Cid or local file path.")],
     days: Annotated[int | None, Field(description="Rental duration in days")] = None,
-    pin: Annotated[bool | None, Field(description="Pin the CID after paying the rental")] = None,
+    pin: Annotated[
+        bool | None, Field(description="Pin the CID before locking escrow (unreachable content aborts unpaid)")
+    ] = None,
     proposer_id: Annotated[
         str | None,
         Field(description="Override the escrow node-wallet address (defaults to the node wallet advertised at /health)"),
