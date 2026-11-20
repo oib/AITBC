@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1528
+- **Markdown files under docs/**: 1532
 
 | Directory | Files | Description |
 |---|---|---|
@@ -73,7 +73,7 @@ docs/
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
-| [cli](cli/) | 601 | Command-line interface reference |
+| [cli](cli/) | 605 | Command-line interface reference |
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
@@ -568,8 +568,12 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/governance-execute.md](cli/commands/governance-execute.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/governance-get.md](cli/commands/governance-get.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/governance-list.md](cli/commands/governance-list.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
-| [cli/commands/governance-propagate.md](cli/commands/governance-propagate.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
-| [cli/commands/governance-proposal-show.md](cli/commands/governance-proposal-show.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/governance-profile-delegate.md](cli/commands/governance-profile-delegate.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/governance-profile-init.md](cli/commands/governance-profile-init.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/governance-profile-power.md](cli/commands/governance-profile-power.md) | [cli/commands/README.md](cli/commands/README.md) |
+| [cli/commands/governance-profile-show.md](cli/commands/governance-profile-show.md) | [cli/commands/README.md](cli/commands/README.md) |
+| [cli/commands/governance-propagate.md](cli/commands/governance-propagate.md) | [cli/commands/README.md](cli/commands/README.md) |
+| [cli/commands/governance-proposal-show.md](cli/commands/governance-proposal-show.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/governance-propose.md](cli/commands/governance-propose.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/governance-status.md](cli/commands/governance-status.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/governance-vote.md](cli/commands/governance-vote.md) | [cli/commands/README.md](cli/commands/README.md) |
@@ -971,7 +975,7 @@ Inbound markdown links per document (top referrers).
 | [features/12-infrastructure.md](features/12-infrastructure.md) | [FEATURES.md](FEATURES.md), [cli/commands/start.md](cli/commands/start.md), [cli/commands/system-architect.md](cli/commands/system-architect.md), +17 more |
 | [features/2-bridge-cross-chain.md](features/2-bridge-cross-chain.md) | [FEATURES.md](FEATURES.md), [agent/guides/open-island-joining-guide.md](agent/guides/open-island-joining-guide.md), [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), +36 more |
 | [features/3-market.md](features/3-market.md) | [FEATURES.md](FEATURES.md), [cli/commands/ai-submit.md](cli/commands/ai-submit.md), [cli/commands/market-cancel.md](cli/commands/market-cancel.md), +38 more |
-| [features/4-governance.md](features/4-governance.md) | [FEATURES.md](FEATURES.md), [cli/commands/economics-distributed.md](cli/commands/economics-distributed.md), [cli/commands/economics-market.md](cli/commands/economics-market.md), +21 more |
+| [features/4-governance.md](features/4-governance.md) | [FEATURES.md](FEATURES.md), [cli/commands/economics-distributed.md](cli/commands/economics-distributed.md), [cli/commands/economics-market.md](cli/commands/economics-market.md), +25 more |
 | [features/5-mining-pool-hub.md](features/5-mining-pool-hub.md) | [FEATURES.md](FEATURES.md), [cli/commands/mining-list.md](cli/commands/mining-list.md), [cli/commands/mining-start.md](cli/commands/mining-start.md), +5 more |
 | [features/6-agent-coordination.md](features/6-agent-coordination.md) | [FEATURES.md](FEATURES.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +38 more |
 | [features/7-trading.md](features/7-trading.md) | [FEATURES.md](FEATURES.md), [cli/commands/exchange-add-liquidity.md](cli/commands/exchange-add-liquidity.md), [cli/commands/exchange-create-pair.md](cli/commands/exchange-create-pair.md), +44 more |
@@ -981,9 +985,9 @@ Inbound markdown links per document (top referrers).
 | [features/advertise-to-market.md](features/advertise-to-market.md) | [cli/commands/market-offer.md](cli/commands/market-offer.md), [features/8-edge-gpu.md](features/8-edge-gpu.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), +1 more |
 | [features/agent-messaging-paths.md](features/agent-messaging-paths.md) | [cli/commands/agent-msg-peers.md](cli/commands/agent-msg-peers.md), [cli/commands/agent-msg-ping.md](cli/commands/agent-msg-ping.md), [cli/commands/agent-msg-receive.md](cli/commands/agent-msg-receive.md), +28 more |
 | [features/agent-reputation.md](features/agent-reputation.md) | [cli/commands/reputation-create-profile.md](cli/commands/reputation-create-profile.md), [cli/commands/reputation-feedback.md](cli/commands/reputation-feedback.md), [cli/commands/reputation-leaderboard.md](cli/commands/reputation-leaderboard.md), +5 more |
-| [features/apply-parameters.md](features/apply-parameters.md) | [cli/commands/economics-distributed.md](cli/commands/economics-distributed.md), [cli/commands/economics-market.md](cli/commands/economics-market.md), [cli/commands/economics-model.md](cli/commands/economics-model.md), +17 more |
-| [features/arbitration-voting.md](features/arbitration-voting.md) | [cli/commands/dispute-active.md](cli/commands/dispute-active.md), [cli/commands/dispute-arbitrator-authorize.md](cli/commands/dispute-arbitrator-authorize.md), [cli/commands/dispute-arbitrator-list.md](cli/commands/dispute-arbitrator-list.md), +25 more |
-| [features/authorize-arbitrator.md](features/authorize-arbitrator.md) | [cli/commands/dispute-active.md](cli/commands/dispute-active.md), [cli/commands/dispute-arbitrator-authorize.md](cli/commands/dispute-arbitrator-authorize.md), [cli/commands/dispute-arbitrator-list.md](cli/commands/dispute-arbitrator-list.md), +25 more |
+| [features/apply-parameters.md](features/apply-parameters.md) | [cli/commands/economics-distributed.md](cli/commands/economics-distributed.md), [cli/commands/economics-market.md](cli/commands/economics-market.md), [cli/commands/economics-model.md](cli/commands/economics-model.md), +21 more |
+| [features/arbitration-voting.md](features/arbitration-voting.md) | [cli/commands/dispute-active.md](cli/commands/dispute-active.md), [cli/commands/dispute-arbitrator-authorize.md](cli/commands/dispute-arbitrator-authorize.md), [cli/commands/dispute-arbitrator-list.md](cli/commands/dispute-arbitrator-list.md), +29 more |
+| [features/authorize-arbitrator.md](features/authorize-arbitrator.md) | [cli/commands/dispute-active.md](cli/commands/dispute-active.md), [cli/commands/dispute-arbitrator-authorize.md](cli/commands/dispute-arbitrator-authorize.md), [cli/commands/dispute-arbitrator-list.md](cli/commands/dispute-arbitrator-list.md), +29 more |
 | [features/auto-import.md](features/auto-import.md) | [cli/commands/config-check-keys.md](cli/commands/config-check-keys.md), [cli/commands/config-check.md](cli/commands/config-check.md), [cli/commands/config-edit.md](cli/commands/config-edit.md), +18 more |
 | [features/blockchain-registration.md](features/blockchain-registration.md) | [cli/commands/node-add.md](cli/commands/node-add.md), [cli/commands/node-bridge-approve.md](cli/commands/node-bridge-approve.md), [cli/commands/node-bridge-list-bridges.md](cli/commands/node-bridge-list-bridges.md), +24 more |
 | [features/bridge-monitoring.md](features/bridge-monitoring.md) | [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), [cli/commands/bridge-balance.md](cli/commands/bridge-balance.md), [cli/commands/bridge-confirm.md](cli/commands/bridge-confirm.md), +26 more |
@@ -1199,7 +1203,7 @@ Inbound markdown links per document (top referrers).
 | [reference/backend.md](reference/backend.md) | [README.md](README.md) |
 | [reference/cli-rpc-route-map.md](reference/cli-rpc-route-map.md) | [reference/README.md](reference/README.md) |
 | [reference/faq.md](reference/faq.md) | [blockchain/governance/openclaw-dao-governance.md](blockchain/governance/openclaw-dao-governance.md) |
-| [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) | [cli/commands/README.md](cli/commands/README.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +484 more |
+| [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) | [cli/commands/README.md](cli/commands/README.md), [cli/commands/agent-capabilities.md](cli/commands/agent-capabilities.md), [cli/commands/agent-comm-collaborate.md](cli/commands/agent-comm-collaborate.md), +488 more |
 | [reference/mcp-tool-inventory.md](reference/mcp-tool-inventory.md) | [reference/README.md](reference/README.md) |
 | [reference/packages.md](reference/packages.md) | [README.md](README.md) |
 | [reference/record-types.md](reference/record-types.md) | [README.md](README.md), [reference/README.md](reference/README.md) |
@@ -1530,7 +1534,7 @@ Inbound markdown links per document (top referrers).
 | [scenarios/13_mining_setup.md](scenarios/13_mining_setup.md) | [scenarios/12_reputation_management.md](scenarios/12_reputation_management.md), [scenarios/36_pool_hub_sla_e2e.md](scenarios/36_pool_hub_sla_e2e.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/15_blockchain_monitoring.md](scenarios/15_blockchain_monitoring.md) | [scenarios/16_agent_registration.md](scenarios/16_agent_registration.md), [scenarios/51_multi_validator_poa_soak.md](scenarios/51_multi_validator_poa_soak.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/16_agent_registration.md](scenarios/16_agent_registration.md) | [scenarios/15_blockchain_monitoring.md](scenarios/15_blockchain_monitoring.md), [scenarios/17_governance_voting.md](scenarios/17_governance_voting.md), [scenarios/45_agent_msg_workflow.md](scenarios/45_agent_msg_workflow.md), +1 more |
-| [scenarios/17_governance_voting.md](scenarios/17_governance_voting.md) | [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md), [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md), [cli/commands/agent-staking-complete.md](cli/commands/agent-staking-complete.md), +24 more |
+| [scenarios/17_governance_voting.md](scenarios/17_governance_voting.md) | [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md), [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md), [cli/commands/agent-staking-complete.md](cli/commands/agent-staking-complete.md), +28 more |
 | [scenarios/18_analytics_collection.md](scenarios/18_analytics_collection.md) | [scenarios/17_governance_voting.md](scenarios/17_governance_voting.md), [scenarios/19_security_setup.md](scenarios/19_security_setup.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/19_security_setup.md](scenarios/19_security_setup.md) | [scenarios/18_analytics_collection.md](scenarios/18_analytics_collection.md), [scenarios/20_cross_chain_transfer.md](scenarios/20_cross_chain_transfer.md), [scenarios/README.md](scenarios/README.md) |
 | [scenarios/20_cross_chain_transfer.md](scenarios/20_cross_chain_transfer.md) | [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), [cli/commands/bridge-balance.md](cli/commands/bridge-balance.md), [cli/commands/bridge-confirm.md](cli/commands/bridge-confirm.md), +29 more |

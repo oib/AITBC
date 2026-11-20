@@ -36,6 +36,10 @@ class DelegationRequest(BaseModel):
     delegatee_id: str
 
 
+class VotingPowerRequest(BaseModel):
+    voting_power: float = Field(ge=0.0, allow_inf_nan=False)
+
+
 class ProposalCreateRequest(BaseModel):
     title: str
     description: str
@@ -140,6 +144,33 @@ async def delegate_voting_power(
             raise HTTPException(status_code=403, detail="profile is not owned by the caller")
     try:
         profile = await run_in_threadpool(service.delegate_votes, profile_id, delegation_request.delegatee_id)
+        return profile  # type: ignore[no-any-return]
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
+    except Exception as e:
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/profiles/{profile_id}/voting-power", response_model=GovernanceProfile)
+@rate_limit(rate=20, per=60)
+async def set_profile_voting_power(
+    request: Request,
+    profile_id: str,
+    power_request: VotingPowerRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminDep,
+) -> GovernanceProfile:
+    """Set a profile's own voting power (admin bootstrap, #2337).
+
+    ``POST /profiles`` only applies ``initial_voting_power`` at creation —
+    a profile auto-created at 0 by a vote could never gain power. This is
+    the admin escape hatch for that trap.
+    """
+    service = GovernanceService(session)
+    try:
+        profile = await run_in_threadpool(service.set_voting_power, profile_id, power_request.voting_power)
         return profile  # type: ignore[no-any-return]
     except ValueError as e:
         raise HTTPException(status_code=404, detail=str(e)) from e

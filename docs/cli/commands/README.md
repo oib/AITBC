@@ -405,6 +405,10 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc governance execute-cross-chain`](governance-execute-cross-chain.md) — Execute a governance proposal across target chains.
 - [`aitbc governance get`](governance-get.md) — Get details of a specific governance proposal.
 - [`aitbc governance list`](governance-list.md) — List governance proposals with optional status, category, and proposer filters.
+- [`aitbc governance profile delegate`](governance-profile-delegate.md) — Delegate a profile's voting power to another profile (caller-bound or admin).
+- [`aitbc governance profile init`](governance-profile-init.md) — Create or fetch a DAO governance profile (POST /v1/governance/profiles, admin).
+- [`aitbc governance profile power`](governance-profile-power.md) — Set a profile's own voting power (admin; fixes profiles stuck at 0).
+- [`aitbc governance profile show`](governance-profile-show.md) — Show a DAO governance profile by user ID (coordinator API read).
 - [`aitbc governance propagate`](governance-propagate.md) — Propagate a governance proposal to a comma-separated list of target chains.
 - [`aitbc governance proposal show`](governance-proposal-show.md) — Show the sealed GOVERNANCE_PROPOSE record for a proposal id.
 - [`aitbc governance propose`](governance-propose.md) — Create a new governance proposal with title, description, and optional category.

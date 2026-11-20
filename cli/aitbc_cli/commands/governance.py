@@ -17,6 +17,7 @@ is enabled in its config.
 import builtins
 import json
 import logging
+import os
 import time
 import uuid
 from typing import Any
@@ -25,10 +26,17 @@ import click
 import httpx
 
 from aitbc.exceptions import AITBCError
+from ..auth import ExpiredAdminToken
 from ..config import get_config
 from ..utils import output, resolve_output_format
 from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, http_error_detail, http_response_status
+from ..utils.http_client import (
+    AITBCHTTPClient,
+    NetworkError,
+    auth_client_kwargs,
+    http_error_detail,
+    http_response_status,
+)
 from ..utils.wallet_secret import wallet_password_options
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
@@ -300,6 +308,31 @@ def _get_client(ctx: click.Context | None = None, url: str | None = None) -> AIT
         cfg = (ctx.obj.get("config") if ctx is not None and ctx.obj else None) or get_config()
         api_key = getattr(cfg, "api_key", None)
     return AITBCHTTPClient(base_url=base_url, timeout=30, api_key=api_key or None)
+
+
+def _coordinator_client(ctx: click.Context) -> AITBCHTTPClient:
+    """HTTP client for the coordinator API (DAO governance profiles, #2337).
+
+    The profile routes live on coordinator-api — not the :8105 governance
+    service ``_get_client`` targets — and authenticate with the ``auth
+    login`` JWT. ``credential="admin"`` resolves the admin slot first and
+    falls back to the client JWT; the token's role claim decides what the
+    server allows, so client callers still get the ownership-checked path.
+    """
+    ctx_obj = ctx.obj or {}
+    config = ctx_obj.get("config") or get_config()
+    url = ctx_obj.get("url") or config.coordinator_api_url or os.getenv("COORDINATOR_API_URL", "")
+    url = str(url).rstrip("/")
+    if url.endswith("/v1"):
+        url = url[:-3]
+    if not url:
+        abort(ctx, "Coordinator API URL not configured (coordinator_api_url / COORDINATOR_API_URL)")
+    explicit = ctx_obj.get("api_key")
+    try:
+        kwargs = auth_client_kwargs(explicit, getattr(config, "api_key", None), credential="admin")
+    except ExpiredAdminToken as e:
+        abort(ctx, str(e))
+    return AITBCHTTPClient(base_url=url, timeout=30, **kwargs)
 
 
 @click.group(
@@ -903,6 +936,134 @@ def execute_cross_chain(
         abort(ctx, f"Network error: {e}", from_exception=e)
     except _OPS_ERRORS as e:
         abort(ctx, f"Error executing cross-chain: {e}", from_exception=e)
+
+
+# ============================================================================
+# #2337: DAO governance profile bootstrap (coordinator API)
+#
+# Economic-proposal votes tally effective_voting_power(profile); a fresh
+# user gets voting_power=0.0 and every vote adds nothing. These commands
+# wrap the coordinator-api profile routes — init/delegate are the #1847
+# authz surface, power is the admin escape hatch for profiles auto-created
+# at 0. Unlike the commands above they do NOT talk to the :8105 service.
+# ============================================================================
+
+
+@governance.group(
+    epilog="""Examples:
+
+  aitbc governance profile init --user-id 0xAlice --voting-power 100
+
+  aitbc governance profile delegate --profile-id prof-1 --delegatee-id prof-2
+
+  aitbc governance profile power --profile-id prof-1 --voting-power 250
+
+  aitbc governance profile show --user-id 0xAlice"""
+)
+def profile():
+    """Manage DAO governance profiles on the coordinator API (voting-power bootstrap)."""
+    pass
+
+
+@profile.command(
+    "init",
+    epilog="""Examples:
+
+  aitbc governance profile init --user-id 0xAlice --voting-power 100""",
+)
+@click.option("--user-id", required=True, help="User ID (JWT sub or wallet address) the profile belongs to")
+@click.option(
+    "--voting-power",
+    type=float,
+    default=0.0,
+    help="Initial voting power (admin only; ignored when the profile already exists)",
+)
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+@click.pass_context
+def profile_init(ctx, user_id: str, voting_power: float, format: str):
+    """Create or fetch a DAO governance profile (POST /v1/governance/profiles, admin)."""
+    try:
+        client = _coordinator_client(ctx)
+        result = client.post(
+            "/v1/governance/profiles",
+            json={"user_id": user_id, "initial_voting_power": voting_power},
+        )
+        output(result, resolve_output_format(ctx, format))
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}", from_exception=e)
+    except _OPS_ERRORS as e:
+        abort(ctx, f"Error initializing governance profile: {e}", from_exception=e)
+
+
+@profile.command(
+    "delegate",
+    epilog="""Examples:
+
+  aitbc governance profile delegate --profile-id prof-1 --delegatee-id prof-2""",
+)
+@click.option("--profile-id", required=True, help="Delegator profile ID")
+@click.option("--delegatee-id", required=True, help="Profile ID receiving the delegated power")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+@click.pass_context
+def profile_delegate(ctx, profile_id: str, delegatee_id: str, format: str):
+    """Delegate a profile's voting power to another profile (caller-bound or admin)."""
+    try:
+        client = _coordinator_client(ctx)
+        result = client.post(
+            f"/v1/governance/profiles/{profile_id}/delegate",
+            json={"delegatee_id": delegatee_id},
+        )
+        output(result, resolve_output_format(ctx, format))
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}", from_exception=e)
+    except _OPS_ERRORS as e:
+        abort(ctx, f"Error delegating voting power: {e}", from_exception=e)
+
+
+@profile.command(
+    "power",
+    epilog="""Examples:
+
+  aitbc governance profile power --profile-id prof-1 --voting-power 250""",
+)
+@click.option("--profile-id", required=True, help="Profile ID to update")
+@click.option("--voting-power", type=float, required=True, help="New own voting power (>= 0; admin only)")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+@click.pass_context
+def profile_power(ctx, profile_id: str, voting_power: float, format: str):
+    """Set a profile's own voting power (admin; fixes profiles stuck at 0)."""
+    try:
+        client = _coordinator_client(ctx)
+        result = client.post(
+            f"/v1/governance/profiles/{profile_id}/voting-power",
+            json={"voting_power": voting_power},
+        )
+        output(result, resolve_output_format(ctx, format))
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}", from_exception=e)
+    except _OPS_ERRORS as e:
+        abort(ctx, f"Error setting voting power: {e}", from_exception=e)
+
+
+@profile.command(
+    "show",
+    epilog="""Examples:
+
+  aitbc governance profile show --user-id 0xAlice""",
+)
+@click.option("--user-id", required=True, help="User ID the profile belongs to")
+@click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+@click.pass_context
+def profile_show(ctx, user_id: str, format: str):
+    """Show a DAO governance profile by user ID (coordinator API read)."""
+    try:
+        client = _coordinator_client(ctx)
+        result = client.get_json(f"/v1/governance-enhanced/profiles/{user_id}")
+        output(result, resolve_output_format(ctx, format))
+    except NetworkError as e:
+        abort(ctx, f"Network error: {e}", from_exception=e)
+    except _OPS_ERRORS as e:
+        abort(ctx, f"Error getting governance profile: {e}", from_exception=e)
 
 
 __all__ = ["governance"]
