@@ -102,6 +102,39 @@ async def list_miner_jobs(
         return {"jobs": [], "total": 0, "limit": limit, "offset": offset, "miner_id": miner_id, "error": "Failed to list jobs"}
 
 
+@router.get("/miners/{miner_id}/running-jobs", summary="List the miner's RUNNING jobs in dispatch shape")
+@rate_limit(rate=200, per=60)
+async def list_running_jobs(
+    request: Request,
+    miner_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: MinerDep,
+) -> dict[str, Any]:
+    """#2315: return the caller's RUNNING jobs as ``AssignedJob`` payloads.
+
+    ``/v1/miners/poll`` delivers a job only inside the claim response; a lost
+    or failed response leaves the row RUNNING with no miner-side record of
+    it. This endpoint lets the miner reconcile: fetch its own RUNNING jobs
+    and re-dispatch any it does not already hold. The shape intentionally
+    matches ``to_assigned`` so the miner can feed rows straight into its
+    normal execution path.
+    """
+    if miner_id != user["sub"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id does not match authenticated miner")
+    try:
+        service = JobService(session)
+        jobs = await run_in_threadpool(service.assigned_running_jobs, miner_id)
+        return {
+            "jobs": jobs,
+            "miner_id": miner_id,
+        }
+    except HTTPException:
+        raise
+    except _OPS_ERRORS as e:
+        logger.error("Error listing running jobs for miner %s: %s", miner_id, e)
+        raise HTTPException(status_code=500, detail="failed to list running jobs") from e
+
+
 @router.post("/miners/{miner_id}/earnings", summary="Get miner earnings")
 @rate_limit(rate=200, per=60)
 async def get_miner_earnings(
