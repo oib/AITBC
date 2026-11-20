@@ -129,6 +129,15 @@ def _extra_verify_secrets() -> list[str]:
         extras.append(new)
     previous = os.getenv(f"{prefix}_PREVIOUS") or ""
     extras.extend(part.strip() for part in previous.split(",") if part.strip())
+    # #2347: explicit operator opt-in for cross-service token acceptance.
+    # Services whose callers can only obtain tokens minted under another
+    # service's scoped secret (e.g. edge verifying coordinator-api admin
+    # JWTs — there is no edge login route) list those secrets here,
+    # comma-separated. Verify-only: signing always uses the primary secret.
+    # Unlike the scoped rotation extras above, this applies to scoped
+    # services too — the opt-in is deliberate, not a rotation fallback.
+    verify_extra = os.getenv("JWT_SECRET_VERIFY_EXTRA") or ""
+    extras.extend(part.strip() for part in verify_extra.split(",") if part.strip())
     return extras
 
 
