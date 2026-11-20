@@ -655,14 +655,41 @@ exec /usr/bin/tar "$@"
     r = _run(env)
     log = _log(env)
     assert r.returncode == 0
-    assert "files changed during archive" in log
+    assert "tar rc=1 during archive (live churn); accepting readable snapshot" in log
+    assert "varlib-state catch-all: OK" in log
+    today = next(d for d in env.base.iterdir() if d.is_dir())
+    assert (today / "varlib-state.tar.gz").exists()
+
+
+def test_varlib_tar_rc2_readable_archive_is_warning_not_failure(env):
+    """#2313: tar rc >= 2 can also be live churn (a file listed by find
+    vanishing before tar stats it) — the archive is still readable, so it
+    must warn and keep the snapshot like rc 1, not fail the whole unit."""
+    _populate_svcdir(env)
+    churn_tar = """#!/bin/sh
+case "$*" in
+  czf*varlib-state.tar.gz*)
+    /usr/bin/tar "$@"
+    exit 2;;
+esac
+exec /usr/bin/tar "$@"
+"""
+    bin_dir = env.tmp / "bin"
+    (bin_dir / "tar").write_text(churn_tar)
+    (bin_dir / "tar").chmod(0o755)
+
+    r = _run(env)
+    log = _log(env)
+    assert r.returncode == 0
+    assert "tar rc=2 during archive (live churn); accepting readable snapshot" in log
     assert "varlib-state catch-all: OK" in log
     today = next(d for d in env.base.iterdir() if d.is_dir())
     assert (today / "varlib-state.tar.gz").exists()
 
 
 def test_varlib_tar_rc2_still_fails(env):
-    """#1157: a real tar failure (rc >= 2) stays an error and fails the run."""
+    """#1157/#2313: a real tar failure stays fatal — rc >= 2 with no readable
+    archive (e.g. truncated write, disk full) is still an error."""
     _populate_svcdir(env)
     fail_tar = """#!/bin/sh
 case "$*" in
