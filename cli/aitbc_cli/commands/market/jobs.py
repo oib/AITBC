@@ -115,20 +115,88 @@ def _escrow_parties_for_market_run(
     return buyer, provider, ba, pa
 
 
-def _shop_access_headers(job_id: str) -> dict[str, str]:
+def _shop_access_headers(job_id: str, access_key: str | None = None, access_secret: str | None = None) -> dict[str, str]:
     """Headers for the paid-shop access gate (#803, ruling 6A + strict binding).
 
     The per-job token (access_key + access_secret) is issued at payment
     confirm; the buyer CLI carries it as X-Access-Key/X-Access-Secret bound
-    to the job via X-Job-Id. Creds come from AITBC_JOB_ACCESS_KEY /
-    AITBC_JOB_ACCESS_SECRET — when unset the headers are omitted and a
-    gated shop answers 401, which is the intended refusal.
+    to the job via X-Job-Id. Creds come from the market job registered for
+    this run (``_register_paid_market_job``), falling back to the
+    AITBC_JOB_ACCESS_KEY / AITBC_JOB_ACCESS_SECRET env pair for manual
+    flows — when neither exists the headers are omitted and a gated shop
+    answers 401, which is the intended refusal.
     """
-    key = os.environ.get("AITBC_JOB_ACCESS_KEY", "")
-    secret = os.environ.get("AITBC_JOB_ACCESS_SECRET", "")
+    key = access_key or os.environ.get("AITBC_JOB_ACCESS_KEY", "")
+    secret = access_secret or os.environ.get("AITBC_JOB_ACCESS_SECRET", "")
     if not key or not secret:
         return {}
     return {"X-Access-Key": key, "X-Access-Secret": secret, "X-Job-Id": job_id}
+
+
+def _register_paid_market_job(
+    ctx: click.Context,
+    job_id: str,
+    offer: dict[str, Any],
+    buyer: str,
+    provider: str,
+    service_type: str,
+    amount: Decimal,
+) -> tuple[str, str] | None:
+    """Register the paid job with the market service and mint its access token.
+
+    The shop gate (#803) verifies X-Access-Key/X-Access-Secret against
+    ``GET /v1/market/access/{key}``, which only knows jobs created through
+    ``POST /v1/market/jobs`` — the raw ``_escrow_create`` path never made
+    one, so every gated shop call 401'd (#2311). The caller-generated
+    access_key/access_secret ride in the job payload; the market service
+    stores only the secret digest. Returns ``(key, secret)`` or None when
+    registration fails — the caller then falls back to env creds and the
+    shop's own 401 remains the refusal.
+    """
+    import secrets
+
+    from ..ipfs import _hub_market_client
+
+    access_key = secrets.token_urlsafe(16)
+    access_secret = secrets.token_urlsafe(32)
+    job_data = {
+        "id": job_id,
+        "offer_id": offer.get("offer_id", ""),
+        "plugin_id": offer.get("plugin_id", ""),
+        "service_type": service_type,
+        "model": offer.get("model", ""),
+        "buyer_address": buyer,
+        "provider_address": provider,
+        "payload": {"access_key": access_key, "access_secret": access_secret},
+        # Long enough for the slowest gated call (ffmpeg's 3600s timeout)
+        # plus release bookkeeping; the sweeper expires QUEUED rows after it.
+        "ttl_seconds": 7200,
+        "payment": {"amount": str(amount), "currency": "AITBC"},
+    }
+    try:
+        result = _hub_market_client().post("/v1/market/jobs", json=job_data)
+    except _JOBS_ERRORS as e:
+        warning(f"Market job registration failed ({type(e).__name__}) — shop access token unavailable: {e}")
+        return None
+    if isinstance(result, dict) and not result.get("error"):
+        return access_key, access_secret
+    warning(f"Market job registration refused: {result}")
+    return None
+
+
+def _paid_shop_headers(
+    ctx: click.Context,
+    job_id: str,
+    offer: dict[str, Any],
+    buyer: str,
+    provider: str,
+    service_type: str,
+    amount: Decimal,
+) -> dict[str, str]:
+    """Shop-gate headers for one paid run: registered job creds, env fallback."""
+    access = _register_paid_market_job(ctx, job_id, offer, buyer, provider, service_type, amount)
+    key, secret = access if access else (None, None)
+    return _shop_access_headers(job_id, key, secret)
 
 
 def _compute_plugin_id(service_type: str, model: str) -> str:
@@ -364,6 +432,7 @@ def _run_ollama(
     buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
         ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
     )
+    shop_headers = _paid_shop_headers(ctx, job_id, offer, buyer, provider, "ollama", estimated_cost)
     contract_id = _escrow_create(
         ctx,
         job_id,
@@ -382,7 +451,7 @@ def _run_ollama(
     req = urllib.request.Request(
         f"{ollama_base}/api/generate",
         data=payload,
-        headers={"Content-Type": "application/json", **_shop_access_headers(job_id)},
+        headers={"Content-Type": "application/json", **shop_headers},
         method="POST",
     )
     info("Running inference...")
@@ -572,6 +641,7 @@ def _post_whisper_audio(
     audio_bytes: bytes,
     language: str | None,
     task: str,
+    shop_headers: dict[str, str],
 ):
     """POST the audio to Whisper; refunds the orphaned escrow on any failure."""
     import urllib.request as _urllib
@@ -582,7 +652,7 @@ def _post_whisper_audio(
         data=body,
         headers={
             "Content-Type": f"multipart/form-data; boundary={boundary}",
-            **_shop_access_headers(job_id),
+            **shop_headers,
         },
     )
     # endpoint scheme validated
@@ -662,6 +732,7 @@ def _run_whisper(
     buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
         ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
     )
+    shop_headers = _paid_shop_headers(ctx, job_id, offer, buyer, provider, "whisper", estimated_cost)
     contract_id = _escrow_create(
         ctx,
         job_id,
@@ -678,7 +749,9 @@ def _run_whisper(
     # Submit audio to Whisper service
     info("Sending audio to Whisper service...")
     t_start = datetime.now()
-    resp_data = _post_whisper_audio(ctx, job_id, contract_id, whisper_transcribe_url, audio_file, audio_bytes, language, task)
+    resp_data = _post_whisper_audio(
+        ctx, job_id, contract_id, whisper_transcribe_url, audio_file, audio_bytes, language, task, shop_headers
+    )
 
     elapsed = (datetime.now() - t_start).total_seconds()
     if not isinstance(resp_data, dict):
@@ -783,6 +856,7 @@ def _run_ffmpeg(
     buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
         ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
     )
+    shop_headers = _paid_shop_headers(ctx, job_id, offer, buyer, provider, "ffmpeg", estimated_cost)
     contract_id = _escrow_create(
         ctx,
         job_id,
@@ -823,7 +897,7 @@ def _run_ffmpeg(
         data=body,
         headers={
             "Content-Type": f"multipart/form-data; boundary={boundary.decode()}",
-            **_shop_access_headers(job_id),
+            **shop_headers,
         },
     )
     # endpoint scheme validated
@@ -923,14 +997,16 @@ def _hermes_estimated_cost(price: Decimal, price_unit: str, max_time: int) -> De
     return price
 
 
-def _post_hermes_run(ctx, job_id: str, contract_id: str | None, hermes_base: str, prompt: str, max_time: int):
+def _post_hermes_run(
+    ctx, job_id: str, contract_id: str | None, hermes_base: str, prompt: str, max_time: int, shop_headers: dict[str, str]
+):
     """POST the prompt to the Hermes /run endpoint; refunds escrow on failure."""
     http_client = AITBCHTTPClient(base_url=hermes_base, timeout=max_time + 10)
     try:
         return http_client.post(
             "/run",
             json={"prompt": prompt, "max_time": max_time},
-            headers=_shop_access_headers(job_id),
+            headers=shop_headers,
         )
     except BaseException:
         _refund_orphaned_escrow(ctx, job_id, contract_id)
@@ -1005,6 +1081,7 @@ def _run_hermes(
     buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
         ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
     )
+    shop_headers = _paid_shop_headers(ctx, job_id, offer, buyer, provider, "hermes", estimated_cost)
     contract_id = _escrow_create(
         ctx,
         job_id,
@@ -1020,7 +1097,7 @@ def _run_hermes(
 
     info("Sending prompt to Hermes Agent service...")
     t_start = datetime.now()
-    resp_data = _post_hermes_run(ctx, job_id, contract_id, hermes_base, prompt, max_time)
+    resp_data = _post_hermes_run(ctx, job_id, contract_id, hermes_base, prompt, max_time, shop_headers)
     elapsed = (datetime.now() - t_start).total_seconds()
 
     if not isinstance(resp_data, dict):

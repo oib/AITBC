@@ -16,6 +16,7 @@ or separator yields a different keccak hash and a 403 that names neither side.
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import Any
 
 import pytest
@@ -187,3 +188,97 @@ def test_offer_resolution_scopes_the_chain_window_to_gpu_market() -> None:
     assert offer is not None and offer["offer_id"] == "sw_offer_old_whisper"
     assert client.params is not None
     assert client.params.get("transaction_type") == "GPU_MARKET"
+
+
+class _MarketJobsClient:
+    """Captures POST /v1/market/jobs bodies for the shop-access registration."""
+
+    def __init__(self, result=None, raises: Exception | None = None):
+        self.result = result if result is not None else {"job_id": "sw_job_x"}
+        self.raises = raises
+        self.posts: list[dict[str, Any]] = []
+
+    def post(self, path: str, json: dict[str, Any] | None = None, **_kw) -> dict[str, Any]:
+        assert path == "/v1/market/jobs"
+        self.posts.append(json or {})
+        if self.raises is not None:
+            raise self.raises
+        return self.result
+
+
+def test_paid_shop_headers_register_a_market_job_with_access_creds(monkeypatch: pytest.MonkeyPatch) -> None:
+    """#2311: gated shops verify against /v1/market/access/{key} — the paid
+    run must register a MarketJob carrying caller-minted access creds, or
+    every shop call 401s."""
+    import aitbc_cli.commands.ipfs as ipfs_mod
+
+    client = _MarketJobsClient()
+    monkeypatch.setattr(ipfs_mod, "_hub_market_client", lambda *a, **kw: client)
+    monkeypatch.delenv("AITBC_JOB_ACCESS_KEY", raising=False)
+    monkeypatch.delenv("AITBC_JOB_ACCESS_SECRET", raising=False)
+
+    headers = jobs._paid_shop_headers(
+        None,  # type: ignore[arg-type]
+        "sw_job_test1",
+        {"offer_id": "sw_offer_x", "plugin_id": "ffmpeg-h264", "model": "h264"},
+        "0xBuyer",
+        "0xProvider",
+        "ffmpeg",
+        Decimal("0.005"),
+    )
+
+    assert len(client.posts) == 1
+    body = client.posts[0]
+    assert body["id"] == "sw_job_test1"
+    assert body["offer_id"] == "sw_offer_x"
+    assert body["service_type"] == "ffmpeg"
+    payload = body["payload"]
+    assert payload["access_key"] and payload["access_secret"]
+    assert headers["X-Access-Key"] == payload["access_key"]
+    assert headers["X-Access-Secret"] == payload["access_secret"]
+    assert headers["X-Job-Id"] == "sw_job_test1"
+
+
+def test_paid_shop_headers_fall_back_to_env_when_registration_fails(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A dead market service must not strip the manual env-cred escape hatch."""
+    import aitbc_cli.commands.ipfs as ipfs_mod
+
+    client = _MarketJobsClient(raises=RuntimeError("market down"))
+    monkeypatch.setattr(ipfs_mod, "_hub_market_client", lambda *a, **kw: client)
+    monkeypatch.setenv("AITBC_JOB_ACCESS_KEY", "envkey")
+    monkeypatch.setenv("AITBC_JOB_ACCESS_SECRET", "envsecret")
+
+    headers = jobs._paid_shop_headers(
+        None,  # type: ignore[arg-type]
+        "sw_job_test2",
+        {},
+        "0xBuyer",
+        "0xProvider",
+        "whisper",
+        Decimal("0.02"),
+    )
+
+    assert headers == {"X-Access-Key": "envkey", "X-Access-Secret": "envsecret", "X-Job-Id": "sw_job_test2"}
+
+
+def test_paid_shop_headers_empty_when_nothing_is_available(monkeypatch: pytest.MonkeyPatch) -> None:
+    """No registration and no env → empty headers; the gated shop's 401 is
+    the intended refusal, not a silent pass."""
+    import aitbc_cli.commands.ipfs as ipfs_mod
+
+    client = _MarketJobsClient(result={"error": "refused"})
+    monkeypatch.setattr(ipfs_mod, "_hub_market_client", lambda *a, **kw: client)
+    monkeypatch.delenv("AITBC_JOB_ACCESS_KEY", raising=False)
+    monkeypatch.delenv("AITBC_JOB_ACCESS_SECRET", raising=False)
+
+    headers = jobs._paid_shop_headers(
+        None,  # type: ignore[arg-type]
+        "sw_job_test3",
+        {},
+        "0xBuyer",
+        "0xProvider",
+        "ollama",
+        Decimal("0.001"),
+    )
+
+    assert headers == {}
