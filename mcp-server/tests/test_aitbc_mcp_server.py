@@ -419,6 +419,30 @@ class TestDryRunTargetVisibility:
         assert result == {"dry_run": True, "command": "the-command", "note": "note"}
 
 
+class TestSshTargetEnvUserRegression2292:
+    """AITBC_MCP_SSH_USER must not override ssh-config User on fleet aliases (#2292)."""
+
+    def test_env_ssh_user_does_not_prefix_alias(self, monkeypatch, tmp_path):
+        hosts_file = tmp_path / "mcp-hosts.yaml"
+        hosts_file.write_text(
+            "roles:\n  hub: hub\ndefault_host: hub\n",
+            encoding="utf-8",
+        )
+        monkeypatch.setenv("AITBC_MCP_HOSTS_FILE", str(hosts_file))
+        monkeypatch.setenv("AITBC_MCP_SSH_USER", "oib")
+        mcp_server._HOSTS_CONFIG = None
+        assert mcp_server._ssh_target("hub") == "hub"
+
+    def test_hosts_file_ssh_user_prefixes(self, monkeypatch):
+        monkeypatch.setenv(
+            "AITBC_MCP_HOSTS",
+            '{"ssh_user": "root", "default_host": "hub.aitbc", "roles": {"hub": "hub.aitbc"}}',
+        )
+        monkeypatch.delenv("AITBC_MCP_HOSTS_FILE", raising=False)
+        mcp_server._HOSTS_CONFIG = None
+        assert mcp_server._ssh_target("hub.aitbc") == "root@hub.aitbc"
+
+
 class TestRestartServiceTargetVisibility:
     """Regression tests for the restart_service-wrong-host incident (2026-10-03).
 
@@ -431,6 +455,7 @@ class TestRestartServiceTargetVisibility:
         "roles": {"hub": "hub.aitbc"},
         "default_host": "hub.aitbc",
         "ssh_user": "root",
+        "_ssh_user_explicit": True,
     }
 
     def test_dry_run_shows_resolved_ssh_target(self):
@@ -514,6 +539,7 @@ class TestListNodesTargetVisibility:
             "roles": {"hub": "hub.aitbc", "shop": "node2"},
             "default_host": "hub.aitbc",
             "ssh_user": "root",
+            "_ssh_user_explicit": True,
         }
         with (
             mock.patch.object(mcp_server, "_HOSTS_CONFIG", hosts),
@@ -1081,6 +1107,7 @@ class TestHostForRoleRouting:
         "roles": {"hub": "hub.aitbc", "customer": "node0", "shop": "node2"},
         "default_host": "hub.aitbc",
         "ssh_user": "root",
+        "_ssh_user_explicit": True,
     }
 
     def test_role_resolves_through_map(self):

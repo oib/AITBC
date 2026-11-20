@@ -115,7 +115,6 @@ Add the server to your Devin project or user config:
       "command": "/opt/aitbc/venv/bin/python",
       "args": ["/opt/aitbc/mcp-server/aitbc_mcp_server.py"],
       "env": {
-        "AITBC_MCP_SSH_USER": "oib",
         "AITBC_MCP_AITBC_CLI": "/opt/aitbc/venv/bin/aitbc",
         "AITBC_MCP_HOSTS_FILE": "/etc/aitbc/mcp-hosts.yaml",
         "AITBC_MCP_SSH_KNOWN_HOSTS": "/etc/aitbc/ssh_known_hosts",
@@ -153,6 +152,11 @@ roles:
   customer2: hub1.example
   follower2: hub1.example
 ```
+
+For fleet nodes that use short ssh-config aliases (`hub`, `node2`, …) with a
+`User` directive, omit `ssh_user` so OpenSSH applies the configured user. A
+`user@alias` target overrides that directive and commonly breaks jump-host auth
+(Refs #2292).
 
 You can also inline it with `AITBC_MCP_HOSTS`:
 
