@@ -254,6 +254,12 @@ async def get_execution_status(
         return status
     except HTTPException:
         raise
+    except ValueError as e:
+        if "not found" in str(e).lower():
+            raise HTTPException(status_code=404, detail=str(e)) from e
+        logger.error("Failed to get execution status: %s", e)
+        logger.exception("Unhandled exception")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
     except Exception as e:
         logger.error("Failed to get execution status: %s", e)
         logger.exception("Unhandled exception")
