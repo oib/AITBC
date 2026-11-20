@@ -94,6 +94,10 @@ line, exercising them.
 
 ### Step 2: `operations governance stake --amount` — lock-days guard refusal
 
+`--address` is also required — click enforces it before the lock-days
+guard runs, so omitting it refuses with `Missing option '--address'`
+first:
+
 ```bash
 aitbc operations governance stake --address 0x0 --amount 1 --lock-days 29
 ```
