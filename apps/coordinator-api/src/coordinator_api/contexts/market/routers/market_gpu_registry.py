@@ -152,6 +152,13 @@ def register_gpu(
         existing.memory_gb = gpu_specs.get("memory_gb", existing.memory_gb)
         if compute_capability:
             existing.cuda_version = cuda_version
+        # The model id keys the energy-profile match at purchase; a re-register
+        # must be able to correct it (a row registered without one is refused
+        # with "quote model_id does not match job model_id").
+        if gpu_specs.get("model_id"):
+            existing.model_id = gpu_specs["model_id"]
+        if "protected" in gpu_specs:
+            existing.protected = bool(gpu_specs["protected"])
         session.add(existing)
         session.commit()
         return {
