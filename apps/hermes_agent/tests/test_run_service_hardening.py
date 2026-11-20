@@ -198,3 +198,51 @@ def test_nonempty_allowlist_unrequested_emits_bounded_toolsets(monkeypatch):
     arg = _toolsets_arg(cmd)
     assert arg is not None, "no --toolsets — hermes would use its full profile"
     assert set(arg.split(",")) <= {"alpha", "beta"}
+
+
+# --- SHOP-LOGGING-SILENT-500-1 (#2320): failures must reach the journal ---
+
+
+def test_run_hermes_logs_unexpected_failure(monkeypatch, caplog):
+    """#2320: a genuine service fault inside /run propagates as a 500 but must
+    be logged via logger.exception — under log_level="critical" it left no
+    journal trace at all. The semaphore slot must still be released."""
+    import asyncio
+    import logging
+
+    import pytest
+
+    async def boom(request):
+        raise RuntimeError("spawn exploded")
+
+    monkeypatch.setattr(hermes, "_run_hermes_inner", boom)
+
+    with caplog.at_level(logging.ERROR):
+        with pytest.raises(RuntimeError):
+            asyncio.run(hermes.run_hermes(_req()))
+    assert any("hermes run failed" in r.getMessage() for r in caplog.records)
+    # The finally released the slot — a follow-up run is admitted.
+    assert hermes._run_semaphore._value == hermes._HERMES_RUN_MAX_CONCURRENT  # noqa: SLF001
+
+
+def test_run_timeout_is_logged(monkeypatch, caplog, tmp_path):
+    """#2320: a paid job that hits the wall-clock bound answers 504 — the
+    detail only reaches the caller, so the journal needs its own line."""
+    import asyncio
+    import logging
+
+    import pytest
+    from fastapi import HTTPException
+
+    fake = tmp_path / "fake-hermes"
+    fake.write_text("#!/bin/sh\nsleep 30\n")
+    fake.chmod(0o755)
+
+    _base_env(monkeypatch)
+    monkeypatch.setattr(hermes, "_HERMES_PATH", str(fake))
+
+    with caplog.at_level(logging.WARNING):
+        with pytest.raises(HTTPException) as exc:
+            asyncio.run(hermes._run_hermes_inner(_req(max_time=1)))
+    assert exc.value.status_code == 504
+    assert any("exceeded max_time" in r.getMessage() for r in caplog.records)
