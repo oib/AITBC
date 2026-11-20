@@ -25,6 +25,7 @@ from ..config import settings
 from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer
 from ..domain.offer_status import spellings_of
 from ..storage import get_session_context
+from .market_service.shared import active_rental_token_covers, locked_escrow_matches
 
 logger = get_logger(__name__)
 
@@ -137,7 +138,7 @@ class MarketJobSweeper:
 
     async def sweep_once(self) -> dict[str, int]:
         """Run one sweep and return counts."""
-        counts = {"released": 0, "refunded": 0, "failed": 0, "offers_expired": 0, "disputed_frozen": 0}
+        counts = {"released": 0, "refunded": 0, "failed": 0, "offers_expired": 0, "disputed_frozen": 0, "adopted": 0}
 
         async with self._session_factory() as session:
             now = datetime.now(UTC)
@@ -146,6 +147,7 @@ class MarketJobSweeper:
             await self._expire_stale_jobs(session, now_naive)
             await self._expire_stale_reservations(session, now_naive)
             counts["offers_expired"] = await self._expire_stale_offers(session, now_naive)
+            counts["adopted"] = await self._adopt_locked_pending_payments(session, now_naive)
 
             # #1783: an open dispute freezes settlement — count them loudly
             # each sweep so a frozen escrow is never silent.
@@ -217,17 +219,7 @@ class MarketJobSweeper:
             )
             refund_result = await session.execute(refund_stmt)
             for job, payment in refund_result.all():
-                if payment is None:
-                    continue
-                try:
-                    refunded = await self._refund_payment(session, job, payment)
-                    if refunded:
-                        counts["refunded"] += 1
-                    else:
-                        counts["failed"] += 1
-                except Exception:
-                    logger.exception("Failed to refund payment for job %s", job.id)
-                    counts["failed"] += 1
+                await self._settle_refund_row(session, job, payment, counts)
 
             await session.commit()
 
@@ -238,6 +230,34 @@ class MarketJobSweeper:
             counts["failed"],
         )
         return counts
+
+    async def _settle_refund_row(
+        self,
+        session: AsyncSession,
+        job: MarketJob,
+        payment: MarketJobPayment | None,
+        counts: dict[str, int],
+    ) -> None:
+        """Refund one swept row, honouring the rental-token coverage rule."""
+        if payment is None:
+            return
+        # #2348: an EXPIRED ipfs job covered by an active rental
+        # token belongs to the IpfsRentalSweeper — it releases the
+        # escrow to the provider at token expiry. Refunding here
+        # would pay the buyer for a completed rental and race the
+        # token rail's release. FAILED/CANCELED and explicit
+        # refund_pending rows (cancel/dispute) still refund.
+        if job.state == "EXPIRED" and await active_rental_token_covers(session, job.id):
+            return
+        try:
+            refunded = await self._refund_payment(session, job, payment)
+            if refunded:
+                counts["refunded"] += 1
+            else:
+                counts["failed"] += 1
+        except Exception:
+            logger.exception("Failed to refund payment for job %s", job.id)
+            counts["failed"] += 1
 
     @staticmethod
     async def _cas_payment_status(
@@ -302,7 +322,14 @@ class MarketJobSweeper:
                     pay_flipped = False
                     if job.payment_id:
                         pay = await session.get(MarketJobPayment, job.payment_id)
-                        if pay is not None and pay.status == "escrowed":
+                        # #2348: a job covered by an active rental token
+                        # still expires (access ends at expires_at) but its
+                        # escrowed payment is NOT flipped to refund_pending —
+                        # the IpfsRentalSweeper settles it at token expiry.
+                        covered = (
+                            pay is not None and pay.status == "escrowed" and await active_rental_token_covers(session, job.id)
+                        )
+                        if pay is not None and pay.status == "escrowed" and not covered:
                             pay_flipped = await self._cas_payment_status(
                                 session,
                                 pay.id,
@@ -330,6 +357,70 @@ class MarketJobSweeper:
                 session.expunge(job)
                 continue
             logger.info("Market job %s expired (expires_at=%s)", job.id, job.expires_at)
+
+    async def _adopt_locked_pending_payments(self, session: AsyncSession, now_naive: datetime) -> int:
+        """#2348: flip pending payments whose on-chain escrow is locked.
+
+        ``create_market_job`` always writes ``status="pending"`` — only
+        pin-confirm's on-chain proof flips it to ``escrowed``. When that
+        call races the lock seal, or never runs (the legacy direct-lock
+        ``market host`` path has no coordinator payment row for
+        StuckEscrowSweeper either), the payment stays ``pending`` forever:
+        invisible to both settlement passes, so a real locked escrow
+        orphans exactly like the #2340 incident. Each sweep re-proves the
+        escrow keyed by ``job.id`` with the same locked-state/amount/party
+        binding pin-confirm applies and CASes pending -> escrowed; the
+        release/refund passes below then see it on this same sweep.
+        """
+        stmt = (
+            select(MarketJob, MarketJobPayment)
+            .join(MarketJobPayment, col(MarketJob.payment_id) == MarketJobPayment.id)
+            .where(col(MarketJobPayment.status) == "pending")
+            .where(col(MarketJobPayment.escrowed_at).is_(None))
+            .where(col(MarketJob.state).in_({"QUEUED", "RUNNING", "COMPLETED", "FAILED", "CANCELED", "EXPIRED"}))
+            .where(_settleable_job_clause())
+            .limit(self.batch_size)
+        )
+        adopted = 0
+        for job, payment in (await session.execute(stmt)).all():
+            if payment is not None and await self._adopt_one_pending_payment(session, job, payment, now_naive):
+                adopted += 1
+        return adopted
+
+    async def _adopt_one_pending_payment(
+        self,
+        session: AsyncSession,
+        job: MarketJob,
+        payment: MarketJobPayment,
+        now_naive: datetime,
+    ) -> bool:
+        """Prove + CAS one pending payment to escrowed. False = not adopted."""
+        try:
+            escrow = await self._rpc_client.verify_escrow(job.id)
+        except Exception as e:  # noqa: BLE001 - an unverifiable escrow must not be adopted
+            logger.debug("Pending-payment escrow check failed for job %s: %s", job.id, e)
+            return False
+        if not escrow or not locked_escrow_matches(
+            escrow,
+            amount=payment.amount,
+            buyer_address=job.buyer_address,
+            provider_address=job.provider_address,
+        ):
+            return False
+        async with session.begin_nested():
+            flipped = await self._cas_payment_status(
+                session,
+                payment.id,
+                "pending",
+                {"status": "escrowed", "escrowed_at": now_naive, "updated_at": now_naive},
+            )
+            if not flipped:
+                return False
+            await session.execute(
+                update(MarketJob).where(col(MarketJob.id) == job.id).values(payment_status="escrowed", updated_at=now_naive)
+            )
+        logger.info("Adopted locked escrow for pending payment %s (job %s)", payment.id, job.id)
+        return True
 
     async def _expire_stale_reservations(self, session: AsyncSession, now_naive: datetime) -> None:
         """Expire pending bids and release stale offer reservations (#1554).

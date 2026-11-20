@@ -14,14 +14,18 @@ from sqlalchemy import or_, update
 from sqlmodel import col, select
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils.chain_id import resolve_chain_id
 from aitbc.utils.units import units_to_ait
 
 from ...config import settings
 from ...domain.market import MarketJob, MarketJobPayment
 
-from .shared import _ACCESS_TOKEN_ACTIVE_STATES, _OPS_ERRORS
+from .shared import (
+    _ACCESS_TOKEN_ACTIVE_STATES,
+    ESCROW_LOCKED_STATES,
+    escrow_addresses_match,
+    locked_escrow_matches,
+)
 from .jobs import _JobsMixin
 
 
@@ -137,14 +141,10 @@ class _JobsSettlementMixin(_JobsMixin):
 
     @staticmethod
     def _addresses_match(left: Any, right: Any) -> bool:
-        """Best-effort address equality: canonical EIP-55 when both parse,
-        case-insensitive string compare otherwise."""
-        if not left or not right:
-            return False
-        try:
-            return canonical_address(str(left)) == canonical_address(str(right))
-        except _OPS_ERRORS:
-            return str(left).strip().lower() == str(right).strip().lower()
+        """Best-effort address equality — delegates to the shared helper so
+        the settlement mixin and the sweeper's pending-payment adoption
+        (#2348) apply identical binding rules."""
+        return escrow_addresses_match(left, right)
 
     async def _require_locked_escrow(self, job: MarketJob, payment: MarketJobPayment) -> None:
         """#1564: the pending->escrowed flip needs on-chain escrow proof.
@@ -166,7 +166,7 @@ class _JobsSettlementMixin(_JobsMixin):
         # qualify — anything else (created-but-unfunded, settlement_failed,
         # terminal) must not flip the payment.
         state = str(escrow.get("state") or "").lower()
-        if state not in {"funded", "locked", "job_started", "job_completed", "disputed", "resolved"}:
+        if state not in ESCROW_LOCKED_STATES:
             raise ValueError(f"On-chain escrow for job {job.id} is not locked (state={state or 'unknown'})")
         amount = escrow.get("amount")
         if amount is not None:
@@ -272,32 +272,16 @@ class _JobsSettlementMixin(_JobsMixin):
 
         Same locked-state whitelist, amount and party binding — but a mismatch
         denies the token (False) instead of raising, since this runs inside a
-        read-only verify endpoint.
+        read-only verify endpoint. Delegates to the shared
+        ``locked_escrow_matches`` so the sweeper's pending-payment adoption
+        (#2348) applies identical rules.
         """
-        state = str(escrow.get("state") or "").lower()
-        if state not in {"funded", "locked", "job_started", "job_completed", "disputed", "resolved"}:
-            return False
-        if not self._escrow_amount_matches(escrow, payment):
-            return False
-        return self._escrow_parties_match(escrow, job)
-
-    @staticmethod
-    def _escrow_amount_matches(escrow: dict, payment: MarketJobPayment) -> bool:
-        amount = escrow.get("amount")
-        if amount is None:
-            return True
-        try:
-            locked = Decimal(str(amount))
-        except (ArithmeticError, ValueError):
-            return False
-        return locked.is_finite() and locked == payment.amount
-
-    def _escrow_parties_match(self, escrow: dict, job: MarketJob) -> bool:
-        for field, expected in (("buyer", job.buyer_address), ("provider", job.provider_address)):
-            actual = escrow.get(field)
-            if actual and expected and not self._addresses_match(actual, expected):
-                return False
-        return True
+        return locked_escrow_matches(
+            escrow,
+            amount=payment.amount,
+            buyer_address=job.buyer_address,
+            provider_address=job.provider_address,
+        )
 
     async def confirm_market_job_pin(
         self,

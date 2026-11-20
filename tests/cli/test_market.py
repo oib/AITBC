@@ -195,3 +195,96 @@ def test_market_escrow_refund_503_shows_detail(mock_market_config, monkeypatch):
         ["market", "escrow", "refund", "--job-id", "job-1"],
     )
     assert _REFUSAL_DETAIL in result.output
+
+
+def _settlement_503() -> NetworkError:
+    """NetworkError carrying a 503 whose detail names a loopback settlement node."""
+    response = requests.Response()
+    response.status_code = 503
+    response._content = json.dumps(
+        {"detail": "this node cannot sign escrow settlement transactions; the settlement node is at http://127.0.0.1:9999"}
+    ).encode()
+    try:
+        raise requests.HTTPError("503 Server Error", response=response)
+    except requests.HTTPError as e:
+        exc = NetworkError(f"POST request failed: {e}")
+        exc.__cause__ = e
+        return exc
+
+
+def _post_config() -> SimpleNamespace:
+    return SimpleNamespace(
+        blockchain_rpc_url="http://127.0.0.1:8202",
+        hub_discovery_url="",
+        hub_proposer_id="0x1111111111111111111111111111111111111111",
+        blockchain_rpc_api_key=None,
+        blockchain_rpc_settlement_api_key=None,
+    )
+
+
+def test_post_escrow_rpc_retries_named_settlement_node(monkeypatch):
+    """#2348: a settlement-incapable node's 503 names the settlement RPC —
+    release/refund must retry it instead of stopping after local+hub."""
+    from aitbc_cli.commands.market import escrow as escrow_mod
+
+    attempted: list[str] = []
+
+    class LocalClient:
+        def __init__(self, base_url=None, **kwargs):
+            self.base_url = base_url
+
+        def post(self, path, **kwargs):
+            attempted.append(self.base_url)
+            raise _settlement_503()
+
+    class SettlementClient:
+        def __init__(self, base_url=None, **kwargs):
+            self.base_url = base_url
+
+        def post(self, path, **kwargs):
+            attempted.append(self.base_url)
+            return {"success": True, "tx_hash": "0xrel"}
+
+    def fake_client(config, base, timeout=10):
+        if "9999" in base:
+            return SettlementClient(base_url=base)
+        return LocalClient(base_url=base)
+
+    monkeypatch.setattr(escrow_mod, "_get_rpc_client", fake_client)
+    monkeypatch.setattr(escrow_mod, "_hub_base_url", lambda config: "")
+
+    result, failures = escrow_mod._post_escrow_rpc(_post_config(), "/rpc/escrow/job-1/release", {})
+    assert result == {"success": True, "tx_hash": "0xrel"}
+    assert "http://127.0.0.1:9999" in attempted
+
+
+def test_post_escrow_rpc_refuses_foreign_settlement_url(monkeypatch):
+    """#2348: a server-named settlement URL outside hub/loopback is never
+    followed — an attacker-controlled detail must not redirect the POST."""
+    from aitbc_cli.commands.market import escrow as escrow_mod
+
+    attempted: list[str] = []
+
+    class RefusingClient:
+        def __init__(self, base_url=None, **kwargs):
+            self.base_url = base_url
+
+        def post(self, path, **kwargs):
+            attempted.append(self.base_url)
+            response = requests.Response()
+            response.status_code = 503
+            response._content = json.dumps(
+                {"detail": "cannot sign; the settlement node is at http://evil.example:8202"}
+            ).encode()
+            try:
+                raise requests.HTTPError("503", response=response)
+            except requests.HTTPError as e:
+                raise NetworkError(f"POST failed: {e}") from e
+
+    monkeypatch.setattr(escrow_mod, "_get_rpc_client", lambda config, base, timeout=10: RefusingClient(base_url=base))
+    monkeypatch.setattr(escrow_mod, "_hub_base_url", lambda config: "")
+
+    result, failures = escrow_mod._post_escrow_rpc(_post_config(), "/rpc/escrow/job-1/release", {})
+    assert result is None
+    assert all("evil.example" not in b for b in attempted)
+    assert failures

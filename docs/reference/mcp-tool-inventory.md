@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**825 tools** across 140 modules.
+**826 tools** across 141 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 136 |
-| generated | 566 |
+| generated | 567 |
 | other | 7 |
 | rpc | 116 |
 
@@ -77,6 +77,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_market_offer_list.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_payment.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_process.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_provider_pin.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_providers.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_rate.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_ratings.py | 1 |
@@ -610,6 +611,7 @@
 | `aitbc_market_offer_list` | mcp-server/aitbc_mcp_cli_tools_generated_market_offer_list.py | generated | `aitbc market offer-list` |
 | `aitbc_market_payment` | mcp-server/aitbc_mcp_cli_tools_generated_market_payment.py | generated | `aitbc market payment` |
 | `aitbc_market_process` | mcp-server/aitbc_mcp_cli_tools_generated_market_process.py | generated | `aitbc market process` |
+| `aitbc_market_provider_pin` | mcp-server/aitbc_mcp_cli_tools_generated_market_provider_pin.py | generated | `aitbc market provider-pin` |
 | `aitbc_market_providers` | mcp-server/aitbc_mcp_cli_tools_generated_market_providers.py | generated | `aitbc market providers` |
 | `aitbc_market_rate` | mcp-server/aitbc_mcp_cli_tools_generated_market_rate.py | generated | `aitbc market rate` |
 | `aitbc_market_ratings` | mcp-server/aitbc_mcp_cli_tools_generated_market_ratings.py | generated | `aitbc market ratings` |
