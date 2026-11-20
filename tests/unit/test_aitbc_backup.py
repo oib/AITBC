@@ -682,9 +682,61 @@ exec /usr/bin/tar "$@"
     log = _log(env)
     assert r.returncode == 0
     assert "tar rc=2 during archive (live churn); accepting readable snapshot" in log
+    # #2323: every expected member reached the archive — no completeness warn.
+    assert "INCOMPLETE" not in log
     assert "varlib-state catch-all: OK" in log
     today = next(d for d in env.base.iterdir() if d.is_dir())
     assert (today / "varlib-state.tar.gz").exists()
+
+
+def test_varlib_tar_rc2_missing_members_warns_but_keeps_snapshot(env):
+    """#2323: tar rc>=2 with a READABLE archive is not proof of completeness —
+    a member that vanished between find and tar is omitted silently (its
+    'Cannot stat' went to /dev/null). The run must keep the snapshot
+    (churn tolerance, #2313) but WARN with the missing member names."""
+    svc = _populate_svcdir(env)
+    (svc / "gone.txt").write_text("vanished before tar")
+    churn_tar = """#!/bin/sh
+case "$*" in
+  czf*varlib-state.tar.gz*)
+    # Emulate live churn: archive every listed member EXCEPT ./gone.txt,
+    # then exit 2 like GNU tar's 'Cannot stat' path. The real list file is
+    # left untouched so the script's expected-member diff still sees it.
+    dest="$2"; cdir=""; list=""
+    prev=""
+    for a in "$@"; do
+      [ "$prev" = "-C" ] && cdir="$a"
+      [ "$prev" = "--files-from" ] && list="$a"
+      prev="$a"
+    done
+    filtered="$(mktemp)"
+    tr '\\0' '\\n' < "$list" | grep -v 'gone\\.txt$' | tr '\\n' '\\0' > "$filtered"
+    (cd "$cdir" && /usr/bin/tar czf "$dest" --null --files-from "$filtered")
+    rc=$?
+    rm -f "$filtered"
+    exit 2;;
+esac
+exec /usr/bin/tar "$@"
+"""
+    bin_dir = env.tmp / "bin"
+    (bin_dir / "tar").write_text(churn_tar)
+    (bin_dir / "tar").chmod(0o755)
+
+    r = _run(env)
+    log = _log(env)
+    assert r.returncode == 0
+    assert "accepting readable snapshot" in log
+    assert "INCOMPLETE" in log
+    assert "gone.txt" in log
+    assert "varlib-state catch-all: OK" in log
+    today = next(d for d in env.base.iterdir() if d.is_dir())
+    archive = today / "varlib-state.tar.gz"
+    assert archive.exists()
+    # The kept member is really there; the churned one is really absent.
+    with tarfile.open(archive) as tf:
+        names = tf.getnames()
+    assert any(n.endswith("live-state.json") for n in names)
+    assert not any(n.endswith("gone.txt") for n in names)
 
 
 def test_varlib_tar_rc2_still_fails(env):
