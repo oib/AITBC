@@ -58,6 +58,8 @@ class _JobsMixin(_CoreMixin):
         async def _cas_payment_status(
             self, payment_id: str, from_statuses: frozenset[str] | str, values: dict[str, Any]
         ) -> bool: ...
+        # Provided by _JobsSettlementMixin via MarketService MRO; declared for mypy.
+        async def _job_token_escrow_verified(self, job: MarketJob, payment: MarketJobPayment | None) -> bool: ...
 
     async def complete_bid(
         self,
@@ -928,6 +930,14 @@ class _JobsMixin(_CoreMixin):
                             self.session.add(payment)
                             job.payment_status = "refund_pending"
                     await self.session.commit()
+                return None
+
+            # #2322 MARKET-TOKEN-ESCROW-BIND-1: the token buys shop work only
+            # while the job's escrow is locked on-chain. payment.status
+            # "pending" — every freshly registered job — used to pass, so any
+            # market-key holder could mint shop tokens with no escrow at all.
+            payment = await self.session.get(MarketJobPayment, job.payment_id) if job.payment_id else None
+            if not await self._job_token_escrow_verified(job, payment):
                 return None
 
             return {

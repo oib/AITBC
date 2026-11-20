@@ -141,6 +141,9 @@ def _register_paid_market_job(
     provider: str,
     service_type: str,
     amount: Decimal,
+    access_key: str | None = None,
+    access_secret: str | None = None,
+    escrow_job_id: str | None = None,
 ) -> tuple[str, str] | None:
     """Register the paid job with the market service and mint its access token.
 
@@ -149,16 +152,22 @@ def _register_paid_market_job(
     ``POST /v1/market/jobs`` — the raw ``_escrow_create`` path never made
     one, so every gated shop call 401'd (#2311). The caller-generated
     access_key/access_secret ride in the job payload; the market service
-    stores only the secret digest. Returns ``(key, secret)`` or None when
-    registration fails — the caller then falls back to env creds and the
-    shop's own 401 remains the refusal.
+    stores only the secret digest. ``ai submit`` passes the creds it already
+    embedded in the coordinator payload plus ``escrow_job_id`` — the
+    coordinator job id its on-chain escrow is keyed by — because its market
+    job id is deliberately distinct (#2322). Returns ``(key, secret)`` or
+    None when registration fails — the caller then falls back to env creds
+    and the shop's own 401 remains the refusal.
     """
     import secrets
 
     from ..ipfs import _hub_market_client
 
-    access_key = secrets.token_urlsafe(16)
-    access_secret = secrets.token_urlsafe(32)
+    access_key = access_key or secrets.token_urlsafe(16)
+    access_secret = access_secret or secrets.token_urlsafe(32)
+    token_payload: dict[str, Any] = {"access_key": access_key, "access_secret": access_secret}
+    if escrow_job_id:
+        token_payload["escrow_job_id"] = escrow_job_id
     job_data = {
         "id": job_id,
         "offer_id": offer.get("offer_id", ""),
@@ -167,7 +176,7 @@ def _register_paid_market_job(
         "model": offer.get("model", ""),
         "buyer_address": buyer,
         "provider_address": provider,
-        "payload": {"access_key": access_key, "access_secret": access_secret},
+        "payload": token_payload,
         # Long enough for the slowest gated call (ffmpeg's 3600s timeout)
         # plus release bookkeeping; the sweeper expires QUEUED rows after it.
         "ttl_seconds": 7200,

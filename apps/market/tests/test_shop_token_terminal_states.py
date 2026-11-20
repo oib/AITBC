@@ -14,6 +14,23 @@ from market_service.storage import get_session_context
 _TERMINAL = ("COMPLETED", "RELEASED", "EXPIRED", "CANCELED", "REFUNDED", "FAILED")
 _ACTIVE = ("QUEUED", "RUNNING")
 
+_BUYER = "0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76"
+_PROVIDER = "0x241D3e44d42b6d4c270d0231780913f14386d90C"
+
+
+class _LockedEscrow:
+    """#2322: the access-token check now requires locked on-chain escrow —
+    active-state jobs must present one or the token is denied."""
+
+    async def verify_escrow(self, job_id: str):
+        return {
+            "job_id": job_id,
+            "state": "locked",
+            "amount": "1.0",
+            "buyer": _BUYER,
+            "provider": _PROVIDER,
+        }
+
 
 async def _seed_access_job(session, *, tag: str, state: str) -> tuple[str, str]:
     svc = MarketService(session)
@@ -25,10 +42,11 @@ async def _seed_access_job(session, *, tag: str, state: str) -> tuple[str, str]:
         {
             "offer_id": "offer-1",
             "service_type": "ipfs",
-            "buyer_address": "0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76",
-            "provider_address": "0x241D3e44d42b6d4c270d0231780913f14386d90C",
+            "buyer_address": _BUYER,
+            "provider_address": _PROVIDER,
             "expires_at": (datetime.now(UTC) + timedelta(days=7)).isoformat(),
             "payload": {"cid": "QmTest", "access_key": ak, "access_secret": secret},
+            "payment": {"amount": "1.0"},
         }
     )
     job = await session.get(MarketJob, created["job_id"])
@@ -53,6 +71,7 @@ async def test_access_token_denied_for_terminal_job_states(state: str) -> None:
 async def test_access_token_allowed_for_active_job_states(state: str) -> None:
     async with get_session_context() as session:
         svc = MarketService(session)
+        svc._rpc_client = _LockedEscrow()  # type: ignore[assignment]
         ak, secret = await _seed_access_job(session, tag=state.lower(), state=state)
         tok = await svc.get_market_job_access_token(ak, secret)
         assert tok is not None

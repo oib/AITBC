@@ -370,16 +370,19 @@ def _apply_payment_fields(
         )
 
 
-def _attach_shop_access(ctx, job_data: dict[str, Any], *, model, payment, offer_id=None) -> None:
-    """Mint a market-service access token for gated-shop job types (#2316).
+def _attach_shop_access(ctx, job_data: dict[str, Any], *, payment=None, offer_id=None) -> str | None:
+    """Mint shop-gate credentials for gated-shop job types (#2316, #2321, #2322).
 
     ``ai submit --type transcribe`` lands on the miner's whisper call, which
     is gated by per-job tokens only the market service can verify — and only
-    the buyer-side CLI holds the user-tier key that mints them
+    the buyer-side CLI holds the user-tier key that registers them
     (``POST /v1/market/jobs``). Embed the credential triple in the payload so
     the miner forwards it verbatim (#1612). The market job id is deliberately
     distinct from the coordinator job id: it is a pure token record whose
-    escrow binding can never alias the coordinator escrow.
+    escrow binding can never alias the coordinator escrow — the real escrow
+    key travels separately as ``payload.escrow_job_id`` when the market job
+    is registered after submission (#2322). Returns the ``market_job_id``
+    for that deferred registration, or None for non-gated job types.
 
     Paid submissions only (#2321): an unpaid transcribe job is dispatchable
     (``_payment_blocks_dispatch`` returns None when no payment is priced),
@@ -392,29 +395,87 @@ def _attach_shop_access(ctx, job_data: dict[str, Any], *, model, payment, offer_
     market service; the market row stores only the digest.
     """
     if job_data["payload"].get("type") != "transcribe":
-        return
+        return None
     if not (payment or offer_id):
-        return
-    from ..market.jobs import _register_paid_market_job
+        return None
+    import secrets
 
     market_job_id = f"ai_job_{uuid.uuid4().hex[:16]}"
-    access = _register_paid_market_job(
+    payload = job_data["payload"]
+    payload["access_key"] = secrets.token_urlsafe(16)
+    payload["access_secret"] = secrets.token_urlsafe(32)
+    payload["market_job_id"] = market_job_id
+    return market_job_id
+
+
+def _register_shop_access_if_paid(
+    ctx,
+    job_data: dict[str, Any],
+    market_job_id: str | None,
+    coordinator_job_id: str,
+    *,
+    model,
+    payment,
+    escrow_amount,
+) -> None:
+    """#2322: register the deferred market job once the coordinator job id —
+    the on-chain escrow key the market verify endpoint checks — is known.
+    One POST; a failure only costs the gated-shop token, same as the
+    pre-#2322 warning path. No-op for unpaid submits (``market_job_id`` is
+    None — #2321).
+    """
+    if market_job_id is None:
+        return
+    _register_shop_access_job(
+        ctx,
+        job_data,
+        market_job_id,
+        coordinator_job_id,
+        model=model,
+        payment=payment,
+        escrow_amount=escrow_amount,
+    )
+
+
+def _register_shop_access_job(
+    ctx,
+    job_data: dict[str, Any],
+    market_job_id: str,
+    coordinator_job_id: str,
+    *,
+    model,
+    payment,
+    escrow_amount,
+) -> None:
+    """Register the deferred market job once the coordinator job id is known.
+
+    #2322: the market verify endpoint binds the token to on-chain escrow at
+    call time; for ``ai submit`` that escrow is keyed by the coordinator job
+    id, so it is recorded as ``payload.escrow_job_id`` on the token record.
+    The payment amount mirrors what the coordinator will actually lock
+    (``result.payment_amount``), falling back to ``--payment``.
+    """
+    from ..market.jobs import _register_paid_market_job
+
+    payload = job_data["payload"]
+    try:
+        amount = (
+            Decimal(str(escrow_amount)) if escrow_amount is not None else (Decimal(str(payment)) if payment else Decimal("0"))
+        )
+    except ArithmeticError:
+        amount = Decimal("0")
+    _register_paid_market_job(
         ctx,
         market_job_id,
         {"model": model or ""},
         str(job_data.get("buyer_address") or ""),
         str(job_data.get("provider_address") or ""),
         "whisper",
-        Decimal(str(payment)) if payment else Decimal("0"),
+        amount,
+        access_key=payload["access_key"],
+        access_secret=payload["access_secret"],
+        escrow_job_id=coordinator_job_id,
     )
-    if not access:
-        _ai.warning("Shop access token unavailable — the transcribe job will likely fail at the gated whisper endpoint")
-        return
-    access_key, access_secret = access
-    payload = job_data["payload"]
-    payload["access_key"] = access_key
-    payload["access_secret"] = access_secret
-    payload["market_job_id"] = market_job_id
 
 
 def _secure_escrow(
@@ -674,7 +735,7 @@ def submit(
             offer_id=offer_id,
             offer_quantity=offer_quantity,
         )
-        _attach_shop_access(ctx, job_data, model=model, payment=payment, offer_id=offer_id)
+        market_job_id = _attach_shop_access(ctx, job_data, payment=payment, offer_id=offer_id)
 
         # Pre-flight the chain round-trips the escrow step needs anyway when
         # we will sign it ourselves: an unreachable RPC or a missing buyer
@@ -693,6 +754,16 @@ def submit(
 
         job_id = cast(str, result.get("job_id"))
         _ai.success(f"Job submitted: {job_id}")
+
+        _register_shop_access_if_paid(
+            ctx,
+            job_data,
+            market_job_id,
+            job_id,
+            model=model,
+            payment=payment,
+            escrow_amount=result.get("payment_amount"),
+        )
 
         payment_id = _secure_escrow(
             ctx,
