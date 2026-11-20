@@ -33,6 +33,11 @@ class NodeConfig(BaseModel):
     # refuses block import, block proposal, and attestation signing).
     db_integrity_check_enabled: bool = True
     db_integrity_check_interval_seconds: float = 60.0
+    # #2205: the node process writes its metrics_registry to DATA_DIR/node_metrics.prom
+    # every interval so the RPC /metrics can show consensus counters that live in the
+    # node process (separate registry). No port; staleness <= one interval.
+    node_metrics_snapshot_enabled: bool = True
+    node_metrics_snapshot_interval_seconds: float = 5.0
     # #1615 CHAINDB-FK-ENFORCE-1: enforce declared FOREIGN KEY constraints on
     # every chain.db connection (PRAGMA foreign_keys=ON in _set_sqlite_pragmas).
     # Default OFF pending the escrow write-path audit: the Escrow row is
