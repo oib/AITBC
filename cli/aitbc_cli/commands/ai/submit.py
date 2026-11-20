@@ -2,6 +2,7 @@
 
 import os
 import time
+import uuid
 from decimal import Decimal
 from typing import Any, cast
 
@@ -369,6 +370,41 @@ def _apply_payment_fields(
         )
 
 
+def _attach_shop_access(ctx, job_data: dict[str, Any], *, model, payment) -> None:
+    """Mint a market-service access token for gated-shop job types (#2316).
+
+    ``ai submit --type transcribe`` lands on the miner's whisper call, which
+    is gated by per-job tokens only the market service can verify — and only
+    the buyer-side CLI holds the user-tier key that mints them
+    (``POST /v1/market/jobs``). Embed the credential triple in the payload so
+    the miner forwards it verbatim (#1612). The market job id is deliberately
+    distinct from the coordinator job id: it is a pure token record whose
+    escrow binding can never alias the coordinator escrow.
+    """
+    if job_data["payload"].get("type") != "transcribe":
+        return
+    from ..market.jobs import _register_paid_market_job
+
+    market_job_id = f"ai_job_{uuid.uuid4().hex[:16]}"
+    access = _register_paid_market_job(
+        ctx,
+        market_job_id,
+        {"model": model or ""},
+        str(job_data.get("buyer_address") or ""),
+        str(job_data.get("provider_address") or ""),
+        "whisper",
+        Decimal(str(payment)) if payment else Decimal("0"),
+    )
+    if not access:
+        _ai.warning("Shop access token unavailable — the transcribe job will likely fail at the gated whisper endpoint")
+        return
+    access_key, access_secret = access
+    payload = job_data["payload"]
+    payload["access_key"] = access_key
+    payload["access_secret"] = access_secret
+    payload["market_job_id"] = market_job_id
+
+
 def _secure_escrow(
     ctx,
     http_client: _ai.AITBCHTTPClient,
@@ -626,6 +662,7 @@ def submit(
             offer_id=offer_id,
             offer_quantity=offer_quantity,
         )
+        _attach_shop_access(ctx, job_data, model=model, payment=payment)
 
         # Pre-flight the chain round-trips the escrow step needs anyway when
         # we will sign it ourselves: an unreachable RPC or a missing buyer
