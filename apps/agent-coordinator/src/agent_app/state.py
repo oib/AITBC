@@ -11,6 +11,7 @@ if TYPE_CHECKING:
     from .routing.load_balancer import LoadBalancer, TaskDistributor
     from .services.chain_escrow import ChainEscrowClient
     from .storage.message_storage import MessageStorage, PeerStorage
+    from .workflow.orchestrator import WorkflowOrchestrator
 
 agent_registry: AgentRegistry | None = None
 discovery_service: AgentDiscoveryService | None = None
@@ -22,3 +23,6 @@ message_storage: MessageStorage | None = None
 peer_storage: PeerStorage | None = None
 payment_escrow: PaymentEscrow | None = None  # v0.6.5
 escrow_rpc: ChainEscrowClient | None = None  # v0.25: on-chain escrow RPC path
+workflow_orchestrator: WorkflowOrchestrator | None = (
+    None  # #2014: started in lifespan; routers share the get_orchestrator() singleton
+)
