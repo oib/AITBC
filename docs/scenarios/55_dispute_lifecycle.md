@@ -66,13 +66,15 @@ customer opens a dispute instead of accepting the escrow release.
 aitbc dispute file \
   --agreement-id 12 \
   --respondent 0xab0797Ae... \
-  --dispute-type non_delivery \
+  --dispute-type Performance \
   --reason "job never returned a result" \
   --evidence-hash 0x9f2c...
 ```
 
 All five options are required. `--evidence-hash` is the hash of the supporting
-evidence bundle (e.g. the coordinator job log).
+evidence bundle (e.g. the coordinator job log). `--dispute-type` must be one of
+the on-chain enum values — `Performance`, `Payment`, `ServiceQuality`,
+`Availability`, `Other` (PascalCase; e.g. `non_delivery` is rejected).
 
 ### 2. Confirm it is open
 

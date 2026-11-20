@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: [Scenario 19 Security Setup](./19_security_setup.md)
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-11-19
+**Version**: 1.4
 
 ## Navigation Path
 
@@ -95,8 +95,9 @@ Check available exchange rates between chains. Without filters, all rates are di
 # Show all cross-chain rates
 aitbc crosschain rates
 
-# Show rate for a specific pair
-aitbc crosschain rates --from-chain bc-2 --to-chain bc-2
+# Show rate for a specific pair (source and target must differ —
+# same-chain pairs are refused by `crosschain swap`/`bridge`)
+aitbc crosschain rates --from-chain bc-2 --to-chain bc-2-island-1
 ```
 
 **Expected output (no rates configured):**
@@ -107,7 +108,7 @@ Cross-chain swap rates (operator-configured):
 No configured swap rates; same-asset pairs settle at parity (1.0)
 ```
 
-Rates come from the node's `cross_chain_swap_rates` setting (e.g. `bc-2::bc-3=1.05`). There is no cross-chain AMM, so pairs without a configured rate are refused rather than priced from a fabricated table; same-asset pairs always settle at parity.
+Rates come from the node's `cross_chain_swap_rates` setting (e.g. `bc-2::bc-3=1.05`). There is no cross-chain AMM, so pairs without a configured rate are refused rather than priced from a fabricated table; same-asset pairs always settle at parity. `crosschain swap` and `crosschain bridge` require `--from-chain`/`--source-chain` and `--to-chain`/`--target-chain` to be **different** chains — a same-chain pair is refused with "Source and target chains must be different". On the reference fleet the working second chain is `bc-2-island-1` (the island chain released by node1's bridge relayer).
 
 ### Step 2: Create a Cross-Chain Swap
 
@@ -116,7 +117,7 @@ Initiate a token swap between two chains. The `--from-chain`, `--to-chain`, `--f
 ```bash
 aitbc crosschain swap \
     --from-chain bc-2 \
-    --to-chain bc-2 \
+    --to-chain bc-2-island-1 \
     --from-token AIT \
     --to-token AIT \
     --amount 100 \
@@ -133,7 +134,7 @@ Cross-chain swap locked on the source chain
 Swap ID           swap_abc123
 Transfer ID       0x9f2c...        # real BRIDGE_LOCK transaction hash
 From Chain        bc-2
-To Chain          bc-2
+To Chain          bc-2-island-1
 Amount            100
 Expected Amount   100
 Rate              1.0
@@ -165,7 +166,7 @@ aitbc crosschain status --swap-id swap_abc123
 Swap ID           swap_abc123
 Transfer ID       0x9f2c...
 From Chain        bc-2
-To Chain          bc-2
+To Chain          bc-2-island-1
 From Token        AIT
 To Token          AIT
 Amount            100
@@ -215,7 +216,7 @@ Bridge tokens from one chain to another using the bridge subcommand.
 ```bash
 aitbc crosschain bridge \
     --source-chain bc-2 \
-    --target-chain bc-2 \
+    --target-chain bc-2-island-1 \
     --token AIT \
     --amount 500 \
     --wallet wallet-1 \
@@ -229,7 +230,7 @@ Cross-chain bridge lock submitted
 
 Bridge ID         0x9f2c...        # transfer id == real source tx hash
 Source Chain      bc-2
-Target Chain      bc-2
+Target Chain      bc-2-island-1
 Token             AIT
 Amount            500
 Bridge Fee        0.5
@@ -254,7 +255,7 @@ aitbc crosschain bridge-status --bridge-id 0x9f2c... --wait
 
 Bridge ID           0x9f2c...
 Source Chain        bc-2
-Target Chain        bc-2
+Target Chain        bc-2-island-1
 Asset               AIT
 Amount              500
 Sender              0xsender...
@@ -487,7 +488,7 @@ async def main():
         [
             "aitbc", "crosschain", "swap",
             "--from-chain", "bc-2",
-            "--to-chain", "bc-2",
+            "--to-chain", "bc-2-island-1",
             "--from-token", "AIT",
             "--to-token", "AIT",
             "--amount", "100",
@@ -556,5 +557,5 @@ aitbc crosschain pools
 
 ---
 
-*Last updated: 2026-09-15*
-*Version: 1.3 — GAP-47: swap/bridge now submit signed real BRIDGE_LOCK transactions; statuses come from the genuine bridge lifecycle (`pending`/`locked`/`confirmed`/`completed`/`failed`/`refunded`), `--wait` polls real status, and `crosschain confirm` relays a pending transfer with its Merkle proof.*
+*Last updated: 2026-11-19*
+*Version: 1.4 — GAP-47: swap/bridge now submit signed real BRIDGE_LOCK transactions; statuses come from the genuine bridge lifecycle (`pending`/`locked`/`confirmed`/`completed`/`failed`/`refunded`), `--wait` polls real status, and `crosschain confirm` relays a pending transfer with its Merkle proof. v1.4: examples moved off the impossible same-chain bc-2→bc-2 pair to the verified bc-2→bc-2-island-1 lane (CLI refuses identical chains).*
