@@ -13,6 +13,7 @@ Commands:
 from __future__ import annotations
 
 import json
+import os
 import sys
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -39,6 +40,26 @@ from ...utils.wallet_loader import load_wallet_for_payment
 from ._signing import signed_job_request_fields
 
 logger = get_logger(__name__)
+
+
+# The coordinator holds POST /v1/market/gpu/purchase open while it waits for the
+# escrow lock to seal (ESCROW_LOCK_SEAL_WAIT_SECONDS, 180 s on hub; bc-2 blocks
+# land every ~79 s). A 30 s client timeout made every real purchase report
+# "outcome unknown" on a purchase that had succeeded (#2302).
+_PURCHASE_TIMEOUT_DEFAULT_SECONDS = 240.0
+
+
+def _purchase_timeout() -> float:
+    """Read timeout for the purchase POST; ``AITBC_GPU_BUY_TIMEOUT_SECONDS`` overrides."""
+    raw = os.environ.get("AITBC_GPU_BUY_TIMEOUT_SECONDS", "").strip()
+    if raw:
+        try:
+            value = float(raw)
+        except ValueError:
+            return _PURCHASE_TIMEOUT_DEFAULT_SECONDS
+        if value > 0:
+            return value
+    return _PURCHASE_TIMEOUT_DEFAULT_SECONDS
 
 
 def _coordinator_url() -> str:
@@ -522,7 +543,7 @@ def _buy_native(
     )
 
     # Submit to the coordinator's escrow create endpoint.
-    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
+    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=_purchase_timeout(), headers=_auth_headers(ctx))
     payload: dict[str, Any] = {
         "buyer_id": buyer_id,
         "gpu_id": gpu_id,
@@ -695,7 +716,7 @@ def _notify_evm_purchase(
     agreement_id: int,
 ) -> None:
     """Notify the coordinator of the EVM rental and print the result."""
-    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
+    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=_purchase_timeout(), headers=_auth_headers(ctx))
     payload: dict[str, Any] = {
         "buyer_id": buyer_id,
         "gpu_id": gpu_id,
