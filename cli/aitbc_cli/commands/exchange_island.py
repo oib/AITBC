@@ -495,6 +495,26 @@ def _simulated_notice(what: str, simulated: bool) -> str:
     return " (Simulated)"
 
 
+def _fetch_exchange_transactions(http_client: AITBCHTTPClient, params: dict[str, Any]) -> list[Any]:
+    """Fetch EXCHANGE rows, merging ``status=cancelled`` rows when asking for open ones.
+
+    The RPC ``status`` filter matches the payload status, so ``status=open``
+    excludes cancel action rows entirely — ``_apply_cancels`` would then see
+    no cancels and cancelled orders would read as open forever. Fetch the
+    cancelled rows too so cancel correlation works (#2338).
+    """
+    rows = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
+    if params.get("status") == "open":
+        cancel_params = {**params, "status": "cancelled"}
+        seen = {r.get("transaction_id") or r.get("tx_hash") for r in rows}
+        for extra in _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=cancel_params)):
+            key = extra.get("transaction_id") or extra.get("tx_hash")
+            if key not in seen:
+                seen.add(key)
+                rows.append(extra)
+    return rows
+
+
 def _orderbook_transactions(rpc_endpoint: str, island_id: str, pair: str, limit: int) -> tuple[list[Any], bool]:
     """Query open exchange orders; simulated fallback when the RPC is down.
 
@@ -512,7 +532,7 @@ def _orderbook_transactions(rpc_endpoint: str, island_id: str, pair: str, limit:
     http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
     simulated = False
     try:
-        transactions = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
+        transactions = _fetch_exchange_transactions(http_client, params)
     except NetworkError:
         transactions = _simulated_orderbook_transactions(pair, limit)
         simulated = True
@@ -644,7 +664,7 @@ def rates(ctx):
 
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
             try:
-                orders = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
+                orders = _fetch_exchange_transactions(http_client, params)
                 orders, _rates_cancelled = _apply_cancels(orders)
                 orders = [o for o in orders if ((o.get("payload") or o).get("order_id") not in _rates_cancelled)]
             except NetworkError:
@@ -717,7 +737,7 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
         http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
         simulated = False
         try:
-            orders = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
+            orders = _fetch_exchange_transactions(http_client, params)
         except NetworkError:
             orders = _simulated_order_list(user, status, pair, island_id)
             simulated = True
