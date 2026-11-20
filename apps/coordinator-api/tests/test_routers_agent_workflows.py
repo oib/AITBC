@@ -188,3 +188,11 @@ class TestWorkflowExecuteGate:
         )
         assert resp.status_code == 501
         assert "simulation" in resp.json()["detail"].lower()
+
+
+@pytest.mark.unit
+class TestExecutionStatusNotFound:
+    def test_unknown_execution_is_404_not_500(self, client: TestClient) -> None:
+        """#2343: orchestrator raises ValueError('Execution not found') — must map to 404."""
+        resp = client.get("/v1/agents/executions/does-not-exist/status", headers=_admin_a())
+        assert resp.status_code == 404
