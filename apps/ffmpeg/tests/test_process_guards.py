@@ -179,6 +179,75 @@ def test_process_builds_expected_argv(monkeypatch) -> None:
     # (filename asserted via the patched _ipfs_add_file below)
 
 
+# --- SHOP-LOGGING-SILENT-500-1 (#2320): failures must reach the journal ---
+
+
+class _LogRecorder:
+    """Stand-in for the module logger that captures (level, rendered msg)."""
+
+    def __init__(self) -> None:
+        self.records: list[tuple[str, str]] = []
+
+    def _rec(self, level: str, msg: object, args: tuple, kwargs: dict) -> None:
+        self.records.append((level, msg % args if args else str(msg)))
+
+    def error(self, msg, *args, **kwargs) -> None:
+        self._rec("error", msg, args, kwargs)
+
+    def warning(self, msg, *args, **kwargs) -> None:
+        self._rec("warning", msg, args, kwargs)
+
+    def exception(self, msg, *args, **kwargs) -> None:
+        self._rec("exception", msg, args, kwargs)
+
+    def info(self, msg, *args, **kwargs) -> None:
+        self._rec("info", msg, args, kwargs)
+
+    def debug(self, msg, *args, **kwargs) -> None:
+        self._rec("debug", msg, args, kwargs)
+
+
+def test_process_ffmpeg_failure_logs_stderr(monkeypatch) -> None:
+    """#2320: a non-zero ffmpeg exit stays a 500 but must leave stderr in the
+    journal — the old logger.exception() ran with no active exception and
+    logged 'NoneType: None'."""
+
+    async def failing_run(cmd, timeout):
+        if "-i" not in cmd:
+            return subprocess.CompletedProcess(cmd, 0, "cuda\n", "")
+        return subprocess.CompletedProcess(cmd, 1, "", "Invalid data found when processing input")
+
+    monkeypatch.setattr(ffmpeg_main, "_run_cmd", failing_run)
+    rec = _LogRecorder()
+    monkeypatch.setattr(ffmpeg_main, "logger", rec)
+
+    with pytest.raises(Exception) as ei:
+        _process()
+    assert _http_status(ei.value) == 500
+    assert ffmpeg_main._inflight == 0
+    assert any(level == "error" and "Invalid data found when processing input" in msg for level, msg in rec.records)
+
+
+def test_process_unexpected_failure_is_logged(monkeypatch) -> None:
+    """#2320: a genuine service fault (subprocess spawn failure, timeout)
+    propagates as a 500 but must be logged via logger.exception — under
+    log_level="critical" it left no journal trace at all."""
+
+    async def boom(cmd, timeout):
+        if "-i" not in cmd:
+            return subprocess.CompletedProcess(cmd, 0, "cuda\n", "")
+        raise OSError("spawn failed")
+
+    monkeypatch.setattr(ffmpeg_main, "_run_cmd", boom)
+    rec = _LogRecorder()
+    monkeypatch.setattr(ffmpeg_main, "logger", rec)
+
+    with pytest.raises(OSError):
+        _process()
+    assert ffmpeg_main._inflight == 0
+    assert any(level == "exception" and "ffmpeg transcode failed" in msg for level, msg in rec.records)
+
+
 def _fake_ffmpeg_run(monkeypatch) -> None:
     """Default happy-path mocks: ffmpeg succeeds, ffprobe reports duration,
     IPFS returns a CID."""

@@ -348,6 +348,18 @@ async def run_hermes(request: HermesRunRequest, _cred: None = Depends(_require_r
     await _run_semaphore.acquire()
     try:
         return await _run_hermes_inner(request)
+    except HTTPException:
+        # Deliberate answers (400 allowlist/reasoning rejections, 503
+        # unconfigured-offer, 502 nonzero exit, 504 timeout — all carrying a
+        # detail) are already specific — do not double-log them as faults.
+        raise
+    except Exception:
+        # A genuine service fault — subprocess spawn failure, tempfile
+        # errors, anything unexpected — stays a 500 but must leave a trace:
+        # uvicorn ran at log_level="critical" and paid-job failures were
+        # completely silent (#2320).
+        logger.exception("hermes run failed")
+        raise
     finally:
         _run_semaphore.release()  # noqa: unawaited-async — Semaphore.release() is synchronous
 
@@ -432,6 +444,9 @@ async def _run_hermes_inner(request: HermesRunRequest):
             logger.debug("usage stats unreadable, starting empty: %s", exc)
 
     if timed_out:
+        # A paid job that hits the wall-clock bound still needs a journal
+        # line — the 504 detail only reaches the caller (#2320).
+        logger.warning("hermes run exceeded max_time of %ss", request.max_time)
         raise HTTPException(
             status_code=504,
             detail="Hermes run exceeded max_time of " + str(request.max_time) + "s",
@@ -470,4 +485,9 @@ if __name__ == "__main__":
     # code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
     host = os.getenv("HERMES_BIND_HOST", "0.0.0.0")
     port = int(os.getenv("HERMES_BIND_PORT", os.getenv("HERMES_PORT", "8270")))
-    uvicorn.run(app, host=host, port=port, log_level="critical", access_log=False)
+    # log_level="critical" made every handler traceback invisible — paid-job
+    # failures left no journal trace at all (#2320, the same gap #2319 fixed
+    # in whisper). "info" surfaces uvicorn.error tracebacks without
+    # per-request noise; access_log stays off because /health and
+    # /capabilities polling would flood the journal.
+    uvicorn.run(app, host=host, port=port, log_level="info", access_log=False)

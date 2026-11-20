@@ -464,6 +464,29 @@ def _hash_file(path: str) -> str:
     return digest.hexdigest()
 
 
+async def _execute_ffmpeg(cmd: list[str], output_path: str) -> None:
+    """Run the transcode and validate the artifact.
+
+    A non-zero exit conflates undecodable client media with encoder/hardware
+    faults — there is no typed decode-error family like whisper's PyAV surface
+    to split them on, so this stays a 500. What must not stay silent is the
+    cause: stderr is the only diagnostic a failed paid transcode leaves
+    (#2320). The old logger.exception() ran outside an except block and logged
+    "NoneType: None". _validate_output's deliberate 500s (exit-0-but-bad-
+    artifact anomalies) warn-log their detail before re-raising.
+    """
+    process = await _run_cmd(cmd, timeout=3600)  # 1 hour timeout
+    if process.returncode != 0:
+        stderr_tail = (process.stderr or "").strip()[-1000:]
+        logger.error("ffmpeg exited %s: %s", process.returncode, stderr_tail or "<no stderr>")
+        raise HTTPException(status_code=500, detail="Internal server error")
+    try:
+        await _validate_output(output_path)
+    except HTTPException as exc:
+        logger.warning("ffmpeg output validation failed: %s", exc.detail)
+        raise
+
+
 @app.post("/process", dependencies=[Depends(require_job_access)])
 async def process_video(
     file: Annotated[UploadFile, File(...)],
@@ -513,16 +536,9 @@ async def process_video(
         cmd = _build_ffmpeg_cmd(codec_key, bitrate_value, resolution, input_path, output_path)
 
         # Run FFmpeg
-        process = await _run_cmd(cmd, timeout=3600)  # 1 hour timeout
+        await _execute_ffmpeg(cmd, output_path)
 
         elapsed = round(time.time() - t_start, 2)
-
-        if process.returncode != 0:
-            logger.exception("Unhandled exception")
-
-            raise HTTPException(status_code=500, detail="Internal server error")
-
-        await _validate_output(output_path)
 
         file_hash = _hash_file(output_path)
 
@@ -556,6 +572,18 @@ async def process_video(
             }
         )
 
+    except HTTPException:
+        # Deliberate answers (the 500 output-validation and 502 IPFS-upload
+        # failures carry a detail) are already specific — the 502 path logs
+        # itself; do not double-log.
+        raise
+    except Exception:
+        # A genuine service fault — subprocess spawn failure, the 3600s
+        # timeout kill, an unexpected error — stays a 500 but must leave a
+        # trace: uvicorn ran at log_level="critical" and paid-job failures
+        # were completely silent (#2320).
+        logger.exception("ffmpeg transcode failed")
+        raise
     finally:
         # Cleanup input and output files — the output is delivered through
         # IPFS, keeping it local was the #799 tmpfs leak. The concurrency
@@ -574,4 +602,9 @@ if __name__ == "__main__":
     host = os.getenv("FFMPEG_BIND_HOST", "0.0.0.0")
     port = int(os.getenv("FFMPEG_BIND_PORT", os.getenv("FFMPEG_PORT", "8230")))
 
-    uvicorn.run(app, host=host, port=port, log_level="critical", access_log=False)
+    # log_level="critical" made every handler traceback invisible — paid-job
+    # failures left no journal trace at all (#2320, the same gap #2319 fixed
+    # in whisper). "info" surfaces uvicorn.error tracebacks without
+    # per-request noise; access_log stays off because /health and
+    # /capabilities polling would flood the journal.
+    uvicorn.run(app, host=host, port=port, log_level="info", access_log=False)
