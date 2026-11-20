@@ -39,6 +39,8 @@ import uuid
 from datetime import UTC, datetime
 from typing import Any
 
+import click
+
 from aitbc.crypto.agent_envelope import (
     AGENT_MSG_SIGNATURE_VERSION,
     AGENT_REQ_DOMAIN,
@@ -52,7 +54,9 @@ from aitbc.crypto.agent_envelope import (
 )
 from aitbc.crypto.signature_recovery import canonical_address
 
+from .error_handling import abort
 from .wallet_loader import load_wallet_for_payment
+from .wallet_secret import wallet_password_options
 
 logger = logging.getLogger(__name__)
 
@@ -109,6 +113,54 @@ def load_signing_wallet(
     if not private_key:
         raise ValueError(f"Wallet '{name}' has no usable private key for signing")
     return address, private_key
+
+
+def read_signing_options(fn):
+    """Shared ``--wallet``/``--signing-agent-id`` options for coordinator reads.
+
+    The coordinator's ``/v1/agents/*`` read routes require an authenticated
+    principal (#2212): a ``aitbc auth login`` JWT for a different service does
+    not resolve here, so reads need the same ``X-Agent-*`` signed headers the
+    inbox path uses. Apply as a click decorator above ``@click.pass_context``.
+    """
+    fn = click.option(
+        "--signing-agent-id",
+        "signing_agent_id",
+        default=None,
+        help="Registered agent ID the wallet is bound to (default: $AGENT_ID); required with --wallet",
+    )(fn)
+    fn = click.option(
+        "--wallet",
+        "wallet_name",
+        default=None,
+        help="Wallet signing the read request headers (default: $AITBC_DEFAULT_WALLET)",
+    )(fn)
+    return wallet_password_options(fn)
+
+
+def signed_read_headers(
+    ctx,
+    signing_agent_id: str | None,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+) -> dict[str, str] | None:
+    """``X-Agent-*`` headers for a signed read, or ``None`` when unsigned."""
+    signing = load_signing_wallet(
+        ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
+    )
+    if signing is None:
+        return None
+    agent_id = signing_agent_id or os.environ.get("AGENT_ID")
+    if not agent_id:
+        abort(
+            ctx,
+            "--wallet requires --signing-agent-id (or AGENT_ID env): the coordinator "
+            "authenticates agent reads via X-Agent-* headers bound to a registered agent",
+        )
+        return None
+    return signed_request_headers(agent_id, signing[1])
 
 
 def sign_send_envelope(body: dict[str, Any], signer_address: str, private_key: str) -> dict[str, Any]:
