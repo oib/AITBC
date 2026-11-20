@@ -456,7 +456,11 @@ def _gpu_compute_requested_seconds(payload):
 
 def _job_deadline(job):
     """The job's expires_at as epoch seconds (a number or an ISO-8601 string), else None."""
-    raw = job.get("expires_at")
+    return _epoch_seconds(job.get("expires_at"))
+
+
+def _epoch_seconds(raw):
+    """A timestamp as epoch seconds: number or ISO-8601 string, else None."""
     if isinstance(raw, bool):
         return None
     if isinstance(raw, (int, float)):
@@ -465,10 +469,35 @@ def _job_deadline(job):
         try:
             parsed = datetime.fromisoformat(raw.replace("Z", "+00:00"))
         except ValueError:
-            logger.warning("Ignoring unparsable expires_at %r", raw)
+            logger.warning("Ignoring unparsable timestamp %r", raw)
             return None
         return (parsed if parsed.tzinfo else parsed.replace(tzinfo=UTC)).timestamp()
     return None
+
+
+def _gpu_compute_rental_window(job):
+    """#2317: the coordinator's rental-window fields, or None when absent.
+
+    ``AssignedJob.gpu_compute`` carries ``started_at`` (RUNNING entry),
+    ``duration_seconds`` (purchased) and ``rental_deadline`` (hard cutoff,
+    epoch seconds). Older coordinators omit the block entirely — callers then
+    keep the previous full-duration/expires_at behaviour.
+    """
+    info = job.get("gpu_compute")
+    if not isinstance(info, dict):
+        return None
+    started = _epoch_seconds(info.get("started_at"))
+    deadline = _epoch_seconds(info.get("rental_deadline"))
+    raw_duration = info.get("duration_seconds")
+    try:
+        purchased = float(raw_duration) if raw_duration is not None else None
+    except (TypeError, ValueError):
+        purchased = None
+    if purchased is not None and not math.isfinite(purchased):
+        purchased = None
+    if started is None and deadline is None and purchased is None:
+        return None
+    return {"started_at": started, "duration_seconds": purchased, "rental_deadline": deadline}
 
 
 def _execute_gpu_compute(job):
@@ -488,7 +517,26 @@ def _execute_gpu_compute(job):
     task = payload.get("task", "general_compute")
     requested_seconds = _gpu_compute_requested_seconds(payload)
     duration_seconds = min(requested_seconds, _gpu_compute_max_seconds())
-    deadline = _job_deadline(job)
+    # #2317: on a resumed rental (miner restart / reconcile re-dispatch) the
+    # purchased window started at the job's RUNNING entry, not now — hold only
+    # the remaining purchased seconds, and break at the coordinator's rental
+    # deadline rather than expires_at when the dispatch shape carries it.
+    window = _gpu_compute_rental_window(job)
+    hold_seconds = duration_seconds
+    if window is not None:
+        started = window["started_at"]
+        purchased = window["duration_seconds"]
+        if started is not None and purchased is not None and purchased > 0:
+            remaining = started + purchased - time.time()
+            hold_seconds = min(max(remaining, 0.0), duration_seconds)
+            if hold_seconds < duration_seconds:
+                logger.info(
+                    "Job %s resumes a gpu_compute rental: %ss of %ss purchased remain",
+                    job_id,
+                    hold_seconds,
+                    purchased,
+                )
+    deadline = (window or {}).get("rental_deadline") or _job_deadline(job)
     if duration_seconds < requested_seconds:
         logger.warning(
             "Job %s asked for %ss of GPU compute; holding %ss (%s)",
@@ -504,11 +552,11 @@ def _execute_gpu_compute(job):
 
     # Hold the reservation in small sleeps so we can still be interrupted.
     elapsed = 0
-    while elapsed < duration_seconds:
+    while elapsed < hold_seconds:
         if deadline is not None and time.time() >= deadline:
-            logger.warning("Job %s passed its deadline after %ss of %ss; ending the rental", job_id, elapsed, duration_seconds)
+            logger.warning("Job %s passed its deadline after %ss of %ss; ending the rental", job_id, elapsed, hold_seconds)
             break
-        sleep_chunk = min(5, duration_seconds - elapsed)
+        sleep_chunk = min(5, hold_seconds - elapsed)
         time.sleep(sleep_chunk)
         elapsed += sleep_chunk
 
