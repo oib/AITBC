@@ -197,6 +197,57 @@ def _to_utc(dt: datetime | None) -> datetime | None:
     return dt
 
 
+# #2306: a gpu_compute rental's expires_at is a *queue* deadline measured from
+# request time — escrow seal-wait plus dispatch delay eat into it, so a job
+# that starts RUNNING late can hit expires_at mid-rental and the sweeper
+# refunds the buyer while the provider works unpaid. On claim we extend
+# expires_at to cover the remaining rental plus submission slack; QUEUED
+# expiry is unchanged (a stale rental still must not dispatch).
+_GPU_COMPUTE_CLAIM_SLACK_SECONDS = int(os.getenv("COORDINATOR_GPU_JOB_CLAIM_SLACK_SECONDS", "900"))
+
+
+def _payload_duration_seconds(payload: dict[str, Any]) -> float:
+    """Rental seconds from a job payload: ``duration_seconds`` or ``duration_hours``."""
+    raw = payload.get("duration_seconds")
+    if raw is None:
+        raw = (payload.get("duration_hours") or 0) * 3600
+    try:
+        return float(raw)
+    except (TypeError, ValueError):
+        return 0.0
+
+
+def _gpu_compute_claim_expiry(job: Job) -> datetime | None:
+    """Return the extended expires_at for a claimed gpu_compute job, or None.
+
+    Covers the payload's rental duration measured from claim time, plus a
+    fixed slack for result submission. Returns None for non-gpu_compute
+    payloads, missing/invalid durations, or when the existing expires_at
+    already reaches further — the extension only ever pushes expiry out,
+    never shortens it.
+    """
+    payload = job.payload or {}
+    if payload.get("type") != "gpu_compute":
+        return None
+    duration_seconds = _payload_duration_seconds(payload)
+    if duration_seconds <= 0:
+        return None
+    extended = datetime.now(UTC) + timedelta(seconds=int(duration_seconds) + _GPU_COMPUTE_CLAIM_SLACK_SECONDS)
+    existing = _to_utc(job.expires_at)
+    if existing is not None and existing >= extended:
+        return None
+    return extended
+
+
+def _claim_update_values(job: Job, miner: Miner) -> dict[str, Any]:
+    """Column values for the QUEUED→RUNNING claim CAS, incl. #2306 expiry extension."""
+    values: dict[str, Any] = {"state": "RUNNING", "assigned_miner_id": miner.id}
+    expiry = _gpu_compute_claim_expiry(job)
+    if expiry is not None:
+        values["expires_at"] = expiry
+    return values
+
+
 def _offer_binding_allows(job: Job, miner: Miner) -> bool:
     """D3: G1 binds the offer to a specific provider. A job quoted against one
     provider's offer must not be satisfied by another miner, even if that
@@ -708,7 +759,7 @@ class JobService:
             claim = self.session.execute(
                 update(Job)
                 .where(Job.id == job.id, Job.state == "QUEUED")  # type: ignore[arg-type]
-                .values(state="RUNNING", assigned_miner_id=miner.id)
+                .values(**_claim_update_values(job, miner))
                 .execution_options(synchronize_session=False)
             )
             if getattr(claim, "rowcount", 0) != 1:
