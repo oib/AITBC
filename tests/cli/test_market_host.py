@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+from eth_account import Account
+
 from aitbc_cli.commands.market import host as host_module
 
 
@@ -285,3 +287,82 @@ class TestCoordinatorHostEscrow:
                 "sw_job_ipfs_test",
             )
         orphan.assert_called_once_with(None, "sw_job_ipfs_test", "c-1")
+
+
+class TestProviderPin:
+    """#2348: provider-side pin + attestation + rental-token registration."""
+
+    def test_attestation_posts_signed_provider_confirmed(self):
+        posted = {}
+
+        class _Client:
+            def post(self, path, json=None):
+                posted["path"] = path
+                posted["json"] = json
+                return {"state": "RUNNING"}
+
+        signer = Account.create()
+        with (
+            patch.object(host_module, "_market_client", return_value=_Client()),
+            patch.object(host_module, "get_chain_id", return_value="test-chain"),
+            patch.object(host_module.time, "time", return_value=1700000000),
+        ):
+            result = host_module._provider_pin_attestation(
+                ctx=None,
+                job_id="j1",
+                cid="QmX",
+                size=42,
+                wallet_address=signer.address,
+                private_key=signer.key.hex(),
+            )
+        assert result == {"state": "RUNNING"}
+        assert posted["path"] == "/v1/market/jobs/j1/pin-confirm"
+        body = posted["json"]
+        assert body["provider_confirmed"] is True
+        assert body["size"] == 42
+        assert body["binding"] == {"cid": "QmX", "size": 42}
+        assert body["signer_address"] == signer.address
+        assert body["chain_id"] == "test-chain"
+        assert body["issued_at"] == 1700000000
+        assert body["signature"]
+
+    def test_rental_token_registers_with_job_keyed_fields(self):
+        posted = {}
+
+        class _Client:
+            def post(self, path, json=None):
+                posted["path"] = path
+                posted["json"] = json
+                return {"access_key": "ak"}
+
+        job = {
+            "offer_id": "offer-1",
+            "buyer_address": "0xBuyer",
+            "provider_address": "0xProvider",
+            "payload": {"access_key": "ak", "access_secret": "as", "public_endpoint": "/ip4/1.2.3.4"},
+            "constraints": {"disk_quota_mb": 10},
+        }
+        with patch.object(host_module, "_market_client", return_value=_Client()):
+            host_module._register_ipfs_rental_token(job, "job-1", "QmX", 7, "http://127.0.0.1:5002")
+        assert posted["path"] == "/v1/market/ipfs/rental-token"
+        data = posted["json"]
+        assert data["rental_id"] == "job-1"
+        assert data["cid"] == "QmX"
+        assert data["access_key"] == "ak"
+        assert data["pinned"] is True
+        # Settlement fields are service-owned — the CLI must not send them.
+        assert "escrow_contract_id" not in data
+        assert "expires_at" not in data
+
+    def test_rental_token_skipped_without_access_credentials(self):
+        called = []
+
+        class _Client:
+            def post(self, path, json=None):
+                called.append(path)
+                return {}
+
+        job = {"payload": {}}
+        with patch.object(host_module, "_market_client", return_value=_Client()):
+            assert host_module._register_ipfs_rental_token(job, "j", "QmX", 1, "api") is None
+        assert called == []

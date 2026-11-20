@@ -506,7 +506,17 @@ def get_config(config_file: str | None = None) -> CLIConfig:
         # Map the documented config-file keys onto CLIConfig init kwargs
         # (CONFIG_FILE_KEYS); unknown keys stay env-only. ``api_key`` goes
         # through _resolve_api_key for its env/credential-file fallbacks.
-        kwargs = {field: config_data[key] for key, field in CONFIG_FILE_KEYS.items() if key in config_data}
+        # #2348: a yaml key present with a null/empty value (``key:`` or
+        # ``key: ""``) is "unset", not a value — passing it as an init kwarg
+        # would shadow the environment and /etc/aitbc env files, which is
+        # how a stray ``blockchain_rpc_api_key:`` line once stripped the
+        # settlement credential and 403'd escrow release/refund on a
+        # follower. Drop those so env resolution applies.
+        kwargs = {
+            field: config_data[key]
+            for key, field in CONFIG_FILE_KEYS.items()
+            if key in config_data and config_data[key] not in (None, "")
+        }
         return _register_trusted_api_key_hosts(
             CLIConfig(
                 api_key=_resolve_api_key(config_data),

@@ -19,6 +19,10 @@ class StubRPC:
     def __init__(self) -> None:
         self.released: list[str] = []
         self.refunded: list[str] = []
+        self.escrow_rows: dict[str, dict] = {}
+
+    async def verify_escrow(self, job_id: str):
+        return self.escrow_rows.get(job_id)
 
     async def release_escrow(self, job_id: str, body: dict | None = None):
         self.released.append(job_id)
@@ -745,3 +749,152 @@ async def test_cleared_dispute_does_not_freeze(sweeper) -> None:
     # The pin is the refund itself — disputed_frozen counts every open
     # dispute in the shared test DB, so an exact zero is not assertable here.
     assert created["job_id"] in rpc.refunded
+
+
+@pytest.mark.asyncio
+async def test_sweeper_adopts_locked_pending_payment(sweeper) -> None:
+    """#2348: a pending payment whose on-chain escrow is locked flips to
+    escrowed — the legacy direct-lock path where pin-confirm raced the
+    seal must not orphan the lock."""
+    service, sw, rpc = sweeper
+    buyer = "0x" + "11" * 20
+    provider = "0x" + "22" * 20
+    created = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": buyer,
+            "provider_address": provider,
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0"},
+        }
+    )
+    job_id = created["job_id"]
+    rpc.escrow_rows[job_id] = {"state": "locked", "amount": "1.0", "buyer": buyer, "provider": provider}
+
+    counts = await sw.sweep_once()
+    assert counts["adopted"] == 1
+
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        payment = await session.get(MarketJobPayment, job.payment_id)
+        assert payment.status == "escrowed"
+        assert payment.escrowed_at is not None
+        assert job.payment_status == "escrowed"
+
+
+@pytest.mark.asyncio
+async def test_sweeper_does_not_adopt_unlocked_or_mismatched_escrow(sweeper) -> None:
+    """#2348: adoption requires the same locked-state/amount/party proof as
+    pin-confirm — an absent, unlocked or foreign escrow stays pending."""
+    service, sw, rpc = sweeper
+    buyer = "0x" + "11" * 20
+    provider = "0x" + "22" * 20
+    created = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": buyer,
+            "provider_address": provider,
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0"},
+        }
+    )
+    job_id = created["job_id"]
+    # Unlocked state -> no adoption.
+    rpc.escrow_rows[job_id] = {"state": "created", "amount": "1.0", "buyer": buyer, "provider": provider}
+    counts = await sw.sweep_once()
+    assert counts["adopted"] == 0
+    # Wrong amount -> no adoption.
+    rpc.escrow_rows[job_id] = {"state": "locked", "amount": "2.0", "buyer": buyer, "provider": provider}
+    counts = await sw.sweep_once()
+    assert counts["adopted"] == 0
+    # Foreign buyer -> no adoption.
+    rpc.escrow_rows[job_id] = {"state": "locked", "amount": "1.0", "buyer": "0x" + "33" * 20, "provider": provider}
+    counts = await sw.sweep_once()
+    assert counts["adopted"] == 0
+
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        payment = await session.get(MarketJobPayment, job.payment_id)
+        assert payment.status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_expired_job_with_rental_token_keeps_escrow(sweeper) -> None:
+    """#2348: an expired ipfs job covered by an active IpfsRentalToken does
+    not refund — the rental sweeper releases to the provider at token
+    expiry. The job still expires so access ends."""
+    from market_service.domain.market import IpfsRentalToken
+
+    service, sw, rpc = sweeper
+    created = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "11" * 20,
+            "provider_address": "0x" + "22" * 20,
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0", "status": "escrowed"},
+            "expires_at": (datetime.now(UTC) - timedelta(days=1)).isoformat(),
+        }
+    )
+    job_id = created["job_id"]
+    await _apply_lifecycle(job_id, state="RUNNING", escrow_contract_id=job_id)
+    async with get_session_context() as session:
+        session.add(
+            IpfsRentalToken(
+                access_key="ak-test-2348",
+                access_secret="hashed-secret",
+                rental_id=job_id,
+                cid="QmTest",
+                status="active",
+                expires_at=datetime.now(UTC).replace(tzinfo=None),
+            )
+        )
+        await session.commit()
+
+    counts = await sw.sweep_once()
+    assert counts["refunded"] == 0
+    assert job_id not in rpc.refunded
+
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        payment = await session.get(MarketJobPayment, job.payment_id)
+        assert job.state == "EXPIRED"
+        assert payment.status == "escrowed"
+
+    # Once the token leaves 'active' the normal refund path resumes.
+    async with get_session_context() as session:
+        token = await session.get(IpfsRentalToken, "ak-test-2348")
+        token.status = "released"
+        session.add(token)
+        await session.commit()
+    await _age_job(job_id)
+    counts = await sw.sweep_once()
+    assert job_id in rpc.refunded
+
+
+@pytest.mark.asyncio
+async def test_register_ipfs_rental_token_derives_expires_at(sweeper) -> None:
+    """#2348: token registration inherits the market job's expires_at — the
+    writable allowlist strips caller-supplied settlement fields, so without
+    the derivation the token would never expire."""
+    service, _sw, _rpc = sweeper
+    expires = (datetime.now(UTC) + timedelta(days=7)).replace(tzinfo=None)
+    created = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "11" * 20,
+            "provider_address": "0x" + "22" * 20,
+            "payload": {"cid": "QmTest", "access_key": "ak-der", "access_secret": "sec-der"},
+            "expires_at": expires.isoformat(),
+        }
+    )
+    result = await service.register_ipfs_rental_token(
+        {
+            "access_key": "ak-der",
+            "access_secret": "sec-der",
+            "rental_id": created["job_id"],
+            "cid": "QmTest",
+            "size": 100,
+        }
+    )
+    assert result["expires_at"] is not None

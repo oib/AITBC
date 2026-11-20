@@ -66,6 +66,7 @@ import aitbc_mcp_cli_tools_generated_market_offer_disable  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market_offer_list  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market_payment  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market_process  # noqa: F401
+import aitbc_mcp_cli_tools_generated_market_provider_pin  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market_providers  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market_rate  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market_ratings  # noqa: F401

@@ -503,6 +503,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc market offer-list`](market-offer-list.md) — List software offers published by this provider.
 - [`aitbc market payment`](market-payment.md) — Show the coordinator payment record for a job or payment ID.
 - [`aitbc market process`](market-process.md) — Process a video using an FFmpeg software offer and pay metered escrow.
+- [`aitbc market provider-pin`](market-provider-pin.md) — Provider side of a paid IPFS rental: pin the CID locally and attest delivery.
 - [`aitbc market providers`](market-providers.md) — List the providers behind the live market offers.
 - [`aitbc market rate`](market-rate.md) — Rate a market service offer on a 1-5 scale.
 - [`aitbc market ratings`](market-ratings.md) — View ratings for a market service offer.

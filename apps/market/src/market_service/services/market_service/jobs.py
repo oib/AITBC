@@ -42,6 +42,7 @@ from .shared import (
     _isoformat,
     _secret_matches,
     _validated_job_ttl,
+    active_rental_token_covers,
     hash_access_secret,
     is_hashed_secret,
     max_page_size,
@@ -263,6 +264,21 @@ class _JobsMixin(_CoreMixin):
 
         try:
             access_key, data = self._normalize_ipfs_token_data(data)
+
+            # #2348: derive the settlement clock from the market job. The
+            # writable allowlist strips ``expires_at`` (service-owned), but
+            # a token without it never expires and the rental sweeper can
+            # never settle the escrow. ``rental_id`` is the market job id —
+            # look it up and inherit its expiry. ``escrow_contract_id``
+            # stays unset on purpose: the sweeper falls back to
+            # ``rental_id`` (the on-chain escrow key for market jobs), and
+            # accepting a caller-supplied escrow id would let a provider
+            # steer settlement at a foreign escrow (#815).
+            rental_id = data.get("rental_id")
+            if rental_id:
+                job = await self.session.get(MarketJob, str(rental_id))
+                if job is not None and job.expires_at is not None:
+                    data["expires_at"] = job.expires_at
 
             stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)  # type: ignore[arg-type]
             result = await self.session.execute(stmt)
@@ -922,9 +938,16 @@ class _JobsMixin(_CoreMixin):
                     # Mirror _expire_stale_jobs: an escrowed payment on an expired
                     # (unfinished) job must go to the buyer, not sit escrowed
                     # where the sweeper's release pass could pay the provider.
+                    # #2348: except when an active IpfsRentalToken covers the
+                    # job — the rental sweeper owns that escrow's settlement.
                     if job.payment_id:
                         payment = await self.session.get(MarketJobPayment, job.payment_id)
-                        if payment is not None and payment.status == "escrowed":
+                        covered = (
+                            payment is not None
+                            and payment.status == "escrowed"
+                            and await active_rental_token_covers(self.session, job.id)
+                        )
+                        if payment is not None and payment.status == "escrowed" and not covered:
                             payment.status = "refund_pending"
                             payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
                             self.session.add(payment)
