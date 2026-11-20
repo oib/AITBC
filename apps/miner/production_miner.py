@@ -987,18 +987,33 @@ def _warn_at_capacity(max_concurrent_jobs: int) -> None:
         )
 
 
-def _poll_and_dispatch(models: list, max_concurrent_jobs: int) -> None:
-    """One poll cycle: capacity-guarded job fetch, atomic slot claim, and
-    worker-thread dispatch so heartbeats keep running."""
-    # Only poll if we have capacity; the coordinator also checks
-    # inflight, but a local guard avoids thundering-herd polls and
-    # reflects the actual thread count.
-    if len(ACTIVE_JOB_IDS) >= max_concurrent_jobs:
-        _warn_at_capacity(max_concurrent_jobs)
-        return
-    job = poll_for_jobs()
-    if not job:
-        return
+def fetch_running_jobs():
+    """#2315: fetch this miner's RUNNING jobs in AssignedJob shape.
+
+    ``/v1/miners/poll`` delivers a job only inside the claim response; a
+    lost or failed response strands the row RUNNING coordinator-side with
+    no local record. This read-only reconcile listing lets the miner
+    redispatch what it never received (or forgot across a restart).
+    """
+    headers = {"X-Api-Key": AUTH_TOKEN, "X-Miner-ID": MINER_ID}
+    try:
+        url = f"{COORDINATOR_URL}/v1/miners/{MINER_ID}/running-jobs"
+        response = requests.get(url, headers=headers, timeout=10)
+        response.raise_for_status()
+        data = response.json()
+        jobs = data.get("jobs", []) if isinstance(data, dict) else []
+        return [j for j in jobs if isinstance(j, dict) and j.get("job_id")]
+    except _OPS_ERRORS as e:
+        logger.error("Error fetching running jobs: %s", e)
+        return []
+
+
+def _dispatch_job(job: dict, models: list) -> None:
+    """Atomic slot claim + worker-thread dispatch shared by the poll and
+    reconcile paths. The claim is atomic (check-and-add with no await in
+    between, on the single event-loop thread — #1485); if task creation
+    itself fails, release the slot so the job is not locked out until
+    restart."""
     job_id = job.get("job_id")
     if job_id and not _claim_job_slot(job_id):
         logger.debug("Job %s already running locally; skipping duplicate dispatch", job_id)
@@ -1007,16 +1022,43 @@ def _poll_and_dispatch(models: list, max_concurrent_jobs: int) -> None:
         return
     # Run the blocking, potentially slow model execution in a
     # worker thread so heartbeats and the next poll continue.
-    # The claim is atomic (check-and-add with no await in
-    # between, on the single event-loop thread — #1485); if
-    # task creation itself fails, release the slot so the
-    # job is not locked out until restart.
     try:
         task = asyncio.create_task(asyncio.to_thread(execute_job, job, models))
     except Exception:
         ACTIVE_JOB_IDS.discard(job_id)
         raise
     task.add_done_callback(partial(_on_job_done, job_id))
+
+
+def _reconcile_running_jobs(models: list, max_concurrent_jobs: int) -> None:
+    """#2315: re-dispatch RUNNING jobs the coordinator says are ours but
+    that this process does not hold — covers both the lost-poll-response
+    case and jobs forgotten across a restart. ``_claim_job_slot`` dedups
+    jobs already executing locally; capacity is respected per dispatch."""
+    for job in fetch_running_jobs():
+        if len(ACTIVE_JOB_IDS) >= max_concurrent_jobs:
+            return
+        _dispatch_job(job, models)
+
+
+def _poll_and_dispatch(models: list, max_concurrent_jobs: int) -> None:
+    """One poll cycle: capacity-guarded reconcile + job fetch, atomic slot
+    claim, and worker-thread dispatch so heartbeats keep running."""
+    # Only poll if we have capacity; the coordinator also checks
+    # inflight, but a local guard avoids thundering-herd polls and
+    # reflects the actual thread count.
+    if len(ACTIVE_JOB_IDS) >= max_concurrent_jobs:
+        _warn_at_capacity(max_concurrent_jobs)
+        return
+    _reconcile_running_jobs(models, max_concurrent_jobs)
+    # Reconcile may have filled every slot; polling now would claim a job
+    # server-side that cannot be dispatched locally until next cycle.
+    if len(ACTIVE_JOB_IDS) >= max_concurrent_jobs:
+        return
+    job = poll_for_jobs()
+    if not job:
+        return
+    _dispatch_job(job, models)
 
 
 async def main():
