@@ -22,7 +22,13 @@ from aitbc.utils.validation import validate_address
 from ..config import get_config
 from ..utils.wallet_secret import wallet_password_options
 from ..utils import info, output, resolve_output_format, success
-from ..utils.agent_signing import identity_attestation_fields, load_signing_wallet, signed_request_headers
+from ..utils.agent_signing import (
+    identity_attestation_fields,
+    load_signing_wallet,
+    read_signing_options,
+    signed_read_headers,
+    signed_request_headers,
+)
 from ..utils.error_handling import CLIError, abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, auth_headers, get_logger
 
@@ -262,12 +268,13 @@ def _discover_remote_agents(
     agent_type: str | None,
     min_health: float,
     limit: int,
+    headers: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """POST /v1/agents/discover and return the raw result."""
     body = _discover_body(capability, agent_type, min_health, limit)
     explicit = ctx.obj.get("api_key") if ctx.obj else None
     client = AITBCHTTPClient(base_url=coordinator_url, timeout=10, **auth_client_kwargs(explicit, get_config().api_key))
-    return client.post("/v1/agents/discover", json=body)
+    return client.post("/v1/agents/discover", json=body, headers=headers)
 
 
 async def register_agent(
@@ -496,8 +503,17 @@ def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None
         return False
 
 
-def get_agent_status(agent_id: str, coordinator_url: str | None = None) -> dict:
-    """Get status information for an agent, preferring the coordinator."""
+def get_agent_status(
+    agent_id: str,
+    coordinator_url: str | None = None,
+    headers: dict[str, str] | None = None,
+) -> dict:
+    """Get status information for an agent, preferring the coordinator.
+
+    ``headers`` carries the ``X-Agent-*`` signed read headers when the caller
+    configured a signing wallet (#2342) — ``GET /v1/agents/{id}`` requires an
+    authenticated principal (#2212), so an unsigned request 401s/403s.
+    """
     coordinator_url = resolve_coordinator_url(coordinator_url)
     try:
         client = AITBCHTTPClient(
@@ -505,7 +521,7 @@ def get_agent_status(agent_id: str, coordinator_url: str | None = None) -> dict:
             timeout=5,
             **auth_client_kwargs(None, get_config().api_key),
         )
-        data = client.get(f"/v1/agents/{agent_id}") or {}
+        data = client.get(f"/v1/agents/{agent_id}", headers=headers) or {}
         return {
             "agent_id": data.get("agent_id") or agent_id,
             "status": data.get("status", data.get("state", "unknown")),
@@ -520,8 +536,16 @@ def get_agent_status(agent_id: str, coordinator_url: str | None = None) -> dict:
         }
     except NetworkError as e:
         logger.debug("Could not fetch agent status from coordinator: %s", e)
-        if "404" in str(e):
+        status = _http_status_code(e)
+        if status == 404 or (status is None and "404" in str(e)):
             message = "Agent not registered with the coordinator."
+        elif status in (401, 403):
+            message = (
+                f"Agent coordinator rejected the status request (HTTP {status}): the "
+                "/v1/agents read routes require signed X-Agent-* headers (#2212). "
+                "Re-run with --wallet and --signing-agent-id (or set AGENT_ID and "
+                "AITBC_DEFAULT_WALLET) so the request is signed."
+            )
         else:
             message = "Agent coordinator not reachable; status is simulated until the backend is ready."
         return {
@@ -1038,12 +1062,24 @@ try:
     @click.option("--agent-id", "agent_id", required=False, help="The Agent id.")
     @click.option("--coordinator-url", default=None, help="Coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+    @read_signing_options
     @click.pass_context
-    def status(ctx, agent_id, coordinator_url, format):
+    def status(
+        ctx,
+        agent_id,
+        coordinator_url,
+        format,
+        signing_agent_id,
+        wallet_name,
+        password,
+        password_file,
+        password_stdin,
+    ):
         """Get the current status and health of a specified agent."""
         try:
             agent_id = _resolve_agent_id(ctx, agent_id)
-            status_data = get_agent_status(agent_id, coordinator_url=coordinator_url)
+            headers = signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
+            status_data = get_agent_status(agent_id, coordinator_url=coordinator_url, headers=headers)
 
             status_list = [
                 {"Field": "Agent ID", "Value": status_data["agent_id"]},
@@ -1056,6 +1092,8 @@ try:
 
             output(status_list, resolve_output_format(ctx, format), title=f"Agent Status: {agent_id}")
 
+        except CLIError:
+            raise
         except _OPS_ERRORS as e:
             abort(ctx, f"Error getting agent status: {str(e)}", from_exception=e)
 
@@ -1238,8 +1276,22 @@ try:
     @click.option("--limit", type=int, default=50, help="Maximum results")
     @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+    @read_signing_options
     @click.pass_context
-    def agents(ctx, capability, agent_type, min_health, limit, coordinator_url, format):
+    def agents(
+        ctx,
+        capability,
+        agent_type,
+        min_health,
+        limit,
+        coordinator_url,
+        format,
+        signing_agent_id,
+        wallet_name,
+        password,
+        password_file,
+        password_stdin,
+    ):
         """Search remote agents by capability, type, and minimum health score."""
         coordinator_url = resolve_coordinator_url(coordinator_url)
         if not _check_agent_coordinator(coordinator_url, ctx):
@@ -1247,7 +1299,8 @@ try:
         try:
             import requests  # noqa: F401  (bound for the except clause below)
 
-            result = _discover_remote_agents(ctx, coordinator_url, capability, agent_type, min_health, limit)
+            headers = signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
+            result = _discover_remote_agents(ctx, coordinator_url, capability, agent_type, min_health, limit, headers=headers)
             output(
                 {
                     "discovered_agents": result.get("agents", []),
@@ -1259,6 +1312,8 @@ try:
             )
         except requests.exceptions.RequestException as e:
             abort(ctx, _coordinator_request_error(e, coordinator_url), from_exception=e)
+        except CLIError:
+            raise
         except _OPS_ERRORS as e:
             abort(ctx, f"Error discovering agents: {e}", from_exception=e)
 

@@ -1,7 +1,6 @@
 """Cross-chain agent communication commands for AITBC CLI"""
 
 import json
-import os
 from datetime import datetime
 from typing import Any
 
@@ -15,7 +14,9 @@ from ..utils.agent_signing import (
     check_registry_binding,
     identity_attestation_fields,
     load_signing_wallet,
+    read_signing_options,
     sign_send_envelope,
+    signed_read_headers,
     signed_request_headers,
 )
 from ..utils.error_handling import CLIError, abort
@@ -72,54 +73,6 @@ def _agent_client(ctx: click.Context) -> AITBCHTTPClient:
         timeout=30,
         **auth_client_kwargs(ctx.obj.get("api_key"), config.api_key),
     )
-
-
-def _read_signing_options(fn):
-    """Shared ``--wallet``/``--signing-agent-id`` options for agent-comm reads.
-
-    The coordinator's ``/v1/agents/*`` read routes require an authenticated
-    principal (#2212): a ``aitbc auth login`` JWT for a different service does
-    not resolve here, so reads need the same ``X-Agent-*`` signed headers the
-    inbox path uses.
-    """
-    fn = click.option(
-        "--signing-agent-id",
-        "signing_agent_id",
-        default=None,
-        help="Registered agent ID the wallet is bound to (default: $AGENT_ID); required with --wallet",
-    )(fn)
-    fn = click.option(
-        "--wallet",
-        "wallet_name",
-        default=None,
-        help="Wallet signing the read request headers (default: $AITBC_DEFAULT_WALLET)",
-    )(fn)
-    return wallet_password_options(fn)
-
-
-def _signed_read_headers(
-    ctx: click.Context,
-    signing_agent_id: str | None,
-    wallet_name: str | None,
-    password: str | None,
-    password_file: str | None,
-    password_stdin: bool,
-) -> dict[str, str] | None:
-    """``X-Agent-*`` headers for a signed read, or ``None`` when unsigned."""
-    signing = load_signing_wallet(
-        ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
-    )
-    if signing is None:
-        return None
-    agent_id = signing_agent_id or os.environ.get("AGENT_ID")
-    if not agent_id:
-        abort(
-            ctx,
-            "--wallet requires --signing-agent-id (or AGENT_ID env): the coordinator "
-            "authenticates agent-comm reads via X-Agent-* headers bound to a registered agent",
-        )
-        return None
-    return signed_request_headers(agent_id, signing[1])
 
 
 @click.group(
@@ -237,7 +190,7 @@ def register(
 @click.option("--status", type=click.Choice(["active", "inactive", "busy", "offline"]), help="Filter by status")
 @click.option("--capabilities", help="Filter by capabilities (comma-separated)")
 @click.option("--format", "output_format", type=click.Choice(["table", "json"]), default=None, help="Output format")
-@_read_signing_options
+@read_signing_options
 @click.pass_context
 def list_agents(
     ctx, chain_id, status, capabilities, output_format, signing_agent_id, wallet_name, password, password_file, password_stdin
@@ -245,7 +198,7 @@ def list_agents(
     """List agents registered in the cross-chain network with optional filters."""
     try:
         client = _agent_client(ctx)
-        headers = _signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
+        headers = signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
         query: dict[str, Any] = {"status": status or "active", "limit": 100}
         if chain_id:
             query["chain_id"] = chain_id
@@ -295,7 +248,7 @@ def list_agents(
 @click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--capabilities", help="Required capabilities (comma-separated)")
 @click.option("--format", "output_format", type=click.Choice(["table", "json"]), default=None, help="Output format")
-@_read_signing_options
+@read_signing_options
 @click.pass_context
 def discover(
     ctx, chain_id, capabilities, output_format, signing_agent_id, wallet_name, password, password_file, password_stdin
@@ -303,7 +256,7 @@ def discover(
     """Discover active agents on a specific chain by chain ID."""
     try:
         client = _agent_client(ctx)
-        headers = _signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
+        headers = signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
         cap_list = [c.strip() for c in capabilities.split(",")] if capabilities else None
         query: dict[str, Any] = {"chain_id": chain_id, "status": "active"}
         if cap_list:
@@ -343,13 +296,13 @@ def discover(
 )
 @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
 @click.option("--format", "output_format", type=click.Choice(["table", "json"]), default=None, help="Output format")
-@_read_signing_options
+@read_signing_options
 @click.pass_context
 def status(ctx, agent_id, output_format, signing_agent_id, wallet_name, password, password_file, password_stdin):
     """Get detailed status and metadata for a registered agent."""
     try:
         client = _agent_client(ctx)
-        headers = _signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
+        headers = signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
         result = client.get(f"/v1/agents/{agent_id}", headers=headers)
         agent = result.get("agent", {})
         if not agent:
@@ -385,13 +338,13 @@ def status(ctx, agent_id, output_format, signing_agent_id, wallet_name, password
   aitbc agent-comm network --format json"""
 )
 @click.option("--format", "output_format", type=click.Choice(["table", "json"]), default=None, help="Output format")
-@_read_signing_options
+@read_signing_options
 @click.pass_context
 def network(ctx, output_format, signing_agent_id, wallet_name, password, password_file, password_stdin):
     """Get an overview of the cross-chain agent network and distribution."""
     try:
         client = _agent_client(ctx)
-        headers = _signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
+        headers = signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
         result = client.post("/v1/agents/discover", json={"status": "active", "limit": 1000}, headers=headers)
         agents = result.get("agents", [])
 

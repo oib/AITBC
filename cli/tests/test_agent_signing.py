@@ -956,3 +956,162 @@ class TestCoordinatorErrorMessages:
         msg = agent_sdk._coordinator_request_error(e, "http://x:8107")
         assert "Cannot reach the agent coordinator" in msg
         assert "127.0.0.1:8107" in msg
+
+
+# --------------------------------------------------------------------------- #
+# `aitbc agent status` / `agent discover agents` signed reads (#2342)
+# --------------------------------------------------------------------------- #
+
+
+class _HttpStatusCause(Exception):
+    """Stand-in for the wrapped requests error carrying ``response.status_code``."""
+
+    response: Any
+
+
+def _status_network_error(status_code: int):
+    from aitbc_cli.utils.http_client import NetworkError
+
+    err = NetworkError(f"GET request failed: {status_code} Client Error")
+    # NetworkError has no declared ``response``; _http_status_code also walks
+    # the __cause__ chain, so hang the status off a cause like the real wrapper.
+    cause = _HttpStatusCause()
+    cause.response = MagicMock(status_code=status_code)
+    err.__cause__ = cause
+    return err
+
+
+class TestAgentStatusSigning:
+    def _agent(self):
+        from aitbc_cli.commands.agent_sdk import agent
+
+        return agent
+
+    def test_unsigned_401_message_points_at_signing(self, runner):
+        from aitbc_cli.commands import agent_sdk
+
+        client = MagicMock()
+        client.get.side_effect = _status_network_error(401)
+        with (
+            patch.object(agent_sdk, "AITBCHTTPClient", return_value=client),
+            patch.object(agent_sdk, "get_config", return_value=MagicMock(api_key=None, chain_id="c")),
+            patch.object(agent_sdk, "auth_client_kwargs", return_value={}),
+        ):
+            result = runner.invoke(
+                self._agent(),
+                ["status", "--agent-id", "agent-1", "--coordinator-url", "http://coord"],
+                obj={"output_format": "json"},
+            )
+        assert result.exit_code == 0, result.output
+        assert "--wallet" in result.output
+        assert "--signing-agent-id" in result.output or "AGENT_ID" in result.output
+        assert "not reachable" not in result.output
+        assert "simulated" not in result.output
+
+    def test_signed_request_sends_x_agent_headers(self, runner):
+        from aitbc_cli.commands import agent_sdk
+
+        client = MagicMock()
+        client.get.return_value = {"agent_id": "agent-1", "status": "active"}
+        with (
+            patch.object(agent_sdk, "AITBCHTTPClient", return_value=client),
+            patch.object(agent_sdk, "get_config", return_value=MagicMock(api_key=None, chain_id="c")),
+            patch.object(agent_sdk, "auth_client_kwargs", return_value={}),
+            patch(
+                "aitbc_cli.utils.agent_signing.load_signing_wallet",
+                return_value=(ACCOUNT.address, PRIVATE_KEY),
+            ),
+        ):
+            result = runner.invoke(
+                self._agent(),
+                [
+                    "status",
+                    "--agent-id",
+                    "agent-1",
+                    "--wallet",
+                    "w1",
+                    "--signing-agent-id",
+                    "agent-1",
+                    "--coordinator-url",
+                    "http://coord",
+                ],
+                obj={"output_format": "json"},
+            )
+        assert result.exit_code == 0, result.output
+        call = next(c for c in client.get.call_args_list if c.args[0] == "/v1/agents/agent-1")
+        headers = call.kwargs["headers"]
+        assert headers["X-Agent-Id"] == "agent-1"
+        assert headers["X-Agent-Signature"].startswith("0x")
+        assert headers["X-Agent-Timestamp"] and headers["X-Agent-Nonce"]
+
+    def test_404_reports_not_registered(self, runner):
+        from aitbc_cli.commands import agent_sdk
+
+        client = MagicMock()
+        client.get.side_effect = _status_network_error(404)
+        with (
+            patch.object(agent_sdk, "AITBCHTTPClient", return_value=client),
+            patch.object(agent_sdk, "get_config", return_value=MagicMock(api_key=None, chain_id="c")),
+            patch.object(agent_sdk, "auth_client_kwargs", return_value={}),
+        ):
+            result = runner.invoke(
+                self._agent(),
+                ["status", "--agent-id", "ghost", "--coordinator-url", "http://coord"],
+                obj={"output_format": "json"},
+            )
+        assert result.exit_code == 0, result.output
+        assert "not registered" in result.output.lower()
+
+    def test_connection_error_keeps_simulated_fallback(self, runner):
+        from aitbc_cli.commands import agent_sdk
+        from aitbc_cli.utils.http_client import NetworkError
+
+        client = MagicMock()
+        client.get.side_effect = NetworkError("connection refused")
+        with (
+            patch.object(agent_sdk, "AITBCHTTPClient", return_value=client),
+            patch.object(agent_sdk, "get_config", return_value=MagicMock(api_key=None, chain_id="c")),
+            patch.object(agent_sdk, "auth_client_kwargs", return_value={}),
+        ):
+            result = runner.invoke(
+                self._agent(),
+                ["status", "--agent-id", "agent-1", "--coordinator-url", "http://coord"],
+                obj={"output_format": "json"},
+            )
+        assert result.exit_code == 0, result.output
+        assert "simulated" in result.output
+
+    def test_discover_agents_sends_signed_headers(self, runner):
+        from aitbc_cli.commands import agent_sdk
+
+        client = MagicMock()
+        client.get.return_value = {"status": "ok"}
+        client.post.return_value = {"agents": [], "count": 0}
+        with (
+            patch.object(agent_sdk, "AITBCHTTPClient", return_value=client),
+            patch.object(agent_sdk, "get_config", return_value=MagicMock(api_key=None, chain_id="c")),
+            patch.object(agent_sdk, "auth_client_kwargs", return_value={}),
+            patch(
+                "aitbc_cli.utils.agent_signing.load_signing_wallet",
+                return_value=(ACCOUNT.address, PRIVATE_KEY),
+            ),
+        ):
+            result = runner.invoke(
+                self._agent(),
+                [
+                    "discover",
+                    "agents",
+                    "--wallet",
+                    "w1",
+                    "--signing-agent-id",
+                    "agent-1",
+                    "--coordinator-url",
+                    "http://coord",
+                ],
+                obj={"output_format": "json"},
+            )
+        assert result.exit_code == 0, result.output
+        call = next(c for c in client.post.call_args_list if c.args[0] == "/v1/agents/discover")
+        headers = call.kwargs["headers"]
+        assert headers["X-Agent-Id"] == "agent-1"
+        assert headers["X-Agent-Signature"].startswith("0x")
