@@ -22,6 +22,8 @@ mcp_server._HOSTS_CONFIG = {
 }
 
 
+import pytest
+
 FULL_BRIDGE_STATUS: dict[str, object] = {
     "status": "ready",
     "message": "Bridge active",
@@ -59,6 +61,19 @@ def _fake_run_http_raw_stdout(*_args: object, **_kwargs: object) -> dict[str, ob
         "stdout": json.dumps(FULL_BRIDGE_STATUS),
         "stderr": "",
     }
+
+
+@pytest.fixture(autouse=True)
+def _restore_rpc_tool_patches():
+    """#2333: tests below rebind ``rpc_tools._run_http``/``_http_read_tool``
+    directly; without a finalizer the fakes leak into every later test in
+    the same pytest process (whole-dir runs failed in
+    test_rpc_auth_regression_1953.py)."""
+    orig_run_http = rpc_tools._run_http
+    orig_read_tool = rpc_tools._http_read_tool
+    yield
+    rpc_tools._run_http = orig_run_http
+    rpc_tools._http_read_tool = orig_read_tool
 
 
 def _fake_run_http_failure(*_args: object, **_kwargs: object) -> dict[str, object]:
