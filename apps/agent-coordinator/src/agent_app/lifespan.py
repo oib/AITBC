@@ -204,6 +204,15 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     await state.message_storage.start()
     await state.peer_storage.start()
 
+    # #2014: start the workflow orchestrator. The routers resolve the same
+    # get_orchestrator() singleton; without start() its redis client stayed
+    # None, so create_workflow returned 200 but persisted nothing — list
+    # read empty and execute 404'd (S10 paid-leg blocker).
+    from .workflow import get_orchestrator
+
+    state.workflow_orchestrator = get_orchestrator(redis_url=redis_url)
+    await state.workflow_orchestrator.start()
+
     # Wire the WebSocket connection manager to the persisted message storage
     # so it can restore topic subscriptions on agent reconnect.
     from .websocket import get_connection_manager
@@ -275,4 +284,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if state.escrow_rpc:
         state.escrow_rpc.close()  # noqa: unawaited-async — ChainEscrowClient.close() is synchronous
         state.escrow_rpc = None
+    if state.workflow_orchestrator:
+        await state.workflow_orchestrator.stop()
+        state.workflow_orchestrator = None
     logger.info("Agent Coordinator shut down")
