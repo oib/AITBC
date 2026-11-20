@@ -54,9 +54,13 @@ _CONNECT_ERRNO_NAMES = {
 }
 
 
-# Server->client control frames that are handshake bookkeeping, never gossip
-# payloads — the reader must not deliver them into subscriber queues (#1874).
-_CONTROL_FRAME_TYPES = frozenset({"peer_auth_ok", "peer_auth_error"})
+# Server->client control frames that are handshake/keepalive bookkeeping, never
+# gossip payloads — the reader must not deliver them into subscriber queues
+# (#1874). ``ping`` is the server's idle-timeout keepalive; delivered, every
+# PBFT topic subscriber counted it as a malformed vote (~130 ``drop
+# reason=malformed`` per node per 10 min, drill2 R7), inflating
+# ``pbft_intake_drop_*``.
+_CONTROL_FRAME_TYPES = frozenset({"peer_auth_ok", "peer_auth_error", "ping"})
 
 
 def _connect_error_class(exc: BaseException) -> str:
