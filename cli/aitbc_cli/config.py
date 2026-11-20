@@ -381,18 +381,24 @@ def _resolve_market_api_key(config: "CLIConfig") -> str | None:
     Order: MARKET_OPERATOR_API_KEY env (the #1893 operator credential — it
     authenticates every market route and bypasses the party-signature gates,
     so an operator export wins when present), then MARKET_API_KEY env
-    (explicit for this service), then the generic CLI key (config file
-    api_key / AITBC_API_KEY / credentials files via _resolve_api_key), then
-    the market service's own env file on a node that runs aitbc-market.
+    (explicit for this service), then the market service's own env file on a
+    node that runs aitbc-market, then the generic CLI key (config file
+    api_key / AITBC_API_KEY / credentials files via _resolve_api_key) as a
+    last resort for single-key deployments. The service-scoped file outranks
+    the generic key: api_key is a different service's credential and only
+    401s against market, while shadowing a correctly provisioned market key
+    (#2311 replay: POST /v1/market/jobs rejected on node0).
     """
     if os.environ.get("MARKET_OPERATOR_API_KEY"):
         return os.environ["MARKET_OPERATOR_API_KEY"]
     if os.environ.get("MARKET_API_KEY"):
         return os.environ["MARKET_API_KEY"]
+    market_env = _parse_env_file(Path("/etc/aitbc/aitbc-market.env"))
+    if market_env.get("MARKET_OPERATOR_API_KEY") or market_env.get("API_KEY"):
+        return market_env.get("MARKET_OPERATOR_API_KEY") or market_env.get("API_KEY")
     if config.api_key:
         return str(config.api_key)
-    market_env = _parse_env_file(Path("/etc/aitbc/aitbc-market.env"))
-    return market_env.get("MARKET_OPERATOR_API_KEY") or market_env.get("API_KEY")
+    return None
 
 
 def _load_config_file(config_path: Path) -> dict[str, Any]:
