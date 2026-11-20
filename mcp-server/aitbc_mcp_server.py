@@ -1055,6 +1055,7 @@ from aitbc_mcp_mutating_tools import (  # noqa: F401  # re-exports moved tools a
     get_zk_refund_sweep_candidates,
     run_zk_refund_sweep,
     send_aitbc_transaction,
+    send_aitbc_from_env_key,
     create_performance_bond,
     stake_aitbc,
     unstake_aitbc,

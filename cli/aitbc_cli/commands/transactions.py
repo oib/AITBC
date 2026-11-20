@@ -5,6 +5,7 @@ Transaction commands for AITBC CLI
 import hashlib
 import json
 import os
+import re
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -13,6 +14,7 @@ import click
 from eth_utils import keccak
 
 from aitbc import ValidationError
+from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.exceptions import AITBCError
 from aitbc.config.hub import normalize_hub_base
 from aitbc.utils import ait_to_units, format_ait
@@ -208,19 +210,108 @@ def _resolve_nonce(rpc_url: str, sender_address: str) -> int:
         raise AssertionError("unreachable: abort always raises") from e
 
 
-def _send_transaction_impl(
-    from_wallet: str,
+# secp256k1 group order — a private key must be a scalar in (0, n).
+_SECP256K1N = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+
+# --key-env takes an env-var NAME, never key material; the name charset is
+# the usual shell identifier so a pasted key can never be mistaken for one.
+_ENV_VAR_NAME_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
+
+
+def _resolve_env_key_sender(key_env: str) -> tuple[str, Any] | None:
+    """Resolve ``key_env`` — an env-var NAME holding a private key — to
+    ``(sender_address, private_key)``.
+
+    There is no configured-address cross-check like TransactionService's
+    GENESIS_ADDRESS comparison: the env key IS the identity, so the sender
+    address is derived from the key itself and echoed to the operator before
+    anything is signed. Fails closed on a bad name, an unset/empty variable,
+    non-hex or wrong-length material, or an out-of-range scalar.
+    """
+    # Failures abort (non-zero exit) rather than returning None: an env-key
+    # send that cannot identify its signer must never look like a soft skip.
+    if re.fullmatch(r"(0x)?[0-9a-fA-F]{64}", key_env):
+        # A 32-byte hex string is a valid env name syntactically but is almost
+        # certainly pasted key material — refuse it outright rather than rely
+        # on the (unlikely) chance an env var happens to share the name.
+        abort(
+            None,
+            "--key-env takes an environment variable NAME, not a private key — export the key and pass its variable name",
+        )
+        return None  # unreachable (abort raises) — mypy narrowing
+    if not _ENV_VAR_NAME_RE.fullmatch(key_env):
+        abort(None, f"--key-env must be an environment variable NAME (e.g. FAUCET_PRIVATE_KEY), got {key_env!r}")
+        return None  # unreachable (abort raises) — mypy narrowing
+    raw = os.environ.get(key_env, "").strip()
+    if not raw:
+        abort(
+            None,
+            f"Environment variable {key_env} is not set or is empty — "
+            "it must hold the sender's private key (hex, optional 0x)",
+        )
+        return None  # unreachable (abort raises) — mypy narrowing
+    try:
+        from eth_keys import keys
+
+        key_bytes = bytes.fromhex(raw.removeprefix("0x"))
+        if len(key_bytes) != 32:
+            raise ValueError(f"private key must be 32 bytes, got {len(key_bytes)}")
+        if not 0 < int.from_bytes(key_bytes, "big") < _SECP256K1N:
+            raise ValueError("private key is outside the secp256k1 scalar range")
+        private_key = keys.PrivateKey(key_bytes)
+    except _TRANSACTION_ERRORS as e:
+        abort(None, f"Could not load private key from ${key_env}: {e}", from_exception=e)
+        return None  # unreachable (abort raises) — mypy narrowing
+    sender_address = canonical_address(str(private_key.public_key.to_checksum_address()))
+    info(f"Env key ${key_env} derives sender address {sender_address}")
+    return sender_address, private_key
+
+
+def _confirm_env_key_send(
+    sender_address: str,
+    key_env: str,
     to_address: str,
     amount: Decimal,
     fee: Decimal,
-    password: str,
+    assume_yes: bool,
+) -> None:
+    """Gate env-key sends behind an explicit confirmation.
+
+    Env-held keys bypass the wallet password/KMS flow entirely, so every
+    ``--key-env`` send prompts unless ``--yes`` is passed (the MCP tool's own
+    dry_run/confirm gate maps onto ``--yes``). The prompt names the derived
+    sender address so the operator sees who pays before confirming; a "no"
+    (or non-interactive stdin) aborts via click.Abort.
+    """
+    if assume_yes:
+        return
+    click.confirm(
+        f"Send {amount} AIT (fee {fee} AIT) from {sender_address} (private key from ${key_env}) to {to_address}?",
+        abort=True,
+    )
+
+
+def _send_transaction_impl(
+    from_wallet: str | None,
+    to_address: str,
+    amount: Decimal,
+    fee: Decimal,
+    password: str | None,
     keystore_dir: Path | None = None,
     rpc_url: str | None = None,
     tx_type: str = "TRANSFER",
     payload: dict[str, Any] | None = None,
     nonce_offset: int = 0,
+    key_env: str | None = None,
+    assume_yes: bool = False,
 ) -> str | None:
-    """Send a secp256k1-signed transaction from one wallet to another."""
+    """Send a secp256k1-signed transaction.
+
+    The sender key comes from exactly one of: a wallet-service keystore
+    (``from_wallet`` + ``password``) or an environment variable named by
+    ``key_env``. Both paths share chain-id resolution, nonce lookup, signing
+    and submission so they cannot drift apart.
+    """
     rpc_url = _resolve_transaction_rpc_url(rpc_url)
 
     # Validate recipient address
@@ -236,23 +327,40 @@ def _send_transaction_impl(
 
     _warn_if_session_grant_never_expires(tx_type, payload)
 
-    # Get sender wallet info. An explicit keystore_dir wins outright; otherwise
-    # the shared search order applies (configured wallet dir, then the service
-    # wallet dir — a wallet that only exists under /var/lib/aitbc/wallets is
-    # still found by name).
-    sender_keystore = _resolve_sender_keystore(from_wallet, keystore_dir)
-    if sender_keystore is None:
-        return None
+    sender_label: str
+    if key_env is not None:
+        # Env-held key path (#2328): the env var NAME is the only thing the
+        # caller supplies — never key material. Signing supports the same
+        # --type/--payload surface as the wallet path because both go through
+        # _build_signed_transaction.
+        resolved = _resolve_env_key_sender(key_env)
+        if resolved is None:
+            return None
+        sender_address, private_key = resolved
+        _confirm_env_key_send(sender_address, key_env, to_address, amount, fee, assume_yes)
+        sender_label = f"env:{key_env} ({sender_address})"
+    else:
+        if not from_wallet:
+            abort(None, "transactions send requires --from <wallet> or --key-env <NAME>")
+            return None
+        # Get sender wallet info. An explicit keystore_dir wins outright; otherwise
+        # the shared search order applies (configured wallet dir, then the service
+        # wallet dir — a wallet that only exists under /var/lib/aitbc/wallets is
+        # still found by name).
+        sender_keystore = _resolve_sender_keystore(from_wallet, keystore_dir)
+        if sender_keystore is None:
+            return None
 
-    with open(sender_keystore) as f:
-        sender_data = json.load(f)
+        with open(sender_keystore) as f:
+            sender_data = json.load(f)
 
-    sender_address = sender_data["address"]
+        sender_address = sender_data["address"]
 
-    # Decrypt private key if wallet is encrypted, otherwise use directly
-    private_key = _load_sender_private_key(sender_keystore, sender_data, password)
-    if private_key is None:
-        return None
+        # Decrypt private key if wallet is encrypted, otherwise use directly
+        private_key = _load_sender_private_key(sender_keystore, sender_data, password or "")
+        if private_key is None:
+            return None
+        sender_label = from_wallet
 
     chain_id = _resolve_send_chain_id(rpc_url)
 
@@ -274,7 +382,7 @@ def _send_transaction_impl(
     )
 
     # Submit to blockchain
-    return _submit_signed_transaction(rpc_url, transaction, from_wallet, to_address)
+    return _submit_signed_transaction(rpc_url, transaction, sender_label, to_address)
 
 
 def _warn_if_session_grant_never_expires(tx_type: str, payload: dict[str, Any] | None) -> None:
@@ -434,14 +542,58 @@ def _parse_payload_json(payload: str | None) -> dict[str, Any] | None:
         return None
 
 
+def _resolve_send_password(
+    ctx: click.Context | None,
+    from_wallet: str | None,
+    key_env: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+) -> str | None:
+    """Validate the sender selection and resolve the wallet password (#2328).
+
+    Exactly one of ``--from``/``--key-env`` must be given; only the wallet
+    path has a password — env-key sends sign with the raw key and gate on
+    ``--yes``/confirmation instead. Extracted from ``send`` for the c901
+    complexity ratchet.
+    """
+    if (from_wallet is None) == (key_env is None):
+        abort(ctx, "Exactly one of --from <wallet> or --key-env <NAME> is required")
+    if from_wallet is None:
+        return None
+    return resolve_wallet_password(
+        from_wallet,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        ctx=ctx,
+    )
+
+
 @transactions.command(
     epilog="""Examples:
 
   aitbc transactions send --from wallet-1 --to 0x... --amount 10
 
-  aitbc transactions send --from wallet-1 --to 0x... --amount 10 --fee 0.01"""
+  aitbc transactions send --from wallet-1 --to 0x... --amount 10 --fee 0.01
+
+  aitbc transactions send --key-env FAUCET_PRIVATE_KEY --to 0x... --amount 10 --yes"""
 )
-@click.option("--from", "from_wallet", required=True, help="From wallet name")
+@click.option("--from", "from_wallet", required=False, help="From wallet name (mutually exclusive with --key-env)")
+@click.option(
+    "--key-env",
+    "key_env",
+    default=None,
+    metavar="NAME",
+    help=(
+        "Environment variable NAME holding the sender's private key (hex, optional 0x) "
+        "— e.g. FAUCET_PRIVATE_KEY. Only the variable NAME is passed, never key "
+        "material. The sender address is derived from the key and shown before "
+        "sending. Mutually exclusive with --from; requires confirmation or --yes."
+    ),
+)
+@click.option("--yes", "assume_yes", is_flag=True, help="Skip the --key-env send confirmation prompt")
 @click.option("--to", "to_address", required=True, help="To address")
 @click.option("--amount", type=DECIMAL, required=True, help="Amount to send")
 @click.option(
@@ -461,7 +613,9 @@ def _parse_payload_json(payload: str | None) -> dict[str, Any] | None:
 )
 @click.option("--use-explorer", is_flag=True, help="Use Explorer API for status checks")
 def send(
-    from_wallet: str,
+    from_wallet: str | None,
+    key_env: str | None,
+    assume_yes: bool,
     to_address: str,
     amount: Decimal,
     fee: Decimal,
@@ -475,16 +629,18 @@ def send(
     nonce_offset: int,
     use_explorer: bool,
 ):
-    """Send a transaction from one wallet to another."""
-    validate_tx_fee(click.get_current_context(silent=True), fee, allow_high_fee=allow_high_fee)
-    password = resolve_wallet_password(
-        from_wallet,
-        password=password,
-        password_file=password_file,
-        password_stdin=password_stdin,
-        allow_unencrypted=True,
-        ctx=click.get_current_context(silent=True),
-    )
+    """Send a transaction from one wallet to another.
+
+    The sender key comes from either --from (a wallet-service keystore,
+    unlocked with the wallet password options) or --key-env NAME (an
+    environment variable holding a raw private key — for service-held keys
+    like FAUCET_PRIVATE_KEY that have no wallet entry). Env-key sends support
+    the same --type/--payload options and always show the derived sender
+    address; they prompt for confirmation unless --yes is given.
+    """
+    ctx = click.get_current_context(silent=True)
+    validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
+    password = _resolve_send_password(ctx, from_wallet, key_env, password, password_file, password_stdin)
 
     if not rpc_url:
         rpc_url = _resolve_transaction_rpc_url(None)
@@ -505,6 +661,8 @@ def send(
         tx_type=tx_type,
         payload=parsed_payload,
         nonce_offset=nonce_offset,
+        key_env=key_env,
+        assume_yes=assume_yes,
     )
     if not tx_hash:
         # _send_transaction_impl already printed the specific refusal (bad amount,
