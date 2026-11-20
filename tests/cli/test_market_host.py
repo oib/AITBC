@@ -195,12 +195,39 @@ class TestCoordinatorHostEscrow:
         assert paths == ["/v1/jobs", "/v1/payments"]
         job_body = client.calls[0][1]
         assert job_body["payment_amount"] == "1.5"
+        # days=3 → ttl covers rental + 1d settle slack; timeout capped at 24h
+        assert job_body["ttl_seconds"] == 4 * 86400
         pay_body = client.calls[1][1]
         assert pay_body["job_id"] == "coord-job-1"
         assert pay_body["buyer_lock_signature"] == "0xsig"
         assert pay_body["buyer_lock_nonce"] == 7
         assert pay_body["buyer_lock_fee"] == 100
         assert pay_body["offer_quantity"] == "3"
+        assert pay_body["escrow_timeout_seconds"] == 86400
+
+    def test_ttl_and_timeout_scale_with_days(self):
+        """#2340 respin: a 1-day rental must not inherit the old fixed 24h ttl —
+        the coordinator job would hit EXPIRED mid-rental and the sweeper would
+        auto-refund the escrow."""
+        client = self._FakeClient(
+            {
+                "/v1/jobs": {"job_id": "coord-job-1"},
+                "/v1/payments": {"payment_id": "pay-1", "status": "escrowed"},
+            }
+        )
+        kwargs = self._escrow_kwargs()
+        kwargs["days"] = 1
+        from contextlib import ExitStack
+
+        with ExitStack() as stack:
+            for p in self._patches(client).values():
+                stack.enter_context(p)
+            host_module._create_coordinator_host_escrow(None, **kwargs)
+
+        job_body = client.calls[0][1]
+        assert job_body["ttl_seconds"] == 2 * 86400
+        pay_body = client.calls[1][1]
+        assert pay_body["escrow_timeout_seconds"] == 86400
 
     def test_no_client_returns_none_for_fallback(self):
         with patch.object(host_module, "_coordinator_payment_client", return_value=None):
