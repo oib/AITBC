@@ -89,6 +89,12 @@ MARKET_GPU_REREGISTER_INTERVAL = float(os.environ.get("MINER_GPU_REREGISTER_SECO
 # #2305: minimum seconds between "poll skipped, at capacity" warnings.
 _CAPACITY_WARN_INTERVAL = 60.0
 _last_capacity_warn = 0.0
+# #2305: consecutive job-poll failures are counted so a coordinator outage
+# shows up in the journal instead of looking like a silent stall, and the
+# poll cadence backs off while failures persist.
+POLL_RETRY_MAX_SECONDS = 30.0
+POLL_FAILURE_WARN_EVERY = 10
+_poll_failures = 0
 MAX_RETRIES = 10
 RETRY_DELAY = 30
 # In-memory set of job IDs currently running in worker threads. Used to report
@@ -852,6 +858,34 @@ def submit_result(job_id, result):
         logger.error("Result submission error: %s", e)
 
 
+def _note_poll_result(ok: bool) -> None:
+    """Track consecutive job-poll failures (#2305).
+
+    A successful exchange — a claimed job or an empty 204 — resets the
+    counter; failures increment it. A WARNING fires every
+    ``POLL_FAILURE_WARN_EVERY``-th failure and once on recovery, so a stall
+    is visible in ``journalctl -u aitbc-miner`` while heartbeats keep
+    flowing.
+    """
+    global _poll_failures
+    if ok:
+        if _poll_failures:
+            logger.warning("Job poll recovered after %d consecutive failure(s)", _poll_failures)
+        _poll_failures = 0
+        return
+    _poll_failures += 1
+    if _poll_failures % POLL_FAILURE_WARN_EVERY == 0:
+        logger.warning("Job poll failed %d time(s) in a row; backing off and retrying", _poll_failures)
+
+
+def _poll_interval_seconds() -> float:
+    """Seconds between poll cycles: 3s normally, exponential backoff capped
+    at ``POLL_RETRY_MAX_SECONDS`` while polls keep failing (#2305)."""
+    if _poll_failures <= 0:
+        return 3.0
+    return float(min(POLL_RETRY_MAX_SECONDS, 3.0 * 2 ** min(_poll_failures, 4)))
+
+
 def poll_for_jobs():
     """Poll for available jobs"""
     poll_data = {"max_wait_seconds": 5}
@@ -860,21 +894,27 @@ def poll_for_jobs():
         url = f"{COORDINATOR_URL}/v1/miners/poll"
         response = requests.post(url, json=poll_data, headers=headers, timeout=10)
         if response.status_code == 204:
+            _note_poll_result(True)
             return None
         response.raise_for_status()
         job = response.json()
         if job and job.get("job_id"):
             logger.info("Received job: %s", job)
+            _note_poll_result(True)
             return job
         else:
+            _note_poll_result(True)
             return None
     except requests.exceptions.HTTPError as e:
         if e.response.status_code == 204:
             logger.debug("No jobs available (204 No Content)")
+            _note_poll_result(True)
             return None
+        _note_poll_result(False)
         logger.error("HTTP error polling for jobs: %s", e)
         return None
     except _OPS_ERRORS as e:
+        _note_poll_result(False)
         logger.error("Error polling for jobs: %s", e)
         return None
 
@@ -1043,22 +1083,30 @@ def _reconcile_running_jobs(models: list, max_concurrent_jobs: int) -> None:
 
 def _poll_and_dispatch(models: list, max_concurrent_jobs: int) -> None:
     """One poll cycle: capacity-guarded reconcile + job fetch, atomic slot
-    claim, and worker-thread dispatch so heartbeats keep running."""
+    claim, and worker-thread dispatch so heartbeats keep running.
+
+    Any unexpected exception is logged and swallowed (#2305): the poll loop
+    must keep retrying through coordinator outages instead of letting one
+    bad cycle kill the main loop while heartbeats keep flowing.
+    """
     # Only poll if we have capacity; the coordinator also checks
     # inflight, but a local guard avoids thundering-herd polls and
     # reflects the actual thread count.
     if len(ACTIVE_JOB_IDS) >= max_concurrent_jobs:
         _warn_at_capacity(max_concurrent_jobs)
         return
-    _reconcile_running_jobs(models, max_concurrent_jobs)
-    # Reconcile may have filled every slot; polling now would claim a job
-    # server-side that cannot be dispatched locally until next cycle.
-    if len(ACTIVE_JOB_IDS) >= max_concurrent_jobs:
-        return
-    job = poll_for_jobs()
-    if not job:
-        return
-    _dispatch_job(job, models)
+    try:
+        _reconcile_running_jobs(models, max_concurrent_jobs)
+        # Reconcile may have filled every slot; polling now would claim a job
+        # server-side that cannot be dispatched locally until next cycle.
+        if len(ACTIVE_JOB_IDS) >= max_concurrent_jobs:
+            return
+        job = poll_for_jobs()
+        if job:
+            _dispatch_job(job, models)
+    except Exception:
+        _note_poll_result(False)
+        logger.exception("Job poll/dispatch cycle failed; will retry next cycle")
 
 
 async def main():
@@ -1094,7 +1142,7 @@ async def main():
             if current_time - last_market_gpu_register >= MARKET_GPU_REREGISTER_INTERVAL:
                 await asyncio.to_thread(register_market_gpu)
                 last_market_gpu_register = current_time
-            if current_time - last_poll >= 3:
+            if current_time - last_poll >= _poll_interval_seconds():
                 _poll_and_dispatch(models, max_concurrent_jobs)
                 last_poll = current_time
             await asyncio.sleep(1)
