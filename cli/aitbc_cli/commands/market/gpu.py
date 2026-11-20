@@ -35,7 +35,14 @@ from ...utils.energy_quote import (
     verify_quote,
 )
 from ...utils.escrow import create_signed_escrow_lock
-from ...utils.http_client import AITBCHTTPClient, NetworkError, auth_headers, get_logger
+from ...utils.http_client import (
+    AITBCHTTPClient,
+    NetworkError,
+    auth_headers,
+    get_logger,
+    http_error_detail,
+    http_response_status,
+)
 from ...utils.wallet_loader import load_wallet_for_payment
 from ._signing import signed_job_request_fields
 
@@ -822,8 +829,20 @@ def refund(ctx, job_id, wallet, wallet_path, password, password_file, password_s
     if not yes:
         click.confirm(f"Request refund for job {job_id}?", abort=True)
 
-    # The coordinator has no /v1/market/gpu/refund route; refunds are
-    # served by the market service's job endpoint.
+    # #2303: a rental bought through the coordinator (gpu quote/buy) is a
+    # coordinator job with a coordinator payment; the market service does not
+    # know it ("Job not found"). Refund through the coordinator's escrow
+    # refund path first, and fall back to the market service's job endpoint
+    # only when the coordinator holds no payment for this job.
+    coordinator_result = _refund_via_coordinator(ctx, job_id, reason)
+    if coordinator_result is not None:
+        if json_output:
+            output(json.dumps(coordinator_result, indent=2, default=str))
+        else:
+            success(f"Refund requested for job {job_id}")
+            info(f"Status: {coordinator_result.get('status', 'unknown')}")
+        return
+
     client = AITBCHTTPClient(
         base_url=get_config().market_service_url,
         timeout=30,
@@ -845,6 +864,38 @@ def refund(ctx, job_id, wallet, wallet_path, password, password_file, password_s
     else:
         success(f"Refund requested for job {job_id}")
         info(f"Status: {result.get('status', 'unknown')}")
+
+
+def _refund_via_coordinator(ctx, job_id: str, reason: str) -> dict[str, Any] | None:
+    """Refund a coordinator-created rental; None when the coordinator has no payment for the job.
+
+    Looks the payment up by job (``GET /v1/jobs/{id}/payment``) and refunds it
+    through ``POST /v1/payments/{id}/refund`` (escrow refund path). Any answer
+    other than "no payment for this job" is final and exits non-zero rather
+    than silently retrying against the market service.
+    """
+    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=_purchase_timeout(), headers=_auth_headers(ctx))
+    try:
+        payment = client.get(f"/v1/jobs/{job_id}/payment")
+    except NetworkError as e:
+        if http_response_status(e) in (401, 403):
+            error(f"Refund lookup refused by the coordinator: {http_error_detail(e) or e}")
+            sys.exit(1)
+        if http_response_status(e) == 404:
+            return None
+        error(f"Refund lookup failed: {e}")
+        sys.exit(1)
+    payment_id = payment.get("payment_id") if isinstance(payment, dict) else None
+    if not payment_id:
+        return None
+    try:
+        return client.post(
+            f"/v1/payments/{payment_id}/refund",
+            json={"job_id": job_id, "payment_id": payment_id, "reason": reason or "buyer refund request"},
+        )
+    except NetworkError as e:
+        error(f"Refund request failed: {http_error_detail(e) or e}")
+        sys.exit(1)
 
 
 def _auth_headers(ctx) -> dict[str, str]:
