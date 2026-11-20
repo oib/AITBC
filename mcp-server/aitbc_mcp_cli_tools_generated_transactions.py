@@ -162,9 +162,16 @@ def aitbc_transactions_search(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_transactions_send(
-    from_wallet: Annotated[str, Field(description="From wallet name")],
     to_address: Annotated[str, Field(description="To address")],
     amount: Annotated[str, Field(description="Amount to send")],
+    from_wallet: Annotated[str | None, Field(description="From wallet name (mutually exclusive with --key-env)")] = None,
+    key_env: Annotated[
+        str | None,
+        Field(
+            description="Environment variable NAME holding the sender's private key (hex, optional 0x) — e.g. FAUCET_PRIVATE_KEY. Only the variable NAME is passed, never key material. The sender address is derived from the key and shown before sending. Mutually exclusive with --from; requires confirmation or --yes."
+        ),
+    ] = None,
+    assume_yes: Annotated[bool | None, Field(description="Skip the --key-env send confirmation prompt")] = None,
     fee: Annotated[str | None, Field(description="Transaction fee (standard chain fee)")] = None,
     allow_high_fee: Annotated[bool | None, Field(description="Override the 10.00 AIT sanity ceiling on --fee")] = None,
     password_file: Annotated[
@@ -186,9 +193,10 @@ def aitbc_transactions_send(
     """Send a transaction from one wallet to another."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"allow_high_fee": "allow-high-fee", "use_explorer": "use-explorer"},
+        flags={"assume_yes": "yes", "allow_high_fee": "allow-high-fee", "use_explorer": "use-explorer"},
         values={
             "from_wallet": "from",
+            "key_env": "key-env",
             "to_address": "to",
             "amount": "amount",
             "fee": "fee",

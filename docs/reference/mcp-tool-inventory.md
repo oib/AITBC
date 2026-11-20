@@ -2,11 +2,11 @@
 
 # MCP tool inventory
 
-**817 tools** across 140 modules.
+**818 tools** across 140 modules.
 
 | Kind | Tools |
 |---|---|
-| cli | 132 |
+| cli | 133 |
 | generated | 562 |
 | other | 7 |
 | rpc | 116 |
@@ -147,7 +147,7 @@
 | mcp-server/aitbc_mcp_control_tools.py | 5 |
 | mcp-server/aitbc_mcp_http_tools.py | 10 |
 | mcp-server/aitbc_mcp_liquidity_tools.py | 6 |
-| mcp-server/aitbc_mcp_mutating_tools.py | 9 |
+| mcp-server/aitbc_mcp_mutating_tools.py | 10 |
 | mcp-server/aitbc_mcp_node_tools.py | 8 |
 | mcp-server/aitbc_mcp_ops_tools.py | 6 |
 | mcp-server/aitbc_mcp_rpc_tools.py | 54 |
@@ -878,6 +878,7 @@
 | `manage_ai_job` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai <dynamic>` |
 | `pay_for_ai_job` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai pay` |
 | `run_zk_refund_sweep` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai refund-sweep` |
+| `send_aitbc_from_env_key` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc transactions send` |
 | `send_aitbc_transaction` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc transactions send` |
 | `stake_aitbc` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc wallet stake` |
 | `submit_ai_job` | mcp-server/aitbc_mcp_mutating_tools.py | cli | `aitbc ai submit` |

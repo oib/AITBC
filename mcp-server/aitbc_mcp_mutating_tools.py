@@ -518,6 +518,87 @@ def send_aitbc_transaction(
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def send_aitbc_from_env_key(
+    key_env: Annotated[
+        str,
+        Field(
+            description=(
+                "Name of the environment variable holding the sender's private key "
+                "(e.g. 'FAUCET_PRIVATE_KEY'). Only the variable NAME is sent — never "
+                "key material. The variable must be set in the environment the aitbc "
+                "CLI runs in on the target host (e.g. source the service env file first)."
+            )
+        ),
+    ],
+    to_address: Annotated[
+        str,
+        Field(description="Destination address."),
+    ],
+    amount: Annotated[
+        str,
+        Field(description="Amount to send, e.g. '1.5'"),
+    ],
+    fee: Annotated[
+        str | None,
+        Field(description="Transaction fee."),
+    ] = None,
+    rpc_url: Annotated[
+        str | None,
+        Field(description="Blockchain RPC URL."),
+    ] = None,
+    nonce_offset: Annotated[
+        int | None,
+        Field(description="Extra nonce offset for queueing a second pending tx from the same sender."),
+    ] = None,
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Send AITBC signed by an env-held private key (no wallet-service entry).
+
+    Wraps ``aitbc transactions send --key-env <NAME> --yes``: the env var must
+    already be exported in the remote shell environment (service env files are
+    not loaded automatically — e.g. ``set -a; . /etc/aitbc/aitbc-agent-coordinator.env; set +a``
+    on the target host). Env-key sends bypass the wallet password flow, so this
+    tool is destructive-gated like the other send tools and always passes
+    ``--yes`` once ``confirm=true`` — the CLI's own interactive prompt is the
+    gate for direct human use.
+    """
+    options: dict[str, str | None] = {
+        "key-env": key_env,
+        "to": to_address,
+        "amount": amount,
+        "yes": None,
+    }
+    if fee is not None:
+        options["fee"] = fee
+    if rpc_url is not None:
+        options["rpc-url"] = rpc_url
+    if nonce_offset is not None:
+        options["nonce-offset"] = str(nonce_offset)
+
+    target = _host_for_role(role, host)
+    command = _build_aitbc_cli_command("transactions", "send", None, options, "json")
+    guard = _require_confirm(dry_run, confirm, command, host=target)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_aitbc_cli(target, "transactions", "send", None, options, "json"))
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def create_performance_bond(
     provider_id: Annotated[
         str,
