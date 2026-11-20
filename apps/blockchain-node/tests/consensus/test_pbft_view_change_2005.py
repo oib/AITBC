@@ -15,6 +15,7 @@ from __future__ import annotations
 import itertools
 import json
 import uuid
+from types import SimpleNamespace
 from typing import Any
 
 import pytest
@@ -2334,3 +2335,85 @@ class TestEmittedPreprepareReuse2281:
         pbft2._emitted_preprepare = pbft._emitted_preprepare  # same node, next view
         assert await pbft2.pre_prepare_phase(proposer2, HB, SEQ, VIEW + 1, block_payload=_proposal_body(proposer2, HB))
         assert pbft2.state.pre_prepare_messages[f"{SEQ}:{VIEW + 1}"].block_hash == HB
+
+
+class Test2286EngagementGating:
+    """#2286: the VC floor engages only on failure/rotation evidence, not on
+    every first pre-prepare sight — the design costs "~n small VC messages,
+    only on a round change" (§7). A clean first sight leaves the floor
+    untouched so the permit free-votes; any conflicting local record, an
+    already-engaged VC/NEW_VIEW bucket, or a differing prepared/lock engages.
+    """
+
+    def _engine(self):
+        consensus = _make_consensus()
+        local = MEMBERS[0]
+        return consensus, _pbft(consensus, local, KEYS[local])
+
+    @pytest.mark.asyncio
+    async def test_clean_first_sight_does_not_engage(self, vc_armed):
+        consensus, pbft = self._engine()
+        pbft.set_gossip_backend(_FakeGossip())
+        assert await pbft._ensure_view_change_sent(SEQ, VIEW, HA) is True
+        assert consensus.pbft_vc_floor(SEQ) is None
+        assert (SEQ, VIEW) not in pbft._vc_messages
+        assert (SEQ, VIEW) not in pbft._new_views
+
+    @pytest.mark.asyncio
+    async def test_consistent_retry_records_do_not_engage(self, vc_armed):
+        """Records that MATCH the incoming (view, hash) — a consistent retry —
+        are not evidence."""
+        consensus, pbft = self._engine()
+        pbft.set_gossip_backend(_FakeGossip())
+        pbft._prepared_heights[SEQ] = (VIEW, HA)
+        pbft.state.pre_prepare_messages[f"{SEQ}:{VIEW}"] = SimpleNamespace(block_hash=HA)
+        pbft.state.prepared_messages[f"{SEQ}:{VIEW}"] = [SimpleNamespace(block_hash=HA)]
+        assert await pbft._ensure_view_change_sent(SEQ, VIEW, HA) is True
+        assert consensus.pbft_vc_floor(SEQ) is None
+        assert (SEQ, VIEW) not in pbft._vc_messages
+
+    @pytest.mark.asyncio
+    async def test_prepared_at_other_view_engages(self, vc_armed):
+        consensus, pbft = self._engine()
+        pbft.set_gossip_backend(_FakeGossip())
+        pbft._prepared_heights[SEQ] = (VIEW - 1, HA)
+        assert await pbft._ensure_view_change_sent(SEQ, VIEW, HB) is True
+        assert consensus.pbft_vc_floor(SEQ) == VIEW
+        assert (SEQ, VIEW) in pbft._vc_messages
+
+    @pytest.mark.asyncio
+    async def test_same_view_different_hash_engages(self, vc_armed):
+        """Equivocation evidence: a same-view record naming another hash."""
+        consensus, pbft = self._engine()
+        pbft.set_gossip_backend(_FakeGossip())
+        pbft.state.pre_prepare_messages[f"{SEQ}:{VIEW}"] = SimpleNamespace(block_hash=HB)
+        assert await pbft._ensure_view_change_sent(SEQ, VIEW, HA) is True
+        assert consensus.pbft_vc_floor(SEQ) == VIEW
+
+    @pytest.mark.asyncio
+    async def test_engaged_bucket_engages(self, vc_armed):
+        """A peer's VC/NEW_VIEW bucket for the height means the protocol is
+        already running — this node must join, not free-vote around it."""
+        consensus, pbft = self._engine()
+        pbft.set_gossip_backend(_FakeGossip())
+        pbft._vc_messages[(SEQ, VIEW)] = {"0xpeer": {"message_type": "view_change"}}
+        assert await pbft._ensure_view_change_sent(SEQ, VIEW, HA) is True
+        assert consensus.pbft_vc_floor(SEQ) == VIEW
+
+    @pytest.mark.asyncio
+    async def test_commit_lock_conflict_engages(self, vc_armed):
+        consensus, pbft = self._engine()
+        pbft.set_gossip_backend(_FakeGossip())
+        consensus.pbft_commit_lock_arm(SEQ, HB)
+        assert await pbft._ensure_view_change_sent(SEQ, VIEW, HA) is True
+        assert consensus.pbft_vc_floor(SEQ) == VIEW
+
+    @pytest.mark.asyncio
+    async def test_commit_lock_match_does_not_engage(self, vc_armed):
+        """A locked hash matching the incoming proposal is a consistent
+        re-proposal, not conflict evidence by itself."""
+        consensus, pbft = self._engine()
+        pbft.set_gossip_backend(_FakeGossip())
+        consensus.pbft_commit_lock_arm(SEQ, HA)
+        assert await pbft._ensure_view_change_sent(SEQ, VIEW, HA) is True
+        assert consensus.pbft_vc_floor(SEQ) is None
