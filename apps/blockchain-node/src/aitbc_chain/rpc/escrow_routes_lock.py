@@ -264,7 +264,22 @@ async def _ensure_lock_sealed(job_id: str) -> None:
     caller "not yet, retry": the coordinator leaves the payment escrowed and
     re-attempts on its next sweep; the row stays unmarked either way.
     """
-    if not await _er._find_existing_lock(job_id):
+    lock_tx, probe_ok = await _er._find_existing_lock_tx_status(job_id)
+    if not probe_ok:
+        # The lookup itself failed — that is "unknown", not "absent". A 425
+        # here would tell the coordinator the lock is unsealed and spend its
+        # bounded 425-deferral budget on what is really an unavailable probe
+        # (#2295: hub RPC restart window produced minutes of false 425s on a
+        # confirmed lock). 503 keeps the retry semantics without the lie.
+        raise _er.HTTPException(
+            status_code=503,
+            detail=(
+                f"escrow lock lookup for job_id={job_id} is unavailable; "
+                "retry — the lock's sealed state could not be determined"
+            ),
+            headers={"Retry-After": "5"},
+        )
+    if lock_tx is None:
         raise _er.HTTPException(
             status_code=425,
             detail=(
