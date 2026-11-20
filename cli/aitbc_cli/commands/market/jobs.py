@@ -5,6 +5,7 @@ Job commands: run, transcribe, process
 import hashlib
 import json
 import os
+import secrets
 import subprocess
 import urllib.request
 from datetime import datetime
@@ -133,6 +134,18 @@ def _shop_access_headers(job_id: str, access_key: str | None = None, access_secr
     return {"X-Access-Key": key, "X-Access-Secret": secret, "X-Job-Id": job_id}
 
 
+def _new_sw_job_id() -> str:
+    """Unpredictable market job id — it doubles as the on-chain escrow key.
+
+    #2326 MARKET-ESCROW-SQUAT-1: the old ``sha256(offer_id + buyer_wallet)
+    [:8]`` suffix was deterministic — offer ids and buyer wallets are public,
+    so a squatter could enumerate the second-granularity timestamp space and
+    pre-register predicted future escrow keys. The suffix is now
+    cryptographic randomness.
+    """
+    return f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{secrets.token_hex(8)}"
+
+
 def _register_paid_market_job(
     ctx: click.Context,
     job_id: str,
@@ -159,8 +172,6 @@ def _register_paid_market_job(
     None when registration fails — the caller then falls back to env creds
     and the shop's own 401 remains the refusal.
     """
-    import secrets
-
     from ..ipfs import _hub_market_client
 
     access_key = access_key or secrets.token_urlsafe(16)
@@ -436,7 +447,7 @@ def _run_ollama(
     # Lock escrow upfront (estimated max cost)
     estimated_tokens = max_tokens
     estimated_cost = (Decimal(estimated_tokens) / 1000) * price
-    job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer.get("offer_id")}{wallet_address}'.encode()).hexdigest()[:8]}"
+    job_id = _new_sw_job_id()
     info(f"Locking escrow: ~{estimated_cost:.8f} AIT (est. {estimated_tokens} tokens)")
     buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
         ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
@@ -736,7 +747,7 @@ def _run_whisper(
     duration_minutes = duration_seconds / 60
     estimated_cost = Decimal(str(duration_minutes)) * price if price_unit == "per_audio_min" else price
 
-    job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
+    job_id = _new_sw_job_id()
     info(f"Audio duration: {duration_minutes:.2f} min — locking escrow: ~{estimated_cost:.8f} AIT")
     buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
         ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
@@ -861,7 +872,7 @@ def _run_ffmpeg(
     estimated_cost = estimated_hours * price if price_unit == "per_processing_hour" else price
     info(f"Estimated duration: {estimated_hours:.2f} hours — locking escrow: ~{estimated_cost:.8f} AIT")
 
-    job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
+    job_id = _new_sw_job_id()
     buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
         ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
     )
@@ -1086,7 +1097,7 @@ def _run_hermes(
     estimated_cost = _hermes_estimated_cost(price, price_unit, max_time)
     info(f"Max time: {max_time}s — locking escrow: ~{estimated_cost:.8f} AIT")
 
-    job_id = f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{offer_id}{wallet_address}'.encode()).hexdigest()[:8]}"
+    job_id = _new_sw_job_id()
     buyer, provider, buyer_agent_id, provider_agent_id = _escrow_parties_for_market_run(
         ctx, wallet_address, provider_address, buyer_agent_id, provider_agent_id
     )
