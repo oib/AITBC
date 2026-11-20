@@ -434,9 +434,12 @@ class TestOfferDisableIsSigned:
 
         class _Config:
             hub_discovery_url = "hub.example.net"
+            # _resolve_market_api_key reads config.api_key; the real
+            # CLIConfig always carries the field, the stub must too.
+            api_key = None
 
         class _Client:
-            def __init__(self, base_url, timeout):
+            def __init__(self, base_url, timeout, **_kw):
                 sent["base_url"] = base_url
 
             def delete(self, endpoint, params=None, headers=None, idempotency_key=None):
