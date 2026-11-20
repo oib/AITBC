@@ -948,6 +948,9 @@ _KNOWN_READ_SIGNAL_PATHS = {
     # bounty status is a read of the bounty ledger; the shared submit/post
     # helper trips the source scan the same way agent-staking's does.
     "bounty status",
+    # bond challenge POSTs to the coordinator for a signable nonce/message only;
+    # wallet proof is consumed on bond create/top-up, not here.
+    "bond challenge",
     "blockchain monitor",
     # subprocess.run is the read vector, not a mutation: it shells the monitor's
     # own `list`/`status` admin verbs and hardcodes them — no write verb (write-off,
@@ -991,6 +994,8 @@ _KNOWN_READ_SIGNAL_PATHS = {
     "reputation metrics",
     "reputation profile",
     "reputation trust-score",
+    # in-process simulator; helper name _submit_simulated_jobs trips _submit in the scan.
+    "simulate ai-jobs",
     "simulate blockchain",
     "system cat",
     "system cron",

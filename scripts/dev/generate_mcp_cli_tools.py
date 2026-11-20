@@ -362,6 +362,9 @@ FORCE_READ_ONLY_PATHS: set[tuple[str, ...]] = {
     ("market", "escrow", "status"),
     ("dashboard", "customer"),
     ("dashboard", "shop"),
+    # POST /bonds/challenge issues a coordinator nonce for the provider to
+    # sign offline — no wallet, bond ledger, or on-chain mutation from the CLI.
+    ("bond", "challenge"),
 }
 
 FORCE_DESTRUCTIVE_PATHS: set[tuple[str, ...]] = {
