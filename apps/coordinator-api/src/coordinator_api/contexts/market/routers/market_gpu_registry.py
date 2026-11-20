@@ -130,6 +130,37 @@ def register_gpu(
     compute_capability = gpu_specs.get("compute_capability", "")
     cuda_version = compute_capability if compute_capability else ""
     price_per_hour = _validated_price_per_hour(gpu_specs.get("price_per_hour", "0.05"))
+    # #2291: idempotent per (miner, model, resource_id) so a miner that
+    # re-registers on every start does not mint duplicate rows. Only the
+    # authenticated miner's own row can match (miner_id comes from the token).
+    model_name = gpu_specs.get("name", "Unknown GPU")
+    resource_id = gpu_specs.get("resource_id")
+    existing = (
+        session.execute(
+            select(GPURegistry).where(
+                col(GPURegistry.miner_id) == miner_id,
+                col(GPURegistry.model) == model_name,
+                col(GPURegistry.resource_id).is_(None) if resource_id is None else col(GPURegistry.resource_id) == resource_id,
+            )
+        )
+        .scalars()
+        .first()
+    )
+    if existing is not None:
+        existing.price_per_hour = price_per_hour
+        existing.region = gpu_specs.get("region", existing.region)
+        existing.memory_gb = gpu_specs.get("memory_gb", existing.memory_gb)
+        if compute_capability:
+            existing.cuda_version = cuda_version
+        session.add(existing)
+        session.commit()
+        return {
+            "gpu_id": existing.id,
+            "status": "registered",
+            "already_registered": True,
+            "message": f"GPU {model_name} already registered",
+            "price_per_hour": price_per_hour,
+        }
     gpu_record = GPURegistry(
         id=gpu_id,
         miner_id=miner_id,
@@ -153,6 +184,7 @@ def register_gpu(
     return {
         "gpu_id": gpu_id,
         "status": "registered",
+        "already_registered": False,
         "message": f"GPU {gpu_specs.get('name', 'Unknown GPU')} registered successfully",
         "price_per_hour": price_per_hour,
     }

@@ -500,6 +500,7 @@ GENERATED_DESTRUCTIVE_AITBC_PATHS = frozenset(
         "market gpu buy",
         "market gpu quote",
         "market gpu refund",
+        "market gpu register",
         "market gpu release",
         "market gpu status",
         "market hermes",
