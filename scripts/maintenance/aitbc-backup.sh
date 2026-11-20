@@ -375,14 +375,17 @@ if [ -s "$_MISC_LIST" ]; then
     _misc_count=$(tr -cd '\0' < "$_MISC_LIST" | wc -c)
     _varlib_tar_rc=0
     tar czf "${BACKUP_DIR}/varlib-state.tar.gz" -C "$SVC_DB_DIR" --null --files-from "$_MISC_LIST" 2>/dev/null || _varlib_tar_rc=$?
-    # tar rc 1 is "some files differ as they were read" — live service state
-    # churning mid-archive. The archive still holds every file it could read;
-    # failing the whole unit on churn is a false BackupFailed
-    # (MON-BACKUP-VARLIB-TAR-FLAP-1). Accept it only when the archive is
-    # actually readable. rc >= 2 stays fatal.
-    if [ "$_varlib_tar_rc" -eq 1 ]; then
+    # tar rc 1 is "some files differ as they were read"; rc >= 2 can also be
+    # live churn — a file listed by find vanishing before tar stats it makes
+    # GNU tar report "Cannot stat" and exit 2 while still archiving everything
+    # else (BACKUP-VARLIB-TAR-RC2-1, node1 BackupFailed 20 Nov). The archive
+    # still holds every file it could read; failing the whole unit on churn is
+    # a false BackupFailed (MON-BACKUP-VARLIB-TAR-FLAP-1). Accept ANY rc only
+    # when the archive is actually readable — a truncated/corrupt archive
+    # (e.g. disk full) fails `tar -tzf` and stays fatal.
+    if [ "$_varlib_tar_rc" -ne 0 ]; then
         if tar -tzf "${BACKUP_DIR}/varlib-state.tar.gz" >/dev/null 2>&1; then
-            warn "varlib-state: files changed during archive (live churn); accepting readable snapshot"
+            warn "varlib-state: tar rc=${_varlib_tar_rc} during archive (live churn); accepting readable snapshot"
             _varlib_tar_rc=0
         fi
     fi
