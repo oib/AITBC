@@ -37,7 +37,7 @@ markdown-it-py==4.2.0 ; python_full_version >= "3.13.5" and python_full_version 
 mdurl==0.1.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 packaging==26.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 parsimonious==0.10.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
-pluggy==1.6.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
+pluggy==1.7.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 pycparser==3.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15" and implementation_name != "PyPy"
 pycryptodome==3.23.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 pydantic==2.13.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
