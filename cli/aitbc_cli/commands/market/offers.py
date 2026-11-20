@@ -449,12 +449,16 @@ def _collect_market_txs(hub_url: str, config) -> tuple[list[dict[str, Any]], boo
     transactions: list[dict[str, Any]] = []
     answered = False
     try:
-        # Query hub directly (HTTP) for confirmed GPU_MARKET transactions
+        # Query hub directly (HTTP) for confirmed GPU_MARKET transactions.
+        # The type filter must be server-side: an unfiltered newest-500 scan
+        # silently drops old-but-active offers once the chain outgrows the
+        # window (whisper's tx_8 listing, #2307).
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
-        result = http_client.get_json("/rpc/transactions", params={"limit": 500})
+        result = http_client.get_json("/rpc/transactions", params={"transaction_type": "GPU_MARKET", "limit": 500})
         answered = True
         if isinstance(result, list):
-            # Filter by payload action since hub doesn't store type field
+            # Filter by payload action since the endpoint returns all tx
+            # sub-actions under the GPU_MARKET type.
             transactions = [
                 tx
                 for tx in result
