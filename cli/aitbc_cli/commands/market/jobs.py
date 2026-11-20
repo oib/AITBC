@@ -213,7 +213,10 @@ def _resolve_offer_from_market(http_client: AITBCHTTPClient, offer_id_or_plugin_
 def _resolve_offer_from_blockchain(http_client: AITBCHTTPClient, offer_id_or_plugin_id: str) -> dict[str, Any] | None:
     """Resolve an offer from on-chain GPU_MARKET transactions."""
     try:
-        result = http_client.get_json("/rpc/transactions", params={"limit": 1000})
+        # Server-side type filter: an unfiltered newest-N window drops
+        # old-but-active offers once the chain outgrows it (#2310 — same
+        # defect class as the market list fallback, #2307).
+        result = http_client.get_json("/rpc/transactions", params={"transaction_type": "GPU_MARKET", "limit": 500})
     except Exception as e:  # noqa: BLE001 - chain probe failure means the offer is unresolved
         logger.debug("blockchain offer lookup failed: %s", type(e).__name__)
         return None

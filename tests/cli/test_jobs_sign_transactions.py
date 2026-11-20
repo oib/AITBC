@@ -151,3 +151,39 @@ def test_a_refused_record_does_not_abort_the_caller(monkeypatch: pytest.MonkeyPa
     monkeypatch.setattr(jobs, "AITBCHTTPClient", _Refuses)
 
     assert jobs._record_job_on_chain(_Config(), _job_tx(signer.address), signer.key.hex()) is None
+
+
+class _TxQueryClient:
+    """Captures /rpc/transactions params and answers a canned tx list."""
+
+    def __init__(self, rows: list[dict[str, Any]]):
+        self.rows = rows
+        self.params: dict[str, Any] | None = None
+
+    def get_json(self, path: str, params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        assert path == "/rpc/transactions"
+        self.params = params or {}
+        return self.rows
+
+
+def test_offer_resolution_scopes_the_chain_window_to_gpu_market() -> None:
+    """#2310: _resolve_offer_from_blockchain must pass transaction_type —
+    the unfiltered newest-N window drops old-but-active offers (whisper's
+    tx_8) once the chain outgrows it, so `market transcribe --offer-id`
+    answered 'Offer not found on hub' for a live listing."""
+    offer_tx = {
+        "payload": {
+            "action": "software_offer",
+            "offer_id": "sw_offer_old_whisper",
+            "service_type": "whisper",
+            "model": "base",
+            "status": "active",
+        }
+    }
+    client = _TxQueryClient([offer_tx])
+
+    offer = jobs._resolve_offer_from_blockchain(client, "sw_offer_old_whisper")  # type: ignore[arg-type]
+
+    assert offer is not None and offer["offer_id"] == "sw_offer_old_whisper"
+    assert client.params is not None
+    assert client.params.get("transaction_type") == "GPU_MARKET"
