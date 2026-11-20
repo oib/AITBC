@@ -1818,3 +1818,33 @@ def test_create_job_default_is_unchanged_and_hold_is_opt_in(db_session):
     held = svc.create_job("client1", JobCreate(payload={"type": "x"}, ttl_seconds=60), payment_hold=True)
     assert plain.payment_status is None
     assert held.payment_status == "pending"
+
+
+@pytest.mark.unit
+def test_quote_binds_job_model_id_to_the_quote_profile(client, client_token, db_session, native_pricing, available_gpu):
+    """#2300: a registry row without model_id must not leave the raw GPU name on the job.
+
+    The purchase check compares quote.model_id with job.model_id, so the job is
+    bound to the quote's own energy-profile id.
+    """
+    _seed_energy(db_session)
+    gpu = db_session.get(GPURegistry, available_gpu)
+    gpu.model_id = None
+    db_session.add(gpu)
+    db_session.commit()
+    resp = client.post(
+        "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {client_token}"},
+        json={
+            "buyer_id": "client1",
+            "gpu_id": available_gpu,
+            "duration_hours": 0.05,
+            "gpu_count": 1,
+            "settlement_route": "native",
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    job = db_session.get(Job, data["job_id"])
+    assert job.model_id == data["energy_quote"]["model_id"]
+    assert job.model_id != MODEL
