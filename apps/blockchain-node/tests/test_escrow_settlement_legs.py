@@ -18,7 +18,11 @@ import pytest
 from sqlmodel import Session, create_engine
 
 from aitbc_chain.base_models import Escrow, Transaction
-from aitbc_chain.contracts.escrow import backfill_settlement_legs, settlement_legs_from_chain
+from aitbc_chain.contracts.escrow import (
+    backfill_settlement_legs,
+    promote_settled_row_from_chain,
+    settlement_legs_from_chain,
+)
 from aitbc_chain.metadata import chain_metadata
 
 CHAIN = "test-chain"
@@ -319,3 +323,74 @@ class TestBackfillSettlementLegs:
 
         assert backfill_settlement_legs(session, record) is False
         assert record.released_amount is None
+
+
+class TestPromoteSettledRowFromChain:
+    """#2287: a follower row built before settlement sealed must not read stale.
+
+    Only the node that serves the release/refund writes the settlement
+    columns; every other host keeps ``locked``/``funded`` even though the
+    settlement txns are on the shared chain. The promote heal derives the
+    terminal state from those canonical txns, same as the row reconstruction.
+    """
+
+    def _stale_row(self, session, **overrides):
+        fields = {
+            "job_id": JOB,
+            "chain_id": CHAIN,
+            "buyer": BUYER,
+            "provider": PROVIDER,
+            "amount": LOCKED,
+            "status": "locked",
+            "created_at": T0,
+            "released_at": None,
+            "refunded_at": None,
+            "lock_tx_hash": "0xlock",
+        }
+        fields.update(overrides)
+        record = Escrow(**fields)
+        session.add(record)
+        session.commit()
+        return record
+
+    def test_locked_row_promotes_to_release(self, session):
+        _lock(session)
+        _refund(session)  # change leg
+        _release(session)
+        record = self._stale_row(session)
+
+        assert promote_settled_row_from_chain(session, record) is True
+        session.refresh(record)
+        assert record.status == "released"
+        assert record.released_at == (T0 + timedelta(seconds=2)).replace(tzinfo=None)
+        assert record.released_amount == PAID
+        assert record.refunded_amount == CHANGE
+        assert record.release_tx_hash == "0xrelease"
+        assert record.refund_tx_hash == "0xrefund"
+
+    def test_locked_row_promotes_to_refund(self, session):
+        _lock(session)
+        _refund(session)
+        record = self._stale_row(session)
+
+        assert promote_settled_row_from_chain(session, record) is True
+        session.refresh(record)
+        assert record.status == "refunded"
+        assert record.refunded_at == (T0 + timedelta(seconds=1)).replace(tzinfo=None)
+        assert record.refunded_amount == CHANGE
+
+    def test_genuinely_locked_row_is_untouched(self, session):
+        _lock(session)
+        record = self._stale_row(session)
+
+        assert promote_settled_row_from_chain(session, record) is False
+        session.refresh(record)
+        assert record.status == "locked"
+        assert record.released_at is None
+
+    def test_terminal_row_is_left_to_backfill(self, session):
+        _lock(session)
+        _release(session)
+        record = _replica_row(session)  # already has released_at set
+
+        assert promote_settled_row_from_chain(session, record) is False
