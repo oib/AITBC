@@ -682,9 +682,9 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 ## `security`
 
-- [`aitbc security audit`](security-audit.md) — Run a security audit and report the score (simulated — static placeholder, no live scan).
-- [`aitbc security patch`](security-patch.md) — Apply all available security patches to the system (simulated — no live patch backend).
-- [`aitbc security scan`](security-scan.md) — Run a security scan and report issues (simulated — static placeholder, no live scan).
+- [`aitbc security audit`](security-audit.md) — Run a live local security audit and report a letter-grade score.
+- [`aitbc security patch`](security-patch.md) — Apply safe permission fixes under the aitbc data directories.
+- [`aitbc security scan`](security-scan.md) — Run a live local security scan and list issues.
 
 ## `service`
 

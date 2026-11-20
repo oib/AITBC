@@ -2,7 +2,7 @@
 
 # `aitbc security audit`
 
-Run a security audit and report the score (simulated — static placeholder, no live scan).
+Run a live local security audit and report a letter-grade score. Checks the tamper-evident audit log integrity and filesystem permissions on wallet, credential and audit files; missing files are skipped, not failures.
 
 ## Usage
 
