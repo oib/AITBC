@@ -246,15 +246,17 @@ aitbc dashboard shop
 
 With `COORDINATOR_ENABLE_ZK_VERIFICATION=true` and `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD=10`, a paid job above the threshold receives a verified ZK receipt proof before escrow release. You can also force a proof with `--zk-proof-required`.
 
-> **Circuit coverage matters:** the only registered circuit is `linear-1` (trivial y=2x+1). `--model llama3.2:3b --zk-proof-required` returns `zk_status: unsupported_model`, escrows, then **ESCROW_REFUND**s — and because the threshold is 10, *any* paid job ≥10 AIT on an unregistered model auto-refunds the same way. Use `linear-1` for this step; that combination was verified live (`zk_status: verified`, real Groth16 proof).
+> **Circuit coverage matters:** the only registered circuit is `linear-1` (trivial y=2x+1). `--model llama3.2:3b --zk-proof-required` returns `zk_status: unsupported_model`, escrows, then **ESCROW_REFUND**s — and because the threshold is 10, *any* paid job ≥10 AIT on an unregistered model auto-refunds the same way. Use `linear-1` for this step.
 >
-> **Fleet affordability (20 Nov 2026):** the 15 AIT leg below (`--payment 15`) is affordable — node0's `default` wallet holds ~76.9 AIT free, plus ~15.15 AIT escrowed on job `34a64248…` pending sweeper refund (#2330: `aitbc-miner-1` lacks `linear-1` — re-run only after that lands and the refund seals).
+> **TEE high-value gate (20 Nov 2026, #2332):** a *second* gate fires at the same default threshold — `COORDINATOR_TEE_HIGH_VALUE_THRESHOLD` (10 AIT) requires a TEE attestation quote before release, independent of the ZK proof. There is no registered enclave on the fleet (same infrastructure gap that holds S44/S46), so **any paid job ≥10 AIT fails `tee_quote_missing` and auto-refunds** — verified live on job `4f6094c7…` (15 AIT, `zk_status: verified`, refunded @33157). This step therefore uses `--payment 5` with `--zk-proof-required`: the ZK rail is exercised identically (the flag forces the proof regardless of amount) while staying under the TEE threshold. Revisit the amount only when real enclave infrastructure exists.
+>
+> **Provider:** `aitbc-miner-1` executes `linear-1` locally as a deterministic circuit since #2330 (`eeb0f2a56`) — no Ollama model needed. Discover the live provider wallet with `aitbc wallet list` / miner env `MINER_WALLET_ADDRESS` (`0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2` as of 20 Nov 2026) rather than trusting a hardcoded address.
 
 On the hub:
 
 ```bash
 aitbc ai submit --prompt "High-value ZK test" \
-  --payment 15 \
+  --payment 5 \
   --wallet default \
   --provider-address 0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2 \
   --model linear-1 \
