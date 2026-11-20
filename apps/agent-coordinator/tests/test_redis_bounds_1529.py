@@ -97,6 +97,23 @@ class FakeRedis:
     async def zcard(self, key):
         return len(self.zsets.get(key, {}))
 
+    async def zscore(self, key, member):
+        z = self.zsets.get(key, {})
+        if str(member) in z:
+            return z[str(member)]
+        return None
+
+    async def type(self, key):
+        if key in self.zsets:
+            return "zset"
+        if key in self.sets:
+            return "set"
+        if key in self.hashes:
+            return "hash"
+        if key in self.strings:
+            return "string"
+        return "none"
+
     async def get(self, key):
         return self.strings.get(key)
 
@@ -165,6 +182,34 @@ async def test_index_trim_keeps_newest_entries():
     assert len(kept) == MAX_INDEXED_MESSAGES_PER_AGENT
     assert "new-1" in kept
     assert "old-0" not in kept  # oldest trimmed
+
+
+@pytest.mark.asyncio
+async def test_legacy_set_receiver_index_upgraded_on_inbox_read():
+    """Pre-#1529 SET indexes must not break ZREVRANGE inbox reads (#2290)."""
+    r = FakeRedis()
+    s = _storage(r)
+    msg = _msg("legacy-1", receiver="aitbc-miner-1")
+    r.sets["messages:receiver:aitbc-miner-1"] = {"legacy-1"}
+    r.hashes["message:legacy-1"] = {k: str(v) for k, v in msg.items()}
+    r.zsets["messages:timestamp"] = {"legacy-1": 1787313600.0}
+
+    page = await s.get_messages_by_receiver("aitbc-miner-1", limit=10)
+    assert [m["message_id"] for m in page] == ["legacy-1"]
+    assert "messages:receiver:aitbc-miner-1" not in r.sets
+    assert r.zsets["messages:receiver:aitbc-miner-1"]["legacy-1"] == pytest.approx(1787313600.0)
+
+
+@pytest.mark.asyncio
+async def test_legacy_set_index_upgraded_before_store():
+    r = FakeRedis()
+    s = _storage(r)
+    r.sets["messages:receiver:b"] = {"stale"}
+
+    await s.store_message("m-new", _msg("m-new"))
+    assert "messages:receiver:b" not in r.sets
+    assert "m-new" in r.zsets["messages:receiver:b"]
+    assert "stale" not in r.zsets.get("messages:receiver:b", {})
 
 
 @pytest.mark.asyncio

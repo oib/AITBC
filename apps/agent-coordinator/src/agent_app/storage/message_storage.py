@@ -288,6 +288,38 @@ class MessageStorage:
         """
         await self.redis.zremrangebyrank(key, 0, -keep - 1)  # type: ignore[union-attr]
 
+    async def _upgrade_legacy_message_index(self, index_key: str) -> None:
+        """Convert pre-#1529 SET indexes to scored zsets.
+
+        Older coordinator builds indexed per-agent inboxes with ``SADD``;
+        #1529 moved them to ``ZADD`` + ``ZREVRANGE``. Leftover SET keys make
+        reads and writes fail with WRONGTYPE while message hashes still exist.
+        """
+        if self.redis is None:
+            return
+        key_type = await self.redis.type(index_key)
+        if key_type in {"zset", "none"}:
+            return
+        if key_type != "set":
+            logger.warning("Unexpected Redis type %s for message index %s", key_type, index_key)
+            return
+        members = await self.redis.smembers(index_key)
+        scores: dict[str, float] = {}
+        for mid in members:
+            message_id = str(mid)
+            score = await self.redis.zscore("messages:timestamp", message_id)
+            if score is not None:
+                scores[message_id] = float(score)
+                continue
+            data: dict[str, Any] = await self.redis.hgetall(f"message:{message_id}")  # type: ignore[assignment]
+            if data:
+                scores[message_id] = self._timestamp_to_float(data)
+        await self.redis.delete(index_key)
+        if scores:
+            await self.redis.zadd(index_key, scores)
+            await self._trim_index(index_key)
+        logger.info("Upgraded legacy SET message index %s to zset (%d members)", index_key, len(scores))
+
     # ------------------------------------------------------------------
     # Public API
     # ------------------------------------------------------------------
@@ -304,11 +336,13 @@ class MessageStorage:
                 sender_id = self._extract_sender(message_data)
                 if sender_id:
                     sender_key = f"messages:sender:{sender_id}"
+                    await self._upgrade_legacy_message_index(sender_key)
                     await self.redis.zadd(sender_key, {message_id: ts})
                     await self._trim_index(sender_key)
                 receiver_id = self._extract_receiver(message_data)
                 if receiver_id:
                     receiver_key = f"messages:receiver:{receiver_id}"
+                    await self._upgrade_legacy_message_index(receiver_key)
                     await self.redis.zadd(receiver_key, {message_id: ts})
                     await self._trim_index(receiver_key)
                 await self.redis.zadd("messages:timestamp", {message_id: ts})
@@ -370,6 +404,7 @@ class MessageStorage:
         """
         if self.redis is None:
             return []
+        await self._upgrade_legacy_message_index(index_key)
         message_ids_raw = await self.redis.zrevrange(index_key, offset, offset + limit - 1)
         messages = []
         for mid in message_ids_raw:
@@ -426,9 +461,13 @@ class MessageStorage:
         if self.redis:
             try:
                 if sender_id:
-                    await self.redis.zrem(f"messages:sender:{sender_id}", message_id)
+                    sender_key = f"messages:sender:{sender_id}"
+                    await self._upgrade_legacy_message_index(sender_key)
+                    await self.redis.zrem(sender_key, message_id)
                 if receiver_id:
-                    await self.redis.zrem(f"messages:receiver:{receiver_id}", message_id)
+                    receiver_key = f"messages:receiver:{receiver_id}"
+                    await self._upgrade_legacy_message_index(receiver_key)
+                    await self.redis.zrem(receiver_key, message_id)
                 await self.redis.zrem("messages:timestamp", message_id)
                 await self.redis.delete(f"message:{message_id}")
                 logger.debug("Deleted message %s from Redis", message_id)
