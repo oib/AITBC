@@ -35,6 +35,7 @@ _SECRET_VARS = (
     "JWT_SECRET_COORDINATOR_API_PREVIOUS",
     "JWT_SECRET_AGENT_COORDINATOR",
     "JWT_SECRET_AGENT_COORDINATOR_PREVIOUS",
+    "JWT_SECRET_VERIFY_EXTRA",
 )
 
 
@@ -161,6 +162,60 @@ class TestScopedRotationExtras:
         incoming = JWTAuth(secret=NEW_A)
         token = incoming.create_token({"sub": "u", "role": "client"})
         assert auth.decode_token(token)["sub"] == "u"
+
+
+class TestVerifyExtraSecrets:
+    """#2347: JWT_SECRET_VERIFY_EXTRA — deliberate cross-service verify opt-in.
+
+    Edge-style services have no login route of their own; their only
+    obtainable tokens are minted under another service's scoped secret.
+    Operators list that secret here — verify-only, never signing.
+    """
+
+    def test_unscoped_accepts_verify_extra_token(self, monkeypatch):
+        monkeypatch.setenv("JWT_SECRET", SHARED)
+        monkeypatch.setenv("JWT_SECRET_VERIFY_EXTRA", SVC_A)
+        auth = JWTAuth()
+        foreign = JWTAuth(secret=SVC_A)
+        token = foreign.create_token({"sub": "admin", "role": "admin"})
+        assert auth.decode_token(token)["sub"] == "admin"
+
+    def test_scoped_service_also_honors_verify_extra(self, monkeypatch):
+        """The opt-in is explicit, so it applies to scoped services too —
+        unlike the fleet rotation extras which are ignored when scoped."""
+        monkeypatch.setenv("JWT_SECRET", SHARED)
+        _scoped_env(monkeypatch, "edge")
+        monkeypatch.setenv("JWT_SECRET_EDGE", SVC_B)
+        monkeypatch.setenv("JWT_SECRET_VERIFY_EXTRA", SVC_A)
+        auth = JWTAuth()
+        foreign = JWTAuth(secret=SVC_A)
+        token = foreign.create_token({"sub": "u", "role": "client"})
+        assert auth.decode_token(token)["sub"] == "u"
+
+    def test_verify_extra_never_used_for_signing(self, monkeypatch):
+        monkeypatch.setenv("JWT_SECRET", SHARED)
+        monkeypatch.setenv("JWT_SECRET_VERIFY_EXTRA", SVC_A)
+        auth = JWTAuth()
+        assert auth.secret == SHARED
+
+    def test_comma_separated_extras(self, monkeypatch):
+        monkeypatch.setenv("JWT_SECRET", SHARED)
+        monkeypatch.setenv("JWT_SECRET_VERIFY_EXTRA", f"{SVC_A}, {SVC_B}")
+        auth = JWTAuth()
+        for sec in (SVC_A, SVC_B):
+            token = JWTAuth(secret=sec).create_token({"sub": "u", "role": "client"})
+            assert auth.decode_token(token)["sub"] == "u"
+
+    def test_unlisted_secret_still_rejected(self, monkeypatch):
+        monkeypatch.setenv("JWT_SECRET", SHARED)
+        monkeypatch.setenv("JWT_SECRET_VERIFY_EXTRA", SVC_A)
+        auth = JWTAuth()
+        foreign = JWTAuth(secret=SVC_B)
+        token = foreign.create_token({"sub": "u", "role": "client"})
+        from fastapi import HTTPException
+
+        with pytest.raises(HTTPException):
+            auth.decode_token(token)
 
 
 class TestDictStyleHandler:
