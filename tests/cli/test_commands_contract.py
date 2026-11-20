@@ -11,6 +11,15 @@ from unittest.mock import patch
 import pytest
 
 
+@pytest.fixture(autouse=True)
+def _rpc_api_key_env(monkeypatch, tmp_path):
+    """#2350: contract POSTs require the RPC key — default the env so the
+    pre-existing command tests exercise the keyed path. Point config
+    resolution at a nonexistent file so a real ~/.aitbc.yaml can't leak in."""
+    monkeypatch.setenv("BLOCKCHAIN_RPC_API_KEY", "env-test-key")
+    monkeypatch.setenv("AITBC_CONFIG_FILE", str(tmp_path / "no-such-config.yaml"))
+
+
 class TestContractCommands:
     """Test contract command group"""
 
@@ -135,6 +144,66 @@ class TestContractCommands:
         )
 
         assert result.exit_code != 0
+
+    @patch("aitbc_cli.commands.contract.AITBCHTTPClient")
+    def test_deploy_sends_env_api_key(self, mock_http_class, runner):
+        """#2350: the env/config key reaches the client as ``api_key`` (X-API-Key)."""
+        mock_http_class.return_value.post.return_value = {"status": "confirmed"}
+
+        from aitbc_cli.commands.contract import contract
+
+        result = runner.invoke(contract, ["deploy", "--contract-name", "MyContract"])
+
+        assert result.exit_code == 0, result.output
+        assert mock_http_class.call_args.kwargs.get("api_key") == "env-test-key"
+
+    @patch("aitbc_cli.commands.contract.AITBCHTTPClient")
+    def test_deploy_api_key_flag_wins_over_env(self, mock_http_class, runner):
+        mock_http_class.return_value.post.return_value = {"status": "confirmed"}
+
+        from aitbc_cli.commands.contract import contract
+
+        result = runner.invoke(
+            contract, ["deploy", "--contract-name", "MyContract", "--api-key", "flag-key"]
+        )
+
+        assert result.exit_code == 0, result.output
+        assert mock_http_class.call_args.kwargs.get("api_key") == "flag-key"
+
+    @patch("aitbc_cli.commands.contract.AITBCHTTPClient")
+    def test_call_and_verify_send_api_key(self, mock_http_class, runner):
+        mock_http_class.return_value.post.return_value = {"result": "0x", "status": "success"}
+
+        from aitbc_cli.commands.contract import contract
+
+        r1 = runner.invoke(
+            contract,
+            ["call", "--contract-address", "0x" + "ab" * 20, "--method", "totalSupply"],
+        )
+        assert r1.exit_code == 0, r1.output
+        assert mock_http_class.call_args.kwargs.get("api_key") == "env-test-key"
+
+        r2 = runner.invoke(
+            contract,
+            ["verify", "--contract-address", "0x" + "ab" * 20, "--proof", '{"pi_a": 1}'],
+        )
+        assert r2.exit_code == 0, r2.output
+        assert mock_http_class.call_args.kwargs.get("api_key") == "env-test-key"
+
+    @patch("aitbc_cli.commands.contract.AITBCHTTPClient")
+    def test_missing_api_key_fails_with_guidance(self, mock_http_class, runner, monkeypatch):
+        """#2350: no flag/env/config key -> UsageError naming both sources,
+        not a bare server 403."""
+        monkeypatch.delenv("BLOCKCHAIN_RPC_API_KEY", raising=False)
+
+        from aitbc_cli.commands.contract import contract
+
+        result = runner.invoke(contract, ["deploy", "--contract-name", "MyContract"])
+
+        assert result.exit_code != 0
+        assert "--api-key" in result.output
+        assert "BLOCKCHAIN_RPC_API_KEY" in result.output
+        mock_http_class.assert_not_called()
 
 
 if __name__ == "__main__":

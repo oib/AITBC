@@ -16,6 +16,7 @@ aitbc contract deploy [OPTIONS]
 |---|---|---|---|---|
 | `--contract-name` | text | — | yes | Contract name |
 | `--rpc-url` | text | `http://localhost:8202` | no | Blockchain RPC URL <!-- check-ports: ignore --> |
+| `--api-key` | text | — | no | Blockchain RPC API key (default: BLOCKCHAIN_RPC_API_KEY env / config blockchain_rpc_api_key) |
 
 ## Examples
 
