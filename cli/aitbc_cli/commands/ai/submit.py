@@ -370,7 +370,7 @@ def _apply_payment_fields(
         )
 
 
-def _attach_shop_access(ctx, job_data: dict[str, Any], *, model, payment) -> None:
+def _attach_shop_access(ctx, job_data: dict[str, Any], *, model, payment, offer_id=None) -> None:
     """Mint a market-service access token for gated-shop job types (#2316).
 
     ``ai submit --type transcribe`` lands on the miner's whisper call, which
@@ -380,8 +380,20 @@ def _attach_shop_access(ctx, job_data: dict[str, Any], *, model, payment) -> Non
     the miner forwards it verbatim (#1612). The market job id is deliberately
     distinct from the coordinator job id: it is a pure token record whose
     escrow binding can never alias the coordinator escrow.
+
+    Paid submissions only (#2321): an unpaid transcribe job is dispatchable
+    (``_payment_blocks_dispatch`` returns None when no payment is priced),
+    so minting here would hand a free job a valid shop token. The predicate
+    ``payment or offer_id`` matches the escrow path — an offer-bound submit
+    is priced from the quote server-side — and mirrors the pre-flight check
+    at the call site. The plaintext ``access_secret`` must stay in the
+    payload: the miner has no market credential of its own and forwards the
+    triple verbatim to the gated endpoint, which verifies it against the
+    market service; the market row stores only the digest.
     """
     if job_data["payload"].get("type") != "transcribe":
+        return
+    if not (payment or offer_id):
         return
     from ..market.jobs import _register_paid_market_job
 
@@ -662,7 +674,7 @@ def submit(
             offer_id=offer_id,
             offer_quantity=offer_quantity,
         )
-        _attach_shop_access(ctx, job_data, model=model, payment=payment)
+        _attach_shop_access(ctx, job_data, model=model, payment=payment, offer_id=offer_id)
 
         # Pre-flight the chain round-trips the escrow step needs anyway when
         # we will sign it ourselves: an unreachable RPC or a missing buyer

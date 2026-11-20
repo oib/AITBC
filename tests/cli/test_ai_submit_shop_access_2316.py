@@ -1,10 +1,11 @@
-"""Shop-access credential pins for ``ai submit --type transcribe`` (#2316).
+"""Shop-access credential pins for ``ai submit --type transcribe`` (#2316, #2321).
 
 The miner's whisper call is gated by per-job tokens the market service
 issues; the buyer-side CLI is the only party holding the user-tier key
 that mints them. ``_attach_shop_access`` must embed the credential triple
-in the coordinator job payload for transcribe submits — and must not
-fire for job types that never reach a gated shop.
+in the coordinator job payload for *paid* transcribe submits — and must
+not fire for job types that never reach a gated shop, nor for unpaid
+submits whose jobs are still dispatchable (#2321).
 """
 
 import os
@@ -71,13 +72,16 @@ def _invoke_transcribe(**extra):
     return CliRunner().invoke(cli, args)
 
 
+_PAID_ARGS = {"--payment": "1.5", "--provider-address": "0x" + "11" * 20}
+
+
 @pytest.mark.unit
 def test_transcribe_submit_embeds_shop_access_triple(mock_config, mock_http_client):
     with patch(
         "aitbc_cli.commands.market.jobs._register_paid_market_job",
         return_value=("ak_testkey123", "as_testsecret456"),
     ) as mock_register:
-        result = _invoke_transcribe()
+        result = _invoke_transcribe(**_PAID_ARGS)
 
     assert result.exit_code == 0, result.output
     payload = mock_http_client["post"][0][2]["json"]["payload"]
@@ -95,13 +99,46 @@ def test_transcribe_submit_embeds_shop_access_triple(mock_config, mock_http_clie
 
 
 @pytest.mark.unit
+def test_offer_bound_transcribe_submit_embeds_shop_access(mock_config, mock_http_client):
+    """An --offer-id submit is priced from the offer quote server-side, so
+    it is paid even without --payment and must still mint the token."""
+    with patch(
+        "aitbc_cli.commands.market.jobs._register_paid_market_job",
+        return_value=("ak_testkey123", "as_testsecret456"),
+    ) as mock_register:
+        result = _invoke_transcribe(**{"--offer-id": "offer-1"})
+
+    assert result.exit_code == 0, result.output
+    mock_register.assert_called_once()
+    payload = mock_http_client["post"][0][2]["json"]["payload"]
+    assert payload["access_key"] == "ak_testkey123"
+    assert payload["access_secret"] == "as_testsecret456"
+
+
+@pytest.mark.unit
+def test_unpaid_transcribe_submit_mints_no_shop_access(mock_config, mock_http_client):
+    """#2321: an unpaid transcribe job is dispatchable — minting a shop token
+    for it would hand a free job a valid credential for the gated endpoint."""
+    with patch("aitbc_cli.commands.market.jobs._register_paid_market_job") as mock_register:
+        result = _invoke_transcribe()
+
+    assert result.exit_code == 0, result.output
+    mock_register.assert_not_called()
+    payload = mock_http_client["post"][0][2]["json"]["payload"]
+    assert payload["type"] == "transcribe"
+    assert "access_key" not in payload
+    assert "access_secret" not in payload
+    assert "market_job_id" not in payload
+
+
+@pytest.mark.unit
 def test_transcribe_submit_without_registration_still_submits(mock_config, mock_http_client):
     """Market-service outage degrades to today's behavior (shop 401), not a submit failure."""
     with patch(
         "aitbc_cli.commands.market.jobs._register_paid_market_job",
         return_value=None,
     ):
-        result = _invoke_transcribe()
+        result = _invoke_transcribe(**_PAID_ARGS)
 
     assert result.exit_code == 0, result.output
     payload = mock_http_client["post"][0][2]["json"]["payload"]
