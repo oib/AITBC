@@ -318,3 +318,111 @@ async def test_requiring_an_offer_still_allows_unpriced_work(monkeypatch):
 def test_only_real_addresses_are_payable(value, payable):
     """Offers advertise node ids in the same field as wallets; only wallets can be paid."""
     assert looks_like_wallet_address(value) is payable
+
+
+# --------------------------------------------------------------------------
+# chain fallback: offers that exist only as GPU_MARKET transactions (#2312)
+# --------------------------------------------------------------------------
+
+
+def _chain_tx(tx_id: int, payload: dict, sender: str = SELLER, status: str = "confirmed") -> dict:
+    return {"transaction_id": tx_id, "sender": sender, "status": status, "payload": payload}
+
+
+def _software_offer_tx(
+    offer_id: str, *, tx_id: int, service_type: str = "whisper", model: str = "base", sender: str = SELLER, **overrides
+):
+    payload = {
+        "action": "software_offer",
+        "offer_id": offer_id,
+        "service_type": service_type,
+        "model": model,
+        "price": 0.02,
+        "price_unit": "per_audio_min",
+        "provider_address": SELLER,
+        "status": "active",
+        "endpoint": "https://node2.example/whisper",
+    }
+    payload.update(overrides)
+    return _chain_tx(tx_id, payload, sender=sender)
+
+
+def _serve_with_chain(monkeypatch, chain_rows, chain_status: int = 200):
+    """Market catalogue answers 404 for everything; the chain RPC serves ``chain_rows``."""
+
+    async def fake_get(url: str) -> httpx.Response:
+        if url.startswith(offer_quote.CHAIN_RPC_URL):
+            if chain_status != 200:
+                return httpx.Response(chain_status, json={"error": "boom"})
+            return httpx.Response(200, json=chain_rows)
+        return httpx.Response(404, json={"error": "Offer not found"})
+
+    monkeypatch.setattr(offer_quote, "_get", fake_get)
+
+
+@pytest.mark.asyncio
+async def test_a_chain_only_offer_resolves_when_the_catalogue_misses(monkeypatch):
+    """whisper/base tx_8 is a confirmed GPU_MARKET tx but was never registered in
+    the catalogue — the fallback must still price it (#2312)."""
+    offer_id = "sw_offer_20261022182751_49d92c3c"
+    _serve_with_chain(monkeypatch, [_software_offer_tx(offer_id, tx_id=8)])
+
+    quote = await resolve_offer(offer_id, Decimal("1"))
+
+    assert quote.offer_id == offer_id
+    assert quote.provider_address == SELLER
+    assert quote.unit_price == Decimal("0.02")
+    assert quote.price_unit == "per_audio_min"
+
+
+@pytest.mark.asyncio
+async def test_a_replaced_chain_offer_is_not_resolvable(monkeypatch):
+    """tx_8's `replaces` withdraws tx_6/tx_7 — their offer_ids must not price jobs."""
+    replaced = _software_offer_tx("sw_offer_old", tx_id=6)
+    replacement = _software_offer_tx("sw_offer_new", tx_id=8, replaces=["tx_6"])
+    _serve_with_chain(monkeypatch, [replaced, replacement])
+
+    with pytest.raises(OfferUnavailable):
+        await resolve_offer("sw_offer_old", Decimal("1"))
+
+
+@pytest.mark.asyncio
+async def test_a_foreign_replaces_cannot_hide_another_sellers_offer(monkeypatch):
+    """Only the listing's own seller can withdraw it — a stranger's `replaces`
+    naming tx_6 must not hide it (same rule as the chain readers)."""
+    victim = _software_offer_tx("sw_offer_victim", tx_id=6)
+    attacker = _software_offer_tx("sw_offer_attacker", tx_id=8, sender=OUTSIDER, provider_address=OUTSIDER, replaces=["tx_6"])
+    _serve_with_chain(monkeypatch, [victim, attacker])
+
+    quote = await resolve_offer("sw_offer_victim", Decimal("1"))
+    assert quote.offer_id == "sw_offer_victim"
+
+
+@pytest.mark.asyncio
+async def test_an_ambiguous_plugin_id_on_chain_is_unresolvable(monkeypatch):
+    """ffmpeg/h264-transcode fronts three live listings — a plugin_id that
+    matches several must refuse rather than guess, like the catalogue's 500."""
+    rows = [_software_offer_tx(f"sw_offer_{i}", tx_id=10 + i, service_type="ffmpeg", model="h264-transcode") for i in range(3)]
+    _serve_with_chain(monkeypatch, rows)
+
+    with pytest.raises(OfferUnavailable):
+        await resolve_offer("ffmpeg-h264-transcode", Decimal("1"))
+
+
+@pytest.mark.asyncio
+async def test_a_sick_chain_rpc_is_a_lookup_failure_not_a_missing_offer(monkeypatch):
+    _serve_with_chain(monkeypatch, [], chain_status=503)
+
+    with pytest.raises(OfferUnavailable):
+        await resolve_offer("sw_offer_anything", Decimal("1"))
+
+
+@pytest.mark.asyncio
+async def test_the_catalogue_still_wins_when_it_answers(monkeypatch):
+    """The chain fallback must not shadow a catalogue hit."""
+    seen = _serve(monkeypatch, {"/v1/market/offer/ollama-llama3.2-3b": _offer()})
+
+    quote = await resolve_offer("ollama-llama3.2-3b", Decimal("1"))
+
+    assert quote.provider_address == SELLER
+    assert seen == ["/v1/market/offer/ollama-llama3.2-3b"]
