@@ -5621,6 +5621,13 @@
           ]
         },
         {
+          "public": "/api/v2/coordinator/v1/miners/{miner_id}/running-jobs",
+          "upstream": "/v1/miners/{miner_id}/running-jobs",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/coordinator/v1/ml-zk/circuits",
           "upstream": "/v1/ml-zk/circuits",
           "methods": [

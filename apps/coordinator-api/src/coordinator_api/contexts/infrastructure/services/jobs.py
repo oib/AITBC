@@ -560,6 +560,29 @@ class JobService:
     def to_result(self, job: Job) -> JobResult:
         return JobResult(result=job.result, receipt=job.receipt)
 
+    def assigned_running_jobs(self, miner_id: str) -> list[AssignedJob]:
+        """#2315: the miner's RUNNING jobs in ``AssignedJob`` dispatch shape.
+
+        ``/v1/miners/poll`` delivers a job only inside the claim response; a
+        lost or failed response strands the row RUNNING with no miner-side
+        record. This read-only listing lets the miner reconcile and
+        re-dispatch what it never received. Expired rows are transitioned
+        here so they never reach the miner; ``miner.inflight`` is untouched
+        (the original claim already counted them).
+        """
+        jobs = self.list_jobs(
+            assigned_miner_id=miner_id,
+            state=JobState.running.value,
+            limit=100,
+            offset=0,
+        )
+        assigned: list[AssignedJob] = []
+        for job in jobs:
+            job = self._ensure_not_expired(job)
+            if job.state == JobState.running:
+                assigned.append(self.to_assigned(job))
+        return assigned
+
     def to_assigned(self, job: Job) -> AssignedJob:
         raw = dict(job.constraints) if isinstance(job.constraints, dict) else {}
         from ...payments.services.payments import _zk_required_for_payment

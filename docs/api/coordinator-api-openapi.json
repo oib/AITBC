@@ -4776,6 +4776,71 @@
         }
       }
     },
+    "/v1/miners/{miner_id}/running-jobs": {
+      "get": {
+        "tags": [
+          "miner"
+        ],
+        "summary": "List the miner's RUNNING jobs in dispatch shape",
+        "description": "#2315: return the caller's RUNNING jobs as ``AssignedJob`` payloads.\n\n``/v1/miners/poll`` delivers a job only inside the claim response; a lost\nor failed response leaves the row RUNNING with no miner-side record of\nit. This endpoint lets the miner reconcile: fetch its own RUNNING jobs\nand re-dispatch any it does not already hold. The shape intentionally\nmatches ``to_assigned`` so the miner can feed rows straight into its\nnormal execution path.",
+        "operationId": "list_running_jobs_v1_miners__miner_id__running_jobs_get",
+        "parameters": [
+          {
+            "name": "miner_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Miner Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Running Jobs V1 Miners  Miner Id  Running Jobs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "miner_id does not match authenticated miner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "failed to list running jobs",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/miners/{miner_id}/earnings": {
       "post": {
         "tags": [
