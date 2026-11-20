@@ -291,9 +291,9 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 ## `economics`
 
-- [`aitbc economics distributed`](economics-distributed.md) — Run distributed cost optimization for the AITBC economy.
-- [`aitbc economics market`](economics-market.md) — Run market analysis for the AITBC ecosystem.
-- [`aitbc economics model`](economics-model.md) — Run an economic model of the configured type.
+- [`aitbc economics distributed`](economics-distributed.md) — Probe the live fleet's economic services and aggregate their status.
+- [`aitbc economics market`](economics-market.md) — Aggregate live market data: offers, exchange order book, chain state.
+- [`aitbc economics model`](economics-model.md) — Run an economic model over live fleet data.
 - [`aitbc economics propose`](economics-propose.md) — Submit an OpenClaw DAO economic parameter proposal.
 - [`aitbc economics status`](economics-status.md) — Show the status of an OpenClaw DAO economic parameter proposal by proposal ID.
 - [`aitbc economics vote`](economics-vote.md) — Vote for, against, or abstain on an OpenClaw DAO economic parameter proposal.

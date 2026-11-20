@@ -2,7 +2,7 @@
 
 # `aitbc economics market`
 
-Run market analysis for the AITBC ecosystem.
+Aggregate live market data: offers, exchange order book, chain state. Queries the market service (``GET /v1/market/offer``), the exchange service (``GET /api/orders/orderbook``), and the blockchain RPC (``GET /rpc/info``). Unreachable sources are listed in ``sources``.
 
 ## Usage
 

@@ -2,7 +2,7 @@
 
 # `aitbc economics distributed`
 
-Run distributed cost optimization for the AITBC economy.
+Probe the live fleet's economic services and aggregate their status. Queries the configured coordinator API, market service, exchange order book, and blockchain RPC; unreachable sources are reported in ``sources`` rather than simulated.
 
 ## Usage
 

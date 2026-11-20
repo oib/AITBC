@@ -2,7 +2,7 @@
 
 # `aitbc economics model`
 
-Run an economic model of the configured type.
+Run an economic model over live fleet data. Supported types: ``cost-optimization`` — cheapest/median offer prices per service type from the live market, plus the standard tx fee and the oracle AIT price when reachable.
 
 ## Usage
 
