@@ -1,3 +1,4 @@
+import json
 import os
 from datetime import UTC, datetime
 from decimal import Decimal
@@ -129,6 +130,71 @@ def _tee_required_for(job: Any, payment_amount: Decimal | None = None) -> bool:
     return (payment_amount or Decimal("0")) >= _TEE_THRESHOLD_AIT
 
 
+# #2331 tier (a): zk_status values meaning "the miner-reported output for a
+# registered circuit model did not match the coordinator-computed output".
+# computation_correct is False for all of them, and _settle_escrowed_payment
+# refuses escrow release on them even when no ZK proof was required — the
+# receipt_model proof commits to the coordinator-computed output, so without
+# this check a miner could return arbitrary output and still collect.
+_CIRCUIT_OUTPUT_FAILURE_STATUSES = frozenset({"output_mismatch", "output_unparseable", "output_check_error"})
+
+
+def _parse_circuit_output(raw: Any) -> list[int] | None:
+    """Parse a miner-reported circuit output into field elements, or None.
+
+    The post-#2330 miner submits ``json.dumps(output_values)`` — a JSON array
+    of field elements — but ``JobSubmitResultBody.output`` also admits a bare
+    list, and older miners may send a plain string. Anything that is not a
+    list of integers (or digit strings) is unparseable; bools are rejected
+    because ``bool`` is an ``int`` subclass.
+    """
+    if isinstance(raw, str):
+        try:
+            raw = json.loads(raw)
+        except (ValueError, TypeError):
+            return None
+    if not isinstance(raw, list):
+        return None
+    values: list[int] = []
+    for item in raw:
+        if isinstance(item, bool):
+            return None
+        if isinstance(item, int):
+            values.append(item)
+        elif isinstance(item, str) and item.isdigit():
+            values.append(int(item))
+        else:
+            return None
+    return values
+
+
+def _circuit_output_status(job: Any, result: dict[str, Any] | None, model: Any) -> str | None:
+    """Return a zk_status failure string when the reported output is wrong.
+
+    Returns None only when the miner-reported output parses to exactly the
+    field array ``model.compute_output`` produces for this job's prompt —
+    the same values the receipt_model proof's public ``output_hash`` commits
+    to. An unparseable output fails closed (``output_unparseable``): for a
+    registered deterministic circuit the coordinator can always compute the
+    expected output, so a miner that cannot produce the field array did not
+    run the circuit (#2330 contract). A failure to compute the expected
+    output itself is ``output_check_error`` — also fail closed, since the
+    alternative is attesting an unverifiable computation.
+    """
+    raw: Any = ""
+    if isinstance(result, dict):
+        raw = result.get("output") or result.get("result") or result.get("response") or ""
+    reported = _parse_circuit_output(raw)
+    if reported is None:
+        return "output_unparseable"
+    try:
+        expected = model_registry.expected_output_values(job, model)
+    except _OPS_ERRORS:
+        logger.exception("Could not compute expected circuit output for job %s", getattr(job, "id", "?"))
+        return "output_check_error"
+    return None if reported == expected else "output_mismatch"
+
+
 async def _attach_zk_proof(
     receipt: dict[str, Any] | None,
     job: Any,
@@ -147,6 +213,18 @@ async def _attach_zk_proof(
     if not receipt:
         return receipt
     if not _zk_required_for(job, payment_amount):
+        # #2331 tier (a): a registered circuit model's output is deterministic
+        # and cheap to check even when no proof is required — a forged output
+        # must not collect just because the job was cheap.
+        model_id = model_registry.resolve_model_id(job, result)
+        model = model_registry.get_model(model_id) if model_id else None
+        if model is not None:
+            output_status = _circuit_output_status(job, result, model)
+            if output_status is not None:
+                logger.error("Circuit output check failed for job %s: %s", job.id, output_status)
+                receipt["zk_status"] = output_status
+                receipt["computation_correct"] = False
+                return receipt
         receipt["zk_status"] = "not_required"
         receipt["computation_correct"] = True
         return receipt
@@ -178,6 +256,24 @@ async def _attach_model_execution_proof(
     model_id: str,
     result: dict[str, Any] | None,
 ) -> dict[str, Any]:
+    model = model_registry.get_model(model_id)
+    if not model:
+        logger.error("No model circuit registered for %s; cannot verify job %s", model_id, job.id)
+        receipt["zk_status"] = "unsupported_model"
+        receipt["computation_correct"] = False
+        return receipt
+
+    # #2331 tier (a): the receipt_model proof commits to the
+    # coordinator-computed output, so it verifies no matter what the miner
+    # returned. Bind the reported output to the expected field array before
+    # spending a snarkjs proof on it — a mismatch can never verify anyway.
+    output_status = _circuit_output_status(job, result, model)
+    if output_status is not None:
+        logger.error("Circuit output check failed for job %s: %s", job.id, output_status)
+        receipt["zk_status"] = output_status
+        receipt["computation_correct"] = False
+        return receipt
+
     try:
         model_proof = await zk_proof_service.generate_model_proof(job, result)
         if not model_proof:
@@ -186,12 +282,6 @@ async def _attach_model_execution_proof(
             receipt["computation_correct"] = False
             return receipt
 
-        model = model_registry.get_model(model_id)
-        if not model:
-            logger.error("No model circuit registered for %s; cannot verify job %s", model_id, job.id)
-            receipt["zk_status"] = "unsupported_model"
-            receipt["computation_correct"] = False
-            return receipt
         inputs = model_registry.compute_public_inputs(job, result, model)
         expected_public = model_registry.expected_public_signals(inputs["public_inputs"])
 
@@ -574,7 +664,14 @@ async def _settle_escrowed_payment(
     # which is what _require_owned_job checks against.
     # P2.2: confidential jobs only release when a verified TEE attestation is present.
     # P2.1: high-value jobs only release when a verified ZK proof is present.
-    if _tee_required_for(job, payment_amount):
+    # #2331 tier (a): a registered circuit model whose reported output failed
+    # the coordinator-side equality check never releases escrow, gated or
+    # not — the same failure surface as a failed ZK proof.
+    output_status = (receipt or {}).get("zk_status")
+    if output_status in _CIRCUIT_OUTPUT_FAILURE_STATUSES:
+        await _zk_gate_failure(session, job, output_status)
+        success = False
+    elif _tee_required_for(job, payment_amount):
         tee_status = (receipt or {}).get("tee_status")
         # "auto_attested" is the coordinator's own self-signed fallback
         # quote (see _attach_tee_attestation) -- no real enclave is
