@@ -79,6 +79,40 @@ def preinitialise_escrow_relay_series() -> None:
 
 preinitialise_escrow_relay_series()
 
+# Stuck-escrow sweeper refund failures (#2329): the generic http_requests
+# middleware cannot see these -- the sweep is a background loop, not a
+# request -- so the sweeper counts its own failures here, labelled by the
+# classified reason. ``settlement_wallet_underfunded`` is the chain's
+# "insufficient balance for sender" refusal; ``refund_error`` is every other
+# exception-path failure.
+STUCK_ESCROW_REFUND_FAILURES = Counter(
+    "aitbc_stuck_escrow_refund_failures_total",
+    "Stuck-escrow sweeper refund failures by reason",
+    ["reason"],
+)
+
+STUCK_ESCROW_REASON_UNDERFUNDED = "settlement_wallet_underfunded"
+STUCK_ESCROW_REASON_REFUND_ERROR = "refund_error"
+_STUCK_ESCROW_REASONS = (STUCK_ESCROW_REASON_UNDERFUNDED, STUCK_ESCROW_REASON_REFUND_ERROR)
+
+
+def preinitialise_stuck_escrow_series() -> None:
+    """Export both reason series at 0 before the first failure (see above)."""
+    for reason in _STUCK_ESCROW_REASONS:
+        STUCK_ESCROW_REFUND_FAILURES.labels(reason=reason)
+
+
+preinitialise_stuck_escrow_series()
+
+
+def record_stuck_escrow_refund_failure(reason: str) -> None:
+    """Count one sweeper refund failure; never break a sweep for metrics."""
+    try:
+        STUCK_ESCROW_REFUND_FAILURES.labels(reason=reason).inc()
+    except Exception:  # pragma: no cover - prometheus_client never raises here
+        logger.exception("stuck escrow refund metric failed: reason=%s", reason)
+
+
 # Attribute name used to carry the classified result on an HTTPException
 # from the service (which can tell a timeout from a chain 5xx) to the
 # router (which only sees the surfaced status).
