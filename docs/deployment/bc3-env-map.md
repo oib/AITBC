@@ -239,7 +239,7 @@ Gaps grouped by file class — full names in the appendix:
 - `EXCHANGE_SETTLEMENT_ENABLED` — `aitbc-bridge-monitor.env`, `aitbc-exchange.env`, `exchange.env`
 - `MIN_ETH_DEPOSIT` — `aitbc-bridge-monitor.env`, `exchange.env`
 
-### secrets/api-key files (72)
+### secrets/api-key files (78)
 
 - `AGENT_COORDINATOR_URL` — `aitbc-market.env`, `aitbc-marketplace.env`
 - `AGENT_EXECUTOR_ENABLED` — `aitbc-miner.env`
@@ -296,7 +296,13 @@ Gaps grouped by file class — full names in the appendix:
 - `MINER_API_KEY` — `aitbc-miner.env`
 - `MINER_AUTH_TOKEN` — `aitbc-miner.env`
 - `MINER_ENDPOINT` — `aitbc-miner.env`
+- `MINER_GPU_PRICE_PER_HOUR` — `aitbc-miner.env`
+- `MINER_GPU_REGION` — `aitbc-miner.env`
+- `MINER_GPU_REREGISTER_SECONDS` — `aitbc-miner.env`
+- `MINER_GPU_RESOURCE_ID` — `aitbc-miner.env`
 - `MINER_MAX_CONCURRENT_JOBS` — `aitbc-miner.env`
+- `MINER_REGION` — `aitbc-miner.env`
+- `MINER_REGISTER_GPU` — `aitbc-miner.env`
 - `MINER_WALLET_ADDRESS` — `aitbc-miner.env`
 - `POOL_HUB_URL` — `aitbc-miner.env`
 - `REDIS_URL` — `blockchain-secrets-island.env`, `blockchain-secrets.env`
