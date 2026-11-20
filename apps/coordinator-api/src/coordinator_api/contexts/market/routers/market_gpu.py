@@ -60,6 +60,7 @@ from ...trading.services.trading_market.dynamic_pricing import (
 )
 from ...infrastructure.services.jobs import JobService
 from ...infrastructure.domain.job import Job
+from ...infrastructure.domain.user import Wallet
 from ..domain.gpu_market import GPUBooking, GPURegistry
 from ..services.native_energy import NativeEnergyOracle
 
@@ -537,6 +538,24 @@ _QUOTE_PRICING_ERRORS: dict[int | str, dict[str, Any]] = {
 }
 
 
+def _authenticated_client_id(session: Session, sub: str, buyer_id: str) -> str:
+    """Return the caller's client id if ``buyer_id`` is theirs, else raise 403.
+
+    ``buyer_id`` is the caller's own id (``sub``) or a wallet address linked to
+    that user (#2298). A wallet-login JWT carries a user UUID as ``sub`` while
+    the native rail binds the quote's buyer to the paying wallet address, so
+    the address must be accepted when this user owns it. The quote's job stays
+    keyed by the client id; the address only becomes the quote's buyer field.
+    """
+    if buyer_id == sub:
+        return sub
+    if buyer_id.startswith("0x"):
+        wallet = session.execute(select(Wallet).where(col(Wallet.address) == buyer_id.lower())).scalars().first()
+        if wallet is not None and wallet.user_id == sub:
+            return sub
+    raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="buyer_id does not match authenticated buyer")
+
+
 @router.post("/market/gpu/quote", responses=_QUOTE_PRICING_ERRORS)
 @rate_limit(rate=30, per=60)
 def quote_gpu(
@@ -553,8 +572,7 @@ def quote_gpu(
     """
     # #1848: quoting creates a Job row and can return an operator signature —
     # the buyer must be the caller, same binding as purchase (#1075).
-    if request.buyer_id != user["sub"]:
-        raise HTTPException(status_code=http_status.HTTP_403_FORBIDDEN, detail="buyer_id does not match authenticated buyer")
+    client_id = _authenticated_client_id(session, user["sub"], request.buyer_id)
     gpu = _get_gpu_or_404(session, request.gpu_id)
     _expire_stale_booking(session, gpu)
     if gpu.status != "available":
@@ -586,7 +604,7 @@ def quote_gpu(
     # before the quote is priced, because the quote needs its id. If anything
     # after that fails the job is cancelled, so no failure path (and no race
     # with a polling miner) can leave an unpriced dispatchable gpu_compute job.
-    job = job_service.create_job(client_id=request.buyer_id, req=job_create, enforce_inflight_cap=True, payment_hold=True)
+    job = job_service.create_job(client_id=client_id, req=job_create, enforce_inflight_cap=True, payment_hold=True)
     try:
         return _price_quote_job(session, job, gpu, request, duration_seconds)
     except BaseException:

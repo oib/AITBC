@@ -244,6 +244,54 @@ def test_quote_gpu_requires_auth_and_buyer_binding(client, client_token, db_sess
     assert job.payment_amount is not None
 
 
+_WALLET_A = "0x08aB801150eF3496344cFA78fe025c3B48Caf435"
+
+
+def _link_wallet(db_session, user_id: str, address: str) -> None:
+    from coordinator_api.contexts.infrastructure.domain.user import User, Wallet
+
+    if db_session.get(User, user_id) is None:
+        db_session.add(User(id=user_id, email=f"{user_id}@t.local", username=user_id))
+        db_session.commit()
+    db_session.add(Wallet(user_id=user_id, address=address.lower()))
+    db_session.commit()
+
+
+def _quote_as(client, token, buyer_id, gpu_id):
+    return client.post(
+        "/v1/market/gpu/quote",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"buyer_id": buyer_id, "gpu_id": gpu_id, "duration_hours": 0.05, "gpu_count": 1, "settlement_route": "native"},
+    )
+
+
+@pytest.mark.unit
+def test_quote_accepts_linked_wallet_address_as_buyer(client, client_token, db_session, native_pricing, available_gpu):
+    """#2298: a wallet-login JWT's sub is a user id; the native quote binds the
+    buyer to the paying wallet address, which that user owns."""
+    _seed_energy(db_session)
+    _link_wallet(db_session, "client1", _WALLET_A)
+    resp = _quote_as(client, client_token, _WALLET_A, available_gpu)
+    assert resp.status_code == 200, resp.text
+    data = resp.json()
+    assert data["energy_quote"]["buyer"] == _WALLET_A
+    job = db_session.get(Job, data["job_id"])
+    assert job is not None and job.client_id == "client1"
+
+
+@pytest.mark.unit
+def test_quote_rejects_wallet_address_owned_by_someone_else(client, client_token, db_session, native_pricing, available_gpu):
+    _seed_energy(db_session)
+    _link_wallet(db_session, "other_user", _WALLET_A)
+    assert _quote_as(client, client_token, _WALLET_A, available_gpu).status_code == 403
+
+
+@pytest.mark.unit
+def test_quote_rejects_unlinked_wallet_address(client, client_token, db_session, native_pricing, available_gpu):
+    _seed_energy(db_session)
+    assert _quote_as(client, client_token, _WALLET_A, available_gpu).status_code == 403
+
+
 @pytest.mark.unit
 def test_buy_gpu_short_duration_clamps_ttl_and_escrow_timeout(
     client,
