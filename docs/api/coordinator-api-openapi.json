@@ -37275,6 +37275,46 @@
         "title": "AgentWorkflowUpdate",
         "description": "Request model for updating agent workflows"
       },
+      "AssignedGpuCompute": {
+        "properties": {
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "rental_deadline": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rental Deadline"
+          }
+        },
+        "type": "object",
+        "title": "AssignedGpuCompute",
+        "description": "#2317: rental-window fields for a gpu_compute job in dispatch shape.\n\n``started_at`` is when the job entered RUNNING (epoch seconds);\n``duration_seconds`` the purchased rental; ``rental_deadline`` the\ncoordinator's hard cutoff (``started_at + duration + slack``). A restarted\nminer holds only ``started_at + duration_seconds - now`` instead of the\nfull duration again. All None-able for rows claimed before started_at\nexisted \u2014 the miner then falls back to ``expires_at``."
+      },
       "AssignedJob": {
         "properties": {
           "job_id": {
@@ -37300,6 +37340,17 @@
             ],
             "title": "Expires At",
             "description": "The job's deadline as Unix epoch seconds; a miner stops holding a long-running job once it passes."
+          },
+          "gpu_compute": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/AssignedGpuCompute"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "gpu_compute rental window (started_at/duration/rental_deadline); None for other job types."
           }
         },
         "type": "object",

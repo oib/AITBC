@@ -24,6 +24,9 @@ class Job(SQLModel, table=True):
     ttl_seconds: int = Field(default=900)
     requested_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     expires_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    # #2317: when the job entered RUNNING (set by the claim CAS). Anchors the
+    # gpu_compute rental window so a miner restart cannot restart the clock.
+    started_at: datetime | None = Field(default=None)
 
     assigned_miner_id: str | None = Field(default=None, index=True)
 

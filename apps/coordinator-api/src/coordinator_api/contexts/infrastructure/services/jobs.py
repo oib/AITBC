@@ -205,6 +205,14 @@ def _to_utc(dt: datetime | None) -> datetime | None:
 # expiry is unchanged (a stale rental still must not dispatch).
 _GPU_COMPUTE_CLAIM_SLACK_SECONDS = int(os.getenv("COORDINATOR_GPU_JOB_CLAIM_SLACK_SECONDS", "900"))
 
+# #2317: the RUNNING-side counterpart of the claim slack. A gpu_compute
+# rental's hard cutoff is ``started_at + purchased duration + slack`` —
+# measured from when the job entered RUNNING, not from request or claim
+# response time, so a miner restart cannot restart the rental clock.
+_GPU_COMPUTE_RENTAL_SLACK_SECONDS = int(
+    os.getenv("COORDINATOR_GPU_JOB_RENTAL_SLACK_SECONDS", str(_GPU_COMPUTE_CLAIM_SLACK_SECONDS))
+)
+
 
 def _payload_duration_seconds(payload: dict[str, Any]) -> float:
     """Rental seconds from a job payload: ``duration_seconds`` or ``duration_hours``."""
@@ -239,9 +247,66 @@ def _gpu_compute_claim_expiry(job: Job) -> datetime | None:
     return extended
 
 
+def _gpu_compute_rental_deadline(job: Job) -> datetime | None:
+    """#2317: the RUNNING gpu_compute cutoff — ``started_at + duration + slack``.
+
+    This is the deadline that actually bounds a live rental: ``expires_at``
+    is a queue/submission deadline that reconcile may legitimately push past
+    it. Returns None for non-gpu_compute payloads, missing/invalid durations,
+    or rows claimed before ``started_at`` existed — callers then keep the
+    plain ``expires_at`` behaviour.
+    """
+    payload = job.payload or {}
+    if payload.get("type") != "gpu_compute":
+        return None
+    duration_seconds = _payload_duration_seconds(payload)
+    started_at = _to_utc(job.started_at)
+    if duration_seconds <= 0 or started_at is None:
+        return None
+    return started_at + timedelta(seconds=int(duration_seconds) + _GPU_COMPUTE_RENTAL_SLACK_SECONDS)
+
+
+def _expiry_deadline(job: Job) -> datetime | None:
+    """The timestamp past which a QUEUED/RUNNING job is expired.
+
+    RUNNING gpu_compute rentals are bounded by their rental deadline, not by
+    ``expires_at`` — the queue deadline may legitimately sit inside the
+    purchased window while the rental is still live (#2317).
+    """
+    if job.state == "RUNNING":
+        rental_deadline = _gpu_compute_rental_deadline(job)
+        if rental_deadline is not None:
+            return rental_deadline
+    return _to_utc(job.expires_at)
+
+
+def _assigned_gpu_compute_info(job: Job) -> dict[str, Any] | None:
+    """#2317: rental-window fields for the miner's dispatch shape.
+
+    Lets a restarted miner hold only the *remaining* purchased seconds
+    instead of re-holding the full duration. ``started_at``/``rental_deadline``
+    are None on rows claimed before the column existed — the miner then falls
+    back to its previous expires_at behaviour.
+    """
+    payload = job.payload or {}
+    if payload.get("type") != "gpu_compute":
+        return None
+    duration_seconds = _payload_duration_seconds(payload)
+    if duration_seconds <= 0:
+        return None
+    started_at = _to_utc(job.started_at)
+    deadline = _gpu_compute_rental_deadline(job)
+    return {
+        "started_at": started_at.timestamp() if started_at is not None else None,
+        "duration_seconds": duration_seconds,
+        "rental_deadline": deadline.timestamp() if deadline is not None else None,
+    }
+
+
 def _claim_update_values(job: Job, miner: Miner) -> dict[str, Any]:
     """Column values for the QUEUED→RUNNING claim CAS, incl. #2306 expiry extension."""
-    values: dict[str, Any] = {"state": "RUNNING", "assigned_miner_id": miner.id}
+    now = datetime.now(UTC)
+    values: dict[str, Any] = {"state": "RUNNING", "assigned_miner_id": miner.id, "started_at": now}
     expiry = _gpu_compute_claim_expiry(job)
     if expiry is not None:
         values["expires_at"] = expiry
@@ -580,8 +645,45 @@ class JobService:
         for job in jobs:
             job = self._ensure_not_expired(job)
             if job.state == JobState.running:
+                self._extend_gpu_rental_expiry(job)
                 assigned.append(self.to_assigned(job))
         return assigned
+
+    def _extend_gpu_rental_expiry(self, job: Job) -> None:
+        """#2317: keep ``expires_at`` ahead of a live gpu_compute rental window.
+
+        The reconcile listing is the one place a restarted miner learns about
+        its RUNNING jobs; pushing ``expires_at`` out to ``rental_deadline +
+        slack`` guarantees the miner's own deadline check and any
+        ``expires_at``-based guard never cut a resumable rental short. The
+        update is conditional on RUNNING and only ever extends — it is
+        idempotent across repeated reconcile polls and never moves the deadline
+        past ``rental_deadline + slack``. Past the rental deadline the job is
+        genuinely dead and normal expiry applies, so nothing is extended.
+        """
+        if job.state != JobState.running:
+            return
+        deadline = _gpu_compute_rental_deadline(job)
+        if deadline is None:
+            return
+        now = datetime.now(UTC)
+        if deadline <= now:
+            return
+        new_expiry = deadline + timedelta(seconds=_GPU_COMPUTE_RENTAL_SLACK_SECONDS)
+        current = _to_utc(job.expires_at)
+        if current is not None and current >= new_expiry:
+            return
+        result = self.session.execute(
+            update(Job)
+            .where(col(Job.id) == job.id, col(Job.state) == JobState.running.value)
+            .values(expires_at=new_expiry)
+            .execution_options(synchronize_session=False)
+        )
+        if getattr(result, "rowcount", 0) != 1:
+            self.session.expunge(job)
+            return
+        self.session.commit()
+        self.session.refresh(job)
 
     def to_assigned(self, job: Job) -> AssignedJob:
         raw = dict(job.constraints) if isinstance(job.constraints, dict) else {}
@@ -602,6 +704,7 @@ class JobService:
             payload=job.payload,
             constraints=constraints,
             expires_at=deadline.timestamp() if deadline else None,
+            gpu_compute=_assigned_gpu_compute_info(job),
         )
 
     # Cap the queued-job scan per dispatch call. Paid work (a linked payment
@@ -804,7 +907,10 @@ class JobService:
             return None
 
     def _ensure_not_expired(self, job: Job, batch: list[Job] | None = None) -> Job:
-        expires_at = _to_utc(job.expires_at)
+        # #2317: a RUNNING gpu_compute rental is bounded by its rental
+        # deadline (started_at + duration + slack), not expires_at — the
+        # queue deadline can legitimately sit inside the purchased window.
+        expires_at = _expiry_deadline(job)
         if job.state in {"QUEUED", "RUNNING"} and expires_at and (expires_at <= datetime.now(UTC)):
             result = self.session.execute(
                 update(Job)
