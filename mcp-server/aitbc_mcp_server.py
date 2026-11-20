@@ -141,7 +141,10 @@ def _load_hosts_config() -> dict[str, Any]:
 
     .. code-block:: yaml
 
-        ssh_user: oib
+        # ssh_user: leave unset on fleets whose ssh-config aliases already
+        # carry the right User (e.g. `ssh node0` -> root via jump host).
+        # Setting it to an unprivileged local user (e.g. `oib`) makes every
+        # SSH-mode tool fail publickey auth — #2335.
         default_host: hub.example
         roles:
           hub: hub.example
