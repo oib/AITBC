@@ -520,6 +520,10 @@ class BlockchainNode:
 
         if getattr(settings, "db_integrity_check_enabled", True):
             self._task_registry.create_task(functools.partial(self._db_integrity_sweep, chains), name="db_integrity_sweep")
+        if getattr(settings, "node_metrics_snapshot_enabled", True):
+            from .node_metrics_snapshot import snapshot_loop
+
+            self._task_registry.create_task(snapshot_loop, name="node_metrics_snapshot")
 
         await self._start_sync_manager(chains)
 

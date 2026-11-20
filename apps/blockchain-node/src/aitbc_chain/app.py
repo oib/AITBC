@@ -813,6 +813,9 @@ def create_app() -> FastAPI:
         await run_in_threadpool(collect_all, [c.strip() for c in settings.supported_chains.split(",") if c.strip()])
         default_metrics = generate_latest()
         legacy_metrics = metrics_registry.render_prometheus().encode()
+        from .node_metrics_snapshot import with_node_snapshot
+
+        legacy_metrics = await run_in_threadpool(with_node_snapshot, legacy_metrics)
         if legacy_metrics.strip():
             content = default_metrics + b"\n" + legacy_metrics
         else:
