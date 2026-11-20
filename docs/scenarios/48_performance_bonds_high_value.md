@@ -28,10 +28,31 @@ only bonded miners are assigned. Show the bond lifecycle through the canonical
 ```bash
 CUSTOMER=0xFe2d63FE87Db282083b9159e5857Cac788af9E03
 PROVIDER=0xA54B82312beb65D0E90c21717ea372396991Fa36
-MINER_ID=aitbc-miner-1
+MINER_ID=aitbc-miner-1   # must be the *registered* Miner.id — see Step 1
 ```
 
-## Step 1: Create a performance bond for the provider
+## Step 1: Resolve the live miner id
+
+Bond eligibility is keyed on the coordinator's `Miner.id`, **not** on the
+provider wallet address. A bond placed on a stale or ghost `provider_id`
+does not make the live miner eligible — bonded jobs stay `QUEUED` even
+though a miner with the same wallet is online and polling (observed live:
+bond on `miner-747ba6e6…` left `aitbc-miner-1` ineligible, #2296).
+
+Confirm the id the miner actually registered with before bonding:
+
+```bash
+# on the miner host — the registration log prints the live id:
+journalctl -u aitbc-miner --no-pager | grep "registered miner"
+
+# or via the coordinator (admin auth):
+curl -s "$COORDINATOR_API_URL/v1/miners" -H "Authorization: Bearer $ADMIN_JWT" | jq '.[].id'
+```
+
+Set `MINER_ID` to that value — for the current shop deployment it is
+`aitbc-miner-1`.
+
+## Step 2: Create a performance bond for the provider
 
 ```bash
 export COORDINATOR_API_URL=http://127.0.0.1:8203
@@ -57,7 +78,7 @@ Expected output:
 }
 ```
 
-## Step 2: Check provider eligibility
+## Step 3: Check provider eligibility
 
 ```bash
 aitbc bond status --provider-id "$MINER_ID"
@@ -65,7 +86,7 @@ aitbc bond status --provider-id "$MINER_ID"
 
 Expected output: `eligible: true`, `status: active`.
 
-## Step 3: Submit a high-value job with explicit bond requirement
+## Step 4: Submit a high-value job with explicit bond requirement
 
 ```bash
 aitbc ai submit \
@@ -103,7 +124,7 @@ Expected result:
 }
 ```
 
-## Step 4: Submit a job above the default high-value threshold
+## Step 5: Submit a job above the default high-value threshold
 
 The default `COORDINATOR_BOND_HIGH_VALUE_THRESHOLD` is 10 AIT. A job with
 `payment 10` automatically requires a bond even without `--bond-required` (it
@@ -124,7 +145,7 @@ Expected result: `COMPLETED`, `payment_status: released`, `bond_required` is
 implied by the payment amount and the job is only assigned because the provider
 has an active bond.
 
-## Step 5: Lock and release the bond (optional, governance/admin path)
+## Step 6: Lock and release the bond (optional, governance/admin path)
 
 A bond can be locked while a high-value job is in flight and released afterward:
 
@@ -145,7 +166,7 @@ aitbc bond appeal --bond-id <bond-id> --reason "dispute"
 
 <!-- PLAY3 coverage extension: uncovered CLI leaves folded into this scenario (issue #438) -->
 
-## Step 6: Top up a performance bond
+## Step 7: Top up a performance bond
 
 Adds funds to an existing provider bond.
 
@@ -210,6 +231,10 @@ aitbc bond top-up --provider-id 0xProvider --amount 10
   `_handle_bond_transaction`); the `ProviderBond` record tracks eligibility
   for this slice. Escrowed payment and reputation still provide the
   economic deterrent.
+- `provider_id` must equal the registered `Miner.id` (Step 1). Two miners
+  may share a payout wallet — eligibility does **not** follow the wallet,
+  so a bond on a stale/ghost `provider_id` leaves the live miner
+  ineligible and bonded jobs queue forever (#2296).
 - Set `COORDINATOR_BOND_HIGH_VALUE_THRESHOLD=0` to require a bond for every job,
   or `-1` to disable the automatic high-value gate.
 - The `aitbc bond appeal` command posts to `/v1/governance/slash-appeals` and
