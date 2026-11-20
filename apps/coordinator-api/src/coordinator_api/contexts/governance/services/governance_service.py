@@ -96,6 +96,32 @@ class GovernanceService:
         self._session_factory.refresh(delegator)
         return delegator
 
+    def set_voting_power(self, profile_id: str, voting_power: float) -> Any:
+        """Admin bootstrap: set a profile's own voting power (#2337).
+
+        ``get_or_create_profile`` only applies ``initial_voting_power`` on
+        creation — a profile auto-created at 0 (e.g. by an economic-proposal
+        vote) could never gain power except via delegation. This is the
+        deliberate admin override for that trap; ``delegated_power`` is
+        untouched and ``effective_voting_power`` still parks own power while
+        ``delegate_to`` is set.
+        """
+        from ..domain.governance import GovernanceProfile
+        from sqlmodel import select as sm_select
+
+        profile = (
+            self._session_factory.execute(sm_select(GovernanceProfile).where(GovernanceProfile.profile_id == profile_id))
+            .scalars()
+            .first()
+        )
+        if not profile:
+            raise ValueError(f"Profile {profile_id} not found")
+        profile.voting_power = float(voting_power)
+        self._session_factory.add(profile)
+        self._session_factory.commit()
+        self._session_factory.refresh(profile)
+        return profile
+
     def create_governance_proposal(self, proposer_id: str, proposal_data: dict[str, Any]) -> Any:
         """Create a SQLModel Proposal from a router request dict."""
         from ..domain.governance import Proposal as DomainProposal, ProposalStatus

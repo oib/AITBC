@@ -25576,6 +25576,95 @@
         }
       }
     },
+    "/v1/governance/profiles/{profile_id}/voting-power": {
+      "post": {
+        "tags": [
+          "governance"
+        ],
+        "summary": "Set Profile Voting Power",
+        "description": "Set a profile's own voting power (admin bootstrap, #2337).\n\n``POST /profiles`` only applies ``initial_voting_power`` at creation \u2014\na profile auto-created at 0 by a vote could never gain power. This is\nthe admin escape hatch for that trap.",
+        "operationId": "set_profile_voting_power_v1_governance_profiles__profile_id__voting_power_post",
+        "parameters": [
+          {
+            "name": "profile_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Profile Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/VotingPowerRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GovernanceProfile"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/governance/proposals": {
       "post": {
         "tags": [
@@ -48383,6 +48472,20 @@
           "abstain"
         ],
         "title": "VoteType"
+      },
+      "VotingPowerRequest": {
+        "properties": {
+          "voting_power": {
+            "type": "number",
+            "minimum": 0.0,
+            "title": "Voting Power"
+          }
+        },
+        "type": "object",
+        "required": [
+          "voting_power"
+        ],
+        "title": "VotingPowerRequest"
       },
       "WebVitalsEntry": {
         "properties": {

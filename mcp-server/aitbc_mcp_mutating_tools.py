@@ -777,3 +777,134 @@ def unstake_aitbc(
 
 
 # ---------------------------------------------------------------------------
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def init_governance_profile(
+    user_id: Annotated[
+        str,
+        Field(description="User ID (JWT sub or wallet address) the DAO governance profile belongs to."),
+    ],
+    voting_power: Annotated[
+        float,
+        Field(description="Initial voting power (admin only; ignored when the profile already exists)."),
+    ] = 0.0,
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Create or fetch a DAO governance profile (admin bootstrap, #2337).
+
+    Wraps ``aitbc governance profile init`` → ``POST /v1/governance/profiles``.
+    Requires the admin-aware ``auth login`` credential on the target host —
+    ``initial_voting_power`` only applies at creation; use
+    ``set_governance_voting_power`` for profiles that already exist.
+    """
+    options: dict[str, str | None] = {"user-id": user_id, "voting-power": str(voting_power)}
+
+    target = _host_for_role(role, host)
+    command = _build_aitbc_cli_command("governance", ["profile", "init"], None, options, "json")
+    guard = _require_confirm(dry_run, confirm, command, host=target)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_aitbc_cli(target, "governance", ["profile", "init"], None, options, "json"))
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def delegate_governance_votes(
+    profile_id: Annotated[
+        str,
+        Field(description="Delegator profile ID."),
+    ],
+    delegatee_id: Annotated[
+        str,
+        Field(description="Profile ID receiving the delegated voting power."),
+    ],
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Delegate a DAO profile's voting power to another profile (#2337).
+
+    Wraps ``aitbc governance profile delegate`` →
+    ``POST /v1/governance/profiles/{id}/delegate``. Caller-bound for client
+    JWTs (the profile must belong to the caller); admin JWTs bypass.
+    """
+    options: dict[str, str | None] = {"profile-id": profile_id, "delegatee-id": delegatee_id}
+
+    target = _host_for_role(role, host)
+    command = _build_aitbc_cli_command("governance", ["profile", "delegate"], None, options, "json")
+    guard = _require_confirm(dry_run, confirm, command, host=target)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_aitbc_cli(target, "governance", ["profile", "delegate"], None, options, "json"))
+
+
+@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
+def set_governance_voting_power(
+    profile_id: Annotated[
+        str,
+        Field(description="Profile ID to update."),
+    ],
+    voting_power: Annotated[
+        float,
+        Field(description="New own voting power (>= 0; admin only)."),
+    ],
+    dry_run: Annotated[
+        bool,
+        Field(description="Show the command without executing it."),
+    ] = True,
+    confirm: Annotated[
+        bool,
+        Field(description="Confirm the destructive action."),
+    ] = False,
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Set a DAO profile's own voting power (admin, #2337).
+
+    Wraps ``aitbc governance profile power`` →
+    ``POST /v1/governance/profiles/{id}/voting-power``. The escape hatch for
+    profiles auto-created at 0 — ``initial_voting_power`` is ignored for
+    existing profiles.
+    """
+    options: dict[str, str | None] = {"profile-id": profile_id, "voting-power": str(voting_power)}
+
+    target = _host_for_role(role, host)
+    command = _build_aitbc_cli_command("governance", ["profile", "power"], None, options, "json")
+    guard = _require_confirm(dry_run, confirm, command, host=target)
+    if guard is not None:
+        return _json(guard)
+    return _json(_run_aitbc_cli(target, "governance", ["profile", "power"], None, options, "json"))
