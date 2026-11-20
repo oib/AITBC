@@ -566,3 +566,23 @@ class TestRpcProbeRoot:
             assert not base_url.endswith("/rpc"), base_url
             assert gets == ["/rpc/proposer", "/health"]
             assert all("/rpc/rpc" not in f"{base_url}{p}" for p in gets)
+
+
+# --- agent registry chain id -------------------------------------------------
+
+
+def test_agent_registry_chain_id_numeric_passthrough():
+    from aitbc_cli.utils.chain_id import agent_registry_chain_id
+
+    assert agent_registry_chain_id("5") == 5
+    assert agent_registry_chain_id(" 7 ") == 7
+
+
+def test_agent_registry_chain_id_named_chain_falls_back_to_native():
+    """bc-2-style chain names map to registry id 1, mirroring the coordinator's
+    default_resolve_chain_id — the agent-identity resolve API only takes ints."""
+    from aitbc_cli.utils.chain_id import agent_registry_chain_id
+
+    assert agent_registry_chain_id("bc-2") == 1
+    assert agent_registry_chain_id("") == 1
+    assert agent_registry_chain_id(None) == 1
