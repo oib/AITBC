@@ -79,6 +79,16 @@ if not AUTH_TOKEN:
 if MINER_ID == AUTH_TOKEN:
     raise RuntimeError("MINER_ID and the auth token must not be the same value; use separate MINER_ID and MINER_AUTH_TOKEN")
 HEARTBEAT_INTERVAL = 15
+# #2305: the region this miner registers under. Protected gpu_compute jobs carry
+# constraints.region copied from the market GPU row, and dispatch silently skips
+# a miner whose region differs, so the value must match MINER_GPU_REGION.
+MINER_REGION = os.environ.get("MINER_REGION", "").strip() or "localhost"
+# #2301: seconds between market GPU registry re-registers (self-heals a deleted
+# row and corrects region/price drift without a miner restart).
+MARKET_GPU_REREGISTER_INTERVAL = float(os.environ.get("MINER_GPU_REREGISTER_SECONDS", "300") or 300)
+# #2305: minimum seconds between "poll skipped, at capacity" warnings.
+_CAPACITY_WARN_INTERVAL = 60.0
+_last_capacity_warn = 0.0
 MAX_RETRIES = 10
 RETRY_DELAY = 30
 # In-memory set of job IDs currently running in worker threads. Used to report
@@ -353,7 +363,7 @@ def build_gpu_capabilities() -> dict:
         "cuda": cuda_version,
         "models": models if ollama_available else [],
         "price": 0.01,
-        "region": "localhost",
+        "region": MINER_REGION,
         "platform": "CUDA" if gpu_info else "CPU",
         "supported_tasks": ["inference", "training", "stable-diffusion", "llama", "transcribe", "reencode", "hermes"],
         "max_concurrent_jobs": _max_concurrent_jobs(),
@@ -431,7 +441,7 @@ def register_miner():
     register_data = {
         "capabilities": capabilities,
         "concurrency": capabilities.get("max_concurrent_jobs", 1),
-        "region": capabilities.get("region", "localhost"),
+        "region": capabilities.get("region", MINER_REGION),
     }
     if MINER_WALLET_ADDRESS:
         register_data["wallet_address"] = MINER_WALLET_ADDRESS
@@ -473,7 +483,7 @@ def register_market_gpu() -> str | None:
         "name": gpu_info["name"],
         "memory_gb": max(1, int(gpu_info["memory_total"]) // 1024),
         "price_per_hour": os.environ.get("MINER_GPU_PRICE_PER_HOUR", "0.05"),
-        "region": os.environ.get("MINER_GPU_REGION", "localhost"),
+        "region": os.environ.get("MINER_GPU_REGION", "").strip() or MINER_REGION,
     }
     resource_id = os.environ.get("MINER_GPU_RESOURCE_ID")
     if resource_id:
@@ -959,6 +969,24 @@ def _on_job_done(job_id: str, task: asyncio.Task) -> None:
     ACTIVE_JOB_IDS.discard(job_id)
 
 
+def _warn_at_capacity(max_concurrent_jobs: int) -> None:
+    """Rate-limited WARNING for a skipped poll (#2305).
+
+    A slot that is never released makes the loop skip every poll while
+    heartbeats keep flowing; at DEBUG that looked like a silent stall.
+    """
+    global _last_capacity_warn
+    now = time.time()
+    if now - _last_capacity_warn >= _CAPACITY_WARN_INTERVAL:
+        _last_capacity_warn = now
+        logger.warning(
+            "At max capacity (%s/%s jobs: %s); skipping polls until a slot frees",
+            len(ACTIVE_JOB_IDS),
+            max_concurrent_jobs,
+            sorted(ACTIVE_JOB_IDS),
+        )
+
+
 def _poll_and_dispatch(models: list, max_concurrent_jobs: int) -> None:
     """One poll cycle: capacity-guarded job fetch, atomic slot claim, and
     worker-thread dispatch so heartbeats keep running."""
@@ -966,7 +994,7 @@ def _poll_and_dispatch(models: list, max_concurrent_jobs: int) -> None:
     # inflight, but a local guard avoids thundering-herd polls and
     # reflects the actual thread count.
     if len(ACTIVE_JOB_IDS) >= max_concurrent_jobs:
-        logger.debug("At max capacity (%s/%s jobs); skipping poll", len(ACTIVE_JOB_IDS), max_concurrent_jobs)
+        _warn_at_capacity(max_concurrent_jobs)
         return
     job = poll_for_jobs()
     if not job:
@@ -1004,6 +1032,7 @@ async def main():
     last_poll = 0.0
     last_ipfs_sweep = 0.0
     last_agent_sweep = 0.0
+    last_market_gpu_register = time.time()
 
     # Set the initial publish time so the first loop iteration does not
     # immediately re-publish all default offers (time.time() - 0 is >> 300s).
@@ -1020,6 +1049,9 @@ async def main():
             if AGENT_EXECUTOR_ENABLED and current_time - last_agent_sweep >= AGENT_EXECUTOR_SWEEP_INTERVAL:
                 await _agent_executor_sweep()
                 last_agent_sweep = current_time
+            if current_time - last_market_gpu_register >= MARKET_GPU_REREGISTER_INTERVAL:
+                await asyncio.to_thread(register_market_gpu)
+                last_market_gpu_register = current_time
             if current_time - last_poll >= 3:
                 _poll_and_dispatch(models, max_concurrent_jobs)
                 last_poll = current_time
