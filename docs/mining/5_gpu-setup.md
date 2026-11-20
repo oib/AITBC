@@ -91,10 +91,36 @@ jobs:
 
 ### Environment Variables
 
+The miner is configured entirely through its systemd environment file
+(`/etc/aitbc/aitbc-miner.env` on deployed nodes) — there is no config file.
+The keys `apps/miner/production_miner.py` actually reads:
+
+| Variable | Default | Purpose |
+|----------|---------|---------|
+| `MINER_ID` | — (required) | Public miner identifier |
+| `MINER_AUTH_TOKEN` / `MINER_API_KEY` | — (required) | Coordinator credential |
+| `MINER_WALLET_ADDRESS` | — | Payout address; without it the coordinator will not assign escrowed (paid) jobs |
+| `COORDINATOR_URL` | `http://127.0.0.1:8107` | Coordinator API base URL |
+| `MINER_REGION` | `localhost` | Region the miner registers under (coordinator registration, capabilities, pool hub) |
+| `MINER_REGISTER_GPU` | off | Set to `1` to self-register this miner's GPU in the coordinator market registry |
+| `MINER_GPU_RESOURCE_ID` | — | Stable resource id for the market GPU row (keeps re-registers idempotent) |
+| `MINER_GPU_REGION` | `MINER_REGION` | Region written to the market GPU row |
+| `MINER_GPU_PRICE_PER_HOUR` | `0.05` | Price advertised on the market GPU row |
+| `MINER_GPU_REREGISTER_SECONDS` | `300` | Interval between market GPU re-registers |
+| `MINER_MAX_CONCURRENT_JOBS` | `1` | Concurrent-job ceiling advertised to the coordinator |
+| `MINER_ENDPOINT` | `http://localhost:8101` | Public miner endpoint reported to the pool hub |
+| `POOL_HUB_URL` | `http://127.0.0.1:8210` | Pool hub base URL (`HUB_POOL_HUB_URL` also accepted) <!-- check-ports: ignore --> |
+
+Protected `gpu_compute` dispatch note (#2305): job payloads carry
+`constraints.region` copied from the market GPU row, and dispatch silently
+skips a miner whose registered region differs — a miner left at the
+`localhost` default never receives protected-resource jobs. Set
+`MINER_REGION` to the same region as the GPU row, and for self-registration
+set `MINER_REGISTER_GPU=1` (plus `MINER_GPU_RESOURCE_ID` for a stable row).
+
 ```bash
 export CUDA_VISIBLE_DEVICES=0
 export NVIDIA_VISIBLE_DEVICES=all
-export AITBC_GPU_MEMORY_LIMIT=0.9   # fictional — read nowhere
 ```
 
 ## Optimization
