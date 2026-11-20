@@ -252,10 +252,20 @@ class _JobsSettlementMixin(_JobsMixin):
         the winner's job expires the key is released for the next claimant,
         bounding any squatting alias by its own TTL.
         """
+        # #2326 MARKET-ESCROW-SQUAT-1: expired-but-unswept jobs and unpaid
+        # jobs cannot hold an escrow claim — a year-2100 expires_at or a
+        # zero-amount registration used to squat a key indefinitely and
+        # deny the legitimate claimant its token.
+        now = datetime.now(UTC).replace(tzinfo=None)
         stmt = (
             select(col(MarketJob.id))
             .where(
                 col(MarketJob.state).in_(_ACCESS_TOKEN_ACTIVE_STATES),
+                or_(col(MarketJob.expires_at).is_(None), col(MarketJob.expires_at) > now),
+                # NULL payment_amount = pre-denormalization row — unknown
+                # stake, kept claimable; an explicit 0 is a free job and
+                # has no escrow to bind.
+                or_(col(MarketJob.payment_amount).is_(None), col(MarketJob.payment_amount) > 0),
                 or_(
                     col(MarketJob.id) == escrow_key,
                     col(MarketJob.payload)["escrow_job_id"].as_string() == escrow_key,
@@ -276,12 +286,25 @@ class _JobsSettlementMixin(_JobsMixin):
         ``locked_escrow_matches`` so the sweeper's pending-payment adoption
         (#2348) applies identical rules.
         """
-        return locked_escrow_matches(
+        if not locked_escrow_matches(
             escrow,
             amount=payment.amount,
             buyer_address=job.buyer_address,
             provider_address=job.provider_address,
-        )
+        ):
+            return False
+        # #2326 MARKET-ESCROW-SQUAT-1: an escrow_job_id alias claim must name
+        # its buyer. Every compared field is caller-supplied at creation, so
+        # an omitted buyer_address used to skip the party check entirely
+        # while a squatter pointed a self-declared job at a victim's locked
+        # escrow with copied public terms. The shared proof skips absent
+        # fields, so alias claims re-check buyer presence+match here.
+        if (job.payload or {}).get("escrow_job_id"):
+            actual = escrow.get("buyer")
+            expected = job.buyer_address
+            if not expected or not actual or not self._addresses_match(actual, expected):
+                return False
+        return True
 
     async def confirm_market_job_pin(
         self,

@@ -32,6 +32,7 @@ logger = get_logger(__name__)
 _PAYLOAD_SERVER_KEYS = frozenset({"provider_confirmed", "provider_confirmed_at", "pinned", "pin_tx_hash"})
 
 from .shared import (
+    MAX_JOB_TTL_SECONDS,
     MAX_PAYMENT_AMOUNT,
     _ACCESS_TOKEN_ACTIVE_STATES,
     _HEALTH_REFUSED,
@@ -635,6 +636,13 @@ class _JobsMixin(_CoreMixin):
         # (release/refund/sweeper all resolve /rpc/escrow/{job.id}).
         job.escrow_contract_id = job.id
         self._apply_job_defaults(job)
+        # #2326 MARKET-ESCROW-SQUAT-1: a caller-supplied expires_at reached
+        # year 2100 unchecked — an active-state job holds its escrow-key
+        # claim until expiry, so an unbounded value squats the key forever.
+        # ttl_seconds is already capped; expires_at gets the same ceiling,
+        # anchored at the server-set requested_at (not caller-writable).
+        if job.expires_at is not None and job.expires_at > job.requested_at + timedelta(seconds=MAX_JOB_TTL_SECONDS):
+            raise ValueError(f"expires_at must not exceed {MAX_JOB_TTL_SECONDS} seconds after requested_at")
         return job
 
     @staticmethod
