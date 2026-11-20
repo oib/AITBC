@@ -84,6 +84,9 @@ class BridgeConfig(BaseModel):
     bridge_header_lock_retry_seconds: int = 120
     bridge_stuck_transfer_timeout: int = 3600  # Seconds before a pending transfer is flagged as stuck
     bridge_refund_delay_seconds: int = 0  # Minimum seconds after lock_time before a refund is allowed (0 = no delay)
+    # #2289: a 'confirmed' transfer is refundable only once it is at least this
+    # many seconds old, so a sender cannot refund out from under an in-flight release.
+    bridge_refund_postfinality_min_age_seconds: int = 3600
     # Maximum per-lock amount in compute units. 0 = unlimited in
     # development only: production nodes refuse locks when this is unset
     # (fail-closed, see BridgeTransferMixin._enforce_lock_cap). The
