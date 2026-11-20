@@ -123,6 +123,7 @@ from .escrow_routes_helpers import (
     _find_existing_fee_sweep as _find_existing_fee_sweep,
     _find_existing_lock as _find_existing_lock,
     _find_existing_lock_tx as _find_existing_lock_tx,
+    _find_existing_lock_tx_status as _find_existing_lock_tx_status,
     _find_existing_receipt_claim as _find_existing_receipt_claim,
     _find_existing_refund as _find_existing_refund,
     _find_existing_release as _find_existing_release,

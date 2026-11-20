@@ -24976,7 +24976,7 @@
             }
           },
           "503": {
-            "description": "EscrowManager not initialised / Settlement key/address is not configured correctly; escrow was not released / Escrow RPC is not configured for authentication / Escrow settlement RPC is not configured for authentication",
+            "description": "EscrowManager not initialised / Settlement key/address is not configured correctly; escrow was not released / escrow lock lookup for job_id={job_id} is unavailable; retry \u2014 the lock's sealed state could not be determined / Escrow RPC is not configured for authentication / \u2026",
             "content": {
               "application/json": {
                 "schema": {
@@ -25104,7 +25104,7 @@
             }
           },
           "503": {
-            "description": "EscrowManager not initialised / Escrow RPC is not configured for authentication / Escrow settlement RPC is not configured for authentication",
+            "description": "EscrowManager not initialised / escrow lock lookup for job_id={job_id} is unavailable; retry \u2014 the lock's sealed state could not be determined / Escrow RPC is not configured for authentication / Escrow settlement RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
