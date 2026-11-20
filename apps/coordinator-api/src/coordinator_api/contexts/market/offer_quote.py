@@ -20,6 +20,8 @@ point of asking.
 
 from __future__ import annotations
 
+import json
+import os
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -28,6 +30,8 @@ from urllib.parse import quote as urlquote
 import httpx
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.constants import BLOCKCHAIN_RPC_URL
+from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.env_compat import market_getenv
 
 from ..payments.provider_binding import looks_like_wallet_address
@@ -37,6 +41,12 @@ logger = get_logger(__name__)
 # The market service, which owns the offer registry. It listens on loopback on
 # the hub; ``config.py`` already names the same port in its CORS origins.
 MARKET_BASE_URL = market_getenv("MARKET_SERVICE_URL", "http://localhost:8102").rstrip("/")
+
+# The chain is the source of truth for offers: the catalogue only holds rows a
+# provider registered via POST /v1/market/offer, and offers published before
+# that registration existed — or whose republish was dedup-skipped — live only
+# as confirmed GPU_MARKET transactions (whisper/base tx_8, #2312).
+CHAIN_RPC_URL = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL).rstrip("/")
 
 # Job submission blocks on this call, so it is deliberately short. A slow registry
 # should fail the submission, not hold a client connection open.
@@ -115,6 +125,122 @@ async def _fetch_offer(path: str) -> dict[str, Any] | None:
     return None
 
 
+def _tx_payload(tx: dict[str, Any]) -> dict[str, Any]:
+    """Unwrap a transaction payload, which the endpoint may serve as JSON text."""
+    payload = tx.get("payload")
+    if isinstance(payload, str):
+        try:
+            payload = json.loads(payload)
+        except json.JSONDecodeError:
+            return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _as_id_list(value: Any) -> list[str]:
+    """A payload field that may hold one id, a list of ids, or nothing."""
+    if not value:
+        return []
+    if not isinstance(value, list):
+        value = [value]
+    return [str(v) for v in value]
+
+
+def _chain_withdrawn_listing_ids(txs: list[dict[str, Any]]) -> set[str]:
+    """``tx_<id>`` listings withdrawn on chain — mirrors ``withdrawn_listing_ids``.
+
+    Only a seller's own cancel (``action`` cancel/cancelled or ``status``
+    cancelled) or a later offer's ``replaces`` hides a listing, and only when
+    the referencing sender is the listing's seller. Consensus applies GPU_MARKET
+    payloads without validating that binding, so the check is repeated here
+    exactly as the chain's own listing readers do (#2312).
+    """
+    seller = {
+        f"tx_{tx.get('transaction_id')}": canonical_address(str(tx.get("sender") or ""))
+        for tx in txs
+        if tx.get("transaction_id") is not None
+    }
+    withdrawn: set[str] = set()
+    for tx in txs:
+        tx_id = tx.get("transaction_id")
+        if tx_id is None:
+            continue
+        payload = _tx_payload(tx)
+        is_cancel = payload.get("action", "") in ("cancel", "cancelled") or str(payload.get("status", "")).lower() == (
+            "cancelled"
+        )
+        if is_cancel:
+            withdrawn.add(f"tx_{tx_id}")
+            named = [*_as_id_list(payload.get("order_id")), *_as_id_list(payload.get("order_ids"))]
+        else:
+            named = _as_id_list(payload.get("replaces"))
+        who = canonical_address(str(tx.get("sender") or ""))
+        if not who:
+            continue
+        withdrawn.update(listing_id for listing_id in named if seller.get(listing_id) == who)
+    return withdrawn
+
+
+async def _fetch_offer_from_chain(identifier: str) -> dict[str, Any] | None:
+    """Resolve ``identifier`` against confirmed GPU_MARKET software offers.
+
+    Returns None when nothing — or more than one distinct listing — matches;
+    the caller treats both as unresolvable, same as the catalogue's 404/500.
+    """
+    url = f"{CHAIN_RPC_URL}/rpc/transactions"
+    try:
+        response = await _get(f"{url}?transaction_type=GPU_MARKET&limit=500")
+    except httpx.HTTPError as exc:
+        raise OfferLookupFailed(f"the chain RPC at {CHAIN_RPC_URL} could not be reached") from exc
+    if response.status_code != httpx.codes.OK:
+        if response.status_code >= httpx.codes.INTERNAL_SERVER_ERROR:
+            logger.warning("Chain offer lookup returned %s; treating %r as unresolvable", response.status_code, identifier)
+        return None
+    try:
+        rows = response.json()
+    except ValueError as exc:
+        raise OfferLookupFailed(f"the chain RPC returned an unreadable answer for {url}") from exc
+    txs = rows.get("transactions", []) if isinstance(rows, dict) else rows
+    if not isinstance(txs, list):
+        return None
+
+    confirmed = [tx for tx in txs if isinstance(tx, dict) and tx.get("status") == "confirmed"]
+    withdrawn = _chain_withdrawn_listing_ids(confirmed)
+    matches = [offer for tx in confirmed if (offer := _chain_offer_match(tx, withdrawn, identifier)) is not None]
+    if len(matches) != 1:
+        if len(matches) > 1:
+            logger.warning("Chain offer lookup for %r matched %s listings; treating as unresolvable", identifier, len(matches))
+        return None
+    return matches[0]
+
+
+def _chain_offer_match(tx: dict[str, Any], withdrawn: set[str], identifier: str) -> dict[str, Any] | None:
+    """The catalogue-shaped offer one confirmed tx advertises, or None."""
+    tx_id = tx.get("transaction_id")
+    if tx_id is None or f"tx_{tx_id}" in withdrawn:
+        return None
+    payload = _tx_payload(tx)
+    if payload.get("action") != "software_offer":
+        return None
+    if str(payload.get("status", "")).lower() not in SELLABLE_STATUSES:
+        return None
+    service_type = str(payload.get("service_type") or "")
+    model = str(payload.get("model") or "")
+    plugin_id = f"{service_type}-{model.replace(':', '-')}" if service_type and model else ""
+    if payload.get("offer_id") != identifier and plugin_id != identifier:
+        return None
+    return {
+        "offer_id": str(payload.get("offer_id") or ""),
+        "plugin_id": plugin_id,
+        "service_type": service_type,
+        "model": model,
+        "price": payload.get("price"),
+        "price_unit": payload.get("price_unit") or "",
+        "provider_address": str(payload.get("provider_address") or tx.get("sender") or ""),
+        "status": payload.get("status"),
+        "endpoint": payload.get("endpoint") or "",
+    }
+
+
 async def resolve_offer(offer_id: str, quantity: Decimal) -> OfferQuote:
     """Resolve ``offer_id`` to the quote it commits its provider to.
 
@@ -136,6 +262,10 @@ async def resolve_offer(offer_id: str, quantity: Decimal) -> OfferQuote:
     offer = await _fetch_offer(f"/v1/market/offer/{encoded}")
     if offer is None:
         offer = await _fetch_offer(f"/v1/market/offer-by-id/{encoded}")
+    if offer is None:
+        # The catalogue only holds registered rows; offers that exist purely
+        # as confirmed GPU_MARKET transactions still price a job (#2312).
+        offer = await _fetch_offer_from_chain(identifier)
     if offer is None:
         raise OfferUnavailable(f"offer {identifier!r} does not name a single listing in the market")
 
