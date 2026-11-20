@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import os
 
 from aitbc_shared import JobPayment, PaymentEscrow
@@ -195,8 +196,16 @@ class PaymentEscrowMixin(PaymentCoreMixin):
         provider: str,
         lock_tx: dict[str, Any],
         meta: dict[str, Any],
-    ) -> PaymentEscrow:
-        """POST the buyer-signed lock to the chain and persist the resulting escrow row."""
+    ) -> PaymentEscrow | None:
+        """POST the buyer-signed lock to the chain and persist the resulting escrow row.
+
+        ``/rpc/escrow/create`` returning 2xx only means the lock was accepted
+        into the mempool — a tx that can never seal (e.g. insufficient buyer
+        balance) must not stamp ``escrowed``: ``escrowed`` is the single
+        dispatchable payment state and every downstream path trusts it
+        (#2297). Wait for the sealed ESCROW_LOCK before recording; on timeout
+        mark the payment failed so the purchase can be retried.
+        """
         # Resolve via the facade module: tests patch ``payments.AsyncAITBCHTTPClient``.
         from . import payments as _pm
 
@@ -221,11 +230,47 @@ class PaymentEscrowMixin(PaymentCoreMixin):
             f"{self.blockchain_rpc_url}/rpc/escrow/create",
             json=payload,
         )
+        lock_tx_hash = await self._wait_for_lock_seal(client, payment.job_id)
+        if lock_tx_hash is None:
+            self._mark_escrow_failed(
+                payment,
+                "unsealed",
+                "the escrow lock did not seal on-chain; the purchase can be retried",
+            )
+            return None
         escrow = await run_in_threadpool(
-            self._record_escrowed, payment, buyer, provider, contract_id=escrow_data.get("contract_id")
+            self._record_escrowed,
+            payment,
+            buyer,
+            provider,
+            contract_id=escrow_data.get("contract_id"),
+            lock_tx_hash=lock_tx_hash,
         )
         logger.info("Created %s escrow for payment %s", _brand.token_symbol, payment.id)
         return escrow
+
+    async def _wait_for_lock_seal(self, client: Any, job_id: str) -> str | None:
+        """Poll the sealed transaction table until the job's ESCROW_LOCK appears.
+
+        Returns the lock tx hash once sealed, or None when the bounded wait
+        expires — including when the probe itself keeps failing, which is
+        fail-closed: an unverifiable lock is treated as unsealed.
+        """
+        wait_seconds = float(os.getenv("ESCROW_LOCK_SEAL_WAIT_SECONDS", "30"))
+        poll_seconds = float(os.getenv("ESCROW_LOCK_SEAL_POLL_SECONDS", "2"))
+        deadline = asyncio.get_running_loop().time() + wait_seconds
+        while True:
+            try:
+                lock_tx_hash = await _lookup_chain_lock(self.blockchain_rpc_url, client, job_id)
+            except _OPS_ERRORS as e:
+                logger.warning("Lock-seal probe failed for job %s: %s", job_id, e)
+                lock_tx_hash = None
+            if lock_tx_hash is not None:
+                return lock_tx_hash
+            if asyncio.get_running_loop().time() >= deadline:
+                logger.warning("Escrow lock for job %s did not seal within %.0fs", job_id, wait_seconds)
+                return None
+            await asyncio.sleep(poll_seconds)
 
     def _record_escrowed(
         self,
