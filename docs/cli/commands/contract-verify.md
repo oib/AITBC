@@ -18,6 +18,7 @@ aitbc contract verify [OPTIONS]
 | `--proof` | text | — | yes | ZK proof data (JSON string, or @path to a JSON file) |
 | `--chain-id` | text | — | no | Chain ID the contract is deployed on |
 | `--rpc-url` | text | `http://localhost:8202` | no | Blockchain RPC URL <!-- check-ports: ignore --> |
+| `--api-key` | text | — | no | Blockchain RPC API key (default: BLOCKCHAIN_RPC_API_KEY env / config blockchain_rpc_api_key) |
 
 ## Examples
 
