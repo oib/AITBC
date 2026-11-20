@@ -97,6 +97,17 @@ def _ensure_temp_disk_space() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     global _model
+    import av
+
+    # faster-whisper 1.2.1 calls ``av.open(metadata_errors=...)``, kwargs PyAV 19
+    # removed (#2319) — every transcription then dies with TypeError. Whisper's
+    # deps are installed ad-hoc (no requirements file to pin), so refuse to start
+    # on an incompatible av instead of serving silent 500s.
+    if int(av.__version__.split(".", 1)[0]) >= 19:
+        raise RuntimeError(
+            f"PyAV {av.__version__} is incompatible with faster-whisper 1.2.1 "
+            "(av.open kwargs removed in v19); install 'av<19' in the service venv"
+        )
     from faster_whisper import WhisperModel  # type: ignore[import-untyped]
 
     logger.info(f"Loading Whisper model '{_model_name}' on {_device} ({_compute_type})...")
@@ -231,6 +242,12 @@ def _probe_duration(path: str) -> float | None:
     import av
 
     with av.open(path, options=pyav_open_options()) as container:
+        # A container can open fine and still carry no audio track at all —
+        # e.g. a web page FFmpeg's text/subtitle demuxers sniff as content.
+        # faster-whisper would fail on it later with an unexplained error, so
+        # refuse it here where the 415 names the real problem (#2319).
+        if not container.streams.audio:
+            raise ValueError("media container has no audio stream")
         if container.duration is not None:
             return container.duration / av.time_base
     # WHISPER-DURATION-1 (#1653): streamed/raw containers legitimately carry
@@ -282,18 +299,33 @@ def _ffprobe_duration(path: str) -> float | None:
     return seconds if seconds > 0 else None
 
 
-def _probe_errors() -> tuple[type[BaseException], ...]:
-    """Failure surface of ``_probe_duration``: the container parser's own
-    errors (PyAV is an optional runtime dep, so resolve lazily) plus the
-    OS/data-shape errors a header probe can raise."""
-    av_errors: tuple[type[BaseException], ...] = ()
+def _av_ffmpeg_error() -> tuple[type[BaseException], ...]:
+    """PyAV's failure type, resolved lazily — ``av`` is an optional runtime dep
+    that ships with faster-whisper rather than with the service's declared deps."""
     try:
         import av
 
-        av_errors = (av.error.FFmpegError,)
+        return (av.error.FFmpegError,)
     except (ImportError, AttributeError):
-        pass
-    return av_errors + (ImportError, OSError, ValueError, TypeError, AttributeError, ArithmeticError)
+        return ()
+
+
+def _probe_errors() -> tuple[type[BaseException], ...]:
+    """Failure surface of ``_probe_duration``: the container parser's own
+    errors plus the OS/data-shape errors a header probe can raise."""
+    return _av_ffmpeg_error() + (ImportError, OSError, ValueError, TypeError, AttributeError, ArithmeticError)
+
+
+def _decode_errors() -> tuple[type[BaseException], ...]:
+    """Failure surface of the decode/transcribe worker for a *client-caused*
+    failure (#2319): the same PyAV parser family as ``_probe_errors`` plus the
+    numpy shape errors a zero-frame decode produces.
+
+    Deliberately narrower than ``_probe_errors``: OSError/ImportError/
+    AttributeError and the model backend's own errors signal server-side
+    faults, and those must stay 500s — logged, not relabelled as bad input.
+    """
+    return _av_ffmpeg_error() + (ValueError, TypeError)
 
 
 def _audio_seconds(path: str) -> float | None:
@@ -358,13 +390,28 @@ async def _transcribe_job(tmp_path: str, language: str | None, task: str, beam_s
             # Unreadable, or not one of the plain audio/video containers media_guard
             # allows. faster-whisper would open the same file with no guard at all,
             # so it never gets to see it (CE-001, #1170).
+            logger.info("refusing unprobeable media container", exc_info=True)
             raise HTTPException(status_code=415, detail="Unsupported or unreadable media container") from None
         if seconds is not None and seconds > _MAX_AUDIO_SECONDS:
             raise HTTPException(
                 status_code=413,
                 detail=(f"Audio is {seconds / 60:.1f} minutes; the limit is {_MAX_AUDIO_SECONDS / 60:.0f} minutes"),
             )
-        return await asyncio.to_thread(_transcribe_sync, tmp_path, language, task, beam_size)
+        try:
+            return await asyncio.to_thread(_transcribe_sync, tmp_path, language, task, beam_size)
+        except _decode_errors() as exc:
+            # The container probe passed but the decoder still could not turn
+            # the upload into PCM — a corrupt or truncated stream, or a track
+            # PyAV opens but cannot decode. That is bad client input, not a
+            # server fault, so it must not answer 500 (#2319).
+            logger.warning("transcription decode failed: %s", exc, exc_info=True)
+            raise HTTPException(status_code=400, detail="Undecodable audio") from None
+        except Exception:
+            # A genuine service fault stays a 500 — but it must leave a trace:
+            # uvicorn ran at log_level="critical" and paid-job failures were
+            # completely silent (#2319).
+            logger.exception("transcription failed")
+            raise
     finally:
         try:
             os.unlink(tmp_path)
@@ -454,4 +501,8 @@ if __name__ == "__main__":
     host = os.getenv("WHISPER_BIND_HOST", "0.0.0.0")
     port = int(os.getenv("WHISPER_BIND_PORT", os.getenv("WHISPER_PORT", "8110")))
 
-    uvicorn.run(app, host=host, port=port, log_level="critical", access_log=False)
+    # log_level="critical" made every handler traceback invisible — paid-job
+    # failures left no journal trace at all (#2319). "info" surfaces
+    # uvicorn.error tracebacks without per-request noise; access_log stays
+    # off because /health and /transcribe polling would flood the journal.
+    uvicorn.run(app, host=host, port=port, log_level="info", access_log=False)

@@ -260,6 +260,66 @@ def test_cancelled_request_keeps_slot_until_worker_done(monkeypatch) -> None:
     asyncio.run(scenario())
 
 
+# --- WHISPER-TRANSCRIBE-500-1 (#2319): decode failures are client errors ---
+
+
+def test_transcribe_decode_failure_returns_400_and_frees_slot(monkeypatch) -> None:
+    """An upload that passes the container probe but fails to decode (the
+    live #2319 case: a fetched web page posted as the upload) must answer a
+    client error, not a silent 500 — and the _inflight slot must be released
+    so the service stays healthy for the next job."""
+    fake = _FakeModel()
+    monkeypatch.setattr(whisper_main, "_model", fake)
+    _patch_probe(monkeypatch)
+    monkeypatch.setattr(whisper_main, "_inflight", 0)
+
+    real_sync = whisper_main._transcribe_sync
+
+    def bad_decode(path, language, task, beam_size):
+        raise ValueError("Invalid data found when processing input")
+
+    monkeypatch.setattr(whisper_main, "_transcribe_sync", bad_decode)
+
+    try:
+        _transcribe()
+    except HTTPException as exc:
+        assert exc.status_code == 400
+        assert exc.detail == "Undecodable audio"
+    else:  # pragma: no cover
+        raise AssertionError("expected HTTPException 400")
+    # The slot was released by _transcribe_job's finally — a follow-up job
+    # is admitted instead of answering 503 forever.
+    assert whisper_main._inflight == 0
+
+    monkeypatch.setattr(whisper_main, "_transcribe_sync", real_sync)
+    resp = _transcribe()
+    assert resp.status_code == 200
+    assert len(fake.calls) == 1
+
+
+def test_transcribe_unexpected_failure_is_not_a_client_error(monkeypatch) -> None:
+    """A backend fault (not a decode error) must keep propagating as a 500 —
+    it is logged, not relabelled as bad input — and still free the slot."""
+    monkeypatch.setattr(whisper_main, "_model", _FakeModel())
+    _patch_probe(monkeypatch)
+    monkeypatch.setattr(whisper_main, "_inflight", 0)
+
+    def boom(path, language, task, beam_size):
+        raise RuntimeError("backend exploded")
+
+    monkeypatch.setattr(whisper_main, "_transcribe_sync", boom)
+
+    try:
+        _transcribe()
+    except RuntimeError:
+        pass
+    except HTTPException as exc:  # pragma: no cover
+        raise AssertionError(f"backend fault was relabelled as HTTP {exc.status_code}") from None
+    else:  # pragma: no cover
+        raise AssertionError("expected RuntimeError")
+    assert whisper_main._inflight == 0
+
+
 # --- WHISPER-DURATION-1 (#1653): ffprobe fallback for duration-less containers ---
 
 
@@ -317,3 +377,25 @@ def test_ffprobe_uses_file_protocol_whitelist(monkeypatch) -> None:
     argv = seen[0]
     assert "-protocol_whitelist" in argv
     assert argv[argv.index("-protocol_whitelist") + 1] == "file"
+
+
+def test_lifespan_refuses_incompatible_pyav(monkeypatch) -> None:
+    """av>=19 removed the av.open kwargs faster-whisper 1.2.1 still passes —
+    startup must fail loudly instead of serving 500s (#2319)."""
+    import sys
+    import types
+
+    fake_av = types.ModuleType("av")
+    fake_av.__version__ = "19.0.0"
+    monkeypatch.setitem(sys.modules, "av", fake_av)
+
+    async def run() -> None:
+        async with whisper_main.lifespan(whisper_main.app):
+            pass
+
+    try:
+        asyncio.run(run())
+    except RuntimeError as e:
+        assert "av<19" in str(e)
+    else:
+        raise AssertionError("lifespan did not refuse PyAV 19")
