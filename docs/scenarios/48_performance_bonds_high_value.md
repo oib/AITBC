@@ -235,6 +235,11 @@ aitbc bond top-up --provider-id 0xProvider --amount 10
   may share a payout wallet — eligibility does **not** follow the wallet,
   so a bond on a stale/ghost `provider_id` leaves the live miner
   ineligible and bonded jobs queue forever (#2296).
+- Settlement proven 20 Nov 2026: acceptance-window auto-release produced
+  an on-chain `ESCROW_RELEASE` (bond `bond-s48-2`, 1.5 AIT on
+  `aitbc-miner-1`; job `1b3c6f2b…` COMPLETED → release `0x28329bbc…`).
+  Always verify `payment_status=released` **and** the release tx hash
+  before claiming a paid leg.
 - Set `COORDINATOR_BOND_HIGH_VALUE_THRESHOLD=0` to require a bond for every job,
   or `-1` to disable the automatic high-value gate.
 - The `aitbc bond appeal` command posts to `/v1/governance/slash-appeals` and

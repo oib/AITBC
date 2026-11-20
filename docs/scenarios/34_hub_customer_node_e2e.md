@@ -3,7 +3,7 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 33 Exchange Financial Correctness](./33_exchange_financial_correctness.md), [Scenario 07 AI Job Submission](./07_ai_job_submission.md)
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-08-26
+**Last Updated**: 2026-11-20
 **Version**: 1.6
 
 ## Navigation Path
@@ -239,6 +239,8 @@ aitbc dashboard shop
 With `COORDINATOR_ENABLE_ZK_VERIFICATION=true` and `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD=10`, a paid job above the threshold receives a verified ZK receipt proof before escrow release. You can also force a proof with `--zk-proof-required`.
 
 > **Circuit coverage matters:** the only registered circuit is `linear-1` (trivial y=2x+1). `--model llama3.2:3b --zk-proof-required` returns `zk_status: unsupported_model`, escrows, then **ESCROW_REFUND**s — and because the threshold is 10, *any* paid job ≥10 AIT on an unregistered model auto-refunds the same way. Use `linear-1` for this step; that combination was verified live (`zk_status: verified`, real Groth16 proof).
+>
+> **Fleet affordability (20 Nov 2026):** the 15 AIT leg below (`--payment 15`) was unplayed through round 3 and is now affordable — node0's `default` wallet holds ~105 AIT.
 
 On the hub:
 
@@ -332,5 +334,5 @@ aitbc zk verify --job-id "$ZK_JOB_ID"
 
 ---
 
-*Last updated: 2026-08-26*
+*Last updated: 2026-11-20*
 *Version: 1.6*

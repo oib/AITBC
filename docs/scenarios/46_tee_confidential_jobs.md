@@ -18,6 +18,16 @@
 > release 2.0; see `docs/releases/STATUS.md` and
 > `docs/releases/v0.14/v0.14.1_tee_implementation_strategy.md`.
 
+> **Expected outcome without enclave infra (20 Nov 2026).** No fleet node
+> has SGX/SEV/TPM hardware, the coordinator no longer auto-generates
+> quotes, and `ai submit --tee-attestation-required` aborts client-side
+> unless `TEE_ATTESTATION_ENABLED` is set. The verified-release steps
+> below (Steps 1–4 showing `tee_status: verified` /
+> `payment_status: released`) therefore require real TEE hardware and
+> are **held** per the round-4 ruling. The realistic result today is a
+> client-side refusal, an `unverified_enclave` / `tee_quote_missing`
+> status, or the refund path — see Scenario 44.
+
 ## Goal
 
 Run a CLI-first confidential inference job. The job is marked confidential,
@@ -159,9 +169,11 @@ aitbc tee verify --job-id job-001
   `job.constraints.tee_attestation_required = true`.
 - `--enclave-measurement` sets both `required_enclave_measurement` and
   `tee_enclave_id` to the supplied measurement hash.
-- When the miner completes the job, the coordinator auto-generates a simulated
-  TEE quote for the required measurement, verifies it, and attaches it to the
-  receipt (`tee_status: verified`).
+- When the miner completes the job, the coordinator verifies a TEE
+  attestation for the required measurement and attaches it to the
+  receipt (`tee_status: verified`). (Pre-v0.14.4 the coordinator
+  auto-generated a simulated quote here; that path was removed —
+  without a real registered attestation the escrow refunds instead.)
 - Only after `tee_status: verified` does the coordinator release the escrow.
 
 ## Validation
