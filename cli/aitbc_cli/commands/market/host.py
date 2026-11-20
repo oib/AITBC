@@ -375,6 +375,12 @@ def _create_coordinator_host_escrow(
     if client is None or not private_key:
         return None
 
+    # #2340 respin: the coordinator job's expires_at (= created + ttl_seconds)
+    # is what the refund relay and StuckEscrowSweeper gate on — a fixed 24h
+    # ttl would mark the job EXPIRED mid-rental and auto-refund the escrow.
+    # ttl covers the full rental plus one day of settlement slack so the
+    # market settle path wins before the job can expire.
+    rental_seconds = days * 86400
     job_data = {
         "payload": {
             "type": "ipfs",
@@ -387,7 +393,7 @@ def _create_coordinator_host_escrow(
             "actual_cost_ait": str(round(total_cost, 6)),
         },
         "constraints": {},
-        "ttl_seconds": 86400,
+        "ttl_seconds": rental_seconds + 86400,
         "payment_amount": str(total_cost),
         "payment_currency": "AITBC",
         "buyer_address": buyer,
@@ -437,7 +443,11 @@ def _create_coordinator_host_escrow(
         "buyer_lock_signature": signature,
         "buyer_lock_nonce": lock_tx["nonce"],
         "buyer_lock_fee": lock_tx["fee"],
-        "escrow_timeout_seconds": 3600,
+        # JobPaymentCreate caps escrow_timeout_seconds at 86400; the rental
+        # length is used up to that cap (same scaling as market_gpu_purchase).
+        # Multi-day rentals stay covered because the refund relay gates on
+        # job.expires_at (the ttl above), not payment.expires_at.
+        "escrow_timeout_seconds": min(rental_seconds, 86400),
         "offer_id": offer.get("offer_id", ""),
         "offer_quantity": str(days),
     }
