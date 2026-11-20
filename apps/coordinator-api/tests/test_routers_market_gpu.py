@@ -149,6 +149,17 @@ def test_register_gpu_is_idempotent_per_miner_model_resource(client, miner_token
 
 
 @pytest.mark.unit
+def test_register_gpu_reregister_corrects_model_id(client, miner_token, db_session):
+    """A row first registered without model_id gets it on a repeat register."""
+    first = _register_gpu(client, miner_token)
+    assert db_session.get(GPURegistry, first).model_id is None
+    second = _register_gpu(client, miner_token, model_id="rtx_4060_ti_16gb")
+    assert second == first
+    db_session.expire_all()
+    assert db_session.get(GPURegistry, first).model_id == "rtx_4060_ti_16gb"
+
+
+@pytest.mark.unit
 def test_register_gpu_distinct_resources_get_distinct_rows(client, miner_token, db_session):
     first = _register_gpu(client, miner_token, resource_id="gpu-0")
     second = _register_gpu(client, miner_token, resource_id="gpu-1")
