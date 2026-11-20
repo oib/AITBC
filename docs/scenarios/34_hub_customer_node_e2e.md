@@ -61,7 +61,6 @@ Prove tokens → job → GPU → `ESCROW_RELEASE` → market offer on the live t
 
 - Hub: coordinator, wallet, exchange, explorer
 - Shop: miner, GPU, Ollama `llama3.2:3b`, funded provider wallet (e.g. `test-wallet-3`)
-- `--provider-address` must be the **live** shop provider wallet — on this fleet the miner's wallet is `0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2` (verify with the providers/match listing before submitting). A stale provider address leaves the job QUEUED until TTL expiry and the escrow only returns via refund (#2327).
 - Buyer: genesis or another funded wallet
 
 ---
@@ -153,6 +152,14 @@ aitbc exchange-island orders --status open
 
 ### Step 8: Paid job + escrow + on-chain settlement
 
+> **`--provider-address` must be the LIVE miner wallet.** The coordinator refuses to dispatch a job whose provider constraint doesn't match a registered miner — a stale address leaves the job `QUEUED`/`escrowed` until TTL expiry refunds it (#2327: two 15 AIT legs stranded ~30.3 AIT this way on 20 Nov). Discover it on the shop node before submitting:
+>
+> ```bash
+> ssh node2 'grep MINER_WALLET_ADDRESS /etc/aitbc/aitbc-miner.env'
+> ```
+>
+> Current live value (verify — it changes with miner re-provisioning): `0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2` (`aitbc-miner-1`).
+
 On the hub:
 
 ```bash
@@ -241,7 +248,7 @@ With `COORDINATOR_ENABLE_ZK_VERIFICATION=true` and `COORDINATOR_ZK_HIGH_VALUE_TH
 
 > **Circuit coverage matters:** the only registered circuit is `linear-1` (trivial y=2x+1). `--model llama3.2:3b --zk-proof-required` returns `zk_status: unsupported_model`, escrows, then **ESCROW_REFUND**s — and because the threshold is 10, *any* paid job ≥10 AIT on an unregistered model auto-refunds the same way. Use `linear-1` for this step; that combination was verified live (`zk_status: verified`, real Groth16 proof).
 >
-> **Fleet affordability (20 Nov 2026):** the 15 AIT leg below (`--payment 15`) was unplayed through round 3 and is now affordable — node0's `default` wallet holds ~105 AIT.
+> **Fleet affordability (20 Nov 2026):** the 15 AIT leg below (`--payment 15`) is affordable — node0's `default` wallet holds ~76.9 AIT free, plus ~15.15 AIT escrowed on job `34a64248…` pending sweeper refund (#2330: `aitbc-miner-1` lacks `linear-1` — re-run only after that lands and the refund seals).
 
 On the hub:
 
