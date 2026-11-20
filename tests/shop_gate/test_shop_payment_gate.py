@@ -6,7 +6,9 @@ Green on the fix; FAILS on pre-fix main (handlers answered anonymous
 requests).
 """
 
+import importlib
 import importlib.util
+import logging
 import sys
 from pathlib import Path
 from unittest.mock import patch
@@ -90,3 +92,35 @@ def test_terminal_job_token_replay_rejected(svc_path, module, route):
             },
         )
     assert resp.status_code == 401
+
+
+def test_unset_market_verify_url_logs_startup_warning(monkeypatch, caplog):
+    """#2318: an unset MARKET_VERIFY_URL means the implicit 127.0.0.1:8102
+    default is in effect — correct only where a market service runs locally.
+    shop_gate must say so loudly at import; on shop nodes every gated call
+    otherwise fails 503 on connection-refused with no config signal."""
+    import aitbc.shop_gate as shop_gate
+
+    monkeypatch.delenv("MARKET_VERIFY_URL", raising=False)
+    try:
+        with caplog.at_level(logging.WARNING, logger="aitbc.shop_gate"):
+            importlib.reload(shop_gate)
+        assert shop_gate.MARKET_VERIFY_URL == "http://127.0.0.1:8102"
+        assert any("MARKET_VERIFY_URL is unset" in r.message for r in caplog.records)
+    finally:
+        importlib.reload(shop_gate)
+
+
+def test_set_market_verify_url_logs_no_warning(monkeypatch, caplog):
+    """An explicit MARKET_VERIFY_URL must not warn — only the implicit
+    default does (the market service itself uses the default legitimately)."""
+    import aitbc.shop_gate as shop_gate
+
+    monkeypatch.setenv("MARKET_VERIFY_URL", "http://market.internal:8102")
+    try:
+        with caplog.at_level(logging.WARNING, logger="aitbc.shop_gate"):
+            importlib.reload(shop_gate)
+        assert shop_gate.MARKET_VERIFY_URL == "http://market.internal:8102"
+        assert not any("MARKET_VERIFY_URL is unset" in r.message for r in caplog.records)
+    finally:
+        importlib.reload(shop_gate)

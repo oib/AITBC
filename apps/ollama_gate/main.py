@@ -67,7 +67,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse  # noqa:
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
-from aitbc.shop_gate import require_job_access  # noqa: E402
+from aitbc.shop_gate import MARKET_VERIFY_URL, require_job_access  # noqa: E402
 
 configure_logging(level="INFO", service_name="ollama-gate", to_file=True)
 logger = get_logger(__name__)
@@ -169,7 +169,7 @@ app = FastAPI(title="AITBC Ollama Gate", version="1.0.0", lifespan=_lifespan)
 
 @app.get("/health")
 async def health() -> dict[str, Any]:
-    return create_simple_health_response("ollama-gate")
+    return create_simple_health_response("ollama-gate", market_verify_url=MARKET_VERIFY_URL)
 
 
 @app.get("/api/version")
