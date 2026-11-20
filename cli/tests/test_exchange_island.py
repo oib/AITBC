@@ -293,5 +293,78 @@ def test_load_island_credentials_rejects_empty_string_fields(tmp_path):
         ic_module.CREDENTIALS_PATH = original
 
 
+class _CancelAwareHTTPClient:
+    """Returns open rows for status=open and cancel rows for status=cancelled (#2338)."""
+
+    open_rows = [
+        {
+            "transaction_id": 1,
+            "side": "buy",
+            "max_price": 0.001,
+            "amount": 1.0,
+            "order_id": "ord_live",
+            "pair": "AIT/ETH",
+            "status": "open",
+            "user_id": "0xu",
+            "created_at": "2026-01-01T00:00:00",
+        },
+        {
+            "transaction_id": 2,
+            "side": "sell",
+            "min_price": 0.002,
+            "amount": 0.5,
+            "order_id": "ord_dead",
+            "pair": "AIT/ETH",
+            "status": "open",
+            "user_id": "0xu",
+            "created_at": "2026-01-01T00:00:00",
+        },
+    ]
+    cancel_rows = [
+        {
+            "transaction_id": 3,
+            "action": "cancel",
+            "order_id": "ord_dead",
+            "status": "cancelled",
+            "user_id": "0xu",
+            "created_at": "2026-01-02T00:00:00",
+        }
+    ]
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def get_json(self, path, params=None, **kwargs):
+        status = (params or {}).get("status")
+        if status == "cancelled":
+            return list(self.cancel_rows)
+        if status == "open":
+            return list(self.open_rows)
+        return list(self.open_rows) + list(self.cancel_rows)
+
+
+def test_orders_open_excludes_cancelled_orders(mock_credentials_file, runner):
+    """status=open must still see cancel txs or phantom orders stay open (#2338)."""
+    from aitbc_cli.commands.exchange_island import exchange_island
+
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient", _CancelAwareHTTPClient):
+        result = runner.invoke(exchange_island, ["orders", "--status", "open"], obj={"output_format": "table"})
+
+    assert result.exit_code == 0
+    assert "ord_live" in result.output
+    assert "ord_dead" not in result.output
+
+
+def test_orderbook_excludes_cancelled_orders(mock_credentials_file, runner):
+    from aitbc_cli.commands.exchange_island import exchange_island
+
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient", _CancelAwareHTTPClient):
+        result = runner.invoke(exchange_island, ["orderbook", "--pair", "AIT/ETH"], obj={"output_format": "table"})
+
+    assert result.exit_code == 0
+    # ord_dead was a 0.002 ask — cancelled, so best ask must come from live book only
+    assert "0.0020" not in result.output
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
