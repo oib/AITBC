@@ -129,6 +129,8 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc dispute vote` | `/rpc/disputes/vote` | `submit_arbitration_vote_route` (disputes.py) | —
 | `aitbc dispute votes` | `/rpc/disputes/` | — | —
 | `aitbc dispute votes` | `/rpc/disputes/{dispute_id}/votes` | `get_arbitration_votes_route` (disputes.py) | —
+| `aitbc economics distributed` | `/rpc/consensus/status` | `consensus_status_route` (consensus.py) | —
+| `aitbc economics distributed` | `/rpc/info` | `get_info_route` (core.py) | —
 | `aitbc governance execute` | `/rpc/governance/sealed-proposal/` | — | —
 | `aitbc governance execute` | `/rpc/governance/sealed-proposal/{proposal_id}` | `get_sealed_governance_proposal_route` (core.py) | —
 | `aitbc governance proposal show` | `/rpc/governance/sealed-proposal/` | — | —
