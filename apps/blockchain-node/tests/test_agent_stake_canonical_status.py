@@ -147,6 +147,29 @@ def test_guard_stale_active_sealed_unbond_refuses_complete(engine):
         assert exc.value.status_code == 409
 
 
+def test_guard_unbonding_local_sealed_unbond_allows_complete(engine):
+    """#2336: local unbonding + sealed STAKE_UNBOND -> complete proceeds.
+
+    The sealed unbond is complete's required predecessor, not a conflict —
+    the guard must let the normal path run so a height-mature STAKE_RELEASE
+    can emit after the sealed STAKE_UNBOND."""
+    with Session(engine) as session:
+        _row(session, "unbonding")
+        _sealed(session, "STAKE_UNBOND")
+        assert _canonical_guard(session, CHAIN, SID, "complete") is None
+
+
+def test_guard_completed_local_sealed_unbond_still_refuses_complete(engine):
+    """#2336 edge: local 'completed' disagrees with sealed UNBOND (no sealed
+    RELEASE) — the row is stale in the other direction, still a 409."""
+    with Session(engine) as session:
+        _row(session, "completed")
+        _sealed(session, "STAKE_UNBOND")
+        with pytest.raises(HTTPException) as exc:
+            _canonical_guard(session, CHAIN, SID, "complete")
+        assert exc.value.status_code == 409
+
+
 def test_guard_stale_unbonding_sealed_release_idempotent_complete(engine):
     """local unbonding + sealed STAKE_RELEASE -> complete answers completed,
     no second RELEASE is emitted."""

@@ -76,6 +76,14 @@ def _canonical_guard(session: Session, chain_id: str, stake_id: str, action: str
         return None
     if status == {"unbond": "unbonding", "complete": "completed"}.get(action):
         return {"success": True, "idempotent": True, "stake_id": stake_id, "status": status, "source": source}
+    # A sealed marker that is the action's required predecessor is not a
+    # conflict when the local row agrees — complete after a sealed
+    # STAKE_UNBOND must reach the normal path so a height-mature
+    # STAKE_RELEASE can emit (#2336). A stale local row still refuses below.
+    if status == {"complete": "unbonding"}.get(action):
+        record = _get_stake(session, chain_id, stake_id)
+        if record is not None and record.status == status:
+            return None
     if status in {"unbonding", "completed"}:
         raise HTTPException(
             status_code=409,
