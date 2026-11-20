@@ -79,7 +79,7 @@ aitbc agent create --name my-provider \
   --performance 0.9 \
   --max-jobs 3 \
   --specialization llm-inference \
-  --coordinator-url http://localhost:8203 \
+  --coordinator-url http://localhost:8107 \
   --format table
 ```
 
@@ -146,10 +146,12 @@ Message            Agent status retrieved (simulated)
 
 ### Step 4: Register the agent on the network
 
-Register the agent with the coordinator. The default coordinator URL is `http://localhost:8107`; override with `--coordinator-url`.
+Register the agent with the coordinator. The default coordinator URL is `http://localhost:8107` (the agent-coordinator surface — `:8203` is coordinator-api and returns 404 for `/v1/agents/*`); override with `--coordinator-url`.
+
+Under `AGENT_MSG_SIGNATURE_MODE=enforce` the register call also requires a wallet identity: pass `--wallet <name>` plus `--password-file <path>` (or `--password-stdin`); `$AITBC_DEFAULT_WALLET` is used when `--wallet` is omitted.
 
 ```bash
-aitbc agent register --agent-id agent_a1b2c3d4 --coordinator-url http://localhost:8203 --format table
+aitbc agent register --agent-id agent_a1b2c3d4 --coordinator-url http://localhost:8107 --wallet agent-scenario --password-file /path/to/wallet.pw --format table
 ```
 
 **Expected output:**
@@ -162,9 +164,11 @@ Agent Registration
 Field              Value
 Agent ID           agent_a1b2c3d4
 Registered         True
-Coordinator URL    http://localhost:8203
-Message            Agent registered successfully (simulated)
+Coordinator URL    http://localhost:8107
+Message            Agent <uuid> registered successfully
 ```
+
+> The coordinator returns a generated agent UUID (e.g. `91457b7b-…`) as the Agent ID, not the local name. `agent status` still falls back to a simulated response — the coordinator has no status endpoint (#2152 class).
 
 ### Step 5: Register agent identity on-chain
 
