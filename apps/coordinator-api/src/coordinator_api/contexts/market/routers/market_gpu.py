@@ -680,6 +680,13 @@ def _price_quote_job(
             detail=f"Quote refused: {result.refusal_reason} ({result.refusal_code})",
         )
 
+    # #2300: the purchase check compares quote.model_id (the energy profile's
+    # slug, e.g. rtx_4060_ti_16gb) with job.model_id. When the registry row has
+    # no model_id the job fell back to the raw GPU name and a valid GPU could
+    # never be bought. The quote is the authority for the energy profile, so
+    # bind the job to it.
+    if quote.model_id:
+        job.model_id = quote.model_id
     job.energy_quote_snapshot = quote.to_dict(include_signature=False)
     # G4: a quoted but unfunded job must not be handed to a miner. Mark it as
     # priced but unpaid so the dispatch gate refuses it until buy_gpu creates the
