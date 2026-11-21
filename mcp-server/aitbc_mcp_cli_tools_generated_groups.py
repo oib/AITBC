@@ -500,6 +500,7 @@ GENERATED_DESTRUCTIVE_AITBC_PATHS = frozenset(
         "market exchange deposit-eth",
         "market exchange mint-ait",
         "market exchange withdraw-eth",
+        "market gpu agreement-create",
         "market gpu buy",
         "market gpu quote",
         "market gpu refund",
