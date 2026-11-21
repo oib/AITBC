@@ -50,7 +50,7 @@ from .contexts.governance.routers.grants import router as grants_router
 from .contexts.market.domain.provider_bond import ProviderBond  # noqa: F401
 from .contexts.compliance.finance import NonRepudiationProof, TransactionAuditRecord  # noqa: F401
 from .contexts.compliance.hipaa import ConsentRecord, PHIAccessLog  # noqa: F401
-from .contexts.compliance.routers import hipaa_router
+from .contexts.compliance.routers import audit_router, hipaa_router
 
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 from .contexts.ipfs.routers import router as ipfs
@@ -1117,6 +1117,9 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(grants_router, prefix="/v1")
     app.include_router(economic_proposals_router, prefix="/v1")
     app.include_router(hipaa_router, prefix="/v1")
+    # #2377: GET /v1/compliance/audit-logs — merged transaction + PHI audit
+    # export for `aitbc compliance export-audit`; handler takes AdminDep.
+    app.include_router(audit_router, prefix="/v1")
 
     # More optional routers
     opt(("governance", lambda: governance, "Failed to include governance router", None, None))

@@ -108,7 +108,7 @@ def aitbc_compliance_export_audit(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Export a simulated compliance audit trail to a JSON file."""
+    """Export the compliance audit trail to a JSON file."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

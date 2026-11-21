@@ -208,6 +208,40 @@ class TestComplianceExportAudit:
         }
         client.get.assert_called_once_with("/v1/compliance/audit-logs")
 
+    def test_export_audit_uses_admin_credential(self, runner, tmp_path, monkeypatch):
+        """#2377: GET /v1/compliance/audit-logs is AdminDep — export-audit must
+        resolve credential="admin" (admin slot, client-JWT fallback) like the
+        reputation write routes (#2352), not the default client slot."""
+        import aitbc_cli.commands.compliance as compliance_mod
+        from aitbc_cli.commands.compliance import compliance
+
+        seen: list[str] = []
+        real_kwargs = compliance_mod.auth_client_kwargs
+
+        def spy(*args, **kwargs):
+            seen.append(kwargs.get("credential", "client"))
+            return real_kwargs(*args, **kwargs)
+
+        monkeypatch.setattr(compliance_mod, "auth_client_kwargs", spy)
+        config = MagicMock(coordinator_api_url="http://node.test", timeout=30, api_key=None)
+        client = MagicMock()
+        client.get.return_value = []
+        target = tmp_path / "audit.json"
+        with (
+            patch("aitbc_cli.commands.compliance.get_config", return_value=config),
+            patch("aitbc_cli.commands.compliance.AITBCHTTPClient", return_value=client),
+        ):
+            result = runner.invoke(
+                compliance,
+                ["export-audit", "--output-file", str(target)],
+                obj={"output_format": "json", "api_key": None},
+            )
+
+        assert result.exit_code == 0, result.output
+        assert seen == ["admin"]
+        client.get.assert_called_once_with("/v1/compliance/audit-logs")
+        assert '"status": "exported"' in result.output
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

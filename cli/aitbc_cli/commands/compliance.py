@@ -13,6 +13,7 @@ import httpx
 from aitbc.compliance.policies import ComplianceFramework, DataClassification, load_policy_template, normalize_classification
 
 from aitbc.exceptions import AITBCError
+from ..auth import ExpiredAdminToken
 from ..config import get_config
 from ..utils import output
 from ..utils.error_handling import CLIError, abort
@@ -38,7 +39,7 @@ _OPS_ERRORS = (
 )
 
 
-def _api_client(explicit_key: str | None = None) -> AITBCHTTPClient | None:
+def _api_client(explicit_key: str | None = None, *, credential: str = "client") -> AITBCHTTPClient | None:
     """Return a client for the coordinator API if a URL is configured.
 
     Endpoints below carry absolute ``/v1/...`` paths, so normalize the
@@ -48,6 +49,10 @@ def _api_client(explicit_key: str | None = None) -> AITBCHTTPClient | None:
     Credentials resolve through ``auth_client_kwargs``: an explicit
     ``--api-key`` wins, then the ``auth login`` stored JWT, then the
     configured API key (#2227 — the audit endpoints are authenticated).
+    ``credential`` selects the stored-credential slot: ``"admin"`` prefers
+    the ``admin@`` slot and falls back to the client JWT, matching the
+    reputation write-route pattern (#2352) — the endpoint is AdminDep, so
+    the token's role claim is what the server checks.
     """
     config = get_config()
     url = config.coordinator_api_url or os.getenv("COORDINATOR_API_URL", "")
@@ -56,7 +61,7 @@ def _api_client(explicit_key: str | None = None) -> AITBCHTTPClient | None:
     return AITBCHTTPClient(
         base_url=service_root_url(url),
         timeout=config.timeout,
-        **auth_client_kwargs(explicit_key, config.api_key),
+        **auth_client_kwargs(explicit_key, config.api_key, credential=credential),
     )
 
 
@@ -141,9 +146,15 @@ def classify(ctx, label: str):
 @click.option("--output-file", default="audit-export.json", help="File to write exported audit records")
 @click.pass_context
 def export_audit(ctx, output_file: str):
-    """Export a simulated compliance audit trail to a JSON file."""
+    """Export the compliance audit trail to a JSON file.
+
+    With a coordinator API configured this pulls the live merged audit
+    logs (``GET /v1/compliance/audit-logs``, admin credential) from
+    ``transaction_audit_record`` and ``phi_access_log``; without one it
+    writes the two simulated records kept for offline use.
+    """
     try:
-        client = _api_client(ctx.obj.get("api_key") if ctx.obj else None)
+        client = _api_client(ctx.obj.get("api_key") if ctx.obj else None, credential="admin")
         records: list[dict[str, Any]] | dict[str, Any]
         if client is None:
             records = [
@@ -174,6 +185,8 @@ def export_audit(ctx, output_file: str):
             "status": "simulated" if client is None else "exported",
         }
         output(result, ctx.obj.get("output_format", "table"), title="Audit Export")
+    except ExpiredAdminToken as e:
+        abort(ctx, str(e), from_exception=e)
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except _OPS_ERRORS as e:

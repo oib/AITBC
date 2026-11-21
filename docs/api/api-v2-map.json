@@ -4134,6 +4134,13 @@
           ]
         },
         {
+          "public": "/api/v2/coordinator/v1/compliance/audit-logs",
+          "upstream": "/v1/compliance/audit-logs",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/coordinator/v1/confidential/access/logs",
           "upstream": "/v1/confidential/access/logs",
           "methods": [

@@ -25109,6 +25109,94 @@
         }
       }
     },
+    "/v1/compliance/audit-logs": {
+      "get": {
+        "tags": [
+          "compliance",
+          "audit"
+        ],
+        "summary": "List Audit Logs",
+        "description": "Return merged compliance audit records, newest first (admin only).",
+        "operationId": "list_audit_logs_v1_compliance_audit_logs_get",
+        "parameters": [
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 1000,
+              "minimum": 1,
+              "default": 100,
+              "title": "Limit"
+            }
+          },
+          {
+            "name": "offset",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 0,
+              "default": 0,
+              "title": "Offset"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ComplianceAuditRecord"
+                  },
+                  "title": "Response List Audit Logs V1 Compliance Audit Logs Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/governance/profiles": {
       "post": {
         "tags": [
@@ -38102,6 +38190,68 @@
           "output"
         ],
         "title": "CompleteJobRequest"
+      },
+      "ComplianceAuditRecord": {
+        "properties": {
+          "record_id": {
+            "type": "string",
+            "title": "Record Id"
+          },
+          "source": {
+            "type": "string",
+            "title": "Source",
+            "description": "\"transaction\" or \"hipaa\""
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp"
+          },
+          "subject_id": {
+            "type": "string",
+            "title": "Subject Id",
+            "default": ""
+          },
+          "actor_id": {
+            "type": "string",
+            "title": "Actor Id",
+            "default": ""
+          },
+          "action": {
+            "type": "string",
+            "title": "Action",
+            "default": ""
+          },
+          "resource_id": {
+            "type": "string",
+            "title": "Resource Id",
+            "default": ""
+          },
+          "outcome": {
+            "type": "string",
+            "title": "Outcome",
+            "default": ""
+          },
+          "details": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Details"
+          }
+        },
+        "type": "object",
+        "required": [
+          "record_id",
+          "source"
+        ],
+        "title": "ComplianceAuditRecord",
+        "description": "One normalized audit row, whichever compliance table it came from."
       },
       "ConfidentialAccessLog": {
         "properties": {

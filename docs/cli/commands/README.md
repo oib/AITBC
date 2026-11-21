@@ -205,7 +205,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 - [`aitbc compliance check`](compliance-check.md) — Check whether a data classification is allowed by a compliance policy.
 - [`aitbc compliance classify`](compliance-classify.md) — Normalize a data classification label to the canonical format.
-- [`aitbc compliance export-audit`](compliance-export-audit.md) — Export a simulated compliance audit trail to a JSON file.
+- [`aitbc compliance export-audit`](compliance-export-audit.md) — Export the compliance audit trail to a JSON file.
 
 ## `confidential`
 
