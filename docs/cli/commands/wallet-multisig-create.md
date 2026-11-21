@@ -2,7 +2,7 @@
 
 # `aitbc wallet multisig-create`
 
-Create a multi-signature wallet with a threshold and a list of signers.
+Create a multi-signature wallet with a threshold and a list of signers. .. warning:: The generated address is a *record-keeping* multisig — there is no on-chain multisig primitive and no private key exists for the address. Funds sent to it are unrecoverable; ``multisig-propose`` / ``multisig-sign`` only track approvals locally. Use it for bookkeeping or settle through an escrow flow / authorized signer key instead.
 
 ## Usage
 
