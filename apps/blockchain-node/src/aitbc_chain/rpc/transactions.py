@@ -25,11 +25,14 @@ from .finality import finality_fields_enabled, finality_view, head_height_in_ses
 from .utils import (
     OFFER_ACTIONS,
     PREREGISTERED_CREDIT_TX_TYPES,
+    _GOSSIP_PROTOCOL_TX_TYPES,
     _require_supported_chain,
     _resolved_tx_type,
     clamp_limit,
     get_chain_id,
+    is_unsigned_protocol_transfer,
     normalize_transaction_data,
+    unsigned_protocol_transfer_admissible,
     verify_transaction_signature,
     withdrawn_listing_ids,
 )
@@ -142,6 +145,12 @@ def _check_admission_account(session: Any, chain_id: str, tx_data: dict[str, Any
     # time, but admission no longer forces one-at-a-time submission.
     from ..config import settings
 
+    # Unsigned protocol transfers carry nonce=0 as a placeholder the
+    # proposer rewrites at seal time (use_account_nonce_override); the
+    # freshness binding is the signed message's nonce, checked in
+    # _admission_protocol_auth_gate — not this field.
+    if is_unsigned_protocol_transfer(tx_data):
+        return
     nonce = tx_data["nonce"]
     if nonce < sender_account.nonce:
         raise ValueError(
@@ -409,6 +418,28 @@ def _admission_message_gate(tx_data: dict[str, Any], tx_type: str) -> None:
         raise ValueError(message_error)
 
 
+def _admission_protocol_auth_gate(session: Any, chain_id: str, tx_data: dict[str, Any], tx_type: str) -> None:
+    """Authoritative payload.auth check for unsigned staking-protocol transfers.
+
+    ``gossip_transaction_drop_reason`` is a transport pre-filter; this gate
+    re-verifies the same admissibility on the normalized envelope and adds
+    the check that needs chain state: the signed message's nonce must equal
+    the signer's live account nonce — the same rule the staking RPCs apply
+    at request time — so a ``payload.auth`` captured from gossip traffic or
+    a sealed block cannot be replayed once the account has moved on.
+    """
+    if tx_type not in _GOSSIP_PROTOCOL_TX_TYPES or not is_unsigned_protocol_transfer(tx_data):
+        return
+    if not unsigned_protocol_transfer_admissible(tx_data):
+        raise ValueError("unsigned protocol transfer carries no admissible payload.auth")
+    auth = (tx_data.get("payload") or {}).get("auth") or {}
+    message = auth.get("message") or {}
+    signer = _to_ait_address(str(auth.get("signer")))
+    account = session.get(Account, (chain_id, signer))
+    if account is None or (account.nonce or 0) != message.get("nonce"):
+        raise ValueError(f"stale payload.auth nonce for '{signer}' on chain '{chain_id}'")
+
+
 def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> None:
     """Validate transaction can be admitted to mempool"""
     from ..mempool import compute_tx_hash
@@ -423,6 +454,7 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
     compute_tx_hash(tx_data)
 
     with session_scope() as session:
+        _admission_protocol_auth_gate(session, chain_id, tx_data, tx_type)
         _check_admission_account(session, chain_id, tx_data, mempool)
         _evict_apply_rejected_occupant(session, chain_id, tx_data, mempool)
         _admission_authority_gate(session, chain_id, tx_data, tx_type)

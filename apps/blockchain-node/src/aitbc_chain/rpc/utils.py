@@ -99,6 +99,102 @@ def withdrawn_listing_ids(rows: Iterable[tuple[Any, str | None, dict[str, Any]]]
 # state/pure_state_transition.py.
 PREREGISTERED_CREDIT_TX_TYPES = frozenset({"BRIDGE_RELEASE", "BRIDGE_REFUND"})
 
+# Unsigned protocol transfers allowed to propagate over the public
+# gossip/P2P transaction topics (#713). Only the user-signed staking pair
+# qualifies: its ``payload.auth`` carries a wallet signature over a
+# nonce- and timestamp-fresh message, so any peer can re-verify the
+# authorization without node-local config. Operator-signed protocol
+# transfers (agent stakes, bounties, STAKE_UNBOND) stay local-queue only —
+# their signer is env config a peer cannot authenticate, and STAKE_UNBOND /
+# BOUNTY_PAYOUT leave a transfer leg unbound, so a gossip copy could be
+# re-pointed at a victim's balance.
+_GOSSIP_PROTOCOL_TX_TYPES = frozenset({"STAKE_LOCK", "STAKE_RELEASE"})
+
+
+def is_unsigned_protocol_transfer(tx_data: dict[str, Any]) -> bool:
+    """True for a signature-less STAKE_LOCK/STAKE_RELEASE envelope."""
+    if tx_data.get("signature") or tx_data.get("sig"):
+        return False
+    return _resolved_tx_type(tx_data) in _GOSSIP_PROTOCOL_TX_TYPES
+
+
+def _protocol_auth_max_age() -> float:
+    # Lazy: rpc.staking imports this module.
+    from .staking import STAKE_AUTH_MAX_AGE_SECONDS
+
+    return float(STAKE_AUTH_MAX_AGE_SECONDS)
+
+
+def _protocol_auth_fresh(message: dict[str, Any]) -> bool:
+    """The signed timestamp must sit inside the staking RPC's freshness window."""
+    timestamp = message.get("timestamp")
+    if (
+        not isinstance(timestamp, (int, float))
+        or isinstance(timestamp, bool)
+        or not math.isfinite(float(timestamp))
+        or abs(time.time() - float(timestamp)) > _protocol_auth_max_age()
+    ):
+        return False
+    return True
+
+
+def _protocol_auth_nonce_present(message: dict[str, Any]) -> bool:
+    nonce = message.get("nonce")
+    return isinstance(nonce, int) and not isinstance(nonce, bool) and nonce >= 0
+
+
+def _protocol_auth_parties_ok(tx_type: str, auth: dict[str, Any], tx_data: dict[str, Any]) -> bool:
+    """Bind the signer to the user leg and the other leg to stake escrow.
+
+    ``payload.auth`` proves *a* key signed the message; for consensus
+    staking that key is the user's own wallet, so the signer must be the
+    debited staker (``from`` on a lock) or the credited payee (``to`` on a
+    release) — and the escrow leg must be the canonical stake escrow, or a
+    replayed auth could re-point the transfer at an attacker's address.
+    """
+    from ..protocol_escrow import stake_escrow_address
+
+    try:
+        signer = _to_ait_address(str(auth.get("signer")))
+        sender = _to_ait_address(str(tx_data.get("from") or ""))
+        recipient = _to_ait_address(str(tx_data.get("to") or ""))
+        escrow = stake_escrow_address()
+    except (TypeError, ValueError):
+        return False
+    if tx_type == "STAKE_LOCK":
+        return signer == sender and recipient == escrow
+    return signer == recipient and sender == escrow
+
+
+def unsigned_protocol_transfer_admissible(tx_data: dict[str, Any]) -> bool:
+    """Whether an unsigned staking-protocol transfer may enter a mempool.
+
+    Re-verifies everything the transport pre-filter checks — signature,
+    transfer binding, signer/escrow legs, timestamp freshness, nonce
+    presence — so callers that normalized the envelope or skipped the
+    pre-filter still get the full verdict. The nonce *value* is checked
+    against chain state separately in ``_admission_protocol_auth_gate``.
+    """
+    if not is_unsigned_protocol_transfer(tx_data):
+        return False
+    tx_type = _resolved_tx_type(tx_data)
+    payload = tx_data.get("payload")
+    auth = payload.get("auth") if isinstance(payload, dict) else None
+    if not isinstance(auth, dict):
+        return False
+    signer, signature, message = auth.get("signer"), auth.get("signature"), auth.get("message")
+    if not signer or not signature or not isinstance(message, dict):
+        return False
+    if not verify_request_signature(str(signer), str(signature), message):
+        return False
+    from ..state.state_transition_payload_auth import _payload_auth_binds_transfer
+
+    if not _payload_auth_binds_transfer(tx_type, message, tx_data):
+        return False
+    if not (_protocol_auth_fresh(message) and _protocol_auth_nonce_present(message)):
+        return False
+    return _protocol_auth_parties_ok(tx_type, auth, tx_data)
+
 
 def _resolved_tx_type(tx_data: dict[str, Any]) -> str:
     """Resolve the type a transaction is applied under.
@@ -138,12 +234,22 @@ def gossip_transaction_drop_reason(tx_data: dict[str, Any]) -> str | None:
 
     Pre-registered credit types are refused outright: the bridge writes them
     into the mempool internally, so no gossiped copy is legitimate.
+
+    Unsigned staking-protocol transfers (``STAKE_LOCK``/``STAKE_RELEASE``)
+    are the one exception (#713): ``queue_protocol_transfer`` emits them
+    without a top-level signature by design, and the serving node's peer
+    fan-out only reaches proposers if peers admit them. They pass only with
+    a ``payload.auth`` that re-verifies end-to-end — signature, transfer
+    binding, escrow legs, timestamp freshness — so the carve cannot be used
+    to inject a transfer the wallet never authorized.
     """
     if _resolved_tx_type(tx_data) in PREREGISTERED_CREDIT_TX_TYPES:
         return "internal_tx_type"
     sender = tx_data.get("from")
     signature = tx_data.get("signature") or tx_data.get("sig")
     if not signature:
+        if is_unsigned_protocol_transfer(tx_data):
+            return None if unsigned_protocol_transfer_admissible(tx_data) else "invalid_protocol_auth"
         return "missing_signature"
     if not verify_transaction_signature(tx_data, signature, sender or ""):
         return "invalid_signature"
