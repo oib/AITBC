@@ -2,7 +2,7 @@
 
 # `aitbc contract list`
 
-List contracts deployed on the node.
+List contracts in the node's local registry (not chain-wide).
 
 ## Usage
 

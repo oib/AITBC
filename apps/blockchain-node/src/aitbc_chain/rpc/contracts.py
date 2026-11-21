@@ -90,6 +90,7 @@ def deploy_contract(request: Request, deploy_data: dict[str, Any]) -> dict[str, 
 
     return {
         "success": True,
+        "scope": "node-local-registry",
         "contract_address": contract_address,
         "name": contract_name,
         "type": contract_type,
@@ -133,6 +134,7 @@ def call_contract(request: Request, call_data: dict[str, Any]) -> dict[str, Any]
 
         return {
             "success": True,
+            "scope": "node-local-registry",
             "result": state_value,
             "address": contract_address,
             "method": method,

@@ -2,7 +2,7 @@
 
 # `aitbc contract call`
 
-Call a method on a deployed smart contract with optional arguments.
+Call a method on a registry contract — reads the node-local stored state. Only contracts registered via ``contract deploy`` on the same node are visible; there is no bytecode execution or cross-node replication.
 
 ## Usage
 
