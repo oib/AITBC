@@ -142,8 +142,13 @@ def _perm_row(path: Path, check: str, severity: str, expected: str) -> tuple[dic
     return check_row, finding
 
 
-def _audit_integrity() -> tuple[bool, list[str], str]:
-    """Verify the secure audit log.  Returns (ok, issues, target)."""
+def _audit_integrity() -> tuple[bool, list[str], str, bool]:
+    """Verify the secure audit log.  Returns (ok, issues, target, present).
+
+    ``present`` is False when the log file does not exist — an absent log
+    has no hash chain to verify, so the check must report skipped rather
+    than a vacuous pass (#2413).
+    """
     target = str(_aitbc_home() / "audit" / "audit_secure.jsonl")
     try:
         # Imported lazily: the module creates its default logger (and the
@@ -151,10 +156,11 @@ def _audit_integrity() -> tuple[bool, list[str], str]:
         # but unrelated CLI commands should not pay that cost.
         from ..utils.secure_audit import SecureAuditLogger
 
-        ok, issues = SecureAuditLogger().verify_integrity()
-        return ok, list(issues), target
+        logger = SecureAuditLogger()
+        ok, issues = logger.verify_integrity()
+        return ok, list(issues), target, bool(logger.log_file.exists())
     except Exception as e:  # noqa: BLE001 - audit must report, never crash
-        return False, [f"integrity check failed: {e}"], target
+        return False, [f"integrity check failed: {e}"], target, True
 
 
 def _evaluate() -> dict[str, Any]:
@@ -162,18 +168,30 @@ def _evaluate() -> dict[str, Any]:
     checks: list[dict[str, Any]] = []
     findings: list[dict[str, Any]] = []
 
-    # 1. Audit-log integrity (tamper-evident hash chain).
-    integrity_ok, integrity_issues, integrity_target = _audit_integrity()
-    checks.append(
-        {
-            "check": "audit_log_integrity",
-            "target": integrity_target,
-            "passed": integrity_ok,
-            "expected": "intact hash chain",
-            "actual": "verified" if integrity_ok else "; ".join(integrity_issues[:3]),
-        }
-    )
-    if not integrity_ok:
+    # 1. Audit-log integrity (tamper-evident hash chain). An absent log has
+    # no chain to verify — report skipped, never a vacuous pass (#2413).
+    integrity_ok, integrity_issues, integrity_target, log_present = _audit_integrity()
+    if log_present:
+        checks.append(
+            {
+                "check": "audit_log_integrity",
+                "target": integrity_target,
+                "passed": integrity_ok,
+                "expected": "intact hash chain",
+                "actual": "verified" if integrity_ok else "; ".join(integrity_issues[:3]),
+            }
+        )
+    else:
+        checks.append(
+            {
+                "check": "audit_log_integrity",
+                "target": integrity_target,
+                "passed": "skipped",
+                "expected": "intact hash chain",
+                "actual": "no audit log — nothing to verify",
+            }
+        )
+    if log_present and not integrity_ok:
         findings.append(
             {
                 "check": "audit_log_integrity",
@@ -217,7 +235,10 @@ def _evaluate() -> dict[str, Any]:
         "vulnerabilities": len(findings),
         "findings": findings,
         "recommendations": recommendations,
-        "audit_log": {"verified": integrity_ok, "issues": integrity_issues},
+        "audit_log": {
+            "verified": "skipped" if not log_present else integrity_ok,
+            "issues": integrity_issues,
+        },
     }
 
 

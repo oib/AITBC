@@ -50,8 +50,26 @@ def test_audit_clean_home_is_live_and_top_grade(isolated_home):
     assert data["status"] == "live"
     assert data["security_score"] == "A+"
     assert data["vulnerabilities"] == 0
-    assert data["audit_log"]["verified"] is True
+    # #2413: no audit log exists on a clean home — the integrity check must
+    # report skipped, not a vacuous verified pass.
+    assert data["audit_log"]["verified"] == "skipped"
+    assert data["audit_log"]["issues"] == ["No audit log exists"]
+    integrity_rows = [c for c in data["checks"] if c["check"] == "audit_log_integrity"]
+    assert integrity_rows and integrity_rows[0]["passed"] == "skipped"
     assert data["checks"], "expected per-check rows"
+
+
+def test_audit_with_log_reports_verified(isolated_home):
+    """Once an audit entry exists the hash chain is really verified (#2413)."""
+    audit_dir = isolated_home / ".aitbc" / "audit"
+    SecureAuditLogger(log_dir=audit_dir).log("wallet_create", {"wallet": "alice"}, user="test")
+
+    data = _json(_run(["audit"]))
+    assert data["audit_log"]["verified"] is True
+    assert data["audit_log"]["issues"] == []
+    integrity_rows = [c for c in data["checks"] if c["check"] == "audit_log_integrity"]
+    assert integrity_rows and integrity_rows[0]["passed"] is True
+    assert integrity_rows[0]["actual"] == "verified"
 
 
 def test_scan_reports_world_readable_wallet_and_patch_fixes_it(isolated_home):
