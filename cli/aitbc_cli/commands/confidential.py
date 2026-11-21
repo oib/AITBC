@@ -92,7 +92,7 @@ def confidential():
 
   aitbc confidential send --wallet-id wallet-1 --recipient-id recipient-1 --amount 10
 
-  aitbc confidential send --wallet-id wallet-1 --recipient-id recipient-1 --amount 10 --output json"""
+  aitbc --output json confidential send --wallet-id wallet-1 --recipient-id recipient-1 --amount 10"""
 )
 @click.option("--wallet-id", "wallet_id", required=True, help="Wallet ID.")
 @click.option("--recipient-id", "recipient_id", required=True, help="Recipient ID.")
@@ -168,7 +168,7 @@ def send(ctx, wallet_id: str, recipient_id: str, amount: str):
 
   aitbc confidential balance --wallet-id wallet-1
 
-  aitbc confidential balance --wallet-id wallet-1 --output json"""
+  aitbc --output json confidential balance --wallet-id wallet-1"""
 )
 @click.option("--wallet-id", "wallet_id", required=True, help="Wallet ID.")
 @click.pass_context
