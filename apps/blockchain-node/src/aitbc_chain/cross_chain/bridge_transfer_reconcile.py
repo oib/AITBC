@@ -17,6 +17,7 @@ Rules, first match wins (default: leave ``pending``):
 from __future__ import annotations
 
 import time
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import Any
 
@@ -142,11 +143,11 @@ class BridgeTransferReconcileMixin(BridgeBase):
             return 0
         dry_run = bool(getattr(settings, "bridge_reconcile_dry_run", True))
         now = datetime.now(UTC)
-        changed = 0
+        changed = self._backfill_completed_confirm_times(chain_id, deadline, dry_run)
         with self._session_for(chain_id) as session:
             stale = self._stale_pending_rows(session, chain_id, now)
             if not stale:
-                return 0
+                return changed
             released, refunded = self._evidence_for(chain_id, stale)
             for record in stale:
                 if deadline is not None and time.monotonic() >= deadline:
@@ -175,6 +176,82 @@ class BridgeTransferReconcileMixin(BridgeBase):
             if changed:
                 session.commit()
                 self._mirror_reconciled(stale)
+        return changed
+
+    def _backfill_release_evidence(
+        self, rows: Sequence[CrossChainTransfer], deadline: float | None
+    ) -> dict[str, tuple[str, datetime | None]]:
+        """transfer_id -> (tx_hash, created_at) of sealed BRIDGE_RELEASE rows."""
+        by_target: dict[str, set[str]] = {}
+        for r in rows:
+            by_target.setdefault(r.target_chain, set()).add(r.transfer_id)
+        evidence: dict[str, tuple[str, datetime | None]] = {}
+        for target, ids in by_target.items():
+            if deadline is not None and time.monotonic() >= deadline:
+                break
+            if self._chain_db_ready(target):
+                evidence.update(self._sealed_transfer_index(target, "BRIDGE_RELEASE", ids))
+        return evidence
+
+    def _backfill_one(
+        self,
+        session: Any,
+        record: CrossChainTransfer,
+        evidence: dict[str, tuple[str, datetime | None]],
+        dry_run: bool,
+        chain_id: str,
+    ) -> bool:
+        """Apply the backfill to one row; returns True when the row changed."""
+        hit = evidence.get(record.transfer_id)
+        if hit is None:
+            return False
+        tx_hash, sealed_at = hit
+        logger.info(
+            "Bridge reconcile%s: %s completed confirm_time backfill on %s",
+            " (dry-run)" if dry_run else "",
+            record.transfer_id[:16],
+            chain_id,
+        )
+        if dry_run:
+            return False
+        if sealed_at is not None:
+            record.confirm_time = _aware(sealed_at)
+        if not record.target_tx_hash:
+            record.target_tx_hash = tx_hash
+        session.add(record)
+        return True
+
+    def _backfill_completed_confirm_times(self, chain_id: str, deadline: float | None, dry_run: bool) -> int:
+        """#2458: rows completed before confirm_time existed on the reconcile
+        path keep ``confirm_time`` NULL forever — the pending scan never
+        revisits terminal rows. Fill it (and a missing target_tx_hash) from
+        the sealed BRIDGE_RELEASE evidence. Read-model fields only; the row
+        status is never rewritten here."""
+        changed = 0
+        with self._session_for(chain_id) as session:
+            rows = session.exec(
+                select(CrossChainTransfer).where(
+                    CrossChainTransfer.source_chain == chain_id,
+                    CrossChainTransfer.status == "completed",
+                    CrossChainTransfer.confirm_time.is_(None),  # type: ignore[union-attr]
+                )
+            ).all()
+            if not rows:
+                return 0
+            evidence = self._backfill_release_evidence(rows, deadline)
+            for record in rows:
+                if deadline is not None and time.monotonic() >= deadline:
+                    break
+                changed += self._backfill_one(session, record, evidence, dry_run, chain_id)
+            if changed:
+                session.commit()
+                pending = getattr(self, "_pending_transfers", None) or {}
+                for record in rows:
+                    transfer = pending.get(record.transfer_id)
+                    if transfer is not None:
+                        transfer.confirm_time = _aware(record.confirm_time)
+                        if record.target_tx_hash:
+                            transfer.target_tx_hash = record.target_tx_hash
         return changed
 
     def _mirror_reconciled(self, stale: list[CrossChainTransfer]) -> None:
