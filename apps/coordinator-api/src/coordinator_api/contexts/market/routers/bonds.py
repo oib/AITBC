@@ -352,6 +352,21 @@ def get_bond_by_id(
 _TERMINAL_BOND_STATUSES = frozenset({ProviderBondStatus.LIQUIDATED.value, ProviderBondStatus.RELEASED.value})
 
 
+def _require_existing_bond(session: Session, provider_id: str, action: str) -> ProviderBond:
+    """#2359: bond transitions act on an existing bond row.
+
+    ``set_provider_bond_status`` upserts, so without this check a lock,
+    release, or slash against a provider with no bond created a ghost row.
+    """
+    bond = session.exec(select(ProviderBond).where(ProviderBond.provider_id == provider_id)).first()
+    if bond is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"provider {provider_id} has no bond to {action}",
+        )
+    return bond
+
+
 def _reject_terminal_bond_transition(session: Session, provider_id: str, action: str) -> None:
     bond = session.exec(select(ProviderBond).where(ProviderBond.provider_id == provider_id)).first()
     if bond is not None and bond.status in _TERMINAL_BOND_STATUSES:
@@ -374,6 +389,7 @@ def lock_bond(
 ) -> BondResponse:
     """Lock a provider's bond while a high-value job is in flight."""
     _require_provider_access(session, user, provider_id)
+    _require_existing_bond(session, provider_id, "lock")
     _reject_terminal_bond_transition(session, provider_id, "lock")
     bond = set_provider_bond_status(session, provider_id, ProviderBondStatus.LOCKED)
     return _bond_response(bond)
@@ -389,6 +405,7 @@ def release_bond(
 ) -> BondResponse:
     """Release a locked bond back to active status."""
     _require_provider_access(session, user, provider_id)
+    _require_existing_bond(session, provider_id, "release")
     _reject_terminal_bond_transition(session, provider_id, "release")
     bond = set_provider_bond_status(session, provider_id, ProviderBondStatus.ACTIVE)
     return _bond_response(bond)
@@ -405,6 +422,7 @@ def slash_bond(
 ) -> BondResponse:
     """Slash a provider's bond for misbehavior."""
     _require_provider_access(session, user, provider_id)
+    _require_existing_bond(session, provider_id, "slash")
     bond = set_provider_bond_status(
         session,
         provider_id,

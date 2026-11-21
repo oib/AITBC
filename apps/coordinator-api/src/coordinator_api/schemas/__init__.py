@@ -111,6 +111,8 @@ class JobPaymentView(BaseModel):
     refunded_at: datetime | None = None
     transaction_hash: str | None = None
     refund_transaction_hash: str | None = None
+    # #2359: the sealed ESCROW_LOCK tx — transaction_hash is the release tx.
+    escrow_tx_hash: str | None = None
     protected: bool = False
     energy_quote_id: str | None = None
     energy_buyer_charge_units: int | None = None
@@ -401,6 +403,10 @@ class JobView(BaseModel):
     reinvest_stake_id: str | None = None
     # G3: when the held escrow releases on its own if the customer says nothing.
     acceptance_deadline: datetime | None = None
+    # #2359: the sealed ESCROW_LOCK tx and the release tx, so `ai status`
+    # can show the money movement instead of None.
+    escrow_tx_hash: str | None = None
+    release_tx_hash: str | None = None
 
 
 class JobRejection(BaseModel):
