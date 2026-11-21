@@ -19,7 +19,7 @@ import subprocess
 import tempfile
 import time
 from contextlib import asynccontextmanager
-from typing import Any
+from typing import Annotated, Any
 
 import uvicorn  # noqa: E402
 from fastapi import Depends, FastAPI, HTTPException, Request  # noqa: E402
@@ -342,16 +342,17 @@ def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
     return command
 
 
-@app.post("/run", dependencies=[Depends(require_job_access)])
+@app.post("/run")
 async def run_hermes(
     request: HermesRunRequest,
     raw_request: Request,
+    job: Annotated[dict[str, Any] | None, Depends(require_job_access)] = None,
     _cred: None = Depends(_require_run_credential),
 ):
     """Run a one-shot Hermes prompt and return the result plus timing."""
     await _run_semaphore.acquire()
     try:
-        return await _run_hermes_inner(request, raw_request)
+        return await _run_hermes_inner(request, raw_request, (job or {}).get("provider_address"))
     except HTTPException:
         # Deliberate answers (400 allowlist/reasoning rejections, 503
         # unconfigured-offer, 502 nonzero exit, 504 timeout — all carrying a
@@ -368,7 +369,11 @@ async def run_hermes(
         _run_semaphore.release()  # noqa: unawaited-async — Semaphore.release() is synchronous
 
 
-async def _run_hermes_inner(request: HermesRunRequest, raw_request: Request | None = None):
+async def _run_hermes_inner(
+    request: HermesRunRequest,
+    raw_request: Request | None = None,
+    provider_address: str | None = None,
+):
     # Use a temporary working directory to avoid loading AGENTS.md/skills from the
     # service source tree.  Hermes still reads HERMES_HOME for config and env.
     with tempfile.TemporaryDirectory(prefix="hermes_run_") as tmpdir:
@@ -469,11 +474,12 @@ async def _run_hermes_inner(request: HermesRunRequest, raw_request: Request | No
     duration_minutes = round(elapsed / 60, 4)
 
     # #2365: attest the billed usage to the market service before answering —
-    # settlement prices the escrow from this report, not from the buyer's
-    # client-side computation. Never raises; a missed report degrades to
+    # settlement prices the escrow from this report, which the provider
+    # wallet signs (provider_address comes from the verified job record,
+    # never request headers). Never raises; a missed report degrades to
     # full-lock settlement. raw_request is None only for direct test calls.
     if raw_request is not None:
-        await report_request_billing(raw_request, {"duration_minutes": duration_minutes})
+        await report_request_billing(raw_request, {"duration_minutes": duration_minutes}, provider_address=provider_address)
 
     return JSONResponse(
         {

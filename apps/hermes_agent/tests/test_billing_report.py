@@ -60,13 +60,16 @@ async def test_run_reports_duration_minutes_billing(tmp_path: Path, monkeypatch:
     monkeypatch.setattr(hermes, "report_request_billing", report)
 
     raw = _raw_request()
-    resp = await hermes._run_hermes_inner(HermesRunRequest(prompt="x", max_time=30), raw)
+    resp = await hermes._run_hermes_inner(HermesRunRequest(prompt="x", max_time=30), raw, "0xProvider1")
     assert resp.status_code == 200
     report.assert_awaited_once()
     call = report.await_args
     assert call.args[0] is raw
     assert set(call.args[1]) == {"duration_minutes"}
     assert call.args[1]["duration_minutes"] >= 0
+    # #2365 respin: the report is signed as the provider — the address comes
+    # from the verified job record, never the buyer-held request headers.
+    assert call.kwargs["provider_address"] == "0xProvider1"
 
 
 @pytest.mark.asyncio

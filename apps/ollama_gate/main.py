@@ -339,11 +339,17 @@ async def _proxy_gated(request: Request, path: str, job: dict[str, Any], release
             await upstream.aclose()
             eval_count = _eval_count_from_tail(bytes(tail))
             if eval_count is not None:
-                # Settlement prices the escrow from this attestation; a
-                # missed report degrades to full-lock settlement. Never
-                # raises — billing must not break the stream's teardown.
+                # Settlement prices the escrow from this attestation; the
+                # provider wallet signs it (provider_address comes from the
+                # verified job record, never request headers). A missed
+                # report degrades to full-lock settlement. Never raises —
+                # billing must not break the stream's teardown.
                 try:
-                    await report_request_billing(request, {"eval_count": eval_count})
+                    await report_request_billing(
+                        request,
+                        {"eval_count": eval_count},
+                        provider_address=job.get("provider_address"),
+                    )
                 except Exception as e:  # noqa: BLE001 - billing is best-effort
                     logger.warning("ollama-gate billing report failed for job %s: %s", job.get("job_id"), e)
             release()

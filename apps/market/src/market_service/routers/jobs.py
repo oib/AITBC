@@ -19,6 +19,8 @@ from aitbc.crypto.signature_recovery import canonical_address
 from ..deps import _is_market_admin, get_market_service, require_market_api_key, require_market_operator_key
 from ..gates import (
     _alias_claim_signature_gate,
+    _billing_access_gate,
+    _billing_attestation_gate,
     _job_party_addresses,
     _job_party_signature_gate,
     _pin_confirm_attestation_gate,
@@ -438,27 +440,29 @@ async def report_market_job_billing(
     they actually served here at job completion, authenticated by the same
     per-job ``X-Access-Key``/``X-Access-Secret``/``X-Job-Id`` triple the
     shop gate verifies — the secret never leaves the job's serving party.
-    No market API key: the credential IS the authorization. A ``final``
-    report completes the job so the settlement passes release the escrow
-    against the attested actuals instead of the locked estimate.
+    No market API key: the credential IS the authorization — but the
+    buyer-issued access-token triple alone only proves "holder of the job
+    token", and the buyer minted it. Settlement input therefore also
+    requires the job provider's wallet signature over the route-bound
+    ``{"metrics", "final"}`` binding, verified against
+    ``job.provider_address`` (#2365 rework — a buyer-held token must never
+    attest the provider's usage). A ``final`` report completes the job so
+    the settlement passes release the escrow against the attested
+    actuals instead of the locked estimate.
     """
     from ..services.market_service.billing import validate_billing_metrics
 
     body = body or {}
     try:
         logger.info("POST /v1/market/jobs/%s/billing called", job_id)
-        if not x_access_key or not x_access_secret or not x_job_id:
-            return JSONResponse(status_code=401, content={"error": "X-Access-Key, X-Access-Secret and X-Job-Id are required"})
-        job = await svc.get_market_job(job_id)
-        if not job:
+        job, gate = await _billing_access_gate(svc, job_id, x_access_key, x_access_secret, x_job_id)
+        if gate is not None:
+            return gate
+        if job is None:  # unreachable by the gate's contract; fail closed
             return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
-        payload = job.get("payload") or {}
-        if job.get("access_key") != x_access_key or not _secret_matches(
-            str(payload.get("access_secret") or ""), x_access_secret
-        ):
-            return JSONResponse(status_code=403, content={"error": "invalid access token"})
-        if x_job_id != job_id:
-            return JSONResponse(status_code=403, content={"error": "access token not issued for this job"})
+        gate = await _billing_attestation_gate(svc, job_id, body, job)
+        if gate is not None:
+            return gate
         raw_metrics = body.get("metrics")
         if raw_metrics is None and "metric" in body:
             raw_metrics = {body["metric"]: body.get("value")}

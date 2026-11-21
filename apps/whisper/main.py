@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Any
 
 """
 AITBC Whisper Transcription Service
@@ -428,13 +428,14 @@ def _consume_task_exception(task: "asyncio.Task[dict]") -> None:
         task.exception()
 
 
-@app.post("/transcribe", dependencies=[Depends(require_job_access)])
+@app.post("/transcribe")
 async def transcribe(
     request: Request,
     file: Annotated[UploadFile, File(...)],
     language: str | None = Form(default=None),
     task: str = Form(default="transcribe"),
     beam_size: int = Form(default=5),
+    job: Annotated[dict[str, Any] | None, Depends(require_job_access)] = None,
 ):
     """Transcribe audio file. Returns transcript, duration, language, and segments."""
     if _model is None:
@@ -481,9 +482,15 @@ async def transcribe(
 
     # #2365: attest the billed usage to the market service before answering —
     # settlement prices the escrow from this report, not from the buyer's
-    # client-side computation. Never raises; a missed report degrades to
+    # client-side computation. provider_address comes from the verified job
+    # record so the report is signed by the provider wallet, never the
+    # buyer-held access token. Never raises; a missed report degrades to
     # full-lock settlement.
-    await report_request_billing(request, {"duration_minutes": duration_minutes})
+    await report_request_billing(
+        request,
+        {"duration_minutes": duration_minutes},
+        provider_address=(job or {}).get("provider_address"),
+    )
 
     return JSONResponse(
         {
