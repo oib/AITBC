@@ -369,7 +369,11 @@ def _release_row_update(
     record.state = _er.EscrowState.RELEASED.value
     if record.contract_id is None:
         record.contract_id = contract_id
-    record.released_amount = _er.ait_to_units(released_amount)
+    # The provider can never be owed more than the locked amount; a retried
+    # release after an ambiguous submit must not record more than was locked
+    # (#2376 — released_amount showed 0.975 against a 0.5 lock).
+    released_units = _er.ait_to_units(released_amount)
+    record.released_amount = min(released_units, record.amount) if record.amount else released_units
     # refunded_amount/refund_tx_hash stay untouched: the change
     # pass marks them only from a sealed ESCROW_REFUND leg.
     if tx_hash:

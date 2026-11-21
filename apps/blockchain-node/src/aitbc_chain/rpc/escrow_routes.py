@@ -127,6 +127,7 @@ from .escrow_routes_helpers import (
     _find_existing_receipt_claim as _find_existing_receipt_claim,
     _find_existing_refund as _find_existing_refund,
     _find_existing_release as _find_existing_release,
+    _find_pending_escrow_tx as _find_pending_escrow_tx,
     _get_account_nonce as _get_account_nonce,
     _get_account_nonce_strict as _get_account_nonce_strict,
     _get_settlement_address as _get_settlement_address,
