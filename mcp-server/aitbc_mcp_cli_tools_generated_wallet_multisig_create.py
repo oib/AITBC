@@ -26,7 +26,9 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_multisig_create(
-    signers: Annotated[list[str], Field(description="One or more signer addresses.")],
+    signers: Annotated[
+        list[str], Field(description="One or more signer addresses; comma-separated lists and repeated flags both work.")
+    ],
     threshold: Annotated[int, Field(description="Required signatures to approve")],
     name: Annotated[str, Field(description="Multisig wallet name")],
     wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,

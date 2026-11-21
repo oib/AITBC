@@ -14,7 +14,7 @@ aitbc wallet multisig-create [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--signers` | text (multiple) | — | yes | One or more signer addresses. |
+| `--signers` | text (multiple) | — | yes | One or more signer addresses; comma-separated lists and repeated flags both work. |
 | `--threshold` | integer | — | yes | Required signatures to approve |
 | `--name` | text | — | yes | Multisig wallet name |
 

@@ -436,3 +436,42 @@ class TestMultisigUnspendableGuard2362:
         result = _invoke(tmp_path, ["delete", "--name", "ms", "--confirm"], monkeypatch)
         assert result.exit_code == 0, result.output
         assert not (tmp_path / "wallets" / "ms_multisig.json").exists()
+
+
+class TestMultisigCreateSigners:
+    """#2393: `--signers a,b,c` (comma list) must parse as three signers."""
+
+    A = "0x" + "aa" * 20
+    B = "0x" + "bb" * 20
+    C = "0x" + "cc" * 20
+
+    def test_comma_separated_signers(self, tmp_path, monkeypatch):
+        result = _invoke(
+            tmp_path,
+            ["multisig-create", "--name", "ms-csv", "--threshold", "2", "--signers", f"{self.A},{self.B},{self.C}"],
+            monkeypatch,
+        )
+        assert result.exit_code == 0, result.output
+        data = json.loads((tmp_path / "wallets" / "ms-csv_multisig.json").read_text())
+        assert data["signers"] == [self.A, self.B, self.C]
+        assert data["threshold"] == 2
+
+    def test_mixed_repeated_and_comma(self, tmp_path, monkeypatch):
+        result = _invoke(
+            tmp_path,
+            [
+                "multisig-create",
+                "--name",
+                "ms-mix",
+                "--threshold",
+                "2",
+                "--signers",
+                f"{self.A},{self.B}",
+                "--signers",
+                self.C,
+            ],
+            monkeypatch,
+        )
+        assert result.exit_code == 0, result.output
+        data = json.loads((tmp_path / "wallets" / "ms-mix_multisig.json").read_text())
+        assert data["signers"] == [self.A, self.B, self.C]
