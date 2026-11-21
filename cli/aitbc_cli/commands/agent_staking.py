@@ -239,6 +239,13 @@ def status(ctx, stake_id, chain_id, rpc_url, limit, as_json):
             abort(ctx, f"/rpc/transactions lookup failed: {e}", from_exception=e)
         txs: list[dict[str, Any]] = rows if isinstance(rows, list) else []
         matches = [tx for tx in txs if str((tx.get("payload") or {}).get("agent_stake_id")) == stake_id]
+        for tx in matches:
+            # #2456: top-ups seal as STAKE_LOCK too — distinguish them by
+            # the additional_amount marker the node puts in the payload.
+            if tx_type == "STAKE_RELEASE":
+                tx["kind"] = "release"
+            else:
+                tx["kind"] = "topup" if (tx.get("payload") or {}).get("additional_amount") is not None else "lock"
         if matches:
             found[tx_type] = matches
     output(

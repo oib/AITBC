@@ -298,13 +298,20 @@ def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, Any]) ->
         amount=additional,
         chain_id=chain_id,
         tx_type="STAKE_LOCK",
-        payload={"agent_stake_id": str(stake_id), "lock_days": record.lock_period},
+        # additional_amount marks the lock as a top-up so status reads can
+        # tell it apart from the stake's original lock (#2456).
+        payload={"agent_stake_id": str(stake_id), "lock_days": record.lock_period, "additional_amount": additional},
         auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
     )
     return {
         "success": True,
         "stake_id": str(stake_id),
-        "amount": total_amount,
+        # #2456: `amount` used to echo the new TOTAL, so callers summing
+        # top-ups over-counted by the whole stake. It now carries the
+        # delta like every other amount field; the total is `new_total`.
+        "amount": additional,
+        "added_amount": additional,
+        "new_total": total_amount,
         "transaction_hash": tx_hash,
         "message": "Stake top-up submitted to mempool; the balance moves when the transaction is included in a block",
     }

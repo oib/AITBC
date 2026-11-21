@@ -95,6 +95,16 @@ A second `STAKE_LOCK` seals; `locked_until` may extend per the position
 rules — re-read the position (`GET /v1/agent-staking/stake/<stake_id>`)
 before proceeding.
 
+The add response reports the delta, not the new total (#2456):
+`added_amount`/`amount` carry the amount just locked and `new_total`
+the stake's running total — do not sum `amount` across calls as the
+position size. The sealed top-up's payload carries
+`additional_amount`, which `aitbc agent-staking status` surfaces as
+`kind: "topup"` (the original lock reads `kind: "lock"`, releases read
+`"release"`). An early `unbond` refusal is a policy 400 — the CLI
+reports it as a validation error (exit 4) with `locked_until` in the
+JSON payload, not a network failure.
+
 ### Step 3: Unbond — release-window gate
 
 ```bash
