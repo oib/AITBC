@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**821 tools** across 140 modules.
+**822 tools** across 140 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 136 |
-| generated | 562 |
+| generated | 563 |
 | other | 7 |
 | rpc | 116 |
 
@@ -65,7 +65,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_market_download.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_escrow.py | 4 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_exchange.py | 6 |
-| mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | 7 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | 8 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_hermes.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_host.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_jobs.py | 1 |
@@ -593,6 +593,7 @@
 | `aitbc_market_exchange_price` | mcp-server/aitbc_mcp_cli_tools_generated_market_exchange.py | generated | `aitbc market exchange price` |
 | `aitbc_market_exchange_status` | mcp-server/aitbc_mcp_cli_tools_generated_market_exchange.py | generated | `aitbc market exchange status` |
 | `aitbc_market_exchange_withdraw_eth` | mcp-server/aitbc_mcp_cli_tools_generated_market_exchange.py | generated | `aitbc market exchange withdraw-eth` |
+| `aitbc_market_gpu_agreement_create` | mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | generated | `aitbc market gpu agreement-create` |
 | `aitbc_market_gpu_buy` | mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | generated | `aitbc market gpu buy` |
 | `aitbc_market_gpu_list` | mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | generated | `aitbc market gpu list` |
 | `aitbc_market_gpu_quote` | mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | generated | `aitbc market gpu quote` |

@@ -5,6 +5,7 @@ Commands:
   aitbc market gpu register - Register a GPU in the coordinator registry (miner credential)
   aitbc market gpu quote    - Request an operator-signed energy quote
   aitbc market gpu buy      - Fund a quoted rental (native or EVM)
+  aitbc market gpu agreement-create - Mint an AIPowerRental agreement id (EVM)
   aitbc market gpu status   - Check rental/escrow status
   aitbc market gpu release  - Release escrow to provider
   aitbc market gpu refund   - Request a refund
@@ -642,6 +643,165 @@ def _buy_evm(
         start_result=start_result,
         agreement_id=agreement_id,
     )
+
+
+def _agreement_create_preflight(
+    evm, config, buyer_address: str, provider_address: str, duration: int, price: Decimal
+) -> tuple[int, int]:
+    """Fail-closed on-chain checks for agreement-create; returns (price_units, next_id)."""
+    if evm.rentals_paused():
+        error("AIPowerRental is paused; agreement creation is unavailable")
+        sys.exit(1)
+    if evm.require_protected_rentals():
+        error(
+            "Contract is in protected-only mode (requireProtectedRentals=true) and no EnergyPricing "
+            "contract is configured — createProtectedRental cannot run. Operator must configure "
+            "energy pricing or disable protected-only mode first."
+        )
+        sys.exit(1)
+    min_dur, max_dur = evm.rental_duration_bounds()
+    if not (min_dur <= duration <= max_dur):
+        error(f"--duration {duration}s outside contract bounds [{min_dur}, {max_dur}]")
+        sys.exit(1)
+    if not evm.is_authorized_consumer(buyer_address):
+        error(
+            f"Signing wallet {buyer_address} is not an authorized consumer on AIPowerRental "
+            f"({config.energy_rental_contract_address}). The contract owner must call "
+            f"authorizeConsumer({buyer_address}) first."
+        )
+        sys.exit(1)
+    if not evm.is_authorized_provider(provider_address):
+        error(
+            f"Provider {provider_address} is not authorized on AIPowerRental "
+            f"({config.energy_rental_contract_address}). The contract owner must call "
+            f"authorizeProvider({provider_address}) first."
+        )
+        sys.exit(1)
+
+    decimals = evm.get_token_decimals()
+    price_units = int(price * (10**decimals))
+    if price_units <= 0:
+        error("--price must be positive")
+        sys.exit(1)
+    return price_units, evm.agreement_counter()
+
+
+@gpu.command("agreement-create")
+@click.option("--provider", "provider_address", required=True, help="Authorized provider wallet address (0x...)")
+@click.option("--consumer", "consumer_address", default=None, help="Consumer wallet address (default: signing wallet)")
+@click.option("--duration", type=int, default=3600, help="Rental duration in seconds (contract bounds apply)")
+@click.option(
+    "--price", type=float, required=True, help="Provider principal price in AIT (atomic units = price * 10^decimals)"
+)
+@click.option("--gpu-model", default="", help="GPU model string recorded on the agreement")
+@click.option("--compute-units", type=int, default=1, help="Compute units recorded on the agreement")
+@click.option("--wallet", help="Wallet name for signing (must be an authorized consumer)")
+@click.option("--wallet-path", help="Direct wallet file path")
+@wallet_password_options
+@click.option("--yes", is_flag=True, help="Skip confirmation prompt")
+@click.option("--json-output", is_flag=True, help="Output raw JSON")
+@click.pass_context
+def agreement_create(
+    ctx,
+    provider_address,
+    consumer_address,
+    duration,
+    price,
+    gpu_model,
+    compute_units,
+    wallet,
+    wallet_path,
+    password,
+    password_file,
+    password_stdin,
+    yes,
+    json_output,
+):
+    """Create an AIPowerRental agreement on-chain (EVM rail) — mints the agreement_id that `aitbc dispute file` references (#2052).
+
+    The buyer wallet must be authorized on the contract (`authorizedConsumers`)
+    and the provider must be authorized (`authorizedProviders`); both are
+    owner (Safe) calls on AIPowerRental. Legacy `createRental` is used — the
+    protected path requires an EnergyPricing contract that is not configured
+    on the deployed instance.
+    """
+    config = get_config()
+    evm = _evm_contract_client(config)
+
+    buyer_address, private_key, _wallet_id = load_wallet_for_payment(
+        ctx,
+        wallet_name=wallet,
+        wallet_path=wallet_path,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        require_private_key=True,
+    )
+    consumer = to_canonical(consumer_address) if consumer_address else to_canonical(buyer_address)
+    provider_address = to_canonical(provider_address)
+    if not is_address(provider_address) or not is_address(consumer):
+        error("--provider and --consumer must be 0x addresses")
+        sys.exit(1)
+
+    try:
+        price_dec = Decimal(str(price))
+    except InvalidOperation:
+        error(f"Invalid --price {price!r}")
+        sys.exit(1)
+    price_units, next_id = _agreement_create_preflight(evm, config, buyer_address, provider_address, duration, price_dec)
+    if not yes:
+        click.confirm(
+            f"This will call createRental(provider={provider_address}, consumer={consumer}, "
+            f"duration={duration}s, price={price_units} units) on {config.energy_rental_contract_address} "
+            f"(chain {config.energy_pricing_chain_id}), minting agreement id {next_id}. Continue?",
+            abort=True,
+        )
+
+    nonce = evm.rpc._get_web3().eth.get_transaction_count(buyer_address)
+    tx = evm.build_create_rental_tx(
+        provider=provider_address,
+        consumer=consumer,
+        duration=duration,
+        price_units=price_units,
+        gpu_model=gpu_model,
+        compute_units=compute_units,
+        from_address=buyer_address,
+        nonce=nonce,
+    )
+    info(f"Submitting createRental tx (nonce {nonce})...")
+    result = evm.submit_and_wait(tx, private_key)
+    if result.status != 1:
+        error(f"createRental transaction failed: {result.tx_hash}")
+        sys.exit(1)
+
+    # The minted id is agreementCounter-1 after this tx; verify by reading it back.
+    minted = evm.agreement_counter() - 1
+    agreement = evm.get_rental_agreement(minted)
+    if to_canonical(agreement[1]) != provider_address or to_canonical(agreement[2]) != consumer:
+        error(f"Post-create verification failed for agreement {minted}: provider/consumer mismatch")
+        sys.exit(1)
+
+    if json_output:
+        output(
+            json.dumps(
+                {
+                    "agreement_id": minted,
+                    "tx_hash": result.tx_hash,
+                    "block_number": result.block_number,
+                    "provider": provider_address,
+                    "consumer": consumer,
+                    "duration": duration,
+                    "price_units": price_units,
+                },
+                indent=2,
+            )
+        )
+    else:
+        success(f"Agreement {minted} created on AIPowerRental")
+        info(f"TX hash: {result.tx_hash}")
+        info(f"Provider: {provider_address}")
+        info(f"Consumer: {consumer}")
+        info(f"Use with: aitbc dispute file --agreement-id {minted} ...")
 
 
 def _evm_contract_client(config):
