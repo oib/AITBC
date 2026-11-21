@@ -24,6 +24,7 @@ from ...utils.address import to_canonical
 from ...utils.error_handling import CLIError
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.output import resolve_output_format as _resolve_output_format
+from ...utils.redact import redact_secrets
 from ..ipfs import (
     _api_post,
     _daemon_available,
@@ -1048,7 +1049,7 @@ def cancel(
         final = _market_client().get(f"/v1/market/jobs/{job_id}")
     except NetworkError:
         final = result
-    output(final or result, output_format, title="Canceled Market Job")
+    output(redact_secrets(final or result), output_format, title="Canceled Market Job")
 
 
 def _provider_pin_attestation(
@@ -1232,7 +1233,7 @@ def provider_pin(
     record["cid"] = cid
     record["size"] = size
     record["rental_token"] = token_result
-    output(record, output_format, title="Provider Pin")
+    output(redact_secrets(record), output_format, title="Provider Pin")
 
 
 @market.command(
@@ -1274,7 +1275,7 @@ def jobs(
         # GET /v1/market/jobs returns a bare JSON array; get() narrows via
         # expect_object and raises TypeError on non-object bodies.
         result = _market_client().get_json("/v1/market/jobs", params=params)
-        output(result, output_format, title="Market Jobs")
+        output(redact_secrets(result), output_format, title="Market Jobs")
     except NetworkError as e:
         error(f"Could not list market jobs: {e}")
         raise click.Abort() from e
