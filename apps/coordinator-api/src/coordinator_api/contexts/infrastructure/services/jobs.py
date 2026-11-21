@@ -607,6 +607,8 @@ class JobService:
             reinvest_status=meta.get("reinvest_status") or receipt.get("reinvest_status"),
             reinvest_stake_id=meta.get("reinvest_stake_id") or receipt.get("reinvest_stake_id"),
             acceptance_deadline=acceptance_deadline,
+            escrow_tx_hash=meta.get("escrow_lock_tx_hash"),
+            release_tx_hash=payment.transaction_hash if payment is not None else None,
         )
 
     def to_view(self, job: Job) -> JobView:

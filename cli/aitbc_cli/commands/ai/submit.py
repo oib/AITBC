@@ -122,7 +122,9 @@ def _completed_job_payload(
     if payment_id and status.get("payment_status") == "released":
         try:
             payment = http_client.get(f"/v1/jobs/{job_id}/payment")
-            escrow_tx_hash = payment.get("transaction_hash")
+            # #2359: transaction_hash is the release tx; the lock hash is
+            # escrow_tx_hash. Fall back for coordinators that predate the field.
+            escrow_tx_hash = payment.get("escrow_tx_hash") or payment.get("transaction_hash")
         except _ai.NetworkError as e:
             logger.warning("Could not fetch payment for %s: %s", job_id, e)
         except _ai._OPS_ERRORS:

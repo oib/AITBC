@@ -2,7 +2,7 @@
 
 # `aitbc bond top-up`
 
-Top up a provider's performance bond. Same wallet-ownership proof as ``create`` (#1967): pass a key source to sign the challenge automatically, or rely on an admin JWT.
+Re-verify/rebind a provider's on-chain performance bond. This does **not** add funds: the coordinator row is a projection of the verified on-chain BOND_LOCK, and the ``--amount`` payload is ignored — the chain amount wins. To genuinely add bond funds, lock a new BOND_LOCK on-chain (``aitbc bond lock-onchain``) and register its ``--bond-id`` here. Same wallet-ownership proof as ``create`` (#1967): pass a key source to sign the challenge automatically, or rely on an admin JWT.
 
 ## Usage
 
@@ -15,7 +15,7 @@ aitbc bond top-up [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--provider-id` | text | — | yes | Provider ID. |
-| `--amount` | text | `0.0` | no | Amount to add to the bond |
+| `--amount` | text | `0.0` | no | Ignored — bonds mirror on-chain state; the server verifies the BOND_LOCK amount |
 | `--bond-id` | text | — | no | Optional on-chain/external bond identifier |
 | `--wallet` | text | — | no | Wallet that owns the provider bond (signs the #1967 ownership challenge) |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |

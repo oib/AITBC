@@ -128,3 +128,31 @@ def test_gate_can_be_disabled_for_operators(db_session, job_service, miner, monk
     acquired = job_service.acquire_next_job(miner)
     assert acquired is not None
     assert acquired.id == job.id
+
+
+def test_job_view_surfaces_escrow_and_release_tx_hashes(db_session, job_service):
+    """#2359: `ai status` showed escrow_tx_hash=None despite a sealed lock and
+    release — the view must carry both hashes from the payment record."""
+    from aitbc_shared import JobPayment
+
+    job = _make_job(job_service, db_session, payment_amount=Decimal("5"), payment_status="released")
+    payment = JobPayment(
+        job_id=job.id,
+        amount=Decimal("5"),
+        currency="AITBC",
+        payment_method="aitbc_token",
+        status="released",
+        transaction_hash="0xrelease1",
+        meta_data={"escrow_lock_tx_hash": "0xlock1"},
+    )
+    db_session.add(payment)
+    db_session.commit()
+    db_session.refresh(payment)
+    job.payment_id = payment.id
+    db_session.add(job)
+    db_session.commit()
+
+    view = job_service.to_view(job)
+
+    assert view.escrow_tx_hash == "0xlock1"
+    assert view.release_tx_hash == "0xrelease1"

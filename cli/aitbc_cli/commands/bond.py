@@ -156,7 +156,7 @@ def bond():
   aitbc bond create --provider-id provider-1 --amount 100 --required-amount 200"""
 )
 @click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
-@click.option("--amount", default="0.0", help="Amount to lock as a performance bond")
+@click.option("--amount", default="0.0", help="Ignored — the server verifies the on-chain BOND_LOCK amount")
 @click.option("--required-amount", default="0.0", help="Required bond amount for this provider")
 @click.option("--bond-id", default=None, help="Optional on-chain/external bond identifier")
 @click.option(
@@ -183,7 +183,12 @@ def create(
     coordinator_url,
     format,
 ):
-    """Create or top-up a provider's performance bond.
+    """Register a provider's on-chain performance bond with the coordinator.
+
+    The coordinator row is a projection of the verified on-chain BOND_LOCK;
+    ``--amount``/``--required-amount`` in the body are ignored — the chain
+    amount wins (#1915, #2359). To add bond funds, lock a new BOND_LOCK
+    on-chain (``aitbc bond lock-onchain``) and register its ``--bond-id``.
 
     Non-admin callers must prove control of the provider's registered
     wallet: pass --wallet/--private-key/--private-key-file and the CLI
@@ -278,7 +283,9 @@ def status(ctx, provider_id, coordinator_url, format):
   aitbc bond top-up --provider-id provider-1 --amount 50 --bond-id bond-123"""
 )
 @click.option("--provider-id", "provider_id", required=True, help="Provider ID.")
-@click.option("--amount", default="0.0", help="Amount to add to the bond")
+@click.option(
+    "--amount", default="0.0", help="Ignored — bonds mirror on-chain state; the server verifies the BOND_LOCK amount"
+)
 @click.option("--bond-id", default=None, help="Optional on-chain/external bond identifier")
 @click.option(
     "--wallet", "wallet_name", default=None, help="Wallet that owns the provider bond (signs the #1967 ownership challenge)"
@@ -303,7 +310,13 @@ def top_up(
     coordinator_url,
     format,
 ):
-    """Top up a provider's performance bond.
+    """Re-verify/rebind a provider's on-chain performance bond.
+
+    This does **not** add funds: the coordinator row is a projection of the
+    verified on-chain BOND_LOCK, and the ``--amount`` payload is ignored —
+    the chain amount wins. To genuinely add bond funds, lock a new
+    BOND_LOCK on-chain (``aitbc bond lock-onchain``) and register its
+    ``--bond-id`` here.
 
     Same wallet-ownership proof as ``create`` (#1967): pass a key source to
     sign the challenge automatically, or rely on an admin JWT.

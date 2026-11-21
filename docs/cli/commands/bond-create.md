@@ -2,7 +2,7 @@
 
 # `aitbc bond create`
 
-Create or top-up a provider's performance bond. Non-admin callers must prove control of the provider's registered wallet: pass --wallet/--private-key/--private-key-file and the CLI fetches a challenge and signs it automatically (#1967). Without a key source the request goes unsigned — admin JWTs still pass, provider callers get 403.
+Register a provider's on-chain performance bond with the coordinator. The coordinator row is a projection of the verified on-chain BOND_LOCK; ``--amount``/``--required-amount`` in the body are ignored — the chain amount wins (#1915, #2359). To add bond funds, lock a new BOND_LOCK on-chain (``aitbc bond lock-onchain``) and register its ``--bond-id``. Non-admin callers must prove control of the provider's registered wallet: pass --wallet/--private-key/--private-key-file and the CLI fetches a challenge and signs it automatically (#1967). Without a key source the request goes unsigned — admin JWTs still pass, provider callers get 403.
 
 ## Usage
 
@@ -15,7 +15,7 @@ aitbc bond create [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--provider-id` | text | — | yes | Provider ID. |
-| `--amount` | text | `0.0` | no | Amount to lock as a performance bond |
+| `--amount` | text | `0.0` | no | Ignored — the server verifies the on-chain BOND_LOCK amount |
 | `--required-amount` | text | `0.0` | no | Required bond amount for this provider |
 | `--bond-id` | text | — | no | Optional on-chain/external bond identifier |
 | `--wallet` | text | — | no | Wallet that owns the provider bond (signs the #1967 ownership challenge) |

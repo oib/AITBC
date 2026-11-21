@@ -299,11 +299,17 @@ def test_lock_sealing_on_second_poll_still_escrows(mock_client_cls, payment_sess
 
 @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
 def test_ambiguous_post_recovers_escrowed_when_lock_landed(mock_client_cls, payment_session):
-    """Response lost after commit: the escrow record shows the lock → escrowed."""
+    """Response lost after commit: record + sealed chain lock → escrowed.
+
+    #2359: the record's lock_tx_hash is mempool-time evidence, so adoption
+    # now requires the sealed ESCROW_LOCK tx — the same proof the normal
+    # create path waits for.
+    """
     job = _make_job(payment_session, "job-ambiguous-recover")
     mock_client = MagicMock()
     mock_client.post = AsyncMock(side_effect=AmbiguousRequestError("outcome unknown"))
     mock_client.get = AsyncMock(return_value={"contract_id": "0xescrowA", "lock_tx_hash": "0xlock1", "state": "funded"})
+    mock_client.get_json = AsyncMock(return_value=_chain_lock_txs("0xlock1", job_id=job.id))
     mock_client_cls.return_value = mock_client
 
     payment = _create(payment_session, job.id, _payment_data(job.id))
@@ -316,7 +322,36 @@ def test_ambiguous_post_recovers_escrowed_when_lock_landed(mock_client_cls, paym
     assert len(escrows) == 1
     updated_job = payment_session.get(Job, job.id)
     assert updated_job.payment_status == "escrowed"
-    mock_client.get_json.assert_not_called()  # record hit — no chain fallback needed
+    mock_client.get_json.assert_called()  # seal verified against the chain, not the record alone
+
+
+@patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+def test_ambiguous_post_unsealed_lock_marks_failed_not_escrowed(mock_client_cls, payment_session, monkeypatch):
+    """#2359: a mempool-submitted lock that never seals must not open dispatch.
+
+    The paid replay's shape: /escrow/create committed its record (with a
+    lock_tx_hash) but the lock was still pending when the response was lost;
+    adopting the record marked the payment escrowed and the job ran before
+    any on-chain lock existed.
+    """
+    monkeypatch.setenv("ESCROW_LOCK_SEAL_WAIT_SECONDS", "0.05")
+    monkeypatch.setenv("ESCROW_LOCK_SEAL_POLL_SECONDS", "0.01")
+    job = _make_job(payment_session, "job-ambiguous-unsealed")
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(side_effect=AmbiguousRequestError("outcome unknown"))
+    mock_client.get = AsyncMock(return_value={"contract_id": "0xescrowU", "lock_tx_hash": "0xmempool1", "state": "funded"})
+    mock_client.get_json = AsyncMock(return_value=[])
+    mock_client_cls.return_value = mock_client
+
+    payment = _create(payment_session, job.id, _payment_data(job.id))
+
+    assert payment.status == "failed"
+    assert payment.meta_data["escrow_error_kind"] == "unsealed"
+    assert "did not seal" in payment.meta_data["escrow_error"]
+    escrows = payment_session.exec(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).all()
+    assert escrows == []
+    updated_job = payment_session.get(Job, job.id)
+    assert updated_job.payment_status == "failed"
 
 
 @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
@@ -432,17 +467,26 @@ def test_real_client_escrow_get_unparseable_200_raises(monkeypatch):
 
 
 def test_recover_adopts_locked_record_via_real_client(monkeypatch, payment_session):
-    """End to end: POST outcome lost, GET finds the lock → adopted as escrowed."""
+    """End to end: POST outcome lost, GET finds the lock, chain confirms the
+    seal → adopted as escrowed. #2359: the record alone is mempool evidence;
+    the sealed ESCROW_LOCK tx is required."""
     job = _make_job(payment_session, "job-real-locked")
     payment = _make_payment(payment_session, job)
-    calls = _mock_transport_client(
-        monkeypatch,
-        lambda req: httpx.Response(
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/rpc/transactions" in request.url.path:
+            return httpx.Response(
+                200,
+                json=[{"tx_hash": "0xlock7", "payload": {"job_id": job.id}}],
+                request=request,
+            )
+        return httpx.Response(
             200,
             json={"contract_id": "0xescrowZ", "lock_tx_hash": "0xlock7", "state": "locked"},
-            request=req,
-        ),
-    )
+            request=request,
+        )
+
+    calls = _mock_transport_client(monkeypatch, handler)
 
     escrow, absent = asyncio.run(PaymentService(payment_session)._recover_ambiguous_escrow(payment, BUYER, PROVIDER))
 
@@ -451,7 +495,34 @@ def test_recover_adopts_locked_record_via_real_client(monkeypatch, payment_sessi
     assert payment.status == "escrowed"
     assert payment.escrow_address == "0xescrowZ"
     assert payment.meta_data["escrow_recovered"] is True
-    assert len(calls) == 1
+    assert payment.meta_data["escrow_lock_tx_hash"] == "0xlock7"
+    assert len(calls) == 2  # escrow record + seal verification
+
+
+def test_recover_unsealed_record_lock_marks_failed_via_real_client(monkeypatch, payment_session):
+    """#2359 end to end: record claims a lock, chain shows none sealed → failed."""
+    monkeypatch.setenv("ESCROW_LOCK_SEAL_WAIT_SECONDS", "0.05")
+    monkeypatch.setenv("ESCROW_LOCK_SEAL_POLL_SECONDS", "0.01")
+    job = _make_job(payment_session, "job-real-unsealed")
+    payment = _make_payment(payment_session, job)
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if "/rpc/transactions" in request.url.path:
+            return httpx.Response(200, json=[], request=request)
+        return httpx.Response(
+            200,
+            json={"contract_id": "0xescrowM", "lock_tx_hash": "0xmempool", "state": "funded"},
+            request=request,
+        )
+
+    _mock_transport_client(monkeypatch, handler)
+
+    escrow, absent = asyncio.run(PaymentService(payment_session)._recover_ambiguous_escrow(payment, BUYER, PROVIDER))
+
+    assert escrow is None
+    assert absent is False
+    assert payment.status == "failed"
+    assert payment.meta_data["escrow_error_kind"] == "unsealed"
 
 
 def test_recover_does_not_adopt_released_record(monkeypatch, payment_session):

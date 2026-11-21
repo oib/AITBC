@@ -137,13 +137,13 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 - [`aitbc bond appeal`](bond-appeal.md) — Appeal a slashing decision for a bond with optional evidence.
 - [`aitbc bond challenge`](bond-challenge.md) — Fetch the wallet-ownership challenge for a provider bond (#1967).
-- [`aitbc bond create`](bond-create.md) — Create or top-up a provider's performance bond.
+- [`aitbc bond create`](bond-create.md) — Register a provider's on-chain performance bond with the coordinator.
 - [`aitbc bond lock`](bond-lock.md) — Lock a provider's bond while a high-value job is in flight.
 - [`aitbc bond lock-onchain`](bond-lock-onchain.md) — Submit the on-chain BOND_LOCK escrow transaction for a provider bond.
 - [`aitbc bond release`](bond-release.md) — Release a previously locked provider bond.
 - [`aitbc bond slash`](bond-slash.md) — Slash a provider's bond with an optional reason.
 - [`aitbc bond status`](bond-status.md) — Show a provider's bond eligibility status.
-- [`aitbc bond top-up`](bond-top-up.md) — Top up a provider's performance bond.
+- [`aitbc bond top-up`](bond-top-up.md) — Re-verify/rebind a provider's on-chain performance bond.
 
 ## `bootstrap`
 

@@ -4166,6 +4166,16 @@
               }
             }
           },
+          "404": {
+            "description": "provider {provider_id} has no bond to {action}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "409": {
             "description": "provider {provider_id} bond is {bond.status}; {action} cannot reactivate a terminal bond \u2014 create a new on-chain bond first",
             "content": {
@@ -4237,6 +4247,16 @@
           },
           "403": {
             "description": "not the provider owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "provider {provider_id} has no bond to {action}",
             "content": {
               "application/json": {
                 "schema": {
@@ -4326,6 +4346,16 @@
           },
           "403": {
             "description": "not the provider owner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "provider {provider_id} has no bond to {action}",
             "content": {
               "application/json": {
                 "schema": {
@@ -26082,6 +26112,16 @@
               }
             }
           },
+          "404": {
+            "description": "no bond matches the appeal's provider_id/bond_id",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -42758,6 +42798,17 @@
             ],
             "title": "Refund Transaction Hash"
           },
+          "escrow_tx_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Escrow Tx Hash"
+          },
           "protected": {
             "type": "boolean",
             "title": "Protected",
@@ -43893,6 +43944,28 @@
               }
             ],
             "title": "Acceptance Deadline"
+          },
+          "escrow_tx_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Escrow Tx Hash"
+          },
+          "release_tx_hash": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Release Tx Hash"
           }
         },
         "type": "object",

@@ -113,7 +113,7 @@ def aitbc_bond_challenge(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bond_create(
     provider_id: Annotated[str, Field(description="Provider ID.")],
-    amount: Annotated[str | None, Field(description="Amount to lock as a performance bond")] = None,
+    amount: Annotated[str | None, Field(description="Ignored — the server verifies the on-chain BOND_LOCK amount")] = None,
     required_amount: Annotated[str | None, Field(description="Required bond amount for this provider")] = None,
     bond_id: Annotated[str | None, Field(description="Optional on-chain/external bond identifier")] = None,
     wallet_name: Annotated[
@@ -131,7 +131,7 @@ def aitbc_bond_create(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Create or top-up a provider's performance bond."""
+    """Register a provider's on-chain performance bond with the coordinator."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -427,7 +427,9 @@ def aitbc_bond_status(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bond_top_up(
     provider_id: Annotated[str, Field(description="Provider ID.")],
-    amount: Annotated[str | None, Field(description="Amount to add to the bond")] = None,
+    amount: Annotated[
+        str | None, Field(description="Ignored — bonds mirror on-chain state; the server verifies the BOND_LOCK amount")
+    ] = None,
     bond_id: Annotated[str | None, Field(description="Optional on-chain/external bond identifier")] = None,
     wallet_name: Annotated[
         str | None, Field(description="Wallet that owns the provider bond (signs the #1967 ownership challenge)")
@@ -444,7 +446,7 @@ def aitbc_bond_top_up(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Top up a provider's performance bond."""
+    """Re-verify/rebind a provider's on-chain performance bond."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
