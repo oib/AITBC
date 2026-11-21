@@ -124,6 +124,16 @@ def test_parse_rejects_non_list_and_garbage():
     assert _parse_circuit_output(["-1", "2"]) is None  # field elements are non-negative
 
 
+@pytest.mark.unit
+def test_parse_rejects_unicode_digit_strings():
+    """#2463: isdigit() matches ²/① which int() rejects — must return None,
+    not raise ValueError, so the caller records output_unparseable."""
+    assert _parse_circuit_output(["²"]) is None
+    assert _parse_circuit_output(["①"]) is None
+    assert _parse_circuit_output(["³", "1"]) is None
+    assert _parse_circuit_output(json.dumps(["²", "3"])) is None
+
+
 # ---------------------------------------------------------------------------
 # _attach_zk_proof — ZK-required circuit job
 # ---------------------------------------------------------------------------

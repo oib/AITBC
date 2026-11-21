@@ -115,7 +115,9 @@ def _parse_circuit_output(raw: Any) -> list[int] | None:
             return None
         if isinstance(item, int):
             values.append(item)
-        elif isinstance(item, str) and item.isdigit():
+        elif isinstance(item, str) and item.isascii() and item.isdecimal():
+            # isdigit() also matches ²/① which int() rejects — a ValueError
+            # here escaped the documented fail-closed None (#2463).
             values.append(int(item))
         else:
             return None
