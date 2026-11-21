@@ -124,6 +124,12 @@ def aitbc_gpu_onchain_deregister(
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
     wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")] = None,
+    force: Annotated[
+        bool | None,
+        Field(
+            description="Deregister even while on-chain allocations are still active (they stay active forever — no release tx exists yet, #2403)"
+        ),
+    ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -134,7 +140,7 @@ def aitbc_gpu_onchain_deregister(
     """Deactivate an on-chain GPU registration (signed by its registrant)."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={"wait": "wait"},
+        flags={"wait": "wait", "force": "force"},
         values={"gpu_id": "gpu-id", "wallet": "wallet", "password_file": "password-file", "format": "format"},
     )
     args = None

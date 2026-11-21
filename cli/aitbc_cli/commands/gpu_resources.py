@@ -174,6 +174,37 @@ def query_gpu(ctx, gpu_id: str, format: str):
         raise click.Abort() from e
 
 
+def _refuse_deregister_with_active_allocations(ctx, config, rpc_url: str, chain_id: str, gpu_id: str) -> None:
+    """Refuse ``gpu-onchain deregister`` while the GPU has active allocations (#2403).
+
+    There is no on-chain release/completion transaction, so a deregistered GPU
+    keeps its ``active_allocations`` count forever — the row goes ``deactivated``
+    with allocations still open and nothing can ever close them. Query the
+    registration first and make the operator choose ``--force`` deliberately.
+    A failed lookup does not block: the chain-side deregister rule is unchanged.
+    """
+    try:
+        http_client = AITBCHTTPClient(
+            base_url=rpc_url,
+            timeout=15,
+            api_key=(ctx.obj or {}).get("api_key") or getattr(config, "blockchain_rpc_api_key", None),
+        )
+        params = {"chain_id": chain_id} if chain_id else {}
+        info = http_client.get(f"/rpc/gpu/info/{gpu_id}", params=params)
+    except Exception as e:
+        # Preflight is advisory; the chain enforces the real deregister rule.
+        logger.warning("Could not check active allocations for %s before deregister: %s", gpu_id, e)
+        return
+    active = info.get("active_allocations") if isinstance(info, dict) else None
+    if isinstance(active, int) and active > 0:
+        error(
+            f"GPU '{gpu_id}' has {active} active on-chain allocation(s); deregistering now leaves them "
+            "active forever (no GPU_DEALLOCATE transaction exists yet, #2403). "
+            "Complete them first or re-run with --force to deactivate anyway."
+        )
+        raise click.Abort()
+
+
 @gpu.command(
     name="deregister",
     epilog="""Examples:
@@ -186,6 +217,11 @@ def query_gpu(ctx, gpu_id: str, format: str):
 @click.option("--wallet", required=True, help="Wallet name for signing (must be the GPU's registrant)")
 @wallet_password_options
 @click.option("--wait", is_flag=True, help="Wait for the transaction to be mined")
+@click.option(
+    "--force",
+    is_flag=True,
+    help="Deregister even while on-chain allocations are still active (they stay active forever — no release tx exists yet, #2403)",
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def deregister_gpu(
@@ -196,6 +232,7 @@ def deregister_gpu(
     password_file: str | None,
     password_stdin: bool,
     wait: bool,
+    force: bool,
     format: str,
 ):
     """Deactivate an on-chain GPU registration (signed by its registrant).
@@ -213,6 +250,9 @@ def deregister_gpu(
         rpc_url = _hub_rpc_url(config, getattr(config, "blockchain_rpc_url", "http://localhost:8202"))
 
         chain_id = resolve_chain_id(ctx, rpc_url)
+
+        if not force:
+            _refuse_deregister_with_active_allocations(ctx, config, rpc_url, chain_id, gpu_id)
 
         from ..utils.gpu_onchain import submit_gpu_deregister, apply_wait_result
 
