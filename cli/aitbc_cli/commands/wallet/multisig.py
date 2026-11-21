@@ -47,7 +47,13 @@ def _multisig_chain_balance(address: str) -> Decimal | None:
 
   aitbc wallet multisig-create --signers 0xA... --signers 0xB... --threshold 2 --name team-wallet""",
 )
-@click.option("--signers", "signers", required=True, multiple=True, help="One or more signer addresses.")
+@click.option(
+    "--signers",
+    "signers",
+    required=True,
+    multiple=True,
+    help="One or more signer addresses; comma-separated lists and repeated flags both work.",
+)
 @click.option("--threshold", type=int, required=True, help="Required signatures to approve")
 @click.option("--name", required=True, help="Multisig wallet name")
 @click.pass_context
@@ -61,6 +67,11 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
         ``multisig-sign`` only track approvals locally. Use it for bookkeeping
         or settle through an escrow flow / authorized signer key instead.
     """
+    # Accept both `--signers A --signers B` and `--signers A,B,C` (#2393).
+    signers = tuple(part.strip() for value in signers for part in value.split(",") if part.strip())
+    if not signers:
+        abort(None, "--signers requires at least one address")
+        return
     try:
         validate_wallet_name(name)
     except ValueError as e:
