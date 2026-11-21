@@ -230,7 +230,33 @@ class _JobsSettlementMixin(_JobsMixin):
             return False
         if not escrow:
             return False
-        return self._locked_escrow_matches(escrow, job, payment)
+        if not self._locked_escrow_matches(escrow, job, payment):
+            return False
+        if (job.payload or {}).get("escrow_job_id") and not await self._alias_lock_binds_market_job(escrow, job):
+            return False
+        return True
+
+    async def _alias_lock_binds_market_job(self, escrow: dict, job: MarketJob) -> bool:
+        """#2326: the escrow's signed ESCROW_LOCK tx must name this market job.
+
+        ``ai submit``/``ai pay`` embed ``market_job_id`` in the lock payload
+        when the escrow backs a market alias claim, so the on-chain record —
+        not caller-supplied job fields — decides which market job an escrow
+        may authorize. Escrows locked before the field existed carry no
+        binding and fail closed: their in-flight alias tokens expire with the
+        job TTL.
+        """
+        lock_tx_hash = escrow.get("lock_tx_hash")
+        if not lock_tx_hash:
+            return False
+        try:
+            chain_id = settings.default_chain_id or resolve_chain_id()
+            tx = await self._rpc_client.get_transaction(str(lock_tx_hash), chain_id=chain_id)
+        except Exception as e:  # noqa: BLE001 - unverifiable binding must deny, not 500
+            logger.warning("Alias escrow lock lookup failed for job %s: %s", job.id, e)
+            return False
+        payload = (tx or {}).get("payload") or {}
+        return payload.get("market_job_id") == job.id
 
     async def _escrow_key_claimed_by_this_job(self, job: MarketJob, escrow_key: str) -> bool:
         """#2325 MARKET-ESCROW-ALIAS-1: is ``job`` the earliest active claimant of ``escrow_key``?
