@@ -3,7 +3,7 @@
 **Level**: Intermediate
 **Prerequisites**: [Scenario 33 Exchange Financial Correctness](./33_exchange_financial_correctness.md), [Scenario 07 AI Job Submission](./07_ai_job_submission.md)
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-11-20
+**Last Updated**: 2026-11-21
 **Version**: 1.6
 
 ## Navigation Path
@@ -175,7 +175,7 @@ aitbc ai submit --prompt "Cross-node paid job test" \
 
 > **`--wait` auto-accepts:** when the job reaches `COMPLETED` with payment `escrowed`/`pending_acceptance`, the wait loop already POSTs `/v1/jobs/{id}/accept` — the explicit step below is for jobs submitted *without* `--wait` (or when the auto-accept fails). Running `ai accept` on an already-accepted job is a no-op/conflict, not an error in the flow.
 >
-> **Known telemetry gap:** `--buyer-address` is carried in the escrow payload but the job record currently reports `buyer_address: null` — the flag is honored on-chain, the listing just doesn't echo it.
+> **Telemetry gap fixed:** `--buyer-address` is carried in the escrow payload and the job record now echoes it — `buyer_address` is read back from the payment `meta_data` (`jobs.py`), so `ai status`/`ai results` report the real buyer address instead of `null`.
 
 Release the escrow explicitly (needed only for non-`--wait` submissions) with the `accept` command. The release travels via the coordinator's buyer-bound JWT relay `POST /v1/escrow/release` (see [escrow-relays runbook](../ops/escrow-relays.md)) — the CLI-uses-relay path is **planned** under ESCROW-RELEASE-2; until it lands the call uses the settlement node's rpc directly:
 
@@ -346,5 +346,5 @@ aitbc zk verify --job-id "$ZK_JOB_ID"
 
 ---
 
-*Last updated: 2026-11-20*
+*Last updated: 2026-11-21 (buyer_address telemetry gap fixed)*
 *Version: 1.6*

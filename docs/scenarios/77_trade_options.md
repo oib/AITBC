@@ -3,7 +3,7 @@
 **Level**: Advanced
 **Prerequisites**: Scenario 62 Interchain Trade
 **Estimated Time**: 15 minutes
-**Last Updated**: 2026-10-26
+**Last Updated**: 2026-11-21
 **Version**: 1.0
 
 ## Navigation Path
@@ -35,9 +35,9 @@ breadcrumb: Home > Scenarios > Trade CLI Options
 - How a bogus `TRADING_API_KEY` stops every mutating POST at a `401`
 - How the settlement family refuses on an unknown `--trade-id` before
   touching escrow
-- Two live drifts: array-shaped list responses abort with exit 5, and a
-  per-command `--format json` is silently ignored (only the top-level
-  `aitbc --output json` switch takes effect)
+- That the list endpoints and per-command `--format json` now behave —
+  the array-shape exit-5 drift and the silently-ignored `--format` from
+  the original play are both fixed (verified 21 Nov)
 
 ---
 
@@ -64,22 +64,12 @@ aitbc trade health --chain-id nosuch-chain --format json
 
 **Expected output (exit 0):**
 
-```
-+----------+----------------+
-| Field    | Value          |
-+==========+================+
-| chain_id | nosuch-chain   |
-+----------+----------------+
-| status   | not_registered |
-+----------+----------------+
+```json
+{"chain_id": "nosuch-chain", "status": "not_registered"}
 ```
 
-> **Drift:** the `--format json` flag is parsed but silently ignored —
-> the global `ctx.obj["output_format"]` default (`table`) wins inside
-> every trade command. `aitbc --output json trade health --chain-id
-> nosuch-chain` does print
-> `{"chain_id": "nosuch-chain", "status": "not_registered"}`. Recorded
-> under TRADE-OPTS-1.
+(`--format json` is honored per-command — the original play's drift
+note that only `aitbc --output json` worked is fixed.)
 
 `discover` is a POST but semantically a filtered search — it runs live
 against the trading service:
@@ -120,51 +110,54 @@ aitbc trade status --trade-id tradeopts1-probe --format json
 **Expected output:** same 404 shape on
 `/v1/trading/inter-chain/tradeopts1-probe/status` (exit 2).
 
-### Step 2: List endpoints — array-shape drift (exit 5)
+### Step 2: List endpoints — array-safe reads (exit 0)
 
-Several `trade` list endpoints return a bare JSON array, which the CLI's
-object-expecting response check refuses. The flags are still exercised —
-the refusal is the endpoint/CLI drift, not a usage error:
+The `trade` list endpoints that returned bare JSON arrays now read
+cleanly: the CLI uses the array-safe `get_json` path (the same fix class
+as `market jobs` under Refs #490), and `--format json` is honored
+per-command. All six exit 0; empty fleets render `[]` or an empty
+status object:
 
 ```bash
 aitbc trade chains --format json
 ```
 
-**Expected output (exit 5):**
-`Error listing chains: http://localhost:8104/v1/trading/chains returned a JSON array, not an object. Use get_json() and handle both shapes if this endpoint can return either.`
+**Expected output (exit 0):** JSON array of registered chains (empty
+`[]` when none are registered).
 
 ```bash
 aitbc trade list --dest-chain nosuch-dest --limit 5 --format json
 ```
 
-**Expected output (exit 5):** same drift text on `/v1/trading/inter-chain`.
+**Expected output (exit 0):** JSON array of matching trades — `[]` for
+`nosuch-dest`.
 
 ```bash
 aitbc trade history --dest-chain nosuch-dest --format json
 ```
 
-**Expected output (exit 5):** same drift text on
-`/v1/trading/inter-chain/history`.
+**Expected output (exit 0):** JSON array of trade history — `[]` for
+`nosuch-dest`.
 
 ```bash
 aitbc trade search --service-type gpu_market --min-price 0.1 --max-price 5 --format json
 ```
 
-**Expected output (exit 5):** same drift text on `/v1/trading/offers/search`.
+**Expected output (exit 0):** JSON array of matching offers (`[]` when
+the search index has none).
 
 ```bash
 aitbc trade sync-status --format json
 ```
 
-**Expected output (exit 5):** same drift text on
-`/v1/trading/offers/sync-status`.
+**Expected output (exit 0):** JSON array of offer-sync status entries.
 
 ```bash
 aitbc trade subscription-status --format json
 ```
 
-**Expected output (exit 5):** same drift text on
-`/v1/trading/offers/subscription-status`.
+**Expected output (exit 0):** JSON — per-chain subscription health
+status.
 
 ### Step 3: Mutating commands — refused for free on a bad key (exit 2)
 
@@ -268,22 +261,20 @@ Error watching offers: Client error '401 Unauthorized' for url 'http://localhost
 
 | Class | Plays |
 |---|---|
-| ok (exit 0) | `health --chain-id` (not_registered), `discover --region/--gpu-model` |
+| ok (exit 0) | `health --chain-id` (not_registered), `discover --region/--gpu-model`, `chains`, `list`, `history`, `search`, `sync-status`, `subscription-status` |
 | expected-refusal 401 (exit 2) | `create`, `register-chain`, `match-all`, `sync` (bad `TRADING_API_KEY`) |
 | expected-refusal 404 (exit 2) | `get`, `status`, `match`, `lock-escrow`, `settle`, `refund`, `settlement-status` (unknown trade id) |
-| drift: array-shaped response (exit 5) | `chains`, `list`, `history`, `search`, `sync-status`, `subscription-status` |
-| drift: offer-lease refusal (exit 5) | `watch` with bad key; real key streams (exit 124 under `timeout`) |
+| offer-lease refusal (exit 5) | `watch` with bad key; real key streams (exit 124 under `timeout`) |
 
 ## Coverage notes
 
 All 40 previously unexercised `trade` options pass through a command line
-above. Two defects recorded during the play, to be registered as their
-own rows (not folded into this one):
+above. The two defects recorded during the original play are both fixed
+(verified 21 Nov):
 
-1. **Array-drift:** six `trade` endpoints return bare JSON arrays and the
-   CLI aborts with the same `get_json()` message class fixed for
-   `market jobs` under Refs #490 — the `trade` group needs the same
-   treatment.
-2. **`--format` ignored:** per-command `--format json` is overridden by
-   `ctx.obj["output_format"]` (always populated, default `table`); only
-   `aitbc --output json` works. Verified on `trade health`.
+1. **Array-drift — fixed:** the six `trade` list commands now read
+   through the array-safe `get_json` path (same fix class as `market
+   jobs` under Refs #490) and exit 0.
+2. **`--format` ignored — fixed:** per-command `--format json` is
+   honored via `resolve_output_format` (command flag → global `--output`
+   → `table`); only `aitbc --output json` was needed before.

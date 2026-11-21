@@ -3,7 +3,7 @@
 **Level**: Advanced
 **Prerequisites**: Scenario 14 Staking Basics
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-10-31
+**Last Updated**: 2026-11-21
 **Version**: 1.0
 
 > **Post-v18 coverage note (31 Oct):** the liquidity types this scenario gates on are no longer refusal-only — `LIQUIDITY_DEPOSIT` sealed @9799 (×10 through 12536), `LIQUIDITY_WITHDRAW` @9813 (×5), `LIQUIDITY_CLAIM` @9802 (×5). The wallet-gate refusals below remain the coverage for the unarmed path. Folded per #665.
@@ -100,9 +100,13 @@ aitbc stake --wallet-path /tmp/nosuch-stakeopts1.json --rpc-url http://127.0.0.1
 aitbc reinvest simulate --agent-id nosuch-agent --reserve-address 0x0000000000000000000000000000000000000001
 ```
 
-**Expected output (exit 1):** `Error simulating reinvestment for nosuch-agent: No module named 'miner_app'`
-
-> **Defect (registered separately):** `_load_miner_app()` uses `parents[4]` — one level too high, so `miner_app` is never importable on an installed CLI. Fix is `parents[3]`. The flag still counts (parse + body ran).
+**Expected output (exit 0):** the import-gate defect is fixed —
+`_load_miner_app()` resolves `apps/miner/src` correctly, so the command
+returns the live reinvestment split (table by default; `aitbc --output
+json` for JSON): `agent_id`, `earnings` (default `"10"`),
+`policy_source` (`default`/`saved`/`override`) and an `actions` list
+splitting the simulated amount across the staking contract
+(`--staking-contract`, default `0xSTAKE`) and `--reserve-address`.
 
 ## Option coverage result
 
@@ -115,7 +119,7 @@ aitbc reinvest simulate --agent-id nosuch-agent --reserve-address 0x000000000000
 | `--wallet-name` | `unstake` | expected-refusal (4) |
 | `--wallet-path/--rpc-url` | `unstake` | expected-refusal (4) |
 | `--wallet-path/--rpc-url` | `stake` | expected-refusal (4) |
-| `--reserve-address` | `reinvest simulate` | expected-refusal (1) |
+| `--reserve-address` | `reinvest simulate` | live simulate | ok (0) |
 
 Census delta: liquidity-stake 6→0, unstake 3→0, stake 2→0, reinvest 1→0.
 

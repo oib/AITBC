@@ -3,7 +3,7 @@
 **Level**: Intermediate
 **Prerequisites**: Scenario 07 AI Job Submission (for job IDs and offers)
 **Estimated Time**: 10 minutes
-**Last Updated**: 2026-10-26
+**Last Updated**: 2026-11-21
 **Version**: 1.0
 
 ## Navigation Path
@@ -77,17 +77,12 @@ aitbc market escrow create --job-id escopts1-probe --buyer 0x0000000000000000000
 **Expected output:** `Failed to get wallet info … 404` then `Wallet 'nosuch-escopts1' not
 found as a file wallet.` (non-zero exit; nothing signed, nothing spent).
 
-> **Known drift (recorded under ESCROW-OPTS-1):** `aitbc market jobs`
-> currently aborts with an uncaught `TypeError` — `GET /v1/market/jobs`
-> returns a JSON array while `_market_client().get()` expects a JSON
-> object. The filter flags above still reach the request path (the params
-> dict is built before the call); the crash is in response handling and
-> needs a client-side fix.
->
-> **Known drift 2:** `--amount` values that are not numbers are silently
-> coerced to `0` by `wallet_amount()` instead of being refused at
-> arg-parse time; the command then aborts later on the wallet or the
-> positivity check rather than on the bad input.
+> **Resolved (21 Nov sweep):** both drifts recorded under ESCROW-OPTS-1
+> are fixed. `aitbc market jobs` reads `GET /v1/market/jobs` through the
+> array-safe `get_json` path (no more `TypeError` on the array
+> response), and `escrow create --amount` is `type=DECIMAL`, so a
+> non-numeric value is refused at arg-parse time instead of being
+> coerced to `0`.
 
 ---
 
@@ -98,5 +93,5 @@ found as a file wallet.` (non-zero exit; nothing signed, nothing spent).
 
 ---
 
-*Last updated: 2026-10-26 (ESCROW-OPTS-1 option coverage)*
+*Last updated: 2026-11-21 (drift notes corrected — both ESCROW-OPTS-1 defects fixed)*
 *Version: 1.0*
