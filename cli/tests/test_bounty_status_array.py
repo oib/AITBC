@@ -76,7 +76,21 @@ def test_status_reports_no_match(monkeypatch):
         ["status", "--bounty-id", "bounty-missing", "--rpc-url", "http://127.0.0.1:8202", "--json"],
     )
     assert result.exit_code == 0, result.output
-    assert json.loads(result.output)["transactions"] == {}
+    data = json.loads(result.output)
+    assert data["transactions"] == {}
+    # #2451: an unknown id is distinguishable via found:false.
+    assert data["found"] is False
+
+
+def test_status_found_flag_true_on_match(monkeypatch):
+    runner = CliRunner()
+    result = _invoke(
+        runner,
+        monkeypatch,
+        ["status", "--bounty-id", "bounty-hit", "--rpc-url", "http://127.0.0.1:8202", "--json"],
+    )
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output)["found"] is True
 
 
 def test_status_accepts_envelope_shape(monkeypatch):
