@@ -8,7 +8,7 @@
 
 ## Navigation Path
 
-[Documentation Home](../README.md) > [Agent Scenarios](./README.md) > *You are here*
+[Documentation Home](../../README.md) > [Agent Scenarios](../README.md) > *You are here*
 
 breadcrumb: Home > Scenarios > Confidential AI job with TEE attestation
 
@@ -16,9 +16,9 @@ breadcrumb: Home > Scenarios > Confidential AI job with TEE attestation
 
 ## See Also
 
-- **Previous Scenario**: [Contract Deploy & Call](./73_contract_deploy_call.md)
-- **Next Scenario**: [43 Compliance, Plugins and White-Label](./43_compliance_plugins_white_label.md)
-- **Related**: [74 Confidential Payments](./74_confidential_payments.md) (non-enclave Pedersen commitments — still live), [47 ZK High-Value Jobs](./47_zk_high_value_jobs.md) (the surviving high-value gate), [44 Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) (also obsolete)
+- **Previous Scenario**: [Contract Deploy & Call](../73_contract_deploy_call.md)
+- **Next Scenario**: [43 Compliance, Plugins and White-Label](../43_compliance_plugins_white_label.md)
+- **Related**: [74 Confidential Payments](../74_confidential_payments.md) (non-enclave Pedersen commitments — still live), [47 ZK High-Value Jobs](../47_zk_high_value_jobs.md) (the surviving high-value gate), [44 Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) (also obsolete)
 
 ---
 

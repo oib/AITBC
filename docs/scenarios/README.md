@@ -157,9 +157,9 @@ Live validation of the product path (paid job + `ESCROW_RELEASE` + shop offer) i
 | 40 | [Automatic Reinvestment from Released Escrow](../archive/scenarios/40_auto_reinvestment.md) *(retired — archived)* | Auto-stake provider earnings on escrow release | `aitbc ai` |
 | 41 | [Whisper and FFmpeg Default Shop Offers](./41_whisper_ffmpeg_shop_offers.md) | Run transcription and media re-encode jobs via market offers | `aitbc market` |
 | 43 | [Compliance, Plugins, and White-Label Expansion](./43_compliance_plugins_white_label.md) | Brand plugins, compliance hooks, and plugin discovery | `aitbc brand`, `aitbc plugin`, `aitbc ai` |
-| 44 | [Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) | *(obsolete — TEE removed #2375)* | — |
+| 44 | [Refund a Failed TEE Job Escrow](./archive/44_stuck_tee_refund.md) | *(obsolete — TEE removed #2375)* | — |
 | 45 | [Agent-Message Workflow](./45_agent_msg_workflow.md) | Send, ping, and receive agent-to-agent messages with delivery status | `aitbc agent-msg` |
-| 46 | [Confidential TEE Jobs](./46_tee_confidential_jobs.md) | *(obsolete — TEE removed #2375; confidential payments remain, see 74)* | — |
+| 46 | [Confidential TEE Jobs](./archive/46_tee_confidential_jobs.md) | *(obsolete — TEE removed #2375; confidential payments remain, see 74)* | — |
 | 47 | [ZK Proofs for High-Value Jobs](./47_zk_high_value_jobs.md) | High-value jobs require and verify a ZK receipt proof | `aitbc ai`, `aitbc zk` |
 | 48 | [Performance Bonds for High-Value Jobs](./48_performance_bonds_high_value.md) | High-value jobs require an active provider performance bond | `aitbc ai`, `aitbc bond` |
 | 49 | [Auto-Reinvest from Released Escrow](../archive/scenarios/49_auto_reinvest_escrow.md) *(retired — archived)* | Escrow release automatically stakes a provider-defined percentage of earnings | `aitbc ai` |
