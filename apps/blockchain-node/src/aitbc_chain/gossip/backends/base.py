@@ -65,5 +65,15 @@ class GossipBackend:
         backends without a probeable transport (memory) report ok."""
         return {"ok": True}
 
+    async def peer_status(self) -> dict[str, Any]:
+        """#2417: read-only per-peer connectivity snapshot for ``GET /rpc/gossip/peers``.
+
+        Returns ``{"peers": [...], "configured": int, ...}`` where each peer
+        entry carries at least ``name``, ``url``, ``connected`` and
+        ``topics``. Backends without identifiable remote peers (in-memory,
+        the local broadcast bus) report an empty ``peers`` list — they are
+        transports, not peers."""
+        return {"peers": [], "configured": 0}
+
     async def shutdown(self) -> None:
         return None

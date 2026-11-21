@@ -5,10 +5,10 @@ import json
 import time
 from typing import Any
 
-from fastapi import APIRouter, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, Request, WebSocket, WebSocketDisconnect
 from redis.exceptions import RedisError
 
-from aitbc.rate_limiting import client_ip_from_peer_and_headers
+from aitbc.rate_limiting import client_ip_from_peer_and_headers, rate_limit
 from aitbc.security import RateLimiter
 
 from ..config import settings
@@ -862,6 +862,54 @@ async def _gossip_run_forwarders(state: _GossipConnState) -> None:
         if state.subscription is not None:
             state.subscription.close()  # noqa: unawaited-async — TopicSubscription.close() is synchronous (pre-existing bare call preserved)
         await _gossip_ws_close(state.websocket)
+
+
+@router.get("/gossip/peers", summary="List gossip peer connectivity")
+@rate_limit(rate=60, per=60)
+async def gossip_peers_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """#2417: read-only snapshot of this node's outbound gossip peer links.
+
+    Derived from the live ``GossipBroker`` backend — never simulated. Each
+    peer entry carries ``name`` (the configured ``GOSSIP_MESH_PEER_URLS``
+    label), ``url`` (the dialed ``/rpc/gossip/ws`` endpoint), ``connected``
+    (an open, subscribed link — the same rule ``MeshGossipBackend.health``
+    uses) and ``topics`` (the topics currently subscribed over that link).
+
+    ``?chain_id=<id>`` selects a non-default chain's broker; an unserved or
+    unconfigured chain reports an honest empty payload rather than an error,
+    matching the ``/rpc/pending`` convention. The default chain resolves to
+    the ``gossip_broker`` wired by main.py via ``_broker_for_chain``.
+    """
+    resolved = (chain_id or "").strip() or settings.chain_id
+    empty = {
+        "chain_id": resolved,
+        "peers": [],
+        "count": 0,
+        "configured": 0,
+        "running": False,
+    }
+    if resolved not in _connectable_chain_ids():
+        return {**empty, "error": f"no gossip backend configured for chain '{resolved}'"}
+    broker = _broker_for_chain(resolved)
+    if broker is None:
+        return {**empty, "error": f"no gossip backend configured for chain '{resolved}'"}
+    try:
+        status = await broker.peer_status()
+    except Exception as e:  # noqa: BLE001 - a probe failure must not 500 a read-only status route
+        logger.warning("gossip peer_status failed for chain %s: %s", resolved, e)
+        return {**empty, "error": f"peer status unavailable: {type(e).__name__}"}
+    peers = [p for p in (status.get("peers") or []) if isinstance(p, dict)]
+    payload: dict[str, Any] = {
+        "chain_id": resolved,
+        "backend": status.get("backend"),
+        "running": bool(status.get("running")),
+        "configured": status.get("configured", len(peers)),
+        "peers": peers,
+        "count": len(peers),
+    }
+    if "local_bus" in status:
+        payload["local_bus"] = status["local_bus"]
+    return payload
 
 
 @router.websocket("/gossip/ws")

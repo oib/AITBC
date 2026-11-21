@@ -882,6 +882,32 @@ class WebsocketGossipBackend(GossipBackend):
             return {"ok": False, "detail": f"topics without open ws: {missing}", "topics": subscribed}
         return {"ok": True, "topics": subscribed}
 
+    async def peer_status(self) -> dict[str, Any]:
+        """#2417: this backend dials exactly one peer endpoint — report it.
+
+        ``connected`` uses the same rule as ``health()``: every ref-counted
+        (subscribed) topic must hold an open websocket, and at least one
+        subscription must exist — a backend that never subscribed has no
+        live link to report.
+        """
+        subscribed = sorted(t for t, n in self._ref_counts.items() if n > 0)
+        open_topics = sum(
+            1 for t in subscribed if self._websockets.get(t) is not None and self._is_websocket_open(self._websockets[t])
+        )
+        connected = self._running and bool(subscribed) and open_topics == len(subscribed)
+        return {
+            "peers": [
+                {
+                    "name": self._peer_name,
+                    "url": self._base_url,
+                    "connected": connected,
+                    "topics": subscribed,
+                }
+            ],
+            "configured": 1,
+            "running": self._running,
+        }
+
     async def shutdown(self) -> None:
         self._running = False
         topics = list(self._websockets.keys())

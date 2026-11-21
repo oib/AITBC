@@ -125,11 +125,19 @@ def peers(ctx, rpc_url):
     """List connected peers and basic peer information."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        peers = http_client.get("/rpc/network-info")
+        # #2417: peers come from the gossip backend's own peer_status(), not
+        # the join-bootstrap /rpc/network-info payload.
+        peers = http_client.get("/rpc/gossip/peers")
         output(peers, ctx.obj.get("output_format", "table"), title="Connected Peers")
     except NetworkError:
         # Fallback to simulated data if RPC endpoint not available
-        peers = {"status": "simulated", "peers": [], "message": "RPC endpoint not available - showing simulated peers"}
+        peers = {
+            "status": "simulated",
+            "peers": [],
+            "count": 0,
+            "configured": 0,
+            "message": "RPC endpoint not available - showing simulated peers",
+        }
         output(peers, ctx.obj.get("output_format", "table"), title="Connected Peers (Simulated)")
     except _NETWORK_ERRORS as e:
         abort(ctx, f"Error listing peers: {e}", from_exception=e)

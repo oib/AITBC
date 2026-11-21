@@ -24347,6 +24347,58 @@
         }
       }
     },
+    "/rpc/gossip/peers": {
+      "get": {
+        "tags": [
+          "ws"
+        ],
+        "summary": "List gossip peer connectivity",
+        "description": "#2417: read-only snapshot of this node's outbound gossip peer links.\n\nDerived from the live ``GossipBroker`` backend \u2014 never simulated. Each\npeer entry carries ``name`` (the configured ``GOSSIP_MESH_PEER_URLS``\nlabel), ``url`` (the dialed ``/rpc/gossip/ws`` endpoint), ``connected``\n(an open, subscribed link \u2014 the same rule ``MeshGossipBackend.health``\nuses) and ``topics`` (the topics currently subscribed over that link).\n\n``?chain_id=<id>`` selects a non-default chain's broker; an unserved or\nunconfigured chain reports an honest empty payload rather than an error,\nmatching the ``/rpc/pending`` convention. The default chain resolves to\nthe ``gossip_broker`` wired by main.py via ``_broker_for_chain``.",
+        "operationId": "gossip_peers_route_rpc_gossip_peers_get",
+        "parameters": [
+          {
+            "name": "chain_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Chain Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Gossip Peers Route Rpc Gossip Peers Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/escrow/create": {
       "post": {
         "tags": [

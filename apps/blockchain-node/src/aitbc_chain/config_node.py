@@ -105,7 +105,9 @@ class NodeConfig(BaseModel):
     p2p_stream_read_timeout_seconds: float = 300.0
     p2p_peer_messages_per_second: float = 100.0
 
-    contact_email: str = os.getenv("CONTACT_EMAIL", "operator@aitbc.invalid")
+    # #2417: empty by default — /rpc/network-info omits contact_email when
+    # unset rather than advertising a placeholder address.
+    contact_email: str = os.getenv("CONTACT_EMAIL", "")
 
     proposer_id: str = ""
     proposer_key: str | None = None
