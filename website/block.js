@@ -1,5 +1,13 @@
 const EXPLORER_API_URL = '/explorer-api';
 
+// Chain values settle in compute-units: 1 AIT = 36,000,000 units.
+const AIT_UNITS = 36000000;
+function fmtUnits(units) {
+    if (units === null || units === undefined || units === 'N/A') return 'N/A';
+    const ait = Number(units) / AIT_UNITS;
+    return Number.isFinite(ait) ? aitbcFmt.num(ait, 8) : 'N/A';
+}
+
 function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -98,6 +106,12 @@ async function loadBlock() {
                 payloadAmount = tx.payload ? (JSON.parse(tx.payload).amount || 'N/A') : 'N/A';
             } catch (e) { payloadAmount = 'N/A'; }
             const amount = tx.amount != null ? tx.amount : payloadAmount;
+            // amount_ait/fee_ait come pre-formatted ("100 AIT") from the
+            // explorer API; the client fallback converts raw compute-units.
+            const amountText = tx.amount_ait
+                || (fmtUnits(amount) === 'N/A' ? 'N/A' : `${fmtUnits(amount)} AIT`);
+            const feeText = tx.fee_ait
+                || (tx.fee != null ? `${fmtUnits(tx.fee)} AIT` : 'N/A');
             return `
             <div class="endpoint table-card fade-in block-item" tabindex="0" role="link" data-href="/tx.html?hash=${encodeURIComponent(tx.tx_hash)}">
                 <div class="table-wrap"><table class="block-list-table" aria-label="Block details">
@@ -105,8 +119,8 @@ async function loadBlock() {
                     <tr><th scope="row">Hash</th><td>${escapeHtml(tx.tx_hash)} ${aitbcCopyBtn(tx.tx_hash, 'transaction hash')}</td></tr>
                     <tr><th scope="row">From</th><td>${addrLink(tx.sender)}</td></tr>
                     <tr><th scope="row">To</th><td>${addrLink(tx.recipient)}</td></tr>
-                    <tr><th scope="row">Amount</th><td><strong>${escapeHtml(amount)}</strong> AIT</td></tr>
-                    <tr><th scope="row">Fee</th><td>${escapeHtml(tx.fee != null ? tx.fee : 'N/A')}</td></tr>
+                    <tr><th scope="row">Amount</th><td><strong>${escapeHtml(amountText)}</strong></td></tr>
+                    <tr><th scope="row">Fee</th><td>${escapeHtml(feeText)}</td></tr>
                     <tr><th scope="row">Nonce</th><td>${escapeHtml(tx.nonce != null ? tx.nonce : 'N/A')}</td></tr>
                     <tr><th scope="row">Status</th><td>${escapeHtml(tx.status || 'N/A')}</td></tr>
                     <tr><th scope="row">Time</th><td>${escapeHtml(tx.created_at ? aitbcFmt.date(tx.created_at) : 'N/A')}</td></tr>
