@@ -119,6 +119,26 @@ irreversible. Modern replacement: `aitbc governance` (scenario 17).
 
 ---
 
+## Live leaf status (verified 21 Nov, fleet `dc162a63f`)
+
+The deprecated surface parses everywhere, but most leaves are dead or
+broken — tracked as #2378. Per-leaf reality on hub + node2:
+
+| Leaf | Live result |
+|---|---|
+| `operations agent list` | **401** — hits `/v1/agents/discover` with no credentials; the endpoint now requires signed `X-Agent-*` auth (same family as #2363). Dead unless the deprecated surface gains auth. |
+| `operations agent register` | **422** — posts `{agent_id, status}` but the registry requires the full schema (name, chain_id, endpoint, capabilities, wallet identity). Dead leaf. |
+| `operations agent deregister` / `message` | unplayed — `message` is an on-chain write (operator line); `deregister` untested this sweep. |
+| `operations ai status` / `cancel` / `submit-job` | **404** — targets `{agent_coordinator_url}/v1/jobs…`, but the agent-coordinator does not serve job routes (AI jobs live on coordinator-api). Wrong-service dead leaves. |
+| `operations governance get-proposal` / `proposal` / `vote` / `stake` / `execute` / `delegate` | **404** on hub + node2 — the `/rpc/governance/*` paths are absent on the current node RPC. Dead leaves. |
+| `operations governance voting-power` | **live** — the only confirmed-working read on the surface. |
+
+Bottom line: treat `operations` as parse-only compatibility surface; the
+only functional leaf found is `governance voting-power`. Use the modern
+groups for everything else.
+
+---
+
 ## Cost Table
 
 | Step | Spend |
