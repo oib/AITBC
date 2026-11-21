@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: None
 **Estimated Time**: 15 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-11-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -38,6 +38,8 @@ An AI agent needs a wallet to hold AIT tokens and sign transactions. The agent m
 - How to back up a wallet to an external file and restore it
 - How to delete a wallet safely
 - How to create an agent identity with cryptographic keys using the `aitbc_agent` SDK
+
+> **Reality check — which steps move chain state:** wallet create/list/backup/restore/delete, `stats`, `inspect`, `export`, and the `aitbc_agent` SDK identity steps are local file/crypto operations — no chain transaction. Steps 16 (`earn`), 20–22 (multisig create/propose/sign), 23 (`request-payment`), and 25 (`spend`) are **local bookkeeping records only**: they write to the wallet's off-chain ledger or print a request blob and never submit a transaction, so they cannot satisfy a real-legs close check. The chain-moving legs are the fund transfers and staking steps (18, 24, 26, 27 and the liquidity/bridge/eth legs that follow).
 
 ---
 
@@ -393,7 +395,11 @@ aitbc wallet stats
 
 Records an earnings entry for a completed job against the active wallet.
 
-Cost: 1 AIT (`--amount` takes AIT decimals, not raw units).
+**Local bookkeeping only** — writes an off-chain ledger entry
+(`balance_source: "local ledger"`); no transaction is submitted and no
+AIT moves on chain. Excluded from real-legs close criteria.
+
+Cost: 0 AIT — local record only (`--amount` takes AIT decimals, not raw units).
 
 ```bash
 aitbc wallet earn --amount 1 --job-id job-001 --desc "scenario earnings"
@@ -431,9 +437,13 @@ aitbc wallet liquidity-unstake --stake-id 1
 
 ### Step 20: Create a multisig wallet
 
-Creates a 2-of-3 multisig wallet owned by the listed signers.
+Creates a 2-of-3 multisig wallet record owned by the listed signers.
 
-Cost: 0 units — wallet creation only.
+**Local record only** — the multisig address has no spendable key
+(Refs #2362); propose/sign below are bookkeeping, not on-chain
+signatures. Excluded from real-legs close criteria.
+
+Cost: 0 units — local record creation only.
 
 ```bash
 aitbc wallet multisig-create --signers 0xSignerA,0xSignerB,0xSignerC --threshold 2 --name ops-multisig
@@ -441,9 +451,12 @@ aitbc wallet multisig-create --signers 0xSignerA,0xSignerB,0xSignerC --threshold
 
 ### Step 21: Propose a multisig transfer
 
-Creates a pending multisig transaction other signers can approve.
+Creates a pending multisig transaction record other signers can approve.
 
-Cost: 1 AIT once approved (`--amount` takes AIT decimals).
+**Local bookkeeping only** — no chain transaction; approval does not
+move funds. Excluded from real-legs close criteria.
+
+Cost: 0 AIT — local record only (`--amount` takes AIT decimals).
 
 ```bash
 aitbc wallet multisig-propose --wallet ops-multisig --to-address 0xRecipient --amount 1 --description "scenario payout"
@@ -451,9 +464,12 @@ aitbc wallet multisig-propose --wallet ops-multisig --to-address 0xRecipient --a
 
 ### Step 22: Sign a multisig proposal
 
-Adds the wallet's signature to a pending multisig transaction.
+Adds the wallet's signature to a pending multisig transaction record.
 
-Cost: 0 units — signature only.
+**Local bookkeeping only** — the signature is stored on the local
+record, not submitted on chain. Excluded from real-legs close criteria.
+
+Cost: 0 units — local signature record only.
 
 ```bash
 aitbc wallet multisig-sign --wallet ops-multisig --tx-id 1 --signer my-agent-wallet
@@ -463,7 +479,11 @@ aitbc wallet multisig-sign --wallet ops-multisig --tx-id 1 --signer my-agent-wal
 
 Creates a payment request addressed to the payer wallet.
 
-Cost: requests 1 AIT — the payer spends, not the requester.
+**Informational only** — prints a payment-request JSON blob; nothing is
+submitted and no AIT moves in either direction. Excluded from
+real-legs close criteria.
+
+Cost: 0 AIT — request record only.
 
 ```bash
 aitbc wallet request-payment --to-address 0xPayer --amount 1 --description "scenario invoice"
@@ -483,7 +503,11 @@ aitbc wallet send --to-address 0xRecipient --amount 1
 
 Books a spend against the active wallet.
 
-Cost: 1 AIT (`--amount` takes AIT decimals, not raw units).
+**Local bookkeeping only** — writes an off-chain ledger entry
+(`balance_source: "local ledger"`); no transaction is submitted and no
+AIT moves on chain. Excluded from real-legs close criteria.
+
+Cost: 0 AIT — local record only (`--amount` takes AIT decimals, not raw units).
 
 ```bash
 aitbc wallet spend --amount 1 --description "scenario test spend"
@@ -585,5 +609,5 @@ aitbc wallet list
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-11-21*
+*Version: 1.3*
