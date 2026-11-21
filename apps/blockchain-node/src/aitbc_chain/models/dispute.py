@@ -80,6 +80,15 @@ class AuthorizeArbitratorResponse(BaseModel):
     status: str
 
 
+class RevokeArbitratorRequest(BaseModel):
+    arbitrator_address: str
+    owner_signature: str | None = None
+
+
+class RevokeArbitratorResponse(BaseModel):
+    status: str
+
+
 class GetDisputeResponse(BaseModel):
     dispute_id: int
     agreement_id: int

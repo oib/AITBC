@@ -13,6 +13,8 @@ from ...logger import get_logger
 from ...models.dispute import (
     AuthorizeArbitratorRequest,
     AuthorizeArbitratorResponse,
+    RevokeArbitratorRequest,
+    RevokeArbitratorResponse,
     FileDisputeRequest,
     FileDisputeResponse,
     GetArbitrationVotesResponse,
@@ -37,6 +39,7 @@ submit_evidence: Callable[..., Any] | None = None
 verify_evidence: Callable[..., Any] | None = None
 submit_arbitration_vote: Callable[..., Any] | None = None
 authorize_arbitrator: Callable[..., Any] | None = None
+revoke_arbitrator: Callable[..., Any] | None = None
 get_active_disputes: Callable[..., Any] | None = None
 get_authorized_arbitrators: Callable[..., Any] | None = None
 get_arbitrator_disputes: Callable[..., Any] | None = None
@@ -56,6 +59,7 @@ try:
         get_dispute,
         get_dispute_evidence,
         get_user_disputes,
+        revoke_arbitrator,
         submit_arbitration_vote,
         submit_evidence,
         verify_evidence,
@@ -122,6 +126,18 @@ def authorize_arbitrator_route(
     if authorize_arbitrator is None:
         raise HTTPException(status_code=503, detail="Disputes module not available")
     return authorize_arbitrator(request, http_request, credentials)  # type: ignore[no-any-return]
+
+
+@router.post("/arbitrators/revoke", summary="Revoke an arbitrator (admin only)")
+def revoke_arbitrator_route(
+    request: RevokeArbitratorRequest,
+    http_request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
+) -> RevokeArbitratorResponse:
+    """Revoke an owner-granted arbitrator (#2460)"""
+    if revoke_arbitrator is None:
+        raise HTTPException(status_code=503, detail="Disputes module not available")
+    return revoke_arbitrator(request, http_request, credentials)  # type: ignore[no-any-return]
 
 
 @router.get("/active", summary="Get all active disputes")

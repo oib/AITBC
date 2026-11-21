@@ -255,6 +255,30 @@ class DisputeResolutionService:
             logger.error("Error authorizing arbitrator: %s", e)
             return {"success": False, "error": str(e)}
 
+    def revoke_arbitrator(
+        self, arbitrator_address: str, owner_address: str, owner_signature: str | None = None
+    ) -> dict[str, Any]:
+        """
+        Revoke an owner-granted arbitrator (admin only, #2460)
+
+        Args:
+            arbitrator_address: Address of the arbitrator to revoke
+            owner_address: Address of the contract owner
+            owner_signature: Signature from the owner proving authorization
+
+        Returns:
+            Dictionary with success status
+        """
+        try:
+            return dispute_resolution_contract.revoke_arbitrator(
+                arbitrator_address=arbitrator_address,
+                owner_address=owner_address,
+                owner_signature=owner_signature,
+            )
+        except (LookupError, ValueError, TypeError, AttributeError) as e:
+            logger.error("Error revoking arbitrator: %s", e)
+            return {"success": False, "error": str(e)}
+
     def get_dispute(self, dispute_id: int) -> dict[str, Any]:
         """
         Get details of a specific dispute

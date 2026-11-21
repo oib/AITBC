@@ -111,12 +111,18 @@ class DisputeResolutionContract:
         self.evidence: dict[int, list[Evidence]] = {}
         self.votes: dict[int, list[ArbitrationVote]] = {}
         self.arbitrators: dict[str, int] = {}
+        # Owner-granted arbitrators — the only set persisted to disk
+        # (#2460). ``self.arbitrators`` is the *effective* set recomputed on
+        # every load: env ∪ granted when AITBC_DISPUTE_ARBITRATORS is set,
+        # else granted, else the historical placeholder trio. Env-seeded and
+        # placeholder entries are never written to the state file, so
+        # removing an address from the env actually revokes it.
+        self._granted_arbitrators: dict[str, int] = {}
         self.dispute_counter = 0
         self.evidence_counter = 0
         self._owner: str | None = None
         self._state_dirty = False
         self._load_state()
-        self._seed_arbitrators()
 
     # ------------------------------------------------------------------
     # shared-state persistence (#2387)
@@ -163,7 +169,23 @@ class DisputeResolutionContract:
     def _dispute_from_dict(raw: dict[str, Any]) -> Dispute:
         return Dispute(**{**raw, "status": DisputeStatus(raw["status"]), "dispute_type": DisputeType(raw["dispute_type"])})
 
+    # Historical dev/test fallback, used only when neither env nor any
+    # owner-granted arbitrator exists (#2460).
+    _PLACEHOLDER_ARBITRATORS: dict[str, int] = {
+        "0x1111111111111111111111111111111111111111": 90,
+        "0x2222222222222222222222222222222222222222": 85,
+        "0x3333333333333333333333333333333333333333": 88,
+    }
+
     def _load_state(self) -> None:
+        try:
+            self._load_state_inner()
+        finally:
+            # The effective set always reflects the freshest env + granted
+            # state — this is what makes env removal a real revoke (#2460).
+            self._recompute_arbitrators()
+
+    def _load_state_inner(self) -> None:
         path = self._resolve_state_path()
         if path is None or not path.is_file():
             return
@@ -172,7 +194,20 @@ class DisputeResolutionContract:
             self.dispute_counter = int(data.get("dispute_counter", 0))
             self.evidence_counter = int(data.get("evidence_counter", 0))
             self._owner = data.get("owner")
-            self.arbitrators = {str(k): int(v) for k, v in (data.get("arbitrators") or {}).items()}
+            # ``granted_arbitrators`` holds only owner-granted entries.
+            # Pre-#2460 files stored the whole effective set under
+            # ``arbitrators`` — env seeds and placeholders can't be told
+            # apart from grants there, so drop known placeholders and the
+            # current env seeds as a best-effort filter (no fleet file
+            # predates this change).
+            granted = data.get("granted_arbitrators")
+            if granted is None:
+                granted = {
+                    k: v
+                    for k, v in (data.get("arbitrators") or {}).items()
+                    if k not in self._PLACEHOLDER_ARBITRATORS and k not in self._arbitrators_from_env()
+                }
+            self._granted_arbitrators = {str(k): int(v) for k, v in (granted or {}).items()}
             self.disputes = {int(k): self._dispute_from_dict(v) for k, v in (data.get("disputes") or {}).items()}
             self.evidence = {int(k): [Evidence(**e) for e in v] for k, v in (data.get("evidence") or {}).items()}
             self.votes = {int(k): [ArbitrationVote(**v) for v in v] for k, v in (data.get("votes") or {}).items()}
@@ -188,9 +223,6 @@ class DisputeResolutionContract:
             except OSError as rename_err:
                 logger.error("Could not preserve corrupt dispute state %s: %s", path, rename_err)
             return
-        env_seed = self._arbitrators_from_env()
-        if env_seed:
-            self.arbitrators.update(env_seed)
 
     def _save_state(self) -> bool:
         """Persist state; False when the write failed (#2461)."""
@@ -202,7 +234,10 @@ class DisputeResolutionContract:
             "dispute_counter": self.dispute_counter,
             "evidence_counter": self.evidence_counter,
             "owner": self._owner,
-            "arbitrators": self.arbitrators,
+            # Only owner-granted arbitrators persist — env seeds and the
+            # placeholder trio are recomputed at load and never written
+            # (#2460).
+            "granted_arbitrators": self._granted_arbitrators,
             "disputes": {str(k): self._dispute_to_dict(v) for k, v in self.disputes.items()},
             "evidence": {str(k): [asdict(e) for e in v] for k, v in self.evidence.items()},
             "votes": {str(k): [asdict(v) for v in vs] for k, vs in self.votes.items()},
@@ -338,28 +373,27 @@ class DisputeResolutionContract:
             if not self._owner.startswith("0x"):
                 self._owner = "0x" + self._owner
 
-    def _seed_arbitrators(self) -> None:
-        """Seed authorized arbitrators.
+    def _recompute_arbitrators(self) -> None:
+        """Rebuild the effective arbitrator set from env + granted state.
 
         ``AITBC_DISPUTE_ARBITRATORS`` (comma-separated ``0xaddress:score``
-        entries) always merges into the set — env wins over persisted state
+        entries) merges with the owner-granted set — env wins on conflicts
         so operators can rotate identities without editing the state file
-        (#2052, #2387). When neither env nor persisted state supplies any
-        arbitrators, the historical placeholder trio is kept so existing
-        dev/test flows are unchanged — live evidence runs must set the env.
+        (#2052, #2387). With the env set the effective set is env ∪
+        granted; with it unset, granted alone; and only when neither
+        supplies anyone does the historical placeholder trio apply —
+        persisted grants must not be diluted by placeholders that nobody
+        can sign for (#2460). Runs on every ``_load_state`` so an env
+        removal revokes on the next transaction.
         """
         env = self._arbitrators_from_env()
         if env:
-            self.arbitrators.update(env)
-            logger.info("Seeded %s arbitrators from AITBC_DISPUTE_ARBITRATORS", len(env))
+            self.arbitrators = {**self._granted_arbitrators, **env}
             return
-        if self.arbitrators:
+        if self._granted_arbitrators:
+            self.arbitrators = dict(self._granted_arbitrators)
             return
-        self.arbitrators = {
-            "0x1111111111111111111111111111111111111111": 90,
-            "0x2222222222222222222222222222222222222222": 85,
-            "0x3333333333333333333333333333333333333333": 88,
-        }
+        self.arbitrators = dict(self._PLACEHOLDER_ARBITRATORS)
         logger.info(
             "Initialized %s placeholder arbitrators (set AITBC_DISPUTE_ARBITRATORS for real identities)", len(self.arbitrators)
         )
@@ -567,9 +601,55 @@ class DisputeResolutionContract:
         if not self._verify_owner_signature(owner_address, owner_signature, sign_data):
             return {"success": False, "status": "error", "message": "Invalid owner signature"}
 
-        self.arbitrators[self._canon(arbitrator_address)] = reputation_score
+        self._granted_arbitrators[self._canon(arbitrator_address)] = reputation_score
+        self._recompute_arbitrators()
         logger.info("Authorized arbitrator %s with reputation %s", arbitrator_address, reputation_score)
         return {"success": True, "status": "Authorized", "message": f"Arbitrator {arbitrator_address} authorized"}
+
+    @_persisted
+    def revoke_arbitrator(
+        self, arbitrator_address: str, owner_address: str, owner_signature: str | None = None
+    ) -> dict[str, Any]:
+        """Revoke an owner-granted arbitrator (admin only, #2460).
+
+        Same owner + signature gate as ``authorize_arbitrator``. Removes the
+        grant from the persisted set; an address still listed in
+        ``AITBC_DISPUTE_ARBITRATORS`` stays effective until the env entry is
+        removed too — env is operator truth and always merges on top.
+        """
+        owner_address = owner_address.lower().strip()
+        if not owner_address.startswith("0x"):
+            owner_address = "0x" + owner_address
+
+        if self._owner is None:
+            return {"success": False, "status": "error", "message": "Contract owner not set"}
+        if owner_address != self._owner:
+            logger.warning("Unauthorized arbitrator revocation attempt by %s (owner: %s)", owner_address, self._owner)
+            return {"success": False, "status": "error", "message": "Not contract owner"}
+
+        if not owner_signature:
+            return {"success": False, "status": "error", "message": "Owner signature required"}
+        canon = self._canon(arbitrator_address)
+        sign_data = {
+            "action": "revoke_arbitrator",
+            "arbitrator_address": arbitrator_address,
+        }
+        if not self._verify_owner_signature(owner_address, owner_signature, sign_data):
+            return {"success": False, "status": "error", "message": "Invalid owner signature"}
+
+        removed = self._granted_arbitrators.pop(canon, None)
+        self._recompute_arbitrators()
+        still_env = canon in self.arbitrators and canon in self._arbitrators_from_env()
+        logger.info("Revoked arbitrator %s (granted=%s)", arbitrator_address, removed is not None)
+        result: dict[str, Any] = {
+            "success": True,
+            "status": "Revoked",
+            "message": f"Arbitrator {arbitrator_address} revoked",
+            "was_granted": removed is not None,
+        }
+        if still_env:
+            result["note"] = "address remains authorized via AITBC_DISPUTE_ARBITRATORS — remove the env entry to fully revoke"
+        return result
 
     def _verify_owner_signature(self, owner_address: str, signature: str, sign_data: dict[str, Any]) -> bool:
         """Verify the owner's signature on authorization data."""
