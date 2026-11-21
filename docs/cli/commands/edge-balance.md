@@ -2,7 +2,7 @@
 
 # `aitbc edge balance`
 
-Get edge wallet balance from the local edge API.
+Get edge wallet balance from the local edge API. Not yet implemented: the edge API returns 501; use ``aitbc wallet balance`` instead.
 
 ## Usage
 

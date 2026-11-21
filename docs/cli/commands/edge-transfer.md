@@ -2,7 +2,7 @@
 
 # `aitbc edge transfer`
 
-Transfer edge tokens to another address with an optional note via the local edge API.
+Transfer edge tokens to another address with an optional note via the local edge API. Not yet implemented: the edge API returns 501; use ``aitbc wallet send`` instead.
 
 ## Usage
 
