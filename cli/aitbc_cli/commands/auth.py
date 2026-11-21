@@ -153,6 +153,15 @@ def login(
     token = _post_login(ctx, client, address, nonce, signature)
     _store_login_token(ctx, token, address, environment, credential_name)
 
+    # Audit the credential issuance (#2421) — address/environment/name
+    # only; the JWT itself is never logged.
+    from ..utils.secure_audit import try_log_action
+
+    try_log_action(
+        "auth_login",
+        {"address": address, "environment": environment, "credential_name": credential_name},
+    )
+
 
 def _login_coord_url(ctx, coordinator_url: str | None, config) -> str:
     coord_url = coordinator_url or config.coordinator_api_url
@@ -316,5 +325,9 @@ def logout(ctx, environment: str, credential_name: str):
     manager = AuthManager()
     if manager.delete_credential(credential_name, environment=environment):
         success(f"Logged out of environment '{environment}'")
+        # Audit the credential deletion (#2421) — only on an actual removal.
+        from ..utils.secure_audit import try_log_action
+
+        try_log_action("auth_logout", {"environment": environment, "credential_name": credential_name})
     else:
         warning(f"No stored credential for '{credential_name}' in environment '{environment}'")
