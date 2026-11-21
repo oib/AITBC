@@ -42,7 +42,9 @@ def simulate():
 @click.option("--seed", type=int, default=None, help="Seed for deterministic simulation (default: live)")
 def blockchain(blocks, transactions, delay, output, seed):
     """Simulate blockchain block generation and transactions."""
-    click.echo(f"Simulating blockchain with {blocks} blocks, {transactions} transactions per block")
+    machine_output = output in ("json", "yaml")
+    if not machine_output:
+        click.echo(f"Simulating blockchain with {blocks} blocks, {transactions} transactions per block")
 
     rng, use_real_sleeps = make_rng(seed)
     results: list[dict[str, Any]] = []
@@ -72,14 +74,12 @@ def blockchain(blocks, transactions, delay, output, seed):
 
         results.append(block_data)
 
-        # Output block info
-        if output == "table":
+        # Output block info (machine formats emit one document at the end)
+        if not machine_output:
             click.echo(
                 f"Block {block_data['block_number']}: {block_data['tx_count']} txs, "
                 f"{block_data['total_amount']:.2f} AIT, {block_data['total_fees']:.2f} fees"
             )
-        else:
-            click.echo(json.dumps(block_data, indent=2))
 
         if delay > 0 and block_num < blocks - 1 and use_real_sleeps:
             rng.sleep(delay)
@@ -88,13 +88,32 @@ def blockchain(blocks, transactions, delay, output, seed):
     total_txs = sum(block["tx_count"] for block in results)
     total_amount = sum(block["total_amount"] for block in results)
     total_fees = sum(block["total_fees"] for block in results)
+    summary = {
+        "total_blocks": blocks,
+        "total_transactions": total_txs,
+        "total_amount_ait": total_amount,
+        "total_fees_ait": total_fees,
+        "average_tps": total_txs / (blocks * max(delay, 0.1)),
+    }
+
+    if machine_output:
+        # #2416: machine formats emit ONE document — per-block lines and the
+        # human summary would corrupt it for `jq` and friends.
+        doc = {"blocks": results, "summary": summary}
+        if output == "yaml":
+            import yaml
+
+            click.echo(yaml.safe_dump(doc, sort_keys=False))
+        else:
+            click.echo(json.dumps(doc, indent=2))
+        return
 
     click.echo("\nSimulation Summary:")
-    click.echo(f"  Total Blocks: {blocks}")
-    click.echo(f"  Total Transactions: {total_txs}")
-    click.echo(f"  Total Amount: {total_amount:.2f} AIT")
-    click.echo(f"  Total Fees: {total_fees:.2f} AIT")
-    click.echo(f"  Average TPS: {total_txs / (blocks * max(delay, 0.1)):.2f}")
+    click.echo(f"  Total Blocks: {summary['total_blocks']}")
+    click.echo(f"  Total Transactions: {summary['total_transactions']}")
+    click.echo(f"  Total Amount: {summary['total_amount_ait']:.2f} AIT")
+    click.echo(f"  Total Fees: {summary['total_fees_ait']:.2f} AIT")
+    click.echo(f"  Average TPS: {summary['average_tps']:.2f}")
 
 
 @simulate.command(

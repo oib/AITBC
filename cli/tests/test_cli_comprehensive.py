@@ -226,3 +226,15 @@ class TestConfiguration:
     def test_debug_mode(self):
         result = run_cli("--debug", "wallet", "list")
         assert result.returncode == 0
+
+    def test_simulate_blockchain_json_single_document(self):
+        """--output json emits ONE parseable document (#2416)."""
+        import json as _json
+
+        result = run_cli("simulate", "blockchain", "--blocks", "2", "--transactions", "3", "--delay", "0", "--output", "json")
+        assert result.returncode == 0
+        doc = _json.loads(result.stdout)
+        assert len(doc["blocks"]) == 2
+        assert doc["blocks"][0]["tx_count"] == 3
+        assert doc["summary"]["total_blocks"] == 2
+        assert doc["summary"]["total_transactions"] == 6
