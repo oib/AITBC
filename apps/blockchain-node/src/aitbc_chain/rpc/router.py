@@ -281,25 +281,60 @@ def start_mining_route(
 @rate_limit(rate=10, per=60)
 def stop_mining_route(
     request: Request,
+    mining_data: dict | None = None,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)] = None,
 ) -> dict[str, Any]:
-    """Disable all recorded miners (requires admin authentication).
+    """Disable the caller's recorded miners (requires admin authentication).
+
+    Scoped to rows the caller controls — ``miner_address`` or
+    ``authorized_by`` equal to the authenticated wallet — so one operator
+    cannot disable or rewrite the history of another's miner rows (#2407).
+    An optional ``miner_address`` in the body narrows the stop to that
+    address; it must be one of the caller's rows. Already-disabled rows are
+    left untouched (``stopped_at`` is not rewritten).
 
     Bookkeeping stub only — PBFT/PoA has no proof-of-work mining (#2211).
     """
     # Bug 9: Add admin authentication to mining endpoints
-    get_authenticated_address(request, credentials)
+    caller = get_authenticated_address(request, credentials)
+    caller_l = caller.lower()
+    requested = (mining_data or {}).get("miner_address")
+    if requested is not None and (not isinstance(requested, str) or not requested):
+        raise HTTPException(status_code=400, detail="miner_address must be a non-empty string")
 
     chain_id = resolve_chain_id()
     with session_scope(chain_id) as session:
         rows = session.exec(select(MinerRegistry).where(MinerRegistry.chain_id == chain_id)).all()
+        mine = [
+            row
+            for row in rows
+            if str(row.miner_address).lower() == caller_l or str(row.authorized_by or "").lower() == caller_l
+        ]
+        if requested is not None:
+            mine = [row for row in mine if str(row.miner_address).lower() == requested.lower()]
+            if not mine:
+                raise HTTPException(
+                    status_code=403,
+                    detail=f"miner '{requested}' is not registered to the authenticated wallet",
+                )
+        if not mine:
+            raise HTTPException(
+                status_code=404,
+                detail=f"no miner registered for the authenticated wallet{f' ({requested})' if requested else ''}",
+            )
         now = datetime.now(UTC)
-        for row in rows:
-            row.enabled = False
-            row.stopped_at = now
+        stopped: list[str] = []
+        for row in mine:
+            if row.enabled:
+                row.enabled = False
+                row.stopped_at = now
+                stopped.append(str(row.miner_address))
         session.commit()
     return {
         "status": "stopped",
+        "miner_addresses": stopped,
+        "stopped_count": len(stopped),
+        "already_stopped": len(mine) - len(stopped),
         "simulated": True,
         "note": _MINING_SIMULATED_NOTE,
         "message": "Mining stopped successfully",
