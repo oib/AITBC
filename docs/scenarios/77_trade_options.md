@@ -100,15 +100,18 @@ aitbc trade get tradeopts1-probe --format json
 ```
 
 **Expected output:** `Network error: GET request failed: 404 Client
-Error: Not Found for url: http://localhost:8104/v1/trading/inter-chain/tradeopts1-probe`
-(exit 2 — nothing written).
+Error: Not Found for url: http://localhost:8104/v1/trading/inter-chain/tradeopts1-probe: Trade not found`
+(exit 2 — nothing written). The trading service appends its detail
+string (`: Trade not found`) to the 404 body — updated 21 Nov after the
+server-side message changed.
 
 ```bash
 aitbc trade status --trade-id tradeopts1-probe --format json
 ```
 
 **Expected output:** same 404 shape on
-`/v1/trading/inter-chain/tradeopts1-probe/status` (exit 2).
+`/v1/trading/inter-chain/tradeopts1-probe/status`, also ending
+`: Trade not found` (exit 2).
 
 ### Step 2: List endpoints — array-safe reads (exit 0)
 
@@ -156,8 +159,23 @@ aitbc trade sync-status --format json
 aitbc trade subscription-status --format json
 ```
 
-**Expected output (exit 0):** JSON — per-chain subscription health
-status.
+**Expected output (exit 0):** JSON array of per-chain subscription
+health rows — one object per chain with an active offer subscription:
+
+```json
+[
+  {
+    "chain_id": "ait-hub",
+    "status": "subscribed",
+    "last_event": "",
+    "event_count": 0
+  }
+]
+```
+
+`[]` when no subscription lease exists (no `trade watch`/subscribe has
+run since service start). Verified populated 21 Nov after a `trade
+watch` session created the `ait-hub` lease.
 
 ### Step 3: Mutating commands — refused for free on a bad key (exit 2)
 
@@ -278,3 +296,12 @@ above. The two defects recorded during the original play are both fixed
 2. **`--format` ignored — fixed:** per-command `--format json` is
    honored via `resolve_output_format` (command flag → global `--output`
    → `table`); only `aitbc --output json` was needed before.
+
+Populated-data replay (21 Nov, node0): `bc-2` registered on the trading
+service (`trade register-chain --endpoint https://hub.aitbc.bubuit.net/rpc`)
+and `trade sync` pulled 11 on-chain offers, so `chains`, `discover`,
+`list`/`history` (S62 trade records) and `subscription-status` (after a
+`watch` lease) all return real rows. Two endpoints remain honestly
+empty by defect, tracked separately: `trade search` always `[]` —
+search index never populated (#2470); `trade sync-status` always `[]` —
+per-request service instance (#2471).
