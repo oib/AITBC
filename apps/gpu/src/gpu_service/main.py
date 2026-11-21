@@ -33,7 +33,7 @@ from aitbc.middleware import (
 
 from .config import settings  # noqa: E402
 from .domain.gpu_market import BOOKABLE_GPU_STATUSES  # noqa: E402
-from .services.edge_gpu_service import EdgeGPUService, JobStateError
+from .services.edge_gpu_service import EdgeGPUService, JobStateError, probe_cuda_version
 from .storage import get_session, init_db
 
 configure_logging(level="INFO", service_name="gpu", to_file=True)
@@ -210,7 +210,8 @@ def discover_gpu_specs() -> dict[str, Any]:
                 return {
                     "model": parts[1],
                     "memory_gb": int(parts[2]) // 1024,
-                    "cuda_version": parts[3] if len(parts) > 3 else "",
+                    "driver_version": parts[3] if len(parts) > 3 else "",
+                    "cuda_version": probe_cuda_version(),
                     "compute_capability": parts[4] if len(parts) > 4 else "",
                     "uuid": parts[5] if len(parts) > 5 else "",
                 }

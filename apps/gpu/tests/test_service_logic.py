@@ -216,6 +216,55 @@ def test_discover_gpus_parses_nvidia_smi(monkeypatch):
     assert gpus[1]["index"] == 1
 
 
+def test_probe_cuda_version_parses_banner(monkeypatch):
+    """probe_cuda_version reads 'CUDA Version: X.Y' from plain nvidia-smi (#2404)."""
+
+    class _Result:
+        returncode = 0
+        stdout = (
+            "+-----------------------------------------------------------------------------------------+\n"
+            "| NVIDIA-SMI 550.163.01             Driver Version: 550.163.01     CUDA Version: 12.4     |\n"
+        )
+        stderr = ""
+
+    monkeypatch.setattr(egs_mod.subprocess, "run", lambda *a, **kw: _Result())
+    assert egs_mod.probe_cuda_version() == "12.4"
+
+
+def test_probe_cuda_version_empty_without_banner(monkeypatch):
+    class _Result:
+        returncode = 0
+        stdout = "no header here\n"
+        stderr = ""
+
+    monkeypatch.setattr(egs_mod.subprocess, "run", lambda *a, **kw: _Result())
+    assert egs_mod.probe_cuda_version() == ""
+
+
+def test_discover_gpu_specs_reports_driver_and_cuda_separately(monkeypatch):
+    """discover_gpu_specs must not label driver_version as cuda_version (#2404)."""
+    import gpu_service.main as main_mod
+
+    class _QueryResult:
+        returncode = 0
+        stdout = "0, NVIDIA RTX 4090, 24564, 550.163.01, 8.9, GPU-aaa\n"
+        stderr = ""
+
+    class _BannerResult:
+        returncode = 0
+        stdout = "| Driver Version: 550.163.01   CUDA Version: 12.4 |\n"
+        stderr = ""
+
+    def _fake_run(args, **kw):
+        return _BannerResult() if not any("--query-gpu" in a for a in args) else _QueryResult()
+
+    monkeypatch.setattr(main_mod.subprocess, "run", _fake_run)
+    specs = main_mod.discover_gpu_specs()
+    assert specs["driver_version"] == "550.163.01"
+    assert specs["cuda_version"] == "12.4"
+    assert specs["compute_capability"] == "8.9"
+
+
 def test_discover_gpus_handles_missing_binary(monkeypatch):
     def _raise(*a, **kw):
         raise FileNotFoundError("nvidia-smi")
