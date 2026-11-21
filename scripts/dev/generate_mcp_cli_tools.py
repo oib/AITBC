@@ -590,9 +590,9 @@ def py_type(param: click.Parameter, choices: list[str] | None = None) -> str:
             return "str"
         return "Literal[" + ", ".join(repr(c) for c in display) + "]"
     tname = type(param.type).__name__
-    if tname == "IntParamType":
+    if tname in {"IntParamType", "IntRange"}:
         return "int"
-    if tname == "FloatParamType":
+    if tname in {"FloatParamType", "FloatRange"}:
         return "float"
     if tname == "BoolParamType":
         return "bool"

@@ -22,7 +22,7 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_pool_hub_sla(
     miner_id: Annotated[str | None, Field(description="Show metric history for a specific miner")] = None,
-    hours: Annotated[str | None, Field(description="Metric history window in hours")] = None,
+    hours: Annotated[int | None, Field(description="Metric history window in hours")] = None,
     violations: Annotated[bool | None, Field(description="List SLA violations instead of the status summary")] = None,
     resolved: Annotated[
         bool | None, Field(description="With --violations: list resolved violations (default lists open ones)")

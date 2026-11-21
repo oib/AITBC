@@ -15,13 +15,14 @@ aitbc agent-comm register [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--agent-id` | text | — | yes | The Agent id. |
-| `--name` | text | — | yes | Wallet name. |
+| `--name` | text | — | yes | Display name for the agent. |
 | `--chain-id` | text | — | yes | The Chain id. |
 | `--endpoint` | text | — | yes | The Endpoint. |
 | `--capabilities` | text | — | no | Comma-separated list of capabilities |
-| `--reputation` | float | `0.5` | no | Initial reputation score |
-| `--version` | text | `1.0.0` | no | Agent version |
-| `--agent-type` | text | `worker` | no | Agent type (worker, specialist, etc.) |
+| `--reputation` | float range | — | no | Initial reputation score (0.0-1.0) |
+| `--version` | text | — | no | Agent version |
+| `--agent-type` | text | — | no | Agent type (worker, specialist, etc.) |
+| `--update` | flag | `false` | no | Overwrite an already-registered agent_id; options not passed keep the stored values |
 | `--wallet` | text | — | no | Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); signs the registration claim |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
 | `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
