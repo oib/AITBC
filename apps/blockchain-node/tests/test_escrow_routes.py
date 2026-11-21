@@ -1405,7 +1405,8 @@ async def test_two_concurrent_signers_get_distinct_nonces(release_key, monkeypat
             escrow_routes.SharedHttpClient,
             "get",
             new_callable=AsyncMock,
-            side_effect=[mempool_resp([5]), mempool_resp([5, 6])],
+            # Per submit: pending-release mempool probe, then the nonce-floor probe.
+            side_effect=[mempool_resp([5]), mempool_resp([5]), mempool_resp([5]), mempool_resp([5, 6])],
         ),
         patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock, return_value=ok) as mock_post,
     ):
@@ -1658,3 +1659,130 @@ async def test_refund_and_sweep_share_the_signing_nonce_path(release_key, monkey
             == "0xre9"
         )
     assert mock_post.await_count == 2
+
+
+# --- #2376: ambiguous-submit dedup must see the mempool, not just sealed txs ---
+
+
+@pytest.mark.asyncio
+async def test_submit_payment_tx_returns_pending_mempool_release(release_key, monkeypatch):
+    """A release already admitted to mempool must not be signed and resubmitted.
+
+    The sealed-tx lookup cannot see it; without the mempool check the retry
+    gossips a second ESCROW_RELEASE that apply rejects on the obligation
+    check — and the failed hash can end up recorded as the release.
+    """
+    monkeypatch.setenv("ESCROW_RELEASE_PRIVATE_KEY", release_key)
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+
+    escrow_routes = _reload_routes()
+    from aitbc_chain.mempool_common import compute_tx_hash
+
+    provider = "0x3333333333333333333333333333333333333333"
+    pending_tx = {
+        "from": RELEASE_KEY_ADDRESS,
+        "to": provider,
+        "amount": 36_000_000,
+        "fee": 360_000,
+        "nonce": 5,
+        "payload": {
+            "action": "escrow_release",
+            "job_id": "job-123",
+            "contract_id": "contract-123",
+        },
+        "type": "ESCROW_RELEASE",
+        "chain_id": "test-chain",
+        "signature": "0xsig",
+    }
+    mempool_response = MagicMock()
+    mempool_response.status_code = 200
+    mempool_response.json.return_value = {"success": True, "transactions": [pending_tx], "count": 1}
+
+    with (
+        patch.object(escrow_routes, "_find_existing_release", new_callable=AsyncMock, return_value=None),
+        patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=mempool_response),
+        patch.object(escrow_routes.SharedHttpClient, "post", new_callable=AsyncMock) as mock_post,
+    ):
+        tx_hash = await escrow_routes._submit_payment_tx(
+            buyer="0x4444444444444444444444444444444444444444",
+            provider=provider,
+            amount=Decimal("1.0"),
+            job_id="job-123",
+            contract_id="contract-123",
+        )
+
+    assert tx_hash == compute_tx_hash(pending_tx)
+    mock_post.assert_not_awaited(), "a pending release must not be resubmitted"
+
+
+@pytest.mark.asyncio
+async def test_find_pending_escrow_tx_ignores_other_jobs_and_types(monkeypatch):
+    """The mempool scan matches on type + payload.job_id only."""
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+
+    entries = [
+        {"type": "ESCROW_RELEASE", "payload": {"job_id": "job-999"}},
+        {"type": "ESCROW_REFUND", "payload": {"job_id": "job-123"}},
+        {"type": "TRANSFER", "payload": {"job_id": "job-123"}},
+        {"type": "ESCROW_RELEASE", "payload": {"job_id": "job-123"}},
+    ]
+    mempool_response = MagicMock()
+    mempool_response.status_code = 200
+    mempool_response.json.return_value = {"transactions": entries}
+
+    with patch.object(escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, return_value=mempool_response):
+        found = await escrow_routes._find_pending_escrow_tx("job-123", "ESCROW_RELEASE")
+        assert found is not None
+        assert await escrow_routes._find_pending_escrow_tx("job-absent", "ESCROW_RELEASE") is None
+
+
+@pytest.mark.asyncio
+async def test_find_pending_escrow_tx_quiet_on_probe_failure(monkeypatch):
+    """A mempool probe failure degrades to 'not pending', never to a wrong hash."""
+    monkeypatch.setenv("HUB_RPC_URL", "http://localhost:8202")
+    monkeypatch.setenv("CHAIN_ID", "test-chain")
+    escrow_routes = _reload_routes()
+
+    with patch.object(
+        escrow_routes.SharedHttpClient, "get", new_callable=AsyncMock, side_effect=RuntimeError("connection refused")
+    ):
+        assert await escrow_routes._find_pending_escrow_tx("job-123", "ESCROW_RELEASE") is None
+
+
+def test_release_row_update_caps_released_amount_at_locked():
+    """#2376: released_amount must never exceed the locked amount on the row."""
+    from datetime import UTC, datetime
+    from decimal import Decimal as _D
+    from types import SimpleNamespace
+
+    from aitbc.utils import ait_to_units
+    from aitbc_chain.rpc import escrow_routes_release
+
+    locked_units = ait_to_units(_D("0.5"))
+    record = SimpleNamespace(
+        released_at=None,
+        status="locked",
+        state="locked",
+        contract_id=None,
+        released_amount=None,
+        refunded_amount=None,
+        refund_tx_hash=None,
+        billed_legs=None,
+        release_tx_hash=None,
+        job_tx_hash=None,
+        amount=locked_units,
+    )
+    escrow_routes_release._release_row_update(
+        record,
+        contract_id="contract-1",
+        tx_hash="0xrel",
+        billed_units=locked_units,
+        job_tx_hash=None,
+        released_amount=_D("0.975"),
+        released_at=datetime.now(UTC),
+    )
+    assert record.released_amount == locked_units
+    assert record.release_tx_hash == "0xrel"
