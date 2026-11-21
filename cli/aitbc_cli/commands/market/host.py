@@ -73,6 +73,31 @@ _MARKET_HOST_ERRORS = (
 # failed refund never masks the primary job error (#2340).
 _HOST_REFUND_ERRORS = _MARKET_HOST_ERRORS + (click.ClickException,)
 
+# After an ambiguous /v1/payments submit, poll the payment row this many
+# times (4s apart) before declaring the submit failed (#2340 r5).
+_HOST_PAYMENT_RECONCILE_ATTEMPTS = 3
+_HOST_PAYMENT_RECONCILE_DELAY = 4.0
+
+
+def _reconcile_host_payment(client: AITBCHTTPClient, coord_job_id: str) -> dict[str, Any] | None:
+    """Return the JobPaymentView for ``coord_job_id`` if one exists, else None.
+
+    Used only after an ambiguous ``POST /v1/payments`` (timeout/reset): the
+    server may have committed the row anyway. Any non-404 answer — including
+    a non-escrowed status — is returned so the caller's status check decides;
+    only "no row visible" yields None.
+    """
+    for attempt in range(_HOST_PAYMENT_RECONCILE_ATTEMPTS):
+        try:
+            view = client.get(f"/v1/jobs/{coord_job_id}/payment")
+        except _MARKET_HOST_ERRORS:
+            view = None
+        if isinstance(view, dict) and view.get("payment_id") and view.get("status"):
+            return view
+        if attempt + 1 < _HOST_PAYMENT_RECONCILE_ATTEMPTS:
+            time.sleep(_HOST_PAYMENT_RECONCILE_DELAY)
+    return None
+
 
 def _resolve_ipfs_api(offer: dict[str, Any]) -> str:
     """Return the HTTP API URL of the *buyer's* local IPFS daemon.
@@ -451,15 +476,28 @@ def _create_coordinator_host_escrow(
         "offer_id": offer.get("offer_id", ""),
         "offer_quantity": str(days),
     }
+    payment: dict[str, Any] | None
     try:
         payment = client.post("/v1/payments", json=payment_payload)
     except _MARKET_HOST_ERRORS as e:
-        error(
-            f"Coordinator payment submit failed for job {coord_job_id} ({type(e).__name__}: {e}). "
-            "The lock may still have landed — check `aitbc ai jobs --job-id "
-            f"{coord_job_id}` / the coordinator payment before retrying; do NOT rerun market host."
+        # Ambiguous submit: a read timeout can fire after the server already
+        # committed the payment row AND sealed the lock (#2340 r5 — the CLI
+        # aborted, no market job was registered, and the buyer had to discover
+        # and refund the escrow by hand). Reconcile against
+        # GET /v1/jobs/{id}/payment before declaring failure.
+        payment = _reconcile_host_payment(client, coord_job_id)
+        if payment is None:
+            error(
+                f"Coordinator payment submit failed for job {coord_job_id} ({type(e).__name__}: {e}) "
+                f"and no payment row appeared after {_HOST_PAYMENT_RECONCILE_ATTEMPTS} checks. "
+                "The lock may still have landed — check `aitbc ai jobs --job-id "
+                f"{coord_job_id}` / the coordinator payment before retrying; do NOT rerun market host."
+            )
+            raise click.Abort() from e
+        warning(
+            f"Payment POST was ambiguous ({type(e).__name__}: {e}) — reconciled server-side: "
+            f"payment {payment.get('payment_id')} status={payment.get('status')}"
         )
-        raise click.Abort() from e
     status = payment.get("status") if isinstance(payment, dict) else None
     if status != "escrowed":
         error(

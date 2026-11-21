@@ -2,6 +2,8 @@
 
 from unittest.mock import patch
 
+import pytest
+
 from eth_account import Account
 
 from aitbc_cli.commands.market import host as host_module
@@ -123,13 +125,24 @@ class TestCoordinatorHostEscrow:
     CID = "bafybeigdyrzt5sfp7udm7hu76uh7y26nf3efuylqabf3oclgtqy55fbzdi"
 
     class _FakeClient:
-        def __init__(self, responses):
+        def __init__(self, responses, get_responses=None, post_errors=None):
             self.responses = responses
+            self.get_responses = get_responses or {}
+            self.post_errors = post_errors or {}
             self.calls = []
 
         def post(self, path, json=None, **kw):
             self.calls.append((path, json))
+            if path in self.post_errors:
+                raise self.post_errors[path]
             return self.responses[path]
+
+        def get(self, path, **kw):
+            self.calls.append((path, None))
+            value = self.get_responses.get(path)
+            if isinstance(value, Exception):
+                raise value
+            return value
 
     def _escrow_kwargs(self):
         from decimal import Decimal
@@ -241,6 +254,66 @@ class TestCoordinatorHostEscrow:
         with patch.object(host_module, "_coordinator_payment_client", return_value=client):
             assert host_module._create_coordinator_host_escrow(None, **self._escrow_kwargs()) is None
         assert [c[0] for c in client.calls] == ["/v1/jobs"]
+
+    def test_ambiguous_payment_post_reconciles_to_escrowed(self):
+        """#2340 r5: a read timeout on POST /v1/payments must not abort when the
+        server already committed the payment row — reconcile via the job's
+        payment view and continue the host flow."""
+        from aitbc.exceptions import NetworkError
+
+        client = self._FakeClient(
+            {"/v1/jobs": {"job_id": "coord-job-1"}},
+            get_responses={
+                "/v1/jobs/coord-job-1/payment": {
+                    "payment_id": "pay-1",
+                    "status": "escrowed",
+                    "escrow_address": "contract-9",
+                }
+            },
+            post_errors={"/v1/payments": NetworkError("Read timed out")},
+        )
+        from contextlib import ExitStack
+
+        with ExitStack() as stack:
+            for p in self._patches(client).values():
+                stack.enter_context(p)
+            result = host_module._create_coordinator_host_escrow(None, **self._escrow_kwargs())
+
+        assert result == {
+            "escrow_job_id": "coord-job-1",
+            "contract_id": "contract-9",
+            "payment_id": "pay-1",
+            "tracked": True,
+        }
+        paths = [c[0] for c in client.calls]
+        assert paths[0] == "/v1/jobs"
+        assert "/v1/payments" in paths
+        assert "/v1/jobs/coord-job-1/payment" in paths
+
+    def test_ambiguous_payment_post_without_row_aborts(self):
+        """#2340 r5: when reconciliation finds no payment row the submit is a
+        genuine failure — abort with the do-not-rerun warning."""
+        import click
+
+        from aitbc.exceptions import NetworkError
+
+        client = self._FakeClient(
+            {"/v1/jobs": {"job_id": "coord-job-1"}},
+            get_responses={"/v1/jobs/coord-job-1/payment": NetworkError("404")},
+            post_errors={"/v1/payments": NetworkError("Read timed out")},
+        )
+        from contextlib import ExitStack
+
+        with ExitStack() as stack:
+            for p in self._patches(client).values():
+                stack.enter_context(p)
+            with pytest.raises(click.Abort):
+                host_module._create_coordinator_host_escrow(None, **self._escrow_kwargs())
+
+        # POST + all reconcile attempts, then abort
+        assert client.calls.count(("/v1/payments", client.calls[1][1])) == 1
+        gets = [c for c in client.calls if c[0] == "/v1/jobs/coord-job-1/payment"]
+        assert len(gets) == host_module._HOST_PAYMENT_RECONCILE_ATTEMPTS
 
     def test_payment_not_escrowed_aborts(self):
         import click
