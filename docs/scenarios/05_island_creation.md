@@ -51,13 +51,13 @@ AI agents participating in federated compute need to organize into islands — s
 ### Tools Required
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
-- Validator keys at `/var/lib/aitbc/keystore/validator_keys.json` (required for joining islands)
+- Validator keys at `/var/lib/aitbc/keystore/validator_keys.json` (only required if the node will participate in the island's consensus; joining as a compute follower does not need them)
 - A reachable hub node (default: `hub.example.net`)
 
 ### Setup Required
 
 - Genesis must be initialized (Scenario 03) so the chain ID is configured
-- For joining islands: validator keys must exist in the keystore
+- For joining islands: validator keys are only needed if the node will validate in the island's consensus — the join request itself does not send a validator key
 - For hub registration: the node must have a public IP address
 
 ---
@@ -100,7 +100,7 @@ aitbc node island create \
 
 ### Step 2: Join an Existing Island
 
-The `join` command connects to a hub node via P2P, sends a join request with your validator's public key, and stores the received credentials locally. This is how follower nodes join an island's mesh.
+The `join` command connects to a hub node via HTTP RPC, sends a join request, and stores the received credentials locally. This is how follower nodes join an island's mesh. The join request does **not** send a validator public key — validator keys in `/var/lib/aitbc/keystore/validator_keys.json` are only needed if this node will later participate in the island's consensus (a missing or empty keystore produces a warning, not a failure).
 
 ```bash
 # Join an island via the default hub
@@ -373,7 +373,7 @@ aitbc node island island-info --island-id <your_island_id>
 # Verify island credentials were stored
 cat /var/lib/aitbc/island_credentials.json | python3 -m json.tool
 
-# Verify validator keys exist (required for joining)
+# Verify validator keys exist (only needed for island consensus participation)
 ls -la /var/lib/aitbc/keystore/validator_keys.json
 
 # List registered hubs (if you registered as a hub)
