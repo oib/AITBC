@@ -195,7 +195,7 @@ def test_vote_counters_accumulate_atomically(db_session, db_engine):
 
 @pytest.mark.unit
 def test_vote_cas_rejects_grant_resolved_behind_read(db_session, db_engine):
-    """Stale reader still sees SUBMITTED; the grant was resolved to APPROVED
+    """Stale reader still sees VOTING; the grant was resolved to APPROVED
     by a concurrent process_grant via a second session — the counter UPDATE
     must take rowcount 0. voting_ends stays in the future so the Python
     time check cannot fire first and mask the CAS."""
@@ -203,9 +203,9 @@ def test_vote_cas_rejects_grant_resolved_behind_read(db_session, db_engine):
     svc = GrantService(db_session)
     grant = svc.create_grant(dev_id, "Race Grant", "desc", "100", voting_days=1)
     db_session.commit()
-    # Warm identity map (status SUBMITTED, voting still open), then resolve
+    # Warm identity map (status VOTING, voting still open), then resolve
     # behind its back through the second session.
-    assert db_session.get(GrantProposal, grant.id).status == GrantStatus.SUBMITTED
+    assert db_session.get(GrantProposal, grant.id).status == GrantStatus.VOTING
     _interfere(
         db_engine,
         update(GrantProposal).where(col(GrantProposal.id) == grant.id).values(status=GrantStatus.APPROVED),

@@ -27,9 +27,11 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_grant_create(
-    developer_id: Annotated[str, Field(description="Developer ID")],
     title: Annotated[str, Field(description="Grant title")],
     requested_amount: Annotated[str, Field(description="Requested amount as decimal string")],
+    developer_id: Annotated[
+        str | None, Field(description="Deprecated — ignored; the proposal binds to your authenticated principal (#2356)")
+    ] = None,
     description: Annotated[str | None, Field(description="Grant description")] = None,
     voting_days: Annotated[int | None, Field(description="Voting period in days")] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
@@ -169,7 +171,9 @@ def aitbc_grant_list(
 def aitbc_grant_vote(
     grant_id: Annotated[str, Field(description="The Grant id.")],
     vote: Annotated[Literal["for", "against", "abstain"], Field(description="Vote choice")],
-    voting_power: Annotated[float | None, Field(description="Voting power")] = None,
+    voting_power: Annotated[
+        float | None, Field(description="Deprecated — ignored; power comes from your governance profile (#2356)")
+    ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,

@@ -28,7 +28,7 @@ def test_grant_developer_lifecycle() -> None:
 
         grant_service = GrantService(session)
         grant = grant_service.create_grant(developer.id, "Smoke Grant", "description", "100.5", voting_days=1)
-        assert grant.status.value == "submitted"
+        assert grant.status.value == "voting"  # #2356: fresh proposals open in VOTING
         assert float(grant.requested_amount) == 100.5
 
         voted = grant_service.vote(grant.id, "for", 10.0)

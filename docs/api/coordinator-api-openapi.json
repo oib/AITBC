@@ -24341,7 +24341,7 @@
             }
           },
           "400": {
-            "description": "Bad Request",
+            "description": "voter has no voting power \u2014 stake AITBC or receive delegation via a governance profile first",
             "content": {
               "application/json": {
                 "schema": {
@@ -42081,6 +42081,7 @@
         "enum": [
           "draft",
           "submitted",
+          "voting",
           "under_review",
           "approved",
           "rejected",

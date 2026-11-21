@@ -50,9 +50,12 @@ against milestones.
 
 ## Prerequisites
 
-- Coordinator reachable; a registered developer id (scenario 72) for
-  `create`
-- Voting power on the voter address for `vote`
+- Coordinator reachable and an authenticated principal — `developer_id`
+  binds to your caller identity server-side (#1071); there is no separate
+  developer-registry lookup on `create`
+- Voting power on the voter address for `vote` — power comes from your
+  governance profile (stake/delegation), not a CLI flag; a zero-power vote
+  is rejected
 
 ---
 
@@ -63,30 +66,34 @@ against milestones.
 ```bash
 aitbc grant list
 aitbc grant list --status voting --limit 50
-aitbc grant list --developer-id dev-1
+aitbc grant list --developer-id <your-principal>
 aitbc grant list --status approved --format json
 ```
 
 ### 2. Create a proposal (write — operator line)
 
 ```bash
-aitbc grant create --developer-id dev-1 --title 'AI SDK improvements' \
+aitbc grant create --title 'AI SDK improvements' \
     --description 'Extend the SDK' --requested-amount 1000 --voting-days 14
 ```
 
 `--requested-amount` is a decimal string; `voting_days` defaults to 7.
-Creates a real proposal on the coordinator — not played without the
-operator's line.
+`--developer-id` is accepted for compatibility but **ignored** — the
+proposal's `developer_id` is your authenticated principal, so filter it
+later with `grant list --developer-id <your-principal>`. Creates a real
+proposal on the coordinator — not played without the operator's line.
 
 ### 3. Vote (write — operator line)
 
 ```bash
-aitbc grant vote --grant-id <grant-id> --vote for --voting-power 1.0
+aitbc grant vote --grant-id <grant-id> --vote for
 ```
 
-`--vote` is `for`/`against`/`abstain`; `--voting-power` records how much
-power the vote carries. Votes are recorded server-side — not played on a
-live proposal without the operator's line.
+`--vote` is `for`/`against`/`abstain`. `--voting-power` is accepted for
+compatibility but **ignored** — the coordinator derives power from your
+governance profile, and a profile with zero power gets a 400 rather than
+a silent zero-weight vote. Votes are recorded server-side — not played on
+a live proposal without the operator's line.
 
 ### 4. Disburse (write — operator line)
 
@@ -112,7 +119,8 @@ line and a passed proposal.
 
 ## Verification
 
-- `grant list --status voting` shows the new proposal after `create`.
+- `grant list --status voting` shows the new proposal after `create`
+  (fresh proposals open in `voting`; legacy rows may show `submitted`).
 - After `disburse`, the grant's status/record reflects the payout.
 
 ## Troubleshooting
