@@ -132,15 +132,18 @@ class RateLimitMiddleware:
 # minute — so it logs below WARNING. A GET 404 for a well-formed transaction
 # hash is the same shape: "not sealed yet" is what a pending-tx poller sees.
 # Only a full 0x+64-hex hash qualifies — non-hash ids still warn, as does
-# every other client error.
+# every other client error. A GET 404 on /rpc/escrow/{key} is the same
+# expected miss: escrow keys are arbitrary job ids and "no escrow row" is
+# the normal answer for the market sweeper's adoption probe (#2430).
 _ACCOUNT_MISS_PATH = re.compile(r"/rpc/accounts?/[^/]+/?$")
 _TX_MISS_PATH = re.compile(r"/rpc/transaction/0x[0-9a-fA-F]{64}/?$")
+_ESCROW_MISS_PATH = re.compile(r"/rpc/escrow/[^/]+/?$")
 
 
 def _expected_get_404(method: str, status_code: int, path: str) -> bool:
     if method != "GET" or status_code != 404:
         return False
-    return bool(_ACCOUNT_MISS_PATH.fullmatch(path) or _TX_MISS_PATH.fullmatch(path))
+    return bool(_ACCOUNT_MISS_PATH.fullmatch(path) or _TX_MISS_PATH.fullmatch(path) or _ESCROW_MISS_PATH.fullmatch(path))
 
 
 # #1710: paths that must stay reachable while a chain.db is quarantined —

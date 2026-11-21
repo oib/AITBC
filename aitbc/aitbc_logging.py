@@ -294,6 +294,12 @@ class _HttpxStatusFilter(logging.Filter):
     (the error signal survives without the credential path), and an
     'HTTP Request:' line the regex cannot parse is dropped rather than
     risk passing a URL (ETH-15).
+
+    A GET that answers 404 is the same expected-miss shape the RPC server
+    already logs below WARNING for account/tx/escrow lookups (#2430):
+    "no such resource" on a read is data, not an error. It stays at INFO
+    — still redacted, still in the journal — while every other 4xx keeps
+    the WARNING upgrade.
     """
 
     def filter(self, record: logging.LogRecord) -> bool:
@@ -305,6 +311,10 @@ class _HttpxStatusFilter(logging.Filter):
             except ValueError:
                 status = -1
             if 400 <= status < 500:
+                if status == 404 and self._is_get(msg):
+                    record.msg = redact_text(msg)
+                    record.args = ()
+                    return True
                 record.levelno = logging.WARNING
                 record.levelname = "WARNING"
             elif status >= 500:
@@ -321,6 +331,12 @@ class _HttpxStatusFilter(logging.Filter):
         if _HTTPX_REQUEST_MARK in msg:
             return False
         return True
+
+    @staticmethod
+    def _is_get(msg: str) -> bool:
+        """True when the request line's method is GET."""
+        tail = msg.partition(_HTTPX_REQUEST_MARK)[2].strip()
+        return tail.split(None, 1)[0].upper() == "GET" if tail else False
 
 
 def configure_httpx_logging() -> None:

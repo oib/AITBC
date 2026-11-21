@@ -177,6 +177,18 @@ class TestRequestLoggingLevels:
         assert resp.status_code in (400, 404)
         assert any(r.levelno == logging.WARNING for r in _client_errors(caplog))
 
+    def test_missing_escrow_path_is_expected_404(self):
+        """#2430: "no escrow row" is the market sweeper's expected probe
+        answer — escrow keys are arbitrary job ids, so the single-segment
+        lookup path classifies as expected-miss like account/tx."""
+        from aitbc_chain.app import _expected_get_404
+
+        assert _expected_get_404("GET", 404, "/rpc/escrow/sw_job_does_not_exist")
+        assert _expected_get_404("GET", 404, "/rpc/escrow/ai_job_c4e3a18acf884032/")
+        assert not _expected_get_404("GET", 404, "/rpc/escrow/some_job/not-a-route")
+        assert not _expected_get_404("GET", 404, "/rpc/escrow")
+        assert not _expected_get_404("POST", 404, "/rpc/escrow/some_job")
+
     def test_post_transaction_error_still_warns(self, client, caplog):
         caplog.set_level(logging.INFO, logger="aitbc_chain.app")
         resp = client.post("/rpc/transaction", json={})
