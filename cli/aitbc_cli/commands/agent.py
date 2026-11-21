@@ -22,7 +22,9 @@ from ..utils.agent_signing import (
     check_registry_binding,
     find_agent_by_identity,
     load_signing_wallet,
+    read_signing_options,
     sign_send_envelope,
+    signed_read_headers,
     signed_request_headers,
 )
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger
@@ -149,7 +151,7 @@ def _ws_auth_token(
             timeout=10,
             **auth_client_kwargs(ctx.obj.get("api_key") if ctx and ctx.obj else None, get_config().api_key),
         )
-        binding_error = check_registry_binding(client, sender, address)
+        binding_error = check_registry_binding(client, sender, address, private_key)
         if not binding_error:
             token = agent_login_token(client, sender, address, private_key)
             if token is not None:
@@ -342,11 +344,11 @@ def _resolve_send_sender(ctx, http_client: AITBCHTTPClient, from_agent: str | No
         # identity_address. Resolve or verify the binding before posting.
         address, private_key = signing
         if sender:
-            binding_error = check_registry_binding(http_client, sender, address)
+            binding_error = check_registry_binding(http_client, sender, address, private_key)
             if binding_error:
                 abort(None, binding_error)
         else:
-            sender = find_agent_by_identity(http_client, address)
+            sender = find_agent_by_identity(http_client, address, strict=True)
             if not sender:
                 abort(
                     None,
@@ -473,14 +475,32 @@ def receive(
 
   aitbc agent-msg peers
 
-  aitbc agent-msg peers --coordinator-url http://hub.example.net:8107"""
+  aitbc agent-msg peers --coordinator-url http://hub.example.net:8107
+
+  aitbc agent-msg peers --wallet shop-wallet --signing-agent-id shop-agent"""
 )
 @click.option("--coordinator-url", default=None, help="Agent Coordinator URL (default: from config)")
+@read_signing_options
 @click.pass_context
-def peers(ctx, coordinator_url: str | None):
-    """List the peers currently known to the Agent Coordinator."""
+def peers(
+    ctx,
+    coordinator_url: str | None,
+    signing_agent_id: str | None,
+    wallet_name: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+):
+    """List the peers currently known to the Agent Coordinator.
+
+    The discover endpoint requires an authenticated principal — pass
+    --wallet + --signing-agent-id (or set AGENT_ID) to sign X-Agent-*
+    request headers, or rely on a stored 'aitbc auth login' session /
+    --api-key.
+    """
     config = get_config()
     base_url = (coordinator_url or config.agent_coordinator_url or "http://localhost:8107").rstrip("/")
+    headers = signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
 
     try:
         http_client = AITBCHTTPClient(
@@ -488,7 +508,7 @@ def peers(ctx, coordinator_url: str | None):
             timeout=10,
             **auth_client_kwargs(ctx.obj.get("api_key") if ctx.obj else None, config.api_key),
         )
-        peers_data = http_client.get("/api/v1/agent/messages/discover")
+        peers_data = http_client.get("/api/v1/agent/messages/discover", headers=headers)
         success("Agent Coordinator Peers:")
         output(peers_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:

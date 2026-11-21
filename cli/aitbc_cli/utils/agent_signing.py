@@ -244,7 +244,7 @@ def identity_attestation_fields(
     }
 
 
-def check_registry_binding(client, agent_id: str, address: str) -> str | None:
+def check_registry_binding(client, agent_id: str, address: str, private_key: str | None = None) -> str | None:
     """Check that ``agent_id`` is registered and bound to ``address``.
 
     Returns an operator-facing error string on a definitive problem (agent
@@ -253,9 +253,15 @@ def check_registry_binding(client, agent_id: str, address: str) -> str | None:
     unreachable, etc.) — the signed send then proceeds and the coordinator's
     own verification decides; a transient lookup error must not block traffic
     that advisory mode would accept.
+
+    ``private_key`` (the signing wallet's key) authenticates the lookup as
+    ``agent_id`` via ``X-Agent-*`` headers — required since the coordinator's
+    ``GET /v1/agents/{id}`` became principal-gated; without it every lookup
+    401s and the pre-flight check silently degrades to "lookup failed".
     """
+    headers = signed_request_headers(agent_id, private_key) if private_key else None
     try:
-        data = client.get(f"/v1/agents/{agent_id}")
+        data = client.get(f"/v1/agents/{agent_id}", headers=headers)
     except Exception as e:  # noqa: BLE001 - lookup failure must not block advisory-mode traffic
         logger.debug("agent registry lookup failed for %s: %s", agent_id, type(e).__name__)
         if "404" in str(e):
@@ -286,17 +292,61 @@ def check_registry_binding(client, agent_id: str, address: str) -> str | None:
     return None
 
 
-def find_agent_by_identity(client, address: str) -> str | None:
-    """Scan the registry for an agent bound to ``address``; returns agent_id."""
-    try:
-        data = client.post("/v1/agents/discover", json={"limit": 1000})
-    except Exception as e:  # noqa: BLE001 - registry scan failure means no agent is found
-        logger.debug("agent discover failed: %s", type(e).__name__)
-        return None
-    agents = data.get("agents", []) if isinstance(data, dict) else []
+def _discover_registry_agents(client) -> list[dict[str, Any]]:
+    """Every agent in the registry, including INACTIVE-retained records (#2367).
+
+    ``POST /v1/agents/discover`` drops INACTIVE agents unless the query
+    filters on ``status`` explicitly, so the scan runs a second query for
+    them — a heartbeat-stale agent kept for read auth must still resolve its
+    wallet binding. Older coordinators that reject ``status=inactive`` return
+    an empty page for that query, which is harmless.
+    """
+    agents: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for query in ({"limit": 500}, {"status": "inactive", "limit": 500}):
+        data = client.post("/v1/agents/discover", json=query)
+        batch = data.get("agents", []) if isinstance(data, dict) else []
+        for agent in batch:
+            if not isinstance(agent, dict):
+                continue
+            agent_id = str(agent.get("agent_id") or "")
+            if agent_id and agent_id in seen:
+                continue
+            seen.add(agent_id)
+            agents.append(agent)
+    return agents
+
+
+def find_agent_by_identity(client, address: str, *, strict: bool = False) -> str | None:
+    """Scan the registry for an agent bound to ``address``; returns agent_id.
+
+    ``strict=False`` (the default, used by ``agent-task``'s soft buyer-agent
+    fallback) returns ``None`` on any lookup failure. ``strict=True``
+    (``agent-msg send`` wallet→agent resolution, where the lookup *is* the
+    sender resolution) aborts with operator guidance instead of masquerading
+    a failed scan as "no agent is bound" — since #2212 the discover route
+    requires an authenticated principal, so an anonymous scan 401s.
+    """
     try:
         wanted = canonical_address(address)
     except (AttributeError, TypeError, ValueError, ImportError):
+        return None
+    try:
+        agents = _discover_registry_agents(client)
+    except Exception as e:  # noqa: BLE001 - caller decides whether the miss is fatal
+        logger.debug("agent discover failed: %s", type(e).__name__)
+        if strict:
+            auth_hint = (
+                " — /v1/agents/discover requires an authenticated principal; run `aitbc auth login` or pass --api-key"
+                if "401" in str(e) or "403" in str(e) or "authentication required" in str(e)
+                else ""
+            )
+            abort(
+                None,
+                f"Could not resolve the agent bound to wallet {address}: the registry "
+                f"lookup failed ({e}).{auth_hint} Pass --from-agent explicitly.",
+                from_exception=e,
+            )
         return None
     for agent in agents:
         bound = agent.get("identity_address") if isinstance(agent, dict) else None
