@@ -386,6 +386,18 @@ def _is_scratch_path(value: str) -> bool:
     return norm == SCRATCH_ROOT or norm.startswith(SCRATCH_ROOT + "/")
 
 
+# Secret-shaped names that are still allowed through ``env`` because their
+# value is a *path to* a secret file, never the secret itself — the same
+# exposure class as the ``--password-file`` option the generated tools already
+# expose. ``AITBC_WALLET_PASSWORD_FILE`` is pinned beneath /etc/aitbc/, where
+# operator-provisioned service secrets live, so a caller can point at a
+# root-only password file it could never create itself (#2392: MCP/CLI-only
+# play has no stdin and cannot stage node-side files, leaving encrypted-wallet
+# legs unreachable).
+CLI_ENV_SECRET_FILE_VARS = frozenset({"AITBC_WALLET_PASSWORD_FILE"})
+CLI_ENV_SECRET_FILE_ROOT = "/etc/aitbc/"
+
+
 def _is_allowed_env_name(name: str) -> bool:
     if name in CLI_ENV_ALLOWED_EXACT:
         return True
@@ -399,6 +411,14 @@ def _validate_cli_env(env: dict[str, str] | None) -> str | None:
     for name, value in env.items():
         if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", name):
             return f"invalid environment variable name: {name!r}"
+        if name in CLI_ENV_SECRET_FILE_VARS:
+            norm = os.path.normpath(value) if isinstance(value, str) else ""
+            if not norm.startswith(CLI_ENV_SECRET_FILE_ROOT):
+                return (
+                    f"{name} must name a file under {CLI_ENV_SECRET_FILE_ROOT}: {value!r} "
+                    "(the value is a path to a provisioned secret file, not the secret)"
+                )
+            continue
         if not _is_allowed_env_name(name):
             return f"environment variable not allowed: {name!r} (allow-list: HOME, non-secret AITBC_* names)"
         if not isinstance(value, str) or not _is_scratch_path(value):
