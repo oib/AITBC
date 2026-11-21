@@ -6970,6 +6970,13 @@
           ]
         },
         {
+          "public": "/api/v2/market/v1/market/jobs/{job_id}/billing",
+          "upstream": "/v1/market/jobs/{job_id}/billing",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
           "public": "/api/v2/market/v1/market/jobs/{job_id}/cancel",
           "upstream": "/v1/market/jobs/{job_id}/cancel",
           "methods": [

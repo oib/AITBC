@@ -28,7 +28,7 @@ from pydantic import BaseModel, Field  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
-from aitbc.shop_gate import MARKET_VERIFY_URL, require_job_access  # noqa: E402
+from aitbc.shop_gate import MARKET_VERIFY_URL, report_request_billing, require_job_access  # noqa: E402
 from aitbc.utils.env import subprocess_env  # noqa: E402
 
 configure_logging(level="INFO", service_name="hermes-agent", to_file=True)
@@ -343,11 +343,15 @@ def _build_command(request: HermesRunRequest, usage_path: str) -> list[str]:
 
 
 @app.post("/run", dependencies=[Depends(require_job_access)])
-async def run_hermes(request: HermesRunRequest, _cred: None = Depends(_require_run_credential)):
+async def run_hermes(
+    request: HermesRunRequest,
+    raw_request: Request,
+    _cred: None = Depends(_require_run_credential),
+):
     """Run a one-shot Hermes prompt and return the result plus timing."""
     await _run_semaphore.acquire()
     try:
-        return await _run_hermes_inner(request)
+        return await _run_hermes_inner(request, raw_request)
     except HTTPException:
         # Deliberate answers (400 allowlist/reasoning rejections, 503
         # unconfigured-offer, 502 nonzero exit, 504 timeout — all carrying a
@@ -364,7 +368,7 @@ async def run_hermes(request: HermesRunRequest, _cred: None = Depends(_require_r
         _run_semaphore.release()  # noqa: unawaited-async — Semaphore.release() is synchronous
 
 
-async def _run_hermes_inner(request: HermesRunRequest):
+async def _run_hermes_inner(request: HermesRunRequest, raw_request: Request | None = None):
     # Use a temporary working directory to avoid loading AGENTS.md/skills from the
     # service source tree.  Hermes still reads HERMES_HOME for config and env.
     with tempfile.TemporaryDirectory(prefix="hermes_run_") as tmpdir:
@@ -463,6 +467,13 @@ async def _run_hermes_inner(request: HermesRunRequest):
     result_hash = hashlib.sha256(result_text.encode()).hexdigest()
     elapsed_rounded = round(elapsed, 2)
     duration_minutes = round(elapsed / 60, 4)
+
+    # #2365: attest the billed usage to the market service before answering —
+    # settlement prices the escrow from this report, not from the buyer's
+    # client-side computation. Never raises; a missed report degrades to
+    # full-lock settlement. raw_request is None only for direct test calls.
+    if raw_request is not None:
+        await report_request_billing(raw_request, {"duration_minutes": duration_minutes})
 
     return JSONResponse(
         {
