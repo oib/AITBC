@@ -133,8 +133,13 @@ Reserves a resource allocation for an agent.
 
 Cost: 0 units — reservation record only.
 
+`--agent-id` must be the coordinator **agent identity ID** bound to the caller's wallet
+(the `agent_id` an `agent register`/identity flow created for you) — not a display name
+like `agent-001`. The server answers 403 naming the expected owner wallet when the id is
+registered to someone else, and "no agent identity registered" when the id does not exist.
+
 ```bash
-aitbc resource allocate --agent-id agent-001 --cpu-cores 4 --memory-gb 8
+aitbc resource allocate --agent-id <your-agent-identity-id> --cpu-cores 4 --memory-gb 8
 ```
 
 ### Step 10: Optimize agent resources
@@ -143,8 +148,10 @@ Runs the resource optimizer against a target metric.
 
 Cost: 0 units — recommendation/adjustment only.
 
+At least one `--current-*` metric flag is required (the CLI rejects the call without one).
+
 ```bash
-aitbc resource optimize --agent-id agent-001 --target-metric latency
+aitbc resource optimize --agent-id <your-agent-identity-id> --target-metric latency --current-latency 250
 ```
 
 <!-- COVERAGE-LEFT-1: generic HTTP pivot leaf (issue #445) -->

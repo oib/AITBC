@@ -77,9 +77,20 @@ def require_agent_access(session: Session, user: dict[str, Any], agent_id: str) 
     """
     if is_admin(user):
         return
-    if agent_owner_addresses(session, agent_id) & caller_wallets(session, user):
+    owners = agent_owner_addresses(session, agent_id)
+    if owners & caller_wallets(session, user):
         return
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="not the agent owner")
+    # #2418: distinguish "no such agent identity" from "owned by someone
+    # else" — the bare "not the agent owner" could not be debugged.
+    if not owners:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"no agent identity registered for agent_id '{agent_id}'",
+        )
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail=f"agent '{agent_id}' is owned by a different wallet ({', '.join(sorted(owners))})",
+    )
 
 
 def require_identity_access(session: Session, user: dict[str, Any], identity_value: str) -> None:

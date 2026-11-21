@@ -34293,7 +34293,7 @@
             }
           },
           "403": {
-            "description": "not the agent owner",
+            "description": "no agent identity registered for agent_id '{agent_id}' / agent '{agent_id}' is owned by a different wallet ({identity.owner_address})",
             "content": {
               "application/json": {
                 "schema": {
@@ -34374,7 +34374,7 @@
             }
           },
           "403": {
-            "description": "not the agent owner",
+            "description": "no agent identity registered for agent_id '{agent_id}' / agent '{agent_id}' is owned by a different wallet ({identity.owner_address})",
             "content": {
               "application/json": {
                 "schema": {
@@ -34475,7 +34475,7 @@
             }
           },
           "403": {
-            "description": "not the agent owner",
+            "description": "no agent identity registered for agent_id '{agent_id}' / agent '{agent_id}' is owned by a different wallet ({identity.owner_address})",
             "content": {
               "application/json": {
                 "schema": {
@@ -34750,7 +34750,7 @@
             }
           },
           "403": {
-            "description": "not the agent owner",
+            "description": "no agent identity registered for agent_id '{agent_id}' / agent '{agent_id}' is owned by a different wallet ({identity.owner_address})",
             "content": {
               "application/json": {
                 "schema": {
@@ -34868,7 +34868,7 @@
             }
           },
           "403": {
-            "description": "not the agent owner",
+            "description": "no agent identity registered for agent_id '{agent_id}' / agent '{agent_id}' is owned by a different wallet ({identity.owner_address})",
             "content": {
               "application/json": {
                 "schema": {
@@ -34947,7 +34947,7 @@
             }
           },
           "403": {
-            "description": "not the agent owner",
+            "description": "no agent identity registered for agent_id '{agent_id}' / agent '{agent_id}' is owned by a different wallet ({identity.owner_address})",
             "content": {
               "application/json": {
                 "schema": {
@@ -35047,7 +35047,7 @@
             }
           },
           "403": {
-            "description": "not the agent owner",
+            "description": "no agent identity registered for agent_id '{agent_id}' / agent '{agent_id}' is owned by a different wallet ({identity.owner_address})",
             "content": {
               "application/json": {
                 "schema": {
@@ -35127,7 +35127,7 @@
             }
           },
           "403": {
-            "description": "not the agent owner",
+            "description": "no agent identity registered for agent_id '{agent_id}' / agent '{agent_id}' is owned by a different wallet ({identity.owner_address})",
             "content": {
               "application/json": {
                 "schema": {
@@ -35210,7 +35210,7 @@
             }
           },
           "403": {
-            "description": "not the agent owner",
+            "description": "no agent identity registered for agent_id '{agent_id}' / agent '{agent_id}' is owned by a different wallet ({identity.owner_address})",
             "content": {
               "application/json": {
                 "schema": {
@@ -35301,7 +35301,7 @@
             }
           },
           "403": {
-            "description": "not the agent owner",
+            "description": "no agent identity registered for agent_id '{agent_id}' / agent '{agent_id}' is owned by a different wallet ({identity.owner_address})",
             "content": {
               "application/json": {
                 "schema": {
