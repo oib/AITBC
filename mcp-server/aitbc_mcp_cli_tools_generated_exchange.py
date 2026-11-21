@@ -28,8 +28,13 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_add_liquidity(
     pair: Annotated[str, Field(description="Trading pair symbol (e.g., AITBC/ETH)")],
-    amount: Annotated[str, Field(description="Liquidity amount")],
-    side: Annotated[Literal["buy", "sell"] | None, Field(description="Side to provide liquidity")] = None,
+    amount: Annotated[
+        str,
+        Field(
+            description="Liquidity amount in the side's own units: --side buy adds quote-asset units (ETH for AITBC/ETH), --side sell adds base-asset units (AITBC), --side both adds the amount to each side in that side's units"
+        ),
+    ],
+    side: Annotated[Literal["buy", "sell", "both"] | None, Field(description="Side to provide liquidity")] = None,
     exchange: Annotated[str | None, Field(description="Exchange name")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -160,7 +165,9 @@ def aitbc_exchange_list(
 def aitbc_exchange_monitor(
     pair: Annotated[str | None, Field(description="Trading pair symbol (e.g., AITBC/ETH)")] = None,
     exchange: Annotated[str | None, Field(description="Exchange name")] = None,
-    real_time: Annotated[bool | None, Field(description="Enable real-time monitoring")] = None,
+    real_time: Annotated[
+        bool | None, Field(description="Re-scan the registered pairs every --interval seconds until Ctrl-C")
+    ] = None,
     interval: Annotated[int | None, Field(description="Update interval in seconds")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,

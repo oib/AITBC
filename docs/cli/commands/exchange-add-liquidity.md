@@ -15,7 +15,7 @@ aitbc exchange add-liquidity [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--pair` | text | — | yes | Trading pair symbol (e.g., AITBC/ETH) |
-| `--amount` | decimal | — | yes | Liquidity amount |
+| `--amount` | decimal | — | yes | Liquidity amount in the side's own units: --side buy adds quote-asset units (ETH for AITBC/ETH), --side sell adds base-asset units (AITBC), --side both adds the amount to each side in that side's units |
 | `--side` | choice | `both` | no | Side to provide liquidity |
 | `--exchange` | text | — | no | Exchange name |
 
