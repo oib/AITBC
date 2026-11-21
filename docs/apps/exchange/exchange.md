@@ -252,7 +252,10 @@ venv/bin/python scripts/ops/exchange_verify.py --db /var/lib/aitbc/data/exchange
 The verifier is read-only (sqlite `mode=ro`, stdlib, no keys): DB-internal
 consistency, bridge-deposit cross-checks, Sepolia settlement legs, and the
 escrow lock/sweep history on the chain RPC. Exit 1 on any FAIL; WARN marks
-unsealed or still-pending rows. `--no-chain` limits it to DB-internal checks.
+unsealed or still-pending rows. An RPC endpoint that cannot be reached at
+all is a FAIL when `--rpc-url`/`--ait-rpc` was given explicitly (the chain
+leg did not run, so `ok` cannot be true) and a WARN for the built-in public
+Sepolia default. `--no-chain` limits it to DB-internal checks.
 
 The exchange service is intentionally absent from the generated OpenAPI
 specs (`scripts/extract_openapi_specs.py` skips it — the catch-all FastAPI
