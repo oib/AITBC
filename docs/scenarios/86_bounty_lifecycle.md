@@ -4,8 +4,8 @@
 **Status**: ✅ **Exercised on bc-2 (28 Oct)** — `BOUNTY_LOCK` @8904 `0x49dc1b37`, `BOUNTY_PAYOUT` @8908 `0x693ef99a`, `BOUNTY_LOCK` #2 @8908 `0xa3a804f3`, `BOUNTY_REFUND` @8912 `0xf8c98983` — all `payload.auth`-signed, 3 attestations, roots verified
 **Prerequisites**: v17 armed (`STATE_TRANSITION_V17_HEIGHT` set, head past the pin)
 **Estimated Time**: 30 minutes + seal time
-**Last Updated**: 2026-10-28
-**Version**: 1.0
+**Last Updated**: 2026-11-21
+**Version**: 1.1
 
 ## Navigation Path
 
@@ -87,7 +87,8 @@ a properly signed request succeeds.
 ### Step 2: Deploy a bounty → `BOUNTY_LOCK`
 
 Sign and POST a deploy body — title, `reward` (units), `funder_wallet`,
-`deadline_height` (give the payout leg generous margin):
+`deadline_height` (give the payout leg generous margin; the field is
+optional — omit it and the bounty may be expired at any height):
 
 ```bash
 curl -s -X POST "$RPC/v1/bounty/deploy" -H 'content-type: application/json' -d @signed-deploy.json
@@ -120,8 +121,13 @@ The node re-verifies the operator `payload.auth` and emits a
 ### Step 5: Deploy a second bounty, then expire → `BOUNTY_REFUND`
 
 Deploy as in step 2 with `deadline_height` only a few blocks ahead —
-expiry triggers on the record's own deadline. Once the deadline height
-has passed, sign and POST the expire body:
+the record stores it on `bounty_contract.deadline_height` (and on the
+sealed `BOUNTY_LOCK` payload). Expiry is gated on it: `/expire` answers
+**409 "deadline not reached: expires at height N, current M"** while the
+chain head is below the deadline, and succeeds once `head >=
+deadline_height`. A bounty deployed **without** `deadline_height` keeps
+the legacy semantics — it may be expired at any height. Once the
+deadline has passed, sign and POST the expire body:
 
 ```bash
 curl -s -X POST "$RPC/v1/bounty/<bounty_id>/expire" -H 'content-type: application/json' -d @signed-expire.json
@@ -161,5 +167,5 @@ curl -s "$RPC/v1/bounty/<bounty_id>" | python3 -m json.tool
 
 ---
 
-*Last updated: 2026-10-28*
-*Version: 1.0*
+*Last updated: 2026-11-21*
+*Version: 1.1*

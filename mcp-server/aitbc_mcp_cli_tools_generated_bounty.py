@@ -33,6 +33,10 @@ def aitbc_bounty_deploy(
         str | None, Field(description="Creator address funding the lock (defaults to the signing wallet)")
     ] = None,
     memo: Annotated[str | None, Field(description="Optional description carried in the signed body")] = None,
+    deadline_height: Annotated[
+        int | None,
+        Field(description="Earliest block height at which the bounty may be expired (omit to allow expiry at any height)"),
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -61,6 +65,7 @@ def aitbc_bounty_deploy(
             "amount": "amount",
             "user_address": "user-address",
             "memo": "memo",
+            "deadline_height": "deadline-height",
             "password_file": "password-file",
             "wallet_name": "wallet-name",
             "wallet_path": "wallet-path",

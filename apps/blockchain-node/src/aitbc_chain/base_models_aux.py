@@ -186,6 +186,9 @@ class BountyContract(ChainBase, table=True):
     remaining_amount: int
     status: str = Field(default="active", index=True)  # active, completed, expired, disputed
     winner_address: str | None = None
+    # Block height at which expire_bounty may run. None = no deadline:
+    # expiry is allowed at any time, exactly as before the field existed.
+    deadline_height: int | None = None
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
