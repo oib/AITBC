@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1534
+- **Markdown files under docs/**: 1535
 
 | Directory | Files | Description |
 |---|---|---|
@@ -91,7 +91,7 @@ docs/
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 16 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
-| [scenarios](scenarios/) | 83 | End-to-end usage scenarios |
+| [scenarios](scenarios/) | 84 | End-to-end usage scenarios |
 | [security](security/) | 24 | Security architecture and audits |
 | [testing](testing/) | 7 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 9 | Troubleshooting guides |
@@ -119,7 +119,7 @@ Inbound markdown links per document (top referrers).
 | [DESIGN_CYCLE.md](DESIGN_CYCLE.md) | [README.md](README.md), [architecture/1_system-flow.md](architecture/1_system-flow.md), [scenarios/17_governance_voting.md](scenarios/17_governance_voting.md), +8 more |
 | [FEATURES.md](FEATURES.md) | [README.md](README.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md) |
 | [MASTER_INDEX.md](MASTER_INDEX.md) | [FEATURES.md](FEATURES.md), [README.md](README.md), [apps/README.md](apps/README.md), +7 more |
-| [README.md](README.md) | [agent-sdk/README.md](agent-sdk/README.md), [apps/README.md](apps/README.md), [architecture/README.md](architecture/README.md), +81 more |
+| [README.md](README.md) | [agent-sdk/README.md](agent-sdk/README.md), [apps/README.md](apps/README.md), [architecture/README.md](architecture/README.md), +82 more |
 | [account-abstraction/api.md](account-abstraction/api.md) | [account-abstraction/architecture.md](account-abstraction/architecture.md), [account-abstraction/database.md](account-abstraction/database.md) |
 | [account-abstraction/architecture.md](account-abstraction/architecture.md) | [account-abstraction/security.md](account-abstraction/security.md) |
 | [account-abstraction/database.md](account-abstraction/database.md) | [account-abstraction/api.md](account-abstraction/api.md), [account-abstraction/architecture.md](account-abstraction/architecture.md) |
@@ -1603,7 +1603,8 @@ Inbound markdown links per document (top referrers).
 | [scenarios/87_agent_staking.md](scenarios/87_agent_staking.md) | [cli/commands/agent-staking-add.md](cli/commands/agent-staking-add.md), [cli/commands/agent-staking-claim.md](cli/commands/agent-staking-claim.md), [cli/commands/agent-staking-complete.md](cli/commands/agent-staking-complete.md), +12 more |
 | [scenarios/88_bridge_island_lock_release.md](scenarios/88_bridge_island_lock_release.md) | [cli/commands/bridge-attest.md](cli/commands/bridge-attest.md), [cli/commands/bridge-balance.md](cli/commands/bridge-balance.md), [cli/commands/bridge-confirm.md](cli/commands/bridge-confirm.md), +28 more |
 | [scenarios/89_coordinator_inflight_cap.md](scenarios/89_coordinator_inflight_cap.md) | [scenarios/07_ai_job_submission.md](scenarios/07_ai_job_submission.md), [scenarios/25_job_payment_failure.md](scenarios/25_job_payment_failure.md), [scenarios/README.md](scenarios/README.md) |
-| [scenarios/README.md](scenarios/README.md) | [development/2_setup.md](development/2_setup.md), [development/5_developer-guide.md](development/5_developer-guide.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), +72 more |
+| [scenarios/90_market_escrow_alias_binding.md](scenarios/90_market_escrow_alias_binding.md) | [scenarios/README.md](scenarios/README.md) |
+| [scenarios/README.md](scenarios/README.md) | [development/2_setup.md](development/2_setup.md), [development/5_developer-guide.md](development/5_developer-guide.md), [reference/feature-scenario-record-mesh.md](reference/feature-scenario-record-mesh.md), +73 more |
 | [scenarios/_TEMPLATE.md](scenarios/_TEMPLATE.md) | [scenarios/README.md](scenarios/README.md) |
 | [security/2_security-architecture.md](security/2_security-architecture.md) | [features/10-security.md](features/10-security.md), [security/README.md](security/README.md), [security/api-key-management.md](security/api-key-management.md), +2 more |
 | [security/3_chaos-testing.md](security/3_chaos-testing.md) | [README.md](README.md), [security/README.md](security/README.md), [security/SECURITY.md](security/SECURITY.md) |
