@@ -133,25 +133,30 @@ Reserves a resource allocation for an agent.
 
 Cost: 0 units — reservation record only.
 
-`--agent-id` must be the coordinator **agent identity ID** bound to the caller's wallet
-(the `agent_id` an `agent register`/identity flow created for you) — not a display name
-like `agent-001`. The server answers 403 naming the expected owner wallet when the id is
-registered to someone else, and "no agent identity registered" when the id does not exist.
+`--agent-id` wants the **coordinator agent id** — the id `aitbc agent list` /
+`aitbc agent create` prints and `aitbc agent register` binds (e.g. the UUID
+form, not the local config name; `aitbc agent status --agent-id <name>` also
+accepts the name). The caller must own that agent: pass `--wallet` with the
+wallet the agent was registered with (`agent register --wallet`), which mints
+an agent-session JWT the ownership check accepts, or use an admin/owner
+credential. An agent that was never registered with the coordinator cannot be
+allocated for. On a denial the server names the failing check — "no agent
+identity registered" vs "owned by a different wallet".
 
 ```bash
-aitbc resource allocate --agent-id <your-agent-identity-id> --cpu-cores 4 --memory-gb 8
+aitbc resource allocate --agent-id <agent-id> --cpu-cores 4 --memory-gb 8 --wallet <bound-wallet>
 ```
 
 ### Step 10: Optimize agent resources
 
-Runs the resource optimizer against a target metric.
+Runs the resource optimizer against a target metric. At least one
+`--current-<metric>` flag is required so the optimizer has a baseline (the CLI
+rejects the call without one).
 
 Cost: 0 units — recommendation/adjustment only.
 
-At least one `--current-*` metric flag is required (the CLI rejects the call without one).
-
 ```bash
-aitbc resource optimize --agent-id <your-agent-identity-id> --target-metric latency --current-latency 250
+aitbc resource optimize --agent-id <agent-id> --target-metric latency --current-latency 100 --wallet <bound-wallet>
 ```
 
 <!-- COVERAGE-LEFT-1: generic HTTP pivot leaf (issue #445) -->

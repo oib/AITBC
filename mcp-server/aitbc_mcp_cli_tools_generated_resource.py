@@ -30,7 +30,7 @@ def aitbc_resource_allocate(
     agent_id: Annotated[
         str,
         Field(
-            description="Coordinator agent identity ID bound to your wallet (the agent_id from agent register/identity, not a display name)."
+            description="Coordinator agent id — the id `aitbc agent list`/`agent create` shows and `agent register` binds (not the local config name). The caller must own it: pass --wallet bound via `agent register --wallet`, or use an admin/owner credential."
         ),
     ],
     cpu_cores: Annotated[float | None, Field(description="Requested CPU cores")] = None,
@@ -44,6 +44,15 @@ def aitbc_resource_allocate(
         Field(description="Optimization target for allocation"),
     ] = None,
     priority: Annotated[Literal["low", "normal", "high", "critical"] | None, Field(description="Priority level")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[
+        str | None,
+        Field(
+            description="Wallet the agent is identity-bound to (same as `agent register --wallet`); mints an agent-session JWT the owner check accepts (#2418)"
+        ),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -64,6 +73,8 @@ def aitbc_resource_allocate(
             "network_bandwidth": "network-bandwidth",
             "optimization_target": "optimization-target",
             "priority": "priority",
+            "password_file": "password-file",
+            "wallet_name": "wallet",
         },
     )
     args = None
@@ -153,7 +164,7 @@ def aitbc_resource_optimize(
     agent_id: Annotated[
         str,
         Field(
-            description="Coordinator agent identity ID bound to your wallet (the agent_id from agent register/identity, not a display name)."
+            description="Coordinator agent id — the id `aitbc agent list`/`agent create` shows and `agent register` binds (not the local config name). The caller must own it: pass --wallet bound via `agent register --wallet`, or use an admin/owner credential."
         ),
     ],
     target_metric: Annotated[
@@ -175,6 +186,15 @@ def aitbc_resource_optimize(
     current_accuracy: Annotated[float | None, Field(description="Current accuracy (0-1)")] = None,
     current_latency: Annotated[float | None, Field(description="Current latency (ms)")] = None,
     current_throughput: Annotated[float | None, Field(description="Current throughput (req/s)")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[
+        str | None,
+        Field(
+            description="Wallet the agent is identity-bound to (same as `agent register --wallet`); mints an agent-session JWT the owner check accepts (#2418)"
+        ),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -192,6 +212,8 @@ def aitbc_resource_optimize(
             "current_accuracy": "current-accuracy",
             "current_latency": "current-latency",
             "current_throughput": "current-throughput",
+            "password_file": "password-file",
+            "wallet_name": "wallet",
         },
     )
     args = None
@@ -229,12 +251,26 @@ def aitbc_resource_optimize(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_resource_status(
-    agent_id: Annotated[str | None, Field(description="Filter by agent ID")] = None,
+    agent_id: Annotated[
+        str | None,
+        Field(
+            description="Filter by coordinator agent id (the id `aitbc agent list`/`agent create` shows, not the local config name); the caller must own it"
+        ),
+    ] = None,
     status_filter: Annotated[
         Literal["pending", "allocated", "active", "released", "completed", "failed"] | None,
         Field(description="Filter by allocation status"),
     ] = None,
     limit: Annotated[int | None, Field(description="Max allocations to list")] = None,
+    password_file: Annotated[
+        str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
+    ] = None,
+    wallet_name: Annotated[
+        str | None,
+        Field(
+            description="Wallet the agent is identity-bound to (same as `agent register --wallet`); mints an agent-session JWT the owner check accepts (#2418)"
+        ),
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -243,7 +279,13 @@ def aitbc_resource_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"agent_id": "agent-id", "status_filter": "status", "limit": "limit"},
+        values={
+            "agent_id": "agent-id",
+            "status_filter": "status",
+            "limit": "limit",
+            "password_file": "password-file",
+            "wallet_name": "wallet",
+        },
     )
     args = None
     return _aitbc_cli_read_tool(

@@ -9,16 +9,20 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
-from sqlalchemy import desc, func
+from sqlalchemy import desc
 from sqlmodel import Session, col, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....auth import AuthDep
-from ....contexts.agent_identity.domain.agent_identity import AgentIdentity
-from ....contexts.infrastructure.domain.user import Wallet
 from ....storage import get_session
+from ....utils.ownership import (
+    agent_access_granted,
+    agent_owner_addresses,
+    caller_agent_ids,
+    is_admin,
+)
 from ..domain.agent_performance import (
     LearningStrategy,
     OptimizationTarget,
@@ -40,44 +44,44 @@ router = APIRouter(prefix="/agent-performance", tags=["agent-performance"])
 # PI-API-016: these handlers used to run on AuthLevel.ANY with no ownership
 # checks — any JWT could read/write performance state for arbitrary agent_ids
 # and deallocate other tenants' ResourceAllocation rows. Ownership resolves
-# through AgentIdentity (agent_id -> owner_address -> caller wallets), the
-# same model agent-identity routes use (#1070). Admin and api_key callers
-# (role=admin) bypass; meta-learning models carry no owner dimension and are
-# admin-only.
-def _caller_wallets(session: Session, user: dict[str, Any]) -> set[str]:
-    """Wallet addresses the authenticated caller controls (users.id -> wallets)."""
-    sub = str(user.get("sub") or "")
-    if not sub:
-        return set()
-    return {str(w.address).lower() for w in session.exec(select(Wallet).where(Wallet.user_id == sub)).all() if w.address}
-
-
-def _is_admin(user: dict[str, Any]) -> bool:
-    return user.get("role") == "admin"
-
-
+# through the shared utils.ownership helpers (agent_id -> AgentIdentity
+# owner_address -> caller wallets, or the caller's own agent-session JWT
+# agent_id claim — #2418), the same model agent-identity routes use (#1070).
+# Admin and api_key callers (role=admin) bypass; meta-learning models carry
+# no owner dimension and are admin-only.
 def _require_agent_access(session: Session, user: dict[str, Any], agent_id: str) -> None:
-    """Caller must be admin or control the wallet owning this agent's identity."""
-    if _is_admin(user):
-        return
-    identity = session.exec(select(AgentIdentity).where(AgentIdentity.agent_id == agent_id)).first()
-    if identity is not None and str(identity.owner_address).lower() in _caller_wallets(session, user):
+    """Same-module 403 raiser over the shared ownership policy.
+
+    The OpenAPI error-response scanner only follows private helpers in the
+    handler's own module, so the ``raise`` literal must live here even though
+    the decision lives in ``utils.ownership`` (#1881/#2418).
+    """
+    if agent_access_granted(session, user, agent_id):
         return
     # #2418: name the failing check — "not the agent owner" alone cannot
-    # distinguish an unregistered agent_id from a wrong-wallet caller.
-    if identity is None:
+    # distinguish an unregistered agent_id from a wrong-wallet caller. Same
+    # literals as utils.ownership.agent_denied_detail so the OpenAPI error
+    # scanner documents them.
+    owners = agent_owner_addresses(session, agent_id)
+    if not owners:
         raise HTTPException(
             status_code=403,
-            detail=f"no agent identity registered for agent_id '{agent_id}'",
+            detail=(
+                f"no agent identity registered for agent_id '{agent_id}' — "
+                "authenticate as the agent (agent login JWT) or control an owner wallet"
+            ),
         )
     raise HTTPException(
         status_code=403,
-        detail=f"agent '{agent_id}' is owned by a different wallet ({identity.owner_address})",
+        detail=(
+            f"agent '{agent_id}' is owned by a different wallet ({', '.join(sorted(owners))}) — "
+            "authenticate as the agent (agent login JWT) or control its owner wallet"
+        ),
     )
 
 
 def _require_admin(user: dict[str, Any]) -> None:
-    if not _is_admin(user):
+    if not is_admin(user):
         raise HTTPException(status_code=403, detail="admin role required")
 
 
@@ -424,19 +428,11 @@ def list_resource_allocations(
     """List resource allocations, optionally filtered by agent or status"""
     try:
         stmt = select(ResourceAllocation).order_by(desc(ResourceAllocation.created_at)).limit(limit)  # type: ignore[arg-type]
-        if not _is_admin(user):
-            # Non-admin callers only see allocations for agents they own.
-            wallets = _caller_wallets(session, user)
-            owned_ids = (
-                {
-                    i.agent_id
-                    for i in session.exec(
-                        select(AgentIdentity).where(func.lower(col(AgentIdentity.owner_address)).in_(wallets))
-                    ).all()
-                }
-                if wallets
-                else set()
-            )
+        if not is_admin(user):
+            # Non-admin callers only see allocations for agents they own —
+            # wallet-owned AgentIdentity rows plus their own agent-session
+            # JWT agent_id claim (#2418).
+            owned_ids = caller_agent_ids(session, user)
             stmt = stmt.where(col(ResourceAllocation.agent_id).in_(owned_ids)) if owned_ids else stmt.where(False)
         if agent_id:
             _require_agent_access(session, user, agent_id)

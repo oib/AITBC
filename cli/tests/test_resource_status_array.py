@@ -18,7 +18,7 @@ class _Client:
 
 
 def _invoke(runner, monkeypatch, payload, args=None):
-    monkeypatch.setattr(resource_mod, "_client", lambda: _Client(payload))
+    monkeypatch.setattr(resource_mod, "_client", lambda *a, **k: _Client(payload))
     return runner.invoke(resource_mod.resource, obj={"output_format": "table"}, args=["status"] + (args or []))
 
 
@@ -70,7 +70,7 @@ def test_status_network_error_exits_nonzero(monkeypatch):
         def get_json(self, path, params=None):
             raise resource_mod.NetworkError("refused")
 
-    monkeypatch.setattr(resource_mod, "_client", lambda: _Boom())
+    monkeypatch.setattr(resource_mod, "_client", lambda *a, **k: _Boom())
     result = runner.invoke(resource_mod.resource, obj={"output_format": "table"}, args=["status"])
     assert result.exit_code != 0
 
@@ -78,7 +78,7 @@ def test_status_network_error_exits_nonzero(monkeypatch):
 def test_status_empty_array_prints_json_array(monkeypatch):
     """NITS-B-1: `--output json` must emit [] for an empty answer."""
     runner = CliRunner()
-    monkeypatch.setattr(resource_mod, "_client", lambda: _Client([]))
+    monkeypatch.setattr(resource_mod, "_client", lambda *a, **k: _Client([]))
     result = runner.invoke(resource_mod.resource, obj={"output_format": "json"}, args=["status"])
     assert result.exit_code == 0
     import json as _j

@@ -7,6 +7,17 @@ to the user — and bind agent-scoped ids through ``AgentIdentity``
 (agent_id -> owner_address -> caller wallets), the same model
 ``agent_performance``/``agent_identity`` established for #1070. Admin
 role bypasses; everything else fails closed.
+
+#2418: agents registered through the agent-coordinator (``POST
+/v1/agents/register``) never get an ``AgentIdentity`` row — that table is a
+separate subsystem whose ids are server-generated ``agent_<hex>`` values.
+Their ownership proof lives in the agent-coordinator registry as the
+``identity_address`` binding, and the bridge to this service is the agent
+session JWT: ``POST /api/v1/agent/auth/login`` mints a token carrying an
+``agent_id`` claim only after a wallet signature proves control of the bound
+identity. The fleet shares the JWT secret, so that claim verifies here — a
+caller whose token ``agent_id`` equals the target agent id is authenticated
+*as* that agent and passes the same fail-closed check.
 """
 
 from __future__ import annotations
@@ -52,45 +63,85 @@ def agent_owner_addresses(session: Session, agent_id: str) -> set[str]:
     return {str(identity.owner_address).lower()}
 
 
-def caller_agent_ids(session: Session, user: dict[str, Any]) -> set[str]:
-    """Every agent_id whose AgentIdentity.owner_address is a caller wallet.
+def jwt_agent_id(user: dict[str, Any]) -> str:
+    """The ``agent_id`` claim on an agent-session JWT, or ``""``.
 
-    Used for party-scoped reads and list filtering where "owns any party"
-    is the rule rather than a single agent_id (#1876).
+    Only the agent-coordinator login endpoint mints tokens with this claim,
+    and only after proving control of the agent's bound ``identity_address``
+    — so a matching claim is a verified agent identity, not a user assertion
+    (#2418). User/admin JWTs never carry it.
+    """
+    return str(user.get("agent_id") or "")
+
+
+def caller_agent_ids(session: Session, user: dict[str, Any]) -> set[str]:
+    """Every agent_id the caller may act for.
+
+    Wallet-owned ``AgentIdentity`` rows plus the caller's own agent-session
+    JWT ``agent_id`` claim (#2418). Used for party-scoped reads and list
+    filtering where "owns any party" is the rule rather than a single
+    agent_id (#1876).
     """
     wallets = caller_wallets(session, user)
-    if not wallets:
-        return set()
-    return {
-        str(row.agent_id)
-        for row in session.execute(select(AgentIdentity).where(func.lower(AgentIdentity.owner_address).in_(wallets)))
-        .scalars()
-        .all()
-    }
+    owned = (
+        {
+            str(row.agent_id)
+            for row in session.execute(select(AgentIdentity).where(func.lower(AgentIdentity.owner_address).in_(wallets)))
+            .scalars()
+            .all()
+        }
+        if wallets
+        else set()
+    )
+    agent = jwt_agent_id(user)
+    if agent:
+        owned.add(agent)
+    return owned
+
+
+def agent_access_granted(session: Session, user: dict[str, Any], agent_id: str) -> bool:
+    """True when the caller may act on ``agent_id``.
+
+    Admin, a caller wallet matching the agent's ``AgentIdentity.owner_address``,
+    or the caller's own agent-session JWT ``agent_id`` claim (#2418).
+    """
+    if is_admin(user):
+        return True
+    agent = jwt_agent_id(user)
+    if agent and agent == agent_id:
+        return True
+    return bool(agent_owner_addresses(session, agent_id) & caller_wallets(session, user))
+
+
+def agent_denied_detail(session: Session, agent_id: str) -> str:
+    """403 detail naming which ownership check failed and the expected owner (#2418).
+
+    Distinguishes "no such agent identity" from "owned by someone else", and
+    points at the agent-session JWT path for agent-coordinator-registered
+    agents that can never have an ``AgentIdentity`` row.
+    """
+    owners = agent_owner_addresses(session, agent_id)
+    if not owners:
+        return (
+            f"no agent identity registered for agent_id '{agent_id}' — "
+            "authenticate as the agent (agent login JWT) or control an owner wallet"
+        )
+    return (
+        f"agent '{agent_id}' is owned by a different wallet ({', '.join(sorted(owners))}) — "
+        "authenticate as the agent (agent login JWT) or control its owner wallet"
+    )
 
 
 def require_agent_access(session: Session, user: dict[str, Any], agent_id: str) -> None:
-    """Caller must be admin or control the wallet owning this agent.
+    """Caller must be admin, control the wallet owning this agent, or be the
+    agent itself (agent-session JWT, #2418).
 
-    Fails closed: an agent with no AgentIdentity row has no provable owner
-    and cannot be acted on by non-admin callers (#1881).
+    Fails closed: an agent with no AgentIdentity row and no matching agent
+    JWT cannot be acted on by non-admin callers (#1881).
     """
-    if is_admin(user):
+    if agent_access_granted(session, user, agent_id):
         return
-    owners = agent_owner_addresses(session, agent_id)
-    if owners & caller_wallets(session, user):
-        return
-    # #2418: distinguish "no such agent identity" from "owned by someone
-    # else" — the bare "not the agent owner" could not be debugged.
-    if not owners:
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail=f"no agent identity registered for agent_id '{agent_id}'",
-        )
-    raise HTTPException(
-        status_code=status.HTTP_403_FORBIDDEN,
-        detail=f"agent '{agent_id}' is owned by a different wallet ({', '.join(sorted(owners))})",
-    )
+    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=agent_denied_detail(session, agent_id))
 
 
 def require_identity_access(session: Session, user: dict[str, Any], identity_value: str) -> None:

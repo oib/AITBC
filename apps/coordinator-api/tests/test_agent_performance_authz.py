@@ -126,6 +126,83 @@ def test_agent_without_identity_is_denied_for_non_admin(client, seeded):
     assert resp.status_code == 403
 
 
+# --- #2418: agent-session JWT (agent_id claim) is an owner-equivalent ---
+#
+# Agents registered via the agent-coordinator never get an AgentIdentity row —
+# their ownership proof is the identity_address binding, and the bridge here
+# is the agent login JWT whose agent_id claim only exists after a wallet
+# signature proved control of that binding.
+
+COORD_AGENT = "agent-coord-registered-1"
+
+
+def _agent_headers(agent_id: str) -> dict[str, str]:
+    return {
+        "Authorization": f"Bearer {create_access_token(agent_id, 'agent', extra_claims={'agent_id': agent_id, 'wallet': OWNER_ADDR})}"
+    }
+
+
+def test_agent_jwt_can_allocate_for_own_agent_without_identity(client, seeded):
+    """An agent-session JWT authenticates as the agent even with no AgentIdentity row."""
+    resp = client.post(
+        "/v1/agent-performance/resources/allocate",
+        headers=_agent_headers(COORD_AGENT),
+        json={"agent_id": COORD_AGENT, "task_requirements": {"cpu_cores": 1}},
+    )
+    assert resp.status_code != 403
+
+
+def test_agent_jwt_cannot_touch_other_agents(client, seeded):
+    """An agent JWT for agent A grants nothing on agent B."""
+    resp = client.post(
+        "/v1/agent-performance/resources/allocate",
+        headers=_agent_headers(COORD_AGENT),
+        json={"agent_id": AGENT_ID, "task_requirements": {"cpu_cores": 1}},
+    )
+    assert resp.status_code == 403
+
+
+def test_agent_jwt_can_optimize_own_agent(client, seeded):
+    resp = client.post(
+        "/v1/agent-performance/optimize",
+        headers=_agent_headers(COORD_AGENT),
+        json={
+            "agent_id": COORD_AGENT,
+            "target_metric": "accuracy",
+            "current_performance": {"accuracy": 0.5},
+        },
+    )
+    assert resp.status_code != 403
+
+
+def test_agent_jwt_list_scoped_to_own_agent(client, seeded, db_session):
+    """GET /resources shows the agent JWT's own agent rows, not others'."""
+    db_session.add(
+        ResourceAllocation(
+            allocation_id="alloc_jwt_agent_1",
+            agent_id=COORD_AGENT,
+            cpu_cores=1.0,
+            memory_gb=1.0,
+            status="active",
+            optimization_target=OptimizationTarget.EFFICIENCY,
+        )
+    )
+    db_session.commit()
+    resp = client.get("/v1/agent-performance/resources", headers=_agent_headers(COORD_AGENT))
+    assert resp.status_code == 200
+    ids = {r["allocation_id"] for r in resp.json()}
+    assert "alloc_jwt_agent_1" in ids
+
+
+def test_403_detail_names_expected_owner(client, seeded):
+    """The denial says which owner the agent resolves to (#2418)."""
+    resp = client.get(f"/v1/agent-performance/profiles/{AGENT_ID}", headers=_headers("intruder", "client"))
+    assert resp.status_code == 403
+    detail = resp.json()["detail"]
+    assert OWNER_ADDR.lower() in detail
+    assert "agent" in detail.lower()
+
+
 # --- deallocate resolves ownership through the persisted allocation ---
 
 
