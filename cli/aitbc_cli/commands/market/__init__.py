@@ -76,18 +76,20 @@ def safe_load_credentials():
 
 
 def get_chain_id() -> str:
-    """Get chain ID from CHAIN_ID, island credentials, or the configured node RPC.
+    """Get chain ID from CHAIN_ID, the configured node RPC, or island credentials.
 
     Signing callers must never sign a fabricated chain id — a wrong value
     produces a transaction no node serves. When no honest source answers,
     abort instead of guessing one from the hub's hostname.
 
     CHAIN_ID wins: it is the deployment truth the node's own units run.
-    Credentials are a join-time cache that can go stale (a chain rebirth
-    leaves the old id behind); when the file and the env disagree the env
-    wins and the mismatch is warned about, never silent. A credentials file
-    that exists but cannot be loaded (permission guard, bad JSON) must not
-    shadow a usable CHAIN_ID either.
+    The node RPC probe comes next: it advertises the chain this node
+    actually serves, which is what market-signed requests target. Island
+    credentials are a join-time cache that can go stale — a node that joined
+    an island still serves the hub chain, and signing market requests with
+    the island id gets them refused (#2373). Credentials remain as a last
+    resort for nodes with no serving RPC; every source disagreement warns,
+    never silently picks.
     """
     creds_chain_id: str | None = None
     try:
@@ -99,7 +101,7 @@ def get_chain_id() -> str:
         logger.debug("Island credentials not available for chain_id", exc_info=True)
     except PermissionError:
         logger.warning(
-            "island credentials at %s are present but unreadable (mode/owner guard) — falling through to CHAIN_ID",
+            "island credentials at %s are present but unreadable (mode/owner guard) — falling through",
             CREDENTIALS_PATH,
         )
 
@@ -112,22 +114,40 @@ def get_chain_id() -> str:
                 f"'{env_chain_id}'. Refresh credentials: aitbc node island join"
             )
         return env_chain_id
-    if creds_chain_id:
-        return creds_chain_id
 
     config = get_config()
     rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
+    probe_error: Exception | None = None
     try:
         from ...utils.chain_id import get_chain_id as _probe_chain_id
 
-        return _probe_chain_id(rpc_url, override=None, timeout=5, strict=True)
-    except Exception as e:
-        error(
-            f"Cannot determine the chain id to sign with: no island credentials, CHAIN_ID unset, "
-            f"and the chain-id lookup via {rpc_url} failed: {e}. "
-            "Set CHAIN_ID or point blockchain_rpc_url at a serving node"
+        probed = _probe_chain_id(rpc_url, override=None, timeout=5, strict=True)
+    except (AITBCError, OSError, ArithmeticError, ValueError, KeyError, TypeError, AttributeError, RuntimeError) as e:
+        probe_error = e
+    else:
+        if creds_chain_id and creds_chain_id != probed:
+            warning(
+                f"chain id mismatch: island credentials at {CREDENTIALS_PATH} say "
+                f"'{creds_chain_id}' but the node RPC at {rpc_url} advertises "
+                f"'{probed}' — signing for '{probed}'. Refresh credentials: "
+                "aitbc node island join"
+            )
+        return probed
+
+    if creds_chain_id:
+        warning(
+            f"chain-id probe via {rpc_url} failed ({probe_error}); falling back to "
+            f"island credentials '{creds_chain_id}' — verify this is the chain the "
+            "market service serves"
         )
-        raise click.Abort() from e
+        return creds_chain_id
+
+    error(
+        f"Cannot determine the chain id to sign with: no CHAIN_ID, the chain-id "
+        f"lookup via {rpc_url} failed: {probe_error}, and no island credentials "
+        "exist. Set CHAIN_ID or point blockchain_rpc_url at a serving node"
+    )
+    raise click.Abort()
 
 
 def get_island_id() -> str:
