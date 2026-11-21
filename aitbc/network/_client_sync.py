@@ -185,10 +185,10 @@ class AITBCHTTPClient:
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
-            self.circuit_breaker.record_failure()
+            self.circuit_breaker.record_failure(f"GET {url}")
             raise NetworkError(f"GET request failed: {e}{_detail_suffix(e)}") from e
         except requests.RequestException as e:
-            self.circuit_breaker.record_failure()
+            self.circuit_breaker.record_failure(f"GET {url}")
             raise NetworkError(f"GET request failed: {e}{_detail_suffix(e)}") from e
 
     def post(
@@ -250,10 +250,10 @@ class AITBCHTTPClient:
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
-            self.circuit_breaker.record_failure()
+            self.circuit_breaker.record_failure(f"POST {url}")
             raise NetworkError(f"POST request failed: {e}{_detail_suffix(e)}") from e
         except requests.RequestException as e:
-            self.circuit_breaker.record_failure()
+            self.circuit_breaker.record_failure(f"POST {url}")
             raise NetworkError(f"POST request failed: {e}{_detail_suffix(e)}") from e
 
     def put(
@@ -311,10 +311,10 @@ class AITBCHTTPClient:
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
-            self.circuit_breaker.record_failure()
+            self.circuit_breaker.record_failure(f"PUT {url}")
             raise NetworkError(f"PUT request failed: {e}{_detail_suffix(e)}") from e
         except requests.RequestException as e:
-            self.circuit_breaker.record_failure()
+            self.circuit_breaker.record_failure(f"PUT {url}")
             raise NetworkError(f"PUT request failed: {e}{_detail_suffix(e)}") from e
 
     def patch(
@@ -370,10 +370,10 @@ class AITBCHTTPClient:
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
-            self.circuit_breaker.record_failure()
+            self.circuit_breaker.record_failure(f"PATCH {url}")
             raise NetworkError(f"PATCH request failed: {e}{_detail_suffix(e)}") from e
         except requests.RequestException as e:
-            self.circuit_breaker.record_failure()
+            self.circuit_breaker.record_failure(f"PATCH {url}")
             raise NetworkError(f"PATCH request failed: {e}{_detail_suffix(e)}") from e
 
     def delete(
@@ -429,10 +429,10 @@ class AITBCHTTPClient:
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
-            self.circuit_breaker.record_failure()
+            self.circuit_breaker.record_failure(f"DELETE {url}")
             raise NetworkError(f"DELETE request failed: {e}{_detail_suffix(e)}") from e
         except requests.RequestException as e:
-            self.circuit_breaker.record_failure()
+            self.circuit_breaker.record_failure(f"DELETE {url}")
             raise NetworkError(f"DELETE request failed: {e}{_detail_suffix(e)}") from e
 
     def close(self) -> None:

@@ -67,17 +67,23 @@ class CircuitBreaker:
                 # Block additional concurrent calls until the probe completes.
                 raise CircuitBreakerOpenError("Circuit breaker is half-open, probe call in progress")
 
-    def record_failure(self) -> None:
-        """Record a failure and potentially open circuit breaker."""
+    def record_failure(self, context: str | None = None) -> None:
+        """Record a failure and potentially open circuit breaker.
+
+        ``context`` names the call that failed (e.g. ``"GET https://…"``) so
+        the open/reopen warnings identify the endpoint instead of floating
+        context-free on stderr (#2443).
+        """
         if not self.enabled:
             return
+        suffix = f" — last failure: {context}" if context else ""
         with self._lock:
             if self._state == _HALF_OPEN:
                 # Probe call failed — reopen immediately without waiting for threshold
                 self._state = _OPEN
                 self.is_open = True
                 self.open_time = datetime.now(UTC)
-                self.logger.warning("Circuit breaker reopened after failed probe call")
+                self.logger.warning("Circuit breaker reopened after failed probe call%s", suffix)
                 return
 
             self.failure_count += 1
@@ -85,7 +91,7 @@ class CircuitBreaker:
                 self._state = _OPEN
                 self.is_open = True
                 self.open_time = datetime.now(UTC)
-                self.logger.warning("Circuit breaker opened after %s failures", self.failure_count)
+                self.logger.warning("Circuit breaker opened after %s failures%s", self.failure_count, suffix)
 
     def record_success(self) -> None:
         """Record a success and reset failure count."""

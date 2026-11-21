@@ -26,7 +26,7 @@ aitbc market gpu buy [OPTIONS]
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
 | `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
 | `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
-| `--energy-quote` | text | — | no | JSON file containing the energy quote |
+| `--energy-quote` | text | — | no | JSON file containing the energy quote (read and signature-verified before the wallet is loaded) |
 | `--max-ait` | float | — | no | Maximum AIT buyer cap |
 | `--yes` | flag | `false` | no | Skip confirmation prompt |
 | `--json-output` | flag | `false` | no | Output raw JSON |

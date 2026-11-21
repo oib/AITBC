@@ -20,6 +20,7 @@ aitbc market download [OPTIONS]
 | `--cid` | text | — | no | Free CID retrieval (bypasses access token) |
 | `--output-path` | path | — | no | Write retrieved content to this path |
 | `--wait` | flag | `false` | no | Wait for the CID to become available on the network |
+| `--timeout` | float | `60.0` | no | Max seconds to wait for the CID when --wait is set |
 | `--output` | choice | — | no | Output format (alias for --format) |
 | `--format` | choice | — | no | Output format |
 
