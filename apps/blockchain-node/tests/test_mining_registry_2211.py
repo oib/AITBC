@@ -161,3 +161,90 @@ def test_start_validates_input(bound):
     with pytest.raises(HTTPException) as exc:
         rpc_router.start_mining_route(_req(), {"miner_address": MINER, "threads": "many"})
     assert exc.value.status_code == 400
+
+
+# --- #2407: stop is scoped to the caller's own miner rows ---
+
+OTHER = "0x" + "ef" * 20
+
+
+def _auth_as(monkeypatch, address: str) -> None:
+    monkeypatch.setattr(rpc_router, "get_authenticated_address", lambda request, credentials=None: address)
+
+
+def _seed_row(engine, *, miner, enabled=True, authorized_by=None, stopped_at=None) -> None:
+    with Session(engine) as session:
+        session.add(
+            MinerRegistry(
+                chain_id="bc-2.test",
+                miner_address=miner,
+                threads=1,
+                enabled=enabled,
+                authorized_by=authorized_by or miner,
+                started_at=datetime.now(UTC),
+                stopped_at=stopped_at,
+            )
+        )
+        session.commit()
+
+
+def test_stop_leaves_other_operators_rows_alone(bound):
+    """The reported bug: stop used to disable EVERY registry row."""
+    _seed_row(bound, miner=MINER, authorized_by=ADMIN)
+    _seed_row(bound, miner=OTHER)
+
+    out = rpc_router.stop_mining_route(_req())
+    assert out["status"] == "stopped"
+    assert out["miner_addresses"] == [MINER]
+
+    rows = {r.miner_address: r for r in _rows(bound)}
+    assert rows[MINER].enabled is False
+    assert rows[OTHER].enabled is True
+    assert rows[OTHER].stopped_at is None
+
+
+def test_stop_does_not_rewrite_existing_stopped_at(bound):
+    first_stop = datetime(2026, 11, 19, 14, 22, 25, tzinfo=UTC)
+    _seed_row(bound, miner=MINER, enabled=False, authorized_by=ADMIN, stopped_at=first_stop)
+
+    out = rpc_router.stop_mining_route(_req())
+    assert out["status"] == "stopped"
+    assert out["stopped_count"] == 0
+    assert out["already_stopped"] == 1
+
+    row = _rows(bound)[0]
+    assert row.enabled is False
+    assert row.stopped_at == first_stop.replace(tzinfo=None)
+
+
+def test_stop_without_any_row_is_404(bound):
+    _seed_row(bound, miner=OTHER)
+    with pytest.raises(HTTPException) as exc:
+        rpc_router.stop_mining_route(_req())
+    assert exc.value.status_code == 404
+
+
+def test_stop_requested_miner_must_be_callers(bound, monkeypatch):
+    _seed_row(bound, miner=MINER, authorized_by=ADMIN)
+    _seed_row(bound, miner=OTHER)
+
+    # ADMIN asks to stop OTHER's row — not authorized_by it, not its miner.
+    with pytest.raises(HTTPException) as exc:
+        rpc_router.stop_mining_route(_req(), {"miner_address": OTHER})
+    assert exc.value.status_code == 403
+
+    # The miner itself can stop its own row by address.
+    _auth_as(monkeypatch, OTHER)
+    out = rpc_router.stop_mining_route(_req(), {"miner_address": OTHER})
+    assert out["miner_addresses"] == [OTHER]
+    rows = {r.miner_address: r for r in _rows(bound)}
+    assert rows[OTHER].enabled is False
+    assert rows[MINER].enabled is True
+
+
+def test_stop_operator_authorized_row_for_other_miner(bound):
+    """authorized_by counts: an operator who registered a different miner
+    address may still stop that row (the #2211 test shape)."""
+    _seed_row(bound, miner=MINER, authorized_by=ADMIN)
+    out = rpc_router.stop_mining_route(_req())
+    assert out["miner_addresses"] == [MINER]

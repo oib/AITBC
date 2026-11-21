@@ -12033,8 +12033,26 @@
           "rpc"
         ],
         "summary": "Stop mining",
-        "description": "Disable all recorded miners (requires admin authentication).\n\nBookkeeping stub only \u2014 PBFT/PoA has no proof-of-work mining (#2211).",
+        "description": "Disable the caller's recorded miners (requires admin authentication).\n\nScoped to rows the caller controls \u2014 ``miner_address`` or\n``authorized_by`` equal to the authenticated wallet \u2014 so one operator\ncannot disable or rewrite the history of another's miner rows (#2407).\nAn optional ``miner_address`` in the body narrows the stop to that\naddress; it must be one of the caller's rows. Already-disabled rows are\nleft untouched (``stopped_at`` is not rewritten).\n\nBookkeeping stub only \u2014 PBFT/PoA has no proof-of-work mining (#2211).",
         "operationId": "stop_mining_route_rpc_mining_stop_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Mining Data"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -12044,6 +12062,46 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Stop Mining Route Rpc Mining Stop Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "miner_address must be a non-empty string",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "miner '{requested}' is not registered to the authenticated wallet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "no miner registered for the authenticated wallet{f' ({requested})' if requested else ''}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -24204,8 +24262,26 @@
           "v1"
         ],
         "summary": "Stop mining",
-        "description": "Disable all recorded miners (requires admin authentication).\n\nBookkeeping stub only \u2014 PBFT/PoA has no proof-of-work mining (#2211).",
+        "description": "Disable the caller's recorded miners (requires admin authentication).\n\nScoped to rows the caller controls \u2014 ``miner_address`` or\n``authorized_by`` equal to the authenticated wallet \u2014 so one operator\ncannot disable or rewrite the history of another's miner rows (#2407).\nAn optional ``miner_address`` in the body narrows the stop to that\naddress; it must be one of the caller's rows. Already-disabled rows are\nleft untouched (``stopped_at`` is not rewritten).\n\nBookkeeping stub only \u2014 PBFT/PoA has no proof-of-work mining (#2211).",
         "operationId": "stop_mining_route_v1_mining_stop_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Mining Data"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -24215,6 +24291,46 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Stop Mining Route V1 Mining Stop Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "miner_address must be a non-empty string",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "miner '{requested}' is not registered to the authenticated wallet",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "no miner registered for the authenticated wallet{f' ({requested})' if requested else ''}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
