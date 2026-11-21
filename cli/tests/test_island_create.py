@@ -215,3 +215,62 @@ def test_list_hubs_auth_error_is_clean(monkeypatch):
 
     with pytest.raises(click.Abort):
         hub.list_hubs_command(_ctx(), None)
+
+
+# --- #2379 island join must not hard-require a validator keystore -----------
+
+
+def _all_output(capsys):
+    captured = capsys.readouterr()
+    return captured.out + captured.err
+
+
+def _assert_warned(capsys):
+    assert "validator key" in _all_output(capsys)
+
+
+def _assert_not_warned(capsys):
+    assert "validator key" not in _all_output(capsys)
+
+
+def _join_ok_setup(monkeypatch, keystore_path):
+    """Patch RPC + credentials store; return recorded join RPC calls."""
+    isl = importlib.import_module("aitbc_cli.commands.node.island")
+    monkeypatch.setenv("AITBC_VALIDATOR_KEYSTORE", str(keystore_path))
+    calls = _patch_rpc_client(monkeypatch, JOIN_OK)
+    monkeypatch.setattr(isl, "_store_island_credentials", lambda resp, creds: "/tmp/creds.json")
+    return isl, calls
+
+
+def test_join_warns_and_proceeds_without_keystore(monkeypatch, tmp_path, capsys):
+    """Missing keystore -> warning, join still proceeds (#2379)."""
+    isl, calls = _join_ok_setup(monkeypatch, tmp_path / "absent.json")
+
+    isl.join_island_command(_ctx(), "isl-1", "new-island", "ait-1", "hub.example", False, rpc_url="http://hub:8202")
+
+    assert calls, "join RPC was never attempted"
+    _assert_warned(capsys)
+
+
+def test_join_warns_and_proceeds_with_empty_keystore(monkeypatch, tmp_path, capsys):
+    """Empty keystore dict -> warning, join still proceeds (#2379)."""
+    keystore = tmp_path / "validator_keys.json"
+    keystore.write_text(json.dumps({}))
+    isl, calls = _join_ok_setup(monkeypatch, keystore)
+
+    isl.join_island_command(_ctx(), "isl-1", "new-island", "ait-1", "hub.example", False, rpc_url="http://hub:8202")
+
+    assert calls, "join RPC was never attempted"
+    _assert_warned(capsys)
+
+
+def test_join_proceeds_silently_with_valid_keystore(monkeypatch, tmp_path, capsys):
+    """Valid keystore -> no keystore warning, join proceeds (#2379)."""
+    keystore = tmp_path / "validator_keys.json"
+    keystore.write_text(json.dumps({"k1": {"public_key_pem": "PEM"}}))
+    isl, calls = _join_ok_setup(monkeypatch, keystore)
+
+    isl.join_island_command(_ctx(), "isl-1", "new-island", "ait-1", "hub.example", False, rpc_url="http://hub:8202")
+
+    assert calls, "join RPC was never attempted"
+    _assert_not_warned(capsys)
