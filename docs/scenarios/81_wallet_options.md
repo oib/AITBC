@@ -33,13 +33,9 @@ breadcrumb: Home > Scenarios > Wallet CLI Options
 > is spent, no wallet file, key, address record, or chain write is
 > created.
 >
-> One drift is recorded for separate registration:
-> `wallet bridge status --ait-tx-hash` **ignores `--hub-url`** — it
-> always queries the configured wallet daemon
-> (`get_wallet_client()`, `cli/aitbc_cli/commands/wallet/bridge.py`)
-> instead of the `_hub_bridge_client(hub_url)` used by every sibling
-> route, so on a customer node the flag is accepted but silently routed
-> to localhost.
+> The former `--hub-url` drift on `wallet bridge status --ait-tx-hash`
+> is **fixed**: the selector now routes through
+> `_hub_bridge_client(hub_url)` like every sibling route (see Step 3).
 
 ### What You'll Learn
 
@@ -51,7 +47,8 @@ breadcrumb: Home > Scenarios > Wallet CLI Options
   `--wallet-name` before any signing or network write
 - How `eth-send` orders its guards: `--amount-eth` positivity before
   the wallet file read, the wallet file read before any RPC contact
-- The `--hub-url` drift on `bridge status --ait-tx-hash`
+- That `bridge status --ait-tx-hash` honors `--hub-url` (drift fixed —
+  it once silently queried the local wallet daemon)
 
 ---
 
@@ -126,7 +123,7 @@ aitbc wallet bridge settlements --hub-url http://127.0.0.1:9
 **Expected output (exit 1):**
 `Failed to list settlements: GET request failed: ... Connection refused`
 
-### Step 3: Bridge status windows and the tx-hash drift
+### Step 3: Bridge status windows and the tx-hash selector
 
 `status` needs exactly one selector. The two windowed modes honor
 `--hub-url`:
@@ -149,9 +146,10 @@ aitbc wallet bridge status --hub-url http://127.0.0.1:9
 `status needs exactly one of --ait-tx-hash, --today, --24h` — the
 selector guard fires before any HTTP.
 
-**Drift.** The `--ait-tx-hash` selector ignores `--hub-url`: it queries
-the configured wallet daemon (`http://localhost:8108` on node0) no
-matter what was passed:
+**`--ait-tx-hash` honors `--hub-url` (drift fixed).** The selector
+routes through `_hub_bridge_client(hub_url)` like the windowed modes,
+so the request goes to the passed hub origin — the error URL proves
+it:
 
 ```bash
 aitbc wallet bridge status --ait-tx-hash 0x0000000000000000000000000000000000000000000000000000000000000000 --hub-url https://hub.aitbc.bubuit.net
@@ -160,11 +158,12 @@ aitbc wallet bridge status --ait-tx-hash 0x0000000000000000000000000000000000000
 **Expected output (exit 1):**
 
 ```
-Failed to get withdrawal status: GET request failed: 404 Client Error: Not Found for url: http://localhost:8108/v1/bridge/withdraw/0x000...
+Failed to get withdrawal status: GET request failed: 404 Client Error: Not Found for url: https://hub.aitbc.bubuit.net/v1/bridge/withdraw/0x000...
 ```
 
-The URL in the error proves the flag was dropped — the request went to
-`localhost:8108`, not the passed hub origin. Registered as a drift row.
+The URL in the error is the passed `--hub-url` origin, not the local
+wallet daemon — the old drift (request silently going to
+`localhost:8108`) is gone.
 
 ### Step 4: Bridge sell quote/lock (wallet-gate refusals)
 
@@ -229,13 +228,17 @@ aitbc wallet inspect --path /tmp/nosuch-walletopts1.json --field balance
 **Expected output (exit 1):**
 `Wallet file not found: /tmp/nosuch-walletopts1.json`
 
-All three liquidity commands hit the shared wallet gate first — the
-nonexistent wallet selected via `AITBC_DEFAULT_WALLET` aborts before stake-id lookup,
-signing, or submission (no stake row or chain write is possible):
+All three liquidity commands hit guards before signing — the
+nonexistent wallet selected via `AITBC_DEFAULT_WALLET` aborts before
+stake-id lookup or submission (no stake row or chain write is
+possible). Note `liquidity-stake` validates `--amount` **before** the
+wallet gate, so the leg uses a positive amount to reach it — `--amount
+0` would stop earlier at `Invalid amount: 0 AIT (must be > 0)` (exit
+1):
 
 ```bash
 AITBC_DEFAULT_WALLET=nosuch-walletopts1 aitbc wallet liquidity-claim --stake-id nosuch --fee 0
-AITBC_DEFAULT_WALLET=nosuch-walletopts1 aitbc wallet liquidity-stake --amount 0 --lock-days 1 --fee 0
+AITBC_DEFAULT_WALLET=nosuch-walletopts1 aitbc wallet liquidity-stake --amount 1 --lock-days 1 --fee 0
 AITBC_DEFAULT_WALLET=nosuch-walletopts1 aitbc wallet liquidity-unstake --stake-id nosuch --fee 0
 ```
 
@@ -304,10 +307,10 @@ with `wallet`, `address`, `count`, and up to `limit` rows (`tx_id`,
 | `--state` | `wallet bridge settlements` | live hub read | ok (0) |
 | `--kind` | `wallet bridge settlements` | live hub read | ok (0) |
 | `--hub-url` | `wallet bridge settlements` | live + conn-refused | ok (0) / expected-refusal (1) |
-| `--ait-tx-hash` | `wallet bridge status` | daemon 404; `--hub-url` dropped | drift (1) |
+| `--ait-tx-hash` | `wallet bridge status` | hub 404 honoring `--hub-url` (drift fixed) | expected-refusal (1) |
 | `--today` | `wallet bridge status` | live hub read | ok (0) |
 | `--24h` | `wallet bridge status` | live daemon read | ok (0) |
-| `--hub-url` | `wallet bridge status` | accepted, ignored on tx-hash path | drift (1) |
+| `--hub-url` | `wallet bridge status` | honored on all three selectors (drift fixed) | ok (0) / expected-refusal (1) |
 | `--address` | `wallet eth-balance` | conn-refused | expected-refusal (2) |
 | `--eth-rpc-url` | `wallet eth-balance` | conn-refused | expected-refusal (2) |
 | `--eth-rpc-url` | `wallet eth-send` | amount guard / wallet gate | expected-refusal (4) |
@@ -326,6 +329,7 @@ with `wallet`, `address`, `count`, and up to `limit` rows (`tx_id`,
 | `--address` | `wallet staking-info` | live read (zeroed shape) | ok (0) |
 | `--limit` | `wallet transactions` | live read | ok (0) |
 
-**Drift registered for a separate row:** `wallet bridge status
---ait-tx-hash` drops `--hub-url` (routes to the configured daemon
-instead of `_hub_bridge_client(hub_url)`; `bridge.py` `status()`).
+**Drift resolved:** `wallet bridge status --ait-tx-hash` now honors
+`--hub-url` — it routes through `_hub_bridge_client(hub_url)` like the
+windowed selectors (fixed since the round-5 replay; was: silently routed
+to the configured daemon).
