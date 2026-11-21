@@ -2,7 +2,7 @@
 
 # `aitbc compliance export-audit`
 
-Export a simulated compliance audit trail to a JSON file.
+Export the compliance audit trail to a JSON file. With a coordinator API configured this pulls the live merged audit logs (``GET /v1/compliance/audit-logs``, admin credential) from ``transaction_audit_record`` and ``phi_access_log``; without one it writes the two simulated records kept for offline use.
 
 ## Usage
 
