@@ -49,11 +49,19 @@ def _run(output_bytes: bytes | None, probe: subprocess.CompletedProcess | None =
     return fake_run
 
 
+class _FakeRequest:
+    """Minimal stand-in for fastapi.Request — only .headers is read (#2365)."""
+
+    def __init__(self, headers: dict | None = None) -> None:
+        self.headers = headers or {}
+
+
 def _process(monkeypatch, output_bytes, probe=None):
     monkeypatch.setattr(ffmpeg_main, "_run_cmd", _run(output_bytes, probe))
     monkeypatch.setattr(ffmpeg_main, "_ipfs_add_file", lambda path, name: "bafycid")
     return asyncio.run(
         ffmpeg_main.process_video(
+            request=_FakeRequest(),
             file=_FakeUpload(),
             output_format="mp4",
             codec="h264",
@@ -85,7 +93,9 @@ def test_missing_output_file_fails(monkeypatch):
     monkeypatch.setattr(ffmpeg_main, "_ipfs_add_file", lambda p, n: uploaded.append(p) or "cid")
     with pytest.raises(Exception) as ei:
         asyncio.run(
-            ffmpeg_main.process_video(file=_FakeUpload(), output_format="mp4", codec="h264", resolution="1080p", bitrate="5M")
+            ffmpeg_main.process_video(
+                request=_FakeRequest(), file=_FakeUpload(), output_format="mp4", codec="h264", resolution="1080p", bitrate="5M"
+            )
         )
     assert _status(ei.value) == 500
     assert "no output file" in str(ei.value.detail)

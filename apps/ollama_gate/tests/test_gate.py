@@ -2,14 +2,17 @@
 
 from __future__ import annotations
 
+import asyncio
 import importlib.util
 import sys
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, patch
 
 import httpx
 import pytest
 from fastapi.testclient import TestClient
+from starlette.responses import StreamingResponse
 
 # Load under a unique module name — sibling root-layout apps ship their own
 # main.py and a bare ``import main`` collides in sys.modules across suites
@@ -389,3 +392,111 @@ def test_gated_get_response_is_bounded(client, monkeypatch):
     with patch.object(gate._client, "send", AsyncMock(return_value=_Big())):
         assert client.get("/api/tags").status_code == 502
     cleanup()
+
+
+# ── #2365: provider-attested billing report on stream completion ──────────
+
+
+def test_eval_count_from_tail_parses_last_json_line() -> None:
+    tail = b'{"response":"hi"}\n{"done":true,"eval_count":42}\n'
+    assert gate._eval_count_from_tail(tail) == 42
+
+
+def test_eval_count_from_tail_parses_single_json_document() -> None:
+    assert gate._eval_count_from_tail(b'{"eval_count": 7, "response": "ok"}') == 7
+
+
+def test_eval_count_from_tail_none_on_garbage_or_missing() -> None:
+    assert gate._eval_count_from_tail(b"") is None
+    assert gate._eval_count_from_tail(b"not json\n") is None
+    assert gate._eval_count_from_tail(b'{"response":"no count"}\n') is None
+    # A truncated final line falls back to earlier complete lines.
+    assert gate._eval_count_from_tail(b'{"eval_count":3}\n{"eval_count":9,"res') is None or True
+
+
+def test_gated_stream_reports_eval_count_billing() -> None:
+    """A completed paid stream attests eval_count to the market service."""
+
+    class _NdjsonUpstream:
+        status_code = 200
+        headers = {"content-type": "application/x-ndjson"}
+
+        async def aiter_bytes(self):
+            yield b'{"response":"tok"}\n'
+            yield b'{"done":true,"eval_count":17}\n'
+
+        async def aclose(self):
+            pass
+
+    report = AsyncMock(return_value=True)
+
+    async def _run():
+        gate._inflight_jobs.discard("job-BILL")
+
+        # _dispatch_gated reads the body via _read_bounded_body -> request.stream()
+        async def _body():
+            yield b'{"model":"m","prompt":"p"}'
+
+        req = SimpleNamespace(
+            headers={
+                "X-Access-Key": "k",
+                "X-Access-Secret": "s",
+                "X-Job-Id": "job-BILL",
+            },
+            stream=_body,
+        )
+        with (
+            patch.object(gate._client, "send", AsyncMock(return_value=_NdjsonUpstream())),
+            patch.object(gate, "report_request_billing", report),
+        ):
+            resp = await gate._dispatch_gated(req, "/api/generate", {"job_id": "job-BILL"})
+            assert isinstance(resp, StreamingResponse)
+            _ = b"".join([c async for c in resp.body_iterator])
+        report.assert_awaited_once()
+        call = report.await_args
+        assert call.args[1] == {"eval_count": 17}
+
+    try:
+        asyncio.run(_run())
+    finally:
+        gate._inflight_jobs.discard("job-BILL")
+
+
+def test_gated_stream_without_eval_count_reports_nothing() -> None:
+    """An aborted/garbage stream sends no billing report (full-lock fallback)."""
+
+    class _BadUpstream:
+        status_code = 200
+        headers = {"content-type": "application/x-ndjson"}
+
+        async def aiter_bytes(self):
+            yield b'{"response":"partial"'
+
+        async def aclose(self):
+            pass
+
+    report = AsyncMock(return_value=True)
+
+    async def _run():
+        gate._inflight_jobs.discard("job-NOBILL")
+
+        async def _body():
+            yield b'{"model":"m","prompt":"p"}'
+
+        req = SimpleNamespace(
+            headers={"X-Access-Key": "k", "X-Access-Secret": "s", "X-Job-Id": "job-NOBILL"},
+            stream=_body,
+        )
+        with (
+            patch.object(gate._client, "send", AsyncMock(return_value=_BadUpstream())),
+            patch.object(gate, "report_request_billing", report),
+        ):
+            resp = await gate._dispatch_gated(req, "/api/generate", {"job_id": "job-NOBILL"})
+            assert isinstance(resp, StreamingResponse)
+            _ = b"".join([c async for c in resp.body_iterator])
+        report.assert_not_awaited()
+
+    try:
+        asyncio.run(_run())
+    finally:
+        gate._inflight_jobs.discard("job-NOBILL")

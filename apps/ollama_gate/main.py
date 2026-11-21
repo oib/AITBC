@@ -67,7 +67,7 @@ from fastapi.responses import JSONResponse, Response, StreamingResponse  # noqa:
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
-from aitbc.shop_gate import MARKET_VERIFY_URL, require_job_access  # noqa: E402
+from aitbc.shop_gate import MARKET_VERIFY_URL, report_request_billing, require_job_access  # noqa: E402
 
 configure_logging(level="INFO", service_name="ollama-gate", to_file=True)
 logger = get_logger(__name__)
@@ -321,12 +321,31 @@ async def _proxy_gated(request: Request, path: str, job: dict[str, Any], release
     )
     headers = {k: v for k, v in upstream.headers.items() if k.lower() not in _HOP_BY_HOP}
 
+    # #2365: keep a bounded tail of the NDJSON stream so the final chunk's
+    # eval_count can be attested to the market service as billing input.
+    # 256 KiB is far beyond one ollama result object; the tail is only ever
+    # scanned for the last JSON line, never buffered whole.
+    _BILLING_TAIL_BYTES = 256 * 1024
+    tail = bytearray()
+
     async def _stream():
         try:
             async for chunk in upstream.aiter_bytes():
+                tail.extend(chunk)
+                if len(tail) > _BILLING_TAIL_BYTES:
+                    del tail[:-_BILLING_TAIL_BYTES]
                 yield chunk
         finally:
             await upstream.aclose()
+            eval_count = _eval_count_from_tail(bytes(tail))
+            if eval_count is not None:
+                # Settlement prices the escrow from this attestation; a
+                # missed report degrades to full-lock settlement. Never
+                # raises — billing must not break the stream's teardown.
+                try:
+                    await report_request_billing(request, {"eval_count": eval_count})
+                except Exception as e:  # noqa: BLE001 - billing is best-effort
+                    logger.warning("ollama-gate billing report failed for job %s: %s", job.get("job_id"), e)
             release()
 
     return StreamingResponse(
@@ -335,6 +354,34 @@ async def _proxy_gated(request: Request, path: str, job: dict[str, Any], release
         headers=headers,
         media_type=upstream.headers.get("content-type"),
     )
+
+
+def _eval_count_from_tail(tail: bytes) -> int | None:
+    """Extract ``eval_count`` from the last JSON object in an ollama reply tail.
+
+    Ollama answers NDJSON chunks (``stream=true``) or one JSON object
+    (``stream=false``); the billing field lives in the final object. Try the
+    last few non-empty lines first, then the whole tail as a single JSON
+    document. Returns None when nothing parseable carries the field — an
+    aborted stream simply reports no billing.
+    """
+    if not tail:
+        return None
+    text = tail.decode("utf-8", errors="replace")
+    candidates = [line.strip() for line in text.splitlines() if line.strip()][-3:]
+    candidates.append(text.strip())
+    for candidate in candidates:
+        try:
+            data = json.loads(candidate)
+        except (json.JSONDecodeError, ValueError):
+            continue
+        if isinstance(data, dict):
+            value = data.get("eval_count")
+            if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+                return value
+            if isinstance(value, float) and value >= 0:
+                return int(value)
+    return None
 
 
 def _error(status_code: int, message: str) -> JSONResponse:

@@ -12,6 +12,7 @@ import os
 from collections.abc import Callable
 from contextlib import AbstractAsyncContextManager
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal, InvalidOperation
 from typing import Any
 
 from sqlalchemy import func, or_, update
@@ -506,7 +507,16 @@ class MarketJobSweeper:
         # always job.id, never the column (#1564).
         escrow_key = job.id
         try:
-            result = await self._rpc_client.release_escrow(escrow_key)
+            # #2365: provider-attested billing releases the priced actual
+            # for metered jobs; the unbilled remainder returns to the buyer
+            # via the node's change pass. No attestation -> full lock.
+            from .market_service.billing import attested_release_amount
+
+            billed = await attested_release_amount(session, job, payment)
+            if billed is not None:
+                result = await self._rpc_client.release_escrow(escrow_key, {"amount": str(billed)})
+            else:
+                result = await self._rpc_client.release_escrow(escrow_key)
         except Exception as e:  # noqa: BLE001 - any raised answer is a not-yet — shares the bounded deferral
             # Any raised answer (425 'lock not sealed', 5xx, transport) is a
             # 'not yet' too -- it shares the bounded deferral instead of
@@ -517,18 +527,27 @@ class MarketJobSweeper:
             now = datetime.now(UTC)
             meta = dict(payment.meta_data or {})
             meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)
+            payment_values: dict[str, Any] = {
+                "status": "released",
+                "transaction_hash": tx_hash,
+                "released_at": now,
+                "updated_at": now,
+                "meta_data": meta,
+            }
+            # #2365: a partial release reports what actually moved to the
+            # provider — record it like the settlement mixin does.
+            released_amount = result.get("released_amount")
+            if released_amount is not None:
+                try:
+                    payment_values["released_amount"] = Decimal(str(released_amount))
+                except (InvalidOperation, ValueError):
+                    pass
             async with session.begin_nested():
                 payment_ok = await self._cas_payment_status(
                     session,
                     payment.id,
                     "escrowed",
-                    {
-                        "status": "released",
-                        "transaction_hash": tx_hash,
-                        "released_at": now,
-                        "updated_at": now,
-                        "meta_data": meta,
-                    },
+                    payment_values,
                 )
                 if not payment_ok:
                     logger.info(

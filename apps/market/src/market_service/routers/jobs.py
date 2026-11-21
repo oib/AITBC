@@ -423,6 +423,60 @@ async def get_market_job_access(
         raise
 
 
+@router.post("/v1/market/jobs/{job_id}/billing")
+async def report_market_job_billing(
+    job_id: str,
+    svc: Annotated[MarketService, Depends(get_market_service)],
+    body: dict[str, Any] | None = None,
+    x_access_key: Annotated[str | None, Header()] = None,
+    x_access_secret: Annotated[str | None, Header()] = None,
+    x_job_id: Annotated[str | None, Header()] = None,
+) -> Any:
+    """Record provider-attested billing metrics for a metered job (#2365).
+
+    Provider daemons (ollama-gate, whisper, ffmpeg, hermes) POST the usage
+    they actually served here at job completion, authenticated by the same
+    per-job ``X-Access-Key``/``X-Access-Secret``/``X-Job-Id`` triple the
+    shop gate verifies — the secret never leaves the job's serving party.
+    No market API key: the credential IS the authorization. A ``final``
+    report completes the job so the settlement passes release the escrow
+    against the attested actuals instead of the locked estimate.
+    """
+    from ..services.market_service.billing import validate_billing_metrics
+
+    body = body or {}
+    try:
+        logger.info("POST /v1/market/jobs/%s/billing called", job_id)
+        if not x_access_key or not x_access_secret or not x_job_id:
+            return JSONResponse(status_code=401, content={"error": "X-Access-Key, X-Access-Secret and X-Job-Id are required"})
+        job = await svc.get_market_job(job_id)
+        if not job:
+            return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
+        payload = job.get("payload") or {}
+        if job.get("access_key") != x_access_key or not _secret_matches(
+            str(payload.get("access_secret") or ""), x_access_secret
+        ):
+            return JSONResponse(status_code=403, content={"error": "invalid access token"})
+        if x_job_id != job_id:
+            return JSONResponse(status_code=403, content={"error": "access token not issued for this job"})
+        raw_metrics = body.get("metrics")
+        if raw_metrics is None and "metric" in body:
+            raw_metrics = {body["metric"]: body.get("value")}
+        try:
+            metrics = validate_billing_metrics(raw_metrics)
+        except ValueError as e:
+            return JSONResponse(status_code=400, content={"error": str(e)})
+        result = await svc.record_job_billing(job_id, metrics, final=bool(body.get("final")))
+        if not result.get("accepted"):
+            return JSONResponse(status_code=409, content={"error": "job state changed; billing report not recorded"})
+        return result
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except Exception as e:
+        logger.error("Error in POST /v1/market/jobs/%s/billing: %s: %s", job_id, type(e).__name__, str(e))
+        raise
+
+
 @router.get("/v1/market/access/{access_key}")
 async def get_market_access_token(
     access_key: str,

@@ -23,7 +23,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.media_guard import pyav_open_options  # noqa: E402
-from aitbc.shop_gate import MARKET_VERIFY_URL, require_job_access  # noqa: E402
+from aitbc.shop_gate import MARKET_VERIFY_URL, report_request_billing, require_job_access  # noqa: E402
 
 configure_logging(level="INFO", service_name="whisper", to_file=True)
 logger = get_logger(__name__)
@@ -430,6 +430,7 @@ def _consume_task_exception(task: "asyncio.Task[dict]") -> None:
 
 @app.post("/transcribe", dependencies=[Depends(require_job_access)])
 async def transcribe(
+    request: Request,
     file: Annotated[UploadFile, File(...)],
     language: str | None = Form(default=None),
     task: str = Form(default="transcribe"),
@@ -476,6 +477,13 @@ async def transcribe(
     transcript = " ".join(result["full_text"])
     result_hash = hashlib.sha256(transcript.encode()).hexdigest()
     duration = result["duration"]
+    duration_minutes = round(duration / 60, 4)
+
+    # #2365: attest the billed usage to the market service before answering —
+    # settlement prices the escrow from this report, not from the buyer's
+    # client-side computation. Never raises; a missed report degrades to
+    # full-lock settlement.
+    await report_request_billing(request, {"duration_minutes": duration_minutes})
 
     return JSONResponse(
         {
@@ -483,7 +491,7 @@ async def transcribe(
             "language": result["language"],
             "language_probability": result["language_probability"],
             "duration_seconds": duration,
-            "duration_minutes": round(duration / 60, 4),
+            "duration_minutes": duration_minutes,
             "segments": result["segment_list"],
             "model": _model_name,
             "elapsed_seconds": elapsed,
