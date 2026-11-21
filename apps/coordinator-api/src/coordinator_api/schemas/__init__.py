@@ -117,6 +117,9 @@ class JobPaymentView(BaseModel):
     energy_quote_id: str | None = None
     energy_buyer_charge_units: int | None = None
     energy_net_floor_units: int | None = None
+    # #2358: buyer-safe reason a payment failed to secure its escrow
+    # (meta_data.escrow_error); null unless status == "failed".
+    payment_error: str | None = None
 
 
 class PaymentRequest(BaseModel):
@@ -407,6 +410,9 @@ class JobView(BaseModel):
     # can show the money movement instead of None.
     escrow_tx_hash: str | None = None
     release_tx_hash: str | None = None
+    # #2358: why the linked payment failed to secure its escrow, so clients
+    # can show the reason instead of a bare payment_status="failed".
+    payment_error: str | None = None
 
 
 class JobRejection(BaseModel):

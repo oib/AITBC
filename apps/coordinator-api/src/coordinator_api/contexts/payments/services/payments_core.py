@@ -121,6 +121,7 @@ class PaymentCoreMixin:
             refund_transaction_hash=payment.refund_transaction_hash,
             escrow_tx_hash=meta.get("escrow_lock_tx_hash"),
             protected=bool(meta.get("energy_is_protected")),
+            payment_error=meta.get("escrow_error") if payment.status == "failed" else None,
             energy_quote_id=meta.get("energy_quote", {}).get("quote_id") if meta.get("energy_quote") else None,
             energy_buyer_charge_units=meta.get("energy_buyer_charge_units"),
             energy_net_floor_units=meta.get("energy_net_floor_units"),

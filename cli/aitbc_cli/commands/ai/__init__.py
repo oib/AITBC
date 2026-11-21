@@ -223,6 +223,30 @@ def _media_url(input_url: str, http_client: AITBCHTTPClient | None = None) -> tu
         return f"data:{mime};base64,{encoded}", filename
 
 
+def _report_escrow_outcome(ctx, job_id: str, payment_result: dict[str, Any]) -> None:
+    """#2358: only claim 'Escrow secured' when the coordinator confirms the
+    escrow (``status == "escrowed"``/``"confirmed"`` — the token path waits
+    for the lock to seal before returning). A failed or still-pending
+    payment must surface its reason, not a false success."""
+    pay_status = str(payment_result.get("status") or "")
+    payment_id = payment_result.get("payment_id")
+    if pay_status in ("escrowed", "confirmed"):
+        success(f"Escrow secured: {payment_id}")
+        return
+    if pay_status == "failed":
+        reason = payment_result.get("payment_error") or "the escrow lock did not secure"
+        warning(
+            f"Escrow NOT secured for job {job_id}: payment {payment_id} {reason}. "
+            f"The job stays queued until paid — retry with 'aitbc ai pay --job-id {job_id}' "
+            f"or close it with 'aitbc ai cancel --job-id {job_id}'"
+        )
+        return
+    warning(
+        f"Escrow not yet confirmed for job {job_id}: payment {payment_id} "
+        f"status={pay_status or 'unknown'}. Check 'aitbc ai status --job-id {job_id}'."
+    )
+
+
 def _create_escrow_payment(
     ctx,
     coord_http_client: AITBCHTTPClient,

@@ -609,6 +609,7 @@ class JobService:
             acceptance_deadline=acceptance_deadline,
             escrow_tx_hash=meta.get("escrow_lock_tx_hash"),
             release_tx_hash=payment.transaction_hash if payment is not None else None,
+            payment_error=(meta.get("escrow_error") if payment is not None and payment.status == "failed" else None),
         )
 
     def to_view(self, job: Job) -> JobView:

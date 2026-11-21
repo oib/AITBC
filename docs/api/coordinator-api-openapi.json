@@ -42846,6 +42846,17 @@
               }
             ],
             "title": "Energy Net Floor Units"
+          },
+          "payment_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Error"
           }
         },
         "type": "object",
@@ -43966,6 +43977,17 @@
               }
             ],
             "title": "Release Tx Hash"
+          },
+          "payment_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payment Error"
           }
         },
         "type": "object",
