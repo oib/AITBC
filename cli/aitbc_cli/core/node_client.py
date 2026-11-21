@@ -345,7 +345,12 @@ class NodeClient:
                 raise RuntimeError(f"Chain stats request failed: {response.status_code}")
         except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
-                logger.error("Chain stats request failed for %s on %s: %s", chain_id, self.config.id, e)
+                # Debug, not error: the analytics fan-out is the only caller
+                # and it classifies per-chain failures into one consolidated
+                # warning — an error line per dead chain per call reads as
+                # command failure on an exit-0 partial success (#2412, same
+                # pattern as the #2424 hosted-chains fix).
+                logger.debug("Chain stats request failed for %s on %s: %s", chain_id, self.config.id, e)
                 raise
             # Return mock stats for development
             return self._get_mock_chain_stats(chain_id)

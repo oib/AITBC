@@ -40,6 +40,23 @@ def _fmt(ctx: click.Context, command_format: str | None) -> str:
     return resolve_output_format(ctx, command_format)
 
 
+def _num(value: Any, digits: int = 2) -> str:
+    """Format a possibly-unmeasured metric.
+
+    ``None`` means the source never reported the field — render "unknown",
+    never a fabricated 0 (#2412).
+    """
+    return "unknown" if value is None else f"{value:.{digits}f}"
+
+
+def _mb(value: Any) -> str:
+    return "unknown" if value is None else f"{value:.1f}MB"
+
+
+def _count(value: Any) -> str:
+    return "unknown" if value is None else str(value)
+
+
 logger = get_logger(__name__)
 
 
@@ -89,12 +106,26 @@ def summary(ctx, chain_id, hours, format):
                 {"Metric": "Data Points", "Value": summary["data_points"]},
                 {"Metric": "Health Score", "Value": f"{summary['health_score']:.1f}/100"},
                 {"Metric": "Active Alerts", "Value": summary["active_alerts"]},
-                {"Metric": "Avg TPS", "Value": f"{summary['statistics']['tps']['avg']:.2f}"},
-                {"Metric": "Avg Block Time", "Value": f"{summary['statistics']['block_time']['avg']:.2f}s"},
+                {"Metric": "Avg TPS", "Value": _num(summary["statistics"]["tps"]["avg"])},
+                {
+                    "Metric": "Avg Block Time",
+                    "Value": (
+                        f"{_num(summary['statistics']['block_time']['avg'])}s"
+                        if summary["statistics"]["block_time"]["avg"] is not None
+                        else "unknown"
+                    ),
+                },
                 # gas_price is a raw chain integer — the chain's base unit is
                 # compute-units (1 AIT = 36,000,000), not wei (#2220, same
                 # units convention as #2197).
-                {"Metric": "Avg Gas Price", "Value": format_ait(summary["statistics"]["gas_price"]["avg"])},
+                {
+                    "Metric": "Avg Gas Price",
+                    "Value": (
+                        format_ait(summary["statistics"]["gas_price"]["avg"])
+                        if summary["statistics"]["gas_price"]["avg"] is not None
+                        else "unknown"
+                    ),
+                },
                 # Provenance matters as much as the numbers: synthetic rows
                 # come from the local-RPC fallback, not a node metrics
                 # endpoint (#2219/#2220).
@@ -115,10 +146,10 @@ def summary(ctx, chain_id, hours, format):
                 {"Metric": "Active Chains", "Value": analysis["active_chains"]},
                 {"Metric": "Total Alerts", "Value": analysis["alerts_summary"]["total_alerts"]},
                 {"Metric": "Critical Alerts", "Value": analysis["alerts_summary"]["critical_alerts"]},
-                {"Metric": "Total Memory Usage", "Value": f"{analysis['resource_usage']['total_memory_mb']:.1f}MB"},
-                {"Metric": "Total Disk Usage", "Value": f"{analysis['resource_usage']['total_disk_mb']:.1f}MB"},
-                {"Metric": "Total Clients", "Value": analysis["resource_usage"]["total_clients"]},
-                {"Metric": "Total Agents", "Value": analysis["resource_usage"]["total_agents"]},
+                {"Metric": "Total Memory Usage", "Value": _mb(analysis["resource_usage"]["total_memory_mb"])},
+                {"Metric": "Total Disk Usage", "Value": _mb(analysis["resource_usage"]["total_disk_mb"])},
+                {"Metric": "Total Clients", "Value": _count(analysis["resource_usage"]["total_clients"])},
+                {"Metric": "Total Agents", "Value": _count(analysis["resource_usage"]["total_agents"])},
             ]
 
             # Performance comparison
@@ -126,8 +157,8 @@ def summary(ctx, chain_id, hours, format):
                 [
                     {
                         "Chain ID": chain_id,
-                        "TPS": f"{data['tps']:.2f}",
-                        "Block Time": f"{data['block_time']:.2f}s",
+                        "TPS": _num(data["tps"]),
+                        "Block Time": (f"{_num(data['block_time'])}s" if data["block_time"] is not None else "unknown"),
                         "Health Score": f"{data['health_score']:.1f}/100",
                     }
                     for chain_id, data in analysis["performance_comparison"].items()
@@ -174,10 +205,11 @@ def _monitor_table() -> Any:
 
 def _single_chain_row(table, cid: str, summary: dict[str, Any]) -> None:
     health_color = _health_color(summary["health_score"])
+    block_avg = summary["statistics"]["block_time"]["avg"]
     table.add_row(
         cid,
-        f"{summary['statistics']['tps']['avg']:.2f}",
-        f"{summary['statistics']['block_time']['avg']:.2f}s",
+        _num(summary["statistics"]["tps"]["avg"]),
+        f"{_num(block_avg)}s" if block_avg is not None else "unknown",
         f"[{health_color}]{summary['health_score']:.1f}[/{health_color}]",
         str(summary["active_alerts"]),
     )
@@ -187,10 +219,11 @@ def _all_chains_rows(table, analytics: ChainAnalytics) -> None:
     analysis = analytics.get_cross_chain_analysis()
     for chain_id, data in analysis.get("performance_comparison", {}).items():
         health_color = _health_color(data["health_score"])
+        block_time = data["block_time"]
         table.add_row(
             chain_id,
-            f"{data['tps']:.2f}",
-            f"{data['block_time']:.2f}s",
+            _num(data["tps"]),
+            f"{_num(block_time)}s" if block_time is not None else "unknown",
             f"[{health_color}]{data['health_score']:.1f}[/{health_color}]",
             str(len([a for a in analytics.alerts if a.chain_id == chain_id])),
         )
@@ -235,28 +268,32 @@ def _realtime_monitor(analytics: ChainAnalytics, interval, chain_id: str | None)
 
 
 def _single_chain_monitor_rows(summary: dict[str, Any]) -> list[dict[str, str]]:
+    latest = summary["latest_metrics"]
+    tps_avg = summary["statistics"]["tps"]["avg"]
+    block_avg = summary["statistics"]["block_time"]["avg"]
     return [
         {"Metric": "Chain ID", "Value": summary["chain_id"]},
-        {"Metric": "Current TPS", "Value": f"{summary['statistics']['tps']['avg']:.2f}"},
-        {"Metric": "Current Block Time", "Value": f"{summary['statistics']['block_time']['avg']:.2f}s"},
+        {"Metric": "Current TPS", "Value": _num(tps_avg)},
+        {"Metric": "Current Block Time", "Value": f"{_num(block_avg)}s" if block_avg is not None else "unknown"},
         {"Metric": "Health Score", "Value": f"{summary['health_score']:.1f}/100"},
-        {"Metric": "Active Alerts", "Value": summary["active_alerts"]},
-        {"Metric": "Memory Usage", "Value": f"{summary['latest_metrics']['memory_usage_mb']:.1f}MB"},
-        {"Metric": "Disk Usage", "Value": f"{summary['latest_metrics']['disk_usage_mb']:.1f}MB"},
-        {"Metric": "Active Nodes", "Value": summary["latest_metrics"]["active_nodes"]},
-        {"Metric": "Client Count", "Value": summary["latest_metrics"]["client_count"]},
-        {"Metric": "Agent Count", "Value": summary["latest_metrics"]["agent_count"]},
+        {"Metric": "Active Alerts", "Value": str(summary["active_alerts"])},
+        {"Metric": "Memory Usage", "Value": _mb(latest.get("memory_usage_mb"))},
+        {"Metric": "Disk Usage", "Value": _mb(latest.get("disk_usage_mb"))},
+        {"Metric": "Active Nodes", "Value": _count(latest.get("active_nodes"))},
+        {"Metric": "Client Count", "Value": _count(latest.get("client_count"))},
+        {"Metric": "Agent Count", "Value": _count(latest.get("agent_count"))},
     ]
 
 
 def _all_chains_monitor_rows(analysis: dict[str, Any]) -> list[dict[str, str]]:
+    usage = analysis["resource_usage"]
     return [
-        {"Metric": "Total Chains", "Value": analysis["total_chains"]},
-        {"Metric": "Active Chains", "Value": analysis["active_chains"]},
-        {"Metric": "Total Memory Usage", "Value": f"{analysis['resource_usage']['total_memory_mb']:.1f}MB"},
-        {"Metric": "Total Disk Usage", "Value": f"{analysis['resource_usage']['total_disk_mb']:.1f}MB"},
-        {"Metric": "Total Clients", "Value": analysis["resource_usage"]["total_clients"]},
-        {"Metric": "Total Agents", "Value": analysis["resource_usage"]["total_agents"]},
+        {"Metric": "Total Chains", "Value": _count(analysis["total_chains"])},
+        {"Metric": "Active Chains", "Value": _count(analysis["active_chains"])},
+        {"Metric": "Total Memory Usage", "Value": _mb(usage["total_memory_mb"])},
+        {"Metric": "Total Disk Usage", "Value": _mb(usage["total_disk_mb"])},
+        {"Metric": "Total Clients", "Value": _count(usage["total_clients"])},
+        {"Metric": "Total Agents", "Value": _count(usage["total_agents"])},
         {"Metric": "Total Alerts", "Value": analysis["alerts_summary"]["total_alerts"]},
         {"Metric": "Critical Alerts", "Value": analysis["alerts_summary"]["critical_alerts"]},
     ]
@@ -490,7 +527,12 @@ def alerts(ctx, severity, hours, format):
             filtered_alerts = [a for a in filtered_alerts if a.severity == severity]
 
         if not filtered_alerts:
-            if not analytics.has_live_metrics():
+            # Judge THIS collection pass, not the persisted history file: a
+            # run where every node failed must not look measured just
+            # because yesterday's samples are on disk (#2412). Test doubles
+            # without the attribute fall back to the history check.
+            collected_live = getattr(analytics, "last_collect_live", analytics.has_live_metrics())
+            if not collected_live:
                 # Every configured node failed and only the synthetic
                 # local-RPC fallback (or nothing) produced rows — "No alerts
                 # found" would falsely imply the sources were checked (#2219).

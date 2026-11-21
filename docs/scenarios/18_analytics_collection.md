@@ -4,7 +4,7 @@
 **Prerequisites**: [Scenario 17 Governance Voting](./17_governance_voting.md)
 **Estimated Time**: 20 minutes
 **Last Updated**: 2026-11-21
-**Version**: 1.2
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -43,13 +43,15 @@ A network operator wants to monitor the health and performance of multiple block
 > mean block interval and TPS from the recent `/rpc/blocks-range` window,
 > validator count from `/rpc/network-info`, and the configured block interval
 > (`block_time_seconds`) from `/rpc/info`. Host telemetry the RPC does not
-> publish (memory, disk, client/agent counts) reads as 0 — that is "not
-> measured", not a real zero. `block_time_high` alerts and the "High block
-> time" recommendation fire only when blocks run >50% slower than the chain's
+> publish (memory, disk, client/agent counts) renders as `unknown` — that is
+> "not measured", not a real zero, and it never feeds alerts or the "Add more
+> nodes" recommendation. `block_time_high` alerts and the "High block time"
+> recommendation fire only when blocks run >50% slower than the chain's
 > configured interval, so a PBFT chain idling at its ~60s design interval does
-> not alert. Predictions need ≥10 collected samples in one session; a single
-> CLI invocation collects one, so `predict` honestly reports no predictions
-> rather than inventing a trend.
+> not alert. Metrics samples persist across invocations under
+> `~/.aitbc/analytics_metrics.json` (`AITBC_ANALYTICS_HISTORY` overrides the
+> path), so `predict` accumulates history between CLI runs — it still needs
+> ≥10 collected samples and reports honestly when there are not enough.
 
 ---
 
@@ -85,28 +87,31 @@ aitbc analytics summary
 aitbc analytics summary --chain-id bc-2 --hours 48
 ```
 
-**Expected output (cross-chain):**
+**Expected output (cross-chain) — illustrative; a single-chain node looks like:**
 
 ```
 Cross-Chain Analysis Overview
 
 Metric                Value
-Total Chains          3
-Active Chains         3
-Total Alerts          2
+Total Chains          1
+Active Chains         1
+Total Alerts          0
 Critical Alerts       0
-Total Memory Usage    512.3MB
-Total Disk Usage      2048.5MB
-Total Clients         15
-Total Agents          8
+Total Memory Usage    unknown
+Total Disk Usage      unknown
+Total Clients         unknown
+Total Agents          unknown
 
 Chain Performance Comparison
 
 Chain ID     TPS       Block Time   Health Score
-bc-2      125.50    2.10s        85.0/100
-bc-2   98.30     3.20s        72.0/100
-bc-2  45.00     5.00s        60.0/100
+bc-2      0.00       61.20s       55.0/100
 ```
+
+On a live PBFT chain empty blocks legitimately measure ~0 TPS and a ~60s
+block interval — that is the chain's design, not a fault. Memory/disk/client
+counts read `unknown` because the public chain RPC does not publish host
+telemetry.
 
 **Expected output (single chain):**
 
@@ -116,12 +121,13 @@ Chain Summary: bc-2
 Metric              Value
 Chain ID            bc-2
 Time Range          48 hours
-Data Points         1440
-Health Score        85.0/100
-Active Alerts       1
-Avg TPS             125.50
-Avg Block Time      2.10s
-Avg Gas Price       12,500 wei
+Data Points         3
+Health Score        55.0/100
+Active Alerts       0
+Avg TPS             0.00
+Avg Block Time      61.20s
+Avg Gas Price       unknown
+Data Source         live
 ```
 
 ### Step 2: Monitor Chain Performance
@@ -139,19 +145,20 @@ aitbc analytics monitor --chain-id bc-2
 aitbc analytics monitor --realtime --interval 15
 ```
 
-**Expected output (single snapshot, all chains):**
+**Expected output (single snapshot, all chains) — illustrative; on a
+chain-rpc node the unmeasured totals read `unknown`:**
 
 ```
 System Monitor
 
 Metric                Value
-Total Chains          3
-Active Chains         3
-Total Memory Usage    512.3MB
-Total Disk Usage      2048.5MB
-Total Clients         15
-Total Agents          8
-Total Alerts          2
+Total Chains          1
+Active Chains         1
+Total Memory Usage    unknown
+Total Disk Usage      unknown
+Total Clients         unknown
+Total Agents          unknown
+Total Alerts          0
 Critical Alerts       0
 ```
 
@@ -162,15 +169,15 @@ Chain Monitor: bc-2
 
 Metric              Value
 Chain ID            bc-2
-Current TPS         128.40
-Current Block Time  2.05s
-Health Score        86.0/100
-Active Alerts       1
-Memory Usage        256.1MB
-Disk Usage          1024.2MB
-Active Nodes        5
-Client Count        12
-Agent Count         6
+Current TPS         0.00
+Current Block Time  61.20s
+Health Score        55.0/100
+Active Alerts       0
+Memory Usage        unknown
+Disk Usage          unknown
+Active Nodes        4
+Client Count        unknown
+Agent Count         unknown
 ```
 
 ### Step 3: Predict Future Chain Performance
@@ -185,16 +192,15 @@ aitbc analytics predict --hours 24
 aitbc analytics predict --chain-id bc-2 --hours 12
 ```
 
-**Expected output (single chain):**
+**Expected output (single chain) — only `tps` and `memory_usage_mb` are
+predicted today, and only once ≥10 samples have accumulated across runs:**
 
 ```
 Performance Predictions: bc-2
 
 Metric          Predicted Value   Confidence   Time Horizon
-tps             130.50            87.5%        12h
-block_time      2.08s             92.0%        12h
-gas_price       12,000 wei        78.3%        12h
-memory_usage    260.00MB          85.0%        12h
+tps             0.00               90.0%        12h
+memory_usage_mb 0.00               90.0%        12h
 ```
 
 ### Step 4: View Performance Alerts
@@ -209,14 +215,14 @@ aitbc analytics alerts
 aitbc analytics alerts --severity critical --hours 6
 ```
 
-**Expected output:**
+**Expected output — illustrative; a healthy PBFT chain at its configured
+interval typically shows no alerts at all:**
 
 ```
 Performance Alerts (Last 24h)
 
-Chain ID     Type            Severity   Message                    Current Value   Threshold    Time
-bc-2   high_block_time  warning    Block time above 3s        3.20            3.00         2026-06-25 09:30:00
-bc-2  low_tps          warning    TPS below 50               45.00           50.00        2026-06-25 08:15:00
+Chain ID     Type               Severity   Message                          Current Value   Threshold    Time
+bc-2   block_time_high   warning    High block time: 95.00s            95.00           90.00        2026-06-25 09:30:00
 ```
 
 ### Step 5: Get Optimization Recommendations
@@ -231,14 +237,13 @@ aitbc analytics optimize --chain-id bc-2
 aitbc analytics optimize
 ```
 
-**Expected output (single chain):**
+**Expected output (single chain) — illustrative:**
 
 ```
 Optimization Recommendations: bc-2
 
-Type        Priority   Issue               Current Value   Recommended Action              Expected Improvement
-scaling     high       High block time     3.20s           Increase validator count        25%
-resource    medium     High memory usage   180MB           Enable state pruning            15%
+Type        Priority   Issue                  Current Value   Recommended Action                     Expected Improvement
+resource    medium     High memory usage      512.0           Implement data pruning or increase node memory   40-70% memory usage reduction
 ```
 
 ### Step 6: Export Complete Dashboard Data
@@ -249,18 +254,31 @@ Get a full JSON dashboard export suitable for ingestion by external monitoring t
 aitbc analytics dashboard
 ```
 
-**Expected output:**
+**Expected output — the real dashboard shape is `overview` /
+`chain_summaries` / `alerts` / `predictions` / `recommendations`; values
+below are illustrative:**
 
 ```json
 {
   "overview": {
-    "total_chains": 3,
-    "active_chains": 3,
-    "health_scores": {"bc-2": 85.0, "bc-2": 72.0, "bc-2": 60.0}
+    "total_chains": 1,
+    "active_chains": 1,
+    "chains_by_type": {"unknown": 1},
+    "performance_comparison": {
+      "bc-2": {"tps": 0.0, "block_time": 61.2, "health_score": 55.0}
+    },
+    "resource_usage": {
+      "total_memory_mb": null,
+      "total_disk_mb": null,
+      "total_clients": null,
+      "total_agents": null
+    },
+    "alerts_summary": {"total_alerts": 0, "critical_alerts": 0, "warning_alerts": 0}
   },
-  "alerts": [...],
-  "performance_comparison": {...},
-  "resource_usage": {...}
+  "chain_summaries": {"bc-2": {"data_points": 3, "data_source": "live"}},
+  "alerts": [],
+  "predictions": {},
+  "recommendations": {"bc-2": []}
 }
 ```
 
@@ -396,4 +414,4 @@ aitbc analytics dashboard | python3 -m json.tool
 ---
 
 *Last updated: 2026-08-20*
-*Version: 1.2*
+*Version: 1.3*
