@@ -74,13 +74,12 @@ def _apply_cancels(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], se
     """Correlate cancel transactions to their orders in the read model.
 
     A sealed EXCHANGE ``{"action": "cancel", "order_id": ...}`` tx marks the
-    order it names cancelled: the order row's status flips to "cancelled"
-    and the cancel row inherits the order's pair/side so it no longer
-    reads as an empty-side row. Idempotent — a second cancel for the same
-    order is a no-op. Cancel rows themselves are then dropped from the
-    result: a cancel is a status update on its order_id, never an order
-    row of its own (#2400 — zero-amount "orders" polluted order history).
-    Returns (rows, cancelled order_ids).
+    order it names cancelled: every order row with that order_id flips to
+    "cancelled". Idempotent — a second cancel for the same order is a no-op.
+    Cancel rows themselves are dropped from the result: a cancel is a status
+    update on its order_id, never an order row of its own (#2400 —
+    zero-amount "orders" polluted order history). Returns (rows, cancelled
+    order_ids).
     """
     cancels: dict[str, dict[str, Any]] = {}
     originals: dict[str, list[dict[str, Any]]] = {}
@@ -94,15 +93,9 @@ def _apply_cancels(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], se
         elif oid:
             originals.setdefault(oid, []).append(payload)
     cancelled_ids = set(cancels)
-    for oid, cancel in cancels.items():
+    for oid in cancels:
         for orig in originals.get(oid, []):
             orig["status"] = "cancelled"
-        # Fill the cancel row from the FIRST matching order row.
-        first = next(iter(originals.get(oid, [])), None)
-        if first is not None:
-            for key in ("pair", "side", "user_id"):
-                if not cancel.get(key) and first.get(key):
-                    cancel[key] = first[key]
     kept = [
         row
         for row in rows
