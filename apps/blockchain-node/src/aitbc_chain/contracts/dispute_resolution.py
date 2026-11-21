@@ -3,6 +3,7 @@ Dispute Resolution Smart Contract
 Handles dispute filing, evidence submission, arbitration, and resolution
 """
 
+import os
 import time
 from dataclasses import asdict, dataclass
 from enum import Enum
@@ -95,13 +96,56 @@ class DisputeResolutionContract:
             self._owner = "0x" + self._owner
 
     def _initialize_arbitrators(self) -> None:
-        """Initialize default arbitrators"""
+        """Initialize arbitrators.
+
+        ``AITBC_DISPUTE_ARBITRATORS`` (comma-separated ``0xaddress:score``
+        entries) seeds the authorized set for real dispute flows (#2052).
+        When unset, the historical placeholder trio is kept so existing
+        dev/test flows are unchanged — live evidence runs must set the env.
+        """
+        seeded = self._arbitrators_from_env()
+        if seeded:
+            self.arbitrators = seeded
+            logger.info("Initialized %s arbitrators from AITBC_DISPUTE_ARBITRATORS", len(self.arbitrators))
+            return
         self.arbitrators = {
             "0x1111111111111111111111111111111111111111": 90,
             "0x2222222222222222222222222222222222222222": 85,
             "0x3333333333333333333333333333333333333333": 88,
         }
-        logger.info("Initialized %s arbitrators", len(self.arbitrators))
+        logger.info(
+            "Initialized %s placeholder arbitrators (set AITBC_DISPUTE_ARBITRATORS for real identities)", len(self.arbitrators)
+        )
+
+    @staticmethod
+    def _arbitrators_from_env() -> dict[str, int]:
+        """Parse ``AITBC_DISPUTE_ARBITRATORS`` = ``0xaddr:score[,0xaddr:score...]``."""
+        from eth_utils import to_checksum_address
+
+        raw = os.getenv("AITBC_DISPUTE_ARBITRATORS", "")
+        out: dict[str, int] = {}
+        for entry in raw.split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            addr, _, score = entry.partition(":")
+            addr = addr.strip()
+            try:
+                canon = to_checksum_address(addr)
+                out[canon] = int(score.strip() or "50")
+            except (ValueError, TypeError):
+                logger.warning("Ignoring malformed AITBC_DISPUTE_ARBITRATORS entry: %r", entry)
+        return out
+
+    @staticmethod
+    def _canon(address: str) -> str:
+        """Canonicalize an arbitrator address for set membership checks."""
+        try:
+            from eth_utils import to_checksum_address
+
+            return to_checksum_address(address.strip())
+        except (ValueError, TypeError):
+            return address.strip().lower()
 
     def file_dispute(
         self, agreement_id: int, respondent: str, dispute_type: str, reason: str, evidence_hash: str, sender_address: str
@@ -167,6 +211,7 @@ class DisputeResolutionContract:
         self, dispute_id: int, evidence_id: int, is_valid: bool, verification_score: int, arbitrator_address: str
     ) -> dict[str, Any]:
         """Verify evidence (arbitrator only)"""
+        arbitrator_address = self._canon(arbitrator_address)
         if arbitrator_address not in self.arbitrators:
             return {"success": False, "error": "Not an authorized arbitrator"}
         if dispute_id not in self.disputes:
@@ -184,6 +229,7 @@ class DisputeResolutionContract:
         self, dispute_id: int, vote_in_favor_of_initiator: bool, confidence: int, reasoning: str, arbitrator_address: str
     ) -> dict[str, Any]:
         """Submit arbitration vote (arbitrator only)"""
+        arbitrator_address = self._canon(arbitrator_address)
         if arbitrator_address not in self.arbitrators:
             return {"success": False, "error": "Not an authorized arbitrator"}
         if dispute_id not in self.disputes:
@@ -239,7 +285,7 @@ class DisputeResolutionContract:
         if not self._verify_owner_signature(owner_address, owner_signature, sign_data):
             return {"success": False, "status": "error", "message": "Invalid owner signature"}
 
-        self.arbitrators[arbitrator_address] = reputation_score
+        self.arbitrators[self._canon(arbitrator_address)] = reputation_score
         logger.info("Authorized arbitrator %s with reputation %s", arbitrator_address, reputation_score)
         return {"success": True, "status": "Authorized", "message": f"Arbitrator {arbitrator_address} authorized"}
 

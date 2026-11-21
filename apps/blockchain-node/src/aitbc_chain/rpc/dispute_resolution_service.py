@@ -1,11 +1,44 @@
 """Dispute Resolution Service Module"""
 
+import os
 from typing import Any
+
+from eth_typing import HexStr
+from eth_utils import keccak
 
 from ..contracts.dispute_resolution import dispute_resolution_contract
 from ..logger import get_logger
 
 logger = get_logger(__name__)
+
+# Optional on-chain agreement binding for dispute filing (#2052). When both
+# env vars are set, file_dispute validates the agreement_id against the real
+# AIPowerRental contract on the configured EVM RPC — mirroring
+# DisputeResolution.sol: the agreement must exist and the caller/respondent
+# must be its provider/consumer pair. Unset -> legacy in-memory sim behavior.
+_AGREEMENT_RPC_URL_ENV = "AITBC_DISPUTE_AGREEMENT_RPC_URL"
+_AGREEMENT_CONTRACT_ENV = "AITBC_DISPUTE_AGREEMENT_CONTRACT"
+
+# Static head of AIPowerRental.getRentalAgreement's return tuple:
+# (agreementId, provider, consumer, duration, price, startTime, endTime,
+#  platformFee, status) — 9 x 32 bytes before the dynamic tail.
+_GET_RENTAL_AGREEMENT_SELECTOR = "0x" + keccak(text="getRentalAgreement(uint256)")[:4].hex()
+_AGREEMENT_HEAD_TYPES = [
+    "uint256",
+    "address",
+    "address",
+    "uint256",
+    "uint256",
+    "uint256",
+    "uint256",
+    "uint256",
+    "uint8",
+]
+_AGREEMENT_HEAD_LEN = 9 * 32
+
+
+def _agreement_gate_enabled() -> bool:
+    return bool(os.getenv(_AGREEMENT_RPC_URL_ENV) and os.getenv(_AGREEMENT_CONTRACT_ENV))
 
 
 class DisputeResolutionService:
@@ -40,6 +73,9 @@ class DisputeResolutionService:
             Dictionary with success status and dispute ID
         """
         try:
+            gate_error = self._verify_evm_agreement(agreement_id, sender_address, respondent)
+            if gate_error is not None:
+                return {"success": False, "error": gate_error}
             return dispute_resolution_contract.file_dispute(
                 agreement_id=agreement_id,
                 respondent=respondent,
@@ -51,6 +87,58 @@ class DisputeResolutionService:
         except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error filing dispute: %s", e)
             return {"success": False, "error": str(e)}
+
+    @staticmethod
+    def _verify_evm_agreement(agreement_id: int, sender_address: str, respondent: str) -> str | None:
+        """Validate ``agreement_id`` against AIPowerRental when configured.
+
+        Returns an error string on rejection, ``None`` when the gate is
+        disabled or the agreement checks out. Fails closed: any RPC or
+        decode error rejects the filing rather than falling back to the
+        unverified sim path.
+        """
+        if not _agreement_gate_enabled():
+            return None
+        rpc_url = os.environ[_AGREEMENT_RPC_URL_ENV]
+        contract_address = os.environ[_AGREEMENT_CONTRACT_ENV]
+        gate_errors: tuple[type[BaseException], ...] = (
+            ValueError,
+            TypeError,
+            AttributeError,
+            LookupError,
+            OSError,
+        )
+        try:
+            from eth_abi import decode, encode
+            from eth_utils import to_checksum_address
+            from requests.exceptions import RequestException
+            from web3 import Web3
+            from web3.exceptions import Web3Exception
+
+            gate_errors += (Web3Exception, RequestException)
+        except ImportError as e:
+            logger.warning("EVM agreement gate dependencies unavailable: %s", e)
+            return "Agreement verification unavailable: missing EVM dependencies"
+        try:
+            w3 = Web3(Web3.HTTPProvider(rpc_url, request_kwargs={"timeout": 15}))
+            if not w3.is_connected():
+                return f"Agreement verification unavailable: cannot reach EVM RPC {rpc_url}"
+            call_data = HexStr(_GET_RENTAL_AGREEMENT_SELECTOR + encode(["uint256"], [agreement_id]).hex())
+            raw = w3.eth.call({"to": to_checksum_address(contract_address), "data": call_data})
+            head = decode(_AGREEMENT_HEAD_TYPES, raw[:_AGREEMENT_HEAD_LEN])
+            _, provider, consumer = head[0], head[1].lower(), head[2].lower()
+        except gate_errors as e:  # RPC unreachable, revert (agreementExists), decode failure
+            logger.warning("EVM agreement check failed for agreement %s: %s", agreement_id, e)
+            return f"Agreement {agreement_id} not found or unverifiable on AIPowerRental"
+
+        sender = sender_address.lower()
+        respondent_l = respondent.lower()
+        if sender not in (provider, consumer):
+            return "Filer is not a participant of the agreement"
+        counterparty = consumer if sender == provider else provider
+        if respondent_l != counterparty:
+            return "Respondent must be the counterparty of the agreement"
+        return None
 
     def submit_evidence(
         self, dispute_id: int, evidence_type: str, evidence_data: str, submitter_address: str
