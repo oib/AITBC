@@ -3,6 +3,7 @@ Edge GPU service for managing GPU operations
 """
 
 import os
+import re
 import subprocess
 from datetime import UTC, datetime
 from typing import Any, cast
@@ -45,6 +46,27 @@ _OPS_ERRORS = (
     AttributeError,
     ArithmeticError,
 )
+
+
+def probe_cuda_version() -> str:
+    """CUDA toolkit version from the ``nvidia-smi`` banner, or "" when unknown.
+
+    ``--query-gpu`` exposes ``driver_version`` but no CUDA version — the CUDA
+    version only appears in the plain ``nvidia-smi`` output ("CUDA Version:
+    12.x"), so it needs its own probe (#2404).
+    """
+    try:
+        result = subprocess.run(
+            ["nvidia-smi"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            env=subprocess_env(),
+        )
+    except _OPS_ERRORS:
+        return ""
+    match = re.search(r"CUDA Version:\s*([0-9]+\.[0-9]+)", result.stdout)
+    return match.group(1) if match else ""
 
 
 class JobStateError(ValueError):
@@ -148,6 +170,7 @@ class EdgeGPUService:
             if result.returncode != 0:
                 logger.warning("nvidia-smi failed: %s", result.stderr)
                 return []
+            cuda_version = probe_cuda_version()
             gpus = []
             for line in result.stdout.strip().split("\n"):
                 if not line:
@@ -160,6 +183,7 @@ class EdgeGPUService:
                             "name": parts[1],
                             "memory_mb": int(parts[2]),
                             "driver_version": parts[3] if len(parts) > 3 else "unknown",
+                            "cuda_version": cuda_version,
                             "uuid": parts[4] if len(parts) > 4 else "",
                         }
                     )
@@ -216,7 +240,7 @@ class EdgeGPUService:
                 if existing:
                     existing.model = gpu_info["name"]
                     existing.memory_gb = gpu_info["memory_mb"] // 1024
-                    existing.cuda_version = gpu_info["driver_version"]
+                    existing.cuda_version = gpu_info.get("cuda_version") or "unknown"
                     if hardware_uuid:
                         existing.hardware_uuid = hardware_uuid
                     # #1388: rediscovery must not un-commit a booked/in_use GPU.
@@ -238,7 +262,7 @@ class EdgeGPUService:
                         miner_id=miner_id,
                         model=gpu_info["name"],
                         memory_gb=gpu_info["memory_mb"] // 1024,
-                        cuda_version=gpu_info["driver_version"],
+                        cuda_version=gpu_info.get("cuda_version") or "unknown",
                         status="available",
                         hardware_uuid=hardware_uuid,
                         capabilities=["edge", "inference"],
