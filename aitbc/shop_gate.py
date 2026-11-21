@@ -59,6 +59,9 @@ if "MARKET_VERIFY_URL" not in os.environ:
         _MARKET_VERIFY_DEFAULT,
     )
 VERIFY_TIMEOUT = float(os.environ.get("MARKET_VERIFY_TIMEOUT", "10"))
+# Billing reports are settlement input, not paid-work gating — a shorter
+# budget than the verify call so a slow market cannot stall job completion.
+BILLING_TIMEOUT = float(os.environ.get("MARKET_BILLING_TIMEOUT", "5"))
 
 # Access keys are token_urlsafe output — a single safe path segment only.
 # Anything else (notably "../jobs/<id>" traversal against the verify URL)
@@ -101,6 +104,68 @@ async def _verify(access_key: str, access_secret: str) -> dict[str, Any] | None:
     except ValueError:
         return None
     return data if isinstance(data, dict) else None
+
+
+async def report_job_billing(
+    *,
+    job_id: str,
+    access_key: str,
+    access_secret: str,
+    metrics: dict[str, Any],
+    final: bool = True,
+) -> bool:
+    """POST provider-attested billing metrics for a paid job (#2365).
+
+    Called by shop daemons once the job's usage is known. The market
+    service stores the metrics and, on ``final``, settles the escrow
+    against them — the buyer-side auto-release cannot name a partial
+    amount (#1912 relay rule), so this report is the only path to
+    metered billing. Never raises: a failed report must not fail paid
+    work already delivered; the job then falls back to full-lock
+    settlement (or refund at expiry when nothing was attested).
+    """
+
+    if not job_id or not access_key or not access_secret or not metrics:
+        return False
+    try:
+        resp = await _verify_client().post(
+            f"{MARKET_VERIFY_URL}/v1/market/jobs/{quote(job_id, safe='')}/billing",
+            headers={
+                "X-Access-Key": access_key,
+                "X-Access-Secret": access_secret,
+                "X-Job-Id": job_id,
+            },
+            json={"metrics": metrics, "final": final},
+            timeout=BILLING_TIMEOUT,
+        )
+    except Exception as e:  # noqa: BLE001 - billing is best-effort; paid work already happened
+        logger.warning("billing report for job %s failed: %s", job_id, e)
+        return False
+    if resp.status_code >= 400:
+        logger.warning("billing report for job %s refused: %s %s", job_id, resp.status_code, resp.text[:200])
+        return False
+    return True
+
+
+async def report_request_billing(request: Request, metrics: dict[str, Any], *, final: bool = True) -> bool:
+    """``report_job_billing`` with the credential triple read off the request.
+
+    The paid route's ``require_job_access`` dependency has already proven
+    the triple valid for this job; the daemon replays the same headers on
+    the billing POST so the market service binds the report to the serving
+    party's job credential.
+    """
+    try:
+        return await report_job_billing(
+            job_id=request.headers.get("X-Job-Id", ""),
+            access_key=request.headers.get("X-Access-Key", ""),
+            access_secret=request.headers.get("X-Access-Secret", ""),
+            metrics=metrics,
+            final=final,
+        )
+    except Exception as e:  # noqa: BLE001 - billing is best-effort; paid work already happened
+        logger.warning("billing report request failed: %s", e)
+        return False
 
 
 async def require_job_access(request: Request) -> dict[str, Any]:

@@ -30,8 +30,16 @@ class _FakeUpload:
         return b"fakevideo"
 
 
+class _FakeRequest:
+    """Minimal stand-in for fastapi.Request — only .headers is read (#2365)."""
+
+    def __init__(self, headers: dict | None = None) -> None:
+        self.headers = headers or {}
+
+
 def _process(**overrides):
     kwargs = {
+        "request": _FakeRequest(),
         "file": _FakeUpload(),
         "output_format": "mp4",
         "codec": "h264",
@@ -262,3 +270,34 @@ def _fake_ffmpeg_run(monkeypatch) -> None:
 
     monkeypatch.setattr(ffmpeg_main, "_run_cmd", fake_run)
     monkeypatch.setattr(ffmpeg_main, "_ipfs_add_file", lambda path, name: "bafycid")
+
+
+# --- #2365: provider-attested billing report on completion ---
+
+
+def test_process_reports_processing_time_billing(monkeypatch) -> None:
+    """A completed paid transcode attests processing_time_hours to the market
+    service before answering — settlement prices the escrow from it."""
+    from unittest.mock import AsyncMock
+
+    _fake_ffmpeg_run(monkeypatch)
+    report = AsyncMock(return_value=True)
+    monkeypatch.setattr(ffmpeg_main, "report_request_billing", report)
+
+    request = _FakeRequest({"X-Access-Key": "k", "X-Access-Secret": "s", "X-Job-Id": "job-F1"})
+    resp = _process(request=request)
+    assert resp.status_code == 200
+    report.assert_awaited_once()
+    call = report.await_args
+    assert call.args[0] is request
+    assert set(call.args[1]) == {"processing_time_hours"}
+
+
+def test_process_billing_failure_still_delivers(monkeypatch) -> None:
+    """A refused billing report (False) leaves the paid response intact."""
+    from unittest.mock import AsyncMock
+
+    _fake_ffmpeg_run(monkeypatch)
+    monkeypatch.setattr(ffmpeg_main, "report_request_billing", AsyncMock(return_value=False))
+    resp = _process()
+    assert resp.status_code == 200

@@ -584,7 +584,17 @@ class _JobsSettlementMixin(_JobsMixin):
                 # escrow_contract_id now persists that same job.id at
                 # creation (#1634) but remains informational only — the RPC
                 # path key is always job.id, never the column (#1564).
-                result = await self._rpc_client.release_escrow(job.id)
+                # #2365: a job with provider-attested billing releases the
+                # priced actual, not the locked estimate; the node's change
+                # pass refunds the unbilled remainder. No attestation ->
+                # full-lock release exactly as before.
+                from .billing import attested_release_amount
+
+                billed = await attested_release_amount(self.session, job, payment)
+                if billed is not None:
+                    result = await self._rpc_client.release_escrow(job.id, {"amount": str(billed)})
+                else:
+                    result = await self._rpc_client.release_escrow(job.id)
                 if not (result and result.get("success")):
                     raise ValueError(f"Escrow release failed for job {job_id}: {result}")
                 tx_hash = str(result.get("tx_hash", ""))

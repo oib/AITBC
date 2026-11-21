@@ -20,7 +20,7 @@ from aitbc.crypto.crypto import sign_transaction_data
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from ...config import get_config
-from ...utils import OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
+from ...utils import OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, warning
 from ...utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, http_error_detail, http_response_status
 
 # Initialize logger
@@ -46,7 +46,7 @@ _REFUND_ERRORS = _JOBS_ERRORS + (click.Abort, click.ClickException)
 
 from ._group import market
 from . import get_chain_id, get_market_wallet, get_next_nonce
-from .escrow import _escrow_create, _post_escrow_release, refund_escrow
+from .escrow import _escrow_create, refund_escrow
 
 
 def _refund_orphaned_escrow(ctx: click.Context, job_id: str, contract_id: str | None) -> None:
@@ -512,31 +512,17 @@ def _run_ollama(
     info(f"Done in {elapsed:.2f}s — {tokens_used} tokens — actual cost: {actual_cost:.8f} AIT")
     click.echo(f"\n{response_text}\n")
 
-    # Release metered escrow for actual tokens used
-    if contract_id:
-        release_result, release_failures = _post_escrow_release(
-            ctx,
-            config,
-            job_id,
-            amount=str(actual_cost),
-        )
-        if release_result and release_result.get("tx_hash"):
-            released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
-            success(
-                f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)"
-            )
-            refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
-            if refunded_amount > 0:
-                info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
-        elif release_result:
-            warning("Escrow release submitted but no tx_hash returned")
-        else:
-            warning(
-                f"Escrow release failed ({'; '.join(release_failures)}) — the escrow stays locked; "
-                f"retry with `aitbc market escrow release --job-id {job_id}`"
-            )
-    else:
-        warning("No escrow contract — payment not released")
+    # #2365: metered escrow now settles server-side — the provider daemon
+    # attested the billed usage to the market service, which releases the
+    # priced actual (not the locked estimate) once the job's acceptance
+    # window lapses. The buyer relay cannot name a partial amount (#1912),
+    # so no client-side release is attempted here; `market escrow release`
+    # stays the manual recovery path.
+    info(
+        f"Metered escrow settles server-side from the provider's attested billing "
+        f"(~{actual_cost:.8f} AIT of the locked estimate). "
+        f"Manual path: `aitbc market escrow release --job-id {job_id}`"
+    )
 
     output(
         {
@@ -564,25 +550,19 @@ def _release_metered_escrow(
     provider_address: str,
     job_tx_hash: str | None = None,
 ) -> None:
-    """Release the metered escrow for the actual cost; warns on failure."""
-    if not contract_id:
-        return
-    release_result, release_failures = _post_escrow_release(
-        ctx, config, job_id, amount=str(actual_cost), job_tx_hash=job_tx_hash
+    """Note the server-side metered settlement; the buyer never releases (#2365).
+
+    The provider daemon attested the billed usage to the market service,
+    which releases the priced actual once the job's acceptance window
+    lapses. The buyer relay cannot name a partial amount (#1912), so this
+    used to 400 and strand the escrow; `market escrow release` remains the
+    manual recovery path.
+    """
+    del ctx, config, contract_id, provider_address, job_tx_hash  # settlement is server-side now
+    info(
+        f"Metered escrow settles server-side from the provider's attested billing "
+        f"(~{actual_cost:.8f} AIT). Manual path: `aitbc market escrow release --job-id {job_id}`"
     )
-    if release_result and release_result.get("tx_hash"):
-        released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
-        success(f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)")
-        refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
-        if refunded_amount > 0:
-            info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
-    elif release_result:
-        warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
-    else:
-        warning(
-            f"Escrow release failed ({'; '.join(release_failures)}) — the escrow stays locked; "
-            f"retry with `aitbc market escrow release --job-id {job_id}`"
-        )
 
 
 def _software_job_tx_hash(
@@ -957,7 +937,6 @@ def _run_ffmpeg(
     info(f"Output CID: {resp_data.get('output_cid') or resp_data.get('output_path')}")
 
     # Post software_job TX as proof of work
-    job_tx_hash = None
     if result_hash:
         job_data = {
             "from": wallet_address,
@@ -980,28 +959,15 @@ def _run_ffmpeg(
                 "completed_at": datetime.now().isoformat(),
             },
         }
-        job_tx_hash = _record_job_on_chain(config, job_data, private_key)
+        _record_job_on_chain(config, job_data, private_key)
 
-    # Release metered escrow with job TX hash as proof
-    if contract_id:
-        release_result, release_failures = _post_escrow_release(
-            ctx, config, job_id, amount=str(actual_cost), job_tx_hash=job_tx_hash
-        )
-        if release_result and release_result.get("tx_hash"):
-            released_amount = Decimal(release_result.get("released_amount", str(actual_cost)))
-            success(
-                f"Payment released: {released_amount:.8f} AIT → {provider_address} (tx: {release_result['tx_hash'][:18]}...)"
-            )
-            refunded_amount = Decimal(release_result.get("refunded_amount", "0"))
-            if refunded_amount > 0:
-                info(f"Unused escrow returned: {refunded_amount:.8f} AIT")
-        elif release_result:
-            warning("Escrow released (no on-chain tx — sub-threshold amount or same-wallet)")
-        else:
-            warning(
-                f"Escrow release failed ({'; '.join(release_failures)}) — the escrow stays locked; "
-                f"retry with `aitbc market escrow release --job-id {job_id}`"
-            )
+    # #2365: metered escrow settles server-side from the provider's
+    # attested billing — the buyer relay cannot name a partial amount
+    # (#1912). `market escrow release` stays the manual recovery path.
+    info(
+        f"Metered escrow settles server-side from the provider's attested billing "
+        f"(~{actual_cost:.8f} AIT). Manual path: `aitbc market escrow release --job-id {job_id}`"
+    )
 
     output(
         {

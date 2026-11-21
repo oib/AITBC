@@ -29,7 +29,7 @@ logger = get_logger(__name__)
 # ``setdefault`` keep a backdated ``provider_confirmed_at`` and pass the
 # #1976 release-window gate immediately. ``size`` stays caller-writable:
 # it is the declared content size, overwritten by pin-confirm.
-_PAYLOAD_SERVER_KEYS = frozenset({"provider_confirmed", "provider_confirmed_at", "pinned", "pin_tx_hash"})
+_PAYLOAD_SERVER_KEYS = frozenset({"provider_confirmed", "provider_confirmed_at", "pinned", "pin_tx_hash", "attested_billing"})
 
 from .shared import (
     MAX_JOB_TTL_SECONDS,
@@ -985,6 +985,82 @@ class _JobsMixin(_CoreMixin):
             }
         except Exception as e:
             logger.error("Error in get_market_job_access_token: %s: %s", type(e).__name__, e)
+            raise
+
+    async def record_job_billing(
+        self,
+        job_id: str,
+        metrics: dict[str, Decimal],
+        *,
+        final: bool = False,
+    ) -> dict[str, Any]:
+        """Store provider-attested billing metrics on a metered job (#2365).
+
+        The route has already authenticated the job's access credential and
+        bound ``X-Job-Id``; this method owns the state rules: reports are
+        accepted only while the job is QUEUED/RUNNING, metrics merge
+        last-writer-wins per key, and ``final=True`` CASes the job to
+        COMPLETED so the settlement passes can release the escrow against
+        the attested actuals. Metrics are stored as strings — the payload
+        is a JSON column and Decimal is not JSON-serializable.
+        """
+        from .billing import PAYLOAD_BILLING_KEY, billing_report_state_error
+
+        try:
+            # Lock the row for the read-modify-write: concurrent reports must
+            # merge onto the latest payload, not each other's stale copy.
+            # SQLite ignores FOR UPDATE; Postgres serializes the reports.
+            stmt = select(MarketJob).where(col(MarketJob.id) == job_id).with_for_update()
+            job = (await self.session.execute(stmt)).scalar_one_or_none()
+            if not job:
+                raise ValueError(f"Job not found: {job_id}")
+            state_error = billing_report_state_error(job.state)
+            if state_error:
+                raise ValueError(state_error)
+
+            now = datetime.now(UTC).replace(tzinfo=None)
+            payload = dict(job.payload or {})
+            billing = payload.get(PAYLOAD_BILLING_KEY)
+            billing = dict(billing) if isinstance(billing, dict) else {}
+            existing = billing.get("metrics")
+            merged = dict(existing) if isinstance(existing, dict) else {}
+            merged.update({name: str(value) for name, value in metrics.items()})
+            billing["metrics"] = merged
+            billing["reported_at"] = now.isoformat()
+            billing["reports"] = int(billing.get("reports") or 0) + 1
+            if final:
+                billing["final"] = True
+            payload[PAYLOAD_BILLING_KEY] = billing
+
+            job_values: dict[str, Any] = {"payload": payload, "updated_at": now}
+            if final:
+                job_values["state"] = "COMPLETED"
+                job_values["completed_at"] = now
+            claim = await self.session.execute(
+                update(MarketJob)
+                .where(col(MarketJob.id) == job_id, col(MarketJob.state).in_(_ACCESS_TOKEN_ACTIVE_STATES))
+                .values(**job_values)
+                .execution_options(synchronize_session=False)
+            )
+            if getattr(claim, "rowcount", 0) != 1:
+                # A concurrent transition (cancel/expire/dispute-settle) won —
+                # report the state that actually stands instead of overwriting.
+                await self.session.rollback()
+                job = await self.session.get(MarketJob, job_id)
+                return {"job_id": job_id, "state": job.state if job else None, "accepted": False}
+
+            await self.session.commit()
+            await self.session.refresh(job)
+            logger.info("Recorded billing report for market job %s (final=%s, metrics=%s)", job_id, final, sorted(metrics))
+            return {
+                "job_id": job_id,
+                "state": job.state,
+                "accepted": True,
+                "metrics": merged,
+            }
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in record_job_billing: %s: %s", type(e).__name__, e)
             raise
 
     async def get_market_job_usage(self, buyer_address: str, offer_id: str) -> int:

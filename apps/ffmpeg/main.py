@@ -22,7 +22,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.media_guard import ffmpeg_input_guard  # noqa: E402
-from aitbc.shop_gate import MARKET_VERIFY_URL, require_job_access  # noqa: E402
+from aitbc.shop_gate import MARKET_VERIFY_URL, report_request_billing, require_job_access  # noqa: E402
 from aitbc.utils.env import subprocess_env  # noqa: E402
 
 configure_logging(level="INFO", service_name="ffmpeg", to_file=True)
@@ -489,6 +489,7 @@ async def _execute_ffmpeg(cmd: list[str], output_path: str) -> None:
 
 @app.post("/process", dependencies=[Depends(require_job_access)])
 async def process_video(
+    request: Request,
     file: Annotated[UploadFile, File(...)],
     output_format: str = Form(default="mp4"),
     codec: str = Form(default="h264"),
@@ -556,13 +557,19 @@ async def process_video(
             logger.error("IPFS upload of ffmpeg output failed: %s", e)
             raise HTTPException(status_code=502, detail="output upload to IPFS failed") from e
 
+        processing_time_hours = round(elapsed / 3600, 4)
+        # #2365: attest the billed usage to the market service before
+        # answering — settlement prices the escrow from this report.
+        # Never raises; a missed report degrades to full-lock settlement.
+        await report_request_billing(request, {"processing_time_hours": processing_time_hours})
+
         return JSONResponse(
             {
                 "status": "completed",
                 "output_cid": output_cid,
                 "file_size_bytes": file_size,
                 "processing_time_seconds": elapsed,
-                "processing_time_hours": round(elapsed / 3600, 4),
+                "processing_time_hours": processing_time_hours,
                 "codec": codec,
                 "resolution": resolution,
                 "bitrate": bitrate,

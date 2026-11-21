@@ -174,9 +174,11 @@ def test_record_job_other_400_not_retried(monkeypatch):
 # --- jobs.py release sites route via the hub fallback ------------------------
 
 
-def test_run_ollama_release_uses_hub_fallback(monkeypatch):
-    """The paid-job release leg must try the hub when the local node 503s —
-    not abort the command after the work is done and paid."""
+def test_run_ollama_never_releases_buyer_side(monkeypatch):
+    """#2365: a metered run must not attempt any escrow release RPC — the
+    provider's attested billing settles server-side, and the buyer relay
+    cannot name a partial amount (#1912). ``market escrow release`` stays
+    the manual path, which keeps the hub fallback tested above."""
     calls: list[str] = []
 
     class _Rpc:
@@ -185,9 +187,7 @@ def test_run_ollama_release_uses_hub_fallback(monkeypatch):
 
         def post(self, endpoint, json=None):
             calls.append(self.base_url)
-            if "hub.aitbc" in self.base_url:
-                return {"tx_hash": "0xrel", "released_amount": "0.5"}
-            raise _StatusError(503, "Settlement key/address is not configured correctly")
+            return {"tx_hash": "0xrel", "released_amount": "0.5"}
 
     import urllib.request
 
@@ -232,7 +232,7 @@ def test_run_ollama_release_uses_hub_fallback(monkeypatch):
         "json",
         node_wallet="0xW",
     )
-    assert calls == ["http://127.0.0.1:8202", "https://hub.aitbc.bubuit.net"]
+    assert calls == []
 
 
 # --- _get_rpc_client: settlement credential header (#1917) ------------------

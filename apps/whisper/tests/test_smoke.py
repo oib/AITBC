@@ -80,12 +80,19 @@ class _FakeUpload:
         return b"RIFFfakeaudio"
 
 
+class _FakeRequest:
+    """Minimal stand-in for fastapi.Request — only .headers is read (#2365)."""
+
+    def __init__(self, headers: dict | None = None) -> None:
+        self.headers = headers or {}
+
+
 def _patch_probe(monkeypatch, seconds: float | None = 60.0) -> None:
     monkeypatch.setattr(whisper_main, "_probe_duration", lambda path: seconds)
 
 
 def _transcribe(**overrides):
-    kwargs = {"file": _FakeUpload(), "language": None, "task": "transcribe", "beam_size": 5}
+    kwargs = {"request": _FakeRequest(), "file": _FakeUpload(), "language": None, "task": "transcribe", "beam_size": 5}
     kwargs.update(overrides)
     return asyncio.run(whisper_main.transcribe(**kwargs))
 
@@ -178,7 +185,7 @@ def test_transcribe_timeout_returns_504(monkeypatch) -> None:
 
     async def scenario():
         request = asyncio.ensure_future(
-            whisper_main.transcribe(file=_FakeUpload(), language=None, task="transcribe", beam_size=5)
+            whisper_main.transcribe(request=_FakeRequest(), file=_FakeUpload(), language=None, task="transcribe", beam_size=5)
         )
         try:
             await request
@@ -190,7 +197,9 @@ def test_transcribe_timeout_returns_504(monkeypatch) -> None:
         # second request is refused rather than starting a concurrent decode.
         assert whisper_main._inflight == whisper_main._MAX_CONCURRENT
         try:
-            await whisper_main.transcribe(file=_FakeUpload(), language=None, task="transcribe", beam_size=5)
+            await whisper_main.transcribe(
+                request=_FakeRequest(), file=_FakeUpload(), language=None, task="transcribe", beam_size=5
+            )
         except whisper_main.HTTPException as exc:
             assert exc.status_code == 503
         else:  # pragma: no cover
@@ -229,7 +238,7 @@ def test_cancelled_request_keeps_slot_until_worker_done(monkeypatch) -> None:
 
     async def scenario():
         request = asyncio.ensure_future(
-            whisper_main.transcribe(file=_FakeUpload(), language=None, task="transcribe", beam_size=5)
+            whisper_main.transcribe(request=_FakeRequest(), file=_FakeUpload(), language=None, task="transcribe", beam_size=5)
         )
         # Wait until the worker thread is actually inside the decode.
         await asyncio.to_thread(started.wait, 5)
@@ -244,7 +253,9 @@ def test_cancelled_request_keeps_slot_until_worker_done(monkeypatch) -> None:
         # so a second request is refused rather than starting a concurrent decode.
         assert whisper_main._inflight == whisper_main._MAX_CONCURRENT
         try:
-            await whisper_main.transcribe(file=_FakeUpload(), language=None, task="transcribe", beam_size=5)
+            await whisper_main.transcribe(
+                request=_FakeRequest(), file=_FakeUpload(), language=None, task="transcribe", beam_size=5
+            )
         except whisper_main.HTTPException as exc:
             assert exc.status_code == 503
         else:  # pragma: no cover
@@ -399,3 +410,43 @@ def test_lifespan_refuses_incompatible_pyav(monkeypatch) -> None:
         assert "av<19" in str(e)
     else:
         raise AssertionError("lifespan did not refuse PyAV 19")
+
+
+# --- #2365: provider-attested billing report on completion ---
+
+
+def test_transcribe_reports_duration_minutes_billing(monkeypatch) -> None:
+    """A completed paid transcription attests duration_minutes to the market
+    service before answering — settlement prices the escrow from it."""
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(whisper_main, "_model", _FakeModel())
+    _patch_probe(monkeypatch, seconds=120.0)
+    report = AsyncMock(return_value=True)
+    monkeypatch.setattr(whisper_main, "report_request_billing", report)
+
+    request = _FakeRequest(
+        {
+            "X-Access-Key": "k",
+            "X-Access-Secret": "s",
+            "X-Job-Id": "job-W1",
+        }
+    )
+    _transcribe(request=request)
+    report.assert_awaited_once()
+    call = report.await_args
+    assert call.args[0] is request
+    # _FakeInfo.duration = 12.5s -> 0.2083 billed minutes.
+    assert call.args[1] == {"duration_minutes": 0.2083}
+
+
+def test_transcribe_billing_failure_does_not_break_response(monkeypatch) -> None:
+    """A refused/failed billing report (False) leaves the paid response intact —
+    settlement then falls back to full-lock."""
+    from unittest.mock import AsyncMock
+
+    monkeypatch.setattr(whisper_main, "_model", _FakeModel())
+    _patch_probe(monkeypatch)
+    monkeypatch.setattr(whisper_main, "report_request_billing", AsyncMock(return_value=False))
+    resp = _transcribe()
+    assert b"hello world" in resp.body

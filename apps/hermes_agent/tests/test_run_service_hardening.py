@@ -212,14 +212,14 @@ def test_run_hermes_logs_unexpected_failure(monkeypatch, caplog):
 
     import pytest
 
-    async def boom(request):
+    async def boom(request, raw_request=None):
         raise RuntimeError("spawn exploded")
 
     monkeypatch.setattr(hermes, "_run_hermes_inner", boom)
 
     with caplog.at_level(logging.ERROR):
         with pytest.raises(RuntimeError):
-            asyncio.run(hermes.run_hermes(_req()))
+            asyncio.run(hermes.run_hermes(_req(), None))
     assert any("hermes run failed" in r.getMessage() for r in caplog.records)
     # The finally released the slot — a follow-up run is admitted.
     assert hermes._run_semaphore._value == hermes._HERMES_RUN_MAX_CONCURRENT  # noqa: SLF001
