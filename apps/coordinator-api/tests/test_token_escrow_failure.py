@@ -237,6 +237,32 @@ def test_successful_escrow_still_escrows(mock_client_cls, payment_session):
 
 
 @patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
+def test_payment_row_committed_before_escrow_network_call(mock_client_cls, payment_session, db_engine):
+    """#2401: the pending JobPayment must already be committed when the
+    escrow POST fires — the old code held the sqlite write transaction
+    across the chain call + seal poll (135s in production), starving
+    miner heartbeats and result submits past busy_timeout."""
+    job = _make_job(payment_session, "job-commit-order")
+    observed: dict[str, object] = {}
+
+    async def post_side_effect(*args, **kwargs):
+        with Session(db_engine) as other:
+            rows = other.exec(select(JobPayment).where(JobPayment.job_id == job.id)).all()
+            observed["rows"] = [(r.id, r.status) for r in rows]
+        return {"contract_id": "0xescrow123"}
+
+    mock_client = MagicMock()
+    mock_client.post = AsyncMock(side_effect=post_side_effect)
+    mock_client.get_json = AsyncMock(return_value=_chain_lock_txs("0xlock-order", job_id=job.id))
+    mock_client_cls.return_value = mock_client
+
+    payment = _create(payment_session, job.id, _payment_data(job.id))
+
+    assert payment.status == "escrowed"
+    assert observed["rows"] == [(payment.id, "pending")]
+
+
+@patch("coordinator_api.contexts.payments.services.payments.AsyncAITBCHTTPClient")
 def test_create_2xx_without_sealed_lock_marks_failed(mock_client_cls, payment_session, monkeypatch):
     """#2297: a 2xx that never seals (evicted/unfundable lock) must not escrow.
 

@@ -283,6 +283,13 @@ class PaymentFundingMixin(PaymentEscrowMixin):
                 meta_data=meta if meta else None,
             )
             self.session.add(payment)
+            # #2401: commit the pending row before the escrow network
+            # window. _route_escrow holds the sqlite write lock across
+            # chain POSTs + seal polling (135s observed in production),
+            # starving every other writer past busy_timeout. Committing
+            # here leaves only short write txns — same pattern as
+            # _claim_release_attempt (#1824).
+            await run_in_threadpool(self.session.commit)
             await self._route_escrow(payment, payment_data, quote)
             self._sync_job_payment(job, payment, payment_data)
             self.session.add(job)
