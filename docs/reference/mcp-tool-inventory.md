@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**824 tools** across 141 modules.
+**825 tools** across 142 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 136 |
-| generated | 564 |
+| generated | 565 |
 | other | 8 |
 | rpc | 116 |
 
@@ -68,6 +68,7 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | 8 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_hermes.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_host.py | 1 |
+| mcp-server/aitbc_mcp_cli_tools_generated_market_job_probe.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_jobs.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_list.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_market_match.py | 1 |
@@ -605,6 +606,7 @@
 | `aitbc_market_gpu_status` | mcp-server/aitbc_mcp_cli_tools_generated_market_gpu.py | generated | `aitbc market gpu status` |
 | `aitbc_market_hermes` | mcp-server/aitbc_mcp_cli_tools_generated_market_hermes.py | generated | `aitbc market hermes` |
 | `aitbc_market_host` | mcp-server/aitbc_mcp_cli_tools_generated_market_host.py | generated | `aitbc market host` |
+| `aitbc_market_job_probe` | mcp-server/aitbc_mcp_cli_tools_generated_market_job_probe.py | generated | `aitbc market job-probe` |
 | `aitbc_market_jobs` | mcp-server/aitbc_mcp_cli_tools_generated_market_jobs.py | generated | `aitbc market jobs` |
 | `aitbc_market_list` | mcp-server/aitbc_mcp_cli_tools_generated_market_list.py | generated | `aitbc market list` |
 | `aitbc_market_match` | mcp-server/aitbc_mcp_cli_tools_generated_market_match.py | generated | `aitbc market match` |

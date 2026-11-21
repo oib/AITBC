@@ -497,6 +497,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc market gpu status`](market-gpu-status.md) — Check the status of a GPU rental and its escrow.
 - [`aitbc market hermes`](market-hermes.md) — Run a one-shot Hermes Agent prompt via a software offer and pay metered escrow.
 - [`aitbc market host`](market-host.md) — Host IPFS content through a market offer for a number of days.
+- [`aitbc market job-probe`](market-job-probe.md) — POST a job-create body with a caller-controlled payload.escrow_job_id.
 - [`aitbc market jobs`](market-jobs.md) — List market jobs.
 - [`aitbc market list`](market-list.md) — List blockchain market offers and bids, optionally filtered.
 - [`aitbc market match`](market-match.md) — Match GPU bids with offers for price discovery.

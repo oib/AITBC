@@ -97,10 +97,15 @@ def _make_cid_path(cid: str) -> Path:
     return IPFS_DIR / cid
 
 
-def _hub_market_client(timeout: int = 15) -> AITBCHTTPClient:
-    """Return an HTTP client for the hub market service (shared with market commands)."""
+def _hub_market_client(timeout: int = 15, api_key: str | None = None) -> AITBCHTTPClient:
+    """Return an HTTP client for the hub market service (shared with market commands).
+
+    ``api_key`` is an explicit per-invocation override (the ``market`` group's
+    ``--api-key``); when omitted the usual env/config resolution applies.
+    """
     config = get_config()
-    api_key = _resolve_market_api_key(config)
+    if api_key is None:
+        api_key = _resolve_market_api_key(config)
     if config.market_service_url and not config.market_service_url.startswith("http://127.0.0.1"):
         return AITBCHTTPClient(base_url=config.market_service_url, timeout=timeout, api_key=api_key)
     hub_host = config.hub_discovery_url or "hub.aitbc.invalid"
