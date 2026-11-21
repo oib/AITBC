@@ -30,7 +30,7 @@ def aitbc_wallet_eth_send(
     amount_eth: Annotated[str, Field(description="Sepolia ETH to send")],
     chain_id: Annotated[int, Field(description="EVM chain id — must be 11155111 (Sepolia)")],
     eth_rpc_url: Annotated[
-        str | None, Field(description="Sepolia JSON-RPC endpoint (default: ETH_RPC_URL env/config)")
+        str | dict[str, Any] | None, Field(description="Sepolia JSON-RPC endpoint (default: ETH_RPC_URL env/config)")
     ] = None,
     wallet_name: Annotated[str | None, Field(description="Wallet name or wallet file path on this host")] = None,
     max_eth: Annotated[str | None, Field(description="Per-call send cap — raise explicitly for larger transfers")] = None,

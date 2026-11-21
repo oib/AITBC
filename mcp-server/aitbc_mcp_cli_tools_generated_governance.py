@@ -554,9 +554,11 @@ def aitbc_governance_propose(
     proposal_type: Annotated[str | None, Field(description="Proposal type (parameter_change, fund_allocation, etc.)")] = None,
     category: Annotated[str | None, Field(description="Proposal category")] = None,
     proposer_address: Annotated[str | None, Field(description="Proposer wallet address (for on-chain submission)")] = None,
-    params: Annotated[str | None, Field(description="JSON-encoded parameters for parameter_change proposals")] = None,
+    params: Annotated[
+        str | dict[str, Any] | None, Field(description="JSON-encoded parameters for parameter_change proposals")
+    ] = None,
     execution_payload: Annotated[
-        str | None,
+        str | dict[str, Any] | None,
         Field(
             description="JSON the EXECUTE binds to (v13). Defaults to --params; required for any non-parameter_change proposal"
         ),

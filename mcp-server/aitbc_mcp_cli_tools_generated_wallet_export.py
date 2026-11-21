@@ -26,7 +26,9 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_export(
-    destination: Annotated[str | None, Field(description="Destination file path (default: wallet_name_export.json)")] = None,
+    destination: Annotated[
+        str | dict[str, Any] | None, Field(description="Destination file path (default: wallet_name_export.json)")
+    ] = None,
     wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
     wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
     use_daemon: Annotated[

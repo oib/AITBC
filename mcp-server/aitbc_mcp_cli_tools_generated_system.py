@@ -214,7 +214,9 @@ def aitbc_system_file_info(
     path: Annotated[
         str, Field(description="Absolute path under /opt/aitbc, /etc/aitbc, /etc/systemd, /var/log/aitbc, or /var/lib/aitbc")
     ],
-    field_name: Annotated[str | None, Field(description="Print one scalar top-level JSON field (e.g. address)")] = None,
+    field_name: Annotated[
+        str | dict[str, Any] | None, Field(description="Print one scalar top-level JSON field (e.g. address)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

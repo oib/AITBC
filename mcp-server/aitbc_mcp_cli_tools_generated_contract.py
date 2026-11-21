@@ -29,7 +29,7 @@ from aitbc_mcp_server import (
 def aitbc_contract_call(
     contract_address: Annotated[str, Field(description="Contract address")],
     method: Annotated[str, Field(description="Method to call")],
-    args: Annotated[str | None, Field(description="Method arguments (JSON array)")] = None,
+    args: Annotated[str | dict[str, Any] | None, Field(description="Method arguments (JSON array)")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -404,7 +404,7 @@ def aitbc_contract_messaging_topics(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_contract_verify(
     contract_address: Annotated[str, Field(description="Deployed contract address")],
-    proof: Annotated[str, Field(description="ZK proof data (JSON string, or @path to a JSON file)")],
+    proof: Annotated[str | dict[str, Any], Field(description="ZK proof data (JSON string, or @path to a JSON file)")],
     chain_id: Annotated[str | None, Field(description="Chain ID the contract is deployed on")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,

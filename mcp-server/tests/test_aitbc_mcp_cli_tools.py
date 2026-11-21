@@ -1046,6 +1046,39 @@ def test_market_group_wallet_option_forwarded():
     assert command.index("--wallet") < command.index(" offer"), command
 
 
+def test_collect_options_json_dumps_dict_values():
+    """JSON-string options accept an MCP dict arg and re-encode to JSON (#2404)."""
+    options = mcp_server._collect_options(
+        {"gpu_id": "gpu-1", "pricing": {"price_per_hour": 10}, "status": "active"},
+        flags={},
+        values={"gpu_id": "gpu-id", "pricing": "pricing", "status": "status"},
+    )
+    assert json.loads(options["pricing"]) == {"price_per_hour": 10}
+    assert options["status"] == "active"
+    assert options["gpu-id"] == "gpu-1"
+
+
+def test_gpu_update_accepts_dict_pricing():
+    """The typed gpu_update wrapper must not reject a JSON-object pricing arg."""
+    import inspect
+
+    func = _generated("aitbc_mcp_cli_tools_generated_gpu", "aitbc_gpu_update")
+    hint = inspect.signature(func).parameters["pricing"].annotation
+    assert "dict" in str(hint), hint
+
+    _clear()
+    result = json.loads(
+        func(
+            gpu_id="gpu-1",
+            pricing={"price_per_hour": 10},
+        )
+    )
+    assert result.get("dry_run") is True
+    command = str(result["command"])
+    assert "--pricing=" in command, command
+    assert '"price_per_hour": 10' in command, command
+
+
 if __name__ == "__main__":
     test_buy_ait_exchange()
     test_sell_ait_exchange()
@@ -1079,4 +1112,6 @@ if __name__ == "__main__":
     test_group_options_omitted_when_unset()
     test_group_options_on_read_only_leaf()
     test_market_group_wallet_option_forwarded()
+    test_collect_options_json_dumps_dict_values()
+    test_gpu_update_accepts_dict_pricing()
     print("All aitbc_mcp_cli_tools tests passed")

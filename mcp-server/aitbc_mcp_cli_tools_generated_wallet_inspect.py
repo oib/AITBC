@@ -26,7 +26,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_inspect(
-    wallet_file: Annotated[str, Field(description="Path to the wallet JSON file")],
+    wallet_file: Annotated[str | dict[str, Any], Field(description="Path to the wallet JSON file")],
     field: Annotated[str | None, Field(description="Print a single public field (e.g. address)")] = None,
     wallet_name: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
     wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,

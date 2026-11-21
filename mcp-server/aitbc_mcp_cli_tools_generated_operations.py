@@ -508,7 +508,7 @@ def aitbc_operations_governance_proposal(
     wallet: Annotated[str, Field(description="Wallet name for signing")],
     category: Annotated[str | None, Field(description="Proposal category")] = None,
     params: Annotated[
-        str | None,
+        str | dict[str, Any] | None,
         Field(
             description='JSON execution payload, e.g. {"action":"parameter_change","parameter":"block_time_seconds","value":"10"}'
         ),

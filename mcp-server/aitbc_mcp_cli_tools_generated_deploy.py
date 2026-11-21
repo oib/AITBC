@@ -26,7 +26,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_deploy_deploy_brand(
-    config_path: Annotated[str, Field(description="Brand manifest JSON")],
+    config_path: Annotated[str | dict[str, Any], Field(description="Brand manifest JSON")],
     network: Annotated[str | None, Field(description="Target network")] = None,
     storage: Annotated[str | None, Field(description="Deployment output directory")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,

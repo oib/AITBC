@@ -81,7 +81,7 @@ def aitbc_energy_operator_info(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_energy_operator_verify(
-    quote_file: Annotated[str, Field(description="JSON file containing an energy quote")],
+    quote_file: Annotated[str | dict[str, Any], Field(description="JSON file containing an energy quote")],
     check_oracle: Annotated[bool | None, Field(description="Also verify against the on-chain IEnergyPricing oracle")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,

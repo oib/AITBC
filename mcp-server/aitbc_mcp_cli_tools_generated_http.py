@@ -29,8 +29,8 @@ def aitbc_http_call(
     service: Annotated[str, Field(description="Positional argument: service")],
     path: Annotated[str, Field(description="Positional argument: path")],
     method: Annotated[str | None, Field(description="HTTP method (GET, POST, PUT, PATCH, DELETE)")] = None,
-    params: Annotated[str | None, Field(description="JSON object of query parameters")] = None,
-    body: Annotated[str | None, Field(description="JSON object request body")] = None,
+    params: Annotated[str | dict[str, Any] | None, Field(description="JSON object of query parameters")] = None,
+    body: Annotated[str | dict[str, Any] | None, Field(description="JSON object request body")] = None,
     url: Annotated[str | None, Field(description="Override the service base URL")] = None,
     auth_kind: Annotated[
         Literal["none", "miner", "rpc", "trading"] | None,

@@ -24,7 +24,7 @@ def aitbc_wallet_eth_balance(
     address: Annotated[str | None, Field(description="0x address to read (EIP-55 or lowercase)")] = None,
     wallet_name: Annotated[str | None, Field(description="Wallet name or wallet file path on this host")] = None,
     eth_rpc_url: Annotated[
-        str | None, Field(description="Sepolia JSON-RPC endpoint (default: ETH_RPC_URL env/config)")
+        str | dict[str, Any] | None, Field(description="Sepolia JSON-RPC endpoint (default: ETH_RPC_URL env/config)")
     ] = None,
     wallet_name_2: Annotated[str | None, Field(description="Name of the wallet to use")] = None,
     wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")] = None,
