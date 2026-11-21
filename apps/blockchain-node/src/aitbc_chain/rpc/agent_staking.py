@@ -63,6 +63,26 @@ def _canonical_status(session: Session, chain_id: str, stake_id: str) -> tuple[s
     return None, "none"
 
 
+def _resync_stake_to_unbonding(session: Session, chain_id: str, record: AgentStakeRecord) -> None:
+    """#2360: bring a stale local row up to the sealed STAKE_UNBOND marker.
+
+    Sealed history is authoritative (#719): when the marker is confirmed the
+    stake IS unbonding regardless of what the node-local row says. The row
+    is repaired in place — ``unbonding_at`` is taken from the sealed marker
+    tx so the record reflects when the transition actually happened — and
+    committed immediately so the repair survives a later refusal in the same
+    request.
+    """
+    unbond_txs = confirmed_lock_txs(session, chain_id, "STAKE_UNBOND", "agent_stake_id", record.stake_id)
+    unbonding_at = min((tx.created_at for tx in unbond_txs if tx.created_at is not None), default=None)
+    now = datetime.now(UTC)
+    record.status = "unbonding"
+    record.unbonding_at = unbonding_at or now
+    record.updated_at = now
+    session.add(record)
+    session.commit()
+
+
 def _canonical_guard(session: Session, chain_id: str, stake_id: str, action: str) -> dict[str, Any] | None:
     """#748: a stale local row must not mutate under a newer sealed status.
 
@@ -79,10 +99,29 @@ def _canonical_guard(session: Session, chain_id: str, stake_id: str, action: str
     # A sealed marker that is the action's required predecessor is not a
     # conflict when the local row agrees — complete after a sealed
     # STAKE_UNBOND must reach the normal path so a height-mature
-    # STAKE_RELEASE can emit (#2336). A stale local row still refuses below.
+    # STAKE_RELEASE can emit (#2336).
     if status == {"complete": "unbonding"}.get(action):
         record = _get_stake(session, chain_id, stake_id)
-        if record is not None and record.status == status:
+        if record is not None:
+            if record.status == "completed":
+                # Local is ahead of sealed history: the STAKE_RELEASE marker
+                # is emitted but not yet sealed. Answer idempotent — a
+                # re-run must neither emit a second release nor resync the
+                # row backwards.
+                return {
+                    "success": True,
+                    "idempotent": True,
+                    "stake_id": stake_id,
+                    "status": "completed",
+                    "source": "local",
+                }
+            if record.status != status:
+                # #2360: sealed STAKE_UNBOND is authoritative — a local row
+                # left stale (e.g. the store was rebuilt from an older
+                # snapshot) must not 409 a matured complete forever.
+                # Re-sync the row to the sealed transition and let the
+                # normal path evaluate maturity and emit STAKE_RELEASE.
+                _resync_stake_to_unbonding(session, chain_id, record)
             return None
     if status in {"unbonding", "completed"}:
         raise HTTPException(

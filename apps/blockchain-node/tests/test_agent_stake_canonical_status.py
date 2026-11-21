@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from sqlalchemy import create_engine
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from aitbc_chain.base_models import AgentStakeRecord, _to_ait_address
 from aitbc_chain.metadata import chain_metadata
@@ -137,14 +137,16 @@ def test_guard_stale_active_sealed_unbond_idempotent_for_unbond(engine):
         assert out == {"success": True, "idempotent": True, "stake_id": SID, "status": "unbonding", "source": "chain"}
 
 
-def test_guard_stale_active_sealed_unbond_refuses_complete(engine):
-    """local active + sealed STAKE_UNBOND -> complete refuses (row is stale)."""
+def test_guard_stale_active_sealed_unbond_resyncs_and_allows_complete(engine):
+    """#2360: local active + sealed STAKE_UNBOND -> complete re-syncs the
+    stale row to unbonding and proceeds instead of 409ing forever."""
     with Session(engine) as session:
         _row(session, "active")
         _sealed(session, "STAKE_UNBOND")
-        with pytest.raises(HTTPException) as exc:
-            _canonical_guard(session, CHAIN, SID, "complete")
-        assert exc.value.status_code == 409
+        assert _canonical_guard(session, CHAIN, SID, "complete") is None
+        record = session.exec(select(AgentStakeRecord).where(AgentStakeRecord.stake_id == SID)).one()
+        assert record.status == "unbonding"
+        assert record.unbonding_at is not None
 
 
 def test_guard_unbonding_local_sealed_unbond_allows_complete(engine):
@@ -159,15 +161,15 @@ def test_guard_unbonding_local_sealed_unbond_allows_complete(engine):
         assert _canonical_guard(session, CHAIN, SID, "complete") is None
 
 
-def test_guard_completed_local_sealed_unbond_still_refuses_complete(engine):
-    """#2336 edge: local 'completed' disagrees with sealed UNBOND (no sealed
-    RELEASE) — the row is stale in the other direction, still a 409."""
+def test_guard_completed_local_sealed_unbond_idempotent_complete(engine):
+    """#2360 edge: local 'completed' + sealed UNBOND (no sealed RELEASE) means
+    the release marker is emitted but unsealed — answer idempotent so a
+    re-run cannot emit a second STAKE_RELEASE or resync the row backwards."""
     with Session(engine) as session:
         _row(session, "completed")
         _sealed(session, "STAKE_UNBOND")
-        with pytest.raises(HTTPException) as exc:
-            _canonical_guard(session, CHAIN, SID, "complete")
-        assert exc.value.status_code == 409
+        out = _canonical_guard(session, CHAIN, SID, "complete")
+        assert out["status"] == "completed" and out["idempotent"] is True
 
 
 def test_guard_stale_unbonding_sealed_release_idempotent_complete(engine):
