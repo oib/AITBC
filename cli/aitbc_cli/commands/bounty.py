@@ -71,15 +71,23 @@ def bounty():
     help="Creator address funding the lock (defaults to the signing wallet)",
 )
 @click.option("--memo", "memo", default=None, help="Optional description carried in the signed body")
+@click.option(
+    "--deadline-height",
+    "deadline_height",
+    default=None,
+    type=int,
+    help="Earliest block height at which the bounty may be expired (omit to allow expiry at any height)",
+)
 @operator_options
 @click.pass_context
-def deploy(ctx, bounty_id, amount: Decimal, user_address, memo, **kw):
+def deploy(ctx, bounty_id, amount: Decimal, user_address, memo, deadline_height, **kw):
     """Deploy a bounty lock (queues a BOUNTY_LOCK protocol transfer)."""
     fields = {
         "bounty_id": bounty_id or f"bounty-{uuid.uuid4().hex[:16]}",
         "user_address": user_address,
         "reward_amount": amount_to_units(amount),
         "memo": memo,
+        "deadline_height": deadline_height,
     }
     post_signed(ctx, "/rpc/bounty/deploy", fields, default_user_field="user_address", title="Bounty Deploy", **kw)
 
@@ -215,8 +223,15 @@ def status(ctx, bounty_id, chain_id, rpc_url, limit, as_json):
         matches = [tx for tx in txs if str((tx.get("payload") or {}).get("bounty_id")) == bounty_id]
         if matches:
             found[tx_type] = matches
+    # The BOUNTY_LOCK payload carries the deploy-time deadline_height when the
+    # bounty was deployed with one (#2368); surface it at the top level.
+    deadline_height = None
+    for tx in found.get("BOUNTY_LOCK", []):
+        deadline_height = (tx.get("payload") or {}).get("deadline_height")
+        if deadline_height is not None:
+            break
     output(
-        {"bounty_id": bounty_id, "transactions": found},
+        {"bounty_id": bounty_id, "deadline_height": deadline_height, "transactions": found},
         "json" if as_json else resolve_output_format(ctx),
         title=f"Bounty {bounty_id}",
     )

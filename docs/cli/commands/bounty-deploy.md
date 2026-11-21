@@ -18,6 +18,7 @@ aitbc bounty deploy [OPTIONS]
 | `--amount` | decimal | — | yes | Reward amount to lock, in AIT |
 | `--user-address` | text | — | no | Creator address funding the lock (defaults to the signing wallet) |
 | `--memo` | text | — | no | Optional description carried in the signed body |
+| `--deadline-height` | integer | — | no | Earliest block height at which the bounty may be expired (omit to allow expiry at any height) |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
 | `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
 | `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
