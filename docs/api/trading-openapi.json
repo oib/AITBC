@@ -2760,7 +2760,7 @@
           "settlement"
         ],
         "summary": "Lock Escrow",
-        "description": "Initiate escrow lock for a trade.\n\nLooks up the inter-chain trade, extracts source/dest chain, sender,\nrecipient, and amount, then calls the blockchain-node settlement RPC\nto create a cross-chain escrow. Persists the returned escrow_id,\nsecret_hash, and timelocks on the trade record.\n\nIdempotent: if the trade already has an escrow_id, returns the existing\nescrow info instead of creating a duplicate.",
+        "description": "Retired (#2385): inter-chain HTLC settlement cannot seal at block v9.\n\nPreviously this created a cross-chain escrow record via the node\nsettlement RPC \u2014 a row that could never lock, verify, or settle. It now\nrefuses with 410 for any existing trade (404 for an unknown one) and\nnever touches the settlement RPC or the trade row.",
         "operationId": "lock_escrow_v1_trading_trades__trade_id__lock_escrow_post",
         "parameters": [
           {
@@ -2801,21 +2801,6 @@
               }
             }
           },
-          "400": {
-            "description": "Trade amount must be positive / timeout_seconds must be between 60 and 604800 seconds",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "title": "Error"
-                    }
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "Trade not found",
             "content": {
@@ -2831,44 +2816,8 @@
               }
             }
           },
-          "409": {
-            "description": "Escrow already created for this trade / Trade status '{trade.status}' cannot lock an escrow",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "anyOf": [
-                    {
-                      "type": "object",
-                      "properties": {
-                        "error": {
-                          "title": "Error"
-                        }
-                      }
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "error": {
-                          "title": "Error"
-                        },
-                        "escrow_id": {
-                          "title": "Escrow Id"
-                        },
-                        "settlement_phase": {
-                          "title": "Settlement Phase"
-                        },
-                        "trade_id": {
-                          "title": "Trade Id"
-                        }
-                      }
-                    }
-                  ]
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Lock escrow failed; no escrow was locked",
+          "410": {
+            "description": "Gone",
             "content": {
               "application/json": {
                 "schema": {
@@ -2891,7 +2840,7 @@
           "settlement"
         ],
         "summary": "Settle Trade",
-        "description": "Settle a trade by revealing the HTLC secret.\n\nLooks up the trade's escrow_id and calls the blockchain-node\nsettlement RPC to reveal the secret and settle atomically on both\nchains. Updates the trade settlement_phase on success.\n\nIdempotent: if the trade is already completed, returns success without\nre-calling settle.",
+        "description": "Retired (#2385): inter-chain HTLC settlement cannot seal at block v9.\n\nPreviously this revealed the HTLC secret via the node settlement RPC.\nIt now refuses with 410 for any existing trade (404 for an unknown\none); ``settlement-status`` remains the read-only check.",
         "operationId": "settle_trade_v1_trading_trades__trade_id__settle_post",
         "parameters": [
           {
@@ -2933,21 +2882,6 @@
               }
             }
           },
-          "400": {
-            "description": "Trade has no escrow \u2014 lock escrow first",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "title": "Error"
-                    }
-                  }
-                }
-              }
-            }
-          },
           "404": {
             "description": "Trade not found",
             "content": {
@@ -2963,23 +2897,8 @@
               }
             }
           },
-          "409": {
-            "description": "Trade cannot settle from status '{trade.status}' / phase '{trade.settlement_phase}'",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "type": "object",
-                  "properties": {
-                    "error": {
-                      "title": "Error"
-                    }
-                  }
-                }
-              }
-            }
-          },
-          "502": {
-            "description": "Settle trade failed; the trade was not settled",
+          "410": {
+            "description": "Gone",
             "content": {
               "application/json": {
                 "schema": {

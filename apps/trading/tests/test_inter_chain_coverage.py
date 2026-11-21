@@ -673,6 +673,10 @@ class TestTradeExpiry:
 
 
 class TestSettleClaim:
+    """#2385: ``settle`` is retired — the claim-marker machinery is gone with
+    the RPC it guarded. Every existing trade gets an honest 410 and the
+    settlement_phase is never mutated."""
+
     async def _escrowed_trade(self, svc, session):
         trade = await _make_trade(svc)
         trade.escrow_id = "esc-1"
@@ -680,16 +684,12 @@ class TestSettleClaim:
         await session.commit()
         return trade
 
-    async def test_fresh_settling_marker_refuses_with_409(self, db_session, monkeypatch):
-        """#1562: a second settle while the claim is fresh must not reach the RPC."""
+    async def test_settle_returns_410_without_touching_phase(self, db_session, monkeypatch):
         from trading_service.routers import settlement as settlement_router
         from trading_service.services.inter_chain_service import InterChainTradeService
 
         svc = InterChainTradeService(db_session)
         trade = await self._escrowed_trade(svc, db_session)
-        trade.settlement_phase = "settling"
-        trade.updated_at = datetime.now(UTC)
-        await db_session.commit()
 
         called = False
 
@@ -707,13 +707,15 @@ class TestSettleClaim:
 
         monkeypatch.setattr(settlement_router, "_get_settlement_client", lambda: _FakeClient())
         resp = await settlement_router.settle_trade(trade.trade_id, secret="s3cr3t", svc=svc)
-        assert resp.status_code == 409
+        assert resp.status_code == 410
+        assert b"retired" in resp.body
         assert called is False
         await db_session.refresh(trade)
-        assert trade.settlement_phase == "settling"
+        assert trade.settlement_phase == "escrow_created"
 
-    async def test_stale_settling_marker_is_reclaimed(self, db_session, monkeypatch):
-        """#1562: a marker older than the TTL means the caller died — retry proceeds."""
+    async def test_settle_410_even_with_stale_settling_marker(self, db_session, monkeypatch):
+        """A stale in-flight marker is irrelevant now — the endpoint refuses
+        before any claim logic could run, and the phase is left as-is."""
         from trading_service.routers import settlement as settlement_router
         from trading_service.services.inter_chain_service import InterChainTradeService
 
@@ -730,38 +732,22 @@ class TestSettleClaim:
             async def __aexit__(self, *a):
                 return False
 
-            async def settle(self, escrow_id, secret):
-                return {"ok": True}
+            async def settle(self, escrow_id, secret):  # pragma: no cover - must not be reached
+                raise AssertionError("settle RPC must not be attempted on the retired rail")
 
         monkeypatch.setattr(settlement_router, "_get_settlement_client", lambda: _FakeClient())
         resp = await settlement_router.settle_trade(trade.trade_id, secret="s3cr3t", svc=svc)
-        assert resp["result"] == {"ok": True}
+        assert resp.status_code == 410
         await db_session.refresh(trade)
-        assert trade.settlement_phase == "settled"
+        assert trade.settlement_phase == "settling"
 
-    async def test_failed_settle_releases_claim(self, db_session, monkeypatch):
-        """#1562: RPC failure restores the prior phase so the trade can retry."""
+    async def test_settle_404_for_unknown_trade(self, db_session):
         from trading_service.routers import settlement as settlement_router
         from trading_service.services.inter_chain_service import InterChainTradeService
 
         svc = InterChainTradeService(db_session)
-        trade = await self._escrowed_trade(svc, db_session)
-
-        class _FakeClient:
-            async def __aenter__(self):
-                return self
-
-            async def __aexit__(self, *a):
-                return False
-
-            async def settle(self, escrow_id, secret):
-                raise RuntimeError("rpc down")
-
-        monkeypatch.setattr(settlement_router, "_get_settlement_client", lambda: _FakeClient())
-        resp = await settlement_router.settle_trade(trade.trade_id, secret="s3cr3t", svc=svc)
-        assert resp.status_code == 502
-        await db_session.refresh(trade)
-        assert trade.settlement_phase == "escrow_created"
+        resp = await settlement_router.settle_trade("no-such-trade", secret="s3cr3t", svc=svc)
+        assert resp.status_code == 404
 
 
 class TestInputHardening:

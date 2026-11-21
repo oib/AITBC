@@ -21,7 +21,7 @@ import httpx
 from aitbc.exceptions import AITBCError
 
 from ..utils import output, resolve_output_format
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, retired_surface_message
 from ..utils.error_handling import CLIError, abort
 
 logger = get_logger(__name__)
@@ -88,7 +88,11 @@ def _resolve_rpc_api_key(api_key: str | None) -> str:
   aitbc trade create --source-chain ait-mainnet --dest-chain ait-side --sender 0x... --recipient 0x... --amount 100"""
 )
 def trade():
-    """Create, list, and settle inter-chain trading operations."""
+    """Create, list, and inspect inter-chain trading operations.
+
+    HTLC escrow settlement (lock-escrow/settle/refund) is retired (#2385);
+    settlement-status remains read-only.
+    """
     pass
 
 
@@ -606,7 +610,12 @@ def _run_settlement_coro(coro):
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def lock_escrow_cmd(ctx, trade_id, node_url, api_key, timeout, format):
-    """Lock escrow for a trade on the settlement node."""
+    """Lock escrow for a trade — RETIRED (#2385).
+
+    Inter-chain HTLC settlement cannot seal at block version 9; the node
+    answers 410 Gone. Kept for interface compatibility — use
+    ``trade settlement-status`` for the read-only view.
+    """
     try:
         from aitbc.settlement.client import SettlementClient
         from aitbc.settlement.types import SettlementConfig
@@ -636,6 +645,9 @@ def lock_escrow_cmd(ctx, trade_id, node_url, api_key, timeout, format):
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except _OPS_ERRORS as e:
+        retired = retired_surface_message(e)
+        if retired is not None:
+            abort(None, f"Settlement is retired: {retired}")
         abort(None, f"Error locking escrow: {e}")
 
 
@@ -654,7 +666,12 @@ def lock_escrow_cmd(ctx, trade_id, node_url, api_key, timeout, format):
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def settle_cmd(ctx, trade_id, secret, node_url, api_key, format):
-    """Settle a trade with a secret."""
+    """Settle a trade with a secret — RETIRED (#2385).
+
+    Inter-chain HTLC settlement cannot seal at block version 9; the node
+    answers 410 Gone. ``--secret`` stays in the interface but the call can
+    never succeed.
+    """
     try:
         from aitbc.settlement.client import SettlementClient
         from aitbc.settlement.types import SettlementConfig
@@ -681,6 +698,9 @@ def settle_cmd(ctx, trade_id, secret, node_url, api_key, format):
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except _OPS_ERRORS as e:
+        retired = retired_surface_message(e)
+        if retired is not None:
+            abort(None, f"Settlement is retired: {retired}")
         abort(None, f"Error settling trade: {e}")
 
 
@@ -750,7 +770,12 @@ def settlement_status_cmd(ctx, trade_id, node_url, api_key, format):
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def refund_cmd(ctx, trade_id, node_url, api_key, format):
-    """Refund a trade on the settlement node."""
+    """Refund a trade — RETIRED (#2385).
+
+    Inter-chain HTLC settlement cannot seal at block version 9; the node
+    answers 410 Gone. Escrows that can never settle are driven to a
+    terminal failed state by the node monitor.
+    """
     try:
         from aitbc.settlement.client import SettlementClient
         from aitbc.settlement.types import SettlementConfig
@@ -776,6 +801,9 @@ def refund_cmd(ctx, trade_id, node_url, api_key, format):
     except NetworkError as e:
         abort(None, f"Network error: {e}")
     except _OPS_ERRORS as e:
+        retired = retired_surface_message(e)
+        if retired is not None:
+            abort(None, f"Settlement is retired: {retired}")
         abort(None, f"Error refunding trade: {e}")
 
 

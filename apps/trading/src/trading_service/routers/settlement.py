@@ -1,7 +1,16 @@
-"""Settlement endpoints for the Trading Service."""
+"""Settlement endpoints for the Trading Service.
+
+#2385: the inter-chain HTLC settlement rail is retired — the node-side
+``/rpc/bridge/settlement/*`` mutating endpoints answer HTTP 410 because
+HTLC emissions carry no ``payload.auth`` and cannot seal at block version
+9. ``lock-escrow`` therefore refuses up front instead of creating a
+bookkeeping escrow that could never lock, and ``settle`` refuses for the
+same reason. Only the read-only ``settlement-status`` endpoint stays live
+so existing trades remain inspectable.
+"""
 
 import os
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Body, Depends
@@ -11,11 +20,7 @@ from sqlalchemy import select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import BLOCKCHAIN_RPC_URL
-from aitbc.settlement.client import (
-    MAX_ESCROW_TIMEOUT_SECONDS,
-    MIN_ESCROW_TIMEOUT_SECONDS,
-    SettlementClient,
-)
+from aitbc.settlement.client import SettlementClient
 from aitbc.settlement.types import SettlementConfig
 from aitbc.trading.types import InterChainTradeStatus, SettlementPhase
 from ..dependencies import get_inter_chain_service
@@ -25,6 +30,12 @@ from ..services.inter_chain_service import InterChainTradeService
 
 router = APIRouter(tags=["settlement"])
 logger = get_logger(__name__)
+
+# Literal 410 detail shared by the retired mutating endpoints (#2385).
+_SETTLEMENT_RETIRED_DETAIL = (
+    "inter-chain HTLC settlement is retired: protocol-escrow transfers emit no "
+    "payload.auth and cannot seal at block version 9; see #2385"
+)
 
 # Expected failure surface for the settlement-status read below: HTTP/RPC
 # I/O from the settlement client (httpx), config ValueErrors, and
@@ -40,15 +51,6 @@ _OPS_ERRORS = (
     httpx.HTTPError,
 )
 
-# Claim-then-call bound for the in-flight markers (#1562): the external
-# create_escrow/settle RPCs are bounded by the HTTP timeout, so a marker
-# older than this can only mean the claiming request died mid-flight — a
-# retry may reclaim it. Fresh markers refuse with 409 so two callers cannot
-# both reach the RPC (with_for_update is a no-op on sqlite, the default
-# backend).
-_ESCROW_CREATE_CLAIM_TTL = timedelta(seconds=300)
-_SETTLE_CLAIM_TTL = timedelta(seconds=300)
-
 
 def _get_settlement_client() -> SettlementClient:
     """Create a SettlementClient targeting the blockchain node settlement RPC."""
@@ -63,68 +65,6 @@ async def _lock_trade_for_update(svc: InterChainTradeService, trade_id: str) -> 
     # with_for_update is a no-op on SQLite but acquires row locks on PostgreSQL/MySQL
     result = await svc.session.execute(stmt.with_for_update())
     return result.scalars().first()
-
-
-async def _claim_phase(
-    svc: InterChainTradeService,
-    trade: InterChainTrade,
-    trade_id: str,
-    marker: SettlementPhase,
-    ttl: timedelta,
-    in_flight_error: str,
-) -> tuple[str, JSONResponse | None]:
-    """Commit an in-flight claim marker before the external RPC (#1562).
-
-    ``marker`` is a non-terminal SettlementPhase (``escrow_creating`` /
-    ``settling``). Returns ``(prior_phase, refusal)`` — ``refusal`` is a 409
-    JSONResponse when a fresh claim by another caller is still within ``ttl``;
-    otherwise the marker is committed and ``refusal`` is None.
-    """
-    prior_phase = trade.settlement_phase
-    if prior_phase == marker.value:
-        claimed_at = trade.updated_at
-        if claimed_at is not None and claimed_at.tzinfo is None:
-            claimed_at = claimed_at.replace(tzinfo=UTC)
-        if claimed_at is not None and datetime.now(UTC) - claimed_at < ttl:
-            return prior_phase, JSONResponse(status_code=409, content={"error": in_flight_error})
-        logger.warning("Reclaiming stale %s claim on trade %s", marker.value, trade_id)
-    trade.settlement_phase = marker.value
-    trade.updated_at = datetime.now(UTC)
-    await svc.session.commit()
-    await svc.session.refresh(trade)
-    return prior_phase, None
-
-
-async def _release_phase_claim(svc: InterChainTradeService, trade_id: str, marker: SettlementPhase, prior_phase: str) -> None:
-    """Undo the claim marker after a failed external RPC so the trade can retry."""
-    try:
-        trade = await _lock_trade_for_update(svc, trade_id)
-        if trade is not None and trade.settlement_phase == marker.value:
-            trade.settlement_phase = prior_phase
-            trade.updated_at = datetime.now(UTC)
-            await svc.session.commit()
-    except Exception:
-        await svc.session.rollback()
-        logger.exception("Failed to release %s claim on trade %s", marker.value, trade_id)
-
-
-async def _claim_escrow_creation(
-    svc: InterChainTradeService, trade: InterChainTrade, trade_id: str
-) -> tuple[str, JSONResponse | None]:
-    """Commit the ``escrow_creating`` claim marker before create_escrow (#1562)."""
-    return await _claim_phase(
-        svc,
-        trade,
-        trade_id,
-        SettlementPhase.ESCROW_CREATING,
-        _ESCROW_CREATE_CLAIM_TTL,
-        "Escrow creation already in progress for this trade",
-    )
-
-
-async def _release_escrow_claim(svc: InterChainTradeService, trade_id: str, prior_phase: str) -> None:
-    """Undo the escrow_creating claim after a failed create_escrow."""
-    await _release_phase_claim(svc, trade_id, SettlementPhase.ESCROW_CREATING, prior_phase)
 
 
 # #1562: node escrow status -> local settlement phase. ``failed`` has no
@@ -220,93 +160,17 @@ async def lock_escrow(
     timeout_seconds: Annotated[int | None, Body(embed=True)] = None,
     svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)] = None,  # type: ignore[assignment]  # noqa: B008
 ):
-    """Initiate escrow lock for a trade.
+    """Retired (#2385): inter-chain HTLC settlement cannot seal at block v9.
 
-    Looks up the inter-chain trade, extracts source/dest chain, sender,
-    recipient, and amount, then calls the blockchain-node settlement RPC
-    to create a cross-chain escrow. Persists the returned escrow_id,
-    secret_hash, and timelocks on the trade record.
-
-    Idempotent: if the trade already has an escrow_id, returns the existing
-    escrow info instead of creating a duplicate.
+    Previously this created a cross-chain escrow record via the node
+    settlement RPC — a row that could never lock, verify, or settle. It now
+    refuses with 410 for any existing trade (404 for an unknown one) and
+    never touches the settlement RPC or the trade row.
     """
     trade = await _lock_trade_for_update(svc, trade_id)
     if not trade:
         return JSONResponse(status_code=404, content={"error": "Trade not found"})
-    # Idempotency: reject duplicate escrow creation
-    if trade.escrow_id:
-        return JSONResponse(
-            status_code=409,
-            content={
-                "error": "Escrow already created for this trade",
-                "trade_id": trade.trade_id,
-                "escrow_id": trade.escrow_id,
-                "settlement_phase": trade.settlement_phase,
-            },
-        )
-    # #1415: only live trades may lock funds — a cancelled/completed/failed
-    # trade must never get a real HTLC escrow created for it.
-    if trade.status not in {"pending", "matched", "locked", "confirmed"}:
-        return JSONResponse(
-            status_code=409,
-            content={"error": f"Trade status '{trade.status}' cannot lock an escrow"},
-        )
-    if trade.amount <= 0:
-        return JSONResponse(status_code=400, content={"error": "Trade amount must be positive"})
-    # #1575: timeout_seconds is caller-supplied and forwarded to the settlement
-    # RPC unchecked — bound it before it becomes block-height timelocks. Runs
-    # before the claim below so a rejected request leaves no marker behind.
-    if timeout_seconds is not None and not (MIN_ESCROW_TIMEOUT_SECONDS <= timeout_seconds <= MAX_ESCROW_TIMEOUT_SECONDS):
-        # Literal message on purpose: the openapi enricher AST-scans this
-        # return and would publish f-string placeholders verbatim. The
-        # numbers mirror MIN/MAX_ESCROW_TIMEOUT_SECONDS (60s / 7d).
-        return JSONResponse(
-            status_code=400,
-            content={"error": "timeout_seconds must be between 60 and 604800 seconds"},
-        )
-
-    # Claim-then-call (#1562): the committed marker is the guard on every
-    # backend, including sqlite where FOR UPDATE is a no-op — see
-    # _claim_escrow_creation.
-    prior_phase, refusal = await _claim_escrow_creation(svc, trade, trade_id)
-    if refusal is not None:
-        return refusal
-
-    try:
-        async with _get_settlement_client() as client:
-            escrow = await client.create_escrow(
-                trade_id=trade.trade_id,
-                source_chain=trade.source_chain,
-                dest_chain=trade.dest_chain,
-                sender=trade.sender,
-                recipient=trade.recipient,
-                amount=trade.amount,
-                timeout_seconds=timeout_seconds,
-            )
-        # Persist settlement fields on the trade record
-        trade.escrow_id = escrow.get("escrow_id")
-        # #1414: the column stores SettlementPhase values — "pending" is not one.
-        trade.settlement_phase = SettlementPhase.ESCROW_CREATED.value
-        trade.secret_hash = escrow.get("secret_hash", "")
-        trade.source_timelock = escrow.get("source_timelock", 0)
-        trade.dest_timelock = escrow.get("dest_timelock", 0)
-        await svc.session.commit()
-        await svc.session.refresh(trade)
-        return {
-            "trade_id": trade.trade_id,
-            "escrow_id": escrow.get("escrow_id"),
-            "status": escrow.get("status", "pending"),
-            "secret_hash": escrow.get("secret_hash", ""),
-            "source_timelock": escrow.get("source_timelock", 0),
-            "dest_timelock": escrow.get("dest_timelock", 0),
-        }
-    except Exception:
-        await svc.session.rollback()
-        # Release the claim marker so the trade can be retried — but only
-        # back to the phase it held before this attempt.
-        await _release_escrow_claim(svc, trade_id, prior_phase)
-        logger.exception("Lock escrow failed for trade %s", trade_id)
-        return JSONResponse(status_code=502, content={"error": "Lock escrow failed; no escrow was locked"})
+    return JSONResponse(status_code=410, content={"error": _SETTLEMENT_RETIRED_DETAIL})
 
 
 @router.post("/v1/trading/trades/{trade_id}/settle")
@@ -315,62 +179,16 @@ async def settle_trade(
     secret: Annotated[str, Body(embed=True)],
     svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)] = None,  # type: ignore[assignment]  # noqa: B008
 ):
-    """Settle a trade by revealing the HTLC secret.
+    """Retired (#2385): inter-chain HTLC settlement cannot seal at block v9.
 
-    Looks up the trade's escrow_id and calls the blockchain-node
-    settlement RPC to reveal the secret and settle atomically on both
-    chains. Updates the trade settlement_phase on success.
-
-    Idempotent: if the trade is already completed, returns success without
-    re-calling settle.
+    Previously this revealed the HTLC secret via the node settlement RPC.
+    It now refuses with 410 for any existing trade (404 for an unknown
+    one); ``settlement-status`` remains the read-only check.
     """
     trade = await _lock_trade_for_update(svc, trade_id)
     if not trade:
         return JSONResponse(status_code=404, content={"error": "Trade not found"})
-    if not trade.escrow_id:
-        return JSONResponse(status_code=400, content={"error": "Trade has no escrow — lock escrow first"})
-    # Idempotency: already settled — accept both the enum terminal value and
-    # the legacy "completed" this router used to write (#1414).
-    if trade.settlement_phase in {SettlementPhase.SETTLED.value, "completed"}:
-        return {"trade_id": trade.trade_id, "escrow_id": trade.escrow_id, "result": "already_settled"}
-    # #1415: terminal/invalid phases and dead trades must not settle — the
-    # HTLC secret alone is not sufficient authorization.
-    if trade.settlement_phase in {SettlementPhase.REFUNDED.value, SettlementPhase.DISPUTED.value} or trade.status in {
-        "cancelled",
-        "failed",
-    }:
-        return JSONResponse(
-            status_code=409,
-            content={"error": f"Trade cannot settle from status '{trade.status}' / phase '{trade.settlement_phase}'"},
-        )
-    # Claim-then-call (#1562): the committed 'settling' marker is the guard —
-    # the settle RPC used to run with only the row lock, which is a no-op on
-    # sqlite, so a crash between RPC success and commit left the phase
-    # ambiguous and a retry could double-settle.
-    prior_phase, refusal = await _claim_phase(
-        svc,
-        trade,
-        trade_id,
-        SettlementPhase.SETTLING,
-        _SETTLE_CLAIM_TTL,
-        "Settlement already in progress for this trade",
-    )
-    if refusal is not None:
-        return refusal
-    try:
-        async with _get_settlement_client() as client:
-            result = await client.settle(trade.escrow_id, secret)
-        trade.settlement_phase = SettlementPhase.SETTLED.value
-        await svc.session.commit()
-        await svc.session.refresh(trade)
-        return {"trade_id": trade.trade_id, "escrow_id": trade.escrow_id, "result": result}
-    except Exception:
-        await svc.session.rollback()
-        # Release the claim marker so the trade can be retried — but only
-        # back to the phase it held before this attempt.
-        await _release_phase_claim(svc, trade_id, SettlementPhase.SETTLING, prior_phase)
-        logger.exception("Settle trade failed for trade %s", trade_id)
-        return JSONResponse(status_code=502, content={"error": "Settle trade failed; the trade was not settled"})
+    return JSONResponse(status_code=410, content={"error": _SETTLEMENT_RETIRED_DETAIL})
 
 
 @router.get("/v1/trading/trades/{trade_id}/settlement-status")

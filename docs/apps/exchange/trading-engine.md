@@ -6,7 +6,7 @@
 
 ## Overview
 
-Trading service for automated and manual trading strategies — offer discovery, trade requests/matches/agreements, inter-chain trades, escrow settlement, and exchange-compatible payment endpoints. FastAPI app in `apps/trading` (package `trading_service`), running as the `aitbc-trading` systemd unit on port 8104 (`User=aitbc`, loopback via `TRADING_BIND_HOST`).
+Trading service for automated and manual trading strategies — offer discovery, trade requests/matches/agreements, inter-chain trades, and exchange-compatible payment endpoints. (The HTLC escrow-settlement rail is retired, #2385; `settlement-status` remains read-only.) FastAPI app in `apps/trading` (package `trading_service`), running as the `aitbc-trading` systemd unit on port 8104 (`User=aitbc`, loopback via `TRADING_BIND_HOST`).
 
 ## Quick Start (End Users)
 
@@ -106,9 +106,14 @@ POST /v1/trading/inter-chain/{trade_id}/match
 
 ### Settlement
 
+> **Retired (#2385):** the HTLC inter-chain settlement rail cannot seal at
+> block version 9 (HTLC emissions carry no `payload.auth`). The mutating
+> endpoints below answer **410 Gone**; only `settlement-status` remains
+> read-only for legacy escrow rows.
+
 ```http
-POST /v1/trading/trades/{trade_id}/lock-escrow
-POST /v1/trading/trades/{trade_id}/settle
+POST /v1/trading/trades/{trade_id}/lock-escrow   # 410 retired
+POST /v1/trading/trades/{trade_id}/settle        # 410 retired
 GET  /v1/trading/trades/{trade_id}/settlement-status
 ```
 

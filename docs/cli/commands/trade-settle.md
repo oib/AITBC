@@ -2,7 +2,7 @@
 
 # `aitbc trade settle`
 
-Settle a trade with a secret.
+Settle a trade with a secret — RETIRED (#2385). Inter-chain HTLC settlement cannot seal at block version 9; the node answers 410 Gone. ``--secret`` stays in the interface but the call can never succeed.
 
 ## Usage
 

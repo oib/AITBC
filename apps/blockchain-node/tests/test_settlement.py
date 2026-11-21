@@ -224,13 +224,15 @@ class TestSettlementService:
     # -- create_escrow -----------------------------------------------------
 
     @pytest.mark.asyncio
-    async def test_create_escrow_unprovisioned_chain_refuses_4xx_class(self, mock_session):
-        """#2265: a dest chain with no local head must refuse with ValueError
-        (route maps to 400), not an unhandled 500."""
+    async def test_create_escrow_refuses_retired_before_any_state(self, mock_session):
+        """#2385: the HTLC rail is retired — create_escrow fails fast with
+        RetiredProtocolTransfer before minting a never-lockable record,
+        so the #2265/#2266 provisioning/dedupe paths are unreachable."""
         from aitbc_chain.cross_chain.settlement import CrossChainSettlementService
+        from aitbc_chain.rpc.retired import RetiredProtocolTransfer
 
         svc = CrossChainSettlementService(chain_id="ait-hub")
-        with pytest.raises(ValueError, match="cannot create escrow"):
+        with pytest.raises(RetiredProtocolTransfer, match="inter-chain HTLC settlement is retired"):
             await svc.create_escrow(
                 trade_id="trade_x",
                 source_chain="ait-hub",
@@ -239,46 +241,7 @@ class TestSettlementService:
                 recipient="bob",
                 amount=100,
             )
-
-    @pytest.mark.asyncio
-    async def test_create_escrow_replay_returns_pending_record(self, mock_session):
-        """#2266: a retried create for the same trade leg dedupes to the
-        existing pending record instead of minting a duplicate."""
-        from aitbc_chain.cross_chain.settlement import CrossChainSettlementService
-
-        svc = CrossChainSettlementService(chain_id="ait-hub")
-        kwargs = {
-            "trade_id": "trade_1",
-            "source_chain": "ait-hub",
-            "dest_chain": "ait-island-1",
-            "sender": "alice",
-            "recipient": "bob",
-            "amount": 1000,
-        }
-        first = await svc.create_escrow(**kwargs)
-        second = await svc.create_escrow(**kwargs)
-        assert second["escrow_id"] == first["escrow_id"]
-        assert second["secret"] == first["secret"]
-        assert len(mock_session.escrows) == 1
-
-    @pytest.mark.asyncio
-    async def test_create_escrow_different_amount_mints_new(self, mock_session):
-        """#2266: a genuinely different request (different amount) is not
-        deduped — only the identical trade leg replays."""
-        from aitbc_chain.cross_chain.settlement import CrossChainSettlementService
-
-        svc = CrossChainSettlementService(chain_id="ait-hub")
-        kwargs = {
-            "trade_id": "trade_1",
-            "source_chain": "ait-hub",
-            "dest_chain": "ait-island-1",
-            "sender": "alice",
-            "recipient": "bob",
-        }
-        first = await svc.create_escrow(**{**kwargs, "amount": 1000})
-        second = await svc.create_escrow(**{**kwargs, "amount": 2000})
-        assert second["escrow_id"] != first["escrow_id"]
-        assert len(mock_session.escrows) == 2
+        assert mock_session.escrows == {}
 
     # -- lock_escrow -------------------------------------------------------
 
@@ -575,15 +538,12 @@ class TestSettlementService:
 class TestRefundTerminality:
     """A refused refund must never mark the escrow terminal.
 
-    The sweeper's wall-clock timeout fires ``margin_blocks`` before the
-    HTLC's block-height timelock matures, so ``refund_swap`` can legitimately
-    refuse. The old code swallowed that, substituted a simulated tx hash, and
-    marked the escrow REFUNDED — terminal — while the funds stayed locked
-    forever. The record must stay non-terminal so the next tick retries, and
-    a never-locked escrow must report ``tx_hash=None`` rather than a
-    fabricated hash. The HTLC mutators are retired and raise
-    ``RetiredProtocolTransfer`` — the terminality invariant holds regardless
-    of why the refund refuses.
+    #2385 retired the HTLC rail outright: ``refund`` now fails fast with
+    ``RetiredProtocolTransfer`` for every escrow — locked or never-locked —
+    before touching state. ``check_timeouts`` catches that refusal and
+    drives the expired non-terminal row to terminal ``failed`` (it can
+    never settle or refund), so the 10s monitor does not retry-log it
+    forever.
     """
 
     def _service(self):
@@ -641,39 +601,101 @@ class TestRefundTerminality:
         assert mock_session.proofs == []
 
     @pytest.mark.asyncio
-    async def test_never_locked_timeout_refunds_honestly(self, mock_session):
-        """A pending escrow that never locked has nothing on-chain to refund:
-        terminal REFUNDED is fine, but tx_hash/proof must be null, not
-        simulated."""
+    async def test_refund_refuses_retired_for_never_locked_escrow(self, mock_session):
+        """#2385: even a never-locked escrow cannot be refunded — the whole
+        rail is retired, so refund fails fast and the record is untouched."""
+        from aitbc_chain.rpc.retired import RetiredProtocolTransfer
+
         mock_session.add(self._record(source_lock_tx_hash=None, status="pending"))
-        result = await self._service().refund("esc_refund")
-        assert result["status"] == "refunded"
-        assert result["tx_hash"] is None
-        assert result["release_proof"] is None
+        with pytest.raises(RetiredProtocolTransfer, match="inter-chain HTLC settlement is retired"):
+            await self._service().refund("esc_refund")
+        assert mock_session.escrows["esc_refund"].status == "pending"
         assert mock_session.proofs == []
 
     @pytest.mark.asyncio
-    async def test_check_timeouts_counts_only_real_refunds(self, mock_session):
-        """An expired-but-unmatured escrow must not appear in the refunded
-        list — the monitor would otherwise log a refund that never ran."""
+    async def test_check_timeouts_retires_expired_row_to_failed(self, mock_session):
+        """#2385: an expired non-terminal escrow can never refund — the
+        monitor drives it to terminal ``failed`` once instead of
+        retry-logging every 10s tick."""
         from datetime import UTC, datetime, timedelta
 
         old = datetime.now(UTC) - timedelta(seconds=3700)
         mock_session.add(self._record(created_at=old, locked_at=old))
-        mock_session.add(
-            HTLCSwapState(
-                swap_id="swap-1",
-                initiator="alice",
-                participant="bob",
-                amount=100,
-                hashlock="cd" * 32,
-                timelock=10_070,
-                status="open",
-            )
-        )
         refunded = await self._service().check_timeouts()
         assert refunded == []
-        assert mock_session.escrows["esc_refund"].status == "locked"
+        assert mock_session.escrows["esc_refund"].status == "failed"
+
+    @pytest.mark.asyncio
+    async def test_check_timeouts_leaves_unexpired_row_alone(self, mock_session):
+        """A non-terminal escrow still inside its timeout is not touched —
+        the retired-rail sweep only fires on expiry."""
+        mock_session.add(self._record(status="pending", source_lock_tx_hash=None))
+        refunded = await self._service().check_timeouts()
+        assert refunded == []
+        assert mock_session.escrows["esc_refund"].status == "pending"
+
+
+# ---------------------------------------------------------------------------
+# #2385 — the whole HTLC settlement rail is retired
+# ---------------------------------------------------------------------------
+
+
+class TestSettlementRailRetired:
+    """Every lifecycle mutator fails fast with RetiredProtocolTransfer before
+    touching state; reads stay live so legacy escrow rows remain inspectable."""
+
+    def _service(self):
+        from aitbc_chain.cross_chain.settlement import CrossChainSettlementService
+
+        return CrossChainSettlementService(chain_id="ait-hub")
+
+    @pytest.mark.asyncio
+    async def test_all_mutators_raise_retired(self, mock_session):
+        from aitbc_chain.rpc.retired import RetiredProtocolTransfer
+
+        svc = self._service()
+        with pytest.raises(RetiredProtocolTransfer, match="inter-chain HTLC settlement is retired"):
+            await svc.lock_escrow("esc_x")
+        with pytest.raises(RetiredProtocolTransfer, match="inter-chain HTLC settlement is retired"):
+            await svc.verify_lock("esc_x")
+        with pytest.raises(RetiredProtocolTransfer, match="inter-chain HTLC settlement is retired"):
+            await svc.execute_trade("esc_x")
+        with pytest.raises(RetiredProtocolTransfer, match="inter-chain HTLC settlement is retired"):
+            await svc.settle("esc_x", "deadbeef")
+        with pytest.raises(RetiredProtocolTransfer, match="inter-chain HTLC settlement is retired"):
+            await svc.refund("esc_x")
+        with pytest.raises(RetiredProtocolTransfer, match="inter-chain HTLC settlement is retired"):
+            await svc.extend_timeout("esc_x", 60)
+        # Nothing was written — no escrow rows, no proofs.
+        assert mock_session.escrows == {}
+        assert mock_session.proofs == []
+
+    @pytest.mark.asyncio
+    async def test_reads_still_work(self, mock_session):
+        from datetime import UTC, datetime
+
+        mock_session.add(
+            CrossChainEscrowRecord(
+                escrow_id="esc_ro",
+                trade_id="trade_ro",
+                source_chain="ait-hub",
+                dest_chain="ait-island-1",
+                sender="alice",
+                recipient="bob",
+                amount=100,
+                asset="native",
+                status="pending",
+                secret_hash="ab" * 32,
+                secret=generate_secret(),
+                created_at=datetime.now(UTC),
+            )
+        )
+        svc = self._service()
+        escrow = await svc.get_escrow("esc_ro")
+        assert escrow is not None and escrow["escrow_id"] == "esc_ro"
+        assert "secret" not in escrow  # preimage stays private on reads
+        assert await svc.get_escrow_status("esc_ro") == "pending"
+        assert await svc.get_proof_chain("esc_ro") == []
 
 
 # ---------------------------------------------------------------------------
@@ -708,6 +730,25 @@ class TestSettlementRouterAuth:
             resp = getattr(client, method)(path, json={} if "dispute" in path or "resolve" in path else None)
             assert resp.status_code == 403, f"{method} {path} → {resp.status_code}"
 
+    def test_mutating_routes_return_410_retired(self, client):
+        """#2385: authenticated mutating calls hit the retired rail — every
+        POST on this router answers 410 Gone, reads still reach the handler."""
+        for method, path, body in [
+            ("post", "/rpc/bridge/settlement/create", {"trade_id": "t"}),
+            ("post", "/rpc/bridge/settlement/esc_x/lock", None),
+            ("post", "/rpc/bridge/settlement/esc_x/verify", None),
+            ("post", "/rpc/bridge/settlement/esc_x/execute", None),
+            ("post", "/rpc/bridge/settlement/esc_x/settle", {"secret": "s"}),
+            ("post", "/rpc/bridge/settlement/esc_x/refund", None),
+            ("post", "/rpc/bridge/settlement/esc_x/extend-timeout", {"extension_seconds": 60}),
+            ("post", "/rpc/bridge/settlement/esc_x/dispute", {"reason": "r"}),
+            ("post", "/rpc/bridge/settlement/esc_x/resolve", {"resolution": "refund"}),
+        ]:
+            resp = getattr(client, method)(path, json=body, headers={"X-API-Key": "test-key-123"})
+            assert resp.status_code == 410, f"{method} {path} → {resp.status_code}: {resp.text}"
+            assert "retired" in resp.json()["detail"]
+            assert "#2385" in resp.json()["detail"]
+
     def test_read_routes_reject_missing_key(self, client):
         for path in [
             "/rpc/bridge/settlement/esc_x",
@@ -723,9 +764,12 @@ class TestSettlementRouterAuth:
 
     def test_valid_key_reaches_handler(self, client):
         """With the key, the request passes auth and reaches the handler —
-        the exact downstream code depends on the test env's DB (404 on a
-        provisioned node, 500 here); anything but 403 proves auth ran."""
+        mutating routes now answer the #2385 retired 410; a read route
+        reaches the service layer (404/500 here depending on the test
+        env's DB — anything but 403 proves auth ran)."""
         resp = client.post("/rpc/bridge/settlement/esc_x/refund", headers={"X-API-Key": "test-key-123"})
+        assert resp.status_code == 410
+        resp = client.get("/rpc/bridge/settlement/esc_x", headers={"X-API-Key": "test-key-123"})
         assert resp.status_code != 403
 
 

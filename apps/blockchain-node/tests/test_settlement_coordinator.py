@@ -432,13 +432,11 @@ class TestRealServiceIntegration:
         assert result["escrow_id"] is None
         assert "Settlement not enabled" in result["error"]
 
-    async def test_real_service_lock_refused_by_retired_htlc_still_refunds(self, monkeypatch: pytest.MonkeyPatch) -> None:
-        """Current-base behaviour: ``HTLCContract.initiate_swap`` raises
-        ``RetiredProtocolTransfer`` (protocol-escrow transfers cannot seal
-        at block version ≥ 9), so the happy path cannot complete. The
-        coordinator must still report ``failed`` and drive the created
-        escrow to REFUNDED — for a never-locked escrow that is an honest
-        terminal record with no fabricated tx hash."""
+    async def test_real_service_create_refused_by_retired_htlc(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """#2385: ``create_escrow`` fails fast with ``RetiredProtocolTransfer``
+        (the HTLC rail cannot seal at block version ≥ 9), so the happy path
+        cannot even mint an escrow — ``run_settlement`` reports ``failed``
+        with no escrow_id, writes no row, and attempts no refund."""
         from contextlib import contextmanager
 
         from test_settlement import MockSession
@@ -456,13 +454,8 @@ class TestRealServiceIntegration:
         result = await coordinator.run_settlement(**_RUN_KWARGS)
 
         assert result["status"] == "failed"
-        escrow_id = result["escrow_id"]
-        assert escrow_id is not None
-        # initiate_swap is retired → the failure surfaced to the caller.
+        assert result["escrow_id"] is None
         assert "retired" in result["error"].lower() or "cannot seal" in result["error"]
-        # The compensating refund ran against the real service: the
-        # never-locked escrow is terminally REFUNDED with no fake proof.
-        record = session.escrows[escrow_id]
-        assert record.status == "refunded"
-        assert record.refunded_at is not None
+        # Fail-fast: no escrow row was minted, no proof recorded.
+        assert session.escrows == {}
         assert session.proofs == []

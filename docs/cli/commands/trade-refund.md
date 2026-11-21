@@ -2,7 +2,7 @@
 
 # `aitbc trade refund`
 
-Refund a trade on the settlement node.
+Refund a trade — RETIRED (#2385). Inter-chain HTLC settlement cannot seal at block version 9; the node answers 410 Gone. Escrows that can never settle are driven to a terminal failed state by the node monitor.
 
 ## Usage
 

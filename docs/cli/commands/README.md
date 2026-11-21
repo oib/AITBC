@@ -750,13 +750,13 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc trade health`](trade-health.md) — Check the health of inter-chain trading for a chain.
 - [`aitbc trade history`](trade-history.md) — Show the history of inter-chain trades between source and destination chains.
 - [`aitbc trade list`](trade-list.md) — List inter-chain trades with optional filters.
-- [`aitbc trade lock-escrow`](trade-lock-escrow.md) — Lock escrow for a trade on the settlement node.
+- [`aitbc trade lock-escrow`](trade-lock-escrow.md) — Lock escrow for a trade — RETIRED (#2385).
 - [`aitbc trade match`](trade-match.md) — Match a trade with a counterparty or settlement path.
 - [`aitbc trade match-all`](trade-match-all.md) — Match all open inter-chain trades automatically.
-- [`aitbc trade refund`](trade-refund.md) — Refund a trade on the settlement node.
+- [`aitbc trade refund`](trade-refund.md) — Refund a trade — RETIRED (#2385).
 - [`aitbc trade register-chain`](trade-register-chain.md) — Register a new chain for inter-chain trading.
 - [`aitbc trade search`](trade-search.md) — Search trading offers with a query.
-- [`aitbc trade settle`](trade-settle.md) — Settle a trade with a secret.
+- [`aitbc trade settle`](trade-settle.md) — Settle a trade with a secret — RETIRED (#2385).
 - [`aitbc trade settlement-status`](trade-settlement-status.md) — Get the settlement status of a trade.
 - [`aitbc trade status`](trade-status.md) — Get the status of a specific trade.
 - [`aitbc trade subscription-status`](trade-subscription-status.md) — Show the subscription status for trading updates.

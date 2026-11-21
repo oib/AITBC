@@ -435,166 +435,82 @@ def _patch_settlement_client(monkeypatch, fake: _FakeSettlementClient):
 
 
 class TestSettlementLockEscrow:
+    """#2385: ``lock-escrow`` is retired — the HTLC rail cannot seal at block
+    v9, so the route answers 410 for any existing trade and never reaches
+    the settlement RPC or writes escrow fields on the trade row."""
+
     async def test_lock_escrow_404(self, client):
         resp = client.post("/v1/trading/trades/trade_missing/lock-escrow", json={})
         assert resp.status_code == 404
 
-    async def test_lock_escrow_rejects_nonpositive_amount(self, client):
-        trade_id = await _seed_inter_chain_trade(amount=0)
-        resp = client.post(f"/v1/trading/trades/{trade_id}/lock-escrow", json={})
-        assert resp.status_code == 400
-
-    async def test_lock_escrow_happy_path(self, client, monkeypatch):
+    async def test_lock_escrow_retired_410(self, client, monkeypatch):
         trade_id = await _seed_inter_chain_trade(amount=250)
         fake = _FakeSettlementClient()
         _patch_settlement_client(monkeypatch, fake)
 
         resp = client.post(f"/v1/trading/trades/{trade_id}/lock-escrow", json={"timeout_seconds": 60})
-        assert resp.status_code == 200
-        body = resp.json()
-        assert body["escrow_id"] == "esc-123"
-        assert body["secret_hash"] == "0xhash"
-
-        # RPC received the trade's chain/party fields
-        assert fake.created_with["trade_id"] == trade_id
-        assert fake.created_with["source_chain"] == "chain-a"
-        assert fake.created_with["dest_chain"] == "chain-b"
-        assert fake.created_with["amount"] == 250
-        assert fake.created_with["timeout_seconds"] == 60
-
-        row = await _trade_row(trade_id)
-        assert row.escrow_id == "esc-123"
-        assert row.secret_hash == "0xhash"
-        assert row.source_timelock == 100
-        assert row.dest_timelock == 90
-
-    async def test_lock_escrow_idempotent_409(self, client, monkeypatch):
-        trade_id = await _seed_inter_chain_trade(escrow_id="esc-existing", settlement_phase="pending")
-        fake = _FakeSettlementClient()
-        _patch_settlement_client(monkeypatch, fake)
-
-        resp = client.post(f"/v1/trading/trades/{trade_id}/lock-escrow", json={})
-        assert resp.status_code == 409
-        assert resp.json()["escrow_id"] == "esc-existing"
-        # No second escrow was created
+        assert resp.status_code == 410
+        assert "retired" in resp.json()["error"]
+        assert "#2385" in resp.json()["error"]
+        # No never-lockable escrow row was created and no RPC was attempted.
         assert fake.created_with is None
-
-    async def test_lock_escrow_rpc_failure_502_and_no_state(self, client, monkeypatch):
-        trade_id = await _seed_inter_chain_trade(amount=100)
-        _patch_settlement_client(monkeypatch, _FakeSettlementClient(fail=True))
-
-        resp = client.post(f"/v1/trading/trades/{trade_id}/lock-escrow", json={})
-        assert resp.status_code == 502
         row = await _trade_row(trade_id)
         assert row.escrow_id is None
         assert row.settlement_phase == "none"
 
-    async def test_lock_escrow_rejects_out_of_range_timeout(self, client, monkeypatch):
-        """#1575: caller-supplied timeout_seconds is bounded before it reaches
-        the settlement RPC."""
-        trade_id = await _seed_inter_chain_trade(amount=100)
-        fake = _FakeSettlementClient()
-        _patch_settlement_client(monkeypatch, fake)
-
-        for bad in (0, 30, 604801):
-            resp = client.post(f"/v1/trading/trades/{trade_id}/lock-escrow", json={"timeout_seconds": bad})
-            assert resp.status_code == 400, bad
-        # No escrow was created for the rejected timeouts.
-        assert fake.created_with is None
-        row = await _trade_row(trade_id)
-        assert row.escrow_id is None
-
-    async def test_lock_escrow_accepts_boundary_timeout(self, client, monkeypatch):
-        trade_id = await _seed_inter_chain_trade(amount=100)
-        fake = _FakeSettlementClient()
-        _patch_settlement_client(monkeypatch, fake)
-
-        resp = client.post(f"/v1/trading/trades/{trade_id}/lock-escrow", json={"timeout_seconds": 604800})
-        assert resp.status_code == 200
-        assert fake.created_with["timeout_seconds"] == 604800
-
-    async def test_lock_escrow_rejects_terminal_trade(self, client, monkeypatch):
-        trade_id = await _seed_inter_chain_trade(amount=100, status="cancelled")
+    async def test_lock_escrow_retired_even_with_existing_escrow(self, client, monkeypatch):
+        """A trade that already carries an escrow_id still gets the honest
+        410 — not the old idempotent-409 — because the rail itself is gone."""
+        trade_id = await _seed_inter_chain_trade(escrow_id="esc-existing", settlement_phase="escrow_created")
         fake = _FakeSettlementClient()
         _patch_settlement_client(monkeypatch, fake)
 
         resp = client.post(f"/v1/trading/trades/{trade_id}/lock-escrow", json={})
-        assert resp.status_code in (400, 409)
+        assert resp.status_code == 410
         assert fake.created_with is None
 
-    async def test_lock_escrow_writes_enum_phase(self, client, monkeypatch):
-        from aitbc.trading.types import SettlementPhase
+    async def test_lock_escrow_retired_regardless_of_trade_state(self, client, monkeypatch):
+        """Terminal/invalid trades get the same 410 — the retired check runs
+        before any status/amount/timeout validation."""
+        trade_id = await _seed_inter_chain_trade(amount=0, status="cancelled")
+        fake = _FakeSettlementClient()
+        _patch_settlement_client(monkeypatch, fake)
 
-        trade_id = await _seed_inter_chain_trade(amount=100)
-        _patch_settlement_client(monkeypatch, _FakeSettlementClient())
-
-        resp = client.post(f"/v1/trading/trades/{trade_id}/lock-escrow", json={})
-        assert resp.status_code == 200
-        row = await _trade_row(trade_id)
-        assert row.settlement_phase in {p.value for p in SettlementPhase}
+        resp = client.post(f"/v1/trading/trades/{trade_id}/lock-escrow", json={"timeout_seconds": 0})
+        assert resp.status_code == 410
+        assert fake.created_with is None
 
 
 class TestSettlementSettle:
+    """#2385: ``settle`` is retired — 410 for any existing trade, no RPC
+    call, no phase mutation."""
+
     async def test_settle_404(self, client):
         resp = client.post("/v1/trading/trades/trade_missing/settle", json={"secret": "s"})
         assert resp.status_code == 404
 
-    async def test_settle_requires_escrow(self, client):
-        trade_id = await _seed_inter_chain_trade()
-        resp = client.post(f"/v1/trading/trades/{trade_id}/settle", json={"secret": "s3cr3t"})
-        assert resp.status_code == 400
-        assert "escrow" in resp.json()["error"].lower()
-
-    async def test_settle_happy_path(self, client, monkeypatch):
-        trade_id = await _seed_inter_chain_trade(escrow_id="esc-123", settlement_phase="pending")
+    async def test_settle_retired_410(self, client, monkeypatch):
+        trade_id = await _seed_inter_chain_trade(escrow_id="esc-123", settlement_phase="escrow_created")
         fake = _FakeSettlementClient()
         _patch_settlement_client(monkeypatch, fake)
 
         resp = client.post(f"/v1/trading/trades/{trade_id}/settle", json={"secret": "s3cr3t"})
-        assert resp.status_code == 200
-        assert resp.json()["result"]["status"] == "settled"
-        assert fake.settled_with == ("esc-123", "s3cr3t")
-
-        row = await _trade_row(trade_id)
-        assert row.settlement_phase == "settled"
-
-    async def test_settle_already_completed_idempotent(self, client, monkeypatch):
-        trade_id = await _seed_inter_chain_trade(escrow_id="esc-123", settlement_phase="completed")
-        fake = _FakeSettlementClient()
-        _patch_settlement_client(monkeypatch, fake)
-
-        resp = client.post(f"/v1/trading/trades/{trade_id}/settle", json={"secret": "s3cr3t"})
-        assert resp.status_code == 200
-        assert resp.json()["result"] == "already_settled"
-        # RPC not called again
+        assert resp.status_code == 410
+        assert "retired" in resp.json()["error"]
+        assert "#2385" in resp.json()["error"]
         assert fake.settled_with is None
-
-    async def test_settle_rpc_failure_502(self, client, monkeypatch):
-        trade_id = await _seed_inter_chain_trade(escrow_id="esc-123", settlement_phase="pending")
-        _patch_settlement_client(monkeypatch, _FakeSettlementClient(fail=True))
-
-        resp = client.post(f"/v1/trading/trades/{trade_id}/settle", json={"secret": "s3cr3t"})
-        assert resp.status_code == 502
         row = await _trade_row(trade_id)
-        assert row.settlement_phase == "pending"
+        assert row.settlement_phase == "escrow_created"
 
-    async def test_settle_recognizes_settled_phase(self, client, monkeypatch):
+    async def test_settle_retired_even_when_previously_settled(self, client, monkeypatch):
+        """The old idempotent 'already_settled' replay is gone with the
+        rail — a settled-phase trade gets the same honest 410."""
         trade_id = await _seed_inter_chain_trade(escrow_id="esc-123", settlement_phase="settled")
         fake = _FakeSettlementClient()
         _patch_settlement_client(monkeypatch, fake)
 
         resp = client.post(f"/v1/trading/trades/{trade_id}/settle", json={"secret": "s3cr3t"})
-        assert resp.status_code == 200
-        assert resp.json()["result"] == "already_settled"
-        assert fake.settled_with is None
-
-    async def test_settle_rejects_refunded_phase(self, client, monkeypatch):
-        trade_id = await _seed_inter_chain_trade(escrow_id="esc-123", settlement_phase="refunded", status="cancelled")
-        fake = _FakeSettlementClient()
-        _patch_settlement_client(monkeypatch, fake)
-
-        resp = client.post(f"/v1/trading/trades/{trade_id}/settle", json={"secret": "s3cr3t"})
-        assert resp.status_code in (400, 409)
+        assert resp.status_code == 410
         assert fake.settled_with is None
 
 

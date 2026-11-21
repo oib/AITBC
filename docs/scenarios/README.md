@@ -175,7 +175,7 @@ Live validation of the product path (paid job + `ESCROW_RELEASE` + shop offer) i
 | 59 | [Sepolia Buy/Sell AIT via the ETH Bridge](./59_sepolia_buy_sell_ait.md) | ETH→AIT deposit on node0, AIT→ETH withdraw on node2; BRIDGE_WITHDRAW sealing finding | `aitbc wallet bridge` |
 | 60 | [Edge Compute & Islands](./60_edge_compute_islands.md) | Edge wallet, GPU inventory/metrics, island membership, edge databases, serve requests | `aitbc edge` |
 | 61 | [Node Mesh Management](./61_node_mesh_management.md) | Node registry, probes, chain inventory, island health, bridge requests | `aitbc node` |
-| 62 | [Inter-Chain Trading](./62_interchain_trade.md) | Chain registry, offer discovery, trade lifecycle, escrowed settlement | `aitbc trade` |
+| 62 | [Inter-Chain Trading](./62_interchain_trade.md) | Chain registry, offer discovery, trade lifecycle, settlement status (HTLC escrow rail retired, #2385) | `aitbc trade` |
 | 63 | [CLI Configuration](./63_cli_configuration.md) | Config keys, export/import, environments, profiles, secrets | `aitbc config` |
 | 64 | [Operations Admin](./64_operations_admin.md) | Legacy umbrella group: agent registry, AI jobs, governance (deprecated surface) | `aitbc operations` |
 | 65 | [Simulated Workloads](./65_simulate_workloads.md) | Local simulators: wallets, price, network, AI jobs; server-side gap documented | `aitbc simulate` |

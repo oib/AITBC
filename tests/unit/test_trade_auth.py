@@ -235,3 +235,96 @@ class TestTradeCommands:
         monkeypatch.setattr(trade_mod, "AITBCHTTPClient", _boom)
         result = CliRunner().invoke(trade, ["list"], obj={"config": config})
         assert "Trading API key required" in result.output
+
+
+# ---------------------------------------------------------------------------
+# #2385 — HTLC settlement commands surface the node's 410 honestly
+# ---------------------------------------------------------------------------
+
+_SETTLEMENT_GONE_DETAIL = (
+    "inter-chain HTLC settlement is retired: protocol-escrow transfers emit no "
+    "payload.auth and cannot seal at block version 9; see #2385"
+)
+
+
+def _http_410() -> httpx.HTTPStatusError:
+    request = httpx.Request("POST", "http://rpc.test:8202/rpc/bridge/settlement/esc-x")
+    response = httpx.Response(410, json={"detail": _SETTLEMENT_GONE_DETAIL}, request=request)
+    return httpx.HTTPStatusError("410 Gone", request=request, response=response)
+
+
+class _GoneSettlementClient:
+    """SettlementClient stand-in answering 410 on every mutating call."""
+
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
+    async def __aenter__(self):
+        return self
+
+    async def __aexit__(self, *exc):
+        return False
+
+    async def create_escrow(self, **kwargs):
+        raise _http_410()
+
+    async def settle(self, escrow_id, secret):
+        raise _http_410()
+
+    async def refund(self, escrow_id):
+        raise _http_410()
+
+    async def get_escrow_status(self, escrow_id):
+        return "pending"
+
+
+class TestTradeSettlementRetired:
+    """``lock-escrow``/``settle``/``refund`` must surface the node's 410 as a
+    clear retired message instead of a generic error (#2385)."""
+
+    @pytest.fixture
+    def _setup(self, trading_env_file, monkeypatch):
+        def fake_get(self, endpoint, params=None, headers=None):
+            return {
+                "trade_id": "t-gone",
+                "source_chain": "chain-a",
+                "dest_chain": "chain-b",
+                "sender": "0xsender",
+                "recipient": "0xrecipient",
+                "amount": 100,
+                "escrow_id": "esc-gone",
+            }
+
+        monkeypatch.setattr(trade_mod.AITBCHTTPClient, "get", fake_get)
+        monkeypatch.setattr("aitbc.settlement.client.SettlementClient", _GoneSettlementClient)
+        return trading_env_file
+
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            ["lock-escrow", "--trade-id", "t-gone", "--node-url", "http://rpc.test:8202", "--api-key", SYNTHETIC_RPC_KEY],
+            [
+                "settle",
+                "--trade-id",
+                "t-gone",
+                "--secret",
+                "deadbeef",
+                "--node-url",
+                "http://rpc.test:8202",
+                "--api-key",
+                SYNTHETIC_RPC_KEY,
+            ],
+            ["refund", "--trade-id", "t-gone", "--node-url", "http://rpc.test:8202", "--api-key", SYNTHETIC_RPC_KEY],
+        ],
+    )
+    def test_settlement_commands_surface_410_as_retired(self, _setup, argv) -> None:
+        result = CliRunner().invoke(trade, argv, obj={"config": cli_config.get_config()})
+        assert result.exit_code != 0
+        assert "retired" in result.output.lower()
+        assert "#2385" in result.output
+
+    def test_help_text_states_retirement(self, _setup) -> None:
+        for cmd in ("lock-escrow", "settle", "refund"):
+            result = CliRunner().invoke(trade, [cmd, "--help"])
+            assert result.exit_code == 0
+            assert "RETIRED" in result.output and "#2385" in result.output

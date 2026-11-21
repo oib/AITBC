@@ -2,7 +2,7 @@
 
 # `aitbc trade lock-escrow`
 
-Lock escrow for a trade on the settlement node.
+Lock escrow for a trade — RETIRED (#2385). Inter-chain HTLC settlement cannot seal at block version 9; the node answers 410 Gone. Kept for interface compatibility — use ``trade settlement-status`` for the read-only view.
 
 ## Usage
 

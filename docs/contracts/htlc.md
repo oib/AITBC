@@ -5,6 +5,12 @@
 
 Python-native HTLC contract implementation (v0.9.0 B4).
 
+> **Retired (#2385):** `initiate_swap`/`complete_swap`/`refund_swap` raise
+> `RetiredProtocolTransfer` unconditionally — HTLC emissions carry no
+> `payload.auth` and cannot seal at block version 9. The inter-chain
+> settlement surface built on it (`/rpc/bridge/settlement/*` mutations,
+> trading `lock-escrow`/`settle`) answers 410 Gone; reads remain.
+
 ## Implementation Details
 
 - `SwapStatus`
