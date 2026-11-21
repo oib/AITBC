@@ -44,31 +44,32 @@ class TestClusterCommands:
         assert "balance" in cluster.commands
 
     def test_cluster_status_command(self, runner):
-        """``cluster status`` returns cluster health status."""
+        """``cluster status`` honestly reports the missing backend."""
         from aitbc_cli.commands.cluster import cluster
 
         result = runner.invoke(cluster, ["status"])
 
         assert result.exit_code == 0, result.output
-        assert "healthy" in result.output
+        assert "static placeholder" in result.output
+        assert '"cluster_health": "unknown"' in result.output
 
     def test_cluster_sync_command(self, runner):
-        """``cluster sync`` reports sync completion."""
+        """``cluster sync`` refuses honestly — no cluster service exists."""
         from aitbc_cli.commands.cluster import cluster
 
         result = runner.invoke(cluster, ["sync"])
 
-        assert result.exit_code == 0, result.output
-        assert "completed" in result.output
+        assert result.exit_code != 0
+        assert "not implemented" in result.output
 
     def test_cluster_balance_command(self, runner):
-        """``cluster balance`` reports balance completion."""
+        """``cluster balance`` refuses honestly — no cluster service exists."""
         from aitbc_cli.commands.cluster import cluster
 
         result = runner.invoke(cluster, ["balance"])
 
-        assert result.exit_code == 0, result.output
-        assert "completed" in result.output
+        assert result.exit_code != 0
+        assert "not implemented" in result.output
 
 
 if __name__ == "__main__":

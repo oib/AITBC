@@ -69,9 +69,8 @@ class TestGetChainInfo:
         """Test chain info with generic error"""
         mock_client_class.side_effect = Exception("Unexpected error")
 
-        result = get_chain_info("http://localhost:8202")
-
-        assert result is None
+        with pytest.raises(Exception, match="Unexpected error"):
+            get_chain_info("http://localhost:8202")
 
 
 class TestGetNetworkStatus:
@@ -105,9 +104,8 @@ class TestGetNetworkStatus:
         """Test network status with generic error"""
         mock_client_class.side_effect = Exception("Unexpected error")
 
-        result = get_network_status("http://localhost:8202")
-
-        assert result is None
+        with pytest.raises(Exception, match="Unexpected error"):
+            get_network_status("http://localhost:8202")
 
 
 class TestGetBlockchainAnalytics:

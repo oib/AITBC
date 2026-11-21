@@ -44,40 +44,40 @@ class TestEconomicsCommands:
         assert "market" in economics.commands
 
     def test_economics_distributed_command(self, runner):
-        """``economics distributed`` outputs simulated optimization data."""
+        """``economics distributed`` refuses honestly with no live backends."""
         from aitbc_cli.commands.economics import economics
 
         result = runner.invoke(economics, ["distributed"])
 
-        assert result.exit_code == 0, result.output
-        assert "simulated" in result.output
+        assert result.exit_code != 0
+        assert "No live" in result.output
 
     def test_economics_distributed_command_with_cost_optimize(self, runner):
-        """``economics distributed --cost-optimize`` enables cost optimization."""
+        """``economics distributed --cost-optimize`` parses and still refuses honestly."""
         from aitbc_cli.commands.economics import economics
 
         result = runner.invoke(economics, ["distributed", "--cost-optimize"])
 
-        assert result.exit_code == 0, result.output
-        assert "simulated" in result.output
+        assert result.exit_code != 0
+        assert "No live" in result.output
 
     def test_economics_model_command(self, runner):
-        """``economics model`` outputs simulated modeling data."""
+        """``economics model`` refuses honestly with no live backends."""
         from aitbc_cli.commands.economics import economics
 
         result = runner.invoke(economics, ["model"])
 
-        assert result.exit_code == 0, result.output
-        assert "simulated" in result.output
+        assert result.exit_code != 0
+        assert "No live" in result.output
 
     def test_economics_market_command(self, runner):
-        """``economics market`` outputs simulated market analysis data."""
+        """``economics market`` refuses honestly with no live backends."""
         from aitbc_cli.commands.economics import economics
 
         result = runner.invoke(economics, ["market"])
 
-        assert result.exit_code == 0, result.output
-        assert "simulated" in result.output
+        assert result.exit_code != 0
+        assert "No live" in result.output
 
 
 if __name__ == "__main__":

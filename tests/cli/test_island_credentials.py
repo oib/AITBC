@@ -83,7 +83,7 @@ class TestLoadIslandCredentials:
         with pytest.raises(ValueError) as exc_info:
             load_island_credentials()
 
-        assert "missing required field" in str(exc_info.value)
+        assert "missing or empty required field" in str(exc_info.value)
 
 
 class TestGetRpcEndpoint:

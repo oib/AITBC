@@ -167,7 +167,9 @@ class TestDashboardShop:
 
         from aitbc_cli.utils.http_client import NetworkError
 
-        mock_auth.return_value = {"Authorization": "Bearer token"}
+        # Miner-scoped reads only run with X-Api-Key auth in play (#2140);
+        # a bare Bearer JWT would be refused by the coordinator anyway.
+        mock_auth.return_value = {"X-Api-Key": "miner-key", "X-Miner-ID": "shop-node"}
         mock_client = mock_client_class.return_value
 
         def get_side_effect(path, **kwargs):

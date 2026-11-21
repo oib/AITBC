@@ -88,7 +88,7 @@ def test_register_paid_market_job_signs_alias_claim(monkeypatch) -> None:
             posted["json"] = json
             return {"job_id": "j1"}
 
-    monkeypatch.setattr("aitbc_cli.commands.ipfs._hub_market_client", lambda: _Client())
+    monkeypatch.setattr("aitbc_cli.commands.ipfs._hub_market_client", lambda *a, **k: _Client())
     monkeypatch.setattr(market_pkg, "get_chain_id", lambda: "test-chain")
 
     buyer_key = "0x" + "44" * 32
@@ -130,7 +130,7 @@ def test_register_paid_market_job_self_bound_sends_no_signature(monkeypatch) -> 
             posted["json"] = json
             return {"job_id": "j2"}
 
-    monkeypatch.setattr("aitbc_cli.commands.ipfs._hub_market_client", lambda: _Client())
+    monkeypatch.setattr("aitbc_cli.commands.ipfs._hub_market_client", lambda *a, **k: _Client())
     monkeypatch.setattr(market_pkg, "get_chain_id", lambda: "test-chain")
 
     ctx = type("Ctx", (), {})()

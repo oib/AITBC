@@ -127,12 +127,12 @@ class TestOperationsCommands:
         mock_client.post.assert_called_once()
         assert "/rpc/governance/proposal/prop1/execute" in mock_client.post.call_args[0][0]
 
-    @patch("aitbc_cli.commands.operations.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.governance._get_client")
     @patch("aitbc_cli.commands.operations.get_config")
-    def test_operations_governance_voting_power(self, mock_get_config, mock_http_class, runner, mock_blockchain_rpc):
+    def test_operations_governance_voting_power(self, mock_get_config, mock_get_client, runner, mock_blockchain_rpc):
         """``operations governance voting-power`` queries voting power via the mocked RPC."""
         mock_get_config.return_value = MagicMock(governance_service_url="http://localhost:8105")
-        mock_client = mock_http_class.return_value
+        mock_client = mock_get_client.return_value
         mock_client.get.return_value = {"address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C", "voting_power": 1000}
 
         from aitbc_cli.commands.operations import operations

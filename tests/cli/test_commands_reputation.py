@@ -161,15 +161,19 @@ class TestReputationCommands:
     def test_reputation_leaderboard_handles_error(self, mock_http_class, runner):
         """``reputation leaderboard`` handles connection errors gracefully."""
         mock_client = mock_http_class.return_value
-        mock_client.get_json.side_effect = Exception("connection refused")
+        from aitbc.exceptions import NetworkError
+
+        mock_client.get_json.side_effect = NetworkError("connection refused")
 
         from aitbc_cli.commands.reputation import reputation
 
         result = runner.invoke(reputation, ["leaderboard"])
 
-        # The command catches exceptions internally, prints an error, and exits non-zero.
-        assert result.exit_code != 0
-        assert "connection refused" in result.output
+        # A transport failure (no HTTP status) takes the deliberate
+        # simulated-fallback path — the outage is surfaced, not masked as
+        # live data, and the command still exits cleanly.
+        assert result.exit_code == 0, result.output
+        assert "sim-agent" in result.output
 
 
 if __name__ == "__main__":

@@ -123,14 +123,18 @@ class TestMarketEscrowStatusErrors:
             return runner.invoke(escrow, ["status", "--job-id", "job-1"], obj={})
 
     def test_403_names_the_auth_failure(self, runner):
-        exc = Exception("forbidden")
+        from aitbc.exceptions import NetworkError
+
+        exc = NetworkError("forbidden")
         exc.response = SimpleNamespace(status_code=403, json=lambda: {"detail": "Missing API key"})
         result = self._invoke(runner, exc)
         assert "HTTP 403" in result.output
         assert "No escrow found" not in result.output
 
     def test_404_reports_no_escrow(self, runner):
-        exc = Exception("not found")
+        from aitbc.exceptions import NetworkError
+
+        exc = NetworkError("not found")
         exc.response = SimpleNamespace(status_code=404, json=lambda: {"detail": "no escrow"})
         result = self._invoke(runner, exc)
         assert "No escrow found for job job-1" in result.output
@@ -143,7 +147,10 @@ class TestMarketPayment:
         from aitbc_cli.commands.market import market
 
         with (
-            patch("aitbc_cli.commands.market.payments._client_token", return_value="tok-1"),
+            patch(
+                "aitbc_cli.commands.market.payments._client_auth_kwargs",
+                return_value={"headers": {"Authorization": "Bearer tok-1"}},
+            ),
             patch("aitbc_cli.commands.market.payments._coordinator_base_url", return_value="http://coord.test"),
             patch("aitbc_cli.commands.market.payments.AITBCHTTPClient") as mock_client_cls,
         ):
@@ -160,7 +167,10 @@ class TestMarketPayment:
         from aitbc_cli.commands.market import market
 
         with (
-            patch("aitbc_cli.commands.market.payments._client_token", return_value="tok-1"),
+            patch(
+                "aitbc_cli.commands.market.payments._client_auth_kwargs",
+                return_value={"headers": {"Authorization": "Bearer tok-1"}},
+            ),
             patch("aitbc_cli.commands.market.payments._coordinator_base_url", return_value="http://coord.test"),
             patch("aitbc_cli.commands.market.payments.AITBCHTTPClient") as mock_client_cls,
         ):
@@ -312,6 +322,11 @@ class TestBridgeDeposits:
     def test_missing_monitor_sources_aborts(self, runner, tmp_path):
         from aitbc_cli.commands.bridge import bridge
 
-        result = runner.invoke(bridge, ["deposits", "--repo-root", str(tmp_path)], obj={})
+        # _resolve_bridge_repo_root falls back through cwd ancestors and
+        # /opt/aitbc, so on a host with a real checkout a bogus --repo-root
+        # still resolves — pin the resolver to the empty dir to reach the
+        # missing-sources abort branch.
+        with patch("aitbc_cli.commands.bridge._ledger._resolve_bridge_repo_root", return_value=tmp_path):
+            result = runner.invoke(bridge, ["deposits", "--repo-root", str(tmp_path)], obj={})
         assert result.exit_code != 0
         assert "bridge-monitor" in result.output

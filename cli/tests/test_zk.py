@@ -61,26 +61,18 @@ def test_zk_health_gets_health(runner, mock_client):
 
 
 def test_zk_verify_from_job_receipt(runner, mock_client):
+    """#2422: --job-id verifies server-side via /v1/zk/receipt/verify — the
+    server re-derives expected signals from stored job state, so the CLI
+    sends only the job id (no client-side receipt fetch)."""
     from aitbc_cli.commands.zk import zk
 
-    mock_client.get.return_value = {
-        "receipt": {
-            "zk_proof": {
-                "proof": {"pi_a": ["1"]},
-                "public_signals": ["sig1"],
-                "circuit": "receipt_public",
-            }
-        }
-    }
+    mock_client.post.return_value = {"verified": True, "job_id": "job-1"}
     result = runner.invoke(zk, ["verify", "--job-id", "job-1"], obj={"output_format": "table", "api_key": "test-key"})
     assert result.exit_code == 0, result.output
-    mock_client.get.assert_called_once_with("/v1/jobs/job-1/result")
+    mock_client.get.assert_not_called()
     call = mock_client.post.call_args
-    assert call[0][0] == "/v1/zk/verify"
-    payload = call.kwargs["json"]
-    assert payload["circuit_name"] == "receipt_public"
-    assert payload["proof"] == {"pi_a": ["1"]}
-    assert payload["public_signals"] == ["sig1"]
+    assert call[0][0] == "/v1/zk/receipt/verify"
+    assert call.kwargs["json"] == {"job_id": "job-1"}
 
 
 def test_zk_health_uses_stored_jwt_when_no_api_key(runner, mock_client, monkeypatch):

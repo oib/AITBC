@@ -95,9 +95,8 @@ class TestGetNetworkStatus:
         mock_client_class.return_value = mock_client
         mock_client.get.side_effect = Exception("Error")
 
-        result = get_network_status("http://localhost:8202")
-
-        assert result is None
+        with pytest.raises(Exception, match="Error"):
+            get_network_status("http://localhost:8202")
 
 
 class TestGetBlockchainAnalytics:

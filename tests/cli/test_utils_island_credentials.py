@@ -64,7 +64,7 @@ class TestLoadIslandCredentials:
             os.chmod(credentials_path, 0o600)
 
             with patch("aitbc_cli.utils.island_credentials.CREDENTIALS_PATH", str(credentials_path)):
-                with pytest.raises(ValueError, match="missing required field"):
+                with pytest.raises(ValueError, match="missing or empty required field"):
                     load_island_credentials()
 
     def test_load_island_credentials_world_readable(self):

@@ -116,10 +116,20 @@ class TestNodeCommands:
         assert result.exit_code == 0, result.output
         assert "Island" in result.output
 
-    def test_node_island_create(self, runner):
+    @patch("aitbc_cli.commands.node.island._store_island_credentials", return_value="/tmp/island_credentials.json")
+    @patch("aitbc_cli.commands.node.island._join_island_rpc")
+    def test_node_island_create(self, mock_join, _mock_store, runner):
         """``node island create`` creates a new island with provided details."""
         from aitbc_cli.commands.node import node
 
+        mock_join.return_value = {
+            "success": True,
+            "island_id": "test-island",
+            "island_name": "test",
+            "island_chain_id": "test-chain",
+            "status": "created",
+            "credentials": {"rpc_endpoint": "http://127.0.0.1:8202/rpc"},
+        }
         result = runner.invoke(
             node,
             ["island", "create", "--island-id", "test-island", "--island-name", "test", "--chain-id", "test-chain"],
@@ -145,13 +155,26 @@ class TestNodeCommands:
         assert result.exit_code == 0, result.output
         assert "Successfully left" in result.output
 
-    def test_node_island_create_auto_generates_id(self, runner):
+    @patch("aitbc_cli.commands.node.island._store_island_credentials", return_value="/tmp/island_credentials.json")
+    @patch("aitbc_cli.commands.node.island._join_island_rpc")
+    def test_node_island_create_auto_generates_id(self, mock_join, _mock_store, runner):
         """``node island create`` without --island-id auto-generates a UUID."""
         from aitbc_cli.commands.node import node
 
+        mock_join.return_value = {
+            "success": True,
+            "island_id": "generated-id",
+            "island_name": "",
+            "island_chain_id": "",
+            "status": "created",
+            "credentials": {"rpc_endpoint": "http://127.0.0.1:8202/rpc"},
+        }
         result = runner.invoke(node, ["island", "create"])
 
         assert result.exit_code == 0, result.output
+        # A UUID island id was generated client-side and sent to the join RPC.
+        sent_island_id = mock_join.call_args[0][2]
+        assert sent_island_id
 
 
 if __name__ == "__main__":

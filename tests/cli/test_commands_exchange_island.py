@@ -65,14 +65,16 @@ class TestExchangeIslandCommands:
         result = runner.invoke(exchange_island, ["orderbook", "--pair", "AIT/ETH"])
 
         assert result.exit_code == 0, result.output
-        mock_client.get_json.assert_called_once()
-        called_path = mock_client.get_json.call_args[0][0]
+        # #2338: orderbook fetches open rows plus the cancelled rows needed
+        # for cancel correlation — two get_json calls, both on TX_QUERY_PATH.
+        assert mock_client.get_json.call_count == 2
+        for call in mock_client.get_json.call_args_list:
+            assert call[0][0] == TX_QUERY_PATH
         # Assert the exact path, not a substring. The commands used to call a bare
         # "/transactions", which the RPC does not serve -- every router is mounted
         # under /rpc (or /v1), so the bare path 404s and orderbook silently fell
         # back to simulated data. A substring check passes for both, so it could
         # never have caught that.
-        assert called_path == TX_QUERY_PATH
 
     @patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient")
     @patch("aitbc_cli.commands.exchange_island.get_island_id", return_value="island-test-123")
