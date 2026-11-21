@@ -65,6 +65,17 @@ def refund(ctx, job_id, reason, coordinator_url):
 
         # Lookup payment_id for this job.
         job = http_client.get(f"/v1/jobs/{job_id}")
+        payment_status = job.get("payment_status")
+        if payment_status == "failed":
+            # #2358: a failed payment never locked funds — there is nothing to
+            # refund and the refund endpoint rightly 400s. Say so up front.
+            reason = job.get("payment_error") or "the escrow lock did not secure"
+            _ai.abort(
+                ctx,
+                f"Job {job_id} payment failed ({reason}) — nothing was escrowed, so there is "
+                f"nothing to refund. Close the job with 'aitbc ai cancel --job-id {job_id}' "
+                f"or retry payment with 'aitbc ai pay --job-id {job_id}'",
+            )
         payment_id = job.get("payment_id")
         if not payment_id:
             _ai.abort(ctx, f"Job {job_id} has no payment to refund")

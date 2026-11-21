@@ -113,7 +113,7 @@ def pay(
         if not isinstance(job, dict) or not job.get("job_id"):
             _ai.abort(ctx, f"Job {job_id} not found")
 
-        if job.get("payment_id") and job.get("payment_status") not in ("pending", "skipped", None):
+        if job.get("payment_id") and job.get("payment_status") not in ("pending", "skipped", "failed", None):
             _ai.abort(
                 ctx, f"Job {job_id} already has payment_status={job.get('payment_status')}; not creating a second payment"
             )
@@ -152,7 +152,7 @@ def pay(
             provider_agent_id=provider_agent_id,
         )
 
-        _ai.success(f"Escrow secured: {payment_result.get('payment_id')}")
+        _ai._report_escrow_outcome(ctx, job_id, payment_result)
         _ai.output(payment_result, _ai.resolve_output_format(ctx, format))
 
     except _ai.NetworkError as e:
