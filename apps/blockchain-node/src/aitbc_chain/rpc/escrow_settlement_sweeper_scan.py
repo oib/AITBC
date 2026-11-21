@@ -691,3 +691,195 @@ def _count_change_pass(stats: dict[str, int]) -> None:
                 escrow_change_pass_total.labels(result=result).inc(n)
     except Exception as e:  # noqa: BLE001 - metrics must never break the pass
         _logger.debug("change-pass metrics emit failed: %s", e)
+
+
+# --------------------------------------------------------------------------
+# Orphan tx-only lock refund pass (#2380)
+#
+# ``sw_job_*`` ESCROW_LOCKs are minted by the shop-window CLI flows before the
+# provider call and deliberately carry no market/coordinator job row and no
+# escrow row — the same set ``aitbc_escrow_open_tx_only_lock`` alerts on. A
+# provider-call failure (or a killed session) strands the lock: nothing
+# selects it, nothing settles it, and the 30-day contract expiry nothing
+# invokes is the only other exit. The inline ``_refund_orphaned_escrow``
+# (#1767) dies with the session that hit the failure.
+#
+# This pass refunds the full lock to the recorded buyer once the lock is
+# older than the min age and still has no settlement leg and no escrow row.
+# Scope is deliberately prefix-bound to ``sw_job``: arbitrary manual
+# ``market escrow create`` ids are NOT auto-refunded — a user may intend to
+# settle them later. The prefix is the class whose rows provably never exist.
+#
+# Pure decision layer like the other passes: all DB work goes through
+# ``session``; custody/pending probes and submission live in the sweeper
+# module. Flags: ESCROW_ORPHAN_REFUND_PASS_ENABLED arms it,
+# ESCROW_ORPHAN_REFUND_PASS_DRY_RUN logs and counts without submitting.
+# --------------------------------------------------------------------------
+
+_ORPHAN_JOB_PREFIX = "sw_job"
+
+
+def _orphan_refund_pass_enabled() -> bool:
+    return os.getenv("ESCROW_ORPHAN_REFUND_PASS_ENABLED", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+def _orphan_refund_pass_dry_run() -> bool:
+    return os.getenv("ESCROW_ORPHAN_REFUND_PASS_DRY_RUN", "").strip().lower() in ("1", "true", "yes", "on")
+
+
+class _OrphanRefundCandidate(NamedTuple):
+    job_id: str
+    buyer_address: str
+    provider_address: str
+    owed_units: int
+    custody_units: int
+
+
+def _orphan_lock_ids(session, after_job_id: str, limit: int, through_job_id: str | None = None) -> list[str]:
+    """Distinct ``sw_job*`` job_ids with a sealed ESCROW_LOCK, job_id-ordered.
+
+    Same ring mechanics as the other passes: ``after_job_id`` bounds the
+    window, ``through_job_id`` caps the wrap-around refill so nothing is
+    examined twice in one pass.
+    """
+    jid = Transaction.payload["job_id"].as_string()
+    stmt = (
+        select(jid)
+        .where(Transaction.type == "ESCROW_LOCK")
+        .where(jid.like(f"{_ORPHAN_JOB_PREFIX}%"))
+        .where(Transaction.block_height.is_not(None))  # type: ignore[union-attr]
+    )
+    if after_job_id:
+        stmt = stmt.where(jid > after_job_id)
+    if through_job_id is not None:
+        stmt = stmt.where(jid <= through_job_id)
+    stmt = stmt.distinct().order_by(jid).limit(limit)
+    return [str(j) for j in session.exec(stmt) if j]
+
+
+def orphan_refund_candidates(
+    session,
+    now: datetime,
+    *,
+    max_jobs: int,
+    min_age_seconds: int,
+    min_height: int,
+    after_job_id: str = "",
+) -> tuple[list[_OrphanRefundCandidate], dict[str, int], str]:
+    """Pick orphan tx-only locks eligible for a full buyer refund.
+
+    A job qualifies only when its single sealed ESCROW_LOCK is at or above
+    ``min_height`` (the v3-custody floor — below it a refund debits the
+    settlement authority's own float, not custody), older than
+    ``min_age_seconds``, and has no sealed ESCROW_RELEASE/ESCROW_REFUND leg
+    and no escrow row. Multiple locks on one job_id are ambiguous — skip.
+    Returns (candidates, stats, next_watermark).
+    """
+    stats = {
+        "no_lock": 0,
+        "multi_lock": 0,
+        "settled": 0,
+        "has_row": 0,
+        "skipped_floor": 0,
+        "deferred_age": 0,
+    }
+    wanted = _orphan_lock_ids(session, after_job_id, max_jobs)
+    if len(wanted) < max_jobs and after_job_id:
+        wanted += _orphan_lock_ids(session, "", max_jobs - len(wanted), through_job_id=after_job_id)
+    next_watermark = wanted[-1] if wanted else ""
+    if not wanted:
+        return [], stats, next_watermark
+    wanted_set = set(wanted)
+
+    # One type-indexed scan for every escrow tx naming a candidate job —
+    # same shape as _escrow_legs_by_job, matched in memory.
+    jid = Transaction.payload["job_id"].as_string()
+    locks: dict[str, list[Transaction]] = {}
+    settled: set[str] = set()
+    for tx in session.exec(
+        select(Transaction).where(
+            Transaction.type.in_(("ESCROW_LOCK", "ESCROW_RELEASE", "ESCROW_REFUND")),  # type: ignore[attr-defined]
+            jid.in_(wanted_set),
+        )
+    ):
+        job_id = (tx.payload or {}).get("job_id")
+        if job_id not in wanted_set:
+            continue
+        if tx.type == "ESCROW_LOCK":
+            locks.setdefault(job_id, []).append(tx)
+        else:
+            settled.add(job_id)
+
+    row_ids = {
+        r
+        for r in session.exec(select(Escrow.job_id).where(Escrow.job_id.in_(wanted_set)))  # type: ignore[attr-defined]
+        if isinstance(r, str)
+    }
+
+    candidates: list[_OrphanRefundCandidate] = []
+    for job_id in wanted:
+        candidate = _orphan_candidate_for_job(
+            job_id, locks.get(job_id) or [], settled, row_ids, now, min_age_seconds, min_height, stats
+        )
+        if candidate is not None:
+            candidates.append(candidate)
+    return candidates, stats, next_watermark
+
+
+def _orphan_candidate_for_job(
+    job_id: str,
+    job_locks: list[Transaction],
+    settled: set[str],
+    row_ids: set[str],
+    now: datetime,
+    min_age_seconds: int,
+    min_height: int,
+    stats: dict[str, int],
+) -> _OrphanRefundCandidate | None:
+    if job_id in settled:
+        stats["settled"] += 1
+        return None
+    if job_id in row_ids:
+        stats["has_row"] += 1
+        return None
+    if not job_locks:
+        stats["no_lock"] += 1
+        return None
+    if len(job_locks) > 1:
+        # A reused id with two locks has ambiguous custody — never
+        # auto-refund; the tx-only alert keeps it visible for a human.
+        stats["multi_lock"] += 1
+        return None
+    lock = job_locks[0]
+    height = lock.block_height
+    if height is None or height < min_height:
+        stats["skipped_floor"] += 1
+        return None
+    at = lock.created_at
+    if at is not None and at.tzinfo is None:
+        at = at.replace(tzinfo=UTC)
+    if at is None or (now - at).total_seconds() < min_age_seconds:
+        stats["deferred_age"] += 1
+        return None
+    provider = (lock.payload or {}).get("provider")
+    owed = int(lock.value or 0)
+    return _OrphanRefundCandidate(
+        job_id=job_id,
+        buyer_address=lock.sender,
+        provider_address=provider if isinstance(provider, str) else "",
+        owed_units=owed,
+        custody_units=owed,
+    )
+
+
+def _count_orphan_refund_pass(stats: dict[str, int]) -> None:
+    try:
+        from ..metrics import escrow_orphan_refund_pass_total
+
+        # Heartbeat: one "tick" per executed pass run (see _count_fee_pass).
+        escrow_orphan_refund_pass_total.labels(result="tick").inc()
+        for result, n in stats.items():
+            if n:
+                escrow_orphan_refund_pass_total.labels(result=result).inc(n)
+    except Exception as e:  # noqa: BLE001 - metrics must never break the pass
+        _logger.debug("orphan-refund-pass metrics emit failed: %s", e)

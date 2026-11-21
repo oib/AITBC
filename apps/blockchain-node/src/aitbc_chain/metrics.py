@@ -279,6 +279,15 @@ escrow_change_pass_total = Counter(
     ["result"],
 )
 
+# Periodic orphan tx-only lock refund pass (#2380): refunds full locks for
+# sw_job_* escrows that have no job row, no escrow row, and no settlement
+# leg — the class the EscrowOpenTxOnlyLock alert watches.
+escrow_orphan_refund_pass_total = Counter(
+    "blockchain_escrow_orphan_refund_pass_total",
+    "Periodic orphan tx-only escrow lock refund pass outcomes by result",
+    ["result"],
+)
+
 # Settlement-signing gate refusals (Task A10/A13): a wrong-routed escrow caller
 # otherwise surfaces only in node logs. Label op: create, refund, release.
 escrow_settlement_refused_total = Counter(
