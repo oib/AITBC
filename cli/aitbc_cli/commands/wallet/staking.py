@@ -21,7 +21,7 @@ from ...config import get_config
 from ...utils.fee_guard import ALLOW_HIGH_FEE_OPTION, validate_tx_fee
 from ...utils.wallet_secret import resolve_wallet_password, wallet_password_options
 from ...utils import DECIMAL, error, output, success
-from ...utils.error_handling import CLIError, abort
+from ...utils.error_handling import CLIError, NotFoundError, abort
 from ...utils.http_client import AITBCHTTPClient, http_error_detail, retired_surface_message
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_paths import (
@@ -634,9 +634,16 @@ def liquidity_stake(
     # liquidity_stake re-saves the wallet file — configured-dir resolution only (CLI-6c).
     wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
-        error(wallet_write_restricted_message(find_wallet_file_report(wallet_name)))
-        ctx.exit(1)
-        return
+        # #2448: route through abort() like stake/unstake — one exit class
+        # (NotFoundError/2) and a JSON error object under --output json.
+        # error_type pins NotFoundError: the write-restricted message says
+        # "configured wallet directory", which keyword-categorisation would
+        # otherwise read as a ConfigurationError (exit 3).
+        abort(
+            ctx,
+            wallet_write_restricted_message(find_wallet_file_report(wallet_name)),
+            error_type=NotFoundError,
+        )
 
     resolved_password = resolve_wallet_password(
         wallet_name,
@@ -758,9 +765,7 @@ def liquidity_claim(
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj.get("wallet_sign_path")
     if not wallet_path or not Path(wallet_path).exists():
-        error(wallet_not_found_message(find_wallet_file_report(wallet_name)))
-        ctx.exit(1)
-        return
+        abort(ctx, wallet_not_found_message(find_wallet_file_report(wallet_name)))
 
     resolved_password = resolve_wallet_password(
         wallet_name,
@@ -845,9 +850,11 @@ def liquidity_unstake(
     # liquidity_unstake re-saves the wallet file — configured-dir resolution only (CLI-6c).
     wallet_path = ctx.obj.get("wallet_path")
     if not wallet_path or not Path(wallet_path).exists():
-        error(wallet_write_restricted_message(find_wallet_file_report(wallet_name)))
-        ctx.exit(1)
-        return
+        abort(
+            ctx,
+            wallet_write_restricted_message(find_wallet_file_report(wallet_name)),
+            error_type=NotFoundError,
+        )
 
     resolved_password = resolve_wallet_password(
         wallet_name,

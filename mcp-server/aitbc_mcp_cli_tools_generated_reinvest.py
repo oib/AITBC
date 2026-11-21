@@ -86,13 +86,24 @@ def aitbc_reinvest_simulate(
     agent_id: Annotated[str, Field(description="The Agent-id.")],
     earnings: Annotated[str | None, Field(description="Earnings amount to simulate")] = None,
     budget_total: Annotated[str | None, Field(description="Total budget for the agent")] = None,
-    staking_contract: Annotated[str | None, Field(description="Staking contract address")] = None,
-    reserve_address: Annotated[str | None, Field(description="Reserve address for capacity funds")] = None,
+    staking_contract: Annotated[
+        str | None,
+        Field(
+            description="Staking contract address (default: staking_contract_address config / STAKING_CONTRACT_ADDRESS env)"
+        ),
+    ] = None,
+    reserve_address: Annotated[
+        str | None,
+        Field(
+            description="Reserve address for capacity funds (default: reinvest_reserve_address config / REINVEST_RESERVE_ADDRESS env)"
+        ),
+    ] = None,
     staking_pct: Annotated[str | None, Field(description="Override stored policy: % of reinvested funds to staking")] = None,
     reserve_pct: Annotated[
         str | None, Field(description="Override stored policy: % of reinvested funds to capacity reserve")
     ] = None,
     min_reinvest: Annotated[str | None, Field(description="Override stored policy: minimum reinvest amount")] = None,
+    strict: Annotated[bool | None, Field(description="Exit non-zero when the agent has no recorded policy")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -100,7 +111,7 @@ def aitbc_reinvest_simulate(
     """Simulate reinvestment actions for a given earnings amount."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"strict": "strict"},
         values={
             "agent_id": "agent-id",
             "earnings": "earnings",

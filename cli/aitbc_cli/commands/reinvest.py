@@ -11,10 +11,16 @@ import click
 
 from aitbc.exceptions import AITBCError
 
-from ..utils import output
-from ..utils.error_handling import abort
+from ..config import get_config
+from ..utils import output, warning
+from ..utils.error_handling import NotFoundError, abort
 
 _POLICY_STORE = Path.home() / ".aitbc" / "reinvest_policies.json"
+
+# Engine-side placeholder for an unconfigured leg address: OnChainAction
+# requires a non-empty contract_address, so simulate feeds this sentinel and
+# reports ``null`` — never a fake address like the old ``0xSTAKE`` (#2448).
+_UNCONFIGURED_ADDRESS = "__unconfigured__"
 
 
 def _load_policies() -> dict:
@@ -141,22 +147,32 @@ def policy(ctx, agent_id: str, staking_pct: str | None, reserve_pct: str | None,
 @click.option("--agent-id", "agent_id", required=True, help="The Agent-id.")
 @click.option("--earnings", default="10", help="Earnings amount to simulate")
 @click.option("--budget-total", default="100", help="Total budget for the agent")
-@click.option("--staking-contract", default="0xSTAKE", help="Staking contract address")
-@click.option("--reserve-address", default="0xRESERVE", help="Reserve address for capacity funds")
+@click.option(
+    "--staking-contract",
+    default=None,
+    help="Staking contract address (default: staking_contract_address config / STAKING_CONTRACT_ADDRESS env)",
+)
+@click.option(
+    "--reserve-address",
+    default=None,
+    help="Reserve address for capacity funds (default: reinvest_reserve_address config / REINVEST_RESERVE_ADDRESS env)",
+)
 @click.option("--staking-pct", default=None, help="Override stored policy: % of reinvested funds to staking")
 @click.option("--reserve-pct", default=None, help="Override stored policy: % of reinvested funds to capacity reserve")
 @click.option("--min-reinvest", default=None, help="Override stored policy: minimum reinvest amount")
+@click.option("--strict", is_flag=True, help="Exit non-zero when the agent has no recorded policy")
 @click.pass_context
 def simulate(
     ctx,
     agent_id: str,
     earnings: str,
     budget_total: str,
-    staking_contract: str,
-    reserve_address: str,
+    staking_contract: str | None,
+    reserve_address: str | None,
     staking_pct: str | None,
     reserve_pct: str | None,
     min_reinvest: str | None,
+    strict: bool,
 ):
     """Simulate reinvestment actions for a given earnings amount.
 
@@ -166,30 +182,55 @@ def simulate(
     try:
         ReinvestmentEngine, ReinvestmentPolicy, Budget = _load_miner_app()
         saved = _policy_params(agent_id) or {}
+        # #2448: an agent with no recorded policy used to get a plausible
+        # invented result silently — say so, or refuse under --strict.
+        if not saved:
+            if strict:
+                abort(
+                    ctx,
+                    f"agent '{agent_id}' has no recorded reinvestment policy — "
+                    f"run `aitbc reinvest policy --agent-id {agent_id}` first or drop --strict",
+                    error_type=NotFoundError,
+                )
+            warning(f"agent '{agent_id}' has no recorded reinvestment policy — simulating with default policy values")
         effective = _effective_policy(saved)
         staking = Decimal(staking_pct if staking_pct is not None else effective["staking_pct"])
         reserve = Decimal(reserve_pct if reserve_pct is not None else effective["reserve_pct"])
         if staking + reserve != Decimal("100"):
             abort(ctx, f"staking-pct + reserve-pct must equal 100 (got {staking}+{reserve})")
             return
+        config = get_config()
+        resolved_staking = staking_contract or config.staking_contract_address or ""
+        resolved_reserve = reserve_address or config.reinvest_reserve_address or ""
         budget = Budget(budget_id="sim", agent_id=agent_id, chain_id="ait-hub", token="AITBC", total=Decimal(budget_total))
         policy = ReinvestmentPolicy(
             staking_pct=staking,
             capacity_reserve_pct=reserve,
             min_reinvest_amount=Decimal(min_reinvest if min_reinvest is not None else effective["min_reinvest"]),
-            staking_contract=staking_contract,
-            reserve_address=reserve_address,
+            staking_contract=resolved_staking or _UNCONFIGURED_ADDRESS,
+            reserve_address=resolved_reserve or _UNCONFIGURED_ADDRESS,
         )
         engine = ReinvestmentEngine(budget, policy)
         actions = engine.apply(Decimal(earnings), agent_id)
+        action_dicts = [
+            {
+                "action_type": a.action_type,
+                "contract_address": None if a.contract_address == _UNCONFIGURED_ADDRESS else a.contract_address,
+                "amount": str(a.amount),
+            }
+            for a in actions
+        ]
+        # #2448: name the unallocated remainder — reinvest_pct is a fixed
+        # engine default the CLI does not expose, so earnings minus the
+        # action total is what stays spendable, never silently dropped.
+        retained = Decimal(earnings) - sum((Decimal(a["amount"]) for a in action_dicts), start=Decimal("0"))
+        if retained > 0:
+            action_dicts.append({"action_type": "retain", "contract_address": None, "amount": str(retained)})
         result = {
             "agent_id": agent_id,
             "earnings": earnings,
             "policy_source": "override" if (staking_pct or reserve_pct or min_reinvest) else ("saved" if saved else "default"),
-            "actions": [
-                {"action_type": a.action_type, "contract_address": a.contract_address, "amount": str(a.amount)}
-                for a in actions
-            ],
+            "actions": action_dicts,
         }
         output(result, ctx.obj.get("output_format", "table"), title="Reinvestment Simulation")
     # _load_miner_app() does a dynamic first-party import (ImportError) and the

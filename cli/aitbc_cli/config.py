@@ -65,6 +65,8 @@ CONFIG_FILE_KEYS: dict[str, str] = {
     "energy_quote_domain": "energy_quote_domain",
     "energy_eur_per_kwh": "energy_eur_per_kwh",
     "shop_region": "shop_region",
+    "staking_contract_address": "staking_contract_address",
+    "reinvest_reserve_address": "reinvest_reserve_address",
     "timeout": "timeout",
 }
 
@@ -220,6 +222,18 @@ class CLIConfig(BaseAITBCConfig):
     native_chain_id: str = Field(
         default="",
         description="Native chain ID for quote binding (empty = bind to the resolved chain id)",
+    )
+
+    # Reinvest-simulation defaults (#2448): `aitbc reinvest simulate` resolves
+    # these when the matching --staking-contract/--reserve-address option is
+    # not passed, so simulated actions never carry a placeholder address.
+    staking_contract_address: str | None = Field(
+        default=None,
+        description="Default staking contract address for reinvest simulate (STAKING_CONTRACT_ADDRESS env var or config.yaml)",
+    )
+    reinvest_reserve_address: str | None = Field(
+        default=None,
+        description="Default reserve address for reinvest simulate capacity actions (REINVEST_RESERVE_ADDRESS env var or config.yaml)",
     )
 
     # Authentication
