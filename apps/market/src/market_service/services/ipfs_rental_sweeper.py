@@ -298,7 +298,7 @@ class IpfsRentalSweeper:
         try:
             result = await self._rpc_client.release_escrow(job_id)
             if result and result.get("success"):
-                return str(result.get("tx_hash", ""))
+                return result.get("tx_hash") or None
             logger.warning("Escrow release for %s was not successful: %s", job_id, result)
         except _OPS_ERRORS as e:
             logger.error("Failed to release escrow %s: %s", job_id, e)
@@ -309,7 +309,7 @@ class IpfsRentalSweeper:
         try:
             result = await self._rpc_client.refund_escrow(job_id)
             if result and result.get("success"):
-                return str(result.get("tx_hash", ""))
+                return result.get("tx_hash") or None
             logger.warning("Escrow refund for %s was not successful: %s", job_id, result)
         except _OPS_ERRORS as e:
             logger.error("Failed to refund escrow %s: %s", job_id, e)

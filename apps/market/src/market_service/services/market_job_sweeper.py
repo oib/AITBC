@@ -59,6 +59,12 @@ def _default_session_factory() -> AbstractAsyncContextManager[AsyncSession]:
 
 _ESCROW_HELD_PAYMENT = frozenset({"escrowed", "refund_pending"})
 
+# Job states where a still-pending payment has no live path left: the job
+# is done, so the only remaining hope is a late escrow lock — probed under
+# the same bounded deferral as settlement, then expired (#2442). QUEUED/
+# RUNNING are absent on purpose: their escrow may still legitimately seal.
+_TERMINAL_JOB_STATES = frozenset({"COMPLETED", "FAILED", "CANCELED", "EXPIRED"})
+
 
 class _JobCasLost(Exception):
     """Internal sentinel: the job CAS lost its race inside a savepoint —
@@ -407,6 +413,11 @@ class MarketJobSweeper:
             buyer_address=job.buyer_address,
             provider_address=job.provider_address,
         ):
+            # #2442: only a confirmed-absent escrow feeds the dead-end
+            # bound — a present-but-mismatched row is real locked money
+            # and must keep probing for an operator, never expire.
+            if not escrow and job.state in _TERMINAL_JOB_STATES:
+                await self._dead_end_pending_payment(session, job, payment, now_naive)
             return False
         async with session.begin_nested():
             flipped = await self._cas_payment_status(
@@ -421,6 +432,77 @@ class MarketJobSweeper:
                 update(MarketJob).where(col(MarketJob.id) == job.id).values(payment_status="escrowed", updated_at=now_naive)
             )
         logger.info("Adopted locked escrow for pending payment %s (job %s)", payment.id, job.id)
+        return True
+
+    async def _dead_end_pending_payment(
+        self,
+        session: AsyncSession,
+        job: MarketJob,
+        payment: MarketJobPayment,
+        now_naive: datetime,
+    ) -> bool:
+        """#2442: expire a pending payment on a terminal job whose escrow
+        stays confirmed-absent past the settle bound.
+
+        ``pending`` means pin-confirm never proved a lock. On a live job
+        the lock may still legitimately seal, so those rows probe forever;
+        on a terminal job the same probe used to run forever too. The
+        first absent answer stamps the shared deferral marker, and past
+        ``settle_max_seconds`` one chain-level lock lookup converts 'no
+        escrow row' into 'no sealed ESCROW_LOCK' before the payment goes
+        terminal ``expired`` — mirroring the settlement_failed evidence
+        rule: a sealed lock or a failed lookup keeps it pending.
+        """
+        now = datetime.now(UTC)
+        meta = dict(payment.meta_data or {})
+        first_at = self._deferral_first_at(meta)
+        if first_at is None:
+            meta[META_SETTLE_DEFERRAL_FIRST_AT] = now.isoformat()
+            payment.meta_data = meta
+            payment.updated_at = now_naive
+            session.add(payment)
+            logger.warning(
+                "Pending payment %s on terminal job %s (%s) has no locked escrow; will expire if still absent after %ss",
+                payment.id,
+                job.id,
+                job.state,
+                self.settle_max_seconds,
+            )
+            return False
+        elapsed = (now - first_at).total_seconds()
+        if elapsed <= self.settle_max_seconds:
+            return False
+        phantom = await self._phantom_lock_check(job)
+        if phantom is not True:
+            logger.error(
+                "Pending payment %s on terminal job %s deferred %.0fs past the %ss bound; "
+                "escrow row absent but lock lookup %s -- still pending",
+                payment.id,
+                job.id,
+                elapsed,
+                self.settle_max_seconds,
+                "found a sealed ESCROW_LOCK" if phantom is False else "failed (unknown, not absent)",
+            )
+            return False
+        meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)
+        async with session.begin_nested():
+            flipped = await self._cas_payment_status(
+                session,
+                payment.id,
+                "pending",
+                {"status": "expired", "updated_at": now_naive, "meta_data": meta},
+            )
+            if not flipped:
+                return False
+            await session.execute(
+                update(MarketJob).where(col(MarketJob.id) == job.id).values(payment_status="expired", updated_at=now_naive)
+            )
+        logger.warning(
+            "Pending payment %s on terminal job %s expired after %.0fs: no escrow row and no sealed ESCROW_LOCK",
+            payment.id,
+            job.id,
+            elapsed,
+        )
         return True
 
     async def _expire_stale_reservations(self, session: AsyncSession, now_naive: datetime) -> None:
@@ -523,7 +605,9 @@ class MarketJobSweeper:
             # retrying forever and silently.
             return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", escrow_key, "released")
         if result and result.get("success"):
-            tx_hash = str(result.get("tx_hash", ""))
+            # #2442: a hashless success stores NULL, never "" — empty
+            # string vs null made refunded rows inconsistent (#2442).
+            tx_hash = result.get("tx_hash") or None
             now = datetime.now(UTC)
             meta = dict(payment.meta_data or {})
             meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)
@@ -597,7 +681,7 @@ class MarketJobSweeper:
         except Exception as e:  # noqa: BLE001 - any raised answer is a not-yet — shares the bounded deferral
             return await self._settlement_not_yet(session, job, payment, f"{type(e).__name__}: {e}", escrow_key, "refunded")
         if result and result.get("success"):
-            tx_hash = str(result.get("tx_hash", ""))
+            tx_hash = result.get("tx_hash") or None
             now = datetime.now(UTC)
             meta = dict(payment.meta_data or {})
             meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)

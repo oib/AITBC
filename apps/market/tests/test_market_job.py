@@ -389,3 +389,45 @@ async def test_create_market_job_rejects_out_of_range_ttl(service: MarketService
     assert job.ttl_seconds == 3600
     assert job.expires_at is not None
     assert job.expires_at > job.requested_at
+
+
+@pytest.mark.asyncio
+async def test_job_dict_normalizes_hash_and_amount_display(service: MarketService) -> None:
+    """#2442: legacy rows holding "" hashes serialize as null, and the
+    18dp payment_amount denormalization renders at the ledger's fixed 8dp
+    like payment.amount — one row, one precision, hash or null."""
+    created = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "11" * 20,
+            "provider_address": "0x" + "22" * 20,
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "0.1"},
+        }
+    )
+    job_id = created["job_id"]
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        assert job is not None
+        job.state = "REFUNDED"
+        job.payment_status = "refunded"
+        job.tx_hash = ""
+        job.refund_tx_hash = ""
+        job.payment_amount = Decimal("0.100000000000000006")
+        payment = await session.get(MarketJobPayment, job.payment_id)
+        assert payment is not None
+        payment.status = "refunded"
+        payment.transaction_hash = ""
+        payment.refund_transaction_hash = ""
+        payment.amount = Decimal("0.100000000000000006")
+        session.add_all([job, payment])
+        await session.commit()
+
+    fetched = await service.get_market_job(job_id)
+    assert fetched is not None
+    assert fetched["tx_hash"] is None
+    assert fetched["refund_tx_hash"] is None
+    assert fetched["payment_amount"] == "0.10000000"
+    assert fetched["payment"]["transaction_hash"] is None
+    assert fetched["payment"]["refund_transaction_hash"] is None
+    assert fetched["payment"]["amount"] == "0.10000000"
