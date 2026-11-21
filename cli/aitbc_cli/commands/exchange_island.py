@@ -577,7 +577,8 @@ def _orderbook_row(order: dict[str, Any], price_key: str, quote_symbol: str) -> 
         "Amount": f"{amount:.4f} AIT",
         "Total": f"{price * amount:.8f} {quote_symbol}",
         "User": order.get("user_id", "")[:16] + "...",
-        "Order": order.get("order_id", "")[:16] + "...",
+        # Full order_id — `cancel --order-id` needs it verbatim (#2399).
+        "Order": order.get("order_id", ""),
     }
 
 
@@ -766,7 +767,8 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
             price = _as_decimal(raw_price) if raw_price else Decimal(0)
             orders_data.append(
                 {
-                    "Order ID": payload.get("order_id", "")[:20] + "...",
+                    # Full order_id — `cancel --order-id` needs it verbatim (#2399).
+                    "Order ID": payload.get("order_id", ""),
                     "Pair": payload.get("pair"),
                     "Side": payload.get("side", "").upper(),
                     "Amount": f"{amount:.4f} AIT",

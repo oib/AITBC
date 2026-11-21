@@ -386,5 +386,39 @@ def test_orders_drops_cancel_rows_but_keeps_cancelled_status(mock_credentials_fi
     assert not any(r["Amount"] == "0.0000 AIT" for r in rows)
 
 
+def test_orders_prints_full_order_id(mock_credentials_file, runner):
+    """#2399: the Order ID column must carry the id verbatim — `cancel
+    --order-id` needs the full string and JSON consumers cannot recover it
+    from a truncated column."""
+    from aitbc_cli.commands.exchange_island import exchange_island
+
+    full_id = "exchange_buy_20261121154810_7fa13650"
+    _FakeHTTPClient.rows = [
+        {
+            "side": "buy",
+            "max_price": 0.001,
+            "amount": 1.0,
+            "order_id": full_id,
+            "pair": "AIT/ETH",
+            "status": "open",
+            "user_id": "0xu",
+            "created_at": "2026-01-01T00:00:00",
+        }
+    ]
+    try:
+        with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient", _FakeHTTPClient):
+            result = runner.invoke(exchange_island, ["orders"], obj={"output_format": "json"})
+        assert result.exit_code == 0, result.output
+        rows = json.loads(result.output)
+        assert rows[0]["Order ID"] == full_id
+
+        with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient", _FakeHTTPClient):
+            table = runner.invoke(exchange_island, ["orders"], obj={"output_format": "table"})
+        assert table.exit_code == 0, table.output
+        assert full_id in table.output
+    finally:
+        _FakeHTTPClient.rows = _live_book_rows()
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
