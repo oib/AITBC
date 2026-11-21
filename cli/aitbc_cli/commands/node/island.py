@@ -124,25 +124,37 @@ def create_island_command(ctx, island_id, island_name, chain_id, node_url="http:
         raise click.Abort() from e
 
 
-def _load_validator_public_key() -> str:
-    """Read the first validator public key from the keystore."""
-    keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
+def _load_validator_public_key() -> str | None:
+    """Read the first validator public key from the keystore, if present.
+
+    The island join RPC does not transmit this key — it is only needed on
+    nodes that will later participate in the island's consensus — so a
+    missing, unreadable, or empty keystore is a warning, not a blocker
+    (#2379). ``AITBC_VALIDATOR_KEYSTORE`` overrides the default path.
+    """
+    keystore_path = os.environ.get("AITBC_VALIDATOR_KEYSTORE", "/var/lib/aitbc/keystore/validator_keys.json")
     public_key_pem = None
 
-    if os.path.exists(keystore_path):
+    if not os.path.exists(keystore_path):
+        warning(f"Validator keystore not found at {keystore_path} — joining without a validator key")
+        return None
+
+    try:
         with open(keystore_path) as f:
             keys = json.load(f)
-            # Get first key's public key
-            for _key_id, key_data in keys.items():
+    except (OSError, json.JSONDecodeError) as e:
+        warning(f"Validator keystore unreadable at {keystore_path}: {e} — joining without a validator key")
+        return None
+
+    if isinstance(keys, dict):
+        for key_data in keys.values():
+            if isinstance(key_data, dict):
                 public_key_pem = key_data.get("public_key_pem")
                 break
-    else:
-        error(f"Keystore not found at {keystore_path}")
-        raise click.Abort()
 
     if not public_key_pem:
-        error("No public key found in keystore")
-        raise click.Abort()
+        warning(f"No validator public key found at {keystore_path} — joining without a validator key")
+        return None
     return str(public_key_pem)
 
 
@@ -239,6 +251,8 @@ def _print_join_results(ctx, response: dict, island_name, credentials: dict, cre
 def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub, *, rpc_url: str | None = None):
     """Join an existing island via the hub's HTTP RPC endpoint."""
     try:
+        # Warn (never block) when no validator key is available — the join
+        # RPC does not send it (#2379).
         _load_validator_public_key()
 
         # Resolve hub domain and build the RPC URL.
