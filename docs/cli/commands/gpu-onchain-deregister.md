@@ -20,6 +20,7 @@ aitbc gpu-onchain deregister [OPTIONS]
 | `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
 | `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
 | `--wait` | flag | `false` | no | Wait for the transaction to be mined |
+| `--force` | flag | `false` | no | Deregister even while on-chain allocations are still active (they stay active forever — no release tx exists yet, #2403) |
 | `--format` | choice | — | no | Output format |
 
 ## Examples
