@@ -88,6 +88,7 @@ from .escrow_settlement_sweeper_scan import (
     _ChangeCandidate,
     _ESCROW_TX_TYPES as _ESCROW_TX_TYPES,
     _FeeSweepCandidate,
+    _OrphanRefundCandidate,
     _MAX_AGE_SECONDS,
     _MEMPOOL_PROBE_LIMIT as _MEMPOOL_PROBE_LIMIT,
     _SETTLED_STATUSES as _SETTLED_STATUSES,
@@ -98,12 +99,16 @@ from .escrow_settlement_sweeper_scan import (
     _claiming as _claiming,
     _count_change_pass,
     _count_fee_pass,
+    _count_orphan_refund_pass,
     _escrow_legs_by_job as _escrow_legs_by_job,
     _fee_sweep_pass_dry_run,
     _fee_sweep_pass_enabled,
     _floor_eligible_job_ids,
     _mark_age_seconds as _mark_age_seconds,
     _new_leg_acc as _new_leg_acc,
+    _orphan_lock_ids,
+    _orphan_refund_pass_dry_run,
+    _orphan_refund_pass_enabled,
     _pending_blocks_authority,
     _proposer_pending_hashes,
     _proposer_pending_txs,
@@ -116,6 +121,7 @@ from .escrow_settlement_sweeper_scan import (
     _sweep_scan as _sweep_scan,
     change_owed_candidates,
     fee_sweep_candidates,
+    orphan_refund_candidates,
     sweep_once,
 )
 
@@ -476,6 +482,173 @@ async def _submit_change_candidates(
         break  # at most one submission per pass
 
 
+# --------------------------------------------------------------------------
+# Orphan tx-only lock refund pass (#2380)
+#
+# ``sw_job_*`` ESCROW_LOCKs have no escrow row and no job row, so the mark
+# sweep, the change pass, and the fee pass all skip them — the
+# ``EscrowOpenTxOnlyLock`` alert is the only witness. Past the min age with
+# no settlement leg, this pass refunds the FULL lock to the buyer recorded
+# as the lock's sender. Guards, all required:
+#
+#   - prefix-bound to ``sw_job`` job_ids — manual ``market escrow create``
+#     ids are never auto-refunded (the owner may still intend to settle);
+#   - exactly one sealed lock, no sealed release/refund leg, no escrow row,
+#     lock height at/above max(state_transition_v3_height,
+#     escrow_fee_sweep_pass_min_height) — below the v3 floor a "refund"
+#     debits the settlement authority's own float, not custody;
+#   - lock older than escrow_orphan_refund_pass_min_age_seconds — a live
+#     shop-window job must never have its escrow pulled mid-call;
+#   - custody balance must equal the lock value at submit time — anything
+#     else means legs exist that the scan cannot see;
+#   - the same pending-authority serialization as the change pass, and
+#     _submit_refund_tx's own sealed+mempool dedup (#2376) makes a retry or
+#     a concurrent route refund return the in-flight hash instead of
+#     double-paying;
+#   - the refund recipient is the lock sender resolved through
+#     _resolve_chain_account — the node-wallet custody refusal in
+#     _submit_refund_tx applies unchanged.
+#
+# There is no row to mark: the pass writes nothing off-chain. A sealed
+# refund leg removes the job from the candidate set on the next scan, so
+# restart-between-submit-and-seal re-derives from chain truth.
+#
+# Flags: ESCROW_ORPHAN_REFUND_PASS_ENABLED arms it;
+# ESCROW_ORPHAN_REFUND_PASS_DRY_RUN logs and counts without submitting.
+# --------------------------------------------------------------------------
+
+_orphan_refund_pass_watermark: str = ""
+_orphan_refund_failures: dict[str, tuple[int, float]] = {}
+
+_ORPHAN_REFUND_RESULT_LABELS = (
+    "submitted",
+    "dry_run",
+    "no_owed",
+    "deferred_custody",
+    "deferred_pending",
+    "deferred_backoff",
+    "error",
+    # scan-side keys merged into the same stats dict
+    "no_lock",
+    "multi_lock",
+    "settled",
+    "has_row",
+    "skipped_floor",
+    "deferred_age",
+)
+
+
+async def _orphan_refund_pass_once(now: datetime | None = None) -> dict[str, int]:
+    """One orphan tx-only lock refund pass. Never raises; counted in its own metric."""
+    stats = dict.fromkeys(_ORPHAN_REFUND_RESULT_LABELS, 0)
+    try:
+        if not _orphan_refund_pass_enabled():
+            return stats
+        settlement_key = escrow_routes._get_settlement_key()
+        settlement_address = escrow_routes._get_settlement_address()
+        if not settlement_key or not settlement_address:
+            _count_orphan_refund_pass(stats)
+            return stats
+        now = now or datetime.now(UTC)
+        candidates, sel = await run_in_threadpool(_load_orphan_candidates, now)
+        for key, n in sel.items():
+            stats[key] += n
+        if not candidates:
+            _count_orphan_refund_pass(stats)
+            return stats
+        pending = await _proposer_pending_txs()
+        if pending is None or _pending_blocks_authority(pending, settlement_address.lower()):
+            stats["deferred_pending"] += 1
+            _count_orphan_refund_pass(stats)
+            return stats
+        await _submit_orphan_candidates(
+            candidates, stats, settlement_address.lower(), _orphan_refund_pass_dry_run(), now.timestamp()
+        )
+    except Exception as e:  # noqa: BLE001 - pass containment: one bad pass must not kill the sweeper
+        _logger.warning("ESCROW orphan-refund pass failed: %s", e)
+        stats["error"] += 1
+    _count_orphan_refund_pass(stats)
+    return stats
+
+
+def _load_orphan_candidates(now: datetime) -> tuple[list[_OrphanRefundCandidate], dict[str, int]]:
+    global _orphan_refund_pass_watermark
+    # The floor is the higher of the v3-custody activation and the shared
+    # fee-sweep floor: below v3 a refund debits the authority's float, and
+    # the fee floor is the operator's own "do not touch old custody" bound.
+    min_height = max(settings.state_transition_v3_height, settings.escrow_fee_sweep_pass_min_height)
+    with session_scope() as session:
+        candidates, sel, _orphan_refund_pass_watermark = orphan_refund_candidates(
+            session,
+            now,
+            max_jobs=settings.escrow_orphan_refund_pass_max_jobs,
+            min_age_seconds=settings.escrow_orphan_refund_pass_min_age_seconds,
+            min_height=min_height,
+            after_job_id=_orphan_refund_pass_watermark,
+        )
+        if _orphan_refund_failures:
+            eligible_ids = set(_orphan_lock_ids(session, "", _FAILURE_PRUNE_SCAN_LIMIT))
+            for stale in [j for j in _orphan_refund_failures if j not in eligible_ids]:
+                del _orphan_refund_failures[stale]
+    return candidates, sel
+
+
+async def _submit_orphan_candidates(
+    candidates: list[_OrphanRefundCandidate], stats: dict[str, int], authority: str, dry_run: bool, now_ts: float
+) -> None:
+    for cand in candidates:
+        failures, retry_at = _orphan_refund_failures.get(cand.job_id, (0, 0.0))
+        if now_ts < retry_at:
+            stats["deferred_backoff"] += 1
+            continue
+        if cand.owed_units <= 0:
+            stats["no_owed"] += 1
+            continue
+        custody = await escrow_routes._escrow_custody_balance(cand.job_id)
+        if custody is None or custody != cand.custody_units:
+            stats["deferred_custody"] += 1
+            continue
+        if dry_run:
+            _logger.info(
+                "ESCROW orphan-refund pass [dry-run] would refund job_id=%s owed=%s to %s",
+                cand.job_id,
+                cand.owed_units,
+                cand.buyer_address,
+            )
+            stats["dry_run"] += 1
+            continue
+        # Same re-probe as the change pass (A6c): the pending snapshot is
+        # stale by signing time; a fresh authority/escrow leg in the
+        # proposer mempool means no second settlement leg this tick.
+        pending = await _proposer_pending_txs()
+        if pending is None or _pending_blocks_authority(pending, authority):
+            stats["deferred_pending"] += 1
+            return
+        tx_hash = await escrow_routes._submit_refund_tx(
+            cand.buyer_address,
+            cand.provider_address,
+            units_to_ait(cand.owed_units),
+            cand.job_id,
+            "",
+        )
+        if tx_hash:
+            _logger.info(
+                "ESCROW orphan-refund pass submitted job_id=%s owed=%s tx=%s",
+                cand.job_id,
+                cand.owed_units,
+                tx_hash,
+            )
+            _orphan_refund_failures.pop(cand.job_id, None)
+            stats["submitted"] += 1
+        else:
+            _orphan_refund_failures[cand.job_id] = (
+                failures + 1,
+                now_ts + min(_FEE_PASS_BACKOFF_BASE_S * (2**failures), _FEE_PASS_BACKOFF_MAX_S),
+            )
+            stats["error"] += 1
+        break  # at most one submission per pass
+
+
 async def _sweep_once() -> dict[str, int]:
     proposer_pending = await _proposer_pending_hashes()
     stats: dict[str, int] = {}
@@ -494,12 +667,15 @@ async def _sweep_once() -> dict[str, int]:
             stats["demoted"],
             stats["remarked"],
         )
-    # The owed-change pass runs BEFORE the fee-residue pass: a submitted
-    # refund lands in the proposer mempool, which trips the fee pass's own
-    # pending guard — the change leg and a fee sweep can never share a
-    # mempool window (A6). Both passes are bounded, gated, and never in the
-    # way of the demote path above — their own try/except keeps a pass
-    # failure from touching the mark reconciliation's result.
+    # The orphan tx-only lock pass runs FIRST: it returns whole locked
+    # amounts to buyers of dead sw_job_* jobs — the class no other pass can
+    # see. Then the owed-change pass, then the fee-residue pass: a submitted
+    # refund lands in the proposer mempool, which trips the next pass's own
+    # pending guard — settlement legs can never share a mempool window (A6).
+    # All passes are bounded, gated, and never in the way of the demote path
+    # above — their own try/except keeps a pass failure from touching the
+    # mark reconciliation's result.
+    await _orphan_refund_pass_once()
     await _change_pass_once()
     await _fee_sweep_pass_once()
     return stats

@@ -167,6 +167,12 @@ class NodeConfig(BaseModel):
     escrow_fee_sweep_pass_min_height: int = 35400
     # Bounded work per pass: at most this many settled rows are inspected.
     escrow_fee_sweep_pass_max_jobs: int = 50
+    # Orphan tx-only lock refund pass (#2380): sw_job_* ESCROW_LOCKs carry no
+    # job/escrow row, so no other pass sees them. A lock older than the min
+    # age with no settlement leg gets a full buyer refund. The floor is
+    # max(state_transition_v3_height, escrow_fee_sweep_pass_min_height).
+    escrow_orphan_refund_pass_min_age_seconds: int = 21600
+    escrow_orphan_refund_pass_max_jobs: int = 25
     # How many nonces ahead of the account nonce a pending transaction may sit.
     # Admission rejects beyond this so one sender cannot queue an unbounded
     # pipeline of not-yet-executable transactions.
