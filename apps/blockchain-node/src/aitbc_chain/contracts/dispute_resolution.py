@@ -22,6 +22,15 @@ logger = get_logger(__name__)
 _PersistedMethod = TypeVar("_PersistedMethod", bound=Callable[..., Any])
 
 
+class DisputeStatePersistError(RuntimeError):
+    """The dispute state file could not be written (#2461).
+
+    Raised inside ``_state_transaction`` so a failed ``os.replace`` is
+    reported to the caller instead of being logged-and-forgotten while
+    the mutation only lives in this worker's memory.
+    """
+
+
 class DisputeStatus(Enum):
     FILED = "filed"
     EVIDENCE_SUBMITTED = "evidence_submitted"
@@ -169,15 +178,25 @@ class DisputeResolutionContract:
             self.votes = {int(k): [ArbitrationVote(**v) for v in v] for k, v in (data.get("votes") or {}).items()}
         except (OSError, ValueError, TypeError, KeyError) as e:
             logger.error("Dispute state file %s unreadable/corrupt: %s", path, e)
+            # Preserve the corrupt file before any later _save_state
+            # overwrites it — the forensic copy is the only evidence of
+            # what was lost (#2461).
+            try:
+                corrupt = path.with_name(f"{path.name}.corrupt-{int(time.time())}")
+                os.replace(path, corrupt)
+                logger.error("Preserved corrupt dispute state as %s", corrupt)
+            except OSError as rename_err:
+                logger.error("Could not preserve corrupt dispute state %s: %s", path, rename_err)
             return
         env_seed = self._arbitrators_from_env()
         if env_seed:
             self.arbitrators.update(env_seed)
 
-    def _save_state(self) -> None:
+    def _save_state(self) -> bool:
+        """Persist state; False when the write failed (#2461)."""
         path = self._resolve_state_path()
         if path is None:
-            return
+            return True
         payload = {
             "version": 1,
             "dispute_counter": self.dispute_counter,
@@ -195,6 +214,8 @@ class DisputeResolutionContract:
             os.replace(tmp, path)
         except OSError as e:
             logger.error("Failed to persist dispute state to %s: %s", path, e)
+            return False
+        return True
 
     @contextmanager
     def _state_transaction(self, always_save: bool = True) -> Iterator[None]:
@@ -217,8 +238,8 @@ class DisputeResolutionContract:
             self._state_dirty = False
             yield
             self._escalate_overdue()
-            if always_save or self._state_dirty:
-                self._save_state()
+            if (always_save or self._state_dirty) and not self._save_state():
+                raise DisputeStatePersistError(f"dispute state could not be persisted to {path}") from e
             return
         with lock_file:
             fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
@@ -227,8 +248,8 @@ class DisputeResolutionContract:
                 self._state_dirty = False
                 yield
                 self._escalate_overdue()
-                if always_save or self._state_dirty:
-                    self._save_state()
+                if (always_save or self._state_dirty) and not self._save_state():
+                    raise DisputeStatePersistError(f"dispute state could not be persisted to {path}")
             finally:
                 fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
 
@@ -302,8 +323,11 @@ class DisputeResolutionContract:
         @wraps(method)
         def wrapper(*args: Any, **kwargs: Any) -> Any:
             self = args[0]
-            with self._state_transaction():
-                return method(*args, **kwargs)
+            try:
+                with self._state_transaction():
+                    return method(*args, **kwargs)
+            except DisputeStatePersistError as e:
+                return {"success": False, "error": str(e)}
 
         return cast(_PersistedMethod, wrapper)
 
