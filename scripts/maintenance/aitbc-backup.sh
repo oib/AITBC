@@ -210,6 +210,15 @@ if [ -d "$CHAIN_DB_DIR" ]; then
     # dumping them every night would keep an archived old chain in every
     # generation (and could satisfy the good-chain glob with a stale dump).
     find "$CHAIN_DB_DIR" -name "*.db" -not -path "*/.pre-*" | while read -r dbfile; do
+        # 0-byte *.db files are accidental sqlite3 creations (it silently
+        # creates an empty db on a wrong path) — strays, not databases. The
+        # svc sweep below already skips them; mirror it here or the dump
+        # lands as chain_<name>.db.gz and backup-verify fails the set on
+        # "no block table" (#2427: chain_chain.db.gz on hub).
+        if [ ! -s "$dbfile" ]; then
+            log "SQLite $(basename "$dbfile"): skipped (0 bytes)"
+            continue
+        fi
         rel=$(echo "$dbfile" | sed "s|${CHAIN_DB_DIR}/||")
         dest="${BACKUP_DIR}/chain_$(echo "$rel" | tr '/' '_').gz"
         # Use SQLite online backup via .dump to get consistent snapshot.
