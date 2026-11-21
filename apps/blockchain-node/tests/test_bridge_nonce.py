@@ -41,6 +41,17 @@ def _legacy_rpc_mutation():
         yield
 
 
+@pytest.fixture(autouse=True)
+def _fresh_mempool():
+    """#2414: ``_next_lock_nonce`` floors on this node's pending mempool —
+    isolate each test from entries earlier tests left in the singleton."""
+    import aitbc_chain.mempool as mempool_mod
+
+    mempool_mod._MEMPOOL = None
+    yield
+    mempool_mod._MEMPOOL = None
+
+
 def _seed(engine, chain_id: str, address: str, balance: int) -> None:
     with Session(engine) as session:
         session.add(Account(chain_id=chain_id, address=address, balance=balance, nonce=0))

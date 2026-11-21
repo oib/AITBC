@@ -34,6 +34,7 @@ from ..state import side_root_shadow
 from ..state.pure_state_transition import _determine_tx_type
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
 from ..state.state_transition import build_bridge_lock_context, build_escrow_context, get_block_version_for_height
+from ..state.state_transition_txmeta import BRIDGE_SIGNED_NONCE_RUNG, _is_signed_bridge_lock
 from .remote_attestation import attestation_lock_window_seconds
 from .vote_journal import KIND_PROPOSE, VoteJournalError, get_vote_journal, vote_journal_enabled
 from aitbc.network import SharedHttpClient
@@ -1297,10 +1298,12 @@ class _ProposalGatesMixin(_PoaBaseMixin):
         reservation_height: int | None = None,
         reservation_round: int | None = None,
         reservation_attempt: int = 0,
-    ) -> tuple[list[Any], dict[str, Account], dict[str, int], set[str]]:
+        block_version: int = 0,
+    ) -> tuple[list[Any], dict[str, Account], dict[str, int], set[str], list[Any]]:
         """Drain the mempool and batch-fetch the state the tx loop needs.
 
-        Returns ``(pending_txs, account_map, existing_tx_map, reserved_hashes)``:
+        Returns ``(pending_txs, account_map, existing_tx_map, reserved_hashes,
+        stale_nonce_txs)``:
         the drained transactions plus pre-registered, still-unassigned DB
         transactions (e.g. bridge releases), the batch-fetched sender/recipient
         accounts, the tx_hash → block_height map used for duplicate detection,
@@ -1377,6 +1380,12 @@ class _ProposalGatesMixin(_PoaBaseMixin):
                 )
             ).all()
             account_map = {acc.address: acc for acc in existing_accounts}
+        # #2414: drop drained txs whose enforced nonce already sealed below
+        # the account's confirmed nonce — they can never apply, and selecting
+        # them burns the proposer's whole round in consensus gates. Only txs
+        # whose nonce is authoritative are eligible; unsigned protocol writes
+        # get their nonce rewritten at apply and are exempt.
+        pending_txs, stale_nonce_txs = self._partition_stale_nonce_txs(pending_txs, account_map, block_version)
         # Batch-fetch duplicate tx hashes in one query (eliminates the
         # per-tx duplicate-check DB round-trip).
         existing_tx_map: dict[str, int] = {}
@@ -1388,7 +1397,69 @@ class _ProposalGatesMixin(_PoaBaseMixin):
                 )
             ).all()
             existing_tx_map = {row[0]: row[1] for row in existing_tx_rows}
-        return pending_txs, account_map, existing_tx_map, reserved_hashes
+        return pending_txs, account_map, existing_tx_map, reserved_hashes, stale_nonce_txs
+
+    @staticmethod
+    def _nonce_is_enforced(tx_data: dict[str, Any], block_version: int) -> bool:
+        """Whether apply will honour the tx's recorded nonce (#2414).
+
+        Mirrors ``use_account_nonce_override`` inverted: the nonce is
+        authoritative only when apply will NOT rewrite it to the live
+        account value — signed txs at v7+, and ``bridge_signature`` locks
+        at the v27+ rung. Everything else carries a placeholder nonce.
+        """
+        if block_version < 7:
+            return False
+        if block_version >= BRIDGE_SIGNED_NONCE_RUNG and _is_signed_bridge_lock(tx_data):
+            return True
+        return bool(tx_data.get("signature") or tx_data.get("sig"))
+
+    def _partition_stale_nonce_txs(
+        self,
+        pending_txs: list[Any],
+        account_map: dict[str, Account],
+        block_version: int,
+    ) -> tuple[list[Any], list[Any]]:
+        """Split drained txs into live and nonce-stale (#2414).
+
+        A tx whose enforced nonce sits below the sender's confirmed account
+        nonce can never seal — the nonce already moved past it. Returning it
+        separately lets the caller record a terminal ``rejected`` outcome
+        instead of burning the proposal round in consensus gates. Txs whose
+        nonce apply would rewrite (unsigned protocol writes) are exempt.
+        """
+        from ..mempool import _tx_nonce
+
+        kept: list[Any] = []
+        stale: list[Any] = []
+        for tx in pending_txs:
+            tx_data = tx.content or {}
+            nonce = _tx_nonce(tx_data)
+            sender = _to_ait_address(str(tx_data.get("from") or tx_data.get("sender") or ""))
+            account = account_map.get(sender) if sender else None
+            if (
+                account is not None
+                and nonce is not None
+                and nonce < account.nonce
+                and _ProposalGatesMixin._nonce_is_enforced(tx_data, block_version)
+            ):
+                stale.append(tx)
+                self._logger.info(
+                    "[PROPOSE] dropping nonce-stale tx %s (sender=%s nonce=%s < account nonce=%s)",
+                    tx.tx_hash,
+                    sender,
+                    nonce,
+                    account.nonce,
+                )
+            else:
+                kept.append(tx)
+        if stale:
+            self._logger.warning(
+                "[PROPOSE] dropped %d nonce-stale tx(s) before block assembly, chain=%s",
+                len(stale),
+                self._config.chain_id,
+            )
+        return kept, stale
 
     def _evict_mempool_txs(self, mempool: InMemoryMempool | DatabaseMempool, txs: list[Any]) -> None:
         """Remove terminal (apply-rejected) txs from the pool after their

@@ -154,6 +154,35 @@ class BridgeTransferIntakeMixin(BridgeBase):
         else:
             credit[BRIDGE_SIGNATURE_FIELD] = signature
 
+    @staticmethod
+    def _next_lock_nonce(source_chain: str, sender: str, sealed_nonce: int) -> int:
+        """Pending-aware nonce floor for bridge locks (#2414).
+
+        ``sender_account.nonce`` only reflects sealed state; locks already
+        sitting in this node's mempool still claim their nonce. Reusing the
+        sealed value gives every rapid swap/bridge the same nonce — at v27+
+        the ``bridge_signature`` binds that nonce, so all but the first can
+        never seal and stall the proposer's slot. The floor is the smallest
+        nonce at or above ``sealed_nonce`` not already claimed by a pending
+        entry for this sender; stale entries below the sealed nonce are
+        ignored (they are dead regardless).
+        """
+        try:
+            from ..mempool import _tx_nonce, _tx_sender, get_mempool
+
+            pending = get_mempool().get_pending_transactions(source_chain, limit=10000)
+        except Exception:  # noqa: BLE001 - the floor is best-effort; the sealed nonce remains the baseline
+            return sealed_nonce
+        claimed = {
+            nonce
+            for entry in pending
+            if _tx_sender(entry) == sender.lower() and (nonce := _tx_nonce(entry)) is not None and nonce >= sealed_nonce
+        }
+        nonce = sealed_nonce
+        while nonce in claimed:
+            nonce += 1
+        return nonce
+
     def _maybe_debit_lock_account(
         self, session: Any, sender_account: Account, total_deduction: int, block_scoped: bool
     ) -> None:
@@ -271,7 +300,7 @@ class BridgeTransferIntakeMixin(BridgeBase):
             total_deduction = amount + fee
             if sender_account.balance < total_deduction:
                 raise ValueError(f"Insufficient balance: {sender_account.balance} < {total_deduction}")
-            lock_nonce = sender_account.nonce
+            lock_nonce = self._next_lock_nonce(source_chain, sender, sender_account.nonce)
             block_scoped = block_scoped_preregistered_for_next_block(session, source_chain)
             self._maybe_debit_lock_account(session, sender_account, total_deduction, block_scoped)
 

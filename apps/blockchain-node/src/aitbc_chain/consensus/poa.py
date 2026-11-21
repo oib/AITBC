@@ -808,13 +808,14 @@ class _PoaBaseMixin:
             self._propose_phase = "collect_txs"
             _t2 = time.time()
             reservation_owner = self._reservation_owner_for(proposer)
-            pending_txs, account_map, existing_tx_map, reserved_hashes = self._collect_proposal_txs(
+            pending_txs, account_map, existing_tx_map, reserved_hashes, stale_nonce_txs = self._collect_proposal_txs(
                 session,
                 mempool,
                 reservation_owner=reservation_owner,
                 reservation_proposer=proposer,
                 reservation_height=next_height,
                 reservation_round=round_number,
+                block_version=get_block_version_for_height(next_height),
             )
             # #1300 §3 release map: every exit below accounts for the hashes
             # this attempt reserved; the finally is the BaseException safety
@@ -835,7 +836,11 @@ class _PoaBaseMixin:
                 # refuses is collected here and written back as status='rejected'
                 # so the submitter's hash query surfaces a terminal outcome instead
                 # of the record vanishing with the mempool entry.
-                rejected_txs: list[tuple[Any, str]] = []
+                # #2414: nonce-stale drains are terminally dead — record them
+                # alongside apply-rejected txs so they get a ``rejected`` row,
+                # a block_metadata entry for follower eviction, and mempool
+                # release on every exit path.
+                rejected_txs: list[tuple[Any, str]] = [(tx, "nonce_below_confirmed") for tx in stale_nonce_txs]
                 # #2193 F2: pre-apply copies for the post-gates re-apply (None = flag off).
                 release_plan = self._gate_release_plan(pending_txs, account_map, existing_tx_map)
                 processed_txs, changed_addresses, ok = self._process_proposal_txs(
