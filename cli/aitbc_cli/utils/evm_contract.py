@@ -60,6 +60,85 @@ _AIPOWER_RENTAL_ABI: list[dict[str, Any]] = [
         "type": "function",
     },
     {
+        "inputs": [
+            {"name": "_provider", "type": "address"},
+            {"name": "_consumer", "type": "address"},
+            {"name": "_duration", "type": "uint256"},
+            {"name": "_price", "type": "uint256"},
+            {"name": "_gpuModel", "type": "string"},
+            {"name": "_computeUnits", "type": "uint256"},
+        ],
+        "name": "createRental",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [
+            {"name": "_provider", "type": "address"},
+            {"name": "_resourceId", "type": "string"},
+            {"name": "_modelId", "type": "string"},
+            {"name": "_gpuCount", "type": "uint256"},
+            {"name": "_duration", "type": "uint256"},
+            {"name": "_price", "type": "uint256"},
+            {"name": "_buyerMaxTotal", "type": "uint256"},
+            {"name": "_settlementUnitScale", "type": "uint256"},
+        ],
+        "name": "createProtectedRental",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "nonpayable",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "agreementCounter",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "requireProtectedRentals",
+        "outputs": [{"name": "", "type": "bool"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "paused",
+        "outputs": [{"name": "", "type": "bool"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [{"name": "", "type": "address"}],
+        "name": "authorizedConsumers",
+        "outputs": [{"name": "", "type": "bool"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [{"name": "", "type": "address"}],
+        "name": "authorizedProviders",
+        "outputs": [{"name": "", "type": "bool"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "minRentalDuration",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
+        "inputs": [],
+        "name": "maxRentalDuration",
+        "outputs": [{"name": "", "type": "uint256"}],
+        "stateMutability": "view",
+        "type": "function",
+    },
+    {
         "inputs": [{"name": "_agreementId", "type": "uint256"}],
         "name": "completeRental",
         "outputs": [],
@@ -153,6 +232,39 @@ class EVMContractClient:
         )
         return int(result)
 
+    def _rental_view(self, function_name: str, args: list[Any] | None = None) -> Any:
+        """eth_call a view function on AIPowerRental."""
+        return self.rpc.call_contract(
+            contract_address=self.rental_contract,
+            abi=_AIPOWER_RENTAL_ABI,
+            function_name=function_name,
+            args=args or [],
+        )
+
+    def agreement_counter(self) -> int:
+        """Next agreement id the contract will mint (agreementCounter)."""
+        return int(self._rental_view("agreementCounter"))
+
+    def require_protected_rentals(self) -> bool:
+        """Whether legacy createRental is disabled on-chain."""
+        return bool(self._rental_view("requireProtectedRentals"))
+
+    def rentals_paused(self) -> bool:
+        """Whether the contract is paused."""
+        return bool(self._rental_view("paused"))
+
+    def is_authorized_consumer(self, address: str) -> bool:
+        """Whether ``address`` may call createRental/createProtectedRental."""
+        return bool(self._rental_view("authorizedConsumers", [address]))
+
+    def is_authorized_provider(self, address: str) -> bool:
+        """Whether ``address`` is an authorized rental provider."""
+        return bool(self._rental_view("authorizedProviders", [address]))
+
+    def rental_duration_bounds(self) -> tuple[int, int]:
+        """(minRentalDuration, maxRentalDuration) in seconds."""
+        return int(self._rental_view("minRentalDuration")), int(self._rental_view("maxRentalDuration"))
+
     def build_approve_tx(
         self,
         spender: str,
@@ -196,6 +308,38 @@ class EVMContractClient:
             abi=_AIPOWER_RENTAL_ABI,
             function_name="startRental",
             args=[agreement_id],
+        )
+        return {
+            "to": self.rental_contract,
+            "from": from_address,
+            "nonce": nonce,
+            "gas": gas_limit,
+            "gasPrice": gas_price,
+            "chainId": self.chain_id,
+            "data": data,
+            "value": 0,
+        }
+
+    def build_create_rental_tx(
+        self,
+        provider: str,
+        consumer: str,
+        duration: int,
+        price_units: int,
+        gpu_model: str,
+        compute_units: int,
+        from_address: str,
+        nonce: int,
+        gas_limit: int = 500_000,
+        gas_price: int | None = None,
+    ) -> dict[str, Any]:
+        """Build an AIPowerRental.createRental transaction dict for external signing."""
+        if gas_price is None:
+            gas_price = int(self.rpc.get_gas_price()["wei"])
+        data = self.rpc.encode_function_call(
+            abi=_AIPOWER_RENTAL_ABI,
+            function_name="createRental",
+            args=[provider, consumer, duration, price_units, gpu_model, compute_units],
         )
         return {
             "to": self.rental_contract,
