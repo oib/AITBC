@@ -87,7 +87,7 @@ Credentials Stored  /var/lib/aitbc/island_credentials.json
 Island federated-compute (550e8400-e29b-41d4-a716-446655440000) created and registered on http://127.0.0.1:8202
 ```
 
-The created island appears in `aitbc node island list-islands` while the node is running (island memberships are held by the node's island manager; like `join`, persistence across restarts comes from the node's `ISLAND_REGISTRY`/`BRIDGE_ISLANDS` configuration, not the CLI).
+The created island appears in `aitbc node island list-islands` while the node is running. Island memberships are held by the node's island manager and persisted to `islands.json` beside the chain database (#2389), so they are consistent across the RPC service's workers and survive restarts; islands seeded from the node's `ISLAND_REGISTRY`/`BRIDGE_ISLANDS` configuration are always present alongside CLI-joined ones.
 
 Specify a custom island ID and chain ID:
 
