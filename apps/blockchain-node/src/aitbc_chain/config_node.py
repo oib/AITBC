@@ -173,6 +173,12 @@ class NodeConfig(BaseModel):
     # max(state_transition_v3_height, escrow_fee_sweep_pass_min_height).
     escrow_orphan_refund_pass_min_age_seconds: int = 21600
     escrow_orphan_refund_pass_max_jobs: int = 25
+    # Phantom-lock void pass (#2390): escrow rows written ``locked`` against
+    # a mempool-admitted ESCROW_LOCK that never sealed read funded forever.
+    # A row whose lock_tx_hash is absent from both the sealed table and the
+    # proposer mempool past the min age is marked ``void`` — no funds moved.
+    escrow_phantom_void_min_age_seconds: int = 3600
+    escrow_phantom_void_max_rows: int = 50
     # How many nonces ahead of the account nonce a pending transaction may sit.
     # Admission rejects beyond this so one sender cannot queue an unbounded
     # pipeline of not-yet-executable transactions.

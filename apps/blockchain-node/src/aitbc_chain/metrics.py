@@ -288,6 +288,14 @@ escrow_orphan_refund_pass_total = Counter(
     ["result"],
 )
 
+# Phantom-lock void pass (#2390): escrow rows locked against a lock tx that
+# never sealed are marked void once the hash resolves nowhere.
+escrow_phantom_void_pass_total = Counter(
+    "blockchain_escrow_phantom_void_pass_total",
+    "Periodic phantom-lock escrow void pass outcomes by result",
+    ["result"],
+)
+
 # Settlement-signing gate refusals (Task A10/A13): a wrong-routed escrow caller
 # otherwise surfaces only in node logs. Label op: create, refund, release.
 escrow_settlement_refused_total = Counter(

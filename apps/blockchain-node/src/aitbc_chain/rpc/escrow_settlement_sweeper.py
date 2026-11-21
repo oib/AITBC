@@ -89,6 +89,7 @@ from .escrow_settlement_sweeper_scan import (
     _ESCROW_TX_TYPES as _ESCROW_TX_TYPES,
     _FeeSweepCandidate,
     _OrphanRefundCandidate,
+    _PhantomVoidCandidate,
     _MAX_AGE_SECONDS,
     _MEMPOOL_PROBE_LIMIT as _MEMPOOL_PROBE_LIMIT,
     _SETTLED_STATUSES as _SETTLED_STATUSES,
@@ -100,6 +101,7 @@ from .escrow_settlement_sweeper_scan import (
     _count_change_pass,
     _count_fee_pass,
     _count_orphan_refund_pass,
+    _count_phantom_void_pass,
     _escrow_legs_by_job as _escrow_legs_by_job,
     _fee_sweep_pass_dry_run,
     _fee_sweep_pass_enabled,
@@ -109,6 +111,8 @@ from .escrow_settlement_sweeper_scan import (
     _orphan_lock_ids,
     _orphan_refund_pass_dry_run,
     _orphan_refund_pass_enabled,
+    _phantom_void_pass_dry_run,
+    _phantom_void_pass_enabled,
     _pending_blocks_authority,
     _proposer_pending_hashes,
     _proposer_pending_txs,
@@ -122,6 +126,7 @@ from .escrow_settlement_sweeper_scan import (
     change_owed_candidates,
     fee_sweep_candidates,
     orphan_refund_candidates,
+    phantom_void_candidates,
     sweep_once,
 )
 
@@ -649,6 +654,137 @@ async def _submit_orphan_candidates(
         break  # at most one submission per pass
 
 
+# --------------------------------------------------------------------------
+# Phantom-lock void pass (#2390)
+#
+# Escrow rows written ``locked`` against a mempool-admitted ESCROW_LOCK that
+# was later evicted read funded forever while every settlement gate 425s on
+# a hash that never seals. A row whose ``lock_tx_hash`` resolves neither in
+# the sealed ``transaction`` table nor in the proposer mempool — past the
+# min age — is voided: ``status="void"`` is terminal bookkeeping for "no
+# funds ever moved". The in-memory contract is evicted so GET stops
+# reporting funded. Dry-run and enabled flags mirror the orphan pass; a
+# failed probe skips the candidate (unknown is never "dead").
+# --------------------------------------------------------------------------
+
+
+async def _phantom_void_pass_once(now: datetime | None = None) -> dict[str, int]:
+    """One phantom-lock void pass. Never raises; counted in its own metric."""
+    stats = {"scanned": 0, "alive": 0, "voided": 0, "would_void": 0, "probe_error": 0, "error": 0}
+    try:
+        if not _phantom_void_pass_enabled():
+            return stats
+        now = now or datetime.now(UTC)
+        candidates = await run_in_threadpool(_load_phantom_void_candidates, now)
+        stats["scanned"] = len(candidates)
+        if not candidates:
+            _count_phantom_void_pass(stats)
+            return stats
+
+        sealed = await run_in_threadpool(_sealed_lock_hashes, candidates)
+        pending = await _proposer_pending_hashes()
+        if pending is None:
+            # Mempool truth unavailable — nothing can be proven dead.
+            stats["probe_error"] = len(candidates)
+            _count_phantom_void_pass(stats)
+            return stats
+
+        dead = [c for c in candidates if c.lock_tx_hash not in sealed and c.lock_tx_hash not in pending]
+        stats["alive"] = len(candidates) - len(dead)
+        if not dead:
+            _count_phantom_void_pass(stats)
+            return stats
+
+        dry_run = _phantom_void_pass_dry_run()
+        if dry_run:
+            for cand in dead:
+                _logger.warning(
+                    "ESCROW phantom-void pass [dry-run] would void job_id=%s lock=%s",
+                    cand.job_id,
+                    cand.lock_tx_hash,
+                )
+            stats["would_void"] = len(dead)
+        else:
+            voided_ids = await run_in_threadpool(_void_phantom_rows, dead)
+            stats["voided"] = len(voided_ids)
+            _evict_voided_contracts(voided_ids)
+        _count_phantom_void_pass(stats)
+    except Exception as e:  # noqa: BLE001 - a pass failure must never end the loop
+        _logger.warning("ESCROW phantom-void pass failed: %s", e)
+        stats["error"] = 1
+    return stats
+
+
+def _load_phantom_void_candidates(now: datetime) -> list[_PhantomVoidCandidate]:
+    with session_scope() as session:
+        return phantom_void_candidates(
+            session,
+            now,
+            min_age_seconds=settings.escrow_phantom_void_min_age_seconds,
+            max_rows=settings.escrow_phantom_void_max_rows,
+        )
+
+
+def _sealed_lock_hashes(candidates: list[_PhantomVoidCandidate]) -> set[str]:
+    """Recorded lock hashes that resolve to a sealed ``transaction`` row on
+    the candidate's own chain."""
+    wanted = {c.lock_tx_hash for c in candidates}
+    if not wanted:
+        return set()
+    chain_by_hash = {c.lock_tx_hash: c.chain_id for c in candidates}
+    with session_scope() as session:
+        found = session.exec(select(Transaction).where(Transaction.tx_hash.in_(wanted)))  # type: ignore[attr-defined]
+        return {tx.tx_hash for tx in found if tx.tx_hash in wanted and str(tx.chain_id) == chain_by_hash.get(tx.tx_hash)}
+
+
+def _void_phantom_rows(candidates: list[_PhantomVoidCandidate]) -> list[str]:
+    """Mark each dead candidate's escrow row ``void`` under its row lock.
+    Returns the job_ids actually written."""
+    voided: list[str] = []
+    with session_scope() as session:
+        for cand in candidates:
+            with escrow_row_lock(session, cand.job_id) as locked:
+                if not locked:
+                    continue
+                row = session.get(Escrow, cand.job_id)
+                if row is not None:
+                    session.refresh(row)
+                if (
+                    row is None
+                    or row.status != "locked"
+                    or row.lock_tx_hash != cand.lock_tx_hash
+                    or row.released_at is not None
+                    or row.refunded_at is not None
+                ):
+                    continue
+                row.status = "void"
+                session.add(row)
+                session.commit()
+                voided.append(cand.job_id)
+    if voided:
+        _logger.error(
+            "ESCROW phantom-void pass marked %d escrow row(s) void (lock tx never sealed)",
+            len(voided),
+        )
+    return voided
+
+
+def _evict_voided_contracts(voided_job_ids: list[str]) -> None:
+    """Drop the in-memory FUNDED contracts for voided rows so GET /escrow
+    stops reporting funded on the node that holds them."""
+    mgr = get_escrow_manager()
+    if mgr is None:
+        return
+    wanted = set(voided_job_ids)
+    for cid, contract in list(mgr.escrow_contracts.items()):
+        if contract.job_id not in wanted:
+            continue
+        try:
+            mgr.evict_contract(cid)
+        except Exception as e:  # noqa: BLE001 - eviction is best-effort; the row is already void
+            _logger.debug("phantom-void contract evict failed for %s: %s", cid, e)
+
+
 async def _sweep_once() -> dict[str, int]:
     proposer_pending = await _proposer_pending_hashes()
     stats: dict[str, int] = {}
@@ -676,6 +812,7 @@ async def _sweep_once() -> dict[str, int]:
     # above — their own try/except keeps a pass failure from touching the
     # mark reconciliation's result.
     await _orphan_refund_pass_once()
+    await _phantom_void_pass_once()
     await _change_pass_once()
     await _fee_sweep_pass_once()
     return stats
