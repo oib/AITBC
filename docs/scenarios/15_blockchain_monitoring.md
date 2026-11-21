@@ -398,11 +398,7 @@ aitbc blockchain consensus slashing-history
 
 ### Step 18: Back up a chain database
 
-Writes a backup of the chain database to a file.
-
-```bash
-aitbc blockchain backup --chain-id ait-mainnet --path /tmp/chain-backup
-```
+> **Not playable via CLI:** `aitbc blockchain backup` POSTs to a node endpoint (`/api/chains/{id}/backup`) that no deployed service implements — the command fails with a clear "does not implement chain backup" error (#2408). Chain database backups are an **operator** path: the `aitbc-backup.timer` systemd unit runs `scripts/maintenance/aitbc-backup.sh` daily into `/var/backups/aitbc/` (30-day retention, integrity-verified). To inspect: `ls /var/backups/aitbc/` on the node.
 
 ### Step 19: Explorer: chains
 
@@ -596,15 +592,15 @@ aitbc prometheus targets
 
 ### Step 44: Restore a chain backup
 
-`aitbc blockchain restore --backup-file /tmp/chain-backup` is overwrites local chain state from a backup — destructive.
+`aitbc blockchain restore --backup-file ...` is overwrites local chain state from a backup — destructive, and like `backup` it targets a node endpoint that is not deployed (clear error, #2408). Real restores are an operator procedure over the `aitbc-backup.sh` snapshots — do not play this against a live node.
 
 ### Step 45: Start a chain instance
 
-`aitbc blockchain start --chain-id ait-mainnet` is starts a stopped chain instance — service control.
+`aitbc blockchain start --chain-id <id>` is starts a stopped chain instance — service control. **Requires an admin blockchain-RPC API key** (`blockchain_rpc_api_key` / `AITBC_API_KEY`); without one the node answers 403 "missing or invalid API key". On this fleet the live chain id is `bc-2` (`ait-mainnet`/`ait-testnet` in older examples exist nowhere).
 
 ### Step 46: Stop a chain instance
 
-`aitbc blockchain stop --chain-id ait-mainnet` is stops a running chain instance — service control.
+`aitbc blockchain stop --chain-id <id>` is stops a running chain instance — service control. Same admin-key requirement and real chain ids as Step 45. Stopping `bc-2` halts block production fleet-wide — do not play this against the live chain without an operator window.
 
 ---
 

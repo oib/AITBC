@@ -395,8 +395,13 @@ class NodeClient:
             )
             if response.status_code == 200:
                 return response.json()  # type: ignore[no-any-return]
-            else:
-                raise RuntimeError(f"Chain backup failed: {response.status_code}")
+            if response.status_code == 404:
+                raise RuntimeError(
+                    f"node {self.config.id} does not implement chain backup "
+                    f"(POST {self.config.endpoint}/api/chains/{chain_id}/backup -> 404); "
+                    "use scripts/maintenance/aitbc-backup.sh on the node instead"
+                )
+            raise RuntimeError(f"Chain backup failed: {response.status_code}")
         except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
                 logger.error("Chain backup failed for %s on %s: %s", chain_id, self.config.id, e)
@@ -422,8 +427,12 @@ class NodeClient:
             )
             if response.status_code == 200:
                 return response.json()  # type: ignore[no-any-return]
-            else:
-                raise RuntimeError(f"Chain restore failed: {response.status_code}")
+            if response.status_code == 404:
+                raise RuntimeError(
+                    f"node {self.config.id} does not implement chain restore "
+                    f"(POST {self.config.endpoint}/api/chains/restore -> 404)"
+                )
+            raise RuntimeError(f"Chain restore failed: {response.status_code}")
         except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
                 logger.error("Chain restore failed on %s: %s", self.config.id, e)

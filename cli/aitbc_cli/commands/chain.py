@@ -10,7 +10,7 @@ from click import echo
 
 from aitbc.exceptions import AITBCError
 from aitbc.utils import format_ait
-from ..core.chain_manager import ChainManager, ChainNotFoundError
+from ..core.chain_manager import ChainManager, ChainNotFoundError, NodeNotAvailableError
 from ..core.config import NodeConfig, load_multichain_config
 from ..models.chain import ChainType
 from ..utils import OUTPUT_FORMAT_OPTION, output, resolve_output_format, success
@@ -465,6 +465,8 @@ def create(ctx, config_file, node, dry_run):
         if chain_config.privacy.visibility == "private":
             success("Private chain created! Use access codes to invite participants.")
 
+    except (ChainNotFoundError, NodeNotAvailableError) as e:
+        abort(ctx, str(e))
     except _OPS_ERRORS as e:
         abort(ctx, f"Error creating chain: {str(e)}", from_exception=e)
 
@@ -549,6 +551,8 @@ def add(ctx, chain_id, node_id):
         else:
             abort(ctx, f"Failed to add chain {chain_id} to node {node_id}")
 
+    except (ChainNotFoundError, NodeNotAvailableError) as e:
+        abort(ctx, str(e))
     except CLIError:
         raise
     except _OPS_ERRORS as e:
@@ -581,6 +585,8 @@ def remove(ctx, chain_id, node_id, migrate):
         else:
             abort(ctx, f"Failed to remove chain {chain_id} from node {node_id}")
 
+    except (ChainNotFoundError, NodeNotAvailableError) as e:
+        abort(ctx, str(e))
     except CLIError:
         raise
     except _OPS_ERRORS as e:
@@ -638,6 +644,8 @@ def migrate(ctx, chain_id, from_node, to_node, dry_run, verify):
         else:
             abort(ctx, f"Migration failed: {migration_result.error}")
 
+    except (ChainNotFoundError, NodeNotAvailableError) as e:
+        abort(ctx, str(e))
     except CLIError:
         raise
     except _OPS_ERRORS as e:
@@ -679,6 +687,8 @@ def backup(ctx, chain_id, path, compress, verify):
 
         output(result, ctx.obj.get("output_format", "table"))
 
+    except (ChainNotFoundError, NodeNotAvailableError) as e:
+        abort(ctx, str(e))
     except _OPS_ERRORS as e:
         abort(ctx, f"Error during backup: {str(e)}", from_exception=e)
 
@@ -714,6 +724,8 @@ def restore(ctx, backup_file, node, verify):
 
         output(result, ctx.obj.get("output_format", "table"))
 
+    except (ChainNotFoundError, NodeNotAvailableError) as e:
+        abort(ctx, str(e))
     except _OPS_ERRORS as e:
         abort(ctx, f"Error during restoration: {str(e)}", from_exception=e)
 
@@ -915,7 +927,12 @@ def sync_status(ctx, node_url, all_chains, chain_id):
 @click.pass_context
 def start_cmd(ctx, chain_id, node_url, chain_type):
     """Start a secondary chain on the local node."""
-    client = AITBCHTTPClient(base_url=node_url)
+    from aitbc_cli.config import get_config as _get_cli_config
+
+    client = AITBCHTTPClient(
+        base_url=node_url,
+        api_key=(ctx.obj or {}).get("api_key") or getattr(_get_cli_config(), "blockchain_rpc_api_key", None),
+    )
     try:
         result = client.post("/rpc/chains/start", json={"chain_id": chain_id, "chain_type": chain_type})
     except NetworkError as e:
@@ -942,7 +959,12 @@ def start_cmd(ctx, chain_id, node_url, chain_type):
 @click.pass_context
 def stop_cmd(ctx, chain_id, node_url):
     """Stop a secondary chain on the local node."""
-    client = AITBCHTTPClient(base_url=node_url)
+    from aitbc_cli.config import get_config as _get_cli_config
+
+    client = AITBCHTTPClient(
+        base_url=node_url,
+        api_key=(ctx.obj or {}).get("api_key") or getattr(_get_cli_config(), "blockchain_rpc_api_key", None),
+    )
     try:
         result = client.post("/rpc/chains/stop", json={"chain_id": chain_id, "chain_type": "micro"})
     except NetworkError as e:
