@@ -149,6 +149,18 @@ def send(ctx, wallet_id: str, recipient_id: str, amount: str):
                         err=True,
                     )
                     result = simulated_result
+                elif "404" in str(e) or "Not Found" in str(e):
+                    # #2425 (operator ruling): no in-repo service serves
+                    # /v1/confidential/payments — a 404 means the route is
+                    # unserved, the same capability-absent class as 503.
+                    # The result is stamped "simulated" either way, so warn
+                    # and fall back rather than aborting the documented
+                    # fleet path.
+                    click.echo(
+                        "Coordinator does not serve /v1/confidential/payments; using simulated local settlement.",
+                        err=True,
+                    )
+                    result = simulated_result
                 else:
                     raise
             # The envelope was still built by an unpersisted local wallet, and no range proof

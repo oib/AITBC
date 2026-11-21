@@ -32,6 +32,44 @@ class TestConfidentialCommands:
         assert "simulated" in result.output
         assert mock_client.post.call_count == 1
 
+    def test_confidential_send_falls_back_on_unserved_route(self, runner):
+        """``confidential send`` uses simulated settlement when the coordinator 404s the route (#2425)."""
+        from aitbc_cli.commands.confidential import confidential
+
+        mock_client = MagicMock()
+        mock_client.post.side_effect = NetworkError(
+            "POST request failed: 404 Client Error: Not Found for url: /c/v1/confidential/payments"
+        )
+
+        with patch("aitbc_cli.commands.confidential._api_client", return_value=mock_client):
+            result = runner.invoke(
+                confidential,
+                ["send", "--wallet-id", "wallet-1", "--recipient-id", "recipient-1", "--amount", "10"],
+            )
+
+        assert result.exit_code == 0, result.output
+        assert "does not serve /v1/confidential/payments" in result.output
+        assert "simulated" in result.output
+        assert mock_client.post.call_count == 1
+
+    def test_confidential_send_still_aborts_on_other_errors(self, runner):
+        """Non-404/503 coordinator errors still abort — no blanket fallback."""
+        from aitbc_cli.commands.confidential import confidential
+
+        mock_client = MagicMock()
+        mock_client.post.side_effect = NetworkError(
+            "POST request failed: 500 Server Error for url: /v1/confidential/payments"
+        )
+
+        with patch("aitbc_cli.commands.confidential._api_client", return_value=mock_client):
+            result = runner.invoke(
+                confidential,
+                ["send", "--wallet-id", "wallet-1", "--recipient-id", "recipient-1", "--amount", "10"],
+            )
+
+        assert result.exit_code != 0
+        assert "simulated" not in result.output
+
     def test_confidential_send_group_and_command_exist(self, runner):
         """The confidential command group and its send subcommand are registered."""
         from aitbc_cli.commands.confidential import confidential
