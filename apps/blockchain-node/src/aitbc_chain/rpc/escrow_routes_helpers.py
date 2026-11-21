@@ -454,6 +454,39 @@ async def _find_existing_release(job_id: str) -> str | None:
     return None
 
 
+async def _find_pending_escrow_tx(job_id: str, tx_type: str) -> str | None:
+    """Return the canonical hash of a ``tx_type`` mempool entry for ``job_id``.
+
+    The sealed-tx finders (``_find_existing_release``/``_find_existing_refund``)
+    only see mined transactions; a settlement tx whose submit response was
+    lost after mempool admission is invisible to them, so a retry signs a
+    second transaction for the same escrow leg. Apply then rejects the
+    duplicate on the obligation check — after both were gossiped (#2376).
+    Matching the pending entry lets the retry return the in-flight hash
+    instead. The hash is recomputed with the mempool's own canonical hash,
+    so it equals the ``transaction_hash`` the first submit returned.
+    """
+    try:
+        r = await _er.SharedHttpClient.get(
+            f"{_er._HUB_RPC_URL}/mempool?chain_id={_chain_id()}&limit={_er._FUNDING_LOCK_MEMPOOL_LIMIT}",
+            timeout=5.0,
+        )
+        if r.status_code != 200:
+            return None
+        for tx in r.json().get("transactions") or []:
+            if not isinstance(tx, dict):
+                continue
+            payload = tx.get("payload") or {}
+            if tx.get("type") != tx_type or payload.get("job_id") != job_id:
+                continue
+            from ..mempool_common import compute_tx_hash
+
+            return compute_tx_hash(tx)
+    except _er._HTTP_PROBE_ERRORS as e:
+        _er._logger.warning("%s: pending-tx lookup failed for job_id=%s: %s", tx_type, job_id, e)
+    return None
+
+
 async def _find_existing_refund(job_id: str) -> str | None:
     """Return the hash of an ESCROW_REFUND already on-chain for ``job_id``, if any.
 

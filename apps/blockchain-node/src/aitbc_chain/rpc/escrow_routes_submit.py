@@ -23,6 +23,25 @@ def _upstream_error_detail(resp: _er.Any) -> str:
     return (resp.text or "")[:300]
 
 
+async def _existing_settlement_tx_hash(job_id: str, tx_type: str) -> str | None:
+    """Hash of an already-settled or in-flight settlement tx for ``job_id``.
+
+    Checks sealed transactions first, then the proposer mempool: a submit
+    whose response was lost after mempool admission is invisible to the
+    sealed lookup, and resubmitting it produces a duplicate the apply-time
+    obligation check rejects (#2376).
+    """
+    sealed_lookup = _er._find_existing_release if tx_type == "ESCROW_RELEASE" else _er._find_existing_refund
+    existing = await sealed_lookup(job_id)
+    if existing:
+        _er._logger.info("%s already settled for job_id=%s (%s); not resubmitting", tx_type, job_id, existing)
+        return existing
+    pending = await _er._find_pending_escrow_tx(job_id, tx_type)
+    if pending:
+        _er._logger.info("%s already pending in mempool for job_id=%s (%s); not resubmitting", tx_type, job_id, pending)
+    return pending
+
+
 async def _submit_payment_tx(buyer: str, provider: str, amount: _er.Decimal, job_id: str, contract_id: str) -> str | None:
     """Submit an ESCROW_RELEASE transaction to the blockchain so payment is on-chain."""
     if amount <= 0:
@@ -33,13 +52,8 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: _er.Decimal, job
     amount_int = max(_er.ait_to_units(amount), 1)
     try:
         # Never pay a job twice: if it already settled, hand back that transaction.
-        existing_release = await _er._find_existing_release(job_id)
+        existing_release = await _existing_settlement_tx_hash(job_id, "ESCROW_RELEASE")
         if existing_release:
-            _er._logger.info(
-                "ESCROW_RELEASE already settled for job_id=%s (%s); not resubmitting",
-                job_id,
-                existing_release,
-            )
             return existing_release
 
         settlement_key = _er._get_settlement_key()
@@ -138,13 +152,8 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: _er.Decimal, job_
     # smallest transferable unit so a small refund is not lost.
     amount_int = max(_er.ait_to_units(amount), 1)
     try:
-        existing_refund = await _er._find_existing_refund(job_id)
+        existing_refund = await _existing_settlement_tx_hash(job_id, "ESCROW_REFUND")
         if existing_refund:
-            _er._logger.info(
-                "ESCROW_REFUND already settled for job_id=%s (%s); not resubmitting",
-                job_id,
-                existing_refund,
-            )
             return existing_refund
 
         settlement_key = _er._get_settlement_key()
