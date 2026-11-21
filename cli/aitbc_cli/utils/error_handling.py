@@ -157,12 +157,46 @@ def is_unauthorized(exc: BaseException | None) -> bool:
 # ---------------------------------------------------------------------------
 
 
+def _resolve_error_format(ctx: click.Context | None) -> str:
+    """Command-level ``--format``/``--output`` wins, then ``ctx.obj``."""
+    fmt = "table"
+    if ctx is not None:
+        if ctx.obj:
+            fmt = ctx.obj.get("output_format", "table")
+        params = getattr(ctx, "params", None)
+        if isinstance(params, dict):
+            leaf = params.get("output_format") or params.get("format")
+            if leaf:
+                fmt = leaf
+    return fmt
+
+
+def _json_error_payload(
+    exc: CLIError,
+    message: str,
+    from_exception: Exception | None,
+    extra: dict[str, Any] | None,
+) -> dict[str, Any]:
+    payload: dict[str, Any] = {
+        "error": type(exc).__name__,
+        "message": message,
+        "exit_code": exc.exit_code,
+    }
+    if from_exception is not None:
+        payload["cause"] = type(from_exception).__name__
+        payload["detail"] = str(from_exception)
+    if extra:
+        payload.update(extra)
+    return payload
+
+
 def abort(
     ctx: click.Context | None,
     message: str,
     *,
     error_type: type[CLIError] | None = None,
     from_exception: Exception | None = None,
+    extra: dict[str, Any] | None = None,
 ) -> None:
     """Print an error (respecting ``--output`` format) and raise a ``CLIError``.
 
@@ -174,6 +208,8 @@ def abort(
         message: Human-facing error message.
         error_type: Specific ``CLIError`` subclass. If ``None``, auto-categorised.
         from_exception: Original exception (preserves cause chain, adds detail to JSON).
+        extra: Additional fields merged into the JSON error payload (#2456 —
+            e.g. ``locked_until`` parsed out of a policy refusal).
 
     Raises:
         CLIError: (or a subclass) — always.
@@ -190,28 +226,10 @@ def abort(
     if from_exception is not None:
         exc.__cause__ = from_exception
 
-    # Determine output format: the command-level ``--format``/``--output``
-    # option wins, then the global ``--output`` stored in ``ctx.obj``.
-    fmt = "table"
-    if ctx is not None:
-        if ctx.obj:
-            fmt = ctx.obj.get("output_format", "table")
-        params = getattr(ctx, "params", None)
-        if isinstance(params, dict):
-            leaf = params.get("output_format") or params.get("format")
-            if leaf:
-                fmt = leaf
+    fmt = _resolve_error_format(ctx)
 
     if fmt in ("json", "yaml"):
-        payload: dict[str, Any] = {
-            "error": type(exc).__name__,
-            "message": message,
-            "exit_code": exc.exit_code,
-        }
-        if from_exception is not None:
-            payload["cause"] = type(from_exception).__name__
-            payload["detail"] = str(from_exception)
-        click.echo(_json.dumps(payload, indent=2))
+        click.echo(_json.dumps(_json_error_payload(exc, message, from_exception, extra), indent=2))
     else:
         error(message)
 

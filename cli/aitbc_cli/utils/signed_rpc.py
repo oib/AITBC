@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from decimal import Decimal
 from typing import Any
 
@@ -25,10 +26,34 @@ from aitbc.exceptions import AITBCError
 from ..config import get_config
 from . import output, resolve_output_format
 from .chain_id import ChainIdLookupError, get_chain_id
-from .error_handling import abort
-from .http_client import AITBCHTTPClient
+from .error_handling import ValidationError, abort
+from .http_client import AITBCHTTPClient, http_error_detail, http_response_status
 from .wallet_loader import load_wallet_for_payment
 from .wallet_secret import wallet_password_options
+
+_LOCKED_UNTIL_RE = re.compile(r"Locked until:\s*(\S+)")
+
+
+def _abort_request_error(ctx: click.Context, path: str, exc: Exception) -> None:
+    """Abort a failed signed/GET RPC call with an honest error class.
+
+    ``AITBCHTTPClient`` wraps every HTTP failure — including 4xx policy
+    refusals — in ``NetworkError``, so a "lock period not expired" 400 used
+    to surface as a network failure (exit 2, #2456, same class as #2437).
+    When the server answered with a 4xx, report a ValidationError (exit 4)
+    carrying the node's ``detail``; genuine transport failures keep the
+    auto-categorised path.
+    """
+    status = http_response_status(exc)
+    if status is not None and 400 <= status < 500:
+        detail = http_error_detail(exc) or str(exc)
+        extra: dict[str, Any] = {}
+        m = _LOCKED_UNTIL_RE.search(detail)
+        if m:
+            extra["locked_until"] = m.group(1)
+        abort(ctx, f"{path} failed: {detail}", error_type=ValidationError, from_exception=exc, extra=extra)
+        return
+    abort(ctx, f"{path} failed: {exc}", from_exception=exc)
 
 
 def operator_options(f):
@@ -159,7 +184,7 @@ def post_signed(
     try:
         result = AITBCHTTPClient(base_url=rpc, timeout=30).post(path, json=body)
     except (AITBCError, ValueError, TypeError, KeyError, AttributeError) as e:
-        abort(ctx, f"{path} failed: {e}", from_exception=e)
+        _abort_request_error(ctx, path, e)
     output(result, "json" if as_json else resolve_output_format(ctx), title=title)
     return result
 
@@ -180,7 +205,7 @@ def get_json(
             path, params={k: v for k, v in (params or {}).items() if v is not None}
         )
     except (AITBCError, ValueError, TypeError, KeyError, AttributeError) as e:
-        abort(ctx, f"{path} failed: {e}", from_exception=e)
+        _abort_request_error(ctx, path, e)
     output(result, "json" if as_json else resolve_output_format(ctx), title=title)
     return result
 
