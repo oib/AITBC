@@ -425,7 +425,7 @@ def aitbc_trade_lock_escrow(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Lock escrow for a trade on the settlement node."""
+    """Lock escrow for a trade — RETIRED (#2385)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -572,7 +572,7 @@ def aitbc_trade_refund(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Refund a trade on the settlement node."""
+    """Refund a trade — RETIRED (#2385)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -734,7 +734,7 @@ def aitbc_trade_settle(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Settle a trade with a secret."""
+    """Settle a trade with a secret — RETIRED (#2385)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
