@@ -126,3 +126,28 @@ class TestAgentCommands:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestRequestCoinsUnits:
+    """#2364: request-coins must render the server-reported amount (base
+    units) as AIT, not raw units."""
+
+    def test_print_coins_received_formats_units_as_ait(self, capsys):
+        from aitbc_cli.commands.agent import _print_coins_received
+
+        _print_coins_received(
+            3,
+            "0xabc",
+            "0xtx",
+            extra_fields={"amount": 108000000, "wallet_address": "0xabc"},
+        )
+        out = capsys.readouterr().out
+        assert "3 AIT" in out
+        assert "108000000" not in out
+
+    def test_print_coins_received_fallback_uses_request_amount(self, capsys):
+        from aitbc_cli.commands.agent import _print_coins_received
+
+        _print_coins_received(3, "0xabc", "0xtx", extra_fields={})
+        out = capsys.readouterr().out
+        assert "3 AIT" in out
