@@ -18,6 +18,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 
 from ..deps import _is_market_admin, get_market_service, require_market_api_key, require_market_operator_key
 from ..gates import (
+    _alias_claim_signature_gate,
     _job_party_addresses,
     _job_party_signature_gate,
     _pin_confirm_attestation_gate,
@@ -35,10 +36,17 @@ router = APIRouter()
 
 
 @router.post("/v1/market/jobs", dependencies=[Depends(require_market_api_key)])
-async def create_market_job(job_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
+async def create_market_job(
+    job_data: dict[str, Any],
+    svc: Annotated[MarketService, Depends(get_market_service)],
+    request: Request,
+) -> Any:
     """Create a market job and payment record."""
     try:
         logger.info("POST /v1/market/jobs called with data keys: %s", job_data.keys())
+        gate_error = _alias_claim_signature_gate(request, job_data)
+        if gate_error is not None:
+            return gate_error
         result = await svc.create_market_job(job_data)
         logger.info("POST /v1/market/jobs created job: %s", result.get("job_id"))
         return result

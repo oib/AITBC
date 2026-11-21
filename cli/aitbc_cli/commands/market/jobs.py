@@ -157,6 +157,7 @@ def _register_paid_market_job(
     access_key: str | None = None,
     access_secret: str | None = None,
     escrow_job_id: str | None = None,
+    signer_key: str | None = None,
 ) -> tuple[str, str] | None:
     """Register the paid job with the market service and mint its access token.
 
@@ -193,6 +194,19 @@ def _register_paid_market_job(
         "ttl_seconds": 7200,
         "payment": {"amount": str(amount), "currency": "AITBC"},
     }
+    if escrow_job_id:
+        # #2326: alias claims need a buyer-wallet signature over the escrow
+        # key + buyer they assert — the user-tier API key alone no longer
+        # authorizes pointing a market job at someone else's locked escrow.
+        from ._signing import signed_job_request_fields
+
+        sig = signed_job_request_fields(
+            ctx,
+            "/v1/market/jobs",
+            wallet=(buyer, signer_key, ""),
+            binding={"escrow_job_id": escrow_job_id, "buyer_address": buyer},
+        )
+        job_data.update(sig)
     try:
         result = _hub_market_client().post("/v1/market/jobs", json=job_data)
     except _JOBS_ERRORS as e:

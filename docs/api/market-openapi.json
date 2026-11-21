@@ -1027,6 +1027,21 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "alias escrow claims require buyer_address / alias escrow claims require a buyer wallet signature / alias claim signature does not match buyer_address",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    }
+                  }
+                }
+              }
+            }
           }
         }
       },

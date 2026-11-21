@@ -40,19 +40,50 @@ PROVIDER = "0x" + "22" * 20
 
 
 class _EscrowStub:
-    """verify_escrow stub keyed by escrow/job id."""
+    """verify_escrow stub keyed by escrow/job id.
 
-    def __init__(self, escrows: dict[str, dict] | None = None) -> None:
+    ``bindings`` maps a lock tx hash to the market job id its payload
+    ``market_job_id`` names (#2326) — alias claims verify only when the
+    escrow's signed lock tx binds them.
+    """
+
+    def __init__(self, escrows: dict[str, dict] | None = None, bindings: dict[str, str] | None = None) -> None:
         self.escrows = escrows or {}
+        self.bindings = bindings or {}
         self.calls: list[str] = []
 
     async def verify_escrow(self, job_id: str):
         self.calls.append(job_id)
         return self.escrows.get(job_id)
 
+    async def get_transaction(self, tx_hash: str, chain_id: str | None = None):
+        market_job_id = self.bindings.get(tx_hash)
+        if market_job_id is None:
+            return None
+        return {"payload": {"market_job_id": market_job_id}}
 
-def _locked_escrow(*, amount: str = "1.0", state: str = "locked", buyer: str = BUYER, provider: str = PROVIDER) -> dict:
-    return {"state": state, "amount": amount, "buyer": buyer, "provider": provider}
+
+def _locked_escrow(
+    *,
+    amount: str = "1.0",
+    state: str = "locked",
+    buyer: str = BUYER,
+    provider: str = PROVIDER,
+    lock_tx_hash: str | None = None,
+) -> dict:
+    escrow = {"state": state, "amount": amount, "buyer": buyer, "provider": provider}
+    if lock_tx_hash:
+        escrow["lock_tx_hash"] = lock_tx_hash
+    return escrow
+
+
+def _bound_rpc(escrow_key: str, market_job_id: str, **escrow_kwargs) -> _EscrowStub:
+    """Escrow stub whose lock tx payload binds ``market_job_id`` (#2326)."""
+    lock_hash = f"lock_{escrow_key}"
+    return _EscrowStub(
+        {escrow_key: _locked_escrow(lock_tx_hash=lock_hash, **escrow_kwargs)},
+        bindings={lock_hash: market_job_id},
+    )
 
 
 async def _seed_access_job(
@@ -113,7 +144,7 @@ async def test_second_alias_for_same_escrow_is_denied() -> None:
         tag="alias_second", escrow_job_id="coord_shared_1", created_at=t0 + timedelta(seconds=1)
     )
     assert first_id != second_id
-    rpc = _EscrowStub({"coord_shared_1": _locked_escrow()})
+    rpc = _bound_rpc("coord_shared_1", first_id)
 
     tok1 = await _verify(ak1, sec1, rpc)
     assert tok1 is not None and tok1["job_id"] == first_id
@@ -131,7 +162,7 @@ async def test_alias_cannot_displace_legitimate_claimant() -> None:
     _, ak_evil, sec_evil = await _seed_access_job(
         tag="alias_evil", escrow_job_id="coord_shared_2", created_at=t0 + timedelta(seconds=1)
     )
-    rpc = _EscrowStub({"coord_shared_2": _locked_escrow()})
+    rpc = _bound_rpc("coord_shared_2", legit_id)
     assert await _verify(ak_legit, sec_legit, rpc) is not None
     assert await _verify(ak_evil, sec_evil, rpc) is None
     # And the legit job still verifies afterwards — no state was mutated.
@@ -139,20 +170,25 @@ async def test_alias_cannot_displace_legitimate_claimant() -> None:
 
 
 async def test_earlier_alias_wins_until_it_expires() -> None:
-    """Squatting is possible but bounded: the earlier claimant holds the key
-    only while it stays active; once it leaves QUEUED/RUNNING the next
-    claimant is released."""
+    """Squatting is bounded twice over: the earlier claimant holds the key
+    only while it stays active, AND #2326's lock-tx binding means the escrow
+    authorizes only the market job its signed lock names — a later claimant
+    is denied even after the squatter's job expires, because the escrow was
+    never locked for it."""
     t0 = (datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None)
-    _, ak_squat, sec_squat = await _seed_access_job(tag="alias_squat", escrow_job_id="coord_shared_3", created_at=t0)
+    squat_id, ak_squat, sec_squat = await _seed_access_job(tag="alias_squat", escrow_job_id="coord_shared_3", created_at=t0)
     legit_id, ak_legit, sec_legit = await _seed_access_job(
         tag="alias_legit3", escrow_job_id="coord_shared_3", created_at=t0 + timedelta(seconds=1)
     )
-    rpc = _EscrowStub({"coord_shared_3": _locked_escrow()})
+    # The escrow's lock tx binds the squatter's market job — the only job
+    # this escrow may ever authorize.
+    rpc = _bound_rpc("coord_shared_3", squat_id)
     assert await _verify(ak_squat, sec_squat, rpc) is not None
     assert await _verify(ak_legit, sec_legit, rpc) is None
 
-    # The squatter's job terminates (e.g. TTL expiry flips it to EXPIRED) —
-    # the key is released to the next active claimant.
+    # The squatter's job terminates — uniqueness releases the key, but the
+    # on-chain binding still denies the legit job: this escrow was locked
+    # for squat_id, not legit_id.
     async with get_session_context() as session:
         squat_job = (
             await session.execute(select(MarketJob).where(col(MarketJob.access_key) == "ak_alias_squat"))
@@ -161,8 +197,8 @@ async def test_earlier_alias_wins_until_it_expires() -> None:
         session.add(squat_job)
         await session.commit()
 
-    tok = await _verify(ak_legit, sec_legit, rpc)
-    assert tok is not None and tok["job_id"] == legit_id
+    assert await _verify(ak_legit, sec_legit, rpc) is None
+    assert legit_id != squat_id
 
 
 async def test_job_id_named_escrow_loses_to_earlier_claim() -> None:
@@ -190,7 +226,7 @@ async def test_job_id_named_escrow_loses_to_earlier_claim() -> None:
 async def test_escrowed_payment_does_not_skip_alias_verify() -> None:
     """payment.status == 'escrowed' proved only the escrow keyed by job.id —
     an escrow_job_id alias record must still verify the alias escrow live."""
-    _, ak, secret = await _seed_access_job(
+    alias_id, ak, secret = await _seed_access_job(
         tag="alias_escrowed",
         payment_status="escrowed",
         escrow_job_id="coord_alias_paid",
@@ -201,9 +237,9 @@ async def test_escrowed_payment_does_not_skip_alias_verify() -> None:
     assert await _verify(ak, secret, rpc) is None
     assert rpc.calls == ["coord_alias_paid"]
 
-    # With the alias escrow locked and matching, the token verifies — via
-    # the live path, not the fast-path.
-    rpc2 = _EscrowStub({"coord_alias_paid": _locked_escrow()})
+    # With the alias escrow locked, matching AND bound to this market job
+    # by its lock tx, the token verifies — via the live path.
+    rpc2 = _bound_rpc("coord_alias_paid", alias_id)
     assert await _verify(ak, secret, rpc2) is not None
     assert rpc2.calls == ["coord_alias_paid"]
 

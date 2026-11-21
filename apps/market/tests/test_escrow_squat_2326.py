@@ -34,19 +34,50 @@ PROVIDER = "0x" + "22" * 20
 
 
 class _EscrowStub:
-    """verify_escrow stub keyed by escrow/job id."""
+    """verify_escrow stub keyed by escrow/job id.
 
-    def __init__(self, escrows: dict[str, dict] | None = None) -> None:
+    ``bindings`` maps a lock tx hash to the market job id its payload
+    ``market_job_id`` names (#2326) — alias claims verify only when the
+    escrow's signed lock tx binds them.
+    """
+
+    def __init__(self, escrows: dict[str, dict] | None = None, bindings: dict[str, str] | None = None) -> None:
         self.escrows = escrows or {}
+        self.bindings = bindings or {}
         self.calls: list[str] = []
 
     async def verify_escrow(self, job_id: str):
         self.calls.append(job_id)
         return self.escrows.get(job_id)
 
+    async def get_transaction(self, tx_hash: str, chain_id: str | None = None):
+        market_job_id = self.bindings.get(tx_hash)
+        if market_job_id is None:
+            return None
+        return {"payload": {"market_job_id": market_job_id}}
 
-def _locked_escrow(*, amount: str = "1.0", state: str = "locked", buyer: str = BUYER, provider: str = PROVIDER) -> dict:
-    return {"state": state, "amount": amount, "buyer": buyer, "provider": provider}
+
+def _locked_escrow(
+    *,
+    amount: str = "1.0",
+    state: str = "locked",
+    buyer: str = BUYER,
+    provider: str = PROVIDER,
+    lock_tx_hash: str | None = None,
+) -> dict:
+    escrow = {"state": state, "amount": amount, "buyer": buyer, "provider": provider}
+    if lock_tx_hash:
+        escrow["lock_tx_hash"] = lock_tx_hash
+    return escrow
+
+
+def _bound_rpc(escrow_key: str, market_job_id: str, **escrow_kwargs) -> _EscrowStub:
+    """Escrow stub whose lock tx payload binds ``market_job_id`` (#2326)."""
+    lock_hash = f"lock_{escrow_key}"
+    return _EscrowStub(
+        {escrow_key: _locked_escrow(lock_tx_hash=lock_hash, **escrow_kwargs)},
+        bindings={lock_hash: market_job_id},
+    )
 
 
 async def _seed_access_job(
@@ -114,7 +145,7 @@ async def test_expired_unswept_claimant_releases_key() -> None:
         escrow_job_id="coord_exp_1",
         created_at=t0 + timedelta(seconds=1),
     )
-    rpc = _EscrowStub({"coord_exp_1": _locked_escrow()})
+    rpc = _bound_rpc("coord_exp_1", legit_id)
 
     # Verify the legit job FIRST: without the claim-query expiry filter the
     # still-QUEUED squatter (its own lazy TTL flip only runs on ITS access)
@@ -140,7 +171,7 @@ async def test_zero_amount_job_cannot_claim_escrow_key() -> None:
         escrow_job_id="coord_free_1",
         created_at=t0 + timedelta(seconds=1),
     )
-    rpc = _EscrowStub({"coord_free_1": _locked_escrow()})
+    rpc = _bound_rpc("coord_free_1", legit_id)
     tok = await _verify(ak_legit, sec_legit, rpc)
     assert tok is not None and tok["job_id"] == legit_id
 
@@ -164,7 +195,7 @@ async def test_alias_claim_with_matching_buyer_verifies() -> None:
         tag="alias_buyer",
         escrow_job_id="coord_buyer_1",
     )
-    rpc = _EscrowStub({"coord_buyer_1": _locked_escrow()})
+    rpc = _bound_rpc("coord_buyer_1", job_id)
     tok = await _verify(ak, sec, rpc)
     assert tok is not None and tok["job_id"] == job_id
 
@@ -178,6 +209,34 @@ async def test_alias_claim_with_wrong_buyer_denied() -> None:
     )
     rpc = _EscrowStub({"coord_wrongbuyer_1": _locked_escrow()})
     assert await _verify(ak, sec, rpc) is None
+
+
+async def test_alias_claim_requires_lock_tx_market_job_binding() -> None:
+    """#2326 residual: the escrow's signed ESCROW_LOCK payload must name the
+    claiming market job — caller-supplied fields alone no longer authorize
+    an alias token."""
+    job_id, ak, sec = await _seed_access_job(
+        tag="alias_unbound",
+        escrow_job_id="coord_unbound_1",
+    )
+    # Lock tx binds a DIFFERENT market job — this claim is denied.
+    rpc_wrong = _bound_rpc("coord_unbound_1", "ai_job_other")
+    assert await _verify(ak, sec, rpc_wrong) is None
+    # Escrow row carries no lock_tx_hash at all — fail closed.
+    rpc_nohash = _EscrowStub({"coord_unbound_1": _locked_escrow()})
+    assert await _verify(ak, sec, rpc_nohash) is None
+
+    # Lock tx exists but its payload names no market job — fail closed.
+    class _UnboundTx(_EscrowStub):
+        async def get_transaction(self, tx_hash: str, chain_id: str | None = None):
+            return {"payload": {"job_id": "coord_unbound_1"}}
+
+    rpc_nomid = _UnboundTx({"coord_unbound_1": _locked_escrow(lock_tx_hash="lock_nomid")})
+    assert await _verify(ak, sec, rpc_nomid) is None
+    # Bound to THIS job — verifies.
+    rpc_ok = _bound_rpc("coord_unbound_1", job_id)
+    tok = await _verify(ak, sec, rpc_ok)
+    assert tok is not None and tok["job_id"] == job_id
 
 
 async def test_create_rejects_unbounded_expires_at() -> None:

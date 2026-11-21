@@ -148,6 +148,56 @@ async def _party_signature_precheck(
     return False, canonical_address(signer), None
 
 
+def _alias_claim_signature_gate(request: Request, job_data: dict[str, Any]) -> JSONResponse | None:
+    """#2326: a job that aliases a foreign escrow key (``payload.escrow_job_id``)
+    must carry a buyer-wallet signature over ``(escrow_job_id, buyer_address)``.
+
+    Market job ids are predictable and the user-tier API key is distributed to
+    every CLI user, so without this gate a squatter could register a guessed
+    escrow key first and have the victim's locked escrow authorize its token.
+    The signature binds the escrow key being claimed and the buyer the job
+    asserts — the on-chain escrow's buyer must match that address at verify
+    time, so only the escrow's buyer can produce a usable claim. The operator
+    credential bypasses, same as the other party gates.
+    """
+    payload = job_data.get("payload")
+    escrow_job_id = payload.get("escrow_job_id") if isinstance(payload, dict) else None
+    if not escrow_job_id:
+        return None
+    if _is_operator(request):
+        return None
+    buyer_address = job_data.get("buyer_address")
+    if not buyer_address:
+        return JSONResponse(status_code=403, content={"error": "alias escrow claims require buyer_address"})
+    if not any(
+        (
+            job_data.get("signer_address"),
+            job_data.get("chain_id"),
+            job_data.get("issued_at") is not None,
+            job_data.get("signature"),
+        )
+    ):
+        return JSONResponse(
+            status_code=403,
+            content={"error": "alias escrow claims require a buyer wallet signature"},
+        )
+    error, signer = verify_jobs_request_signature(
+        signer_address=job_data.get("signer_address"),
+        chain_id=job_data.get("chain_id"),
+        issued_at=job_data.get("issued_at"),
+        route="/v1/market/jobs",
+        signature=job_data.get("signature"),
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+        binding={"escrow_job_id": str(escrow_job_id), "buyer_address": str(buyer_address)},
+    )
+    if error or not signer:
+        return JSONResponse(status_code=403, content={"error": error or "invalid alias claim signature"})
+    buyer_canonical = _canonical_or_none(buyer_address)
+    if buyer_canonical is None or canonical_address(signer) != buyer_canonical:
+        return JSONResponse(status_code=403, content={"error": "alias claim signature does not match buyer_address"})
+    return None
+
+
 def _signed_jobs_request(
     *,
     route: str,

@@ -419,6 +419,7 @@ def _register_shop_access_if_paid(
     model,
     payment,
     escrow_amount,
+    private_key=None,
 ) -> None:
     """#2322: register the deferred market job once the coordinator job id —
     the on-chain escrow key the market verify endpoint checks — is known.
@@ -436,6 +437,7 @@ def _register_shop_access_if_paid(
         model=model,
         payment=payment,
         escrow_amount=escrow_amount,
+        private_key=private_key,
     )
 
 
@@ -448,6 +450,7 @@ def _register_shop_access_job(
     model,
     payment,
     escrow_amount,
+    private_key=None,
 ) -> None:
     """Register the deferred market job once the coordinator job id is known.
 
@@ -477,6 +480,7 @@ def _register_shop_access_job(
         access_key=payload["access_key"],
         access_secret=payload["access_secret"],
         escrow_job_id=coordinator_job_id,
+        signer_key=private_key,
     )
 
 
@@ -497,6 +501,7 @@ def _secure_escrow(
     idempotency_key=None,
     buyer_agent_id=None,
     provider_agent_id=None,
+    market_job_id=None,
 ):
     """If the coordinator priced the job but did not secure an escrow, sign the
     ESCROW_LOCK tx and create the payment in a second step."""
@@ -541,6 +546,7 @@ def _secure_escrow(
             idempotency_key=idempotency_key,
             buyer_agent_id=buyer_agent_id,
             provider_agent_id=provider_agent_id,
+            market_job_id=market_job_id,
         )
     except _ai.CLIError as e:
         # The job was already accepted by the coordinator; name it so the
@@ -765,6 +771,7 @@ def submit(
             model=model,
             payment=payment,
             escrow_amount=result.get("payment_amount"),
+            private_key=private_key,
         )
 
         payment_id = _secure_escrow(
@@ -783,6 +790,7 @@ def submit(
             idempotency_key=f"{submit_key}-escrow",
             buyer_agent_id=buyer_agent_id,
             provider_agent_id=provider_agent_id,
+            market_job_id=market_job_id,
         )
 
         # A paid job whose escrow could not be secured can never be dispatched --
