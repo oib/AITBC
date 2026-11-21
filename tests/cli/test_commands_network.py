@@ -104,9 +104,13 @@ class TestNetworkCommands:
 
     @patch("aitbc_cli.commands.network.AITBCHTTPClient")
     def test_network_peers_command(self, mock_http_class, runner, mock_blockchain_rpc):
-        """``network peers`` lists peers from the mocked RPC."""
+        """``network peers`` lists peers from the gossip peers endpoint (#2417)."""
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"peers": ["peer1", "peer2"]}
+        mock_client.get.return_value = {
+            "peers": [{"name": "node1", "url": "wss://node1/rpc/gossip/ws", "connected": True, "topics": []}],
+            "count": 1,
+            "configured": 1,
+        }
 
         from aitbc_cli.commands.network import network
 
@@ -114,7 +118,10 @@ class TestNetworkCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
-        assert "/rpc/network-info" in mock_client.get.call_args[0][0]
+        called_path = mock_client.get.call_args[0][0]
+        assert "/rpc/gossip/peers" in called_path
+        # #2417 regression pin: peers must NOT reuse the network-info payload.
+        assert "/rpc/network-info" not in called_path
 
     @patch("aitbc_cli.commands.network.AITBCHTTPClient")
     def test_network_peers_falls_back_on_network_error(self, mock_http_class, runner):
@@ -129,6 +136,27 @@ class TestNetworkCommands:
 
         assert result.exit_code == 0, result.output
         assert "simulated" in result.output
+
+    @patch("aitbc_cli.commands.network.AITBCHTTPClient")
+    def test_network_peers_fallback_payload_shape(self, mock_http_class, runner):
+        """#2417: the simulated fallback carries the peers payload shape."""
+        from aitbc_cli.commands.network import network
+        from aitbc_cli.utils.http_client import NetworkError
+
+        mock_client = mock_http_class.return_value
+        mock_client.get.side_effect = NetworkError("connection refused")
+
+        # The suite's default ctx.obj emits JSON (see cli_mocks.make_cli_obj).
+        result = runner.invoke(network, ["peers"])
+
+        assert result.exit_code == 0, result.output
+        import json
+
+        payload = json.loads(result.output)
+        assert payload["status"] == "simulated"
+        assert payload["peers"] == []
+        assert payload["count"] == 0
+        assert payload["configured"] == 0
 
     @patch("aitbc_cli.commands.network.AITBCHTTPClient")
     def test_network_force_sync_command(self, mock_http_class, runner, mock_blockchain_rpc):

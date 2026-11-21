@@ -210,7 +210,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc network heartbeat` | `/rpc/heartbeat` | `heartbeat_route` (subscription.py) | —
 | `aitbc network lease-status` | `/rpc/lease/` | — | —
 | `aitbc network lease-status` | `/rpc/lease/{node_id}` | `revoke_lease_route` (subscription.py) | —
-| `aitbc network peers` | `/rpc/network-info` | `get_network_info_route` (core.py) | —
+| `aitbc network peers` | `/rpc/gossip/peers` | `gossip_peers_route` (websocket.py) | —
 | `aitbc network status` | `/rpc/network-info` | `get_network_info_route` (core.py) | —
 | `aitbc network subscribe` | `/rpc/subscribe` | `register_subscription_route` (subscription.py) | —
 | `aitbc network subscribers` | `/rpc/subscribers` | `subscribers_route` (subscription.py) | —

@@ -301,6 +301,27 @@ class MeshGossipBackend(GossipBackend):
             "peer_detail": peer_results,
         }
 
+    async def peer_status(self) -> dict[str, Any]:
+        """#2417: flatten each configured peer link's own status for
+        ``GET /rpc/gossip/peers``. The local bus is a transport, not a peer,
+        so it is reported separately under ``local_bus``."""
+        peers: list[dict[str, Any]] = []
+        for name, peer in self._peers.items():
+            try:
+                status = await peer.peer_status()
+            except Exception:  # noqa: BLE001 - a peer probe failure must not sink the whole report
+                status = {"peers": []}
+            for entry in status.get("peers") or []:
+                row = dict(entry)
+                row.setdefault("name", name)
+                peers.append(row)
+        return {
+            "peers": peers,
+            "configured": len(self._peers),
+            "running": self._running,
+            "local_bus": await self._local.health(),
+        }
+
 
 def _wait_peers_applies(topic: str, prefixes: str) -> bool:
     """#2109: True when the #1764 peer wait covers ``topic``. An empty prefix

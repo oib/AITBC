@@ -2,6 +2,7 @@
 Core blockchain router.
 """
 
+import os
 from datetime import UTC, datetime
 from typing import Any
 
@@ -45,6 +46,23 @@ from ..utils import get_chain_id
 _logger = get_logger(__name__)
 
 router = APIRouter(tags=["core"])
+
+
+def _node_version() -> str:
+    """Honest version string for ``/rpc/network-info`` (#2417).
+
+    ``AITBC_VERSION`` env override wins (build/deploy stamping), then the
+    canonical ``aitbc`` package version. Never a stale literal — when neither
+    is available the key reports ``"unknown"`` rather than a fabricated
+    release number."""
+    env_version = os.getenv("AITBC_VERSION")
+    if env_version:
+        return env_version
+    try:
+        from aitbc._version import __version__ as package_version
+    except Exception:  # noqa: BLE001 - version introspection must never break the route
+        return "unknown"
+    return package_version or "unknown"
 
 
 @router.get(
@@ -222,7 +240,6 @@ def get_network_info_route(request: Request) -> dict[str, Any]:
     Shares ``_join_public_base_url`` with ``/rpc/join`` (#1875 F7).
     """
     import json
-    import os
 
     from .subscription import _join_public_base_url
 
@@ -275,7 +292,7 @@ def get_network_info_route(request: Request) -> dict[str, Any]:
     gossip_urls = {c: f"{gossip_url}?chain={quote(c, safe='')}" for c in _connectable_chain_ids()}
     gossip_auth_required = settings.gossip_auth_enabled
 
-    return {
+    payload: dict[str, Any] = {
         # Legacy aliases (kept for backward compatibility)
         "p2p_endpoint": p2p_endpoint,
         "p2p_node_id": p2p_node_id,
@@ -296,8 +313,7 @@ def get_network_info_route(request: Request) -> dict[str, Any]:
         "gossip_websocket_urls": gossip_urls,
         "gossip_auth_required": gossip_auth_required,
         "validators": validators,
-        "contact_email": settings.contact_email,
-        "version": os.getenv("AITBC_VERSION", "0.7.6"),
+        "version": _node_version(),
         "default_peer_rpc_url": base_url,
         "connection_instructions": (
             f"Set default_peer_rpc_url={base_url} and enable subscription "
@@ -328,6 +344,12 @@ def get_network_info_route(request: Request) -> dict[str, Any]:
         },
         "api_gateway": f"{base_url}/api",
     }
+    # #2417: contact_email is opt-in — the key is omitted entirely when the
+    # operator has not configured CONTACT_EMAIL (the default is empty), so
+    # joiners never see a fabricated "operator@aitbc.invalid" placeholder.
+    if settings.contact_email:
+        payload["contact_email"] = settings.contact_email
+    return payload
 
 
 @router.post("/importBlock", summary="Import a block", dependencies=[Depends(verify_rpc_api_key)])

@@ -1517,6 +1517,13 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/gossip/peers",
+          "upstream": "/rpc/gossip/peers",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/governance/proposal",
           "upstream": "/rpc/governance/proposal",
           "methods": [

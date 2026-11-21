@@ -56,6 +56,33 @@ def test_network_info_schema(_network_info_settings) -> None:
     assert "/rpc/join" in str(data["join"])
 
 
+def test_network_info_version_is_honest(_network_info_settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#2417: version is the real package version (or AITBC_VERSION override),
+    never the stale 0.7.6 literal."""
+    monkeypatch.delenv("AITBC_VERSION", raising=False)
+    from aitbc._version import __version__ as package_version
+
+    data = _fetch_network_info()
+    assert data["version"] == package_version
+    assert data["version"] != "0.7.6"
+
+    monkeypatch.setenv("AITBC_VERSION", "9.9.9-test")
+    data = _fetch_network_info()
+    assert data["version"] == "9.9.9-test"
+
+
+def test_network_info_omits_contact_email_when_unset(_network_info_settings, monkeypatch: pytest.MonkeyPatch) -> None:
+    """#2417: no CONTACT_EMAIL configured → the key is absent, not a placeholder."""
+    monkeypatch.setattr(settings, "contact_email", "")
+    data = _fetch_network_info()
+    assert "contact_email" not in data
+    assert "aitbc.invalid" not in str(data)
+
+    monkeypatch.setattr(settings, "contact_email", "ops@example.com")
+    data = _fetch_network_info()
+    assert data["contact_email"] == "ops@example.com"
+
+
 def test_network_info_and_head_allow_head_requests(_network_info_settings) -> None:
     """Uptime monitors probe with HEAD — FastAPI does not auto-add it."""
     with TestClient(create_app()) as client:

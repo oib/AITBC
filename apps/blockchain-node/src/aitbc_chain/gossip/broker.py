@@ -188,6 +188,17 @@ class GossipBroker:
         """#1711: delegate the readiness probe to the active backend."""
         return await self._backend.health()
 
+    async def peer_status(self) -> dict[str, Any]:
+        """#2417: read-only per-peer connectivity for ``GET /rpc/gossip/peers``.
+
+        Delegates to the active backend and stamps the broker-level running
+        flag and backend type so callers can tell "no peers configured"
+        apart from "gossip never started"."""
+        status = await self._backend.peer_status()
+        status["running"] = self._started
+        status["backend"] = type(self._backend).__name__
+        return status
+
     async def shutdown(self) -> None:
         if self._priority_task is not None:
             self._priority_task.cancel()
