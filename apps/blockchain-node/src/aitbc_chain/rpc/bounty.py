@@ -6,14 +6,14 @@ from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException, Request
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from aitbc.rate_limiting import rate_limit
 
 from ..base_models import BountyContract, BountySubmissionRecord, _to_ait_address
 from ..database import session_scope
 from ..logger import get_logger
-from ..models import Account
+from ..models import Account, Block
 from ..protocol_escrow import (
     bounty_escrow_address,
     confirmed_lock_total,
@@ -68,6 +68,25 @@ def _signed_bounty_id_matches(payload: dict[str, Any], bounty_id: str, *, requir
         raise HTTPException(status_code=400, detail="signed bounty_id does not match the path bounty_id")
 
 
+def _optional_deadline_height(payload: dict[str, Any]) -> int | None:
+    """Optional ``deadline_height`` from a signed deploy body.
+
+    Absent (or null) keeps the legacy semantics: the bounty may be expired
+    at any height. When set it is the earliest block height at which
+    ``expire_bounty`` may run — see ``expire_bounty``.
+    """
+    raw = payload.get("deadline_height")
+    if raw is None:
+        return None
+    try:
+        value = int(raw)
+    except (TypeError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail="deadline_height must be an integer") from exc
+    if value < 0:
+        raise HTTPException(status_code=400, detail="deadline_height must be >= 0")
+    return value
+
+
 def _require_funded(session: Session, chain_id: str, bounty: BountyContract) -> None:
     """Refuse to pay out of the shared bounty escrow before the lock has landed.
 
@@ -100,6 +119,7 @@ def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="bounty_id and user_address are required")
     creator = _to_ait_address(str(creator))
     amount = require_int(payload, "reward_amount")
+    deadline_height = _optional_deadline_height(payload)
     with session_scope() as session:
         if not protocol_transfers_active(session, chain_id):
             raise_for_unarmed("Bounty (create)")
@@ -111,6 +131,7 @@ def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any]:
                 "bounty_id": existing.bounty_id,
                 "remaining_amount": existing.remaining_amount,
                 "status": existing.status,
+                "deadline_height": existing.deadline_height,
             }
         account = _account(session, chain_id, creator)
         if account.balance < amount:
@@ -125,6 +146,7 @@ def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any]:
             reward_amount=amount,
             remaining_amount=amount,
             status="active",
+            deadline_height=deadline_height,
         )
         session.add(record)
         session.commit()
@@ -134,15 +156,21 @@ def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any]:
             "bounty_id": record.bounty_id,
             "remaining_amount": record.remaining_amount,
             "status": record.status,
+            "deadline_height": record.deadline_height,
         }
 
+    lock_payload: dict[str, Any] = {"bounty_id": str(bounty_id)}
+    if deadline_height is not None:
+        # Carried on the sealed BOUNTY_LOCK so the on-chain record shows the
+        # deadline the signed body committed to.
+        lock_payload["deadline_height"] = deadline_height
     tx_hash = queue_protocol_transfer(
         sender=creator,
         recipient=bounty_escrow_address(),
         amount=amount,
         chain_id=chain_id,
         tx_type="BOUNTY_LOCK",
-        payload={"bounty_id": str(bounty_id)},
+        payload=lock_payload,
         auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
     )
     _logger.info("Bounty lock queued: %s amount=%s creator=%s tx=%s", bounty_id, amount, creator, tx_hash)
@@ -288,6 +316,25 @@ def dispute_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> di
         return {"success": True, "bounty_id": bounty_id, "status": bounty.status}
 
 
+def _require_deadline_reached(session: Session, chain_id: str, bounty: BountyContract) -> None:
+    """Refuse expiry while the chain head is below the bounty's deadline.
+
+    A bounty with a ``deadline_height`` may only be expired once the head
+    reaches it. Bounties deployed without one (``deadline_height`` NULL)
+    keep the legacy expire-anytime semantics.
+    """
+    if bounty.deadline_height is None:
+        return
+    head = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).first() or 0
+    if head < bounty.deadline_height:
+        raise HTTPException(
+            status_code=409,
+            detail=(
+                f"Bounty {bounty.bounty_id} deadline not reached: expires at height {bounty.deadline_height}, current {head}"
+            ),
+        )
+
+
 @rate_limit(rate=20, per=60)
 def expire_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dict[str, Any]:
     payload = require_operator_signature(body)
@@ -313,6 +360,7 @@ def expire_bounty(request: Request, bounty_id: str, body: dict[str, Any]) -> dic
             return {"success": True, "idempotent": True, "bounty_id": bounty.bounty_id, "refunded": 0}
         if bounty.status == "completed":
             raise HTTPException(status_code=400, detail="Bounty already completed")
+        _require_deadline_reached(session, chain_id, bounty)
         refund = bounty.remaining_amount
         if refund:
             _require_funded(session, chain_id, bounty)
