@@ -377,6 +377,7 @@ def _send_transaction_impl(
     nonce_offset: int = 0,
     key_env: str | None = None,
     assume_yes: bool = False,
+    out: dict[str, Any] | None = None,
 ) -> str | None:
     """Send a secp256k1-signed transaction.
 
@@ -384,6 +385,10 @@ def _send_transaction_impl(
     (``from_wallet`` + ``password``) or an environment variable named by
     ``key_env``. Both paths share chain-id resolution, nonce lookup, signing
     and submission so they cannot drift apart.
+
+    When ``out`` is given it is populated with the signed ``transaction``
+    and the node's ``submit`` response so JSON-output callers can report the
+    real outcome without scraping stderr (#2416).
     """
     rpc_url = _resolve_transaction_rpc_url(rpc_url)
 
@@ -456,7 +461,14 @@ def _send_transaction_impl(
     )
 
     # Submit to blockchain
-    return _submit_signed_transaction(rpc_url, transaction, sender_label, to_address)
+    submit = _submit_signed_transaction(rpc_url, transaction, sender_label, to_address)
+    if out is not None:
+        out["transaction"] = transaction
+        out["submit"] = submit
+        out["sender_address"] = sender_address
+    if submit is None:
+        return None
+    return submit.get("transaction_hash")
 
 
 def _warn_if_session_grant_never_expires(tx_type: str, payload: dict[str, Any] | None) -> None:
@@ -582,15 +594,21 @@ def _build_signed_transaction(
     return transaction
 
 
-def _submit_signed_transaction(rpc_url: str, transaction: dict[str, Any], from_wallet: str, to_address: str) -> str | None:
-    """POST the signed transaction to the blockchain RPC."""
+def _submit_signed_transaction(
+    rpc_url: str, transaction: dict[str, Any], from_wallet: str, to_address: str
+) -> dict[str, Any] | None:
+    """POST the signed transaction to the blockchain RPC.
+
+    Returns the node's response body (``transaction_hash`` plus any
+    ``peer_relay``/``warning`` fields, #2361) so callers can report the real
+    submit outcome; ``None`` on failure."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.post("/rpc/transaction", json=transaction)
         tx_hash = result.get("transaction_hash")
         success(f"Transaction submitted, not confirmed: {tx_hash}")
         logger.info("Transaction submitted (unconfirmed): %s from %s to %s", tx_hash, from_wallet, to_address)
-        return tx_hash
+        return result
     except NetworkError as e:
         logger.error("Network error submitting transaction: %s", e)
         abort(None, f"Error submitting transaction: {e}")
@@ -726,6 +744,7 @@ def send(
         if parsed_payload is None:
             return
 
+    send_out: dict[str, Any] = {}
     tx_hash = _send_transaction_impl(
         from_wallet,
         to_address,
@@ -738,6 +757,7 @@ def send(
         nonce_offset=nonce_offset,
         key_env=key_env,
         assume_yes=assume_yes,
+        out=send_out,
     )
     if not tx_hash:
         # _send_transaction_impl already printed the specific refusal (bad amount,
@@ -750,23 +770,77 @@ def send(
 
     success(f"Transaction sent: {tx_hash}")
 
-    # Optionally check status via Explorer API
-    if use_explorer:
-        try:
-            config = get_config()
-            http_client = AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
-            result = http_client.get(f"/api/transactions/by-hash/{tx_hash}")
-            success("Transaction status (via Explorer):")
-            click.echo(json.dumps(result, indent=2))
-        except NetworkError as e:
-            if http_response_status(e) == 404:
-                error(f"Transaction {tx_hash} not found")
-            else:
-                error(f"Explorer API unavailable: {e}")
-        except _TRANSACTION_ERRORS as e:
-            abort(None, f"Error checking status via Explorer: {e}")
+    json_output = ctx is not None and ctx.obj and ctx.obj.get("output_format") == "json"
+    explorer_result = _check_explorer_status(tx_hash, use_explorer, quiet=json_output)
+    if json_output:
+        _emit_send_json_document(send_out, tx_hash, tx_type, from_wallet, key_env, to_address, amount, fee, explorer_result)
 
     # Check if first wallet is unencrypted
+
+
+def _check_explorer_status(tx_hash: str | None, use_explorer: bool, *, quiet: bool) -> dict[str, Any] | None:
+    """Fetch explorer status for a submitted tx; prints it unless ``quiet``.
+
+    In JSON-output mode the result is folded into the single stdout document
+    instead of being echoed separately (#2416)."""
+    if not use_explorer:
+        return None
+    try:
+        config = get_config()
+        http_client = AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
+        result = http_client.get(f"/api/transactions/by-hash/{tx_hash}")
+        if not quiet:
+            success("Transaction status (via Explorer):")
+            click.echo(json.dumps(result, indent=2))
+        return result
+    except NetworkError as e:
+        if http_response_status(e) == 404:
+            error(f"Transaction {tx_hash} not found")
+        else:
+            error(f"Explorer API unavailable: {e}")
+    except _TRANSACTION_ERRORS as e:
+        abort(None, f"Error checking status via Explorer: {e}")
+    return None
+
+
+def _emit_send_json_document(
+    send_out: dict[str, Any],
+    tx_hash: str | None,
+    tx_type: str,
+    from_wallet: str | None,
+    key_env: str | None,
+    to_address: str,
+    amount: Decimal,
+    fee: Decimal,
+    explorer_result: dict[str, Any] | None,
+) -> None:
+    """Emit the single machine-readable document for ``send --output json`` (#2416).
+
+    Human-readable status lines stay on stderr via success/error; this is the
+    only stdout write in JSON mode so `jq` sees exactly one document.
+    """
+    transaction = send_out.get("transaction") or {}
+    submit = send_out.get("submit") or {}
+    doc: dict[str, Any] = {
+        "transaction_hash": tx_hash,
+        "status": "submitted",
+        "type": tx_type,
+        "chain_id": transaction.get("chain_id"),
+        "from": send_out.get("sender_address"),
+        "from_wallet": from_wallet,
+        "key_env": key_env,
+        "to": to_address,
+        "amount_ait": str(amount),
+        "fee_ait": str(fee),
+        "nonce": transaction.get("nonce"),
+        "fee_units": transaction.get("fee"),
+    }
+    for passthrough in ("peer_relay", "warning"):
+        if passthrough in submit:
+            doc[passthrough] = submit[passthrough]
+    if explorer_result is not None:
+        doc["explorer"] = explorer_result
+    click.echo(json.dumps(doc, indent=2))
 
 
 def _process_batch_entry(
