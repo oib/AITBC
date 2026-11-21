@@ -151,6 +151,11 @@ class Settings(ServiceSettings):
     # Agent TTL (v0.6.5 — configurable, was hardcoded in agent_discovery.py)
     agent_heartbeat_timeout_seconds: int = 120
     agent_cleanup_interval_seconds: int = 60
+    # #2367: seconds an INACTIVE (heartbeat-reaped) agent record is retained so
+    # its identity binding keeps resolving for signed reads. Discovery and
+    # task assignment already require ACTIVE, so retention grants read/auth
+    # resolution only; expiry unregisters the agent entirely.
+    agent_registry_retention_seconds: int = 7 * 24 * 3600
 
     # v0.10.8: trusted island members are no longer inferred from journalctl log lines.
     # Provide a comma-separated list via the ISLAND_MEMBERS env var (or leave empty).

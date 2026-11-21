@@ -161,6 +161,7 @@ class AgentRegistry:
         redis_url: str = "redis://localhost:6379/1",
         cleanup_interval: int | None = None,
         max_heartbeat_age: int | None = None,
+        retention_seconds: int | None = None,
     ) -> None:
         self.redis_url = redis_url
         self.redis_client: Any = None
@@ -181,6 +182,18 @@ class AgentRegistry:
         self.max_heartbeat_age = (
             max_heartbeat_age if max_heartbeat_age is not None else settings.agent_heartbeat_timeout_seconds
         )
+        # #2367: how long a heartbeat-reaped (INACTIVE) agent's record is kept
+        # so its identity binding still resolves for signed ``X-Agent-*``/JWT
+        # reads. Discovery and task assignment only select ACTIVE agents, so
+        # retention grants read/auth resolution — it cannot hand work to a
+        # dead agent — and a heartbeat/status update revives the agent.
+        self.retention_seconds = (
+            retention_seconds if retention_seconds is not None else settings.agent_registry_retention_seconds
+        )
+        # The Redis copy must outlive the retention window or a coordinator
+        # restart would drop retained agents' bindings before the in-memory
+        # cleanup ever saw them. ``agent_ttl`` stays the floor.
+        self._redis_record_ttl = timedelta(seconds=max(settings.agent_ttl, self.retention_seconds))
 
     async def start(self) -> None:
         """Start the registry service"""
@@ -345,6 +358,14 @@ class AgentRegistry:
             # mutator is between its own await points can miss or double-count agents.
             async with self._lock:
                 candidate_agents = list(self.agents.values())
+            # #2367: INACTIVE agents (heartbeat-stale, retained for read auth)
+            # are not discovery candidates unless the caller explicitly
+            # filters on ``status`` — discovery feeds task assignment,
+            # broadcast and agent pickers, all of which require a live agent.
+            # An explicit ``{"status": "inactive"}`` query still returns them
+            # for ops inspection.
+            if "status" not in query:
+                candidate_agents = [a for a in candidate_agents if a.status != AgentStatus.INACTIVE]
             candidate_agents = self._filter_candidates(candidate_agents, query)
             results = sorted(candidate_agents, key=lambda a: a.health_score, reverse=True)
             # ``limit`` arrives from an untrusted query dict (POST /agents/discover
@@ -461,7 +482,9 @@ class AgentRegistry:
         if not self.redis_client:
             return
         key = f"agent:{agent_info.agent_id}"
-        await self.redis_client.set(key, json.dumps(agent_info.to_dict()), ex=timedelta(hours=24))
+        # getattr fallback: tests drive this method on a bare namespace.
+        ttl = getattr(self, "_redis_record_ttl", None) or timedelta(hours=24)
+        await self.redis_client.set(key, json.dumps(agent_info.to_dict()), ex=ttl)
 
     async def _remove_agent_from_redis(self, agent_id: str) -> None:
         """Remove agent from Redis"""
@@ -522,21 +545,33 @@ class AgentRegistry:
                 await asyncio.sleep(5)
 
     async def _cleanup_inactive_agents(self) -> None:
-        """Clean up inactive agents"""
+        """Periodically unregister agents past the retention window"""
         while True:
             try:
                 await asyncio.sleep(self.cleanup_interval)
-                now = datetime.now(UTC)
-                max_inactive_age = timedelta(hours=1)
-                for agent_id, agent_info in list(self.agents.items()):
-                    if agent_info.status == AgentStatus.INACTIVE:
-                        inactive_age = now - agent_info.last_heartbeat
-                        if inactive_age > max_inactive_age:
-                            await self.unregister_agent(agent_id)
-                            logger.info("Removed inactive agent %s", agent_id)
+                await self._retire_expired_agents()
             except _OPS_ERRORS as e:
                 logger.error("Error in cleanup task: %s", e)
                 await asyncio.sleep(5)
+
+    async def _retire_expired_agents(self) -> None:
+        """Unregister INACTIVE agents whose retention window has elapsed (#2367).
+
+        INACTIVE agents inside ``retention_seconds`` are kept on purpose:
+        their record — including the ``identity_address`` binding — is what
+        lets signed ``X-Agent-*`` headers and agent JWTs keep resolving for
+        read endpoints after the agent stops heartbeating. Retained agents
+        stay out of discovery (``discover_agents`` drops INACTIVE unless a
+        status filter asks for them) and out of task assignment, which only
+        selects ``AgentStatus.ACTIVE``; a heartbeat or status update revives
+        them to ACTIVE before this sweep would ever see them again.
+        """
+        now = datetime.now(UTC)
+        retention = timedelta(seconds=self.retention_seconds)
+        for agent_id, agent_info in list(self.agents.items()):
+            if agent_info.status == AgentStatus.INACTIVE and now - agent_info.last_heartbeat > retention:
+                await self.unregister_agent(agent_id)
+                logger.info("Removed inactive agent %s after retention window", agent_id)
 
 
 class AgentDiscoveryService:
