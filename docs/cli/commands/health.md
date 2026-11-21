@@ -16,7 +16,7 @@ aitbc health [OPTIONS]
 |---|---|---|---|---|
 | `--host` | text | — | yes | Remote host to probe (hostname, IP, or http(s):// URL). |
 | `--services` | text | — | no | Comma-separated list of services to probe (default: all known AITBC services). |
-| `--role` | choice | — | no | Probe only the services this role deploys (same manifest as start/stop --role). |
+| `--role` | choice | — | no | Probe only the services this role deploys (role manifest; per-node installed units may differ). |
 | `--timeout` | float | `5.0` | no | Timeout per request in seconds. |
 | `--output` | choice | — | no | Output format. |
 

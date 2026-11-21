@@ -141,6 +141,8 @@ class TestHealthRoleFilter:
     def test_role_shop_limits_probes(self, runner, monkeypatch):
         from aitbc_cli.commands import health as health_mod
 
+        # Mirrors the post-#2423 shop manifest: deployed shop units only —
+        # coordinator-api/pool-hub/market are hub-side, not on the shop node.
         shop_units = [
             "aitbc-blockchain-node",
             "aitbc-blockchain-rpc",
@@ -148,10 +150,9 @@ class TestHealthRoleFilter:
             "aitbc-monitoring",
             "aitbc-trading",
             "aitbc-governance",
-            "aitbc-market",
-            "aitbc-api-gateway",
             "aitbc-blockchain-explorer",
-            "aitbc-pool-hub",
+            "aitbc-gpu",
+            "aitbc-miner",
             "aitbc-edge",
         ]
         monkeypatch.setattr("aitbc_cli.commands.control._role_services", lambda role: shop_units)
@@ -162,11 +163,12 @@ class TestHealthRoleFilter:
         assert result.exit_code == 0, result.output
         data = json.loads(result.output[result.output.index("["):])
         services = {row["service"] for row in data}
-        # Shop-deployed, probeable units only — no coordinator-api/pool-hub? pool-hub IS in
-        # the shop manifest above; coordinator-api is not, so it must be absent.
+        # Shop-deployed, probeable units only — hub-side units must be absent.
         assert "coordinator-api" not in services
+        assert "market" not in services
+        assert "pool-hub" not in services
         assert "blockchain-rpc" in services
-        assert "market" in services
+        assert "edge" in services
         assert "explorer" in services
 
     def test_services_and_role_conflict_aborts(self, runner):
