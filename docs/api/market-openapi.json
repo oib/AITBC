@@ -2082,7 +2082,7 @@
     "/v1/market/jobs/{job_id}/billing": {
       "post": {
         "summary": "Report Market Job Billing",
-        "description": "Record provider-attested billing metrics for a metered job (#2365).\n\nProvider daemons (ollama-gate, whisper, ffmpeg, hermes) POST the usage\nthey actually served here at job completion, authenticated by the same\nper-job ``X-Access-Key``/``X-Access-Secret``/``X-Job-Id`` triple the\nshop gate verifies \u2014 the secret never leaves the job's serving party.\nNo market API key: the credential IS the authorization. A ``final``\nreport completes the job so the settlement passes release the escrow\nagainst the attested actuals instead of the locked estimate.",
+        "description": "Record provider-attested billing metrics for a metered job (#2365).\n\nProvider daemons (ollama-gate, whisper, ffmpeg, hermes) POST the usage\nthey actually served here at job completion, authenticated by the same\nper-job ``X-Access-Key``/``X-Access-Secret``/``X-Job-Id`` triple the\nshop gate verifies \u2014 the secret never leaves the job's serving party.\nNo market API key: the credential IS the authorization \u2014 but the\nbuyer-issued access-token triple alone only proves \"holder of the job\ntoken\", and the buyer minted it. Settlement input therefore also\nrequires the job provider's wallet signature over the route-bound\n``{\"metrics\", \"final\"}`` binding, verified against\n``job.provider_address`` (#2365 rework \u2014 a buyer-held token must never\nattest the provider's usage). A ``final`` report completes the job so\nthe settlement passes release the escrow against the attested\nactuals instead of the locked estimate.",
         "operationId": "report_market_job_billing_v1_market_jobs__job_id__billing_post",
         "parameters": [
           {
@@ -2213,7 +2213,7 @@
             }
           },
           "403": {
-            "description": "invalid access token / access token not issued for this job",
+            "description": "invalid access token / access token not issued for this job / signer is not this job's provider",
             "content": {
               "application/json": {
                 "schema": {

@@ -285,12 +285,14 @@ def test_process_reports_processing_time_billing(monkeypatch) -> None:
     monkeypatch.setattr(ffmpeg_main, "report_request_billing", report)
 
     request = _FakeRequest({"X-Access-Key": "k", "X-Access-Secret": "s", "X-Job-Id": "job-F1"})
-    resp = _process(request=request)
+    resp = _process(request=request, job={"provider_address": "0xProvider1"})
     assert resp.status_code == 200
     report.assert_awaited_once()
     call = report.await_args
     assert call.args[0] is request
     assert set(call.args[1]) == {"processing_time_hours"}
+    # #2365 respin: signed as the provider from the verified job record.
+    assert call.kwargs["provider_address"] == "0xProvider1"
 
 
 def test_process_billing_failure_still_delivers(monkeypatch) -> None:

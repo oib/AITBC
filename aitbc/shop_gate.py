@@ -28,9 +28,12 @@ module never binds it to an event loop.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 import re
+import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
@@ -106,26 +109,107 @@ async def _verify(access_key: str, access_secret: str) -> dict[str, Any] | None:
     return data if isinstance(data, dict) else None
 
 
+def _wallet_dir() -> Path:
+    """Provider wallet directory — same resolution the IPFS pinning sweeper uses."""
+    return Path(os.environ.get("AITBC_WALLET_DIR") or os.environ.get("WALLET_DIR") or "/var/lib/aitbc/wallets")
+
+
+def _chain_id() -> str:
+    return (os.environ.get("AITBC_CHAIN_ID") or os.environ.get("CHAIN_ID") or "").strip()
+
+
+def _provider_signing_key(provider_address: str) -> str | None:
+    """This host's private key for ``provider_address``, or None.
+
+    Same lookup ``apps/miner/ipfs_pinning_sweeper._provider_key`` uses for
+    pin-confirm: the provider wallet JSON under the wallet dir is readable
+    by the service user, and the address match proves which key signs.
+    """
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    try:
+        target = canonical_address(provider_address)
+    except (TypeError, ValueError):
+        return None
+    try:
+        for path in sorted(_wallet_dir().glob("*.json")):
+            try:
+                data = json.loads(path.read_text())
+            except (OSError, json.JSONDecodeError):
+                continue
+            try:
+                if canonical_address(str(data.get("address") or "")) != target:
+                    continue
+            except (TypeError, ValueError):
+                continue
+            key = data.get("private_key")
+            if key:
+                return str(key)
+    except OSError:
+        pass
+    return None
+
+
+def _billing_signature(provider_address: str, job_id: str, metrics: dict[str, Any], final: bool) -> dict[str, Any] | None:
+    """Provider wallet signature binding this exact billing report (#2365).
+
+    The market verifies the recovered signer against ``job.provider_address``
+    — the access-token triple only proves the buyer-issued job credential,
+    which the payer also holds. The signed message binds the route, the
+    metrics and the final flag verbatim, so a captured signature cannot be
+    replayed for different usage or a different endpoint.
+    """
+    from aitbc.crypto.crypto import sign_transaction_data
+    from aitbc.market.job_request_signature import jobs_request_message
+
+    key = _provider_signing_key(provider_address)
+    chain_id = _chain_id()
+    if not key or not chain_id:
+        logger.warning(
+            "Cannot sign billing report for job %s as %s: provider wallet key or chain id unavailable",
+            job_id,
+            provider_address,
+        )
+        return None
+    route = f"/v1/market/jobs/{quote(job_id, safe='')}/billing"
+    binding = {"metrics": metrics, "final": final}
+    issued_at = int(time.time())
+    message = jobs_request_message(provider_address, chain_id, issued_at, route, binding=binding)
+    return {
+        "signer_address": provider_address,
+        "chain_id": chain_id,
+        "issued_at": issued_at,
+        "signature": sign_transaction_data(message, key),
+    }
+
+
 async def report_job_billing(
     *,
     job_id: str,
     access_key: str,
     access_secret: str,
+    provider_address: str | None,
     metrics: dict[str, Any],
     final: bool = True,
 ) -> bool:
     """POST provider-attested billing metrics for a paid job (#2365).
 
-    Called by shop daemons once the job's usage is known. The market
-    service stores the metrics and, on ``final``, settles the escrow
-    against them — the buyer-side auto-release cannot name a partial
-    amount (#1912 relay rule), so this report is the only path to
-    metered billing. Never raises: a failed report must not fail paid
-    work already delivered; the job then falls back to full-lock
-    settlement (or refund at expiry when nothing was attested).
+    Called by shop daemons once the job's usage is known. The report is
+    authorized by the job provider's wallet signature over the metrics —
+    ``provider_address`` comes from the market's access-token verify
+    response, never from request headers — so the buyer-held access token
+    cannot attest the provider's usage. The market service stores the
+    metrics and, on ``final``, settles the escrow against them — the
+    buyer-side auto-release cannot name a partial amount (#1912 relay
+    rule), so this report is the only path to metered billing. Never
+    raises: a failed report must not fail paid work already delivered; the
+    job then falls back to full-lock settlement.
     """
 
-    if not job_id or not access_key or not access_secret or not metrics:
+    if not job_id or not access_key or not access_secret or not metrics or not provider_address:
+        return False
+    signed = _billing_signature(provider_address, job_id, metrics, final)
+    if signed is None:
         return False
     try:
         resp = await _verify_client().post(
@@ -135,7 +219,7 @@ async def report_job_billing(
                 "X-Access-Secret": access_secret,
                 "X-Job-Id": job_id,
             },
-            json={"metrics": metrics, "final": final},
+            json={"metrics": metrics, "final": final, **signed},
             timeout=BILLING_TIMEOUT,
         )
     except Exception as e:  # noqa: BLE001 - billing is best-effort; paid work already happened
@@ -147,19 +231,28 @@ async def report_job_billing(
     return True
 
 
-async def report_request_billing(request: Request, metrics: dict[str, Any], *, final: bool = True) -> bool:
+async def report_request_billing(
+    request: Request,
+    metrics: dict[str, Any],
+    *,
+    provider_address: str | None = None,
+    final: bool = True,
+) -> bool:
     """``report_job_billing`` with the credential triple read off the request.
 
     The paid route's ``require_job_access`` dependency has already proven
     the triple valid for this job; the daemon replays the same headers on
     the billing POST so the market service binds the report to the serving
-    party's job credential.
+    party's job credential. ``provider_address`` must come from that
+    verified job record — it selects which provider wallet signs the
+    attestation.
     """
     try:
         return await report_job_billing(
             job_id=request.headers.get("X-Job-Id", ""),
             access_key=request.headers.get("X-Access-Key", ""),
             access_secret=request.headers.get("X-Access-Secret", ""),
+            provider_address=provider_address,
             metrics=metrics,
             final=final,
         )

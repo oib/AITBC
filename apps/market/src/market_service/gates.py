@@ -18,7 +18,7 @@ from aitbc.market.job_request_signature import verify_jobs_request_signature
 from aitbc.utils.chain_id import resolve_chain_id
 
 from .config import settings
-from .services.market_service import MarketService
+from .services.market_service import MarketService, _secret_matches
 
 # Keep the historic logger name: caplog filters and log-schema checks key on
 # "market_service.main".
@@ -343,6 +343,70 @@ async def _pin_confirm_attestation_gate(
         return JSONResponse(status_code=403, content={"error": "pin attestation cid does not match this job"})
     if binding.get("size") != pin_size:
         return JSONResponse(status_code=403, content={"error": "pin attestation size does not match the reported size"})
+    return None
+
+
+async def _billing_access_gate(
+    svc: MarketService,
+    job_id: str,
+    x_access_key: str | None,
+    x_access_secret: str | None,
+    x_job_id: str | None,
+) -> tuple[dict[str, Any] | None, JSONResponse | None]:
+    """#2365: secondary credential check for billing reports.
+
+    Returns ``(job, None)`` when the access-token triple is present, valid,
+    and bound to this job — the provider signature gate then decides
+    authorization. Returns ``(None, response)`` with the refusal otherwise.
+    """
+    if not x_access_key or not x_access_secret or not x_job_id:
+        return None, JSONResponse(
+            status_code=401, content={"error": "X-Access-Key, X-Access-Secret and X-Job-Id are required"}
+        )
+    job = await svc.get_market_job(job_id)
+    if not job:
+        return None, JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
+    payload = job.get("payload") or {}
+    if job.get("access_key") != x_access_key or not _secret_matches(str(payload.get("access_secret") or ""), x_access_secret):
+        return None, JSONResponse(status_code=403, content={"error": "invalid access token"})
+    if x_job_id != job_id:
+        return None, JSONResponse(status_code=403, content={"error": "access token not issued for this job"})
+    return job, None
+
+
+async def _billing_attestation_gate(
+    svc: MarketService,
+    job_id: str,
+    body: dict[str, Any],
+    job: dict[str, Any],
+) -> JSONResponse | None:
+    """#2365: a billing report is settlement input — it must come from the
+    provider, not from whoever holds the buyer-issued access token.
+
+    The ``X-Access-Key``/``X-Access-Secret``/``X-Job-Id`` triple proves only
+    "holder of the job access token", which the *buyer* minted for the shop
+    gate — a buyer could otherwise sign ``{"eval_count": 1, "final": true}``
+    and under-bill the provider's escrow. The report therefore also carries
+    the job provider's wallet signature over the route-bound
+    ``{"metrics", "final"}`` binding (same canonical jobs-request proof as
+    pin-confirm, #1922), verified against ``job.provider_address``. The
+    access-token triple stays as a secondary check binding the report to
+    the serving credential, but it is no longer the authorization.
+    """
+    binding = {"metrics": body.get("metrics"), "final": body.get("final")}
+    error, signer = verify_jobs_request_signature(
+        signer_address=body.get("signer_address"),
+        chain_id=body.get("chain_id"),
+        issued_at=body.get("issued_at"),
+        route=f"/v1/market/jobs/{job_id}/billing",
+        signature=body.get("signature"),
+        expected_chain_id=settings.default_chain_id or resolve_chain_id(),
+        binding=binding,
+    )
+    if error or not signer:
+        return JSONResponse(status_code=403, content={"error": error or "provider signature required"})
+    if canonical_address(signer) != canonical_address(str(job.get("provider_address") or "")):
+        return JSONResponse(status_code=403, content={"error": "signer is not this job's provider"})
     return None
 
 
