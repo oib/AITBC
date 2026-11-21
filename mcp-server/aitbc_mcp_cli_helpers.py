@@ -286,6 +286,7 @@ DESTRUCTIVE_AITBC_PATHS = {
     "dispute file",
     "edge island bridge",
     "liquidity-stake",
+    "market gpu agreement-create",
     "monitor alerts",
     "monitor webhooks",
     "restart",
