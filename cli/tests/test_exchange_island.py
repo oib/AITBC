@@ -366,5 +366,25 @@ def test_orderbook_excludes_cancelled_orders(mock_credentials_file, runner):
     assert "0.0020" not in result.output
 
 
+def test_orders_drops_cancel_rows_but_keeps_cancelled_status(mock_credentials_file, runner):
+    """#2400: a cancel tx flips its order's status but is never an order row —
+    zero-amount 'orders' must not appear in history or JSON output."""
+    from aitbc_cli.commands.exchange_island import exchange_island
+
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient", _CancelAwareHTTPClient):
+        result = runner.invoke(exchange_island, ["orders"], obj={"output_format": "json"})
+
+    assert result.exit_code == 0, result.output
+    rows = json.loads(result.output)
+    order_ids = [r["Order ID"] for r in rows]
+    assert any(i.startswith("ord_live") for i in order_ids)
+    assert any(i.startswith("ord_dead") for i in order_ids)  # original row, status flipped
+    assert all(r.get("action") != "cancel" for r in rows)
+    dead = next(r for r in rows if r["Order ID"].startswith("ord_dead"))
+    assert dead["Status"] == "cancelled"
+    # The cancel transaction itself produced no row.
+    assert not any(r["Amount"] == "0.0000 AIT" for r in rows)
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
