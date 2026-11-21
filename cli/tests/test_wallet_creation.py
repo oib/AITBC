@@ -28,3 +28,30 @@ def test_file_wallet_uses_real_private_key(monkeypatch, tmp_path):
     assert "encrypted_data" in wallet_data["private_key"]
     assert "salt" in wallet_data["private_key"]
     assert "simple_key_" not in json.dumps(wallet_data)
+
+
+def test_list_wallets_reports_file_type_key(monkeypatch, tmp_path):
+    """#2391: `wallet list` must show the stored type for both on-disk
+    shapes — CLI-created files use ``type``, adapter-created use
+    ``wallet_type``; neither may collapse to the 'hd' default."""
+    import json as _json
+    from unittest.mock import patch
+
+    from aitbc_cli.utils.dual_mode_wallet_adapter import DualModeWalletAdapter
+
+    monkeypatch.setenv("AITBC_WALLET_DIR", str(tmp_path))
+    (tmp_path / "cli-simple.json").write_text(
+        _json.dumps({"wallet_id": "cli-simple", "type": "simple", "address": "0x" + "11" * 20})
+    )
+    (tmp_path / "adapter-hd.json").write_text(
+        _json.dumps({"wallet_id": "adapter-hd", "wallet_type": "hd", "address": "0x" + "22" * 20})
+    )
+    (tmp_path / "legacy.json").write_text(_json.dumps({"wallet_id": "legacy", "address": "0x" + "33" * 20}))
+
+    adapter = DualModeWalletAdapter(use_daemon=False)
+    with patch("aitbc_cli.utils.dual_mode_wallet_adapter.wallet_search_dirs", return_value=[tmp_path]):
+        wallets = {w["wallet_name"]: w["wallet_type"] for w in adapter.list_wallets()}
+
+    assert wallets["cli-simple"] == "simple"
+    assert wallets["adapter-hd"] == "hd"
+    assert wallets["legacy"] == "hd"  # absent key still defaults to hd

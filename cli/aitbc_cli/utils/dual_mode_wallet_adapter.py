@@ -221,7 +221,7 @@ class DualModeWalletAdapter:
                             "wallet_name": wallet_data.get("name") or wallet_data.get("wallet_id") or wallet_file.stem,
                             "address": wallet_data.get("address"),
                             "balance": wallet_data.get("balance", 0.0),
-                            "wallet_type": wallet_data.get("wallet_type", "hd"),
+                            "wallet_type": wallet_data.get("wallet_type") or wallet_data.get("type") or "hd",
                             "created_at": wallet_data.get("created_at"),
                             "encrypted": wallet_data.get("encrypted", False),
                         }
@@ -283,7 +283,7 @@ class DualModeWalletAdapter:
                 "wallet_name": wallet_data.get("name") or wallet_data.get("wallet_id") or wallet_name,
                 "address": wallet_data.get("address"),
                 "balance": wallet_data.get("balance", 0.0),
-                "wallet_type": wallet_data.get("wallet_type", "hd"),
+                "wallet_type": wallet_data.get("wallet_type") or wallet_data.get("type") or "hd",
                 "created_at": wallet_data.get("created_at"),
                 "encrypted": wallet_data.get("encrypted", False),
                 "transactions": wallet_data.get("transactions", []),
