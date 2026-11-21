@@ -144,7 +144,7 @@ aitbc system cron
 Lists the environment variable names a service consumes.
 
 ```bash
-aitbc system env-names --service aitbc-coordinator-api
+aitbc system env-names --service aitbc-wallet
 ```
 
 ### Step 10: Read a managed file
@@ -152,7 +152,7 @@ aitbc system env-names --service aitbc-coordinator-api
 Prints a managed config file.
 
 ```bash
-aitbc system file --path /etc/aitbc/aitbc-coordinator-api.env
+aitbc system file --path /etc/aitbc/aitbc-wallet.env
 ```
 
 ### Step 11: Managed file metadata
@@ -160,7 +160,7 @@ aitbc system file --path /etc/aitbc/aitbc-coordinator-api.env
 Shows size/mtime metadata for a managed file.
 
 ```bash
-aitbc system file-info --path /etc/aitbc/aitbc-coordinator-api.env
+aitbc system file-info --path /etc/aitbc/aitbc-wallet.env
 ```
 
 ### Step 12: Read service logs
@@ -168,7 +168,7 @@ aitbc system file-info --path /etc/aitbc/aitbc-coordinator-api.env
 Tails a service's journal.
 
 ```bash
-aitbc system logs --service aitbc-coordinator-api -n 20
+aitbc system logs --service aitbc-wallet -n 20
 ```
 
 ### Step 13: Show a service unit
@@ -176,12 +176,12 @@ aitbc system logs --service aitbc-coordinator-api -n 20
 Prints systemd properties for a service.
 
 ```bash
-aitbc system show --service aitbc-coordinator-api
+aitbc system show --service aitbc-wallet
 ```
 
 ### Step 14: Dump a service env file
 
-`aitbc system cat --service aitbc-coordinator-api` is prints the raw env file including secrets — env/key material.
+`aitbc system cat --service aitbc-wallet` is prints the raw env file including secrets — env/key material.
 
 <!-- COVERAGE-LEFT-1: remaining top-level control/health leaves (issue #445) -->
 
@@ -191,9 +191,10 @@ aitbc system show --service aitbc-coordinator-api
 
 ```bash
 aitbc health --host localhost
+aitbc health --host node2.example.net --role shop   # probe only shop-role services
 ```
 
-**Expected output:** a per-service table (`api-gateway`, `blockchain-rpc`, `coordinator-api`, …) with status/latency; down services show `connect_error`/`timeout`, which is an honest result, not a CLI failure.
+**Expected output:** a per-service table (`api-gateway`, `blockchain-rpc`, `coordinator-api`, …) with status/latency; down services show `connect_error`/`timeout`, which is an honest result, not a CLI failure. `--role shop` restricts the probe list to the units the shop role deploys instead of every known service.
 
 ### Step 14b: Update check only
 
@@ -221,14 +222,14 @@ aitbc restart --role shop --dry-run
 `aitbc service harden --dry-run` prints the systemd hardening directives it would apply without writing unit files or restarting:
 
 ```bash
-aitbc service harden --service aitbc-coordinator-api --dry-run
+aitbc service harden --service aitbc-wallet --dry-run
 ```
 
 **Expected output:** a preview of the hardening changes. `aitbc service harden` without `--dry-run` rewrites systemd units and restarts services — env mutation + service control.
 
 ### Step 15: Set service env vars
 
-`aitbc system env-set aitbc-coordinator-api KEY=VALUE` is rewrites a service env file — env mutation.
+`aitbc system env-set aitbc-wallet KEY=VALUE` is rewrites a service env file — env mutation.
 
 ### Step 16: Run a script on a service
 
@@ -236,11 +237,11 @@ aitbc service harden --service aitbc-coordinator-api --dry-run
 
 ### Step 17: Start a service
 
-`aitbc system start --service aitbc-coordinator-api` is starts a systemd unit — service control.
+`aitbc system start --service aitbc-wallet` is starts a systemd unit — service control.
 
 ### Step 18: Stop a service
 
-`aitbc system stop --service aitbc-coordinator-api` is stops a systemd unit — service control.
+`aitbc system stop --service aitbc-wallet` is stops a systemd unit — service control.
 
 ---
 
