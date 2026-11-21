@@ -957,3 +957,76 @@ def test_gpu_query_sends_chain_id_when_probe_succeeds(runner, monkeypatch):
         result = runner.invoke(gpu_mod.gpu, ["query", "--gpu-id", "gpu-1"], obj={})
     assert result.exit_code == 0, result.output
     assert calls[0][1] == {"chain_id": "ait-test"}
+
+
+def _deregister_args(*extra):
+    return ["deregister", "--gpu-id", "gpu-1", "--wallet", "w1", *extra]
+
+
+def _invoke_deregister(runner, monkeypatch, gpu_info, *extra):
+    """Invoke gpu-onchain deregister with the info preflight + submit mocked."""
+    from aitbc_cli.commands import gpu_resources as gpu_mod
+
+    submit = MagicMock(return_value={"transaction_hash": "0x1"})
+
+    class _C:
+        def __init__(self, base_url="", **kw):
+            self.base_url = base_url
+
+        def get(self, endpoint, params=None, **kw):
+            if endpoint == "/rpc/gpu/info/gpu-1":
+                return gpu_info
+            raise AssertionError(f"unexpected GET {endpoint}")
+
+    monkeypatch.setenv("CHAIN_ID", "env-chain")
+    with (
+        patch("aitbc_cli.commands.gpu_resources.get_config", return_value=_gpu_config()),
+        patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient", _C),
+        patch("aitbc_cli.utils.gpu_onchain.submit_gpu_deregister", submit),
+    ):
+        result = runner.invoke(gpu_mod.gpu, _deregister_args(*extra), obj={})
+    return result, submit
+
+
+def test_gpu_deregister_refuses_with_active_allocations(runner, monkeypatch):
+    """active_allocations > 0 blocks deregister — no release tx exists (#2403)."""
+    result, submit = _invoke_deregister(runner, monkeypatch, {"gpu_id": "gpu-1", "active_allocations": 2})
+    assert result.exit_code != 0
+    assert "active on-chain allocation" in result.output
+    submit.assert_not_called()
+
+
+def test_gpu_deregister_force_bypasses_guard(runner, monkeypatch):
+    result, submit = _invoke_deregister(runner, monkeypatch, {"gpu_id": "gpu-1", "active_allocations": 2}, "--force")
+    assert result.exit_code == 0, result.output
+    submit.assert_called_once()
+
+
+def test_gpu_deregister_allows_zero_active_allocations(runner, monkeypatch):
+    result, submit = _invoke_deregister(runner, monkeypatch, {"gpu_id": "gpu-1", "active_allocations": 0})
+    assert result.exit_code == 0, result.output
+    submit.assert_called_once()
+
+
+def test_gpu_deregister_preflight_failure_is_advisory(runner, monkeypatch):
+    """An unreachable info endpoint must not block the deregister itself."""
+    from aitbc_cli.commands import gpu_resources as gpu_mod
+
+    submit = MagicMock(return_value={"transaction_hash": "0x1"})
+
+    class _C:
+        def __init__(self, base_url="", **kw):
+            self.base_url = base_url
+
+        def get(self, endpoint, params=None, **kw):
+            raise ConnectionError("node down")
+
+    monkeypatch.setenv("CHAIN_ID", "env-chain")
+    with (
+        patch("aitbc_cli.commands.gpu_resources.get_config", return_value=_gpu_config()),
+        patch("aitbc_cli.commands.gpu_resources.AITBCHTTPClient", _C),
+        patch("aitbc_cli.utils.gpu_onchain.submit_gpu_deregister", submit),
+    ):
+        result = runner.invoke(gpu_mod.gpu, _deregister_args(), obj={})
+    assert result.exit_code == 0, result.output
+    submit.assert_called_once()
