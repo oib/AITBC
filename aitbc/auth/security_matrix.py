@@ -128,6 +128,9 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     # (hipaa/economic-proposals require_auth, oracle set_price AdminDep), so
     # ANY is the matrix-level floor.
     "/v1/hipaa/*": AuthLevel.ANY,
+    # #2377: compliance audit export is admin data — the handler's AdminDep
+    # is the real gate; the matrix floor keeps the middleware consistent.
+    "/v1/compliance/audit-logs": AuthLevel.ADMIN,
     "/v1/economic-proposals": AuthLevel.ANY,
     "/v1/economic-proposals/*": AuthLevel.ANY,
     "/v1/agent-creativity/*": AuthLevel.ANY,
