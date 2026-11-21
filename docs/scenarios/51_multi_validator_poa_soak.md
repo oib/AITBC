@@ -3,8 +3,8 @@
 **Level**: Advanced
 **Prerequisites**: [Scenario 15 Blockchain Monitoring](./15_blockchain_monitoring.md), [Scenario 17 Governance Voting](./17_governance_voting.md)
 **Estimated Time**: 30 minutes
-**Last Updated**: 2026-08-23
-**Version**: 1.0
+**Last Updated**: 2026-11-21
+**Version**: 1.1
 
 ## Navigation Path
 
@@ -128,9 +128,20 @@ aitbc monitor metrics
 
 Look for `poa_proposer_switches_total` increasing and `poa_blocks_proposed_total_*` split across validators.
 
-### Step 5: Confirm single-proposer fallback when disabled
+> **Descoped 21 Nov 2026 (operator ruling):** the literal single-proposer
+> fallback leg was exercised sandbox-side on the A2 `aitbc-test-*` mesh —
+> flipping `MULTI_VALIDATOR_CONSENSUS_ENABLED=false` there would make all
+> four validators believe they are the sole proposer (guaranteed
+> equivocation), so a dedicated single-node chain would be required for
+> literal evidence. The flag-off path is the previously-running
+> single-proposer code and is accepted as covered indirectly. Live
+> evidence for the rest of the scenario: 68 soak tests @`037369aa6`,
+> 500-block rotation = 125×4 validators, partition drill (nft isolation,
+> no fork, 5s resync) — `aitbc-test/evidence/s51-partition-20261121/`.
 
-Stop the node, unset the flag, and restart:
+### Step 5: Confirm single-proposer fallback when disabled (descoped)
+
+> See the descope note above — retained for reference only.
 
 ```bash
 MULTI_VALIDATOR_CONSENSUS_ENABLED=false python3 -m aitbc_chain.main
@@ -226,7 +237,7 @@ aitbc sync bulk --source http://hub.example:8100
 - Unit and soak tests pass: `50 passed` in `apps/blockchain-node/tests/consensus`.
 - Local block production shows at least two distinct proposers over 50 blocks.
 - `poa_proposer_switches_total` > 0 in the metrics endpoint (`http://localhost:9009/metrics`).
-- Reverting `MULTI_VALIDATOR_CONSENSUS_ENABLED=false` returns the node to single-proposer without corrupting the chain.
+- ~~Reverting `MULTI_VALIDATOR_CONSENSUS_ENABLED=false` returns the node to single-proposer without corrupting the chain.~~ **Descoped 21 Nov 2026** — see Step 5 note.
 
 ---
 
