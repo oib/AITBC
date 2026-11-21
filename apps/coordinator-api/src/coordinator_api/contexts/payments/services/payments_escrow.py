@@ -361,9 +361,26 @@ class PaymentEscrowMixin(PaymentCoreMixin):
                     "record before retrying",
                 )
                 return None, False
-            lock_tx_hash = (record or {}).get("lock_tx_hash")
+            # #2359: the record's lock_tx_hash is written when /escrow/create
+            # submits the lock to the *mempool* — it is not proof of seal.
+            # Adopting it marked the payment "escrowed" while the lock could
+            # still be pending (or never land), opening the dispatch gate
+            # before funds existed on-chain. Only a sealed ESCROW_LOCK tx
+            # (the same source _wait_for_lock_seal polls) may escrow the
+            # payment; a submitted-but-unsealed lock is a retryable failure.
             contract_id = (record or {}).get("contract_id")
-            if lock_tx_hash is None:
+            lock_submitted = record is not None and record.get("lock_tx_hash") is not None
+            if lock_submitted:
+                lock_tx_hash = await self._wait_for_lock_seal(client, payment.job_id)
+                if lock_tx_hash is None:
+                    self._mark_escrow_failed(
+                        payment,
+                        "unsealed",
+                        "the escrow lock was submitted but did not seal on-chain; "
+                        "the purchase can be retried once it confirms or is dropped",
+                    )
+                    return None, False
+            else:
                 lock_tx_hash = await _lookup_chain_lock(self.blockchain_rpc_url, client, payment.job_id)
         except _OPS_ERRORS:
             self._mark_escrow_failed(

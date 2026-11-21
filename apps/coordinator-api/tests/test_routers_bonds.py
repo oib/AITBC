@@ -217,11 +217,17 @@ class TestBondLifecycle:
         assert slashed["meta"]["slash_reason"] == "fraud"
         assert slashed["meta"]["slashed_by"] == "provider-1"
 
-    def test_lock_without_bond_creates_pending_row(self, client: TestClient) -> None:
-        # set_provider_bond_status upserts — locking a bondless provider yields a row
-        resp = client.post(f"{BASE}/providers/ghost2/bonds/lock", headers=_headers())
-        assert resp.status_code == 200
-        assert resp.json()["status"] == "locked"
+    def test_transitions_without_bond_are_404_not_ghost_rows(self, client: TestClient) -> None:
+        """#2359: lock/release/slash on a provider with no bond must not upsert
+        a ghost ProviderBond row — the paid sweep found liquidated ghosts for
+        provider/bond ids that never existed."""
+        for action in ("lock", "release", "slash"):
+            kwargs = {"json": {"reason": "x"}} if action == "slash" else {}
+            resp = client.post(f"{BASE}/providers/ghost2/bonds/{action}", headers=_headers(), **kwargs)
+            assert resp.status_code == 404, action
+            assert "no bond" in resp.json()["detail"]
+        elig = client.get(f"{BASE}/providers/ghost2/eligibility", headers=_headers()).json()
+        assert elig["status"] == "pending"  # no row was created
 
 
 class TestEligibilityChainReverify:

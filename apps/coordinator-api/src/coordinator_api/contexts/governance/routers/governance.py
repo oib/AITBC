@@ -296,6 +296,26 @@ def submit_slash_appeal(
     session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Submit an appeal against a bond slashing decision"""
+    # #2359: an appeal must reference a real bond — without this check any
+    # caller could file appeals against nonexistent provider/bond ids,
+    # creating ghost records reviewers cannot action.
+    from sqlmodel import select as sm_select
+
+    from ...market.domain.provider_bond import ProviderBond
+
+    stmt = sm_select(ProviderBond)
+    if appeal_request.provider_id:
+        stmt = stmt.where(ProviderBond.provider_id == appeal_request.provider_id)
+    candidates = session.execute(stmt).scalars().all()
+    bond = next(
+        (b for b in candidates if not appeal_request.bond_id or b.bond_id == appeal_request.bond_id),
+        None,
+    )
+    if bond is None:
+        raise HTTPException(
+            status_code=404,
+            detail="no bond matches the appeal's provider_id/bond_id",
+        )
     try:
         appeal = SlashAppeal(
             bond_id=appeal_request.bond_id,
