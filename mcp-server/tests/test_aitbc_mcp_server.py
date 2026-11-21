@@ -921,6 +921,7 @@ _WRAPPER_LOOP_PATHS = {
     "market offer-disable",
     "market offer-list",
     "market process",
+    "market provider-pin",
     "market providers",
     "market run",
     "market transcribe",
