@@ -96,20 +96,28 @@ def _categorize_from_exception(from_exception: Exception) -> type[CLIError] | No
     return None
 
 
+_NOT_FOUND_KEYWORDS = ("not found", "no such", "does not exist")
+
+
+def _has_keyword(msg_lower: str, keywords: tuple[str, ...]) -> bool:
+    return any(kw in msg_lower for kw in keywords)
+
+
 def _categorize_by_keywords(msg_lower: str) -> type[CLIError]:
     """Return the CLIError subclass whose keywords appear in the message."""
-    for kw in _NETWORK_KEYWORDS:
-        if kw in msg_lower:
-            return NetworkError
-    for kw in _CONFIG_KEYWORDS:
-        if kw in msg_lower:
-            return ConfigurationError
-    for kw in _VALIDATION_KEYWORDS:
-        if kw in msg_lower:
-            return ValidationError
-    for kw in _API_KEYWORDS:
-        if kw in msg_lower:
-            return APIError
+    # Order matters: network/config first so "host not found" stays a
+    # NetworkError; not-found before validation so missing resources exit 2
+    # everywhere instead of splitting between 2 and 4 (#2438).
+    if _has_keyword(msg_lower, _NETWORK_KEYWORDS):
+        return NetworkError
+    if _has_keyword(msg_lower, _CONFIG_KEYWORDS):
+        return ConfigurationError
+    if _has_keyword(msg_lower, _NOT_FOUND_KEYWORDS):
+        return NotFoundError
+    if _has_keyword(msg_lower, _VALIDATION_KEYWORDS):
+        return ValidationError
+    if _has_keyword(msg_lower, _API_KEYWORDS):
+        return APIError
     return CLIError
 
 
@@ -170,6 +178,11 @@ def abort(
     Raises:
         CLIError: (or a subclass) — always.
     """
+    # #2438: most call sites pass ctx=None; without this the JSON branch is
+    # unreachable and refusals print plain stderr even under --output json.
+    # The active click context still knows the requested format.
+    if ctx is None:
+        ctx = click.get_current_context(silent=True)
     if error_type is None:
         error_type = _categorize(message, from_exception)
 
