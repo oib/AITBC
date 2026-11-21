@@ -145,17 +145,17 @@ def _get_chain_id(ctx: click.Context, rpc_url: str) -> str:
 
 
 def _get_account_nonce(http_client: AITBCHTTPClient, address: str, chain_id: str) -> int:
-    """Fetch the on-chain nonce for an address.
+    """Fetch the on-chain nonce for an address, plus the mempool lookahead
+    (#2395): the sealed nonce ignores the sender's own in-flight txs, so two
+    back-to-back submits would collide on the same nonce slot.
 
     Aborts when the lookup fails — a failed lookup must not mean nonce 0: the
     wrong nonce produces an already-signed transaction the chain refuses.
     """
+    from ...utils.nonce import next_send_nonce
+
     try:
-        account = http_client.get(f"/rpc/account/{address}?chain_id={chain_id}")
-        nonce = account.get("nonce")
-        if nonce is None:
-            raise ValueError(f"/rpc/account/{address} response carried no nonce")
-        return int(nonce)
+        return next_send_nonce(http_client, address, chain_id)
     except Exception as e:
         error(
             f"Nonce lookup for {address} via {http_client.base_url} failed: {e}. "
