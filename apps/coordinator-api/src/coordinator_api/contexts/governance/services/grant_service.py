@@ -35,6 +35,14 @@ def _as_naive(value: datetime | None) -> datetime | None:
     return value.replace(tzinfo=None) if value.tzinfo else value
 
 
+# #2356: statuses that still accept votes / can resolve. VOTING is the
+# status new proposals open in; SUBMITTED/UNDER_REVIEW remain for rows
+# created before the split.
+_VOTABLE_STATUSES = frozenset({GrantStatus.VOTING, GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW, GrantStatus.ACTIVE})
+_RESOLVABLE_STATUSES = frozenset({GrantStatus.VOTING, GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW})
+_PROCESSABLE_STATUSES = frozenset({GrantStatus.VOTING, GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW})
+
+
 def _check_disburse_balance(grant: GrantProposal, disburse_amount: Decimal) -> None:
     """#1071: a disbursement can never exceed what the vote approved."""
     # #1838: non-positive amounts used to pass — a negative disburse
@@ -67,7 +75,10 @@ class GrantService:
             title=title,
             description=description,
             requested_amount=_to_decimal(requested_amount),
-            status=GrantStatus.SUBMITTED,
+            # #2356: a fresh proposal is in its voting window — SUBMITTED was
+            # indistinguishable from "awaiting review" and `--status voting`
+            # could never match anything.
+            status=GrantStatus.VOTING,
             voting_starts=now,
             voting_ends=now + timedelta(days=voting_days),
         )
@@ -146,7 +157,7 @@ class GrantService:
         grant = self.get_grant(grant_id)
         if not grant:
             raise ValueError("Grant not found")
-        if grant.status not in {GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW, GrantStatus.ACTIVE}:
+        if grant.status not in _VOTABLE_STATUSES:
             raise ValueError("Grant is not open for voting")
         if voter_id is not None:
             self._record_grant_voter(grant, voter_id)
@@ -169,7 +180,7 @@ class GrantService:
             update(GrantProposal)
             .where(
                 col(GrantProposal.id) == grant_id,
-                col(GrantProposal.status).in_([GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW, GrantStatus.ACTIVE]),
+                col(GrantProposal.status).in_(_VOTABLE_STATUSES),
             )
             .values(**{counter: getattr(GrantProposal, counter) + voting_power})
             .execution_options(synchronize_session=False)
@@ -192,7 +203,7 @@ class GrantService:
         # #1838: ACTIVE grants are already resolved and disbursing — letting
         # process_grant re-resolve them regressed ACTIVE->APPROVED and
         # rewrote approved_amount.
-        if grant.status not in {GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW}:
+        if grant.status not in _PROCESSABLE_STATUSES:
             raise ValueError("Grant is not in a processable state")
         self._check_resolution(grant, _utc_now())
         self.session.add(grant)
@@ -216,10 +227,10 @@ class GrantService:
             # ACTIVE grant re-resolved here used to regress to APPROVED with
             # approved_amount rewritten to requested_amount (or flip to
             # REJECTED if votes shifted).
-            if grant.status in {GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW}:
+            if grant.status in _RESOLVABLE_STATUSES:
                 grant.status = GrantStatus.APPROVED
                 grant.approved_amount = grant.requested_amount
-        elif grant.status in {GrantStatus.SUBMITTED, GrantStatus.UNDER_REVIEW}:
+        elif grant.status in _RESOLVABLE_STATUSES:
             grant.status = GrantStatus.REJECTED
 
     def disburse(

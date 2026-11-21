@@ -14,7 +14,7 @@ aitbc grant create [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--developer-id` | text | — | yes | Developer ID |
+| `--developer-id` | text | — | no | Deprecated — ignored; the proposal binds to your authenticated principal (#2356) |
 | `--title` | text | — | yes | Grant title |
 | `--description` | text | — | no | Grant description |
 | `--requested-amount` | text | — | yes | Requested amount as decimal string |
@@ -24,7 +24,7 @@ aitbc grant create [OPTIONS]
 ## Examples
 
 ```bash
-aitbc grant create --developer-id <developer_id> --title <title> --requested-amount <requested_amount>
+aitbc grant create --title <title> --requested-amount <requested_amount>
 ```
 
 ## Related

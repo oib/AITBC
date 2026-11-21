@@ -179,6 +179,15 @@ async def vote_grant(
     voter_id = user["sub"]
     profile = await run_in_threadpool(GovernanceService(session).get_or_create_profile, voter_id, 0.0)
     voting_power = effective_voting_power(profile)
+    # #2356: a zero-power vote used to return 200, record the voter in
+    # proposal_metadata (burning their one vote) and add 0.0 to the tally —
+    # "success" with no effect. Reject it so the caller stakes/delegates
+    # first; --voting-power on the CLI is ignored by design (#1071).
+    if voting_power <= 0:
+        raise HTTPException(
+            status_code=400,
+            detail="voter has no voting power — stake AITBC or receive delegation via a governance profile first",
+        )
     try:
         return await run_in_threadpool(
             service.vote, grant_id=grant_id, vote=body.vote, voting_power=voting_power, voter_id=voter_id
