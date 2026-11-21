@@ -156,9 +156,13 @@ def test_unsigned_nonoffer_market_dropped():
 
 
 def test_unsigned_other_types_dropped():
-    for tx_type in ("STAKE_LOCK", "ESCROW_LOCK", "BOND_LOCK", "MESSAGE"):
+    # STAKE_LOCK sits in the #713 protocol-auth carve: unsigned it drops as
+    # invalid_protocol_auth (no payload.auth), not missing_signature. The
+    # full carve contract lives in test_gossip_protocol_transfer_713.py.
+    for tx_type in ("ESCROW_LOCK", "BOND_LOCK", "MESSAGE"):
         tx = _transfer_tx(type=tx_type)
         assert gossip_transaction_drop_reason(tx) == "missing_signature", tx_type
+    assert gossip_transaction_drop_reason(_transfer_tx(type="STAKE_LOCK")) == "invalid_protocol_auth"
 
 
 def _signed(tx: dict[str, Any]) -> dict[str, Any]:
