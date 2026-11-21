@@ -231,7 +231,9 @@ def status(ctx, bounty_id, chain_id, rpc_url, limit, as_json):
         if deadline_height is not None:
             break
     output(
-        {"bounty_id": bounty_id, "deadline_height": deadline_height, "transactions": found},
+        # #2451: `found` distinguishes "no BOUNTY_* rows for this id" from
+        # a known bounty — an empty transactions map alone was ambiguous.
+        {"bounty_id": bounty_id, "found": bool(found), "deadline_height": deadline_height, "transactions": found},
         "json" if as_json else resolve_output_format(ctx),
         title=f"Bounty {bounty_id}",
     )

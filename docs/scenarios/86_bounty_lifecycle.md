@@ -52,9 +52,93 @@ the 410 only surfaces on a *signed* body while unarmed.
 
 ---
 
-## Operator path: signed node RPC (`hub:8202`)
+## Operator path: `aitbc bounty` CLI → signed node RPC
 
-Every step signs the request body the same way:
+The `aitbc bounty` group (`deploy`/`submit`/`verify`/`dispute`/`expire`/
+`status`, since `3465dc438`) is the operator-facing surface: each write
+command builds the body, signs it with the operator wallet
+(canonical JSON → keccak256 → secp256k1 — the same scheme the node
+verifies against `AGENT_ECONOMICS_OPERATOR_ADDRESS`), and POSTs to
+`/v1/bounty/*`. Pass `--wallet-name <operator>` and `--rpc-url
+http://hub:8202` (or rely on config) on every call.
+
+```bash
+RPC=http://hub:8202   # node RPC on hub
+aitbc bounty <cmd> --rpc-url "$RPC" --wallet-name <operator-wallet>
+```
+
+### Step 1: Confirm the gate is open
+
+An unsigned probe still answers **403 "Operator signature required"** —
+the signature gate fires before the armed-check, so 410 is only
+observable on a *signed* body while unarmed. Do not proceed until a
+properly signed request succeeds.
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST "$RPC/v1/bounty/deploy" -H 'content-type: application/json' -d '{}'
+```
+
+**Expected:** `403`.
+
+### Step 2: Deploy a bounty → `BOUNTY_LOCK`
+
+```bash
+aitbc bounty deploy --bounty-id <bounty_id> --amount 1 --memo 'play bounty' \
+  --deadline-height <head+N> --rpc-url "$RPC" --wallet-name <operator-wallet>
+```
+
+`--amount` is in **AIT** (the CLI converts to units); `--bounty-id` and
+`--deadline-height` are optional — omit the id and one is generated,
+omit the deadline and the bounty may be expired at any height. A
+`BOUNTY_LOCK` seals moving the reward into bounty escrow. Record the
+`bounty_id` from the response.
+
+### Step 3: Submit work
+
+```bash
+aitbc bounty submit --bounty-id <bounty_id> --submission-id <sub_id> \
+  --memo 'ipfs://solution' --rpc-url "$RPC" --wallet-name <operator-wallet>
+```
+
+`--submission-id` is generated when omitted; `--user-address` defaults
+to the signing wallet (the submitter).
+
+### Step 4: Verify the submission → `BOUNTY_PAYOUT`
+
+```bash
+aitbc bounty verify --bounty-id <bounty_id> --submission-id <sub_id> \
+  --rpc-url "$RPC" --wallet-name <operator-wallet>
+```
+
+Add `--reject` for a negative verdict. The node re-verifies the operator
+`payload.auth` and emits a `BOUNTY_PAYOUT`, which seals and pays the
+worker.
+
+### Step 5: Deploy a second bounty, then expire → `BOUNTY_REFUND`
+
+Deploy as in step 2 with `--deadline-height` only a few blocks ahead —
+the record stores it on `bounty_contract.deadline_height` (and on the
+sealed `BOUNTY_LOCK` payload). Expiry is gated on it: `/expire` answers
+**409 "deadline not reached: expires at height N, current M"** while the
+chain head is below the deadline, and succeeds once `head >=
+deadline_height`. A bounty deployed **without** `--deadline-height`
+keeps the legacy semantics — it may be expired at any height. Once the
+deadline has passed:
+
+```bash
+aitbc bounty expire --bounty-id <bounty_id> \
+  --rpc-url "$RPC" --wallet-name <operator-wallet>
+```
+
+A `BOUNTY_REFUND` seals returning the escrowed reward to the funder.
+
+`aitbc bounty dispute --bounty-id <id> --submission-id <sub> --reason <text>`
+marks a submission disputed when verification is contested.
+
+### Sealed-proof reference: the raw signed-body flow
+
+The pre-CLI curl flow (still what the node verifies on the wire) is kept
+here for reference — the CLI performs exactly these steps internally:
 
 1. Strip `signature` from the payload.
 2. Canonical JSON: `json.dumps(payload, sort_keys=True, separators=(",", ":"))`.
@@ -64,76 +148,7 @@ Every step signs the request body the same way:
 
 Working reference implementation: `hub:/root/v17-bounty_cycle.py`
 (operator-held, not in the repo) — it already exercises the full cycle
-below; the steps here annotate what each call does on-chain. Plays used
-`curl` because no `aitbc` CLI surface existed — the `aitbc bounty` group
-(3465dc438) now covers the same signed-POST flow.
-
-```bash
-RPC=http://hub:8202   # node RPC on hub
-```
-
-### Step 1: Confirm the gate is open
-
-```bash
-curl -s -o /dev/null -w '%{http_code}\n' -X POST "$RPC/v1/bounty/deploy" -H 'content-type: application/json' -d '{}'
-```
-
-**Expected:** `403` "Operator signature required" for this unsigned
-probe — the signature gate fires before the armed-check, so 410 is no
-longer observable with an unsigned body. Once armed, a *signed* body
-with a bad/absent signature still answers 403/400; do not proceed until
-a properly signed request succeeds.
-
-### Step 2: Deploy a bounty → `BOUNTY_LOCK`
-
-Sign and POST a deploy body — title, `reward` (units), `funder_wallet`,
-`deadline_height` (give the payout leg generous margin; the field is
-optional — omit it and the bounty may be expired at any height):
-
-```bash
-curl -s -X POST "$RPC/v1/bounty/deploy" -H 'content-type: application/json' -d @signed-deploy.json
-```
-
-A `BOUNTY_LOCK` seals moving `reward` into bounty escrow. Record the
-`bounty_id` from the response.
-
-### Step 3: Submit work
-
-Sign and POST the submission body (`bounty_id`, `worker_wallet`,
-`result_uri`):
-
-```bash
-curl -s -X POST "$RPC/v1/bounty/<bounty_id>/submit" -H 'content-type: application/json' -d @signed-submit.json
-```
-
-### Step 4: Verify the submission → `BOUNTY_PAYOUT`
-
-Sign and POST the verify body (`bounty_id`, `submission_id`, verdict
-accepted):
-
-```bash
-curl -s -X POST "$RPC/v1/bounty/<bounty_id>/verify" -H 'content-type: application/json' -d @signed-verify.json
-```
-
-The node re-verifies the operator `payload.auth` and emits a
-`BOUNTY_PAYOUT`, which seals and pays the worker.
-
-### Step 5: Deploy a second bounty, then expire → `BOUNTY_REFUND`
-
-Deploy as in step 2 with `deadline_height` only a few blocks ahead —
-the record stores it on `bounty_contract.deadline_height` (and on the
-sealed `BOUNTY_LOCK` payload). Expiry is gated on it: `/expire` answers
-**409 "deadline not reached: expires at height N, current M"** while the
-chain head is below the deadline, and succeeds once `head >=
-deadline_height`. A bounty deployed **without** `deadline_height` keeps
-the legacy semantics — it may be expired at any height. Once the
-deadline has passed, sign and POST the expire body:
-
-```bash
-curl -s -X POST "$RPC/v1/bounty/<bounty_id>/expire" -H 'content-type: application/json' -d @signed-expire.json
-```
-
-A `BOUNTY_REFUND` seals returning the escrowed reward to the funder.
+above; the annotations below record what each call does on-chain.
 
 ---
 
@@ -145,8 +160,8 @@ sqlite3 /var/lib/aitbc/data/<chain_id>/chain.db \
   "SELECT block_height, type, sender, recipient FROM transaction \
    WHERE type IN ('BOUNTY_LOCK','BOUNTY_PAYOUT','BOUNTY_REFUND') ORDER BY rowid DESC LIMIT 10;"
 
-# bounty record state — read via the node RPC bounty router
-curl -s "$RPC/v1/bounty/<bounty_id>" | python3 -m json.tool
+# on-chain transfer view — `found:false` means no BOUNTY_* rows for the id (#2451)
+aitbc bounty status --bounty-id <bounty_id> --rpc-url "$RPC" --json
 ```
 
 **Expected:**
