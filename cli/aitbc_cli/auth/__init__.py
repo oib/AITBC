@@ -59,6 +59,18 @@ def _jwt_payload(token: str) -> dict | None:
         return None
 
 
+def jwt_claims(token: str | None) -> dict | None:
+    """Decoded JWT payload (signature NOT verified) or ``None``.
+
+    Public read-only helper for surfacing a credential's identity claims
+    (``sub``, ``agent_id``, ``role``) — e.g. ``aitbc auth status`` and the
+    reputation self-service path (#2406). Never use it for authorization.
+    """
+    if not token:
+        return None
+    return _jwt_payload(token)
+
+
 def _is_token_expired(token: str) -> bool:
     """Check whether a JWT's ``exp`` claim is in the past."""
     payload = _jwt_payload(token)
@@ -304,4 +316,4 @@ class AuthManager:
         return self.store_credential(name, api_key)
 
 
-__all__ = ["AuthManager", "ExpiredAdminToken", "ExpiredClientToken"]
+__all__ = ["AuthManager", "ExpiredAdminToken", "ExpiredClientToken", "jwt_claims"]

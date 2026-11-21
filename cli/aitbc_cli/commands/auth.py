@@ -9,7 +9,7 @@ import click
 import httpx
 
 from aitbc.exceptions import AITBCError
-from ..auth import AuthManager
+from ..auth import AuthManager, jwt_claims
 from ..config import get_config
 from ..utils import info, output, success, warning
 from ..utils.error_handling import CLIError, abort
@@ -244,6 +244,34 @@ def _store_login_token(ctx, token: str, address: str, environment: str, credenti
         abort(None, "Login succeeded but token could not be stored")
 
 
+def _credential_identities(manager: AuthManager, creds: dict[str, str]) -> dict[str, dict[str, str]]:
+    """Decode each stored credential's JWT claims for ``auth status`` (#2406).
+
+    The masked ``******`` listing hid the caller's own id, which made
+    self-service commands like ``reputation create-profile`` (whose agent-id
+    defaults to the credential's ``agent_id``/``sub`` claim) undiscoverable.
+    Returns ``{credential_key: {"subject": ..., "agent_id": ..., "role": ...}}``
+    for JWT-shaped credentials only; opaque API keys contribute nothing.
+    """
+    identities: dict[str, dict[str, str]] = {}
+    for key in creds:
+        name, _, env = key.rpartition("@")
+        token = manager.get_credential(name, env, quiet=True)
+        payload = jwt_claims(token) if token else None
+        if not payload:
+            continue
+        ident: dict[str, str] = {}
+        if payload.get("sub"):
+            ident["subject"] = str(payload["sub"])
+        if payload.get("agent_id"):
+            ident["agent_id"] = str(payload["agent_id"])
+        if payload.get("role"):
+            ident["role"] = str(payload["role"])
+        if ident:
+            identities[key] = ident
+    return identities
+
+
 @auth.command(
     epilog="""Examples:
 
@@ -260,7 +288,17 @@ def status(ctx, environment: str):
     if not creds:
         warning(f"No stored credentials for environment '{environment}'")
         return
+    identities = _credential_identities(manager, creds)
+    if ctx.obj.get("output_format", "table") == "json" and identities:
+        output(
+            {k: {"masked": v, **identities.get(k, {})} for k, v in creds.items()},
+            "json",
+            title="Stored Credentials",
+        )
+        return
     output(creds, ctx.obj.get("output_format", "table"), title="Stored Credentials")
+    for key, ident in identities.items():
+        info(f"{key}: " + ", ".join(f"{field}={value}" for field, value in ident.items()))
 
 
 @auth.command(

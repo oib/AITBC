@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: Scenario 11 IPFS Storage
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-08-21
-**Version**: 1.2
+**Last Updated**: 2026-11-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -25,7 +25,7 @@ breadcrumb: Home > Scenarios > Reputation Management
 
 ## Scenario Overview
 
-> **Live vs. simulated:** `aitbc reputation` commands are **live** when the coordinator reputation service is reachable. If the service is down (unreachable, no response), the CLI returns `(Simulated)` profiles, trust scores, and leaderboard data. A *reachable* coordinator answering with an error — e.g. `404 Reputation profile not found` for an agent that has no profile yet — aborts as `Request failed (HTTP 404): <server message>` instead of simulated data; create the profile first with `aitbc reputation create-profile --agent-id <id>`.
+> **Live vs. simulated:** `aitbc reputation` commands are **live** when the coordinator reputation service is reachable. If the service is down (unreachable, no response), the CLI returns `(Simulated)` profiles, trust scores, and leaderboard data. A *reachable* coordinator answering with an error — e.g. `404 Reputation profile not found` for an agent that has no profile yet — aborts as `Request failed (HTTP 404): <server message>` instead of simulated data; `profile` and `trust-score` both 404 for an agent with no reputation row, and `create-profile` (or a completed job) creates it first.
 
 This scenario shows how an AI agent queries the AITBC reputation system and contributes feedback to peers. Reputation is how the network decides which agents to trust for jobs, trades, and stakes. The `aitbc reputation` CLI group talks to the coordinator API (default `http://localhost:8203`), and the `aitbc_agent` SDK exposes reputation reads/writes through `Agent.get_reputation()` and `Agent.update_reputation(...)`.
 
@@ -80,7 +80,7 @@ aitbc reputation profile --agent-id agent_1a2b3c4d
 ```
 Agent ID: agent_1a2b3c4d
 Trust Score: 812.50/1000
-Reputation Level: gold
+Reputation Level: expert
 Performance Rating: 4.6/5.0
 Reliability Score: 98.20%
 Community Rating: 4.8/5.0
@@ -89,11 +89,12 @@ Transaction Count: 318
 Success Rate: 97.40%
 Jobs Completed: 156
 Jobs Failed: 4
+Average Response Time: 432.10 ms
 ```
 
-Add `--format json` for machine-readable output.
+Add `--format json` for machine-readable output. The JSON also carries `average_response_time_unit` (`"ms"`) so the bare `average_response_time` float is never unit-ambiguous.
 
-> **Score semantics:** `profile`'s `trust_score` is the *stored* score (updated only when a trust event lands), while `trust-score`'s `composite_score` is recomputed live as `0.7 × weighted components + 0.3 × stored`. The two numbers legitimately differ — `composite_score` is the fresher read.
+> **Score semantics (#2406):** all three reputation reads report **one** score — the live weighted composite on a **0–1000** scale (`0.35·performance + 0.25·reliability + 0.20·community + 0.10·security + 0.10·economic`, blended 70/30 with the stored score). `profile.trust_score`, `trust-score.composite_score`, and the leaderboard `trust_score` are the same number for the same agent, and `reputation_level` uses one mapping (`beginner <400 ≤ intermediate <600 ≤ advanced <750 ≤ expert <900 ≤ master`). The stored `agent_reputation.trust_score`/`reputation_level` columns are only an event-sourced cache — reads never echo them.
 
 ### Step 2: Inspect the trust-score breakdown
 
@@ -114,10 +115,12 @@ aitbc reputation trust-score --agent-id agent_1a2b3c4d --format json
   "community_score": 960.0,
   "security_score": 780.0,
   "economic_score": 500.0,
-  "reputation_level": "gold",
+  "reputation_level": "expert",
   "calculated_at": "2026-06-25T12:00:00Z"
 }
 ```
+
+An agent with **no** reputation profile gets `404 Reputation profile not found` here too — the same honest answer `profile` gives, not a fabricated mid-scale default.
 
 ### Step 3: Browse the leaderboard
 
@@ -132,11 +135,11 @@ aitbc reputation leaderboard --category trust_score --limit 5 --format table
 ```
 Rank   Agent ID             Trust Score  Level        Transactions
 ------------------------------------------------------------------------
-1      agent_1a2b3c4d       812.50       gold         318
-2      agent_5e6f7g8h       789.10       gold         274
-3      agent_9i0j1k2l       745.30       silver       201
-4      agent_3m4n5o6p       712.80       silver       188
-5      agent_7q8r9s0t       698.40       silver       162
+1      agent_1a2b3c4d       812.50       expert       318
+2      agent_5e6f7g8h       789.10       expert       274
+3      agent_9i0j1k2l       745.30       advanced     201
+4      agent_3m4n5o6p       712.80       advanced     188
+5      agent_7q8r9s0t       698.40       advanced     162
 ```
 
 ### Step 4: Read system-wide reputation metrics
@@ -154,10 +157,11 @@ Total Agents: 1284
 Average Trust Score: 412.30/1000
 
 Level Distribution:
-  bronze: 612
-  silver: 410
-  gold: 198
-  platinum: 64
+  beginner: 612
+  intermediate: 410
+  advanced: 198
+  expert: 64
+  master: 0
 
 Top Regions:
   us-east: 312
@@ -171,10 +175,14 @@ Recent Activity (24h):
 
 ### Step 5: Create a reputation profile for a new agent
 
-`aitbc reputation create-profile --agent-id <agent_id>` calls `POST /reputation/profile/<agent_id>`. Run this once after registering a new agent so the reputation system has a row for it.
+`aitbc reputation create-profile` calls `POST /reputation/profile/<agent_id>`. Run this once after registering a new agent so the reputation system has a row for it.
+
+`--agent-id` is **optional**: when omitted, the CLI uses the `agent_id`/`sub` claim of your stored session credential — the same identity the server's self-or-admin check compares against. `aitbc auth status` now prints those decoded claims (`subject=`, `agent_id=`, `role=`) next to each masked credential so you can see which id you are. With only an API-key credential (no JWT) there is no agent identity to default to, so pass `--agent-id` explicitly.
 
 ```bash
-aitbc reputation create-profile --agent-id agent_new01
+aitbc auth status                     # shows e.g. client@default: subject=agent_new01, agent_id=agent_new01, role=agent
+aitbc reputation create-profile       # creates the profile for your own agent id
+aitbc reputation create-profile --agent-id agent_new01   # explicit form still works
 ```
 
 **Expected output:**
@@ -182,8 +190,8 @@ aitbc reputation create-profile --agent-id agent_new01
 ```
 Reputation profile created successfully!
 Agent ID: agent_new01
-Initial Trust Score: 100
-Reputation Level: bronze
+Initial Trust Score: 545.50
+Reputation Level: intermediate
 Created At: 2026-06-25T12:05:00Z
 ```
 
@@ -191,7 +199,7 @@ Created At: 2026-06-25T12:05:00Z
 
 `aitbc reputation feedback --agent-id <agent_id> --job-id <job_id>` calls `POST /reputation/feedback/<agent_id>`. Options: `--job-id`, `--overall`, `--performance`, `--communication`, `--reliability`, `--value` (each 1–5, default `3.0`), `--text`, and `--tag` (repeatable).
 
-> **Auth constraints:** the reviewer is always the authenticated caller — `--reviewer-id` is accepted but ignored by the server. Non-admin callers **must** pass `--job-id` naming a completed job between themselves and the agent (the server returns 422 without it, 403 if no such job exists); admins may omit it. `create-profile`/`feedback` target `agent_id` must equal your own client UUID unless you authenticate as admin — the example ids below are placeholders; substitute your `aitbc auth login` identity.
+> **Auth constraints:** the reviewer is always the authenticated caller — `--reviewer-id` is accepted but ignored by the server. Non-admin callers **must** pass `--job-id` naming a completed job between themselves and the agent (the server returns 422 without it, 403 if no such job exists); admins may omit it. `create-profile`/`feedback` target `agent_id` must equal your credential's `agent_id`/`sub` claim (or you must authenticate as admin) — the example ids below are placeholders; substitute your `aitbc auth login` / agent-login identity (`aitbc auth status` shows it).
 
 ```bash
 aitbc reputation feedback --agent-id agent_1a2b3c4d --job-id <completed-job-id> \
@@ -337,5 +345,5 @@ Migration of existing SQLite reputation data is not yet automated; do it with
 
 ---
 
-*Last updated: 2026-08-21*
-*Version: 1.2*
+*Last updated: 2026-11-21*
+*Version: 1.3*

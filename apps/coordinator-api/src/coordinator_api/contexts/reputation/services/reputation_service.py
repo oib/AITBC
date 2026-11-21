@@ -3,6 +3,7 @@ Agent Reputation and Trust Service
 Implements reputation management, trust score calculations, and economic profiling
 """
 
+from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Any
@@ -375,6 +376,13 @@ class ReputationService:
         )
         if not reputation:
             return {"error": "Reputation profile not found"}
+        # #2406: the headline trust_score/level are the live composite, not the
+        # stored columns — the stored values are only a cache written by
+        # update_trust_score and drift between events. All reputation reads
+        # (profile, trust-score, leaderboard) report this same composite so the
+        # three commands can never disagree.
+        trust_score = self.calculator.calculate_composite_trust_score(agent_id, self.session)
+        reputation_level = self.calculator.determine_reputation_level(trust_score).value
         recent_events = (
             self.session.execute(
                 select(ReputationEvent)
@@ -402,8 +410,8 @@ class ReputationService:
         )
         return {
             "agent_id": agent_id,
-            "trust_score": reputation.trust_score,
-            "reputation_level": reputation.reputation_level.value,
+            "trust_score": trust_score,
+            "reputation_level": reputation_level,
             "performance_rating": reputation.performance_rating,
             "reliability_score": reputation.reliability_score,
             "community_rating": reputation.community_rating,
@@ -413,6 +421,9 @@ class ReputationService:
             "jobs_completed": reputation.jobs_completed,
             "jobs_failed": reputation.jobs_failed,
             "average_response_time": reputation.average_response_time,
+            # Stored in milliseconds (see record_job_completion callers passing
+            # duration_ms) — surfaced explicitly so clients need not guess (#2406).
+            "average_response_time_unit": "ms",
             "dispute_count": reputation.dispute_count,
             "certifications": reputation.certifications,
             "specialization_tags": reputation.specialization_tags,
@@ -447,14 +458,34 @@ class ReputationService:
             query = query.where(AgentReputation.geographic_region == region)
         result = await run_in_threadpool(self.session.execute, query)
         reputations = result.scalars().all()
+        entries = await run_in_threadpool(self._leaderboard_entries, reputations)
+        if category == "trust_score":
+            # Ordering used the stored trust_score column — the composite cache
+            # update_trust_score maintains — while each entry now reports the
+            # live composite. Re-rank the page by the reported score so the
+            # displayed order matches the displayed values (#2406).
+            entries.sort(key=lambda e: (-float(e["trust_score"]), str(e["agent_id"])))
+        for rank, entry in enumerate(entries, 1):
+            entry["rank"] = rank
+        return entries
+
+    def _leaderboard_entries(self, reputations: Sequence[AgentReputation]) -> list[dict[str, Any]]:
+        """Build leaderboard rows reporting the live composite trust score.
+
+        Every entry's ``trust_score``/``reputation_level`` come from the same
+        ``TrustScoreCalculator`` the profile and trust-score endpoints use, so
+        all three reputation reads agree for a given agent (#2406). The stored
+        columns remain the ranking key only.
+        """
         leaderboard = []
-        for rank, reputation in enumerate(reputations, 1):
+        for reputation in reputations:
+            trust_score = self.calculator.calculate_composite_trust_score(reputation.agent_id, self.session)
             leaderboard.append(
                 {
-                    "rank": rank,
+                    "rank": 0,  # assigned by the caller after any re-sort
                     "agent_id": reputation.agent_id,
-                    "trust_score": reputation.trust_score,
-                    "reputation_level": reputation.reputation_level.value,
+                    "trust_score": trust_score,
+                    "reputation_level": self.calculator.determine_reputation_level(trust_score).value,
                     "performance_rating": reputation.performance_rating,
                     "reliability_score": reputation.reliability_score,
                     "community_rating": reputation.community_rating,
