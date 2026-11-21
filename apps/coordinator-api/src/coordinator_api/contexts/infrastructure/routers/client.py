@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import os
 from typing import Annotated, Any
 
@@ -17,7 +18,7 @@ from aitbc.rate_limiting import parse_rate_limit, rate_limit
 from ....auth import AdminOrClientDep
 from ....config import settings
 from ...market.offer_quote import OfferLookupFailed, OfferQuote, OfferUnavailable, resolve_offer
-from ...payments.acceptance import PENDING_ACCEPTANCE
+from ...payments.acceptance import HELD_STATES, PENDING_ACCEPTANCE
 from ...payments.operations import begin_operation, complete_operation, fail_operation, record_rejection
 from ...payments.provider_binding import same_address
 from ...payments.services.payments import PaymentService, _computation_is_correct
@@ -29,6 +30,12 @@ from ....storage import get_session
 
 logger = get_logger(__name__)
 router = APIRouter(tags=["client"])
+
+# #2402: in-request reconcile window for the accept-triggered release. The
+# first "did not settle" answer is usually seal latency; a few spaced
+# idempotent retries resolve it before the caller sees a 502.
+_ACCEPT_RELEASE_RETRIES = max(0, int(os.getenv("ACCEPT_RELEASE_RETRIES", "3")))
+_ACCEPT_RELEASE_POLL_SECONDS = max(0.0, float(os.getenv("ACCEPT_RELEASE_POLL_SECONDS", "4")))
 
 # Expected failure surface for the client job/accept routes: filesystem/JSON,
 # data-shape, runtime, SQLAlchemy session errors, lazy imports inside the
@@ -509,9 +516,29 @@ async def _accept_job_impl(
             detail="job result did not pass the computation-correctness check; acceptance blocked",
         )
 
-    released = await PaymentService(session).release_payment(
+    payment_service = PaymentService(session)
+    released = await payment_service.release_payment(
         user["sub"], job.id, job.payment_id, reason="Customer accepted the result"
     )
+    if not released:
+        # #2402: "did not settle" is usually seal latency or a lost submit
+        # response, not a dead release — the first call's tx can still be in
+        # the mempool sealing now. Re-run the idempotent release a few times:
+        # the node's sealed+mempool dedup hands back the in-flight hash
+        # instead of double-submitting, so each retry is also the
+        # reconciliation the manual second `ai accept` used to perform.
+        # Stop early when the row leaves the held set — settlement_failed
+        # is definitive and retrying cannot help it.
+        for _ in range(_ACCEPT_RELEASE_RETRIES):
+            await asyncio.sleep(_ACCEPT_RELEASE_POLL_SECONDS)
+            current = await run_in_threadpool(session.get, JobPayment, job.payment_id)
+            if current is None or current.status not in HELD_STATES:
+                break
+            released = await payment_service.release_payment(
+                user["sub"], job.id, job.payment_id, reason="Customer accepted the result"
+            )
+            if released:
+                break
     if not released:
         # The payment stays held, so the sweeper retries it when the window expires
         # rather than leaving the provider unpaid on a transient chain failure.
