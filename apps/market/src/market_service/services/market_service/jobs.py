@@ -3,7 +3,7 @@ MarketService market-job lifecycle, escrow and settlement mixin.
 """
 
 from datetime import UTC, datetime, timedelta
-from decimal import Decimal
+from decimal import Decimal, InvalidOperation
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
@@ -427,6 +427,25 @@ class _JobsMixin(_CoreMixin):
     # MarketJob / MarketJobPayment (v0.25.7 first-class IPFS)
     # -------------------------------------------------------------------------
 
+    @staticmethod
+    def _fmt_amount(value: Decimal | None) -> str | None:
+        """Fixed 8dp AIT rendering for job/payment amounts (#2442).
+
+        ``payment_amount`` is a Numeric(36,18) denormalization of
+        ``payment.amount`` (Numeric(20,8)) — raw ``str()`` echoed 18dp and
+        float noise (``0.100000000000000006``) next to the payment row's
+        ``0.10000000``. Quantizing to the ledger's 8dp makes one row read
+        one precision.
+        """
+        if value is None:
+            return None
+        try:
+            return str(value.quantize(Decimal("0.00000001")))
+        except InvalidOperation:
+            # Astronomical values exceed decimal-context precision — show
+            # them verbatim rather than fail the whole job listing.
+            return str(value)
+
     def _job_to_dict(self, job: MarketJob) -> dict[str, Any]:
         """Serialize a MarketJob."""
         return {
@@ -452,11 +471,13 @@ class _JobsMixin(_CoreMixin):
             "access_key": job.access_key,
             "payment_id": job.payment_id,
             "payment_status": job.payment_status,
-            "payment_amount": str(job.payment_amount) if job.payment_amount is not None else None,
+            "payment_amount": self._fmt_amount(job.payment_amount),
             "payment_token": job.payment_token,
             "escrow_contract_id": job.escrow_contract_id,
-            "tx_hash": job.tx_hash,
-            "refund_tx_hash": job.refund_tx_hash,
+            # ``or None``: legacy rows hold "" where the column is nullable —
+            # hash or null, never empty string (#2442).
+            "tx_hash": job.tx_hash or None,
+            "refund_tx_hash": job.refund_tx_hash or None,
             "disputed_at": _isoformat(job.disputed_at),
             "dispute_reason": job.dispute_reason,
             "dispute_cleared_at": _isoformat(job.dispute_cleared_at),
@@ -469,14 +490,14 @@ class _JobsMixin(_CoreMixin):
         return {
             "payment_id": payment.id,
             "job_id": payment.job_id,
-            "amount": str(payment.amount),
+            "amount": self._fmt_amount(payment.amount),
             "currency": payment.currency,
             "status": payment.status,
             "payment_method": payment.payment_method,
             "escrow_address": payment.escrow_address,
             "refund_address": payment.refund_address,
-            "transaction_hash": payment.transaction_hash,
-            "refund_transaction_hash": payment.refund_transaction_hash,
+            "transaction_hash": payment.transaction_hash or None,
+            "refund_transaction_hash": payment.refund_transaction_hash or None,
             "created_at": _isoformat(payment.created_at),
             "updated_at": _isoformat(payment.updated_at),
             "escrowed_at": _isoformat(payment.escrowed_at),

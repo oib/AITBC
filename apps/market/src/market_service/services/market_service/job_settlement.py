@@ -112,7 +112,7 @@ class _JobsSettlementMixin(_JobsMixin):
     def _settle_payment_values(
         *,
         status: str,
-        tx_hash: str,
+        tx_hash: str | None,
         amount: Any,
         now: datetime,
         amount_field: str,
@@ -597,7 +597,7 @@ class _JobsSettlementMixin(_JobsMixin):
                     result = await self._rpc_client.release_escrow(job.id)
                 if not (result and result.get("success")):
                     raise ValueError(f"Escrow release failed for job {job_id}: {result}")
-                tx_hash = str(result.get("tx_hash", ""))
+                tx_hash = result.get("tx_hash") or None
                 released_amount = result.get("released_amount")
 
             now = datetime.now(UTC).replace(tzinfo=None)
@@ -670,7 +670,7 @@ class _JobsSettlementMixin(_JobsMixin):
                 result = await self._rpc_client.refund_escrow(job.id)
                 if not (result and result.get("success")):
                     raise ValueError(f"Escrow refund failed for job {job_id}: {result}")
-                tx_hash = str(result.get("tx_hash", ""))
+                tx_hash = result.get("tx_hash") or None
                 refunded_amount = result.get("refunded_amount")
 
             now = datetime.now(UTC).replace(tzinfo=None)

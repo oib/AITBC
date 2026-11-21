@@ -9,7 +9,7 @@ import pytest
 
 from aitbc.market import BlockchainRPCClient
 from market_service.domain.market import MarketJob, MarketJobPayment
-from market_service.services.market_job_sweeper import MarketJobSweeper
+from market_service.services.market_job_sweeper import META_SETTLE_DEFERRAL_FIRST_AT, MarketJobSweeper
 from market_service.services.market_service import MarketService
 from market_service.storage import get_session_context
 from sqlmodel import col, select
@@ -20,17 +20,22 @@ class StubRPC:
         self.released: list[str] = []
         self.refunded: list[str] = []
         self.escrow_rows: dict[str, dict] = {}
+        self.lock_txs: dict[str, str] = {}
+        self.omit_tx_hash = False
 
     async def verify_escrow(self, job_id: str):
         return self.escrow_rows.get(job_id)
 
+    async def find_escrow_lock(self, job_id: str):
+        return self.lock_txs.get(job_id)
+
     async def release_escrow(self, job_id: str, body: dict | None = None):
         self.released.append(job_id)
-        return {"success": True, "tx_hash": f"0xrelease_{job_id}"}
+        return {"success": True, "tx_hash": None if self.omit_tx_hash else f"0xrelease_{job_id}"}
 
     async def refund_escrow(self, job_id: str, body: dict | None = None):
         self.refunded.append(job_id)
-        return {"success": True, "tx_hash": f"0xrefund_{job_id}"}
+        return {"success": True, "tx_hash": None if self.omit_tx_hash else f"0xrefund_{job_id}"}
 
 
 @pytest.fixture
@@ -1024,3 +1029,177 @@ async def test_register_ipfs_rental_token_derives_expires_at(sweeper) -> None:
         }
     )
     assert result["expires_at"] is not None
+
+
+async def _terminal_pending_job(job_id: str, state: str) -> None:
+    """Drive the job terminal while its payment stays pending (#2442)."""
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        assert job is not None
+        job.state = state
+        job.updated_at = (datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None)
+        session.add(job)
+        await session.commit()
+
+
+async def _backdate_pending_deferral(job_id: str) -> None:
+    """Age the pending-payment deferral stamp past settle_max_seconds."""
+    async with get_session_context() as session:
+        job = await session.get(MarketJob, job_id)
+        assert job is not None
+        payment = await session.get(MarketJobPayment, job.payment_id)
+        assert payment is not None
+        meta = dict(payment.meta_data or {})
+        meta[META_SETTLE_DEFERRAL_FIRST_AT] = (datetime.now(UTC) - timedelta(hours=7)).isoformat()
+        payment.meta_data = meta
+        session.add(payment)
+        await session.commit()
+
+
+@pytest.mark.asyncio
+async def test_pending_payment_on_terminal_job_expires_after_bound(sweeper) -> None:
+    """#2442: terminal job + pending payment + confirmed-absent escrow ->
+    bounded probe under the settle deferral, then terminal 'expired'."""
+    service, sw, _rpc = sweeper
+    created = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "11" * 20,
+            "provider_address": "0x" + "22" * 20,
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0"},
+        }
+    )
+    job_id = created["job_id"]
+    await _terminal_pending_job(job_id, "EXPIRED")
+
+    # First confirmed-absent answer only stamps the deferral — still pending.
+    await sw.sweep_once()
+    payment = await _payment_of(job_id)
+    assert payment.status == "pending"
+    assert META_SETTLE_DEFERRAL_FIRST_AT in (payment.meta_data or {})
+
+    # Inside the bound it keeps probing — still pending.
+    await sw.sweep_once()
+    assert (await _payment_of(job_id)).status == "pending"
+
+    # Past the bound with no sealed ESCROW_LOCK on chain -> expired.
+    await _backdate_pending_deferral(job_id)
+    await sw.sweep_once()
+    payment = await _payment_of(job_id)
+    assert payment.status == "expired"
+    assert META_SETTLE_DEFERRAL_FIRST_AT not in (payment.meta_data or {})
+
+    job = await service.get_market_job(job_id)
+    assert job["payment_status"] == "expired"
+    assert job["payment"]["status"] == "expired"
+
+
+@pytest.mark.asyncio
+async def test_pending_payment_on_live_job_never_expires(sweeper) -> None:
+    """#2442: QUEUED/RUNNING jobs keep probing forever — the lock may still
+    legitimately seal, so the dead-end bound must not apply."""
+    service, sw, _rpc = sweeper
+    created = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "11" * 20,
+            "provider_address": "0x" + "22" * 20,
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0"},
+        }
+    )
+    job_id = created["job_id"]
+
+    await sw.sweep_once()
+    payment = await _payment_of(job_id)
+    assert payment.status == "pending"
+    # Live jobs do not even consume the deferral stamp.
+    assert META_SETTLE_DEFERRAL_FIRST_AT not in (payment.meta_data or {})
+
+
+@pytest.mark.asyncio
+async def test_pending_payment_mismatched_escrow_stays_pending(sweeper) -> None:
+    """#2442: a present-but-mismatched escrow is real locked money — it
+    must keep probing for an operator and never feed the expire bound."""
+    service, sw, rpc = sweeper
+    buyer = "0x" + "11" * 20
+    provider = "0x" + "22" * 20
+    created = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": buyer,
+            "provider_address": provider,
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0"},
+        }
+    )
+    job_id = created["job_id"]
+    rpc.escrow_rows[job_id] = {"state": "locked", "amount": "2.0", "buyer": buyer, "provider": provider}
+    await _terminal_pending_job(job_id, "FAILED")
+
+    await sw.sweep_once()
+    payment = await _payment_of(job_id)
+    assert payment.status == "pending"
+    assert META_SETTLE_DEFERRAL_FIRST_AT not in (payment.meta_data or {})
+
+
+@pytest.mark.asyncio
+async def test_pending_payment_sealed_lock_stays_pending_past_bound(sweeper) -> None:
+    """#2442: past the bound a sealed ESCROW_LOCK on chain vetoes the
+    expire — 'no escrow row' was a wrong-node/lag read, not absence."""
+    service, sw, rpc = sweeper
+    created = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "11" * 20,
+            "provider_address": "0x" + "22" * 20,
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0"},
+        }
+    )
+    job_id = created["job_id"]
+    await _terminal_pending_job(job_id, "CANCELED")
+
+    await sw.sweep_once()
+    assert META_SETTLE_DEFERRAL_FIRST_AT in ((await _payment_of(job_id)).meta_data or {})
+
+    rpc.lock_txs[job_id] = "0xsealed-lock"
+    await _backdate_pending_deferral(job_id)
+    await sw.sweep_once()
+    assert (await _payment_of(job_id)).status == "pending"
+
+
+@pytest.mark.asyncio
+async def test_hashless_refund_stores_null_not_empty_string(sweeper) -> None:
+    """#2442: a successful refund with no tx_hash stores NULL on both the
+    payment and the job — never ""."""
+    service, sw, rpc = sweeper
+    created = await service.create_market_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "11" * 20,
+            "provider_address": "0x" + "22" * 20,
+            "escrow_contract_id": "escrow-hashless",
+            "payload": {"cid": "QmTest"},
+            "payment": {"amount": "1.0", "status": "escrowed"},
+        }
+    )
+    await _apply_lifecycle(
+        created["job_id"],
+        state="CANCELED",
+        escrow_contract_id="escrow-hashless",
+        updated_at=(datetime.now(UTC) - timedelta(hours=1)).replace(tzinfo=None),
+    )
+    rpc.omit_tx_hash = True
+
+    counts = await sw.sweep_once()
+    assert counts["refunded"] == 1
+
+    payment = await _payment_of(created["job_id"])
+    assert payment.status == "refunded"
+    assert payment.refund_transaction_hash is None
+    job = await service.get_market_job(created["job_id"])
+    assert job["state"] == "REFUNDED"
+    assert job["refund_tx_hash"] is None
+    assert job["payment"]["refund_transaction_hash"] is None
