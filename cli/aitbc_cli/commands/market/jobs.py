@@ -19,7 +19,7 @@ from aitbc.exceptions import AITBCError
 from aitbc.crypto.crypto import sign_transaction_data
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
-from ...config import get_config
+from ...config import _resolve_market_api_key, get_config
 from ...utils import OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, warning
 from ...utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, http_error_detail, http_response_status
 
@@ -147,6 +147,14 @@ def _new_sw_job_id() -> str:
     return f"sw_job_{datetime.now().strftime('%Y%m%d%H%M%S')}_{secrets.token_hex(8)}"
 
 
+def _market_api_key(ctx: click.Context | None) -> str | None:
+    """Market API key: the group's ``--api-key`` wins over env/config."""
+    override = (ctx.obj or {}).get("market_api_key") if ctx is not None else None
+    if override:
+        return str(override)
+    return _resolve_market_api_key(get_config())
+
+
 def _register_paid_market_job(
     ctx: click.Context,
     job_id: str,
@@ -209,7 +217,7 @@ def _register_paid_market_job(
         )
         job_data.update(sig)
     try:
-        result = _hub_market_client().post("/v1/market/jobs", json=job_data)
+        result = _hub_market_client(api_key=_market_api_key(ctx)).post("/v1/market/jobs", json=job_data)
     except _JOBS_ERRORS as e:
         warning(f"Market job registration failed ({type(e).__name__}) — shop access token unavailable: {e}")
         return None
@@ -1459,3 +1467,132 @@ def hermes_job(
     except Exception as e:
         error(f"Error running Hermes job: {e}")
         raise click.Abort() from e
+
+
+@market.command(
+    name="job-probe",
+    epilog="""Examples:
+
+  aitbc market --api-key "$MARKET_API_KEY" job-probe --escrow-job-id coord_probe_1 --no-signature
+
+  aitbc market job-probe --escrow-job-id coord_probe_1
+
+  aitbc market job-probe --escrow-job-id coord_probe_2 --sign-escrow-job-id coord_probe_1
+
+  aitbc market job-probe""",
+)
+@click.option("--service-type", default="whisper", help="Job service_type (default: whisper).")
+@click.option(
+    "--escrow-job-id",
+    "escrow_job_id",
+    default=None,
+    help="payload.escrow_job_id — an alias claim, which requires a buyer signature unless --no-signature",
+)
+@click.option(
+    "--sign-escrow-job-id",
+    "sign_escrow_job_id",
+    default=None,
+    help="Sign the alias binding for this escrow id instead of --escrow-job-id (mismatch replay)",
+)
+@click.option(
+    "--no-signature",
+    is_flag=True,
+    default=False,
+    help="Send the alias claim without signature fields (the server refuses with 403)",
+)
+@click.option("--buyer-address", "buyer_address", default=None, help="Buyer address (default: market wallet)")
+@click.option("--provider-address", "provider_address", default=None, help="Provider address")
+@click.option("--job-id", "job_id", default=None, help="Job id (default: probe_<random>)")
+@click.option("--amount", default="0.01", help="Payment amount in AIT (default: 0.01).")
+@click.option("--access-key", "access_key", default=None, help="payload.access_key (default: generated)")
+@click.option("--access-secret", "access_secret", default=None, help="payload.access_secret (default: generated)")
+@click.option("--ttl-seconds", type=int, default=7200, help="Job ttl_seconds (default: 7200).")
+@OUTPUT_FORMAT_OPTION
+@click.pass_context
+def job_probe(
+    ctx: click.Context,
+    service_type: str,
+    escrow_job_id: str | None,
+    sign_escrow_job_id: str | None,
+    no_signature: bool,
+    buyer_address: str | None,
+    provider_address: str | None,
+    job_id: str | None,
+    amount: str,
+    access_key: str | None,
+    access_secret: str | None,
+    ttl_seconds: int,
+    output_format: str,
+):
+    """POST a job-create body with a caller-controlled payload.escrow_job_id.
+
+    Replays the #2326 alias-binding refusal legs through the CLI: an
+    unsigned alias claim and a signature bound to a different escrow key
+    must both be refused (403), while a self-bound job (no
+    ``--escrow-job-id``) creates normally. The API key comes from the
+    group's ``--api-key`` or the usual MARKET_API_KEY/config resolution.
+    """
+    from ..ipfs import _hub_market_client
+    from ._signing import signed_job_request_fields
+
+    output_format = resolve_output_format(ctx, output_format)
+    need_signing = bool(escrow_job_id) and not no_signature
+    buyer = buyer_address
+    private_key = None
+    if need_signing or not buyer:
+        try:
+            wallet_address, wallet_key, _wallet_name = get_market_wallet(ctx, require_private_key=need_signing)
+            if not buyer:
+                buyer = wallet_address
+            private_key = wallet_key
+        except (click.Abort, click.ClickException):
+            raise
+        except Exception as e:  # noqa: BLE001 - probe degrades to --buyer-address / unsigned
+            warning(f"Could not resolve market wallet ({e}); pass --buyer-address")
+    if not buyer:
+        abort(ctx, "No buyer address: pass --buyer-address or configure a market wallet")
+    buyer = cast(str, buyer)
+
+    job_id = job_id or f"probe_{secrets.token_hex(4)}"
+    access_key = access_key or secrets.token_urlsafe(16)
+    access_secret = access_secret or secrets.token_urlsafe(32)
+    payload: dict[str, Any] = {"access_key": access_key, "access_secret": access_secret}
+    if escrow_job_id:
+        payload["escrow_job_id"] = escrow_job_id
+    job_data: dict[str, Any] = {
+        "id": job_id,
+        "service_type": service_type,
+        "buyer_address": buyer,
+        "provider_address": provider_address or "0x0000000000000000000000000000000000000000",
+        "payload": payload,
+        "ttl_seconds": ttl_seconds,
+        "payment": {"amount": str(amount), "currency": "AITBC"},
+    }
+
+    signed = False
+    if escrow_job_id and not no_signature:
+        sig = signed_job_request_fields(
+            ctx,
+            "/v1/market/jobs",
+            wallet=(buyer, private_key, ""),
+            binding={"escrow_job_id": sign_escrow_job_id or escrow_job_id, "buyer_address": buyer},
+        )
+        if sig:
+            job_data.update(sig)
+            signed = True
+        else:
+            warning("No signing key resolved — the alias claim goes out unsigned (expect 403)")
+
+    client = _hub_market_client(api_key=_market_api_key(ctx))
+    try:
+        result = client.post("/v1/market/jobs", json=job_data)
+        record: dict[str, Any] = {"http_status": 200, "ok": True, "job_id": job_id, "signed": signed, "response": result}
+    except _JOBS_ERRORS as e:
+        record = {
+            "http_status": http_response_status(e),
+            "ok": False,
+            "job_id": job_id,
+            "signed": signed,
+            "error": http_error_detail(e) or str(e),
+        }
+    output(record, output_format)
