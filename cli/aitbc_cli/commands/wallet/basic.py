@@ -25,6 +25,7 @@ from ...utils.wallet_paths import (
     find_wallet_file,
     find_wallet_file_report,
     service_dir_wallet_note,
+    wallet_dir as resolve_wallet_dir,
     wallet_not_found_message,
     wallet_search_dirs,
     wallet_write_restricted_message,
@@ -54,6 +55,44 @@ _WALLET_ERRORS = (
 from eth_keys.exceptions import ValidationError as _EthKeyValidationError
 
 logger = get_logger(__name__)
+
+
+def _multisig_addresses(wallet_dir: Path) -> dict[str, str]:
+    """Map lowercase multisig address -> wallet name for every ``*_multisig.json``.
+
+    Multisig records are local proposal ledgers with no spendable key — the
+    address they name can receive funds but nothing can ever sign a spend
+    from it (#2362). Send paths consult this map to refuse funding them.
+    """
+    out: dict[str, str] = {}
+    try:
+        # NOTE: bare ``list`` is shadowed in this module by the ``wallet
+        # list`` click command — iterate the glob directly.
+        paths = [p for p in wallet_dir.glob("*_multisig.json")]
+    except OSError:
+        return out
+    for path in paths:
+        try:
+            data = json.loads(path.read_text())
+        except (OSError, ValueError):
+            continue
+        address = data.get("address")
+        if isinstance(address, str) and address.startswith("0x"):
+            out[address.lower()] = path.name[: -len("_multisig.json")]
+    return out
+
+
+def _assert_not_multisig_recipient(ctx, wallet_dir: Path, to_address: str) -> None:
+    """Refuse sends to a locally recorded multisig address (#2362)."""
+    name = _multisig_addresses(wallet_dir).get(to_address.lower())
+    if name is not None:
+        abort(
+            ctx,
+            f"{to_address} is the address of multisig wallet '{name}' — it has no "
+            "spendable key, so funds sent there are unrecoverable. Settle through an "
+            "escrow flow or send from an authorized signer instead.",
+        )
+        raise click.Abort()
 
 
 @wallet.command(
@@ -275,6 +314,12 @@ def delete(ctx, name: str, confirm: bool):
         return
     wallet_dir = ctx.obj["wallet_dir"]
     wallet_path = wallet_dir / f"{name}.json"
+    multisig_path = wallet_dir / f"{name}_multisig.json"
+
+    # #2362: multisig records live at ``<name>_multisig.json`` — accept the
+    # bare list name so `wallet delete --name team-wallet` finds them.
+    if not wallet_path.exists() and multisig_path.exists():
+        wallet_path = multisig_path
 
     if not wallet_path.exists():
         abort(ctx, f"Wallet '{name}' does not exist in {wallet_dir}")
@@ -1038,6 +1083,10 @@ def send(
     if not to_address.startswith("0x"):
         abort(ctx, f"Invalid recipient address: {to_address}")
         raise click.Abort()
+
+    # #2362: a locally recorded multisig address has no spendable key —
+    # funding it burns the funds. Refuse before signing.
+    _assert_not_multisig_recipient(ctx, ctx.obj.get("wallet_dir") or resolve_wallet_dir(), to_address)
 
     rpc_url = _resolve_send_rpc_endpoint(ctx, rpc_url)
     chain_id = _send_chain_id(ctx, rpc_url)

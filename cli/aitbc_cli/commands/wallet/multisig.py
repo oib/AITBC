@@ -11,7 +11,7 @@ from eth_utils import to_checksum_address
 from ...config import get_config
 from ...utils import DECIMAL, error, output, success
 from ...utils.error_handling import abort
-from ...utils.http_client import AITBCHTTPClient
+from ...utils.http_client import AITBCHTTPClient, http_response_status
 from ...utils.wallet_loader import validate_wallet_name, write_json_0600
 from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
 from aitbc.utils.units import units_to_ait
@@ -31,7 +31,13 @@ def _multisig_chain_balance(address: str) -> Decimal | None:
         if account.get("balance") is None:
             return None
         return units_to_ait(int(account["balance"]))
-    except Exception:  # noqa: BLE001 - any transport/parse failure means "unknown"
+    except Exception as e:  # noqa: BLE001 - any transport/parse failure means "unknown"
+        # #2362: a 404 means the account does not exist on-chain — that is a
+        # zero balance, not an RPC outage. Reporting it as "check node
+        # reachability" sent operators chasing connectivity for an unfunded
+        # address.
+        if http_response_status(e) == 404:
+            return Decimal(0)
         return None
 
 
@@ -46,7 +52,15 @@ def _multisig_chain_balance(address: str) -> Decimal | None:
 @click.option("--name", required=True, help="Multisig wallet name")
 @click.pass_context
 def multisig_create(ctx, signers: tuple, threshold: int, name: str):
-    """Create a multi-signature wallet with a threshold and a list of signers."""
+    """Create a multi-signature wallet with a threshold and a list of signers.
+
+    .. warning::
+        The generated address is a *record-keeping* multisig — there is no
+        on-chain multisig primitive and no private key exists for the
+        address. Funds sent to it are unrecoverable; ``multisig-propose`` /
+        ``multisig-sign`` only track approvals locally. Use it for bookkeeping
+        or settle through an escrow flow / authorized signer key instead.
+    """
     try:
         validate_wallet_name(name)
     except ValueError as e:
@@ -79,12 +93,18 @@ def multisig_create(ctx, signers: tuple, threshold: int, name: str):
     write_json_0600(multisig_path, multisig_data)
 
     success(f"Multisig wallet '{name}' created ({threshold}-of-{len(signers)})")
+    click.echo(
+        "Warning: this address has no spendable key — funds sent to it are "
+        "unrecoverable. Multisig propose/sign are local records only.",
+        err=True,
+    )
     output(
         {
             "name": name,
             "address": multisig_data["address"],
             "signers": list(signers),
             "threshold": threshold,
+            "warning": "address is unspendable — no private key exists; local records only",
         },
         ctx.obj.get("output_format", "table"),
     )
