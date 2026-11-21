@@ -27,6 +27,12 @@ logger = get_logger(__name__)
 router = APIRouter()
 
 
+# Test-only transaction types that leaked onto the live chain (e.g. txs
+# built by apps/blockchain-node/tests). They are real sealed rows but are
+# not product activity, so the public timeline hides them (#2409).
+_TIMELINE_EXCLUDED_TX_TYPES = frozenset({"SOME_FUTURE_TYPE"})
+
+
 def _activity_type_color(tx_type: str) -> str:
     """Stable distinct color for transaction types missing from the curated map."""
     hue = int(hashlib.sha256(tx_type.encode()).hexdigest()[:8], 16) % 360
@@ -70,6 +76,8 @@ async def api_activity_timeline(
             rows = await cursor.fetchall()
             for row in rows:
                 day, tx_type, count = row
+                if tx_type in _TIMELINE_EXCLUDED_TX_TYPES:
+                    continue
                 if day not in data:
                     data[day] = {}
                 data[day][tx_type] = count

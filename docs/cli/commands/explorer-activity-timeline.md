@@ -14,7 +14,7 @@ aitbc explorer activity-timeline [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--period` | text | `24h` | no | Time period (1h, 24h, 7d, 30d) |
+| `--period` | choice | `30d` | no | Time period (1h, 24h, 7d, 30d); daily granularity — sub-day periods return the last day |
 | `--chain-id` | text | — | no | Chain ID to query |
 
 ## Examples

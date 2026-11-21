@@ -19,7 +19,7 @@ aitbc prometheus alert-history [OPTIONS]
 | `--alertname` | text | — | no | Substring match on the alert name |
 | `--state` | choice | — | no | Only events in this state; 'silenced' selects events recorded under a silence |
 | `--node` | text | — | no | Only events whose labels.node (or labels.instance) matches this string |
-| `--last` | integer | — | no | Keep only the newest N matching events |
+| `--last` | integer | — | no | Keep only the newest N matching events (default 50; 0 = no limit) |
 
 ## Examples
 

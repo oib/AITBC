@@ -1,6 +1,7 @@
 """Blockchain Explorer commands for AITBC CLI"""
 
 import json
+from typing import Any
 
 import click
 import httpx
@@ -308,27 +309,40 @@ def blocks_by_address(address: str, limit: int, chain_id: str | None):
         abort(None, f"Error getting blocks by address: {e}", from_exception=e)
 
 
+# The activity endpoint buckets by day; sub-day periods resolve to one day
+# of daily buckets (#2409 — previously `period` was sent verbatim, ignored
+# by the API's `days` param, and the CLI printed the requested period as if
+# it were honoured, e.g. "24h" over a month of data).
+_PERIOD_TO_DAYS = {"1h": 1, "24h": 1, "7d": 7, "30d": 30}
+
+
 @explorer.command(
     epilog="""Examples:
 
   aitbc explorer activity-timeline
 
-  aitbc explorer activity-timeline --period 24h --chain-id ait-mainnet"""
+  aitbc explorer activity-timeline --period 7d --chain-id ait-mainnet"""
 )
-@click.option("--period", default="24h", help="Time period (1h, 24h, 7d, 30d)")
+@click.option(
+    "--period",
+    default="30d",
+    type=click.Choice(sorted(_PERIOD_TO_DAYS)),
+    help="Time period (1h, 24h, 7d, 30d); daily granularity — sub-day periods return the last day",
+)
 @click.option("--chain-id", help="Chain ID to query")
 def activity_timeline(period: str, chain_id: str | None):
     """Get the daily transaction activity timeline for a period."""
+    days = _PERIOD_TO_DAYS[period]
     try:
         client = get_explorer_client()
-        params = {"period": period}
+        params: dict[str, Any] = {"days": days}
         if chain_id:
             params["chain_id"] = chain_id
 
         result = client.get("/api/analytics/activity", params=params)
 
         if result:
-            success(f"Activity timeline for {period}")
+            success(f"Activity timeline for the last {days} day{'s' if days != 1 else ''}")
             click.echo(json.dumps(result, indent=2))
         else:
             abort(None, "No activity data available")
