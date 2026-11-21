@@ -176,7 +176,8 @@ def export_audit(ctx, output_file: str):
                 },
             ]
         else:
-            records = client.get("/v1/compliance/audit-logs")
+            payload = client.get_json("/v1/compliance/audit-logs")
+            records = payload["records"] if isinstance(payload, dict) else payload
         with open(output_file, "w", encoding="utf-8") as f:
             json.dump({"exported_at": datetime.now(UTC).isoformat(), "records": records}, f, indent=2)
         result = {
