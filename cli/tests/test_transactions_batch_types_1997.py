@@ -177,3 +177,63 @@ def test_process_batch_entry_rejects_non_object_payload():
             nonce_offsets,
             results,
         )
+
+
+def _batch_fake_client(posted):
+    class _C:
+        def __init__(self, base_url="", **kw):
+            self.base_url = base_url
+
+        def get(self, endpoint, **kw):
+            return {"nonce": 1}
+
+        def post(self, endpoint, json=None, **kw):
+            posted.append(json)
+            return {"transaction_hash": f"0xhash{len(posted)}"}
+
+    return _C
+
+
+def test_batch_accepts_inline_transactions_json(runner, tmp_path, monkeypatch):
+    """#2397: --transactions carries the same JSON list as --transactions-file
+    so MCP/CLI-only players can stage a batch without a node-side file."""
+    wallet_dir = tmp_path / "wallets"
+    wallet_dir.mkdir()
+    _write_named_wallet(wallet_dir, "w1", "0x1111111111111111111111111111111111111111")
+
+    batch_json = json.dumps([{"from_wallet": "w1", "to_address": RECIPIENT, "amount": "0.5"}])
+    posted: list[dict] = []
+    monkeypatch.delenv("CHAIN_ID", raising=False)
+    with (
+        patch.object(chain_id_mod, "get_chain_id", side_effect=_serving_chain_lookup("ait-test")),
+        patch("aitbc_cli.commands.transactions.AITBCHTTPClient", _batch_fake_client(posted)),
+        patch.dict("os.environ", {"AITBC_WALLET_DIR": str(wallet_dir)}),
+    ):
+        result = runner.invoke(
+            tx_mod.transactions,
+            ["batch", "--transactions", batch_json, "--password", "x", "--rpc-url", "http://node:1"],
+            obj={},
+        )
+    assert result.exit_code == 0, result.output
+    assert len(posted) == 1
+    assert posted[0]["to"] == RECIPIENT
+
+
+def test_batch_requires_exactly_one_source(runner):
+    for args in (
+        ["batch"],
+        ["batch", "--transactions-file", "/tmp/x.json", "--transactions", "[]"],
+    ):
+        result = runner.invoke(tx_mod.transactions, args, obj={})
+        assert result.exit_code != 0
+        assert "exactly one of --transactions-file or --transactions" in result.output
+
+
+def test_batch_rejects_non_list_inline_json(runner):
+    result = runner.invoke(
+        tx_mod.transactions,
+        ["batch", "--transactions", '{"from_wallet": "w1"}'],
+        obj={},
+    )
+    assert result.exit_code != 0
+    assert "JSON list" in result.output

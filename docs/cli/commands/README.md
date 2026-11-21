@@ -766,7 +766,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 ## `transactions`
 
-- [`aitbc transactions batch`](transactions-batch.md) — Send multiple transactions from a JSON batch file.
+- [`aitbc transactions batch`](transactions-batch.md) — Send multiple transactions from a JSON batch.
 - [`aitbc transactions estimate-fee`](transactions-estimate-fee.md) — Estimate the transaction fee for a transfer.
 - [`aitbc transactions pending`](transactions-pending.md) — Get the list of pending transactions from the node.
 - [`aitbc transactions search`](transactions-search.md) — Search transactions by address, sender, or recipient.
