@@ -163,6 +163,7 @@ from .escrow_routes_lock import (
 )
 from .escrow_routes_submit import (
     _escrow_custody_balance as _escrow_custody_balance,
+    _existing_settlement_tx_hash as _existing_settlement_tx_hash,
     _retry_sweep_released_escrow as _retry_sweep_released_escrow,
     _submit_fee_sweep_tx as _submit_fee_sweep_tx,
     _submit_market_signed as _submit_market_signed,

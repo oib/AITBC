@@ -395,6 +395,27 @@ def _release_row_update(
     return released_at
 
 
+async def _submit_release_tx_or_inflight(
+    buyer_addr: str,
+    provider_addr: str,
+    released_amount: _er.Decimal,
+    job_id: str,
+    contract_id: str,
+) -> str | None:
+    """Submit the release leg; adopt an in-flight tx on a lost response (#2402).
+
+    ``_submit_payment_tx`` returns None both when the submit genuinely
+    failed and when the node's response was lost after the tx was admitted
+    to the mempool. Re-checking sealed+mempool — the same dedup the retry
+    path relies on — keeps a live release from being reported unsettled,
+    which is what made ``ai accept`` 502 on a payment that was settling.
+    """
+    tx_hash = await _er._submit_payment_tx(buyer_addr, provider_addr, released_amount, job_id, contract_id)
+    if tx_hash:
+        return tx_hash
+    return await _er._existing_settlement_tx_hash(job_id, "ESCROW_RELEASE")
+
+
 async def _release_settle_locked_impl(
     mgr: _er.Any,
     job_id: str,
@@ -436,7 +457,7 @@ async def _release_settle_locked_impl(
     )
 
     # Settle on-chain first; only a confirmed transaction counts as a release.
-    tx_hash = await _er._submit_payment_tx(buyer_addr, provider_addr, released_amount, job_id, contract_id)
+    tx_hash = await _submit_release_tx_or_inflight(buyer_addr, provider_addr, released_amount, job_id, contract_id)
     if not tx_hash:
         return _release_unsettled_result(mgr, contract_id, job_id, provider_addr, released_amount)
 
