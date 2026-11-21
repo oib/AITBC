@@ -24,7 +24,7 @@ from ..schemas.economic_proposal import (
     EconomicProposalResponse,
     EconomicProposalVoteRequest,
 )
-from ..services.economic_proposal_service import EconomicProposalService
+from ..services.economic_proposal_service import EconomicProposalService, ProposalNotFoundError
 from ..services.governance_service import GovernanceService
 
 logger = get_logger(__name__)
@@ -132,6 +132,11 @@ async def vote_on_proposal(
     voting_power = effective_voting_power(profile)
     try:
         return await run_in_threadpool(service.vote, proposal_id, payload.vote, voting_power)
+    except ProposalNotFoundError as e:
+        governance_errors_total.labels(
+            endpoint="/economic-proposals/{proposal_id}/votes", method="POST", error_type="not_found"
+        ).inc()
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
         governance_errors_total.labels(
             endpoint="/economic-proposals/{proposal_id}/votes", method="POST", error_type="invalid_request"
@@ -156,6 +161,11 @@ async def execute_proposal(
     governance_requests_total.labels(endpoint="/economic-proposals/{proposal_id}/execute", method="POST").inc()
     try:
         return await run_in_threadpool(service.execute_proposal, proposal_id)
+    except ProposalNotFoundError as e:
+        governance_errors_total.labels(
+            endpoint="/economic-proposals/{proposal_id}/execute", method="POST", error_type="not_found"
+        ).inc()
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(e)) from e
     except ValueError as e:
         governance_errors_total.labels(
             endpoint="/economic-proposals/{proposal_id}/execute", method="POST", error_type="invalid_request"

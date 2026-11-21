@@ -14,7 +14,7 @@ aitbc economics model [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--type` | text | `cost-optimization` | no | Model type |
+| `--type` | text | `cost-optimization` | no | Model type (supported: cost-optimization) |
 
 ## Examples
 

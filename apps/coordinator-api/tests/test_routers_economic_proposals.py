@@ -138,9 +138,11 @@ class TestVote:
         row = db_session.get(EconomicParameterProposal, p.id)
         assert row is not None and row.votes_for == 0.0
 
-    def test_vote_missing_proposal_400(self, client: TestClient) -> None:
+    def test_vote_missing_proposal_404(self, client: TestClient) -> None:
+        """Unknown proposal id is a missing resource — 404, not 400 (#2449)."""
         resp = client.post(f"{BASE}/nope/votes", json={"vote": "for"}, headers=_client())
-        assert resp.status_code == 400
+        assert resp.status_code == 404
+        assert "not found" in resp.json()["detail"]
 
 
 class TestExecute:
@@ -158,6 +160,10 @@ class TestExecute:
         assert data["status"] == "executed"
         # proposed_value becomes current_value
         assert Decimal(data["current_value"]) == Decimal("2.0")
+
+    def test_execute_missing_proposal_404(self, client: TestClient) -> None:
+        resp = client.post(f"{BASE}/nope/execute", headers=_admin())
+        assert resp.status_code == 404
 
     def test_execute_below_quorum_400(self, client: TestClient, db_session: Session) -> None:
         p = _seed_proposal(db_session, votes_for=1.0, quorum=100.0)

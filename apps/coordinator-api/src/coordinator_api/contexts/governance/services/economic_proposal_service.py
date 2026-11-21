@@ -27,6 +27,14 @@ def _utc_now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
+class ProposalNotFoundError(ValueError):
+    """The proposal id does not exist — a missing resource, not a bad request.
+
+    Subclasses ``ValueError`` so existing ``except ValueError`` callers keep
+    working; routers catch it first to answer 404 instead of 400 (#2449).
+    """
+
+
 class EconomicProposalService:
     """CRUD, voting, and execution logic for OpenClaw economic proposals."""
 
@@ -102,7 +110,7 @@ class EconomicProposalService:
         """Cast a vote on a proposal."""
         proposal = self.get_proposal(proposal_id)
         if proposal is None:
-            raise ValueError(f"proposal {proposal_id} not found")
+            raise ProposalNotFoundError(f"proposal {proposal_id} not found")
         if proposal.status not in self._VOTABLE_STATUSES:
             raise ValueError(f"proposal {proposal_id} is not open for voting (status={proposal.status})")
         if proposal.voting_ends is not None and _utc_now() > proposal.voting_ends:
@@ -127,7 +135,7 @@ class EconomicProposalService:
         """Mark a passed proposal as executed and move proposed_value to current_value."""
         proposal = self.get_proposal(proposal_id)
         if proposal is None:
-            raise ValueError(f"proposal {proposal_id} not found")
+            raise ProposalNotFoundError(f"proposal {proposal_id} not found")
         if proposal.status not in self._EXECUTABLE_STATUSES:
             raise ValueError(f"proposal {proposal_id} cannot be executed (status={proposal.status})")
         if proposal.voting_ends is not None and _utc_now() <= proposal.voting_ends:

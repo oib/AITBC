@@ -45,11 +45,10 @@ recommendations aggregated from the live market.
 aitbc economics vote --proposal-id nosuch --vote abstain --voting-power 0
 ```
 
-**Expected output (exit 2):** `Coordinator API error: POST request
-failed: 400 Client Error … /c/v1/economic-proposals/nosuch/votes` — the
-coordinator answers 400 `proposal nosuch not found` (not 401, and not
-404 — a known status-code quirk tracked in #2449); the lookup refuses
-before any vote record (no vote written).
+**Expected output (exit 2):** `Proposal 'nosuch' not found` — the
+coordinator answers **404** `proposal nosuch not found` since #2449 (a
+missing resource is not a bad request); the CLI maps it to a clean
+`NotFoundError` refusal before any vote record (no vote written).
 
 ### Step 3: `trade create --offer-id/--price/--quantity` — API-key refusal
 
@@ -80,7 +79,7 @@ No play: `unplayable:` per the Phase-0 binding (commit `06a9a86d6`) — a succes
 | Option | Command | Exit class |
 |---|---|---|
 | `--type` | `economics model` | expected-refusal (1, unknown type) / ok (0, live) |
-| `--voting-power` | `economics vote` | expected-refusal (2, 400 proposal not found) |
+| `--voting-power` | `economics vote` | expected-refusal (2, 404 proposal not found) |
 | `--offer-id/--price/--quantity` | `trade create` | expected-refusal (2, 401) |
 | `--node-url` | `trade lock-escrow` | expected-refusal (2, 404 trade GET) |
 | `--wait` | `crosschain bridge` | unplayable: binding |

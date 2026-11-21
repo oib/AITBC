@@ -16,8 +16,14 @@ from aitbc.exceptions import AITBCError
 from aitbc.utils.units import DEFAULT_TX_FEE_AIT
 from ..config import get_config
 from ..utils import output
-from ..utils.error_handling import CLIError, abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, service_root_url
+from ..utils.error_handling import CLIError, NotFoundError, abort
+from ..utils.http_client import (
+    AITBCHTTPClient,
+    NetworkError,
+    auth_client_kwargs,
+    http_response_status,
+    service_root_url,
+)
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -69,6 +75,22 @@ def _api_client(explicit_key: str | None = None) -> AITBCHTTPClient | None:
 _ACTIVE_OFFER_STATUSES = {"active", "available", "open"}
 _SUPPORTED_MODEL_TYPES = ("cost-optimization",)
 _PROBE_TIMEOUT_CAP = 15
+
+# Mirrors the market catalog's unservable-sentinel rule (#2435): offers
+# naming a placeholder provider/node ("default", "none", "n/a") have no live
+# service behind them — stress-harness leftovers that would otherwise win
+# every "cheapest" recommendation (#2449). Applied client-side too so the
+# model stays honest against a market service that predates the catalog fix.
+_SENTINEL_IDENTITIES = {"default", "none", "n/a"}
+
+
+def _is_unservable_offer(offer: Any) -> bool:
+    if not isinstance(offer, dict):
+        return False
+    for key in ("provider_address", "node_id"):
+        if str(offer.get(key) or "").strip().lower() in _SENTINEL_IDENTITIES:
+            return True
+    return False
 
 
 def _probe_timeout(config) -> int:
@@ -126,7 +148,8 @@ def _fetch_market_offers(config, sources: dict[str, str]) -> tuple[list[dict[str
             continue
         if err is None and isinstance(data, dict) and isinstance(data.get("offers"), list):
             sources["market_offers"] = "ok"
-            return data["offers"], base
+            offers = [o for o in data["offers"] if not _is_unservable_offer(o)]
+            return offers, base
         errors.append(f"{base}: {err or 'unexpected response shape'}")
     sources["market_offers"] = "; ".join(errors) if errors else "no market service URL configured"
     return [], None
@@ -525,7 +548,7 @@ def distributed(ctx, cost_optimize):
 
   aitbc economics model --type cost-optimization"""
 )
-@click.option("--type", default="cost-optimization", help="Model type")
+@click.option("--type", default="cost-optimization", help="Model type (supported: cost-optimization)")
 @click.pass_context
 def model(ctx, type):
     """Run an economic model over live fleet data.
@@ -675,6 +698,8 @@ def vote(ctx, proposal_id, vote, voting_power):
             )
         output(result, ctx.obj.get("output_format", "table"), title="Economic Vote")
     except NetworkError as e:
+        if http_response_status(e) == 404:
+            abort(ctx, f"Proposal '{proposal_id}' not found", error_type=NotFoundError, from_exception=e)
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except _OPS_ERRORS as e:
         abort(ctx, f"Error voting on proposal {proposal_id}: {e}", from_exception=e)
@@ -706,6 +731,8 @@ def status(ctx, proposal_id):
             result = client.get(f"/v1/economic-proposals/{proposal_id}")
         output(result, ctx.obj.get("output_format", "table"), title="Economic Proposal Status")
     except NetworkError as e:
+        if http_response_status(e) == 404:
+            abort(ctx, f"Proposal '{proposal_id}' not found", error_type=NotFoundError, from_exception=e)
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except _OPS_ERRORS as e:
         abort(ctx, f"Error fetching proposal {proposal_id}: {e}", from_exception=e)
