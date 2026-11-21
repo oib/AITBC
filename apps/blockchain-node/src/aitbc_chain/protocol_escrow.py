@@ -40,6 +40,9 @@ from eth_utils import keccak
 from aitbc.crypto.signature_recovery import canonical_address
 
 from .base_models import _to_ait_address
+from .logger import get_logger
+
+_logger = get_logger(__name__)
 
 
 def _derive(env_var: str, label: bytes) -> str:
@@ -128,7 +131,29 @@ def queue_protocol_transfer(
     }
     if auth is not None:
         tx_data["payload"]["auth"] = dict(auth)
-    return get_mempool().add(tx_data, chain_id=chain_id)
+    tx_hash = get_mempool().add(tx_data, chain_id=chain_id)
+    _relay_protocol_transfer(chain_id, tx_data)
+    return tx_hash
+
+
+def _relay_protocol_transfer(chain_id: str, tx_data: dict[str, Any]) -> None:
+    """Best-effort peer fan-out for a queued protocol transfer (#2396).
+
+    ``get_mempool().add`` writes only this host's local mempool — nothing
+    republishes it. The REST submit path relays via ``_queue_peer_fanout``
+    (#2361), but this helper bypassed it, so a stake/unstake/bounty request
+    served by a non-proposing host returned a tx hash for a transaction no
+    proposer ever saw. Schedule the same relay; the local entry remains as
+    fallback for the case where this host does propose.
+    """
+    try:
+        from .rpc.transactions import _queue_peer_fanout
+    except ImportError:
+        return
+    try:
+        _queue_peer_fanout(chain_id, tx_data)
+    except (RuntimeError, ValueError, TypeError, AttributeError, KeyError) as e:
+        _logger.debug("protocol transfer peer fan-out not scheduled: %s", e)
 
 
 def protocol_transfers_active(session: Any, chain_id: str) -> bool:
