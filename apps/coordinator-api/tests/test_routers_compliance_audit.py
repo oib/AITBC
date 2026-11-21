@@ -108,6 +108,6 @@ class TestAuditLogs:
         assert resp.status_code == 200
         assert len(resp.json()) == 1
 
-    @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 1001}, {"offset": -1}])
+    @pytest.mark.parametrize("params", [{"limit": 0}, {"limit": 1001}, {"offset": -1}, {"offset": 10001}])
     def test_pagination_bounds(self, client: TestClient, params: dict[str, int]) -> None:
         assert client.get(BASE, params=params, headers=_headers()).status_code == 422

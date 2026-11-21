@@ -85,7 +85,10 @@ def list_audit_logs(
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     limit: int = Query(default=100, ge=1, le=1000),
-    offset: int = Query(default=0, ge=0),
+    # Bounded: limit+offset rows are pulled from each table before the
+    # merged slice, so an unbounded offset reads both tables nearly whole
+    # into memory (#2467).
+    offset: int = Query(default=0, ge=0, le=10000),
 ) -> list[ComplianceAuditRecord]:
     """Return merged compliance audit records, newest first (admin only)."""
     try:
