@@ -1,5 +1,18 @@
 """
 Settlement router.
+
+#2385: the inter-chain HTLC settlement rail is retired. Every transaction
+the lifecycle would emit is unsigned at the top level (the protocol escrow
+is keyless) and ``v9_signature_verdict`` exempts only ``BRIDGE_*`` — HTLC
+emissions carry no ``payload.auth`` at all, so unlike the v17-revived
+staking/bounty surfaces there is no unarmed-then-live path; a revival
+would need a new consensus version. Every mutating endpoint therefore
+answers HTTP 410 Gone up front instead of writing bookkeeping rows or
+queueing transactions that can never seal.
+
+The read endpoints (``GET /{escrow_id}``, ``/{escrow_id}/status``,
+``/{escrow_id}/proofs``) stay live so existing escrow records remain
+inspectable.
 """
 
 from typing import Any
@@ -12,187 +25,77 @@ from ...config import settings
 from ...database import ChainDbMissingError
 from ...logger import get_logger
 from ..escrow_routes import verify_rpc_api_key
+from ..retired import raise_for_retired_settlement
 
 _logger = get_logger(__name__)
 
-# The mutating endpoints on this router move or mark real escrow funds
-# (refund/dispute/resolve act on escrow_id alone), and the perimeter only
-# allowlists /rpc/escrow/ — so the whole router requires X-API-Key, the
-# same control escrow_routes applies. Fail-closed: when
+# The perimeter only allowlists /rpc/escrow/ — so the whole router requires
+# X-API-Key, the same control escrow_routes applies. Fail-closed: when
 # BLOCKCHAIN_RPC_API_KEY is unset every route returns 503.
 router = APIRouter(prefix="/bridge/settlement", tags=["settlement"], dependencies=[Depends(verify_rpc_api_key)])
 
 
-@router.post("/create", summary="Create cross-chain escrow")
+@router.post("/create", summary="Create cross-chain escrow (retired, #2385)")
 @rate_limit(rate=10, per=60)
-async def create_escrow_route(request: Request, escrow_data: dict[str, Any]) -> dict[str, Any]:
-    """Create a cross-chain escrow for atomic settlement."""
-    if not settings.escrow_enabled:
-        raise HTTPException(status_code=503, detail="Settlement not enabled (escrow_enabled=false)")
-    try:
-        from ...cross_chain.settlement import CrossChainSettlementService
-
-        service = CrossChainSettlementService(chain_id=settings.chain_id)
-        result = await service.create_escrow(
-            trade_id=escrow_data["trade_id"],
-            source_chain=escrow_data["source_chain"],
-            dest_chain=escrow_data["dest_chain"],
-            sender=escrow_data["sender"],
-            recipient=escrow_data["recipient"],
-            amount=escrow_data["amount"],
-            timeout_seconds=escrow_data.get("timeout_seconds"),
-        )
-        return result
-    except KeyError as e:
-        raise HTTPException(status_code=400, detail=f"Missing required field: {e.args[0]}") from e
-    except ValueError as e:
-        # #2265: unprovisioned chain / unsafe timelocks / bad params are
-        # caller-visible refusals, not server faults.
-        raise HTTPException(status_code=400, detail=str(e)) from e
-    except HTTPException:
-        raise
-    except ChainDbMissingError as e:
-        # #2269: an unprovisioned source/dest chain.db is a client-input
-        # problem, not a server fault — name the chain, don't 500.
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except Exception as e:
-        _logger.error("Create escrow failed: %s", e)
-        _logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+def create_escrow_route(request: Request, escrow_data: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
+    """Retired: inter-chain HTLC escrow creation cannot seal at block v9 (#2385)."""
+    raise_for_retired_settlement()
 
 
-@router.post("/{escrow_id}/lock", summary="Lock escrow funds")
+@router.post("/{escrow_id}/lock", summary="Lock escrow funds (retired, #2385)")
 @rate_limit(rate=10, per=60)
-async def lock_escrow_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
-    """Lock funds on source chain for an escrow."""
-    if not settings.escrow_enabled:
-        raise HTTPException(status_code=503, detail="Settlement not enabled")
-    try:
-        from ...cross_chain.settlement import CrossChainSettlementService
-
-        service = CrossChainSettlementService(chain_id=settings.chain_id)
-        return await service.lock_escrow(escrow_id)
-    except HTTPException:
-        raise
-    except ChainDbMissingError as e:
-        # #2269: an unprovisioned source/dest chain.db is a client-input
-        # problem, not a server fault — name the chain, don't 500.
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except Exception as e:
-        _logger.error("Lock escrow failed: %s", e)
-        _logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+def lock_escrow_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
+    """Retired: inter-chain HTLC escrow lock cannot seal at block v9 (#2385)."""
+    raise_for_retired_settlement()
 
 
-@router.post("/{escrow_id}/verify", summary="Verify lock proof")
+@router.post("/{escrow_id}/verify", summary="Verify lock proof (retired, #2385)")
 @rate_limit(rate=10, per=60)
-async def verify_lock_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
-    """Verify lock proof on destination chain."""
-    if not settings.escrow_enabled:
-        raise HTTPException(status_code=503, detail="Settlement not enabled")
-    try:
-        from ...cross_chain.settlement import CrossChainSettlementService
-
-        service = CrossChainSettlementService(chain_id=settings.chain_id)
-        return await service.verify_lock(escrow_id)
-    except HTTPException:
-        raise
-    except ChainDbMissingError as e:
-        # #2269: an unprovisioned source/dest chain.db is a client-input
-        # problem, not a server fault — name the chain, don't 500.
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except Exception as e:
-        _logger.error("Verify lock failed: %s", e)
-        _logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+def verify_lock_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
+    """Retired: the lock it would verify can never exist (#2385)."""
+    raise_for_retired_settlement()
 
 
-@router.post("/{escrow_id}/execute", summary="Execute trade on destination")
+@router.post("/{escrow_id}/execute", summary="Execute trade on destination (retired, #2385)")
 @rate_limit(rate=10, per=60)
-async def execute_trade_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
-    """Execute trade on destination chain."""
-    if not settings.escrow_enabled:
-        raise HTTPException(status_code=503, detail="Settlement not enabled")
-    try:
-        from ...cross_chain.settlement import CrossChainSettlementService
-
-        service = CrossChainSettlementService(chain_id=settings.chain_id)
-        return await service.execute_trade(escrow_id)
-    except HTTPException:
-        raise
-    except ChainDbMissingError as e:
-        # #2269: an unprovisioned source/dest chain.db is a client-input
-        # problem, not a server fault — name the chain, don't 500.
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except Exception as e:
-        _logger.error("Execute trade failed: %s", e)
-        _logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+def execute_trade_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
+    """Retired: the verified state it requires is unreachable (#2385)."""
+    raise_for_retired_settlement()
 
 
-@router.post("/{escrow_id}/settle", summary="Settle escrow with secret")
+@router.post("/{escrow_id}/settle", summary="Settle escrow with secret (retired, #2385)")
 @rate_limit(rate=10, per=60)
-async def settle_escrow_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
-    """Reveal secret and settle escrow on both chains.
-
-    Accepts JSON body ``{"secret": "<hex_secret>"}`` matching SettlementClient.
-    """
-    if not settings.escrow_enabled:
-        raise HTTPException(status_code=503, detail="Settlement not enabled")
-    try:
-        from ...cross_chain.settlement import CrossChainSettlementService
-
-        secret = body.get("secret", "")
-        if not secret:
-            raise HTTPException(status_code=400, detail="Missing required field: secret")
-        service = CrossChainSettlementService(chain_id=settings.chain_id)
-        return await service.settle(escrow_id, secret)
-    except HTTPException:
-        raise
-    except ChainDbMissingError as e:
-        # #2269: an unprovisioned source/dest chain.db is a client-input
-        # problem, not a server fault — name the chain, don't 500.
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except Exception as e:
-        _logger.error("Settle escrow failed: %s", e)
-        _logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+def settle_escrow_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
+    """Retired: HTLC complete_swap emits no payload.auth and cannot seal (#2385)."""
+    raise_for_retired_settlement()
 
 
-@router.post("/{escrow_id}/refund", summary="Refund escrow")
+@router.post("/{escrow_id}/refund", summary="Refund escrow (retired, #2385)")
 @rate_limit(rate=10, per=60)
-async def refund_escrow_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
-    """Refund escrow after timeout."""
-    if not settings.escrow_enabled:
-        raise HTTPException(status_code=503, detail="Settlement not enabled")
-    try:
-        from ...cross_chain.settlement import CrossChainSettlementService
+def refund_escrow_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
+    """Retired: HTLC refund_swap emits no payload.auth and cannot seal (#2385)."""
+    raise_for_retired_settlement()
 
-        service = CrossChainSettlementService(chain_id=settings.chain_id)
-        return await service.refund(escrow_id)
-    except HTTPException:
-        raise
-    except ValueError as e:
-        # Refund refused in the escrow's current state: unknown id (404),
-        # already terminal, or the HTLC timelock height has not matured yet
-        # (409 — the caller/sweeper may retry).
-        detail = str(e)
-        code = 404 if "not found" in detail else 409
-        raise HTTPException(status_code=code, detail=detail) from e
-    except ChainDbMissingError as e:
-        # #2269: an unprovisioned source/dest chain.db is a client-input
-        # problem, not a server fault — name the chain, don't 500.
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except Exception as e:
-        _logger.error("Refund escrow failed: %s", e)
-        _logger.exception("Unhandled exception")
 
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+@router.post("/{escrow_id}/extend-timeout", summary="Extend escrow timeout (retired, #2385)")
+@rate_limit(rate=10, per=60)
+def extend_timeout_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
+    """Retired: extending a timeout on a rail that cannot settle is meaningless (#2385)."""
+    raise_for_retired_settlement()
+
+
+@router.post("/{escrow_id}/dispute", summary="File a dispute for an escrow (retired, #2385)")
+@rate_limit(rate=10, per=60)
+def file_escrow_dispute_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
+    """Retired: no new escrow can be created, so no new dispute can arise (#2385)."""
+    raise_for_retired_settlement()
+
+
+@router.post("/{escrow_id}/resolve", summary="Resolve a dispute (retired, #2385)")
+@rate_limit(rate=10, per=60)
+def resolve_escrow_dispute_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
+    """Retired: dispute resolution on the dead HTLC rail is meaningless (#2385)."""
+    raise_for_retired_settlement()
 
 
 @router.get("/{escrow_id}", summary="Get escrow details")
@@ -269,113 +172,6 @@ async def get_proof_chain_route(request: Request, escrow_id: str) -> dict[str, A
         raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Get proof chain failed: %s", e)
-        _logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
-@router.post("/{escrow_id}/extend-timeout", summary="Extend escrow timeout")
-@rate_limit(rate=10, per=60)
-async def extend_timeout_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
-    """Extend escrow timeout.
-
-    Accepts JSON body ``{"extension_seconds": <int>}`` matching SettlementClient.
-    """
-    if not settings.escrow_enabled:
-        raise HTTPException(status_code=503, detail="Settlement not enabled")
-    try:
-        from ...cross_chain.settlement import CrossChainSettlementService
-
-        extension_seconds = body.get("extension_seconds", 0)
-        if extension_seconds <= 0:
-            raise HTTPException(status_code=400, detail="extension_seconds must be positive")
-        service = CrossChainSettlementService(chain_id=settings.chain_id)
-        return await service.extend_timeout(escrow_id, int(extension_seconds))
-    except HTTPException:
-        raise
-    except ChainDbMissingError as e:
-        # #2269: an unprovisioned source/dest chain.db is a client-input
-        # problem, not a server fault — name the chain, don't 500.
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except Exception as e:
-        _logger.error("Extend timeout failed: %s", e)
-        _logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
-@router.post("/{escrow_id}/dispute", summary="File a dispute for an escrow")
-@rate_limit(rate=10, per=60)
-def file_escrow_dispute_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
-    """File a dispute for an escrow, halting automatic timeout/refund."""
-    if not settings.escrow_enabled:
-        raise HTTPException(status_code=503, detail="Settlement not enabled")
-    try:
-        from sqlmodel import select
-
-        from ...base_models import CrossChainEscrowRecord
-        from ...database import session_scope
-
-        reason = body.get("reason", "")
-        evidence = body.get("evidence", "")
-        with session_scope(settings.chain_id) as session:
-            stmt = select(CrossChainEscrowRecord).where(CrossChainEscrowRecord.escrow_id == escrow_id)
-            record = session.execute(stmt).scalars().first()
-            if not record:
-                raise HTTPException(status_code=404, detail="Escrow not found")
-            record.status = "disputed"
-            session.add(record)
-            session.commit()
-        return {"escrow_id": escrow_id, "status": "disputed", "reason": reason, "evidence": evidence}
-    except HTTPException:
-        raise
-    except ChainDbMissingError as e:
-        # #2269: an unprovisioned source/dest chain.db is a client-input
-        # problem, not a server fault — name the chain, don't 500.
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except Exception as e:
-        _logger.error("File dispute failed: %s", e)
-        _logger.exception("Unhandled exception")
-
-        raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
-@router.post("/{escrow_id}/resolve", summary="Resolve a dispute")
-@rate_limit(rate=10, per=60)
-def resolve_escrow_dispute_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
-    """Resolve a dispute for an escrow.
-
-    Resolution is "complete" (release to seller) or "refund" (refund buyer).
-    """
-    if not settings.escrow_enabled:
-        raise HTTPException(status_code=503, detail="Settlement not enabled")
-    try:
-        from sqlmodel import select
-
-        from ...base_models import CrossChainEscrowRecord
-        from ...database import session_scope
-
-        resolution = body.get("resolution", "")
-        if resolution not in ("complete", "refund"):
-            raise HTTPException(status_code=400, detail="resolution must be 'complete' or 'refund'")
-        final_status = "completed" if resolution == "complete" else "refunded"
-        with session_scope(settings.chain_id) as session:
-            stmt = select(CrossChainEscrowRecord).where(CrossChainEscrowRecord.escrow_id == escrow_id)
-            record = session.execute(stmt).scalars().first()
-            if not record:
-                raise HTTPException(status_code=404, detail="Escrow not found")
-            record.status = final_status
-            session.add(record)
-            session.commit()
-        return {"escrow_id": escrow_id, "status": final_status, "resolution": resolution}
-    except HTTPException:
-        raise
-    except ChainDbMissingError as e:
-        # #2269: an unprovisioned source/dest chain.db is a client-input
-        # problem, not a server fault — name the chain, don't 500.
-        raise HTTPException(status_code=404, detail=str(e)) from e
-    except Exception as e:
-        _logger.error("Resolve dispute failed: %s", e)
         _logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=500, detail="Internal server error") from e

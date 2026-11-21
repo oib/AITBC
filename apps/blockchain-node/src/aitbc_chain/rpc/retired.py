@@ -38,6 +38,15 @@ _UNARMED_REASON = (
     "and no transaction would ever confirm below it."
 )
 
+# #2385: the inter-chain HTLC trade-settlement rail is retired outright —
+# HTLC emissions carry no payload.auth at all, so unlike the v17-revived
+# staking/bounty surfaces there is no unarmed-then-live path; a revival
+# would need a new consensus version.
+_SETTLEMENT_RETIRED_REASON = (
+    "inter-chain HTLC settlement is retired: protocol-escrow transfers emit no "
+    "payload.auth and cannot seal at block version 9; see #2385"
+)
+
 
 class RetiredProtocolTransfer(RuntimeError):
     """Raised by non-HTTP entry points (e.g. HTLCContract mutators)."""
@@ -49,6 +58,16 @@ def raise_for_retired(feature: str) -> NoReturn:
 
 def raise_for_retired_contract(feature: str) -> NoReturn:
     raise RetiredProtocolTransfer(_RETIRED_REASON.format(feature=feature))
+
+
+def raise_for_retired_settlement() -> NoReturn:
+    """HTTP 410 for the retired inter-chain HTLC settlement surface (#2385)."""
+    raise HTTPException(status_code=410, detail=_SETTLEMENT_RETIRED_REASON)
+
+
+def raise_for_retired_settlement_contract() -> NoReturn:
+    """``RetiredProtocolTransfer`` for non-HTTP settlement entry points (#2385)."""
+    raise RetiredProtocolTransfer(_SETTLEMENT_RETIRED_REASON)
 
 
 def raise_for_unarmed(feature: str) -> NoReturn:

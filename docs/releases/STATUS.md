@@ -182,10 +182,10 @@ with live evidence + a rehearsed `--rollback-auth` drill on hub1).
 | `bridge_multisig_enabled` | `False` | Enable for multi-validator networks |
 | `bridge_require_merkle_proof` | `False` | **Set to `True`** for production |
 | `bridge_block_signature_required` | `True` | Keep enabled |
-| `escrow_enabled` | `True` | **Keep enabled** — B4 HTLC contract integration is complete; paid job escrow/create/release is live; cross-chain bridge settlement is active. |
+| `escrow_enabled` | `True` | **Keep enabled** — B4 HTLC contract integration is complete; paid job escrow/create/release is live. (The cross-chain HTLC *settlement* rail is retired, #2385 — its mutating endpoints answer 410; `escrow_enabled` still gates the job-payment escrow path and the settlement read endpoints.) |
 | `multi_validator_consensus_enabled` | `False` | Soak test added (1000 rounds + partition/PBFT). Enable only after configuring a validator set and per-validator signing keys; the live `PoAProposer` still uses the single `PROPOSER_ID` while this flag is `False`. |
 
-> **Escrow scope:** `escrow_enabled` now defaults to `True`. The job-payment escrow path (`/rpc/escrow/create` and `/escrow/{job_id}/release`) is live. Cross-chain bridge HTLC settlement is also gated by this flag; operators who want trust-minimized bridge operation should additionally enable `bridge_require_merkle_proof`, `bridge_multisig_enabled`, and `multi_validator_consensus_enabled` and complete a soak test.
+> **Escrow scope:** `escrow_enabled` now defaults to `True`. The job-payment escrow path (`/rpc/escrow/create` and `/escrow/{job_id}/release`) is live. The cross-chain HTLC settlement surface (`/rpc/bridge/settlement/*` mutations, trading `lock-escrow`/`settle`) is **retired (#2385)** — it answered 410 because HTLC emissions cannot seal at block version 9; only the settlement read endpoints (`get`/`status`/`proofs`, trading `settlement-status`) remain live under this flag. Operators who want trust-minimized bridge operation should additionally enable `bridge_require_merkle_proof`, `bridge_multisig_enabled`, and `multi_validator_consensus_enabled` and complete a soak test.
 >
 > **Bridge security defaults (2026-08-25):** `bridge_release_enabled` is now `True` live on `<hub-node>` and `<node2>`; `aitbc bridge security-status` reports `release_enabled: true`, `multisig_enabled: true`, and `require_merkle_proof: true`. However, a live consensus stall prevents safe confirmations: see the Open design-review gaps table and the bridge/live-validation section below.
 >
