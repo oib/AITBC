@@ -3,8 +3,8 @@
 **Level**: Advanced
 **Prerequisites**: Scenario 09 GPU Listing (a registered GPU resource)
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-09-16
-**Version**: 1.0
+**Last Updated**: 2026-11-21
+**Version**: 1.1
 
 ## Navigation Path
 
@@ -24,13 +24,18 @@ breadcrumb: Home > Scenarios > Energy Pricing
 
 ## Scenario Overview
 
-> **Live vs. simulated:** the energy pricing surface is **config-gated, live
-> code** — `provider register`/`profile`/`floor` read and write the
-> on-chain `IEnergyPricing` contract over `EVM_RPC_URL`, and
-> `operator info`/`verify` are local quote-signing operations gated on
-> `ENERGY_OPERATOR_ADDRESS`. On the current fleet neither is provisioned, so
-> the EVM steps fail closed (`EVM RPC URL not configured`) — that refusal is
-> the honest behavior until an EVM endpoint is wired.
+> **Live vs. simulated:** the energy pricing surface is **live code on the
+> native rail** — with no `EVM_RPC_URL`/`IEnergyPricing` configured (the
+> fleet case), `provider register`/`profile`/`rate`/`floor` route to the
+> coordinator's `/v1/market/native-energy/*` endpoints (miner credential
+> for writes), and `operator info`/`verify` are local quote-signing
+> operations gated on `ENERGY_OPERATOR_ADDRESS`.
+>
+> **Descoped 21 Nov 2026 (operator ruling):** the fleet settles on the
+> native energy rail; the `IEnergyPricing` EVM contract path is descoped
+> until an EVM endpoint is wired. Steps below describe the native path;
+> the EVM contract variant is retained in the CLI but out of scope for
+> fleet replay.
 
 This scenario covers how GPU providers register an energy profile, how the
 on-chain energy floor for a rental is computed, and how an operator-signed
@@ -53,8 +58,11 @@ energy floor tracks real cost instead of a static guess.
 ## Prerequisites
 
 - A provider wallet with signing access (`--wallet` / `--wallet-path`)
-- `EVM_RPC_URL` pointing at the chain hosting `IEnergyPricing` — required for
-  `floor`, `provider register`, `provider profile`, `provider rate`
+- Reachability of the hub coordinator's `/v1/market/native-energy/*`
+  endpoints — the canonical fleet rail (descoped EVM path would instead
+  need `EVM_RPC_URL` + `energy_pricing_contract_address`)
+- A miner-tier credential for `provider register`/`rate --publish`
+  writes; client credential suffices for reads
 - `ENERGY_OPERATOR_ADDRESS` configured for `operator info`/`verify`
 
 ---
@@ -73,8 +81,9 @@ aitbc energy provider register \
   --wallet provider
 ```
 
-Writes the profile to the `IEnergyPricing` contract. Fails closed with
-`EVM RPC URL not configured` when no EVM endpoint is set.
+Posts the profile to the coordinator's native-energy rail
+(`POST /v1/market/native-energy/profile`, miner auth). The descoped EVM
+variant would instead write `IEnergyPricing` over `EVM_RPC_URL`.
 
 ### 2. Suggest a profile from detected hardware
 
@@ -102,6 +111,9 @@ overhead, divided by PSU efficiency — applies the regional EUR/kWh tariff
 ```bash
 aitbc energy provider profile --resource-id gpu-rtx4090-01
 ```
+
+Reads via `GET /v1/market/native-energy/profile/{resource_id}` on the
+native rail (the descoped EVM path reads `IEnergyPricing` instead).
 
 ### 4. Compute the energy floor for a rental
 
@@ -134,7 +146,9 @@ verified live on the fleet.
 
 ### 6. Read the provider AIT/EUR rate
 
-Prints the provider's configured AIT-per-EUR rate; with `--publish` it would write on-chain — this pass reads only.
+Prints the provider's configured AIT-per-EUR rate via
+`GET /v1/market/native-energy/rate`; with `--publish` it writes
+`POST /v1/market/native-energy/rate` (miner auth) — this pass reads only.
 
 ```bash
 aitbc energy provider rate
@@ -149,7 +163,9 @@ aitbc energy provider rate
 
 ## Troubleshooting
 
-- `EVM RPC URL not configured` — set `EVM_RPC_URL`; the energy contract lives
-  on the EVM side.
+- `401/403` on native-energy writes — the write endpoints require a
+  miner-tier credential; reads work with the client credential.
 - `No operator address configured` — set `ENERGY_OPERATOR_ADDRESS` on the
   operator node.
+- (Descoped EVM path) `EVM RPC URL not configured` — the `IEnergyPricing`
+  contract path is out of scope for fleet replay per the 21 Nov ruling.
