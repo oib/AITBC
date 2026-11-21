@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: [Scenario 15 Blockchain Monitoring](./15_blockchain_monitoring.md)
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-11-21
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -63,7 +63,9 @@ An AI inference agent needs to join the the network to advertise its compute cap
 
 ### Step 1: Register an Agent
 
-Register an agent on the cross-chain network. The `register` subcommand takes required options: `--agent-id`, `--name`, `--chain-id`, and `--endpoint`. Optional flags let you declare capabilities, an initial reputation score, and a version string.
+Register an agent on the cross-chain network. The `register` subcommand takes required options: `--agent-id`, `--name`, `--chain-id`, and `--endpoint`. Optional flags let you declare capabilities, an initial reputation score (0.0–1.0), and a version string.
+
+> **Enforce-mode deployments:** when the coordinator runs `AGENT_MSG_SIGNATURE_MODE=enforce`, `register` must bind an identity — pass `--wallet <name>` (plus the usual `--password-*` options) so the CLI signs the registration claim. Re-registering an `agent-id` that already exists is refused unless you pass `--update`; with `--update`, options you do not pass keep the stored values instead of resetting to defaults.
 
 ```bash
 # Register an inference agent on the bc-2 chain
@@ -92,7 +94,7 @@ Version       1.2.0
 
 List all agents known to the coordinator network. You can filter by chain ID, status, or capabilities, and choose between table or JSON output.
 
-> **Authenticated deployments:** the coordinator's `/v1/agents/*` read routes require an authenticated principal. A `aitbc auth login` JWT issued for another service does not resolve here — sign the read with a registered agent's wallet instead: `aitbc agent-comm list --wallet <name> --signing-agent-id <registered-agent-id>` (the same `X-Agent-*` signed headers `agent-comm receive` uses). `--signing-agent-id` defaults to `$AGENT_ID`.
+> **Authenticated deployments:** the coordinator's `/v1/agents/*` read routes (`list`, `discover`, `status`, `network`) require an authenticated principal. A `aitbc auth login` JWT issued for another service does not resolve here — sign the read with a registered agent's wallet instead: `aitbc agent-comm list --wallet <name> --signing-agent-id <registered-agent-id>` (the same `X-Agent-*` signed headers `agent-comm receive` uses; `--signing-agent-id` defaults to `$AGENT_ID`).
 
 ```bash
 # List all agents in table format
@@ -322,5 +324,5 @@ aitbc agent-comm network
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-11-21*
+*Version: 1.3*

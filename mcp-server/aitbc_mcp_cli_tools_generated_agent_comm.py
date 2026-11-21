@@ -296,13 +296,16 @@ def aitbc_agent_comm_receive(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_comm_register(
     agent_id: Annotated[str, Field(description="The Agent id.")],
-    name: Annotated[str, Field(description="Wallet name.")],
+    name: Annotated[str, Field(description="Display name for the agent.")],
     chain_id: Annotated[str, Field(description="The Chain id.")],
     endpoint: Annotated[str, Field(description="The Endpoint.")],
     capabilities: Annotated[str | None, Field(description="Comma-separated list of capabilities")] = None,
-    reputation: Annotated[float | None, Field(description="Initial reputation score")] = None,
+    reputation: Annotated[float | None, Field(description="Initial reputation score (0.0-1.0)")] = None,
     version: Annotated[str | None, Field(description="Agent version")] = None,
     agent_type: Annotated[str | None, Field(description="Agent type (worker, specialist, etc.)")] = None,
+    update_existing: Annotated[
+        bool | None, Field(description="Overwrite an already-registered agent_id; options not passed keep the stored values")
+    ] = None,
     wallet_name: Annotated[
         str | None,
         Field(
@@ -321,7 +324,7 @@ def aitbc_agent_comm_register(
     """Register a new agent in the cross-chain network with its metadata and endpoint."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"update_existing": "update"},
         values={
             "agent_id": "agent-id",
             "name": "name",

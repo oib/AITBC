@@ -75,6 +75,115 @@ def _agent_client(ctx: click.Context) -> AITBCHTTPClient:
     )
 
 
+def _lookup_registered_agent(client: AITBCHTTPClient, agent_id: str, signing: tuple[str, str] | None) -> dict[str, Any]:
+    """Best-effort ``GET /v1/agents/{agent_id}`` for the register pre-flight (#2410).
+
+    Returns ``{"status": "found"|"absent"|"unknown", "agent": dict|None}``.
+    ``unknown`` means the lookup itself failed for a non-404 reason (auth,
+    transport) — the caller decides whether that blocks the operation. When
+    a signing wallet is configured its ``X-Agent-*`` headers authenticate
+    the read for an already-bound agent; an unregistered agent simply does
+    not resolve and the route answers 401, which lands in ``unknown``.
+    """
+    headers = signed_request_headers(agent_id, signing[1]) if signing else None
+    try:
+        data = client.get(f"/v1/agents/{agent_id}", headers=headers)
+    except _OPS_ERRORS as e:
+        text = str(e).lower()
+        if "404" in text or "not found" in text:
+            return {"status": "absent", "agent": None}
+        logger.debug("agent-comm register: existence lookup failed for %s: %s", agent_id, e)
+        return {"status": "unknown", "agent": None}
+    agent = data.get("agent") if isinstance(data, dict) else None
+    if not agent:
+        return {"status": "absent", "agent": None}
+    return {"status": "found", "agent": agent}
+
+
+def _register_payload(
+    ctx: click.Context,
+    client: AITBCHTTPClient,
+    *,
+    agent_id: str,
+    name: str,
+    chain_id: str,
+    endpoint: str,
+    capabilities: str | None,
+    reputation: float | None,
+    version: str | None,
+    agent_type: str | None,
+    update_existing: bool,
+    signing: tuple[str, str] | None,
+) -> dict[str, Any]:
+    """Existence check, merge and payload assembly for ``agent-comm register``.
+
+    #2410: a second `register` used to silently rebuild the registry record
+    from this request's defaulted options, wiping stored metadata.
+    Re-registration now requires an explicit ``--update`` and merges every
+    optional field the caller did not pass from the existing record. The
+    lookup is best-effort: when it cannot determine existence (auth/transport
+    failure) the POST stays authoritative — the server's bound-identity
+    re-proof still applies.
+    """
+    lookup = _lookup_registered_agent(client, agent_id, signing)
+    if lookup["status"] == "found" and not update_existing:
+        abort(
+            ctx,
+            f"Agent '{agent_id}' is already registered — re-run with --update to overwrite it "
+            "(options not passed keep the stored values), or choose a different --agent-id",
+        )
+    if lookup["status"] == "absent" and update_existing:
+        abort(ctx, f"Agent '{agent_id}' is not registered — drop --update for a first registration")
+    if lookup["status"] == "unknown" and update_existing:
+        abort(
+            ctx,
+            f"Cannot verify whether agent '{agent_id}' is already registered (registry lookup failed) — "
+            "--update needs the stored record to merge; retry, or register without --update",
+        )
+
+    existing = lookup["agent"] or {}
+    existing_meta = existing.get("metadata") or {}
+    updating = lookup["status"] == "found"
+    if capabilities is not None:
+        cap_list = [c.strip() for c in capabilities.split(",")]
+    elif updating:
+        cap_list = list(existing.get("capabilities") or [])
+    else:
+        cap_list = []
+    eff_reputation = reputation if reputation is not None else float(existing_meta.get("reputation", 0.5)) if updating else 0.5
+    eff_version = version if version is not None else str(existing_meta.get("version", "1.0.0")) if updating else "1.0.0"
+    eff_agent_type = agent_type or (existing.get("agent_type") if updating else None) or "worker"
+
+    if updating:
+        # Carry forward stored metadata keys the CLI does not own (wallet
+        # binding, queue counters, ...) and overwrite only what this
+        # registration sets.
+        metadata = dict(existing_meta)
+        metadata.update({"name": name, "reputation": eff_reputation, "version": eff_version, "endpoint": endpoint})
+    else:
+        metadata = {"name": name, "reputation": eff_reputation, "version": eff_version, "endpoint": endpoint}
+    payload: dict[str, Any] = {
+        "agent_id": agent_id,
+        "agent_type": eff_agent_type,
+        "capabilities": cap_list,
+        "services": cap_list,
+        "endpoints": {"http": endpoint},
+        "metadata": metadata,
+        "chain_id": chain_id,
+        "island_id": "",
+    }
+    if signing is not None:
+        # Phase A §3: bind agent_id to the wallet's secp256k1 identity by
+        # signing the canonical registration claim over a one-time nonce.
+        address, private_key = signing
+        payload.update(identity_attestation_fields(client, agent_id, address, chain_id, private_key))
+        # Keep the metadata convention too — agent-task resolves provider
+        # payout wallets from registry metadata.
+        payload["metadata"]["wallet"] = address
+        info(f"Binding agent identity to wallet {address}")
+    return payload
+
+
 @click.group(
     epilog="""Examples:
 
@@ -92,16 +201,24 @@ def agent_comm():
 
   aitbc agent-comm register --agent-id agent-1 --name 'Shop Agent' --chain-id ait-mainnet --endpoint http://node2.example.net:8107
 
-  aitbc agent-comm register --agent-id agent-2 --name 'Hub Agent' --chain-id ait-mainnet --endpoint http://hub.example.net:8107 --capabilities gpu,storage"""
+  aitbc agent-comm register --agent-id agent-2 --name 'Hub Agent' --chain-id ait-mainnet --endpoint http://hub.example.net:8107 --capabilities gpu,storage
+
+  aitbc agent-comm register --agent-id agent-1 --name 'Shop Agent' --chain-id ait-mainnet --endpoint http://node2.example.net:8107 --update  # re-register: keeps stored values for options not passed"""
 )
 @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
-@click.option("--name", "name", required=True, help="Wallet name.")
+@click.option("--name", "name", required=True, help="Display name for the agent.")
 @click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--endpoint", "endpoint", required=True, help="The Endpoint.")
-@click.option("--capabilities", help="Comma-separated list of capabilities")
-@click.option("--reputation", default=0.5, help="Initial reputation score")
-@click.option("--version", default="1.0.0", help="Agent version")
-@click.option("--agent-type", default="worker", help="Agent type (worker, specialist, etc.)")
+@click.option("--capabilities", default=None, help="Comma-separated list of capabilities")
+@click.option("--reputation", type=click.FloatRange(0.0, 1.0), default=None, help="Initial reputation score (0.0-1.0)")
+@click.option("--version", default=None, help="Agent version")
+@click.option("--agent-type", default=None, help="Agent type (worker, specialist, etc.)")
+@click.option(
+    "--update",
+    "update_existing",
+    is_flag=True,
+    help="Overwrite an already-registered agent_id; options not passed keep the stored values",
+)
 @click.option(
     "--wallet",
     "wallet_name",
@@ -120,6 +237,7 @@ def register(
     reputation,
     version,
     agent_type,
+    update_existing,
     wallet_name,
     password,
     password_file,
@@ -127,35 +245,25 @@ def register(
 ):
     """Register a new agent in the cross-chain network with its metadata and endpoint."""
     try:
-        cap_list = [c.strip() for c in capabilities.split(",")] if capabilities else []
         client = _agent_client(ctx)
-        payload = {
-            "agent_id": agent_id,
-            "agent_type": agent_type,
-            "capabilities": cap_list,
-            "services": cap_list,
-            "endpoints": {"http": endpoint},
-            "metadata": {
-                "name": name,
-                "reputation": float(reputation),
-                "version": version,
-                "endpoint": endpoint,
-            },
-            "chain_id": chain_id,
-            "island_id": "",
-        }
         signing = load_signing_wallet(
             ctx, wallet_name=wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
         )
-        if signing is not None:
-            # Phase A §3: bind agent_id to the wallet's secp256k1 identity by
-            # signing the canonical registration claim over a one-time nonce.
-            address, private_key = signing
-            payload.update(identity_attestation_fields(client, agent_id, address, chain_id, private_key))
-            # Keep the metadata convention too — agent-task resolves provider
-            # payout wallets from registry metadata.
-            payload["metadata"]["wallet"] = address
-            info(f"Binding agent identity to wallet {address}")
+
+        payload = _register_payload(
+            ctx,
+            client,
+            agent_id=agent_id,
+            name=name,
+            chain_id=chain_id,
+            endpoint=endpoint,
+            capabilities=capabilities,
+            reputation=reputation,
+            version=version,
+            agent_type=agent_type,
+            update_existing=update_existing,
+            signing=signing,
+        )
         result = client.post("/v1/agents/register", json=payload)
         if result.get("status") == "success":
             success(f"Agent {agent_id} registered successfully!")
@@ -164,10 +272,10 @@ def register(
                 "Name": name,
                 "Chain ID": chain_id,
                 "Status": "active",
-                "Capabilities": ", ".join(cap_list),
-                "Reputation": f"{float(reputation):.2f}",
+                "Capabilities": ", ".join(payload["capabilities"]),
+                "Reputation": f"{payload['metadata']['reputation']:.2f}",
                 "Endpoint": endpoint,
-                "Version": version,
+                "Version": payload["metadata"]["version"],
             }
             output(agent_data, ctx.obj.get("output_format", "table"))
         else:
@@ -375,19 +483,24 @@ def network(ctx, output_format, signing_agent_id, wallet_name, password, passwor
             {"Metric": "Routing Table Size", "Value": total},
             {"Metric": "Discovery Cache Size", "Value": total},
         ]
+        chain_data = [
+            {
+                "Chain ID": chain_id,
+                "Total Agents": count,
+                "Active Agents": active_by_chain.get(chain_id, 0),
+            }
+            for chain_id, count in agents_by_chain.items()
+        ]
 
-        output(overview_data, _fmt(ctx, output_format), title="Network Overview")
-
-        if agents_by_chain:
-            chain_data = [
-                {
-                    "Chain ID": chain_id,
-                    "Total Agents": count,
-                    "Active Agents": active_by_chain.get(chain_id, 0),
-                }
-                for chain_id, count in agents_by_chain.items()
-            ]
-            output(chain_data, _fmt(ctx, output_format), title="Agents by Chain")
+        fmt = _fmt(ctx, output_format)
+        if fmt == "json":
+            # #2410: one parseable document — two back-to-back JSON arrays
+            # were not valid JSON output.
+            output({"metrics": overview_data, "agents_by_chain": chain_data}, fmt)
+        else:
+            output(overview_data, fmt, title="Network Overview")
+            if agents_by_chain:
+                output(chain_data, fmt, title="Agents by Chain")
     except CLIError:
         raise
     except _OPS_ERRORS as e:
