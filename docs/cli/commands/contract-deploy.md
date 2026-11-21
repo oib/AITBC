@@ -2,7 +2,7 @@
 
 # `aitbc contract deploy`
 
-Deploy a named smart contract to the blockchain.
+Register a contract name in the node's local contract registry. This is a node-local registry stub, not an on-chain deployment: no transaction is submitted, no gas is spent, and the record exists only in the serving node's database (``scope: node-local-registry`` in the response). Real EVM deployment lives on the Sepolia rail.
 
 ## Usage
 

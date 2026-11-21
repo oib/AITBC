@@ -37,7 +37,7 @@ def aitbc_contract_call(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Call a method on a deployed smart contract with optional arguments."""
+    """Call a method on a registry contract — reads the node-local stored state."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -86,7 +86,7 @@ def aitbc_contract_deploy(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Deploy a named smart contract to the blockchain."""
+    """Register a contract name in the node's local contract registry."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -132,7 +132,7 @@ def aitbc_contract_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List contracts deployed on the node."""
+    """List contracts in the node's local registry (not chain-wide)."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

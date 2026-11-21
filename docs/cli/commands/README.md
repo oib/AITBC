@@ -236,9 +236,9 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 
 ## `contract`
 
-- [`aitbc contract call`](contract-call.md) — Call a method on a deployed smart contract with optional arguments.
-- [`aitbc contract deploy`](contract-deploy.md) — Deploy a named smart contract to the blockchain.
-- [`aitbc contract list`](contract-list.md) — List contracts deployed on the node.
+- [`aitbc contract call`](contract-call.md) — Call a method on a registry contract — reads the node-local stored state.
+- [`aitbc contract deploy`](contract-deploy.md) — Register a contract name in the node's local contract registry.
+- [`aitbc contract list`](contract-list.md) — List contracts in the node's local registry (not chain-wide).
 - [`aitbc contract messaging-messages`](contract-messaging-messages.md) — List messages in a forum topic.
 - [`aitbc contract messaging-reputation`](contract-messaging-reputation.md) — Show an address's messaging reputation (derived from sealed votes).
 - [`aitbc contract messaging-search`](contract-messaging-search.md) — Search forum message bodies.

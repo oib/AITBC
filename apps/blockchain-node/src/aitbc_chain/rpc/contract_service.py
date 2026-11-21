@@ -19,6 +19,7 @@ class ContractService:
             contracts = session.exec(stmt).all()
 
             return {
+                "scope": "node-local-registry",
                 "contracts": [
                     {
                         "address": c.address,

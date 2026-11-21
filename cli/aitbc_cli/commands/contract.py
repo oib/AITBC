@@ -36,7 +36,12 @@ _OPS_ERRORS = (
   aitbc contract call --contract-address 0x... --method getBalance"""
 )
 def contract():
-    """Deploy smart contracts and call methods on deployed contract addresses."""
+    """Manage the node's local contract registry and verify ZK proofs.
+
+    ``deploy``/``call``/``list`` operate on a node-local registry — no
+    on-chain deployment, gas, or replication. Use the Sepolia bridge rail
+    for real EVM contracts.
+    """
     pass
 
 
@@ -82,7 +87,13 @@ _API_KEY_OPTION = click.option(
 @_API_KEY_OPTION
 @click.pass_context
 def deploy(ctx, contract_name, rpc_url, api_key):
-    """Deploy a named smart contract to the blockchain."""
+    """Register a contract name in the node's local contract registry.
+
+    This is a node-local registry stub, not an on-chain deployment: no
+    transaction is submitted, no gas is spent, and the record exists only
+    in the serving node's database (``scope: node-local-registry`` in the
+    response). Real EVM deployment lives on the Sepolia rail.
+    """
     try:
         key = _resolve_rpc_api_key(api_key)
         result = _rpc_client(rpc_url, key).post("/rpc/contracts/deploy", json={"name": contract_name})
@@ -107,7 +118,11 @@ def deploy(ctx, contract_name, rpc_url, api_key):
 @_API_KEY_OPTION
 @click.pass_context
 def call(ctx, contract_address, method, args, rpc_url, api_key):
-    """Call a method on a deployed smart contract with optional arguments."""
+    """Call a method on a registry contract — reads the node-local stored state.
+
+    Only contracts registered via ``contract deploy`` on the same node are
+    visible; there is no bytecode execution or cross-node replication.
+    """
     try:
         import json
 
@@ -149,7 +164,7 @@ def _get(ctx, path: str, rpc_url: str, title: str, params: dict | None = None):
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
 @click.pass_context
 def list_contracts(ctx, rpc_url):
-    """List contracts deployed on the node."""
+    """List contracts in the node's local registry (not chain-wide)."""
     _get(ctx, "/rpc/contracts", rpc_url, "Deployed Contracts")
 
 
