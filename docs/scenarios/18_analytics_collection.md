@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: [Scenario 17 Governance Voting](./17_governance_voting.md)
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-11-21
+**Version**: 1.2
 
 ## Navigation Path
 
@@ -37,6 +37,19 @@ A network operator wants to monitor the health and performance of multiple block
 - How to monitor chains in real-time or take a single snapshot
 - How to predict future chain performance
 - How to view performance alerts and get optimization recommendations
+
+> **Reality check (live chain-rpc nodes):** On nodes that expose only the public
+> chain RPC (no `/api/*` admin surface), metrics are composed from real probes —
+> mean block interval and TPS from the recent `/rpc/blocks-range` window,
+> validator count from `/rpc/network-info`, and the configured block interval
+> (`block_time_seconds`) from `/rpc/info`. Host telemetry the RPC does not
+> publish (memory, disk, client/agent counts) reads as 0 — that is "not
+> measured", not a real zero. `block_time_high` alerts and the "High block
+> time" recommendation fire only when blocks run >50% slower than the chain's
+> configured interval, so a PBFT chain idling at its ~60s design interval does
+> not alert. Predictions need ≥10 collected samples in one session; a single
+> CLI invocation collects one, so `predict` honestly reports no predictions
+> rather than inventing a trend.
 
 ---
 
