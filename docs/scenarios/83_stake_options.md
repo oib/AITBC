@@ -55,7 +55,7 @@ breadcrumb: Home > Scenarios > Staking Option Coverage
 aitbc liquidity-stake --wallet-name nosuch-stakeopts1 --amount 1 --pool nosuch-pool --lock-days 7 --fee 0.01
 ```
 
-**Expected output (exit 1):** wallet lookup fails before signing — unknown pool/lock values never reached:
+**Expected output (exit 2):** wallet lookup fails before signing — unknown pool/lock values never reached. Since #2448 the refusal routes through `abort()`, so it is a `NotFoundError` (exit 2) and emits a JSON error object under `--output json`, matching `stake`/`unstake`:
 
 ```
 Wallet 'nosuch-stakeopts1' not found in the configured wallet directory.
@@ -68,7 +68,7 @@ Wallet 'nosuch-stakeopts1' not found in the configured wallet directory.
 aitbc liquidity-stake --wallet-path /tmp/nosuch-stakeopts1.json --rpc-url http://127.0.0.1:9 --amount 1
 ```
 
-**Expected output (exit 1):** same refusal — dead `--rpc-url` never contacted.
+**Expected output (exit 2):** same refusal — dead `--rpc-url` never contacted.
 
 ### Step 3: `unstake --wallet-name` — wallet-gate refusal
 
@@ -76,7 +76,7 @@ aitbc liquidity-stake --wallet-path /tmp/nosuch-stakeopts1.json --rpc-url http:/
 aitbc unstake --wallet-name nosuch-stakeopts1 --stake-id 0
 ```
 
-**Expected output (exit 4):** `Wallet 'nosuch-stakeopts1' not found as a file wallet.`
+**Expected output (exit 2):** `Wallet 'nosuch-stakeopts1' not found as a file wallet.`
 
 ### Step 4: `unstake --wallet-path/--rpc-url` — missing-file refusal
 
@@ -84,7 +84,7 @@ aitbc unstake --wallet-name nosuch-stakeopts1 --stake-id 0
 aitbc unstake --wallet-path /tmp/nosuch-stakeopts1.json --rpc-url http://127.0.0.1:9 --stake-id 0
 ```
 
-**Expected output (exit 4):** same wallet-gate refusal before the stake-id guard and signing.
+**Expected output (exit 2):** same wallet-gate refusal before the stake-id guard and signing.
 
 ### Step 5: `stake --wallet-path/--rpc-url` — missing-file refusal
 
@@ -92,7 +92,7 @@ aitbc unstake --wallet-path /tmp/nosuch-stakeopts1.json --rpc-url http://127.0.0
 aitbc stake --wallet-path /tmp/nosuch-stakeopts1.json --rpc-url http://127.0.0.1:9 --amount 1
 ```
 
-**Expected output (exit 4):** same wallet-gate refusal before the nonce lookup and `/rpc/staking/stake` POST.
+**Expected output (exit 2):** same wallet-gate refusal before the nonce lookup and `/rpc/staking/stake` POST.
 
 ### Step 6: `reinvest simulate --reserve-address` — import-gate refusal
 
@@ -106,7 +106,15 @@ returns the live reinvestment split (table by default; `aitbc --output
 json` for JSON): `agent_id`, `earnings` (default `"10"`),
 `policy_source` (`default`/`saved`/`override`) and an `actions` list
 splitting the simulated amount across the staking contract
-(`--staking-contract`, default `0xSTAKE`) and `--reserve-address`.
+(`--staking-contract`, default `staking_contract_address` config /
+`STAKING_CONTRACT_ADDRESS` env) and `--reserve-address` (default
+`reinvest_reserve_address` config / `REINVEST_RESERVE_ADDRESS` env).
+
+Since #2448 an agent with no recorded policy prints a stderr warning
+instead of silently inventing a result, unconfigured contract addresses
+serialize as `null` (never a `0xSTAKE`/`0xRESERVE` placeholder), the
+unallocated remainder of `earnings` appears as a `retain` action, and
+`--strict` turns the unknown-agent case into a `NotFoundError` refusal.
 
 ## Option coverage result
 
@@ -114,11 +122,11 @@ splitting the simulated amount across the staking contract
 
 | Option | Command | Exit class |
 |---|---|---|
-| `--wallet-name/--pool/--lock-days/--fee` | `liquidity-stake` | expected-refusal (1) |
-| `--wallet-path/--rpc-url` | `liquidity-stake` | expected-refusal (1) |
-| `--wallet-name` | `unstake` | expected-refusal (4) |
-| `--wallet-path/--rpc-url` | `unstake` | expected-refusal (4) |
-| `--wallet-path/--rpc-url` | `stake` | expected-refusal (4) |
+| `--wallet-name/--pool/--lock-days/--fee` | `liquidity-stake` | expected-refusal (2) |
+| `--wallet-path/--rpc-url` | `liquidity-stake` | expected-refusal (2) |
+| `--wallet-name` | `unstake` | expected-refusal (2) |
+| `--wallet-path/--rpc-url` | `unstake` | expected-refusal (2) |
+| `--wallet-path/--rpc-url` | `stake` | expected-refusal (2) |
 | `--reserve-address` | `reinvest simulate` | live simulate | ok (0) |
 
 Census delta: liquidity-stake 6→0, unstake 3→0, stake 2→0, reinvest 1→0.

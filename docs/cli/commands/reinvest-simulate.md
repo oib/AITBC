@@ -17,11 +17,12 @@ aitbc reinvest simulate [OPTIONS]
 | `--agent-id` | text | — | yes | The Agent-id. |
 | `--earnings` | text | `10` | no | Earnings amount to simulate |
 | `--budget-total` | text | `100` | no | Total budget for the agent |
-| `--staking-contract` | text | `0xSTAKE` | no | Staking contract address |
-| `--reserve-address` | text | `0xRESERVE` | no | Reserve address for capacity funds |
+| `--staking-contract` | text | — | no | Staking contract address (default: staking_contract_address config / STAKING_CONTRACT_ADDRESS env) |
+| `--reserve-address` | text | — | no | Reserve address for capacity funds (default: reinvest_reserve_address config / REINVEST_RESERVE_ADDRESS env) |
 | `--staking-pct` | text | — | no | Override stored policy: % of reinvested funds to staking |
 | `--reserve-pct` | text | — | no | Override stored policy: % of reinvested funds to capacity reserve |
 | `--min-reinvest` | text | — | no | Override stored policy: minimum reinvest amount |
+| `--strict` | flag | `false` | no | Exit non-zero when the agent has no recorded policy |
 
 ## Examples
 

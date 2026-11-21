@@ -87,7 +87,12 @@ aitbc reinvest simulate --agent-id agent-1 --earnings 100 \
 
 **Expected output:** how `earnings` would split between the staking
 contract, the reserve address, and spendable balance under the current
-policy — labelled a simulation; no funds move.
+policy — labelled a simulation; no funds move. The unallocated remainder
+of `earnings` appears as a `retain` action. Contract addresses default to
+the `staking_contract_address` / `reinvest_reserve_address` config (or the
+matching env vars) and serialize as `null` when unconfigured — never a
+placeholder. An agent with no recorded policy prints a stderr warning;
+`--strict` refuses instead (exit 2).
 
 ---
 
