@@ -47,7 +47,12 @@ declare -A ALL_SERVICE_ENDPOINTS=(
     ["aitbc-monitoring"]="http://localhost:8002/health"
 )
 
-# Role lists match scripts/deployment/setup.sh get_services_for_role().
+# Role lists track the deployed fleet, not the install-time ideal in
+# scripts/deployment/setup.sh get_services_for_role() (#2423): the shop
+# node (node2) has no coordinator-api, pool-hub or market units — those
+# are hub-side services — so listing them made every shop probe set
+# include units systemd does not have. whisper/ffmpeg/hermes-agent have
+# no HTTP health endpoint; they are covered by the systemd status pass.
 # Units without an HTTP health port (node, p2p, miner, recovery, backup,
 # bridge-monitor) stay off the endpoint map and are still covered by
 # the systemd status check when they appear in ROLE_SERVICES.
@@ -78,10 +83,11 @@ _FOLLOWER_SERVICES=(
 _SHOP_SERVICES=(
     aitbc-gpu
     aitbc-miner
-    aitbc-coordinator-api
     aitbc-edge
-    aitbc-pool-hub
-    aitbc-market
+    aitbc-api-gateway
+    aitbc-whisper
+    aitbc-ffmpeg
+    aitbc-hermes-agent
 )
 
 _node_role() {

@@ -63,7 +63,11 @@ def test_health_check_probes_hub_only_ports_only_on_a_hub() -> None:
 
     assert "aitbc-exchange" not in shop
     assert "aitbc-agent-coordinator" not in shop
-    assert "aitbc-pool-hub" in shop
+    # #2423: pool-hub/market/coordinator-api are hub-side units, not deployed
+    # on the shop node — the shop manifest tracks deployed reality.
+    assert "aitbc-pool-hub" not in shop
+    assert "aitbc-market" not in shop
+    assert "aitbc-coordinator-api" not in shop
     assert "aitbc-gpu" in shop
     assert "aitbc-edge" in shop
 

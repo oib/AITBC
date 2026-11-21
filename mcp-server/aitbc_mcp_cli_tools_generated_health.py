@@ -27,7 +27,7 @@ def aitbc_health(
     ] = None,
     role_opt: Annotated[
         Literal["hub", "shop", "customer", "follower"] | None,
-        Field(description="Probe only the services this role deploys (same manifest as start/stop --role)."),
+        Field(description="Probe only the services this role deploys (role manifest; per-node installed units may differ)."),
     ] = None,
     timeout_opt: Annotated[float | None, Field(description="Timeout per request in seconds.")] = None,
     output_format: Annotated[Literal["table", "json"] | None, Field(description="Output format.")] = None,

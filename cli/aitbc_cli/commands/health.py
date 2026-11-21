@@ -130,7 +130,7 @@ def _role_probe_services(role: str) -> list[str]:
     "--role",
     type=click.Choice(["hub", "shop", "customer", "follower"]),
     default=None,
-    help="Probe only the services this role deploys (same manifest as start/stop --role).",
+    help="Probe only the services this role deploys (role manifest; per-node installed units may differ).",
 )
 @click.option("--timeout", type=float, default=5.0, help="Timeout per request in seconds.")
 @click.option("--output", "output_format", type=click.Choice(["table", "json"]), default=None, help="Output format.")
