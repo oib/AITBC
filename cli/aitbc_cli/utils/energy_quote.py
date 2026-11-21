@@ -9,12 +9,14 @@ breakdown computation so command modules stay thin.
 
 from __future__ import annotations
 
+import dataclasses
 import time
 from dataclasses import dataclass
 from typing import Any
 
 from aitbc.market.energy_pricing import (
     DEFAULT_MAX_RATE_AGE_SECONDS,
+    EnergyPricingError,
     EnergyQuote,
     RefusalCode,
     SettlementRoute,
@@ -40,9 +42,44 @@ class QuoteVerification:
     breakdown: dict[str, Any] | None = None
 
 
-def parse_quote(data: dict[str, Any]) -> EnergyQuote:
-    """Parse a quote dict from an API response into an ``EnergyQuote``."""
-    return EnergyQuote.from_dict(data)
+def parse_quote(data: Any) -> EnergyQuote:
+    """Parse a quote dict from an API response into an ``EnergyQuote``.
+
+    Raises ``ValidationError`` (a ``CLIError``) when the payload is not a
+    JSON object, misses required fields, carries unknown fields, or fails
+    ``EnergyQuote`` construction — callers get a clean CLI error instead of
+    a ``TypeError``/``EnergyPricingError`` traceback (#2357).
+    """
+    from .error_handling import ValidationError, abort
+
+    if not isinstance(data, dict):
+        abort(
+            None,
+            f"Energy quote payload must be a JSON object, got {type(data).__name__}",
+            error_type=ValidationError,
+        )
+    required = {
+        f.name
+        for f in dataclasses.fields(EnergyQuote)
+        if f.default is dataclasses.MISSING and f.default_factory is dataclasses.MISSING
+    }
+    missing = sorted(required - data.keys())
+    if missing:
+        abort(
+            None,
+            f"Energy quote payload missing required field(s): {', '.join(missing)}",
+            error_type=ValidationError,
+        )
+    try:
+        return EnergyQuote.from_dict(data)
+    except (TypeError, ValueError, EnergyPricingError) as exc:
+        abort(
+            None,
+            f"Malformed energy quote payload: {exc}",
+            error_type=ValidationError,
+            from_exception=exc,
+        )
+        raise exc  # pragma: no cover - abort() always raises CLIError
 
 
 def verify_quote(
