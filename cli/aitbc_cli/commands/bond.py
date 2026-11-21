@@ -105,16 +105,21 @@ def _bond_proof_fields(
     if not (wallet_name or private_key or private_key_file):
         return {}
     if wallet_name and not private_key and not private_key_file:
-        password = resolve_wallet_password(
-            wallet_name,
-            password=password,
-            password_file=password_file,
-            password_stdin=password_stdin,
-            legacy_env_names=("WALLET_PASSWORD",),
-            interactive_ok=False,
-            allow_unencrypted=True,
-            ctx=ctx,
-        )
+        # #2450: wallet gate before secret gate — _resolve_private_key reports
+        # a missing wallet; a bad --password-file must not preempt it.
+        from ..utils.wallet_paths import find_wallet_file
+
+        if find_wallet_file(wallet_name) is not None:
+            password = resolve_wallet_password(
+                wallet_name,
+                password=password,
+                password_file=password_file,
+                password_stdin=password_stdin,
+                legacy_env_names=("WALLET_PASSWORD",),
+                interactive_ok=False,
+                allow_unencrypted=True,
+                ctx=ctx,
+            )
     try:
         raw_key = _resolve_private_key(wallet_name, private_key, private_key_file, password)
     except ValueError as e:

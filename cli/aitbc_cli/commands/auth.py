@@ -127,16 +127,19 @@ def login(
     # A password is only needed when the key comes from an encrypted wallet
     # file — --private-key/--private-key-file paths must not require one.
     if wallet and not private_key and not private_key_file:
-        password = resolve_wallet_password(
-            wallet,
-            password=password,
-            password_file=password_file,
-            password_stdin=password_stdin,
-            legacy_env_names=("WALLET_PASSWORD",),
-            interactive_ok=False,
-            allow_unencrypted=True,
-            ctx=ctx,
-        )
+        # #2450: wallet gate before secret gate — _resolve_private_key reports
+        # a missing wallet; a bad --password-file must not preempt it.
+        if find_wallet_file(wallet) is not None:
+            password = resolve_wallet_password(
+                wallet,
+                password=password,
+                password_file=password_file,
+                password_stdin=password_stdin,
+                legacy_env_names=("WALLET_PASSWORD",),
+                interactive_ok=False,
+                allow_unencrypted=True,
+                ctx=ctx,
+            )
 
     try:
         raw_key = _resolve_private_key(wallet, private_key, private_key_file, password)

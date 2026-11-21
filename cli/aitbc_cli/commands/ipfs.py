@@ -571,8 +571,17 @@ if __name__ == "__main__":
 # ---------------------------------------------------------------------------
 
 
-def _load_wallet_key(wallet_name: str, password: str) -> tuple[str, PrivateKey]:
-    """Load a file wallet and return (address, private_key)."""
+def _load_wallet_key(
+    wallet_name: str,
+    password: str | None = None,
+    password_file: str | None = None,
+    password_stdin: bool = False,
+) -> tuple[str, PrivateKey]:
+    """Load a file wallet and return (address, private_key).
+
+    #2450: the wallet-existence check runs before the password source is
+    resolved — the same gate order every other secret-bearing leaf uses.
+    """
     report = find_wallet_file_report(wallet_name)
     keystore = report.path
     if keystore is None:
@@ -589,12 +598,21 @@ def _load_wallet_key(wallet_name: str, password: str) -> tuple[str, PrivateKey]:
     if not address:
         raise click.BadParameter(f"Wallet '{wallet_name}' has no address")
 
+    resolved_password = resolve_wallet_password(
+        wallet_name,
+        password=password,
+        password_file=password_file,
+        password_stdin=password_stdin,
+        allow_unencrypted=True,
+        wallet_path=keystore,
+        ctx=click.get_current_context(silent=True),
+    )
     if data.get("encrypted") or data.get("encrypted_private_key"):
-        if not password:
+        if not resolved_password:
             raise click.BadParameter(
                 f"Wallet '{wallet_name}' is encrypted; provide --password-file, --password-stdin, or --password"
             )
-        private_key_hex = decrypt_private_key(keystore, password)
+        private_key_hex = decrypt_private_key(keystore, resolved_password)
     else:
         private_key_hex = data.get("private_key", "")
 
@@ -670,13 +688,20 @@ def subscribe(
     with `aitbc-cli ipfs island swarm-key`.
     """
     validate_tx_fee(ctx, fee, allow_high_fee=allow_high_fee)
-    resolved_password = resolve_wallet_password(
-        wallet_name,
-        password=password,
-        password_file=password_file,
-        password_stdin=password_stdin,
-        allow_unencrypted=True,
-        ctx=click.get_current_context(silent=True),
+    # #2450: wallet gate before secret gate — _send_transaction_impl reports
+    # the missing wallet; resolving the password here would let a bad
+    # --password-file preempt that refusal.
+    resolved_password = (
+        resolve_wallet_password(
+            wallet_name,
+            password=password,
+            password_file=password_file,
+            password_stdin=password_stdin,
+            allow_unencrypted=True,
+            ctx=click.get_current_context(silent=True),
+        )
+        if find_wallet_file_report(wallet_name).path is not None
+        else None
     )
     resolved_rpc_url = _default_rpc_url(rpc_url)
     payload = {
@@ -746,15 +771,11 @@ def swarm_key(
     coordinator swarm-key endpoint. The coordinator checks the on-chain
     subscription before returning the key.
     """
-    resolved_password = resolve_wallet_password(
-        wallet_name,
-        password=password,
-        password_file=password_file,
-        password_stdin=password_stdin,
-        allow_unencrypted=True,
-        ctx=click.get_current_context(silent=True),
+    # #2450: _load_wallet_key checks the wallet before resolving the
+    # password source — the unified gate order.
+    member_address, private_key = _load_wallet_key(
+        wallet_name, password=password, password_file=password_file, password_stdin=password_stdin
     )
-    member_address, private_key = _load_wallet_key(wallet_name, resolved_password)
 
     resolved_rpc_url = _default_rpc_url(rpc_url)
     if not chain_id:
