@@ -1,5 +1,13 @@
 const EXPLORER_API_URL = '/explorer-api';
 
+// Chain values settle in compute-units: 1 AIT = 36,000,000 units.
+const AIT_UNITS = 36000000;
+function fmtUnits(units) {
+    if (units === null || units === undefined) return 'N/A';
+    const ait = Number(units) / AIT_UNITS;
+    return Number.isFinite(ait) ? aitbcFmt.num(ait, 8) : 'N/A';
+}
+
 function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
@@ -101,8 +109,8 @@ async function loadTransaction() {
             { label: 'Block', value: `<a href="/block.html?height=${encodeURIComponent(data.block_height)}">#${escapeHtml(data.block_height)}</a>` },
             { label: 'From', value: addrLink(data.from || data.sender) + ' ' + aitbcCopyBtn(data.from || data.sender || '', 'sender address') },
             { label: 'To', value: addrLink(data.to || data.recipient) + ' ' + aitbcCopyBtn(data.to || data.recipient || '', 'recipient address') },
-            { label: 'Value', value: escapeHtml(data.value !== undefined ? data.value : 'N/A') },
-            { label: 'Fee', value: escapeHtml(data.fee !== undefined ? data.fee : 'N/A') },
+            { label: 'Value', value: escapeHtml(data.amount_ait || `${fmtUnits(data.value)} AIT`) },
+            { label: 'Fee', value: escapeHtml(data.fee_ait || (data.fee !== undefined ? `${fmtUnits(data.fee)} AIT` : 'N/A')) },
             { label: 'Nonce', value: escapeHtml(data.nonce !== undefined ? data.nonce : 'N/A') },
             { label: 'Timestamp', value: escapeHtml(data.created_at ? aitbcFmt.date(data.created_at) : 'N/A') },
         ];
