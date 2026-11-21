@@ -20,6 +20,7 @@ import logging
 import os
 import time
 import uuid
+from pathlib import Path
 from typing import Any
 
 import click
@@ -307,7 +308,32 @@ def _get_client(ctx: click.Context | None = None, url: str | None = None) -> AIT
     if not api_key:
         cfg = (ctx.obj.get("config") if ctx is not None and ctx.obj else None) or get_config()
         api_key = getattr(cfg, "api_key", None)
+    if not api_key:
+        api_key = _service_env_api_key()
     return AITBCHTTPClient(base_url=base_url, timeout=30, api_key=api_key or None)
+
+
+_GOVERNANCE_ENV_FILE = Path("/etc/aitbc/aitbc-governance.env")
+
+
+def _service_env_api_key() -> str | None:
+    """Read ``GOVERNANCE_API_KEY`` from the local service env file (#2411).
+
+    The governance unit runs ``EnvironmentFile=/etc/aitbc/aitbc-governance.env``;
+    on a node where the CLI and service share the host, that file is the
+    canonical place the operator provisioned the write key. Reading it here
+    keeps ``aitbc governance`` writes working without a second copy in the
+    CLI config or shell env. Returns None when the file/key is absent.
+    """
+    env_file = _GOVERNANCE_ENV_FILE
+    try:
+        for line in env_file.read_text().splitlines():
+            line = line.strip()
+            if line.startswith("GOVERNANCE_API_KEY="):
+                return line.split("=", 1)[1].strip().strip('"').strip("'") or None
+    except OSError:
+        pass
+    return None
 
 
 def _coordinator_client(ctx: click.Context) -> AITBCHTTPClient:

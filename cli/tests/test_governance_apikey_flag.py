@@ -39,10 +39,34 @@ def test_config_key_fallback(monkeypatch):
     assert _key_of(client) == "cfg-key"
 
 
-def test_no_key_anywhere_sends_none(monkeypatch):
+def test_no_key_anywhere_sends_none(monkeypatch, tmp_path):
     monkeypatch.delenv("GOVERNANCE_API_KEY", raising=False)
     monkeypatch.delenv("AITBC_API_KEY", raising=False)
-    # Ensure get_config() fallback cannot leak a host key into the test.
+    # Ensure get_config() fallback cannot leak a host key into the test, and
+    # point the service-env fallback at a path that does not exist (#2411).
     monkeypatch.setattr(governance_mod, "get_config", lambda: SimpleNamespace(api_key=None))
+    monkeypatch.setattr(governance_mod, "_GOVERNANCE_ENV_FILE", tmp_path / "absent.env")
     client = governance_mod._get_client(_ctx(api_key=None))
     assert _key_of(client) is None
+
+
+def test_service_env_file_fallback(monkeypatch, tmp_path):
+    """#2411: with no flag/env/config key, the service env file supplies it."""
+    monkeypatch.delenv("GOVERNANCE_API_KEY", raising=False)
+    monkeypatch.setattr(governance_mod, "get_config", lambda: SimpleNamespace(api_key=None))
+    env_file = tmp_path / "aitbc-governance.env"
+    env_file.write_text('DB_PASS="x"\nGOVERNANCE_API_KEY="svc-file-key"\n')
+    monkeypatch.setattr(governance_mod, "_GOVERNANCE_ENV_FILE", env_file)
+    client = governance_mod._get_client(_ctx(api_key=None))
+    assert _key_of(client) == "svc-file-key"
+
+
+def test_service_env_file_loses_to_config_key(monkeypatch, tmp_path):
+    """The env file is the last resort — configured api_key still wins."""
+    monkeypatch.delenv("GOVERNANCE_API_KEY", raising=False)
+    cfg = SimpleNamespace(api_key="cfg-key", governance_service_url="")
+    env_file = tmp_path / "aitbc-governance.env"
+    env_file.write_text("GOVERNANCE_API_KEY=svc-file-key\n")
+    monkeypatch.setattr(governance_mod, "_GOVERNANCE_ENV_FILE", env_file)
+    client = governance_mod._get_client(_ctx(api_key=None, config=cfg))
+    assert _key_of(client) == "cfg-key"
