@@ -118,7 +118,7 @@ def aitbc_economics_market(
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_economics_model(
-    type: Annotated[str | None, Field(description="Model type")] = None,
+    type: Annotated[str | None, Field(description="Model type (supported: cost-optimization)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

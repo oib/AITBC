@@ -275,3 +275,102 @@ def test_distributed_all_down_aborts(runner, monkeypatch):
     result = runner.invoke(economics, ["distributed"], obj={"output_format": "json"})
     assert result.exit_code != 0
     assert "No live economics data" in result.output
+
+
+# --- #2449: not-found mapping + unservable sentinel offers -------------------
+
+
+def _http_404() -> NetworkError:
+    err = NetworkError("GET request failed: 404 Client Error: Not Found")
+    err.response = SimpleNamespace(status_code=404)  # type: ignore[attr-defined]
+    return err
+
+
+class _PostClient:
+    def __init__(self, exc):
+        self._exc = exc
+
+    def post(self, path, json=None):
+        raise self._exc
+
+    def get(self, path, params=None):
+        raise self._exc
+
+    def close(self):
+        pass
+
+
+def test_vote_unknown_proposal_is_not_found(runner, monkeypatch):
+    """Coordinator 404 -> NotFoundError (exit 2), not a NetworkError class."""
+    from aitbc_cli.utils.error_handling import NotFoundError
+
+    monkeypatch.setattr(econ, "_api_client", lambda *a, **kw: _PostClient(_http_404()))
+    result = runner.invoke(economics, ["vote", "--proposal-id", "nosuch", "--vote", "abstain"], obj={"output_format": "json"})
+    assert isinstance(result.exception, NotFoundError)
+    assert result.exception.exit_code == 2
+    payload = json.loads(result.output)
+    assert payload["error"] == "NotFoundError"
+    assert "nosuch" in payload["message"]
+
+
+def test_status_unknown_proposal_is_not_found(runner, monkeypatch):
+    from aitbc_cli.utils.error_handling import NotFoundError
+
+    monkeypatch.setattr(econ, "_api_client", lambda *a, **kw: _PostClient(_http_404()))
+    result = runner.invoke(economics, ["status", "--proposal-id", "nosuch"], obj={"output_format": "json"})
+    assert isinstance(result.exception, NotFoundError)
+    assert result.exception.exit_code == 2
+
+
+def test_vote_non_404_still_network_error(runner, monkeypatch):
+    """A 500 from the coordinator keeps the generic API-error path."""
+    err = NetworkError("GET request failed: 500 Server Error")
+    err.response = SimpleNamespace(status_code=500)  # type: ignore[attr-defined]
+    monkeypatch.setattr(econ, "_api_client", lambda *a, **kw: _PostClient(err))
+    result = runner.invoke(economics, ["vote", "--proposal-id", "p1", "--vote", "for"], obj={"output_format": "json"})
+    assert result.exception is not None
+    assert "Coordinator API error" in result.output
+
+
+def test_model_ignores_unservable_sentinel_offers(runner, monkeypatch):
+    """STRESS-GPU-style placeholder offers must not win 'cheapest' (#2449)."""
+    offers = {
+        "offers": [
+            {
+                "plugin_id": "stress-1",
+                "service_type": "gpu_market",
+                "price": "0.01",
+                "price_unit": "per_hour",
+                "status": "active",
+                "provider_address": "default",
+                "name": "STRESS-GPU-1",
+            },
+            {
+                "plugin_id": "stress-2",
+                "service_type": "gpu_market",
+                "price": "0.02",
+                "price_unit": "per_hour",
+                "status": "active",
+                "node_id": "none",
+            },
+            {
+                "plugin_id": "gpu-real",
+                "service_type": "gpu_market",
+                "price": "0.50",
+                "price_unit": "per_hour",
+                "status": "active",
+                "provider_address": "0xaaa",
+            },
+        ],
+        "total": 3,
+    }
+    routes = _full_routes()
+    routes[(_MARKET, "/v1/market/offer")] = offers
+    _patch(monkeypatch, _config(), routes)
+    result = runner.invoke(economics, ["model", "--type", "cost-optimization"], obj={"output_format": "json"})
+    assert result.exit_code == 0, result.output
+    payload = json.loads(result.output)
+    gpu = next(r for r in payload["model"]["recommendations"] if r["service_type"] == "gpu_market")
+    assert gpu["cheapest_price"] == "0.50"
+    assert gpu["cheapest_provider"] == "0xaaa"
+    assert payload["model"]["inputs"]["total_offers"] == 1
