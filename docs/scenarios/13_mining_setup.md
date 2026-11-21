@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: Scenario 01 Wallet Basics
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-11-21
+**Version**: 1.2
 
 ## Navigation Path
 
@@ -67,6 +67,10 @@ A node-operating agent wants to exercise the mining bookkeeping surface — reco
 - Create a wallet (Scenario 01): `aitbc wallet create --name miner-wallet`
 - Confirm the wallet file exists and has an `address` field
 - Start a blockchain node with RPC listening on `http://localhost:8202`
+- The mining RPC authenticates via the `X-Wallet-Address` header, which the node
+  only trusts from loopback clients **and** only when `TRUST_X_WALLET_ADDRESS=true`
+  is set in the node's env. On nodes without it (e.g. hub) every mining command
+  answers 401 — run this scenario on a node where the flag is enabled (node0).
 
 ---
 
@@ -131,7 +135,8 @@ There are no `hashrate` or `blocks_mined` fields — nothing is actually mined.
 
 ### Step 3: List active miners on the node
 
-`aitbc mining list` calls `GET /rpc/mining/miners`.
+`aitbc mining list` calls `GET /rpc/mining/miners` and shows **enabled rows only** by
+default; pass `--all` for the full registry including disabled miners.
 
 ```bash
 aitbc mining list
@@ -160,18 +165,25 @@ aitbc mining list
 
 ### Step 4: Stop mining
 
-`aitbc mining stop` calls `POST /rpc/mining/stop`.
+`aitbc mining stop` calls `POST /rpc/mining/stop` with the selected wallet's address.
+The stop is **scoped to the caller**: the RPC only disables `miner_registry` rows whose
+`miner_address` or `authorized_by` matches the authenticated `X-Wallet-Address` — other
+operators' rows are untouched, and already-stopped rows keep their original `stopped_at`.
+`--wallet <name>` picks which wallet identity to stop (default: first wallet found).
 
 ```bash
-aitbc mining stop
+aitbc mining stop --wallet miner-wallet
 ```
 
 **Expected output:**
 
 ```
-Mining stopped
+Mining stopped for 0x1a2b3c4d5e6f...
 Status: stopped
 ```
+
+If the wallet has no miner row the RPC answers 404 `no miner registered`; if `--wallet`
+names a miner row owned by a different wallet the RPC answers 403.
 
 Verify it stopped:
 

@@ -28,15 +28,16 @@ from aitbc_mcp_server import (
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_mining_list(
     wallet_name: Annotated[str | None, Field(description="Wallet to use for X-Wallet-Address auth")] = None,
+    show_all: Annotated[bool | None, Field(description="Show all registry rows, including disabled miners")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List active miners for a wallet."""
+    """List enabled miners (add --all for the full registry including disabled rows)."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"show_all": "all"},
         values={"wallet_name": "wallet", "rpc_url": "rpc-url"},
     )
     args = None
@@ -129,7 +130,7 @@ def aitbc_mining_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_mining_stop(
-    wallet_name: Annotated[str | None, Field(description="Wallet to use for X-Wallet-Address auth")] = None,
+    wallet_name: Annotated[str | None, Field(description="Miner wallet to stop (default: first wallet found)")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -137,7 +138,7 @@ def aitbc_mining_stop(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stop mining operations for a wallet."""
+    """Stop mining for the selected wallet's miner row only."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
