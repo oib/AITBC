@@ -3,7 +3,7 @@
 **Level**: Beginner
 **Prerequisites**: Scenario 01 Wallet Basics, Scenario 09 GPU Listing
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-08-19
+**Last Updated**: 2026-11-21
 **Version**: 1.1
 
 ## Navigation Path
@@ -124,13 +124,15 @@ my-consumer   consumer   0x9f8e7d6c5b4a3928f1e0d2c3b4a5968778695a4b   /home/agen
 
 ### Step 3: Check agent status
 
-Query the coordinator for an agent's status, reputation, and last-seen timestamp.
+Query the coordinator for an agent's status, reputation, and last-seen timestamp. `GET /v1/agents/{id}` requires an authenticated principal (#2212), so the CLI signs the request with `X-Agent-*` headers when a wallet is configured (#2342) — pass `--wallet <name>` + `--signing-agent-id <id>` (plus the usual password options), or set `AGENT_ID` + `AITBC_DEFAULT_WALLET`. Unsigned, the coordinator answers 401 and the CLI reports that explicitly rather than simulating.
 
 ```bash
-aitbc agent status --agent-id agent_a1b2c3d4 --format table
+aitbc agent status --agent-id agent_a1b2c3d4 --format table \
+  --wallet agent-scenario --signing-agent-id agent_a1b2c3d4 \
+  --password-file /path/to/wallet.pw
 ```
 
-**Expected output:**
+**Expected output (signed):**
 
 ```
 Agent Status: agent_a1b2c3d4
@@ -141,8 +143,26 @@ Status             active
 Registered         True
 Reputation Score   0.850
 Last Seen          2026-04-29T09:40:00Z
-Message            Agent status retrieved (simulated)
+Message            Agent status retrieved from coordinator
 ```
+
+Without signing options, against a reachable coordinator:
+
+```
+Agent Status: agent_a1b2c3d4
+============================
+Field              Value
+Agent ID           agent_a1b2c3d4
+Status             unknown
+Registered         False
+Reputation Score   0.000
+Last Seen          N/A
+Message            Agent coordinator rejected the status request (HTTP 401): the /v1/agents read routes require signed X-Agent-* headers (#2212). Re-run with --wallet and --signing-agent-id (or set AGENT_ID and AITBC_DEFAULT_WALLET) so the request is signed.
+```
+
+The simulated fallback (`Message: Agent coordinator not reachable; status
+is simulated until the backend is ready.`) now appears **only** when the
+coordinator is unreachable — it is no longer the silent default.
 
 ### Step 4: Register the agent on the network
 
@@ -168,7 +188,7 @@ Coordinator URL    http://localhost:8107
 Message            Agent <uuid> registered successfully
 ```
 
-> The coordinator returns a generated agent UUID (e.g. `91457b7b-…`) as the Agent ID, not the local name. `agent status` still falls back to a simulated response — the coordinator has no status endpoint (#2152 class).
+> The coordinator returns a generated agent UUID (e.g. `91457b7b-…`) as the Agent ID, not the local name. `agent status` prefers the live coordinator read — signed `X-Agent-*` headers when a wallet is configured (#2342), an explicit "requires signed headers" message on 401, and the simulated fallback only when the coordinator is unreachable.
 
 ### Step 5: Register agent identity on-chain
 
@@ -506,5 +526,5 @@ cat ~/.aitbc/agents/my-provider.json
 
 ---
 
-*Last updated: 2026-08-20*
+*Last updated: 2026-11-21 (agent status signed-header path #2342)*
 *Version: 1.2*

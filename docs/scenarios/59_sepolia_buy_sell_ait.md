@@ -4,7 +4,7 @@
 **Prerequisites**: [per-node Sepolia wallets](../ops/node-sepolia-wallets.md)
 (ETH-1) — a funded `sepolia` wallet file on node0 and/or node2
 **Estimated Time**: 15 minutes per direction, mostly waiting for confirmations
-**Last Updated**: 2026-10-13
+**Last Updated**: 2026-11-21
 **Version**: 1.0
 
 ## Navigation Path
@@ -22,7 +22,8 @@ breadcrumb: Home > Scenarios > Sepolia Buy/Sell AIT via the ETH Bridge
 > automatically.
 
 Two plays against the live Sepolia bridge (bridge wallet
-`0x310dcE00270D0aC10CAccfBD636Ff07BD5648781`, ≈0.05 ETH float):
+`0x310dcE00270D0aC10CAccfBD636Ff07BD5648781`, ≈0.064 ETH float and
+nonce 12 — point-in-time figures from the 21 Nov check; re-verify live):
 
 - **Scenario A — buy AIT**: node0's Sepolia wallet sends ETH to the bridge
   wallet; the bridge monitor detects it, prices it, and pays out AIT from
@@ -31,12 +32,12 @@ Two plays against the live Sepolia bridge (bridge wallet
   `BRIDGE_WITHDRAW`; hub's withdrawal monitor sees the sealed burn and
   releases ETH from the bridge wallet to node2's Sepolia address.
 
-### Safe test amounts (chosen for the ≈0.05 ETH float)
+### Safe test amounts (chosen for the ≈0.064 ETH float, 21 Nov)
 
 | play | amount | why |
 |---|---|---|
-| A — deposit | **0.002 ETH** | 2× `MIN_ETH_DEPOSIT` (0.001); ≈$5 ⇒ ~18 AIT payout at current oracle prices (ETH ≈$2,508, AIT ≈$0.279) — far under `BRIDGE_MAX_PAYOUT_FRACTION` (0.5 × ~747 AIT payout float); deposits *grow* the ETH float |
-| B — withdraw | **10 AIT** | far above `MIN_AIT_WITHDRAW` (0.01); ≈$2.79 ⇒ ~0.0011 ETH released + ~0.0002 gas — ~2.6% of the float; stays well above the 0.005 ETH `ETH_WITHDRAW_MIN_RESERVE` |
+| A — deposit | **0.002 ETH** | 2× `MIN_ETH_DEPOSIT` (0.001); ≈$5 ⇒ ~18 AIT payout at current oracle prices (ETH ≈$2,508, AIT ≈$0.279 — point-in-time, 13 Oct) — far under `BRIDGE_MAX_PAYOUT_FRACTION` (0.5 × payout-wallet float; ~747 AIT at the 13 Oct check, re-verify live); deposits *grow* the ETH float |
+| B — withdraw | **10 AIT** | far above `MIN_AIT_WITHDRAW` (0.01); ≈$2.79 ⇒ ~0.0011 ETH released + ~0.0002 gas — ~2% of the 0.064 ETH float; stays well above the 0.005 ETH `ETH_WITHDRAW_MIN_RESERVE` |
 
 ### Use Case
 
@@ -50,9 +51,11 @@ wallets created by ETH-1, without touching the bridge wallet key.
 ### Step A1 — preflight on any host (read-only)
 
 ```bash
-# instructions + estimate, served by hub's wallet daemon
-# (node0's own wallet service has no ETH_WALLET_ADDRESS -> HTTP 503, see Gap 1)
-ssh hub 'curl -s -X POST http://localhost:8108/v1/bridge/deposit \
+# instructions + estimate, served by the wallet daemon. node0's own
+# wallet service is bridge-configured since the 21 Nov fix (Gap 1) —
+# it answers POST /v1/bridge/deposit directly; hub's daemon stays
+# loopback-only (127.0.0.1:8108).
+ssh node0 'curl -s -X POST http://localhost:8108/v1/bridge/deposit \
   -H "Content-Type: application/json" \
   -d "{\"eth_amount\": \"0.002\", \"ait_address\": \"<node0-sepolia-address>\"}"'
 ```
@@ -68,16 +71,21 @@ Equivalent MCP call (read-only):
 ### Step A2 — the deposit send (operator, on node0)
 
 `aitbc wallet bridge deposit` calls `wallet_daemon_url` for the
-instructions; hub's daemon is loopback-only (`127.0.0.1:8108`) and node0
-has no route or ssh path to hub at all — so the CLI path needs one of
-these operator choices:
+instructions. Since the 21 Nov fix (Gap 1) node0's own wallet service is
+bridge-configured and answers `POST /v1/bridge/deposit`, so the CLI path
+below runs directly on node0 — `wallet bridge deposit` was used live
+this way. (Hub's daemon remains loopback-only `127.0.0.1:8108`.)
 
-**Option A2.1 — bridge-enable node0's wallet service (recommended)**
-(adds two env lines + one restart; an operator change on the host):
+**Option A2.1 — `wallet bridge deposit` on node0 (the live path)**
+
+node0's `/etc/aitbc/exchange.env` already carries the bridge config
+(lines shown for reference / for reproducing on another node — check
+before appending duplicates):
 
 ```bash
-# on node0, as root — append to /etc/aitbc/exchange.env (comment on its
-# own line; EnvironmentFile does not strip inline comments):
+# on node0, as root — the lines now present in /etc/aitbc/exchange.env
+# (comment on its own line; EnvironmentFile does not strip inline
+# comments). Shown for reference — already applied, do not duplicate:
 cat >> /etc/aitbc/exchange.env <<'EOF'
 ETH_WALLET_ADDRESS=0x310dcE00270D0aC10CAccfBD636Ff07BD5648781
 ETH_NETWORK=sepolia
@@ -122,9 +130,11 @@ printf '%s\n' "$PASS" | ssh node0 'cd /opt/aitbc && \
   --password-stdin'
 ```
 
-**Option A2.2 — manual send (no env change, no CLI)**
+**Option A2.2 — manual send (no CLI)**
 
-Send the Sepolia tx from the `sepolia` key with any ETH tooling:
+Still needed when the AIT recipient differs from the sender's wallet —
+the CLI hard-binds recipient = signing wallet (Gap 2). Send the Sepolia
+tx from the `sepolia` key with any ETH tooling:
 `to = 0x310dcE00270D0aC10CAccfBD636Ff07BD5648781`, `value = 0.002 ETH`,
 `data = 0x` + hex of the UTF-8 AIT recipient address (A1 shows the exact
 `transaction_data_hex`). No AITBC command performs this — it is Gap 2.
@@ -156,12 +166,14 @@ ssh hub 'cd /opt/aitbc && scripts/ops/bridge-admin.sh \
 
 # AIT side (on node0 — the sepolia wallet is also the AIT wallet):
 cd /opt/aitbc && venv/bin/python -m aitbc_cli wallet balance --name sepolia
-#   expect: ~28 AIT (amount priced at sealed-time oracle rates)
+#   expect: ~28 AIT (point-in-time figure; amount priced at
+#   sealed-time oracle rates — re-check live)
 
 # ETH side (read-only):
 venv/bin/python scripts/ops/sepolia_balance.py \
   <node0-sepolia-address> 0x310dcE00270D0aC10CAccfBD636Ff07BD5648781
-#   node0 down 0.002 ETH + gas; bridge up 0.002 ETH, nonce still 0
+#   node0 down 0.002 ETH + gas; bridge up 0.002 ETH — bridge nonce is
+#   outbound-only, so a deposit does not bump it (12 at the 21 Nov check)
 ```
 
 ## Scenario B — sell AIT (node2)
@@ -184,8 +196,9 @@ Expect `status: ready` and an `eth_amount` ≈ 0.0007.
 cd /opt/aitbc
 venv/bin/python -m aitbc_cli wallet bridge withdraw \
   --wallet-name default --amount 10 --eth-address <node2-sepolia-address>
-# node2's funded wallet is named `default` (~92 AIT balance);
-# wallet password prompt if the wallet is encrypted
+# node2's funded wallet is named `default` (~23 AIT balance at the
+# 21 Nov check — earlier revisions said ~92, stale); wallet password
+# prompt if the wallet is encrypted
 
 # installed entry-point equivalent (aitbc on PATH):
 aitbc wallet bridge withdraw --wallet-name default --amount 10 \
@@ -232,7 +245,8 @@ ssh hub 'curl -s http://localhost:8108/v1/bridge/withdraw/<ait_tx_hash>'
 # ETH side:
 venv/bin/python scripts/ops/sepolia_balance.py \
   <node2-sepolia-address> 0x310dcE00270D0aC10CAccfBD636Ff07BD5648781
-#   node2 sepolia +~0.0007 ETH; bridge wallet nonce 0 -> 1
+#   node2 sepolia +~0.0007 ETH; bridge wallet nonce 12 -> 13
+#   (point-in-time, 21 Nov — was 0 -> 1 in the original play)
 
 # AIT side: node2 wallet down 10 AIT + 0.01 AIT fee (burned at seal)
 ```
@@ -245,7 +259,8 @@ public Blockscout history of every fleet wallet, appends new rows to
 count against its RPC nonce. Run it **before** and **after** each play:
 
 ```bash
-# baseline — note the bridge wallet's nonce (0) and each float balance
+# baseline — note the bridge wallet's nonce (12 at the 21 Nov check;
+# re-read live) and each float balance
 venv/bin/python -m aitbc_cli eth transfers
 # after the play — only new rows appear; nonce and net/balance must move
 venv/bin/python -m aitbc_cli eth transfers --address node0 --address bridge
@@ -254,7 +269,8 @@ venv/bin/python -m aitbc_cli eth transfers --address node0 --address bridge
 For Scenario A expect: one new `out` row on node0 (0.002 ETH + gas),
 one matching `in` row on `bridge`, `net=bal yes` on both, bridge nonce
 unchanged (deposits are inbound). For Scenario B expect a new `out` row
-on `bridge` (~0.0007 ETH release) and nonce 0 → 1. A `NO` flag in the
+on `bridge` (~0.0007 ETH release) and nonce +1 (12 → 13 at the 21 Nov
+baseline). A `NO` flag in the
 `net=bal` column or a nonce warning means stop and reconcile before
 continuing.
 
@@ -488,7 +504,7 @@ settlement leg; a prepaid balance the endpoint and the ledger disagree on.
 
 | # | gap | current path |
 |---|---|---|
-| 1 | `POST /v1/bridge/deposit` on node0/node1 503s — their `exchange.env` lacks `ETH_WALLET_ADDRESS`, and hub's daemon is `127.0.0.1:8108` only with no node→hub route or ssh path. The fix is an env append + `aitbc-wallet` restart on the node (A2.1) — an operator change — or the manual send (A2.2). | operator env change or manual |
+| 1 | **FIXED 21 Nov** — node0's `exchange.env` now carries `ETH_WALLET_ADDRESS`/`ETH_NETWORK`/`ETH_RPC_URL` and `POST /v1/bridge/deposit` + `aitbc wallet bridge deposit` work on node0 (used live). node1 remains unverified. | resolved — no longer a gap on node0 |
 | 2 | No CLI/MCP command sends an ETH tx crediting an AIT address **other than the sender's** — `wallet bridge deposit` hard-binds recipient = signing wallet. A deposit for someone else's AIT address needs a hand-built ETH tx (`data = 0x` + utf8-hex of the recipient). The phase-3 `EXCHANGE_DEPOSIT:<addr>` prepay tag is the same mechanism: input data = the printed tag, `to` = `bridge_eth_address`. | manual ETH send |
 | 3 | No CLI/MCP deposit-status tool — only withdraw status exists (`bridge status`, `get_eth_bridge_withdrawal`). Deposit verification is `bridge_monitor.admin status <eth_tx_hash>` on hub or `GET /v1/bridge/deposit/by-recipient/<addr>` on a wallet service. | ssh/curl |
 | 4 | `aitbc wallet bridge status` reads the **local** wallet db — withdraw rows exist only on hub; remote hosts cannot reach its loopback daemon, so status checks go through `ssh hub` or MCP `host=`/`role=hub`. | ssh/MCP |
