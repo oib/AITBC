@@ -259,19 +259,43 @@ class TestSettleDeferralBound:
     anything else -> keep deferring.
     """
 
-    def _settle_verify_transport(self, monkeypatch, settle_items, verify, tx=None):
+    @staticmethod
+    def _sealed_lock_tx(request: httpx.Request) -> httpx.Response:
+        # Echo the queried job_id — find_escrow_lock re-checks payload.job_id.
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "tx_hash": "0xlock_sealed",
+                    "block_height": 33900,
+                    "payload": {"job_id": request.url.params.get("job_id", ""), "action": "escrow_lock"},
+                }
+            ],
+            request=request,
+        )
+
+    def _settle_verify_transport(self, monkeypatch, settle_items, verify, tx=None, locks=None):
         """MockTransport: POSTs serve settle_items (callables or Exceptions,
         clamped at the last item); GETs dispatch on path -- /rpc/escrow/
         serves the verify answer, /rpc/transaction/ serves the tx answer
-        (default: a sealed transaction, so adoption tests stay adoptions)."""
+        (default: a sealed transaction, so adoption tests stay adoptions),
+        /rpc/transactions serves the ESCROW_LOCK lookup (default: one
+        sealed lock, so locked-escrow tests keep deferring)."""
         state = {"posts": 0, "gets": 0}
         if tx is None:
             tx = self._sealed_tx
+        if locks is None:
+            locks = self._sealed_lock_tx
 
         def handler(request: httpx.Request) -> httpx.Response:
             if request.method == "GET":
                 state["gets"] += 1
-                answer = tx if request.url.path.startswith("/rpc/transaction/") else verify
+                if request.url.path.startswith("/rpc/transactions"):
+                    answer = locks
+                elif request.url.path.startswith("/rpc/transaction/"):
+                    answer = tx
+                else:
+                    answer = verify
                 if isinstance(answer, Exception):
                     raise answer
                 return answer(request)
@@ -377,6 +401,108 @@ class TestSettleDeferralBound:
 
         first_at = (datetime.now(UTC) - timedelta(hours=7)).isoformat()
         job_id = await self._deferred_job(service, "pastlock", {"settle_deferral_first_at": first_at})
+
+        counts = await sw.sweep_once()
+        assert counts["failed"] >= 1
+
+        job = await service.get_market_job(job_id)
+        assert job["payment_status"] == "escrowed"
+        payment = await _payment_of(job_id)
+        assert payment.meta_data["settle_deferral_first_at"] == first_at
+
+    @staticmethod
+    def _no_lock_tx(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json=[], request=request)
+
+    @staticmethod
+    def _other_job_lock_tx(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(
+            200,
+            json=[
+                {
+                    "tx_hash": "0xlock_other",
+                    "block_height": 33900,
+                    "payload": {"job_id": "sw_job_other", "action": "escrow_lock"},
+                }
+            ],
+            request=request,
+        )
+
+    @pytest.mark.asyncio
+    async def test_past_bound_phantom_escrow_goes_terminal(self, sweeper, monkeypatch) -> None:
+        """#2386: escrow row reads locked but no sealed ESCROW_LOCK exists —
+        the lock tx never landed, no money moved: terminal, not forever-defer."""
+        service, sw, _rpc = sweeper
+
+        def verify_locked(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"state": "locked", "release_tx_hash": None, "refund_tx_hash": None},
+                request=request,
+            )
+
+        self._settle_verify_transport(monkeypatch, [self._post_unsettled], verify_locked, locks=self._no_lock_tx)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        first_at = (datetime.now(UTC) - timedelta(hours=7)).isoformat()
+        job_id = await self._deferred_job(service, "phantom", {"settle_deferral_first_at": first_at})
+
+        counts = await sw.sweep_once()
+        assert counts["failed"] >= 1
+
+        job = await service.get_market_job(job_id)
+        assert job["payment_status"] == "settlement_failed"
+        assert "no sealed ESCROW_LOCK" in (job.get("error") or "")
+        payment = await _payment_of(job_id)
+        assert payment.status == "settlement_failed"
+        assert "settle_deferral_first_at" not in (payment.meta_data or {})
+
+    @pytest.mark.asyncio
+    async def test_past_bound_lock_for_other_job_is_phantom(self, sweeper, monkeypatch) -> None:
+        """A sealed lock belonging to a different job_id does not save this one."""
+        service, sw, _rpc = sweeper
+
+        def verify_locked(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"state": "funded", "release_tx_hash": None, "refund_tx_hash": None},
+                request=request,
+            )
+
+        self._settle_verify_transport(monkeypatch, [self._post_unsettled], verify_locked, locks=self._other_job_lock_tx)
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        first_at = (datetime.now(UTC) - timedelta(hours=7)).isoformat()
+        job_id = await self._deferred_job(service, "otherjob", {"settle_deferral_first_at": first_at})
+
+        counts = await sw.sweep_once()
+        assert counts["failed"] >= 1
+
+        job = await service.get_market_job(job_id)
+        assert job["payment_status"] == "settlement_failed"
+
+    @pytest.mark.asyncio
+    async def test_past_bound_lock_probe_error_keeps_deferring(self, sweeper, monkeypatch) -> None:
+        """A failed lock lookup is 'unknown', never 'absent' — keep deferring."""
+        service, sw, _rpc = sweeper
+
+        def verify_locked(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(
+                200,
+                json={"state": "locked", "release_tx_hash": None, "refund_tx_hash": None},
+                request=request,
+            )
+
+        self._settle_verify_transport(
+            monkeypatch,
+            [self._post_unsettled],
+            verify_locked,
+            locks=httpx.ConnectError("lock probe down"),
+        )
+        sw._rpc_client = BlockchainRPCClient(rpc_url="http://testnode")
+
+        first_at = (datetime.now(UTC) - timedelta(hours=7)).isoformat()
+        job_id = await self._deferred_job(service, "probefail", {"settle_deferral_first_at": first_at})
 
         counts = await sw.sweep_once()
         assert counts["failed"] >= 1
