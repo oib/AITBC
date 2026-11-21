@@ -14,7 +14,7 @@ aitbc resource optimize [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--agent-id` | text | — | yes | Agent ID to optimize |
+| `--agent-id` | text | — | yes | Coordinator agent identity ID bound to your wallet (the agent_id from agent register/identity, not a display name). |
 | `--target-metric` | choice | — | yes | Performance metric to optimize |
 | `--optimization-type` | text | `comprehensive` | no | Optimization type (comprehensive, targeted, etc.) |
 | `--current-accuracy` | float | — | no | Current accuracy (0-1) |

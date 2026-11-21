@@ -14,7 +14,7 @@ aitbc resource allocate [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--agent-id` | text | — | yes | Agent ID to allocate resources for |
+| `--agent-id` | text | — | yes | Coordinator agent identity ID bound to your wallet (the agent_id from agent register/identity, not a display name). |
 | `--cpu-cores` | float | — | no | Requested CPU cores |
 | `--memory-gb` | float | — | no | Requested memory (GB) |
 | `--gpu-count` | float | — | no | Requested GPU count |
