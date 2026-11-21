@@ -3,15 +3,23 @@ Dispute Resolution Smart Contract
 Handles dispute filing, evidence submission, arbitration, and resolution
 """
 
+import fcntl
+import json
 import os
 import time
+from contextlib import contextmanager
 from dataclasses import asdict, dataclass
 from enum import Enum
-from typing import Any
+from functools import wraps
+from pathlib import Path
+from collections.abc import Callable, Iterator
+from typing import Any, TypeVar, cast
 
 from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
+
+_PersistedMethod = TypeVar("_PersistedMethod", bound=Callable[..., Any])
 
 
 class DisputeStatus(Enum):
@@ -79,7 +87,17 @@ class ArbitrationVote:
 class DisputeResolutionContract:
     """In-memory implementation of Dispute Resolution contract"""
 
-    def __init__(self) -> None:
+    def __init__(self, state_path: str | Path | None = None) -> None:
+        # state_path=None → auto: AITBC_DISPUTE_STATE_FILE, else a
+        # ``disputes.json`` beside chain.db so every uvicorn worker (and a
+        # restart) shares one store (#2387). ``state_path="memory"`` or the
+        # env value ``memory``/``none``/``off`` keeps the legacy per-process
+        # behaviour for tests and dev.
+        mode = str(state_path).lower() if state_path is not None else ""
+        self._state_forced_memory = mode in ("memory", "none", "off")
+        self._state_path_arg = None if state_path is None or self._state_forced_memory else Path(state_path)
+        self._resolved_state_path: Path | None = None
+        self._state_mode_locked = self._state_forced_memory
         self.disputes: dict[int, Dispute] = {}
         self.evidence: dict[int, list[Evidence]] = {}
         self.votes: dict[int, list[ArbitrationVote]] = {}
@@ -87,26 +105,160 @@ class DisputeResolutionContract:
         self.dispute_counter = 0
         self.evidence_counter = 0
         self._owner: str | None = None
-        self._initialize_arbitrators()
+        self._load_state()
+        self._seed_arbitrators()
+
+    # ------------------------------------------------------------------
+    # shared-state persistence (#2387)
+    # ------------------------------------------------------------------
+
+    def _resolve_state_path(self) -> Path | None:
+        """State file path, or None for in-memory mode. Resolved lazily so
+        the module-level singleton picks up the engine once the app is up."""
+        if self._state_path_arg is not None:
+            return self._state_path_arg
+        if self._state_mode_locked:
+            return self._resolved_state_path
+        mode = os.getenv("AITBC_DISPUTE_STATE_FILE", "").strip()
+        if mode.lower() in ("memory", "none", "off"):
+            self._state_mode_locked = True
+            return None
+        if mode:
+            self._resolved_state_path = Path(mode)
+        else:
+            try:
+                from ..database import ChainDbMissingError, ForeignChainDbError, get_engine
+
+                db = get_engine().url.database
+            except (ChainDbMissingError, ForeignChainDbError, ValueError, OSError):
+                # engine not up yet / unavailable — retry next call
+                return None
+            if not db or db == ":memory:":
+                self._state_mode_locked = True
+                self._resolved_state_path = None
+                return None
+            self._resolved_state_path = Path(db).parent / "disputes.json"
+        self._state_mode_locked = True
+        return self._resolved_state_path
+
+    @staticmethod
+    def _dispute_to_dict(dispute: Dispute) -> dict[str, Any]:
+        raw = asdict(dispute)
+        raw["status"] = dispute.status.value
+        raw["dispute_type"] = dispute.dispute_type.value
+        return raw
+
+    @staticmethod
+    def _dispute_from_dict(raw: dict[str, Any]) -> Dispute:
+        return Dispute(**{**raw, "status": DisputeStatus(raw["status"]), "dispute_type": DisputeType(raw["dispute_type"])})
+
+    def _load_state(self) -> None:
+        path = self._resolve_state_path()
+        if path is None or not path.is_file():
+            return
+        try:
+            data = json.loads(path.read_text())
+            self.dispute_counter = int(data.get("dispute_counter", 0))
+            self.evidence_counter = int(data.get("evidence_counter", 0))
+            self._owner = data.get("owner")
+            self.arbitrators = {str(k): int(v) for k, v in (data.get("arbitrators") or {}).items()}
+            self.disputes = {int(k): self._dispute_from_dict(v) for k, v in (data.get("disputes") or {}).items()}
+            self.evidence = {int(k): [Evidence(**e) for e in v] for k, v in (data.get("evidence") or {}).items()}
+            self.votes = {int(k): [ArbitrationVote(**v) for v in v] for k, v in (data.get("votes") or {}).items()}
+        except (OSError, ValueError, TypeError, KeyError) as e:
+            logger.error("Dispute state file %s unreadable/corrupt: %s", path, e)
+            return
+        env_seed = self._arbitrators_from_env()
+        if env_seed:
+            self.arbitrators.update(env_seed)
+
+    def _save_state(self) -> None:
+        path = self._resolve_state_path()
+        if path is None:
+            return
+        payload = {
+            "version": 1,
+            "dispute_counter": self.dispute_counter,
+            "evidence_counter": self.evidence_counter,
+            "owner": self._owner,
+            "arbitrators": self.arbitrators,
+            "disputes": {str(k): self._dispute_to_dict(v) for k, v in self.disputes.items()},
+            "evidence": {str(k): [asdict(e) for e in v] for k, v in self.evidence.items()},
+            "votes": {str(k): [asdict(v) for v in vs] for k, vs in self.votes.items()},
+        }
+        try:
+            path.parent.mkdir(parents=True, exist_ok=True)
+            tmp = path.with_name(path.name + ".tmp")
+            tmp.write_text(json.dumps(payload))
+            os.replace(tmp, path)
+        except OSError as e:
+            logger.error("Failed to persist dispute state to %s: %s", path, e)
+
+    @contextmanager
+    def _state_transaction(self) -> Iterator[None]:
+        """Exclusive cross-process mutation: flock, reload, yield, save."""
+        path = self._resolve_state_path()
+        if path is None:
+            yield
+            return
+        lock_path = path.with_name(path.name + ".lock")
+        try:
+            lock_file = open(lock_path, "a+b")
+        except OSError as e:
+            logger.error("Dispute state lock %s unavailable: %s — operating unlocked", lock_path, e)
+            self._load_state()
+            yield
+            self._save_state()
+            return
+        with lock_file:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+            try:
+                self._load_state()
+                yield
+                self._save_state()
+            finally:
+                fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+    def _refresh(self) -> None:
+        """Reads see the latest committed state in file mode."""
+        if self._resolve_state_path() is not None:
+            self._load_state()
+
+    @staticmethod
+    def _persisted(method: _PersistedMethod) -> _PersistedMethod:
+        """Route a mutating method through the shared-state transaction."""
+
+        @wraps(method)
+        def wrapper(*args: Any, **kwargs: Any) -> Any:
+            self = args[0]
+            with self._state_transaction():
+                return method(*args, **kwargs)
+
+        return cast(_PersistedMethod, wrapper)
 
     def set_owner(self, owner_address: str) -> None:
         """Set the contract owner address (called during deployment)."""
-        self._owner = owner_address.lower().strip()
-        if not self._owner.startswith("0x"):
-            self._owner = "0x" + self._owner
+        with self._state_transaction():
+            self._owner = owner_address.lower().strip()
+            if not self._owner.startswith("0x"):
+                self._owner = "0x" + self._owner
 
-    def _initialize_arbitrators(self) -> None:
-        """Initialize arbitrators.
+    def _seed_arbitrators(self) -> None:
+        """Seed authorized arbitrators.
 
         ``AITBC_DISPUTE_ARBITRATORS`` (comma-separated ``0xaddress:score``
-        entries) seeds the authorized set for real dispute flows (#2052).
-        When unset, the historical placeholder trio is kept so existing
+        entries) always merges into the set — env wins over persisted state
+        so operators can rotate identities without editing the state file
+        (#2052, #2387). When neither env nor persisted state supplies any
+        arbitrators, the historical placeholder trio is kept so existing
         dev/test flows are unchanged — live evidence runs must set the env.
         """
-        seeded = self._arbitrators_from_env()
-        if seeded:
-            self.arbitrators = seeded
-            logger.info("Initialized %s arbitrators from AITBC_DISPUTE_ARBITRATORS", len(self.arbitrators))
+        env = self._arbitrators_from_env()
+        if env:
+            self.arbitrators.update(env)
+            logger.info("Seeded %s arbitrators from AITBC_DISPUTE_ARBITRATORS", len(env))
+            return
+        if self.arbitrators:
             return
         self.arbitrators = {
             "0x1111111111111111111111111111111111111111": 90,
@@ -147,6 +299,7 @@ class DisputeResolutionContract:
         except (ValueError, TypeError):
             return address.strip().lower()
 
+    @_persisted
     def file_dispute(
         self, agreement_id: int, respondent: str, dispute_type: str, reason: str, evidence_hash: str, sender_address: str
     ) -> dict[str, Any]:
@@ -180,8 +333,14 @@ class DisputeResolutionContract:
             "message": f"Dispute {dispute_id} filed successfully",
         }
 
+    @_persisted
     def submit_evidence(
-        self, dispute_id: int, evidence_type: str, evidence_data: str, submitter_address: str
+        self,
+        dispute_id: int,
+        evidence_type: str,
+        evidence_data: str,
+        submitter_address: str,
+        evidence_hash: str = "",
     ) -> dict[str, Any]:
         """Submit evidence for a dispute"""
         if dispute_id not in self.disputes:
@@ -194,7 +353,7 @@ class DisputeResolutionContract:
             submitter=submitter_address,
             evidence_type=evidence_type,
             evidence_data=evidence_data,
-            evidence_hash=f"0x{evidence_id:040x}",
+            evidence_hash=evidence_hash or f"0x{evidence_id:040x}",
             submission_time=int(time.time()),
         )
         self.evidence[dispute_id].append(evidence)
@@ -207,6 +366,7 @@ class DisputeResolutionContract:
             "message": f"Evidence {evidence_id} submitted successfully",
         }
 
+    @_persisted
     def verify_evidence(
         self, dispute_id: int, evidence_id: int, is_valid: bool, verification_score: int, arbitrator_address: str
     ) -> dict[str, Any]:
@@ -225,6 +385,7 @@ class DisputeResolutionContract:
                 return {"success": True, "status": "Verified", "message": f"Evidence {evidence_id} verified"}
         return {"success": False, "error": f"Evidence {evidence_id} not found"}
 
+    @_persisted
     def submit_arbitration_vote(
         self, dispute_id: int, vote_in_favor_of_initiator: bool, confidence: int, reasoning: str, arbitrator_address: str
     ) -> dict[str, Any]:
@@ -234,6 +395,16 @@ class DisputeResolutionContract:
             return {"success": False, "error": "Not an authorized arbitrator"}
         if dispute_id not in self.disputes:
             return {"success": False, "error": f"Dispute {dispute_id} not found"}
+        # One arbitrator, one effective vote: an identical re-cast (e.g. a
+        # client retry) is rejected, but a changed verdict is allowed and
+        # appended like any other vote (#2387).
+        if any(
+            v.arbitrator == arbitrator_address
+            and v.vote_in_favor_of_initiator == vote_in_favor_of_initiator
+            and v.reasoning == reasoning
+            for v in self.votes[dispute_id]
+        ):
+            return {"success": False, "error": "Duplicate arbitration vote"}
         vote = ArbitrationVote(
             dispute_id=dispute_id,
             arbitrator=arbitrator_address,
@@ -254,6 +425,7 @@ class DisputeResolutionContract:
             "message": "Vote submitted successfully",
         }
 
+    @_persisted
     def authorize_arbitrator(
         self, arbitrator_address: str, reputation_score: int, owner_address: str, owner_signature: str | None = None
     ) -> dict[str, Any]:
@@ -310,6 +482,7 @@ class DisputeResolutionContract:
 
     def get_dispute(self, dispute_id: int) -> dict[str, Any]:
         """Get dispute details"""
+        self._refresh()
         if dispute_id not in self.disputes:
             return {"success": False, "error": f"Dispute {dispute_id} not found"}
         dispute = self.disputes[dispute_id]
@@ -317,6 +490,7 @@ class DisputeResolutionContract:
 
     def get_dispute_evidence(self, dispute_id: int) -> dict[str, Any]:
         """Get all evidence for a dispute"""
+        self._refresh()
         if dispute_id not in self.disputes:
             return {"success": False, "error": f"Dispute {dispute_id} not found"}
         return {
@@ -327,6 +501,7 @@ class DisputeResolutionContract:
 
     def get_arbitration_votes(self, dispute_id: int) -> dict[str, Any]:
         """Get all arbitration votes for a dispute"""
+        self._refresh()
         if dispute_id not in self.disputes:
             return {"success": False, "error": f"Dispute {dispute_id} not found"}
         return {
@@ -337,6 +512,7 @@ class DisputeResolutionContract:
 
     def get_user_disputes(self, user_address: str) -> dict[str, Any]:
         """Get all disputes for a user"""
+        self._refresh()
         user_disputes = [
             d_id for d_id, d in self.disputes.items() if d.initiator == user_address or d.respondent == user_address
         ]
@@ -344,6 +520,7 @@ class DisputeResolutionContract:
 
     def get_arbitrator_disputes(self, arbitrator_address: str) -> dict[str, Any]:
         """Get all disputes assigned to an arbitrator"""
+        self._refresh()
         arbitrator_disputes = [
             d_id
             for d_id, d in self.disputes.items()
@@ -358,10 +535,12 @@ class DisputeResolutionContract:
 
     def get_authorized_arbitrators(self) -> dict[str, Any]:
         """Get all authorized arbitrators"""
+        self._refresh()
         return {"success": True, "arbitrators": list(self.arbitrators.keys()), "count": len(self.arbitrators)}
 
     def get_active_disputes(self) -> dict[str, Any]:
         """Get all active disputes"""
+        self._refresh()
         active_disputes = [
             d_id
             for d_id, d in self.disputes.items()
