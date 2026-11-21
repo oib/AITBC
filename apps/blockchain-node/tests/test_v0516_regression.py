@@ -399,12 +399,19 @@ class TestBug5AuthorizeArbitratorOwnerVerification:
         """DisputeResolutionContract with a known owner set."""
         priv_key, owner_address = _generate_keypair()
         contract = dispute_resolution_contract
+        # Snapshot arbitrator state too — #2460 persists grants separately,
+        # and a leaked grant would shrink the singleton's effective set for
+        # later tests in the same process.
+        saved_granted = dict(contract._granted_arbitrators)
+        saved_arbitrators = dict(contract.arbitrators)
         contract.set_owner(owner_address)
         contract._test_priv_key = priv_key  # type: ignore[attr-defined]
         contract._test_owner_address = owner_address  # type: ignore[attr-defined]
         yield contract
-        # Reset owner after test
+        # Reset owner and arbitrator state after test
         contract._owner = None
+        contract._granted_arbitrators = saved_granted
+        contract.arbitrators = saved_arbitrators
 
     def test_rejects_wrong_owner_address(self, contract_with_owner) -> None:
         """authorize_arbitrator rejects when owner_address doesn't match _owner."""

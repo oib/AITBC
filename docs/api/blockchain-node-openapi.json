@@ -295,6 +295,64 @@
         ]
       }
     },
+    "/rpc/disputes/arbitrators/revoke": {
+      "post": {
+        "tags": [
+          "rpc",
+          "disputes"
+        ],
+        "summary": "Revoke an arbitrator (admin only)",
+        "description": "Revoke an owner-granted arbitrator (#2460)",
+        "operationId": "revoke_arbitrator_route_rpc_disputes_arbitrators_revoke_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeArbitratorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeArbitratorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Disputes module not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
     "/rpc/disputes/active": {
       "get": {
         "tags": [
@@ -12492,6 +12550,64 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/AuthorizeArbitratorResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Disputes module not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        },
+        "security": [
+          {
+            "HTTPBearer": []
+          }
+        ]
+      }
+    },
+    "/v1/disputes/arbitrators/revoke": {
+      "post": {
+        "tags": [
+          "v1",
+          "disputes"
+        ],
+        "summary": "Revoke an arbitrator (admin only)",
+        "description": "Revoke an owner-granted arbitrator (#2460)",
+        "operationId": "revoke_arbitrator_route_v1_disputes_arbitrators_revoke_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RevokeArbitratorRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/RevokeArbitratorResponse"
                 }
               }
             }
@@ -26840,6 +26956,43 @@
         "type": "object",
         "title": "MarketDeleteRequest",
         "description": "Request to delete a market listing"
+      },
+      "RevokeArbitratorRequest": {
+        "properties": {
+          "arbitrator_address": {
+            "type": "string",
+            "title": "Arbitrator Address"
+          },
+          "owner_signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Owner Signature"
+          }
+        },
+        "type": "object",
+        "required": [
+          "arbitrator_address"
+        ],
+        "title": "RevokeArbitratorRequest"
+      },
+      "RevokeArbitratorResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status"
+        ],
+        "title": "RevokeArbitratorResponse"
       },
       "SubmitArbitrationVoteRequest": {
         "properties": {

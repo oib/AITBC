@@ -1377,6 +1377,13 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/disputes/arbitrators/revoke",
+          "upstream": "/rpc/disputes/arbitrators/revoke",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/disputes/arbitrators/{arbitrator_address}",
           "upstream": "/rpc/disputes/arbitrators/{arbitrator_address}",
           "methods": [
@@ -2690,6 +2697,13 @@
         {
           "public": "/api/v2/chain/v1/disputes/arbitrators/authorize",
           "upstream": "/v1/disputes/arbitrators/authorize",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/arbitrators/revoke",
+          "upstream": "/v1/disputes/arbitrators/revoke",
           "methods": [
             "POST"
           ]

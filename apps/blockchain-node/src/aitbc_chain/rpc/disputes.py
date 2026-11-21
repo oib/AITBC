@@ -16,6 +16,8 @@ from ..models.dispute import (
     GetArbitrationVotesResponse,
     GetDisputeResponse,
     GetEvidenceResponse,
+    RevokeArbitratorRequest,
+    RevokeArbitratorResponse,
     SubmitArbitrationVoteRequest,
     SubmitArbitrationVoteResponse,
     SubmitEvidenceRequest,
@@ -201,6 +203,32 @@ def authorize_arbitrator(
         raise
     except Exception as e:
         _logger.error("Error authorizing arbitrator: %s", e)
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+def revoke_arbitrator(
+    request: RevokeArbitratorRequest, http_request: Request, credentials: HTTPAuthorizationCredentials | None = None
+) -> RevokeArbitratorResponse:
+    """
+    Revoke an owner-granted arbitrator.
+    This can only be called by the contract owner.
+    """
+    try:
+        owner_address = get_authenticated_address(http_request, credentials)
+        result = dispute_resolution_service.revoke_arbitrator(
+            arbitrator_address=request.arbitrator_address,
+            owner_address=owner_address,
+            owner_signature=request.owner_signature,
+        )
+        if not result.get("success"):
+            raise HTTPException(status_code=500, detail=result.get("error", "Failed to revoke arbitrator"))
+        return RevokeArbitratorResponse(success=True, status=result["status"], message=result["message"])
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("Error revoking arbitrator: %s", e)
         _logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=500, detail="Internal server error") from e
