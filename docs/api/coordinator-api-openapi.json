@@ -31218,7 +31218,7 @@
           "reputation"
         ],
         "summary": "Get Trust Score Breakdown",
-        "description": "Get detailed trust score breakdown for an agent",
+        "description": "Get detailed trust score breakdown for an agent.\n\nReturns 404 when the agent has no reputation profile \u2014 the same honest\ndefault ``GET /reputation/profile/{agent_id}`` gives \u2014 rather than a\nfabricated mid-scale composite for an agent with no data (#2406).",
         "operationId": "get_trust_score_breakdown_v1_reputation_trust_score__agent_id__get",
         "parameters": [
           {
@@ -31248,6 +31248,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Reputation profile not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -45706,7 +45716,8 @@
           },
           "trust_score": {
             "type": "number",
-            "title": "Trust Score"
+            "title": "Trust Score",
+            "description": "Composite trust score, 0-1000"
           },
           "reputation_level": {
             "type": "string",
@@ -45747,7 +45758,14 @@
           },
           "average_response_time": {
             "type": "number",
-            "title": "Average Response Time"
+            "title": "Average Response Time",
+            "description": "Mean job response time"
+          },
+          "average_response_time_unit": {
+            "type": "string",
+            "title": "Average Response Time Unit",
+            "description": "Unit of average_response_time (milliseconds)",
+            "default": "ms"
           },
           "dispute_count": {
             "type": "integer",
@@ -45815,7 +45833,7 @@
           "recent_feedback"
         ],
         "title": "ReputationProfileResponse",
-        "description": "Response model for reputation profile"
+        "description": "Response model for reputation profile.\n\n``trust_score`` is the live weighted composite on a **0\u20131000** scale \u2014 the\nsame value ``GET /reputation/trust-score/{agent_id}`` reports as\n``composite_score`` and ``GET /reputation/leaderboard`` reports as\n``trust_score`` (#2406)."
       },
       "ResourceAllocationRequest": {
         "properties": {
@@ -47553,27 +47571,33 @@
           },
           "composite_score": {
             "type": "number",
-            "title": "Composite Score"
+            "title": "Composite Score",
+            "description": "Weighted composite trust score, 0-1000"
           },
           "performance_score": {
             "type": "number",
-            "title": "Performance Score"
+            "title": "Performance Score",
+            "description": "Performance component, 0-1000"
           },
           "reliability_score": {
             "type": "number",
-            "title": "Reliability Score"
+            "title": "Reliability Score",
+            "description": "Reliability component, 0-1000"
           },
           "community_score": {
             "type": "number",
-            "title": "Community Score"
+            "title": "Community Score",
+            "description": "Community component, 0-1000"
           },
           "security_score": {
             "type": "number",
-            "title": "Security Score"
+            "title": "Security Score",
+            "description": "Security component, 0-1000"
           },
           "economic_score": {
             "type": "number",
-            "title": "Economic Score"
+            "title": "Economic Score",
+            "description": "Economic component, 0-1000"
           },
           "reputation_level": {
             "type": "string",
@@ -47597,7 +47621,7 @@
           "calculated_at"
         ],
         "title": "TrustScoreResponse",
-        "description": "Response model for trust score breakdown"
+        "description": "Response model for trust score breakdown.\n\nAll component scores and ``composite_score`` are on a **0\u20131000** scale;\n``composite_score`` is the weighted sum the profile and leaderboard reads\nalso report (#2406)."
       },
       "UserBalance": {
         "properties": {

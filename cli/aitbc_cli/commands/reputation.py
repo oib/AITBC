@@ -9,7 +9,7 @@ import click
 
 from aitbc.exceptions import AITBCError
 
-from ..auth import ExpiredAdminToken
+from ..auth import AuthManager, ExpiredAdminToken, jwt_claims
 from ..config import get_config
 from ..utils import output, resolve_output_format, success
 from ..utils.error_handling import abort
@@ -124,6 +124,8 @@ def _simulated_profile(agent_id: str) -> dict[str, Any]:
         "success_rate": _hash_float(base + ("success",), 70.0, 99.99, 2),
         "jobs_completed": completed,
         "jobs_failed": max(0, tx_count - completed),
+        "average_response_time": _hash_float(base + ("response_time",), 20.0, 120000.0, 2),
+        "average_response_time_unit": "ms",
     }
 
 
@@ -252,6 +254,10 @@ def get_profile(ctx, agent_id: str, format: str):
         click.echo(f"Success Rate: {float(data.get('success_rate', 0)):.2f}%")
         click.echo(f"Jobs Completed: {data.get('jobs_completed', 0)}")
         click.echo(f"Jobs Failed: {data.get('jobs_failed', 0)}")
+        # The server stores mean response time in milliseconds and reports the
+        # unit explicitly (#2406) — display it rather than leaving a bare float.
+        rt_unit = data.get("average_response_time_unit", "ms")
+        click.echo(f"Average Response Time: {float(data.get('average_response_time', 0) or 0):.2f} {rt_unit}")
     except NetworkError as e:
         # Safety net for unexpected network failures.
         _abort_network(ctx, e)
@@ -422,16 +428,70 @@ def metrics(ctx, format: str):
         abort(ctx, f"Error getting metrics: {e}", from_exception=e)
 
 
+def _stored_bearer_token(ctx: click.Context | None) -> str | None:
+    """Return the credential ``_coordinator_client(credential="admin")`` would send.
+
+    Mirrors :func:`auth_client_kwargs` precedence for the admin-aware lookup:
+    explicit ``--api-key``, then the credential store (admin slot, client
+    fallback), then the configured ``api_key``. Returns the raw token — JWT or
+    plain API key.
+    """
+    config = get_config()
+    explicit = ctx.obj.get("api_key") if ctx and ctx.obj else None
+    token = explicit
+    if not token:
+        try:
+            token = AuthManager().get_admin_token()
+        except ExpiredAdminToken as e:
+            abort(ctx, str(e), from_exception=e)
+    if not token:
+        token = config.api_key
+    return token
+
+
+def _own_agent_id(ctx: click.Context) -> str:
+    """Resolve the caller's own agent id from the stored session JWT (#2406).
+
+    Agent-session JWTs carry ``agent_id`` (and ``sub``) equal to the agent id
+    the coordinator's self-or-admin check compares against; user JWTs carry
+    only ``sub``. API-key credentials have no agent identity at all, so the
+    caller must pass ``--agent-id`` explicitly.
+    """
+    token = _stored_bearer_token(ctx)
+    payload = jwt_claims(token) if token else None
+    own = ""
+    if payload:
+        own = str(payload.get("agent_id") or payload.get("sub") or "")
+    if not own:
+        abort(
+            ctx,
+            "--agent-id is required: no stored JWT credential to derive your agent id from "
+            "(API-key auth carries no agent identity). Run `aitbc auth status` to see "
+            "credential subjects, or pass --agent-id explicitly.",
+        )
+    return own
+
+
 @reputation.command(
     "create-profile",
     epilog="""Examples:
 
+  aitbc reputation create-profile
+
   aitbc reputation create-profile --agent-id agent-1""",
 )
-@click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
+@click.option(
+    "--agent-id",
+    "agent_id",
+    required=False,
+    default=None,
+    help="The Agent id (default: the agent id on your stored credential — see `aitbc auth status`)",
+)
 @click.pass_context
-def create_profile(ctx, agent_id: str):
+def create_profile(ctx, agent_id: str | None):
     """Create a new reputation profile for an agent."""
+    if not agent_id:
+        agent_id = _own_agent_id(ctx)
     # The route is JWT-gated and only allows the profile's own agent or an
     # admin, so the write prefers the stored admin credential (falling back
     # to the client JWT) — credential="admin" in _coordinator_client (#2352).

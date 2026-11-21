@@ -48,10 +48,16 @@ def _require_self_or_admin(user: dict[str, Any], agent_id: str) -> None:
 
 
 class ReputationProfileResponse(BaseModel):
-    """Response model for reputation profile"""
+    """Response model for reputation profile.
+
+    ``trust_score`` is the live weighted composite on a **0–1000** scale — the
+    same value ``GET /reputation/trust-score/{agent_id}`` reports as
+    ``composite_score`` and ``GET /reputation/leaderboard`` reports as
+    ``trust_score`` (#2406).
+    """
 
     agent_id: str
-    trust_score: float
+    trust_score: float = Field(description="Composite trust score, 0-1000")
     reputation_level: str
     performance_rating: float
     reliability_score: float
@@ -61,7 +67,8 @@ class ReputationProfileResponse(BaseModel):
     success_rate: float
     jobs_completed: int
     jobs_failed: int
-    average_response_time: float
+    average_response_time: float = Field(description="Mean job response time")
+    average_response_time_unit: str = Field(default="ms", description="Unit of average_response_time (milliseconds)")
     dispute_count: int
     certifications: list[str]
     specialization_tags: list[str]
@@ -105,15 +112,20 @@ class FeedbackResponse(BaseModel):
 
 
 class TrustScoreResponse(BaseModel):
-    """Response model for trust score breakdown"""
+    """Response model for trust score breakdown.
+
+    All component scores and ``composite_score`` are on a **0–1000** scale;
+    ``composite_score`` is the weighted sum the profile and leaderboard reads
+    also report (#2406).
+    """
 
     agent_id: str
-    composite_score: float
-    performance_score: float
-    reliability_score: float
-    community_score: float
-    security_score: float
-    economic_score: float
+    composite_score: float = Field(description="Weighted composite trust score, 0-1000")
+    performance_score: float = Field(description="Performance component, 0-1000")
+    reliability_score: float = Field(description="Reliability component, 0-1000")
+    community_score: float = Field(description="Community component, 0-1000")
+    security_score: float = Field(description="Security component, 0-1000")
+    economic_score: float = Field(description="Economic component, 0-1000")
     reputation_level: str
     calculated_at: str
 
@@ -174,11 +186,15 @@ async def create_reputation_profile(
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
         reputation = await run_in_threadpool(reputation_service.create_reputation_profile, agent_id)
+        # Report the same live composite the read endpoints return (#2406) —
+        # the stored columns are only the event-sourced cache.
+        calculator = reputation_service.calculator
+        trust_score = calculator.calculate_composite_trust_score(agent_id, session)  # type: ignore[arg-type]
         return {
             "message": "Reputation profile created successfully",
             "agent_id": reputation.agent_id,
-            "trust_score": reputation.trust_score,
-            "reputation_level": reputation.reputation_level.value,
+            "trust_score": trust_score,
+            "reputation_level": calculator.determine_reputation_level(trust_score).value,
             "created_at": reputation.created_at.isoformat(),
         }
     except HTTPException:
@@ -299,8 +315,15 @@ async def add_community_feedback(
 def get_trust_score_breakdown(
     request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> TrustScoreResponse:
-    """Get detailed trust score breakdown for an agent"""
+    """Get detailed trust score breakdown for an agent.
+
+    Returns 404 when the agent has no reputation profile — the same honest
+    default ``GET /reputation/profile/{agent_id}`` gives — rather than a
+    fabricated mid-scale composite for an agent with no data (#2406).
+    """
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
+    if reputation_service.get_reputation_by_agent(agent_id) is None:
+        raise HTTPException(status_code=404, detail="Reputation profile not found")
     calculator = reputation_service.calculator
     try:
         performance_score = calculator.calculate_performance_score(agent_id, session)  # type: ignore[arg-type]

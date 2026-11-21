@@ -14,12 +14,12 @@ aitbc reputation create-profile [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--agent-id` | text | — | yes | The Agent id. |
+| `--agent-id` | text | — | no | The Agent id (default: the agent id on your stored credential — see `aitbc auth status`) |
 
 ## Examples
 
 ```bash
-aitbc reputation create-profile --agent-id <agent_id>
+aitbc reputation create-profile
 ```
 
 ## Related
