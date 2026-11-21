@@ -32,6 +32,7 @@ from ..utils.error_handling import CLIError, abort
 logger = get_logger(__name__)
 
 DEFAULT_PROMETHEUS_URL = "http://127.0.0.1:9090"
+DEFAULT_ALERT_HISTORY_LIMIT = 50
 
 
 def _prometheus_url(ctx: click.Context, url: str | None) -> str:
@@ -977,7 +978,13 @@ def _watch_alerts_poll(ctx: click.Context, raw: list[dict[str, Any]], now_mono: 
     default=None,
     help="Only events whose labels.node (or labels.instance) matches this string",
 )
-@click.option("--last", "last_n", type=int, default=None, help="Keep only the newest N matching events")
+@click.option(
+    "--last",
+    "last_n",
+    type=int,
+    default=None,
+    help="Keep only the newest N matching events (default 50; 0 = no limit)",
+)
 @click.pass_context
 def alert_history(
     ctx: click.Context,
@@ -997,9 +1004,12 @@ def alert_history(
     events = _read_alert_events(path)
     cutoff = _parse_since(since)
 
-    matched = [e for e in events if _history_record_kept(e, cutoff, state_filter, alertname, node_filter)]
-    if last_n is not None:
-        matched = matched[-last_n:]
+    matched_all = [e for e in events if _history_record_kept(e, cutoff, state_filter, alertname, node_filter)]
+    # #2409: a bare call used to dump the whole log (~4 MB on node0) which
+    # MCP clients reject. Default-cap the returned events; matched_events
+    # still reports the true total and `truncated` flags the cap.
+    limit = DEFAULT_ALERT_HISTORY_LIMIT if last_n is None else last_n
+    matched = matched_all[-limit:] if limit and limit > 0 else matched_all
 
     # firing-now replays the identity-filtered stream and deliberately ignores
     # --since/--state: a resolve outside the window still clears its firing.
@@ -1009,7 +1019,10 @@ def alert_history(
         {
             "path": str(path),
             "scanned_events": len(events),
-            "matched_events": len(matched),
+            "matched_events": len(matched_all),
+            "returned_events": len(matched),
+            "limit": limit,
+            "truncated": len(matched) < len(matched_all),
             "events": matched,
             "firing_now": [
                 {

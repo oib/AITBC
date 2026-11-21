@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -27,7 +27,10 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_explorer_activity_timeline(
-    period: Annotated[str | None, Field(description="Time period (1h, 24h, 7d, 30d)")] = None,
+    period: Annotated[
+        Literal["1h", "24h", "30d", "7d"] | None,
+        Field(description="Time period (1h, 24h, 7d, 30d); daily granularity — sub-day periods return the last day"),
+    ] = None,
     chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,

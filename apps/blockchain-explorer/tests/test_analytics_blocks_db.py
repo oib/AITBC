@@ -54,6 +54,27 @@ def test_activity_timeline_unknown_type_gets_hsl_color(monkeypatch, tmp_path):
     assert dataset["backgroundColor"].startswith("hsl(")
 
 
+def test_activity_timeline_excludes_test_tx_types(monkeypatch, tmp_path):
+    """#2409: test-only types sealed on the live chain (SOME_FUTURE_TYPE)
+    must not appear as product activity on the public timeline."""
+    db = create_chain_db(tmp_path)
+    patch_chain_db(monkeypatch, db)
+    now = datetime.now(UTC).replace(tzinfo=None).strftime("%Y-%m-%d %H:%M:%S")
+    conn = sqlite3.connect(db)
+    for i, tx_type in enumerate(("SOME_FUTURE_TYPE", "TRANSFER")):
+        conn.execute(
+            'INSERT INTO "transaction" VALUES (?,?,?,?,?,?,?,?,?,?,?)',
+            (f"0x{i:064x}", "0xs", "0xr", "{}", 1, now, tx_type, "confirmed", 0, 0, i),
+        )
+    conn.commit()
+    conn.close()
+
+    out = asyncio.run(analytics.api_activity_timeline(days=7))
+    labels = {d["label"] for d in out["datasets"]}
+    assert "SOME_FUTURE_TYPE" not in labels
+    assert "TRANSFER" in labels
+
+
 def test_provider_reputation_score_levels(monkeypatch, tmp_path):
     db = create_chain_db(tmp_path)
     patch_chain_db(monkeypatch, db)

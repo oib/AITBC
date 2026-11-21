@@ -33,7 +33,9 @@ def aitbc_prometheus_alert_history(
     node_filter: Annotated[
         str | None, Field(description="Only events whose labels.node (or labels.instance) matches this string")
     ] = None,
-    last_n: Annotated[int | None, Field(description="Keep only the newest N matching events")] = None,
+    last_n: Annotated[
+        int | None, Field(description="Keep only the newest N matching events (default 50; 0 = no limit)")
+    ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,

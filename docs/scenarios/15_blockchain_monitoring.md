@@ -213,12 +213,15 @@ aitbc explorer chain-head
 
 ```json
 {
-  "chain_id": "ait-localnet",
   "height": 128452,
   "hash": "0xabc123...",
-  "timestamp": "2026-06-25T12:00:00Z"
+  "timestamp": "2026-06-25T12:00:00Z",
+  "tx_count": 0
 }
 ```
+
+The response mirrors the node's `/rpc/head` payload — there is no
+`chain_id` field; pass `--chain-id` to select the chain instead.
 
 ### Step 6: Inspect latest and non-empty blocks
 
@@ -451,10 +454,13 @@ aitbc explorer top-addresses --limit 10
 
 ### Step 25: Explorer: activity timeline
 
-Plots chain activity over a period.
+Plots daily transaction activity over a period. The endpoint buckets by
+day, so `--period` maps to whole days: `1h`/`24h` → last 1 day, `7d` → 7
+days, `30d` → 30 days (the default). Test-only transaction types are
+excluded from the datasets.
 
 ```bash
-aitbc explorer activity-timeline
+aitbc explorer activity-timeline --period 7d
 ```
 
 ### Step 26: Explorer: provider reputation
@@ -475,15 +481,18 @@ aitbc monitor campaigns
 
 ### Step 28: Monitor: campaign stats
 
-Prints statistics for one campaign.
+Prints statistics for one campaign. Built-in campaign ids are
+`staking_launch` and `liquidity_mining_q1` (both ended; all counters zero
+until a real campaign is configured).
 
 ```bash
-aitbc monitor campaign-stats camp-001
+aitbc monitor campaign-stats staking_launch
 ```
 
 ### Step 29: Monitor: sweepers
 
-Lists configured sweeper jobs.
+Lists configured sweeper jobs. Requires an **admin** coordinator
+credential (`/v1/admin/*`) — a plain API key gets 403.
 
 ```bash
 aitbc monitor sweepers
@@ -507,10 +516,14 @@ aitbc prometheus alerts
 
 ### Step 32: Prometheus: alert history
 
-Lists past alert transitions.
+Lists past alert transitions, capped at the newest 50 events by default
+(`matched_events` still reports the true total; `truncated` flags the
+cap). Use `--last N` for a different count or `--last 0` for no limit,
+`--since`/`--state`/`--node`/`--alertname` to filter.
 
 ```bash
 aitbc prometheus alert-history
+aitbc prometheus alert-history --since 24h --last 0
 ```
 
 ### Step 33: Prometheus: config check
