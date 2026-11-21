@@ -40,6 +40,11 @@ class JobPaymentCreate(BaseModel):
     buyer_lock_signature: str | None = Field(default=None, description="Pre-signed ESCROW_LOCK transaction signature")
     buyer_lock_nonce: int | None = Field(default=None, description="Nonce used in the ESCROW_LOCK transaction")
     buyer_lock_fee: int | None = Field(default=None, description="Fee used in the ESCROW_LOCK transaction")
+    market_job_id: str | None = Field(
+        default=None,
+        max_length=128,
+        description="Market job id the buyer signed into the ESCROW_LOCK payload (#2326 alias binding)",
+    )
     auto_reinvest_pct: Decimal | None = Field(
         default=None, ge=Decimal("0"), le=Decimal("100"), description="Percentage of released payment to auto-stake"
     )

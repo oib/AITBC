@@ -42556,6 +42556,19 @@
             "title": "Buyer Lock Fee",
             "description": "Fee used in the ESCROW_LOCK transaction"
           },
+          "market_job_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 128
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Market Job Id",
+            "description": "Market job id the buyer signed into the ESCROW_LOCK payload (#2326 alias binding)"
+          },
           "auto_reinvest_pct": {
             "anyOf": [
               {

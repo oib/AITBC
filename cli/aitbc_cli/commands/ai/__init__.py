@@ -313,6 +313,10 @@ def _create_escrow_payment(
         payload["buyer_agent_id"] = buyer_agent_id
     if provider_agent_id:
         payload["provider_agent_id"] = provider_agent_id
+    if market_job_id:
+        # #2371: the coordinator rebuilds the lock tx server-side — it must
+        # see the same market_job_id the buyer signed into the payload.
+        payload["market_job_id"] = market_job_id
     if idempotency_key:
         return _post_idempotent(coord_http_client, "/v1/payments", json=payload, idempotency_key=idempotency_key)
     return coord_http_client.post("/v1/payments", json=payload)
