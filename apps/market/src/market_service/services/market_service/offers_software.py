@@ -35,6 +35,21 @@ from .shared import (
 
 logger = get_logger(__name__)
 
+# #2435: placeholder identities stress/test harnesses leave behind. A row
+# claiming provider "default" has no signing wallet and no live node behind
+# it, so it can never be served — yet it lists as active and stays matchable.
+_SENTINEL_IDENTITIES = {"default", "none", "n/a"}
+
+
+def _sentinel_identity(value: Any) -> bool:
+    return str(value or "").strip().lower() in _SENTINEL_IDENTITIES
+
+
+def _is_unservable_sentinel(offer: dict[str, Any]) -> bool:
+    """True when a merged offer names a placeholder provider/node — no live
+    service can ever answer for it."""
+    return _sentinel_identity(offer.get("provider_address")) or _sentinel_identity(offer.get("node_id"))
+
 
 class _OffersSoftwareMixin(_CoreMixin):
     _anchor_negatives: dict[tuple[str, str], float] = {}
@@ -100,6 +115,19 @@ class _OffersSoftwareMixin(_CoreMixin):
                 if plugin_id not in seen_plugin_ids:
                     merged_offers.append(offer)
                     seen_plugin_ids.add(plugin_id)
+
+            # #2435: offers naming a placeholder provider/node ("default" and
+            # friends) have no live service behind them — stress-harness
+            # leftovers that list as active forever. They are not servable,
+            # so they never reach the catalog; the registration guard below
+            # keeps new ones out.
+            servable_offers = [offer for offer in merged_offers if not _is_unservable_sentinel(offer)]
+            if len(servable_offers) != len(merged_offers):
+                logger.info(
+                    "Filtered %s unservable sentinel offers from catalog",
+                    len(merged_offers) - len(servable_offers),
+                )
+            merged_offers = servable_offers
 
             local_rows = {s.plugin_id: s for s in local_services}
             await self._resolve_offer_anchors(merged_offers, chain_id, local_rows)
@@ -487,6 +515,16 @@ class _OffersSoftwareMixin(_CoreMixin):
             # timestamps only from the server — a signed registration can no
             # longer write its own confirmation or reputation.
             data = {key: value for key, value in data.items() if key in _REGISTRATION_FIELDS}
+            # #2435: refuse test-harness registrations — placeholder
+            # provider/node identities and STRESS-* names belong to stress
+            # runs, not the production catalog. ValueError surfaces as 400.
+            if (
+                _sentinel_identity(data.get("provider_address"))
+                or _sentinel_identity(data.get("node_id"))
+                or str(plugin_id).lower().startswith("stress")
+                or str(data.get("model") or "").lower().startswith("stress")
+            ):
+                raise ValueError("refusing sentinel/test offer registration")
             existing = await self._upsert_software_service(plugin_id, data, signer)
             return {
                 "plugin_id": existing.plugin_id,

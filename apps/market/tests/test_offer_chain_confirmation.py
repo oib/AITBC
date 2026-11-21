@@ -194,6 +194,39 @@ async def test_anchor_fills_block_metadata_and_registered(service: MarketService
 
 
 @pytest.mark.asyncio
+async def test_sentinel_offers_never_list(service: MarketService) -> None:
+    """#2435: stress-harness leftovers (provider/node "default") have no live
+    service behind them — the catalog must not offer them as servable."""
+    async with get_session_context() as session:
+        session.add(
+            SoftwareService(
+                plugin_id="stress-1793427431-3676209",
+                service_type="gpu_market",
+                model="STRESS-GPU",
+                provider_address="default",
+                node_id="default",
+                status="active",
+            )
+        )
+        session.add(
+            SoftwareService(
+                plugin_id="test-real-offer",
+                service_type="ipfs",
+                provider_address=PROVIDER,
+                node_id="node2",
+                status="active",
+            )
+        )
+        await session.commit()
+
+    service._rpc_client = StubRPC()  # type: ignore[assignment]
+    offers = await service.list_software_services()
+    plugin_ids = {o["plugin_id"] for o in offers}
+    assert "stress-1793427431-3676209" not in plugin_ids
+    assert "test-real-offer" in plugin_ids
+
+
+@pytest.mark.asyncio
 async def test_get_offer_detail_confirmed(service: MarketService) -> None:
     """The detail endpoint resolves anchors too — it must agree with the list."""
     async with get_session_context() as session:

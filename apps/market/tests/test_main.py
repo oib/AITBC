@@ -892,6 +892,27 @@ def test_register_offer_requires_plugin_id(client):
     assert response.status_code == 400
 
 
+# --- Sentinel/test registrations (#2435) ---
+#
+# Stress-harness leftovers (provider/node "default", STRESS-* names) listed as
+# active offers with no live service behind them. Registration now refuses
+# them and the catalog filters any rows that predate the guard.
+
+
+@pytest.mark.parametrize(
+    "fields",
+    [
+        {"plugin_id": "stress-2435-reg", "service_type": "gpu_market", "model": "STRESS-GPU"},
+        {"plugin_id": "sentinel-node-2435", "service_type": "inference", "model": "m", "node_id": "default"},
+        {"plugin_id": "sentinel-model-2435", "service_type": "inference", "model": "STRESS-GPU"},
+    ],
+)
+def test_register_offer_rejects_sentinel_or_stress_names(client, fields):
+    response = client.post("/v1/market/offer", json=_signed_registration(**fields))
+    assert response.status_code == 400
+    assert client.get(f"/v1/market/offer/{fields['plugin_id']}").status_code == 404
+
+
 # --- Signed offer removal (M-2: the DELETE used to take any caller) ---
 #
 # The route is covered over HTTP three ways (unsigned, owner, another provider); the other
