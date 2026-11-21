@@ -740,42 +740,50 @@ class MarketJobSweeper:
         except Exception as e:  # noqa: BLE001 - read error captured, deferral bookkeeping continues
             read_error = e
         if read_error is None and escrow is None:
-            meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)
-            async with session.begin_nested():
-                if not await self._cas_payment_status(
-                    session,
-                    payment.id,
-                    _ESCROW_HELD_PAYMENT,
-                    {"status": "settlement_failed", "updated_at": now, "meta_data": meta},
-                ):
-                    logger.info(
-                        "Payment %s no longer held before settlement_failed write for job %s",
-                        payment.id,
-                        job.id,
-                    )
-                    return False
-                await self._cas_job_state(
-                    session,
-                    job.id,
-                    frozenset({"QUEUED", "RUNNING", "COMPLETED", "FAILED", "CANCELED", "EXPIRED"}),
-                    {
-                        "payment_status": "settlement_failed",
-                        "error": f"settlement deferred {elapsed:.0f}s past bound ({outcome}); escrow confirmed absent",
-                        "updated_at": now,
-                    },
-                )
-            logger.error(
-                "Escrow settlement for job %s payment %s deferred %.0fs past the %ss bound "
-                "and the escrow is confirmed absent -- marking settlement_failed",
-                job.id,
-                payment.id,
+            return await self._mark_settlement_failed(
+                session,
+                job,
+                payment,
+                meta,
+                now,
                 elapsed,
-                self.settle_max_seconds,
+                f"settlement deferred {elapsed:.0f}s past bound ({outcome}); escrow confirmed absent",
+                "and the escrow is confirmed absent -- marking settlement_failed",
             )
-            return False
         state = escrow.get("state") if escrow is not None else None
         if read_error is None and escrow is not None and state in {"released", "refunded"}:
             return await self._settlement_verdict(session, job, payment, meta, escrow, state, intended, now, elapsed)
+        if read_error is None and escrow is not None:
+            # The row still reads locked/funded, but settlement keeps
+            # answering "lock not sealed". Past the bound, chain truth
+            # decides: no sealed ESCROW_LOCK means the escrow row is
+            # phantom — the lock tx never landed, no money moved, and
+            # deferring forever is noise (#2386).
+            phantom = await self._phantom_lock_check(job)
+            if phantom is True:
+                return await self._mark_settlement_failed(
+                    session,
+                    job,
+                    payment,
+                    meta,
+                    now,
+                    elapsed,
+                    f"settlement deferred {elapsed:.0f}s past bound ({outcome}); "
+                    "escrow row present but no sealed ESCROW_LOCK on chain — phantom escrow",
+                    "and no sealed ESCROW_LOCK exists on chain -- marking settlement_failed",
+                )
+            if phantom is False:
+                logger.error(
+                    "Escrow settlement for job %s payment %s deferred %.0fs past the %ss bound "
+                    "(%s); escrow still present (state=%s) but no sealed lock found -- still deferring",
+                    job.id,
+                    payment.id,
+                    elapsed,
+                    self.settle_max_seconds,
+                    outcome,
+                    state,
+                )
+                return False
         logger.error(
             "Escrow settlement for job %s payment %s deferred %.0fs past the %ss bound (%s); escrow %s -- still deferring",
             job.id,
@@ -786,6 +794,72 @@ class MarketJobSweeper:
             f"read failed ({read_error}); cannot confirm absent"
             if read_error is not None
             else f"still present (state={escrow.get('state') if escrow else 'unreadable'})",
+        )
+        return False
+
+    async def _phantom_lock_check(self, job: MarketJob) -> bool | None:
+        """Chain-truth check for a locked-looking escrow past the bound.
+
+        Returns True when no sealed ESCROW_LOCK exists for the job (the
+        escrow row is phantom — the lock tx never landed, so no funds
+        moved), False when a sealed lock is found, and None when the
+        lookup itself failed (unknown, not absent — keep deferring).
+        """
+        try:
+            lock_tx = await self._rpc_client.find_escrow_lock(job.id)
+        except Exception as e:  # noqa: BLE001 - probe failure is "unknown", never "absent"
+            logger.warning(
+                "Escrow lock lookup for job %s failed (%s); cannot confirm phantom state",
+                job.id,
+                e,
+            )
+            return None
+        return lock_tx is None
+
+    async def _mark_settlement_failed(
+        self,
+        session: AsyncSession,
+        job: MarketJob,
+        payment: MarketJobPayment,
+        meta: dict[str, Any],
+        now: datetime,
+        elapsed: float,
+        job_error: str,
+        log_detail: str,
+    ) -> bool:
+        """Terminal ``settlement_failed`` write shared by the absent-escrow
+        and phantom-lock past-bound paths."""
+        meta.pop(META_SETTLE_DEFERRAL_FIRST_AT, None)
+        async with session.begin_nested():
+            if not await self._cas_payment_status(
+                session,
+                payment.id,
+                _ESCROW_HELD_PAYMENT,
+                {"status": "settlement_failed", "updated_at": now, "meta_data": meta},
+            ):
+                logger.info(
+                    "Payment %s no longer held before settlement_failed write for job %s",
+                    payment.id,
+                    job.id,
+                )
+                return False
+            await self._cas_job_state(
+                session,
+                job.id,
+                frozenset({"QUEUED", "RUNNING", "COMPLETED", "FAILED", "CANCELED", "EXPIRED"}),
+                {
+                    "payment_status": "settlement_failed",
+                    "error": job_error,
+                    "updated_at": now,
+                },
+            )
+        logger.error(
+            "Escrow settlement for job %s payment %s deferred %.0fs past the %ss bound %s",
+            job.id,
+            payment.id,
+            elapsed,
+            self.settle_max_seconds,
+            log_detail,
         )
         return False
 

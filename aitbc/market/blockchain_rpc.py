@@ -18,6 +18,7 @@ release; for v0.6.6 we keep the dependency surface minimal.
 
 from __future__ import annotations
 
+import json
 import logging
 import os
 from typing import Any, cast
@@ -220,6 +221,35 @@ class BlockchainRPCClient:
                 return None
             resp.raise_for_status()
             return cast(dict[str, Any] | None, resp.json())
+
+    async def find_escrow_lock(self, job_id: str) -> dict[str, Any] | None:
+        """Return the sealed ESCROW_LOCK transaction for ``job_id``, if any.
+
+        Calls GET /rpc/transactions?transaction_type=ESCROW_LOCK&job_id=….
+        The server filters on ``payload.job_id``; the payload is re-checked
+        here so a loose server-side match cannot pass for this job's lock.
+        Returns None when the query succeeds and finds nothing — callers
+        that need "unknown, not absent" must treat a raised error separately.
+        """
+        async with self._client() as client:
+            resp = await client.get(
+                f"{self._rpc_url}/rpc/transactions",
+                params={"transaction_type": "ESCROW_LOCK", "job_id": job_id, "limit": 5},
+            )
+            resp.raise_for_status()
+            data = resp.json()
+        for tx in data if isinstance(data, list) else []:
+            if not isinstance(tx, dict):
+                continue
+            payload = tx.get("payload") or {}
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except ValueError:
+                    payload = {}
+            if isinstance(payload, dict) and payload.get("job_id") == job_id:
+                return cast(dict[str, Any], tx)
+        return None
 
     async def release_escrow(self, job_id: str, body: dict[str, Any] | None = None) -> dict[str, Any] | None:
         """Release escrow funds to the provider.
