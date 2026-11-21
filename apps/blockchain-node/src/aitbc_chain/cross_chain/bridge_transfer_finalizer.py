@@ -6,7 +6,7 @@ import asyncio
 import hashlib
 import json
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy.exc import SQLAlchemyError
@@ -696,6 +696,14 @@ class BridgeTransferFinalizerMixin(BridgeBase):
         if not _expired():
             self._reconcile_phase(chain_id, deadline)  # type: ignore[attr-defined]
 
+    @staticmethod
+    def _aware_utc(value: Any) -> Any:
+        """#2458: sqlite round-trips drop tzinfo — re-attach UTC so ISO output
+        is stable regardless of which store answered the read."""
+        if isinstance(value, datetime) and value.tzinfo is None:
+            return value.replace(tzinfo=UTC)
+        return value
+
     def _build_transfer_from_record(self, record: CrossChainTransfer, proof: dict[str, Any] | None = None) -> BridgeTransfer:
         """Build BridgeTransfer from database record."""
         return BridgeTransfer(
@@ -709,7 +717,7 @@ class BridgeTransferFinalizerMixin(BridgeBase):
             status=BridgeStatus(record.status),
             source_tx_hash=record.source_tx_hash,
             target_tx_hash=record.target_tx_hash,
-            lock_time=record.lock_time,
-            confirm_time=record.confirm_time,
+            lock_time=self._aware_utc(record.lock_time),
+            confirm_time=self._aware_utc(record.confirm_time),
             proof=proof,
         )

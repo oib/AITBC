@@ -198,3 +198,60 @@ def test_target_store_unavailable_leaves_release_undetected(env):
     rec.engines = {SRC: eng[SRC]}  # target not hosted here
     assert rec._reconcile_stale_pending(SRC) == 0
     assert _status(eng, "t8") == "pending"
+
+
+def test_completed_row_gets_confirm_time_from_release_tx(env):
+    """#2458: reconcile-completed rows must carry confirm_time — the sealed
+    BRIDGE_RELEASE's timestamp — so the status timeline is readable."""
+    rec, eng = env
+    _row(eng, "t9")
+    _tx(eng, SRC, "t9", "BRIDGE_LOCK")
+    sealed_at = datetime(2026, 11, 21, 20, 57, 0, tzinfo=UTC)
+    _tx(eng, DST, "rel9", "BRIDGE_RELEASE", payload={"transfer_id": "t9"})
+    # _tx uses default_factory for created_at; pin it explicitly instead.
+    with Session(eng[DST]) as s:
+        from sqlmodel import select as _sel
+
+        tx = s.exec(_sel(Transaction).where(Transaction.tx_hash == "rel9")).one()
+        tx.created_at = sealed_at.replace(tzinfo=None)
+        s.add(tx)
+        s.commit()
+    assert rec._reconcile_stale_pending(SRC) == 1
+    with Session(eng[SRC]) as s:
+        record = s.get(CrossChainTransfer, "t9")
+        assert record.status == "completed"
+        assert record.target_tx_hash == "rel9"
+        assert record.confirm_time is not None
+        assert record.confirm_time.replace(tzinfo=None) == sealed_at.replace(tzinfo=None)
+
+
+def test_reconcile_mirrors_terminal_state_to_memory(env):
+    """#2458: a cached in-memory entry must not keep answering 'locked'
+    after the DB row went terminal."""
+    from aitbc_chain.cross_chain.bridge_types import BridgeStatus, BridgeTransfer
+
+    rec, eng = env
+    rec._pending_transfers = {}
+    _row(eng, "t10")
+    _tx(eng, SRC, "t10", "BRIDGE_LOCK")
+    _tx(eng, DST, "rel10", "BRIDGE_RELEASE", payload={"transfer_id": "t10"})
+    rec._pending_transfers["t10"] = BridgeTransfer(
+        transfer_id="t10",
+        source_chain=SRC,
+        target_chain=DST,
+        sender="0xa",
+        recipient="0xb",
+        amount=1,
+        asset="native",
+        status=BridgeStatus.locked,
+        source_tx_hash="t10",
+        target_tx_hash=None,
+        lock_time=OLD,
+        confirm_time=None,
+        proof=None,
+    )
+    assert rec._reconcile_stale_pending(SRC) == 1
+    mirrored = rec._pending_transfers["t10"]
+    assert mirrored.status == BridgeStatus.completed
+    assert mirrored.target_tx_hash == "rel10"
+    assert mirrored.confirm_time is not None

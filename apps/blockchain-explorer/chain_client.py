@@ -39,6 +39,7 @@ __all__ = [
     "rpc_url_for",
     "get_data_layer",
     "chain_db_path",
+    "chain_db_path_for",
     "chain_db_connect",
     "chain_scope",
     "scoped_where",
@@ -77,6 +78,9 @@ def rpc_url_for(chain: str) -> str:
     return BLOCKCHAIN_RPC_URL
 
 
+_DATA_ROOT = Path("/var/lib/aitbc/data")
+
+
 def chain_db_path() -> Path | None:
     """Path to the local chain database, or None when it does not exist.
 
@@ -84,10 +88,32 @@ def chain_db_path() -> Path | None:
     routers and this module all duplicated inline (PI-EX-001 cleanup — also
     gives tests one monkeypatch point).
     """
-    path = Path(f"/var/lib/aitbc/data/{resolve_chain_id()}/chain.db")
+    path = Path(str(_DATA_ROOT / resolve_chain_id() / "chain.db"))
     if not path.exists():
-        path = Path("/var/lib/aitbc/data/chain.db")
+        path = Path(str(_DATA_ROOT / "chain.db"))
     return path if path.exists() else None
+
+
+def chain_db_path_for(chain_id: str | None) -> Path | None:
+    """DB path for an explicitly requested chain (#2458).
+
+    ``chain_db_path`` only ever opens the explorer's *local* chain db, so a
+    ``?chain_id=bc-2-island-1`` lookup silently searched the wrong file and
+    reported sealed island transactions as missing. When the requested chain
+    has its own ``data/<chain_id>/chain.db`` on this host, open that instead;
+    otherwise fall back to the local db (the chain_scope filter then answers
+    honestly — the row is not here).
+    """
+    if chain_id:
+        try:
+            local = resolve_chain_id()
+        except Exception:  # noqa: BLE001 - unconfigured local id: try the per-chain path anyway
+            local = None
+        if chain_id != local:
+            candidate = Path(str(_DATA_ROOT / chain_id / "chain.db"))
+            if candidate.exists():
+                return candidate
+    return chain_db_path()
 
 
 # chain.db is a live WAL store owned by aitbc_chain.database, whose connections get

@@ -26,6 +26,7 @@ from ..config import settings
 from ..logger import get_logger
 from ..models import CrossChainTransfer, Transaction
 from .bridge_base import BridgeBase, _OPS_ERRORS
+from .bridge_types import BridgeStatus
 
 logger = get_logger(__name__)
 
@@ -37,9 +38,9 @@ def _aware(value: datetime | None) -> datetime | None:
 
 
 class BridgeTransferReconcileMixin(BridgeBase):
-    def _sealed_transfer_index(self, chain_id: str, tx_type: str, wanted: set[str]) -> dict[str, str]:
-        """Map ``transfer_id`` -> tx_hash for sealed ``tx_type`` txs on ``chain_id``."""
-        found: dict[str, str] = {}
+    def _sealed_transfer_index(self, chain_id: str, tx_type: str, wanted: set[str]) -> dict[str, tuple[str, datetime | None]]:
+        """Map ``transfer_id`` -> (tx_hash, created_at) for sealed ``tx_type`` txs on ``chain_id``."""
+        found: dict[str, tuple[str, datetime | None]] = {}
         with self._session_for(chain_id) as session:
             rows = session.exec(
                 select(Transaction).where(
@@ -52,7 +53,7 @@ class BridgeTransferReconcileMixin(BridgeBase):
                 payload = row.payload if isinstance(row.payload, dict) else {}
                 tid = payload.get("transfer_id")
                 if isinstance(tid, str) and tid in wanted:
-                    found[tid] = row.tx_hash
+                    found[tid] = (row.tx_hash, row.created_at)
         return found
 
     @staticmethod
@@ -74,24 +75,29 @@ class BridgeTransferReconcileMixin(BridgeBase):
         self,
         record: CrossChainTransfer,
         lock_state: str,
-        released: dict[str, str],
-        refunded: dict[str, str],
+        released: dict[str, tuple[str, datetime | None]],
+        refunded: dict[str, tuple[str, datetime | None]],
         now: datetime,
-    ) -> tuple[str, str | None] | None:
-        """Return (new_status, target_tx_hash) or None to leave the row pending."""
+    ) -> tuple[str, str | None, datetime | None] | None:
+        """Return (new_status, target_tx_hash, confirm_time) or None to leave the row pending."""
         tid = record.transfer_id
         if tid in released:
-            return "completed", released[tid]
+            tx_hash, sealed_at = released[tid]
+            # #2458: confirm_time is the sealed release's timestamp — without
+            # it a reconcile-completed row shows completed with a null
+            # confirm_time and the pending->confirmed->completed timeline
+            # cannot be reconstructed.
+            return "completed", tx_hash, _aware(sealed_at)
         if tid in refunded:
-            return "refunded", None
+            return "refunded", None, None
         if lock_state == "sealed":
             return None
         if lock_state == "rejected":
-            return "failed", None
+            return "failed", None, None
         locked_at = _aware(record.lock_time)
         horizon = int(getattr(settings, "bridge_reconcile_unsealed_horizon_seconds", 7200))
         if locked_at is not None and (now - locked_at).total_seconds() > horizon:
-            return "failed", None
+            return "failed", None, None
         return None
 
     def _reconcile_phase(self, chain_id: str, deadline: float | None) -> None:
@@ -118,10 +124,12 @@ class BridgeTransferReconcileMixin(BridgeBase):
                 stale.append(r)
         return stale
 
-    def _evidence_for(self, chain_id: str, stale: list[CrossChainTransfer]) -> tuple[dict[str, str], dict[str, str]]:
-        """(released, refunded) transfer_id -> tx_hash maps from sealed chain txs."""
+    def _evidence_for(
+        self, chain_id: str, stale: list[CrossChainTransfer]
+    ) -> tuple[dict[str, tuple[str, datetime | None]], dict[str, tuple[str, datetime | None]]]:
+        """(released, refunded) transfer_id -> (tx_hash, created_at) from sealed chain txs."""
         refunded = self._sealed_transfer_index(chain_id, "BRIDGE_REFUND", {r.transfer_id for r in stale})
-        released: dict[str, str] = {}
+        released: dict[str, tuple[str, datetime | None]] = {}
         for target in {r.target_chain for r in stale}:
             if self._chain_db_ready(target):
                 ids = {r.transfer_id for r in stale if r.target_chain == target}
@@ -147,7 +155,7 @@ class BridgeTransferReconcileMixin(BridgeBase):
                 decision = self._reconcile_decision(record, lock_state, released, refunded, now)
                 if decision is None:
                     continue
-                status, target_tx = decision
+                status, target_tx, confirm_time = decision
                 logger.info(
                     "Bridge reconcile%s: %s pending -> %s on %s",
                     " (dry-run)" if dry_run else "",
@@ -160,8 +168,30 @@ class BridgeTransferReconcileMixin(BridgeBase):
                 record.status = status
                 if target_tx and not record.target_tx_hash:
                     record.target_tx_hash = target_tx
+                if confirm_time is not None and record.confirm_time is None:
+                    record.confirm_time = confirm_time
                 session.add(record)
                 changed += 1
             if changed:
                 session.commit()
+                self._mirror_reconciled(stale)
         return changed
+
+    def _mirror_reconciled(self, stale: list[CrossChainTransfer]) -> None:
+        """#2458: keep the in-memory cache consistent with reconciled rows —
+        without this a cached ``locked`` entry keeps answering status reads
+        after the DB row has gone terminal."""
+        pending = getattr(self, "_pending_transfers", None) or {}
+        for record in stale:
+            if record.status == "pending":
+                continue
+            transfer = pending.get(record.transfer_id)
+            if transfer is None:
+                continue
+            try:
+                transfer.status = BridgeStatus(record.status)
+            except ValueError:
+                continue
+            if record.target_tx_hash:
+                transfer.target_tx_hash = record.target_tx_hash
+            transfer.confirm_time = _aware(record.confirm_time)

@@ -12,6 +12,7 @@ from aitbc.utils import format_ait
 from chain_client import (
     chain_db_connect,
     chain_db_path,
+    chain_db_path_for,
     chain_scope,
     default_chain_id,
     get_transaction,
@@ -35,8 +36,9 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = None) -> dic
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
         cid = chain_id or default_chain_id()
-        # First try blockchain database for direct lookup
-        db_path = chain_db_path()
+        # First try blockchain database for direct lookup — #2458: an explicit
+        # chain_id may live in its own data/<chain>/chain.db on this host.
+        db_path = chain_db_path_for(cid)
 
         if db_path is not None:
             async with chain_db_connect(db_path) as conn:
