@@ -401,6 +401,10 @@ class TestSecurityStatus:
         assert resp.status_code == 200
         body = resp.json()
         assert body["validator_count"] == 4
+        # #2445: the two counts name different sets — the configured N the
+        # multisig math expects vs the live latest-epoch attestor rows.
+        assert body["multisig_validators_configured"] == body["validators_configured"]
+        assert body["bridge_validators_active_latest_epoch"] == body["validator_count"] == 4
         assert body["current_epoch"] == 1
 
     def test_validator_count_empty_table(self, rpc_setup) -> None:
@@ -410,6 +414,7 @@ class TestSecurityStatus:
         assert resp.status_code == 200
         body = resp.json()
         assert body["validator_count"] == 0
+        assert body["bridge_validators_active_latest_epoch"] == 0
         assert body["current_epoch"] == 0
 
     def test_validator_count_inactive_latest_epoch_excluded(self, rpc_setup, rpc_engine) -> None:

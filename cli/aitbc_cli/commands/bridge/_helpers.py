@@ -154,6 +154,24 @@ def _systemctl(action: str) -> tuple[bool, str]:
         return False, str(e)
 
 
+def _format_422_item(item: object) -> str:
+    """Render one FastAPI 422 detail item, naming the offending field.
+
+    Items carry ``loc=["body","signature",…]`` — prefix the leaf field so
+    "String should have at least 1 character" isn't an opaque generic
+    error (#2445).
+    """
+    if not isinstance(item, dict):
+        return str(item)
+    msg = str(item.get("msg") or item)
+    loc = item.get("loc")
+    if isinstance(loc, list) and loc:
+        field = str(loc[-1])
+        if field and field != "body":
+            return f"{field}: {msg}"
+    return msg
+
+
 def _response_error_detail(exc: BaseException) -> str | None:
     """Best-effort server error detail from an httpx response on ``exc``.
 
@@ -175,8 +193,7 @@ def _response_error_detail(exc: BaseException) -> str | None:
     if detail is None:
         detail = body.get("message") or body.get("error")
     if isinstance(detail, list):
-        parts = [str(item.get("msg") or item) if isinstance(item, dict) else str(item) for item in detail]
-        return "; ".join(part for part in parts if part) or None
+        return "; ".join(part for part in (_format_422_item(item) for item in detail) if part) or None
     if isinstance(detail, str) and detail:
         return detail
     return None

@@ -60,7 +60,17 @@ class TestBridgeErrorDetail:
         from aitbc_cli.commands.bridge._helpers import _response_error_detail
 
         err = self._http_error(422, {"detail": [{"loc": ["body", "amount"], "msg": "value is not a valid integer"}]})
-        assert _response_error_detail(err) == "value is not a valid integer"
+        assert _response_error_detail(err) == "amount: value is not a valid integer"
+
+    def test_detail_fastapi_list_names_signature_field(self):
+        """#2445: an empty bridge-lock signature must name the field."""
+        from aitbc_cli.commands.bridge._helpers import _response_error_detail
+
+        err = self._http_error(
+            422,
+            {"detail": [{"loc": ["body", "signature"], "msg": "String should have at least 1 character"}]},
+        )
+        assert _response_error_detail(err) == "signature: String should have at least 1 character"
 
     def test_no_response_returns_none(self):
         from aitbc_cli.commands.bridge._helpers import _response_error_detail
