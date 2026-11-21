@@ -368,11 +368,13 @@ flag in the argv is still exercised end-to-end into the script.
 
 ### Step 6: exchange-island buy/sell (free refusals)
 
-The island exchange commands need island credentials before the wallet
-is touched — node0 has none
-(`/var/lib/aitbc/island_credentials.json` absent), so `--wallet` is
-exercised as a parse-time flag inside a refusal that never signs. A
-non-positive amount refuses even earlier:
+The island exchange commands load island credentials before the wallet
+is touched — but node0 and node1 now **have**
+`/var/lib/aitbc/island_credentials.json` (created during the round-5
+island work), so the credentials refusal is unreachable there and the
+wallet gate fires next: `--wallet` is exercised as a parse-time flag
+inside a refusal that never signs. A non-positive amount refuses even
+earlier:
 
 ```bash
 aitbc exchange-island buy --ait-amount 0 --quote-currency ETH --wallet nosuch-exchopts1
@@ -389,20 +391,32 @@ Error creating buy order: AIT amount must be greater than 0
 aitbc exchange-island buy --ait-amount 1 --quote-currency ETH --wallet nosuch-exchopts1
 ```
 
-**Expected output (exit 1):**
+**Expected output (exit 4):** island credentials load, then the wallet
+lookup refuses — preceded by `Failed to get wallet info: … 404
+/v1/wallets/nosuch-exchopts1` daemon noise (same class as S75/S78):
 
 ```
-Island credentials not found: Island credentials not found at /var/lib/aitbc/island_credentials.json. Run 'aitbc node island join' to join an island first.
-Run 'aitbc node island join' to join an island first
-Error creating buy order: Run 'aitbc node island join' to join an island first
+Wallet 'nosuch-exchopts1' not found as a file wallet.
+  searched: /root/.aitbc/wallets, /var/lib/aitbc/wallets
+  pass --wallet-path <file> to point at it directly
+Error creating buy order: Wallet 'nosuch-exchopts1' not found as a file wallet.
 ```
 
 ```bash
 aitbc exchange-island sell --ait-amount 1 --quote-currency ETH --wallet nosuch-exchopts1
 ```
 
-**Expected output (exit 1):** the same island-credentials refusal with
+**Expected output (exit 4):** the same wallet refusal with
 `Error creating sell order:` as the last line.
+
+> On a node **without** island credentials the order flips: the
+> credentials check runs first and the refusal is
+> `Island credentials not found: … Run 'aitbc node island join' to join
+> an island first` (exit 1) — the wallet flag is still parsed but never
+> resolved. Under `--output json` the wallet refusal prints two JSON
+> error objects back to back (inner wallet error + outer command
+> error) — a known double-document wart, not valid single-document
+> JSON.
 
 ---
 
@@ -460,8 +474,8 @@ census groups (all outputs verified live on node0, `logger -t coderA`):
 | `--bridge-address` | `exchange verify` | live FAIL rows | expected-refusal (1) |
 | `--settlement` | `exchange verify` | live FAIL row | expected-refusal (1) |
 | `--json` | `exchange verify` | live FAIL row | expected-refusal (1) |
-| `--wallet` | `exchange-island buy` | island-credentials refusal | expected-refusal (1) |
-| `--wallet` | `exchange-island sell` | island-credentials refusal | expected-refusal (1) |
+| `--wallet` | `exchange-island buy` | wallet-not-found (island creds now present on node0/node1) | expected-refusal (4) |
+| `--wallet` | `exchange-island sell` | wallet-not-found (island creds now present on node0/node1) | expected-refusal (4) |
 
 Exit classes: ok exit 0 (13 plays), expected-refusal exit 1/2/4
 (12 plays — the former `exchange_verify.py` `no such table: trades`

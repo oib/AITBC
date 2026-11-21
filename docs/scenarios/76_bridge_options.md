@@ -41,6 +41,12 @@ breadcrumb: Home > Scenarios > Bridge CLI Options
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
 - A node with the bridge rpc reachable (default `http://localhost:8202/rpc`)
+- A persistent fixture directory — `/tmp` is cleaned between plays, so the
+  proof/header fixtures live under the player's home instead:
+
+```bash
+mkdir -p ~/aitbc-scenarios
+```
 
 ---
 
@@ -116,11 +122,22 @@ never locked is refused by the node, so the anchor flags
 free:
 
 ```bash
-aitbc bridge proof --transfer-id nosuch-bo1 --source-chain bc-2 --block-height 1 --block-hash 0x0000000000000000000000000000000000000000000000000000000000000001 --output /tmp/bo1-proof.json --rpc-url http://localhost:8202/rpc
+aitbc bridge proof --transfer-id nosuch-bo1 --source-chain bc-2 --block-height 1 --block-hash 0x0000000000000000000000000000000000000000000000000000000000000001 --output ~/aitbc-scenarios/bo1-proof-out.json --rpc-url http://localhost:8202/rpc
 ```
 
 **Expected output:** `Failed to build bridge proof: Client error '404 Not Found'`
 (exit 2; no file written).
+
+Step 4's `confirm` needs a proof file that *exists* (`--proof-file` is a
+`click.Path(exists=True)` option — a missing file refuses at parse time
+before the node ever sees the request), so create the minimal fixture now;
+it is reused by `sign-proof` in Step 5:
+
+```bash
+cat > ~/aitbc-scenarios/bo1-proof.json <<'EOF'
+{"transfer_id":"nosuch-bo1","proof":[]}
+EOF
+```
 
 `deposits` reads the ETH-side deposit ledger through the bridge-monitor's
 own admin listing. `--repo-root` points it at a checkout containing
@@ -171,7 +188,7 @@ before signing and before the network).
 are refused by the node:
 
 ```bash
-aitbc bridge confirm --transfer-id nosuch-bo1 --confirmer 0x0000000000000000000000000000000000000003 --proof-file /tmp/bo1-proof.json --rpc-url http://localhost:8202/rpc
+aitbc bridge confirm --transfer-id nosuch-bo1 --confirmer 0x0000000000000000000000000000000000000003 --proof-file ~/aitbc-scenarios/bo1-proof.json --rpc-url http://localhost:8202/rpc
 ```
 
 **Expected output:** `Bridge confirm failed: Client error '422 Unprocessable Content'`
@@ -200,18 +217,15 @@ aitbc bridge unlock --transfer-id nosuch-bo1 --sender 0x000000000000000000000000
 
 `sign-proof` is fully local: it signs the proof JSON with the given key
 and writes `--output`. A throwaway key is enough — no network, no wallet.
-Generate one and a minimal proof fixture first (Step 2 refused before
-writing, so `/tmp/bo1-proof.json` is created here):
+The proof fixture already exists (created in Step 2); only the key is
+generated here:
 
 ```bash
 THROWAWAY_KEY=$(python3 -c "import secrets; print('0x'+secrets.token_hex(32))")
-cat > /tmp/bo1-proof.json <<'EOF'
-{"transfer_id":"nosuch-bo1","proof":[]}
-EOF
 ```
 
 ```bash
-aitbc bridge sign-proof --proof-file /tmp/bo1-proof.json --private-key $THROWAWAY_KEY --output /tmp/bo1-signed.json
+aitbc bridge sign-proof --proof-file ~/aitbc-scenarios/bo1-proof.json --private-key $THROWAWAY_KEY --output ~/aitbc-scenarios/bo1-signed.json
 ```
 
 **Expected output:** `Signed Bridge Proof` table, `success True`,
@@ -225,18 +239,18 @@ admins/validators — a throwaway key is refused with 403 after signing,
 so every flag is exercised for free:
 
 ```bash
-aitbc bridge store-header --proof-file /tmp/bo1-signed.json --admin-private-key $THROWAWAY_KEY --admin-address 0x0000000000000000000000000000000000000004 --rpc-url http://localhost:8202/rpc
+aitbc bridge store-header --proof-file $HOME/aitbc-scenarios/bo1-signed.json --admin-private-key $THROWAWAY_KEY --admin-address 0x0000000000000000000000000000000000000004 --rpc-url http://localhost:8202/rpc
 ```
 
 **Expected output:** `Failed to store block header: Client error '403 Forbidden'`.
 
 ```bash
-aitbc bridge ingest-header --source-rpc http://localhost:8202/rpc --target-rpc http://localhost:8202/rpc --height 5 --chain-id bc-2 --proposer 0x0000000000000000000000000000000000000005 --output /tmp/bo1-hdr.json
+aitbc bridge ingest-header --source-rpc http://localhost:8202/rpc --target-rpc http://localhost:8202/rpc --height 5 --chain-id bc-2 --proposer 0x0000000000000000000000000000000000000005 --output $HOME/aitbc-scenarios/bo1-hdr.json
 ```
 
 **Expected output:** `Failed to ingest block header: Client error '403 Forbidden'`.
 Note `--output` writes the fetched header *before* the store attempt, so
-`/tmp/bo1-hdr.json` exists even though the store was refused.
+`$HOME/aitbc-scenarios/bo1-hdr.json` exists even though the store was refused.
 
 `--re-sign` demands `--private-key`; without it the CLI aborts before any
 network call:
@@ -248,7 +262,7 @@ aitbc bridge ingest-header --re-sign --source-rpc http://localhost:8202/rpc --ta
 **Expected output:** `--private-key is required when --re-sign is set` (exit 4).
 
 ```bash
-aitbc bridge attest --header-file /tmp/bo1-hdr.json --private-key $THROWAWAY_KEY --proposer 0x0000000000000000000000000000000000000005 --output /tmp/bo1-att.json --target-rpc http://localhost:8202/rpc
+aitbc bridge attest --header-file $HOME/aitbc-scenarios/bo1-hdr.json --private-key $THROWAWAY_KEY --proposer 0x0000000000000000000000000000000000000005 --output $HOME/aitbc-scenarios/bo1-att.json --target-rpc http://localhost:8202/rpc
 ```
 
 **Expected output:** `Failed to attest block header: Client error '403 Forbidden'`.

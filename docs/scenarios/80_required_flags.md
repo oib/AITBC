@@ -103,14 +103,15 @@ aitbc operations governance stake --address 0x0 --amount 1 --lock-days 29
 ```
 
 **Expected output (exit 4):** the local `lock_days < 30` guard aborts
-*before* the HTTP POST to the governance service — no stake record is
-possible:
+*before* the HTTP POST to the governance service — `abort()` raises a
+`CLIError` that `main()` turns into the exit code, so the old
+`Error staking tokens:` wrapper line no longer prints and no stake
+record is possible:
 
 ```
 DeprecationWarning: The command 'operations' is deprecated.
 DeprecationWarning: The command 'governance' is deprecated.
 Lock period must be at least 30 days
-Error staking tokens: Lock period must be at least 30 days
 ```
 
 The required `--amount` flag is named on the command line.

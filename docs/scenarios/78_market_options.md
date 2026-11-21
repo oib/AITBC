@@ -43,12 +43,14 @@ breadcrumb: Home > Scenarios > Market CLI Options
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
 - A node that can reach the hub market endpoints
-- Two fixture files and one fixture quote used below:
+- A persistent fixture directory — `/tmp` is cleaned between plays, so the
+  media/quote fixtures live under the player's home instead:
 
 ```bash
-printf 'x' > /tmp/mo1.mp4
-printf 'x' > /tmp/mo1.mp3
-cat > /tmp/mo1-quote.json <<'Q'
+mkdir -p ~/aitbc-scenarios
+printf 'x' > ~/aitbc-scenarios/mo1.mp4
+printf 'x' > ~/aitbc-scenarios/mo1.mp3
+cat > ~/aitbc-scenarios/mo1-quote.json <<'Q'
 {"energy_quote":{"version":1,"domain":"aitbc-energy-quote","chain_id":"bc-2","settlement_asset":"AIT","settlement_unit_scale":100000000,"buyer":"0x0000000000000000000000000000000000000001","provider":"0x0000000000000000000000000000000000000002","job_id":"job-mo1","quote_id":"q-mo1","settlement_route":"native","resource_id":"gpu-mo1","model_id":"m","gpu_count":1,"duration_seconds":3600,"eur_per_kwh_scaled":1000000,"tbp_watts":100,"ait_per_eur_scaled":1000000,"rate_version":1,"rate_observed_at":1,"rate_submitted_at":1,"rate_source_kind":"oracle","profile_revision":1,"expires_at":99999999999,"issued_at":1}}
 Q
 ```
@@ -101,26 +103,23 @@ aitbc market providers --format json
 **Expected output:** JSON array of per-provider rows (`Services`,
 `Offers`, `Active`, `Rating`), exit 0.
 
-### Step 2: Provider-side listings (expected-refusal / drift)
+### Step 2: Provider-side listings (ok)
 
-`offer-list` reads the provider's own offers; on this node the hub's
-`/v1/market/offers` answers with a bare JSON array the CLI does not
-accept — a drift recorded for registration, the flags are still
-exercised:
+`offer-list` reads the provider's own offers; the hub's
+`/v1/market/offers` bare-array shape is accepted since the #543 fix, so
+the command answers `[]` for a provider with no offers — exit 0:
 
 ```bash
 aitbc market offer-list --service-type ipfs --status active --output json
 ```
 
-**Expected output:** `Error listing offers: …/v1/market/offers returned
-a JSON array, not an object…` (exit 1 — drift, same `get_json()` shape
-class as the trade-family arrays).
+**Expected output:** `[]` under the `My Market Offers` title (exit 0).
 
 ```bash
 aitbc market offer-list --format json
 ```
 
-**Expected output:** same refusal.
+**Expected output:** same `[]` (exit 0).
 
 ### Step 3: Payment ledger lookups (expected-refusal)
 
@@ -204,15 +203,19 @@ localhost:8102 … Connection refused` (exit 1).
 
 ### Step 6: IPFS download and job cancel (expected-refusal)
 
-`download` accepts `--access-key`, `--cid`, `--output-path` and `--wait`;
-a CID that does not exist is refused by the local Kubo daemon:
+`download` accepts `--access-key`, `--cid`, `--output-path`, `--wait` and
+`--timeout`; a CID that does not exist is refused by the local Kubo
+daemon. `--wait` polls until the CID appears **or `--timeout` seconds
+elapse** (default 60, #2443) — pass a small `--timeout` so the leg does
+not sit for a minute:
 
 ```bash
-aitbc market download --access-key k-mo1 --cid QmNOSUCHmo1 --output-path /tmp/mo1-dl.bin --wait --output json
+aitbc market download --access-key k-mo1 --cid QmNOSUCHmo1 --output-path $HOME/aitbc-scenarios/mo1-dl.bin --wait --timeout 10 --output json
 ```
 
-**Expected output:** `Could not retrieve CID QmNOSUCHmo1` (exit 1 —
-`--wait` blocks on the daemon's cat until it fails; nothing written).
+**Expected output:** a `Could not retrieve CID QmNOSUCHmo1: …` warning
+followed by `Could not retrieve CID QmNOSUCHmo1` (exit 1 after ~10 s —
+`--wait` is bounded; nothing written).
 
 ```bash
 aitbc market download --format json
@@ -294,9 +297,9 @@ aitbc market run --offer-id-or-plugin-id nosuch-mo1 --prompt 'mo1 probe' --forma
 `Error running job:` (exit 1).
 
 ```bash
-aitbc market process --offer-id-or-plugin-id nosuch-mo1 --input-file /tmp/mo1.mp4 --bitrate 1M --output json
-aitbc market process --offer-id-or-plugin-id nosuch-mo1 --input-file /tmp/mo1.mp4 --format json
-aitbc market process --offer-id-or-plugin-id nosuch-mo1 --input-file /tmp/mo1.mp4 --output-container webm --codec vp9 --resolution 720p
+aitbc market process --offer-id-or-plugin-id nosuch-mo1 --input-file $HOME/aitbc-scenarios/mo1.mp4 --bitrate 1M --output json
+aitbc market process --offer-id-or-plugin-id nosuch-mo1 --input-file $HOME/aitbc-scenarios/mo1.mp4 --format json
+aitbc market process --offer-id-or-plugin-id nosuch-mo1 --input-file $HOME/aitbc-scenarios/mo1.mp4 --output-container webm --codec vp9 --resolution 720p
 ```
 
 **Expected output:** `Offer 'nosuch-mo1' not found on hub` then
@@ -304,8 +307,8 @@ aitbc market process --offer-id-or-plugin-id nosuch-mo1 --input-file /tmp/mo1.mp
 fixture file).
 
 ```bash
-aitbc market transcribe --offer-id-or-plugin-id nosuch-mo1 --audio-file /tmp/mo1.mp3 --language en --task translate --output-format srt --output json
-aitbc market transcribe --offer-id-or-plugin-id nosuch-mo1 --audio-file /tmp/mo1.mp3 --format json
+aitbc market transcribe --offer-id-or-plugin-id nosuch-mo1 --audio-file $HOME/aitbc-scenarios/mo1.mp3 --language en --task translate --output-format srt --output json
+aitbc market transcribe --offer-id-or-plugin-id nosuch-mo1 --audio-file $HOME/aitbc-scenarios/mo1.mp3 --format json
 ```
 
 **Expected output:** `Offer 'nosuch-mo1' not found on hub` then
@@ -320,23 +323,30 @@ aitbc market host --offer-id-or-plugin-id nosuch-mo1 --cid-or-file QmNOSUCHmo1 -
 
 ### Step 9: Protected GPU rental rail (expected-refusal)
 
-`gpu quote` POSTs to the coordinator; an unknown GPU id is refused:
+`gpu quote` POSTs to the coordinator; the buyer-identity check runs
+**before** the GPU lookup, so a `--buyer-id` that is not the
+authenticated buyer is refused with 403 even when the GPU id is also
+unknown:
 
 ```bash
 aitbc market gpu quote --gpu-id gpu-mo1 --buyer-id 0x0000000000000000000000000000000000000001 --duration-hours 1 --gpu-count 1 --max-ait 1 --settlement native --json-output
 ```
 
-**Expected output:** `Failed to get quote: POST request failed: 404
-Client Error: Not Found for url: …/c/v1/market/gpu/quote` (exit 1 —
-`--buyer-id` must be a wallet address on the native rail; a non-address
-is refused even earlier, at parse time).
+**Expected output:** `Failed to get quote: POST request failed: 403
+Client Error: Forbidden for url: …/c/v1/market/gpu/quote` (exit 1 —
+`buyer_id does not match authenticated buyer`; `--buyer-id` must be a
+wallet address on the native rail, a non-address is refused even
+earlier, at parse time).
 
 `gpu buy` verifies the operator-signed quote before any funding, so the
 fixture quote without a signature is a free refusal that carries every
-flag including the required `--buyer-id`/`--job-id`/`--duration-hours`:
+flag including the required `--buyer-id`/`--job-id`/`--duration-hours`.
+The `--energy-quote` file must exist — a missing path stops earlier at
+`Cannot read --energy-quote file` (exit 1) before the wallet check, so
+keep the Step-0 fixture in place:
 
 ```bash
-aitbc market gpu buy --gpu-id gpu-mo1 --buyer-id 0x0000000000000000000000000000000000000001 --job-id job-mo1 --duration-hours 1 --settlement native --wallet nosuch-mo1 --energy-quote /tmp/mo1-quote.json --max-ait 1 --yes --json-output
+aitbc market gpu buy --gpu-id gpu-mo1 --buyer-id 0x0000000000000000000000000000000000000001 --job-id job-mo1 --duration-hours 1 --settlement native --wallet nosuch-mo1 --energy-quote $HOME/aitbc-scenarios/mo1-quote.json --max-ait 1 --yes --json-output
 ```
 
 **Expected output:** `Quote verification failed: Quote has no operator
@@ -347,7 +357,7 @@ nothing funded).
 `--wallet-path` on `buy` rides on the same refusal:
 
 ```bash
-aitbc market gpu buy --gpu-id gpu-mo1 --buyer-id 0x0000000000000000000000000000000000000001 --job-id job-mo1 --duration-hours 1 --wallet-path /tmp/nosuch-mo1.json --energy-quote /tmp/mo1-quote.json --yes
+aitbc market gpu buy --gpu-id gpu-mo1 --buyer-id 0x0000000000000000000000000000000000000001 --job-id job-mo1 --duration-hours 1 --wallet-path /tmp/nosuch-mo1.json --energy-quote $HOME/aitbc-scenarios/mo1-quote.json --yes
 ```
 
 **Expected output:** same `Quote verification failed` line (exit 1).
@@ -438,10 +448,9 @@ have committed, so check job/payment state before retrying:
 
 | exit class | options |
 |---|---|
-| ok (exit 0) | `list` `--provider`/`--status`/`--sort`/`--mine`/`--output`/`--format`, `match`/`providers` `--output`/`--format`, `exchange list-deposits` `--status`/`--limit`, `exchange withdraw-eth` `--address` (cancelled at prompt) |
+| ok (exit 0) | `list` `--provider`/`--status`/`--sort`/`--mine`/`--output`/`--format`, `match`/`providers` `--output`/`--format`, `offer-list` `--service-type`/`--status`/`--output`/`--format` (bare-array shape accepted since #543), `exchange list-deposits` `--status`/`--limit`, `exchange withdraw-eth` `--address` (cancelled at prompt) |
 | expected-refusal exit 1 | `payment` `--job-id`/`--payment-id` (403/404), `rate`/`ratings` `--market-url` + `--comment`/`--reviewer-id`/`--rating`/`--limit`/`--offset` (404), `sync-ratings` `--limit` (conn refused), `download` `--access-key`/`--cid`/`--output-path`/`--wait`/`--output`/`--format`, `cancel` `--reason`/`--output`/`--format` (404), `exchange deposit-eth` `--ait-address`/`--bridge-address`/`--gas` (invalid address), `offer`/`offer-disable` flags (SHOP_WALLET_ADDRESS abort), `hermes`/`run`/`process`/`transcribe`/`host` flag families (offer not found), `escrow refund` `--reason` (coordinator miss + rpc 503/403), `gpu quote`/`buy`/`release`/`status`/`refund --wallet-path` |
 | expected-refusal exit 4 (wallet not found) | `gpu refund` `--wallet`/`--reason`/`--yes`/`--json-output`, group `--wallet` on `offer`/`offer-disable`/`deposit-eth` |
-| drift exit 1 | `offer-list` `--service-type`/`--status`/`--output`/`--format` — hub `/v1/market/offers` returns a bare JSON array (`get_json()` shape drift, same class as the trade arrays; registered separately) |
 | 🔒 by design | `market`/`gpu buy`/`gpu refund` `--password`, `--password-file`, `--password-stdin`, exchange `--password-*` — never placed in docs |
 
 **Noise noted (not drift):** `market list` used to warn `Market service
@@ -451,13 +460,9 @@ service before falling back to the chain listing — fixed in #2225
 `No market offers found (...)` instead of a bare `[]`);
 `gpu refund --wallet-path` demands a password before checking that the
 path exists; `gpu status` needs a coordinator client credential even for
-a read.
-
-**Drift found (flagged for registration, not fixed here):** hub
-`/v1/market/offers` returns a bare JSON array —
-`aitbc market offer-list` aborts `returned a JSON array, not an
-object. Use get_json()…` on every invocation, same shape class as the
-`market jobs`/`trade` array drift.
+a read; wallet-not-found refusals are preceded by
+`Failed to get wallet info: … 404 /v1/wallets/<name>` daemon-lookup
+noise (same class as S75).
 
 **Paid legs:** Step 9a is the only successful paid path in this
 scenario; every other command here is a free refusal by design.

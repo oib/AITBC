@@ -13,28 +13,43 @@ breadcrumb: Home > Scenarios > Last Option Coverage
 > **Option-coverage scenario (LASTOPTS-FINAL-1, issue #563).** Plays the
 > last 6 non-secret uncovered options plus the `unplayable:`-tagged
 > `crosschain bridge --wait`. All refusals happen before any record can
-> be written (auth layer, dead endpoint, or simulated path). Played on
+> be written (type guard, lookup refusal, auth layer, or dead endpoint).
+> Played on
 > node0 (`aitbc 0.25.9`), `logger -t coderA`. Zero records created.
 
 ## Steps
 
-### Step 1: `economics model --type` — simulated path
+### Step 1: `economics model --type` — live path
+
+Economics is live since #2344 — there is no simulated path anymore.
+`--type` is validated against the supported list first:
 
 ```bash
 aitbc economics model --type probe
 ```
 
-**Expected output (exit 0):** `status | simulated` — no coordinator client
-configured, so the model is a local simulation; `--type` is exercised and
-nothing is written.
+**Expected output (exit 1):** `Unknown model type 'probe'. Supported
+types: cost-optimization` — nothing fetched, nothing written.
 
-### Step 2: `economics vote --voting-power` — auth refusal
+```bash
+aitbc economics model --type cost-optimization
+```
+
+**Expected output (exit 0):** `status | live` with `sources`
+(`market_offers`, `oracle_prices`) and per-service-type price
+recommendations aggregated from the live market.
+
+### Step 2: `economics vote --voting-power` — proposal lookup refusal
 
 ```bash
 aitbc economics vote --proposal-id nosuch --vote abstain --voting-power 0
 ```
 
-**Expected output (exit 2):** `Coordinator API error: POST request failed: 401 Client Error: Unauthorized` — the coordinator's auth layer refuses before the vote record (no vote written).
+**Expected output (exit 2):** `Coordinator API error: POST request
+failed: 400 Client Error … /c/v1/economic-proposals/nosuch/votes` — the
+coordinator answers 400 `proposal nosuch not found` (not 401, and not
+404 — a known status-code quirk tracked in #2449); the lookup refuses
+before any vote record (no vote written).
 
 ### Step 3: `trade create --offer-id/--price/--quantity` — API-key refusal
 
@@ -50,7 +65,11 @@ TRADING_API_KEY=nosuch-tradeopts1 aitbc trade create --source-chain a --dest-cha
 TRADING_API_KEY=nosuch-tradeopts1 aitbc trade lock-escrow --trade-id nosuch --node-url http://127.0.0.1:9
 ```
 
-**Expected output (exit 2):** `Network error: GET request failed: 401 Client Error: Unauthorized` — the trade GET refuses before the settlement POST; `--node-url` is named and never contacted.
+**Expected output (exit 2):** `Network error: GET request failed: 404
+Client Error: Not Found … /v1/trading/inter-chain/nosuch` — the trade
+GET on the trading service answers 404 `Trade not found` before any
+settlement call (and before auth); `--node-url` is named and never
+contacted.
 
 ### Step 5: `crosschain bridge --wait` — unplayable
 
@@ -60,10 +79,10 @@ No play: `unplayable:` per the Phase-0 binding (commit `06a9a86d6`) — a succes
 
 | Option | Command | Exit class |
 |---|---|---|
-| `--type` | `economics model` | ok (0, simulated) |
-| `--voting-power` | `economics vote` | expected-refusal (2, 401) |
+| `--type` | `economics model` | expected-refusal (1, unknown type) / ok (0, live) |
+| `--voting-power` | `economics vote` | expected-refusal (2, 400 proposal not found) |
 | `--offer-id/--price/--quantity` | `trade create` | expected-refusal (2, 401) |
-| `--node-url` | `trade lock-escrow` | expected-refusal (2, 401) |
+| `--node-url` | `trade lock-escrow` | expected-refusal (2, 404 trade GET) |
 | `--wait` | `crosschain bridge` | unplayable: binding |
 
 Census delta: **0 non-secret uncovered remaining** (258 🔒 secret-value
