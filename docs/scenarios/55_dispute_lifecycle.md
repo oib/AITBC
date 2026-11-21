@@ -3,8 +3,8 @@
 **Level**: Intermediate
 **Prerequisites**: Scenario 08 Market Bidding (an on-chain agreement to dispute)
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-11-20
-**Version**: 1.0
+**Last Updated**: 2026-11-21
+**Version**: 1.1
 
 ## Navigation Path
 
@@ -26,12 +26,19 @@ breadcrumb: Home > Scenarios > Dispute Lifecycle
 
 > **Live vs. simulated:** `aitbc dispute` is **live** — it reads and writes
 > dispute state through the blockchain node RPC (`--node-url`, defaults to the
-> configured node). `dispute resolve` additionally calls the coordinator to
-> settle the disputed escrow.
+> configured node), persisted to `disputes.json` beside `chain.db` and shared
+> across the node's RPC workers. Two different objects sit behind the group:
+> the **chain arbitration store** (`/rpc/disputes/*` — file, evidence, votes,
+> auto-resolve) and the **coordinator job-payment ruling** (`dispute resolve`,
+> `auto-adjudicate` — a different object keyed by job).
 
-This scenario walks the full dispute lifecycle: a customer files a dispute
-against a market agreement, attaches evidence, arbitrators vote, and an
-operator rules on the escrowed payment.
+This scenario walks the chain-side dispute lifecycle: a customer files a
+dispute against an on-chain rental agreement, attaches evidence, authorized
+arbitrators vote, and the dispute **auto-resolves once every authorized
+arbitrator has voted** (plurality wins; a tie or an expired
+`arbitration_deadline` escalates instead). `dispute resolve` is the separate
+coordinator path that rules on disputed *job payments* — it does not touch
+this store.
 
 ### Use Case
 
@@ -44,22 +51,29 @@ customer opens a dispute instead of accepting the escrow release.
 - How to inspect open disputes (`active`, `get`, `user`)
 - How evidence is attached and verified (`evidence add|list|verify`)
 - How arbitration votes are cast (`vote`, `votes`)
-- How an operator resolves the escrow (`resolve`)
+- How the dispute auto-resolves at arbitrator quorum (and escalates on tie/deadline)
+- How an operator rules on a disputed job payment (`resolve` — coordinator path)
 
 ---
 
 ## Prerequisites
 
 - A node wallet (Scenario 01) for signing the dispute transaction
-- An existing agreement ID — create one via Scenario 08 (market order) or
-  Scenario 06 (escrowed trade)
-- Arbitrator/operator credentials are required for `vote`, `evidence verify`,
-  and `resolve` — filing and reading disputes need none.
-- The arbitrator identities in the examples (`0xArbitrator`) are
-  placeholders: `aitbc dispute arbitrator authorize` is operator-gated
-  and no real arbitrators exist on the fleet yet. The vote RPC stub was
-  fixed in `691500900`, so the vote path is live once real arbitrators
-  are authorized.
+- An existing **AIPowerRental agreement ID** — mint one on the Sepolia EVM
+  rail with `aitbc market gpu agreement-create` (the id is the contract's
+  `agreementCounter`, a uint256 — *not* a market-order or trade-agreement
+  string id). When the node has `AITBC_DISPUTE_AGREEMENT_RPC_URL` /
+  `AITBC_DISPUTE_AGREEMENT_CONTRACT` set, `dispute file` first validates the
+  agreement on-chain: it must exist and the filer/respondent must be its
+  provider/consumer pair.
+- Arbitrator identities come from `AITBC_DISPUTE_ARBITRATORS`
+  (`0xaddr:score` list) seeded at node start — the fleet runs three real
+  arbitrator addresses; the historical `0x1111…` placeholders only appear
+  when the env is unset. `aitbc dispute arbitrator authorize` (owner +
+  signature) still works for runtime additions.
+- `vote`/`evidence verify` require an authorized arbitrator identity;
+  filing and reading need none. `resolve`/`auto-adjudicate` are
+  coordinator admin calls — operator credentials, a different object.
 
 ---
 
@@ -76,7 +90,10 @@ aitbc dispute file \
   --evidence-hash 0x9f2c...
 ```
 
-All five options are required. `--evidence-hash` is the hash of the supporting
+`--agreement-id` is the AIPowerRental `agreementCounter` id (see
+Prerequisites) — the EVM gate rejects ids that don't exist or whose
+provider/consumer pair doesn't match filer/respondent. All five options are
+required. `--evidence-hash` is the hash of the supporting
 evidence bundle (e.g. the coordinator job log). `--dispute-type` must be one of
 the on-chain enum values — `Performance`, `Payment`, `ServiceQuality`,
 `Availability`, `Other` (PascalCase; e.g. `non_delivery` is rejected).
@@ -108,7 +125,15 @@ aitbc dispute vote --dispute-id 42 --vote plaintiff \
 aitbc dispute votes 42
 ```
 
-### 5. Resolve the escrow (operator)
+### 5. Resolution
+
+**Chain side (automatic):** once every authorized arbitrator has voted,
+the dispute resolves itself — plurality of latest-votes-per-arbitrator
+decides `winner` (initiator or respondent) with a `resolution_reason`;
+a tie escalates. Disputes past `arbitration_deadline` escalate on the next
+state access. Resolved/escalated disputes reject further evidence and votes.
+
+**Coordinator side (operator, different object):**
 
 ```bash
 aitbc dispute resolve job-7f31 --outcome refund \
@@ -116,8 +141,8 @@ aitbc dispute resolve job-7f31 --outcome refund \
 ```
 
 `--outcome refund` returns the escrowed payment to the buyer;
-`--outcome release` pays the provider. The ruling is recorded on the
-settlement.
+`--outcome release` pays the provider. This rules on a disputed *job
+payment* in the coordinator — it is not the chain arbitration verdict.
 
 ---
 
@@ -158,11 +183,20 @@ aitbc dispute arbitrator queue 0xArbitrator
 
 ## Verification
 
-- `dispute get <id>` shows status transitions (open → voting → resolved).
-- The resolved escrow appears in `aitbc market escrow status` output.
+- `dispute get <id>` shows status transitions (`filed` →
+  `evidence_submitted` → `arbitration_in_progress` → `resolved` /
+  `escalated`); `winner` and `resolution_reason` are populated on resolve.
+- Chain resolution is **record-only** — it stores the verdict; no escrow
+  or payment moves. Escrow settlement for the underlying job is a
+  separate coordinator/market path.
 
 ## Troubleshooting
 
 - `Missing option '--agreement-id'` — all five `file` options are required.
+- `Agreement <id> not found or unverifiable` / `not a participant` — the
+  EVM agreement gate rejected the id: mint a real agreement via
+  `aitbc market gpu agreement-create` and file as its provider or consumer.
+- `Dispute is closed` / `deadline has passed` — resolved, escalated, or
+  deadline-expired disputes refuse further evidence and votes.
 - `vote`/`resolve` rejected — those paths require arbitrator/operator
   credentials; check `aitbc auth status` and the node's operator wallet.
