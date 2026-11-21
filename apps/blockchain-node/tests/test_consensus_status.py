@@ -63,6 +63,21 @@ async def test_consensus_status_three_validators_crash_only(monkeypatch) -> None
     monkeypatch.setattr(settings, "pbft_consensus_enabled", True)
     monkeypatch.setattr(settings, "chain_id", "ait-test")
 
+    # #2409: view/sequence are derived from the sealed head, not the dead
+    # persisted snapshots — feed a head row through a fake session_scope.
+    from contextlib import contextmanager
+    from datetime import UTC, datetime, timedelta
+
+    head_ts = datetime.now(UTC) - timedelta(seconds=5)
+
+    @contextmanager
+    def fake_scope(chain_id):  # noqa: ARG001
+        session = MagicMock()
+        session.exec.return_value.first.return_value = (34147, head_ts)
+        yield session
+
+    monkeypatch.setattr("aitbc_chain.database.session_scope", fake_scope)
+
     with patch("aitbc_chain.consensus.multi_validator_poa.get_consensus", return_value=mock_consensus):
         result = consensus_status_route(request=None)
 
@@ -71,6 +86,7 @@ async def test_consensus_status_three_validators_crash_only(monkeypatch) -> None
     assert result["fault_tolerance"] == 0
     assert result["required_messages"] == 2
     assert result["min_attestations"] == 1
-    assert result["current_view"] == 0
-    assert result["current_sequence"] == 0
+    # sequence = sealed head height; view = proposer round elapsed since head
+    assert result["current_sequence"] == 34147
+    assert result["current_view"] == 0  # 5s < any sane proposer round
     assert result["current_epoch"] == 0

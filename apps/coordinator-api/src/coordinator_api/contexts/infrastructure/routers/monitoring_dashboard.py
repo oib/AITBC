@@ -1,20 +1,24 @@
 """
-Enhanced Services Monitoring Dashboard
-Provides a unified dashboard for all 6 enhanced services
+Monitoring Dashboard
+Provides a unified dashboard for the node's deployed services
 """
 
 import asyncio
-from aitbc.constants import BLOCKCHAIN_RPC_URL
+import json
+import os
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.exc import SQLAlchemyError
+from sqlmodel import Session
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import AITBCError, NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc.rate_limiting import rate_limit
+
+from ....storage import get_session
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/monitoring", tags=["monitoring"])
@@ -36,50 +40,66 @@ _OPS_ERRORS = (
     SQLAlchemyError,
     AITBCError,
 )
-SERVICES = {
-    "multimodal": {
-        "name": "Multi-Modal Agent Service",
-        "port": 8002,
-        "url": "http://localhost:8002",
-        "description": "Text, image, audio, video processing",
-        "icon": "🤖",
+# The retired "enhanced services" list (multimodal :8002, gpu_multimodal
+# :8003, modality_optimization :8004, adaptive_learning :8005,
+# market_enhanced :8202, agent_enhanced :8007) read a healthy fleet as
+# unhealthy — none of those units exist post-#1549 (#2409). The default is
+# now the core services that actually answer /health on a hub deployment;
+# deployments with a different roster override it wholesale via
+# MONITORING_DASHBOARD_SERVICES (JSON object keyed by service id, same shape
+# as below) — there is no way to probe "whatever systemd thinks is running"
+# from inside this process.
+_DEFAULT_SERVICES = {
+    "market": {
+        "name": "Market Service",
+        "port": 8102,
+        "url": "http://localhost:8102",
+        "description": "Market transactions",
     },
-    "gpu_multimodal": {
-        "name": "GPU Multi-Modal Service",
-        "port": 8003,
-        "url": "http://localhost:8003",
-        "description": "CUDA-optimized processing",
-        "icon": "🚀",
+    "trading": {
+        "name": "Trading Service",
+        "port": 8104,
+        "url": "http://localhost:8104",
+        "description": "Trading and explorer operations",
     },
-    "modality_optimization": {
-        "name": "Modality Optimization Service",
-        "port": 8004,
-        "url": "http://localhost:8004",
-        "description": "Specialized optimization strategies",
-        "icon": "⚡",
+    "governance": {
+        "name": "Governance Service",
+        "port": 8105,
+        "url": "http://localhost:8105",
+        "description": "Governance transactions",
     },
-    "adaptive_learning": {
-        "name": "Adaptive Learning Service",
-        "port": 8005,
-        "url": "http://localhost:8005",
-        "description": "Reinforcement learning frameworks",
-        "icon": "🧠",
+    "explorer": {
+        "name": "Blockchain Explorer",
+        "port": 8100,
+        "url": "http://localhost:8100",
+        "description": "Blockchain explorer API",
     },
-    "market_enhanced": {
-        "name": "Enhanced Market Service",
-        "port": 8202,
-        "url": BLOCKCHAIN_RPC_URL,
-        "description": "NFT 2.0, royalties, analytics",
-        "icon": "🏪",
-    },
-    "agent_enhanced": {
-        "name": "agent Enhanced Service",
-        "port": 8007,
-        "url": "http://localhost:8007",
-        "description": "Agent orchestration, edge computing",
-        "icon": "🌐",
+    "pool_hub": {
+        "name": "Pool Hub",
+        "port": 8210,
+        "url": "http://localhost:8210",
+        "description": "GPU pool hub",
     },
 }
+
+
+def _dashboard_services() -> dict[str, Any]:
+    """The probed service map: env override wins, else the deployed default."""
+    raw = os.getenv("MONITORING_DASHBOARD_SERVICES", "").strip()
+    if not raw:
+        return _DEFAULT_SERVICES
+    try:
+        parsed = json.loads(raw)
+    except ValueError:
+        logger.warning("MONITORING_DASHBOARD_SERVICES is not valid JSON — using defaults")
+        return _DEFAULT_SERVICES
+    if not isinstance(parsed, dict) or not parsed:
+        logger.warning("MONITORING_DASHBOARD_SERVICES must be a non-empty object — using defaults")
+        return _DEFAULT_SERVICES
+    return parsed
+
+
+SERVICES = _dashboard_services()
 
 
 @router.get("/dashboard", tags=["monitoring"], summary="Enhanced Services Dashboard")
@@ -138,8 +158,8 @@ async def services_summary(request: Request) -> dict[str, Any]:
                 "name": service_info["name"],
                 "port": service_info["port"],
                 "status": health.get("status", "unknown"),
-                "description": service_info["description"],
-                "icon": service_info["icon"],
+                "description": service_info.get("description", ""),
+                "icon": service_info.get("icon", ""),
                 "last_check": health.get("timestamp"),
             }
         return summary
@@ -255,12 +275,36 @@ def calculate_overall_metrics(health_data: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+_JOB_BUCKETS = {
+    "COMPLETED": "completed",
+    "FAILED": "failed",
+    "QUEUED": "pending",
+    "ASSIGNED": "pending",
+    "RUNNING": "pending",
+    "CANCELED": "canceled",
+    "EXPIRED": "expired",
+}
+
+
+def _job_bucket(state: str | None) -> str:
+    """Map a job state onto a metrics bucket; unknown states get "other".
+
+    Every state lands in exactly one bucket so the buckets always sum to
+    total — canceled/expired were silently dropped before #2409, and the
+    CLI's success_rate read those unbucketed jobs as failures.
+    """
+    return _JOB_BUCKETS.get((state or "").upper(), "other")
+
+
 @router.get("/metrics", tags=["monitoring"], summary="Full monitoring metrics")
 @rate_limit(rate=100, per=60)
-def monitoring_metrics_route(request: Request) -> dict[str, Any]:
+def monitoring_metrics_route(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+) -> dict[str, Any]:
     """Return coordinator, job, miner, and system metrics for the CLI monitor group."""
     from sqlmodel import select
-    from ....storage.db import get_session
+
     from ...infrastructure.domain.job import Job
     from ...infrastructure.domain.miner import Miner
 
@@ -272,6 +316,9 @@ def monitoring_metrics_route(request: Request) -> dict[str, Any]:
             "completed": 0,
             "pending": 0,
             "failed": 0,
+            "canceled": 0,
+            "expired": 0,
+            "other": 0,
         },
         "miners": {
             "total": 0,
@@ -281,24 +328,18 @@ def monitoring_metrics_route(request: Request) -> dict[str, Any]:
     }
 
     try:
-        with next(get_session()) as session:
-            all_jobs = session.exec(select(Job)).all()
-            for job in all_jobs:
-                metrics["jobs"]["total"] += 1
-                if job.state == "COMPLETED":
-                    metrics["jobs"]["completed"] += 1
-                elif job.state == "FAILED":
-                    metrics["jobs"]["failed"] += 1
-                elif job.state in ("QUEUED", "ASSIGNED", "RUNNING"):
-                    metrics["jobs"]["pending"] += 1
+        all_jobs = session.exec(select(Job)).all()
+        for job in all_jobs:
+            metrics["jobs"]["total"] += 1
+            metrics["jobs"][_job_bucket(job.state)] += 1
 
-            all_miners = session.exec(select(Miner)).all()
-            for miner in all_miners:
-                metrics["miners"]["total"] += 1
-                if miner.status == "ONLINE":
-                    metrics["miners"]["online"] += 1
-                else:
-                    metrics["miners"]["offline"] += 1
+        all_miners = session.exec(select(Miner)).all()
+        for miner in all_miners:
+            metrics["miners"]["total"] += 1
+            if miner.status == "ONLINE":
+                metrics["miners"]["online"] += 1
+            else:
+                metrics["miners"]["offline"] += 1
     except _OPS_ERRORS as e:
         logger.error("Failed to collect job/miner metrics: %s", e)
 

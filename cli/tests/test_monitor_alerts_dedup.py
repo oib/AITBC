@@ -104,3 +104,26 @@ def test_webhooks_add_dedupes_by_name(runner, webhooks_home):
     rows = json.loads(webhooks_home.read_text())
     assert len(rows) == 1
     assert rows[0]["url"] == "https://example.com/hook2"
+
+
+def test_alerts_list_collapses_legacy_duplicate_names(runner, alerts_home):
+    """#2409: legacy alerts.json rows with duplicate names are collapsed on
+    any action — names are the identity, last (newest) row wins."""
+    alerts_home.parent.mkdir(parents=True, exist_ok=True)
+    alerts_home.write_text(
+        json.dumps(
+            [
+                {"name": "probe", "type": "miner_offline", "created_at": "2026-10-25"},
+                {"name": "probe", "type": "job_failed", "created_at": "2026-10-26"},
+                {"name": "other", "type": "low_balance"},
+            ]
+        )
+    )
+
+    result = runner.invoke(monitor_mod.monitor, obj={"output_format": "table"}, args=["alerts", "list"])
+    assert result.exit_code == 0
+
+    rows = json.loads(alerts_home.read_text())
+    assert [a["name"] for a in rows] == ["probe", "other"]
+    # last duplicate wins — the newest row survives
+    assert rows[0]["type"] == "job_failed"

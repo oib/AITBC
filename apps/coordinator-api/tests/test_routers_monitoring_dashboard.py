@@ -1,8 +1,11 @@
 """Router tests for /v1/monitoring/* (#1289 round 9 batch 4).
 
-Enhanced-services dashboard. Health probes hit real service URLs -> all
+Core-services dashboard. Health probes hit real service URLs -> all
 unhealthy in tests; the contract under test is the honest degraded
 shape (never 5xx, correct status taxonomy) plus the DB-backed /metrics.
+#2409: the retired "enhanced services" roster (multimodal, gpu_multimodal,
+market_enhanced, ...) was replaced by the deployed core services — a
+healthy fleet must not read unhealthy because of dead unit names.
 """
 
 from __future__ import annotations
@@ -18,14 +21,17 @@ class TestMonitoringDashboard:
         assert resp.status_code == 200
         body = resp.json()
         assert body["overall_status"] in ("healthy", "degraded", "unhealthy", "error")
-        assert body["summary"]["total_services"] == 6
-        assert set(body["services"]) >= {"multimodal", "gpu_multimodal", "market_enhanced"}
+        assert body["summary"]["total_services"] == 5
+        # Retired enhanced services must not appear — they made a healthy
+        # fleet read unhealthy (#2409).
+        assert not {"multimodal", "gpu_multimodal", "market_enhanced"} & set(body["services"])
+        assert {"market", "trading", "governance", "explorer", "pool_hub"} <= set(body["services"])
 
     def test_summary_lists_all_services(self, client: TestClient) -> None:
         resp = client.get(f"{BASE}/dashboard/summary")
         assert resp.status_code == 200
         body = resp.json()
-        assert len(body["services"]) == 6
+        assert len(body["services"]) == 5
         for info in body["services"].values():
             assert {"name", "port", "status", "description", "icon"} <= set(info)
 
@@ -44,3 +50,77 @@ class TestMonitoringDashboard:
         assert body["coordinator"]["status"] == "online"
         assert {"total", "completed", "pending", "failed"} <= set(body["jobs"])
         assert {"total", "online", "offline"} <= set(body["miners"])
+
+
+class TestMonitoringMetricsJobBuckets:
+    """#2409: every job state must land in a bucket — canceled/expired were
+    silently dropped, so success_rate read unbucketed jobs as failures."""
+
+    def test_all_job_states_are_bucketed(self, client: TestClient, db_session) -> None:
+        from coordinator_api.contexts.infrastructure.domain.job import Job
+
+        states = ["COMPLETED", "FAILED", "QUEUED", "ASSIGNED", "RUNNING", "CANCELED", "EXPIRED", "WEIRD_STATE"]
+        for i, state in enumerate(states):
+            db_session.add(
+                Job(
+                    id=f"job-{i}",
+                    client_id="client1",
+                    state=state,
+                    payload={"prompt": "x"},
+                    constraints={},
+                )
+            )
+        db_session.commit()
+
+        resp = client.get(f"{BASE}/metrics")
+        assert resp.status_code == 200
+        jobs = resp.json()["jobs"]
+        assert jobs["total"] == 8
+        assert jobs["completed"] == 1
+        assert jobs["failed"] == 1
+        assert jobs["pending"] == 3
+        assert jobs["canceled"] == 1
+        assert jobs["expired"] == 1
+        assert jobs["other"] == 1
+        # Nothing falls through the cracks: buckets sum to total.
+        assert (
+            jobs["completed"] + jobs["failed"] + jobs["pending"] + jobs["canceled"] + jobs["expired"] + jobs["other"]
+            == jobs["total"]
+        )
+
+
+class TestDashboardServicesConfig:
+    """#2409: the probed roster is env-overridable; bad config falls back to
+    the deployed default rather than probing nothing."""
+
+    def test_default_services_are_deployed_core(self, monkeypatch) -> None:
+        from coordinator_api.contexts.infrastructure.routers.monitoring_dashboard import (
+            _DEFAULT_SERVICES,
+            _dashboard_services,
+        )
+
+        monkeypatch.delenv("MONITORING_DASHBOARD_SERVICES", raising=False)
+        services = _dashboard_services()
+        assert services == _DEFAULT_SERVICES
+        assert "multimodal" not in services
+        assert "market" in services
+
+    def test_env_override_replaces_roster(self, monkeypatch) -> None:
+        import json
+
+        from coordinator_api.contexts.infrastructure.routers.monitoring_dashboard import _dashboard_services
+
+        custom = {"custom_svc": {"name": "Custom", "port": 9999, "url": "http://localhost:9999"}}
+        monkeypatch.setenv("MONITORING_DASHBOARD_SERVICES", json.dumps(custom))
+        assert _dashboard_services() == custom
+
+    def test_bad_env_falls_back_to_default(self, monkeypatch) -> None:
+        from coordinator_api.contexts.infrastructure.routers.monitoring_dashboard import (
+            _DEFAULT_SERVICES,
+            _dashboard_services,
+        )
+
+        monkeypatch.setenv("MONITORING_DASHBOARD_SERVICES", "{not json")
+        assert _dashboard_services() == _DEFAULT_SERVICES
+        monkeypatch.setenv("MONITORING_DASHBOARD_SERVICES", "{}")
+        assert _dashboard_services() == _DEFAULT_SERVICES
