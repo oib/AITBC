@@ -3,7 +3,7 @@
 **Level**: Advanced
 **Prerequisites**: Scenario 62 Interchain Trade
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-10-26
+**Last Updated**: 2026-11-21
 **Version**: 1.0
 
 ## Navigation Path
@@ -47,9 +47,9 @@ breadcrumb: Home > Scenarios > Exchange CLI Options
   even resolved
 - That `order book` requires credentials on the hub (401) while
   `node list`, `order my`, and `sell_admin status` are public reads
-- A verifier drift: `exchange verify` crashes with an unhandled
-  `sqlite3.OperationalError` traceback when `--rpc-url` is passed on a
-  DB without the exchange tables
+- The verifier's missing-table guard: `exchange verify --rpc-url` on a
+  DB without the exchange schema reports FAIL rows, not a traceback
+  (the original play's drift is fixed)
 
 ---
 
@@ -299,7 +299,7 @@ nothing broadcasts without `--send`; the play stops at the wallet gate
 because a successful preview would still read the participants board
 and resolve the deposit address.
 
-### Step 5: Exchange verifier (read-only, plus a drift)
+### Step 5: Exchange verifier (read-only)
 
 `exchange verify` runs `scripts/ops/exchange_verify.py` read-only
 (SQLite `mode=ro`). Its `--db`/`--bridge-db` path guard demands an
@@ -350,20 +350,21 @@ FAIL db: phase-3 columns absent — is this a pre-settlement exchange DB? (no su
 FAIL — 1 failures, 0 warnings
 ```
 
-> **Drift (flagged for registration):** when `--rpc-url` is passed the
-> script skips `--no-chain` and enters the eth-chain leg, which
-> dereferences the `trades` table unguarded — on a DB without the
-> exchange schema it crashes with an unhandled
-> `sqlite3.OperationalError` traceback instead of reporting a FAIL row
-> like the DB-internal group does:
+> **Resolved (21 Nov sweep):** the drift flagged during the original
+> play is fixed — `scripts/ops/exchange_verify.py` now guards the
+> eth-chain and ait-chain legs with `sqlite3.OperationalError` catches,
+> so a DB without the exchange schema reports FAIL rows instead of an
+> unhandled traceback:
 
 ```bash
 aitbc exchange verify --db /var/lib/aitbc/data/bridge_deposits.db --bridge-db /var/lib/aitbc/data/bridge_deposits.db --rpc-url http://127.0.0.1:9 --ait-rpc http://127.0.0.1:9 --escrow-address 0x40c7181b639A2642294A802b1CD60C7a0d531a07 --bridge-address 0x0000000000000000000000000000000000000001 --settlement --json
 ```
 
-**Expected output (exit 1):** a Python traceback ending
-`sqlite3.OperationalError: no such table: trades` (drift — every flag
-in the argv is still exercised end-to-end into the script).
+**Expected output (exit 1):** `"ok": false` JSON with `FAIL`-severity
+`db` findings of the form `phase-3 columns absent — is this a
+pre-settlement exchange DB? (no such table: trades)` / `(no such table:
+orders)` — one per leg that hits a missing table. No traceback; every
+flag in the argv is still exercised end-to-end into the script.
 
 ### Step 6: exchange-island buy/sell (free refusals)
 
@@ -452,19 +453,19 @@ census groups (all outputs verified live on node0, `logger -t coderA`):
 | `--quote-liquidity` | `exchange start-trading` | scratch-HOME live | ok (0) |
 | `--exchange` | `exchange start-trading` | scratch-HOME live | ok (0) |
 | `--db` | `exchange verify` | path-guard + live FAIL row | expected-refusal (1) |
-| `--bridge-db` | `exchange verify` | live (drift traceback) | drift (1) |
-| `--rpc-url` | `exchange verify` | live (drift traceback) | drift (1) |
-| `--ait-rpc` | `exchange verify` | live (drift traceback) | drift (1) |
-| `--escrow-address` | `exchange verify` | live (drift traceback) | drift (1) |
-| `--bridge-address` | `exchange verify` | live (drift traceback) | drift (1) |
+| `--bridge-db` | `exchange verify` | live FAIL rows | expected-refusal (1) |
+| `--rpc-url` | `exchange verify` | live FAIL rows | expected-refusal (1) |
+| `--ait-rpc` | `exchange verify` | live FAIL rows | expected-refusal (1) |
+| `--escrow-address` | `exchange verify` | live FAIL rows | expected-refusal (1) |
+| `--bridge-address` | `exchange verify` | live FAIL rows | expected-refusal (1) |
 | `--settlement` | `exchange verify` | live FAIL row | expected-refusal (1) |
 | `--json` | `exchange verify` | live FAIL row | expected-refusal (1) |
 | `--wallet` | `exchange-island buy` | island-credentials refusal | expected-refusal (1) |
 | `--wallet` | `exchange-island sell` | island-credentials refusal | expected-refusal (1) |
 
 Exit classes: ok exit 0 (13 plays), expected-refusal exit 1/2/4
-(11 plays), drift exit 1 (1 play — the `exchange_verify.py`
-`no such table: trades` traceback, flagged for registration).
+(12 plays — the former `exchange_verify.py` `no such table: trades`
+traceback now reports FAIL rows; drift fixed).
 
 ---
 

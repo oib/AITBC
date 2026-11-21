@@ -20,15 +20,23 @@ only bonded miners are assigned. Show the bond lifecycle through the canonical
 
 - Coordinator API running on the hub (`aitbc-coordinator-api.service`).
 - Active `aitbc-miner` registered with a known `miner_id` (e.g. `aitbc-miner-1`).
-- Customer wallet with enough AIT for the payment (e.g. `genesis`).
+- A funded customer file wallet on the submit host (there is **no**
+  `genesis` wallet — resolve the live name, e.g. `default`).
 - A client JWT for coordinator authentication.
 
 ## Variables
 
 ```bash
-CUSTOMER=0xFe2d63FE87Db282083b9159e5857Cac788af9E03
-PROVIDER=0xA54B82312beb65D0E90c21717ea372396991Fa36
+# No `genesis` wallet exists — resolve live. CUSTOMER is the buyer's 0x
+# address; PROVIDER must be the live miner payout wallet (verify — it
+# changes with miner re-provisioning; node2's `default` wallet as of
+# 21 Nov). MINER_ID must be re-resolved per Step 1.
+CUSTOMER=<customer-0x-address>
+PROVIDER=0x4A5b3bf95aa06072c568Cfcb7392b4e86608B5D2   # node2 `default` — live miner wallet, verify
+CUSTOMER_WALLET=default   # funded file wallet on the submit host
 MINER_ID=aitbc-miner-1   # must be the *registered* Miner.id — see Step 1
+BOND_ID=bond-s48-1       # chosen bond_id for the on-chain BOND_LOCK
+BOND_ESCROW_ADDRESS=<node BOND_ESCROW_ADDRESS>  # chain env config, not on RPC
 ```
 
 ## Step 1: Resolve the live miner id
@@ -52,26 +60,48 @@ curl -s "$COORDINATOR_API_URL/v1/miners" -H "Authorization: Bearer $ADMIN_JWT" |
 Set `MINER_ID` to that value — for the current shop deployment it is
 `aitbc-miner-1`.
 
-## Step 2: Create a performance bond for the provider
+## Step 2: Lock the bond on-chain, then record it coordinator-side
+
+`bond create`/`bond top-up` now **require** `--bond-id` naming an
+*active* on-chain `BOND_LOCK` — a bare `bond create` is refused with
+HTTP 400 (`bond_id is required: bonds activate only from a verified
+on-chain BOND_LOCK record`). The missing leg is `bond lock-onchain`,
+which submits the signed `BOND_LOCK` escrow transaction. Run it on the
+provider's host (node2) where the provider file wallet lives — the tx
+pays `--escrow-address` (the node's `BOND_ESCROW_ADDRESS` chain env
+config) with payload `{bond_id, provider, lock_days}` and the chain
+refuses any signer other than `provider`:
 
 ```bash
+# on node2 — submit the on-chain BOND_LOCK first:
+aitbc bond lock-onchain --bond-id "$BOND_ID" \
+  --escrow-address "$BOND_ESCROW_ADDRESS" \
+  --amount 10 --wallet <provider-file-wallet>   # e.g. default on node2
+
+# then record the bond coordinator-side against that bond_id:
 export COORDINATOR_API_URL=http://127.0.0.1:8203
-export WALLET=customer-wallet
+export WALLET="$CUSTOMER_WALLET"
 
 # Log in once with a funded customer wallet; subsequent commands use the stored token.
 aitbc auth login --wallet "$WALLET" --coordinator-url "$COORDINATOR_API_URL"
 
 aitbc bond create --provider-id "$MINER_ID" \
+  --bond-id "$BOND_ID" \
   --amount 10 \
   --required-amount 10
 ```
+
+Non-admin callers must also prove control of the provider's registered
+wallet on create/top-up (#1967): pass `--wallet`/`--private-key`/
+`--private-key-file` and the CLI signs the `bonds/challenge` proof
+automatically; an admin JWT passes unsigned.
 
 Expected output:
 
 ```json
 {
   "provider_id": "aitbc-miner-1",
-  "bond_id": "bond-aitbc-miner-1",
+  "bond_id": "bond-s48-1",
   "status": "active",
   "amount": "10.00000000",
   "required_amount": "10.00000000"
@@ -93,7 +123,7 @@ aitbc ai submit \
   --prompt "Bonded high-value job validation" \
   --payment 5 \
   --bond-required \
-  --wallet genesis \
+  --wallet "$CUSTOMER_WALLET" \
   --buyer-address "$CUSTOMER" \
   --provider-address "$PROVIDER" \
   --coordinator-url http://127.0.0.1:8203 \
@@ -134,7 +164,7 @@ also triggers the default ZK and TEE gates from scenarios 46 and 47).
 aitbc ai submit \
   --prompt "Automatic high-value bond validation" \
   --payment 10 \
-  --wallet genesis \
+  --wallet "$CUSTOMER_WALLET" \
   --buyer-address "$CUSTOMER" \
   --provider-address "$PROVIDER" \
   --coordinator-url http://127.0.0.1:8203 \
@@ -154,6 +184,11 @@ aitbc bond lock --provider-id "$MINER_ID"
 aitbc bond release --provider-id "$MINER_ID"
 ```
 
+> **No withdrawal path:** `bond release` only un-locks a LOCKED bond back
+> to `active` — the bonded amount stays posted. There is no endpoint that
+> frees bond funds; only `slash` (with a governance appeal path) moves
+> them.
+
 A bond can be slashed for misbehavior and then appealed:
 
 ```bash
@@ -168,20 +203,28 @@ aitbc bond appeal --bond-id <bond-id> --reason "dispute"
 
 ## Step 7: Top up a performance bond
 
-Adds funds to an existing provider bond.
+Adds funds to an existing provider bond. Like `create`, `top-up` requires
+`--bond-id` of an active on-chain `BOND_LOCK` (HTTP 400 otherwise).
 
 Cost: 10 AIT locked (`--amount` is a free-form decimal string, AIT-denominated).
 
 ```bash
-aitbc bond top-up --provider-id 0xProvider --amount 10
+aitbc bond top-up --provider-id "$MINER_ID" --bond-id "$BOND_ID" --amount 10
 ```
 
 ---
 
 ## What the CLI actually does
 
+- `aitbc bond lock-onchain --bond-id … --escrow-address … --amount …
+  --wallet …` submits the on-chain `BOND_LOCK` escrow transaction
+  (`provider` = the signing wallet's own address; the chain refuses any
+  other signer). It must run and seal **before** `bond create`/`top-up`,
+  which verify the `bond_id` against chain state and refuse (HTTP 400)
+  when it is missing, not this provider's, or not `active`.
 - `aitbc bond create` `POST`s to `/v1/market/providers/{provider_id}/bonds`
-  and creates a `ProviderBond` record with `status: active`.
+  and creates a `ProviderBond` record with `status: active` — only when
+  `--bond-id` names that verified on-chain bond.
 - Since #1967, non-admin callers must prove control of the provider's
   registered wallet: pass `--wallet`/`--private-key`/`--private-key-file`
   and the CLI fetches a single-use challenge from
@@ -217,7 +260,8 @@ aitbc bond top-up --provider-id 0xProvider --amount 10
 - `cli/tests/test_cli_comprehensive.py` + `test_cli_basic.py` — 33 passed
   (regression).
 - Live validation on `<hub-node>` + `<node2>`:
-  - `aitbc bond create --provider-id aitbc-miner-1 --amount 10 --required-amount 10` → active
+  - `aitbc bond lock-onchain --bond-id bond-s48-1 --escrow-address "$BOND_ESCROW_ADDRESS" --amount 10 --wallet default` → sealed `BOND_LOCK`.
+  - `aitbc bond create --provider-id aitbc-miner-1 --bond-id bond-s48-1 --amount 10 --required-amount 10` → active
     bond.
   - `aitbc bond status --provider-id aitbc-miner-1` → `eligible: true`.
   - `aitbc ai submit --payment 5 --bond-required` → `COMPLETED`, `payment_status: released`,
