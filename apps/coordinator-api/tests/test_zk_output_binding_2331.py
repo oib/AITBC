@@ -180,7 +180,7 @@ async def test_unparseable_output_fails_closed(fake_zk):
 @pytest.mark.unit
 @pytest.mark.asyncio
 async def test_non_circuit_job_unchanged(fake_zk):
-    """Unregistered models keep the existing unsupported_model / TEE path."""
+    """Unregistered models keep the existing unsupported_model path."""
     job = _job(model="llama3.2:3b", constraints={"zk_proof_required": True})
     out = await _attach_zk_proof({"receipt_id": "r1"}, job, {"output": "anything", "model": "llama3.2:3b"})
     assert out["zk_status"] == "unsupported_model"

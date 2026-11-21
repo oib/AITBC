@@ -7,8 +7,8 @@ and the GPU-rental duration/deadline helpers.
 
 Monkeypatch seam: ``production_miner`` keeps the real implementations of
 every leaf the tests stub (``_download_media``, ``_run_whisper``,
-``_run_ffmpeg``, ``_submit_success``, ``_submit_failure``, ``_gpu_snapshot``,
-``build_tee_quote``) plus ``AITBCHTTPClient``. The executors below call those
+``_run_ffmpeg``, ``_submit_success``, ``_submit_failure``, ``_gpu_snapshot``
+and ``AITBCHTTPClient``). The executors below call those
 names through the deferred delegates at the top of this file, which resolve
 the attribute on ``production_miner`` at call time — so
 ``patch("production_miner.<name>")`` keeps working exactly as before the
@@ -79,11 +79,6 @@ def _gpu_snapshot() -> dict[str, Any]:
     return snapshot
 
 
-def build_tee_quote(*args: Any, **kwargs: Any) -> Any:
-    """Deferred delegate to ``production_miner.build_tee_quote``."""
-    return _pm().build_tee_quote(*args, **kwargs)
-
-
 def AITBCHTTPClient(*args: Any, **kwargs: Any) -> Any:
     """Deferred delegate to ``production_miner.AITBCHTTPClient`` — tests patch
     the class attribute on that module."""
@@ -91,7 +86,7 @@ def AITBCHTTPClient(*args: Any, **kwargs: Any) -> Any:
 
 
 # Miner failure surface: job-execution handlers, nvidia-smi subprocess probes,
-# coordinator HTTP polling, TEE quote generation, and the data-shape errors
+# coordinator HTTP polling, and the data-shape errors
 # job payloads can raise.
 _OPS_ERRORS = (
     AITBCError,
@@ -361,11 +356,8 @@ def _execute_inference(job, available_models):
         result = ollama_response
         output = result.get("response", "")
         execution_time = time.time() - start_time
-        tee_quote = build_tee_quote(job, output=output)
         extra = {"model": model, "tokens_processed": result.get("eval_count", 0)}
-        if tee_quote:
-            logger.info("Attaching TEE quote for job %s", job_id)
-        _submit_success(job_id, output, execution_time, extra, tee_quote=tee_quote)
+        _submit_success(job_id, output, execution_time, extra)
         return True
     logger.error("Ollama error")
     _submit_failure(job_id, "Ollama error")
@@ -389,11 +381,8 @@ def _execute_circuit_model(job, circuit: ModelCircuit):
     output_values = circuit.compute_output(input_values)
     output = json.dumps(output_values)
     execution_time = time.time() - start_time
-    tee_quote = build_tee_quote(job, output=output)
     extra = {"model": circuit.name}
-    if tee_quote:
-        logger.info("Attaching TEE quote for job %s", job_id)
-    _submit_success(job_id, output, execution_time, extra, tee_quote=tee_quote)
+    _submit_success(job_id, output, execution_time, extra)
     return True
 
 
@@ -421,10 +410,7 @@ def _execute_transcribe(job):
             access_headers=_shop_access_headers(payload, job_id),
         )
     execution_time = time.time() - start_time
-    tee_quote = build_tee_quote(job, output=text)
-    if tee_quote:
-        logger.info("Attaching TEE quote for job %s", job_id)
-    _submit_success(job_id, text, execution_time, {"model": model, "transcription": text}, tee_quote=tee_quote)
+    _submit_success(job_id, text, execution_time, {"model": model, "transcription": text})
     return True
 
 
@@ -449,10 +435,7 @@ def _execute_reencode(job):
         output_path = os.path.join(tmp, f"output.{output_format}")
         summary = _run_ffmpeg(input_path, output_path, output_format)
     execution_time = time.time() - start_time
-    tee_quote = build_tee_quote(job, output=summary.get("stderr", ""))
-    if tee_quote:
-        logger.info("Attaching TEE quote for job %s", job_id)
-    _submit_success(job_id, summary["stderr"], execution_time, summary, tee_quote=tee_quote)
+    _submit_success(job_id, summary["stderr"], execution_time, summary)
     return True
 
 
@@ -598,9 +581,6 @@ def _execute_gpu_compute(job):
     end_snapshot = _gpu_snapshot()
     execution_time = time.time() - start_time
     output = f"GPU rental completed: {task} for {elapsed}s"
-    tee_quote = build_tee_quote(job, output=output)
-    if tee_quote:
-        logger.info("Attaching TEE quote for job %s", job_id)
     _submit_success(
         job_id,
         output,
@@ -612,6 +592,5 @@ def _execute_gpu_compute(job):
             "gpu_start": start_snapshot,
             "gpu_end": end_snapshot,
         },
-        tee_quote=tee_quote,
     )
     return True

@@ -19,8 +19,6 @@ from ....schemas import (
     AccessLogResponse,
     ConfidentialAccessRequest,
     ConfidentialAccessResponse,
-    ConfidentialPaymentCreate,
-    ConfidentialPaymentView,
     ConfidentialTransactionCreate,
     ConfidentialTransactionView,
     KeyRegistrationRequest,
@@ -282,32 +280,3 @@ async def get_confidential_status(
         logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=500, detail="Internal server error") from e
-
-
-@router.post("/payments", response_model=ConfidentialPaymentView)
-@rate_limit(rate=20, per=60)
-def create_confidential_payment(
-    request: ConfidentialPaymentCreate,
-    user: AdminOrClientDep,
-    *,
-    http_request: Request,
-) -> ConfidentialPaymentView:
-    """Receive a confidential payment envelope from the CLI.
-
-    Fail-closed: without a real TEE this endpoint must not emit a 'settled'
-    receipt. When ``CONFIDENTIAL_TEE_ENABLED`` is true the coordinator records
-    the envelope and returns a receipt; otherwise it returns 503 Service
-    Unavailable so callers fall back to local simulated settlement.
-    """
-    _require_participant(str(user.get("sub") or ""), request.sender_id, user.get("role"))
-    if not settings.confidential_tee_enabled:
-        raise HTTPException(
-            status_code=503,
-            detail="Confidential TEE payment settlement is not enabled on this coordinator",
-        )
-    return ConfidentialPaymentView(
-        payment_id=request.payment_id,
-        sender_id=request.sender_id,
-        recipient_id=request.recipient_id,
-        amount_commitment=request.amount_commitment,
-    )

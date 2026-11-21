@@ -113,7 +113,6 @@ Several CLI groups are **hub-only services**. When the service is not reachable,
 | `aitbc messaging` | messaging RPC | `(Simulated)` | messaging service not reachable |
 | `aitbc exchange-island` | exchange service (8106) | `(Simulated)` | exchange not reachable |
 | `aitbc ipfs` | local Kubo daemon | filesystem CID shim | Kubo daemon not running |
-| `aitbc tee` | coordinator TEE API + simulated quotes | simulated attestation path only | no SGX/SEV/TPM hardware in the fleet; hardware-backed TEE deferred to release 2.0 (`9079fb74a` deregistered the group briefly; `87c5f2df16` re-registered it) |
 | `aitbc dispute` | blockchain RPC (`--node-url`) | no | — |
 | `aitbc energy` | `IEnergyPricing` contract over `EVM_RPC_URL` | no — fails closed (`EVM RPC URL not configured`) | no EVM endpoint configured |
 | `aitbc coin-requests` | agent/coordinator service + chain tx on `execute` | no | — |
@@ -122,7 +121,7 @@ Several CLI groups are **hub-only services**. When the service is not reachable,
 
 Scenario files that touch these groups include a note near the top. Live product-path scenarios (e.g. 34, 07, 48) produce real on-chain/coordinator data when the services are running.
 
-**Registered groups:** the CLI currently registers ~70 top-level groups, including `agent`, `agent-comm`, `agent-msg`, `agent-task`, `gpu`, `gpu-onchain`, `tee`, `zk`, `health`, `http`, `dispute`, `bond`, `crosschain`, and `exchange-island`. `aitbc --help` is the authoritative list. Removed/absent groups: `aitbc market` (scenario 08, retired to `docs/archive/scenarios`).
+**Registered groups:** the CLI currently registers ~70 top-level groups, including `agent`, `agent-comm`, `agent-msg`, `agent-task`, `gpu`, `gpu-onchain`, `zk`, `health`, `http`, `dispute`, `bond`, `crosschain`, and `exchange-island`. `aitbc --help` is the authoritative list. Removed/absent groups: `aitbc market` (scenario 08, retired to `docs/archive/scenarios`).
 
 ## See Also
 
@@ -158,9 +157,9 @@ Live validation of the product path (paid job + `ESCROW_RELEASE` + shop offer) i
 | 40 | [Automatic Reinvestment from Released Escrow](../archive/scenarios/40_auto_reinvestment.md) *(retired — archived)* | Auto-stake provider earnings on escrow release | `aitbc ai` |
 | 41 | [Whisper and FFmpeg Default Shop Offers](./41_whisper_ffmpeg_shop_offers.md) | Run transcription and media re-encode jobs via market offers | `aitbc market` |
 | 43 | [Compliance, Plugins, and White-Label Expansion](./43_compliance_plugins_white_label.md) | Brand plugins, compliance hooks, and plugin discovery | `aitbc brand`, `aitbc plugin`, `aitbc ai` |
-| 44 | [Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) | Recover escrowed payment after TEE attestation is rejected | `aitbc ai refund`, `aitbc market escrow refund` |
+| 44 | [Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) | *(obsolete — TEE removed #2375)* | — |
 | 45 | [Agent-Message Workflow](./45_agent_msg_workflow.md) | Send, ping, and receive agent-to-agent messages with delivery status | `aitbc agent-msg` |
-| 46 | [Confidential TEE Jobs](./46_tee_confidential_jobs.md) | Confidential jobs require and verify a TEE attestation via the new CLI surface | `aitbc ai`, `aitbc tee` (registered; simulated attestation path) |
+| 46 | [Confidential TEE Jobs](./46_tee_confidential_jobs.md) | *(obsolete — TEE removed #2375; confidential payments remain, see 74)* | — |
 | 47 | [ZK Proofs for High-Value Jobs](./47_zk_high_value_jobs.md) | High-value jobs require and verify a ZK receipt proof | `aitbc ai`, `aitbc zk` |
 | 48 | [Performance Bonds for High-Value Jobs](./48_performance_bonds_high_value.md) | High-value jobs require an active provider performance bond | `aitbc ai`, `aitbc bond` |
 | 49 | [Auto-Reinvest from Released Escrow](../archive/scenarios/49_auto_reinvest_escrow.md) *(retired — archived)* | Escrow release automatically stakes a provider-defined percentage of earnings | `aitbc ai` |

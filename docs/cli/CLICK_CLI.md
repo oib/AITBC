@@ -33,7 +33,7 @@ aitbc version
 All commands are Click groups registered in `core/main.py`. Major groups include:
 
 - wallet, blockchain, account, messaging, network, market, ai, analytics, script, mining, system, economics, cluster, performance, security, compliance, simulate, agent, agent-msg, agent-comm, agent-task, agent-wallet, workflow, resource, genesis, pool-hub, bridge, contract
-- ipfs, oracle, plugin, edge, monitor, governance, zk, dispute, exchange, node, sync, tee, trade, explorer, deploy, service, bond, bootstrap, reinvest, confidential, coin-requests, gpu, gpu-onchain, exchange-island, crosschain, developer, grant, reputation, prometheus, dashboard, transactions, http, update, auth, health, operations, config
+- ipfs, oracle, plugin, edge, monitor, governance, zk, dispute, exchange, node, sync, trade, explorer, deploy, service, bond, bootstrap, reinvest, confidential, coin-requests, gpu, gpu-onchain, exchange-island, crosschain, developer, grant, reputation, prometheus, dashboard, transactions, http, update, auth, health, operations, config
 
 Top-level convenience commands also exist: `aitbc list`, `aitbc version`, `aitbc start`, `aitbc stop`, `aitbc restart`, `aitbc stake`, `aitbc unstake`, `aitbc liquidity-stake`, `aitbc update`, `aitbc health`.
 

@@ -32,7 +32,6 @@ from .payments_helpers import (
     _lookup_escrow_record as _lookup_escrow_record,
     _parse_settled_at as _parse_settled_at,
     _resolve_authoritative_inputs as _resolve_authoritative_inputs,
-    _tee_attests_computation as _tee_attests_computation,
     _validate_evm_receipt_target as _validate_evm_receipt_target,
     get_receipt_of_record as get_receipt_of_record,
 )

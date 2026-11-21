@@ -185,7 +185,6 @@ Gaps grouped by file class — full names in the appendix:
 - `CHAIN_RPC_API_KEY` — `aitbc-coordinator-api-override.env`
 - `CLIENT_API_KEYS` — `aitbc-coordinator-api-override.env`
 - `COIN_REQUEST_AUTO_BUDGET_PER_HOUR` — `aitbc-agent-coordinator.env`
-- `CONFIDENTIAL_TEE_ENABLED` — `aitbc-coordinator-api.env`
 - `COORDINATOR_BOND_MIN_AMOUNT` — `aitbc-coordinator-api.env`
 - `COORDINATOR_ENABLE_ZK_VERIFICATION` — `aitbc-coordinator-api.env`
 - `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD` — `aitbc-coordinator-api.env`
@@ -311,8 +310,6 @@ Gaps grouped by file class — full names in the appendix:
 - `SELL_ESCROW_ENABLED` — `exchange.env`
 - `SELL_ESCROW_FUNDING_SOURCES` — `exchange.env`
 - `SELL_TREASURY_ADDRESS` — `exchange.env`
-- `TEE_ENCLAVE_ID` — `aitbc-miner.env`
-- `TEE_SIGNING_KEY_FILE` — `aitbc-miner.env`
 - `TRADING_DEFAULT_CHAIN_ID` — `aitbc-trading.env`
 - `TRADING_GOSSIP_BROADCAST_URL` — `aitbc-trading.env`
 - `TRADING_LEASE_TRACKER_REDIS_URL` — `aitbc-trading.env`

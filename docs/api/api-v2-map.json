@@ -4155,13 +4155,6 @@
           ]
         },
         {
-          "public": "/api/v2/coordinator/v1/confidential/payments",
-          "upstream": "/v1/confidential/payments",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
           "public": "/api/v2/coordinator/v1/confidential/status",
           "upstream": "/v1/confidential/status",
           "methods": [
@@ -6217,34 +6210,6 @@
           "upstream": "/v1/tasks/ollama",
           "methods": [
             "POST"
-          ]
-        },
-        {
-          "public": "/api/v2/coordinator/v1/tee/attestations",
-          "upstream": "/v1/tee/attestations",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
-          "public": "/api/v2/coordinator/v1/tee/attestations/{attestation_id}",
-          "upstream": "/v1/tee/attestations/{attestation_id}",
-          "methods": [
-            "GET"
-          ]
-        },
-        {
-          "public": "/api/v2/coordinator/v1/tee/enclaves",
-          "upstream": "/v1/tee/enclaves",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
-          "public": "/api/v2/coordinator/v1/tee/enclaves/{enclave_id}",
-          "upstream": "/v1/tee/enclaves/{enclave_id}",
-          "methods": [
-            "GET"
           ]
         },
         {

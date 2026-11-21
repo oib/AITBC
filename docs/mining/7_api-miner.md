@@ -106,17 +106,15 @@ POST /v1/miners/{job_id}/result
 ```
 
 Primary completion path: records the result, creates and signs a receipt, and
-drives escrow settlement (ZK-proof and TEE-attestation gates may apply to
-high-value or confidential jobs).
+drives escrow settlement (the ZK-proof gate applies to high-value jobs;
+the TEE gate was removed in #2375).
 
 **Request body** (`JobResultSubmit`):
 
 ```json
 {
   "result": {"output": "...", "execution_time": 600},
-  "metrics": {"duration_ms": 600000},
-  "tee_attestation_id": null,
-  "tee_quote": null
+  "metrics": {"duration_ms": 600000}
 }
 ```
 

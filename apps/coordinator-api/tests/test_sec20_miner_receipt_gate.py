@@ -28,7 +28,6 @@ from coordinator_api.contexts.payments.services.payments import (
 FORGED = [
     {"zk_status": "verified", "computation_correct": True},
     {"zk_status": "not_required", "computation_correct": True},
-    {"zk_status": "tee_attested", "computation_correct": True, "tee_status": "verified"},
 ]
 
 
@@ -49,7 +48,7 @@ def _job(session, job_id, *, receipt, receipt_id=None, payload=None):
 
 
 @pytest.mark.unit
-@pytest.mark.parametrize("forged", FORGED, ids=["verified", "not_required", "tee_attested"])
+@pytest.mark.parametrize("forged", FORGED, ids=["verified", "not_required"])
 def test_unsigned_job_receipt_is_not_a_receipt_of_record(db_session, forged):
     """A Job.receipt with no receipt_id never passes the gate, even on a model with a circuit."""
     job = _job(db_session, f"job-forged-{forged['zk_status']}", receipt=dict(forged))
@@ -127,8 +126,6 @@ def test_complete_endpoint_stores_no_verdict_and_the_gate_stays_closed(miner_cli
                 "price": "0.01",
                 "zk_status": "verified",
                 "computation_correct": True,
-                "tee_status": "verified",
-                "tee_attestation_id": "forged",
                 "zk_proof": {"forged": True},
             },
         },

@@ -48,8 +48,6 @@ from .contexts.governance.domain.slash_appeal import SlashAppeal  # noqa: F401
 from .contexts.governance.routers.economic_proposals import router as economic_proposals_router
 from .contexts.governance.routers.grants import router as grants_router
 from .contexts.market.domain.provider_bond import ProviderBond  # noqa: F401
-from .contexts.tee.attestation import EnclaveIdentity, TEEAttestation  # noqa: F401
-from .contexts.tee.routers import attestation_router as tee_attestation_router
 from .contexts.compliance.finance import NonRepudiationProof, TransactionAuditRecord  # noqa: F401
 from .contexts.compliance.hipaa import ConsentRecord, PHIAccessLog  # noqa: F401
 from .contexts.compliance.routers import hipaa_router
@@ -1118,7 +1116,6 @@ def _register_routers(app: FastAPI) -> None:
     app.include_router(governance_enhanced, prefix="/v1")
     app.include_router(grants_router, prefix="/v1")
     app.include_router(economic_proposals_router, prefix="/v1")
-    app.include_router(tee_attestation_router, prefix="/v1")
     app.include_router(hipaa_router, prefix="/v1")
 
     # More optional routers

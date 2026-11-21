@@ -65,7 +65,6 @@ CONFIG_FILE_KEYS: dict[str, str] = {
     "energy_quote_domain": "energy_quote_domain",
     "energy_eur_per_kwh": "energy_eur_per_kwh",
     "shop_region": "shop_region",
-    "tee_attestation_enabled": "tee_attestation_enabled",
     "timeout": "timeout",
 }
 
@@ -221,9 +220,6 @@ class CLIConfig(BaseAITBCConfig):
     native_chain_id: str = Field(
         default="",
         description="Native chain ID for quote binding (empty = bind to the resolved chain id)",
-    )
-    tee_attestation_enabled: bool = Field(
-        default=False, description="Enable TEE attestation support; default is False for fail-closed behaviour"
     )
 
     # Authentication

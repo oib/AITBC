@@ -6,8 +6,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from starlette.concurrency import run_in_threadpool
-from sqlalchemy import update
-from sqlmodel import Session, col, select
+from sqlmodel import Session, select
 from aitbc_shared import JobPayment
 
 from aitbc.aitbc_logging import get_logger
@@ -36,8 +35,6 @@ from ...payments.services.payments import _computation_is_correct
 from ...zk_applications.services.zk_proofs import zk_proof_service
 from ...zk_applications.services import model_registry
 from ....storage import get_session
-from ...tee.attestation import TEEAttestationService, TEEAttestationStatus
-from aitbc.tee import AttestationQuote, computation_transcript
 from .miner_jobs import (
     _MINER_RECEIPT_VERDICT_FIELDS as _MINER_RECEIPT_VERDICT_FIELDS,
     _OPS_ERRORS,
@@ -52,11 +49,6 @@ router = APIRouter(tags=["miner"])
 # -1 disables the threshold, 0 always requires a proof, default 10 AIT.
 _ZK_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10"))
 _ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
-
-# P2.2: high-value jobs require a TEE attestation quote before escrow release.
-# Mirrors the ZK threshold gating above.
-_TEE_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_TEE_HIGH_VALUE_THRESHOLD", "10"))
-_TEE_REQUIRE = os.getenv("COORDINATOR_TEE_REQUIRE", "false").lower() == "true"
 
 
 def _zk_required_for(job: Any, payment_amount: Decimal | None = None) -> bool:
@@ -90,44 +82,6 @@ def _job_output(result: dict[str, Any] | None) -> str:
     if not result:
         return ""
     return str(result.get("output") or result.get("result") or result.get("response") or "")
-
-
-def _quote_matches_transcript(quote_b64: str, job: Any, result: dict[str, Any] | None) -> bool:
-    """Return True when the quote blob is the SHA-256 of this job's transcript."""
-    try:
-        quote = AttestationQuote.from_base64(quote_b64)
-    except (ValueError, TypeError, KeyError):
-        return False
-    model_id = model_registry.resolve_model_id(job, result) or ""
-    expected = computation_transcript(str(job.id), str(model_id), _job_prompt(job, result), _job_output(result))
-    return quote.quote_blob == expected
-
-
-def _tee_required_for(job: Any, payment_amount: Decimal | None = None) -> bool:
-    """Return True if this job requires a TEE attestation.
-
-    A job is TEE-gated when the customer explicitly requested it, when it is
-    marked confidential, when it specifies a target enclave or required
-    measurement, or when the payment amount crosses the high-value threshold
-    (P2.2), mirroring the ZK high-value gating (P2.1).
-    """
-    if _TEE_REQUIRE:
-        return True
-    if not job.constraints:
-        return _TEE_THRESHOLD_AIT >= 0 and _TEE_THRESHOLD_AIT == 0
-    c = job.constraints or {}
-    if (
-        c.get("tee_attestation_required")
-        or c.get("tee_enclave_id")
-        or c.get("confidential")
-        or c.get("required_enclave_measurement")
-    ):
-        return True
-    if _TEE_THRESHOLD_AIT < 0:
-        return False
-    if _TEE_THRESHOLD_AIT == 0:
-        return True
-    return (payment_amount or Decimal("0")) >= _TEE_THRESHOLD_AIT
 
 
 # #2331 tier (a): zk_status values meaning "the miner-reported output for a
@@ -235,11 +189,11 @@ async def _attach_zk_proof(
         return receipt
 
     # Model-execution proof is the Groth16 gate. Unregistered models cannot
-    # produce a circuit proof; a registered TEE quote may attest them later.
+    # produce a circuit proof.
     model_id = model_registry.resolve_model_id(job, result)
     if not model_id or model_registry.get_model(model_id) is None:
         logger.warning(
-            "ZK-required job %s does not specify a supported model (got %r); waiting for TEE attestation",
+            "ZK-required job %s does not specify a supported model (got %r)",
             job.id,
             model_id,
         )
@@ -328,135 +282,6 @@ async def _attach_model_execution_proof(
     return receipt
 
 
-def _attach_tee_attestation(
-    receipt: dict[str, Any] | None,
-    job: Any,
-    req: Any,
-    session: Any,
-    payment_amount: Decimal | None = None,
-) -> dict[str, Any] | None:
-    """Verify or store a TEE attestation when the job requires one.
-
-    v0.14.4: TEE-gated jobs require a pre-registered, active enclave.
-    The coordinator no longer auto-generates self-attested quotes; an
-    absent or unregistered quote is a failure and triggers a refund.
-    """
-    if not receipt:
-        return receipt
-    result_payload = req.result.model_dump(mode="json", exclude_none=True)
-    model_id = model_registry.resolve_model_id(job, result_payload)
-    circuitless_zk = _zk_required_for(job, payment_amount) and (not model_id or model_registry.get_model(model_id) is None)
-    if not _tee_required_for(job, payment_amount) and not circuitless_zk:
-        receipt["tee_status"] = "not_required"
-        return receipt
-
-    service = TEEAttestationService(session)
-    c = job.constraints or {}
-    enclave_id = c.get("tee_enclave_id") or c.get("required_enclave_measurement") or ""
-    expected_measurement = c.get("required_enclave_measurement") or enclave_id
-
-    try:
-        if req.tee_attestation_id:
-            _tee_attestation_by_id(service, req, job, result_payload, receipt, enclave_id, expected_measurement)
-        elif req.tee_quote:
-            _tee_attestation_by_quote(service, req, job, result_payload, receipt, enclave_id, expected_measurement)
-        else:
-            receipt["tee_status"] = "tee_quote_missing"
-            logger.error("TEE attestation required but no quote supplied for job %s", job.id)
-    except _OPS_ERRORS as e:
-        logger.error("Error verifying TEE attestation for job %s: %s", job.id, e)
-        receipt["tee_status"] = f"error: {e}"
-
-    return receipt
-
-
-def _tee_attestation_by_id(
-    service: TEEAttestationService,
-    req: Any,
-    job: Any,
-    result_payload: dict[str, Any],
-    receipt: dict[str, Any],
-    enclave_id: str,
-    expected_measurement: str,
-) -> None:
-    attestation = service.get_attestation(req.tee_attestation_id)
-    if not attestation:
-        receipt["tee_status"] = "attestation_not_found"
-    elif attestation.status != TEEAttestationStatus.VERIFIED.value:
-        # v0.14.4: only VERIFIED (registered) attestations count.
-        receipt["tee_status"] = "attestation_not_verified"
-    elif enclave_id and attestation.enclave_id != enclave_id:
-        receipt["tee_status"] = "enclave_mismatch"
-    elif expected_measurement and attestation.measurement != expected_measurement:
-        receipt["tee_status"] = "measurement_mismatch"
-    elif not attestation.registered:
-        receipt["tee_status"] = "unregistered_enclave"
-    else:
-        receipt["tee_status"] = "verified"
-        receipt["tee_attestation_id"] = attestation.id
-        if not _quote_matches_transcript(attestation.quote, job, result_payload):
-            receipt["tee_status"] = "transcript_mismatch"
-
-
-def _tee_attestation_by_quote(
-    service: TEEAttestationService,
-    req: Any,
-    job: Any,
-    result_payload: dict[str, Any],
-    receipt: dict[str, Any],
-    enclave_id: str,
-    expected_measurement: str,
-) -> None:
-    if not _quote_matches_transcript(req.tee_quote, job, result_payload):
-        receipt["tee_status"] = "transcript_mismatch"
-        logger.error("TEE quote transcript mismatch for job %s", job.id)
-        return
-    if not enclave_id:
-        try:
-            enclave_id = AttestationQuote.from_base64(req.tee_quote).enclave_id
-            expected_measurement = expected_measurement or enclave_id
-        except (ValueError, TypeError, KeyError):
-            enclave_id = "unknown"
-    attestation = service.verify_and_store(
-        enclave_id or "unknown",
-        req.tee_quote,
-        measurement=expected_measurement or "",
-        require_registered=True,
-    )
-    if attestation.status == TEEAttestationStatus.VERIFIED.value:
-        receipt["tee_status"] = "verified"
-        receipt["tee_attestation_id"] = attestation.id
-        logger.info("TEE attestation verified for job %s: %s", job.id, attestation.id)
-    elif attestation.status == TEEAttestationStatus.SELF_CONSISTENT.value:
-        receipt["tee_status"] = "unregistered_enclave"
-    else:
-        receipt["tee_status"] = "attestation_rejected"
-
-
-def _apply_tee_computation_attestation(
-    receipt: dict[str, Any] | None,
-    job: Any,
-    result: dict[str, Any] | None,
-    payment_amount: Decimal | None = None,
-) -> dict[str, Any] | None:
-    """Allow a registered TEE quote to attest models that have no Groth16 circuit."""
-    if not receipt:
-        return receipt
-    if not _zk_required_for(job, payment_amount):
-        return receipt
-    if receipt.get("zk_status") == "verified" and receipt.get("computation_correct") is True:
-        return receipt
-    if receipt.get("tee_status") != "verified":
-        return receipt
-    model_id = model_registry.resolve_model_id(job, result)
-    if model_id and model_registry.get_model(model_id) is not None:
-        return receipt
-    receipt["zk_status"] = "tee_attested"
-    receipt["computation_correct"] = True
-    logger.info("TEE-attested computation for unsupported-model job %s", job.id)
-    return receipt
-
-
 @router.post("/miners/register", summary="Register or update miner")
 @rate_limit(*parse_rate_limit(settings.rate_limit_miner_register))
 async def register(
@@ -519,7 +344,7 @@ async def _retry_completed_settlement(session: Session, job: Job) -> dict[str, A
     legitimately leaves COMPLETED + escrowed — a row the SettlementReconciler
     already scans for. This gives the assigned miner the same retry on
     demand: only the money movement is re-attempted; the receipt, metrics and
-    attestation work are not repeated, so resubmits cannot accumulate
+    proof work are not repeated, so resubmits cannot accumulate
     JobReceipt rows or double-settle (the payment CAS from #1797 arbitrates).
     """
     from ...payments.services.payments import PaymentService
@@ -598,49 +423,6 @@ def _resolve_duration_ms(req: JobResultSubmit, metrics: dict[str, Any], job: Job
     return duration_ms
 
 
-async def _tee_gate_failure(
-    session: Session,
-    job: Job,
-    job_id: str,
-    payment_service: Any,
-    tee_status: Any,
-) -> None:
-    error_message = f"TEE attestation required before escrow release (status: {tee_status})"
-    # v0.14.3: force the failure state and error to the database with an
-    # explicit update. The ORM object can become stale across the async
-    # event loop and PaymentService calls, so SQL is used for the final
-    # job-state transition.
-    session.execute(  # noqa: unawaited-async — sync Session (sqlmodel)
-        update(Job).where(col(Job.id) == job_id).values(state=JobState.failed.value, error=error_message)
-    )
-    session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
-    job.error = error_message
-    job.state = JobState.failed
-    logger.error("Escrow release blocked for job %s: TEE status %s", job.id, tee_status)
-    # v0.14.3: TEE failure now triggers an automatic refund so the
-    # customer is not left with an escrowed stuck job.
-    refunded = await payment_service.refund_payment(
-        job.client_id, job.id, job.payment_id, reason=f"TEE attestation failed: {tee_status}", is_admin=True
-    )
-    if refunded:
-        logger.info(
-            "Refunded payment %s for job %s after TEE attestation failure",
-            job.payment_id,
-            job.id,
-        )
-    else:
-        logger.error(
-            "Failed to refund payment %s for job %s after TEE attestation failure",
-            job.payment_id,
-            job.id,
-        )
-    if refunded:
-        session.execute(update(Job).where(col(Job.id) == job_id).values(payment_status="refunded"))  # noqa: unawaited-async — sync Session (sqlmodel)
-        session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
-        job.payment_status = "refunded"
-    await _maybe_slash_bond(session, job, "fraud", f"TEE attestation failed: {tee_status}")
-
-
 async def _zk_gate_failure(session: Session, job: Job, zk_status: Any) -> None:
     job.error = f"ZK proof required before escrow release (status: {zk_status})"
     session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
@@ -662,29 +444,16 @@ async def _settle_escrowed_payment(
     # V23-46: release_payment(client_id, job_id, payment_id, reason). This is the
     # miner router, so user["sub"] is the miner -- the owning client is job.client_id,
     # which is what _require_owned_job checks against.
-    # P2.2: confidential jobs only release when a verified TEE attestation is present.
     # P2.1: high-value jobs only release when a verified ZK proof is present.
     # #2331 tier (a): a registered circuit model whose reported output failed
     # the coordinator-side equality check never releases escrow, gated or
     # not — the same failure surface as a failed ZK proof.
+    # #2375: the TEE attestation gate is removed — no enclave hardware
+    # exists on the fleet; high-value jobs are governed by the ZK rail alone.
     output_status = (receipt or {}).get("zk_status")
     if output_status in _CIRCUIT_OUTPUT_FAILURE_STATUSES:
         await _zk_gate_failure(session, job, output_status)
         success = False
-    elif _tee_required_for(job, payment_amount):
-        tee_status = (receipt or {}).get("tee_status")
-        # "auto_attested" is the coordinator's own self-signed fallback
-        # quote (see _attach_tee_attestation) -- no real enclave is
-        # involved, so it still clears the release gate (unchanged
-        # behavior) but is recorded as distinct from a real quote.
-        if tee_status not in {"verified", "auto_attested"}:
-            await _tee_gate_failure(session, job, job_id, payment_service, tee_status)
-            success = False
-        elif not _computation_is_correct(receipt, job):
-            await _zk_gate_failure(session, job, (receipt or {}).get("zk_status"))
-            success = False
-        else:
-            success = await _settle_completed_job(session, payment_service, job)
     elif _zk_required_for(job, payment_amount) and not _computation_is_correct(receipt, job):
         await _zk_gate_failure(session, job, (receipt or {}).get("zk_status"))
         success = False
@@ -767,7 +536,7 @@ async def _submit_failed_result(
     state). A self-reported failure never slashes the bond (#2278): it proves
     nothing about the provider and the customer picks the input that made it
     fail. Bond slashes stay on verified faults — FRAUD on an operator-ruled
-    refund, the ZK/TEE gates, and the downtime sweeper.
+    refund, the ZK gate, and the downtime sweeper.
     """
     metrics = req.metrics.model_dump(mode="json", exclude_none=True)
     duration_ms = _resolve_duration_ms(req, metrics, job, job_id)
@@ -851,8 +620,6 @@ async def submit_result(
     duration_ms = _resolve_duration_ms(req, metrics, job, job_id)
     receipt = await run_in_threadpool(receipt_service.create_receipt, job, user["sub"], result_payload, metrics)
     receipt = await _attach_zk_proof(receipt, job, result_payload, payment_amount=payment_amount)
-    receipt = _attach_tee_attestation(receipt, job, req, session, payment_amount=payment_amount)
-    receipt = _apply_tee_computation_attestation(receipt, job, result_payload, payment_amount=payment_amount)
     if receipt:
         receipt = await run_in_threadpool(receipt_service.sign_receipt, receipt)
     job.receipt = receipt
@@ -860,7 +627,7 @@ async def submit_result(
     job.completed_at = datetime.now(UTC)
     session.add(job)
     session.commit()  # noqa: unawaited-async — sync Session (sqlmodel)
-    # Keep the JobReceipt row in sync with the final receipt (after ZK/TEE
+    # Keep the JobReceipt row in sync with the final receipt (after ZK
     # attachments) so downstream consumers use the authoritative payload.
     await _sync_receipt_row(session, job, receipt)
     success = True
@@ -899,8 +666,8 @@ async def submit_failure(
         # #2278: no bond slash here. A miner-reported failure is unverified and
         # the customer chooses the input, so slashing on it let a customer burn
         # a provider's bond for free (the escrow stays refundable). Verified
-        # faults still slash: FRAUD on an operator-ruled refund, the ZK/TEE
-        # gates and the downtime sweeper.
+        # faults still slash: FRAUD on an operator-ruled refund, the ZK gate
+        # and the downtime sweeper.
 
         # Record the failure in the reputation service.
         try:

@@ -41,7 +41,7 @@ _INT_CONFIG_KEYS = {
     "energy_quote_lifetime_seconds",
     "energy_max_rate_age_seconds",
 }
-_BOOL_CONFIG_KEYS = {"tee_attestation_enabled"}
+_BOOL_CONFIG_KEYS: set[str] = set()
 
 _TRUE_VALUES = {"1", "true", "yes", "on"}
 _FALSE_VALUES = {"0", "false", "no", "off"}

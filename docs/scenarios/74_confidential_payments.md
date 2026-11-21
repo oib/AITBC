@@ -1,7 +1,7 @@
 # Confidential Payments
 
 **Level**: Intermediate
-**Prerequisites**: Scenario 46 Confidential TEE Jobs, Scenario 47 ZK Proofs for High-Value Jobs
+**Prerequisites**: Scenario 47 ZK Proofs for High-Value Jobs
 **Estimated Time**: 10 minutes
 **Last Updated**: 2026-10-25
 **Version**: 1.0
@@ -27,10 +27,10 @@ breadcrumb: Home > Scenarios > Confidential Payments
 > locally, constructs and validates the commitment transaction in-process,
 > and only then tries the API. There is no persistence layer behind it —
 > output is the simulated/confidential-compute path, not ledger state.
-> Label it `(Simulated)` exactly like the `tee` group.
+> Label it `(Simulated)` — the `tee` group itself was removed in #2375.
 >
 > The API leg falls back to the simulated result **only** when the
-> coordinator reports confidential TEE settlement unavailable (HTTP 503).
+> coordinator reports confidential settlement unavailable (HTTP 503).
 > Auth failures — 401 invalid/expired token, 403 from an edge proxy —
 > abort with the server error instead of simulating a send that never
 > happened; refresh credentials (`aitbc auth login`) or fix the proxy

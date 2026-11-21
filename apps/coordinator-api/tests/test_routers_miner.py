@@ -4,7 +4,7 @@ Real MinerService + sqlite. MinerDep gates every endpoint on a miner-role
 JWT bound to user["sub"]. Covers register -> heartbeat -> poll ->
 capabilities -> deregister lifecycle, plus 404/validation paths on the
 result/fail/jobs/earnings endpoints (full result submission exercises
-ZK/TEE/payment gates — pinned where the contract is dishonest).
+ZK/payment gates — pinned where the contract is dishonest).
 """
 
 from __future__ import annotations

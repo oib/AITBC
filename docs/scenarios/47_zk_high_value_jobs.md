@@ -90,7 +90,6 @@ Expected result:
   "result": {
     ...,
     "zk_status": "verified",
-    "tee_status": "not_required",
     "zk_proof": {
       "proof": { ... },
       "public_signals": [ ... ],

@@ -13,7 +13,7 @@ from click.testing import CliRunner
 import aitbc_cli.commands.ai as ai_mod
 from aitbc_cli import auth as auth_pkg
 from aitbc_cli.commands.ai import ai
-from aitbc_cli.utils.error_handling import CLIError, LOGIN_HINT, LOGIN_REJECTED_HINT, is_unauthorized
+from aitbc_cli.utils.error_handling import LOGIN_HINT, LOGIN_REJECTED_HINT, is_unauthorized
 from aitbc_cli.utils.http_client import NetworkError
 
 
@@ -161,66 +161,3 @@ def test_zk_auth_kwargs_explicit_key_skips_store(monkeypatch):
     monkeypatch.setattr(zk_mod, "get_config", lambda: SimpleNamespace(api_key=None))
 
     assert zk_mod._zk_auth_kwargs(_Ctx({"api_key": "k"})) == {"api_key": "k"}
-
-
-# --- tee.py: same rejected-vs-missing split (#2095 follow-up) -----------------
-
-
-def test_tee_login_hint_no_credential_is_login_hint(monkeypatch):
-    import aitbc_cli.commands.tee as tee_mod
-    from types import SimpleNamespace
-
-    _stub_empty_store(monkeypatch)
-    monkeypatch.setattr(tee_mod, "get_config", lambda: SimpleNamespace(api_key=None))
-    assert tee_mod._login_hint(_Ctx({})) == LOGIN_HINT
-
-
-def test_tee_login_hint_stored_credential_is_rejected_hint(monkeypatch):
-    import aitbc_cli.commands.tee as tee_mod
-    from types import SimpleNamespace
-
-    _stub_stored_token(monkeypatch, "eyJhbGciOi.fake.token")
-    monkeypatch.setattr(tee_mod, "get_config", lambda: SimpleNamespace(api_key=None))
-    assert tee_mod._login_hint(_Ctx({})) == LOGIN_REJECTED_HINT
-
-
-def test_tee_login_hint_api_key_is_rejected_hint(monkeypatch):
-    import aitbc_cli.commands.tee as tee_mod
-    from types import SimpleNamespace
-
-    _stub_empty_store(monkeypatch)
-    monkeypatch.setattr(tee_mod, "get_config", lambda: SimpleNamespace(api_key=None))
-    assert tee_mod._login_hint(_Ctx({"api_key": "k"})) == LOGIN_REJECTED_HINT
-
-
-def test_tee_login_hint_config_key_is_rejected_hint(monkeypatch):
-    import aitbc_cli.commands.tee as tee_mod
-    from types import SimpleNamespace
-
-    _stub_empty_store(monkeypatch)
-    monkeypatch.setattr(tee_mod, "get_config", lambda: SimpleNamespace(api_key="cfg-key"))
-    assert tee_mod._login_hint(_Ctx({})) == LOGIN_REJECTED_HINT
-
-
-def test_tee_abort_for_api_error_401_uses_rejected_hint(monkeypatch, capsys):
-    import aitbc_cli.commands.tee as tee_mod
-    from types import SimpleNamespace
-
-    _stub_stored_token(monkeypatch, "eyJhbGciOi.fake.token")
-    monkeypatch.setattr(tee_mod, "get_config", lambda: SimpleNamespace(api_key=None))
-    with pytest.raises(CLIError):
-        tee_mod._abort_for_api_error(_Ctx({}), _network_error(401))
-    assert LOGIN_REJECTED_HINT in capsys.readouterr().out
-
-
-def test_tee_abort_for_api_error_401_no_credential_uses_login_hint(monkeypatch, capsys):
-    import aitbc_cli.commands.tee as tee_mod
-    from types import SimpleNamespace
-
-    _stub_empty_store(monkeypatch)
-    monkeypatch.setattr(tee_mod, "get_config", lambda: SimpleNamespace(api_key=None))
-    with pytest.raises(CLIError):
-        tee_mod._abort_for_api_error(_Ctx({}), _network_error(401))
-    out = capsys.readouterr().out
-    assert LOGIN_HINT in out
-    assert LOGIN_REJECTED_HINT not in out

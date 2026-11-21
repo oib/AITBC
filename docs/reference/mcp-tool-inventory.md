@@ -2,12 +2,12 @@
 
 # MCP tool inventory
 
-**827 tools** across 141 modules.
+**821 tools** across 140 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 136 |
-| generated | 568 |
+| generated | 562 |
 | other | 7 |
 | rpc | 116 |
 
@@ -110,7 +110,6 @@
 | mcp-server/aitbc_mcp_cli_tools_generated_stop.py | 1 |
 | mcp-server/aitbc_mcp_cli_tools_generated_sync.py | 2 |
 | mcp-server/aitbc_mcp_cli_tools_generated_system.py | 12 |
-| mcp-server/aitbc_mcp_cli_tools_generated_tee.py | 6 |
 | mcp-server/aitbc_mcp_cli_tools_generated_trade.py | 20 |
 | mcp-server/aitbc_mcp_cli_tools_generated_transactions.py | 6 |
 | mcp-server/aitbc_mcp_cli_tools_generated_unstake.py | 1 |
@@ -763,12 +762,6 @@
 | `aitbc_system_show` | mcp-server/aitbc_mcp_cli_tools_generated_system.py | generated | `aitbc system show` |
 | `aitbc_system_start` | mcp-server/aitbc_mcp_cli_tools_generated_system.py | generated | `aitbc system start` |
 | `aitbc_system_stop` | mcp-server/aitbc_mcp_cli_tools_generated_system.py | generated | `aitbc system stop` |
-| `aitbc_tee_attest` | mcp-server/aitbc_mcp_cli_tools_generated_tee.py | generated | `aitbc tee attest` |
-| `aitbc_tee_keygen` | mcp-server/aitbc_mcp_cli_tools_generated_tee.py | generated | `aitbc tee keygen` |
-| `aitbc_tee_launch` | mcp-server/aitbc_mcp_cli_tools_generated_tee.py | generated | `aitbc tee launch` |
-| `aitbc_tee_register` | mcp-server/aitbc_mcp_cli_tools_generated_tee.py | generated | `aitbc tee register` |
-| `aitbc_tee_status` | mcp-server/aitbc_mcp_cli_tools_generated_tee.py | generated | `aitbc tee status` |
-| `aitbc_tee_verify` | mcp-server/aitbc_mcp_cli_tools_generated_tee.py | generated | `aitbc tee verify` |
 | `aitbc_trade_chains` | mcp-server/aitbc_mcp_cli_tools_generated_trade.py | generated | `aitbc trade chains` |
 | `aitbc_trade_create` | mcp-server/aitbc_mcp_cli_tools_generated_trade.py | generated | `aitbc trade create` |
 | `aitbc_trade_discover` | mcp-server/aitbc_mcp_cli_tools_generated_trade.py | generated | `aitbc trade discover` |

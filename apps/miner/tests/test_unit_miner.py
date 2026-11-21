@@ -204,7 +204,6 @@ def test_measure_coordinator_latency_failure(mock_http):
 
 @pytest.mark.unit
 @patch("production_miner.submit_result")
-@patch("production_miner.build_tee_quote", return_value=None)
 @patch(
     "production_miner.get_gpu_info",
     return_value={"name": "NVIDIA GeForce RTX 4060 Ti", "memory_total": 16380, "memory_used": 1000, "utilization": 20},
@@ -214,7 +213,7 @@ def test_measure_coordinator_latency_failure(mock_http):
     return_value={"name": "NVIDIA GeForce RTX 4060 Ti", "utilization": 20, "memory_used_mb": 1000, "memory_total_mb": 16380},
 )
 @patch("production_miner.time.sleep")
-def test_execute_job_gpu_compute(mock_sleep, mock_snapshot, mock_gpu_info, mock_tee, mock_submit):
+def test_execute_job_gpu_compute(mock_sleep, mock_snapshot, mock_gpu_info, mock_submit):
     """A gpu_compute/general_compute rental sleeps for the requested duration and snapshots GPU start/end."""
     job = {
         "job_id": "job-gpu-123",

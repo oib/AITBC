@@ -58,8 +58,6 @@ class Constraints(BaseModel):
     region: str | None = None
     max_price: Decimal | None = None
     zk_proof_required: bool = Field(default=False, description="Require a ZK receipt proof for this job")
-    tee_attestation_required: bool = Field(default=False, description="Require a TEE attestation for this job")
-    tee_enclave_id: str | None = Field(default=None, description="Required enclave identity for TEE attestation")
     min_reputation: float | None = None
     auto_reinvest_pct: Decimal | None = Field(
         default=None,
@@ -77,9 +75,6 @@ class Constraints(BaseModel):
     bond_required: bool = Field(default=False, description="Require a performance bond for this job")
     min_bond_amount: Decimal | None = Field(default=None, description="Minimum bond amount required for provider eligibility")
     confidential: bool = Field(default=False, description="Mark this job as confidential")
-    required_enclave_measurement: str | None = Field(
-        default=None, description="Required TEE enclave measurement for confidential jobs"
-    )
     # G3: deterministic decoding makes a job reproducible so the coordinator can
     # re-run it in shadow mode and compare results exactly.
     deterministic_decoding: bool = Field(default=False, description="Use deterministic decoding for reproducible verification")

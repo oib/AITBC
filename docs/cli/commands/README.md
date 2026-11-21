@@ -740,15 +740,6 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc system status`](system-status.md) — Get system status from the coordinator API, or full systemctl status for a service.
 - [`aitbc system stop`](system-stop.md) — Stop a systemd service by name.
 
-## `tee`
-
-- [`aitbc tee attest`](tee-attest.md) — Attest a TEE enclave and verify its measurement.
-- [`aitbc tee keygen`](tee-keygen.md) — Generate a new TEE enclave signing key.
-- [`aitbc tee launch`](tee-launch.md) — Launch a TEE enclave with a given image.
-- [`aitbc tee register`](tee-register.md) — Register a TEE enclave with its public key and optional agent ID.
-- [`aitbc tee status`](tee-status.md) — Check the status of a TEE enclave.
-- [`aitbc tee verify`](tee-verify.md) — Verify a TEE quote, attestation, or zero-knowledge proof.
-
 ## `trade`
 
 - [`aitbc trade chains`](trade-chains.md) — List chains that participate in inter-chain trading.

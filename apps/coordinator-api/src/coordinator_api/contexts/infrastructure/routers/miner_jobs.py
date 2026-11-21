@@ -323,15 +323,12 @@ class FailJobRequest(BaseModel):
 
 
 # Receipt fields that carry a verdict the release gates trust. Only the
-# coordinator sets them (_attach_zk_proof, _attach_tee_attestation,
-# _apply_tee_computation_attestation); a miner's own receipt must not.
+# coordinator sets them (_attach_zk_proof); a miner's own receipt must not.
 _MINER_RECEIPT_VERDICT_FIELDS = (
     "zk_status",
     "computation_correct",
     "zk_proof",
     "receipt_binding_proof",
-    "tee_status",
-    "tee_attestation_id",
 )
 
 

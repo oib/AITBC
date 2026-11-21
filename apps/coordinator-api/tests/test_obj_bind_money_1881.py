@@ -200,22 +200,6 @@ class TestConfidentialObjectBinding:
         )
         assert resp.status_code == 403
 
-    def test_payment_foreign_sender_403(self, client: TestClient, seeded, monkeypatch) -> None:
-        from coordinator_api.config import settings
-
-        monkeypatch.setattr(settings, "confidential_tee_enabled", True)
-        resp = client.post(
-            "/v1/confidential/payments",
-            json={
-                "payment_id": "pay-1",
-                "sender_id": "intruder",
-                "recipient_id": "recipient-1",
-                "amount_commitment": "0x01",
-            },
-            headers=_headers("owner1"),
-        )
-        assert resp.status_code == 403
-
     def test_admin_may_act_for_any_participant(self, client: TestClient, seeded) -> None:
         resp = client.post(
             "/v1/confidential/keys/rotate",

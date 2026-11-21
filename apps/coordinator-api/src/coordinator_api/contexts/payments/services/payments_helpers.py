@@ -27,7 +27,6 @@ from aitbc.market.evm_rental_receipt import agreement_id_from_receipt_logs
 from ....schemas import JobPaymentCreate
 from ...infrastructure.domain.job import Job
 from ...infrastructure.domain.job_receipt import JobReceipt
-from ...zk_applications.services import model_registry
 
 
 logger = get_logger(__name__)
@@ -298,24 +297,6 @@ def _escrow_failure_reason(exc: BaseException) -> tuple[str, str]:
     return "unavailable", "the escrow funding request could not reach the node; the purchase can be retried"
 
 
-def _tee_attests_computation(receipt: dict[str, Any] | None, job: Job | None) -> bool:
-    """Return True when a registered TEE quote attests a model with no Groth16 circuit.
-
-    Groth16 remains mandatory for registered circuits such as ``linear-1``. A
-    TEE quote is only a substitute when the model cannot be proven in-circuit.
-    """
-    if not receipt or job is None:
-        return False
-    if receipt.get("tee_status") != "verified":
-        return False
-    if receipt.get("zk_status") != "tee_attested":
-        return False
-    if receipt.get("computation_correct") is not True:
-        return False
-    model_id = model_registry.resolve_model_id(job, job.result if isinstance(job.result, dict) else None)
-    return model_id is not None and model_registry.get_model(model_id) is None
-
-
 def _computation_is_correct(receipt: dict[str, Any] | None, job: Job | None) -> bool:
     """Return True when escrow may release because computation was attested."""
     if not receipt:
@@ -323,9 +304,7 @@ def _computation_is_correct(receipt: dict[str, Any] | None, job: Job | None) -> 
     if receipt.get("computation_correct") is not True:
         return False
     zk_status = receipt.get("zk_status")
-    if zk_status in ("verified", "not_required", "tee_attested"):
-        return True
-    return _tee_attests_computation(receipt, job)
+    return zk_status in ("verified", "not_required")
 
 
 def get_receipt_of_record(session: Session, job: Job | None) -> dict[str, Any] | None:
