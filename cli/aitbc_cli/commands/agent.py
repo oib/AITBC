@@ -28,6 +28,7 @@ from ..utils.agent_signing import (
 from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger
 from ..utils.wallet_paths import find_wallet_file, wallet_search_dirs
 from ..utils.wallet_secret import wallet_password_options
+from aitbc.utils.units import format_ait
 
 # Expected failure surface for the command handlers below: filesystem/JSON,
 # data-shape, runtime, optional-dependency imports, HTTP-client errors and
@@ -700,8 +701,11 @@ def _print_coins_received(
     show_timestamp: bool = False,
 ) -> None:
     fields = extra_fields or {}
-    transferred = fields.get("amount", amount)
-    success(f"Received {transferred} AIT!")
+    # The server reports the granted amount in base units; the --amount
+    # fallback is already AIT. Never print raw units as AIT (#2364).
+    server_amount = fields.get("amount")
+    transferred = format_ait(int(server_amount)) if server_amount is not None else f"{amount} AIT"
+    success(f"Received {transferred}!")
     click.echo(f"  wallet: {fields.get('wallet_address', wallet_address)}")
     click.echo(f"  transaction: {tx_hash}")
     timestamp = fields.get("timestamp")
