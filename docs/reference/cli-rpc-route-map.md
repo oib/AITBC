@@ -32,6 +32,8 @@ association is keyword-based best-effort; `—` means unmatched.
 | *(unattributed — cli/aitbc_cli/utils/gpu_onchain.py)* | `/rpc/transaction/` | — | —
 | *(unattributed — cli/aitbc_cli/utils/gpu_onchain.py)* | `/rpc/transaction/{tx_hash}` | — | —
 | *(unattributed — cli/aitbc_cli/utils/gpu_onchain.py)* | `/rpc/transaction` | — | —
+| *(unattributed — cli/aitbc_cli/utils/nonce.py)* | `/rpc/account/` | — | —
+| *(unattributed — cli/aitbc_cli/utils/nonce.py)* | `/rpc/account/{sender_address}{query}` | — | —
 | `aitbc account get` | `/rpc/account/` | — | —
 | `aitbc account get` | `/rpc/account/{canonical}` | `get_account_route` (core.py) | —
 | `aitbc account list` | `/rpc/accounts` | `list_accounts_route` (core.py) | —
@@ -251,10 +253,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc wallet multisig-propose` | `/rpc/account/` | — | —
 | `aitbc wallet multisig-propose` | `/rpc/account/{address}` | `get_account_route` (core.py) | —
 | `aitbc wallet rewards` | `/rpc/liquidity/stakes/` | — | —
-| `aitbc wallet send` | `/rpc/account/` | — | —
-| `aitbc wallet send` | `/rpc/account/{sender_address}` | `get_account_route` (core.py) | —
 | `aitbc wallet send` | `/rpc/transaction` | `submit_transaction_route` (core.py) | —
-| `aitbc wallet stake` | `/rpc/account/` | — | —
 | `aitbc wallet stake` | `/rpc/staking/stake` | `stake_tokens_route` (staking.py) | —
 | `aitbc wallet staking-info` | `/rpc/staking/` | — | —
 | `aitbc wallet stats` | `/rpc/account/` | — | —
