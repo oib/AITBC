@@ -16,6 +16,18 @@ try:
 except ImportError:
     from aitbc_cli.utils import error, output, success
 
+from .island import _load_validator_public_key
+
+
+def _resolve_island(island_id: str | None, island_name: str | None, command: str) -> tuple[str, str]:
+    """Resolve island identity from flags, then ISLAND_ID/ISLAND_NAME env."""
+    resolved_id = island_id or os.getenv("ISLAND_ID")
+    if not resolved_id:
+        error(f"No island id — pass --island-id or set ISLAND_ID ({command})")
+        raise click.Abort()
+    resolved_name = island_name or os.getenv("ISLAND_NAME") or "default"
+    return resolved_id, resolved_name
+
 
 def _sanitize_redis_url(url: str) -> str:
     """Remove credentials from a Redis URL before printing it."""
@@ -74,42 +86,33 @@ async def _ping_redis(redis_url: str) -> None:
         await client.close()
 
 
-def register_hub_command(ctx, public_address, public_port, redis_url, hub_discovery_url, redis_password=None):
+def register_hub_command(
+    ctx,
+    public_address,
+    public_port,
+    redis_url,
+    hub_discovery_url,
+    redis_password=None,
+    island_id=None,
+    island_name=None,
+):
     """Register this node as a hub"""
     try:
         redis_url = _resolve_redis_url(redis_url, redis_password)
-        # Get environment variables
-        island_id = os.getenv("ISLAND_ID")
-        if not island_id:
-            error("ISLAND_ID environment variable not set")
-            raise click.Abort()
-        island_name = os.getenv("ISLAND_NAME", "default")
+        island_id, island_name = _resolve_island(island_id, island_name, "hub register")
 
         # Get system hostname
         hostname = socket.gethostname()
 
-        # Get public key from keystore
-        keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
-        public_key_pem = None
-
-        if os.path.exists(keystore_path):
-            with open(keystore_path) as f:
-                keys = json.load(f)
-                for _key_id, key_data in keys.items():
-                    public_key_pem = key_data.get("public_key_pem")
-                    break
-        else:
-            error(f"Keystore not found at {keystore_path}")
-            raise click.Abort()
-
-        if not public_key_pem:
-            error("No public key found in keystore")
-            raise click.Abort()
+        # Validator pubkey feeds node_id derivation and the discovery record;
+        # like island join it is not a join-time credential, so a missing
+        # keystore warns and continues (#2379).
+        public_key_pem = _load_validator_public_key("registering")
 
         # Generate node_id
         local_address = socket.gethostbyname(hostname)
         local_port = 7070
-        content = f"{hostname}:{local_address}:{local_port}:{public_key_pem}"
+        content = f"{hostname}:{local_address}:{local_port}:{public_key_pem or ''}"
         node_id = hashlib.sha256(content.encode()).hexdigest()
 
         # Create HubManager instance
@@ -159,43 +162,26 @@ def register_hub_command(ctx, public_address, public_port, redis_url, hub_discov
             error("Failed to register as hub")
             raise click.Abort()
 
+    except click.Abort:
+        raise
     except Exception as e:
-        error(f"Error registering as hub: {str(e)}")
+        error(f"Error registering as hub: {e}")
         raise click.Abort() from e
 
 
-def unregister_hub_command(ctx, redis_url, hub_discovery_url, redis_password=None):
+def unregister_hub_command(ctx, redis_url, hub_discovery_url, redis_password=None, island_id=None, island_name=None):
     """Unregister this node as a hub"""
     try:
         redis_url = _resolve_redis_url(redis_url, redis_password)
-        island_id = os.getenv("ISLAND_ID")
-        if not island_id:
-            error("ISLAND_ID environment variable not set")
-            raise click.Abort()
-        island_name = os.getenv("ISLAND_NAME", "default")
+        island_id, island_name = _resolve_island(island_id, island_name, "hub unregister")
 
         hostname = socket.gethostname()
 
-        keystore_path = "/var/lib/aitbc/keystore/validator_keys.json"
-        public_key_pem = None
-
-        if os.path.exists(keystore_path):
-            with open(keystore_path) as f:
-                keys = json.load(f)
-                for _key_id, key_data in keys.items():
-                    public_key_pem = key_data.get("public_key_pem")
-                    break
-        else:
-            error(f"Keystore not found at {keystore_path}")
-            raise click.Abort()
-
-        if not public_key_pem:
-            error("No public key found in keystore")
-            raise click.Abort()
+        public_key_pem = _load_validator_public_key("unregistering")
 
         local_address = socket.gethostbyname(hostname)
         local_port = 7070
-        content = f"{hostname}:{local_address}:{local_port}:{public_key_pem}"
+        content = f"{hostname}:{local_address}:{local_port}:{public_key_pem or ''}"
         node_id = hashlib.sha256(content.encode()).hexdigest()
 
         from aitbc_chain.network.hub_discovery import HubDiscovery
@@ -223,8 +209,10 @@ def unregister_hub_command(ctx, redis_url, hub_discovery_url, redis_password=Non
             error("Failed to unregister as hub")
             raise click.Abort()
 
+    except click.Abort:
+        raise
     except Exception as e:
-        error(f"Error unregistering as hub: {str(e)}")
+        error(f"Error unregistering as hub: {e}")
         raise click.Abort() from e
 
 
