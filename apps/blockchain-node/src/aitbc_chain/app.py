@@ -380,6 +380,36 @@ def _evict_rejected_mempool_entries() -> int:
     return removed
 
 
+def _refresh_block_height_gauge(supported_chains: str) -> None:
+    """Set ``blockchain_block_height`` from chain.db head at scrape time.
+
+    The gauge is registered on the default prometheus registry at import, so
+    every process serving ``/metrics`` exports it — but only the consensus
+    process ever calls ``.set()`` (poa_commit). On the rpc process the series
+    sat at a fabricated 0 forever (#2409). Reading the sealed head here makes
+    the rpc series truthful; a scrape-time DB miss leaves the gauge untouched
+    rather than writing a fake value.
+    """
+    from sqlmodel import col, func, select
+
+    from .base_models import Block
+    from .database import session_scope
+    from .metrics import block_height
+
+    chains = {settings.chain_id} | {c.strip() for c in supported_chains.split(",") if c.strip()}
+    head = 0
+    for chain_id in chains:
+        try:
+            with session_scope(chain_id) as session:
+                row = session.exec(select(func.max(col(Block.height))).where(Block.chain_id == chain_id)).first()
+            if row:
+                head = max(head, int(row))
+        except Exception as exc:  # noqa: BLE001 - per-chain isolation, same as the sweep above
+            _app_logger.debug("block_height gauge refresh skipped chain %s: %s", chain_id, exc)
+    if head:
+        block_height.set(head)
+
+
 def _reconcile_sealed_mempool_entries() -> int:
     """#1300 S2: evict pooled rows the chain has already sealed.
 
@@ -811,6 +841,7 @@ def create_app() -> FastAPI:
         from .messaging_metrics import collect_all
 
         await run_in_threadpool(collect_all, [c.strip() for c in settings.supported_chains.split(",") if c.strip()])
+        await run_in_threadpool(_refresh_block_height_gauge, settings.supported_chains)
         default_metrics = generate_latest()
         legacy_metrics = metrics_registry.render_prometheus().encode()
         from .node_metrics_snapshot import with_node_snapshot

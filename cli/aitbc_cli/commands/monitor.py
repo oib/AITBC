@@ -2,7 +2,7 @@
 
 import json
 import time
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Any
 
@@ -236,7 +236,7 @@ def _alerts_add(
         "type": alert_type,
         "threshold": threshold,
         "webhook": webhook,
-        "created_at": datetime.now().isoformat(),
+        "created_at": datetime.now(UTC).isoformat(),
         "enabled": True,
     }
     existing.append(alert)
@@ -307,6 +307,14 @@ def alerts(ctx, action: str, name: str | None, alert_type: str | None, threshold
     """Configure or query monitoring alerts by name, type, and threshold."""
     alerts_file = _json_store_file("alerts", "alerts.json")
     existing = _load_json_list(alerts_file)
+    # #2409: legacy alerts.json files accumulated same-name rows (three
+    # `probe` entries on node0) making `remove --name` ambiguous. Collapse
+    # to the last (newest) row per name on every action — names are the
+    # identity since the #2221 upsert.
+    deduped = list({a.get("name") if a.get("name") is not None else f"__row_{i}": a for i, a in enumerate(existing)}.values())
+    if len(deduped) != len(existing):
+        _save_json_list(alerts_file, deduped)
+        existing = deduped
 
     if action == "add":
         _alerts_add(ctx, existing, name, alert_type, threshold, webhook, alerts_file)
@@ -333,12 +341,15 @@ def history(ctx, period: str):
     unit = period[-1]
     value = int(period[:-1])
     seconds = value * multipliers.get(unit, 3600)
-    since = datetime.now() - timedelta(seconds=seconds)
+    # UTC, not local time — explorer/chain timestamps are UTC and a naive
+    # local since/collected_at silently skews the window (#2409).
+    now = datetime.now(UTC)
+    since = now - timedelta(seconds=seconds)
 
     analysis = {
         "period": period,
         "since": since.isoformat(),
-        "analyzed_at": datetime.now().isoformat(),
+        "analyzed_at": now.isoformat(),
         "summary": {},
     }
 
@@ -349,12 +360,25 @@ def history(ctx, period: str):
         total = jobs.get("total", 0)
         completed = jobs.get("completed", 0)
         failed = jobs.get("failed", 0)
-        success_rate = f"{completed / max(1, total) * 100:.1f}%"
+        canceled = jobs.get("canceled", 0)
+        expired = jobs.get("expired", 0)
+        other = jobs.get("other", 0)
+        pending = jobs.get("pending", 0)
+        # success_rate is over jobs that reached a verdict (completed+failed);
+        # canceled/expired/other/pending are reported separately, not counted
+        # as failures (#2409).
+        resolved = completed + failed
+        success_rate = f"{completed / max(1, resolved) * 100:.1f}%"
         analysis["summary"] = {
             "total_jobs": total,
             "completed": completed,
             "failed": failed,
+            "canceled": canceled,
+            "expired": expired,
+            "other": other,
+            "pending": pending,
             "success_rate": success_rate,
+            "success_rate_basis": "completed / (completed + failed)",
         }
     except _MONITOR_ERRORS as e:
         if isinstance(e, ExpiredClientToken):

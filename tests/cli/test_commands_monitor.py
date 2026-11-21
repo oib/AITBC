@@ -125,6 +125,48 @@ class TestMonitorCommands:
 
         assert result.exit_code == 0, result.output
 
+    pytest.main([__file__, "-v"])
+
+    @patch("aitbc_cli.commands.monitor._monitoring_client")
+    def test_monitor_history_success_rate_and_utc(self, mock_client_factory, runner, mock_config):
+        """#2409: success_rate is over resolved jobs (completed+failed), and
+        since/analyzed_at are timezone-aware UTC — canceled/expired must not
+        read as failures and local-naive timestamps must not skew the window.
+        """
+        import json
+
+        mock_client = mock_client_factory.return_value
+        mock_client.get.return_value = {
+            "jobs": {
+                "total": 10,
+                "completed": 4,
+                "failed": 2,
+                "canceled": 3,
+                "expired": 1,
+                "other": 0,
+                "pending": 0,
+            }
+        }
+
+        from aitbc_cli.commands.monitor import monitor
+
+        result = runner.invoke(
+            monitor,
+            ["history", "--period", "24h"],
+            obj={"output_format": "json", "config": mock_config},
+        )
+
+        assert result.exit_code == 0, result.output
+        body = json.loads(result.output)
+        summary = body["summary"]
+        # 4 / (4+2) = 66.7% — not 4/10 = 40%
+        assert summary["success_rate"] == "66.7%"
+        assert summary["success_rate_basis"] == "completed / (completed + failed)"
+        assert summary["canceled"] == 3
+        assert summary["expired"] == 1
+        assert "+00:00" in body["since"]
+        assert "+00:00" in body["analyzed_at"]
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -90,8 +90,32 @@ def consensus_status_route(request: Request, chain_id: str | None = None) -> dic
             "below_quorum": consensus.quorum_health()["below_quorum"],
         }
         if pbft_enabled:
-            result["current_view"] = consensus._pbft_view
-            result["current_sequence"] = consensus._pbft_sequence
+            # #2409: the persisted ``_pbft_view``/``_pbft_sequence`` snapshots
+            # are never advanced (dead since f3069a3a7) — reporting them as 0
+            # fabricated a halted-looking consensus on a live chain. Derive
+            # the truthful values instead: PBFT sequence IS the sealed height
+            # (``sync_to_head``), and the current view is the proposer round
+            # elapsed since the head block's timestamp.
+            from datetime import UTC, datetime
+
+            from sqlmodel import col, desc, select
+
+            from ...base_models import Block
+            from ...consensus.multi_validator_poa import proposer_round
+            from ...database import session_scope
+
+            with session_scope(chain_id) as session:
+                head = session.exec(
+                    select(Block.height, Block.timestamp)
+                    .where(Block.chain_id == chain_id)
+                    .order_by(desc(col(Block.height)))
+                    .limit(1)
+                ).first()
+            if head is not None:
+                head_height, head_ts = head
+                result["current_sequence"] = int(head_height)
+                round_seconds = int(getattr(settings, "consensus_proposer_round_seconds", 120))
+                result["current_view"] = proposer_round(head_ts, datetime.now(UTC), round_seconds)
             result["current_epoch"] = consensus._current_epoch
         return result
     except RuntimeError:
@@ -121,6 +145,26 @@ def consensus_validators_route(request: Request, chain_id: str | None = None) ->
         consensus.load_state(slashing=False)
         if not consensus.validators:
             return {"validators": [], "chain_id": chain_id, "multi_validator_enabled": False}
+        # #2409: ``ValidatorState.last_proposed`` is never written (dead
+        # since f3069a3a7) — every row read 0 while blocks had real
+        # proposers. Derive it from the sealed chain instead: the highest
+        # block height each validator actually proposed.
+        from sqlmodel import col, func, select
+
+        from ...base_models import Block
+        from ...database import session_scope
+
+        last_proposed: dict[str, int] = {}
+        try:
+            with session_scope(chain_id) as session:
+                rows = session.exec(
+                    select(Block.proposer, func.max(col(Block.height)))
+                    .where(Block.chain_id == chain_id)
+                    .group_by(Block.proposer)
+                ).all()
+            last_proposed = {addr: int(h) for addr, h in rows if addr}
+        except Exception as e:  # noqa: BLE001 - degrade to the stored field, never 500 the list
+            _logger.warning("last_proposed derivation failed for %s: %s", chain_id, e)
         validators = [
             {
                 "address": addr,
@@ -128,7 +172,7 @@ def consensus_validators_route(request: Request, chain_id: str | None = None) ->
                 "reputation": v.reputation,
                 "role": v.role.value,
                 "is_active": v.is_active,
-                "last_proposed": v.last_proposed,
+                "last_proposed": last_proposed.get(addr, v.last_proposed),
             }
             for addr, v in consensus.validators.items()
         ]

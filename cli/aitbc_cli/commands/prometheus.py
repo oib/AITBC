@@ -1262,6 +1262,17 @@ def metric(
             "samples": matched,
             "matched": len(matched),
             "malformed_lines": malformed,
+            # #2409: a recording-rule or alert name (e.g.
+            # aitbc_attestation_arrival_share) exists only inside Prometheus,
+            # never in the node's raw exposition — matched=0 there is not
+            # "metric absent", it is "wrong source". Say so instead of
+            # leaving a bare zero that reads as dead telemetry.
+            "note": (
+                None
+                if matched
+                else "no series in this node's /metrics exposition — recording rules and alert names "
+                "live in Prometheus, not here; try `prometheus query --expr <name>` or `prometheus alerts`"
+            ),
         },
         ctx.obj["output_format"],
     )
