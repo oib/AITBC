@@ -869,3 +869,24 @@ def test_misc_cap_excludes_regenerable_caches(env):
         names = tf.getnames()
     assert any(n.endswith("small.json") for n in names)
     assert not any("big.bin" in n for n in names)
+
+
+def test_zero_byte_db_stray_is_skipped_not_dumped(env):
+    """#2427: a 0-byte *.db under the chain data dir is an accidental
+    sqlite3 creation, not a database — it must not land as a
+    chain_<name>.db.gz artifact (backup-verify then fails the set on
+    "no block table"). Mirrors the svc sweep's existing 0-byte skip."""
+    stray = env.tmp / "chaindata" / "stray.db"
+    stray.write_bytes(b"")
+    nested = env.tmp / "chaindata" / "bc-2"
+    nested.mkdir(exist_ok=True)
+    (nested / "also-stray.db").write_bytes(b"")
+
+    r = _run(env)
+    assert r.returncode == 0
+    arts = _today_artifacts(env)
+    assert "chain_stray.db.gz" not in arts
+    assert "chain_bc-2_also-stray.db.gz" not in arts
+    log = _log(env)
+    assert "SQLite stray.db: skipped (0 bytes)" in log
+    assert "SQLite also-stray.db: skipped (0 bytes)" in log
