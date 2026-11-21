@@ -90,7 +90,7 @@ def register_onchain(
 
         chain_id = resolve_chain_id(ctx, rpc_url)
 
-        from ..utils.gpu_onchain import submit_gpu_register, wait_for_tx
+        from ..utils.gpu_onchain import submit_gpu_register, apply_wait_result
 
         result = submit_gpu_register(
             ctx,
@@ -112,12 +112,7 @@ def register_onchain(
 
         tx_hash = result.get("transaction_hash", result.get("tx_hash"))
         if wait and tx_hash:
-            mined = wait_for_tx(rpc_url, tx_hash)
-            if mined:
-                result["mined"] = True
-                result["block_height"] = mined.get("block_height")
-            else:
-                result["mined"] = False
+            apply_wait_result(result, rpc_url, tx_hash)
 
         success(f"GPU '{gpu_id}' registration transaction submitted")
         output(result, resolve_output_format(ctx, format))
@@ -219,7 +214,7 @@ def deregister_gpu(
 
         chain_id = resolve_chain_id(ctx, rpc_url)
 
-        from ..utils.gpu_onchain import submit_gpu_deregister, wait_for_tx
+        from ..utils.gpu_onchain import submit_gpu_deregister, apply_wait_result
 
         result = submit_gpu_deregister(
             ctx, rpc_url, chain_id, wallet, password, gpu_id, password_file=password_file, password_stdin=password_stdin
@@ -227,12 +222,7 @@ def deregister_gpu(
 
         tx_hash = result.get("transaction_hash", result.get("tx_hash"))
         if wait and tx_hash:
-            mined = wait_for_tx(rpc_url, tx_hash)
-            if mined:
-                result["mined"] = True
-                result["block_height"] = mined.get("block_height")
-            else:
-                result["mined"] = False
+            apply_wait_result(result, rpc_url, tx_hash)
 
         success(f"GPU '{gpu_id}' deregistration transaction submitted")
         output(result, resolve_output_format(ctx, format))
@@ -292,7 +282,7 @@ def allocate_gpu(
             error(f"Invalid client address: {e}")
             raise click.Abort() from e
 
-        from ..utils.gpu_onchain import submit_gpu_allocate, wait_for_tx
+        from ..utils.gpu_onchain import submit_gpu_allocate, apply_wait_result
 
         result = submit_gpu_allocate(
             ctx,
@@ -310,12 +300,7 @@ def allocate_gpu(
 
         tx_hash = result.get("transaction_hash", result.get("tx_hash"))
         if wait and tx_hash:
-            mined = wait_for_tx(rpc_url, tx_hash)
-            if mined:
-                result["mined"] = True
-                result["block_height"] = mined.get("block_height")
-            else:
-                result["mined"] = False
+            apply_wait_result(result, rpc_url, tx_hash)
 
         success(f"GPU allocation transaction submitted for '{gpu_id}'")
         output(result, resolve_output_format(ctx, format))

@@ -205,7 +205,7 @@ def submit_gpu_deregister(
     return _submit_signed_tx(rpc_url, tx)
 
 
-def wait_for_tx(rpc_url: str, tx_hash: str, timeout: float = 30.0, poll_interval: float = 2.0) -> dict[str, Any] | None:
+def wait_for_tx(rpc_url: str, tx_hash: str, timeout: float = 120.0, poll_interval: float = 2.0) -> dict[str, Any] | None:
     """Poll /rpc/transaction/{tx_hash} until the tx is mined or timeout.
 
     Uses a plain ``requests`` call rather than :class:`AITBCHTTPClient`: the
@@ -235,3 +235,22 @@ def wait_for_tx(rpc_url: str, tx_hash: str, timeout: float = 30.0, poll_interval
         # 404 = still pending in the mempool; other statuses are transient.
         time.sleep(poll_interval)
     return None
+
+
+def apply_wait_result(result: dict[str, Any], rpc_url: str, tx_hash: str) -> dict[str, Any]:
+    """Fold a ``--wait`` outcome into the submit response (#2404).
+
+    The submit response can carry a ``warning``/``peer_relay`` pair from the
+    fan-out relay (#2361) that only describes the *submit-time* relay state.
+    Once the transaction is observed sealed that warning is stale — leaving it
+    next to ``"mined": true`` contradicts itself. Drop it on a confirmed seal;
+    on timeout keep ``mined: false`` and the warning, which is then accurate.
+    """
+    mined = wait_for_tx(rpc_url, tx_hash)
+    if mined:
+        result["mined"] = True
+        result["block_height"] = mined.get("block_height")
+        result.pop("warning", None)
+    else:
+        result["mined"] = False
+    return result
