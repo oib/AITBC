@@ -150,27 +150,24 @@ def verify(
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=60, **_zk_auth_kwargs(ctx))
 
         if job_id:
-            receipt = http_client.get(f"/v1/jobs/{job_id}/result")
-            if not receipt:
-                abort(ctx, f"No receipt found for job {job_id}")
-            proof_data = receipt.get("receipt", {}).get("zk_proof")
-            if not proof_data:
-                abort(ctx, f"No ZK proof in receipt for job {job_id}")
-            proof = proof_data.get("proof")
-            public_signals = proof_data.get("public_signals")
-            circuit = proof_data.get("circuit", circuit)
+            # #2422: job-bound verification must go through /receipt/verify —
+            # the server re-derives the expected public signals from stored
+            # job state. POSTing the stored proof to the generic /verify
+            # route is refused for receipt circuits (caller-supplied signals
+            # cannot bind the proof to the job), which broke the documented
+            # `zk verify --job-id` flow.
+            result = http_client.post("/v1/zk/receipt/verify", json={"job_id": job_id})
         else:
             proof = _load_json_or_file(cast(str, proof))
             public_signals = _load_json_or_file(cast(str, public_signals))
-
-        result = http_client.post(
-            "/v1/zk/verify",
-            json={
-                "proof": proof,
-                "public_signals": public_signals,
-                "circuit_name": circuit,
-            },
-        )
+            result = http_client.post(
+                "/v1/zk/verify",
+                json={
+                    "proof": proof,
+                    "public_signals": public_signals,
+                    "circuit_name": circuit,
+                },
+            )
         output(result, resolve_output_format(ctx, format), title="ZK Proof Verification")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
