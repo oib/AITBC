@@ -491,9 +491,9 @@ def get_config(config_file: str | None = None) -> CLIConfig:
             and config_path == cwd_config
         ):
             warnings.warn(
-                "aitbc: using ./.aitbc.yaml from the current directory; it can redirect "
-                "service URLs and credentials. Set AITBC_CONFIG_FILE or move the config "
-                "to ~/.aitbc.yaml to pin its location.",
+                f"aitbc: using {config_path} (./.aitbc.yaml in the current directory); "
+                "it can redirect service URLs and credentials. Set AITBC_CONFIG_FILE or "
+                "move the config to ~/.aitbc.yaml to pin its location.",
                 UserWarning,
                 stacklevel=2,
             )
