@@ -6,6 +6,7 @@ import asyncio
 import os
 import statistics
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -179,24 +180,55 @@ class NodeClient:
             logger.debug("Head endpoint unavailable for chain %s", chain_id, exc_info=True)
         return 0
 
-    def _chain_info_from_id(self, cid: str, block_height: int) -> ChainInfo:
-        """Build the synthesized ChainInfo record for a supported chain id."""
+    def _chain_info_from_id(self, cid: str, block_height: int, rpc_info: dict[str, Any] | None = None) -> ChainInfo:
+        """Build the ChainInfo record for a supported chain id.
+
+        Only fields the node actually publishes are reported (#2408): the
+        chain id, the ``/rpc/head`` height, the ``/rpc/info`` block time, and
+        the on-disk ``chain.db`` size when this CLI runs on the node itself.
+        Counts the RPC does not expose stay 0 rather than carrying the
+        fabricated 50.5MB/3-node/25-client constants that made every chain
+        look identical.
+        """
+        genesis_params = (rpc_info or {}).get("genesis_params") or {}
+        block_time_seconds = genesis_params.get("block_time_seconds")
+        block_time = (
+            int(round(block_time_seconds)) if isinstance(block_time_seconds, (int, float)) and block_time_seconds > 0 else 0
+        )
         return self._parse_chain_info(
             {
                 "id": cid,
-                "name": f"AITBC {cid.split('-')[-1].capitalize()} Chain",
-                "type": "topic" if "health" in cid else "main",
-                "purpose": "specialized" if "health" in cid else "general",
+                "name": cid,
+                "type": "main",
+                "purpose": "unknown",
                 "status": "active",
-                "size_mb": 50.5,
-                "nodes": 3,
-                "smart_contracts": 5,
-                "active_clients": 25,
-                "active_miners": 8,
+                "size_mb": self._local_chain_db_size_mb(cid),
+                "node_count": 0,
+                "active_nodes": 0,
                 "block_height": block_height,
+                "block_time": block_time,
                 "privacy": {"visibility": "public"},
             }
         )
+
+    @staticmethod
+    def _local_chain_db_size_mb(chain_id: str) -> float:
+        """Real on-disk size of the chain store, when measurable locally.
+
+        ``DATA_DIR/data/<chain_id>/chain.db`` is the chain-store convention
+        (``aitbc_chain.config``); the file only exists when the CLI runs on
+        the node itself — for remote endpoints this returns 0.0 (unknown),
+        never a placeholder.
+        """
+        db = Path(os.environ.get("AITBC_DATA_DIR", "/var/lib/aitbc")) / "data" / chain_id / "chain.db"
+        try:
+            return round(db.stat().st_size / (1024 * 1024), 1)
+        except OSError:
+            return 0.0
+
+    async def _fetch_chain_rpc_info(self, chain_id: str) -> dict[str, Any] | None:
+        """Best-effort ``/rpc/info`` payload for real per-chain fields."""
+        return await self._rpc_get_json(self._rpc_url(f"/info?chain_id={chain_id}"))
 
     async def get_hosted_chains(self) -> list[ChainInfo]:
         """Get all chains hosted by this node"""
@@ -206,8 +238,10 @@ class NodeClient:
             chains = await self._get_supported_chains()
             result: list[ChainInfo] = []
             for cid in chains:
-                block_height = await self._fetch_block_height(cid)
-                result.append(self._chain_info_from_id(cid, block_height))
+                rpc_info = await self._fetch_chain_rpc_info(cid)
+                height = (rpc_info or {}).get("height")
+                block_height = int(height) if isinstance(height, (int, float)) else await self._fetch_block_height(cid)
+                result.append(self._chain_info_from_id(cid, block_height, rpc_info))
             return result
         except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:
@@ -231,8 +265,10 @@ class NodeClient:
                 # Non-200 health response — the chain is simply unknown here.
                 return None
             if chain_id in chains:
-                block_height = await self._fetch_block_height(chain_id)
-                return self._chain_info_from_id(chain_id, block_height)
+                rpc_info = await self._fetch_chain_rpc_info(chain_id)
+                height = (rpc_info or {}).get("height")
+                block_height = int(height) if isinstance(height, (int, float)) else await self._fetch_block_height(chain_id)
+                return self._chain_info_from_id(chain_id, block_height, rpc_info)
             return None
         except _NODE_ERRORS as e:
             if not self._dev_mocks_enabled:

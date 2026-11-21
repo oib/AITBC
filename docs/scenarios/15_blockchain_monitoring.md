@@ -329,7 +329,7 @@ aitbc blockchain height
 Prints chain configuration and sync state.
 
 ```bash
-aitbc blockchain info --chain-id ait-mainnet
+aitbc blockchain info --chain-id bc-2
 ```
 
 ### Step 10: List chains
@@ -369,7 +369,7 @@ aitbc blockchain sync-status
 Streams new blocks as they arrive.
 
 ```bash
-aitbc blockchain monitor --chain-id ait-mainnet
+aitbc blockchain monitor --chain-id bc-2
 ```
 
 ### Step 15: Consensus status
@@ -572,7 +572,7 @@ aitbc prometheus targets
 
 ### Step 39: Add a node to a chain
 
-`aitbc blockchain add --chain-id ait-mainnet --node-id node-9` is adds a node to chain membership — a validator/fleet operation.
+`aitbc blockchain add --chain-id bc-2 --node-id node-9` is adds a node to chain membership — a validator/fleet operation.
 
 ### Step 40: Create a new chain
 
@@ -580,15 +580,15 @@ aitbc prometheus targets
 
 ### Step 41: Delete a chain
 
-`aitbc blockchain delete --chain-id ait-testnet --force` is deletes chain data — destructive.
+`aitbc blockchain delete --chain-id bc-2 --force` is deletes chain data — destructive.
 
 ### Step 42: Migrate a chain between nodes
 
-`aitbc blockchain migrate --chain-id ait-mainnet --from-node node-a --to-node node-b` is moves a chain instance between nodes — a fleet operation.
+`aitbc blockchain migrate --chain-id bc-2 --from-node node-a --to-node node-b` is moves a chain instance between nodes — a fleet operation.
 
 ### Step 43: Remove a node from a chain
 
-`aitbc blockchain remove --chain-id ait-mainnet --node-id node-9` is removes a node from chain membership — a validator/fleet operation.
+`aitbc blockchain remove --chain-id bc-2 --node-id node-9` is removes a node from chain membership — a validator/fleet operation.
 
 ### Step 44: Restore a chain backup
 
