@@ -1,11 +1,11 @@
 # Governance Voting
 
 **Level**: Beginner
-**Status**: ✅ **Exercised on bc-2 (28 Oct)** — `GOVERNANCE_PROPOSE` @8708 `0xee997ce3…282c`, `GOVERNANCE_VOTE` @8716 `0xdfe148c9…dcd6`, `GOVERNANCE_EXECUTE` @9278 (executor `0xD9CC189c`, `governance_sweep_marker=bc-2-live-exercise` applied)
+**Status**: ✅ **Exercised on bc-2 (28 Oct)** — `GOVERNANCE_PROPOSE` @8708 `0xee997ce3…282c`, `GOVERNANCE_VOTE` @8716 `0xdfe148c9…dcd6`, `GOVERNANCE_EXECUTE` @9278 (executor `0xD9CC189c`, `governance_sweep_marker=bc-2-live-exercise` applied). **Magnitude legs descoped 21 Nov 2026** (operator ruling, decision card 4A) — see the Step 5 note
 **Prerequisites**: [Scenario 16 Agent Registration](./16_agent_registration.md)
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-08-21
-**Version**: 1.3
+**Last Updated**: 2026-11-21
+**Version**: 1.4
 
 ## Navigation Path
 
@@ -231,6 +231,18 @@ aitbc stake --amount 2 --duration 90 --wallet-name <wallet>
 ```
 
 **Expected output:** a queued `STAKE_LOCK` transaction hash; the stake lands when the transaction seals into a block. `aitbc wallet staking-info` shows it as active once confirmed.
+
+> **Descoped magnitude legs (operator ruling, 21 Nov 2026 — decision
+> card 4A):** the scenario's AIT-scale magnitudes — the original
+> 2000-AIT `aitbc stake` probe and the 1000-unit
+> `operations governance delegate` amount in Step 6 — exceed every
+> fleet wallet balance and are infeasible without a treasury top-up,
+> so both are descoped. What stands as evidence is the doc-scaled
+> `--amount 2` stake leg plus the governance legs already exercised:
+> the bc-2 live sweep (`GOVERNANCE_PROPOSE`/`VOTE`/`EXECUTE` sealed,
+> see the Status line) and the 20 Nov read-only pass
+> (`governance status`/`list` — the swept proposal is `executed`, so
+> no open close/execute leg remains).
 
 ### Step 6: Delegate Voting Power
 
@@ -478,5 +490,5 @@ aitbc governance get --proposal-id prop-001
 
 ---
 
-*Last updated: 2026-08-21*
-*Version: 1.3*
+*Last updated: 2026-11-21*
+*Version: 1.4 — magnitude legs (2000-AIT stake probe, 1000-unit delegate) descoped per operator ruling 21 Nov 2026 (decision card 4A); bc-2 exercise + read-only legs remain the evidence.*
