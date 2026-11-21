@@ -21,7 +21,9 @@ from eth_keys.exceptions import BadSignature
 from eth_utils.exceptions import ValidationError as EthValidationError
 
 from ...config import get_config
-from ...utils import output, resolve_output_format, success, warning
+from ...utils import resolve_output_format, success, warning
+from ...utils.output import output as _utils_output
+from ...utils.redact import redact_secrets
 from ...utils.chain_id import resolve_chain_id
 from ...utils.agent_identity_resolve import resolve_escrow_parties
 from ...utils.escrow import create_signed_escrow_lock, get_buyer_nonce, get_node_wallet
@@ -59,6 +61,18 @@ _OPS_ERRORS = (
     BadSignature,
     EthValidationError,
 )
+
+
+def output(message, format=None, title=None, *, disable_numparse: bool = False, **kwargs):
+    """``utils.output`` with credential fields masked before rendering (#2355).
+
+    Coordinator job records embed the per-job shop-gate credential pair
+    (``payload.access_key``/``payload.access_secret``); ``redact_secrets``
+    masks secret-named keys in the structured payload up front, so every
+    renderer — including the table path, which falls back to JSON for nested
+    records — is covered.
+    """
+    return _utils_output(redact_secrets(message), format, title, disable_numparse=disable_numparse, **kwargs)
 
 
 def _post_idempotent(
