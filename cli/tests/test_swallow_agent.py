@@ -210,7 +210,7 @@ def test_request_coins_transferred_rc0(runner):
     """Happy path: COINS_TRANSFERRED stays exit 0."""
     frames = [
         {"type": "connection_established"},
-        {"type": "COINS_TRANSFERRED", "transaction_hash": "0xtx", "amount": 3},
+        {"type": "COINS_TRANSFERRED", "transaction_hash": "0xtx", "amount": 108000000},
     ]
     result = _invoke_request_coins(runner, frames)
     assert result.exit_code == 0

@@ -138,10 +138,11 @@ def test_rate_rejects_an_out_of_range_rating_before_any_request(runner, monkeypa
 class _CaptureClient:
     """Records the base_url passed to AITBCHTTPClient and returns a fixed response."""
 
-    def __init__(self, base_url: str, timeout: int = 10, headers: dict | None = None):
+    def __init__(self, base_url: str, timeout: int = 10, headers: dict | None = None, api_key: str | None = None):
         self.base_url = base_url
         self.timeout = timeout
         self.headers = headers
+        self.api_key = api_key
 
     def get(self, *args, **kwargs):
         return {"service_info": {"avg_rating": 5.0, "rating_count": 1}, "ratings": []}

@@ -150,7 +150,7 @@ class TestStatusPendingLookup:
             )
         assert result.exit_code != 0
         assert "not found" in result.output.lower()
-        assert "mempool" in result.output.lower()
+        assert "pending" in result.output.lower()
 
     def test_status_pending_lookup_failure_still_reports_not_found(self):
         """If /rpc/pending itself fails, the original 404 stands."""

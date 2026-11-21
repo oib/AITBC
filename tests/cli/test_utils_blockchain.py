@@ -71,9 +71,8 @@ class TestGetChainInfo:
         mock_http_client.get.side_effect = Exception("Unexpected error")
         mock_client.return_value = mock_http_client
 
-        result = get_chain_info("http://localhost:8202")
-
-        assert result is None
+        with pytest.raises(Exception, match="Unexpected error"):
+            get_chain_info("http://localhost:8202")
 
 
 class TestGetNetworkStatus:
@@ -116,9 +115,8 @@ class TestGetNetworkStatus:
         mock_http_client.get.side_effect = Exception("Unexpected error")
         mock_client.return_value = mock_http_client
 
-        result = get_network_status("http://localhost:8202")
-
-        assert result is None
+        with pytest.raises(Exception, match="Unexpected error"):
+            get_network_status("http://localhost:8202")
 
 
 class TestGetBlockchainAnalytics:
@@ -191,9 +189,8 @@ class TestGetBlockchainAnalytics:
         mock_http_client.get.side_effect = Exception("Unexpected error")
         mock_client.return_value = mock_http_client
 
-        result = get_blockchain_analytics("blocks")
-
-        assert result is None
+        with pytest.raises(Exception, match="Unexpected error"):
+            get_blockchain_analytics("blocks")
 
 
 if __name__ == "__main__":

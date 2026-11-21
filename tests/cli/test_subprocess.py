@@ -59,21 +59,19 @@ class TestRunSubprocess:
     @patch("aitbc_cli.utils.subprocess.subprocess.run")
     @patch("aitbc_cli.utils.subprocess.sys.exit")
     def test_run_subprocess_generic_exception_with_check(self, mock_exit, mock_run):
-        """Test generic exception with check=True"""
+        """Generic exceptions propagate — #1860 narrowed the handler."""
         mock_run.side_effect = Exception("Unexpected error")
 
-        run_subprocess(["cmd"], check=True)
-
-        mock_exit.assert_called_once_with(1)
+        with pytest.raises(Exception, match="Unexpected error"):
+            run_subprocess(["cmd"], check=True)
 
     @patch("aitbc_cli.utils.subprocess.subprocess.run")
     def test_run_subprocess_generic_exception_without_check(self, mock_run):
-        """Test generic exception with check=False"""
+        """Generic exceptions propagate — #1860 narrowed the handler."""
         mock_run.side_effect = Exception("Unexpected error")
 
-        result = run_subprocess(["cmd"], check=False)
-
-        assert result is None
+        with pytest.raises(Exception, match="Unexpected error"):
+            run_subprocess(["cmd"], check=False)
 
     @patch("aitbc_cli.utils.subprocess.subprocess.run")
     def test_run_subprocess_shell_always_false(self, mock_run):

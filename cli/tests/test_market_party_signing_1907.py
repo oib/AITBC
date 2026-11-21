@@ -110,6 +110,11 @@ def test_gpu_refund_posts_signed_payload(market_wallet, monkeypatch):
         def __init__(self, *args, **kwargs):
             pass
 
+        def get(self, *args, **kwargs):
+            # Coordinator has no payment record for the job — refund falls
+            # through to the market-service path under test.
+            return {}
+
         def post(self, path, json=None):
             posted["path"] = path
             posted["json"] = json

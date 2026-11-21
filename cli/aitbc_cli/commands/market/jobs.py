@@ -149,7 +149,8 @@ def _new_sw_job_id() -> str:
 
 def _market_api_key(ctx: click.Context | None) -> str | None:
     """Market API key: the group's ``--api-key`` wins over env/config."""
-    override = (ctx.obj or {}).get("market_api_key") if ctx is not None else None
+    obj = getattr(ctx, "obj", None) or {}
+    override = obj.get("market_api_key")
     if override:
         return str(override)
     return _resolve_market_api_key(get_config())

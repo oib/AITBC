@@ -139,7 +139,7 @@ class TestAuthClientKwargs:
         with patch("aitbc_cli.auth.AuthManager") as mgr_cls:
             mgr_cls.return_value.get_admin_token.return_value = "eyJhIiwiYiJ9.eyJ4In0=.c2ln"
             kwargs = auth_client_kwargs(None, "cfg-key", credential="admin")
-        mgr_cls.return_value.get_admin_token.assert_called_once_with()
+        mgr_cls.return_value.get_admin_token.assert_called_once_with(warn_within_seconds=None)
         assert kwargs["headers"]["Authorization"].startswith("Bearer ")
 
 

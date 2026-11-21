@@ -167,7 +167,8 @@ class TestWalletDaemonClient:
 
         client = WalletDaemonClient(config)
 
-        assert client.is_available() is False
+        with pytest.raises(Exception, match="Unexpected error"):
+            client.is_available()
 
     @patch("aitbc_cli.utils.wallet_daemon_client.AITBCHTTPClient")
     def test_get_status_success(self, mock_client):
@@ -224,10 +225,8 @@ class TestWalletDaemonClient:
 
         client = WalletDaemonClient(config)
 
-        status = client.get_status()
-
-        assert status["status"] == "error"
-        assert "error" in status
+        with pytest.raises(Exception, match="Unexpected error"):
+            client.get_status()
 
 
 if __name__ == "__main__":

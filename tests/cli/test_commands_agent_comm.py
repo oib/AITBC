@@ -111,10 +111,11 @@ class TestAgentCommCommands:
         mock_client.get.assert_called_once()
         assert "/v1/agents/agent-001" == mock_client.get.call_args[0][0]
 
-    @patch("aitbc_cli.commands.agent_comm.signed_request_headers", return_value={"X-Agent-Id": "agent-001"})
-    @patch("aitbc_cli.commands.agent_comm.load_signing_wallet", return_value=("0xabc", "0xkey"))
+    # signed_read_headers resolves the wallet through agent_signing's own
+    # module global — patching the agent_comm re-export never reaches it.
+    @patch("aitbc_cli.utils.agent_signing.load_signing_wallet", return_value=("0xabc", "0x" + "11" * 32))
     @patch("aitbc_cli.commands.agent_comm.AITBCHTTPClient")
-    def test_agent_comm_status_signed_read_headers(self, mock_http_class, _mock_wallet, _mock_headers, runner, mock_config):
+    def test_agent_comm_status_signed_read_headers(self, mock_http_class, _mock_wallet, runner, mock_config):
         """#2212: --wallet signs read requests with X-Agent-* headers."""
         mock_client = mock_http_class.return_value
         mock_client.get.return_value = {"agent": {"agent_id": "agent-001"}}
@@ -130,9 +131,12 @@ class TestAgentCommCommands:
         )
 
         assert result.exit_code == 0, result.output
-        assert mock_client.get.call_args.kwargs["headers"] == {"X-Agent-Id": "agent-001"}
+        headers = mock_client.get.call_args.kwargs["headers"]
+        assert headers["X-Agent-Id"] == "agent-001"
+        # #2363: signed reads also carry nonce/timestamp/signature proof fields.
+        assert {"X-Agent-Nonce", "X-Agent-Timestamp", "X-Agent-Signature"} <= set(headers)
 
-    @patch("aitbc_cli.commands.agent_comm.load_signing_wallet", return_value=("0xabc", "0xkey"))
+    @patch("aitbc_cli.utils.agent_signing.load_signing_wallet", return_value=("0xabc", "0x" + "11" * 32))
     @patch("aitbc_cli.commands.agent_comm.AITBCHTTPClient")
     def test_agent_comm_list_wallet_requires_signing_agent_id(self, mock_http_class, _mock_wallet, runner, mock_config):
         """#2212: --wallet without a signing identity fails loudly, not unsigned."""

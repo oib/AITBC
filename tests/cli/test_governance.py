@@ -53,10 +53,19 @@ class TestGovernanceCommands:
 
     @pytest.fixture(autouse=True)
     def mock_http(self):
-        """Mock AITBCHTTPClient for blockchain RPC calls"""
-        with patch("aitbc_cli.commands.operations.AITBCHTTPClient") as mock_http_class:
+        """Mock AITBCHTTPClient for blockchain RPC and governance-service calls.
+
+        Governance routes build their client through
+        ``aitbc_cli.commands.governance._get_client`` (#1873 auth), so both
+        module bindings must be stubbed or the calls hit the real :8105.
+        """
+        with (
+            patch("aitbc_cli.commands.operations.AITBCHTTPClient") as mock_http_class,
+            patch("aitbc_cli.commands.governance.AITBCHTTPClient") as mock_gov_class,
+        ):
             mock_instance = Mock()
             mock_http_class.return_value = mock_instance
+            mock_gov_class.return_value = mock_instance
             mock_instance.post.return_value = {"proposal_id": "prop_123", "status": "active", "tx_hash": "0xabc123"}
             mock_instance.get.return_value = {
                 "proposal_id": "prop_123",

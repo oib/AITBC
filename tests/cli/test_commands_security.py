@@ -72,37 +72,37 @@ class TestSecurityCommands:
         assert result.exit_code == 0, result.output
         assert "security_patch" in result.output or "Security Patch" in result.output
 
-    def test_security_patch_reports_simulated_not_completed(self, runner):
-        """#2220: the patch stub must say simulated — 'completed' implied
-        patches were really applied."""
+    def test_security_patch_reports_live_not_completed(self, runner):
+        """patch applies real local remediations — status is "live" and must
+        never read "completed"."""
         from aitbc_cli.commands.security import security
 
         result = runner.invoke(security, ["patch"], obj={"output_format": "json"})
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.stdout)
-        assert data["status"] == "simulated"
+        assert data["status"] == "live"
         assert data["status"] != "completed"
 
-    def test_security_scan_reports_simulated(self, runner):
-        """#2220: scan is a static stub — label it simulated like compliance check."""
+    def test_security_scan_reports_live(self, runner):
+        """scan runs real local checks — status is "live", not simulated."""
         from aitbc_cli.commands.security import security
 
         result = runner.invoke(security, ["scan"], obj={"output_format": "json"})
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.stdout)
-        assert data["status"] == "simulated"
+        assert data["status"] == "live"
 
-    def test_security_audit_reports_simulated(self, runner):
-        """#2220: audit returns a hardcoded score — label it simulated."""
+    def test_security_audit_reports_live(self, runner):
+        """audit runs real local checks — status is "live"."""
         from aitbc_cli.commands.security import security
 
         result = runner.invoke(security, ["audit"], obj={"output_format": "json"})
 
         assert result.exit_code == 0, result.output
         data = json.loads(result.stdout)
-        assert data["status"] == "simulated"
+        assert data["status"] == "live"
 
 
 if __name__ == "__main__":

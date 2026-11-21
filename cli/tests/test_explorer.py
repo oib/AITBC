@@ -362,8 +362,8 @@ def test_activity_timeline_success(runner, mock_client):
     mock_client.get.return_value = {"timeline": [{"date": "2026-01-01", "count": 42}]}
     result = runner.invoke(explorer, ["activity-timeline"])
     assert result.exit_code == 0
-    assert "Activity timeline for 24h" in result.output
-    mock_client.get.assert_called_once_with("/api/analytics/activity", params={"period": "24h"})
+    assert "Activity timeline for the last 30 days" in result.output
+    mock_client.get.assert_called_once_with("/api/analytics/activity", params={"days": 30})
 
 
 def test_activity_timeline_custom_period(runner, mock_client):
@@ -373,8 +373,8 @@ def test_activity_timeline_custom_period(runner, mock_client):
     mock_client.get.return_value = {"timeline": []}
     result = runner.invoke(explorer, ["activity-timeline", "--period", "7d"])
     assert result.exit_code == 0
-    assert "Activity timeline for 7d" in result.output
-    mock_client.get.assert_called_once_with("/api/analytics/activity", params={"period": "7d"})
+    assert "Activity timeline for the last 7 days" in result.output
+    mock_client.get.assert_called_once_with("/api/analytics/activity", params={"days": 7})
 
 
 def test_activity_timeline_empty(runner, mock_client):

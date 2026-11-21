@@ -64,7 +64,8 @@ http://hub:8202` (or rely on config) on every call.
 
 ```bash
 RPC=http://hub:8202   # node RPC on hub
-aitbc bounty <cmd> --rpc-url "$RPC" --wallet-name <operator-wallet>
+aitbc bounty deploy --bounty-id <id> --amount 1 --rpc-url "$RPC" --wallet-name <operator-wallet>
+# every bounty command takes --rpc-url/--chain-id/--wallet-name via its operator options
 ```
 
 ### Step 1: Confirm the gate is open

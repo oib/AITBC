@@ -113,13 +113,13 @@ class TestGetChainIdFromHealth:
 
     @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
     def test_get_chain_id_from_health_generic_error(self, mock_client_class, monkeypatch):
-        """Test chain ID detection with generic error"""
+        """Generic (non-AITBC) errors propagate — #1860 narrowed the handler
+        so programmer errors are not silently swallowed as "no chain id"."""
         monkeypatch.delenv("CHAIN_ID", raising=False)
         mock_client_class.side_effect = Exception("Unexpected error")
 
-        result = get_chain_id_from_health("http://localhost:8202")
-
-        assert result == ""  # Fallback to empty string (no default)
+        with pytest.raises(Exception, match="Unexpected error"):
+            get_chain_id_from_health("http://localhost:8202")
 
     @patch("aitbc_cli.utils.chain_id.AITBCHTTPClient")
     def test_get_chain_id_from_health_custom_timeout(self, mock_client_class):

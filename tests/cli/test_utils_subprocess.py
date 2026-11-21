@@ -80,10 +80,8 @@ class TestRunSubprocess:
 
         mock_run.side_effect = Exception("Unexpected error")
 
-        run_subprocess(["cmd"], check=True)
-
-        mock_error.assert_called_once()
-        mock_exit.assert_called_once_with(1)
+        with pytest.raises(Exception, match="Unexpected error"):
+            run_subprocess(["cmd"], check=True)
 
     @patch("aitbc_cli.utils.subprocess.subprocess.run")
     @patch("aitbc_cli.utils.subprocess.error")
@@ -93,10 +91,8 @@ class TestRunSubprocess:
 
         mock_run.side_effect = Exception("Unexpected error")
 
-        result = run_subprocess(["cmd"], check=False)
-
-        assert result is None
-        mock_error.assert_called_once()
+        with pytest.raises(Exception, match="Unexpected error"):
+            run_subprocess(["cmd"], check=False)
 
     @patch("aitbc_cli.utils.subprocess.subprocess.run")
     @patch("aitbc_cli.utils.subprocess.error")
