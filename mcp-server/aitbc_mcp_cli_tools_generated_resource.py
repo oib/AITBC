@@ -27,7 +27,12 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_resource_allocate(
-    agent_id: Annotated[str, Field(description="Agent ID to allocate resources for")],
+    agent_id: Annotated[
+        str,
+        Field(
+            description="Coordinator agent identity ID bound to your wallet (the agent_id from agent register/identity, not a display name)."
+        ),
+    ],
     cpu_cores: Annotated[float | None, Field(description="Requested CPU cores")] = None,
     memory_gb: Annotated[float | None, Field(description="Requested memory (GB)")] = None,
     gpu_count: Annotated[float | None, Field(description="Requested GPU count")] = None,
@@ -145,7 +150,12 @@ def aitbc_resource_deallocate(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_resource_optimize(
-    agent_id: Annotated[str, Field(description="Agent ID to optimize")],
+    agent_id: Annotated[
+        str,
+        Field(
+            description="Coordinator agent identity ID bound to your wallet (the agent_id from agent register/identity, not a display name)."
+        ),
+    ],
     target_metric: Annotated[
         Literal[
             "accuracy",

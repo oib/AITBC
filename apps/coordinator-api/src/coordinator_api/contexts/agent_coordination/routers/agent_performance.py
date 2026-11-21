@@ -63,7 +63,17 @@ def _require_agent_access(session: Session, user: dict[str, Any], agent_id: str)
     identity = session.exec(select(AgentIdentity).where(AgentIdentity.agent_id == agent_id)).first()
     if identity is not None and str(identity.owner_address).lower() in _caller_wallets(session, user):
         return
-    raise HTTPException(status_code=403, detail="not the agent owner")
+    # #2418: name the failing check — "not the agent owner" alone cannot
+    # distinguish an unregistered agent_id from a wrong-wallet caller.
+    if identity is None:
+        raise HTTPException(
+            status_code=403,
+            detail=f"no agent identity registered for agent_id '{agent_id}'",
+        )
+    raise HTTPException(
+        status_code=403,
+        detail=f"agent '{agent_id}' is owned by a different wallet ({identity.owner_address})",
+    )
 
 
 def _require_admin(user: dict[str, Any]) -> None:

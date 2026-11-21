@@ -77,7 +77,11 @@ def resource():
 
   aitbc resource allocate --agent-id agent-1 --gpu-count 1 --gpu-memory-gb 24 --priority high"""
 )
-@click.option("--agent-id", required=True, help="Agent ID to allocate resources for")
+@click.option(
+    "--agent-id",
+    required=True,
+    help="Coordinator agent identity ID bound to your wallet (the agent_id from agent register/identity, not a display name).",
+)
 @click.option("--cpu-cores", type=float, help="Requested CPU cores")
 @click.option("--memory-gb", type=float, help="Requested memory (GB)")
 @click.option("--gpu-count", type=float, help="Requested GPU count")
@@ -144,7 +148,11 @@ def allocate(
 
   aitbc resource optimize --agent-id agent-1 --target-metric accuracy --current-accuracy 0.9"""
 )
-@click.option("--agent-id", required=True, help="Agent ID to optimize")
+@click.option(
+    "--agent-id",
+    required=True,
+    help="Coordinator agent identity ID bound to your wallet (the agent_id from agent register/identity, not a display name).",
+)
 @click.option(
     "--target-metric",
     type=click.Choice(_PERFORMANCE_METRICS),
