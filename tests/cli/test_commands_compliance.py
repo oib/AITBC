@@ -188,7 +188,7 @@ class TestComplianceExportAudit:
         )
         config = MagicMock(coordinator_api_url="http://node.test", timeout=30, api_key=None)
         client = MagicMock()
-        client.get.return_value = [{"action": "access"}]
+        client.get_json.return_value = [{"action": "access"}]
         target = tmp_path / "audit.json"
         with (
             patch("aitbc_cli.commands.compliance.get_config", return_value=config),
@@ -206,7 +206,7 @@ class TestComplianceExportAudit:
         assert ctor.call_args.kwargs["headers"] == {
             "Authorization": "Bearer eyJhbGciOi.fake.token"
         }
-        client.get.assert_called_once_with("/v1/compliance/audit-logs")
+        client.get_json.assert_called_once_with("/v1/compliance/audit-logs")
 
     def test_export_audit_uses_admin_credential(self, runner, tmp_path, monkeypatch):
         """#2377: GET /v1/compliance/audit-logs is AdminDep — export-audit must
@@ -225,7 +225,7 @@ class TestComplianceExportAudit:
         monkeypatch.setattr(compliance_mod, "auth_client_kwargs", spy)
         config = MagicMock(coordinator_api_url="http://node.test", timeout=30, api_key=None)
         client = MagicMock()
-        client.get.return_value = []
+        client.get_json.return_value = []
         target = tmp_path / "audit.json"
         with (
             patch("aitbc_cli.commands.compliance.get_config", return_value=config),
@@ -239,7 +239,7 @@ class TestComplianceExportAudit:
 
         assert result.exit_code == 0, result.output
         assert seen == ["admin"]
-        client.get.assert_called_once_with("/v1/compliance/audit-logs")
+        client.get_json.assert_called_once_with("/v1/compliance/audit-logs")
         assert '"status": "exported"' in result.output
 
 
