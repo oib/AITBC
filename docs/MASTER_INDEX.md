@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1531
+- **Markdown files under docs/**: 1532
 
 | Directory | Files | Description |
 |---|---|---|
@@ -87,7 +87,7 @@ docs/
 | [market](market/) | 16 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
-| [ops](ops/) | 51 | Operational runbooks and key handling |
+| [ops](ops/) | 52 | Operational runbooks and key handling |
 | [policy](policy/) | 1 | Operator-approved policies (content, terms) |
 | [reference](reference/) | 16 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 313 | Release notes, changelogs, and status |
@@ -1162,6 +1162,7 @@ Inbound markdown links per document (top referrers).
 | [ops/follower-api-key.md](ops/follower-api-key.md) | [README.md](README.md) |
 | [ops/governance-leg-executor-runbook.md](ops/governance-leg-executor-runbook.md) | — |
 | [ops/island-subscription-check.md](ops/island-subscription-check.md) | [README.md](README.md) |
+| [ops/key-rotation-batch-1-runbook.md](ops/key-rotation-batch-1-runbook.md) | — |
 | [ops/legacy-escrow-residue-payout.md](ops/legacy-escrow-residue-payout.md) | [README.md](README.md) |
 | [ops/manual-refund-runbook.md](ops/manual-refund-runbook.md) | [README.md](README.md) |
 | [ops/mcp-agent-economics-tools.md](ops/mcp-agent-economics-tools.md) | [README.md](README.md), [decisions/README.md](decisions/README.md) |
