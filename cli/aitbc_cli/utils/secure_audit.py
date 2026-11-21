@@ -4,11 +4,14 @@ Provides cryptographic integrity for audit logs
 """
 
 import json
+import logging
 import os
 import secrets
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
+
+logger = logging.getLogger(__name__)
 
 
 class SecureAuditLogger:
@@ -121,7 +124,7 @@ class SecureAuditLogger:
         entry = {
             "timestamp": datetime.now(UTC).isoformat(),
             "action": action,
-            "user": user or "unknown",
+            "user": user or _current_user(),
             "details": details or {},
             "nonce": secrets.token_hex(16),
         }
@@ -336,6 +339,27 @@ class SecureAuditLogger:
         }
 
 
+def _current_user() -> str:
+    """Best-effort username recorded on audit entries.
+
+    Prefers the real uid's passwd entry (``pwd.getpwuid``) over env-var
+    names so ``LOGNAME``/``USER`` spoofing cannot rewrite the trail;
+    falls back to ``getpass.getuser()`` and finally ``"unknown"``.
+    """
+    try:
+        import pwd
+
+        return pwd.getpwuid(os.getuid()).pw_name
+    except (ImportError, KeyError, OSError, AttributeError):
+        pass
+    try:
+        import getpass
+
+        return getpass.getuser()
+    except Exception:  # noqa: BLE001 - getuser raises when no env identity exists
+        return "unknown"
+
+
 # Global secure audit logger instance
 secure_audit_logger = SecureAuditLogger()
 
@@ -344,6 +368,19 @@ secure_audit_logger = SecureAuditLogger()
 def log_action(action: str, details: dict[str, Any] | None = None, user: str | None = None):
     """Log an action with secure audit logger"""
     secure_audit_logger.log(action, details, user)
+
+
+def try_log_action(action: str, details: dict[str, Any] | None = None, user: str | None = None) -> None:
+    """Best-effort :func:`log_action` — never raises.
+
+    Commands call this *after* their sensitive work has already succeeded.
+    An unwritable ``~/.aitbc/audit`` must not fail the operation itself;
+    ``aitbc security audit`` surfaces a missing or broken trail separately.
+    """
+    try:
+        log_action(action, details, user)
+    except (OSError, ValueError, TypeError, KeyError, AttributeError, RuntimeError, ImportError) as e:
+        logger.debug("audit log write failed for %r (ignored): %s", action, e)
 
 
 def verify_audit_integrity() -> tuple[bool, list[str]]:

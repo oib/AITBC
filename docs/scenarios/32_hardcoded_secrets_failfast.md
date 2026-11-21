@@ -58,6 +58,8 @@ aitbc security scan
 
 **Expected output:** a passing audit (live `<node2>`: score A+, 0 vulnerabilities). The audit is the operator-visible signal that production secrets are not defaults.
 
+Sensitive CLI operations also append to a tamper-evident, hash-chained audit trail under `~/.aitbc/audit/` of the invoking user — `security patch`, wallet create/import/export/backup/restore/delete/send, `config set-secret`, `auth login`/`logout`, and `compliance export-audit`. Entries record the action and non-sensitive details (wallet/key names, paths, addresses) — never key material, passwords, or secret values. The log is per-user: `root` and the `aitbc` service account keep separate trails, so check the audit directory of whichever user ran the command.
+
 ### Step 2: Config check (redacted)
 
 ```bash

@@ -190,6 +190,15 @@ def create(
         ctx.obj.get("output_format", "table"),
     )
 
+    # Audit the key-material creation (#2421) — name/type/address only,
+    # never the private key or its password.
+    from ...utils.secure_audit import try_log_action
+
+    try_log_action(
+        "wallet_create",
+        {"wallet": name, "type": wallet_type, "encrypted": not no_encrypt, "address": address},
+    )
+
 
 @wallet.command(
     epilog="""Examples:
@@ -345,6 +354,12 @@ def delete(ctx, name: str, confirm: bool):
             with open(config_file, "w") as f:
                 yaml.dump(config, f, default_flow_style=False)
 
+    # Audit the wallet/key-material deletion (#2421). Reached only after the
+    # file is unlinked — a declined confirm or missing wallet returns early.
+    from ...utils.secure_audit import try_log_action
+
+    try_log_action("wallet_delete", {"wallet": name})
+
 
 @wallet.command(
     epilog="""Examples:
@@ -386,6 +401,11 @@ def backup(ctx, name: str, destination: str | None):
         },
         resolve_output_format(ctx),
     )
+
+    # Audit the key-material copy-out (#2421) — paths only, never contents.
+    from ...utils.secure_audit import try_log_action
+
+    try_log_action("wallet_backup", {"wallet": name, "backup_path": destination})
 
 
 @wallet.command(
@@ -484,6 +504,14 @@ def restore(ctx, backup_path: str, name: str, force: bool, password_file: str | 
             "address": wallet_data["address"],
         },
         resolve_output_format(ctx),
+    )
+
+    # Audit the key-material restore (#2421) — never the key or password.
+    from ...utils.secure_audit import try_log_action
+
+    try_log_action(
+        "wallet_restore",
+        {"wallet": name, "restored_from": backup_path, "re_encrypted": wants_encryption},
     )
 
 
@@ -1106,6 +1134,24 @@ def send(
     tx_hash = _submit_send_transaction(ctx, rpc_url, transaction)
     receipt = _wait_send_seal(ctx, rpc_url, tx_hash, wait_seal)
     _emit_send_result(ctx, tx_hash, sender_address, to_address, amount, fee, chain_id, receipt)
+
+    # Audit the signed funds movement (#2421) — addresses/amounts/hashes
+    # only; the private key and password never leave the signing path.
+    from ...utils.secure_audit import try_log_action
+
+    try_log_action(
+        "wallet_send",
+        {
+            "wallet": wallet_name,
+            "from": sender_address,
+            "to": to_address,
+            "amount": str(amount),
+            "fee": str(fee),
+            "chain_id": chain_id,
+            "tx_hash": tx_hash,
+            "sealed": receipt is not None,
+        },
+    )
     return 0
 
 

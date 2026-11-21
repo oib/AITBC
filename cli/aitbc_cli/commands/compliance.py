@@ -186,6 +186,15 @@ def export_audit(ctx, output_file: str):
             "status": "simulated" if client is None else "exported",
         }
         output(result, ctx.obj.get("output_format", "table"), title="Audit Export")
+
+        # Audit the compliance-records export (#2421) — counts and the
+        # destination path only, never the records themselves.
+        from ..utils.secure_audit import try_log_action
+
+        try_log_action(
+            "compliance_export_audit",
+            {"output_file": output_file, "record_count": result["record_count"], "status": result["status"]},
+        )
     except ExpiredAdminToken as e:
         abort(ctx, str(e), from_exception=e)
     except NetworkError as e:

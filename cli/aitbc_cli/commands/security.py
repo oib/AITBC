@@ -458,6 +458,15 @@ def patch(ctx):
                 {"check": check, "target": str(path), "action": action, "detail": detail, "before": before, "after": after}
             )
 
+        # Record the patch run in the tamper-evident audit trail (#2421).
+        # Counts only — per-target detail is already in the command output.
+        from ..utils.secure_audit import try_log_action
+
+        try_log_action(
+            "security_patch",
+            {"applied": counts["applied"], "skipped": counts["skipped"], "failed": counts["failed"]},
+        )
+
         output(
             {
                 "action": "security_patch",

@@ -273,6 +273,11 @@ def export(ctx, destination: str | None):
             },
             ctx.obj.get("output_format", "table"),
         )
+
+        # Audit the key-material copy-out (#2421) — paths only, never contents.
+        from ...utils.secure_audit import try_log_action
+
+        try_log_action("wallet_export", {"wallet": wallet_name, "exported_to": str(export_path)})
     except _WALLET_FILE_ERRORS as e:
         abort(None, f"Error exporting wallet: {e}")
 
@@ -337,6 +342,11 @@ def import_wallet(ctx, file_path: str, name: str | None):
             },
             ctx.obj.get("output_format", "table"),
         )
+
+        # Audit the key-material import (#2421) — name/source path only.
+        from ...utils.secure_audit import try_log_action
+
+        try_log_action("wallet_import", {"wallet": wallet_name, "imported_from": str(import_path)})
     except json.JSONDecodeError:
         abort(None, "Invalid JSON file")
     except _WALLET_FILE_ERRORS as e:

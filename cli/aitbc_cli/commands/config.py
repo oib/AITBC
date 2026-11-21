@@ -668,6 +668,12 @@ def set_secret(ctx, key: str, value: str):
         success(f"Secret '{key}' saved (encoded)")
     output({"key": key, "status": "encoded"}, resolve_output_format(ctx))
 
+    # Audit that a secret was written (#2421) — the key name only,
+    # never the secret value itself.
+    from ..utils.secure_audit import try_log_action
+
+    try_log_action("config_set_secret", {"key": key})
+
 
 @config.command(
     name="get-secret",
