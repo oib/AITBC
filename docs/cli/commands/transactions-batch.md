@@ -2,7 +2,7 @@
 
 # `aitbc transactions batch`
 
-Send multiple transactions from a JSON batch file. Entries are objects ``{"from_wallet", "to_address", "amount", "fee"?}`` with amounts in AIT. Identical entries are rejected as duplicates instead of being reported as two successes for the same on-chain hash.
+Send multiple transactions from a JSON batch. Entries are objects ``{"from_wallet", "to_address", "amount", "fee"?}`` with amounts in AIT. Identical entries are rejected as duplicates instead of being reported as two successes for the same on-chain hash.
 
 ## Usage
 
@@ -14,7 +14,8 @@ aitbc transactions batch [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--transactions-file` | text | — | yes | JSON file with batch transactions |
+| `--transactions-file` | text | — | no | JSON file with batch transactions |
+| `--transactions` | text | — | no | Inline JSON batch (same shape as --transactions-file); exactly one of the two is required |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
 | `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
 | `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
@@ -23,9 +24,9 @@ aitbc transactions batch [OPTIONS]
 ## Examples
 
 ```bash
-aitbc transactions batch --transactions-file <transactions_file>
+aitbc transactions batch
 RPC_URL=http://127.0.0.1:8202/rpc
-aitbc transactions batch --transactions-file <transactions_file> --rpc-url "$RPC_URL"
+aitbc transactions batch --rpc-url "$RPC_URL"
 ```
 
 ## Related

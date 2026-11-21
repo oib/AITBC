@@ -806,6 +806,8 @@ def _process_batch_entry(
 
   aitbc transactions batch --transactions-file /tmp/txs.json --password-file /tmp/pass
 
+  aitbc transactions batch --transactions '[{"from_wallet": "shop", "to_address": "0x...", "amount": 0.1}]'
+
   The batch file is a JSON list of objects with keys:
     from_wallet  — sender wallet name (required)
     to_address   — recipient 0x address (required)
@@ -814,18 +816,40 @@ def _process_batch_entry(
     type         — transaction type (optional, default TRANSFER; same values as `send --type`)
     payload      — JSON object payload for non-standard types (optional, same as `send --payload`)"""
 )
-@click.option("--transactions-file", required=True, help="JSON file with batch transactions")
+@click.option("--transactions-file", help="JSON file with batch transactions")
+@click.option(
+    "--transactions",
+    "transactions_json",
+    help="Inline JSON batch (same shape as --transactions-file); exactly one of the two is required",
+)
 @wallet_password_options
 @click.option("--rpc-url", help="Blockchain RPC URL")
-def batch(transactions_file: str, password: str | None, password_file: str | None, password_stdin: bool, rpc_url: str | None):
-    """Send multiple transactions from a JSON batch file.
+def batch(
+    transactions_file: str | None,
+    transactions_json: str | None,
+    password: str | None,
+    password_file: str | None,
+    password_stdin: bool,
+    rpc_url: str | None,
+):
+    """Send multiple transactions from a JSON batch.
 
     Entries are objects ``{"from_wallet", "to_address", "amount", "fee"?}``
     with amounts in AIT. Identical entries are rejected as duplicates instead
     of being reported as two successes for the same on-chain hash.
     """
-    with open(transactions_file) as f:
-        transactions_data = json.load(f)
+    if bool(transactions_file) == bool(transactions_json):
+        abort(None, "Pass exactly one of --transactions-file or --transactions")
+    if transactions_file:
+        with open(transactions_file) as f:
+            transactions_data = json.load(f)
+    else:
+        try:
+            transactions_data = json.loads(transactions_json or "")
+        except json.JSONDecodeError as e:
+            abort(None, f"--transactions is not valid JSON: {e}")
+    if not isinstance(transactions_data, list):
+        abort(None, "Batch must be a JSON list of transaction objects")
     first_wallet = transactions_data[0].get("from_wallet") if transactions_data else None
     password = resolve_wallet_password(
         first_wallet,

@@ -27,7 +27,11 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_transactions_batch(
-    transactions_file: Annotated[str, Field(description="JSON file with batch transactions")],
+    transactions_file: Annotated[str | None, Field(description="JSON file with batch transactions")] = None,
+    transactions_json: Annotated[
+        str | None,
+        Field(description="Inline JSON batch (same shape as --transactions-file); exactly one of the two is required"),
+    ] = None,
     password_file: Annotated[
         str | None, Field(description="Path to a file containing only the wallet password (mode 0600, owned by you)")
     ] = None,
@@ -38,11 +42,16 @@ def aitbc_transactions_batch(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Send multiple transactions from a JSON batch file."""
+    """Send multiple transactions from a JSON batch."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"transactions_file": "transactions-file", "password_file": "password-file", "rpc_url": "rpc-url"},
+        values={
+            "transactions_file": "transactions-file",
+            "transactions_json": "transactions",
+            "password_file": "password-file",
+            "rpc_url": "rpc-url",
+        },
     )
     args = None
     target = _host_for_role(role, host)
