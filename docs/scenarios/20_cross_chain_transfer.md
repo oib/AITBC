@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: [Scenario 19 Security Setup](./19_security_setup.md)
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-11-20
-**Version**: 1.4
+**Last Updated**: 2026-11-21
+**Version**: 1.5
 
 ## Navigation Path
 
@@ -150,6 +150,10 @@ Swap status: ✅ completed — released on target chain
 
 If the release path is not configured on the target side, `--wait` ends with the honest non-terminal state (e.g. `pending`/`locked`) instead of a fabricated `completed`.
 
+> **Descoped magnitude leg (operator ruling, 21 Nov 2026 — decision
+> card 4A):** the doc-scale 100 AIT amount below is descoped — see the
+> Step 5 note for the ruling and the completed 1-AIT evidence.
+
 ### Step 3: Check Swap Status
 
 Track the progress of a cross-chain swap using the swap ID returned from Step 2.
@@ -240,10 +244,16 @@ Source Tx Hash    0x9f2c...
 Track bridge with: aitbc crosschain bridge-status --bridge-id 0x9f2c...
 ```
 
-> **Fleet affordability (20 Nov 2026):** the 500 AIT leg exceeds every
-> fleet wallet balance — node0's `default` wallet holds ~105 AIT — so
-> this leg is infeasible without a top-up. The 100 AIT swap in Step 2
-> fits marginally.
+> **Descoped magnitude legs (operator ruling, 21 Nov 2026 — decision
+> card 4A):** the doc-scale magnitudes — the 100 AIT swap (Step 2)
+> and the 500 AIT bridge (this step) — exceed fleet wallet balances
+> (node0's `default` wallet holds ~105 AIT; nothing covers 500) and
+> are infeasible without a treasury top-up, so both are descoped. The
+> evidence that stands is the descoped 1-AIT replay of 20 Nov: swap
+> `swap_4b7732b93595` (BRIDGE_LOCK `0x3fbde565…` sealed @bc-2 32324 →
+> BRIDGE_RELEASE `ac97fd56…` @bc-2-island-1 24775, `completed`) and
+> bridge `0xa95b834e…` (BRIDGE_RELEASE `640d4a62…` @24799,
+> `bridge-status` `completed`).
 
 ### Step 6: Check Bridge Transaction Status
 
@@ -562,5 +572,5 @@ aitbc crosschain pools
 
 ---
 
-*Last updated: 2026-11-20*
-*Version: 1.4 — GAP-47: swap/bridge now submit signed real BRIDGE_LOCK transactions; statuses come from the genuine bridge lifecycle (`pending`/`locked`/`confirmed`/`completed`/`failed`/`refunded`), `--wait` polls real status, and `crosschain confirm` relays a pending transfer with its Merkle proof. v1.4: examples moved off the impossible same-chain bc-2→bc-2 pair to the verified bc-2→bc-2-island-1 lane (CLI refuses identical chains).*
+*Last updated: 2026-11-21*
+*Version: 1.5 — magnitude legs (100 AIT swap, 500 AIT bridge) descoped per operator ruling 21 Nov 2026 (decision card 4A); the completed 1-AIT replay legs are the evidence. v1.4: GAP-47: swap/bridge now submit signed real BRIDGE_LOCK transactions; statuses come from the genuine bridge lifecycle (`pending`/`locked`/`confirmed`/`completed`/`failed`/`refunded`), `--wait` polls real status, and `crosschain confirm` relays a pending transfer with its Merkle proof. v1.4: examples moved off the impossible same-chain bc-2→bc-2 pair to the verified bc-2→bc-2-island-1 lane (CLI refuses identical chains).*
