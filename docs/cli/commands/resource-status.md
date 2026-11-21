@@ -14,9 +14,13 @@ aitbc resource status [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--agent-id` | text | — | no | Filter by agent ID |
+| `--agent-id` | text | — | no | Filter by coordinator agent id (the id `aitbc agent list`/`agent create` shows, not the local config name); the caller must own it |
 | `--status` | choice | — | no | Filter by allocation status |
 | `--limit` | integer | `50` | no | Max allocations to list |
+| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
+| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
+| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
+| `--wallet` | text | — | no | Wallet the agent is identity-bound to (same as `agent register --wallet`); mints an agent-session JWT the owner check accepts (#2418) |
 
 ## Examples
 

@@ -39,7 +39,7 @@ class _ArrayClient:
 
 
 def test_resource_status_accepts_array_response(runner, monkeypatch):
-    monkeypatch.setattr(res_mod, "_client", lambda: _ArrayClient())
+    monkeypatch.setattr(res_mod, "_client", lambda *a, **k: _ArrayClient())
     result = runner.invoke(res_mod.resource, obj={"output_format": "table"}, args=["status"])
     assert result.exit_code == 0
     assert "alloc-1" in result.output
@@ -51,7 +51,7 @@ def test_resource_status_empty_array(runner, monkeypatch):
         def get_json(self, endpoint, params=None):
             return []
 
-    monkeypatch.setattr(res_mod, "_client", lambda: _Empty())
+    monkeypatch.setattr(res_mod, "_client", lambda *a, **k: _Empty())
     result = runner.invoke(res_mod.resource, obj={"output_format": "table"}, args=["status"])
     assert result.exit_code == 0
 
@@ -63,7 +63,7 @@ def test_resource_status_wrapped_object_shape(runner, monkeypatch):
         def get_json(self, endpoint, params=None):
             return {"allocation_id": "alloc-9", "agent_id": "a", "status": "pending"}
 
-    monkeypatch.setattr(res_mod, "_client", lambda: _Obj())
+    monkeypatch.setattr(res_mod, "_client", lambda *a, **k: _Obj())
     result = runner.invoke(res_mod.resource, obj={"output_format": "table"}, args=["status"])
     assert result.exit_code == 0
     assert "alloc-9" in result.output

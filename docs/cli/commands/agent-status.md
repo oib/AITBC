@@ -14,7 +14,7 @@ aitbc agent status [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--agent-id` | text | — | no | The Agent id. |
+| `--agent-id` | text | — | no | Agent id, name, or config file name (resolved like `agent register`; see `aitbc agent list`) |
 | `--coordinator-url` | text | — | no | Coordinator URL (default: config agent_coordinator_url) |
 | `--format` | choice | — | no | Output format |
 | `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |

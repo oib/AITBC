@@ -14,12 +14,16 @@ aitbc resource optimize [OPTIONS]
 
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
-| `--agent-id` | text | — | yes | Coordinator agent identity ID bound to your wallet (the agent_id from agent register/identity, not a display name). |
+| `--agent-id` | text | — | yes | Coordinator agent id — the id `aitbc agent list`/`agent create` shows and `agent register` binds (not the local config name). The caller must own it: pass --wallet bound via `agent register --wallet`, or use an admin/owner credential. |
 | `--target-metric` | choice | — | yes | Performance metric to optimize |
 | `--optimization-type` | text | `comprehensive` | no | Optimization type (comprehensive, targeted, etc.) |
 | `--current-accuracy` | float | — | no | Current accuracy (0-1) |
 | `--current-latency` | float | — | no | Current latency (ms) |
 | `--current-throughput` | float | — | no | Current throughput (req/s) |
+| `--password-stdin` | flag | `false` | no | Read the wallet password from one line of standard input |
+| `--password-file` | file | — | no | Path to a file containing only the wallet password (mode 0600, owned by you) |
+| `--password` | text | — | no | Wallet password (deprecated: visible in process lists and shell history; prefer --password-stdin or --password-file) |
+| `--wallet` | text | — | no | Wallet the agent is identity-bound to (same as `agent register --wallet`); mints an agent-session JWT the owner check accepts (#2418) |
 
 ## Examples
 

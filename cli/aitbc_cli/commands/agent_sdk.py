@@ -1101,7 +1101,12 @@ try:
 
   aitbc agent status --agent-id shop-agent --output json"""
     )
-    @click.option("--agent-id", "agent_id", required=False, help="The Agent id.")
+    @click.option(
+        "--agent-id",
+        "agent_id",
+        required=False,
+        help="Agent id, name, or config file name (resolved like `agent register`; see `aitbc agent list`)",
+    )
     @click.option("--coordinator-url", default=None, help="Coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
     @read_signing_options
@@ -1120,6 +1125,11 @@ try:
         """Get the current status and health of a specified agent."""
         try:
             agent_id = _resolve_agent_id(ctx, agent_id)
+            # --agent-id also accepts the local name/config filename: the
+            # coordinator only knows the internal agent_id (#2223, #2418).
+            local_config = _load_agent_config(agent_id)
+            if local_config is not None:
+                agent_id = str(local_config.get("agent_id") or agent_id)
             headers = signed_read_headers(ctx, signing_agent_id, wallet_name, password, password_file, password_stdin)
             status_data = get_agent_status(agent_id, coordinator_url=coordinator_url, headers=headers)
 
