@@ -9,6 +9,7 @@ import click
 
 from aitbc.exceptions import AITBCError
 
+from ..auth import ExpiredAdminToken
 from ..config import get_config
 from ..utils import output, resolve_output_format, success
 from ..utils.error_handling import abort
@@ -42,21 +43,28 @@ DEFAULT_COORDINATOR_URL = "http://localhost:8203"
 SIMULATED_TIMESTAMP = "2026-01-01T00:00:00+00:00"
 
 
-def _coordinator_client(ctx: click.Context | None = None) -> AITBCHTTPClient:
+def _coordinator_client(ctx: click.Context | None = None, *, credential: str = "client") -> AITBCHTTPClient:
     """Return an HTTP client for the coordinator API.
 
     Request paths are relative to the version root (``/reputation/...``), so
     normalize the configured URL to a base that always ends in ``/v1``. A
     stored ``auth login`` JWT goes out as Bearer; a plain key uses X-API-Key.
+
+    ``credential`` selects the stored-credential slot via
+    :func:`auth_client_kwargs`: ``"client"`` (the default, used by the public
+    read routes) or ``"admin"``, which prefers the ``admin@`` slot and falls
+    back to the client JWT — the token's role claim is what the server
+    checks, so an admin wallet stored under either slot passes the write
+    routes' admin/self-or-admin gate (#2352).
     """
     config = get_config()
     base_url = normalize_base_url(config.coordinator_api_url, DEFAULT_COORDINATOR_URL)
     explicit = ctx.obj.get("api_key") if ctx and ctx.obj else None
-    return AITBCHTTPClient(
-        base_url=base_url,
-        timeout=30,
-        **auth_client_kwargs(explicit, config.api_key),
-    )
+    try:
+        kwargs = auth_client_kwargs(explicit, config.api_key, credential=credential)
+    except ExpiredAdminToken as e:
+        abort(ctx, str(e), from_exception=e)
+    return AITBCHTTPClient(base_url=base_url, timeout=30, **kwargs)
 
 
 def _reputation_endpoint(path: str) -> str:
@@ -424,8 +432,11 @@ def metrics(ctx, format: str):
 @click.pass_context
 def create_profile(ctx, agent_id: str):
     """Create a new reputation profile for an agent."""
+    # The route is JWT-gated and only allows the profile's own agent or an
+    # admin, so the write prefers the stored admin credential (falling back
+    # to the client JWT) — credential="admin" in _coordinator_client (#2352).
     try:
-        http_client = _coordinator_client(ctx)
+        http_client = _coordinator_client(ctx, credential="admin")
         resp = http_client.post(_reputation_endpoint(f"/profile/{agent_id}"))
         data: dict[str, Any] = resp
 
@@ -501,7 +512,10 @@ def add_feedback(
         if reviewer_id:
             payload["reviewer_id"] = reviewer_id
 
-        http_client = _coordinator_client(ctx)
+        # AdminOrClientDep + reviewer-is-the-caller: prefer the admin slot so
+        # operator/admin wallets pass; a client JWT still takes the
+        # job-anchored self-review path (#2352).
+        http_client = _coordinator_client(ctx, credential="admin")
         resp = http_client.post(_reputation_endpoint(f"/feedback/{agent_id}"), json=payload)
         data: dict[str, Any] = resp
 
