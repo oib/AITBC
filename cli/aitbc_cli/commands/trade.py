@@ -46,6 +46,20 @@ _OPS_ERRORS = (
 TRADING_SERVICE_URL = "http://localhost:8104"
 
 
+def _trading_api_key() -> str | None:
+    """Trading API key: group-level ``--api-key`` wins over config/env."""
+    ctx = click.get_current_context(silent=True)
+    override = (ctx.obj or {}).get("trade_api_key") if ctx is not None else None
+    if override:
+        return str(override)
+    from ..config import get_config
+
+    config = (ctx.obj or {}).get("config") if ctx is not None else None
+    config = config or get_config()
+    key = config.trading_api_key
+    return str(key.get_secret_value()) if key else None
+
+
 def _get_client(url: str | None = None) -> AITBCHTTPClient:
     """Create an HTTP client for the trading service."""
     from ..config import get_config
@@ -53,15 +67,16 @@ def _get_client(url: str | None = None) -> AITBCHTTPClient:
     ctx = click.get_current_context(silent=True)
     config = (ctx.obj or {}).get("config") if ctx is not None else None
     config = config or get_config()
-    key = config.trading_api_key
-    if key is None or not key.get_secret_value():
+    key = _trading_api_key()
+    if not key:
         raise click.UsageError(
-            "Trading API key required: set TRADING_API_KEY in the environment or a readable /etc/aitbc/aitbc-trading.env"
+            "Trading API key required: pass --api-key or set TRADING_API_KEY in the environment "
+            "or a readable /etc/aitbc/aitbc-trading.env"
         )
     return AITBCHTTPClient(
         base_url=url or config.trading_service_url or TRADING_SERVICE_URL,
         timeout=30,
-        headers={"X-Trading-Api-Key": key.get_secret_value()},
+        headers={"X-Trading-Api-Key": key},
     )
 
 
@@ -85,15 +100,25 @@ def _resolve_rpc_api_key(api_key: str | None) -> str:
 
   aitbc trade list
 
-  aitbc trade create --source-chain ait-mainnet --dest-chain ait-side --sender 0x... --recipient 0x... --amount 100"""
+  aitbc trade --api-key "$TRADING_API_KEY" create --source-chain ait-mainnet --dest-chain ait-side --sender 0x... --recipient 0x... --amount 100"""
 )
-def trade():
+@click.option(
+    "--api-key",
+    "api_key",
+    default=None,
+    help="Trading API key for this invocation (default: TRADING_API_KEY env / config). "
+    "Place before the subcommand: aitbc trade --api-key KEY list",
+)
+@click.pass_context
+def trade(ctx, api_key):
     """Create, list, and inspect inter-chain trading operations.
 
     HTLC escrow settlement (lock-escrow/settle/refund) is retired (#2385);
     settlement-status remains read-only.
     """
-    pass
+    if api_key is not None:
+        ctx.ensure_object(dict)
+        ctx.obj["trade_api_key"] = api_key
 
 
 @trade.command(
@@ -469,9 +494,11 @@ def sync_status(ctx, format):
 @click.option("--max-price", default=None, type=float, help="Maximum price filter")
 @click.option("--region", default=None, help="Filter by region")
 @click.option("--gpu-model", default=None, help="Filter by GPU model")
+@click.option("--max-events", default=None, type=int, help="Stop after this many events (default: run until interrupted)")
+@click.option("--timeout", default=None, type=float, help="Stop after this many seconds (default: run until interrupted)")
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
-def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, format):
+def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, max_events, timeout, format):
     """Watch for new trading offers matching filters."""
     import asyncio
     import json as _json
@@ -482,8 +509,6 @@ def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, 
     rpc_url = _get_client().base_url
 
     async def _watch() -> None:
-        from ..config import get_config
-
         sub = OfferSubscription(
             chain_id=chain_id,
             service_type=service_type,
@@ -493,16 +518,19 @@ def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, 
             gpu_model=gpu_model,
         )
         target_chain = chain_id or "ait-hub"
-        config = (ctx.obj or {}).get("config") or get_config()
-        key = config.trading_api_key
+        key = _trading_api_key()
         client = OfferSubscriptionClient(
             rpc_url=rpc_url,
             node_id=f"cli-watch-{target_chain}",
-            api_key=key.get_secret_value() if key else None,
+            api_key=key,
         )
+        seen = 0
         try:
             async for event in client.subscribe(target_chain, sub):
                 click.echo(_json.dumps(event.to_dict(), indent=2))
+                seen += 1
+                if max_events is not None and seen >= max_events:
+                    break
         except KeyboardInterrupt:
             logger.debug("Offer watch interrupted by user", exc_info=True)
             pass
@@ -510,7 +538,11 @@ def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, 
             await client.close()
 
     try:
-        asyncio.run(_watch())
+        # wait_for bounds the whole stream — including the idle case where no
+        # event ever arrives — where a per-event deadline check could not fire.
+        asyncio.run(asyncio.wait_for(_watch(), timeout=timeout) if timeout else _watch())
+    except asyncio.TimeoutError:
+        click.echo(f"Watch timed out after {timeout}s")
     except KeyboardInterrupt:
         click.echo("Stopped watching")
     except _OPS_ERRORS as e:

@@ -20,6 +20,8 @@ aitbc trade watch [OPTIONS]
 | `--max-price` | float | — | no | Maximum price filter |
 | `--region` | text | — | no | Filter by region |
 | `--gpu-model` | text | — | no | Filter by GPU model |
+| `--max-events` | integer | — | no | Stop after this many events (default: run until interrupted) |
+| `--timeout` | float | — | no | Stop after this many seconds (default: run until interrupted) |
 | `--format` | choice | — | no | Output format |
 
 ## Examples

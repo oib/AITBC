@@ -1027,6 +1027,12 @@ def aitbc_trade_watch(
     max_price: Annotated[Decimal | None, Field(description="Maximum price filter")] = None,
     region: Annotated[str | None, Field(description="Filter by region")] = None,
     gpu_model: Annotated[str | None, Field(description="Filter by GPU model")] = None,
+    max_events: Annotated[
+        int | None, Field(description="Stop after this many events (default: run until interrupted)")
+    ] = None,
+    timeout_opt: Annotated[
+        float | None, Field(description="Stop after this many seconds (default: run until interrupted)")
+    ] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1045,6 +1051,8 @@ def aitbc_trade_watch(
             "max_price": "max-price",
             "region": "region",
             "gpu_model": "gpu-model",
+            "max_events": "max-events",
+            "timeout_opt": "timeout",
             "format": "format",
         },
     )
