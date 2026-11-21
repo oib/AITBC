@@ -90,6 +90,16 @@ class ChainManager:
             nid, exc = errors[-1]
             raise RuntimeError(f"All nodes failed; last error from {nid}: {exc}") from exc
 
+        if errors:
+            # One consolidated note for the unreachable configured nodes —
+            # per-node error lines on every call read as command failure even
+            # though the surviving nodes answered (#2424).
+            logger.warning(
+                "Skipped %d configured node(s) that did not respond: %s",
+                len(errors),
+                ", ".join(nid for nid, _ in errors),
+            )
+
         chains = list(unique_chains.values())
         self._sort_chains(chains, sort_by)
         return chains
@@ -119,8 +129,7 @@ class ChainManager:
 
                     chains.append(chain)
             except _NODE_CALL_ERRORS as e:
-                # Log error but continue with other nodes
-                logger.error("Error getting chains from node %s: %s", node_id, e)
+                logger.debug("Node %s did not answer the chains query: %s", node_id, e)
                 errors.append((node_id, e))
 
         return chains, errors
@@ -347,13 +356,12 @@ class ChainManager:
 
         node_config = self.config.nodes[node_id]
 
-        try:
-            async with NodeClient(node_config) as client:
-                chains = await client.get_hosted_chains()
-                return chains  # type: ignore[no-any-return]
-        except _NODE_CALL_ERRORS as e:
-            logger.error("Error getting chains from node %s: %s", node_id, e)
-            return []
+        # Errors propagate to the caller — the fan-out loops in this class
+        # classify per-node failures themselves, and NodeClient already logs
+        # transport errors at debug for the multi-node case (#2424).
+        async with NodeClient(node_config) as client:
+            chains = await client.get_hosted_chains()
+            return chains  # type: ignore[no-any-return]
 
     async def _find_chain_on_nodes(self, chain_id: str) -> ChainInfo | None:
         """Find a chain on available nodes"""
