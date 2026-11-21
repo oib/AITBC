@@ -129,6 +129,9 @@ require_governance_api_key = APIKeyAuthenticator(
     auth_enabled=settings.auth_enabled,
     header_name="X-Api-Key",
     success_role="governance_admin",
+    # Name the expected credential in 401s so a CLI caller learns it needs
+    # GOVERNANCE_API_KEY rather than guessing which of the fleet keys applies (#2411).
+    key_name="GOVERNANCE_API_KEY",
 )
 
 # Per-client write budget on top of the key check: 30 mutating calls per

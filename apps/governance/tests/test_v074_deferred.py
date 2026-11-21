@@ -144,7 +144,7 @@ class TestMarketParameterAPI:
 
     def test_market_parameter_change_request_model(self):
         """Test that ParameterChangeRequest model exists in market."""
-        from market_service.main import ParameterChangeRequest
+        from market_service.routers.catalog import ParameterChangeRequest
 
         req = ParameterChangeRequest(
             proposal_id="prop-1",
@@ -158,7 +158,7 @@ class TestMarketParameterAPI:
 
     def test_market_governance_parameters_defined(self):
         """Test that allowed governance parameters are defined."""
-        from market_service.main import _MARKET_GOVERNANCE_PARAMETERS
+        from market_service.routers.catalog import _MARKET_GOVERNANCE_PARAMETERS
 
         assert "default_chain_id" in _MARKET_GOVERNANCE_PARAMETERS
         assert "agent_coordinator_url" in _MARKET_GOVERNANCE_PARAMETERS

@@ -42,11 +42,16 @@ class APIKeyAuthenticator:
         auth_enabled: bool = True,
         header_name: str = "X-Api-Key",
         success_role: str = "admin",
+        key_name: str | None = None,
     ) -> None:
         self.expected_key = expected_key
         self.auth_enabled = auth_enabled
         self.header_name = header_name
         self.success_role = success_role
+        # Optional env-var name surfaced in 401 details (e.g.
+        # "GOVERNANCE_API_KEY") so a rejected caller learns which credential
+        # to provision instead of a bare "Missing API key" (#2411).
+        self.key_name = key_name
 
     @staticmethod
     def _reject(connection: HTTPConnection, status_code: int, detail: str) -> Exception:
@@ -70,10 +75,12 @@ class APIKeyAuthenticator:
 
         api_key = request.headers.get(self.header_name)
         if not api_key:
-            raise self._reject(request, status.HTTP_401_UNAUTHORIZED, "Missing API key")
+            detail = f"Missing {self.key_name}" if self.key_name else "Missing API key"
+            raise self._reject(request, status.HTTP_401_UNAUTHORIZED, detail)
 
         if not hmac.compare_digest(str(api_key), str(self.expected_key)):
-            raise self._reject(request, status.HTTP_401_UNAUTHORIZED, "Invalid API key")
+            detail = f"Invalid {self.key_name}" if self.key_name else "Invalid API key"
+            raise self._reject(request, status.HTTP_401_UNAUTHORIZED, detail)
 
         return {"sub": "api_key", "role": self.success_role, "auth_type": "api_key"}
 
