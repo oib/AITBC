@@ -995,11 +995,11 @@ def suggest(
                 f"No compute multiplier for this GPU model — the cost-plus anchor ({cost_plus:.4f} AIT/h) is the price hint; pick your own margin with --margin-pct"
             )
         info("")
-        rid = resource_id or "<resource-id>"
-        prov = provider_address or "<provider-address>"
-        mid = model_id or model_key or "<model-id>"
-        info("Apply with:" if not register else "Applied via --register; next:")
         if not register:
+            rid = resource_id or "<resource-id>"
+            prov = provider_address or "<provider-address>"
+            mid = model_id or model_key or "<model-id>"
+            info("Apply with:")
             if _evm_energy_configured():
                 info(
                     f"  aitbc energy provider register --resource-id {rid} --provider-address {prov} "
@@ -1012,9 +1012,11 @@ def suggest(
                     f"--model-id {mid} --tbp-watts {est.register_watts} --eur-per-kwh {tariff}"
                 )
                 info("  (posts the profile to the coordinator's native-energy endpoint)")
-        info(f"  aitbc gpu update --gpu-id <gpu-id> --pricing '{{\"price_per_hour\": {price_hint:.4f}}}'")
+            info(f"  aitbc gpu update --gpu-id <gpu-id> --pricing '{{\"price_per_hour\": {price_hint:.4f}}}'")
 
     if register:
+        # Register first: the "Applied" banner must only appear once the
+        # registration call has actually succeeded (#2357).
         _register_suggestion(
             ctx,
             resource_id=resource_id,
@@ -1030,3 +1032,6 @@ def suggest(
             password_stdin=password_stdin,
             json_output=json_output,
         )
+        if not json_output:
+            info("Applied via --register; next:")
+            info(f"  aitbc gpu update --gpu-id <gpu-id> --pricing '{{\"price_per_hour\": {price_hint:.4f}}}'")
