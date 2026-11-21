@@ -2,6 +2,7 @@
 Unit tests for Exchange Island CLI commands
 """
 
+import copy
 import json
 import os
 from unittest.mock import patch
@@ -335,12 +336,24 @@ class _CancelAwareHTTPClient:
         pass
 
     def get_json(self, path, params=None, **kwargs):
-        status = (params or {}).get("status")
+        # Emulate the RPC payload filters: `pair` matches payload.pair, and
+        # cancel rows carry no pair field so a pair-filtered query excludes
+        # them — the exact behaviour that kept orderbook/rates polluted.
+        params = params or {}
+        status = params.get("status")
+        pair = params.get("pair")
+
+        def _match(rows):
+            # deepcopy: _apply_cancels mutates payload dicts in place
+            # (status flip, pair/side inheritance) — shared class-attribute
+            # rows would leak that state into later tests.
+            return [copy.deepcopy(r) for r in rows if not pair or r.get("pair") == pair]
+
         if status == "cancelled":
-            return list(self.cancel_rows)
+            return _match(self.cancel_rows)
         if status == "open":
-            return list(self.open_rows)
-        return list(self.open_rows) + list(self.cancel_rows)
+            return _match(self.open_rows)
+        return _match(self.open_rows) + _match(self.cancel_rows)
 
 
 def test_orders_open_excludes_cancelled_orders(mock_credentials_file, runner):
@@ -364,6 +377,22 @@ def test_orderbook_excludes_cancelled_orders(mock_credentials_file, runner):
     assert result.exit_code == 0
     # ord_dead was a 0.002 ask — cancelled, so best ask must come from live book only
     assert "0.0020" not in result.output
+
+
+def test_rates_excludes_cancelled_orders(mock_credentials_file, runner):
+    """#2338 residual: rates must not count cancelled orders — ord_dead was the
+    only ask, so Sell Orders must be 0 and Best Ask empty."""
+    from aitbc_cli.commands.exchange_island import exchange_island
+
+    with patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient", _CancelAwareHTTPClient):
+        result = runner.invoke(exchange_island, ["rates"], obj={"output_format": "json"})
+
+    assert result.exit_code == 0, result.output
+    rows = json.loads(result.output)
+    ait_eth = next(r for r in rows if r["Pair"] == "AIT/ETH")
+    assert ait_eth["Sell Orders"] == 0
+    assert ait_eth["Buy Orders"] == 1
+    assert ait_eth["Best Ask"] == "N/A"
 
 
 def test_orders_drops_cancel_rows_but_keeps_cancelled_status(mock_credentials_file, runner):

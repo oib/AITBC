@@ -513,7 +513,13 @@ def _fetch_exchange_transactions(http_client: AITBCHTTPClient, params: dict[str,
     """
     rows = _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=params))
     if params.get("status") == "open":
-        cancel_params = {**params, "status": "cancelled"}
+        # Cancel payloads carry action/order_id/user_id/status/island_id but
+        # no "pair" — keeping the pair filter would exclude every cancel row
+        # and orderbook/rates would keep counting cancelled orders (#2338
+        # residual). order_ids are globally unique, so cross-pair cancels in
+        # the merge are harmless: they simply match nothing here.
+        cancel_params = {k: v for k, v in params.items() if k != "pair"}
+        cancel_params["status"] = "cancelled"
         seen = {r.get("transaction_id") or r.get("tx_hash") for r in rows}
         for extra in _transaction_rows(http_client.get_json(TX_QUERY_PATH, params=cancel_params)):
             key = extra.get("transaction_id") or extra.get("tx_hash")
