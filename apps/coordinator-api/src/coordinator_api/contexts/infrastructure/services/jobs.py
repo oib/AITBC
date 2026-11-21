@@ -517,6 +517,37 @@ class JobService:
             query = query.limit(limit)
         return list(self.session.execute(query).scalars().all())
 
+    def count_jobs(
+        self,
+        client_id: str | None = None,
+        assigned_miner_id: str | None = None,
+        **filters: Any,
+    ) -> int:
+        """Count jobs matching the same filters ``list_jobs`` applies (#2453).
+
+        ``total`` on the list endpoints used to be ``len(page)`` — the page
+        size, not the match count — so callers could not tell whether more
+        rows existed.
+        """
+        query = select(func.count()).select_from(Job)
+        if client_id:
+            query = query.where(Job.client_id == self._resolve_client_id(client_id))
+        if assigned_miner_id:
+            query = query.where(Job.assigned_miner_id == assigned_miner_id)
+        if "state" in filters:
+            query = query.where(Job.state == filters["state"])
+        if "job_type" in filters:
+            query = query.where(Job.payload["type"].as_string() == filters["job_type"])
+        return int(self.session.execute(query).scalar_one())
+
+    def inflight_count(self, client_id: str | None = None) -> int:
+        """Non-terminal (QUEUED+RUNNING) jobs held by one client — the same
+        set ``create_job``'s inflight cap counts (#2453)."""
+        query = select(func.count()).select_from(Job).where(col(Job.state).in_(("QUEUED", "RUNNING")))
+        if client_id:
+            query = query.where(Job.client_id == self._resolve_client_id(client_id))
+        return int(self.session.execute(query).scalar_one())
+
     def fail_job(self, job_id: str, miner_id: str, error_message: str) -> Job:
         """Mark a job as failed"""
         job = self.get_job(job_id)

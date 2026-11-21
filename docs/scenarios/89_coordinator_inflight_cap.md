@@ -78,13 +78,25 @@ aitbc auth login --wallet customer-wallet --coordinator-url https://hub.example.
 
 ### Step 2: Check active job count
 
+The cheap headroom check — one aggregate row, no job payloads (#2453):
+
+```bash
+aitbc ai jobs --inflight
+```
+
+Expected output: `{"inflight": N, "cap": 50}` where `inflight` counts the
+caller's `QUEUED` + `RUNNING` jobs and `cap` is the configured
+`COORDINATOR_MAX_INFLIGHT_JOBS_PER_CLIENT` (default 50).
+
+To inspect the rows themselves:
+
 ```bash
 aitbc ai jobs --limit 50 --format table
 ```
 
-Note how many jobs are `pending`, `running`, or otherwise non-terminal. Compare
-to `COORDINATOR_MAX_INFLIGHT_JOBS_PER_CLIENT` on the coordinator (default 50)
-if you have read access to `/etc/aitbc/aitbc-coordinator-api.env`.
+The table shows `job_id`, `state`, `requested_at`, and payment columns; the
+JSON envelope reports the true `total` for the filter plus `has_more`.
+Note how many jobs are `QUEUED`, `RUNNING`, or otherwise non-terminal.
 
 ### Step 3: Submit at or above the cap
 

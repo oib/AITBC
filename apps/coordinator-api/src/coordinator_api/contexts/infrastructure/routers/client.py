@@ -25,6 +25,7 @@ from ...payments.services.payments import PaymentService, _computation_is_correc
 from ....custom_types import JobState, job_state_filter_help, parse_job_state_filter
 from ....schemas import JobCreate, JobPaymentCreate, JobRejection, JobResult, JobView
 from ....services import JobService
+from ..services.jobs import _MAX_INFLIGHT_JOBS_PER_CLIENT
 from ....storage import get_session
 
 
@@ -282,9 +283,11 @@ def get_job_history(
         filters["job_type"] = job_type  # type: ignore[assignment]
     try:
         jobs = service.list_jobs(client_id=user["sub"], limit=limit, offset=offset, **filters)
+        total = service.count_jobs(client_id=user["sub"], **filters)
         return {
             "items": service.to_views(jobs),
-            "total": len(jobs),
+            "total": total,
+            "has_more": offset + len(jobs) < total,
             "limit": limit,
             "offset": offset,
             "from_time": from_time,
@@ -300,6 +303,27 @@ def get_job_history(
             "to_time": to_time,
             "error": "Failed to list jobs",
         }
+
+
+@router.get("/jobs/inflight", summary="Get the caller's queued+running job count and cap")
+@rate_limit(rate=200, per=60)
+def get_jobs_inflight(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
+) -> dict:
+    """Headroom check for the per-client inflight cap (#2453).
+
+    ``inflight`` counts the caller's QUEUED+RUNNING jobs — the same set
+    ``COORDINATOR_MAX_INFLIGHT_JOBS_PER_CLIENT`` bounds on submit;
+    ``cap`` is the configured limit so clients can compute headroom
+    without provoking a 429.
+    """
+    service = JobService(session)
+    return {
+        "inflight": service.inflight_count(client_id=user["sub"]),
+        "cap": _MAX_INFLIGHT_JOBS_PER_CLIENT,
+    }
 
 
 @router.get("/jobs/{job_id}", response_model=JobView, summary="Get job status")
@@ -423,7 +447,14 @@ def list_jobs(
     if job_type:
         filters["job_type"] = job_type  # type: ignore[assignment]
     jobs = service.list_jobs(client_id=user["sub"], limit=limit, offset=offset, **filters)
-    return {"items": service.to_views(jobs), "total": len(jobs), "limit": limit, "offset": offset}
+    total = service.count_jobs(client_id=user["sub"], **filters)
+    return {
+        "items": service.to_views(jobs),
+        "total": total,
+        "has_more": offset + len(jobs) < total,
+        "limit": limit,
+        "offset": offset,
+    }
 
 
 @router.get("/blocks", summary="Get blockchain blocks")

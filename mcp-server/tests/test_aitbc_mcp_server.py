@@ -1728,3 +1728,40 @@ class TestSubmitAiJobWaitTimeout:
         with mock.patch.object(mcp_server, "_run_remote", fake_run_remote):
             json.loads(mcp_server.submit_ai_job(prompt="hi", dry_run=False, confirm=True, host="node2"))
         assert captured["timeout"] == 120
+
+
+class TestHelpInvocationBypass:
+    """#2453: ``--help`` on a mutating leaf is a read — Click exits before the
+    command body runs, so the confirm gate must not fire."""
+
+    @staticmethod
+    def _fake_run_remote(host: str, command: str, timeout: int = 60) -> dict[str, object]:
+        return {"host": host, "command": command, "returncode": 0, "stdout": "{}", "stderr": ""}
+
+    def test_run_pivot_help_on_mutating_leaf_runs_without_confirm(self):
+        with mock.patch.object(mcp_server, "_run_remote", self._fake_run_remote):
+            result = json.loads(
+                mcp_server.run_aitbc_cli(
+                    group="ai",
+                    subcommand="submit",
+                    args=["--help"],
+                    host="node0",
+                    dry_run=False,
+                    confirm=False,
+                )
+            )
+        assert "error" not in result
+        assert "--help" in str(result["command"])
+
+    def test_run_pivot_mutating_leaf_still_requires_confirm(self):
+        result = json.loads(
+            mcp_server.run_aitbc_cli(
+                group="ai",
+                subcommand="submit",
+                args=["--prompt", "x"],
+                host="node0",
+                dry_run=False,
+                confirm=False,
+            )
+        )
+        assert result.get("error") == "Confirmation required"

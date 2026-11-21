@@ -143,7 +143,15 @@ def aitbc_ai_cancel(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_ai_jobs(
     limit: Annotated[int | None, Field(description="Limit results")] = None,
-    status: Annotated[str | None, Field(description="Filter by status")] = None,
+    status: Annotated[
+        str | None,
+        Field(
+            description="Filter by status (QUEUED, RUNNING, COMPLETED, FAILED, CANCELED, EXPIRED; 'pending' is accepted as an alias for QUEUED, 'all' disables the filter)"
+        ),
+    ] = None,
+    inflight: Annotated[
+        bool | None, Field(description="Show only the queued+running count and the configured cap — no job rows")
+    ] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -153,7 +161,7 @@ def aitbc_ai_jobs(
     """List AI jobs from the coordinator with optional status and limit filters."""
     options: dict[str, Any] = _collect_options(
         locals(),
-        flags={},
+        flags={"inflight": "inflight"},
         values={"limit": "limit", "status": "status", "coordinator_url": "coordinator-url", "format": "format"},
     )
     args = None
