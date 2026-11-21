@@ -30,6 +30,7 @@ from aitbc_mcp_server import (
     _run_aitbc_cli,
     _run_remote,
     _validate_cli_env_cwd,
+    STDIN_MAX_LEN,
     mcp,
 )
 
@@ -92,9 +93,11 @@ def run_aitbc_cli(
         dict[str, str] | None,
         Field(
             description=(
-                "Extra environment variables for the remote command. Allow-listed names only: HOME or "
-                "non-secret AITBC_* names; every value must be a path under /var/tmp/ (scratch space). "
-                "Applied as a POSIX env prefix on the remote shell — SSH SendEnv is not used."
+                "Extra environment variables for the remote command. Allow-listed names only: HOME, "
+                "non-secret AITBC_* names, and scalar names (SHOP_WALLET_ADDRESS, AITBC_DEFAULT_WALLET, "
+                "AITBC_WALLET_NAME) whose values are plain strings; other values must be paths under "
+                "/var/tmp/ (scratch space). Key/password/token names are refused. Applied as a POSIX "
+                "env prefix on the remote shell — SSH SendEnv is not used."
             )
         ),
     ] = None,
@@ -104,6 +107,16 @@ def run_aitbc_cli(
             description=(
                 "Working directory for the remote command; must be a path under /var/tmp/ (scratch space). "
                 "Runs as `cd <cwd> && <command>` on the remote shell."
+            )
+        ),
+    ] = None,
+    stdin: Annotated[
+        str | None,
+        Field(
+            description=(
+                "Text fed to the remote command's stdin (e.g. a --password-stdin answer or a '< n' leg). "
+                "Non-secret text only is recommended; the content is never echoed into the result. "
+                f"Max {STDIN_MAX_LEN} characters."
             )
         ),
     ] = None,
@@ -134,6 +147,8 @@ def run_aitbc_cli(
     env_error = _validate_cli_env_cwd(env, cwd)
     if env_error:
         return _json({"error": env_error})
+    if stdin is not None and len(stdin) > STDIN_MAX_LEN:
+        return _json({"error": f"stdin exceeds {STDIN_MAX_LEN} characters"})
 
     try:
         command = _build_aitbc_cli_command(
@@ -186,6 +201,7 @@ def run_aitbc_cli(
             group_options=group_options,
             env=env,
             cwd=cwd,
+            stdin_text=stdin,
         )
     )
 
