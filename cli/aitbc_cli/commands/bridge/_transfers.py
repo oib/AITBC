@@ -25,7 +25,9 @@ from ...utils import output, warning
 
   aitbc bridge lock --target-chain ait-side --sender 0xAbc... --recipient 0xC10... --amount 100
 
-  aitbc bridge lock --target-chain ait-side --amount 50 --wallet-name genesis"""
+  aitbc bridge lock --target-chain ait-side --amount 50 --wallet-name genesis
+
+  aitbc bridge lock --rpc-url https://<source-chain-host>/rpc --source-chain <source-chain-id> --target-chain <target-chain-id> --sender 0x... --recipient 0x... --amount 100"""
 )
 @click.option("--target-chain", required=True, help="Target chain ID for the transfer")
 @click.option("--sender", required=True, help="Sender address (source chain)")
@@ -246,6 +248,11 @@ def status(ctx, transfer_id, rpc_url):
 
     try:
         result = asyncio.run(_status())
+        # #2458: name the backend that answered — transfer rows are
+        # node-local, so the same transfer_id can read differently on
+        # different nodes' RPC endpoints.
+        if isinstance(result, dict):
+            result["rpc_url"] = rpc_url
         output(result, ctx.obj.get("output_format", "table"), title="Bridge Transfer Status")
     except _OPS_ERRORS as e:
         _abort_ops(ctx, "Failed to get bridge status", e)

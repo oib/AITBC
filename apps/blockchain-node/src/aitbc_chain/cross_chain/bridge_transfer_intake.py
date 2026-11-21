@@ -359,6 +359,10 @@ class BridgeTransferIntakeMixin(BridgeBase):
                 lock_body=lock_body,
                 block_scoped=block_scoped,
             )
+            # #2458: one lock_time for the DB row and the in-memory transfer —
+            # two now() calls produced divergent status reads (locked vs
+            # pending with different timestamps) depending on which store
+            # answered. Reuse the signed lock timestamp so all three agree.
             transfer_record = CrossChainTransfer(
                 transfer_id=transfer_id,
                 source_chain=source_chain,
@@ -369,7 +373,7 @@ class BridgeTransferIntakeMixin(BridgeBase):
                 asset=asset,
                 status="pending",
                 source_tx_hash=transfer_id,
-                lock_time=datetime.now(UTC),
+                lock_time=timestamp,
                 release_amount=release_amount,
             )
             session.add(transfer_record)
@@ -389,7 +393,7 @@ class BridgeTransferIntakeMixin(BridgeBase):
                 status=BridgeStatus.locked,
                 source_tx_hash=transfer_id,
                 target_tx_hash=None,
-                lock_time=datetime.now(UTC),
+                lock_time=timestamp,
                 confirm_time=None,
                 proof=None,
             )

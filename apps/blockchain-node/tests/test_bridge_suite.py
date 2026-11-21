@@ -21,7 +21,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from sqlmodel import Session, select
 
-from aitbc_chain.cross_chain.bridge import BridgeStatus, CrossChainBridge
+from aitbc_chain.cross_chain.bridge import BridgeStatus, CrossChainBridge, BridgeTransfer
 from aitbc_chain.models import Account, BridgeBlockHeader, BridgeValidator, CrossChainTransfer, Transaction
 from aitbc_chain.rpc.router import router
 
@@ -489,3 +489,75 @@ class TestBridgeValidatorBackfill:
                 addresses = {v.address for v in validators}
                 assert "0xval1" in addresses
                 assert "0xval2" in addresses
+
+
+class TestBridgeTransferReadStability:
+    """#2458: status reads must be stable — the DB row is the source of truth,
+    not the divergent in-memory cache."""
+
+    def test_get_transfer_prefers_db_row_over_stale_memory(
+        self, bridge: CrossChainBridge, proposer_account: EthAccount, engine
+    ) -> None:
+        _register_signer(bridge, proposer_account)
+        with Session(engine) as session:
+            session.add(Account(chain_id="chain-a", address="0xstalesrc", balance=10_000, nonce=0))
+            session.commit()
+        _store_block_header(engine, chain_id="chain-a", height=10, proposer=proposer_account.address.lower())
+
+        transfer = bridge.initiate_transfer(
+            source_chain="chain-a",
+            target_chain="chain-b",
+            sender="0xstalesrc",
+            recipient="0xstaledst",
+            amount=100,
+        )
+        tid = transfer.transfer_id
+
+        # Simulate the reported flap: the cache still says locked with a
+        # different lock_time while the DB row says pending.
+        stale = BridgeTransfer(
+            transfer_id=tid,
+            source_chain="chain-a",
+            target_chain="chain-b",
+            sender="0xstalesrc",
+            recipient="0xstaledst",
+            amount=100,
+            asset="native",
+            status=BridgeStatus.locked,
+            source_tx_hash=tid,
+            target_tx_hash=None,
+            lock_time=datetime(2020, 1, 1, tzinfo=UTC),
+            confirm_time=None,
+            proof=None,
+        )
+        bridge._pending_transfers[tid] = stale
+
+        got = bridge.get_transfer(tid)
+        assert got is not None
+        with Session(engine) as session:
+            record = session.get(CrossChainTransfer, tid)
+            assert record is not None
+            # DB truth wins: pending, DB lock_time — not the stale cache.
+            assert got.status == BridgeStatus(record.status)
+            assert got.lock_time == record.lock_time.replace(tzinfo=UTC)
+
+    def test_lock_response_and_db_share_one_lock_time(
+        self, bridge: CrossChainBridge, proposer_account: EthAccount, engine
+    ) -> None:
+        _register_signer(bridge, proposer_account)
+        with Session(engine) as session:
+            session.add(Account(chain_id="chain-a", address="0xlocktime", balance=10_000, nonce=0))
+            session.commit()
+        _store_block_header(engine, chain_id="chain-a", height=10, proposer=proposer_account.address.lower())
+
+        transfer = bridge.initiate_transfer(
+            source_chain="chain-a",
+            target_chain="chain-b",
+            sender="0xlocktime",
+            recipient="0xlocktimedst",
+            amount=100,
+        )
+        with Session(engine) as session:
+            record = session.get(CrossChainTransfer, transfer.transfer_id)
+            assert record is not None
+            assert transfer.lock_time == record.lock_time.replace(tzinfo=UTC)

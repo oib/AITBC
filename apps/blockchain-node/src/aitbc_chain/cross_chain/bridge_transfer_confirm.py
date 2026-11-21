@@ -326,14 +326,18 @@ class BridgeTransferConfirmMixin(BridgeBase):
             return transfer or self._build_transfer_from_record(record, proof)
 
     def get_transfer(self, transfer_id: str, chain_id: str | None = None) -> BridgeTransfer | None:
-        """Get transfer by ID."""
-        if transfer_id in self._pending_transfers:
-            return self._pending_transfers[transfer_id]
+        """Get transfer by ID.
+
+        #2458: the DB row is the source of truth — the in-memory entry is a
+        write-cache that disagrees with it (``locked`` vs ``pending``) and is
+        lost on restart, which made repeated status reads flap. Consult the
+        row first; the cache answers only when no row exists locally.
+        """
         with self._session_for(chain_id or str(getattr(settings, "chain_id", "") or "")) as session:
             record = session.get(CrossChainTransfer, transfer_id)
             if record:
                 return self._build_transfer_from_record(record)
-            return None
+        return self._pending_transfers.get(transfer_id)
 
     def list_pending_transfers(self, chain_id: str | None = None) -> list[BridgeTransfer]:
         """List all pending transfers."""

@@ -172,3 +172,70 @@ def test_provider_reputation_scoped(chain_db):
 
     out = asyncio.run(analytics.api_provider_reputation(FOREIGN_SENDER))
     assert out["transactions"] == 0  # no cross-chain leak
+
+
+# ---------------------------------------------------------------------------
+# #2458 — explicit chain_id may live in its own data/<chain>/chain.db
+# ---------------------------------------------------------------------------
+
+
+def _make_chain_db(path: Path, chain: str, tx_hash: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    conn = sqlite3.connect(path)
+    conn.execute(
+        """CREATE TABLE "transaction" (
+            id INTEGER PRIMARY KEY, chain_id VARCHAR, tx_hash TEXT, sender TEXT,
+            recipient TEXT, payload TEXT, block_height INTEGER, created_at TEXT,
+            type TEXT, status TEXT, value INTEGER, fee INTEGER, nonce INTEGER
+        )"""
+    )
+    conn.execute(
+        """INSERT INTO "transaction"
+           (chain_id, tx_hash, sender, recipient, payload, block_height, created_at, type, status, value, fee, nonce)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""",
+        (
+            chain,
+            tx_hash,
+            "0xisland_sender",
+            "0xrecipient",
+            "{}",
+            7,
+            "2026-11-21 20:00:00",
+            "BRIDGE_RELEASE",
+            "confirmed",
+            1,
+            0,
+            0,
+        ),
+    )
+    conn.commit()
+    conn.close()
+
+
+def test_chain_db_path_for_prefers_per_chain_db(tmp_path, monkeypatch):
+    monkeypatch.setattr(chain_client, "_DATA_ROOT", tmp_path)
+    island_db = tmp_path / _FOREIGN / "chain.db"
+    _make_chain_db(island_db, _FOREIGN, FOREIGN_TX)
+
+    # Explicit foreign chain with its own db -> that file wins.
+    assert chain_client.chain_db_path_for(_FOREIGN) == island_db
+    # Local chain id and unknown chains fall back to chain_db_path().
+    assert chain_client.chain_db_path_for(_CHAIN) == chain_client.chain_db_path()
+    assert chain_client.chain_db_path_for("no-such-chain") == chain_client.chain_db_path()
+    assert chain_client.chain_db_path_for(None) == chain_client.chain_db_path()
+
+
+def test_by_hash_finds_tx_in_per_chain_db(client, tmp_path, monkeypatch):
+    """S88 evidence: a sealed BRIDGE_RELEASE on bc-2-island-1 was reported
+    'not found' because the explorer only ever opened the local chain db."""
+    monkeypatch.setattr(chain_client, "_DATA_ROOT", tmp_path)
+    _make_chain_db(tmp_path / _FOREIGN / "chain.db", _FOREIGN, FOREIGN_TX)
+
+    resp = client.get(f"/api/transactions/by-hash/{FOREIGN_TX}", params={"chain_id": _FOREIGN})
+    assert resp.status_code == 200
+    assert resp.json().get("tx_hash") == FOREIGN_TX
+    assert resp.json().get("sender") == "0xisland_sender"
+
+    # Without the chain hint the local db still answers (and misses) — no leak.
+    resp = client.get(f"/api/transactions/by-hash/{FOREIGN_TX}")
+    assert resp.json().get("tx_hash") != FOREIGN_TX
