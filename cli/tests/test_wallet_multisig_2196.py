@@ -354,3 +354,54 @@ class TestDualModeAdapterUnits:
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+class TestMultisigUnspendableGuard2362:
+    """#2362: the record-keeping multisig address has no spendable key —
+    funding it burns funds; propose must not mislabel a 404 as an outage."""
+
+    def test_propose_404_is_zero_balance_not_rpc_error(self, tmp_path, monkeypatch):
+        """Account-not-found (404) means zero balance → honest 'Insufficient',
+        never the 'check node reachability' misclassification."""
+        _make_multisig(tmp_path)
+
+        class Http404(Exception):
+            def __init__(self):
+                super().__init__("404 Client Error")
+                self.response = type("R", (), {"status_code": 404})()
+
+        with (
+            patch("aitbc_cli.commands.wallet.multisig.get_config", return_value=_Cfg()),
+            patch("aitbc_cli.commands.wallet.multisig.AITBCHTTPClient") as http_cls,
+        ):
+            http_cls.return_value.get.side_effect = Http404()
+            result = _invoke(
+                tmp_path,
+                ["multisig-propose", "--wallet", "ms", "--to-address", "0x" + "dd" * 20, "--amount", "0.1"],
+                monkeypatch,
+            )
+        assert result.exit_code != 0
+        assert "Insufficient" in result.output
+        assert "reachability" not in result.output
+
+    def test_multisig_addresses_maps_files(self, tmp_path):
+        from aitbc_cli.commands.wallet.basic import _multisig_addresses
+
+        addr, _ = _make_multisig(tmp_path, name="team")
+        assert _multisig_addresses(tmp_path / "wallets") == {addr.lower(): "team"}
+
+    def test_send_guard_refuses_multisig_recipient(self, tmp_path):
+        from aitbc_cli.commands.wallet.basic import _assert_not_multisig_recipient
+        from aitbc_cli.utils.error_handling import CLIError
+
+        addr, _ = _make_multisig(tmp_path, name="team")
+        ctx = type("C", (), {"obj": {}})()
+        with pytest.raises(CLIError, match="unrecoverable"):
+            _assert_not_multisig_recipient(ctx, tmp_path / "wallets", addr.upper().replace("0X", "0x"))
+
+    def test_delete_accepts_bare_multisig_name(self, tmp_path, monkeypatch):
+        """`wallet delete --name ms` must find `ms_multisig.json` (#2362)."""
+        _make_multisig(tmp_path, name="ms")
+        result = _invoke(tmp_path, ["delete", "--name", "ms", "--confirm"], monkeypatch)
+        assert result.exit_code == 0, result.output
+        assert not (tmp_path / "wallets" / "ms_multisig.json").exists()
