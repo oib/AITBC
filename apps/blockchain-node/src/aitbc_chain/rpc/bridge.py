@@ -9,6 +9,7 @@ from fastapi import HTTPException, Request
 from aitbc.rate_limiting import rate_limit
 
 from ..config import settings
+from ..database import ChainDbMissingError, ForeignChainDbError
 from ..logger import get_logger
 from ..metrics import (
     bridge_initialized,
@@ -26,6 +27,16 @@ from .utils import (
 )
 
 _logger = get_logger(__name__)
+
+
+def _chain_not_served(chain_id: str | None) -> HTTPException:
+    """404 for an allow-listed chain id this node has no store for (#2452).
+
+    ``session_scope`` raises ChainDbMissingError/ForeignChainDbError for a
+    chain the node doesn't serve; without this mapping the generic
+    ``except Exception`` below turned it into an opaque 500.
+    """
+    return HTTPException(status_code=404, detail=f"chain {chain_id or 'default'} is not served by this node")
 
 
 def _update_bridge_metrics(bridge: Any) -> None:
@@ -359,6 +370,8 @@ def list_pending_transfers(request: Request, chain_id: str | None = None) -> lis
         ]
     except HTTPException:
         raise
+    except (ChainDbMissingError, ForeignChainDbError) as e:
+        raise _chain_not_served(chain_id) from e
     except Exception as e:
         _logger.error("List pending transfers failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -506,6 +519,8 @@ def list_bridge_transfers(
         }
     except HTTPException:
         raise
+    except (ChainDbMissingError, ForeignChainDbError) as e:
+        raise _chain_not_served(chain_id) from e
     except Exception as e:
         _logger.error("List bridge transfers failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -578,6 +593,8 @@ def get_bridge_balance(request: Request, chain_id: str) -> dict[str, Any]:
         }
     except HTTPException:
         raise
+    except (ChainDbMissingError, ForeignChainDbError) as e:
+        raise _chain_not_served(chain_id) from e
     except Exception as e:
         _logger.error("Get bridge balance failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -828,6 +845,8 @@ def get_validator_set(request: Request, chain_id: str) -> dict[str, Any]:
         }
     except HTTPException:
         raise
+    except (ChainDbMissingError, ForeignChainDbError) as e:
+        raise _chain_not_served(chain_id) from e
     except Exception as e:
         _logger.error("Get validator set failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -985,6 +1004,8 @@ def get_block_header(request: Request, chain_id: str, height: int) -> dict[str, 
         return {"success": True, **status}
     except HTTPException:
         raise
+    except (ChainDbMissingError, ForeignChainDbError) as e:
+        raise _chain_not_served(chain_id) from e
     except Exception as e:
         _logger.error("Get block header failed: %s", e)
         _logger.exception("Unhandled exception")
