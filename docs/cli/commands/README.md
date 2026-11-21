@@ -462,6 +462,7 @@ Regenerate with `scripts/docs/gen_cli_command_docs.py`.
 - [`aitbc liquidity build-claim`](liquidity-build-claim.md) — Build an unsigned LIQUIDITY_CLAIM transaction.
 - [`aitbc liquidity build-deposit`](liquidity-build-deposit.md) — Build an unsigned LIQUIDITY_DEPOSIT transaction.
 - [`aitbc liquidity build-withdraw`](liquidity-build-withdraw.md) — Build an unsigned LIQUIDITY_WITHDRAW transaction (stake must be unlocked).
+- [`aitbc liquidity stakes`](liquidity-stakes.md) — List on-chain liquidity stakes for an address (#2361).
 
 ## `liquidity-stake`
 

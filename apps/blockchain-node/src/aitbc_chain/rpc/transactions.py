@@ -3,6 +3,8 @@ Transaction-related RPC endpoints.
 """
 
 import asyncio
+import concurrent.futures
+import os
 from datetime import UTC, datetime
 from typing import Any
 
@@ -436,7 +438,7 @@ def _fanout_dial_plan(chain_id: str) -> tuple[list[str], str]:
     return settings.mesh_peer_urls_for_service(chain_id), chain_id
 
 
-async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -> None:
+async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -> dict[str, Any]:
     """Best-effort relay of a locally submitted transaction to mesh peers.
 
     Each validator's mempool is a localhost DB and nothing on this host
@@ -447,6 +449,11 @@ async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -
     produced empty blocks). Push the envelope to every peer's public
     ``transactions.<chain>`` gossip endpoint so each validator's own mempool
     picks it up. One hop, tx-hash deduped downstream — no loop risk.
+
+    #2361: returns a relay summary so the submit response can say whether
+    the tx actually reached a proposing host's mempool — a silent fan-out
+    failure on a non-proposing host strands the tx (and its nonce slot)
+    until mempool expiry.
     """
     from ..gossip.backends.websocket import WebsocketGossipBackend
 
@@ -461,13 +468,15 @@ async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -
             "transaction reaches a block only if this host proposes",
             chain_id,
         )
-        return
+        return {"status": "skipped", "attempted": 0, "accepted": 0}
 
+    accepted = 0
     for url in peer_urls:
         backend = WebsocketGossipBackend(url, chain_id=dial_chain)
         try:
             await backend.start()
             await backend.publish(f"transactions.{chain_id}", {"type": "new_transaction", "tx": tx_data})
+            accepted += 1
         except Exception as e:  # noqa: BLE001 - pluggable gossip backend publish surface is untyped
             _logger.warning("tx fan-out to %s failed: %s", url, e)
         finally:
@@ -475,6 +484,9 @@ async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -
                 await backend.shutdown()
             except Exception as e:  # noqa: BLE001 - shutdown failure during fan-out teardown
                 _logger.debug("tx fan-out backend shutdown failed: %s", type(e).__name__)
+    attempted = len(peer_urls)
+    status = "ok" if accepted == attempted else ("failed" if accepted == 0 else "partial")
+    return {"status": status, "attempted": attempted, "accepted": accepted}
 
 
 # The app's main event loop, captured by the FastAPI lifespan. Sync ``def``
@@ -490,20 +502,26 @@ def set_peer_fanout_loop(loop: "asyncio.AbstractEventLoop | None") -> None:
     _PEER_FANOUT_LOOP = loop
 
 
-def _fanout_done(task: "asyncio.Task[None]") -> None:
+def _fanout_done(task: "asyncio.Task[dict[str, Any]]") -> None:
     try:
         task.result()
     except Exception as e:  # noqa: BLE001 — observability only
         _logger.warning("tx fan-out task raised: %s", e)
 
 
-def _queue_peer_fanout(chain_id: str, tx_data: dict[str, Any]) -> None:
+def _queue_peer_fanout(
+    chain_id: str, tx_data: dict[str, Any]
+) -> "concurrent.futures.Future[dict[str, Any]] | asyncio.Task[dict[str, Any]] | None":
     """Fire-and-forget peer relay; never blocks or fails the submit path.
 
     Runs on the caller's loop when one exists (async handlers); from a sync
     handler's thread it schedules onto the lifespan-registered main loop via
     ``run_coroutine_threadsafe``. With neither, it warns — a stranded tx is a
     liveness gap, not a correctness one, so submission still succeeds.
+
+    #2361: returns the scheduled future so the submit path can await the
+    relay summary (bounded) and report whether the tx actually reached a
+    proposing host's mempool.
     """
     coro = _fanout_transaction_to_peers(chain_id, tx_data)
     try:
@@ -513,15 +531,71 @@ def _queue_peer_fanout(chain_id: str, tx_data: dict[str, Any]) -> None:
         if fallback is None or fallback.is_closed():
             _logger.warning("tx fan-out not scheduled for chain %s (no event loop)", chain_id)
             coro.close()
-            return
+            return None
         try:
-            asyncio.run_coroutine_threadsafe(coro, fallback)
+            return asyncio.run_coroutine_threadsafe(coro, fallback)
         except Exception as e:  # noqa: BLE001 — observability only
             _logger.warning("tx fan-out scheduling failed for chain %s: %s", chain_id, e)
             coro.close()
-        return
+            return None
     task = loop.create_task(coro)
     task.add_done_callback(_fanout_done)
+    return task
+
+
+def _await_peer_fanout(
+    future: "concurrent.futures.Future[dict[str, Any]] | asyncio.Task[dict[str, Any]] | None",
+    chain_id: str,
+) -> dict[str, Any] | None:
+    """Bounded wait for the peer-relay summary (#2361).
+
+    Only ``concurrent.futures.Future`` (the sync-endpoint path) can be waited
+    on without deadlocking the event loop; an ``asyncio.Task`` means the
+    caller is already on the loop and gets ``None`` — the relay keeps running
+    fire-and-forget as before.
+    """
+    if future is None or not isinstance(future, concurrent.futures.Future):
+        return None
+    wait_seconds = float(os.getenv("TX_FANOUT_WAIT_SECONDS", "8"))
+    try:
+        return future.result(timeout=wait_seconds)
+    except TimeoutError:
+        return {"status": "pending", "attempted": None, "accepted": None}
+    except Exception as e:  # noqa: BLE001 — observability only
+        _logger.warning("tx fan-out result unavailable for chain %s: %s", chain_id, e)
+        return {"status": "unknown", "attempted": None, "accepted": None}
+
+
+def _fanout_response_fields(relay: dict[str, Any] | None) -> dict[str, Any]:
+    """Response fields reporting the peer relay outcome (#2361).
+
+    On a non-proposing host a tx whose relay reached zero peers is stranded
+    in the local mempool — it occupies its nonce slot until mempool expiry
+    and rejects same-nonce replacements. Say so in the response instead of
+    letting "Submitted" imply the tx can seal.
+    """
+    if relay is None:
+        return {}
+    out: dict[str, Any] = {"peer_relay": relay}
+    status = relay.get("status")
+    accepted = relay.get("accepted")
+    if status == "pending":
+        out["warning"] = "transaction relay outcome unknown (wait timed out); verify the tx seals"
+    elif status in ("failed", "skipped") and accepted == 0 and not _proposes_blocks():
+        out["warning"] = (
+            "transaction relay reached no mesh peers; on this non-proposing host it "
+            "cannot reach a block and will hold its nonce slot until mempool expiry — "
+            "retry the submit or relay it to a proposing node"
+        )
+    elif status == "partial":
+        out["warning"] = "transaction relay reached only some mesh peers; verify it seals"
+    return out
+
+
+def _proposes_blocks() -> bool:
+    from ..config import settings
+
+    return bool(getattr(settings, "enable_block_production", True))
 
 
 @rate_limit(rate=50, per=60)
@@ -558,9 +632,14 @@ def submit_transaction(request: Request, tx_data: TransactionRequest) -> dict[st
         _validate_transaction_admission(tx_data_dict, mempool)
 
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
-        _queue_peer_fanout(chain_id, tx_data_dict)
+        fanout = _queue_peer_fanout(chain_id, tx_data_dict)
 
-        return {"success": True, "transaction_hash": tx_hash, "message": "Transaction submitted to mempool"}
+        return {
+            "success": True,
+            "transaction_hash": tx_hash,
+            "message": "Transaction submitted to mempool",
+            **_fanout_response_fields(_await_peer_fanout(fanout, chain_id)),
+        }
     except HTTPException:
         # Raised deliberately above (invalid signature, etc.). HTTPException is an
         # Exception, so without this it is caught below and reissued as a 400, and
@@ -718,9 +797,14 @@ def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -> dict
         _admit_market_transaction(tx_data_dict, mempool, chain_id)
 
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
-        _queue_peer_fanout(chain_id, tx_data_dict)
+        fanout = _queue_peer_fanout(chain_id, tx_data_dict)
 
-        return {"success": True, "transaction_hash": tx_hash, "message": "Market transaction submitted to mempool"}
+        return {
+            "success": True,
+            "transaction_hash": tx_hash,
+            "message": "Market transaction submitted to mempool",
+            **_fanout_response_fields(_await_peer_fanout(fanout, chain_id)),
+        }
     except HTTPException:
         # Raised deliberately above (403 for missing/invalid signature or bond).
         # Re-raise so callers can distinguish "not signed" from "malformed".

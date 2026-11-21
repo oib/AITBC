@@ -492,6 +492,7 @@ GENERATED_DESTRUCTIVE_AITBC_PATHS = frozenset(
         "liquidity build-claim",
         "liquidity build-deposit",
         "liquidity build-withdraw",
+        "liquidity stakes",
         "liquidity-stake",
         "market cancel",
         "market download",

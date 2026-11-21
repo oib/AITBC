@@ -368,10 +368,33 @@ class TestTopLevelStakingCommands:
         assert data["transaction_hash"] == "0xliqhash"
 
         # A local liquidity record is cached, backed by the on-chain tx hash.
+        # #2361: the stake id is derived deterministically at v18+ —
+        # ``liq_<tx_hash[:16]>`` — so the record names it immediately.
         with open(temp_wallet) as f:
             wallet_data = json.load(f)
         assert wallet_data["liquidity"][0]["tx_hash"] == "0xliqhash"
+        assert wallet_data["liquidity"][0]["stake_id"] == "liq_0xliqhash"
         assert wallet_data["liquidity"][0]["status"] == "active"
+
+    def test_liquidity_stake_surfaces_relay_warning(self, runner, temp_wallet, mock_rpc):
+        """#2361: a failed peer relay must not look like a clean submit."""
+
+        def post(path, json=None):
+            if "/rpc/transaction" in path:
+                return {
+                    "transaction_hash": "0xliqhash",
+                    "warning": "transaction relay reached no mesh peers; nonce slot held",
+                }
+            return {"transaction_hash": "0xliqhash"}
+
+        mock_rpc.client.post.side_effect = post
+        result = runner.invoke(
+            liquidity_stake,
+            ["--wallet-path", temp_wallet, "--amount", "25", "--pool", "main"],
+            obj={"output_format": "json"},
+        )
+        assert result.exit_code == 0, result.output
+        assert "nonce slot held" in result.output
 
     def test_rpc_url_override_is_used(self, runner, temp_wallet, mock_rpc):
         """--rpc-url threads through to the RPC client base_url."""

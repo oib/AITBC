@@ -234,3 +234,116 @@ def test_queue_peer_fanout_warns_when_no_loop_anywhere(monkeypatch):
 
     txmod._queue_peer_fanout("ait-test", {"from": "0xabc"})  # must not raise
     assert any("no event loop" in w for w in warnings)
+
+
+# ---------------------------------------------------------------------------
+# #2361 — relay outcome must reach the submit response
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.anyio
+@pytest.mark.asyncio
+async def test_fanout_returns_relay_summary(monkeypatch):
+    """All peers accepted → status ok; the summary feeds the submit response."""
+
+    class FakeBackend:
+        def __init__(self, url: str, chain_id: str | None = None):
+            pass
+
+        async def start(self) -> None:
+            pass
+
+        async def publish(self, topic: str, message: dict) -> None:
+            pass
+
+        async def shutdown(self) -> None:
+            pass
+
+    import aitbc_chain.gossip.backends.websocket as ws_mod
+
+    monkeypatch.setattr(aitbc_settings, "gossip_mesh_peer_urls", "ws://p1:8202/rpc/gossip/ws,ws://p2:8202/rpc/gossip/ws")
+    monkeypatch.setattr(ws_mod, "WebsocketGossipBackend", FakeBackend)
+
+    out = await txmod._fanout_transaction_to_peers("ait-test", {"from": "0xabc"})
+    assert out == {"status": "ok", "attempted": 2, "accepted": 2}
+
+
+@pytest.mark.anyio
+@pytest.mark.asyncio
+async def test_fanout_summary_partial_and_failed(monkeypatch):
+    class MixedBackend:
+        def __init__(self, url: str, chain_id: str | None = None):
+            self.url = url
+
+        async def start(self) -> None:
+            if "down" in self.url:
+                raise ConnectionError("peer down")
+
+        async def publish(self, topic: str, message: dict) -> None:
+            pass
+
+        async def shutdown(self) -> None:
+            pass
+
+    import aitbc_chain.gossip.backends.websocket as ws_mod
+
+    monkeypatch.setattr(
+        aitbc_settings,
+        "gossip_mesh_peer_urls",
+        "ws://down:8202/rpc/gossip/ws,ws://up:8202/rpc/gossip/ws",
+    )
+    monkeypatch.setattr(ws_mod, "WebsocketGossipBackend", MixedBackend)
+    out = await txmod._fanout_transaction_to_peers("ait-test", {"from": "0xabc"})
+    assert out == {"status": "partial", "attempted": 2, "accepted": 1}
+
+    monkeypatch.setattr(aitbc_settings, "gossip_mesh_peer_urls", "ws://down:8202/rpc/gossip/ws")
+    out = await txmod._fanout_transaction_to_peers("ait-test", {"from": "0xabc"})
+    assert out == {"status": "failed", "attempted": 1, "accepted": 0}
+
+
+def test_await_peer_fanout_timeout_reports_pending(monkeypatch):
+    import concurrent.futures
+
+    fut: concurrent.futures.Future = concurrent.futures.Future()  # never resolves
+    monkeypatch.setenv("TX_FANOUT_WAIT_SECONDS", "0.01")
+    out = txmod._await_peer_fanout(fut, "ait-test")
+    assert out == {"status": "pending", "attempted": None, "accepted": None}
+
+
+def test_await_peer_fanout_none_and_task_report_nothing():
+    assert txmod._await_peer_fanout(None, "ait-test") is None
+    # An asyncio.Task cannot be waited on from a sync caller — stays fire-and-forget.
+    loop = asyncio.new_event_loop()
+    try:
+
+        async def _noop() -> dict:
+            return {"status": "ok"}
+
+        task = loop.create_task(_noop())
+        assert txmod._await_peer_fanout(task, "ait-test") is None
+        task.cancel()
+        loop.run_until_complete(asyncio.gather(task, return_exceptions=True))
+    finally:
+        loop.close()
+
+
+def test_fanout_response_fields_warns_on_stranded_tx(monkeypatch):
+    monkeypatch.setattr(aitbc_settings, "enable_block_production", False)
+    fields = txmod._fanout_response_fields({"status": "failed", "attempted": 2, "accepted": 0})
+    assert fields["peer_relay"]["status"] == "failed"
+    assert "nonce slot" in fields["warning"]
+
+    # Same relay on a proposing host: local mempool suffices — no warning.
+    monkeypatch.setattr(aitbc_settings, "enable_block_production", True)
+    fields = txmod._fanout_response_fields({"status": "failed", "attempted": 2, "accepted": 0})
+    assert "warning" not in fields
+
+    # Skipped (no peers) on a non-proposer is the original silent-strand case.
+    monkeypatch.setattr(aitbc_settings, "enable_block_production", False)
+    fields = txmod._fanout_response_fields({"status": "skipped", "attempted": 0, "accepted": 0})
+    assert "warning" in fields
+
+    fields = txmod._fanout_response_fields({"status": "ok", "attempted": 2, "accepted": 2})
+    assert fields == {"peer_relay": {"status": "ok", "attempted": 2, "accepted": 2}}
+
+    assert txmod._fanout_response_fields(None) == {}

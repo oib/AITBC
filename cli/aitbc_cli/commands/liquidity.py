@@ -138,3 +138,35 @@ def build_withdraw(ctx, stake_id, address, wallet_name, pool_id, fee, allow_high
         "fee": int(ait_to_units(fee)),
     }
     _build(ctx, "/rpc/liquidity/build-withdraw", body, rpc_url, chain_id, as_json, "Unsigned LIQUIDITY_WITHDRAW")
+
+
+@liquidity.command(
+    name="stakes",
+    epilog="""Examples:
+
+  aitbc liquidity stakes --wallet-name liquidity
+
+  aitbc liquidity stakes --address 0xAbc... --chain-id bc-2""",
+)
+@click.option("--address", "address", default=None, help="Staker address (overrides --wallet-name)")
+@click.option("--wallet-name", "wallet_name", default=None, help="Wallet whose stakes to list")
+@click.option("--chain-id", "chain_id", default=None, help="Chain ID (default: node's configured chain)")
+@click.option("--rpc-url", "rpc_url", default=None, help="Blockchain RPC URL (overrides config)")
+@click.option("--format", "format", type=click.Choice(["table", "json"]), default=None, help="Output format")
+@click.pass_context
+def stakes(ctx, address, wallet_name, chain_id, rpc_url, format):
+    """List on-chain liquidity stakes for an address (#2361).
+
+    Stake ids are ``liq_<tx_hash[:16]>`` of the deposit transaction — the
+    wallet file's local liquidity records cannot be queried by id without
+    this list.
+    """
+    rpc = resolve_rpc_url(ctx, rpc_url)
+    path = f"/rpc/liquidity/stakes/{_resolve_address(ctx, address, wallet_name)}"
+    if chain_id:
+        path = f"{path}?chain_id={chain_id}"
+    try:
+        result = AITBCHTTPClient(base_url=rpc, timeout=15).get(path)
+    except (AITBCError, OSError, ValueError, TypeError, AttributeError, RuntimeError) as e:
+        abort(ctx, f"{path} failed: {e}", from_exception=e)
+    output(result, resolve_output_format(ctx, format), title="Liquidity Stakes")
