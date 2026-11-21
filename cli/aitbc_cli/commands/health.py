@@ -81,10 +81,40 @@ def _probe_url(url: str, timeout: float) -> dict[str, Any]:
     }
 
 
+def _role_probe_services(role: str) -> list[str]:
+    """Probe keys for the services ``role`` deploys (#2415).
+
+    Reuses the role→unit manifest behind ``start/stop --role``
+    (``scripts/monitoring/health_check.sh`` via ``control._role_services``)
+    and keeps only units that map onto a ``DEFAULT_SERVICE_PROBES`` key.
+    Units with no HTTP health endpoint (blockchain-node, p2p, timers, …)
+    simply produce no probe — they were never probeable anyway.
+    """
+    from .control import _role_services
+
+    probe_keys: list[str] = []
+    for unit in _role_services(role):
+        name = unit.strip()
+        if name.startswith("aitbc-"):
+            name = name[len("aitbc-") :]
+        for suffix in (".service", ".timer"):
+            if name.endswith(suffix):
+                name = name[: -len(suffix)]
+        # health_check.sh names the explorer unit aitbc-blockchain-explorer;
+        # the probe key is the shorter "explorer".
+        if name == "blockchain-explorer":
+            name = "explorer"
+        if name in DEFAULT_SERVICE_PROBES and name not in probe_keys:
+            probe_keys.append(name)
+    return probe_keys
+
+
 @click.command(
     epilog="""Examples:
 
   aitbc health --host node2.example.net
+
+  aitbc health --host node2.example.net --role shop
 
   aitbc health --host 198.51.100.20 --services blockchain-rpc,edge
 
@@ -96,10 +126,16 @@ def _probe_url(url: str, timeout: float) -> dict[str, Any]:
     default="",
     help="Comma-separated list of services to probe (default: all known AITBC services).",
 )
+@click.option(
+    "--role",
+    type=click.Choice(["hub", "shop", "customer", "follower"]),
+    default=None,
+    help="Probe only the services this role deploys (same manifest as start/stop --role).",
+)
 @click.option("--timeout", type=float, default=5.0, help="Timeout per request in seconds.")
 @click.option("--output", "output_format", type=click.Choice(["table", "json"]), default=None, help="Output format.")
 @click.pass_context
-def health(ctx: click.Context, host: str, services: str, timeout: float, output_format: str):
+def health(ctx: click.Context, host: str, services: str, role: str | None, timeout: float, output_format: str):
     """Probe AITBC service health endpoints on a remote host."""
     output_format = resolve_output_format(ctx, output_format)
 
@@ -109,7 +145,20 @@ def health(ctx: click.Context, host: str, services: str, timeout: float, output_
         results = [_probe_url(url, timeout) for url in urls]
     else:
         host = host.rstrip("/")
-        selected = [s.strip() for s in services.split(",") if s.strip()] if services else list(DEFAULT_SERVICE_PROBES)
+        explicit = [s.strip() for s in services.split(",") if s.strip()]
+        if explicit and role:
+            abort(ctx, "--services and --role cannot be combined; pick one probe selection")
+        if explicit:
+            selected = explicit
+        elif role:
+            try:
+                selected = _role_probe_services(role)
+            except RuntimeError as exc:
+                abort(ctx, f"Could not resolve services for role '{role}': {exc}")
+            if not selected:
+                warning(f"Role '{role}' deploys no HTTP-health-probeable services; nothing to probe.")
+        else:
+            selected = list(DEFAULT_SERVICE_PROBES)
         unknown = [s for s in selected if s not in DEFAULT_SERVICE_PROBES]
         if unknown:
             abort(ctx, f"Unknown service(s): {', '.join(unknown)}")

@@ -295,8 +295,15 @@ def harden(
 
     results, changed_units = _harden_results(targets, dry_run, read_write_paths)
 
+    # #2415: a missing unit file is a per-unit error inside the payload —
+    # surface it in the exit code too, or `harden --service <typo>` reads
+    # as success. Output first so json/table consumers still get the report.
+    missing_units = [r["unit"] for r in results if r.get("error") == "unit file not found"]
+
     if dry_run:
         output({"dry_run": True, "results": results}, ctx.obj.get("output_format", "table"))
+        if missing_units:
+            ctx.exit(1)
         return
 
     restart_summary = _maybe_restart(changed_units, no_restart)
@@ -306,3 +313,5 @@ def harden(
         ctx.obj.get("output_format", "table"),
         title="Service Hardening",
     )
+    if missing_units:
+        ctx.exit(1)
