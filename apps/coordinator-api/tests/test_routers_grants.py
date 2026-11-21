@@ -78,6 +78,43 @@ class TestGrantLifecycle:
         listed = client.get(f"{BASE}/{gid}/milestones", headers=_headers())
         assert listed.status_code == 200
 
+    def test_create_opens_in_voting_status(self, client: TestClient) -> None:
+        """#2356: fresh proposals must be filterable via --status voting."""
+        created = client.post(BASE, json=_grant_body(), headers=_headers()).json()
+        assert created["status"] == "voting"
+        rows = client.get(f"{BASE}?status=voting", headers=_headers()).json()
+        assert any(r["id"] == created["id"] for r in rows)
+
+    def test_vote_zero_power_rejected(self, client: TestClient, db_session) -> None:
+        """#2356: a profile with no stake must not record a silent 0-weight vote."""
+        created = client.post(BASE, json=_grant_body(), headers=_headers()).json()
+        gid = created["id"]
+        resp = client.post(
+            f"{BASE}/{gid}/vote",
+            json={"vote": "for", "voting_power": 999},
+            headers=_headers("voter-broke"),
+        )
+        assert resp.status_code == 400
+        assert "no voting power" in resp.json()["detail"]
+        # and the voter was NOT burned into proposal_metadata
+        detail = client.get(f"{BASE}/{gid}", headers=_headers()).json()
+        assert "voter-broke" not in (detail.get("proposal_metadata") or {}).get("voters", [])
+
+    def test_vote_tallies_profile_power(self, client: TestClient, db_session) -> None:
+        """#2356: votes_for must actually increment by the profile's power."""
+        from coordinator_api.contexts.governance.services.governance_service import GovernanceService
+
+        GovernanceService(db_session).get_or_create_profile("voter-rich", 2.5)
+        created = client.post(BASE, json=_grant_body(), headers=_headers()).json()
+        gid = created["id"]
+        resp = client.post(
+            f"{BASE}/{gid}/vote",
+            json={"vote": "for", "voting_power": 999999},  # body power ignored (#1071)
+            headers=_headers("voter-rich"),
+        )
+        assert resp.status_code == 200, resp.text
+        assert resp.json()["votes_for"] == 2.5
+
     def test_vote_caller_bound(self, client: TestClient) -> None:
         created = client.post(BASE, json=_grant_body(), headers=_headers()).json()
         gid = created["id"]

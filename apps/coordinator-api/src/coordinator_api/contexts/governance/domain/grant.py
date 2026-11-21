@@ -17,6 +17,7 @@ class GrantStatus(StrEnum):
 
     DRAFT = "draft"
     SUBMITTED = "submitted"
+    VOTING = "voting"
     UNDER_REVIEW = "under_review"
     APPROVED = "approved"
     REJECTED = "rejected"

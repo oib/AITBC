@@ -16,7 +16,7 @@ aitbc grant vote [OPTIONS]
 |---|---|---|---|---|
 | `--grant-id` | text | — | yes | The Grant id. |
 | `--vote` | choice | — | yes | Vote choice |
-| `--voting-power` | float | `0.0` | no | Voting power |
+| `--voting-power` | float | `0.0` | no | Deprecated — ignored; power comes from your governance profile (#2356) |
 | `--format` | choice | — | no | Output format |
 
 ## Examples

@@ -69,7 +69,9 @@ def grant():
 
   aitbc grant create --developer-id dev-1 --title 'AI SDK' --description 'Improve SDK' --requested-amount 1000 --voting-days 14"""
 )
-@click.option("--developer-id", required=True, help="Developer ID")
+@click.option(
+    "--developer-id", default=None, help="Deprecated — ignored; the proposal binds to your authenticated principal (#2356)"
+)
 @click.option("--title", required=True, help="Grant title")
 @click.option("--description", default="", help="Grant description")
 @click.option("--requested-amount", required=True, help="Requested amount as decimal string")
@@ -78,7 +80,7 @@ def grant():
 @click.pass_context
 def create(
     ctx,
-    developer_id: str,
+    developer_id: str | None,
     title: str,
     description: str,
     requested_amount: str,
@@ -86,10 +88,20 @@ def create(
     format: str,
 ):
     """Create a new DAO grant proposal."""
+    if developer_id:
+        # #2356: the coordinator binds developer_id to the caller's auth
+        # principal (#1071) — the flag used to be required yet silently
+        # ignored, so grants filtered by the arg came back empty.
+        click.echo(
+            "Warning: --developer-id is ignored — the grant binds to your "
+            "authenticated principal. Filter later with 'grant list "
+            "--developer-id <your-principal>'.",
+            err=True,
+        )
     try:
         client = _get_client(ctx)
         payload = {
-            "developer_id": developer_id,
+            "developer_id": developer_id or "",
             "title": title,
             "description": description,
             "requested_amount": requested_amount,
@@ -152,11 +164,18 @@ def list_grants(
 )
 @click.option("--grant-id", "grant_id", required=True, help="The Grant id.")
 @click.option("--vote", type=click.Choice(["for", "against", "abstain"]), required=True, help="Vote choice")
-@click.option("--voting-power", type=float, default=0.0, help="Voting power")
+@click.option(
+    "--voting-power", type=float, default=0.0, help="Deprecated — ignored; power comes from your governance profile (#2356)"
+)
 @click.option("--format", type=click.Choice(["table", "json"]), default=None, help="Output format")
 @click.pass_context
 def vote(ctx, grant_id: str, vote: str, voting_power: float, format: str):
     """Cast a vote for, against, or abstain on a grant proposal."""
+    if voting_power:
+        click.echo(
+            "Warning: --voting-power is ignored — the coordinator derives voting power from your governance profile.",
+            err=True,
+        )
     try:
         client = _get_client(ctx)
         result = client.post(f"/v1/grants/{grant_id}/vote", json={"vote": vote, "voting_power": voting_power})
