@@ -56,6 +56,10 @@ class ChainMetrics:
     # than a real node metrics endpoint — synthetic rows must never feed
     # alerts, health scores, predictions, or recommendations (#2219).
     synthetic: bool = False
+    # Configured block interval reported by the node (PBFT/PoA chains run
+    # ~60s blocks by design). 0 means unknown — block-time alerts and the
+    # health score then fall back to the flat PoW-era thresholds (#2412).
+    expected_block_time: float = 0.0
 
 
 @dataclass
@@ -139,6 +143,7 @@ class ChainAnalytics:
                     agent_count=chain_stats.get("agent_count", 0),
                     network_in_mb=node_info.get("network_in_mb", 0.0),
                     network_out_mb=node_info.get("network_out_mb", 0.0),
+                    expected_block_time=float(chain_stats.get("expected_block_time") or 0.0),
                 )
 
                 # Store metrics history
@@ -484,8 +489,10 @@ class ChainAnalytics:
                 }
             )
 
-        # Block time optimization
-        if latest.avg_block_time > 3.0:
+        # Block time optimization — chains with a configured interval are
+        # judged against 1.5× their target; others keep the flat 3s bar (#2412).
+        block_ceiling = max(3.0, latest.expected_block_time * 1.5) if latest.expected_block_time > 0 else 3.0
+        if latest.avg_block_time > block_ceiling:
             recommendations.append(
                 {
                     "type": "performance",
@@ -543,8 +550,11 @@ class ChainAnalytics:
                 )
             )
 
-        # Block time alerts
-        if metrics.avg_block_time > self.thresholds["block_time_high"]:
+        # Block time alerts — PBFT/PoA chains have a configured interval
+        # (~60s) that makes the flat 10s PoW-era threshold meaningless; only
+        # flag blocks running >50% slower than the chain's own target (#2412).
+        block_time_ceiling = self._block_time_ceiling(metrics)
+        if metrics.avg_block_time > block_time_ceiling:
             alerts.append(
                 ChainAlert(
                     chain_id=metrics.chain_id,
@@ -552,7 +562,7 @@ class ChainAnalytics:
                     severity="warning",
                     message=f"High block time: {metrics.avg_block_time:.2f}s",
                     timestamp=metrics.timestamp,
-                    threshold=self.thresholds["block_time_high"],
+                    threshold=block_time_ceiling,
                     current_value=metrics.avg_block_time,
                 )
             )
@@ -592,6 +602,18 @@ class ChainAnalytics:
         cutoff_time = datetime.now() - timedelta(hours=24)
         self.alerts = [a for a in self.alerts if a.timestamp >= cutoff_time]
 
+    def _block_time_ceiling(self, metrics: ChainMetrics) -> float:
+        """Block-time ceiling for alerts/recommendations.
+
+        Chains that report a configured interval (``expected_block_time``)
+        are judged against 1.5× that target — a PBFT chain idling at its
+        ~60s design interval is healthy, not "high". Unknown target falls
+        back to the flat threshold (#2412).
+        """
+        if metrics.expected_block_time > 0:
+            return max(self.thresholds["block_time_high"], metrics.expected_block_time * 1.5)
+        return self.thresholds["block_time_high"]
+
     def _calculate_health_score(self, chain_id: str):
         """Calculate health score for a chain"""
         if chain_id not in self.metrics_history:
@@ -607,7 +629,11 @@ class ChainAnalytics:
 
         # Health score components (0-100)
         tps_score = min(100, (latest.tps / 10) * 100)  # 10 TPS = 100% score
-        block_time_score = max(0, 100 - (latest.avg_block_time - 5) * 10)  # 5s = 100% score
+        if latest.expected_block_time > 0:
+            # Score against the chain's configured interval, not the PoW-era 5s.
+            block_time_score = max(0.0, min(100.0, (latest.expected_block_time / max(latest.avg_block_time, 1.0)) * 100))
+        else:
+            block_time_score = max(0, 100 - (latest.avg_block_time - 5) * 10)  # 5s = 100% score
         node_score = min(100, (latest.active_nodes / 5) * 100)  # 5 nodes = 100% score
         memory_score = max(0, 100 - (latest.memory_usage_mb / 1000) * 50)  # 1GB = 50% penalty
 
