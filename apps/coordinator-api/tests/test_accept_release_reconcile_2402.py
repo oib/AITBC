@@ -127,3 +127,31 @@ async def test_accept_stops_retrying_once_payment_leaves_held_set(db_session, jo
 
     assert excinfo.value.status_code == 502
     assert len(calls) == 1
+
+
+@pytest.mark.asyncio
+async def test_accept_treats_released_during_reconcile_as_success(db_session, job_service, monkeypatch):
+    """#2462: a concurrent accept retry or the acceptance sweeper can settle
+    the escrow while this loop is still polling — release_payment then
+    answers False (the row is no longer held) but the payment is released.
+    The route must answer 200, not a false 502."""
+    job, payment = _acceptable_job(job_service, db_session)
+    calls = []
+
+    async def settles_elsewhere(self, client_id, job_id, payment_id, reason=None):
+        calls.append(payment_id)
+        payment.status = "released"
+        db_session.add(payment)
+        db_session.commit()
+        return False
+
+    monkeypatch.setattr(PaymentService, "release_payment", settles_elsewhere)
+
+    view = await client_router._accept_job_impl(job.id, db_session, {"sub": "client1"})
+
+    assert view.job_id == job.id
+    db_session.refresh(job)
+    assert job.payment_status == "released"
+    # The loop observed the released row on the first reconcile pass and
+    # stopped — no further release calls were burned.
+    assert len(calls) == 1

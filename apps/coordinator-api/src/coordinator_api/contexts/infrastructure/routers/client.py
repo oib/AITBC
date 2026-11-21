@@ -490,6 +490,38 @@ async def accept_job(
     return view
 
 
+async def _reconcile_release(
+    payment_service: PaymentService,
+    job: Any,
+    session: Session,
+    client_id: str,
+) -> bool:
+    """#2402/#2462: bounded reconcile for a release that answered "did not
+    settle". "Did not settle" is usually seal latency or a lost submit
+    response, not a dead release — the first call's tx can still be in the
+    mempool sealing now. Re-run the idempotent release a few times: the
+    node's sealed+mempool dedup hands back the in-flight hash instead of
+    double-submitting, so each retry is also the reconciliation the manual
+    second `ai accept` used to perform.
+
+    Stop early when the row leaves the held set — settlement_failed is
+    definitive and retrying cannot help it. "released" is the one non-held
+    state that is a *success*: a concurrent accept retry or the acceptance
+    sweeper can settle the escrow while this loop is still polling, and
+    answering 502 for a released payment is a false failure (#2462).
+    """
+    for _ in range(_ACCEPT_RELEASE_RETRIES):
+        await asyncio.sleep(_ACCEPT_RELEASE_POLL_SECONDS)
+        current = await run_in_threadpool(session.get, JobPayment, job.payment_id)
+        if current is not None and current.status == "released":
+            return True
+        if current is None or current.status not in HELD_STATES:
+            return False
+        if await payment_service.release_payment(client_id, job.id, job.payment_id, reason="Customer accepted the result"):
+            return True
+    return False
+
+
 async def _accept_job_impl(
     job_id: str,
     session: Session,
@@ -521,24 +553,7 @@ async def _accept_job_impl(
         user["sub"], job.id, job.payment_id, reason="Customer accepted the result"
     )
     if not released:
-        # #2402: "did not settle" is usually seal latency or a lost submit
-        # response, not a dead release — the first call's tx can still be in
-        # the mempool sealing now. Re-run the idempotent release a few times:
-        # the node's sealed+mempool dedup hands back the in-flight hash
-        # instead of double-submitting, so each retry is also the
-        # reconciliation the manual second `ai accept` used to perform.
-        # Stop early when the row leaves the held set — settlement_failed
-        # is definitive and retrying cannot help it.
-        for _ in range(_ACCEPT_RELEASE_RETRIES):
-            await asyncio.sleep(_ACCEPT_RELEASE_POLL_SECONDS)
-            current = await run_in_threadpool(session.get, JobPayment, job.payment_id)
-            if current is None or current.status not in HELD_STATES:
-                break
-            released = await payment_service.release_payment(
-                user["sub"], job.id, job.payment_id, reason="Customer accepted the result"
-            )
-            if released:
-                break
+        released = await _reconcile_release(payment_service, job, session, user["sub"])
     if not released:
         # The payment stays held, so the sweeper retries it when the window expires
         # rather than leaving the provider unpaid on a transient chain failure.
