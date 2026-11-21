@@ -30,7 +30,6 @@ from .exchange_helpers import (
     _is_int64,
     _payout_address_blocked,
     _settlement_enabled,
-    _short_addr,
     _signed_orders_required,
     get_db_path,
 )
@@ -229,14 +228,16 @@ class ExchangeNodesMixin:
         return [
             {
                 "label": label,
-                "address": _short_addr(address),
+                # #2439: full values in the API — truncation is a display
+                # concern; these addresses are deliberately public anyway.
+                "address": address,
                 "status": status,
                 "registered_at": registered_at,
                 "open_orders": open_counts.get(address, 0),
                 "watchlisted": address in watchlisted,
                 # ETH-8 phase 3 (dark): the node's signed payout address —
                 # deliberately public on the participants board.
-                "eth_address": _short_addr(eth_address),
+                "eth_address": eth_address,
             }
             for address, label, status, registered_at, eth_address in rows
         ]
