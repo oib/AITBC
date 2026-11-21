@@ -67,17 +67,32 @@ class BridgeTransferFinalizerMixin(BridgeBase):
                     continue
                 record.status = "completed"
                 session.add(record)
-                # Mirror the final state on the source chain.
+                # Mirror the final state on the source chain — but only
+                # from a non-terminal status. A source row already
+                # 'refunded' means the same transfer was both refunded and
+                # released (double pay, #2459); overwriting it with
+                # 'completed' would erase the only local marker (#2464).
                 try:
                     with self._session_for(record.source_chain) as src_session:
                         src_record = src_session.get(CrossChainTransfer, record.transfer_id)
-                        if src_record and src_record.status != "completed":
+                        if src_record and src_record.status in ("pending", "locked", "confirmed"):
                             src_record.status = "completed"
                             src_record.target_tx_hash = record.target_tx_hash
                             src_record.proof_hash = record.proof_hash
                             src_record.confirm_time = record.confirm_time
                             src_session.add(src_record)
                             src_session.commit()
+                        elif src_record and src_record.status == "refunded":
+                            metrics_registry.increment("bridge_finalizer_refunded_source_row_total")
+                            logger.error(
+                                "Bridge transfer %s finalized on %s but its source row on %s is 'refunded' "
+                                "(source_tx=%s release_tx=%s) — possible double pay; leaving 'refunded' untouched",
+                                record.transfer_id,
+                                chain_id,
+                                record.source_chain,
+                                src_record.source_tx_hash,
+                                record.target_tx_hash,
+                            )
                 except (SQLAlchemyError, OSError):
                     logger.exception("Failed to update source-chain bridge record for %s", record.transfer_id)
                 session.commit()
