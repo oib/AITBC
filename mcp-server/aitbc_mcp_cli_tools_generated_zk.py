@@ -80,8 +80,10 @@ def aitbc_zk_health(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_zk_verify(
     job_id: Annotated[str | None, Field(description="Job ID whose receipt proof should be re-verified")] = None,
-    proof: Annotated[str | None, Field(description="Proof JSON, @file, or base64 string")] = None,
-    public_signals: Annotated[str | None, Field(description="Public signals JSON, @file, or base64 string")] = None,
+    proof: Annotated[str | dict[str, Any] | None, Field(description="Proof JSON, @file, or base64 string")] = None,
+    public_signals: Annotated[
+        str | dict[str, Any] | None, Field(description="Public signals JSON, @file, or base64 string")
+    ] = None,
     circuit: Annotated[str | None, Field(description="Circuit name to verify against")] = None,
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
     format: Annotated[Literal["table", "json"] | None, Field(description="Output format")] = None,

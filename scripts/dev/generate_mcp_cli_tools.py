@@ -657,6 +657,18 @@ def _unique_py_name(base: str, reserved_suffix: str, seen: set[str]) -> str:
     return py_name
 
 
+def _json_aware_type(ptype: str, help_text: str) -> str:
+    """Widen JSON-string options to also accept a dict (#2404).
+
+    MCP clients coerce a JSON object argument into a dict before it reaches
+    the tool; a bare ``str`` annotation rejects it. ``_collect_options``
+    re-encodes dict values with ``json.dumps`` for the CLI.
+    """
+    if "json" in help_text.lower() and ptype == "str":
+        return "str | dict[str, Any]"
+    return ptype
+
+
 def _parse_option(param: click.Option, order: int, seen_names: set[str]) -> dict[str, Any] | None:
     """Extract one Click option into a param spec, or None when it is skipped."""
     if is_excluded_option(param):
@@ -676,6 +688,7 @@ def _parse_option(param: click.Option, order: int, seen_names: set[str]) -> dict
     help_text = (param.help or "").strip()
     if not help_text:
         help_text = f"{flag} option"
+    ptype = _json_aware_type(ptype, help_text)
     base = param.name.replace("-", "_") if param.name else flag.replace("-", "_")
     if base in SKIP_OPTION_NAMES or is_secret_value_option(base) or is_secret_value_option(flag):
         return None

@@ -14,6 +14,7 @@ standalone in either import order.
 
 from __future__ import annotations
 
+import json
 import os
 import re
 import shlex
@@ -350,8 +351,12 @@ def _collect_options(
             continue
         options[pair[0] if value else pair[1]] = None
     for name, flag in values.items():
-        if scope.get(name) is not None:
-            options[flag] = scope[name]
+        value = scope.get(name)
+        if value is None:
+            continue
+        # JSON-string CLI options accept a dict from MCP clients; re-encode it
+        # so the CLI receives valid JSON rather than a Python repr (#2404).
+        options[flag] = json.dumps(value, default=str) if isinstance(value, dict) else value
     return options
 
 

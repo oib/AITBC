@@ -29,7 +29,7 @@ from aitbc_mcp_server import (
 def aitbc_agent_comm_collaborate(
     agent_ids: Annotated[list[str], Field(description="The Agent ids.")],
     collaboration_type: Annotated[str, Field(description="The Collaboration type.")],
-    governance: Annotated[str | None, Field(description="Governance rules (JSON string)")] = None,
+    governance: Annotated[str | dict[str, Any] | None, Field(description="Governance rules (JSON string)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -424,7 +424,7 @@ def aitbc_agent_comm_send(
     receiver_id: Annotated[str, Field(description="The Receiver id.")],
     message_type: Annotated[str, Field(description="The Message type.")],
     chain_id: Annotated[str, Field(description="The Chain id.")],
-    payload: Annotated[str | None, Field(description="JSON payload string")] = None,
+    payload: Annotated[str | dict[str, Any] | None, Field(description="JSON payload string")] = None,
     target_chain: Annotated[str | None, Field(description="Target chain for cross-chain messages")] = None,
     priority: Annotated[int | None, Field(description="Message priority (1-10)")] = None,
     ttl: Annotated[int | None, Field(description="Time to live in seconds")] = None,

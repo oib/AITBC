@@ -632,7 +632,7 @@ def aitbc_exchange_prepay_deposit(
     max_eth: Annotated[str | None, Field(description="Per-call deposit cap — raise explicitly for larger deposits")] = None,
     exchange_url: Annotated[str | None, Field(description="Override exchange service base URL")] = None,
     eth_rpc_url: Annotated[
-        str | None, Field(description="Sepolia JSON-RPC endpoint (default: ETH_RPC_URL env/config)")
+        str | dict[str, Any] | None, Field(description="Sepolia JSON-RPC endpoint (default: ETH_RPC_URL env/config)")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -861,7 +861,9 @@ def aitbc_exchange_verify(
             description="bridge_deposits.db path under /var/lib/aitbc/ — enables the prepay cross-check (default: BRIDGE_DEPOSITS_DB env var)"
         ),
     ] = None,
-    rpc_url: Annotated[str | None, Field(description="Sepolia JSON-RPC endpoint — enables eth-chain checks")] = None,
+    rpc_url: Annotated[
+        str | dict[str, Any] | None, Field(description="Sepolia JSON-RPC endpoint — enables eth-chain checks")
+    ] = None,
     ait_rpc: Annotated[
         str | None, Field(description="AITBC chain RPC base URL — enables AIT checks with --escrow-address")
     ] = None,

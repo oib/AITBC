@@ -734,7 +734,7 @@ def aitbc_agent_status(
 def aitbc_agent_subscribe(
     agent_id: Annotated[str, Field(description="Agent ID")],
     topic: Annotated[str, Field(description="Topic to subscribe to")],
-    filter: Annotated[str | None, Field(description="Filter criteria (JSON string)")] = None,
+    filter: Annotated[str | dict[str, Any] | None, Field(description="Filter criteria (JSON string)")] = None,
     wallet_name: Annotated[
         str | None, Field(description="Wallet signing the subscribe request headers (default: $AITBC_DEFAULT_WALLET)")
     ] = None,
@@ -851,7 +851,7 @@ def aitbc_agent_verify_identity(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_workflow_create_workflow(
     name: Annotated[str, Field(description="Workflow name")],
-    steps_file: Annotated[str, Field(description="JSON file with workflow steps")],
+    steps_file: Annotated[str | dict[str, Any], Field(description="JSON file with workflow steps")],
     description: Annotated[str | None, Field(description="Workflow description")] = None,
     coordinator_url: Annotated[
         str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")
@@ -911,7 +911,7 @@ def aitbc_agent_workflow_create_workflow(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_workflow_execute(
     workflow_id: Annotated[str, Field(description="Workflow ID")],
-    input_file: Annotated[str | None, Field(description="JSON file with input parameters")] = None,
+    input_file: Annotated[str | dict[str, Any] | None, Field(description="JSON file with input parameters")] = None,
     coordinator_url: Annotated[
         str | None, Field(description="Agent coordinator URL (default: config agent_coordinator_url)")
     ] = None,

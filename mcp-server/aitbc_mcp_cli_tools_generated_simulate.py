@@ -239,7 +239,7 @@ def aitbc_simulate_result(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_simulate_run(
     scenario: Annotated[str, Field(description="The Scenario.")],
-    params: Annotated[str | None, Field(description="Simulation parameters (JSON string)")] = None,
+    params: Annotated[str | dict[str, Any] | None, Field(description="Simulation parameters (JSON string)")] = None,
     async_run: Annotated[bool | None, Field(description="Run simulation asynchronously")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,

@@ -69,7 +69,7 @@ def aitbc_gpu_list_gpus(
 def aitbc_gpu_register(
     gpu_id: Annotated[str, Field(description="The Gpu id.")],
     specs: Annotated[
-        str | None, Field(description="GPU specifications (JSON string) - auto-discovered if not provided")
+        str | dict[str, Any] | None, Field(description="GPU specifications (JSON string) - auto-discovered if not provided")
     ] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -167,7 +167,7 @@ def aitbc_gpu_unregister(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_gpu_update(
     gpu_id: Annotated[str, Field(description="The Gpu id.")],
-    pricing: Annotated[str | None, Field(description="Updated pricing model (JSON string)")] = None,
+    pricing: Annotated[str | dict[str, Any] | None, Field(description="Updated pricing model (JSON string)")] = None,
     status: Annotated[str | None, Field(description="Update GPU status")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,

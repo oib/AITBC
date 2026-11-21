@@ -27,9 +27,9 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_transactions_batch(
-    transactions_file: Annotated[str | None, Field(description="JSON file with batch transactions")] = None,
+    transactions_file: Annotated[str | dict[str, Any] | None, Field(description="JSON file with batch transactions")] = None,
     transactions_json: Annotated[
-        str | None,
+        str | dict[str, Any] | None,
         Field(description="Inline JSON batch (same shape as --transactions-file); exactly one of the two is required"),
     ] = None,
     password_file: Annotated[
@@ -188,7 +188,9 @@ def aitbc_transactions_send(
     ] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     tx_type: Annotated[str | None, Field(description="Transaction type (default TRANSFER)")] = None,
-    payload: Annotated[str | None, Field(description="JSON payload for non-standard transaction types")] = None,
+    payload: Annotated[
+        str | dict[str, Any] | None, Field(description="JSON payload for non-standard transaction types")
+    ] = None,
     nonce_offset: Annotated[
         int | None,
         Field(

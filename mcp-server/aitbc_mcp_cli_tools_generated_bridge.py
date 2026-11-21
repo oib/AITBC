@@ -27,7 +27,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_attest(
-    header_file: Annotated[str | None, Field(description="JSON file with a block header to attest")] = None,
+    header_file: Annotated[str | dict[str, Any] | None, Field(description="JSON file with a block header to attest")] = None,
     source_rpc: Annotated[
         str | None, Field(description="RPC URL to fetch the block from (alternative to --header-file)")
     ] = None,
@@ -35,7 +35,7 @@ def aitbc_bridge_attest(
     chain_id: Annotated[str | None, Field(description="Chain ID for the block")] = None,
     proposer: Annotated[str | None, Field(description="Proposer/validator address (defaults to derived address)")] = None,
     target_rpc: Annotated[str | None, Field(description="RPC URL to store the attested header on")] = None,
-    output_path: Annotated[str | None, Field(description="Write the attested header to a JSON file")] = None,
+    output_path: Annotated[str | dict[str, Any] | None, Field(description="Write the attested header to a JSON file")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -119,7 +119,7 @@ def aitbc_bridge_balance(
 def aitbc_bridge_confirm(
     transfer_id: Annotated[str, Field(description="Transfer ID to confirm")],
     confirmer: Annotated[str, Field(description="Confirmer address")],
-    proof_file: Annotated[str, Field(description="JSON file containing the lock proof")],
+    proof_file: Annotated[str | dict[str, Any], Field(description="JSON file containing the lock proof")],
     signature: Annotated[str | None, Field(description="Confirmer signature (hex)")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -264,7 +264,7 @@ def aitbc_bridge_ingest_header(
     proposer: Annotated[
         str | None, Field(description="Proposer address for the new signature (defaults to address of --private-key)")
     ] = None,
-    output_path: Annotated[str | None, Field(description="Write the stored header to a JSON file")] = None,
+    output_path: Annotated[str | dict[str, Any] | None, Field(description="Write the stored header to a JSON file")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -483,7 +483,7 @@ def aitbc_bridge_pending(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_proof(
     transfer_id: Annotated[str, Field(description="Transfer ID.")],
-    output_path: Annotated[str, Field(description="JSON file to write the unsigned proof to")],
+    output_path: Annotated[str | dict[str, Any], Field(description="JSON file to write the unsigned proof to")],
     source_chain: Annotated[str | None, Field(description="Source chain ID (defaults to node's chain)")] = None,
     block_height: Annotated[int | None, Field(description="Block height to anchor the proof")] = None,
     block_hash: Annotated[str | None, Field(description="Block hash to anchor the proof")] = None,
@@ -629,7 +629,7 @@ def aitbc_bridge_security_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_sign_proof(
-    proof_file: Annotated[str, Field(description="Unsigned proof JSON file")],
+    proof_file: Annotated[str | dict[str, Any], Field(description="Unsigned proof JSON file")],
     output_path: Annotated[str | None, Field(description="Output file (defaults to proof-file)")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -790,7 +790,7 @@ def aitbc_bridge_stop(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_bridge_store_header(
-    proof_file: Annotated[str, Field(description="Signed proof JSON file")],
+    proof_file: Annotated[str | dict[str, Any], Field(description="Signed proof JSON file")],
     admin_address: Annotated[str | None, Field(description="Admin address (defaults to address of admin-private-key)")] = None,
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL of the target node")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
