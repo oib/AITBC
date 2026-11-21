@@ -53,3 +53,26 @@ def _clean_signing_env(monkeypatch):
         "BRIDGE_DEPOSITS_DB",
     ):
         monkeypatch.delenv(var, raising=False)
+
+
+# market's once-per-process mismatch warnings (#2444) would otherwise leak
+# their dedupe set across tests in the same pytest process.
+@_pytest.fixture(autouse=True)
+def _reset_market_mismatch_dedupe():
+    try:
+        from aitbc_cli.commands import market as _market_mod
+    except ImportError:
+        return
+    _market_mod._MISMATCH_WARNED.clear()
+    yield
+    _market_mod._MISMATCH_WARNED.clear()
+
+
+# Same for config's once-per-process ambient-config warning dedupe (#2444).
+@_pytest.fixture(autouse=True)
+def _reset_ambient_config_dedupe():
+    from aitbc_cli import config as _config_mod
+
+    _config_mod._AMBIENT_CONFIG_WARNED.clear()
+    yield
+    _config_mod._AMBIENT_CONFIG_WARNED.clear()

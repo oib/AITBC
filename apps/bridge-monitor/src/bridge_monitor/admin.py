@@ -45,7 +45,7 @@ from .storage import BridgeDepositStatus, create_deposit, get_deposit, get_depos
 import click
 
 
-def _load_env_file(path: str) -> None:
+def _load_env_file(path: str, *, warn_missing: bool = True) -> None:
     """Populate os.environ from an EnvironmentFile-style env file."""
     try:
         for line in open(path):
@@ -57,7 +57,8 @@ def _load_env_file(path: str) -> None:
             val = val.strip().strip('"').strip("'")
             os.environ.setdefault(key, val)
     except OSError as e:
-        click.echo(f"warning: cannot read env file {path}: {e}", err=True)
+        if warn_missing:
+            click.echo(f"warning: cannot read env file {path}: {e}", err=True)
 
 
 def _valid_recipient(addr: object) -> bool:
@@ -321,7 +322,12 @@ def main() -> int:
         help="status/list: emit JSON instead of the human-readable listing",
     )
     ns = parser.parse_args()
-    _load_env_file(ns.env_file)
+    # The compiled-in default env path only exists on the hub that runs the
+    # monitor; read-only admin commands on other nodes must not nag about it
+    # (#2444). Warn only when the file was explicitly requested — via
+    # --env-file or BRIDGE_MONITOR_ENV — and still cannot be read.
+    env_file_explicit = "--env-file" in sys.argv[1:] or "BRIDGE_MONITOR_ENV" in os.environ
+    _load_env_file(ns.env_file, warn_missing=env_file_explicit)
 
     # Storage path comes from DATA_DIR like the service; allow override so
     # an operator can point at a copied DB for inspection. init_db() runs
