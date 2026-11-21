@@ -190,9 +190,24 @@ def _find_task_messages(messages: list[dict[str, Any]], task_id: str) -> dict[st
     return found
 
 
-def _resolve_provider_wallet(client: AITBCHTTPClient, agent_id: str) -> str | None:
+def _resolve_provider_wallet(
+    client: AITBCHTTPClient,
+    agent_id: str,
+    signing_agent_id: str | None = None,
+    signing_key: str | None = None,
+) -> str | None:
+    """Provider wallet from the agent registry (executor publishes it).
+
+    ``GET /v1/agents/{id}`` is principal-gated (#2212): under
+    AGENT_MSG_SIGNATURE_MODE=enforce an unsigned read 401s before the
+    escrow lock is ever built (#2431). When the buyer's signing material
+    is at hand the read authenticates as ``signing_agent_id`` — the
+    buyer's own registered agent — via ``X-Agent-*`` headers; without it
+    the call stays unsigned for disabled/advisory coordinators.
+    """
+    headers = signed_request_headers(signing_agent_id, signing_key) if signing_agent_id and signing_key else None
     try:
-        data = client.get(f"/v1/agents/{agent_id}")
+        data = client.get(f"/v1/agents/{agent_id}", headers=headers)
     except _OPS_ERRORS as e:
         abort(None, f"Could not look up agent {agent_id}: {e}")
         return None
@@ -544,12 +559,19 @@ def hire(
     if not payload_ref:
         raise click.Abort()
 
-    # 2. Provider wallet from the agent registry (executor publishes it).
-    provider_wallet = _resolve_provider_wallet(client, to_agent)
+    # 2. Buyer wallet + signing material — resolved before the provider
+    #    lookup because the registry read is principal-gated (#2431) and
+    #    the X-Agent-* headers need the buyer agent + key.
+    buyer_address, private_key, signing, signing_key, buyer_agent = _buyer_signing(
+        ctx, client, _explicit_buyer_agent(from_agent), wallet_name, password, password_file, password_stdin, sign
+    )
+
+    # 3. Provider wallet from the agent registry, read as the buyer agent.
+    provider_wallet = _resolve_provider_wallet(client, to_agent, signing_agent_id=buyer_agent, signing_key=signing_key)
     if not provider_wallet:
         raise click.Abort()
 
-    # 3. Settlement wallet: see _settlement_wallet for the lookup order.
+    # 4. Settlement wallet: see _settlement_wallet for the lookup order.
     rpc_url = _get_blockchain_rpc_url(config)
     settlement_wallet = _settlement_wallet(client, config, ctx, rpc_url)
     if not settlement_wallet:
@@ -557,11 +579,6 @@ def hire(
             "No escrow settlement wallet available — coordinator /v1/tasks/escrow-config unreachable and HUB_PROPOSER_ID unset"
         )
         raise click.Abort()
-
-    # 4. Buyer wallet + signing material for the escrow lock and envelopes.
-    buyer_address, private_key, signing, signing_key, buyer_agent = _buyer_signing(
-        ctx, client, _explicit_buyer_agent(from_agent), wallet_name, password, password_file, password_stdin, sign
-    )
 
     task_id = f"atask_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
 

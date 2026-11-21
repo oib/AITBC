@@ -223,6 +223,70 @@ def test_hire_submits_signed_escrow(runner, mock_client):
     assert mock_lock.call_args.kwargs["node_wallet"] == "0xSettleNode"
 
 
+def test_hire_provider_lookup_sends_signed_headers(runner, mock_client):
+    """#2431: GET /v1/agents/{provider} is principal-gated — hire must sign
+    the read as the buyer agent or every wallet-bound buyer gets 401 before
+    the escrow lock is built."""
+    import os
+
+    from aitbc_cli.commands.agent_task import agent_task
+
+    wallet = _real_wallet()
+
+    def fake_get(path, params=None, headers=None):
+        if path.startswith("/v1/agents/"):
+            return {"agent": {"metadata": {"wallet": "0xProvider"}}}
+        if path == "/v1/tasks/escrow-config":
+            return {"status": "success", "settlement_wallet": "0xSettleNode"}
+        return {"messages": []}
+
+    def fake_post(path, json=None, headers=None):
+        if path == "/v1/tasks/submit":
+            return {"status": "success", "escrow_id": "esc-9", "task_id": json["task_data"]["task_id"]}
+        return {"status": "success", "message_id": "m-1"}
+
+    mock_client.get.side_effect = fake_get
+    mock_client.post.side_effect = fake_post
+
+    with (
+        patch.dict("os.environ", {}, clear=False),
+        patch("aitbc_cli.commands.agent_task._resolve_payload_ref", return_value="QmCID"),
+        patch(
+            "aitbc_cli.commands.agent_task.load_wallet_for_payment",
+            return_value=(wallet.address, wallet.key.hex(), "w1"),
+        ),
+        patch("aitbc_cli.utils.escrow.create_signed_escrow_lock", return_value=({"type": "ESCROW_LOCK"}, "sig")),
+        patch("aitbc_cli.commands.agent_task._get_blockchain_rpc_url", return_value="http://rpc.local:8202"),
+    ):
+        os.environ.pop("AGENT_ID", None)
+        result = runner.invoke(
+            agent_task,
+            [
+                "hire",
+                "--to-agent",
+                "aitbc-miner-1",
+                "--service-type",
+                "ollama",
+                "--payload",
+                "QmCID",
+                "--max-price",
+                "0.05",
+                "--no-wait",
+                "--coordinator-url",
+                "http://coord.local",
+            ],
+            obj={"output_format": "json"},
+        )
+    assert result.exit_code == 0, result.output
+
+    lookup = next(c for c in mock_client.get.call_args_list if c.args[0] == "/v1/agents/aitbc-miner-1")
+    headers = lookup.kwargs.get("headers") or {}
+    assert headers.get("X-Agent-Id") == f"buyer-{os.uname().nodename}"
+    assert headers.get("X-Agent-Signature")
+    assert headers.get("X-Agent-Timestamp")
+    assert headers.get("X-Agent-Nonce")
+
+
 # --- ESCROW-TO-2 (#455): settlement wallet order --------------------------
 #
 # The escrow lock `to` must be the settlement node's node wallet (custody
