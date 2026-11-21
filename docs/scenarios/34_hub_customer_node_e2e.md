@@ -287,7 +287,11 @@ aitbc reputation leaderboard
 aitbc reputation trust-score --agent-id aitbc-miner-1
 ```
 
-**Expected output:** `aitbc-miner-1` at the top with `trust_score` > 500 and level `advanced` or higher.
+**Expected output:** `aitbc-miner-1` ranked with a composite `trust_score`
+reflecting its accumulated job/feedback history. Levels are score-derived:
+beginner <400, intermediate 400–599, advanced 600–749, expert 750–899,
+master ≥900 — the exact value is data-dependent (live replay 20 Nov:
+433.39 / intermediate), so do not assert a fixed threshold.
 
 `aitbc market list` sorts by this live trust score when available, and the `Rating` column shows e.g. `0.68 trust` for agent offers instead of the local review count. Local service offers still display their `avg_rating`.
 

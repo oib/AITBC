@@ -122,6 +122,10 @@ aitbc edge database get-db   --database-id db-1
 aitbc edge database sync-db  --database-id db-1
 ```
 
+`sync-db` is a 501 placeholder (`POST /v1/database/{id}/sync` is
+intentionally unimplemented) — the CLI surfaces the server's explanation;
+expect the honest error, not a synced result.
+
 **Not played:** `aitbc edge database delete-db --database-id db-1` drops the
 edge database — destructive; needs the operator's line.
 
@@ -135,9 +139,11 @@ aitbc edge serve get-request --request-id <request-id>
 aitbc edge serve get-result  --request-id <request-id>
 ```
 
-`--job-id` links the request to a paid marketplace job for edge servers that
-verify escrow; omit it only on a test edge server. `--escrow-id` is the
-legacy verification field.
+`--job-id` links the request to a paid marketplace job; the live edge server
+enforces escrow verification — a submit without a locked-escrow `--job-id`
+(or legacy `--escrow-id`) is refused with 402. There is no "test edge server"
+omit-path on the production service; `list-requests`/`get-request`/
+`get-result` are owner-scoped reads.
 
 **Not played:** `aitbc edge serve cancel-request --request-id <id>` aborts a
 queued request — only cancel requests you own.
@@ -154,7 +160,8 @@ operator's line.
 
 | Step | Spend |
 |---|---|
-| 1–6 read-only queries and metric records | 0 AIT |
+| Steps 1–5 read-only queries and metric records | 0 AIT |
+| `serve submit-request` | requires a paid job's locked escrow (402 otherwise) |
 | `edge transfer` | `--amount` (integer units) — not played |
 
 ---
