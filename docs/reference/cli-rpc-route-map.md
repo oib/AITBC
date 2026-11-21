@@ -140,6 +140,8 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc governance vote` | `/rpc/account/` | — | —
 | `aitbc gpu-onchain allocations` | `/rpc/gpu/allocations/` | — | —
 | `aitbc gpu-onchain allocations` | `/rpc/gpu/allocations/{gpu_id}` | `get_gpu_allocations` (gpu_resources.py) | —
+| `aitbc gpu-onchain deregister` | `/rpc/gpu/info/` | — | —
+| `aitbc gpu-onchain deregister` | `/rpc/gpu/info/{gpu_id}` | `get_gpu` (gpu_resources.py) | —
 | `aitbc gpu-onchain list` | `/rpc/gpus` | `list_gpus` (gpu_resources.py) | —
 | `aitbc gpu-onchain query` | `/rpc/gpu/info/` | — | —
 | `aitbc gpu-onchain query` | `/rpc/gpu/info/{gpu_id}` | `get_gpu` (gpu_resources.py) | —
