@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 35
-- **Markdown files under docs/**: 1533
+- **Markdown files under docs/**: 1534
 
 | Directory | Files | Description |
 |---|---|---|
@@ -73,7 +73,7 @@ docs/
 | [audit](audit/) | 1 | Documentation audit and refresh status |
 | [blockchain](blockchain/) | 16 | Blockchain node, consensus, networking |
 | [ci-cd](ci-cd/) | 1 | CI/CD pipeline and operations |
-| [cli](cli/) | 606 | Command-line interface reference |
+| [cli](cli/) | 607 | Command-line interface reference |
 | [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
 | [database](database/) | 1 | Database schema, RLS, and migration docs |
 | [decisions](decisions/) | 3 | Decision log — dated choices with recorded reasons |
@@ -605,6 +605,7 @@ Inbound markdown links per document (top referrers).
 | [cli/commands/liquidity-build-deposit.md](cli/commands/liquidity-build-deposit.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/liquidity-build-withdraw.md](cli/commands/liquidity-build-withdraw.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/liquidity-stake.md](cli/commands/liquidity-stake.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
+| [cli/commands/liquidity-stakes.md](cli/commands/liquidity-stakes.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/list.md](cli/commands/list.md) | [cli/commands/README.md](cli/commands/README.md) |
 | [cli/commands/market-cancel.md](cli/commands/market-cancel.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |
 | [cli/commands/market-download.md](cli/commands/market-download.md) | [cli/commands/README.md](cli/commands/README.md), [reference/record-types.md](reference/record-types.md) |

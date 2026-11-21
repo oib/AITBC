@@ -144,6 +144,7 @@ association is keyword-based best-effort; `—` means unmatched.
 | `aitbc liquidity build-claim` | `/rpc/liquidity/build-claim` | `build_claim` (liquidity.py) | `LIQUIDITY_CLAIM`
 | `aitbc liquidity build-deposit` | `/rpc/liquidity/build-deposit` | `build_deposit` (liquidity.py) | `LIQUIDITY_DEPOSIT`
 | `aitbc liquidity build-withdraw` | `/rpc/liquidity/build-withdraw` | `build_withdraw` (liquidity.py) | `LIQUIDITY_WITHDRAW`
+| `aitbc liquidity stakes` | `/rpc/liquidity/stakes/` | — | —
 | `aitbc market cancel` | `/rpc/escrow/` | — | —
 | `aitbc market cancel` | `/rpc/escrow/{job_id}/refund` | `refund_escrow` (escrow_routes.py) | `ESCROW_REFUND`
 | `aitbc market escrow create` | `/rpc/escrow/create` | `create_escrow` (escrow_routes.py) | —
