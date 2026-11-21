@@ -91,6 +91,20 @@ def _post_rpc(rpc_url: str, method: str, params: list, timeout: float = 15.0) ->
     return payload.get("result")
 
 
+def _rpc_probe(rpc_url: str) -> str | None:
+    """None when the endpoint answers ``eth_chainId``; else the failure text.
+
+    One cheap call up front decides whether the chain legs can run at all —
+    without it an unreachable RPC degraded to one WARN per leg and the run
+    still reported ``ok`` with zero chain evidence (#2436).
+    """
+    try:
+        _post_rpc(rpc_url, "eth_chainId", [])
+    except RpcError as e:
+        return str(e)
+    return None
+
+
 def _ait_transfers(ait_rpc: str, address: str, timeout: float = 15.0) -> dict[str, dict[str, Any]]:
     """TRANSFER history for ``address`` keyed by tx hash (newest-first API,
     flattened here). The endpoint has no cursor; limit=0 returns all."""
@@ -522,16 +536,14 @@ def _check_settlement_leg(t: sqlite3.Row, seller_eth: dict, rpc_url: str, add) -
         add(FAIL, "eth", f"trade {t['id']} settle {txh}: to {tx.get('to')} != seller {want_to}")
 
 
-def check_eth_chain(conn: sqlite3.Connection, rpc_url: str, bridge_address: str | None, add) -> None:
+def check_eth_chain(
+    conn: sqlite3.Connection, rpc_url: str, bridge_address: str | None, add, *, rpc_explicit: bool = False
+) -> None:
     deposits = (
         conn.execute("SELECT node_address, amount_eth, eth_tx_hash FROM prepaid_deposits").fetchall()
         if _has_table(conn, "prepaid_deposits")
         else []
     )
-    for d in deposits:
-        _check_prepaid_deposit(d, rpc_url, bridge_address, add)
-    add(INFO, "eth", f"{len(deposits)} prepaid deposits checked")
-
     try:
         settled = conn.execute(
             "SELECT id, total, settlement_eth_tx_hash, sell_order_id FROM trades WHERE settlement_eth_tx_hash IS NOT NULL"
@@ -540,6 +552,23 @@ def check_eth_chain(conn: sqlite3.Connection, rpc_url: str, bridge_address: str 
     except sqlite3.OperationalError as e:
         add(FAIL, "db", f"phase-3 columns absent — is this a pre-settlement exchange DB? ({e})")
         return
+
+    # Probe once before any leg runs (#2436): an explicitly supplied
+    # endpoint that cannot be reached means the requested chain leg did not
+    # run — FAIL. The built-in public default stays WARN: it is
+    # best-effort, not operator intent. DB reads above still report schema
+    # damage even when the RPC is down.
+    unreachable = _rpc_probe(rpc_url)
+    if unreachable is not None:
+        add(
+            FAIL if rpc_explicit else WARN,
+            "eth",
+            f"RPC endpoint {rpc_url} unreachable: {unreachable} — chain checks could not run",
+        )
+        return
+    for d in deposits:
+        _check_prepaid_deposit(d, rpc_url, bridge_address, add)
+    add(INFO, "eth", f"{len(deposits)} prepaid deposits checked")
     for t in settled:
         _check_settlement_leg(t, seller_eth, rpc_url, add)
     add(INFO, "eth", f"{len(settled)} settlement ETH legs checked")
@@ -598,7 +627,11 @@ def check_ait_chain(conn: sqlite3.Connection, ait_rpc: str, escrow: str, add, br
     try:
         escrow_txs = _ait_transfers(ait_rpc, escrow)
     except RpcError as e:
-        add(WARN, "ait", str(e))
+        # --ait-rpc has no default: reaching this check means the operator
+        # asked for the AIT leg explicitly, so an unreachable RPC is a FAIL,
+        # not a warning — the run would otherwise report ok with no chain
+        # evidence (#2436).
+        add(FAIL, "ait", f"AIT RPC {ait_rpc} unreachable: {e} — AIT checks could not run")
         return
     try:
         sells = conn.execute(
@@ -659,7 +692,12 @@ def main() -> int:
         default=(os.environ.get("BRIDGE_DEPOSITS_DB") or "").strip() or None,
         help="bridge_deposits.db path — enables the prepay cross-check (default: BRIDGE_DEPOSITS_DB env var)",
     )
-    ap.add_argument("--rpc-url", default=DEFAULT_ETH_RPC, help="Sepolia JSON-RPC endpoint")
+    ap.add_argument(
+        "--rpc-url",
+        default=None,
+        help=f"Sepolia JSON-RPC endpoint (default: {DEFAULT_ETH_RPC}; an explicit "
+        "endpoint that is unreachable FAILs the run, the default only WARNs)",
+    )
     ap.add_argument("--bridge-address", help="expected deposit destination (enforces `to` on prepays)")
     ap.add_argument("--ait-rpc", help="AITBC chain RPC base URL — enables AIT checks with --escrow-address")
     ap.add_argument("--escrow-address", help="sell-escrow account address for AIT checks")
@@ -675,6 +713,8 @@ def main() -> int:
     ap.add_argument("--json", action="store_true", help="machine-readable output")
     ns = ap.parse_args()
     ns.db = _resolve_db(ns.db)
+    rpc_explicit = ns.rpc_url is not None
+    rpc_url = ns.rpc_url or DEFAULT_ETH_RPC
 
     findings: list[dict[str, str]] = []
 
@@ -691,7 +731,7 @@ def main() -> int:
         if ns.bridge_db:
             check_bridge_db(conn, ns.bridge_db, add)
         if not ns.no_chain:
-            check_eth_chain(conn, ns.rpc_url, ns.bridge_address, add)
+            check_eth_chain(conn, rpc_url, ns.bridge_address, add, rpc_explicit=rpc_explicit)
             if ns.ait_rpc and ns.escrow_address:
                 check_ait_chain(conn, ns.ait_rpc, ns.escrow_address, add, bridge_db_path=ns.bridge_db)
             else:

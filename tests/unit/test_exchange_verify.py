@@ -6,6 +6,7 @@ replies, so no network is touched.
 """
 
 import importlib.util
+import json
 import sqlite3
 import sys
 from pathlib import Path
@@ -128,7 +129,13 @@ def _findings(tool, db_path, **kwargs):
         if "bridge_db" in kwargs:
             tool.check_bridge_db(conn, kwargs["bridge_db"], add)
         if kwargs.get("eth"):
-            tool.check_eth_chain(conn, kwargs.get("rpc_url", "http://rpc.test"), kwargs.get("bridge_address"), add)
+            tool.check_eth_chain(
+                conn,
+                kwargs.get("rpc_url", "http://rpc.test"),
+                kwargs.get("bridge_address"),
+                add,
+                rpc_explicit=kwargs.get("rpc_explicit", False),
+            )
         if kwargs.get("ait"):
             tool.check_ait_chain(
                 conn, kwargs["ait_rpc"], kwargs["escrow_address"], add, bridge_db_path=kwargs.get("bridge_db")
@@ -450,6 +457,8 @@ def test_prepay_rows_classified(tool, tmp_path):
 
 def _stub_rpc(tool, monkeypatch, replies):
     def fake(rpc_url, method, params, timeout=15.0):
+        if method == "eth_chainId":  # liveness probe (#2436)
+            return "0x1"
         return replies[(method, params[0])]
 
     monkeypatch.setattr(tool, "_post_rpc", fake)
@@ -781,3 +790,75 @@ def test_partial_schema_orders_columns_missing_reports_fail_not_crash(tool, tmp_
     found = _findings(tool, db, eth=True, ait=True, ait_rpc="http://rpc.test", escrow_address=ESCROW)
     assert any(s == "FAIL" and "phase-3" in m and "order_type" in m for s, _c, m in found), found
     assert len([m for s, _c, m in found if s == "FAIL" and "phase-3" in m]) == 3, found  # db-internal + eth + ait
+
+
+# --- unreachable RPC (#2436) -------------------------------------------------
+
+
+def _dead_rpc(tool, monkeypatch):
+    def dead(rpc_url, method, params, timeout=15.0):
+        raise tool.RpcError("connection refused")
+
+    monkeypatch.setattr(tool, "_post_rpc", dead)
+
+
+def test_explicit_dead_eth_rpc_fails(tool, tmp_path, monkeypatch):
+    """done_when: an explicitly supplied RPC that cannot be reached FAILs —
+    the requested chain leg did not run, so ok must not be true."""
+    db = _exchange_db(tmp_path / "ex.db")
+    _dead_rpc(tool, monkeypatch)
+    found = _findings(tool, db, eth=True, rpc_explicit=True)
+    assert any(s == "FAIL" and c == "eth" and "unreachable" in m for s, c, m in found), found
+
+
+def test_default_dead_eth_rpc_warns_not_fails(tool, tmp_path, monkeypatch):
+    """The built-in public default is best-effort — WARN, never FAIL."""
+    db = _exchange_db(tmp_path / "ex.db")
+    _dead_rpc(tool, monkeypatch)
+    found = _findings(tool, db, eth=True)
+    assert any(s == "WARN" and "unreachable" in m for s, _c, m in found), found
+    assert "FAIL" not in _severities(found), found
+
+
+def test_dead_ait_rpc_fails(tool, tmp_path, monkeypatch):
+    """--ait-rpc has no default: reaching the check means explicit intent."""
+    db = _exchange_db(tmp_path / "ex.db")
+
+    def dead_ait(rpc, addr, timeout=15.0):
+        raise tool.RpcError("connection refused")
+
+    monkeypatch.setattr(tool, "_ait_transfers", dead_ait)
+    found = _findings(tool, db, ait=True, ait_rpc="http://ait.test", escrow_address=ESCROW)
+    assert any(s == "FAIL" and c == "ait" and "unreachable" in m for s, c, m in found), found
+
+
+def test_main_dead_explicit_rpcs_exit_1_ok_false(tool, tmp_path, monkeypatch, capsys):
+    """End-to-end: dead --rpc-url + --ait-rpc on a clean DB → ok:false, exit 1."""
+    db = _exchange_db(tmp_path / "ex.db")
+    _dead_rpc(tool, monkeypatch)
+
+    def dead_ait(rpc, addr, timeout=15.0):
+        raise tool.RpcError("connection refused")
+
+    monkeypatch.setattr(tool, "_ait_transfers", dead_ait)
+    monkeypatch.setattr(
+        sys,
+        "argv",
+        [
+            "exchange_verify.py",
+            "--db",
+            str(db),
+            "--rpc-url",
+            "http://127.0.0.1:9",
+            "--ait-rpc",
+            "http://127.0.0.1:9",
+            "--escrow-address",
+            ESCROW,
+            "--json",
+        ],
+    )
+    rc = tool.main()
+    out = json.loads(capsys.readouterr().out)
+    assert rc == 1
+    assert out["ok"] is False
+    assert out["fail"] >= 2  # eth + ait legs both dead
