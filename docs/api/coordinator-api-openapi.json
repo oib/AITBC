@@ -359,6 +359,68 @@
         }
       }
     },
+    "/v1/jobs/inflight": {
+      "get": {
+        "tags": [
+          "client"
+        ],
+        "summary": "Get the caller's queued+running job count and cap",
+        "description": "Headroom check for the per-client inflight cap (#2453).\n\n``inflight`` counts the caller's QUEUED+RUNNING jobs \u2014 the same set\n``COORDINATOR_MAX_INFLIGHT_JOBS_PER_CLIENT`` bounds on submit;\n``cap`` is the configured limit so clients can compute headroom\nwithout provoking a 429.",
+        "operationId": "get_jobs_inflight_v1_jobs_inflight_get",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Jobs Inflight V1 Jobs Inflight Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/jobs/{job_id}": {
       "get": {
         "tags": [

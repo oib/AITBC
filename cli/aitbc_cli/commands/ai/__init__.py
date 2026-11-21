@@ -21,7 +21,7 @@ from eth_keys.exceptions import BadSignature
 from eth_utils.exceptions import ValidationError as EthValidationError
 
 from ...config import get_config
-from ...utils import resolve_output_format, success, warning
+from ...utils import info, resolve_output_format, success, warning
 from ...utils.output import output as _utils_output
 from ...utils.redact import redact_secrets
 from ...utils.chain_id import resolve_chain_id

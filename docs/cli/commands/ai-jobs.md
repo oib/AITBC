@@ -15,7 +15,8 @@ aitbc ai jobs [OPTIONS]
 | Option | Type | Default | Required | Description |
 |---|---|---|---|---|
 | `--limit` | integer | `10` | no | Limit results |
-| `--status` | text | — | no | Filter by status |
+| `--status` | text | — | no | Filter by status (QUEUED, RUNNING, COMPLETED, FAILED, CANCELED, EXPIRED; 'pending' is accepted as an alias for QUEUED, 'all' disables the filter) |
+| `--inflight` | flag | `false` | no | Show only the queued+running count and the configured cap — no job rows |
 | `--coordinator-url` | text | — | no | Coordinator URL |
 | `--format` | choice | — | no | Output format |
 

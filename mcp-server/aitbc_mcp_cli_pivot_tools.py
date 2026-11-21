@@ -175,11 +175,16 @@ def run_aitbc_cli(
     # line there.
     read_only = _is_aitbc_subcommand_read_only(subcommand, group, args)
     option_mutation = _options_suggest_mutation(options, group_options)
+    # #2453: ``--help``/``-h`` exits inside Click before any command body
+    # runs, so a help request on a mutating leaf (e.g. ``ai submit --help``)
+    # must not trip the confirm gate — the destructive classification is
+    # about the leaf, not the invocation.
+    help_requested = _is_help_invocation(args, options)
 
     if dry_run:
         return _json(_build_dry_run("Set dry_run=false to execute.", command, host=target))
 
-    if (destructive or option_mutation or not read_only) and not confirm:
+    if (not help_requested) and (destructive or option_mutation or not read_only) and not confirm:
         return _json(
             {
                 "error": "Confirmation required",
@@ -448,12 +453,30 @@ def list_wallet_transactions(
     )
 
 
+def _is_help_invocation(
+    args: list[str] | None,
+    options: dict[str, Any] | None,
+) -> bool:
+    """True when the invocation asks Click for help text only (#2453)."""
+    tokens: list[str] = [str(a) for a in (args or [])]
+    for value in (options or {}).values():
+        if isinstance(value, list):
+            tokens.extend(str(v) for v in value)
+        elif value is not None:
+            tokens.append(str(value))
+    return any(t in ("-h", "--help") for t in tokens)
+
+
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def list_ai_jobs(
     limit: Annotated[
         int | None,
         Field(description="Maximum number of jobs to return.", ge=1),
     ] = None,
+    inflight: Annotated[
+        bool,
+        Field(description="Return only the queued+running count and configured cap (no job rows)."),
+    ] = False,
     role: Annotated[
         NodeRole | None,
         Field(description="Node role to query."),
@@ -463,10 +486,12 @@ def list_ai_jobs(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """List AI jobs."""
+    """List AI jobs, or with ``inflight`` show queued+running headroom."""
     options: dict[str, str] = {}
     if limit is not None:
         options["limit"] = str(limit)
+    if inflight:
+        options["inflight"] = ""
     return _aitbc_cli_read_tool(role, host, "ai", "jobs", options=options)
 
 

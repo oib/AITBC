@@ -5246,6 +5246,13 @@
           ]
         },
         {
+          "public": "/api/v2/coordinator/v1/jobs/inflight",
+          "upstream": "/v1/jobs/inflight",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/coordinator/v1/jobs/{job_id}",
           "upstream": "/v1/jobs/{job_id}",
           "methods": [
