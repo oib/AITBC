@@ -551,7 +551,7 @@ def _secure_escrow(
             from_exception=e,
         )
     payment_id = payment_result.get("payment_id")
-    _ai.success(f"Escrow secured: {payment_id}")
+    _ai._report_escrow_outcome(ctx, job_id, payment_result)
     return payment_id
 
 
