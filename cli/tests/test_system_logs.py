@@ -26,11 +26,17 @@ def journalctl():
     calls = []
 
     class _Result:
-        returncode = 0
-        stdout = "log output\n"
-        stderr = ""
+        def __init__(self, stdout="log output\n"):
+            self.returncode = 0
+            self.stdout = stdout
+            self.stderr = ""
 
     def _run(cmd, **kw):
+        # #2415: logs() pre-flights `systemctl show -p LoadState` before
+        # journalctl — answer it as an installed unit and keep `calls`
+        # journalctl-only so argv assertions stay pointed at the right call.
+        if cmd and cmd[0] == "systemctl":
+            return _Result(stdout="loaded\n")
         calls.append(cmd)
         return _Result()
 

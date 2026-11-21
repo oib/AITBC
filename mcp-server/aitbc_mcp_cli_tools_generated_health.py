@@ -25,6 +25,10 @@ def aitbc_health(
     services: Annotated[
         str | None, Field(description="Comma-separated list of services to probe (default: all known AITBC services).")
     ] = None,
+    role_opt: Annotated[
+        Literal["hub", "shop", "customer", "follower"] | None,
+        Field(description="Probe only the services this role deploys (same manifest as start/stop --role)."),
+    ] = None,
     timeout_opt: Annotated[float | None, Field(description="Timeout per request in seconds.")] = None,
     output_format: Annotated[Literal["table", "json"] | None, Field(description="Output format.")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -35,7 +39,13 @@ def aitbc_health(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"host_opt": "host", "services": "services", "timeout_opt": "timeout", "output_format": "output"},
+        values={
+            "host_opt": "host",
+            "services": "services",
+            "role_opt": "role",
+            "timeout_opt": "timeout",
+            "output_format": "output",
+        },
     )
     args = None
     return _aitbc_cli_read_tool(

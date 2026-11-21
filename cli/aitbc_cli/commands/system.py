@@ -561,6 +561,7 @@ def logs(
     """Show journalctl logs for a systemd service."""
     cmd = _logs_argv(service, lines, since, grep_pattern, priority, severity_pattern)
     service_name = _service_unit_name(service)
+    _require_installed_unit(service_name)
     try:
         result = subprocess.run(
             cmd,
@@ -625,6 +626,7 @@ def cat(ctx, service: str):
 def show(ctx, service: str, properties: str | None):
     """Show systemd properties for a service."""
     service_name = _service_unit_name(service)
+    _require_installed_unit(service_name)
     try:
         cmd = ["systemctl", "show", service_name]
         if properties:
@@ -640,6 +642,38 @@ def show(ctx, service: str, properties: str | None):
         raise
     except Exception as e:
         raise click.ClickException(f"Error showing properties for {service_name}: {e}") from e
+
+
+def _unit_load_state(service_name: str) -> str:
+    """systemd ``LoadState`` for the unit (``loaded``, ``not-found``, ...).
+
+    Returns ``""`` when systemctl cannot answer — callers treat unknown as
+    installed so hosts without systemd keep the old behavior (#2415).
+    """
+    try:
+        result = subprocess.run(
+            ["systemctl", "show", service_name, "-p", "LoadState", "--value"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError):
+        return ""
+    if result.returncode != 0:
+        return ""
+    return result.stdout.strip()
+
+
+def _require_installed_unit(service_name: str) -> None:
+    """Fail closed when the unit has no unit file on this host (#2415).
+
+    ``systemctl show``/``journalctl`` exit 0 for missing units, so without
+    this check `system show` prints an empty property dump and `system logs`
+    prints "-- No entries --" — indistinguishable from a healthy unit.
+    """
+    if _unit_load_state(service_name) == "not-found":
+        raise click.ClickException(f"unit {service_name} is not installed on this host")
 
 
 def _unit_env_files(service_name: str) -> list[tuple[Path, bool]]:
