@@ -1174,8 +1174,9 @@ def _search_via_explorer(address: str, limit: int) -> None:
         http_client = AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
         params = {"address": address, "limit": limit}
         result = http_client.get("/api/transactions/search", params=params)
-        transactions = result.get("transactions", [])
-        success(f"Found {len(transactions)} transactions for {address} (via Explorer)")
+        transactions = [_normalize_search_row(r) for r in result.get("transactions", [])]
+        # #2439: stdout is the JSON payload — status goes to stderr.
+        success(f"Found {len(transactions)} transactions for {address} (via Explorer)", err=True)
         click.echo(json.dumps(transactions, indent=2))
     except NetworkError as e:
         abort(None, f"Explorer API unavailable: {e}")
@@ -1187,6 +1188,38 @@ def _row_matches(row: object, key: str, want: str) -> bool:
     if not isinstance(row, dict):
         return False
     return str(row.get(key, "")).lower() == want.lower()
+
+
+def _normalize_search_row(row: object) -> object:
+    """#2439: one money representation and a filled timestamp in JSON output.
+
+    ``value``/``fee`` arrive as raw compute-units while ``wallet
+    transactions`` prints AIT strings — emit the same ``format_ait`` string
+    and keep the raw units under ``*_units``. ``timestamp`` falls back to
+    ``created_at``/``block_timestamp`` so older rows stop reporting null.
+    """
+    if not isinstance(row, dict):
+        return row
+    out = dict(row)
+    value_raw = out.get("value")
+    for key in ("value", "fee"):
+        raw = out.get(key)
+        if raw is None or (isinstance(raw, str) and raw.endswith(" AIT")):
+            continue
+        try:
+            out[key] = format_ait(raw)
+        except Exception:  # noqa: BLE001 - non-numeric payload field stays as-is
+            continue
+        out[f"{key}_units"] = raw
+    # "amount" is the explorer's alias for "value" — mirror the formatted
+    # value so no raw base-unit duplicate survives in the payload.
+    if "amount" in out and out.get("amount") == value_raw and "value" in out:
+        out["amount"] = out["value"]
+        if value_raw is not None:
+            out["amount_units"] = value_raw
+    if not out.get("timestamp"):
+        out["timestamp"] = out.get("created_at") or out.get("block_timestamp")
+    return out
 
 
 def _search_via_rpc(filters: dict, sender: str | None, recipient: str | None, limit: int, rpc_url: str | None) -> None:
@@ -1219,8 +1252,9 @@ def _search_via_rpc(filters: dict, sender: str | None, recipient: str | None, li
                     "the filter, so the list may be incomplete"
                 )
             transactions = kept
+        transactions = [_normalize_search_row(r) for r in transactions]
         names = "+".join(filters)
-        success(f"Found {len(transactions)} transactions matching {names} (via RPC)")
+        success(f"Found {len(transactions)} transactions matching {names} (via RPC)", err=True)
         click.echo(json.dumps(transactions, indent=2))
     except CLIError:
         raise

@@ -263,4 +263,6 @@ def test_board_shows_payout_address(db_path, settlement_on):
     rows = h._node_rows(conn)
     conn.close()
     mine = [r for r in rows if r["label"] == "sellernode"][0]
-    assert mine["eth_address"] == payout.address[:6] + "…" + payout.address[-4:]
+    # #2439: the API returns full values — truncation is a display concern.
+    assert mine["eth_address"] == payout.address
+    assert mine["address"] == node.address

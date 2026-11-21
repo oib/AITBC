@@ -844,25 +844,34 @@ def transactions(ctx, name: str | None, limit: int):
         if isinstance(transactions, dict):
             transactions = transactions.get("transactions", [])
 
-        # Format transactions
+        # Format transactions. #2439: machine formats get full values —
+        # truncation is a table-display concern, not data.
+        fmt = ctx.obj.get("output_format", "table")
+        machine = fmt in ("json", "yaml", "csv")
         formatted_txs = []
         for tx in transactions:
-            formatted_txs.append(
-                {
-                    "tx_id": tx.get("transaction_id"),
-                    "tx_hash": tx.get("tx_hash", "")[:16] + "...",
-                    "sender": tx.get("sender", "")[:20] + "...",
-                    "recipient": tx.get("recipient", "")[:20] + "...",
-                    "value": format_ait(tx.get("value", 0)) if tx.get("value") else 0,
-                    "fee": format_ait(tx.get("fee", 0)) if tx.get("fee") else 0,
-                    "status": tx.get("status"),
-                    "timestamp": tx.get("created_at", "")[:19],
-                }
-            )
+            # #2439: older rows can carry timestamp/block_timestamp instead of
+            # created_at — fall back so the field is never empty when data exists.
+            ts = tx.get("created_at") or tx.get("timestamp") or tx.get("block_timestamp") or ""
+            row = {
+                "tx_id": tx.get("transaction_id"),
+                "tx_hash": tx.get("tx_hash", ""),
+                "sender": tx.get("sender", ""),
+                "recipient": tx.get("recipient", ""),
+                "value": format_ait(tx.get("value", 0)) if tx.get("value") else 0,
+                "fee": format_ait(tx.get("fee", 0)) if tx.get("fee") else 0,
+                "status": tx.get("status"),
+                "timestamp": ts if machine else ts[:19],
+            }
+            if not machine:
+                row["tx_hash"] = row["tx_hash"][:16] + "..."
+                row["sender"] = row["sender"][:20] + "..."
+                row["recipient"] = row["recipient"][:20] + "..."
+            formatted_txs.append(row)
 
         output(
             {"wallet": wallet_name, "address": address, "count": len(formatted_txs), "transactions": formatted_txs},
-            ctx.obj.get("output_format", "table"),
+            fmt,
             title=f"Transactions: {wallet_name}",
         )
     except Exception as e:

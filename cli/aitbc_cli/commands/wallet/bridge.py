@@ -407,6 +407,9 @@ def status(ctx, ait_tx_hash: str | None, today: bool, last_24h: bool, hub_url: s
     output(
         {
             "window": label,
+            # #2439: name the backend that answered — a shop node's local
+            # daemon reports its own (usually empty) ledger, not the hub's.
+            "backend": client.base_url,
             "timezone": window.get("timezone", ""),
             "since": window.get("since", ""),
             "withdrawals_eth": window.get("withdrawals_eth", ""),
@@ -442,7 +445,7 @@ def float_cmd(ctx, hub_url: str | None):
     except Exception as e:
         error(f"Failed to read bridge float: {e}")
         raise click.Abort() from e
-    output(doc, ctx.obj.get("output_format", "table"))
+    output({**doc, "backend": client.base_url}, ctx.obj.get("output_format", "table"))
 
 
 @bridge.command(

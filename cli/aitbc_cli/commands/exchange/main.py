@@ -263,6 +263,12 @@ def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interv
         warning(f"Real-time monitoring enabled. Updates every {interval} seconds.")
 
 
+def _decimal_str(value: object) -> str:
+    """#2439: one emitted type for liquidity fields — older exchanges.json rows
+    can hold JSON numbers, so coerce every value to a decimal string."""
+    return str(Decimal(str(value if value is not None else 0)))
+
+
 @exchange.command(
     epilog="""Examples:
 
@@ -323,8 +329,8 @@ def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | No
             "exchange": target_exchange,
             "amount": str(amount),
             "side": side,
-            "base_liquidity": target_pair.get("base_liquidity"),
-            "quote_liquidity": target_pair.get("quote_liquidity"),
+            "base_liquidity": _decimal_str(target_pair.get("base_liquidity")),
+            "quote_liquidity": _decimal_str(target_pair.get("quote_liquidity")),
             "updated_at": target_pair["liquidity_updated_at"],
         },
         resolve_output_format(ctx),

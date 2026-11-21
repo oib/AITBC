@@ -621,7 +621,23 @@ def node_list(ctx, exchange_url):
     except NetworkError as e:
         abort(ctx, f"Cannot reach exchange: {http_error_detail(e) or e}", from_exception=e)
         return
-    output({"nodes": doc.get("nodes") or []}, resolve_output_format(ctx), title="Exchange nodes")
+    rows = doc.get("nodes") or []
+    fmt = resolve_output_format(ctx)
+    if fmt not in ("json", "yaml", "csv"):
+        # #2439: machine formats get full values; tables truncate for display.
+        rows = [
+            {
+                **r,
+                **{
+                    k: (v[:6] + "…" + v[-4:] if isinstance(v, str) and len(v) > 12 else v)
+                    for k, v in r.items()
+                    if k in ("address", "eth_address")
+                },
+            }
+            for r in rows
+            if isinstance(r, dict)
+        ]
+    output({"nodes": rows}, fmt, title="Exchange nodes")
 
 
 def _abort_verify(message: str) -> NoReturn:

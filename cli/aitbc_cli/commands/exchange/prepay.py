@@ -80,17 +80,28 @@ def _bridge_deposit_address(ctx, client) -> str:
     return to_canonical(address)
 
 
+def _addr_matches(row_value: Any, address: str) -> bool:
+    """Registry rows now carry full addresses (#2439); older servers and
+    stored rows may still hold the board's shortened form — accept both."""
+    if not isinstance(row_value, str) or not row_value:
+        return False
+    if row_value == address or row_value == _short(address):
+        return True
+    try:
+        return to_canonical(row_value) == to_canonical(address)
+    except Exception:  # noqa: BLE001 - non-address text simply does not match
+        return False
+
+
 def _node_row(ctx, client, address: str) -> dict[str, Any] | None:
-    """The wallet's participants-board row, matched on the board's
-    shortened address form."""
+    """The wallet's participants-board row."""
     try:
         doc = client.get("/api/exchange/nodes")
     except Exception as e:
         abort(ctx, f"Cannot read /api/exchange/nodes for the registry check: {e}", from_exception=e)
         raise AssertionError("unreachable: abort always raises") from e
-    short = _short(address)
     for row in (doc.get("nodes") or []) if isinstance(doc, dict) else []:
-        if isinstance(row, dict) and row.get("address") == short:
+        if isinstance(row, dict) and _addr_matches(row.get("address"), address):
             return row
     return None
 
@@ -121,7 +132,7 @@ def _registry_check(ctx, client, address: str) -> tuple[bool, str]:
         return False, f"{address} has no row on the participants board"
     if row.get("status") != "registered":
         return False, (f"node status is '{row.get('status')}', not 'registered' — run 'aitbc exchange node register' first")
-    if row.get("eth_address") != _short(address):
+    if not _addr_matches(row.get("eth_address"), address):
         return False, (
             f"registry payout eth_address {row.get('eth_address')!r} does not match "
             f"the sending wallet — run 'aitbc exchange node set-payout --eth-address {address}' first"
