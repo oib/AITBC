@@ -1090,7 +1090,7 @@ def send(
 
     rpc_url = _resolve_send_rpc_endpoint(ctx, rpc_url)
     chain_id = _send_chain_id(ctx, rpc_url)
-    actual_nonce = _send_nonce(rpc_url, sender_address)
+    actual_nonce = _send_nonce(rpc_url, sender_address, chain_id)
     private_key = _send_signing_key(ctx, wallet_data)
 
     transaction = _build_send_transaction(
@@ -1149,16 +1149,17 @@ def _send_chain_id(ctx, rpc_url: str) -> str:
     return chain_id
 
 
-def _send_nonce(rpc_url: str, sender_address: str) -> int:
-    """Get actual nonce from blockchain. A failed lookup must not mean nonce 0:
-    the wrong nonce produces an already-signed transaction the chain refuses."""
+def _send_nonce(rpc_url: str, sender_address: str, chain_id: str) -> int:
+    """Get actual nonce from blockchain plus the mempool lookahead (#2395):
+    the sealed account nonce ignores the sender's own in-flight txs, so two
+    back-to-back submits would collide on the same nonce slot. A failed
+    lookup must not mean nonce 0: the wrong nonce produces an already-signed
+    transaction the chain refuses."""
+    from ...utils.nonce import next_send_nonce
+
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
-        account_data = http_client.get(f"/rpc/account/{sender_address}")
-        nonce = account_data.get("nonce")
-        if nonce is None:
-            raise ValueError(f"/rpc/account/{sender_address} response carried no nonce")
-        return int(nonce)
+        return next_send_nonce(http_client, sender_address, chain_id)
     except Exception as e:
         error(
             f"Nonce lookup for {sender_address} via {rpc_url} failed: {e}. "
