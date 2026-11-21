@@ -83,7 +83,6 @@ def test_reencode_output_path_stays_in_tmp(tmp_path, monkeypatch):
     monkeypatch.setattr(pm, "_download_media", fake_download)
     monkeypatch.setattr(pm, "_run_ffmpeg", fake_ffmpeg)
     monkeypatch.setattr(pm, "_submit_success", lambda *a, **k: None)
-    monkeypatch.setattr(pm, "build_tee_quote", lambda *a, **k: None)
 
     job = {"job_id": "j-ok", "payload": {"type": "reencode", "url": "https://example.com/v.mp4", "output_format": "webm"}}
     assert pm.execute_job(job, []) is True
@@ -106,7 +105,6 @@ def test_transcribe_input_ext_is_sanitised(monkeypatch):
     monkeypatch.setattr(pm, "_download_media", fake_download)
     monkeypatch.setattr(pm, "_run_whisper", fake_whisper)
     monkeypatch.setattr(pm, "_submit_success", lambda *a, **k: None)
-    monkeypatch.setattr(pm, "build_tee_quote", lambda *a, **k: None)
 
     job = {
         "job_id": "j-tr",
@@ -251,7 +249,6 @@ def _capture_results(monkeypatch):
     submitted = []
     monkeypatch.setattr(pm, "submit_result", lambda jid, res: submitted.append((jid, res)))
     monkeypatch.setattr(pm, "get_gpu_info", lambda: None)
-    monkeypatch.setattr(pm, "build_tee_quote", lambda *a, **k: None)
     return submitted
 
 

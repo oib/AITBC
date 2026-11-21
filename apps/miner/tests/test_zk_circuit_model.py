@@ -24,7 +24,6 @@ def _capture_results(monkeypatch):
     submitted = []
     monkeypatch.setattr(pm, "submit_result", lambda jid, res: submitted.append((jid, res)))
     monkeypatch.setattr(pm, "get_gpu_info", lambda: None)
-    monkeypatch.setattr(pm, "build_tee_quote", lambda *a, **k: None)
     return submitted
 
 

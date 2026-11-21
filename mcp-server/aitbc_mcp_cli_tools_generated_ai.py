@@ -507,16 +507,7 @@ def aitbc_ai_submit(
         float | None, Field(description="Minimum provider reputation score (0-1) required for this job")
     ] = None,
     zk_proof_required: Annotated[bool | None, Field(description="Require a ZK receipt proof before escrow release")] = None,
-    tee_attestation_required: Annotated[
-        bool | None, Field(description="Require a TEE attestation before escrow release")
-    ] = None,
-    tee_enclave_id: Annotated[str | None, Field(description="Required TEE enclave identity")] = None,
-    confidential: Annotated[
-        bool | None, Field(description="Mark this job as confidential (requires a TEE attestation)")
-    ] = None,
-    enclave_measurement: Annotated[
-        str | None, Field(description="Required enclave measurement for a confidential job")
-    ] = None,
+    confidential: Annotated[bool | None, Field(description="Mark this job as confidential")] = None,
     auto_reinvest_pct: Annotated[
         float | None, Field(description="Percentage of released payment to auto-stake as reinvestment")
     ] = None,
@@ -569,8 +560,6 @@ def aitbc_ai_submit(
             "offer_quantity": "offer-quantity",
             "acceptance_window": "acceptance-window",
             "min_reputation": "min-reputation",
-            "tee_enclave_id": "tee-enclave-id",
-            "enclave_measurement": "enclave-measurement",
             "auto_reinvest_pct": "auto-reinvest-pct",
             "min_bond_amount": "min-bond-amount",
             "decode_seed": "decode-seed",
@@ -588,7 +577,6 @@ def aitbc_ai_submit(
         },
         dual_flags={
             "zk_proof_required": ("zk-proof-required", "no-zk-proof-required"),
-            "tee_attestation_required": ("tee-attestation-required", "no-tee-attestation-required"),
             "bond_required": ("bond-required", "no-bond-required"),
             "deterministic_decoding": ("deterministic-decoding", "no-deterministic-decoding"),
         },

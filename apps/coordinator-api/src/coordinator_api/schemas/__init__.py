@@ -404,8 +404,6 @@ class JobView(BaseModel):
     payload: dict[str, Any] | None = None
     result: dict[str, Any] | None = None
     zk_proof_id: str | None = None
-    tee_status: str | None = None
-    tee_attestation_id: str | None = None
     auto_reinvest_pct: Decimal | None = None
     reinvest_status: str | None = None
     reinvest_stake_id: str | None = None
@@ -569,8 +567,6 @@ class JobResultSubmit(BaseModel):
 
     result: JobSubmitResultBody
     metrics: JobSubmitMetricsBody = Field(default_factory=JobSubmitMetricsBody)
-    tee_attestation_id: str | None = Field(default=None, description="Existing TEE attestation ID")
-    tee_quote: str | None = Field(default=None, description="Base64 TEE attestation quote to verify")
 
 
 class JobFailSubmit(BaseModel):
@@ -771,27 +767,6 @@ class ConfidentialAccessResponse(BaseModel):
     data: dict[str, Any] | None = None
     error: str | None = None
     access_id: str | None = None
-
-
-class ConfidentialPaymentCreate(BaseModel):
-    """Request to record a confidential payment from the CLI."""
-
-    payment_id: str
-    sender_id: str
-    recipient_id: str
-    amount_commitment: str
-
-
-class ConfidentialPaymentView(BaseModel):
-    """Response confirming a confidential payment was received."""
-
-    payment_id: str
-    sender_id: str
-    recipient_id: str
-    amount_commitment: str
-    settled: bool = True
-    status: str = "simulated"
-    confidential: bool = True
 
 
 # Key Management Models

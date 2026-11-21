@@ -722,7 +722,7 @@ async def test_process_queued_requests_skips_non_queued(monkeypatch, engine):
 
 
 # ---------------------------------------------------------------------------
-# edge_app: compliance subnets and TEE proxy
+# edge_app: compliance subnets
 # ---------------------------------------------------------------------------
 
 
@@ -754,44 +754,3 @@ def test_compliance_subnet_assign_release():
         subnet.assign("w3", ComplianceFramework.SOC2, DataClassification.CONFIDENTIAL)
     with pytest.raises(ValueError):
         registry.assign("w4", ComplianceFramework.HIPAA, DataClassification.CONFIDENTIAL, "missing")
-
-
-def test_tee_proxy_channel_roundtrip():
-    """register -> open -> route -> receive must round-trip a payload."""
-    import os
-
-    from edge_app.tee_proxy import TEEProxy, _generate_x25519_keypair
-
-    _, peer_pub = _generate_x25519_keypair()
-
-    proxy = TEEProxy(edge_id="edge-1")
-    reg = proxy.register_channel("ch-1", peer_id="peer-1", peer_public_key=peer_pub)
-    assert reg["peer_id"] == "peer-1"
-    assert len(reg["edge_public_key"]) == 32
-
-    opened = proxy.open_channel("ch-1")
-    assert opened["state"] == "open"
-
-    routed = proxy.route_to_channel("ch-1", {"hello": "world"})
-    assert routed["delivered"] is True
-    assert routed["sequence"] == 0
-
-    decoded = proxy.receive_from_channel("ch-1", routed["payload"], routed["nonce"])
-    assert decoded == {"hello": "world"}
-
-    # Unknown channel and unopened channel are refused.
-    with pytest.raises(KeyError):
-        proxy.route_to_channel("nope", {})
-
-    proxy2 = TEEProxy(edge_id="edge-2")
-    proxy2.register_channel("ch-2", peer_id="peer-2")
-    with pytest.raises(ValueError):
-        proxy2.open_channel("ch-2")  # no peer key yet
-    proxy2.open_channel("ch-2", peer_public_key=os.urandom(32))
-
-    # A registered-but-never-opened channel refuses routing.
-    proxy3 = TEEProxy(edge_id="edge-3")
-    _, pk3 = _generate_x25519_keypair()
-    proxy3.register_channel("ch-3", peer_id="peer-3", peer_public_key=pk3)
-    with pytest.raises(RuntimeError):
-        proxy3.route_to_channel("ch-3", {"x": 1})

@@ -192,7 +192,7 @@ class PaymentReleaseMixin(PaymentCoreMixin):
 
         The ``Job`` row's ``receipt`` JSON may lag the ``jobreceipt`` table (JSON
         ``MutableDict`` does not always track in-place updates, and the row may be
-        written before ZK/TEE fields are added). Prefer ``JobReceipt.payload`` when a
+        written before ZK fields are added). Prefer ``JobReceipt.payload`` when a
         ``receipt_id`` is present; fall back to the denormalised ``Job.receipt``.
         """
         return get_receipt_of_record(self.session, job)

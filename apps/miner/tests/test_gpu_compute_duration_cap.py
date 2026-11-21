@@ -39,7 +39,6 @@ def test_duration_clamped_to_configured_max(monkeypatch):
     with (
         patch.object(pm, "_gpu_snapshot", return_value={}),
         patch.object(pm, "_submit_success"),
-        patch.object(pm, "build_tee_quote", return_value=None),
         patch.object(pm.time, "sleep", lambda s: slept.append(s)),
     ):
         pm._execute_gpu_compute(_job(duration_seconds=10**8))
@@ -52,7 +51,6 @@ def test_unbounded_duration_gets_default_max(monkeypatch):
     with (
         patch.object(pm, "_gpu_snapshot", return_value={}),
         patch.object(pm, "_submit_success"),
-        patch.object(pm, "build_tee_quote", return_value=None),
         patch.object(pm.time, "sleep", lambda s: slept.append(s)),
     ):
         pm._execute_gpu_compute(_job(duration_seconds=10**8))
@@ -67,7 +65,6 @@ def test_loop_stops_at_job_deadline(monkeypatch):
     with (
         patch.object(pm, "_gpu_snapshot", return_value={}),
         patch.object(pm, "_submit_success"),
-        patch.object(pm, "build_tee_quote", return_value=None),
         patch.object(pm.time, "sleep", lambda s: slept.append(s)),
     ):
         pm._execute_gpu_compute(job)
@@ -89,7 +86,6 @@ def _run(job, monkeypatch, max_env="3600"):
     with (
         patch.object(pm, "_gpu_snapshot", return_value={}),
         patch.object(pm, "_submit_success") as submit,
-        patch.object(pm, "build_tee_quote", return_value=None),
         patch.object(pm.time, "sleep", lambda s: slept.append(s)),
     ):
         pm._execute_gpu_compute(job)
@@ -156,7 +152,6 @@ def test_deadline_passing_mid_run_ends_the_hold(monkeypatch):
     with (
         patch.object(pm, "_gpu_snapshot", return_value={}),
         patch.object(pm, "_submit_success") as submit,
-        patch.object(pm, "build_tee_quote", return_value=None),
         patch.object(pm.time, "sleep", _sleep),
         patch.object(pm.time, "time", lambda: clock["now"]),
     ):

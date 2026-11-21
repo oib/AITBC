@@ -45,7 +45,6 @@ def _run(job, monkeypatch, max_env="3600"):
     with (
         patch.object(pm, "_gpu_snapshot", return_value={}),
         patch.object(pm, "_submit_success") as submit,
-        patch.object(pm, "build_tee_quote", return_value=None),
         patch.object(pm.time, "sleep", _sleep),
         patch.object(pm.time, "time", lambda: clock["now"]),
     ):

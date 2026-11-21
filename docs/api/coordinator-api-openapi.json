@@ -71,16 +71,6 @@
                 }
               }
             }
-          },
-          "503": {
-            "description": "TEE attestation is not enabled on this coordinator",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       },
@@ -10797,96 +10787,6 @@
           },
           "500": {
             "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/confidential/payments": {
-      "post": {
-        "tags": [
-          "confidential"
-        ],
-        "summary": "Create Confidential Payment",
-        "description": "Receive a confidential payment envelope from the CLI.\n\nFail-closed: without a real TEE this endpoint must not emit a 'settled'\nreceipt. When ``CONFIDENTIAL_TEE_ENABLED`` is true the coordinator records\nthe envelope and returns a receipt; otherwise it returns 503 Service\nUnavailable so callers fall back to local simulated settlement.",
-        "operationId": "create_confidential_payment_v1_confidential_payments_post",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/ConfidentialPaymentCreate"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ConfidentialPaymentView"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Bad Request",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "participant_id must match the authenticated principal / Role required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Confidential TEE payment settlement is not enabled on this coordinator",
             "content": {
               "application/json": {
                 "schema": {
@@ -24907,244 +24807,6 @@
         }
       }
     },
-    "/v1/tee/attestations": {
-      "post": {
-        "tags": [
-          "tee"
-        ],
-        "summary": "Submit Attestation",
-        "description": "Submit and verify a TEE attestation quote.\n\nBy default the endpoint records self-consistent quotes as\n``self_consistent`` (``registered=False``). Callers that need a real\ntrust root must use the job release path, which calls\n``verify_and_store(..., require_registered=True)``.",
-        "operationId": "submit_attestation_v1_tee_attestations_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/AttestationSubmit"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TEEAttestation"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "TEE attestation is not enabled on this coordinator",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/tee/attestations/{attestation_id}": {
-      "get": {
-        "tags": [
-          "tee"
-        ],
-        "summary": "Get Attestation",
-        "description": "Retrieve a stored attestation result.",
-        "operationId": "get_attestation_v1_tee_attestations__attestation_id__get",
-        "parameters": [
-          {
-            "name": "attestation_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Attestation Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/TEEAttestation"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Attestation not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/tee/enclaves": {
-      "post": {
-        "tags": [
-          "tee"
-        ],
-        "summary": "Register Enclave",
-        "description": "Register or update an enclave identity.\n\nSecurity fix (2026-08-24): the registering identity is the authenticated\ncaller (``user[\"sub\"]``), not the client-supplied ``payload.agent_id`` --\notherwise any caller could claim ownership of any enclave_id just by\nnaming themselves in the request body. ``register_enclave`` itself\nrefuses to hand an existing registration to a different owner.",
-        "operationId": "register_enclave_v1_tee_enclaves_post",
-        "parameters": [
-          {
-            "name": "Authorization",
-            "in": "header",
-            "required": false,
-            "schema": {
-              "anyOf": [
-                {
-                  "type": "string"
-                },
-                {
-                  "type": "null"
-                }
-              ],
-              "title": "Authorization"
-            }
-          }
-        ],
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/EnclaveRegister"
-              }
-            }
-          }
-        },
-        "responses": {
-          "201": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EnclaveIdentity"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "400": {
-            "description": "Invalid status: {payload.status}",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "403": {
-            "description": "Forbidden",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/tee/enclaves/{enclave_id}": {
-      "get": {
-        "tags": [
-          "tee"
-        ],
-        "summary": "Get Enclave",
-        "description": "Retrieve an enclave identity by enclave_id.",
-        "operationId": "get_enclave_v1_tee_enclaves__enclave_id__get",
-        "parameters": [
-          {
-            "name": "enclave_id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "title": "Enclave Id"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/EnclaveIdentity"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "404": {
-            "description": "Enclave not found",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/v1/hipaa/consent": {
       "post": {
         "tags": [
@@ -37500,30 +37162,6 @@
         ],
         "title": "AssignedJob"
       },
-      "AttestationSubmit": {
-        "properties": {
-          "enclave_id": {
-            "type": "string",
-            "title": "Enclave Id"
-          },
-          "quote": {
-            "type": "string",
-            "title": "Quote"
-          },
-          "measurement": {
-            "type": "string",
-            "title": "Measurement",
-            "default": ""
-          }
-        },
-        "type": "object",
-        "required": [
-          "enclave_id",
-          "quote"
-        ],
-        "title": "AttestationSubmit",
-        "description": "Request body for submitting a remote attestation quote."
-      },
       "AuditEventType": {
         "type": "string",
         "enum": [
@@ -38636,79 +38274,6 @@
         "title": "ConfidentialAccessResponse",
         "description": "Response for confidential data access"
       },
-      "ConfidentialPaymentCreate": {
-        "properties": {
-          "payment_id": {
-            "type": "string",
-            "title": "Payment Id"
-          },
-          "sender_id": {
-            "type": "string",
-            "title": "Sender Id"
-          },
-          "recipient_id": {
-            "type": "string",
-            "title": "Recipient Id"
-          },
-          "amount_commitment": {
-            "type": "string",
-            "title": "Amount Commitment"
-          }
-        },
-        "type": "object",
-        "required": [
-          "payment_id",
-          "sender_id",
-          "recipient_id",
-          "amount_commitment"
-        ],
-        "title": "ConfidentialPaymentCreate",
-        "description": "Request to record a confidential payment from the CLI."
-      },
-      "ConfidentialPaymentView": {
-        "properties": {
-          "payment_id": {
-            "type": "string",
-            "title": "Payment Id"
-          },
-          "sender_id": {
-            "type": "string",
-            "title": "Sender Id"
-          },
-          "recipient_id": {
-            "type": "string",
-            "title": "Recipient Id"
-          },
-          "amount_commitment": {
-            "type": "string",
-            "title": "Amount Commitment"
-          },
-          "settled": {
-            "type": "boolean",
-            "title": "Settled",
-            "default": true
-          },
-          "status": {
-            "type": "string",
-            "title": "Status",
-            "default": "simulated"
-          },
-          "confidential": {
-            "type": "boolean",
-            "title": "Confidential",
-            "default": true
-          }
-        },
-        "type": "object",
-        "required": [
-          "payment_id",
-          "sender_id",
-          "recipient_id",
-          "amount_commitment"
-        ],
-        "title": "ConfidentialPaymentView",
-        "description": "Response confirming a confidential payment was received."
-      },
       "ConfidentialTransactionCreate": {
         "properties": {
           "job_id": {
@@ -39045,24 +38610,6 @@
             "description": "Require a ZK receipt proof for this job",
             "default": false
           },
-          "tee_attestation_required": {
-            "type": "boolean",
-            "title": "Tee Attestation Required",
-            "description": "Require a TEE attestation for this job",
-            "default": false
-          },
-          "tee_enclave_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tee Enclave Id",
-            "description": "Required enclave identity for TEE attestation"
-          },
           "min_reputation": {
             "anyOf": [
               {
@@ -39132,18 +38679,6 @@
             "title": "Confidential",
             "description": "Mark this job as confidential",
             "default": false
-          },
-          "required_enclave_measurement": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Required Enclave Measurement",
-            "description": "Required TEE enclave measurement for confidential jobs"
           },
           "deterministic_decoding": {
             "type": "boolean",
@@ -39245,24 +38780,6 @@
             "description": "Require a ZK receipt proof for this job",
             "default": false
           },
-          "tee_attestation_required": {
-            "type": "boolean",
-            "title": "Tee Attestation Required",
-            "description": "Require a TEE attestation for this job",
-            "default": false
-          },
-          "tee_enclave_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tee Enclave Id",
-            "description": "Required enclave identity for TEE attestation"
-          },
           "min_reputation": {
             "anyOf": [
               {
@@ -39324,18 +38841,6 @@
             "title": "Confidential",
             "description": "Mark this job as confidential",
             "default": false
-          },
-          "required_enclave_measurement": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Required Enclave Measurement",
-            "description": "Required TEE enclave measurement for confidential jobs"
           },
           "deterministic_decoding": {
             "type": "boolean",
@@ -40256,101 +39761,6 @@
         ],
         "title": "EconomicProposalVoteRequest",
         "description": "Payload for casting a vote on an economic proposal."
-      },
-      "EnclaveIdentity": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "maxLength": 32,
-            "title": "Id"
-          },
-          "enclave_id": {
-            "type": "string",
-            "maxLength": 255,
-            "title": "Enclave Id",
-            "default": ""
-          },
-          "public_key": {
-            "type": "string",
-            "maxLength": 1024,
-            "title": "Public Key",
-            "default": ""
-          },
-          "agent_id": {
-            "type": "string",
-            "maxLength": 255,
-            "title": "Agent Id",
-            "default": ""
-          },
-          "status": {
-            "type": "string",
-            "maxLength": 20,
-            "title": "Status",
-            "default": "pending"
-          },
-          "allowed_measurements": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Allowed Measurements"
-          },
-          "meta": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Meta"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          },
-          "updated_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Updated At"
-          }
-        },
-        "type": "object",
-        "title": "EnclaveIdentity",
-        "description": "Registered identity for a TEE enclave."
-      },
-      "EnclaveRegister": {
-        "properties": {
-          "enclave_id": {
-            "type": "string",
-            "title": "Enclave Id"
-          },
-          "public_key": {
-            "type": "string",
-            "title": "Public Key"
-          },
-          "agent_id": {
-            "type": "string",
-            "title": "Agent Id",
-            "default": ""
-          },
-          "status": {
-            "type": "string",
-            "title": "Status",
-            "default": "active"
-          },
-          "allowed_measurements": {
-            "items": {
-              "type": "string"
-            },
-            "type": "array",
-            "title": "Allowed Measurements",
-            "default": []
-          }
-        },
-        "type": "object",
-        "required": [
-          "enclave_id",
-          "public_key"
-        ],
-        "title": "EnclaveRegister",
-        "description": "Request body for registering an enclave identity."
       },
       "EncryptRequest": {
         "properties": {
@@ -42941,30 +42351,6 @@
           },
           "metrics": {
             "$ref": "#/components/schemas/JobSubmitMetricsBody"
-          },
-          "tee_attestation_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tee Attestation Id",
-            "description": "Existing TEE attestation ID"
-          },
-          "tee_quote": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tee Quote",
-            "description": "Base64 TEE attestation quote to verify"
           }
         },
         "additionalProperties": false,
@@ -43901,28 +43287,6 @@
               }
             ],
             "title": "Zk Proof Id"
-          },
-          "tee_status": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tee Status"
-          },
-          "tee_attestation_id": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Tee Attestation Id"
           },
           "auto_reinvest_pct": {
             "anyOf": [
@@ -47412,68 +46776,6 @@
           "synthesis_goal"
         ],
         "title": "SynthesisRequest"
-      },
-      "TEEAttestation": {
-        "properties": {
-          "id": {
-            "type": "string",
-            "maxLength": 32,
-            "title": "Id"
-          },
-          "enclave_id": {
-            "type": "string",
-            "maxLength": 255,
-            "title": "Enclave Id",
-            "default": ""
-          },
-          "quote": {
-            "type": "string",
-            "title": "Quote",
-            "default": ""
-          },
-          "measurement": {
-            "type": "string",
-            "maxLength": 255,
-            "title": "Measurement",
-            "default": ""
-          },
-          "status": {
-            "type": "string",
-            "maxLength": 20,
-            "title": "Status",
-            "default": "pending"
-          },
-          "registered": {
-            "type": "boolean",
-            "title": "Registered",
-            "default": false
-          },
-          "meta": {
-            "additionalProperties": true,
-            "type": "object",
-            "title": "Meta"
-          },
-          "verified_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Verified At"
-          },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
-          }
-        },
-        "type": "object",
-        "title": "TEEAttestation",
-        "description": "Stored result of a remote attestation verification."
       },
       "TierProgressResponse": {
         "properties": {

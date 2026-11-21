@@ -177,21 +177,6 @@ async def _submit_job_impl(
     req, quote = await _apply_offer_quote(req)
     _require_priced_gpu_compute(req)
 
-    if (
-        not settings.tee_attestation_enabled
-        and req.constraints
-        and (
-            req.constraints.tee_attestation_required
-            or req.constraints.tee_enclave_id
-            or req.constraints.confidential
-            or req.constraints.required_enclave_measurement
-        )
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="TEE attestation is not enabled on this coordinator",
-        )
-
     service = JobService(session)
     job = await run_in_threadpool(
         service.create_job, user["sub"], req, ttl_cap=settings.job_ttl_seconds, enforce_inflight_cap=True

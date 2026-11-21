@@ -660,54 +660,6 @@ def send_pool_hub_heartbeat() -> str:
     return "error"
 
 
-def build_tee_quote(job, output=""):
-    """Generate a signed TEE attestation quote when the job requires one.
-
-    Produces the same base64 JSON envelope that ``aitbc tee attest`` returns,
-    so the coordinator can parse it with ``AttestationQuote.from_base64()`` and
-    verify the signature before escrow release. The quote blob is the SHA-256
-    of job_id/model/prompt/output so a registered enclave cannot reuse a quote
-    for a different transcript.
-    """
-    from aitbc.tee import is_tee_attestation_enabled
-
-    if not is_tee_attestation_enabled():
-        logger.warning("TEE attestation is disabled; not building a TEE quote for job %s", job.get("job_id"))
-        return None
-
-    constraints = job.get("constraints") or {}
-    if not (constraints.get("tee_attestation_required") or constraints.get("tee_enclave_id")):
-        return None
-    try:
-        from aitbc.tee import QuoteGenerator, computation_transcript, load_or_create_signing_key
-
-        enclave_id = str(
-            constraints.get("tee_enclave_id")
-            or constraints.get("required_enclave_measurement")
-            or os.getenv("TEE_ENCLAVE_ID", "aitbc-miner-tee")
-        )
-        job_id = job.get("job_id", "unknown-job")
-        payload = job.get("payload") or {}
-        model = str(payload.get("model") or payload.get("model_id") or "")
-        prompt = str(payload.get("prompt") or payload.get("input") or "")
-        quote_id = f"tee-{job_id}-{enclave_id}-{datetime.now(UTC).isoformat()}"
-        # Security fix (2026-08-24), part 4: without TEE_SIGNING_KEY_FILE this
-        # still signs with a fresh random key every call, same as before --
-        # harmless today since nothing is registered to pin against, but it
-        # means 'aitbc tee register' only protects future quotes once this is
-        # set to a persistent path (see 'aitbc tee keygen').
-        key_path = os.getenv("TEE_SIGNING_KEY_FILE", "")
-        signing_key = load_or_create_signing_key(key_path) if key_path else None
-        report_data = computation_transcript(str(job_id), model, prompt, str(output or ""))
-        quote = QuoteGenerator(enclave_id, signing_key=signing_key).generate(
-            quote_id=quote_id, enclave_id=enclave_id, measurement=enclave_id, report_data=report_data
-        )
-        return quote.to_base64()
-    except _OPS_ERRORS as e:
-        logger.warning("Failed to generate TEE quote for job %s: %s", job.get("job_id"), e)
-        return None
-
-
 def _download_media(url: str, dest: str) -> None:
     """Download an audio/video file from a URL (or data URI) to a local path."""
     try:
@@ -789,11 +741,9 @@ def _run_ffmpeg(input_path: str, output_path: str, output_format: str | None = N
         raise RuntimeError(f"FFmpeg re-encode error: {e}") from e
 
 
-def _submit_success(job_id, output, execution_time, extra=None, tee_quote=None):
+def _submit_success(job_id, output, execution_time, extra=None):
     gpu_after = get_gpu_info()
-    # Pop tee_quote from extra if it was placed there by older callers.
     extra = extra or {}
-    tee_quote = tee_quote or extra.pop("tee_quote", None)
     result = {
         "result": {
             "status": "completed",
@@ -809,8 +759,6 @@ def _submit_success(job_id, output, execution_time, extra=None, tee_quote=None):
             "duration_ms": int(execution_time * 1000),
         },
     }
-    if tee_quote:
-        result["tee_quote"] = tee_quote
     submit_result(job_id, result)
     logger.info("Job %s completed in %ss", job_id, execution_time)
 

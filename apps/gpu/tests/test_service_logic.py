@@ -1,5 +1,5 @@
 """Branch coverage for gpu service logic: job queue, profiles, endpoints,
-TEE runner/enclaves and the capacity publisher.
+the capacity publisher.
 
 Deterministic only: Redis is faked at ``_redis``, HTTP boundaries are faked
 with ``urllib.request.urlopen``/``httpx`` monkeypatches, and endpoint tests
@@ -419,94 +419,6 @@ def test_offer_requires_signed_tx(api_client):
     )
     assert resp.status_code == 400
     assert "signed transaction required" in resp.json()["error"]
-
-
-# ---------------------------------------------------------------------------
-# gpu_app: TEE runner, compliance enclaves, capacity publisher
-# ---------------------------------------------------------------------------
-
-
-def test_run_tee_task_completes_and_reports(monkeypatch):
-    from gpu_app.tee_runner import TEEExecutionStatus, run_tee_task
-
-    sent: list[dict[str, Any]] = []
-
-    class _Resp:
-        def read(self):
-            return b"{}"
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, *exc):
-            return False
-
-    def _fake_urlopen(request, timeout=0):
-        sent.append(json.loads(request.data.decode()))
-        return _Resp()
-
-    monkeypatch.setattr("urllib.request.urlopen", _fake_urlopen)
-
-    task = run_tee_task("t1", "agent-1", {"x": 1}, coordinator_url="http://coord:8000", api_key="k")
-    assert task.status == TEEExecutionStatus.COMPLETED
-    assert task.result["executed"] is True
-    assert any("enclave initialized" in line for line in task.logs)
-    assert sent and sent[0]["task_id"] == "t1"
-    assert sent[0]["status"] == "completed"
-
-
-def test_submit_tee_task_logs_url_error(monkeypatch):
-    from gpu_app.tee_runner import TEETask, TEEExecutionStatus, submit_tee_task
-
-    def _boom(request, timeout=0):
-        raise urllib.error.URLError("refused")
-
-    monkeypatch.setattr("urllib.request.urlopen", _boom)
-    task = TEETask(task_id="t2", agent_id="a", payload={}, status=TEEExecutionStatus.RUNNING)
-    submit_tee_task(task, coordinator_url="http://127.0.0.1:9")
-    assert any("coordinator submission failed" in line for line in task.logs)
-
-
-def test_compliance_gpu_enclave_lifecycle():
-    from aitbc.compliance.errors import PolicyViolationError
-    from aitbc.compliance.policies import ComplianceFramework, DataClassification
-    from gpu_app.compliance_enclaves import ComplianceGPUEnclave, GPUEnclaveStatus
-
-    enclave = ComplianceGPUEnclave(
-        enclave_id="enc-1",
-        policy_framework=ComplianceFramework.HIPAA,
-        allowed_classifications={DataClassification.PHI},
-    )
-    assert enclave.status == GPUEnclaveStatus.PENDING
-
-    # Cannot run before attestation.
-    with pytest.raises(PolicyViolationError):
-        enclave.run("w1", DataClassification.PHI, {})
-
-    enclave.attest("measurement-1")
-    assert enclave.attested is True
-    assert enclave.status == GPUEnclaveStatus.ATTESTED
-
-    out = enclave.run("w1", DataClassification.PHI, {"data": 1})
-    assert out["workload_id"] == "w1"
-    assert out["attested"] is True
-    assert enclave.status == GPUEnclaveStatus.RUNNING
-
-    # Wrong classification refused even when attested.
-    with pytest.raises(PolicyViolationError):
-        enclave.run("w2", DataClassification.PUBLIC, {})
-
-    enclave.stop()
-    assert enclave.status == GPUEnclaveStatus.STOPPED
-
-
-def test_compliance_gpu_enclave_empty_allowlist_accepts_all():
-    from gpu_app.compliance_enclaves import ComplianceGPUEnclave
-
-    enclave = ComplianceGPUEnclave(enclave_id="enc-2")
-    assert enclave.allows("public")
-    with pytest.raises(ValueError):
-        ComplianceGPUEnclave(enclave_id="")
 
 
 def test_publish_capacity_success(monkeypatch):

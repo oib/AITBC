@@ -5,7 +5,7 @@
 to the burn address) on a bonded job. The failure is the miner's own unverified
 claim and the customer chooses the input that caused it — while the failed job
 costs the customer nothing (the escrow stays refundable) — so a customer could
-burn a provider's bond for free. Verified faults still slash: the ZK/TEE gates,
+burn a provider's bond for free. Verified faults still slash: the ZK gates,
 an operator-ruled refund and the downtime sweeper.
 """
 

@@ -29,10 +29,7 @@ aitbc ai submit [OPTIONS]
 | `--acceptance-window` | integer | — | no | Seconds after completion before payment auto-releases (default: 0) |
 | `--min-reputation` | float | — | no | Minimum provider reputation score (0-1) required for this job |
 | `--zk-proof-required`, `--no-zk-proof-required` | flag | `false` | no | Require a ZK receipt proof before escrow release |
-| `--tee-attestation-required`, `--no-tee-attestation-required` | flag | `false` | no | Require a TEE attestation before escrow release |
-| `--tee-enclave-id` | text | — | no | Required TEE enclave identity |
-| `--confidential` | flag | `false` | no | Mark this job as confidential (requires a TEE attestation) |
-| `--enclave-measurement` | text | — | no | Required enclave measurement for a confidential job |
+| `--confidential` | flag | `false` | no | Mark this job as confidential |
 | `--auto-reinvest-pct` | float | — | no | Percentage of released payment to auto-stake as reinvestment |
 | `--bond-required`, `--no-bond-required` | flag | `false` | no | Require the provider to have an active performance bond |
 | `--min-bond-amount` | float | — | no | Minimum bond amount required for provider eligibility |
