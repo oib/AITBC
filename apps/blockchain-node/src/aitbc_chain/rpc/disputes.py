@@ -96,6 +96,7 @@ def submit_evidence(
             evidence_type=request.evidence_type,
             evidence_data=request.description,
             submitter_address=submitter_address,
+            evidence_hash=request.evidence_hash,
         )
         if not result.get("success"):
             raise HTTPException(status_code=500, detail=result.get("error", "Failed to submit evidence"))

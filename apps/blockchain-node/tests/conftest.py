@@ -17,6 +17,9 @@ _TEST_DATA_DIR = tempfile.mkdtemp(prefix="aitbc-chain-tests-data-")
 atexit.register(shutil.rmtree, _TEST_DATA_DIR, True)
 os.makedirs(os.path.join(_TEST_DATA_DIR, "data"), exist_ok=True)
 os.environ.setdefault("AITBC_DATA_DIR", _TEST_DATA_DIR)
+# Keep the dispute store in-memory for the suite — file mode is covered by
+# explicit state_path tests (#2387).
+os.environ["AITBC_DISPUTE_STATE_FILE"] = "memory"
 
 # Isolate tests from the deployment's blockchain.env. Sub-directories (e.g.
 # consensus/) can opt back in by setting AITBC_CHAIN_ENV_FILE or by patching

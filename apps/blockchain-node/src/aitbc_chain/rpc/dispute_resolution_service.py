@@ -141,7 +141,12 @@ class DisputeResolutionService:
         return None
 
     def submit_evidence(
-        self, dispute_id: int, evidence_type: str, evidence_data: str, submitter_address: str
+        self,
+        dispute_id: int,
+        evidence_type: str,
+        evidence_data: str,
+        submitter_address: str,
+        evidence_hash: str = "",
     ) -> dict[str, Any]:
         """
         Submit evidence for a dispute
@@ -151,6 +156,7 @@ class DisputeResolutionService:
             evidence_type: Type of evidence
             evidence_data: Evidence data (IPFS hash, URL, etc.)
             submitter_address: Address of the evidence submitter
+            evidence_hash: Content hash supplied by the submitter (#2387)
 
         Returns:
             Dictionary with success status and evidence ID
@@ -161,6 +167,7 @@ class DisputeResolutionService:
                 evidence_type=evidence_type,
                 evidence_data=evidence_data,
                 submitter_address=submitter_address,
+                evidence_hash=evidence_hash,
             )
         except (LookupError, ValueError, TypeError, AttributeError) as e:
             logger.error("Error submitting evidence: %s", e)
