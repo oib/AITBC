@@ -81,6 +81,11 @@ def _payload_auth_role(tx_type: str) -> tuple[str | None, str] | None:
     if tx_type == "BOUNTY_PAYOUT":
         # operator-signed; the payee is resolved server-side
         return (None, "")
+    if tx_type == "STAKE_UNBOND":
+        # operator-signed escrow->escrow marker (#2457): no user leg to
+        # bind — the escrow self-transfer shape is enforced at gossip
+        # admission, and the stake id binds via _payload_auth_ids_binds.
+        return (None, "")
     return None
 
 

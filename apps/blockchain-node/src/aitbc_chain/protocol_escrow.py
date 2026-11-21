@@ -118,13 +118,19 @@ def queue_protocol_transfer(
 
     from .mempool import get_mempool
 
+    sender_address = _to_ait_address(sender)
     tx_data: dict[str, Any] = {
-        "from": _to_ait_address(sender),
+        "from": sender_address,
         "to": _to_ait_address(recipient),
         "amount": int(amount),
         "fee": 0,
-        # Overwritten by the proposer with the sender account's current nonce.
-        "nonce": 0,
+        # The sender's current account nonce at admission (#2457) so
+        # pending/status surfaces show a real value instead of the old 0
+        # placeholder. Consensus still rewrites it to the live nonce at
+        # apply time (unsigned protocol writes are nonce-exempt), and peers
+        # adopt the gossiped envelope verbatim, so the stamped value only
+        # needs to be a faithful snapshot — never authoritative.
+        "nonce": _sender_account_nonce(chain_id, sender_address),
         "type": tx_type,
         "payload": payload or {},
         "chain_id": chain_id,
@@ -134,6 +140,26 @@ def queue_protocol_transfer(
     tx_hash = get_mempool().add(tx_data, chain_id=chain_id)
     _relay_protocol_transfer(chain_id, tx_data)
     return tx_hash
+
+
+def _sender_account_nonce(chain_id: str, address: str) -> int:
+    """Current confirmed nonce of ``address`` on ``chain_id`` (#2457).
+
+    Best-effort: an unreadable account table or missing row yields 0, which
+    is exactly the placeholder value this replaced — stamping can never be
+    worse than the status quo.
+    """
+    try:
+        from sqlmodel import select
+
+        from .base_models import Account
+        from .database import session_scope
+
+        with session_scope(chain_id) as session:
+            account = session.exec(select(Account).where(Account.chain_id == chain_id, Account.address == address)).first()
+            return int(account.nonce or 0) if account is not None else 0
+    except Exception:  # noqa: BLE001 - display-only stamp; apply rewrites regardless
+        return 0
 
 
 def _relay_protocol_transfer(chain_id: str, tx_data: dict[str, Any]) -> None:
