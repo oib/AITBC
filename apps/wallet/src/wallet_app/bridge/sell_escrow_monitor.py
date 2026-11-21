@@ -641,6 +641,7 @@ async def sell_monitor_loop() -> None:
     logger.info("Starting AIT->ETH sell escrow monitor (escrow %s)", cfg.escrow_address)
     logger.info("Sell poll interval: %ss", cfg.poll_interval)
 
+    skip_warner = wdm.PollSkipWarner(logger)
     while True:
         if not _sell_polling_enabled:
             logger.info("Sell auto-poll disabled, sleeping")
@@ -648,6 +649,7 @@ async def sell_monitor_loop() -> None:
             continue
         try:
             summary = await poll_sells_once()
+            skip_warner.note(summary, "Sell escrow monitor")
             if not summary.get("skipped"):
                 did_work = summary.get("recorded", 0) > 0 or summary.get("processed", 0) > 0
                 log = logger.info if did_work else logger.debug
