@@ -294,12 +294,34 @@ def get_account_nonce(address: str, chain_id: str) -> int:
 
 
 def get_next_nonce(wallet_address: str | None = None) -> int:
-    """Get next transaction nonce from blockchain (confirmed nonce + 1)."""
+    """Get next transaction nonce: sealed nonce advanced past the wallet's
+    pending mempool transactions (#2395 residual, #2398).
+
+    The sealed account nonce does not move while earlier txs sit in the
+    mempool, so signing it again collides on the occupied (sender, nonce)
+    slot — jobs.py already carries a reactive "already occupied" → nonce+1
+    retry proving the bug is live on this surface. Probing the same base
+    URLs the account lookup uses keeps the answer honest; every probe
+    failure falls back to the sealed nonce (the pre-#2395 behaviour).
+    """
     if not wallet_address:
         wallet_address = get_wallet_address()
-    get_config()
+    config = get_config()
     chain_id = get_chain_id()
-    return get_account_nonce(wallet_address, chain_id)
+    sealed = get_account_nonce(wallet_address, chain_id)
+    from ...utils.nonce import pending_nonce_floor
+
+    rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
+    hub = config.hub_discovery_url or "hub.aitbc.invalid"
+    for base_url in (rpc_url, normalize_hub_base(hub) or hub):
+        try:
+            client = AITBCHTTPClient(base_url=base_url, timeout=5)
+            floor = pending_nonce_floor(client, wallet_address, sealed, chain_id)
+        except Exception:  # noqa: BLE001 - probe containment: any failure tries the next base, then the sealed nonce
+            continue
+        if floor > sealed:
+            return floor
+    return sealed
 
 
 def get_market_wallet(ctx, require_private_key: bool = False) -> tuple[str, str | None, str]:

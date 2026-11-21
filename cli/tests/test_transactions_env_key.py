@@ -39,6 +39,8 @@ class _FakeHTTP:
     def get(self, endpoint, **kw):
         if "/rpc/account/" in endpoint:
             return {"nonce": 5, "balance": 0}
+        if endpoint.startswith("/rpc/mempool"):
+            return {"success": True, "transactions": [], "count": 0}
         raise AssertionError(f"unexpected GET {endpoint}")
 
     def post(self, endpoint, json=None, **kw):

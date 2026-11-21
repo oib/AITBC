@@ -145,23 +145,38 @@ def _get_chain_id(ctx: click.Context, rpc_url: str) -> str:
 
 
 def _get_account_nonce(http_client: AITBCHTTPClient, address: str, chain_id: str) -> int:
-    """Fetch the on-chain nonce for an address, plus the mempool lookahead
-    (#2395): the sealed nonce ignores the sender's own in-flight txs, so two
-    back-to-back submits would collide on the same nonce slot.
+    """Fetch the sealed on-chain nonce for an address.
 
     Aborts when the lookup fails — a failed lookup must not mean nonce 0: the
     wrong nonce produces an already-signed transaction the chain refuses.
+    This stays sealed-only: the ``/rpc/staking/stake`` and
+    ``/rpc/staking/unstake`` ``sign_data`` nonce must equal the account's
+    sealed nonce or the node rejects the request as stale (#2398).
     """
-    from ...utils.nonce import next_send_nonce
-
     try:
-        return next_send_nonce(http_client, address, chain_id)
+        account = http_client.get(f"/rpc/account/{address}?chain_id={chain_id}")
+        nonce = account.get("nonce")
+        if nonce is None:
+            raise ValueError(f"/rpc/account/{address} response carried no nonce")
+        return int(nonce)
     except Exception as e:
         error(
             f"Nonce lookup for {address} via {http_client.base_url} failed: {e}. "
             "Check the node is serving this account or pass --rpc-url"
         )
         raise click.Abort() from e
+
+
+def _get_next_tx_nonce(http_client: AITBCHTTPClient, address: str, chain_id: str) -> int:
+    """Pending-aware nonce for a transaction this wallet is about to sign (#2395/#2398).
+
+    The sealed account nonce does not move while the wallet's earlier txs
+    sit in the mempool; signing it again collides on the occupied slot.
+    """
+    from ...utils.nonce import pending_nonce_floor
+
+    sealed = _get_account_nonce(http_client, address, chain_id)
+    return pending_nonce_floor(http_client, address, sealed, chain_id)
 
 
 def _sign_transaction(wallet_data: dict[str, Any], tx: dict[str, Any]) -> str:
@@ -195,7 +210,7 @@ def _submit_liquidity_transaction(
     address = canonical_address(wallet_data["address"])
 
     http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-    tx["nonce"] = _get_account_nonce(http_client, address, chain_id)
+    tx["nonce"] = _get_next_tx_nonce(http_client, address, chain_id)
     tx["chain_id"] = chain_id
     tx["signature"] = _sign_transaction(wallet_data, tx)
 

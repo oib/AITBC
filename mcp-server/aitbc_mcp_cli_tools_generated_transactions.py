@@ -181,7 +181,10 @@ def aitbc_transactions_send(
     tx_type: Annotated[str | None, Field(description="Transaction type (default TRANSFER)")] = None,
     payload: Annotated[str | None, Field(description="JSON payload for non-standard transaction types")] = None,
     nonce_offset: Annotated[
-        int | None, Field(description="Extra nonce offset for queueing a second pending tx from the same wallet")
+        int | None,
+        Field(
+            description="Extra nonce offset, used only when the node's mempool cannot be read (a readable mempool already yields the next free nonce, #2395/#2398)"
+        ),
     ] = None,
     use_explorer: Annotated[bool | None, Field(description="Use Explorer API for status checks")] = None,
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
