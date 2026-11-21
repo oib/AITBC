@@ -2,7 +2,7 @@
 
 # `aitbc config check-keys`
 
-Check which environment API keys are configured and required.
+Check which environment API keys are configured and required. Probes every source the CLI and fleet services actually read — the process environment, ``/etc/aitbc/*.env`` and ``~/.aitbc/credentials.env`` files, and the ``set-secret`` store — not just ``os.environ``, so a key provisioned for a systemd unit is not reported missing (#2420). Session credentials from ``auth login`` are a different store; ``aitbc auth status`` reports those.
 
 ## Usage
 

@@ -1,15 +1,24 @@
 """Configuration commands for AITBC CLI"""
 
+from __future__ import annotations
+
+# ``set``/``list``/``get`` are click Commands in this module — reach the
+# builtins explicitly wherever the real types are needed (runtime calls
+# and mypy-visible annotations alike).
+from builtins import list as _builtin_list
+from builtins import set as _builtin_set
+
 import json
 import os
 import shlex
 import subprocess
 from pathlib import Path
+from typing import Any
 
 import click
 import yaml
 
-from ..config import CONFIG_FILE_KEYS, default_config_path, get_config
+from ..config import CONFIG_FILE_KEYS, _parse_env_file, default_config_path, get_config
 from ..utils import error, output, resolve_output_format, success, warning
 
 
@@ -693,6 +702,70 @@ def get_secret(ctx, key: str):
     output({"key": key, "value": decoded}, resolve_output_format(ctx))
 
 
+# Fleet env-file directory probed by ``config check-keys``; a module
+# constant so tests can point it at a tmp dir.
+_ETC_AITBC_DIR = Path("/etc/aitbc")
+
+
+def _env_file_key_sources() -> dict[str, _builtin_list[str]]:
+    """Map env-key name -> source labels across on-disk env files (#2420).
+
+    Fleet API keys live in ``/etc/aitbc/*.env`` service files and
+    ``~/.aitbc/credentials.env`` — none of which are in the interactive
+    shell's environment, so an env-only probe reports them missing on a
+    working node. Values are never retained, only which file defined them.
+    """
+    sources: dict[str, _builtin_list[str]] = {}
+    candidates: _builtin_list[Path] = []
+    try:
+        candidates.extend(sorted(_ETC_AITBC_DIR.glob("*.env")))
+    except OSError:
+        pass
+    cred_env = Path.home() / ".aitbc" / "credentials.env"
+    if cred_env.exists():
+        candidates.append(cred_env)
+    for path in candidates:
+        label = f"env-file:{path}"
+        for key, value in _parse_env_file(path).items():
+            if value:
+                sources.setdefault(key, []).append(label)
+    return sources
+
+
+def _secrets_file_keys() -> _builtin_set[str]:
+    """Key names present in ``~/.config/aitbc/secrets.json`` (values stay encoded).
+
+    Returned lowercased: ``set-secret`` stores the ``--key`` spelling
+    verbatim, and callers probe with env-var casing — compare case-folded on
+    both sides or an upper-case stored key reports as missing (#2420).
+    """
+    secrets_file = Path.home() / ".config" / "aitbc" / "secrets.json"
+    try:
+        if not secrets_file.exists():
+            return _builtin_set()
+        data = json.loads(secrets_file.read_text())
+    except (OSError, json.JSONDecodeError):
+        return _builtin_set()
+    return _builtin_set(str(k).lower() for k in data) if isinstance(data, dict) else _builtin_set()
+
+
+def _key_source_labels(
+    key: str, file_sources: dict[str, _builtin_list[str]], secret_keys: _builtin_set[str]
+) -> _builtin_list[str]:
+    """Every source that defines ``key`` — env, env files, secrets store."""
+    # MINER_API_KEYS (plural) is the fleet's real miner credential shape —
+    # a JSON list or comma list _resolve_api_key already knows how to read.
+    aliases = [key, "MINER_API_KEYS"] if key == "MINER_API_KEY" else [key]
+    labels: _builtin_list[str] = []
+    for alias in aliases:
+        if os.getenv(alias):
+            labels.append("env")
+        labels.extend(file_sources.get(alias, []))
+        if alias.lower() in secret_keys:
+            labels.append("secrets-file")
+    return sorted(_builtin_set(labels))
+
+
 @config.command(
     epilog="""Examples:
 
@@ -703,7 +776,15 @@ def get_secret(ctx, key: str):
 @click.option("--strict", is_flag=True, help="Exit with error if any required key is missing")
 @click.pass_context
 def check_keys(ctx, strict: bool):
-    """Check which environment API keys are configured and required."""
+    """Check which environment API keys are configured and required.
+
+    Probes every source the CLI and fleet services actually read — the
+    process environment, ``/etc/aitbc/*.env`` and
+    ``~/.aitbc/credentials.env`` files, and the ``set-secret`` store —
+    not just ``os.environ``, so a key provisioned for a systemd unit is
+    not reported missing (#2420). Session credentials from ``auth login``
+    are a different store; ``aitbc auth status`` reports those.
+    """
     required_keys = [
         "AITBC_API_KEY",
         "CLIENT_API_KEY",
@@ -718,21 +799,26 @@ def check_keys(ctx, strict: bool):
         "EXCHANGE_API_KEY",
     ]
 
-    results = []
+    file_sources = _env_file_key_sources()
+    secret_keys = _secrets_file_keys()
+
+    results: _builtin_list[dict[str, Any]] = []
     missing_required = []
 
     for key in required_keys + optional_keys:
-        value = os.getenv(key)
-        entry = {
+        sources = _key_source_labels(key, file_sources, secret_keys)
+        entry: dict[str, Any] = {
             "key": key,
-            "present": bool(value),
-            "source": "env",
+            "present": bool(sources),
+            "source": sources[0] if sources else "none",
+            "sources": sources,
             "required": key in required_keys,
         }
-        if value:
+        env_value = os.getenv(key)
+        if env_value:
             # Only report length; never print secrets.
-            entry["length"] = len(value)
-        elif key in required_keys:
+            entry["length"] = len(env_value)
+        if not sources and key in required_keys:
             missing_required.append(key)
         results.append(entry)
 
@@ -742,6 +828,7 @@ def check_keys(ctx, strict: bool):
         "required_total": len(required_keys),
         "missing_required": missing_required,
         "keys": results,
+        "note": "Sources: env, env-file:<path>, secrets-file. Session credentials are reported by 'aitbc auth status'.",
     }
 
     if resolve_output_format(ctx) == "table":
@@ -750,6 +837,7 @@ def check_keys(ctx, strict: bool):
             level = "required" if entry["required"] else "optional"
             line = f"{entry['key']} ({level}): {status}"
             if entry["present"]:
+                line += f" [{', '.join(str(s) for s in entry['sources'])}]"
                 success(line)
             else:
                 warning(line)
