@@ -387,11 +387,15 @@ async def _billing_attestation_gate(
     "holder of the job access token", which the *buyer* minted for the shop
     gate — a buyer could otherwise sign ``{"eval_count": 1, "final": true}``
     and under-bill the provider's escrow. The report therefore also carries
-    the job provider's wallet signature over the route-bound
-    ``{"metrics", "final"}`` binding (same canonical jobs-request proof as
-    pin-confirm, #1922), verified against ``job.provider_address``. The
-    access-token triple stays as a secondary check binding the report to
-    the serving credential, but it is no longer the authorization.
+    a wallet signature over the route-bound ``{"metrics", "final"}``
+    binding (same canonical jobs-request proof as pin-confirm, #1922).
+
+    The expected signer is resolved from the *offer's* SoftwareService row
+    (``job.offer_id`` -> ``provider_address``), never from the job row:
+    ``provider_address`` is caller-writable at job creation, so a buyer
+    could declare its own wallet and both block the honest provider's
+    report and self-sign a fabricated-low one. No offer row / no provider
+    address fails closed.
     """
     binding = {"metrics": body.get("metrics"), "final": body.get("final")}
     error, signer = verify_jobs_request_signature(
@@ -405,7 +409,11 @@ async def _billing_attestation_gate(
     )
     if error or not signer:
         return JSONResponse(status_code=403, content={"error": error or "provider signature required"})
-    if canonical_address(signer) != canonical_address(str(job.get("provider_address") or "")):
+    service = await svc.get_service_by_offer_id(str(job.get("offer_id") or ""))
+    expected = str((service or {}).get("provider_address") or "")
+    if not expected:
+        return JSONResponse(status_code=403, content={"error": "billing provider identity unresolvable for this job"})
+    if canonical_address(signer) != canonical_address(expected):
         return JSONResponse(status_code=403, content={"error": "signer is not this job's provider"})
     return None
 
