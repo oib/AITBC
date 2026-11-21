@@ -77,7 +77,10 @@ def _apply_cancels(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], se
     order it names cancelled: the order row's status flips to "cancelled"
     and the cancel row inherits the order's pair/side so it no longer
     reads as an empty-side row. Idempotent — a second cancel for the same
-    order is a no-op. Returns (rows, cancelled order_ids).
+    order is a no-op. Cancel rows themselves are then dropped from the
+    result: a cancel is a status update on its order_id, never an order
+    row of its own (#2400 — zero-amount "orders" polluted order history).
+    Returns (rows, cancelled order_ids).
     """
     cancels: dict[str, dict[str, Any]] = {}
     originals: dict[str, list[dict[str, Any]]] = {}
@@ -100,7 +103,12 @@ def _apply_cancels(rows: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], se
             for key in ("pair", "side", "user_id"):
                 if not cancel.get(key) and first.get(key):
                     cancel[key] = first[key]
-    return rows, cancelled_ids
+    kept = [
+        row
+        for row in rows
+        if not isinstance(row.get("payload") or row, dict) or (row.get("payload") or row).get("action") != "cancel"
+    ]
+    return kept, cancelled_ids
 
 
 SIMULATED_TIMESTAMP = "2026-01-01T00:00:00+00:00"
