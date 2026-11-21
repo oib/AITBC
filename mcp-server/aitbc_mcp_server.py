@@ -361,6 +361,11 @@ DEFAULT_WALLET_DIR = "/var/lib/aitbc/wallets"
 # /etc, /var/lib/aitbc, or another user's home.
 SCRATCH_ROOT = "/var/tmp"  # nosec B108 # deliberate: env/cwd are restricted to underneath this root so remote commands cannot be redirected at /etc, /var/lib/aitbc or user homes.
 
+# Upper bound for the ``stdin`` text the generic CLI tools forward to a remote
+# command (#2441) — enough for fixture payloads and ``--password-stdin``
+# answers, small enough that a runaway value cannot stall the ssh channel.
+STDIN_MAX_LEN = 64 * 1024
+
 # Environment names accepted through the generic CLI tools' ``env`` parameter:
 # ``HOME`` plus non-secret ``AITBC_*`` names. The use case is scratch-wallet
 # and scratch-data plays; credential-shaped names stay refused.
@@ -397,9 +402,35 @@ def _is_scratch_path(value: str) -> bool:
 CLI_ENV_SECRET_FILE_VARS = frozenset({"AITBC_WALLET_PASSWORD_FILE"})
 CLI_ENV_SECRET_FILE_ROOT = "/etc/aitbc/"
 
+# Non-secret scalar env names (#2441): values are plain strings (wallet names,
+# public addresses), not paths, so they are exempt from the /var/tmp scratch
+# rule. Key/password/token-shaped names stay refused — a trading API key
+# resolves from the node's own /etc/aitbc env files or the masked ``--api-key``
+# option, never through this channel.
+CLI_ENV_SCALAR_NAMES = frozenset(
+    {
+        "SHOP_WALLET_ADDRESS",
+        "AITBC_DEFAULT_WALLET",
+        "AITBC_WALLET_NAME",
+    }
+)
+CLI_ENV_SCALAR_MAX_LEN = 256
+_CLI_ENV_SCALAR_BAD_CHARS = re.compile(r"[\x00-\x1f\x7f]")
+
+
+def _validate_cli_env_scalar(name: str, value: Any) -> str | None:
+    """Validate a scalar (non-path) env value for ``CLI_ENV_SCALAR_NAMES``."""
+    if not isinstance(value, str) or not value or len(value) > CLI_ENV_SCALAR_MAX_LEN:
+        return f"{name} must be a non-empty scalar value (max {CLI_ENV_SCALAR_MAX_LEN} chars)"
+    if _CLI_ENV_SCALAR_BAD_CHARS.search(value):
+        return f"{name} value must not contain control characters"
+    return None
+
 
 def _is_allowed_env_name(name: str) -> bool:
     if name in CLI_ENV_ALLOWED_EXACT:
+        return True
+    if name in CLI_ENV_SCALAR_NAMES:
         return True
     return name.startswith(CLI_ENV_ALLOWED_PREFIX) and not any(token in name for token in CLI_ENV_FORBIDDEN_TOKENS)
 
@@ -419,8 +450,13 @@ def _validate_cli_env(env: dict[str, str] | None) -> str | None:
                     "(the value is a path to a provisioned secret file, not the secret)"
                 )
             continue
+        if name in CLI_ENV_SCALAR_NAMES:
+            error = _validate_cli_env_scalar(name, value)
+            if error:
+                return error
+            continue
         if not _is_allowed_env_name(name):
-            return f"environment variable not allowed: {name!r} (allow-list: HOME, non-secret AITBC_* names)"
+            return f"environment variable not allowed: {name!r} (allow-list: HOME, non-secret AITBC_* names, {sorted(CLI_ENV_SCALAR_NAMES)})"
         if not isinstance(value, str) or not _is_scratch_path(value):
             return f"environment value must be a path under {SCRATCH_ROOT}/: {name}={value!r}"
     return None
@@ -642,8 +678,27 @@ def _split_posix_prefix(command: str) -> tuple[dict[str, str], str | None, list[
     return env, cwd, argv
 
 
-def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
-    """Run a single command on an AITBC host, using a local shell when possible."""
+def _stdin_run_kwargs(stdin_text: str | None) -> dict[str, Any]:
+    """``subprocess.run`` kwargs selecting how the child's stdin is fed.
+
+    ``None`` keeps the historical ``DEVNULL`` detach — the MCP server speaks
+    the stdio protocol on its own stdin, so a CLI child must never inherit
+    it. A string is piped to the child; for ``ssh`` that stdin is forwarded
+    to the remote command's stdin.
+    """
+    if stdin_text is None:
+        return {"stdin": subprocess.DEVNULL}
+    return {"input": stdin_text}
+
+
+def _run_remote(host: str, command: str, timeout: int = 60, stdin_text: str | None = None) -> dict[str, Any]:
+    """Run a single command on an AITBC host, using a local shell when possible.
+
+    ``stdin_text`` is fed to the remote command's stdin (ssh forwards its own
+    stdin to the remote side; the local branch passes it to ``execvp``). The
+    content is never echoed into the result envelope — it may carry
+    ``--password-stdin`` material.
+    """
     context = _execution_context(host)
     if context["mode"] == "local":
         env, cwd, argv = _split_posix_prefix(command)
@@ -659,9 +714,7 @@ def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
                 shell=False,
                 env=child_env,
                 cwd=cwd,
-                # Never let a CLI child read this process's stdin: the MCP
-                # server speaks the stdio protocol on it.
-                stdin=subprocess.DEVNULL,
+                **_stdin_run_kwargs(stdin_text),
             )
             return _result_status(
                 {
@@ -687,7 +740,7 @@ def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
 
     cmd = ["ssh"] + _ssh_opts(host) + [context["target"], "--", command]
     try:
-        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, stdin=subprocess.DEVNULL)
+        res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout, **_stdin_run_kwargs(stdin_text))
         return _result_status(
             {
                 **context,
@@ -764,6 +817,7 @@ def _run_aitbc_cli(
     subcommand_options: dict[str, Any] | None = None,
     env: dict[str, str] | None = None,
     cwd: str | None = None,
+    stdin_text: str | None = None,
 ) -> dict[str, Any]:
     """Run an aitbc CLI subcommand on a remote host and optionally parse JSON."""
     command = _build_aitbc_cli_command(
@@ -777,7 +831,10 @@ def _run_aitbc_cli(
         env=env,
         cwd=cwd,
     )
-    result = _run_remote(host, command, timeout)
+    if stdin_text is None:
+        result = _run_remote(host, command, timeout)
+    else:
+        result = _run_remote(host, command, timeout, stdin_text=stdin_text)
     if output_format == "json" and result.get("returncode") == 0:
         try:
             result["json"] = json.loads(result["stdout"])
@@ -1111,6 +1168,7 @@ from aitbc_mcp_chain_tools import (  # noqa: F401  # re-exports moved tools as m
 import aitbc_mcp_cli_tools  # noqa: F401  # registers more CLI tools
 import aitbc_mcp_cli_tools_generated  # noqa: F401  # registers auto-generated CLI tools
 import aitbc_mcp_cli_tools_market  # noqa: F401  # registers market CLI tools
+from aitbc_mcp_scratch_tools import aitbc_scratch_file  # noqa: F401  # re-exported; registers /var/tmp scratch-file tool (#2441)
 
 # ---------------------------------------------------------------------------
 # Additional typed RPC tools from the companion module

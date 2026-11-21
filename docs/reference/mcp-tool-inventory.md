@@ -2,13 +2,13 @@
 
 # MCP tool inventory
 
-**823 tools** across 140 modules.
+**824 tools** across 141 modules.
 
 | Kind | Tools |
 |---|---|
 | cli | 136 |
 | generated | 564 |
-| other | 7 |
+| other | 8 |
 | rpc | 116 |
 
 | File | Tools |
@@ -152,6 +152,7 @@
 | mcp-server/aitbc_mcp_ops_tools.py | 6 |
 | mcp-server/aitbc_mcp_rpc_tools.py | 54 |
 | mcp-server/aitbc_mcp_rpc_tools_bridge.py | 18 |
+| mcp-server/aitbc_mcp_scratch_tools.py | 1 |
 | mcp-server/aitbc_mcp_zk_tools.py | 5 |
 
 | Tool | File | Kind | Route or command |
@@ -974,6 +975,7 @@
 | `get_eth_bridge_withdrawal` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET wallet:v1/bridge/withdraw/{ait_tx_hash}` |
 | `list_cross_chain_swaps` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET /rpc/cross-chain/swaps` |
 | `list_eth_bridge_withdrawals` | mcp-server/aitbc_mcp_rpc_tools_bridge.py | rpc | `GET wallet:v1/bridge/withdrawals` |
+| `aitbc_scratch_file` | mcp-server/aitbc_mcp_scratch_tools.py | other | `—` |
 | `generate_zk_proof` | mcp-server/aitbc_mcp_zk_tools.py | rpc | `POST coordinator-api:v1/zk/generate` |
 | `get_zk_health` | mcp-server/aitbc_mcp_zk_tools.py | rpc | `GET coordinator-api:v1/zk/health` |
 | `get_zk_info` | mcp-server/aitbc_mcp_zk_tools.py | rpc | `GET coordinator-api:v1/zk/info` |
